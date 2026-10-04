@@ -85,7 +85,23 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   if (!plan.planned())
     return stop(meter, TransactionStatus::Declined,
                 TransactionReason::PlanNotCommitted);
-  if (!validate_candidate(admission.input, plan.candidate))
+  uint64_t validation_work = 0;
+  bool validation_exhausted = false;
+  bool validation_interrupted = false;
+  const bool candidate_valid =
+      validate_candidate(admission.input, plan.candidate, limits.work,
+                         limits.interrupted, limits.interrupt_state,
+                         validation_work, validation_exhausted,
+                         validation_interrupted);
+  if (!meter.spend(validation_work))
+    return metered_stop(meter);
+  if (validation_interrupted)
+    return stop(meter, TransactionStatus::Interrupted,
+                TransactionReason::Interrupted);
+  if (validation_exhausted)
+    return stop(meter, TransactionStatus::ResourceExhausted,
+                TransactionReason::WorkLimit);
+  if (!candidate_valid)
     return stop(meter, TransactionStatus::InvalidInput,
                 TransactionReason::InvalidCandidate);
   if (!valid_source_ledger(admission, meter)) {
@@ -161,6 +177,7 @@ TransactionResult build_transaction(const AdmissionResult &admission,
   result.status = TransactionStatus::Ready;
   result.reason = TransactionReason::None;
   result.work = meter.used();
+  result.transaction_work = result.work;
   result.transaction = std::move(transaction);
   return result;
 }
@@ -172,6 +189,7 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
   AdmissionResult admission = admit(request, limits.admission);
   if (!admission.admitted()) {
     TransactionResult result;
+    result.admission_work = admission.work;
     result.status = admission.status == AdmissionStatus::Interrupted
                         ? TransactionStatus::Interrupted
                     : admission.status == AdmissionStatus::ResourceExhausted
@@ -185,22 +203,37 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
   const Result plan = plan_one(admission.input, limits.plan);
   if (!plan.planned()) {
     TransactionResult result;
-    result.status = plan.decline == DeclineReason::WorkLimit
+    result.admission_work = admission.work;
+    result.planning_work = plan.work;
+    result.status = plan.decline == DeclineReason::Interrupted
+                        ? TransactionStatus::Interrupted
+                    : plan.decline == DeclineReason::WorkLimit
                         ? TransactionStatus::ResourceExhausted
                         : TransactionStatus::Declined;
-    result.reason = TransactionReason::ReplayPlanFailed;
+    result.reason = plan.decline == DeclineReason::Interrupted
+                        ? TransactionReason::Interrupted
+                        : TransactionReason::ReplayPlanFailed;
     return result;
   }
   TransactionResult rebuilt =
       build_transaction(admission, plan, limits.transaction);
+  rebuilt.admission_work = admission.work;
+  rebuilt.planning_work = plan.work;
+  rebuilt.transaction_work = rebuilt.work;
   if (!rebuilt.ready())
     return rebuilt;
   if (!(rebuilt.transaction == recorded)) {
     const uint64_t work = rebuilt.work;
+    const uint64_t admission_work = rebuilt.admission_work;
+    const uint64_t planning_work = rebuilt.planning_work;
+    const uint64_t transaction_work = rebuilt.transaction_work;
     rebuilt = {};
     rebuilt.status = TransactionStatus::InvalidInput;
     rebuilt.reason = TransactionReason::ReplayMismatch;
     rebuilt.work = work;
+    rebuilt.admission_work = admission_work;
+    rebuilt.planning_work = planning_work;
+    rebuilt.transaction_work = transaction_work;
   }
   return rebuilt;
 }

@@ -166,6 +166,11 @@ ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
 ApplyResult apply_rule_structured(const RuleVTable &, Kernel &,
                                   const char *description,
                                   const std::function<ApplyResult()> &);
+// Structured actions that authenticate and commit their own startup-boundary
+// transition use this wrapper so recoverable declines stay mutation-free.
+ApplyResult apply_rule_structured_preserve_startup(
+    const RuleVTable &, Kernel &, const char *description,
+    const std::function<ApplyResult()> &);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 // DefaultPolicy statically composes hot micro/macro calls in production.  A
 // journal build brackets those exact calls through this diagnostic-only

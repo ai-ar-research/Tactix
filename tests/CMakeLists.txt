@@ -524,3 +524,8 @@ endforeach()
 # The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;
 # the full online suite takes about 21 seconds under ASan/UBSan.
 set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)
+
+add_test(NAME tseitin_cycle_action_journal
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_tseitin_cycle_action_journal.py
+                 $<TARGET_FILE:test_tseitin_cycle_action>)

@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
 namespace tactix::strategy {
@@ -85,6 +86,35 @@ bool Gf3GaussianConsequenceParameters::valid() const {
       maximum_session_identity_bytes}.valid();
 }
 
+bool TseitinCycleBreakingParameters::valid() const {
+  TseitinCycleBreakingLimits limits;
+  limits.snapshot = {maximum_snapshot_clauses, maximum_snapshot_literals,
+                     maximum_snapshot_work, maximum_snapshot_variables,
+                     nullptr, nullptr};
+  limits.discovery = {maximum_discovery_work, maximum_discovery_clauses,
+                      maximum_discovery_groups, 4, nullptr, nullptr,
+                      maximum_components, maximum_discovery_retained_bytes};
+  limits.admission = {maximum_admission_work, nullptr, nullptr};
+  limits.planning = {maximum_planning_work, maximum_witness_length,
+                     maximum_planning_additions};
+  limits.transaction = {maximum_transaction_work,
+                        maximum_transaction_additions,
+                        maximum_transaction_deletions,
+                        maximum_transaction_helpers,
+                        maximum_transaction_witness_literals,
+                        nullptr, nullptr};
+  limits.maximum_validation_ticks = maximum_validation_ticks;
+  limits.maximum_components = maximum_components;
+  limits.maximum_identity_bytes = maximum_identity_bytes;
+  limits.maximum_total_identity_bytes = maximum_total_identity_bytes;
+  limits.maximum_identity_work = maximum_identity_work;
+  limits.maximum_journal_bytes = maximum_journal_bytes;
+  limits.maximum_session_keys = maximum_session_keys;
+  limits.maximum_session_work = maximum_session_work;
+  limits.maximum_session_identity_bytes = maximum_session_identity_bytes;
+  return limits.valid();
+}
+
 AffineConsequenceParameters
 AffineConsequenceParameters::from_kernel(const Kernel &k) {
   return k.affine_consequence_parameters;
@@ -112,6 +142,10 @@ DirectPhpRefutationParameters::from_kernel(const Kernel &k) {
 Gf3GaussianConsequenceParameters
 Gf3GaussianConsequenceParameters::from_kernel(const Kernel &k) {
   return k.gf3_gaussian_consequence_parameters;
+}
+TseitinCycleBreakingParameters
+TseitinCycleBreakingParameters::from_kernel(const Kernel &k) {
+  return k.tseitin_cycle_breaking_parameters;
 }
 SemanticVariableAdviceParameters
 SemanticVariableAdviceParameters::from_kernel(const Kernel &k) {
@@ -145,6 +179,10 @@ void install_rule_parameters(Kernel &k,
 void install_rule_parameters(
     Kernel &k, const Gf3GaussianConsequenceParameters &parameters) {
   k.gf3_gaussian_consequence_parameters = parameters;
+}
+void install_rule_parameters(
+    Kernel &k, const TseitinCycleBreakingParameters &parameters) {
+  k.tseitin_cycle_breaking_parameters = parameters;
 }
 void install_rule_parameters(
     Kernel &k, const SemanticVariableAdviceParameters &parameters) {

@@ -858,6 +858,22 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(34,p.maximum_external_extent); p.maximum_session_keys=v[35];
     p.maximum_session_work=v[36]; p.maximum_session_identity_bytes=v[37];
     parameters=p;
+  } else if (tuple(text, "tseitin-cycle-breaking1", v) && v.size() == 26) {
+    TseitinCycleBreakingParameters p;
+    p.maximum_snapshot_clauses=v[0]; p.maximum_snapshot_literals=v[1];
+    p.maximum_snapshot_work=v[2]; U32_AT(3,p.maximum_snapshot_variables);
+    p.maximum_discovery_work=v[4]; p.maximum_discovery_clauses=v[5];
+    p.maximum_discovery_groups=v[6]; p.maximum_discovery_retained_bytes=v[7];
+    p.maximum_admission_work=v[8]; p.maximum_planning_work=v[9];
+    U32_AT(10,p.maximum_witness_length); U32_AT(11,p.maximum_planning_additions);
+    p.maximum_transaction_work=v[12]; p.maximum_transaction_additions=v[13];
+    p.maximum_transaction_deletions=v[14]; p.maximum_transaction_helpers=v[15];
+    p.maximum_transaction_witness_literals=v[16]; p.maximum_validation_ticks=v[17];
+    p.maximum_components=v[18]; p.maximum_identity_bytes=v[19];
+    p.maximum_total_identity_bytes=v[20]; p.maximum_identity_work=v[21];
+    p.maximum_journal_bytes=v[22]; p.maximum_session_keys=v[23];
+    p.maximum_session_work=v[24];
+    p.maximum_session_identity_bytes=v[25]; parameters=p;
   } else if (tuple(text, "semantic-variable-advice1", v) && v.size() == 4) {
     SemanticVariableAdviceParameters p;
     U32_AT(0,p.maximum_variables); p.maximum_priority_sum=v[1];
@@ -1618,7 +1634,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover" &&
           std::string_view(rule.name) != "Gf3AffineConsequence" &&
           std::string_view(rule.name) != "DirectCspSupport" &&
-          std::string_view(rule.name) != "Gf3GaussianConsequence")
+          std::string_view(rule.name) != "Gf3GaussianConsequence" &&
+          std::string_view(rule.name) != "TseitinCycleBreaking")
         available.push_back(static_cast<int>(rule.id));
   } else {
     for (const std::string &name : config.rules) {
@@ -1627,7 +1644,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
         return reject("random-online action is not registered");
       if (tactix_rules()[id].guard(k) && name != "IndependentSetCover" &&
           name != "Gf3AffineConsequence" && name != "DirectCspSupport" &&
-          name != "Gf3GaussianConsequence")
+          name != "Gf3GaussianConsequence" &&
+          name != "TseitinCycleBreaking")
         available.push_back(id);
     }
   }
@@ -1996,6 +2014,22 @@ std::string serialize_online_strategy_program(
           << p->maximum_identity_bytes << ',' << p->maximum_external_extent << ','
           << p->maximum_session_keys << ',' << p->maximum_session_work << ','
           << p->maximum_session_identity_bytes << ')';
+    else if (const auto *p = std::get_if<TseitinCycleBreakingParameters>(
+                 &step.parameters))
+      out << ":tseitin-cycle-breaking1(" << p->maximum_snapshot_clauses << ','
+          << p->maximum_snapshot_literals << ',' << p->maximum_snapshot_work << ','
+          << p->maximum_snapshot_variables << ',' << p->maximum_discovery_work << ','
+          << p->maximum_discovery_clauses << ',' << p->maximum_discovery_groups << ','
+          << p->maximum_discovery_retained_bytes << ',' << p->maximum_admission_work << ','
+          << p->maximum_planning_work << ',' << p->maximum_witness_length << ','
+          << p->maximum_planning_additions << ',' << p->maximum_transaction_work << ','
+          << p->maximum_transaction_additions << ',' << p->maximum_transaction_deletions << ','
+          << p->maximum_transaction_helpers << ',' << p->maximum_transaction_witness_literals << ','
+          << p->maximum_validation_ticks << ',' << p->maximum_components << ','
+          << p->maximum_identity_bytes << ',' << p->maximum_total_identity_bytes << ','
+          << p->maximum_identity_work << ',' << p->maximum_journal_bytes << ','
+          << p->maximum_session_keys << ','
+          << p->maximum_session_work << ',' << p->maximum_session_identity_bytes << ')';
     else if (const auto *p =
                  std::get_if<SemanticVariableAdviceParameters>(&step.parameters))
       out << ":semantic-variable-advice1(" << p->maximum_variables << ','
@@ -2352,6 +2386,14 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.tseitin_cycle_instances.empty()) {
+      out << ":tseitin-cycle-breaking[";
+      for (size_t i = 0; i < step.tseitin_cycle_instances.size(); ++i) {
+        if (i) out << ';';
+        out << step.tseitin_cycle_instances[i];
+      }
+      out << ']';
+    }
   }
   return out.str();
 }
@@ -2572,6 +2614,18 @@ bool deserialize_online_strategy_program(const std::string &encoded,
       while (!text.empty()) {
         const size_t semicolon = text.find(';');
         step.gf3_gaussian_instances.emplace_back(text.substr(0, semicolon));
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view tseitin_cycle_marker =
+        ":tseitin-cycle-breaking[";
+    if (text.starts_with(tseitin_cycle_marker) && text.back() == ']') {
+      text.remove_prefix(tseitin_cycle_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        step.tseitin_cycle_instances.emplace_back(text.substr(0, semicolon));
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }

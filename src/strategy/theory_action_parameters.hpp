@@ -214,6 +214,40 @@ struct Gf3GaussianConsequenceParameters {
   static Gf3GaussianConsequenceParameters from_kernel(const Kernel &);
 };
 
+struct TseitinCycleBreakingParameters {
+  uint64_t maximum_snapshot_clauses = 100000;
+  uint64_t maximum_snapshot_literals = 1000000;
+  uint64_t maximum_snapshot_work = 10000000;
+  uint32_t maximum_snapshot_variables = 1000000;
+  uint64_t maximum_discovery_work = 10000000;
+  uint64_t maximum_discovery_clauses = 100000;
+  uint64_t maximum_discovery_groups = 100000;
+  // Canonical retained payload bytes only; excludes allocator/control-block
+  // overhead and vector capacity beyond live elements.
+  uint64_t maximum_discovery_retained_bytes = 16000000;
+  uint64_t maximum_admission_work = 10000000;
+  uint64_t maximum_planning_work = 10000000;
+  uint32_t maximum_witness_length = 100000;
+  uint32_t maximum_planning_additions = 1;
+  uint64_t maximum_transaction_work = 10000000;
+  uint64_t maximum_transaction_additions = 3;
+  uint64_t maximum_transaction_deletions = 2;
+  uint64_t maximum_transaction_helpers = 2;
+  uint64_t maximum_transaction_witness_literals = 1000000;
+  uint64_t maximum_validation_ticks = 10000000;
+  uint64_t maximum_components = 10000;
+  uint64_t maximum_identity_bytes = 4000000;
+  uint64_t maximum_total_identity_bytes = 16000000;
+  uint64_t maximum_identity_work = 32000000;
+  uint64_t maximum_journal_bytes = 8000000;
+  uint64_t maximum_session_keys = 10000;
+  uint64_t maximum_session_work = 1000000;
+  uint64_t maximum_session_identity_bytes = 16000000;
+
+  bool valid() const;
+  static TseitinCycleBreakingParameters from_kernel(const Kernel &);
+};
+
 struct SemanticVariableAdviceParameters {
   uint32_t maximum_variables = 0;
   uint64_t maximum_priority_sum = 0;
@@ -230,6 +264,7 @@ void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const DirectCspSupportParameters &);
 void install_rule_parameters(Kernel &, const DirectPhpRefutationParameters &);
 void install_rule_parameters(Kernel &, const Gf3GaussianConsequenceParameters &);
+void install_rule_parameters(Kernel &, const TseitinCycleBreakingParameters &);
 void install_rule_parameters(Kernel &, const SemanticVariableAdviceParameters &);
 
 } // namespace strategy

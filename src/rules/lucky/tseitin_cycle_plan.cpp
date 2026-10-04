@@ -15,21 +15,37 @@ using Endpoints = std::vector<Vertex>;
 struct CheckedInput {
   std::vector<VertexEquation> equations;
   std::map<Edge, Endpoints> endpoints;
+  std::set<Edge> unavailable;
 };
 
 class Work {
   uint64_t limit_;
+  bool (*interrupted_)(void *) = nullptr;
+  void *interrupt_state_ = nullptr;
   uint64_t used_ = 0;
+  bool exhausted_ = false;
+  bool was_interrupted_ = false;
 
 public:
-  explicit Work(uint64_t limit) : limit_(limit) {}
+  explicit Work(uint64_t limit, bool (*interrupted)(void *) = nullptr,
+                void *interrupt_state = nullptr)
+      : limit_(limit), interrupted_(interrupted),
+        interrupt_state_(interrupt_state) {}
   bool spend(uint64_t amount = 1) {
-    if (amount > limit_ - used_)
+    if (interrupted_ && interrupted_(interrupt_state_)) {
+      was_interrupted_ = true;
       return false;
+    }
+    if (amount > limit_ - used_) {
+      exhausted_ = true;
+      return false;
+    }
     used_ += amount;
     return true;
   }
   uint64_t used() const { return used_; }
+  bool exhausted() const { return exhausted_; }
+  bool interrupted() const { return was_interrupted_; }
 };
 
 struct DisjointSet {
@@ -65,6 +81,12 @@ DeclineReason check_input(const Input &input, CheckedInput &checked,
     return DeclineReason::EmptySystem;
 
   checked.equations = input.equations;
+  for (Edge edge : input.unavailable_edges) {
+    if (!work.spend())
+      return DeclineReason::WorkLimit;
+    if (edge <= 0 || !checked.unavailable.insert(edge).second)
+      return DeclineReason::InvalidEdge;
+  }
   std::sort(checked.equations.begin(), checked.equations.end(),
             [](const VertexEquation &a, const VertexEquation &b) {
               return a.vertex < b.vertex;
@@ -160,10 +182,12 @@ Result plan_one(const Input &input, Limits limits) {
     result.decline = DeclineReason::NoAdditionAllowance;
     return result;
   }
-  Work work(limits.work);
+  Work work(limits.work, limits.interrupted, limits.interrupt_state);
   CheckedInput checked;
   result.decline = check_input(input, checked, work);
   if (result.decline != DeclineReason::None) {
+    if (result.decline == DeclineReason::WorkLimit && work.interrupted())
+      result.decline = DeclineReason::Interrupted;
     result.work = work.used();
     return result;
   }
@@ -185,10 +209,13 @@ Result plan_one(const Input &input, Limits limits) {
   Endpoints chord_endpoints;
   for (const auto &[edge, endpoints] : checked.endpoints) {
     if (!work.spend()) {
-      result.decline = DeclineReason::WorkLimit;
+      result.decline = work.interrupted() ? DeclineReason::Interrupted
+                                          : DeclineReason::WorkLimit;
       result.work = work.used();
       return result;
     }
+    if (checked.unavailable.count(edge))
+      continue;
     if (sets.join(index[endpoints[0]], index[endpoints[1]])) {
       tree[endpoints[0]].push_back({endpoints[1], edge});
       tree[endpoints[1]].push_back({endpoints[0], edge});
@@ -218,7 +245,8 @@ Result plan_one(const Input &input, Limits limits) {
   pending.push(start);
   while (!pending.empty() && !parent.count(goal)) {
     if (!work.spend()) {
-      result.decline = DeclineReason::WorkLimit;
+      result.decline = work.interrupted() ? DeclineReason::Interrupted
+                                          : DeclineReason::WorkLimit;
       result.work = work.used();
       return result;
     }
@@ -262,10 +290,10 @@ Result plan_one(const Input &input, Limits limits) {
   return result;
 }
 
-bool validate_candidate(const Input &input, const Candidate &candidate) {
+bool validate_candidate_bounded(const Input &input, const Candidate &candidate,
+                                Work &work) {
   CheckedInput checked;
-  Work unlimited(std::numeric_limits<uint64_t>::max());
-  if (check_input(input, checked, unlimited) != DeclineReason::None ||
+  if (check_input(input, checked, work) != DeclineReason::None ||
       candidate.pivot <= 0 ||
       candidate.satisfying_value || candidate.cycle_edges.size() < 2 ||
       candidate.cycle_edges.front() != candidate.pivot ||
@@ -273,9 +301,14 @@ bool validate_candidate(const Input &input, const Candidate &candidate) {
     return false;
   std::set<Edge> cycle(candidate.cycle_edges.begin(),
                        candidate.cycle_edges.end());
+  if (!work.spend(candidate.cycle_edges.size())) return false;
   if (cycle.size() != candidate.cycle_edges.size())
     return false;
+  for (Edge edge : cycle)
+    if (checked.unavailable.count(edge))
+      return false;
   for (size_t i = 0; i < candidate.substitution.size(); ++i) {
+    if (!work.spend()) return false;
     const SubstitutionImage &image = candidate.substitution[i];
     if (image.source != candidate.cycle_edges[i])
       return false;
@@ -288,8 +321,10 @@ bool validate_candidate(const Input &input, const Candidate &candidate) {
   }
   std::map<Edge, uint32_t> degree;
   for (const VertexEquation &equation : input.equations) {
+    if (!work.spend()) return false;
     uint32_t touched = 0;
     for (Edge edge : equation.edges) {
+      if (!work.spend()) return false;
       if (cycle.count(edge))
         ++touched;
       ++degree[edge];
@@ -298,9 +333,35 @@ bool validate_candidate(const Input &input, const Candidate &candidate) {
       return false;
   }
   for (Edge edge : cycle)
-    if (degree[edge] != 2)
+    if (!work.spend() || degree[edge] != 2)
       return false;
   return true;
+}
+
+bool validate_candidate(const Input &input, const Candidate &candidate) {
+  Work unlimited(std::numeric_limits<uint64_t>::max());
+  return validate_candidate_bounded(input, candidate, unlimited);
+}
+
+bool validate_candidate(const Input &input, const Candidate &candidate,
+                        uint64_t maximum_work, uint64_t &used,
+                        bool &exhausted) {
+  bool was_interrupted = false;
+  return validate_candidate(input, candidate, maximum_work, nullptr, nullptr,
+                            used, exhausted, was_interrupted);
+}
+
+bool validate_candidate(const Input &input, const Candidate &candidate,
+                        uint64_t maximum_work,
+                        bool (*interrupted)(void *), void *interrupt_state,
+                        uint64_t &used, bool &exhausted,
+                        bool &was_interrupted) {
+  Work work(maximum_work, interrupted, interrupt_state);
+  const bool valid = validate_candidate_bounded(input, candidate, work);
+  used = work.used();
+  exhausted = work.exhausted();
+  was_interrupted = work.interrupted();
+  return valid;
 }
 
 bool preserves_relations_on_falsifying_assignment(
@@ -339,6 +400,7 @@ const char *decline_reason_name(DeclineReason reason) {
   case DeclineReason::None: return "none";
   case DeclineReason::NoAdditionAllowance: return "no-addition-allowance";
   case DeclineReason::WorkLimit: return "work-limit";
+  case DeclineReason::Interrupted: return "interrupted";
   case DeclineReason::IncompleteOccurrenceClassification:
     return "incomplete-occurrence-classification";
   case DeclineReason::EmptySystem: return "empty-system";

@@ -6,6 +6,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/random_online.hpp"
 
 #include <map>
@@ -50,6 +51,11 @@ struct Gf3GaussianActionProducerConfig {
   bool valid() const { return true; }
 };
 
+struct TseitinCycleActionProducerConfig {
+  bool enabled = false;
+  bool valid() const { return true; }
+};
+
 struct RandomControllerConfig {
   DefaultStrategyConfig search;
   // The native ranked-prefix mechanism is shared with DefaultPolicy. Full
@@ -63,6 +69,7 @@ struct RandomControllerConfig {
   Gf3ActionProducerConfig gf3_action_producer;
   DirectCspActionProducerConfig direct_csp_action_producer;
   Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
+  TseitinCycleActionProducerConfig tseitin_cycle_action_producer;
   strategy::controller::ActionAllowance default_allowance{
       strategy::WorkUnit::Applications, 1,
       {strategy::RuleWorkBudgetMode::Bounded,
@@ -184,11 +191,24 @@ private:
     std::optional<std::string> pending;
     uint64_t pending_sequence = 0;
   };
+  struct TseitinCycleDiscoveryState {
+    const Kernel *owner = nullptr;
+    const TseitinCycleBreakingSession *session = nullptr;
+    strategy::StateVersion state;
+    size_t session_keys = 0;
+    bool terminal = false;
+    bool reconfiguration_required = false;
+    std::string profile;
+    std::vector<std::string> offers;
+    std::optional<std::string> pending;
+    uint64_t pending_sequence = 0;
+  };
 
   uint64_t draw(uint64_t bound);
   Gf3DiscoveryState gf3_discovery_;
   DirectCspDiscoveryState direct_csp_discovery_;
   Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
+  TseitinCycleDiscoveryState tseitin_cycle_discovery_;
   uint64_t rng_;
 };
 

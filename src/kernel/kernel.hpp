@@ -37,6 +37,7 @@ class Gf3AffineActionSession;
 class DirectCspSupportActionSession;
 class DirectPhpActionSession;
 class Gf3GaussianActionSession;
+class TseitinCycleBreakingSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 void rule_journal_note_clause_transition(const Kernel &, const char *,
                                          const uint32_t *, uint32_t,
@@ -1083,6 +1084,37 @@ struct Stats {
   uint64_t gf3_gaussian_identity_bytes = 0;
   uint64_t gf3_gaussian_session_identity_bytes = 0;
   uint64_t gf3_gaussian_units = 0, gf3_gaussian_conflicts = 0;
+  uint64_t tseitin_cycle_attempts = 0, tseitin_cycle_applied = 0;
+  uint64_t tseitin_cycle_invalid = 0, tseitin_cycle_inapplicable = 0;
+  uint64_t tseitin_cycle_no_structure = 0;
+  uint64_t tseitin_cycle_already_applied = 0;
+  uint64_t tseitin_cycle_exhausted = 0, tseitin_cycle_interrupted = 0;
+  uint64_t tseitin_cycle_stale = 0, tseitin_cycle_unsupported_proof = 0;
+  uint64_t tseitin_cycle_snapshot_clauses = 0;
+  uint64_t tseitin_cycle_snapshot_literals = 0;
+  uint64_t tseitin_cycle_snapshot_work = 0;
+  uint64_t tseitin_cycle_recapture_work = 0;
+  uint64_t tseitin_cycle_discovery_work = 0;
+  uint64_t tseitin_cycle_retained_bytes = 0;
+  uint64_t tseitin_cycle_admission_work = 0;
+  uint64_t tseitin_cycle_planning_work = 0;
+  uint64_t tseitin_cycle_transaction_work = 0;
+  uint64_t tseitin_cycle_validation_ticks = 0;
+  uint64_t tseitin_cycle_candidates = 0, tseitin_cycle_offers = 0;
+  uint64_t tseitin_cycle_identity_bytes = 0;
+  uint64_t tseitin_cycle_identity_work = 0;
+  uint64_t tseitin_cycle_journal_work = 0;
+  uint64_t tseitin_cycle_journal_bytes = 0;
+  uint64_t tseitin_cycle_session_work = 0;
+  uint64_t tseitin_cycle_session_identity_bytes = 0;
+  uint64_t tseitin_cycle_proof_additions = 0;
+  uint64_t tseitin_cycle_proof_deletions = 0;
+  uint64_t tseitin_cycle_proof_literal_occurrences = 0;
+  uint64_t tseitin_cycle_proof_helpers = 0;
+  uint64_t tseitin_cycle_proof_only_variables = 0;
+  uint64_t tseitin_cycle_proof_witness_literals = 0;
+  uint64_t tseitin_cycle_proof_routes = 0;
+  uint64_t tseitin_cycle_units = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   uint64_t congruence_binary_rebuilds = 0;
   uint64_t congruence_unjustified = 0;
@@ -1896,6 +1928,7 @@ struct Kernel {
   strategy::DirectPhpRefutationParameters direct_php_refutation_parameters;
   strategy::Gf3GaussianConsequenceParameters
       gf3_gaussian_consequence_parameters;
+  strategy::TseitinCycleBreakingParameters tseitin_cycle_breaking_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
   // Borrowed session stream. The owner keeps it open through all structural
   // actions; sequence IDs never reset on rebind or proof-mode changes.
@@ -1912,6 +1945,7 @@ struct Kernel {
   DirectCspSupportActionSession *direct_csp_support_action_session = nullptr;
   DirectPhpActionSession *direct_php_action_session = nullptr;
   Gf3GaussianActionSession *gf3_gaussian_action_session = nullptr;
+  TseitinCycleBreakingSession *tseitin_cycle_breaking_session = nullptr;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 

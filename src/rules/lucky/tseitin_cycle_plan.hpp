@@ -33,6 +33,9 @@ struct ClassifiedOccurrence {
 struct Input {
   std::vector<VertexEquation> equations;
   std::vector<ClassifiedOccurrence> occurrences;
+  // Edge variables fixed at the current root boundary.  They remain part of
+  // the authenticated graph, but a cycle witness may not substitute them.
+  std::vector<Edge> unavailable_edges;
   // False means the producer stopped before classifying the whole live formula.
   bool occurrence_classification_complete = false;
 };
@@ -41,12 +44,15 @@ struct Limits {
   uint64_t work = 0;
   uint32_t witness_length = 0;
   uint32_t additions = 0;
+  bool (*interrupted)(void *) = nullptr;
+  void *interrupt_state = nullptr;
 };
 
 enum class DeclineReason : uint8_t {
   None,
   NoAdditionAllowance,
   WorkLimit,
+  Interrupted,
   IncompleteOccurrenceClassification,
   EmptySystem,
   InvalidVertex,
@@ -95,12 +101,24 @@ struct Result {
 // Return at most one deterministic candidate.  The accepted abstraction is a
 // connected odd-charge graph, every edge occurs at exactly two distinct vertex
 // equations, and the complete occurrence classification has no residual touch.
+// Kruskal runs over the ascending available-edge subgraph, so a fixed edge on
+// the canonical root-oblivious cycle cannot hide a later legal cycle.
 Result plan_one(const Input &, Limits);
 
 // Recheck the complete structural X7 witness shape against the abstraction.
 // This does not validate clauses of a live CNF; that remains the integration
 // adapter's ordinary X7 obligation.
 bool validate_candidate(const Input &, const Candidate &);
+
+// Bounded form used by the public transaction builder.  `work` reports every
+// structural scan performed; `exhausted` distinguishes a truncated validation
+// from a fully checked invalid candidate.
+bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
+                        uint64_t &work, bool &exhausted);
+bool validate_candidate(const Input &, const Candidate &, uint64_t maximum_work,
+                        bool (*interrupted)(void *), void *interrupt_state,
+                        uint64_t &work, bool &exhausted,
+                        bool &was_interrupted);
 
 // Small semantic oracle used by exhaustive tests and integration diagnostics.
 // assignment[i] is the value of edge i+1.  The function requires pivot=true
