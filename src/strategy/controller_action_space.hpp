@@ -11,7 +11,7 @@
 
 namespace tactix::strategy::controller {
 
-inline constexpr uint32_t ACTION_SPACE_VERSION = 4;
+inline constexpr uint32_t ACTION_SPACE_VERSION = 5;
 
 enum class Branching : uint8_t { Vmtf, Evsids };
 enum class Restart : uint8_t { AdaptiveGlue, Reluctant };

@@ -1007,7 +1007,9 @@ static void test_inprocess_registry_requires_root(void) {
         !std::strcmp(rule.name, "ParityConsequence") ||
         !std::strcmp(rule.name, "AffineConsequence") ||
         !std::strcmp(rule.name, "ExactCoverExtension") ||
-        !std::strcmp(rule.name, "IndependentSetCover");
+        !std::strcmp(rule.name, "IndependentSetCover") ||
+        !std::strcmp(rule.name, "Gf3AffineConsequence") ||
+        !std::strcmp(rule.name, "DirectCspSupport");
     if (!theory_action)
       assert(rule.guard(k));
     else
@@ -1113,6 +1115,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "Instantiate",    "BCE",   "CCE", "SubsumeForward",
       "ParityConsequence",
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
+      "Gf3AffineConsequence", "DirectCspSupport",
   };
   for (const auto &entry : p.inprocess().entries) {
     const char *name = rules[entry.rule].name;

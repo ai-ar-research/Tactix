@@ -17,7 +17,9 @@
 static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "SwitchMode", "Condition", "ParityConsequence",
                                          "AffineConsequence", "ExactCoverExtension",
-                                         "IndependentSetCover"};
+                                         "IndependentSetCover",
+                                         "Gf3AffineConsequence",
+                                         "DirectCspSupport"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -30,7 +32,9 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "SubstitutionRedundancy",
                                              "SwitchMode", "Walk", "ParityConsequence",
                                              "AffineConsequence", "ExactCoverExtension",
-                                             "IndependentSetCover"};
+                                             "IndependentSetCover",
+                                             "Gf3AffineConsequence",
+                                             "DirectCspSupport"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
   size_t i;
@@ -123,6 +127,8 @@ static tactix *prepare(int id) {
       !strcmp(name, "AffineConsequence") ||
       !strcmp(name, "ExactCoverExtension") ||
       !strcmp(name, "IndependentSetCover") ||
+      !strcmp(name, "Gf3AffineConsequence") ||
+      !strcmp(name, "DirectCspSupport") ||
       !strcmp(name, "SemanticVariableAdvice")) {
     structural_records = tmpfile(); assert(structural_records);
     assert(tactix_bind_structural_provenance(s, structural_records) == 0);
@@ -186,10 +192,68 @@ static int hit_structured[MAX_RULES];
 static int enum_empty[MAX_RULES];
 static int progressed;
 
+static void drive_theory_v5(tactix *s, int id, const char *name) {
+  tactix_online_step_v5 step;
+  tactix_online_program_v5 program;
+  tactix_online_result result;
+  tactix_online_gf3_affine_instance pair = {0, 1};
+  int left[] = {1, -2}, right[] = {3, -4};
+  tactix_online_direct_csp_support_instance support = {
+      left, 2, right, 2, 0};
+  uint64_t scalar;
+
+  assert(tactix_rule_instances(s, id, &scalar, 1) == 1 &&
+         scalar == TACTIX_INSTANCE_CANONICAL);
+  assert(tactix_apply_instance(s, id, scalar) == 1 &&
+         "the legacy canonical placeholder must not invent a typed request");
+
+  memset(&step, 0, sizeof step);
+  step.base.base.base.base.step_id = 2000 + (uint64_t)id;
+  step.base.base.base.base.rule_id = id;
+  step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.base.base.base.base.repeat_limit = 1;
+  step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.base.base.base.base.budget_unlimited = 1;
+  if (!strcmp(name, "Gf3AffineConsequence")) {
+    step.base.base.base.base.parameters.kind =
+        TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE;
+    step.base.base.base.base.parameters.value.gf3_affine_consequence =
+        (tactix_online_gf3_affine_consequence_parameters){
+            1000, 10000, 100, 100, 8, 10000, 8, 10000, 10000, 100000,
+            100000, 100000, 100000, 100000, 100000, 10000, 100000,
+            100000, 1000000, 10000, 10000, 100000};
+    step.gf3_affine_instances = &pair;
+    step.gf3_affine_instance_count = 1;
+  } else {
+    step.base.base.base.base.parameters.kind =
+        TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT;
+    step.base.base.base.base.parameters.value.direct_csp_support =
+        (tactix_online_direct_csp_support_parameters){
+            1000, 10000, 100000, 32, 1000, 1000, 100000, 10000,
+            100000, 1000000, 0, 10000, 10000, 100000, 0};
+    step.direct_csp_support_instances = &support;
+    step.direct_csp_support_instance_count = 1;
+  }
+  program = (tactix_online_program_v5){
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure_v5(s, &program, step.base.base.base.base.step_id,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(s, &result) == 0);
+  assert(result.status != TACTIX_ONLINE_INVALID_REQUEST);
+  hit_structured[id] = 1;
+  progressed += result.made_rule_progress;
+}
+
 /* Apply the entry, preferring a payload its own enumeration offered. */
 static void drive(tactix *s, int id) {
   uint64_t insts[NINST];
   const char *name = tactix_rule_name(id);
+  if (!strcmp(name, "Gf3AffineConsequence") ||
+      !strcmp(name, "DirectCspSupport")) {
+    drive_theory_v5(s, id, name);
+    return;
+  }
   const int n = tactix_rule_instances(s, id, insts, NINST);
   assert(n >= 0 && "prepare() must reach a state where the guard holds");
 

@@ -67,6 +67,7 @@ using ActionParameters =
                  ParityConsequenceParameters, RamseyStartupParameters,
                  AffineConsequenceParameters, ExactCoverExtensionParameters,
                  IndependentSetCoverParameters,
+                 Gf3AffineConsequenceParameters, DirectCspSupportParameters,
                  SemanticVariableAdviceParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
@@ -115,6 +116,8 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {20, "AffineConsequence", Probe, false},
       {21, "ExactCoverExtension", Probe, false},
       {22, "IndependentSetCover", Probe, false},
+      {23, "Gf3AffineConsequence", Probe, false},
+      {24, "DirectCspSupport", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -204,6 +207,14 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<IndependentSetCoverParameters>(&step.parameters)) {
       if (step.rule != "IndependentSetCover" || !p->valid())
         return reject("IndependentSetCover parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<Gf3AffineConsequenceParameters>(&step.parameters)) {
+      if (step.rule != "Gf3AffineConsequence" || !p->valid())
+        return reject("Gf3AffineConsequence parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<DirectCspSupportParameters>(&step.parameters)) {
+      if (step.rule != "DirectCspSupport" || !p->valid())
+        return reject("DirectCspSupport parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<InstantiateParameters>(&step.parameters)) {
       if (step.rule != "Instantiate")

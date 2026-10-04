@@ -14,10 +14,12 @@ enum class SemanticVariableRole : uint8_t {
 };
 
 enum class SemanticVariableProducer : uint8_t {
-  Affine,
-  ExactCover,
-  IndependentSet,
-  Count,
+  Affine = 0,
+  ExactCover = 1,
+  IndependentSet = 2,
+  Gf3Affine = 3,
+  DirectCsp = 4,
+  Count = 5,
 };
 
 inline constexpr size_t SEMANTIC_VARIABLE_PRODUCER_COUNT =

@@ -263,16 +263,34 @@ static void configure_parameters(const char *name,
     parameters->value.semantic_variable_advice.maximum_priority_sum = 1024;
     parameters->value.semantic_variable_advice.existing_theory_priority = 1;
     parameters->value.semantic_variable_advice.introduced_theory_priority = 4;
+  } else if (!strcmp(name, "Gf3AffineConsequence")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE;
+    parameters->value.gf3_affine_consequence =
+        (tactix_online_gf3_affine_consequence_parameters){
+            1000, 10000, 100, 100, 8, 10000, 8, 10000, 10000, 100000,
+            100000, 100000, 100000, 100000, 100000, 10000, 100000,
+            100000, 1000000, 10000, 10000, 100000};
+  } else if (!strcmp(name, "DirectCspSupport")) {
+    parameters->kind = TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT;
+    parameters->value.direct_csp_support =
+        (tactix_online_direct_csp_support_parameters){
+            1000, 10000, 100000, 32, 1000, 1000, 100000, 10000,
+            100000, 1000000, 0, 10000, 10000, 100000, 0};
   }
 }
 
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 34);
+  assert(count == 36);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);
+    if (!strcmp(name, "Gf3AffineConsequence") ||
+        !strcmp(name, "DirectCspSupport")) {
+      tactix_release(solver);
+      continue;
+    }
     uint64_t instances[NINST], selected = TACTIX_INSTANCE_CANONICAL;
     const int n = tactix_rule_semantic_instances(solver, id, instances, NINST);
     int i;
@@ -502,6 +520,157 @@ static void independent_set_v4_batch_retains_its_owner(void) {
   fclose(records);
 }
 
+static void theory_action_v5_payloads_are_deep_copied(void) {
+  {
+    tactix *solver = tactix_init();
+    FILE *records = tmpfile();
+    tactix_online_gf3_affine_instance pair = {0, 1};
+    tactix_online_step_v5 step;
+    tactix_online_program_v5 program;
+    tactix_online_result result;
+    assert(records && tactix_bind_structural_provenance(solver, records) == 0);
+    memset(&step, 0, sizeof step);
+    step.base.base.base.base.step_id = 3000;
+    step.base.base.base.base.rule_id = rule_id("Gf3AffineConsequence");
+    configure_parameters("Gf3AffineConsequence",
+                         &step.base.base.base.base.parameters);
+    step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+    step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    step.base.base.base.base.repeat_limit = 1;
+    step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+    step.base.base.base.base.budget_unlimited = 1;
+    step.gf3_affine_instances = &pair;
+    step.gf3_affine_instance_count = 1;
+    program = (tactix_online_program_v5){
+        &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    assert(tactix_online_configure_v5(solver, &program, 3000,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    pair.first_equation = 2;
+    pair.second_equation = 2;
+    assert(tactix_online_advance(solver, &result) == 0);
+    assert(result.status != TACTIX_ONLINE_INVALID_REQUEST);
+    tactix_release(solver);
+    fclose(records);
+  }
+  {
+    tactix *solver = tactix_init();
+    FILE *records = tmpfile();
+    int left[] = {1, -2}, right[] = {3, -4};
+    tactix_online_direct_csp_support_instance support = {
+        left, 2, right, 2, 0};
+    tactix_online_step_v5 step;
+    tactix_online_program_v5 program;
+    tactix_online_result result;
+    assert(records && tactix_bind_structural_provenance(solver, records) == 0);
+    memset(&step, 0, sizeof step);
+    step.base.base.base.base.step_id = 3001;
+    step.base.base.base.base.rule_id = rule_id("DirectCspSupport");
+    configure_parameters("DirectCspSupport",
+                         &step.base.base.base.base.parameters);
+    step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+    step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+    step.base.base.base.base.repeat_limit = 1;
+    step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+    step.base.base.base.base.budget_unlimited = 1;
+    step.direct_csp_support_instances = &support;
+    step.direct_csp_support_instance_count = 1;
+    program = (tactix_online_program_v5){
+        &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+    assert(tactix_online_configure_v5(solver, &program, 3001,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+    left[0] = right[0] = 0;
+    assert(tactix_online_advance(solver, &result) == 0);
+    assert(result.status != TACTIX_ONLINE_INVALID_REQUEST);
+    tactix_release(solver);
+    fclose(records);
+  }
+}
+
+static void invalid_theory_v5_inputs_are_transactional(void) {
+  tactix *solver = tactix_init();
+  FILE *records = tmpfile();
+  tactix_online_gf3_affine_instance pair = {0, 1};
+  tactix_online_step_v5 step;
+  tactix_online_program_v5 program;
+  tactix_online_result result;
+  uint64_t scalar = 7;
+  assert(records && tactix_bind_structural_provenance(solver, records) == 0);
+  memset(&step, 0, sizeof step);
+  step.base.base.base.base.step_id = 3100;
+  step.base.base.base.base.rule_id = rule_id("Gf3AffineConsequence");
+  configure_parameters("Gf3AffineConsequence",
+                       &step.base.base.base.base.parameters);
+  step.base.base.base.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.base.base.base.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.base.base.base.base.repeat_limit = 1;
+  step.base.base.base.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.base.base.base.base.budget_unlimited = 1;
+  step.gf3_affine_instances = &pair;
+  step.gf3_affine_instance_count = 1;
+  program = (tactix_online_program_v5){
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure_v5(solver, &program, 3100,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+
+  program.step_count = -1;
+  assert(tactix_online_configure_v5(solver, &program, 3101,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  program.step_count = 1;
+  step.gf3_affine_instance_count = -1;
+  assert(tactix_online_configure_v5(solver, &program, 3102,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.gf3_affine_instance_count = 1;
+  step.gf3_affine_instances = NULL;
+  assert(tactix_online_configure_v5(solver, &program, 3103,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.gf3_affine_instances = &pair;
+  step.direct_csp_support_instance_count = 1;
+  assert(tactix_online_configure_v5(solver, &program, 3104,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.direct_csp_support_instance_count = 0;
+  pair.second_equation = 0;
+  assert(tactix_online_configure_v5(solver, &program, 3105,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  pair.second_equation = 1;
+  step.base.base.base.base.instances = &scalar;
+  step.base.base.base.base.instance_count = 1;
+  assert(tactix_online_configure_v5(solver, &program, 3106,
+                                    TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.base.base.base.base.instances = NULL;
+  step.base.base.base.base.instance_count = 0;
+
+  {
+    int left[] = {1, -2}, right[] = {3, -4};
+    tactix_online_direct_csp_support_instance support = {
+        left, 2, right, 2, 0};
+    step.base.base.base.base.rule_id = rule_id("DirectCspSupport");
+    configure_parameters("DirectCspSupport",
+                         &step.base.base.base.base.parameters);
+    step.gf3_affine_instances = NULL;
+    step.gf3_affine_instance_count = 0;
+    step.direct_csp_support_instances = &support;
+    step.direct_csp_support_instance_count = 1;
+    step.base.base.base.base.parameters.value.direct_csp_support.allow_extension = 2;
+    assert(tactix_online_configure_v5(solver, &program, 3107,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+    step.base.base.base.base.parameters.value.direct_csp_support.allow_extension = 0;
+    support.left_value_count = -1;
+    assert(tactix_online_configure_v5(solver, &program, 3108,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+    support.left_value_count = 2;
+    support.left_values = NULL;
+    assert(tactix_online_configure_v5(solver, &program, 3109,
+                                      TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  }
+
+  /* Every rejected replacement above leaves the original revision executable. */
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.configuration_revision == 3100 && result.step_id == 3100 &&
+         result.status != TACTIX_ONLINE_INVALID_REQUEST);
+  tactix_release(solver);
+  fclose(records);
+}
+
 static void lucky_constructors_are_retired(void) {
   tactix *solver = tactix_init();
   /* Forbid the four even assignments on variables 1,2,3, then select one
@@ -586,6 +755,8 @@ int main(void) {
   invalid_reduce_parameters_are_transactional();
   invalid_parity_parameters_are_transactional();
   independent_set_v4_batch_retains_its_owner();
+  theory_action_v5_payloads_are_deep_copied();
+  invalid_theory_v5_inputs_are_transactional();
   lucky_constructors_are_retired();
   aba_transition_invalidates_a_pending_batch();
   puts("test_online_all_actions: all registered actions and ABA invalidation PASS");

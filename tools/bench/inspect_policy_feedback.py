@@ -75,7 +75,7 @@ def observation(value):
          optional="native_policy_state local_search_candidates semantic_variable_candidates")
     if "native_policy_state" in value:
         require(type(value["native_policy_state"]) is str, "invalid native policy state")
-    require(integer(value["version"], "observation version") in (1, 2, 3),
+    require(integer(value["version"], "observation version") in (1, 2, 3, 4, 5),
             "unsupported observation version")
     if value["version"] >= 2:
         require("local_search_candidates" in value, "missing candidate observation")
@@ -110,7 +110,7 @@ def observation(value):
             require(identity >> 8 and identity not in ids,
                     "invalid/repeated semantic variable candidate identity")
             ids.add(identity)
-            integer(candidate["producer"], "semantic variable producer", 3)
+            integer(candidate["producer"], "semantic variable producer", 4)
             require(candidate["existing_variables"] +
                     candidate["introduced_variables"] > 0,
                     "empty semantic variable candidate")

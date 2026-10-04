@@ -138,8 +138,8 @@ struct DirectCspSupportActionResult {
   uint64_t committed_keys = 0;
   uint64_t retained_owners = 0;
   bool owner_retained = false;
-  // The shared registry bridge can stage this neutral metadata once DirectCSP
-  // receives its own SemanticVariableProducer value.
+  // The shared registry bridge publishes this neutral metadata under the
+  // DirectCsp producer identity after the composed action settles.
   bool semantic_candidate_ready = false;
   std::vector<strategy::SemanticVariable> semantic_variables;
   DirectCspSupportActionProjection projection;

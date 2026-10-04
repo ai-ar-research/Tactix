@@ -21,6 +21,8 @@
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -449,11 +451,16 @@ int main(int argc, char **argv) {
   AffineBasisActionSession affine_basis_session;
   ExactCoverExtensionActionSession exact_cover_extension_session;
   IndependentSetCoverActionSession independent_set_cover_session;
+  Gf3AffineActionSession gf3_affine_action_session;
+  DirectCspSupportActionSession direct_csp_support_action_session;
   kernel.affine_basis_action_session = &affine_basis_session;
   kernel.exact_cover_extension_action_session =
       &exact_cover_extension_session;
   kernel.independent_set_cover_action_session =
       &independent_set_cover_session;
+  kernel.gf3_affine_action_session = &gf3_affine_action_session;
+  kernel.direct_csp_support_action_session =
+      &direct_csp_support_action_session;
   const bool default_frontend =
       !random_policy && !controller_selected && !stress_policy && !replay_path;
   if (default_frontend)

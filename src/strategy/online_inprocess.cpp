@@ -6,6 +6,8 @@
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/rule_execution.hpp"
@@ -13,6 +15,7 @@
 #include "strategy/guidance_outcome.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/publication_execution.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 #include "strategy/sweep_execution.hpp"
 #include "policies/rule_publication.hpp"
 
@@ -124,6 +127,10 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "ExactCoverExtension";
   if (std::holds_alternative<IndependentSetCoverParameters>(step.parameters))
     return step.rule == "IndependentSetCover";
+  if (std::holds_alternative<Gf3AffineConsequenceParameters>(step.parameters))
+    return step.rule == "Gf3AffineConsequence";
+  if (std::holds_alternative<DirectCspSupportParameters>(step.parameters))
+    return step.rule == "DirectCspSupport";
   if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
     return step.rule == "SemanticVariableAdvice";
   if (std::holds_alternative<CongruenceParameters>(step.parameters))
@@ -204,6 +211,148 @@ WorkUnit action_work_unit(const std::string &rule) {
   return WorkUnit::Applications;
 }
 
+Gf3AffineActionLimits gf3_affine_limits(
+    const Gf3AffineConsequenceParameters &p) {
+  return {{p.maximum_source_clauses, p.maximum_source_literals,
+           p.maximum_domains, p.maximum_equations,
+           p.maximum_equation_arity, p.maximum_tuples_per_equation},
+          {p.maximum_result_arity, p.maximum_result_tuples,
+           p.maximum_additions, p.maximum_addition_literals},
+          p.maximum_recognition_work,
+          p.maximum_planning_work,
+          p.maximum_duplicate_scan_work,
+          p.maximum_revalidation_work,
+          p.maximum_proof_work,
+          p.maximum_proof_additions,
+          p.maximum_proof_literal_occurrences,
+          p.maximum_arena_words,
+          p.maximum_journal_bytes,
+          p.maximum_external_extent,
+          p.maximum_session_keys,
+          p.maximum_session_work};
+}
+
+DirectCspSupportActionLimits direct_csp_limits(
+    const DirectCspSupportParameters &p) {
+  return {p.maximum_source_clauses,
+          p.maximum_source_literals,
+          p.maximum_recognition_work,
+          p.maximum_domain_values,
+          p.maximum_direct_clause_literals,
+          p.maximum_definition_clause_literals,
+          p.maximum_proof_work,
+          p.maximum_proof_additions,
+          p.maximum_proof_literal_occurrences,
+          p.maximum_journal_bytes,
+          p.maximum_extent_growth,
+          p.maximum_external_extent,
+          p.maximum_session_keys,
+          p.maximum_session_work,
+          p.allow_extension};
+}
+
+void record_gf3_affine_feedback(Kernel &k,
+                                const Gf3AffineActionResult &result,
+                                size_t keys_before) {
+  ++k.stats.gf3_affine_attempts;
+  switch (result.status) {
+  case Gf3AffineActionStatus::Applied: ++k.stats.gf3_affine_applied; break;
+  case Gf3AffineActionStatus::NoStructure:
+    ++k.stats.gf3_affine_no_structure; break;
+  case Gf3AffineActionStatus::NoConsequence:
+    ++k.stats.gf3_affine_no_consequence; break;
+  case Gf3AffineActionStatus::AlreadyPublished:
+    ++k.stats.gf3_affine_already_published; break;
+  case Gf3AffineActionStatus::Invalid: ++k.stats.gf3_affine_invalid; break;
+  case Gf3AffineActionStatus::Inapplicable:
+    ++k.stats.gf3_affine_inapplicable; break;
+  case Gf3AffineActionStatus::ResourceExhausted:
+    ++k.stats.gf3_affine_resource_exhausted; break;
+  case Gf3AffineActionStatus::Interrupted:
+    ++k.stats.gf3_affine_interrupted; break;
+  case Gf3AffineActionStatus::UnsupportedProof:
+    ++k.stats.gf3_affine_unsupported_proof; break;
+  case Gf3AffineActionStatus::Stale: ++k.stats.gf3_affine_stale; break;
+  }
+  const auto &e = result.effort;
+  k.stats.gf3_affine_source_clauses += e.source_clauses;
+  k.stats.gf3_affine_source_literals += e.source_literals;
+  k.stats.gf3_affine_equations += e.equations;
+  k.stats.gf3_affine_owner_capture_work += e.owner_capture_work;
+  k.stats.gf3_affine_recognition_work += e.recognition_work;
+  k.stats.gf3_affine_planning_work += e.planning_work;
+  k.stats.gf3_affine_duplicate_scan_work += e.duplicate_scan_work;
+  k.stats.gf3_affine_revalidation_work += e.revalidation_work;
+  k.stats.gf3_affine_proof_work += e.proof_work;
+  k.stats.gf3_affine_planned_additions += e.planned_additions;
+  k.stats.gf3_affine_duplicate_additions += e.duplicate_additions;
+  k.stats.gf3_affine_emitted_additions += e.emitted_additions;
+  k.stats.gf3_affine_proof_literal_occurrences += e.proof_literal_occurrences;
+  k.stats.gf3_affine_arena_words += e.arena_words;
+  k.stats.gf3_affine_journal_work += e.journal_work;
+  k.stats.gf3_affine_journal_bytes += e.journal_bytes;
+  k.stats.gf3_affine_session_work += e.session_work;
+  k.stats.gf3_affine_session_commits += result.committed_keys > keys_before;
+  k.stats.gf3_affine_candidate_variables += result.semantic_candidates.size();
+}
+
+void record_direct_csp_feedback(Kernel &k,
+                                const DirectCspSupportActionResult &result,
+                                size_t keys_before, size_t owners_before) {
+  ++k.stats.direct_csp_support_attempts;
+  switch (result.status) {
+  case DirectCspSupportActionStatus::Applied:
+    ++k.stats.direct_csp_support_applied; break;
+  case DirectCspSupportActionStatus::NoStructure:
+    ++k.stats.direct_csp_support_no_structure; break;
+  case DirectCspSupportActionStatus::NoConsequence:
+    ++k.stats.direct_csp_support_no_consequence; break;
+  case DirectCspSupportActionStatus::AlreadyPublished:
+    ++k.stats.direct_csp_support_already_published; break;
+  case DirectCspSupportActionStatus::Invalid:
+    ++k.stats.direct_csp_support_invalid; break;
+  case DirectCspSupportActionStatus::Inapplicable:
+    ++k.stats.direct_csp_support_inapplicable; break;
+  case DirectCspSupportActionStatus::ResourceExhausted:
+    ++k.stats.direct_csp_support_resource_exhausted; break;
+  case DirectCspSupportActionStatus::Interrupted:
+    ++k.stats.direct_csp_support_interrupted; break;
+  case DirectCspSupportActionStatus::UnsupportedProof:
+    ++k.stats.direct_csp_support_unsupported_proof; break;
+  case DirectCspSupportActionStatus::Stale:
+    ++k.stats.direct_csp_support_stale; break;
+  }
+  const auto &e = result.effort;
+  k.stats.direct_csp_support_source_clauses += e.source_clauses;
+  k.stats.direct_csp_support_source_literals += e.source_literals;
+  k.stats.direct_csp_support_owner_capture_work += e.owner_capture_work;
+  k.stats.direct_csp_support_recognition_work += e.recognition_work;
+  k.stats.direct_csp_support_source_scan_work += e.source_scan_work;
+  k.stats.direct_csp_support_planning_work += e.planning_work;
+  k.stats.direct_csp_support_revalidation_work += e.revalidation_work;
+  k.stats.direct_csp_support_proof_work += e.proof_work;
+  k.stats.direct_csp_support_planned_additions += e.planned_additions;
+  k.stats.direct_csp_support_emitted_additions += e.emitted_additions;
+  k.stats.direct_csp_support_proof_literal_occurrences +=
+      e.proof_literal_occurrences;
+  k.stats.direct_csp_support_journal_work += e.journal_work;
+  k.stats.direct_csp_support_journal_bytes += e.journal_bytes;
+  k.stats.direct_csp_support_extent_growth += e.extent_growth;
+  k.stats.direct_csp_support_session_work += e.session_work;
+  k.stats.direct_csp_support_session_commits +=
+      result.committed_keys > keys_before;
+  k.stats.direct_csp_support_owner_commits +=
+      result.retained_owners > owners_before;
+  k.stats.direct_csp_support_candidate_variables +=
+      result.semantic_variables.size();
+  k.stats.direct_csp_support_introduced_variables +=
+      std::count_if(result.semantic_variables.begin(),
+                    result.semantic_variables.end(), [](const auto &variable) {
+                      return variable.role ==
+                             SemanticVariableRole::IntroducedTheory;
+                    });
+}
+
 } // namespace
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &program,
@@ -274,6 +423,14 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
             std::get_if<IndependentSetCoverParameters>(&step.parameters);
         p && !p->valid())
       return reject("IndependentSetCover parameters are invalid");
+    if (const auto *p =
+            std::get_if<Gf3AffineConsequenceParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Gf3AffineConsequence parameters are invalid");
+    if (const auto *p =
+            std::get_if<DirectCspSupportParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("DirectCspSupport parameters are invalid");
     if (const auto *p =
             std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
         p && !p->valid())
@@ -379,12 +536,62 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.independent_set_cover_instances.empty() &&
         step.rule != "IndependentSetCover")
       return reject("independent-set covers are attached to a different rule");
+    if (!step.gf3_affine_instances.empty() &&
+        step.rule != "Gf3AffineConsequence")
+      return reject("GF3 equation pairs are attached to a different rule");
+    if (!step.direct_csp_support_instances.empty() &&
+        step.rule != "DirectCspSupport")
+      return reject("DirectCSP supports are attached to a different rule");
+    if (step.rule == "Gf3AffineConsequence" &&
+        (step.gf3_affine_instances.empty() || !step.instances.empty()))
+      return reject("GF3 affine action requires typed equation-pair payloads");
+    if (step.rule == "DirectCspSupport" &&
+        (step.direct_csp_support_instances.empty() || !step.instances.empty()))
+      return reject("DirectCSP action requires typed support payloads");
     for (const auto &cover : step.independent_set_cover_instances)
       if (cover.size() < 2 || !cover.front() ||
           !std::is_sorted(cover.begin(), cover.end()) ||
           std::adjacent_find(cover.begin(), cover.end()) != cover.end() ||
           cover.back() > static_cast<uint32_t>(std::numeric_limits<int>::max()))
         return reject("independent-set cover is not a sorted positive external set");
+    for (const Gf3AffineInstance &instance : step.gf3_affine_instances)
+      if (instance.first_equation >= instance.second_equation)
+        return reject("GF3 equation pair is not canonical");
+    const auto direct_literal_variable = [](int32_t literal) {
+      return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+    };
+    const auto direct_literal_less = [&](int32_t first, int32_t second) {
+      const uint32_t first_variable = direct_literal_variable(first);
+      const uint32_t second_variable = direct_literal_variable(second);
+      return first_variable < second_variable ||
+             (first_variable == second_variable && first < second);
+    };
+    for (const DirectCspSupportActionSelection &instance :
+         step.direct_csp_support_instances) {
+      if (instance.left_values.size() < 2 || instance.right_values.size() < 2 ||
+          instance.selected_left_value >= instance.left_values.size())
+        return reject("DirectCSP support selection is incomplete");
+      std::vector<uint32_t> variables;
+      variables.reserve(instance.left_values.size() +
+                        instance.right_values.size());
+      const auto append_domain = [&](const std::vector<int32_t> &domain) {
+        for (size_t index = 0; index < domain.size(); ++index) {
+          const int32_t literal = domain[index];
+          if (!literal || literal == std::numeric_limits<int32_t>::min() ||
+              (index && !direct_literal_less(domain[index - 1], literal)))
+            return false;
+          variables.push_back(direct_literal_variable(literal));
+        }
+        return true;
+      };
+      if (!append_domain(instance.left_values) ||
+          !append_domain(instance.right_values))
+        return reject("DirectCSP domain is not canonically ordered");
+      std::sort(variables.begin(), variables.end());
+      if (std::adjacent_find(variables.begin(), variables.end()) !=
+          variables.end())
+        return reject("DirectCSP domains repeat a variable");
+    }
     // These are external Lit encodings. UINT32_MAX has no DIMACS spelling:
     // externalize() would overflow its signed result before a live-state
     // check, even if the malformed tuple came only from replay text.
@@ -403,7 +610,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.factor_grids.empty() +
         !step.substitution_redundancy_instances.empty() +
         !step.condition_instances.empty() +
-        !step.independent_set_cover_instances.empty();
+        !step.independent_set_cover_instances.empty() +
+        !step.gf3_affine_instances.empty() +
+        !step.direct_csp_support_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
     if (structured_payload_kinds > 1)
@@ -418,7 +627,11 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                              ? step.substitution_redundancy_instances.size()
                                              : !step.condition_instances.empty()
                                                    ? step.condition_instances.size()
-                                                   : step.independent_set_cover_instances.size();
+                                                   : !step.independent_set_cover_instances.empty()
+                                                         ? step.independent_set_cover_instances.size()
+                                                         : !step.gf3_affine_instances.empty()
+                                                               ? step.gf3_affine_instances.size()
+                                                               : step.direct_csp_support_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured_payload_kinds && structured_size != 1) ||
@@ -436,10 +649,16 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::CompleteCurrentPass:
+      if (step.rule == "Gf3AffineConsequence" ||
+          step.rule == "DirectCspSupport")
+        return reject("structured theory action requires an explicit payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
+      if (step.rule == "Gf3AffineConsequence" ||
+          step.rule == "DirectCspSupport")
+        return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("canonical application carries explicit payloads");
       break;
@@ -642,7 +861,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     if (step.factor_grids.empty() &&
         step.substitution_redundancy_instances.empty() &&
         step.condition_instances.empty() &&
-        step.independent_set_cover_instances.empty()) {
+        step.independent_set_cover_instances.empty() &&
+        step.gf3_affine_instances.empty() &&
+        step.direct_csp_support_instances.empty()) {
       runtime.selection = step.instances;
     } else {
       const size_t size = !step.factor_grids.empty()
@@ -651,7 +872,11 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                     ? step.substitution_redundancy_instances.size()
                                     : !step.condition_instances.empty()
                                           ? step.condition_instances.size()
-                                          : step.independent_set_cover_instances.size();
+                                          : !step.independent_set_cover_instances.empty()
+                                                ? step.independent_set_cover_instances.size()
+                                                : !step.gf3_affine_instances.empty()
+                                                      ? step.gf3_affine_instances.size()
+                                                      : step.direct_csp_support_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
@@ -1170,6 +1395,8 @@ InvocationResult OnlineStrategyExecutor::advance(
     bool discard_generated_sr_batch = false;
     bool preserve_affine_selection = false;
     bool preserve_theory_selection = false;
+    std::optional<Gf3AffineActionResult> gf3_affine_application;
+    std::optional<DirectCspSupportActionResult> direct_csp_application;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
@@ -1241,6 +1468,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           RamseyStartupParameters,
           ParityConsequenceParameters, AffineConsequenceParameters,
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
+          Gf3AffineConsequenceParameters, DirectCspSupportParameters,
           SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
@@ -1261,7 +1489,39 @@ InvocationResult OnlineStrategyExecutor::advance(
       bool condition_interrupted = false;
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] { return
-          !step.independent_set_cover_instances.empty()
+          !step.gf3_affine_instances.empty()
+              ? apply_rule_structured(rule, k, "gf3-affine-consequence", [&] {
+                  const auto &parameters =
+                      std::get<Gf3AffineConsequenceParameters>(step.parameters);
+                  const Gf3AffineInstance &selected =
+                      step.gf3_affine_instances[payload];
+                  const size_t keys_before =
+                      k.gf3_affine_action_session->committed_keys();
+                  gf3_affine_application.emplace(gf3_affine_action_apply(
+                      k, *k.gf3_affine_action_session,
+                      gf3_affine_limits(parameters), selected.first_equation,
+                      selected.second_equation));
+                  record_gf3_affine_feedback(k, *gf3_affine_application,
+                                             keys_before);
+                  return gf3_affine_application->result;
+                })
+          : !step.direct_csp_support_instances.empty()
+              ? apply_rule_structured(rule, k, "direct-csp-support", [&] {
+                  const auto &parameters =
+                      std::get<DirectCspSupportParameters>(step.parameters);
+                  const size_t keys_before =
+                      k.direct_csp_support_action_session->committed_keys();
+                  const size_t owners_before =
+                      k.direct_csp_support_action_session->retained_owners();
+                  direct_csp_application.emplace(direct_csp_support_action_apply(
+                      k, *k.direct_csp_support_action_session,
+                      direct_csp_limits(parameters),
+                      step.direct_csp_support_instances[payload]));
+                  record_direct_csp_feedback(k, *direct_csp_application,
+                                             keys_before, owners_before);
+                  return direct_csp_application->result;
+                })
+          : !step.independent_set_cover_instances.empty()
               ? apply_rule_structured(rule, k, "independent-set-cover", [&] {
                   independent_set_application.emplace(
                       independent_set_cover_action_apply(
@@ -1480,6 +1740,60 @@ InvocationResult OnlineStrategyExecutor::advance(
           break;
         }
       }
+      if (gf3_affine_application) {
+        switch (gf3_affine_application->status) {
+        case Gf3AffineActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case Gf3AffineActionStatus::Inapplicable:
+        case Gf3AffineActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case Gf3AffineActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case Gf3AffineActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case Gf3AffineActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case Gf3AffineActionStatus::NoStructure:
+        case Gf3AffineActionStatus::NoConsequence:
+        case Gf3AffineActionStatus::AlreadyPublished:
+        case Gf3AffineActionStatus::Applied:
+          break;
+        }
+      }
+      if (direct_csp_application) {
+        switch (direct_csp_application->status) {
+        case DirectCspSupportActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case DirectCspSupportActionStatus::Inapplicable:
+        case DirectCspSupportActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case DirectCspSupportActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case DirectCspSupportActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case DirectCspSupportActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case DirectCspSupportActionStatus::NoStructure:
+        case DirectCspSupportActionStatus::NoConsequence:
+        case DirectCspSupportActionStatus::AlreadyPublished:
+        case DirectCspSupportActionStatus::Applied:
+          break;
+        }
+      }
       if (sr_application) {
         switch (sr_application->status) {
         case SubstitutionRedundancyApplicationStatus::Invalid:
@@ -1601,6 +1915,49 @@ InvocationResult OnlineStrategyExecutor::advance(
     // units produced directly or by the configured follow-up must leave its
     // queue and heap before the next composed action observes the state.
     heuristics_consume_root_assignments(k, trail_before);
+    // A bundled follow-up is part of this composed controller action.  Publish
+    // semantic advice only after that follow-up has settled the live state, so
+    // its version is current.  Root propagation can make some producer values
+    // non-branchable; omit those values rather than advertising advice that the
+    // consumer must reject immediately.
+    const auto publish_theory_candidate =
+        [&](SemanticVariableProducer producer, uint64_t action_id,
+            const std::vector<SemanticVariable> &variables) {
+          std::vector<SemanticVariable> branchable;
+          branchable.reserve(variables.size());
+          for (const SemanticVariable variable : variables) {
+            if (!variable.external ||
+                variable.external >
+                    static_cast<uint32_t>(std::numeric_limits<int>::max()))
+              continue;
+            const Var external =
+                var_of(internalize(static_cast<int>(variable.external)));
+            if (external >= k.external_to_internal.size()) continue;
+            const Var internal = k.external_to_internal[external];
+            if (internal == INVALID_VAR || internal >= k.nvars ||
+                kernel_var_retired(k, internal) ||
+                kernel_root_value(k, make_lit(internal, false)))
+              continue;
+            branchable.push_back(variable);
+          }
+          if (branchable.empty()) return;
+          if (!stage_semantic_variable_candidate(k, producer, action_id,
+                                                 branchable))
+            std::abort();
+          finish_semantic_variable_candidate_action(k, ApplyResult::Ok);
+        };
+    if (gf3_affine_application &&
+        gf3_affine_application->semantic_candidate_ready)
+      publish_theory_candidate(
+          SemanticVariableProducer::Gf3Affine,
+          gf3_affine_application->committed_action_id,
+          gf3_affine_application->semantic_candidates);
+    if (direct_csp_application &&
+        direct_csp_application->semantic_candidate_ready)
+      publish_theory_candidate(
+          SemanticVariableProducer::DirectCsp,
+          direct_csp_application->committed_action_id,
+          direct_csp_application->semantic_variables);
     out.after = state_version(k);
     runtime.expected_state = state_version(k);
     // Generated SR payloads contain only stable literal identities. A prior
@@ -1611,7 +1968,9 @@ InvocationResult OnlineStrategyExecutor::advance(
     // external transitions. Preserve the batch instead of repeating expensive
     // structured discovery after each successful unit.
     if (generated_sr_pass ||
-        !step.independent_set_cover_instances.empty())
+        !step.independent_set_cover_instances.empty() ||
+        !step.gf3_affine_instances.empty() ||
+        !step.direct_csp_support_instances.empty())
       runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);
     runtime.pass_progress |= out.made_rule_progress;

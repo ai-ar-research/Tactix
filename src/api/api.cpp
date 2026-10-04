@@ -18,6 +18,8 @@
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
 #include <algorithm>
@@ -39,6 +41,8 @@ struct tactix_solver {
   AffineBasisActionSession affine_basis_session;
   ExactCoverExtensionActionSession exact_cover_extension_session;
   IndependentSetCoverActionSession independent_set_cover_session;
+  Gf3AffineActionSession gf3_affine_action_session;
+  DirectCspSupportActionSession direct_csp_support_action_session;
   std::vector<Lit> scratch;
   bool input_completed = false;
   bool pending_input_proof = false;
@@ -54,6 +58,9 @@ struct tactix_solver {
         &exact_cover_extension_session;
     kernel.independent_set_cover_action_session =
         &independent_set_cover_session;
+    kernel.gf3_affine_action_session = &gf3_affine_action_session;
+    kernel.direct_csp_support_action_session =
+        &direct_csp_support_action_session;
     // Match the CLI/reference default; rule-level fixtures using a bare Kernel
     // can still exercise the non-reuse path explicitly.
     kernel.conflict_reuse = true;
@@ -483,6 +490,58 @@ bool online_parameters(const tactix_online_parameters &source,
     strategy::SemanticVariableAdviceParameters converted{
         p.maximum_variables, p.maximum_priority_sum,
         p.existing_theory_priority, p.introduced_theory_priority};
+    if (!converted.valid()) return false;
+    target = converted;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE: {
+    const auto &p = source.value.gf3_affine_consequence;
+    strategy::Gf3AffineConsequenceParameters converted{
+        p.maximum_source_clauses,
+        p.maximum_source_literals,
+        p.maximum_domains,
+        p.maximum_equations,
+        p.maximum_equation_arity,
+        p.maximum_tuples_per_equation,
+        p.maximum_result_arity,
+        p.maximum_result_tuples,
+        p.maximum_additions,
+        p.maximum_addition_literals,
+        p.maximum_recognition_work,
+        p.maximum_planning_work,
+        p.maximum_duplicate_scan_work,
+        p.maximum_revalidation_work,
+        p.maximum_proof_work,
+        p.maximum_proof_additions,
+        p.maximum_proof_literal_occurrences,
+        p.maximum_arena_words,
+        p.maximum_journal_bytes,
+        p.maximum_external_extent,
+        p.maximum_session_keys,
+        p.maximum_session_work};
+    if (!converted.valid()) return false;
+    target = converted;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT: {
+    const auto &p = source.value.direct_csp_support;
+    if (p.allow_extension != 0 && p.allow_extension != 1) return false;
+    strategy::DirectCspSupportParameters converted{
+        p.maximum_source_clauses,
+        p.maximum_source_literals,
+        p.maximum_recognition_work,
+        p.maximum_domain_values,
+        p.maximum_direct_clause_literals,
+        p.maximum_definition_clause_literals,
+        p.maximum_proof_work,
+        p.maximum_proof_additions,
+        p.maximum_proof_literal_occurrences,
+        p.maximum_journal_bytes,
+        p.maximum_extent_growth,
+        p.maximum_external_extent,
+        p.maximum_session_keys,
+        p.maximum_session_work,
+        p.allow_extension != 0};
     if (!converted.valid()) return false;
     target = converted;
     return true;
@@ -1178,7 +1237,8 @@ bool online_program_v3(const tactix_online_program_v3 &source,
 
 bool online_program_v4(const tactix_online_program_v4 &source,
                        const Kernel &kernel,
-                       strategy::OnlineInprocessProgram &target) {
+                       strategy::OnlineInprocessProgram &target,
+                       bool validate = true) {
   if (source.step_count < 0 || (source.step_count && !source.steps))
     return false;
   std::vector<tactix_online_step_v3> base_steps;
@@ -1219,6 +1279,65 @@ bool online_program_v4(const tactix_online_program_v4 &source,
         previous = external;
       }
       output_step.independent_set_cover_instances.push_back(std::move(cover));
+    }
+  }
+  return !validate || strategy::validate_online_strategy_program(target);
+}
+
+bool online_program_v5(const tactix_online_program_v5 &source,
+                       const Kernel &kernel,
+                       strategy::OnlineInprocessProgram &target) {
+  if (source.step_count < 0 || (source.step_count && !source.steps))
+    return false;
+  std::vector<tactix_online_step_v4> base_steps;
+  base_steps.reserve(static_cast<size_t>(source.step_count));
+  for (int i = 0; i < source.step_count; ++i)
+    base_steps.push_back(source.steps[i].base);
+  const tactix_online_program_v4 base_program = {
+      base_steps.data(), source.step_count, source.repeat_mode,
+      source.repeat_limit};
+  if (!online_program_v4(base_program, kernel, target, false)) return false;
+  for (int i = 0; i < source.step_count; ++i) {
+    const tactix_online_step_v5 &input_step = source.steps[i];
+    if (input_step.gf3_affine_instance_count < 0 ||
+        (input_step.gf3_affine_instance_count &&
+         !input_step.gf3_affine_instances) ||
+        input_step.direct_csp_support_instance_count < 0 ||
+        (input_step.direct_csp_support_instance_count &&
+         !input_step.direct_csp_support_instances))
+      return false;
+    strategy::OnlineInvocation &output_step = target.sequence[i];
+    output_step.gf3_affine_instances.reserve(
+        static_cast<size_t>(input_step.gf3_affine_instance_count));
+    for (int j = 0; j < input_step.gf3_affine_instance_count; ++j) {
+      const auto &input = input_step.gf3_affine_instances[j];
+      output_step.gf3_affine_instances.push_back(
+          {input.first_equation, input.second_equation});
+    }
+    output_step.direct_csp_support_instances.reserve(
+        static_cast<size_t>(input_step.direct_csp_support_instance_count));
+    for (int j = 0; j < input_step.direct_csp_support_instance_count; ++j) {
+      const auto &input = input_step.direct_csp_support_instances[j];
+      if (input.left_value_count < 0 || input.right_value_count < 0 ||
+          (input.left_value_count && !input.left_values) ||
+          (input.right_value_count && !input.right_values))
+        return false;
+      DirectCspSupportActionSelection output;
+      output.left_values.reserve(static_cast<size_t>(input.left_value_count));
+      for (int k = 0; k < input.left_value_count; ++k) {
+        const int64_t literal = input.left_values[k];
+        if (literal < INT32_MIN || literal > INT32_MAX) return false;
+        output.left_values.push_back(static_cast<int32_t>(literal));
+      }
+      output.right_values.reserve(
+          static_cast<size_t>(input.right_value_count));
+      for (int k = 0; k < input.right_value_count; ++k) {
+        const int64_t literal = input.right_values[k];
+        if (literal < INT32_MIN || literal > INT32_MAX) return false;
+        output.right_values.push_back(static_cast<int32_t>(literal));
+      }
+      output.selected_left_value = input.selected_left_value;
+      output_step.direct_csp_support_instances.push_back(std::move(output));
     }
   }
   return strategy::validate_online_strategy_program(target);
@@ -1804,6 +1923,31 @@ int tactix_online_configure_v4(tactix_solver *s,
     return -1;
   if (replacement)
     s->online = std::move(replacement);
+  input_complete(s);
+  return 0;
+}
+
+int tactix_online_configure_v5(tactix_solver *s,
+                               const tactix_online_program_v5 *source,
+                               uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v5(*source, s->kernel, program)) return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode)) return -1;
+  if (replacement) s->online = std::move(replacement);
   input_complete(s);
   return 0;
 }
