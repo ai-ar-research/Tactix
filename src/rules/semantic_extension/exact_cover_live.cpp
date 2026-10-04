@@ -4,8 +4,21 @@
 
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 namespace tactix {
+
+struct ExactCoverLiveSessionAccess {
+  static const std::vector<std::vector<int32_t>> &keys(
+      const ExactCoverLiveSession &session) {
+    return session.committed_keys_;
+  }
+  static void commit(ExactCoverLiveSession &session,
+                     std::vector<std::vector<int32_t>> &replacement) {
+    session.committed_keys_.swap(replacement);
+  }
+};
+
 namespace {
 
 using exact_cover_semantic::BatchPlan;
@@ -104,7 +117,7 @@ ExactCoverLiveResult exact_cover_live_apply(
       !request.maximum_additions || !request.maximum_literal_occurrences ||
       !request.maximum_journal_bytes ||
       !request.maximum_extent_growth || !request.maximum_external_extent ||
-      !request.action_id || !request.records)
+      !request.action_id || !request.records || !request.session)
     return result;
   if (k.proof && k.proof->pb()) {
     result.status = ExactCoverLiveStatus::UnsupportedProof;
@@ -181,7 +194,73 @@ ExactCoverLiveResult exact_cover_live_apply(
     result.recognition_work = work;
     return result;
   }
+
+  std::vector<std::vector<int32_t>> replacement =
+      ExactCoverLiveSessionAccess::keys(*request.session);
+  if (!std::is_sorted(replacement.begin(), replacement.end()) ||
+      std::adjacent_find(replacement.begin(), replacement.end()) !=
+          replacement.end()) {
+    result.status = ExactCoverLiveStatus::Invalid;
+    result.recognition_work = work;
+    return result;
+  }
+  std::vector<std::vector<int32_t>> additions;
+  additions.reserve(plan.definitions().size());
+  for (const auto &definition : plan.definitions()) {
+    const auto &key = definition.duplicate_key.disjunction;
+    if (key.empty() || !std::is_sorted(key.begin(), key.end()) ||
+        std::adjacent_find(key.begin(), key.end()) != key.end()) {
+      result.status = ExactCoverLiveStatus::Invalid;
+      result.recognition_work = work;
+      return result;
+    }
+    if (std::binary_search(replacement.begin(), replacement.end(), key)) {
+      result.status = ExactCoverLiveStatus::AlreadyPublished;
+      result.recognition_work = work;
+      return result;
+    }
+    additions.push_back(key);
+  }
+  std::sort(additions.begin(), additions.end());
+  if (std::adjacent_find(additions.begin(), additions.end()) !=
+      additions.end()) {
+    result.status = ExactCoverLiveStatus::Invalid;
+    result.recognition_work = work;
+    return result;
+  }
+  if (additions.size() > replacement.max_size() - replacement.size()) {
+    result.status = ExactCoverLiveStatus::ResourceExhausted;
+    result.recognition_work = work;
+    return result;
+  }
+  replacement.insert(replacement.end(), additions.begin(), additions.end());
+  std::sort(replacement.begin(), replacement.end());
+  std::vector<uint32_t> introduced_theory_variables;
+  introduced_theory_variables.reserve(plan.definitions().size());
+  for (const auto &definition : plan.definitions())
+    introduced_theory_variables.push_back(
+        static_cast<uint32_t>(definition.output));
+
+  // Re-capture the complete live census immediately before publication. This
+  // validates clause literals and retained native proof IDs while charging the
+  // same declared recognition allowance as initial capture and planning.
+  const uint64_t revalidation_begin = work;
+  std::vector<Premise> current_source;
+  uint64_t current_clauses = 0, current_literals = 0;
+  failure = ExactCoverLiveStatus::Stale;
+  if (!capture_source(k, request, work, current_source, current_clauses,
+                      current_literals, failure)) {
+    result.status = failure;
+    result.recognition_work = work;
+    result.revalidation_work = work - revalidation_begin;
+    return result;
+  }
+  result.revalidation_work = work - revalidation_begin;
   result.recognition_work = work;
+  if (current_source != source) {
+    result.status = ExactCoverLiveStatus::Stale;
+    return result;
+  }
 
   const auto published = exact_cover_semantic::publish_batch(
       k, plan, {request.action_id, request.maximum_journal_bytes,
@@ -210,10 +289,9 @@ ExactCoverLiveResult exact_cover_live_apply(
   result.literal_occurrences = published.literal_occurrences;
   result.journal_bytes = published.journal_bytes;
   result.extent_growth = published.extent_growth;
-  result.introduced_theory_variables.reserve(plan.definitions().size());
-  for (const auto &definition : plan.definitions())
-    result.introduced_theory_variables.push_back(
-        static_cast<uint32_t>(definition.output));
+  result.introduced_theory_variables =
+      std::move(introduced_theory_variables);
+  ExactCoverLiveSessionAccess::commit(*request.session, replacement);
   return result;
 }
 
