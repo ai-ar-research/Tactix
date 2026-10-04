@@ -3,6 +3,7 @@
 #include "rules/factor/factor.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/work_settings.hpp"
 #include "strategy/rule_invocation.hpp"
@@ -79,6 +80,10 @@ struct OnlineInvocation {
   // IndependentSetCover consequences. Each inner vector is one action.
   std::vector<std::vector<uint32_t>> independent_set_cover_instances = {};
   std::vector<Gf3AffineInstance> gf3_affine_instances = {};
+  // Canonical opaque identities returned by gf3_gaussian_action_offer().
+  // They encode exact semantics, derivation provenance, live premise IDs and
+  // source clauses; they are stable replay keys rather than mutable ordinals.
+  std::vector<std::string> gf3_gaussian_instances = {};
   std::vector<DirectCspSupportActionSelection> direct_csp_support_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;

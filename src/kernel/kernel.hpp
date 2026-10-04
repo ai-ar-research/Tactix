@@ -36,6 +36,7 @@ struct IndependentSetCoverActionSession;
 class Gf3AffineActionSession;
 class DirectCspSupportActionSession;
 class DirectPhpActionSession;
+class Gf3GaussianActionSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 void rule_journal_note_clause_transition(const Kernel &, const char *,
                                          const uint32_t *, uint32_t,
@@ -1058,6 +1059,29 @@ struct Stats {
   uint64_t direct_php_proof_deletion_literals = 0;
   uint64_t direct_php_proof_fresh_variables = 0, direct_php_proof_events = 0;
   uint64_t direct_php_proof_maximum_event_width = 0;
+  uint64_t gf3_gaussian_attempts = 0, gf3_gaussian_applied = 0;
+  uint64_t gf3_gaussian_invalid = 0, gf3_gaussian_inapplicable = 0;
+  uint64_t gf3_gaussian_no_structure = 0;
+  uint64_t gf3_gaussian_no_supported_outcome = 0;
+  uint64_t gf3_gaussian_already_published = 0;
+  uint64_t gf3_gaussian_exhausted = 0, gf3_gaussian_interrupted = 0;
+  uint64_t gf3_gaussian_stale = 0, gf3_gaussian_unsupported_proof = 0;
+  uint64_t gf3_gaussian_source_clauses = 0;
+  uint64_t gf3_gaussian_source_literals = 0;
+  uint64_t gf3_gaussian_capture_work = 0, gf3_gaussian_bridge_work = 0;
+  uint64_t gf3_gaussian_certificate_work = 0;
+  uint64_t gf3_gaussian_validation_work = 0;
+  uint64_t gf3_gaussian_revalidation_work = 0;
+  uint64_t gf3_gaussian_proof_additions = 0;
+  uint64_t gf3_gaussian_proof_literals = 0;
+  uint64_t gf3_gaussian_installed_clauses = 0;
+  uint64_t gf3_gaussian_duplicate_clauses = 0;
+  uint64_t gf3_gaussian_journal_work = 0;
+  uint64_t gf3_gaussian_journal_bytes = 0;
+  uint64_t gf3_gaussian_session_work = 0;
+  uint64_t gf3_gaussian_identity_bytes = 0;
+  uint64_t gf3_gaussian_session_identity_bytes = 0;
+  uint64_t gf3_gaussian_units = 0, gf3_gaussian_conflicts = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   uint64_t congruence_binary_rebuilds = 0;
   uint64_t congruence_unjustified = 0;
@@ -1869,6 +1893,8 @@ struct Kernel {
   strategy::Gf3AffineConsequenceParameters gf3_affine_consequence_parameters;
   strategy::DirectCspSupportParameters direct_csp_support_parameters;
   strategy::DirectPhpRefutationParameters direct_php_refutation_parameters;
+  strategy::Gf3GaussianConsequenceParameters
+      gf3_gaussian_consequence_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
   // Borrowed session stream. The owner keeps it open through all structural
   // actions; sequence IDs never reset on rebind or proof-mode changes.
@@ -1884,6 +1910,7 @@ struct Kernel {
   Gf3AffineActionSession *gf3_affine_action_session = nullptr;
   DirectCspSupportActionSession *direct_csp_support_action_session = nullptr;
   DirectPhpActionSession *direct_php_action_session = nullptr;
+  Gf3GaussianActionSession *gf3_gaussian_action_session = nullptr;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 

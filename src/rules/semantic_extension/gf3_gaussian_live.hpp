@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace tactix::gf3_gaussian_live {
@@ -34,10 +35,14 @@ struct Request {
   uint64_t maximum_proof_additions = 0;
   uint64_t maximum_proof_literal_occurrences = 0;
   uint64_t maximum_journal_bytes = 0;
+  uint64_t maximum_identity_bytes = 0;
   uint32_t maximum_external_extent = 0;
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
+  // Empty retains the private batch API.  Public controller actions always
+  // provide the exact canonical complete-batch identity returned by inspect().
+  std::string selected_identity;
 };
 
 struct Accounting {
@@ -54,6 +59,7 @@ struct Accounting {
   uint64_t duplicate_clauses = 0;
   uint64_t journal_work = 0;
   uint64_t journal_bytes = 0;
+  uint64_t identity_bytes = 0;
 
   friend bool operator==(const Accounting &, const Accounting &) = default;
 };
@@ -81,6 +87,7 @@ public:
   const gf3_gaussian_certificate::Plan &certificate() const {
     return certificate_;
   }
+  const std::string &batch_identity() const { return batch_identity_; }
 
 private:
   friend struct PreparedAccess;
@@ -106,6 +113,7 @@ private:
   gf3_gaussian_certificate::Plan certificate_;
   std::vector<uint64_t> event_ids_;
   std::vector<uint8_t> install_;
+  std::string batch_identity_;
   std::string journal_;
   Result prepared_;
 };
@@ -114,6 +122,9 @@ private:
 // cannot be authenticated across a caller-visible gap.  Atomic apply supports
 // DSR, DRAT, and no-proof modes.  LRAT/PBP decline before mutation.
 Result prepare(Kernel &, const Request &, Prepared &);
+// Mutation-free atomic preflight.  Unlike split prepare(), inspection is also
+// available with DSR/DRAT because no proof stream is retained or written.
+Result inspect(Kernel &, const Request &, Prepared &);
 Result apply(Kernel &, const Request &, Prepared &);
 Result apply(Kernel &, const Request &);
 

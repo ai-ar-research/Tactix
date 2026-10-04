@@ -24,6 +24,9 @@ struct PreparedAccess {
   static std::vector<uint8_t> &install(Prepared &prepared) {
     return prepared.install_;
   }
+  static std::string &batch_identity(Prepared &prepared) {
+    return prepared.batch_identity_;
+  }
   static std::string &journal(Prepared &prepared) {
     return prepared.journal_;
   }
@@ -39,6 +42,139 @@ namespace {
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
   value += amount;
+  return true;
+}
+
+void append_u8(std::string &bytes, uint8_t value) {
+  bytes.push_back(static_cast<char>(value));
+}
+
+void append_u32(std::string &bytes, uint32_t value) {
+  for (unsigned shift = 0; shift != 32; shift += 8)
+    append_u8(bytes, static_cast<uint8_t>(value >> shift));
+}
+
+void append_u64(std::string &bytes, uint64_t value) {
+  for (unsigned shift = 0; shift != 64; shift += 8)
+    append_u8(bytes, static_cast<uint8_t>(value >> shift));
+}
+
+void append_reference(std::string &bytes,
+                      const gf3_affine::SourceReference &reference,
+                      const Gf3AffineOwnerSnapshot &owner) {
+  append_u64(bytes, reference.occurrence);
+  append_u64(bytes, reference.native_proof_id);
+  if (!reference.occurrence || reference.occurrence > owner.sources.size()) {
+    append_u64(bytes, UINT64_MAX);
+    return;
+  }
+  const auto &clause = owner.sources[reference.occurrence - 1].clause;
+  append_u64(bytes, clause.size());
+  for (int32_t literal : clause)
+    append_u32(bytes, static_cast<uint32_t>(literal));
+}
+
+std::string hex(std::string_view bytes) {
+  static constexpr char digit[] = "0123456789abcdef";
+  std::string result = "g3g1:";
+  result.reserve(result.size() + 2 * bytes.size());
+  for (unsigned char byte : bytes) {
+    result.push_back(digit[byte >> 4]);
+    result.push_back(digit[byte & 15]);
+  }
+  return result;
+}
+
+std::string outcome_identity(
+    const gf3_gaussian_certificate::Consequence &consequence,
+    const gf3_gaussian_bridge::Plan &bridge,
+    const Gf3AffineOwnerSnapshot &owner) {
+  std::string bytes;
+  append_u8(bytes, static_cast<uint8_t>(consequence.kind));
+  append_u32(bytes, consequence.derivation);
+  append_u8(bytes, consequence.rhs);
+  append_u64(bytes, consequence.row.size());
+  for (const auto &term : consequence.row) {
+    append_u32(bytes, term.variable);
+    append_u8(bytes, term.coefficient);
+  }
+  append_u64(bytes, consequence.sources.size());
+  for (const auto &source : consequence.sources) {
+    append_u64(bytes, source.combination.source_id);
+    append_u8(bytes, source.combination.coefficient);
+    append_u32(bytes, source.authentication_index);
+    if (source.authentication_index >= bridge.authentication.size()) {
+      append_u64(bytes, UINT64_MAX);
+      continue;
+    }
+    const auto &authentication =
+        bridge.authentication[source.authentication_index];
+    append_u64(bytes, authentication.source_id);
+    append_u32(bytes, authentication.equation_index);
+    append_u64(bytes, authentication.domains.size());
+    for (const auto &domain : authentication.domains) {
+      append_u32(bytes, domain.domain);
+      append_reference(bytes, domain.at_least_one, owner);
+      for (const auto &reference : domain.at_most_one)
+        append_reference(bytes, reference, owner);
+    }
+    append_u64(bytes, authentication.forbidden_tuples.size());
+    for (const auto &tuple : authentication.forbidden_tuples) {
+      append_u64(bytes, tuple.tuple);
+      append_reference(bytes, tuple.premise, owner);
+    }
+  }
+  return hex(bytes);
+}
+
+bool sized_add(uint64_t &value, uint64_t amount) {
+  return amount <= UINT64_MAX - value && (value += amount, true);
+}
+
+bool reference_bytes(uint64_t &bytes,
+                     const gf3_affine::SourceReference &reference,
+                     const Gf3AffineOwnerSnapshot &owner) {
+  if (!sized_add(bytes, 24)) return false;
+  if (!reference.occurrence || reference.occurrence > owner.sources.size())
+    return true;
+  const uint64_t literals = owner.sources[reference.occurrence - 1].clause.size();
+  return literals <= (UINT64_MAX - bytes) / 4 &&
+         sized_add(bytes, 4 * literals);
+}
+
+bool outcome_identity_bytes(
+    const gf3_gaussian_certificate::Consequence &consequence,
+    const gf3_gaussian_bridge::Plan &bridge,
+    const Gf3AffineOwnerSnapshot &owner, uint64_t &encoded) {
+  uint64_t bytes = 1 + 4 + 1 + 8;
+  if (consequence.row.size() > (UINT64_MAX - bytes) / 5 ||
+      !sized_add(bytes, 5 * consequence.row.size()) ||
+      !sized_add(bytes, 8))
+    return false;
+  for (const auto &source : consequence.sources) {
+    if (!sized_add(bytes, 8 + 1 + 4)) return false;
+    if (source.authentication_index >= bridge.authentication.size()) {
+      if (!sized_add(bytes, 8)) return false;
+      continue;
+    }
+    const auto &authentication =
+        bridge.authentication[source.authentication_index];
+    if (!sized_add(bytes, 8 + 4 + 8)) return false;
+    for (const auto &domain : authentication.domains) {
+      if (!sized_add(bytes, 4) ||
+          !reference_bytes(bytes, domain.at_least_one, owner))
+        return false;
+      for (const auto &reference : domain.at_most_one)
+        if (!reference_bytes(bytes, reference, owner)) return false;
+    }
+    if (!sized_add(bytes, 8)) return false;
+    for (const auto &tuple : authentication.forbidden_tuples)
+      if (!sized_add(bytes, 8) ||
+          !reference_bytes(bytes, tuple.premise, owner))
+        return false;
+  }
+  if (bytes > (UINT64_MAX - 5) / 2) return false;
+  encoded = 5 + 2 * bytes;
   return true;
 }
 
@@ -58,6 +194,9 @@ bool valid(const Request &request) {
          request.maximum_proof_additions &&
          request.maximum_proof_literal_occurrences &&
          request.maximum_journal_bytes && request.maximum_external_extent &&
+         request.maximum_identity_bytes &&
+         (request.selected_identity.empty() ||
+          request.selected_identity.size() <= request.maximum_identity_bytes) &&
          request.action_id && request.semantic_id && request.records &&
          recognition.maximum_source_clauses &&
          recognition.maximum_source_literals && recognition.maximum_domains &&
@@ -221,7 +360,8 @@ bool make_journal(const Request &request, Prepared &prepared) {
   if (!append(journal, request.maximum_journal_bytes,
               "{" + identity +
                   ",\"kind\":\"gf3-gaussian-begin\",\"proof\":\"rup\","
-                  "\"publication\":\"unit-or-conflict-only\"}\n"))
+                  "\"publication\":\"unit-or-conflict-only\","
+                  "\"selection\":\"" + request.selected_identity + "\"}\n"))
     return false;
   for (const auto &source : PreparedAccess::owner(prepared).sources)
     if (!append(journal, request.maximum_journal_bytes,
@@ -406,10 +546,12 @@ bool same_request(const Request &request, const Prepared &prepared) {
          request.maximum_proof_literal_occurrences ==
              retained.maximum_proof_literal_occurrences &&
          request.maximum_journal_bytes == retained.maximum_journal_bytes &&
+         request.maximum_identity_bytes == retained.maximum_identity_bytes &&
          request.maximum_external_extent == retained.maximum_external_extent &&
          request.action_id == retained.action_id &&
          request.semantic_id == retained.semantic_id &&
-         request.records == retained.records;
+         request.records == retained.records &&
+         request.selected_identity == retained.selected_identity;
 }
 
 } // namespace
@@ -495,6 +637,63 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     return result;
   }
   prepared.certificate_ = std::move(certified.plan);
+  std::vector<std::string> identities;
+  identities.reserve(prepared.certificate_.consequences.size());
+  for (const auto &consequence : prepared.certificate_.consequences) {
+    uint64_t encoded = 0;
+    if (!outcome_identity_bytes(consequence, prepared.bridge_,
+                                prepared.owner_, encoded) ||
+        result.effort.identity_bytes > request.maximum_identity_bytes ||
+        encoded > request.maximum_identity_bytes -
+                      result.effort.identity_bytes) {
+      result.status = Status::ResourceExhausted;
+      return result;
+    }
+    std::string identity = outcome_identity(consequence, prepared.bridge_,
+                                            prepared.owner_);
+    if (identity.size() != encoded ||
+        !add(result.effort.identity_bytes, identity.size())) {
+      result.status = Status::ResourceExhausted;
+      return result;
+    }
+    identities.push_back(std::move(identity));
+  }
+  uint64_t batch_binary_bytes = 8;
+  for (const std::string &identity : identities)
+    if (!sized_add(batch_binary_bytes, 8) ||
+        !sized_add(batch_binary_bytes, identity.size())) {
+      result.status = Status::ResourceExhausted;
+      return result;
+    }
+  if (batch_binary_bytes > (UINT64_MAX - 5) / 2) {
+    result.status = Status::ResourceExhausted;
+    return result;
+  }
+  const uint64_t batch_encoded_bytes = 5 + 2 * batch_binary_bytes;
+  if (result.effort.identity_bytes > request.maximum_identity_bytes ||
+      batch_encoded_bytes > request.maximum_identity_bytes -
+                                result.effort.identity_bytes) {
+    result.status = Status::ResourceExhausted;
+    return result;
+  }
+  std::string batch_bytes;
+  append_u64(batch_bytes, identities.size());
+  for (const std::string &identity : identities) {
+    append_u64(batch_bytes, identity.size());
+    batch_bytes.append(identity);
+  }
+  PreparedAccess::batch_identity(prepared) = hex(batch_bytes);
+  prepared.batch_identity_.replace(0, 5, "g3b1:");
+  if (prepared.batch_identity_.size() != batch_encoded_bytes ||
+      !add(result.effort.identity_bytes, prepared.batch_identity_.size())) {
+    result.status = Status::ResourceExhausted;
+    return result;
+  }
+  if (!request.selected_identity.empty() &&
+      request.selected_identity != prepared.batch_identity_) {
+    result.status = Status::Stale;
+    return result;
+  }
   if (!plan_events(kernel, request, prepared, result)) {
     return result;
   }
@@ -626,6 +825,10 @@ Result publish_internal(Kernel &kernel, const Request &request,
 
 Result prepare(Kernel &kernel, const Request &request, Prepared &output) {
   return prepare_internal(kernel, request, output, false);
+}
+
+Result inspect(Kernel &kernel, const Request &request, Prepared &output) {
+  return prepare_internal(kernel, request, output, true);
 }
 
 Result apply(Kernel &kernel, const Request &request, Prepared &prepared) {

@@ -117,6 +117,7 @@ live::Request request(FILE *records) {
   result.maximum_proof_additions = 100000;
   result.maximum_proof_literal_occurrences = 1000000;
   result.maximum_journal_bytes = 1000000;
+  result.maximum_identity_bytes = 4000000;
   result.maximum_external_extent = 100;
   result.action_id = 401;
   result.semantic_id = 503;

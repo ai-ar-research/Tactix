@@ -408,6 +408,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE 37
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT 38
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION 39
+#define TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE 40
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
@@ -613,6 +614,30 @@ typedef struct {
   uint64_t maximum_proof_literals, maximum_fresh_variables;
   uint64_t maximum_proof_events, maximum_replay_work;
 } tactix_online_direct_php_refutation_parameters;
+typedef struct {
+  uint64_t maximum_source_clauses, maximum_source_literals;
+  uint32_t maximum_domains, maximum_equations;
+  uint32_t maximum_equation_arity, maximum_tuples_per_equation;
+  uint64_t maximum_bridge_work, maximum_bridge_source_clauses;
+  uint64_t maximum_bridge_source_literals;
+  uint32_t maximum_bridge_domains, maximum_bridge_equations;
+  uint64_t maximum_bridge_terms, maximum_authentication_references;
+  uint64_t maximum_references_per_equation, maximum_gaussian_work;
+  uint64_t maximum_fill_entries;
+  uint32_t maximum_intermediate_width, maximum_provenance_terms;
+  uint32_t maximum_derivations;
+  uint64_t maximum_retained_plan_bytes, maximum_certificate_work;
+  uint64_t maximum_events, maximum_event_literals, maximum_active_clauses;
+  uint64_t maximum_retained_source_references;
+  uint32_t maximum_event_width, maximum_branch_domains;
+  uint32_t maximum_consequences;
+  uint64_t maximum_capture_work, maximum_revalidation_work;
+  uint64_t maximum_proof_additions, maximum_proof_literal_occurrences;
+  uint64_t maximum_journal_bytes, maximum_identity_bytes;
+  uint32_t maximum_external_extent;
+  uint64_t maximum_session_keys, maximum_session_work;
+  uint64_t maximum_session_identity_bytes;
+} tactix_online_gf3_gaussian_consequence_parameters;
 typedef struct {
   /* Advice is H-only and consumes the currently staged semantic candidate.
    * Priorities are fixed additive doses for the two semantic roles. */
@@ -978,6 +1003,7 @@ typedef struct {
     tactix_online_gf3_affine_consequence_parameters gf3_affine_consequence;
     tactix_online_direct_csp_support_parameters direct_csp_support;
     tactix_online_direct_php_refutation_parameters direct_php_refutation;
+    tactix_online_gf3_gaussian_consequence_parameters gf3_gaussian_consequence;
     tactix_online_semantic_variable_advice_parameters semantic_variable_advice;
     tactix_online_instantiate_parameters instantiate;
     tactix_online_backbone_parameters backbone;
@@ -1136,6 +1162,24 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v5;
 
+/* Additive v6 payload for a selected authenticated GF(3) Gaussian batch.
+ * The identity is a canonical NUL-terminated replay key returned by native
+ * discovery and is deep-copied by configure_v6. */
+typedef struct {
+  const char *identity;
+} tactix_online_gf3_gaussian_instance;
+typedef struct {
+  tactix_online_step_v5 base;
+  const tactix_online_gf3_gaussian_instance *gf3_gaussian_instances;
+  int gf3_gaussian_instance_count;
+} tactix_online_step_v6;
+typedef struct {
+  const tactix_online_step_v6 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v6;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1173,6 +1217,8 @@ int tactix_online_configure_v3(tactix *, const tactix_online_program_v3 *,
 int tactix_online_configure_v4(tactix *, const tactix_online_program_v4 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v5(tactix *, const tactix_online_program_v5 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v6(tactix *, const tactix_online_program_v6 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

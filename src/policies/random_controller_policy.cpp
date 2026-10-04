@@ -70,7 +70,8 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
     else if ((std::string_view(rule.name) == "Condition" ||
               std::string_view(rule.name) == "IndependentSetCover" ||
               std::string_view(rule.name) == "Gf3AffineConsequence" ||
-              std::string_view(rule.name) == "DirectCspSupport") &&
+              std::string_view(rule.name) == "DirectCspSupport" ||
+              std::string_view(rule.name) == "Gf3GaussianConsequence") &&
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))
       entry.reason = "structured-witness-not-offered";
@@ -103,6 +104,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("Gf3AffineConsequence", gf3_affine_consequence_reference);
   CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
   CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
+  CONTROLLER_REFERENCE("Gf3GaussianConsequence", gf3_gaussian_consequence_reference);
   CONTROLLER_REFERENCE("SemanticVariableAdvice", semantic_variable_advice_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
   CONTROLLER_REFERENCE("Backbone", backbone_reference);
@@ -251,6 +253,15 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << producer.maximum_enumeration_work << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
+  if (config.gf3_gaussian_action_producer.enabled) {
+    OnlineInvocation profile;
+    profile.rule = "Gf3GaussianConsequence";
+    profile.parameters = config.parameters.gf3_gaussian_consequence_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
+    profile.gf3_gaussian_instances = {"g3b1:00"};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
   return out.str();
 }
 
@@ -366,6 +377,15 @@ bool RandomControllerSelector::choose(
         direct_csp_discovery_.complete)
       direct_csp_discovery_.terminal = true;
   }
+  if (gf3_gaussian_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          gf3_gaussian_discovery_.pending_sequence &&
+      settled_terminal(observation.last_action->invocation)) {
+    gf3_gaussian_discovery_.pending.reset();
+    gf3_gaussian_discovery_.offer.reset();
+    gf3_gaussian_discovery_.pending_sequence = 0;
+    gf3_gaussian_discovery_.terminal = true;
+  }
   std::vector<ActionProducerEffort> producer_effort;
   const auto saturated_add = [](uint64_t left, uint64_t right) {
     return right > UINT64_MAX - left ? UINT64_MAX : left + right;
@@ -401,6 +421,41 @@ bool RandomControllerSelector::choose(
         << ' ' << producer.maximum_enumeration_work << ' '
         << serialize_online_strategy_program({{invocation}, {}});
     return out.str();
+  };
+
+  const auto gaussian_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "Gf3GaussianConsequence";
+    invocation.parameters =
+        config.parameters.gf3_gaussian_consequence_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    invocation.gf3_gaussian_instances = {"g3b1:00"};
+    return serialize_online_strategy_program({{invocation}, {}});
+  };
+
+  const auto gaussian_limits = [&] {
+    const auto &p = config.parameters.gf3_gaussian_consequence_reference;
+    return Gf3GaussianActionLimits{
+        {p.maximum_source_clauses, p.maximum_source_literals,
+         p.maximum_domains, p.maximum_equations,
+         p.maximum_equation_arity, p.maximum_tuples_per_equation},
+        {{p.maximum_bridge_work, p.maximum_bridge_source_clauses,
+          p.maximum_bridge_source_literals, p.maximum_bridge_domains,
+          p.maximum_bridge_equations, p.maximum_bridge_terms,
+          p.maximum_authentication_references,
+          p.maximum_references_per_equation,
+          {p.maximum_gaussian_work, p.maximum_fill_entries,
+           p.maximum_intermediate_width, p.maximum_provenance_terms,
+           p.maximum_derivations, p.maximum_retained_plan_bytes}},
+         p.maximum_certificate_work, p.maximum_events,
+         p.maximum_event_literals, p.maximum_active_clauses,
+         p.maximum_retained_source_references, p.maximum_event_width,
+         p.maximum_branch_domains, p.maximum_consequences},
+        p.maximum_capture_work, p.maximum_revalidation_work,
+        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+        p.maximum_journal_bytes, p.maximum_identity_bytes,
+        p.maximum_external_extent, p.maximum_session_keys,
+        p.maximum_session_work, p.maximum_session_identity_bytes};
   };
 
   const auto discover_gf3 = [&]() -> bool {
@@ -582,7 +637,61 @@ bool RandomControllerSelector::choose(
     return !direct_csp_discovery_.offers.empty();
   };
 
-  enum class NativeOffer : uint8_t { None, Gf3, DirectCsp };
+  const auto discover_gaussian = [&]() -> bool {
+    if (!config.gf3_gaussian_action_producer.enabled ||
+        has_static_offer("Gf3GaussianConsequence") ||
+        !k.gf3_gaussian_action_session)
+      return false;
+    const auto &session = *k.gf3_gaussian_action_session;
+    const auto profile = gaussian_profile();
+    const auto state = state_version(k);
+    if (gf3_gaussian_discovery_.owner != &k ||
+        gf3_gaussian_discovery_.session != &session ||
+        !same_version(gf3_gaussian_discovery_.state, state) ||
+        gf3_gaussian_discovery_.session_keys != session.keys().size() ||
+        gf3_gaussian_discovery_.profile != profile) {
+      gf3_gaussian_discovery_ = {};
+      gf3_gaussian_discovery_.owner = &k;
+      gf3_gaussian_discovery_.session = &session;
+      gf3_gaussian_discovery_.state = state;
+      gf3_gaussian_discovery_.session_keys = session.keys().size();
+      gf3_gaussian_discovery_.profile = profile;
+    }
+    if (gf3_gaussian_discovery_.pending || gf3_gaussian_discovery_.offer)
+      return true;
+    if (gf3_gaussian_discovery_.terminal) return false;
+    const auto limits = gaussian_limits();
+    if (!limits.valid()) {
+      error = "GF3 Gaussian action producer parameters are invalid";
+      return false;
+    }
+    const auto offered = gf3_gaussian_action_offer(k, session, limits);
+    uint64_t preparation = offered.live.effort.capture_work;
+    preparation = saturated_add(preparation, offered.live.effort.bridge_work);
+    preparation = saturated_add(preparation,
+                                offered.live.effort.certificate_work);
+    preparation = saturated_add(preparation, offered.live.effort.identity_bytes);
+    preparation = saturated_add(preparation, offered.session_work);
+    preparation = saturated_add(preparation, offered.session_identity_bytes);
+    producer_effort.push_back(
+        {"Gf3GaussianConsequence", static_cast<uint8_t>(offered.status),
+         true, preparation, 0, preparation,
+         offered.live.effort.identity_bytes, offered.offers.size()});
+    if (offered.status == Gf3GaussianActionStatus::Interrupted) {
+      error = "controller selection interrupted";
+      gf3_gaussian_discovery_.terminal = true;
+      return false;
+    }
+    if (offered.status != Gf3GaussianActionStatus::Applied ||
+        offered.offers.size() != 1) {
+      gf3_gaussian_discovery_.terminal = true;
+      return false;
+    }
+    gf3_gaussian_discovery_.offer = offered.offers.front();
+    return true;
+  };
+
+  enum class NativeOffer : uint8_t { None, Gf3, DirectCsp, Gf3Gaussian };
   struct Eligible {
     const RuleVTable *rule = nullptr;
     NativeOffer native = NativeOffer::None;
@@ -600,6 +709,11 @@ bool RandomControllerSelector::choose(
                entry.rule == "DirectCspSupport" && discover_direct()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::DirectCsp});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "Gf3GaussianConsequence" &&
+               discover_gaussian()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::Gf3Gaussian});
     } else if (!error.empty()) {
       return false;
     }
@@ -649,6 +763,16 @@ bool RandomControllerSelector::choose(
           config.parameters.direct_csp_support_reference;
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.direct_csp_support_instances = {exact};
+    } else if (selected_action.native == NativeOffer::Gf3Gaussian) {
+      if (!gf3_gaussian_discovery_.pending)
+        gf3_gaussian_discovery_.pending = gf3_gaussian_discovery_.offer;
+      gf3_gaussian_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.gf3_gaussian_consequence_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.gf3_gaussian_instances = {
+          *gf3_gaussian_discovery_.pending};
     } else {
       request.invocation.rule = rule.name;
       request.invocation.parameters = reference_parameters(k, rule.name, config.parameters);

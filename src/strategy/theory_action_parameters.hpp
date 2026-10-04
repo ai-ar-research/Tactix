@@ -166,6 +166,54 @@ struct DirectPhpRefutationParameters {
   static DirectPhpRefutationParameters from_kernel(const Kernel &);
 };
 
+// Exact bounded profile for authenticated Gaussian closure over recognized
+// GF(3) one-hot equations.  The controller supplies one stable identity for
+// the complete authenticated Gaussian batch; these fields only define
+// recognition/certificate/resource semantics.
+struct Gf3GaussianConsequenceParameters {
+  uint64_t maximum_source_clauses = 1000;
+  uint64_t maximum_source_literals = 10000;
+  uint32_t maximum_domains = 100;
+  uint32_t maximum_equations = 100;
+  uint32_t maximum_equation_arity = 8;
+  uint32_t maximum_tuples_per_equation = 10000;
+  uint64_t maximum_bridge_work = 1000000;
+  uint64_t maximum_bridge_source_clauses = 10000;
+  uint64_t maximum_bridge_source_literals = 100000;
+  uint32_t maximum_bridge_domains = 100;
+  uint32_t maximum_bridge_equations = 100;
+  uint64_t maximum_bridge_terms = 1000;
+  uint64_t maximum_authentication_references = 10000;
+  uint64_t maximum_references_per_equation = 1000;
+  uint64_t maximum_gaussian_work = 100000;
+  uint64_t maximum_fill_entries = 100000;
+  uint32_t maximum_intermediate_width = 32;
+  uint32_t maximum_provenance_terms = 100;
+  uint32_t maximum_derivations = 1000;
+  uint64_t maximum_retained_plan_bytes = 1000000;
+  uint64_t maximum_certificate_work = 10000000;
+  uint64_t maximum_events = 100000;
+  uint64_t maximum_event_literals = 1000000;
+  uint64_t maximum_active_clauses = 100000;
+  uint64_t maximum_retained_source_references = 10000;
+  uint32_t maximum_event_width = 32;
+  uint32_t maximum_branch_domains = 32;
+  uint32_t maximum_consequences = 32;
+  uint64_t maximum_capture_work = 1000000;
+  uint64_t maximum_revalidation_work = 1000000;
+  uint64_t maximum_proof_additions = 100000;
+  uint64_t maximum_proof_literal_occurrences = 1000000;
+  uint64_t maximum_journal_bytes = 1000000;
+  uint64_t maximum_identity_bytes = 4000000;
+  uint32_t maximum_external_extent = 100000;
+  uint64_t maximum_session_keys = 10000;
+  uint64_t maximum_session_work = 1000000;
+  uint64_t maximum_session_identity_bytes = 4000000;
+
+  bool valid() const;
+  static Gf3GaussianConsequenceParameters from_kernel(const Kernel &);
+};
+
 struct SemanticVariableAdviceParameters {
   uint32_t maximum_variables = 0;
   uint64_t maximum_priority_sum = 0;
@@ -181,6 +229,7 @@ void install_rule_parameters(Kernel &, const IndependentSetCoverParameters &);
 void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const DirectCspSupportParameters &);
 void install_rule_parameters(Kernel &, const DirectPhpRefutationParameters &);
+void install_rule_parameters(Kernel &, const Gf3GaussianConsequenceParameters &);
 void install_rule_parameters(Kernel &, const SemanticVariableAdviceParameters &);
 
 } // namespace strategy
