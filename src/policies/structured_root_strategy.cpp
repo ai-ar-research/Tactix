@@ -143,7 +143,23 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   remaining_group.use_structured_generators = false;
   remaining_group.stabilize_structured_variables = false;
   programs[2].sequence = {remaining, compaction(96)};
+  // Run the terminal affine-model opportunity inside the same structured-root
+  // lifecycle as the accepted schedule.  It must precede any eliminating or
+  // symmetry stage that can erase the complete encoding.  DefaultPolicy poses
+  // the configured parameters (or removes this stage when disabled) before
+  // execution; the public Lucky-8 action remains the sole implementation.
+  OnlineInvocation affine;
+  affine.id = 109;
+  affine.rule = "Lucky";
+  affine.parameters = AffineModelParameters{};
+  affine.granularity = InvocationGranularity::OneInstance;
+  affine.instances = {8};
+  affine.budget = WorkLimit::bounded(1);
+  OnlineStrategyProgram model_program;
+  model_program.sequence = {std::move(affine)};
   std::vector<OnlineStrategyStage> stages;
+  stages.push_back(
+      {std::move(model_program), BudgetExhaustionPolicy::Continue});
   for (auto &program : programs) {
     std::vector<StepId> followups;
     for (const auto &step : program.sequence)
@@ -156,7 +172,7 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   // to a scoped no-progress boundary. Repeating that discovery inside the
   // following graph step is useful only if an earlier stage changed the root
   // formula. Generic graph discovery remains independent of this feedback.
-  stages[1].structured_handoff_after_prior_progress = true;
+  stages[2].structured_handoff_after_prior_progress = true;
   return stages;
 }
 
@@ -209,9 +225,9 @@ std::vector<strategy::OnlineStrategyStage>
 DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages() {
   using namespace strategy;
   auto regular = structured_root_preprocessing_stages();
-  assert(regular.size() >= 2);
+  assert(regular.size() >= 3);
   OnlineInvocation graph;
-  for (const auto &step : regular[1].program.sequence)
+  for (const auto &step : regular[2].program.sequence)
     if (step.id == 84) {
       graph = step;
       break;
@@ -232,7 +248,7 @@ DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages() {
   // closure, this graph step and compaction. At-most-one completion and row or
   // product refinement stay out (parity ledger); there is no structured
   // handoff to gate.
-  auto stage = regular[1];
+  auto stage = regular[2];
   auto &sequence = stage.program.sequence;
   sequence.erase(std::remove_if(sequence.begin(), sequence.end(),
                                 [](const OnlineInvocation &step) {

@@ -94,9 +94,8 @@ static bool schedules_lucky_instance(
 int main() {
   DefaultStrategyConfig defaults;
   const std::string default_snapshot = defaults.serialize();
-  // Affine construction is an explicit typed DefaultPolicy opportunity. It is
-  // scheduled directly at the untouched root rather than hidden inside a
-  // structured inprocessing program.
+  // Affine construction remains the public Lucky-8 action, but DefaultPolicy
+  // owns its accepted lifecycle as the first structured-root stage.
   assert(default_snapshot.find("affine_model.enabled=1") != std::string::npos);
   assert(default_snapshot.find("affine_model.parameters=") !=
          std::string::npos);
@@ -107,8 +106,18 @@ int main() {
                                   .structured_root_bounded_backtracking_stages,
                              &defaults.inprocess
                                   .structured_root_large_domain_stages})
-    for (const auto &stage : *stages)
-      assert(!schedules_lucky_instance(stage.program, 8));
+    {
+      assert(!stages->empty());
+      assert(stages->front().program.sequence.size() == 1);
+      const auto &affine = stages->front().program.sequence.front();
+      assert(affine.id == 109 && affine.rule == "Lucky");
+      assert(schedules_lucky_instance(stages->front().program, 8));
+      assert(affine.granularity ==
+             strategy::InvocationGranularity::OneInstance);
+      assert(!affine.budget.is_unlimited() && affine.budget.amount() == 1);
+      for (size_t index = 1; index < stages->size(); ++index)
+        assert(!schedules_lucky_instance((*stages)[index].program, 8));
+    }
   assert(!defaults.graph_labeling_model.enabled);
   assert(defaults.inprocess.structured_root_before_lucky);
   assert(defaults.inprocess.structured_root_residual_search_handoff);
@@ -164,6 +173,21 @@ int main() {
     assert(DefaultPolicy(defaults).solve(production) == 10);
     assert(production.stats.affine_model_calls == 1);
     assert(production.stats.graph_labeling_calls == 0);
+
+    DefaultStrategyConfig affine_disabled = defaults;
+    affine_disabled.affine_model.enabled = false;
+    DefaultPolicy without_affine(affine_disabled);
+    for (const auto *stages : {
+             &without_affine.strategy_config().inprocess.structured_root_stages,
+             &without_affine.strategy_config()
+                  .inprocess.structured_root_bounded_backtracking_stages,
+             &without_affine.strategy_config()
+                  .inprocess.structured_root_large_domain_stages})
+      for (const auto &stage : *stages)
+        assert(!schedules_lucky_instance(stage.program, 8));
+    Kernel disabled;
+    assert(without_affine.solve(disabled) == 10);
+    assert(disabled.stats.affine_model_calls == 0);
 
     DefaultStrategyConfig graph_enabled = defaults;
     graph_enabled.graph_labeling_model.enabled = true;
