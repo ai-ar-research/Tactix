@@ -46,8 +46,8 @@ private:
 };
 
 // Every scan, derivation, proof delta, allocation and retained-session update
-// has an explicit caller limit.  These are feature-local until the shared
-// replay/configuration schema assigns the action a public rule id.
+// has an explicit caller limit.  The shared v5 schema carries these limits for
+// each exact equation-pair request.
 struct Gf3AffineActionLimits {
   gf3_affine::RecognitionBounds recognition;
   gf3_affine::PairEliminationBounds elimination;

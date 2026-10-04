@@ -311,6 +311,10 @@ target_link_libraries(test_online_all_actions PRIVATE tactix_lib)
 target_include_directories(test_online_all_actions PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME online_all_actions COMMAND test_online_all_actions)
 
+add_executable(test_theory_action_v5_runtime test_theory_action_v5_runtime.cpp)
+target_link_libraries(test_theory_action_v5_runtime PRIVATE tactix_lib)
+add_test(NAME theory_action_v5_runtime COMMAND test_theory_action_v5_runtime)
+
 add_executable(test_random_policy test_random_policy.c)
 target_link_libraries(test_random_policy PRIVATE tactix_lib)
 target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)

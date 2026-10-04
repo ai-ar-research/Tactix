@@ -3,6 +3,8 @@
 #include "diagnostics/rule_journal.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -12,6 +14,33 @@
 #include <string>
 
 namespace tactix {
+
+namespace {
+
+ApplyResult gf3_affine_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
+ApplyResult direct_csp_support_canonical_noop(Kernel &) {
+  return ApplyResult::NoOp;
+}
+
+RuleEligibility gf3_affine_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = gf3_affine_action_guard(kernel);
+  return result.fact("session-bound",
+                     kernel.gf3_affine_action_session != nullptr);
+}
+
+RuleEligibility direct_csp_support_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = direct_csp_support_action_guard(kernel);
+  return result.fact("session-bound",
+                     kernel.direct_csp_support_action_session != nullptr);
+}
+
+TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
+                     gf3_affine_registry_guard, gf3_affine_canonical_noop);
+TACTIX_REGISTER_RULE(DirectCspSupport, RuleTier::Inprocess,
+                     direct_csp_support_registry_guard,
+                     direct_csp_support_canonical_noop);
+
+} // namespace
 
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 namespace {
@@ -112,7 +141,8 @@ const std::vector<RuleVTable> &tactix_rules() {
         "SwitchMode",  "TransitiveReduce", "Vivify",
         "Walk",        "Condition", "ParityConsequence",
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
-        "SemanticVariableAdvice"};
+        "SemanticVariableAdvice", "Gf3AffineConsequence",
+        "DirectCspSupport"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {

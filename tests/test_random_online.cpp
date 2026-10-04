@@ -16,6 +16,7 @@
 #include <cstring>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <set>
 #include <string>
 #include <unistd.h>
@@ -1220,6 +1221,134 @@ static void theory_action_v4_replay_round_trip() {
   assert(!validate_online_strategy_program(program, &error));
 }
 
+static void theory_action_v5_replay_round_trip() {
+  OnlineInvocation gf3;
+  gf3.id = 714;
+  gf3.rule = "Gf3AffineConsequence";
+  gf3.parameters = Gf3AffineConsequenceParameters{
+      101, 102, 3, 4, 2, 105, 6, 107, 108, 109, 110,
+      111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121};
+  gf3.granularity = InvocationGranularity::SelectedBatch;
+  gf3.gf3_affine_instances = {{0, 1}, {1, 2}};
+  gf3.repeat = {RepeatMode::Once, 1};
+  gf3.budget = WorkLimit::bounded(2);
+
+  OnlineInvocation direct;
+  direct.id = 715;
+  direct.rule = "DirectCspSupport";
+  direct.parameters = DirectCspSupportParameters{
+      201, 202, 203, 4, 205, 206, 207, 208, 209, 210,
+      0, 212, 213, 214, false};
+  direct.granularity = InvocationGranularity::OneInstance;
+  direct.direct_csp_support_instances = {{{1, -2}, {3, -4}, 1}};
+  direct.repeat = {RepeatMode::Once, 1};
+  direct.budget = WorkLimit::bounded(1);
+
+  OnlineStrategyProgram program;
+  program.sequence = {gf3, direct};
+  std::string error;
+  assert(validate_online_strategy_program(program, &error));
+  const std::string wire = serialize_online_strategy_program(program);
+  assert(wire.find(":gf3-affine-consequence1(") != std::string::npos);
+  assert(wire.find(":gf3-affine-consequence[0,1;1,2]") !=
+         std::string::npos);
+  assert(wire.find(":direct-csp-support1(") != std::string::npos);
+  assert(wire.find(":direct-csp-support[2,1,-2,2,3,-4,1]") !=
+         std::string::npos);
+  OnlineStrategyProgram replay;
+  assert(deserialize_online_strategy_program(wire, replay, &error));
+  assert(serialize_online_strategy_program(replay) == wire);
+  assert(replay.sequence[0].gf3_affine_instances == gf3.gf3_affine_instances);
+  const auto &gf3_parameters =
+      std::get<Gf3AffineConsequenceParameters>(replay.sequence[0].parameters);
+  assert(gf3_parameters.maximum_source_clauses == 101 &&
+         gf3_parameters.maximum_source_literals == 102 &&
+         gf3_parameters.maximum_domains == 3 &&
+         gf3_parameters.maximum_equations == 4 &&
+         gf3_parameters.maximum_equation_arity == 2 &&
+         gf3_parameters.maximum_tuples_per_equation == 105 &&
+         gf3_parameters.maximum_result_arity == 6 &&
+         gf3_parameters.maximum_result_tuples == 107 &&
+         gf3_parameters.maximum_additions == 108 &&
+         gf3_parameters.maximum_addition_literals == 109 &&
+         gf3_parameters.maximum_recognition_work == 110 &&
+         gf3_parameters.maximum_planning_work == 111 &&
+         gf3_parameters.maximum_duplicate_scan_work == 112 &&
+         gf3_parameters.maximum_revalidation_work == 113 &&
+         gf3_parameters.maximum_proof_work == 114 &&
+         gf3_parameters.maximum_proof_additions == 115 &&
+         gf3_parameters.maximum_proof_literal_occurrences == 116 &&
+         gf3_parameters.maximum_arena_words == 117 &&
+         gf3_parameters.maximum_journal_bytes == 118 &&
+         gf3_parameters.maximum_external_extent == 119 &&
+         gf3_parameters.maximum_session_keys == 120 &&
+         gf3_parameters.maximum_session_work == 121);
+  const auto &direct_parameters =
+      std::get<DirectCspSupportParameters>(replay.sequence[1].parameters);
+  assert(direct_parameters.maximum_source_clauses == 201 &&
+         direct_parameters.maximum_source_literals == 202 &&
+         direct_parameters.maximum_recognition_work == 203 &&
+         direct_parameters.maximum_domain_values == 4 &&
+         direct_parameters.maximum_direct_clause_literals == 205 &&
+         direct_parameters.maximum_definition_clause_literals == 206 &&
+         direct_parameters.maximum_proof_work == 207 &&
+         direct_parameters.maximum_proof_additions == 208 &&
+         direct_parameters.maximum_proof_literal_occurrences == 209 &&
+         direct_parameters.maximum_journal_bytes == 210 &&
+         direct_parameters.maximum_extent_growth == 0 &&
+         direct_parameters.maximum_external_extent == 212 &&
+         direct_parameters.maximum_session_keys == 213 &&
+         direct_parameters.maximum_session_work == 214 &&
+         !direct_parameters.allow_extension);
+  assert(replay.sequence[1].direct_csp_support_instances.size() == 1);
+  const auto &direct_instance =
+      replay.sequence[1].direct_csp_support_instances.front();
+  assert(direct_instance.left_values ==
+             direct.direct_csp_support_instances[0].left_values &&
+         direct_instance.right_values ==
+             direct.direct_csp_support_instances[0].right_values &&
+         direct_instance.selected_left_value ==
+             direct.direct_csp_support_instances[0].selected_left_value);
+
+  program.sequence[0].gf3_affine_instances = {{2, 1}};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0] = gf3;
+  program.sequence[0].gf3_affine_instances = {{2, 2}};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence = {direct};
+  program.sequence[0].direct_csp_support_instances[0].right_values = {4, 3};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0] = direct;
+  program.sequence[0].direct_csp_support_instances[0].right_values = {2, 3};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0] = direct;
+  program.sequence[0].direct_csp_support_instances[0].left_values = {0, 2};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0] = direct;
+  program.sequence[0].direct_csp_support_instances[0].left_values = {
+      std::numeric_limits<int32_t>::min(), 2};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0] = direct;
+  program.sequence[0].direct_csp_support_instances[0].left_values = {-1, 1};
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0] = direct;
+  program.sequence[0].direct_csp_support_instances[0].selected_left_value = 2;
+  assert(!validate_online_strategy_program(program, &error));
+
+  const size_t direct_payload = wire.find(":direct-csp-support[");
+  assert(direct_payload != std::string::npos);
+  std::string overflow = wire;
+  const size_t overflow_literal = overflow.find("-4", direct_payload);
+  assert(overflow_literal != std::string::npos);
+  overflow.replace(overflow_literal, 2, "-2147483649");
+  assert(!deserialize_online_strategy_program(overflow, replay, &error));
+  std::string malformed = wire;
+  const size_t malformed_literal = malformed.find("-4", direct_payload);
+  assert(malformed_literal != std::string::npos);
+  malformed.replace(malformed_literal, 2, "x");
+  assert(!deserialize_online_strategy_program(malformed, replay, &error));
+}
+
 static void random_walk_and_reorder_vary_scoring_parameters() {
   Kernel k = broad_fixture();
   ScopedHeuristics heuristics(k);
@@ -2033,7 +2162,9 @@ static void sample_each_applicable_action(Kernel &k,
   for (const RuleVTable &rule : tactix_rules()) {
     if (!rule.guard(k))
       continue;
-    if (!std::strcmp(rule.name, "IndependentSetCover")) {
+    if (!std::strcmp(rule.name, "IndependentSetCover") ||
+        !std::strcmp(rule.name, "Gf3AffineConsequence") ||
+        !std::strcmp(rule.name, "DirectCspSupport")) {
       // A legal cover is a variable-length caller/producer-owned request.
       // Random generation must not fabricate one from a scalar payload.
       continue;
@@ -2093,8 +2224,10 @@ static void every_registry_action_has_random_support() {
     assert(conflict_seen.count("Restart") && conflict_seen.count("Reduce"));
     seen.insert(conflict_seen.begin(), conflict_seen.end());
   }
-  assert(seen.size() + 1 == tactix_rules().size());
+  assert(seen.size() + 3 == tactix_rules().size());
   assert(!seen.count("IndependentSetCover"));
+  assert(!seen.count("Gf3AffineConsequence"));
+  assert(!seen.count("DirectCspSupport"));
 }
 
 static void random_search_choices_cover_phases_targets_and_parameters() {
@@ -2352,6 +2485,7 @@ static void graph_labeling_parameters_round_trip() {
 int main() {
   affine_consequence_replay_round_trip();
   theory_action_v4_replay_round_trip();
+  theory_action_v5_replay_round_trip();
   graph_labeling_parameters_round_trip();
   seeded_walk_parameters_round_trip();
   condition_cube_replay_round_trips();

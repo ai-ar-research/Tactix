@@ -3300,7 +3300,9 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
             std::strcmp(rules[i].name, "ParityConsequence") &&
             std::strcmp(rules[i].name, "AffineConsequence") &&
             std::strcmp(rules[i].name, "ExactCoverExtension") &&
-            std::strcmp(rules[i].name, "IndependentSetCover"))
+            std::strcmp(rules[i].name, "IndependentSetCover") &&
+            std::strcmp(rules[i].name, "Gf3AffineConsequence") &&
+            std::strcmp(rules[i].name, "DirectCspSupport"))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);
@@ -5211,6 +5213,8 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
       strategy::AffineConsequenceParameters,
       strategy::ExactCoverExtensionParameters,
       strategy::IndependentSetCoverParameters,
+      strategy::Gf3AffineConsequenceParameters,
+      strategy::DirectCspSupportParameters,
       strategy::InstantiateParameters,
       strategy::BackboneParameters, strategy::VivifyParameters>
       parameters(k, e.parameters);

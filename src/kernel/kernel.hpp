@@ -33,6 +33,8 @@ struct Kernel;
 struct AffineBasisActionSession;
 struct ExactCoverExtensionActionSession;
 struct IndependentSetCoverActionSession;
+class Gf3AffineActionSession;
+class DirectCspSupportActionSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 void rule_journal_note_clause_transition(const Kernel &, const char *,
                                          const uint32_t *, uint32_t,
@@ -960,6 +962,66 @@ struct Stats {
   uint64_t independent_set_cover_journal_work = 0;
   uint64_t independent_set_cover_published = 0;
   uint64_t independent_set_cover_candidate_variables = 0;
+  uint64_t gf3_affine_attempts = 0;
+  uint64_t gf3_affine_applied = 0;
+  uint64_t gf3_affine_no_structure = 0;
+  uint64_t gf3_affine_no_consequence = 0;
+  uint64_t gf3_affine_already_published = 0;
+  uint64_t gf3_affine_invalid = 0;
+  uint64_t gf3_affine_inapplicable = 0;
+  uint64_t gf3_affine_resource_exhausted = 0;
+  uint64_t gf3_affine_interrupted = 0;
+  uint64_t gf3_affine_unsupported_proof = 0;
+  uint64_t gf3_affine_stale = 0;
+  uint64_t gf3_affine_source_clauses = 0;
+  uint64_t gf3_affine_source_literals = 0;
+  uint64_t gf3_affine_equations = 0;
+  uint64_t gf3_affine_owner_capture_work = 0;
+  uint64_t gf3_affine_recognition_work = 0;
+  uint64_t gf3_affine_planning_work = 0;
+  uint64_t gf3_affine_duplicate_scan_work = 0;
+  uint64_t gf3_affine_revalidation_work = 0;
+  uint64_t gf3_affine_proof_work = 0;
+  uint64_t gf3_affine_planned_additions = 0;
+  uint64_t gf3_affine_duplicate_additions = 0;
+  uint64_t gf3_affine_emitted_additions = 0;
+  uint64_t gf3_affine_proof_literal_occurrences = 0;
+  uint64_t gf3_affine_arena_words = 0;
+  uint64_t gf3_affine_journal_work = 0;
+  uint64_t gf3_affine_journal_bytes = 0;
+  uint64_t gf3_affine_session_work = 0;
+  uint64_t gf3_affine_session_commits = 0;
+  uint64_t gf3_affine_candidate_variables = 0;
+  uint64_t direct_csp_support_attempts = 0;
+  uint64_t direct_csp_support_applied = 0;
+  uint64_t direct_csp_support_no_structure = 0;
+  uint64_t direct_csp_support_no_consequence = 0;
+  uint64_t direct_csp_support_already_published = 0;
+  uint64_t direct_csp_support_invalid = 0;
+  uint64_t direct_csp_support_inapplicable = 0;
+  uint64_t direct_csp_support_resource_exhausted = 0;
+  uint64_t direct_csp_support_interrupted = 0;
+  uint64_t direct_csp_support_unsupported_proof = 0;
+  uint64_t direct_csp_support_stale = 0;
+  uint64_t direct_csp_support_source_clauses = 0;
+  uint64_t direct_csp_support_source_literals = 0;
+  uint64_t direct_csp_support_owner_capture_work = 0;
+  uint64_t direct_csp_support_recognition_work = 0;
+  uint64_t direct_csp_support_source_scan_work = 0;
+  uint64_t direct_csp_support_planning_work = 0;
+  uint64_t direct_csp_support_revalidation_work = 0;
+  uint64_t direct_csp_support_proof_work = 0;
+  uint64_t direct_csp_support_planned_additions = 0;
+  uint64_t direct_csp_support_emitted_additions = 0;
+  uint64_t direct_csp_support_proof_literal_occurrences = 0;
+  uint64_t direct_csp_support_journal_work = 0;
+  uint64_t direct_csp_support_journal_bytes = 0;
+  uint64_t direct_csp_support_extent_growth = 0;
+  uint64_t direct_csp_support_session_work = 0;
+  uint64_t direct_csp_support_session_commits = 0;
+  uint64_t direct_csp_support_owner_commits = 0;
+  uint64_t direct_csp_support_candidate_variables = 0;
+  uint64_t direct_csp_support_introduced_variables = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   uint64_t congruence_binary_rebuilds = 0;
   uint64_t congruence_unjustified = 0;
@@ -1757,6 +1819,8 @@ struct Kernel {
   strategy::AffineConsequenceParameters affine_consequence_parameters;
   strategy::ExactCoverExtensionParameters exact_cover_extension_parameters;
   strategy::IndependentSetCoverParameters independent_set_cover_parameters;
+  strategy::Gf3AffineConsequenceParameters gf3_affine_consequence_parameters;
+  strategy::DirectCspSupportParameters direct_csp_support_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
   // Borrowed session stream. The owner keeps it open through all structural
   // actions; sequence IDs never reset on rebind or proof-mode changes.
@@ -1769,6 +1833,8 @@ struct Kernel {
       nullptr;
   IndependentSetCoverActionSession *independent_set_cover_action_session =
       nullptr;
+  Gf3AffineActionSession *gf3_affine_action_session = nullptr;
+  DirectCspSupportActionSession *direct_csp_support_action_session = nullptr;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 

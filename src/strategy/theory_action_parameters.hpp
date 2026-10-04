@@ -92,6 +92,55 @@ struct IndependentSetCoverParameters {
   static IndependentSetCoverParameters from_kernel(const Kernel &);
 };
 
+struct Gf3AffineConsequenceParameters {
+  uint64_t maximum_source_clauses = 0;
+  uint64_t maximum_source_literals = 0;
+  uint32_t maximum_domains = 0;
+  uint32_t maximum_equations = 0;
+  uint32_t maximum_equation_arity = 0;
+  uint32_t maximum_tuples_per_equation = 0;
+  uint32_t maximum_result_arity = 0;
+  uint32_t maximum_result_tuples = 0;
+  uint64_t maximum_additions = 0;
+  uint64_t maximum_addition_literals = 0;
+  uint64_t maximum_recognition_work = 0;
+  uint64_t maximum_planning_work = 0;
+  uint64_t maximum_duplicate_scan_work = 0;
+  uint64_t maximum_revalidation_work = 0;
+  uint64_t maximum_proof_work = 0;
+  uint64_t maximum_proof_additions = 0;
+  uint64_t maximum_proof_literal_occurrences = 0;
+  uint64_t maximum_arena_words = 0;
+  uint64_t maximum_journal_bytes = 0;
+  uint32_t maximum_external_extent = 0;
+  uint64_t maximum_session_keys = 0;
+  uint64_t maximum_session_work = 0;
+
+  bool valid() const;
+  static Gf3AffineConsequenceParameters from_kernel(const Kernel &);
+};
+
+struct DirectCspSupportParameters {
+  uint64_t maximum_source_clauses = 0;
+  uint64_t maximum_source_literals = 0;
+  uint64_t maximum_recognition_work = 0;
+  uint32_t maximum_domain_values = 0;
+  uint32_t maximum_direct_clause_literals = 0;
+  uint32_t maximum_definition_clause_literals = 0;
+  uint64_t maximum_proof_work = 0;
+  uint64_t maximum_proof_additions = 0;
+  uint64_t maximum_proof_literal_occurrences = 0;
+  uint64_t maximum_journal_bytes = 0;
+  uint32_t maximum_extent_growth = 0;
+  uint32_t maximum_external_extent = 0;
+  uint64_t maximum_session_keys = 0;
+  uint64_t maximum_session_work = 0;
+  bool allow_extension = false;
+
+  bool valid() const;
+  static DirectCspSupportParameters from_kernel(const Kernel &);
+};
+
 struct SemanticVariableAdviceParameters {
   uint32_t maximum_variables = 0;
   uint64_t maximum_priority_sum = 0;
@@ -104,6 +153,8 @@ struct SemanticVariableAdviceParameters {
 void install_rule_parameters(Kernel &, const AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const ExactCoverExtensionParameters &);
 void install_rule_parameters(Kernel &, const IndependentSetCoverParameters &);
+void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);
+void install_rule_parameters(Kernel &, const DirectCspSupportParameters &);
 void install_rule_parameters(Kernel &, const SemanticVariableAdviceParameters &);
 
 } // namespace strategy

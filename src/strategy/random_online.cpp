@@ -137,6 +137,10 @@ ActionParameters random_parameters(const Kernel &, uint64_t &state, const std::s
     return config.exact_cover_extension_reference;
   if (rule == "IndependentSetCover")
     return config.independent_set_cover_reference;
+  if (rule == "Gf3AffineConsequence")
+    return config.gf3_affine_consequence_reference;
+  if (rule == "DirectCspSupport")
+    return config.direct_csp_support_reference;
   if (rule == "SemanticVariableAdvice")
     return config.semantic_variable_advice_reference;
   if (rule == "Congruence") {
@@ -688,6 +692,32 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_proof_additions=v[4]; p.maximum_proof_deletions=v[5];
     p.maximum_proof_literal_occurrences=v[6]; p.maximum_journal_bytes=v[7];
     U32_AT(8,p.maximum_vertices); U32_AT(9,p.maximum_target); parameters=p;
+  } else if (tuple(text, "gf3-affine-consequence1", v) && v.size() == 22) {
+    Gf3AffineConsequenceParameters p;
+    p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
+    U32_AT(2,p.maximum_domains); U32_AT(3,p.maximum_equations);
+    U32_AT(4,p.maximum_equation_arity);
+    U32_AT(5,p.maximum_tuples_per_equation);
+    U32_AT(6,p.maximum_result_arity); U32_AT(7,p.maximum_result_tuples);
+    p.maximum_additions=v[8]; p.maximum_addition_literals=v[9];
+    p.maximum_recognition_work=v[10]; p.maximum_planning_work=v[11];
+    p.maximum_duplicate_scan_work=v[12]; p.maximum_revalidation_work=v[13];
+    p.maximum_proof_work=v[14]; p.maximum_proof_additions=v[15];
+    p.maximum_proof_literal_occurrences=v[16]; p.maximum_arena_words=v[17];
+    p.maximum_journal_bytes=v[18]; U32_AT(19,p.maximum_external_extent);
+    p.maximum_session_keys=v[20]; p.maximum_session_work=v[21]; parameters=p;
+  } else if (tuple(text, "direct-csp-support1", v) && v.size() == 15) {
+    DirectCspSupportParameters p;
+    p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
+    p.maximum_recognition_work=v[2]; U32_AT(3,p.maximum_domain_values);
+    U32_AT(4,p.maximum_direct_clause_literals);
+    U32_AT(5,p.maximum_definition_clause_literals);
+    p.maximum_proof_work=v[6]; p.maximum_proof_additions=v[7];
+    p.maximum_proof_literal_occurrences=v[8]; p.maximum_journal_bytes=v[9];
+    U32_AT(10,p.maximum_extent_growth); U32_AT(11,p.maximum_external_extent);
+    p.maximum_session_keys=v[12]; p.maximum_session_work=v[13];
+    if (!boolean(v[14], p.allow_extension)) return false;
+    parameters = p;
   } else if (tuple(text, "semantic-variable-advice1", v) && v.size() == 4) {
     SemanticVariableAdviceParameters p;
     U32_AT(0,p.maximum_variables); p.maximum_priority_sum=v[1];
@@ -1316,6 +1346,52 @@ bool parse_independent_set_cover(std::string_view text,
   return true;
 }
 
+bool parse_gf3_affine_instance(std::string_view text,
+                               Gf3AffineInstance &instance) {
+  std::vector<uint64_t> values;
+  if (!comma_values(text, values) || values.size() != 2 ||
+      values[0] > UINT32_MAX || values[1] > UINT32_MAX)
+    return false;
+  instance.first_equation = static_cast<uint32_t>(values[0]);
+  instance.second_equation = static_cast<uint32_t>(values[1]);
+  return true;
+}
+
+bool parse_direct_csp_support(std::string_view text,
+                              DirectCspSupportActionSelection &selection) {
+  std::vector<int64_t> values;
+  while (!text.empty()) {
+    const size_t comma = text.find(',');
+    const std::string_view token = text.substr(0, comma);
+    if (token.empty()) return false;
+    int64_t value = 0;
+    const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
+                                        value);
+    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
+      return false;
+    values.push_back(value);
+    if (comma == std::string_view::npos) text = {};
+    else text.remove_prefix(comma + 1);
+  }
+  size_t at = 0;
+  const auto domain = [&](std::vector<int32_t> &out) {
+    if (at == values.size() || values[at] < 0) return false;
+    const uint64_t count = static_cast<uint64_t>(values[at++]);
+    if (count > values.size() - at) return false;
+    out.reserve(static_cast<size_t>(count));
+    for (uint64_t i = 0; i < count; ++i) {
+      if (values[at] < INT32_MIN || values[at] > INT32_MAX) return false;
+      out.push_back(static_cast<int32_t>(values[at++]));
+    }
+    return true;
+  };
+  if (!domain(selection.left_values) || !domain(selection.right_values) ||
+      at == values.size() || values[at] < 0 || values[at] > UINT32_MAX)
+    return false;
+  selection.selected_left_value = static_cast<uint32_t>(values[at++]);
+  return at == values.size();
+}
+
 } // namespace
 
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
@@ -1385,14 +1461,17 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
   std::vector<int> available;
   if (config.rules.empty()) {
     for (const RuleVTable &rule : tactix_rules())
-      if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover")
+      if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover" &&
+          std::string_view(rule.name) != "Gf3AffineConsequence" &&
+          std::string_view(rule.name) != "DirectCspSupport")
         available.push_back(static_cast<int>(rule.id));
   } else {
     for (const std::string &name : config.rules) {
       const int id = tactix_rule_id(name.c_str());
       if (id < 0)
         return reject("random-online action is not registered");
-      if (tactix_rules()[id].guard(k) && name != "IndependentSetCover")
+      if (tactix_rules()[id].guard(k) && name != "IndependentSetCover" &&
+          name != "Gf3AffineConsequence" && name != "DirectCspSupport")
         available.push_back(id);
     }
   }
@@ -1665,6 +1744,34 @@ std::string serialize_online_strategy_program(
           << p->maximum_proof_literal_occurrences << ','
           << p->maximum_journal_bytes << ',' << p->maximum_vertices << ','
           << p->maximum_target << ')';
+    else if (const auto *p =
+                 std::get_if<Gf3AffineConsequenceParameters>(&step.parameters))
+      out << ":gf3-affine-consequence1(" << p->maximum_source_clauses << ','
+          << p->maximum_source_literals << ',' << p->maximum_domains << ','
+          << p->maximum_equations << ',' << p->maximum_equation_arity << ','
+          << p->maximum_tuples_per_equation << ',' << p->maximum_result_arity
+          << ',' << p->maximum_result_tuples << ',' << p->maximum_additions
+          << ',' << p->maximum_addition_literals << ','
+          << p->maximum_recognition_work << ',' << p->maximum_planning_work
+          << ',' << p->maximum_duplicate_scan_work << ','
+          << p->maximum_revalidation_work << ',' << p->maximum_proof_work
+          << ',' << p->maximum_proof_additions << ','
+          << p->maximum_proof_literal_occurrences << ','
+          << p->maximum_arena_words << ',' << p->maximum_journal_bytes << ','
+          << p->maximum_external_extent << ',' << p->maximum_session_keys
+          << ',' << p->maximum_session_work << ')';
+    else if (const auto *p =
+                 std::get_if<DirectCspSupportParameters>(&step.parameters))
+      out << ":direct-csp-support1(" << p->maximum_source_clauses << ','
+          << p->maximum_source_literals << ',' << p->maximum_recognition_work
+          << ',' << p->maximum_domain_values << ','
+          << p->maximum_direct_clause_literals << ','
+          << p->maximum_definition_clause_literals << ','
+          << p->maximum_proof_work << ',' << p->maximum_proof_additions << ','
+          << p->maximum_proof_literal_occurrences << ','
+          << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
+          << p->maximum_external_extent << ',' << p->maximum_session_keys
+          << ',' << p->maximum_session_work << ',' << p->allow_extension << ')';
     else if (const auto *p =
                  std::get_if<SemanticVariableAdviceParameters>(&step.parameters))
       out << ":semantic-variable-advice1(" << p->maximum_variables << ','
@@ -1991,6 +2098,28 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.gf3_affine_instances.empty()) {
+      out << ":gf3-affine-consequence[";
+      for (size_t i = 0; i < step.gf3_affine_instances.size(); ++i) {
+        if (i) out << ';';
+        out << step.gf3_affine_instances[i].first_equation << ','
+            << step.gf3_affine_instances[i].second_equation;
+      }
+      out << ']';
+    }
+    if (!step.direct_csp_support_instances.empty()) {
+      out << ":direct-csp-support[";
+      for (size_t i = 0; i < step.direct_csp_support_instances.size(); ++i) {
+        if (i) out << ';';
+        const auto &instance = step.direct_csp_support_instances[i];
+        out << instance.left_values.size();
+        for (const int32_t literal : instance.left_values) out << ',' << literal;
+        out << ',' << instance.right_values.size();
+        for (const int32_t literal : instance.right_values) out << ',' << literal;
+        out << ',' << instance.selected_left_value;
+      }
+      out << ']';
+    }
   }
   return out.str();
 }
@@ -2172,6 +2301,35 @@ bool deserialize_online_strategy_program(const std::string &encoded,
           text = {};
         else
           text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view gf3_affine_marker =
+        ":gf3-affine-consequence[";
+    if (text.starts_with(gf3_affine_marker) && text.back() == ']') {
+      text.remove_prefix(gf3_affine_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        Gf3AffineInstance instance;
+        if (!parse_gf3_affine_instance(text.substr(0, semicolon), instance))
+          return reject("online replay GF3 affine payload is malformed");
+        step.gf3_affine_instances.push_back(instance);
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view direct_csp_marker = ":direct-csp-support[";
+    if (text.starts_with(direct_csp_marker) && text.back() == ']') {
+      text.remove_prefix(direct_csp_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        DirectCspSupportActionSelection instance;
+        if (!parse_direct_csp_support(text.substr(0, semicolon), instance))
+          return reject("online replay DirectCSP payload is malformed");
+        step.direct_csp_support_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
       }
     }
     if (!text.empty())

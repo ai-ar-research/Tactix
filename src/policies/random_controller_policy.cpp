@@ -68,7 +68,9 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
     else if (!rule.guard(k))
       entry.reason = "guard-false";
     else if ((std::string_view(rule.name) == "Condition" ||
-              std::string_view(rule.name) == "IndependentSetCover") &&
+              std::string_view(rule.name) == "IndependentSetCover" ||
+              std::string_view(rule.name) == "Gf3AffineConsequence" ||
+              std::string_view(rule.name) == "DirectCspSupport") &&
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))
       entry.reason = "structured-witness-not-offered";
@@ -98,6 +100,8 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("AffineConsequence", affine_consequence_reference);
   CONTROLLER_REFERENCE("ExactCoverExtension", exact_cover_extension_reference);
   CONTROLLER_REFERENCE("IndependentSetCover", independent_set_cover_reference);
+  CONTROLLER_REFERENCE("Gf3AffineConsequence", gf3_affine_consequence_reference);
+  CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
   CONTROLLER_REFERENCE("SemanticVariableAdvice", semantic_variable_advice_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
   CONTROLLER_REFERENCE("Backbone", backbone_reference);
@@ -149,6 +153,13 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   OnlineStrategyProgram profiles;
   for (const auto &rule : tactix_rules()) {
     if (!root_exclusion(rule).empty())
+      continue;
+    if (std::string_view(rule.name) == "Gf3AffineConsequence" ||
+        std::string_view(rule.name) == "DirectCspSupport")
+      // These families have no canonical action.  Their complete typed
+      // requests, including limits, are fingerprinted below as offered
+      // actions; inventing an empty profile here would serialize a program
+      // that the public validator correctly rejects.
       continue;
     OnlineInvocation invocation;
     invocation.id = profiles.sequence.size() + 1;

@@ -2,6 +2,7 @@
 
 #include "rules/factor/factor.hpp"
 #include "rules/condition/condition.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/work_settings.hpp"
 #include "strategy/rule_invocation.hpp"
@@ -38,6 +39,12 @@ struct RepeatSpec {
   uint64_t limit = 1;
 };
 
+struct Gf3AffineInstance {
+  uint32_t first_equation = 0;
+  uint32_t second_equation = 0;
+  bool operator==(const Gf3AffineInstance &) const = default;
+};
+
 // The round ceiling a fixpoint repeat applies now; zero is unbounded.
 uint64_t repeat_round_limit(const Kernel &, const RepeatSpec &);
 
@@ -71,6 +78,8 @@ struct OnlineInvocation {
   // Variable-length positive stable external vertex sets for certified
   // IndependentSetCover consequences. Each inner vector is one action.
   std::vector<std::vector<uint32_t>> independent_set_cover_instances = {};
+  std::vector<Gf3AffineInstance> gf3_affine_instances = {};
+  std::vector<DirectCspSupportActionSelection> direct_csp_support_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;
   RuleWorkBudget rule_work_budget;

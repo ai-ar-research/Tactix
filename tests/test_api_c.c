@@ -624,7 +624,8 @@ static void test_action_kind(void) {
       "TransitiveReduce",
       "Vivify",     "Walk", "Condition", "ParityConsequence",
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
-      "SemanticVariableAdvice"};
+      "SemanticVariableAdvice", "Gf3AffineConsequence",
+      "DirectCspSupport"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

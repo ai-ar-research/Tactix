@@ -407,6 +407,8 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_EXACT_COVER_EXTENSION 34
 #define TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_COVER 35
 #define TACTIX_ONLINE_PARAMETERS_SEMANTIC_VARIABLE_ADVICE 36
+#define TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE 37
+#define TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT 38
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
@@ -574,6 +576,32 @@ typedef struct {
   uint64_t maximum_journal_bytes;
   uint32_t maximum_vertices, maximum_target;
 } tactix_online_independent_set_cover_parameters;
+typedef struct {
+  uint64_t maximum_source_clauses, maximum_source_literals;
+  uint32_t maximum_domains, maximum_equations;
+  uint32_t maximum_equation_arity, maximum_tuples_per_equation;
+  uint32_t maximum_result_arity, maximum_result_tuples;
+  uint64_t maximum_additions, maximum_addition_literals;
+  uint64_t maximum_recognition_work, maximum_planning_work;
+  uint64_t maximum_duplicate_scan_work, maximum_revalidation_work;
+  uint64_t maximum_proof_work, maximum_proof_additions;
+  uint64_t maximum_proof_literal_occurrences, maximum_arena_words;
+  uint64_t maximum_journal_bytes;
+  uint32_t maximum_external_extent;
+  uint64_t maximum_session_keys, maximum_session_work;
+} tactix_online_gf3_affine_consequence_parameters;
+typedef struct {
+  uint64_t maximum_source_clauses, maximum_source_literals;
+  uint64_t maximum_recognition_work;
+  uint32_t maximum_domain_values;
+  uint32_t maximum_direct_clause_literals;
+  uint32_t maximum_definition_clause_literals;
+  uint64_t maximum_proof_work, maximum_proof_additions;
+  uint64_t maximum_proof_literal_occurrences, maximum_journal_bytes;
+  uint32_t maximum_extent_growth, maximum_external_extent;
+  uint64_t maximum_session_keys, maximum_session_work;
+  int allow_extension;
+} tactix_online_direct_csp_support_parameters;
 typedef struct {
   /* Advice is H-only and consumes the currently staged semantic candidate.
    * Priorities are fixed additive doses for the two semantic roles. */
@@ -940,6 +968,8 @@ typedef struct {
     tactix_online_affine_consequence_parameters affine_consequence;
     tactix_online_exact_cover_extension_parameters exact_cover_extension;
     tactix_online_independent_set_cover_parameters independent_set_cover;
+    tactix_online_gf3_affine_consequence_parameters gf3_affine_consequence;
+    tactix_online_direct_csp_support_parameters direct_csp_support;
     tactix_online_semantic_variable_advice_parameters semantic_variable_advice;
     tactix_online_instantiate_parameters instantiate;
     tactix_online_backbone_parameters backbone;
@@ -1072,6 +1102,32 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v4;
 
+/* Additive v5 payloads for exact caller-selected GF(3) equation pairs and
+ * DirectCSP support rows. Configure deep-copies both outer and nested arrays. */
+typedef struct {
+  uint32_t first_equation, second_equation;
+} tactix_online_gf3_affine_instance;
+typedef struct {
+  const int *left_values;
+  int left_value_count;
+  const int *right_values;
+  int right_value_count;
+  uint32_t selected_left_value;
+} tactix_online_direct_csp_support_instance;
+typedef struct {
+  tactix_online_step_v4 base;
+  const tactix_online_gf3_affine_instance *gf3_affine_instances;
+  int gf3_affine_instance_count;
+  const tactix_online_direct_csp_support_instance *direct_csp_support_instances;
+  int direct_csp_support_instance_count;
+} tactix_online_step_v5;
+typedef struct {
+  const tactix_online_step_v5 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v5;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1107,6 +1163,8 @@ int tactix_online_configure_v2(tactix *, const tactix_online_program_v2 *,
 int tactix_online_configure_v3(tactix *, const tactix_online_program_v3 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v4(tactix *, const tactix_online_program_v4 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v5(tactix *, const tactix_online_program_v5 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);
