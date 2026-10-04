@@ -26,7 +26,7 @@ NOTES = os.path.join(ROOT, "docs", "implementation-notes.md")
 SECTION = "## 17. The rule-inventory disposition table"
 
 # §5.2's catalog rows: "| X6 | `HyperBinaryRes` (...) | ... | ... | 3 |"
-FAMILY = re.compile(r"^\|\s*(M\d|S\d|C\d|V\d|E\d|X\d)\s*\|", re.M)
+FAMILY = re.compile(r"^\|\s*(M\d+|S\d+|C\d+|V\d+|E\d+|X\d+)\s*\|", re.M)
 
 
 def main():

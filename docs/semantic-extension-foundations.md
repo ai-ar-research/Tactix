@@ -109,8 +109,9 @@ DSR and forward-DRAT replay check all 54 additions in the reference fixture. The
 commit leaves propagation to a later controller action and publishes existing
 semantic variables as advice metadata. Repeated clauses are detected against the
 live database. Unsupported proof modes, incomplete encodings, stale sources,
-interruption, or exhausted bounds decline before mutation. This is an internal live
-adapter; public action/session/replay wiring and target recovery remain pending.
+interruption, or exhausted bounds decline before mutation. A public C++ action now
+retains the recognized owner, selected equation-pair keys and exact replay state;
+shared controller/C/replay/feedback wiring and target recovery remain pending.
 
 ## Truth-table parity frontier
 
@@ -130,14 +131,20 @@ not claim a full refutation. It uses only active, unassigned existing variables,
 adds no reconstruction state, and leaves propagation to the controller.
 
 The live publisher bounds snapshot preparation, recognition, planning, proof and
-formula additions/literals, arena growth, journal size, and exact refresh. Its
+formula additions/literals, arena growth, journal size, and an owner refresh. Its
 durable duplicate key contains the coordinate leaf sets plus all truth and AMO
 source identities, including native proof IDs. It pre-renders provenance, refreshes
 the retained snapshot exactly, then commits clauses, proof events, journal, and the
 session key together. Focused DSR and DRAT certificates verify the micro-frontier;
-strict-warning, Debug, and ASan/UBSan checks pass. Public action/session/replay
-wiring, subsequent parity consequences, target recovery, and a complete UNSAT
-argument remain pending.
+strict-warning, Debug, and ASan/UBSan checks pass. That refresh authenticates only
+the retained copy, not its relationship to the current checker population. The
+attempted public action was therefore removed: a caller could otherwise supply a
+forged snapshot, and later parser normalization or proof deletion can invalidate
+premise identities invisible to the kernel. Public scheduling requires a
+solver-lifetime proof-population ledger (canonical external clauses, raw/current
+proof IDs, live/deleted/replaced state and mutation generation), or equivalent
+source pinning, before configuration. Subsequent parity consequences, target
+recovery, and a complete UNSAT argument also remain pending.
 
 ## Broader recognition foundations
 
