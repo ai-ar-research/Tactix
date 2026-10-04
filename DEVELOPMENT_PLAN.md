@@ -282,12 +282,14 @@ their owning documents.
 | X9 | `AffineConsequence` | certified affine basis/consequence: add-RAT + add-RUP + helper deletion | winner integration |
 | X10 | `ExactCoverExtension` | conservative definitions: add-RAT + model projection | winner integration |
 | X11 | `IndependentSetCover` | certified theory consequence: add-RUP + helper deletion | winner integration |
-
+| X12 | `Gf3AffineConsequence` | certified GF(3) resultant CNF: add-RUP | winner integration |
+| X13 | `DirectCspSupport` | certified support clause or exact-OR definition: add-RUP/add-RAT | winner integration |
+| X14 | `Gf3GaussianConsequence` | authenticated Gaussian unit/conflict batch: add-RUP | winner integration |
+| X15 | `DirectPhpRefutation` | terminal direct-PHP certificate: add-RAT/add-RUP/delete | winner integration |
 Support services—classification, reconstruction, internal checking, occurrence
 indexes—are not schedulable rules. Phase 3 requires every catalog family to be
 implemented and reached, or to have a reasoned no-implement disposition with
 evidence and a reopening path.
-
 ### 5.3 Extensibility contract
 
 A new proof rule adds one `src/rules/<name>/` module and one

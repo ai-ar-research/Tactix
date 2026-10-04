@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstdio>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -184,7 +185,9 @@ void public_wrapper_applies_with_dsr() {
   Bound b;
   const auto offered = gf3_gaussian_action_offer(b.kernel, b.session, limits());
   assert(offered.offers.size() == 1);
-  const char *path = "/tmp/tactix-gf3-gaussian-public.dsr";
+  char path[] = "/tmp/tactix-gf3-gaussian-public-XXXXXX";
+  const int descriptor = mkstemp(path);
+  assert(descriptor >= 0 && !close(descriptor));
   std::remove(path);
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));

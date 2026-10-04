@@ -1182,6 +1182,17 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.direct_php_interrupted,
            (unsigned long long)kernel.stats.direct_php_stale,
            (unsigned long long)kernel.stats.direct_php_replay_mismatch);
+    printf("c gf3-gauss  %llu attempts, %llu applied, %llu no-structure, "
+           "%llu no-outcome, %llu exhausted, %llu interrupted, %llu stale, "
+           "%llu unsupported-proof\n",
+           (unsigned long long)kernel.stats.gf3_gaussian_attempts,
+           (unsigned long long)kernel.stats.gf3_gaussian_applied,
+           (unsigned long long)kernel.stats.gf3_gaussian_no_structure,
+           (unsigned long long)kernel.stats.gf3_gaussian_no_supported_outcome,
+           (unsigned long long)kernel.stats.gf3_gaussian_exhausted,
+           (unsigned long long)kernel.stats.gf3_gaussian_interrupted,
+           (unsigned long long)kernel.stats.gf3_gaussian_stale,
+           (unsigned long long)kernel.stats.gf3_gaussian_unsupported_proof);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",
