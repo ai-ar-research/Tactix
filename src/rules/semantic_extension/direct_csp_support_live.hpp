@@ -77,6 +77,7 @@ struct DirectCspSupportOwnerCaptureResult {
   uint64_t source_clauses = 0;
   uint64_t source_literals = 0;
   uint64_t recognition_work = 0;
+  bool recognition_limit_exhausted = false;
 };
 
 struct DirectCspSupportLiveResult {
@@ -95,6 +96,9 @@ struct DirectCspSupportLiveResult {
   uint64_t journal_work = 0;
   uint64_t journal_bytes = 0;
   uint32_t extent_growth = 0;
+  // Distinguishes an exhausted recognition allowance from proof, namespace,
+  // journal, clause-id, arena, or other physical resource admission.
+  bool recognition_limit_exhausted = false;
   uint64_t published_clause_id = 0;
   bool propagation_pending = false;
   std::vector<int32_t> published_support;
@@ -106,6 +110,13 @@ struct DirectCspSupportLiveResult {
 DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
     Kernel &, const DirectCspSupportLiveRequest &,
     DirectCspSupportOwnerSnapshot &output);
+
+// Run the exact validation, planning, proof/journal sizing, physical-capacity,
+// source revalidation, and duplicate checks used by apply, but stop before the
+// irreversible commit boundary.  Applied means the same request can cross
+// that boundary immediately if the caller does not mutate the Kernel.
+DirectCspSupportLiveResult direct_csp_support_live_preflight(
+    Kernel &, const DirectCspSupportLiveRequest &);
 
 // Plan and atomically publish one selected support consequence at an
 // assignment-free propagated root. DSR, DRAT, and no-proof modes are accepted;

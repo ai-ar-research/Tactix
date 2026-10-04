@@ -51,6 +51,31 @@ Kernel parse() {
   return kernel;
 }
 
+Kernel parse_formula(const std::vector<std::vector<int32_t>> &formula) {
+  uint32_t variables = 0;
+  std::ostringstream output;
+  for (const auto &clause : formula)
+    for (int32_t literal : clause)
+      variables = std::max(
+          variables, static_cast<uint32_t>(literal < 0 ? -int64_t(literal)
+                                                        : literal));
+  output << "p cnf " << variables << ' ' << formula.size() << '\n';
+  for (const auto &clause : formula) {
+    for (int32_t literal : clause) output << literal << ' ';
+    output << "0\n";
+  }
+  const std::string text = output.str();
+  FILE *input = std::tmpfile();
+  assert(input);
+  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
+  std::rewind(input);
+  Kernel kernel;
+  assert(parse_dimacs(input, kernel) == nullptr);
+  std::fclose(input);
+  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
+  return kernel;
+}
+
 DirectCspSupportActionSelection selection(uint32_t row) {
   return {{1, 2, 3}, {4, 5, 6, 7}, row};
 }
@@ -83,6 +108,17 @@ DirectCspSupportActionLimits limits(bool extension = false) {
   result.maximum_session_keys = 16;
   result.maximum_session_work = 10000;
   result.allow_extension = extension;
+  assert(result.valid());
+  return result;
+}
+
+DirectCspSupportActionOfferWindow offer_window() {
+  DirectCspSupportActionOfferWindow result;
+  result.maximum_domain_candidates = 32;
+  result.maximum_pair_candidates = 32;
+  result.maximum_row_candidates = 64;
+  result.maximum_offers = 64;
+  result.maximum_enumeration_work = 10000000;
   assert(result.valid());
   return result;
 }
@@ -478,6 +514,441 @@ void malformed_retained_key_is_rejected_before_live_work() {
   std::fclose(records);
 }
 
+void bounded_offerer_is_exact_pure_and_terminal_safe() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  DirectCspSupportActionSession session;
+  const Image before = image(kernel);
+  const long journal = position(records);
+
+  const auto complete = direct_csp_support_action_offer(
+      kernel, session, limits(), offer_window());
+  assert(complete.status == DirectCspSupportActionOfferStatus::Ready &&
+         complete.complete && !complete.have_resume_after &&
+         complete.offers.size() == 7 &&
+         complete.effort.domain_candidates == 2 &&
+         complete.effort.pair_candidates == 2 &&
+         complete.effort.row_candidates == 7 &&
+         complete.effort.enumeration_work && image(kernel) == before &&
+         position(records) == journal && !session.retained());
+  assert(complete.offers[0] == selection(0) &&
+         complete.offers[1] == selection(1) &&
+         complete.offers[2] == selection(2) &&
+         complete.offers[3] == reversed_selection(0) &&
+         complete.offers[6] == reversed_selection(3));
+  const auto repeated = direct_csp_support_action_offer(
+      kernel, session, limits(), offer_window());
+  assert(repeated.status == complete.status &&
+         repeated.complete == complete.complete &&
+         repeated.offers == complete.offers && image(kernel) == before &&
+         position(records) == journal);
+
+  auto pair_page = offer_window();
+  pair_page.maximum_pair_candidates = 1;
+  const auto forward_page = direct_csp_support_action_offer(
+      kernel, session, limits(), pair_page);
+  assert(forward_page.status == DirectCspSupportActionOfferStatus::Ready &&
+         !forward_page.complete && forward_page.have_resume_after &&
+         forward_page.offers.size() == 3 &&
+         forward_page.resume_after == action_key(selection(2)));
+  pair_page.have_after = true;
+  pair_page.after = forward_page.resume_after;
+  const auto reverse_page = direct_csp_support_action_offer(
+      kernel, session, limits(), pair_page);
+  assert(reverse_page.status == DirectCspSupportActionOfferStatus::Ready &&
+         reverse_page.offers.size() == 4 &&
+         reverse_page.offers.front() == reversed_selection(0));
+
+  auto row_page = offer_window();
+  row_page.maximum_row_candidates = 2;
+  const auto first_rows = direct_csp_support_action_offer(
+      kernel, session, limits(), row_page);
+  assert(first_rows.status == DirectCspSupportActionOfferStatus::Ready &&
+         !first_rows.complete && first_rows.offers.size() == 2 &&
+         first_rows.resume_after == action_key(selection(1)));
+  row_page.have_after = true;
+  row_page.after = first_rows.resume_after;
+  const auto next_rows = direct_csp_support_action_offer(
+      kernel, session, limits(), row_page);
+  assert(next_rows.status == DirectCspSupportActionOfferStatus::Ready &&
+         next_rows.offers.size() == 2 &&
+         next_rows.offers[0] == selection(2) &&
+         next_rows.offers[1] == reversed_selection(0));
+
+  assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                         selection(1))
+             .status == DirectCspSupportActionStatus::Applied);
+  const auto after_commit = direct_csp_support_action_offer(
+      kernel, session, limits(), offer_window());
+  assert(after_commit.status == DirectCspSupportActionOfferStatus::Ready &&
+         after_commit.complete && after_commit.offers.size() == 6 &&
+         after_commit.effort.retained_owners_revalidated == 1 &&
+         after_commit.effort.committed_rows_skipped == 1 &&
+         std::find(after_commit.offers.begin(), after_commit.offers.end(),
+                   selection(1)) == after_commit.offers.end());
+  assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -2),
+                              kernel_internalize(kernel, 5)));
+  const auto after_delete = direct_csp_support_action_offer(
+      kernel, session, limits(), offer_window());
+  assert(after_delete.status == DirectCspSupportActionOfferStatus::Ready &&
+         after_delete.offers.size() == 6 &&
+         after_delete.effort.committed_rows_skipped == 1);
+  std::fclose(records);
+}
+
+void offerer_filters_no_consequence_and_live_duplicate_rows() {
+  {
+    auto formula = clauses();
+    formula.erase(std::find(formula.begin(), formula.end(),
+                            std::vector<int32_t>{-1, -7}));
+    Kernel kernel = parse_formula(formula);
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    const auto offered = direct_csp_support_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(offered.status == DirectCspSupportActionOfferStatus::Ready &&
+           offered.complete && offered.effort.consequence_free_rows >= 1 &&
+           std::find(offered.offers.begin(), offered.offers.end(),
+                     selection(0)) == offered.offers.end());
+
+    auto skipped_page = offer_window();
+    skipped_page.maximum_row_candidates = 1;
+    const auto skipped = direct_csp_support_action_offer(
+        kernel, session, limits(), skipped_page);
+    assert(skipped.status == DirectCspSupportActionOfferStatus::Ready &&
+           !skipped.complete && skipped.offers.empty() &&
+           skipped.have_resume_after &&
+           skipped.resume_after == action_key(selection(0)));
+    skipped_page.have_after = true;
+    skipped_page.after = skipped.resume_after;
+    const auto resumed = direct_csp_support_action_offer(
+        kernel, session, limits(), skipped_page);
+    assert(resumed.status == DirectCspSupportActionOfferStatus::Ready &&
+           resumed.offers.size() == 1 &&
+           resumed.offers.front() == selection(1));
+    std::fclose(records);
+  }
+  {
+    auto formula = clauses();
+    formula.push_back({-2, 5});
+    Kernel kernel = parse_formula(formula);
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    const auto offered = direct_csp_support_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(offered.status == DirectCspSupportActionOfferStatus::Ready &&
+           offered.complete && offered.offers.size() == 6 &&
+           offered.effort.live_consequences_skipped == 1 &&
+           std::find(offered.offers.begin(), offered.offers.end(),
+                     selection(1)) == offered.offers.end());
+    std::fclose(records);
+  }
+}
+
+void offerer_declines_are_bounded_pure_and_stale_safe() {
+  {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    const Image before = image(kernel);
+    auto tiny = offer_window();
+    tiny.maximum_enumeration_work = 1;
+    const auto exhausted = direct_csp_support_action_offer(
+        kernel, session, limits(), tiny);
+    assert(exhausted.status ==
+               DirectCspSupportActionOfferStatus::ResourceExhausted &&
+           exhausted.offers.empty() && image(kernel) == before &&
+           !position(records));
+
+    auto output_bounded = limits();
+    output_bounded.maximum_direct_clause_literals = 1;
+    const auto output_exhausted = direct_csp_support_action_offer(
+        kernel, session, output_bounded, offer_window());
+    assert(output_exhausted.status ==
+               DirectCspSupportActionOfferStatus::ResourceExhausted &&
+           output_exhausted.offers.empty() &&
+           output_exhausted.effort.resource_rejected_rows &&
+           image(kernel) == before && !position(records));
+
+    volatile sig_atomic_t stop = 1;
+    kernel.stop = &stop;
+    const auto interrupted = direct_csp_support_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(interrupted.status ==
+               DirectCspSupportActionOfferStatus::Interrupted &&
+           interrupted.offers.empty() && image(kernel) == before &&
+           !position(records));
+    std::fclose(records);
+  }
+  {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                           selection(1))
+               .status == DirectCspSupportActionStatus::Applied);
+    assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -1),
+                                kernel_internalize(kernel, -2)));
+    const Image before = image(kernel);
+    const long journal = position(records);
+    const auto stale = direct_csp_support_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(stale.status == DirectCspSupportActionOfferStatus::Stale &&
+           stale.offers.empty() && image(kernel) == before &&
+           position(records) == journal && session.committed_keys() == 1);
+    std::fclose(records);
+  }
+}
+
+void offerer_work_pages_preserve_completed_candidates() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  DirectCspSupportActionSession session;
+
+  auto one_offer = offer_window();
+  one_offer.maximum_offers = 1;
+  const auto first = direct_csp_support_action_offer(
+      kernel, session, limits(), one_offer);
+  assert(first.status == DirectCspSupportActionOfferStatus::Ready &&
+         !first.complete && first.offers ==
+                                std::vector<DirectCspSupportActionSelection>{
+                                    selection(0)} &&
+         first.have_resume_after &&
+         first.resume_after == action_key(selection(0)));
+
+  auto late = offer_window();
+  late.maximum_enumeration_work = first.effort.enumeration_work + 1;
+  const auto preserved = direct_csp_support_action_offer(
+      kernel, session, limits(), late);
+  assert(preserved.status == DirectCspSupportActionOfferStatus::Ready &&
+         !preserved.complete && preserved.offers == first.offers &&
+         preserved.have_resume_after &&
+         preserved.resume_after == action_key(selection(0)));
+
+  late = offer_window();
+  late.have_after = true;
+  late.after = preserved.resume_after;
+  const auto resumed = direct_csp_support_action_offer(
+      kernel, session, limits(), late);
+  assert(resumed.status == DirectCspSupportActionOfferStatus::Ready &&
+         !resumed.offers.empty() && resumed.offers.front() == selection(1));
+  std::fclose(records);
+}
+
+void page_limited_capture_retries_the_unfinished_pair() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  DirectCspSupportActionSession session;
+
+  auto one_pair = offer_window();
+  one_pair.maximum_pair_candidates = 1;
+  const auto forward = direct_csp_support_action_offer(
+      kernel, session, limits(), one_pair);
+  assert(forward.status == DirectCspSupportActionOfferStatus::Ready &&
+         forward.offers.size() == 3 && forward.have_resume_after &&
+         forward.resume_after == action_key(selection(2)));
+
+  auto page_limited = offer_window();
+  // The one-pair page has already charged traversal through the reverse pair's
+  // cap check. Eight more units cover its empty-session owner lookup; the last
+  // unit deliberately leaves its exact owner census page-limited.
+  page_limited.maximum_enumeration_work =
+      forward.effort.enumeration_work + 9;
+  const auto limited = direct_csp_support_action_offer(
+      kernel, session, limits(), page_limited);
+  assert(limited.status == DirectCspSupportActionOfferStatus::Ready &&
+         !limited.complete && limited.offers == forward.offers &&
+         limited.have_resume_after &&
+         limited.resume_after == action_key(selection(2)) &&
+         limited.effort.page_limited_captures == 1);
+
+  auto retry = offer_window();
+  retry.have_after = true;
+  retry.after = limited.resume_after;
+  const auto reverse = direct_csp_support_action_offer(
+      kernel, session, limits(), retry);
+  assert(reverse.status == DirectCspSupportActionOfferStatus::Ready &&
+         reverse.offers.size() == 4 &&
+         reverse.offers.front() == reversed_selection(0));
+  std::fclose(records);
+}
+
+void offered_rows_agree_with_apply_resource_preflight() {
+  {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    const auto offered = direct_csp_support_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(offered.status == DirectCspSupportActionOfferStatus::Ready &&
+           std::find(offered.offers.begin(), offered.offers.end(),
+                     selection(1)) != offered.offers.end());
+    assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                           selection(1))
+               .status == DirectCspSupportActionStatus::Applied);
+    std::fclose(records);
+  }
+
+  const auto rejected_by_offer_and_apply =
+      [](DirectCspSupportActionLimits bounded, bool clause_id_limit) {
+        Kernel kernel = parse();
+        FILE *records = std::tmpfile();
+        assert(records);
+        attach(kernel, records);
+        if (clause_id_limit) kernel.next_clause_id = uint64_t(INT64_MAX);
+        DirectCspSupportActionSession session;
+        const Image before = image(kernel);
+        const auto offered = direct_csp_support_action_offer(
+            kernel, session, bounded, offer_window());
+        assert(offered.status ==
+                   DirectCspSupportActionOfferStatus::ResourceExhausted &&
+               offered.offers.empty() && image(kernel) == before);
+        const auto applied = direct_csp_support_action_apply(
+            kernel, session, bounded, selection(1));
+        assert(applied.status ==
+                   DirectCspSupportActionStatus::ResourceExhausted &&
+               applied.result == ApplyResult::NoOp &&
+               image(kernel) == before && !session.retained());
+        std::fclose(records);
+      };
+
+  auto journal_bounded = limits();
+  journal_bounded.maximum_journal_bytes = 1;
+  rejected_by_offer_and_apply(journal_bounded, false);
+
+  auto extent_bounded = limits();
+  extent_bounded.maximum_external_extent = 6;
+  rejected_by_offer_and_apply(extent_bounded, false);
+  rejected_by_offer_and_apply(limits(), true);
+}
+
+void offerer_matches_cumulative_session_work_boundaries() {
+  {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    const Image before = image(kernel);
+
+    auto bounded = limits();
+    bounded.maximum_session_work = 192;
+    const auto offered = direct_csp_support_action_offer(
+        kernel, session, bounded, offer_window());
+    assert(offered.status ==
+               DirectCspSupportActionOfferStatus::ResourceExhausted &&
+           offered.offers.empty() &&
+           offered.effort.resource_rejected_rows && image(kernel) == before);
+    const auto rejected = direct_csp_support_action_apply(
+        kernel, session, bounded, selection(1));
+    assert(rejected.status ==
+               DirectCspSupportActionStatus::ResourceExhausted &&
+           rejected.result == ApplyResult::NoOp && !session.retained() &&
+           image(kernel) == before && !position(records));
+
+    bounded.maximum_session_work = 208;
+    const auto admitted = direct_csp_support_action_offer(
+        kernel, session, bounded, offer_window());
+    assert(admitted.status == DirectCspSupportActionOfferStatus::Ready &&
+           std::find(admitted.offers.begin(), admitted.offers.end(),
+                     selection(1)) != admitted.offers.end());
+    const auto applied = direct_csp_support_action_apply(
+        kernel, session, bounded, selection(1));
+    assert(applied.status == DirectCspSupportActionStatus::Applied &&
+           applied.effort.session_work == 208);
+    std::fclose(records);
+  }
+  {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                           selection(1))
+               .status == DirectCspSupportActionStatus::Applied);
+    const Image before = image(kernel);
+    const long journal = position(records);
+
+    auto bounded = limits();
+    bounded.maximum_session_work = 130;
+    const auto offered = direct_csp_support_action_offer(
+        kernel, session, bounded, offer_window());
+    assert(offered.status ==
+               DirectCspSupportActionOfferStatus::ResourceExhausted &&
+           offered.offers.empty() &&
+           offered.effort.resource_rejected_rows && image(kernel) == before);
+    const auto rejected = direct_csp_support_action_apply(
+        kernel, session, bounded, selection(2));
+    assert(rejected.status ==
+               DirectCspSupportActionStatus::ResourceExhausted &&
+           rejected.result == ApplyResult::NoOp &&
+           session.committed_keys() == 1 && image(kernel) == before &&
+           position(records) == journal);
+
+    bounded.maximum_session_work = 131;
+    const auto admitted = direct_csp_support_action_offer(
+        kernel, session, bounded, offer_window());
+    assert(admitted.status == DirectCspSupportActionOfferStatus::Ready &&
+           std::find(admitted.offers.begin(), admitted.offers.end(),
+                     selection(2)) != admitted.offers.end());
+    const auto applied = direct_csp_support_action_apply(
+        kernel, session, bounded, selection(2));
+    assert(applied.status == DirectCspSupportActionStatus::Applied &&
+           applied.effort.session_work == 131);
+    std::fclose(records);
+  }
+}
+
+void source_capture_caps_are_resource_rejections() {
+  for (int mode = 0; mode < 2; ++mode) {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    attach(kernel, records);
+    DirectCspSupportActionSession session;
+    const Image before = image(kernel);
+    auto bounded = limits();
+    if (mode == 0)
+      bounded.maximum_source_clauses = clauses().size() - 1;
+    else
+      bounded.maximum_source_literals = 34;
+
+    const auto offered = direct_csp_support_action_offer(
+        kernel, session, bounded, offer_window());
+    assert(offered.status ==
+               DirectCspSupportActionOfferStatus::ResourceExhausted &&
+           offered.offers.empty() &&
+           offered.effort.resource_rejected_rows && image(kernel) == before &&
+           !position(records));
+    const auto applied = direct_csp_support_action_apply(
+        kernel, session, bounded, selection(1));
+    assert(applied.status ==
+               DirectCspSupportActionStatus::ResourceExhausted &&
+           applied.live.status ==
+               DirectCspSupportLiveStatus::ResourceExhausted &&
+           applied.result == ApplyResult::NoOp && !session.retained() &&
+           image(kernel) == before && !position(records));
+    std::fclose(records);
+  }
+}
+
 void proof_modes_and_guard() {
   for (const auto &[format, path] :
        {std::pair{ProofFormat::Lrat, "/tmp/direct-csp-action-decline.lrat"},
@@ -598,6 +1069,14 @@ int main(int argc, char **argv) {
   retained_payload_and_source_are_exact();
   smaller_later_limits_exhaust_valid_retained_state();
   malformed_retained_key_is_rejected_before_live_work();
+  bounded_offerer_is_exact_pure_and_terminal_safe();
+  offerer_filters_no_consequence_and_live_duplicate_rows();
+  offerer_declines_are_bounded_pure_and_stale_safe();
+  offerer_work_pages_preserve_completed_candidates();
+  page_limited_capture_retries_the_unfinished_pair();
+  offered_rows_agree_with_apply_resource_preflight();
+  offerer_matches_cumulative_session_work_boundaries();
+  source_capture_caps_are_resource_rejections();
   proof_modes_and_guard();
   projection_preserves_an_original_model();
   if (argc == 6) {
