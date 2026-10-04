@@ -59,6 +59,23 @@ static strategy::AffineConsequenceParameters parameters() {
   return result;
 }
 
+static strategy::AffineConsequenceParameters basis_parameters() {
+  auto result = parameters();
+  result.semantics =
+      strategy::AffineConsequenceSemantics::CertifiedBasisV2;
+  result.maximum_intermediate_width = 32;
+  result.basis_maximum_work = 10000000;
+  result.basis_maximum_intermediate_width = 32;
+  result.basis_maximum_sources = 32;
+  result.basis_maximum_premises = 10000;
+  result.basis_maximum_nodes = 10000;
+  result.basis_maximum_direct_width = 3;
+  result.maximum_external_extent = 100000;
+  result.maximum_session_keys = 10000;
+  result.maximum_session_work = 1000000;
+  return result;
+}
+
 static long position(FILE *file) {
   const long result = std::ftell(file);
   assert(result >= 0);
@@ -149,6 +166,9 @@ static void exhaustion_retries_same_identity() {
   assert(exhausted.proposed_action_id == 71 &&
          !exhausted.committed_action_id);
   assert(kernel.structural_action_sequence == 70 && !position(records));
+  assert(kernel.stats.affine_consequence_attempts == 1 &&
+         kernel.stats.affine_consequence_resource_exhausted == 1 &&
+         kernel.stats.affine_consequence_preflight_deletions > 0);
 
   kernel.affine_consequence_parameters.maximum_proof_deletions = 100000;
   strategy::begin_semantic_variable_candidate_action(kernel);
@@ -163,6 +183,10 @@ static void exhaustion_retries_same_identity() {
   assert(applied.candidate_staged &&
          kernel.structural_action_sequence == 71 &&
          kernel.semantic_variable_candidate_pending);
+  assert(kernel.stats.affine_consequence_attempts == 2);
+  assert(kernel.stats.affine_consequence_applied == 1);
+  assert(kernel.stats.affine_consequence_candidate_variables == 2);
+  assert(kernel.stats.affine_consequence_published == applied.live.published);
 
   ++kernel.strategy_epoch;
   strategy::finish_semantic_variable_candidate_action(kernel,
@@ -229,11 +253,97 @@ static void terminal_result_commits_without_candidate() {
   std::fclose(records);
 }
 
+static void certified_basis_v2_uses_persistent_session() {
+  Kernel kernel;
+  install(kernel, affine_formula());
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  kernel.structural_action_sequence = 80;
+  kernel.affine_consequence_parameters = basis_parameters();
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+
+  // The online executor and registry both use the one-argument public entry;
+  // V2 must delegate through the attached solver-owned basis session.
+  const auto applied = affine_consequence_action_apply(kernel);
+  assert(applied.semantics ==
+         strategy::AffineConsequenceSemantics::CertifiedBasisV2);
+  assert(applied.status == AffineConsequenceActionStatus::Applied);
+  assert(applied.result == ApplyResult::Ok);
+  assert(applied.proposed_action_id == 81 &&
+         applied.committed_action_id == 81 && applied.semantic_id == 81);
+  assert(applied.basis.live.definitions == 4 &&
+         applied.basis.live.extent_growth == 4);
+  assert(applied.basis.live.existing_theory_variables ==
+         std::vector<int32_t>({1, 2, 3, 4, 5, 6}));
+  assert(applied.basis.live.introduced_theory_variables ==
+         std::vector<int32_t>({7, 8, 9, 10}));
+  assert(applied.candidate_staged && session.committed_keys() &&
+         kernel.semantic_variable_candidate_pending);
+  assert(kernel.stats.affine_consequence_attempts == 1 &&
+         kernel.stats.affine_consequence_applied == 1 &&
+         kernel.stats.affine_consequence_basis_work > 0 &&
+         kernel.stats.affine_consequence_rows > 0 &&
+         kernel.stats.affine_consequence_definitions == 4 &&
+         kernel.stats.affine_consequence_extent_growth == 4 &&
+         kernel.stats.affine_consequence_session_work > 0 &&
+         kernel.stats.affine_consequence_transaction_keys ==
+             applied.basis.transaction_keys &&
+         kernel.stats.affine_consequence_committed_keys ==
+             applied.basis.committed_keys &&
+         kernel.stats.affine_consequence_candidate_variables == 10);
+  std::fclose(records);
+}
+
+static void certified_basis_v2_duplicate_keeps_identity() {
+  Kernel kernel;
+  auto first = clausal_form({1, 2, 3}, false);
+  auto second = clausal_form({1, 2, 4}, true);
+  first.insert(first.end(), second.begin(), second.end());
+  install(kernel, first, 4);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  kernel.structural_action_sequence = 90;
+  kernel.affine_consequence_parameters = basis_parameters();
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+
+  const auto applied = affine_consequence_action_apply(kernel, session);
+  assert(applied.status == AffineConsequenceActionStatus::Applied &&
+         applied.result == ApplyResult::Ok &&
+         applied.committed_action_id == 91 && session.committed_keys() == 1);
+  strategy::begin_semantic_variable_candidate_action(kernel);
+  assert(kernel_delete_binary(kernel, kernel_internalize(kernel, 3),
+                              kernel_internalize(kernel, 4)));
+  assert(kernel_delete_binary(kernel, kernel_internalize(kernel, -3),
+                              kernel_internalize(kernel, -4)));
+  const uint64_t clause_id = kernel.next_clause_id;
+  const size_t arena = kernel.arena.size();
+  const long journal = position(records);
+  const auto duplicate = affine_consequence_action_apply(kernel, session);
+  assert(duplicate.status ==
+         AffineConsequenceActionStatus::AlreadyPublished);
+  assert(duplicate.result == ApplyResult::NoOp &&
+         duplicate.proposed_action_id == 92 &&
+         !duplicate.committed_action_id);
+  assert(kernel.structural_action_sequence == 91 &&
+         kernel.next_clause_id == clause_id && kernel.arena.size() == arena &&
+         position(records) == journal && session.committed_keys() == 1);
+  assert(kernel.stats.affine_consequence_attempts == 2 &&
+         kernel.stats.affine_consequence_applied == 1 &&
+         kernel.stats.affine_consequence_already_published == 1);
+  std::fclose(records);
+}
+
 int main() {
   state_only_guard();
   declines_preserve_identity_and_state();
   exhaustion_retries_same_identity();
   propagation_is_deferred();
   terminal_result_commits_without_candidate();
+  certified_basis_v2_uses_persistent_session();
+  certified_basis_v2_duplicate_keeps_identity();
   std::puts("affine consequence action: transactional identity, effort, advice, and deferred propagation PASS");
 }

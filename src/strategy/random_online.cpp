@@ -131,6 +131,8 @@ ActionParameters random_parameters(const Kernel &, uint64_t &state, const std::s
                        : bounded(state, p.consequence + 1);
     return p;
   }
+  if (rule == "AffineConsequence")
+    return config.affine_consequence_reference;
   if (rule == "Congruence") {
     CongruenceParameters p;
     p.and_arity_limit =
@@ -635,6 +637,36 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     if (!boolean(v[6], p.descending)) return false;
     p.maximum_proof_additions = v[7]; U32_AT(8, p.maximum_tree_variables);
     p.consequence = v[9]; parameters = p;
+  } else if (tuple(text, "affine-consequence1", v) && v.size() == 14) {
+    AffineConsequenceParameters p;
+    p.maximum_clauses=v[0]; p.maximum_snapshot_literals=v[1];
+    p.maximum_snapshot_work=v[2]; p.maximum_groups=v[3];
+    p.maximum_patterns=v[4]; p.maximum_elimination_work=v[5];
+    U32_AT(6,p.maximum_arity); U32_AT(7,p.maximum_intermediate_width);
+    U32_AT(8,p.maximum_sources); U32_AT(9,p.maximum_output_width);
+    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
+    p.maximum_journal_bytes=v[12]; p.consequence=v[13];
+    p.semantics = AffineConsequenceSemantics::SelectedConsequenceV1;
+    parameters=p;
+  } else if (tuple(text, "affine-consequence2", v) && v.size() == 22) {
+    AffineConsequenceParameters p;
+    p.maximum_clauses=v[0]; p.maximum_snapshot_literals=v[1];
+    p.maximum_snapshot_work=v[2]; p.maximum_groups=v[3];
+    p.maximum_patterns=v[4]; p.maximum_elimination_work=v[5];
+    U32_AT(6,p.maximum_arity); U32_AT(7,p.maximum_intermediate_width);
+    U32_AT(8,p.maximum_sources); U32_AT(9,p.maximum_output_width);
+    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
+    p.maximum_journal_bytes=v[12];
+    p.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
+    p.basis_maximum_work=v[13];
+    U32_AT(14,p.basis_maximum_intermediate_width);
+    U32_AT(15,p.basis_maximum_sources);
+    U32_AT(16,p.basis_maximum_premises);
+    U32_AT(17,p.basis_maximum_nodes);
+    U32_AT(18,p.basis_maximum_direct_width);
+    U32_AT(19,p.maximum_external_extent);
+    p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
+    parameters=p;
   } else if (tuple(text, "congruence", v) && v.size() == 3) {
     CongruenceParameters p;
     U32_AT(0, p.and_arity_limit); p.gate_count_limit = v[1];
@@ -1544,6 +1576,36 @@ std::string serialize_online_strategy_program(
           << p->output_width << ',' << p->descending << ','
           << p->maximum_proof_additions << ',' << p->maximum_tree_variables
           << ',' << p->consequence << ')';
+    else if (const auto *p =
+                 std::get_if<AffineConsequenceParameters>(&step.parameters)) {
+      if (p->semantics ==
+          AffineConsequenceSemantics::SelectedConsequenceV1)
+        out << ":affine-consequence1(" << p->maximum_clauses << ','
+          << p->maximum_snapshot_literals << ',' << p->maximum_snapshot_work
+          << ',' << p->maximum_groups << ',' << p->maximum_patterns << ','
+          << p->maximum_elimination_work << ',' << p->maximum_arity << ','
+          << p->maximum_intermediate_width << ',' << p->maximum_sources << ','
+          << p->maximum_output_width << ',' << p->maximum_proof_additions << ','
+          << p->maximum_proof_deletions << ',' << p->maximum_journal_bytes
+          << ',' << p->consequence << ')';
+      else
+        out << ":affine-consequence2(" << p->maximum_clauses << ','
+            << p->maximum_snapshot_literals << ','
+            << p->maximum_snapshot_work << ',' << p->maximum_groups << ','
+            << p->maximum_patterns << ',' << p->maximum_elimination_work
+            << ',' << p->maximum_arity << ','
+            << p->maximum_intermediate_width << ',' << p->maximum_sources
+            << ',' << p->maximum_output_width << ','
+            << p->maximum_proof_additions << ','
+            << p->maximum_proof_deletions << ','
+            << p->maximum_journal_bytes << ',' << p->basis_maximum_work
+            << ',' << p->basis_maximum_intermediate_width << ','
+            << p->basis_maximum_sources << ',' << p->basis_maximum_premises
+            << ',' << p->basis_maximum_nodes << ','
+            << p->basis_maximum_direct_width << ','
+            << p->maximum_external_extent << ',' << p->maximum_session_keys
+            << ',' << p->maximum_session_work << ')';
+    }
     else if (const auto *p =
                  std::get_if<CongruenceParameters>(&step.parameters))
       out << ":congruence(" << p->and_arity_limit << ','

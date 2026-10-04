@@ -132,6 +132,7 @@ AffineBasisActionStatus action_status(AffineBasisLiveStatus status) {
 }
 
 AffineBasisLiveRequest make_request(const Kernel &kernel,
+                                    const AffineBasisActionSession &session,
                                     const AffineBasisActionLimits &limits,
                                     uint64_t action_id) {
   AffineBasisLiveRequest request;
@@ -146,6 +147,10 @@ AffineBasisLiveRequest make_request(const Kernel &kernel,
   request.action_id = action_id;
   request.semantic_id = action_id;
   request.records = kernel.structural_provenance;
+  if (session.committed_keys()) {
+    request.excluded_keys = &session.keys();
+    request.maximum_exclusion_work = limits.maximum_session_work;
+  }
   return request;
 }
 
@@ -206,10 +211,16 @@ AffineBasisActionResult affine_basis_action_apply(
   output.proposed_action_id = kernel.structural_action_sequence + 1;
   output.semantic_id = output.proposed_action_id;
   const AffineBasisLiveRequest request =
-      make_request(kernel, limits, output.proposed_action_id);
+      make_request(kernel, session, limits, output.proposed_action_id);
   AffineBasisLiveTransaction transaction;
   output.live = prepare_affine_basis_live(kernel, request, transaction);
   output.status = action_status(output.live.status);
+  output.session_work = output.live.exclusion_work;
+  if (output.live.status == AffineBasisLiveStatus::NoStructure &&
+      output.live.excluded_rows) {
+    output.status = AffineBasisActionStatus::AlreadyPublished;
+    return output;
+  }
   if (output.live.status != AffineBasisLiveStatus::Prepared) return output;
 
   output.transaction_keys = transaction.consumed_keys().size();
@@ -228,7 +239,10 @@ AffineBasisActionResult affine_basis_action_apply(
     return output;
   }
   if (merge == MergeStatus::Overlap) {
-    output.status = AffineBasisActionStatus::AlreadyPublished;
+    // The live transaction received this exact exclusion set before planning;
+    // surviving overlap is an internal filtering/identity inconsistency.
+    output.status = AffineBasisActionStatus::Invalid;
+    output.live.status = AffineBasisLiveStatus::Invalid;
     return output;
   }
 

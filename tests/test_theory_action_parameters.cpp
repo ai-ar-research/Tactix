@@ -26,6 +26,39 @@ int main() {
   affine.maximum_output_width = 5;
   assert(!affine.valid());
 
+  AffineConsequenceParameters basis;
+  basis.maximum_clauses = 100;
+  basis.maximum_snapshot_literals = 1000;
+  basis.maximum_snapshot_work = 2000;
+  basis.maximum_groups = 100;
+  basis.maximum_patterns = 1000;
+  basis.maximum_elimination_work = 10000;
+  basis.maximum_arity = 8;
+  basis.maximum_intermediate_width = 32;
+  basis.maximum_sources = 32;
+  basis.maximum_output_width = 4;
+  basis.maximum_proof_additions = 10000;
+  basis.maximum_journal_bytes = 10000;
+  basis.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
+  basis.basis_maximum_work = 10000;
+  basis.basis_maximum_intermediate_width = 32;
+  basis.basis_maximum_sources = 32;
+  basis.basis_maximum_premises = 1000;
+  basis.basis_maximum_nodes = 1000;
+  basis.basis_maximum_direct_width = 3;
+  basis.maximum_external_extent = 10000;
+  basis.maximum_session_keys = 1000;
+  basis.maximum_session_work = 10000;
+  assert(basis.valid());
+  install_rule_parameters(kernel, basis);
+  assert(AffineConsequenceParameters::from_kernel(kernel).semantics ==
+         AffineConsequenceSemantics::CertifiedBasisV2);
+  basis.maximum_session_work = 0;
+  assert(!basis.valid());
+  basis.maximum_session_work = 10000;
+  basis.basis_maximum_direct_width = 1;
+  assert(!basis.valid());
+
   ExactCoverExtensionParameters exact;
   exact.arity = 3;
   exact.maximum_definitions = 9;
