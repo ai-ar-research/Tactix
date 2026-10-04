@@ -468,6 +468,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
       for (uint32_t i = 0; i < size; i++)
         kernel_touch_kept_var(k, var_of(lits[i]));
   }
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
+                               SolverClauseKind::Large, id, c->lits, c->size,
+                               1, redundant);
   return ref;
 }
 
@@ -535,6 +538,9 @@ static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   kernel_bve_occurrence_add(k, a);
   kernel_bve_occurrence_add(k, b);
   note_binary_add(k, a, b, id, new_pair, mark_added_material);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
+                               SolverClauseKind::Binary, id, clause, 2);
 }
 
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
@@ -562,7 +568,8 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
 }
 
 void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
-                                  bool new_pair) {
+                                  bool new_pair,
+                                  BinaryPopulationEffect population_effect) {
   assert(!k.bve_occurrence_count_image);
   kernel_rearm_binary_clause(k, a, b);
   // Binary substitution has already published the logical/proof image.  This
@@ -571,6 +578,11 @@ void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   // those watches in place/delayed without mark_added_literal, even when the
   // representative pair did not previously exist.
   note_binary_add(k, a, b, id, new_pair, false);
+  if (population_effect == BinaryPopulationEffect::LogicalAdd) {
+    const Lit clause[2] = {a, b};
+    kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
+                                 SolverClauseKind::Binary, id, clause, 2);
+  }
 }
 
 // Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
@@ -652,6 +664,10 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   kernel_removed_var(k, var_of(b));
   event_trace_binary_lifecycle(k, "delete", a, b,
                                kernel_binary_id(k, a, b), 0);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary,
+                               kernel_binary_id(k, a, b), clause, 2);
   return true;
 }
 
@@ -704,6 +720,10 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   kernel_removed_var(k, var_of(b));
   event_trace_binary_lifecycle(k, "delete-copy", a, b,
                                kernel_binary_id(k, a, b), copies - 1);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary,
+                               kernel_binary_id(k, a, b), clause, 2);
   return true;
 }
 
@@ -787,6 +807,11 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   kernel_notify_bve_score(k, var_of(b), true);
   event_trace_binary_lifecycle(k, "deduplicate", a, b,
                                kernel_binary_id(k, a, b), 1);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary,
+                               kernel_binary_id(k, a, b), clause, 2,
+                               removed_copies);
   return removed_copies;
 }
 
@@ -864,6 +889,10 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
   kernel_removed_var(k, var_of(b));
   event_trace_binary_lifecycle(k, "delete-all", a, b,
                                kernel_binary_id(k, a, b), 0);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary,
+                               kernel_binary_id(k, a, b), clause, 2, copies);
   return true;
 }
 
@@ -1183,6 +1212,11 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // caller-specific (in particular Sweep's `vivify` bit) and is restored by
   // the source-backed caller that owns that in-place rewrite.
   const uint32_t inherited_used = c->used();
+  const uint64_t predecessor_id = c->id();
+  kernel_observe_replacement(k, SolverReplacementPhase::Begin,
+                             SolverReplacementOutcome::Pending,
+                             predecessor_id, id, c->lits, c->size, lits,
+                             size);
   const bool semantic_irredundant = !c->redundant();
   const Ref source_ref = static_cast<Ref>(
       reinterpret_cast<const uint32_t *>(c) - k.arena.data());
@@ -1199,12 +1233,22 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   kernel_delete_clause(k, c, false); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
+    kernel_observe_replacement(k, SolverReplacementPhase::End,
+                               SolverReplacementOutcome::Refuted,
+                               predecessor_id, id, nullptr, 0, nullptr, 0);
     return ReplaceOutcome::Refuted;
   }
-  if (size == 1)
+  if (size == 1) {
+    kernel_observe_replacement(k, SolverReplacementPhase::End,
+                               SolverReplacementOutcome::Unit,
+                               predecessor_id, id, nullptr, 0, lits, size);
     return ReplaceOutcome::Unit; // caller owns unit semantics
+  }
   if (size == 2) {
     kernel_add_binary_clause(k, lits[0], lits[1], id, mark_added_material);
+    kernel_observe_replacement(k, SolverReplacementPhase::End,
+                               SolverReplacementOutcome::Binary,
+                               predecessor_id, id, nullptr, 0, lits, size);
     return ReplaceOutcome::Binary;
   }
   kernel_inherit_clause_position(k, id, source_ref);
@@ -1214,6 +1258,11 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
     clause_at(k.arena, r)->set_used(inherited_used);
   if (large_ref)
     *large_ref = r;
+  const Clause *const replacement = clause_at(k.arena, r);
+  kernel_observe_replacement(k, SolverReplacementPhase::End,
+                             SolverReplacementOutcome::Large,
+                             predecessor_id, id, nullptr, 0,
+                             replacement->lits, replacement->size);
   return ReplaceOutcome::Large;
 }
 
@@ -1235,6 +1284,11 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   assert(!kernel_probing_rollback_active(k));
 
   const uint32_t old_size = c->size;
+  const uint64_t predecessor_id = c->id();
+  kernel_observe_replacement(k, SolverReplacementPhase::Begin,
+                             SolverReplacementOutcome::Pending,
+                             predecessor_id, id, c->lits, c->size, lits,
+                             size);
   const uint32_t old_flags = c->flags;
   const uint64_t old_position_alias =
       c->id() ? k.clause_position_alias.get(c->id()) : 0;
@@ -1368,6 +1422,13 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
       for (uint32_t i = 0; i < size; i++)
         kernel_touch_kept_var(k, var_of(lits[i]));
   }
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
+                               SolverClauseKind::Large, id, c->lits, c->size,
+                               1, redundant);
+  kernel_observe_replacement(k, SolverReplacementPhase::End,
+                             SolverReplacementOutcome::Large,
+                             predecessor_id, id, nullptr, 0, c->lits,
+                             c->size);
 }
 
 RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
@@ -2420,6 +2481,9 @@ void kernel_promote_large_irredundant(Kernel &k, Ref ref) {
   c->set_redundant(false);
   c->set_glue(0);
   k.live_irredundant_large++;
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::MetadataUpdate,
+                               SolverClauseKind::Large, c->id(), c->lits,
+                               c->size, 1, false);
   if (!k.dense)
     return;
   for (const Lit lit : *c) {
@@ -3873,6 +3937,9 @@ void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
   const uint64_t id = ++k.next_clause_id;
   k.proof->add_derived_unit(id, lit, nullptr, 0);
   k.dsr_root_values[v] = polarity;
+  kernel_observe_solver_clause(k,
+                               SolverPopulationEventKind::UnitMaterialized,
+                               SolverClauseKind::Unit, id, &lit, 1);
 }
 
 // LRAT and DSR: every root-level propagation-derived literal becomes an

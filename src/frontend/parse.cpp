@@ -58,6 +58,54 @@ struct ParseMemoryTrace {
   }
 };
 
+class RawInputObservation {
+public:
+  RawInputObservation(Kernel &kernel, uint64_t raw_input_id,
+                      const std::vector<Lit> &clause) noexcept
+      : kernel_(kernel), id_(raw_input_id), normalized_(clause) {
+    if (!kernel_.population_observer ||
+        !kernel_.population_observe_raw_input)
+      return;
+    RawInputPopulationEvent event;
+    event.kind = RawInputEventKind::Clause;
+    event.raw_input_id = id_;
+    event.raw = kernel_population_clause(
+        kernel_, clause.data(), static_cast<uint32_t>(clause.size()));
+    kernel_.population_observer->observe(event);
+  }
+
+  ~RawInputObservation() {
+    if (!kernel_.population_observer ||
+        !kernel_.population_observe_raw_input)
+      return;
+    RawInputPopulationEvent event;
+    event.kind = RawInputEventKind::Outcome;
+    event.raw_input_id = id_;
+    event.disposition = disposition_;
+    event.normalized_available = normalized_available_;
+    event.source_classification =
+        normalized_available_ && !normalized_.empty() &&
+                (disposition_ & RawAdmitted)
+            ? PopulationSourceClassification::Eligible
+            : PopulationSourceClassification::Ineligible;
+    if (normalized_available_)
+      event.normalized = kernel_population_clause(
+          kernel_, normalized_.data(),
+          static_cast<uint32_t>(normalized_.size()));
+    kernel_.population_observer->observe(event);
+  }
+
+  void note(uint32_t flags) noexcept { disposition_ |= flags; }
+  void normalized_available() noexcept { normalized_available_ = true; }
+
+private:
+  Kernel &kernel_;
+  uint64_t id_;
+  const std::vector<Lit> &normalized_;
+  uint32_t disposition_ = RawNone;
+  bool normalized_available_ = false;
+};
+
 } // namespace
 
 static void grow_input_binary_liveness(Kernel &k, size_t entries) {
@@ -217,13 +265,15 @@ static void propagate_input_unit(Kernel &k) {
       grow_input_binary_liveness(k, k.binary_ids.size());
     kernel_reserve_vars(k, maxv + 1);
   }
+  kernel_sync_population_observer(k);
+  RawInputObservation observation(k, id, scratch);
   capture_raw_input_shape(k, scratch);
   // Seed the diagnostic proof shadow from the checker's ACTUAL starting
   // population, before normalization changes or drops this clause. The checker
   // reads every file clause, including tautologies and duplicate copies; a
   // snapshot of only the solver's later live formula cannot model DRAT
   // deletion-by-literal-multiset.
-  if (k.proof && k.proof->population_shadow_available())
+  if (k.proof)
     k.proof->seed_population(id, scratch.data(),
                              static_cast<uint32_t>(scratch.size()));
 
@@ -258,10 +308,12 @@ static void propagate_input_unit(Kernel &k) {
   // of every affected watch list.
   if (file_size == 2) {
     if (scratch[0] == negate(scratch[1])) {
+      observation.note(RawDropped | RawTautology | RawBinary);
       retire_unstored();
       return;
     }
     if (scratch[0] == scratch[1]) {
+      observation.note(RawRepeatedLiteral);
       retain_original();
       scratch.resize(1);
     }
@@ -273,6 +325,7 @@ static void propagate_input_unit(Kernel &k) {
     for (size_t i = 0; i < file_size; i++) {
       const Lit lit = scratch[i];
       if (k.input_marks[lit]) {
+        observation.note(RawRepeatedLiteral);
         retain_original();
         continue; // repeated literal: the first occurrence stands
       }
@@ -286,6 +339,7 @@ static void propagate_input_unit(Kernel &k) {
     for (size_t i = 0; i < kept; i++)
       k.input_marks[scratch[i]] = 0;
     if (tautology) {
+      observation.note(RawDropped | RawTautology);
       retire_unstored();
       return;
     }
@@ -303,10 +357,12 @@ static void propagate_input_unit(Kernel &k) {
   for (const Lit lit : scratch) {
     const int8_t value = k.values[lit];
     if (value > 0) {
+      observation.note(RawDropped | RawRootSatisfied);
       retire_unstored();
       return; // satisfied input clause: consume its id, activate/store nothing
     }
     if (value < 0) {
+      observation.note(RawRootShortened);
       retain_original();
       if (native_lrat)
         root_units.push_back(negate(lit));
@@ -315,6 +371,7 @@ static void propagate_input_unit(Kernel &k) {
       *out++ = lit;
   }
   scratch.erase(out, scratch.end());
+  observation.normalized_available();
 
   // N2: the checker holds the file clause under `id`, repeats and all, so a
   // shrunk clause may not keep it. Add the exact stored clause at finish_input,
@@ -322,8 +379,10 @@ static void propagate_input_unit(Kernel &k) {
   // used as the solver-side premise of a later inference.
   const bool shrunk = scratch.size() < file_size;
 
-  if (k.inconsistent)
+  if (k.inconsistent) {
+    observation.note(RawDropped | RawAlreadyInconsistent);
     return; // already refuted; further clauses don't matter
+  }
 
   // Activation, kissat's `tumble` order (heuristics_seed_activation_order).
   // Placed after the tautology return and before the store so it matches
@@ -349,17 +408,22 @@ static void propagate_input_unit(Kernel &k) {
   }
 
   if (scratch.empty()) { // empty input clause: immediate refutation
+    observation.note(RawAdmitted | RawEmpty |
+                     (file_size ? RawRootShortened : RawNone));
     k.inconsistent = true;
     k.input_refuted = true; // the input empty clause is the whole chain
     k.input_refutation_id = id;
     k.input_refutation_units = root_units;
   } else if (scratch.size() == 1) {
+    observation.note(RawUnit);
     const Lit u = scratch[0];
     if (k.values[u] > 0) {
+      observation.note(RawDropped | RawDuplicate);
       retire_unstored();
       return; // duplicate unit (its id is consumed, never referenced)
     }
     if (k.values[u] < 0) { // contradicting unit: refuted at the root
+      observation.note(RawAdmitted | RawContradiction);
       k.inconsistent = true;
       k.input_refuted = true;
       k.input_refutation_id = id;
@@ -367,11 +431,13 @@ static void propagate_input_unit(Kernel &k) {
       return;
     }
     k.unit_ids[var_of(u)] = id;
+    observation.note(RawAdmitted);
     if (shrunk)
       restate_input(k, id, scratch, root_units, 0, original);
     kernel_assign_unit(k, u);
     propagate_input_unit(k);
   } else if (scratch.size() == 2) {
+    observation.note(RawBinary);
     // A duplicate binary consumes its input id but is not stored or proved.
     // No deletion occurs during import. Native LRAT's BinaryIdMap is therefore
     // the exact live-set image. DRAT/proofless import first asks its compact
@@ -383,6 +449,7 @@ static void propagate_input_unit(Kernel &k) {
                                ? k.binary_ids.count(key)
                                : kernel_binary_live(k, scratch[0], scratch[1]);
     if (duplicate) {
+      observation.note(RawDropped | RawDuplicate);
       // Each raw duplicate still exists in the checker. Keep exactly the
       // one copy represented by the kernel so a later deletion removes it.
       if (k.proof && !k.proof->lrat()) {
@@ -396,6 +463,7 @@ static void propagate_input_unit(Kernel &k) {
         k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
       grow_input_binary_liveness(k, k.binary_ids.size() + 1);
     kernel_add_new_binary_clause(k, scratch[0], scratch[1], id);
+    observation.note(RawAdmitted);
     if (k.input_binary_order_captured)
       k.input_binary_order.push_back(key);
     // Kissat's original-clause constructor checks vector defragmentation only
@@ -404,6 +472,7 @@ static void propagate_input_unit(Kernel &k) {
     if (shrunk)
       restate_input(k, id, scratch, root_units, 0, original);
   } else {
+    observation.note(RawAdmitted | RawLarge);
     const Ref ref = kernel_add_large_clause(
         k, scratch.data(), static_cast<uint32_t>(scratch.size()), false, 0, id);
     k.watches.defrag_if_needed();
@@ -424,8 +493,12 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
         var_of(b) < k.nvars && !k.inconsistent && k.values[a] == 0 &&
         k.values[b] == 0) {
       const uint64_t id = ++k.next_clause_id;
+      kernel_sync_population_observer(k);
+      RawInputObservation observation(k, id, scratch);
+      observation.normalized_available();
+      observation.note(RawBinary);
       capture_raw_input_shape(k, scratch);
-      if (k.proof && k.proof->population_shadow_available())
+      if (k.proof)
         k.proof->seed_population(id, scratch.data(), 2);
       kernel_record_import(k, var_of(a));
       kernel_record_import(k, var_of(b));
@@ -446,6 +519,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
                                  ? k.binary_ids.count(key)
                                  : kernel_binary_live(k, a, b);
       if (duplicate) {
+        observation.note(RawDropped | RawDuplicate);
         if (k.proof && !k.proof->lrat())
           k.proof->del(k.next_clause_id, id, scratch.data(), 2);
         return;
@@ -454,6 +528,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
           k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
         grow_input_binary_liveness(k, k.binary_ids.size() + 1);
       kernel_add_new_binary_clause(k, a, b, id);
+      observation.note(RawAdmitted);
       if (k.input_binary_order_captured)
         k.input_binary_order.push_back(key);
       k.watches.defrag_if_needed();
@@ -464,6 +539,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 }
 
 void finish_input(Kernel &k) {
+  kernel_sync_population_observer(k);
   // Search never has more than one assignment per variable, while its level
   // stack cannot exceed the same population.  Reserve both once, after the
   // DIMACS header/import stream has fixed the population, so the propagation
@@ -529,6 +605,7 @@ void finish_input(Kernel &k) {
                      static_cast<uint32_t>(chain.size()));
     if (!native_lrat)
       continue;
+    k.proof->observe_checker_id_rebind(r.id, nid, lits, r.size);
     if (r.size == 1) {
       assert(k.unit_ids[var_of(lits[0])] == r.id);
       k.unit_ids[var_of(lits[0])] = nid;
@@ -593,6 +670,15 @@ void finish_input(Kernel &k) {
   }
   if (k.proof)
     k.proof->finish_input_transaction();
+  if (k.population_observer && k.population_observe_raw_input) {
+    RawInputPopulationEvent event;
+    event.kind = RawInputEventKind::Finished;
+    event.source_classification =
+        PopulationSourceClassification::Ineligible;
+    event.raw_input_id =
+        k.input_unit_clause_count + k.input_nonunit_clause_count;
+    k.population_observer->observe(event);
+  }
 }
 
 void attach_replayed_input_proof(Kernel &current, Proof &proof) {
@@ -603,8 +689,15 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   // after proof selection, so LRAT-derived ids must follow all input ids.
   Kernel replay;
   replay.proof = &proof;
+  replay.population_observer = current.population_observer;
+  // The replay reconstructs checker identities for input already observed by
+  // the live kernel.  It must not claim a second raw stream or a second solver
+  // population; Proof events and the explicit rebinds below remain visible.
+  replay.population_observe_raw_input = false;
+  replay.population_observe_solver = false;
   proof.bind_variable_map(&replay.internal_to_external);
   proof.bind_external_variable_map(&replay.external_to_internal);
+  kernel_sync_population_observer(replay);
   std::vector<Lit> clause;
   for (const int32_t external : current.startup_input) {
     if (external) {
@@ -678,6 +771,10 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
           proof.add_rup(replacement, entry.lits.data(),
                         static_cast<uint32_t>(entry.lits.size()), chain.data(),
                         static_cast<uint32_t>(chain.size()));
+          proof.observe_checker_id_rebind(raw_id, replacement,
+                                          entry.lits.data(),
+                                          static_cast<uint32_t>(
+                                              entry.lits.size()));
           if (entry.ref != INVALID_REF)
             clause_at(current.arena, entry.ref)->set_id(replacement);
           else
@@ -693,8 +790,14 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
         continue;
       assert(replay.values[make_lit(v, false)] ==
              current.values[make_lit(v, false)]);
+      const uint64_t predecessor = current.unit_ids[v];
       current.unit_ids[v] = replay.unit_ids[v];
       assert(current.unit_ids[v]);
+      if (predecessor != current.unit_ids[v]) {
+        const Lit unit = make_lit(v, current.values[make_lit(v, false)] < 0);
+        proof.observe_checker_id_rebind(predecessor, current.unit_ids[v],
+                                        &unit, 1);
+      }
     }
   } else if (proof.dsr()) {
     current.dsr_root_values = replay.dsr_root_values;
@@ -711,6 +814,7 @@ void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   current.proof = &proof;
   proof.bind_variable_map(&current.internal_to_external);
   proof.bind_external_variable_map(&current.external_to_internal);
+  kernel_sync_population_observer(current);
   if (!proof.startup_pb_available())
     current.close_startup_certificate();
   current.replay_lrat_input = false;

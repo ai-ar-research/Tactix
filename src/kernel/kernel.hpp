@@ -1510,6 +1510,12 @@ struct Kernel {
   std::vector<Lit> input_refutation_units; // root-true antecedent units
 
   Proof *proof = nullptr;
+  // Always-compiled, nullable Stage-0 population seam. The observer is
+  // non-owning; ScopedPopulationObserverBinding settles Proof before unbind.
+  PopulationObserver *population_observer = nullptr;
+  bool population_observe_raw_input = true;
+  bool population_observe_solver = true;
+  uint64_t next_population_transaction = 0;
   Stats stats;
 
   // The shipped DefaultPolicy can finish at startup propagation or early
@@ -2210,6 +2216,10 @@ void kernel_rearm_binary_clause(Kernel &, Lit a, Lit b);
 // same clause transition without rescanning a growing high-degree watch list.
 // Unlike the general API, duplicate callers violate this function's contract.
 void kernel_add_new_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
+enum class BinaryPopulationEffect : uint8_t {
+  RepresentationOnly,
+  LogicalAdd,
+};
 // Complete a pair whose `stable` direction was rewritten in place: append only
 // the missing mirror (to `moved`'s list), then publish the normal add metadata.
 void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
@@ -2217,7 +2227,7 @@ void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
 // Publish the ordinary add metadata for a binary direction already inserted
 // by a transaction that reconstructs the two directed watches independently.
 void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
-                                  bool new_pair);
+                                  bool new_pair, BinaryPopulationEffect);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // Remove exactly one physical copy. If another identical copy survives, its
 // proof clause remains a valid reason. Native DSR deletes one literal-named
@@ -2308,6 +2318,73 @@ inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   }
 }
 
+inline PopulationClauseView kernel_population_clause(
+    const Kernel &k, const Lit *literals, uint32_t size) noexcept {
+  return PopulationClauseView::internal_lits(literals, size,
+                                              &k.internal_to_external);
+}
+
+inline void kernel_observe_solver_clause(
+    Kernel &k, SolverPopulationEventKind event_kind,
+    SolverClauseKind clause_kind, uint64_t logical_id, const Lit *literals,
+    uint32_t size, uint32_t copies = 1, bool redundant = false,
+    uint64_t transaction_id = 0) noexcept {
+  if (!k.population_observer || !k.population_observe_solver)
+    return;
+  SolverPopulationEvent event;
+  event.kind = event_kind;
+  event.clause_kind = clause_kind;
+  event.logical_id = logical_id;
+  event.copies = copies;
+  event.redundant = redundant;
+  event.transaction_id = transaction_id;
+  event.clause = kernel_population_clause(k, literals, size);
+  k.population_observer->observe(event);
+}
+
+inline uint64_t kernel_begin_solver_population_transaction(
+    Kernel &k) noexcept {
+  if (!k.population_observer || !k.population_observe_solver)
+    return 0;
+  const uint64_t transaction_id = ++k.next_population_transaction;
+  SolverPopulationEvent event;
+  event.kind = SolverPopulationEventKind::TransactionBegin;
+  event.transaction_id = transaction_id;
+  k.population_observer->observe(event);
+  return transaction_id;
+}
+
+inline void kernel_commit_solver_population_transaction(
+    Kernel &k, uint64_t transaction_id) noexcept {
+  if (!transaction_id || !k.population_observer ||
+      !k.population_observe_solver)
+    return;
+  SolverPopulationEvent event;
+  event.kind = SolverPopulationEventKind::TransactionCommit;
+  event.transaction_id = transaction_id;
+  k.population_observer->observe(event);
+}
+
+inline void kernel_observe_replacement(
+    Kernel &k, SolverReplacementPhase phase,
+    SolverReplacementOutcome outcome, uint64_t predecessor_id,
+    uint64_t replacement_id, const Lit *predecessor,
+    uint32_t predecessor_size, const Lit *replacement,
+    uint32_t replacement_size) noexcept {
+  if (!k.population_observer || !k.population_observe_solver)
+    return;
+  SolverReplacementEvent event;
+  event.phase = phase;
+  event.outcome = outcome;
+  event.predecessor_id = predecessor_id;
+  event.replacement_id = replacement_id;
+  event.predecessor =
+      kernel_population_clause(k, predecessor, predecessor_size);
+  event.replacement =
+      kernel_population_clause(k, replacement, replacement_size);
+  k.population_observer->observe(event);
+}
+
 inline void kernel_delete_clause(Kernel &k, Clause *c,
                                  bool semantic_removal = true,
                                  const char *retry_source = "delete-clause") {
@@ -2337,6 +2414,9 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
     k.live_irredundant_large--;
   }
   c->flags |= Clause::GARBAGE;
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Large, c->id(), c->lits,
+                               c->size, 1, c->redundant());
   if (semantic_removal && !c->redundant())
     for (const Lit l : *c) {
       kernel_mark_bve_retry(k, var_of(l), retry_source, c);
@@ -2452,6 +2532,9 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
 [[gnu::always_inline]] inline void kernel_assign_unit(Kernel &k,
                                                        Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
+                               SolverClauseKind::Unit,
+                               k.unit_ids[var_of(lit)], &lit, 1);
 }
 [[gnu::always_inline]] inline void
 kernel_assign_binary_from(Kernel &k, Lit lit, Lit other_false,

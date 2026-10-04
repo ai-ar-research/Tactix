@@ -46,6 +46,7 @@ file(GLOB_RECURSE TACTIX_STRATEGY_SOURCES CONFIGURE_DEPENDS
 
 add_library(tactix_lib OBJECT
   src/kernel/kernel.cpp
+  src/population/population_observer.cpp
   src/proof/proof.cpp
   src/rules/registry.cpp
   ${TACTIX_RULE_SOURCES}

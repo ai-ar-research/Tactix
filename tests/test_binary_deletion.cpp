@@ -123,7 +123,8 @@ static void test_publish_rebuilt_binary_does_not_rearm_added_material() {
   k.factor_marks[a] = 0;
   k.factor_marks[b] = 0;
 
-  kernel_publish_binary_clause(k, a, b, 17, false);
+  kernel_publish_binary_clause(k, a, b, 17, false,
+                               BinaryPopulationEffect::RepresentationOnly);
   assert(kernel_binary_id(k, a, b) == 17);
   assert(!k.factor_marks[a] && !k.factor_marks[b]);
   kernel_check_invariants(k);
