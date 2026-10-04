@@ -42,6 +42,10 @@ enum class DirectPhpActionStatus : uint8_t {
   ResourceExhausted,
   Interrupted,
   UnsupportedProof,
+  // A caller-visible prepare/publish gap cannot authenticate mutations to
+  // Proof's private stream, maps, and checker-population state.  Proof-backed
+  // actions must therefore use the atomic apply/replay entry points.
+  UnsupportedProofSplit,
   Stale,
   AlreadyApplied,
   ReplayMismatch,
@@ -76,7 +80,16 @@ struct DirectPhpActionResult;
 
 class DirectPhpActionSession {
 public:
-  bool committed() const { return owner_ != nullptr; }
+  // Sessions are permanently bound to one live Kernel object.  The session
+  // must be destroyed before that Kernel; making it non-copyable prevents a
+  // retained committed token from being casually detached from that scope.
+  explicit DirectPhpActionSession(Kernel &kernel) : owner_(&kernel) {}
+  DirectPhpActionSession(const DirectPhpActionSession &) = delete;
+  DirectPhpActionSession &operator=(const DirectPhpActionSession &) = delete;
+  DirectPhpActionSession(DirectPhpActionSession &&) = delete;
+  DirectPhpActionSession &operator=(DirectPhpActionSession &&) = delete;
+
+  bool committed() const { return committed_; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   uint64_t action_id() const { return action_id_; }
   const DirectPhpActionRecord *record() const {
@@ -85,7 +98,8 @@ public:
 
 private:
   friend struct DirectPhpActionSessionAccess;
-  const Kernel *owner_ = nullptr;
+  const Kernel *const owner_;
+  bool committed_ = false;
   uint64_t action_id_ = 0;
   DirectPhpActionRecord record_;
 };
@@ -136,6 +150,10 @@ DirectPhpActionResult direct_php_action_prepare(
     Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
     DirectPhpPreparedAction &);
 
+// The split prepare/publish API is proofless by construction.  Use apply or
+// replay when Kernel::proof is non-null so no external code can mutate proof
+// state between validation and terminal publication.  All entry points require
+// exclusive single-threaded ownership of Kernel and its Proof for the call.
 DirectPhpActionResult direct_php_action_prepare_replay(
     Kernel &, DirectPhpActionSession &, const DirectPhpActionRequest &,
     const DirectPhpActionRecord &, DirectPhpPreparedAction &);
