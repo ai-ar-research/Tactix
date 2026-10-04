@@ -18,6 +18,14 @@ add_executable(test_proof test_proof.cpp)
 target_link_libraries(test_proof PRIVATE tactix_lib)
 add_test(NAME proof COMMAND test_proof)
 
+add_executable(test_population_observer test_population_observer.cpp)
+target_link_libraries(test_population_observer PRIVATE tactix_lib)
+add_test(NAME population_observer COMMAND test_population_observer)
+add_test(NAME population_observer_inventory
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_population_observer_inventory.py
+                 ${CMAKE_SOURCE_DIR})
+
 add_executable(test_sr_proof_encoding test_sr_proof_encoding.cpp)
 target_link_libraries(test_sr_proof_encoding PRIVATE tactix_lib)
 add_test(NAME sr_proof_encoding COMMAND test_sr_proof_encoding)

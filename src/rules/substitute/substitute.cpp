@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include <limits>
 #include <numeric>
 #include <unordered_map>
 #include <unordered_set>
@@ -1952,6 +1953,38 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // LRAT (needs per-pair antecedent ids) and Sweep sessions (bridge targets) keep
   // the image path.
   const bool kissat_single_pass = !session && !lrat;
+  uint64_t binary_population_transaction = 0;
+  struct DeferredBinaryPopulationDelta {
+    SolverPopulationEventKind kind;
+    uint64_t id;
+    Lit a, b;
+  };
+  std::vector<DeferredBinaryPopulationDelta> deferred_single_pass_deltas;
+  const auto emit_binary_population =
+      [&](SolverPopulationEventKind kind, uint64_t id, Lit a, Lit b) {
+        if (!k.population_observer || !k.population_observe_solver)
+          return;
+        if (!binary_population_transaction)
+          binary_population_transaction =
+              kernel_begin_solver_population_transaction(k);
+        const Lit clause[2] = {a, b};
+        kernel_observe_solver_clause(
+            k, kind, SolverClauseKind::Binary, id, clause, 2, 1, false,
+            binary_population_transaction);
+      };
+  const auto stage_binary_population =
+      [&](SolverPopulationEventKind kind, uint64_t id, Lit a, Lit b) {
+        if (!k.population_observer || !k.population_observe_solver)
+          return;
+        if (kissat_single_pass) {
+          if (deferred_single_pass_deltas.size() ==
+              deferred_single_pass_deltas.capacity())
+            std::abort();
+          deferred_single_pass_deltas.push_back({kind, id, a, b});
+          return;
+        }
+        emit_binary_population(kind, id, a, b);
+      };
   if (kissat_single_pass) {
     // ---- Kissat substitute_binaries port ------------------------------------
     // One pass over each affected literal's watch list: `lit==repr` keeps or
@@ -1966,6 +1999,23 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const auto import_owner = [&](Lit a, Lit b) {
       return kernel_import_lit_order(k, a) < kernel_import_lit_order(k, b);
     };
+    if (k.population_observer && k.population_observe_solver) {
+      // One affected directed source can conservatively contribute one delete
+      // and one add.  Reserve twice the directed population before the first
+      // in-place edit so buffering cannot allocate while the mirror invariant
+      // is transient.
+      size_t directed_binaries = 0;
+      for (Lit owner = 0; owner < nlits; ++owner) {
+        if (!canonical_binary_affected[owner])
+          continue;
+        for (const WatchEntry watch : k.watches.entries(owner))
+          directed_binaries += watch.binary();
+      }
+      if (directed_binaries >
+          std::numeric_limits<size_t>::max() / 2)
+        std::abort();
+      deferred_single_pass_deltas.reserve(2 * directed_binaries);
+    }
     std::vector<Lit> delayed_targets; // repr_other words to move to repr_lit
     std::vector<uint8_t> delayed_publish;
     std::vector<Lit> touched_units;   // seen marks to clear at the end
@@ -1997,18 +2047,26 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           ++p;
           const Lit repr_other = image[other];
           const bool is_owner = import_owner(lit, other);
-          const auto proof_del_source = [&] {
-            if (is_owner && k.proof) {
+          const auto retire_source = [&] {
+            if (is_owner) {
               const Lit lits2[2] = {lit, other};
-              k.proof->del(k.next_clause_id, kernel_binary_id(k, lit, other),
-                           lits2, 2);
+              const bool observe =
+                  k.population_observer && k.population_observe_solver;
+              const uint64_t source_id = (k.proof || observe)
+                                             ? kernel_binary_id(k, lit, other)
+                                             : 0;
+              if (k.proof)
+                k.proof->del(k.next_clause_id, source_id, lits2, 2);
+              if (observe)
+                stage_binary_population(SolverPopulationEventKind::StageDelete,
+                                        source_id, lit, other);
             }
           };
           if (repr_other == not_repr_lit) { // tautology: drop this direction
             changed = true;
             if (is_owner)
               removed_binaries.emplace_back(lit, other);
-            proof_del_source();
+            retire_source();
             continue;
           }
           if (repr_other == repr_lit) { // collapses to the unit repr_lit
@@ -2027,7 +2085,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
               if (record_unit(repr_lit, id))
                 refuted = true;
             }
-            proof_del_source();
+            retire_source();
             continue;
           }
           if (lit == repr_lit && other == repr_other) { // unchanged: keep
@@ -2042,7 +2100,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             const Lit lits2[2] = {repr_lit, repr_other};
             k.proof->add_rup(0, lits2, 2, nullptr, 0);
           }
-          proof_del_source();
+          retire_source();
           if (lit == repr_lit) { // stable owner: rewrite in place, survives
             kernel_rearm_binary_clause(k, repr_lit, repr_other);
             *q++ = binary_watch(repr_other).raw;
@@ -2081,8 +2139,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                        kernel_binary_copies(k, repr_other, repr_lit, 1));
             k.watches.push_binary(repr_lit, repr_other);
             const uint64_t id = ++k.next_clause_id;
+            stage_binary_population(SolverPopulationEventKind::StageAdd, id,
+                                    repr_lit, repr_other);
             kernel_publish_binary_clause(k, repr_lit, repr_other, id,
-                                         !already_live);
+                                         !already_live,
+                                         BinaryPopulationEffect::RepresentationOnly);
           } else {
             k.watches.push_binary(repr_lit, repr_other);
           }
@@ -2090,6 +2151,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }
     for (const Lit unit : touched_units)
       seen_clear(unit);
+    // The in-place pass above preserves the pinned watch/id order, but its two
+    // directed streams are transiently asymmetric.  Publish the exact buffered
+    // logical delta only after every list and delayed mirror is final.
+    for (const DeferredBinaryPopulationDelta &delta :
+         deferred_single_pass_deltas)
+      emit_binary_population(delta.kind, delta.id, delta.a, delta.b);
   } else {
   // Targets are a pure function of the immutable representative map. Store
   // only the source pair, and use segmented storage so growing a giant image
@@ -2351,6 +2418,25 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                    2);
     }
   }
+  // The image path retires one logical source copy for every changed
+  // undirected image, independently of the proof format's optional/de-duplicated
+  // deletion policy. Physical watch rebuilding below may reuse storage, but it
+  // must not hide this solver-population transition.
+  if (k.population_observer && k.population_observe_solver)
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
+      const bool changed_image =
+          image.tautological || image.target_a == image.target_b ||
+          kernel_binary_key(image.source_a, image.source_b) !=
+              kernel_binary_key(image.target_a, image.target_b);
+      if (!changed_image)
+        continue;
+      const Lit source[2] = {image.source_a, image.source_b};
+      stage_binary_population(
+          SolverPopulationEventKind::StageDelete,
+          kernel_binary_id(k, image.source_a, image.source_b), source[0],
+          source[1]);
+    }
   substitute_stage_trace(k, "rewrite-binary-proof", emitted_units.size(),
                          emitted_units.capacity());
   for (const Lit unit : emitted_units)
@@ -2710,6 +2796,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   }
   size_t image_index = 0;
   size_t rebuilt_images = 0;
+  struct DeferredBinaryPopulationAdd {
+    uint64_t id;
+    Lit a, b;
+  };
+  std::vector<DeferredBinaryPopulationAdd> deferred_population_adds;
+  if (k.population_observer && k.population_observe_solver)
+    deferred_population_adds.reserve(images.size());
   for (const BinaryImage &stored : images) {
     const ExpandedBinaryImage image = expand_image(stored);
     const size_t this_image = image_index++;
@@ -2745,9 +2838,20 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                  kernel_binary_copies(k, image.target_a,
                                                       image.target_b));
 #endif
-    if (publish)
+    if (publish) {
+      const BinaryPopulationEffect population_effect =
+          k.population_observer && k.population_observe_solver &&
+                  kernel_binary_key(image.source_a, image.source_b) !=
+                      kernel_binary_key(image.target_a, image.target_b)
+              ? BinaryPopulationEffect::LogicalAdd
+              : BinaryPopulationEffect::RepresentationOnly;
+      if (population_effect == BinaryPopulationEffect::LogicalAdd)
+        deferred_population_adds.push_back(
+            {id, image.target_a, image.target_b});
       kernel_publish_binary_clause(k, image.target_a, image.target_b, id,
-                                   !already_live);
+                                   !already_live,
+                                   BinaryPopulationEffect::RepresentationOnly);
+    }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (!(++rebuilt_images % 1000000))
       substitute_stage_trace(k, "rewrite-binary-progress", rebuilt_images,
@@ -2758,8 +2862,16 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   }
   substitute_stage_trace(k, "rewrite-binary-end", rebuilt_images,
                          k.watches.arena.size(), k.watches.holes);
+  // Every directed watch has now reached its final mirrored image.  Deliver
+  // the staged logical additions only at this stable callback boundary.
+  for (const DeferredBinaryPopulationAdd &addition :
+       deferred_population_adds)
+    stage_binary_population(SolverPopulationEventKind::StageAdd, addition.id,
+                            addition.a, addition.b);
   std::vector<BinaryImage>().swap(images);
   } // end image-path binary substitution (else of kissat_single_pass)
+  kernel_commit_solver_population_transaction(
+      k, binary_population_transaction);
   if (session)
     sparse_seen.clear();
   else

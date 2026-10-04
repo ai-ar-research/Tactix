@@ -38,6 +38,35 @@ or rollback. DefaultPolicy omits both v5 actions, while random selection may use
 only exact payloads from its configured offered collection. `PROGRESS.md` owns
 acceptance status.
 
+## Live population and source authentication
+
+Source authentication keeps raw input, checker-visible clauses, kernel clauses,
+and structural owners as separate populations. Durable clause identities use
+signed external literals. Raw input retains multiset semantics, while a
+source-eligible normalized clause uses set semantics; normalization, replacement,
+and proof-ID rebinding require explicit lineage events. LRAT deletion is exact by
+checker ID. DSR and DRAT deletion is only a literal-named request: a checker may
+retain an implied unit, so the source layer must conservatively stale an owner on
+a request for any of its canonical source buckets rather than claim an exact
+checker multiplicity.
+
+The always-compiled population observer is an allocation-free event seam. Its
+clause views are callback-local, it owns no records, and it cannot authenticate
+or pin a source by itself. Pending proof and bulk solver mutations are exposed as
+transactions, and proof-only helpers are never source eligible. Representation
+changes such as watch movement, arena collection, literal pose, and variable
+compaction emit no semantic population event.
+
+The bounded source layer built on this seam must register before the first input
+event, preallocate all callback storage, and degrade permanently on an event it
+cannot represent exactly. Trusted builders may retain only solver-issued handles;
+they cannot submit clause bytes or proof IDs. A finalized owner yields an opaque
+immutable snapshot and a move-only pin after exact route, liveness, occurrence,
+eligibility, and bound checks. A pre-mutation permit hook must protect pinned
+sources against retirement or rebinding through the noninterruptible commit.
+Until that ledger, builder, and permit path are implemented and validated, TTF
+and Z3 recognition remain internal and cannot supply public actions.
+
 ## Affine consequence
 
 Capture a bounded exact live source view and accept an affine equation only when all

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "kernel/types.hpp"
+#include "population/population_observer.hpp"
 
 #include <array>
 #include <cstdio>
@@ -52,7 +53,7 @@ public:
   // At the original-input action boundary the caller may commit a complete
   // PB refutation. The first subsequent clausal event commits DSR instead.
   // Neither choice can be undone, and no published prefix is overwritten.
-  void finish_input_transaction() { input_transaction_ = false; }
+  void finish_input_transaction();
   bool startup_pb_available() const { return automatic_pending_ && !input_transaction_; }
   bool commit_dsr();
   FILE *begin_pb();
@@ -79,6 +80,21 @@ public:
   void bind_external_variable_map(const std::vector<Var> *map) {
     external_variable_map_ = map;
   }
+  void bind_population_observer(PopulationObserver *) noexcept;
+  // Settle only a route whose bytes already have a committed destination.
+  // Automatic must remain undecided; callers learn that its staged stream was
+  // incomplete through ObserverUnboundIncomplete instead of accidentally
+  // selecting DSR while merely removing an observer.
+  bool settle_population_observer() noexcept;
+  PopulationObserver *population_observer() const noexcept {
+    return population_observer_;
+  }
+  // Frontend-only lineage event: a live solver clause starts citing a new
+  // checker ID after LRAT restatement/replay.  Both checker clauses remain in
+  // the population; this must not be represented as add/delete.
+  void observe_checker_id_rebind(uint64_t predecessor_id,
+                                 uint64_t checker_id, const Lit *lits,
+                                 uint32_t size) noexcept;
 
   // --- proof-delta vocabulary (subset live in phase 2) ---
   // add-RUP: LRAT uses `id` and `chain` (ids in checker-propagation order).
@@ -144,31 +160,23 @@ public:
   // legs rather than by a gigabyte-scale tier proof.
   static bool tautological(const Lit *lits, uint32_t size);
 
-#ifdef TACTIX_ENABLE_PROOF_SHADOW
-  // N2 population oracle (diagnostic build feature, CMake
-  // TACTIX_ENABLE_PROOF_SHADOW; production pins compile none of this).
-  //
-  // A checker retires exactly ONE clause per `d` line, selected the way that
-  // format names a clause: DRAT by the literal multiset, LRAT by the id. So
-  // every deletion must be backed by a copy the checker still holds. An
-  // unbacked one is not a harmless no-op — under DRAT it retires whatever OTHER
-  // live clause carries the same literals, leaving the solver with a clause the
-  // checker lost, after which the first lemma resolving through it fails RUP.
-  // That divergence is silent in the certificate (drat-trim only warns when the
-  // surplus deletion happens to match nothing at all), so it has to be caught
-  // where it is emitted. `seed` registers the clauses the checker starts with.
+  // Register one exact checker input premise.  Observer delivery is always
+  // compiled; the optional proof shadow consumes the same event in diagnostic
+  // builds.
   void seed_population(uint64_t id, const Lit *lits, uint32_t size);
-  // The oracle can only judge a run whose whole starting population it saw, so
-  // it stays inert until the frontend has registered every original file
-  // clause and completed input restatement. A kernel assembled directly in a
-  // unit test never arms it.
+
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  // Diagnostic N2 oracle; production pins compile none of this. A deletion
+  // must be backed by one checker-visible copy under the format's naming rule:
+  // literals for DRAT, IDs for LRAT. The frontend seeds and arms the oracle only
+  // after it has registered the complete input and its restatements. See
+  // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md.
   void arm_population_shadow() { armed_ = true; }
   bool population_shadow_available() const { return true; }
   bool population_contains(uint64_t id, const Lit *lits, uint32_t size) const;
   uint64_t unbacked_deletions() const { return unbacked_deletions_; }
   bool population_shadow() const { return armed_; }
 #else
-  void seed_population(uint64_t, const Lit *, uint32_t) {}
   void arm_population_shadow() {}
   bool population_shadow_available() const { return false; }
   bool population_contains(uint64_t, const Lit *, uint32_t) const {
@@ -184,8 +192,21 @@ private:
   // prior pair supplies its unit under either assumption on that variable.
   // Deletion bytes are spooled; helpers are retired before a later SR step.
   void flush_pending_dsr_units();
+  CheckerRoute population_route() const noexcept;
+  CheckerNaming population_naming() const noexcept;
+  void observe_checker(CheckerPopulationEventKind, CheckerClauseRole,
+                       uint64_t line_id, uint64_t checker_id,
+                       PopulationClauseView, bool proof_only = false,
+                       uint64_t predecessor_id = 0,
+                       uint64_t transaction_id = 0,
+                       PopulationSourceClassification =
+                           PopulationSourceClassification::Ineligible) noexcept;
   uint32_t external_variable_bound() const;
-  struct PendingDsrUnit { int32_t external; uint64_t id; };
+  struct PendingDsrUnit {
+    int32_t external;
+    uint64_t id;
+    CheckerClauseRole role;
+  };
   std::vector<PendingDsrUnit> pending_units_;
   std::unordered_set<int32_t> pending_unit_literals_;
   std::unordered_set<uint64_t> pending_unit_ids_;
@@ -221,6 +242,10 @@ private:
   size_t binary_buffer_size_ = 0;
   const std::vector<Var> *variable_map_ = nullptr;
   const std::vector<Var> *external_variable_map_ = nullptr;
+  PopulationObserver *population_observer_ = nullptr; // non-owning
+  CheckerClauseRole population_role_ = CheckerClauseRole::Rup;
+  uint64_t pending_population_transaction_ = 0;
+  uint64_t next_population_transaction_ = 0;
 };
 
 } // namespace tactix

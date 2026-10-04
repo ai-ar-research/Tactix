@@ -13,6 +13,124 @@
 
 namespace tactix {
 
+CheckerRoute Proof::population_route() const noexcept {
+  if (!file_ && !automatic_output_)
+    return CheckerRoute::None;
+  if (automatic_pending_)
+    return CheckerRoute::AutomaticPending;
+  switch (format_) {
+  case ProofFormat::DsrBinary:
+  case ProofFormat::DsrAscii:
+    return CheckerRoute::Dsr;
+  case ProofFormat::DratBinary:
+  case ProofFormat::DratAscii:
+    return CheckerRoute::Drat;
+  case ProofFormat::Lrat:
+    return CheckerRoute::Lrat;
+  case ProofFormat::Pbp:
+    return CheckerRoute::Pbp;
+  case ProofFormat::Automatic:
+    return CheckerRoute::AutomaticPending;
+  }
+  return CheckerRoute::None;
+}
+
+CheckerNaming Proof::population_naming() const noexcept {
+  const CheckerRoute route = population_route();
+  if (route == CheckerRoute::Lrat)
+    return CheckerNaming::Id;
+  if (route == CheckerRoute::Dsr || route == CheckerRoute::Drat ||
+      route == CheckerRoute::AutomaticPending)
+    return CheckerNaming::LiteralMultiset;
+  return CheckerNaming::None;
+}
+
+void Proof::observe_checker(CheckerPopulationEventKind kind,
+                            CheckerClauseRole role, uint64_t line_id,
+                            uint64_t checker_id,
+                            PopulationClauseView clause, bool proof_only,
+                            uint64_t predecessor_id,
+                            uint64_t transaction_id,
+                            PopulationSourceClassification
+                                source_classification) noexcept {
+  if (!population_observer_)
+    return;
+  CheckerPopulationEvent event;
+  event.kind = kind;
+  event.role = role;
+  event.route = population_route();
+  event.naming = population_naming();
+  event.line_id = line_id;
+  event.checker_id = checker_id;
+  event.predecessor_id = predecessor_id;
+  event.transaction_id = transaction_id;
+  event.proof_only = proof_only;
+  if (kind == CheckerPopulationEventKind::InputSeed)
+    source_classification =
+        PopulationSourceClassification::PendingInputClassification;
+  else if (!proof_only && clause.size() &&
+           (kind == CheckerPopulationEventKind::Add ||
+            kind == CheckerPopulationEventKind::StageAdd))
+    source_classification = PopulationSourceClassification::Eligible;
+  else
+    source_classification = PopulationSourceClassification::Ineligible;
+  event.source_classification = source_classification;
+  event.clause = clause;
+  population_observer_->observe(event);
+}
+
+void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
+  if (observer == population_observer_)
+    return;
+  if (population_observer_) {
+    // An explicit clausal route can still own a staged DSR-unit transaction.
+    // Finish it while the observer that saw the StageAdd/StageDelete events is
+    // alive.  Otherwise a direct replacement (or a nested scoped binding)
+    // gives the old observer an apparently clean unbind and the new observer a
+    // commit for stages it never saw.  Automatic is deliberately not settled:
+    // merely changing an observer must not choose DSR over PB.
+    const bool complete = settle_population_observer();
+    CheckerPopulationEvent event;
+    event.kind = !complete
+                     ? CheckerPopulationEventKind::ObserverUnboundIncomplete
+                     : CheckerPopulationEventKind::ObserverUnbound;
+    event.route = population_route();
+    event.naming = population_naming();
+    population_observer_->observe(event);
+  }
+  population_observer_ = observer;
+  if (population_observer_) {
+    CheckerPopulationEvent event;
+    event.kind = CheckerPopulationEventKind::ObserverBound;
+    event.route = population_route();
+    event.naming = population_naming();
+    population_observer_->observe(event);
+  }
+}
+
+bool Proof::settle_population_observer() noexcept {
+  if (automatic_pending_)
+    return false;
+  flush();
+  return true;
+}
+
+void Proof::observe_checker_id_rebind(uint64_t predecessor_id,
+                                      uint64_t checker_id, const Lit *lits,
+                                      uint32_t size) noexcept {
+  observe_checker(CheckerPopulationEventKind::IdRebind,
+                  CheckerClauseRole::Input, checker_id, checker_id,
+                  PopulationClauseView::internal_lits(lits, size,
+                                                       variable_map_),
+                  false, predecessor_id);
+}
+
+void Proof::finish_input_transaction() {
+  observe_checker(CheckerPopulationEventKind::InputFinished,
+                  CheckerClauseRole::Input, 0, 0, {});
+  input_transaction_ = false;
+}
+
 DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
                                 const Lit *true_lits, uint32_t ntrue,
                                 const DsrLiteralMapping *mappings,
@@ -81,6 +199,7 @@ DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
 
 Proof::~Proof() {
   flush();
+  bind_population_observer(nullptr);
   if (file_ && std::fclose(file_))
     std::abort();
 }
@@ -104,6 +223,13 @@ bool Proof::open(const char *path, ProofFormat format) {
   }
   if (file_)
     setvbuf(file_, nullptr, binary() ? _IONBF : _IOFBF, 1 << 20);
+  if (file_) {
+    observe_checker(CheckerPopulationEventKind::RouteOpened,
+                    CheckerClauseRole::None, 0, 0, {});
+    if (!automatic_pending_)
+      observe_checker(CheckerPopulationEventKind::RouteCommitted,
+                      CheckerClauseRole::None, 0, 0, {});
+  }
   return file_ != nullptr;
 }
 
@@ -133,6 +259,8 @@ bool Proof::commit_dsr() {
   file_ = automatic_output_;
   automatic_output_ = nullptr;
   automatic_pending_ = input_transaction_ = false;
+  observe_checker(CheckerPopulationEventKind::RouteCommitted,
+                  CheckerClauseRole::None, 0, 0, {});
   return true;
 }
 
@@ -141,6 +269,8 @@ FILE *Proof::begin_pb() {
     return nullptr;
   // The input DSR transaction was never published. Its facts are justified
   // afresh from original CNF by the complete, prevalidated PB derivation.
+  observe_checker(CheckerPopulationEventKind::ClausalRouteDiscarded,
+                  CheckerClauseRole::None, 0, 0, {});
   if (pending_deletions_ && std::fclose(pending_deletions_))
     std::abort();
   pending_deletions_ = nullptr;
@@ -156,6 +286,8 @@ FILE *Proof::begin_pb() {
   automatic_output_ = nullptr;
   automatic_pending_ = false;
   format_ = ProofFormat::Pbp;
+  observe_checker(CheckerPopulationEventKind::RouteCommitted,
+                  CheckerClauseRole::None, 0, 0, {});
   return file_;
 }
 
@@ -252,6 +384,11 @@ void Proof::flush_pending_dsr_units() {
   if (pending_units_.empty())
     return;
   assert(file_ && dsr());
+  if (!pending_population_transaction_)
+    pending_population_transaction_ = ++next_population_transaction_;
+  observe_checker(CheckerPopulationEventKind::PendingCommitBegin,
+                  CheckerClauseRole::None, 0, 0, {}, false, 0,
+                  pending_population_transaction_);
   const bool split = (pending_deletions_ || !pending_deletion_bytes_.empty()) &&
                      external_variable_bound() < static_cast<uint32_t>(INT32_MAX);
   const int32_t auxiliary = split ?
@@ -273,13 +410,28 @@ void Proof::flush_pending_dsr_units() {
     // unit RUP after the deferred deletions, under an assumption of its negation.
     for (const auto &unit : pending_units_) {
       emit(unit.external, false, auxiliary);
+      const int32_t positive[2] = {unit.external, auxiliary};
+      observe_checker(CheckerPopulationEventKind::Add,
+                      CheckerClauseRole::DsrSplitHelper, 0, 0,
+                      PopulationClauseView::external_lits(positive, 2), true,
+                      0, pending_population_transaction_);
       emit(unit.external, false, -auxiliary);
+      const int32_t negative[2] = {unit.external, -auxiliary};
+      observe_checker(CheckerPopulationEventKind::Add,
+                      CheckerClauseRole::DsrSplitHelper, 0, 0,
+                      PopulationClauseView::external_lits(negative, 2), true,
+                      0, pending_population_transaction_);
     }
   } else {
     // No deletion needs moving, or the external literal representation has
     // no spare identity; preserve the original direct-unit serialization.
-    for (const auto &unit : pending_units_)
+    for (const auto &unit : pending_units_) {
       emit(unit.external, false, 0);
+      observe_checker(CheckerPopulationEventKind::Add, unit.role, unit.id,
+                      unit.id,
+                      PopulationClauseView::external_lits(&unit.external, 1),
+                      false, 0, pending_population_transaction_);
+    }
   }
   if (pending_deletions_ || !pending_deletion_bytes_.empty()) {
     // Keep short binary blocks in the existing 1 MiB stream buffer. Only a
@@ -308,19 +460,41 @@ void Proof::flush_pending_dsr_units() {
         std::abort();
       pending_deletions_ = nullptr;
     }
+    observe_checker(CheckerPopulationEventKind::PendingDeletesCommit,
+                    CheckerClauseRole::None, 0, 0, {}, false, 0,
+                    pending_population_transaction_);
   }
   if (split) {
-    for (const auto &unit : pending_units_)
+    for (const auto &unit : pending_units_) {
       emit(unit.external, false, 0);
+      observe_checker(CheckerPopulationEventKind::Add, unit.role, unit.id,
+                      unit.id,
+                      PopulationClauseView::external_lits(&unit.external, 1),
+                      false, 0, pending_population_transaction_);
+    }
     for (const auto &unit : pending_units_) {
       emit(unit.external, true, auxiliary);
+      const int32_t positive[2] = {unit.external, auxiliary};
+      observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                      CheckerClauseRole::DsrSplitHelper, 0, 0,
+                      PopulationClauseView::external_lits(positive, 2), true,
+                      0, pending_population_transaction_);
       emit(unit.external, true, -auxiliary);
+      const int32_t negative[2] = {unit.external, -auxiliary};
+      observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                      CheckerClauseRole::DsrSplitHelper, 0, 0,
+                      PopulationClauseView::external_lits(negative, 2), true,
+                      0, pending_population_transaction_);
     }
   }
+  observe_checker(CheckerPopulationEventKind::PendingCommitEnd,
+                  CheckerClauseRole::None, 0, 0, {}, false, 0,
+                  pending_population_transaction_);
   pending_units_.clear();
   pending_unit_literals_.clear();
   pending_unit_ids_.clear();
   pending_max_external_ = 0;
+  pending_population_transaction_ = 0;
 }
 
 // Duplicate/complementary-literal scan. Small clauses only reach here, so the
@@ -335,6 +509,7 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
                     const uint64_t *chain, uint32_t nchain) {
+  const CheckerClauseRole role = population_role_;
   if (!input_transaction_ && !commit_dsr())
     std::abort(); // a terminal PB stream cannot accept a clausal suffix
   // A new unit extends a consecutive batch. A deletion block or a nonunit
@@ -371,7 +546,7 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
       external = make_lit((*variable_map_)[var_of(external)], negated(external));
     }
     const int32_t unit = externalize(external);
-    pending_units_.push_back({unit, id});
+    pending_units_.push_back({unit, id, role});
     pending_unit_literals_.insert(unit);
     if (id)
       pending_unit_ids_.insert(id);
@@ -381,6 +556,12 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
+    if (!pending_population_transaction_)
+      pending_population_transaction_ = ++next_population_transaction_;
+    observe_checker(CheckerPopulationEventKind::StageAdd, role, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_),
+                    false, 0, pending_population_transaction_);
     return;
   }
   if (format_ == ProofFormat::Lrat) {
@@ -394,6 +575,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
+    observe_checker(CheckerPopulationEventKind::Add, role, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
     return;
   }
   if (format_ == ProofFormat::DsrBinary)
@@ -406,6 +590,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_add(id, lits, size);
 #endif
+  observe_checker(CheckerPopulationEventKind::Add, role, id, id,
+                  PopulationClauseView::internal_lits(lits, size,
+                                                       variable_map_));
 }
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
@@ -435,6 +622,10 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::Rat, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
     return;
   }
   // DSR/DRAT: a witnessless addition with the pivot ordered first. The checker
@@ -449,6 +640,10 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_add(id, lits, size);
 #endif
+  observe_checker(CheckerPopulationEventKind::Add, CheckerClauseRole::Rat,
+                  id, id,
+                  PopulationClauseView::internal_lits(lits, size,
+                                                       variable_map_));
 }
 
 bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
@@ -503,6 +698,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   flush_pending_dsr_units();
   if (needs_auxiliary) {
     const Lit auxiliary = make_lit(external_variables, false);
+    const int32_t external_auxiliary = externalize(auxiliary);
     const auto temporary = [&](bool deletion, bool negative) {
       if (format_ == ProofFormat::DsrBinary)
         put_byte(deletion ? 2 : 1);
@@ -517,6 +713,12 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     // image is exactly the already-validated candidate image C|sigma.
     temporary(false, true);
     end_line();
+    PopulationClauseView negative_helper =
+        PopulationClauseView::internal_lits(lits, size, variable_map_);
+    negative_helper.prefix = -external_auxiliary;
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
+                    negative_helper, true);
     temporary(false, false);
     put_external_lit(auxiliary);
     if (default_pivot)
@@ -531,17 +733,33 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
       }
     }
     end_line();
+    PopulationClauseView positive_helper =
+        PopulationClauseView::internal_lits(lits, size, variable_map_);
+    positive_helper.prefix = external_auxiliary;
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
+                    positive_helper, true);
     if (format_ == ProofFormat::DsrBinary)
       put_byte(1);
     for (uint32_t i = 0; i < size; ++i)
       put_lit(lits[i]);
     end_line();
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::SubstitutionRedundancy, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
     // These are nonunit clauses, so the checkers honour both deletions.
     // No live clause retains the auxiliary identity after this transaction.
     temporary(true, false);
     end_line();
+    observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
+                    positive_helper, true);
     temporary(true, true);
     end_line();
+    observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0,
+                    negative_helper, true);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_add(id, lits, size);
 #endif
@@ -549,6 +767,9 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     return true;
   }
   const Lit emitted_pivot = lits[plan.pivot];
+  PopulationClauseView emitted_clause =
+      PopulationClauseView::internal_lits(lits, size, variable_map_);
+  emitted_clause.first_body_index = plan.pivot;
   const auto put_addition = [&](bool lemma) {
     if (format_ == ProofFormat::DsrBinary)
       put_byte(1);
@@ -575,6 +796,15 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (plan.form == DsrWitnessForm::Lemma) {
     put_addition(true);
     end_line();
+    Lit external_lemma = plan.lemma;
+    if (variable_map_)
+      external_lemma = make_lit((*variable_map_)[var_of(external_lemma)],
+                                negated(external_lemma));
+    PopulationClauseView lemma = emitted_clause;
+    lemma.suffix = externalize(external_lemma);
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0, lemma,
+                    true);
   }
   put_addition(false);
   if (plan.form != DsrWitnessForm::Rup) {
@@ -598,10 +828,23 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     }
   }
   end_line();
+  observe_checker(CheckerPopulationEventKind::Add,
+                  CheckerClauseRole::SubstitutionRedundancy, id, id,
+                  emitted_clause);
   if (plan.form != DsrWitnessForm::Rup)
     has_sr_witness_ = true;
-  if (plan.form == DsrWitnessForm::Lemma)
+  if (plan.form == DsrWitnessForm::Lemma) {
     put_lemma_deletion();
+    Lit external_lemma = plan.lemma;
+    if (variable_map_)
+      external_lemma = make_lit((*variable_map_)[var_of(external_lemma)],
+                                negated(external_lemma));
+    PopulationClauseView lemma = emitted_clause;
+    lemma.suffix = externalize(external_lemma);
+    observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                    CheckerClauseRole::DsrSubstitutionHelper, 0, 0, lemma,
+                    true);
+  }
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_add(id, lits, size);
 #endif
@@ -609,7 +852,10 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
 }
 
 void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
+  const CheckerClauseRole saved = population_role_;
+  population_role_ = CheckerClauseRole::Empty;
   add_rup(id, nullptr, 0, chain, nchain);
+  population_role_ = saved;
 }
 
 void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
@@ -617,14 +863,21 @@ void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
   if (!file_)
     return;
   if (format_ == ProofFormat::Lrat) {
+    const CheckerClauseRole saved = population_role_;
+    population_role_ = CheckerClauseRole::DerivedUnit;
     add_rup(id, &unit, 1, chain, nchain);
+    population_role_ = saved;
     return;
   }
   // Native DSR keeps root units explicit so they remain available after a
   // reason clause is deleted and later direct-SR checks see the same root
   // formula as dsr-trim/Trestle. DRAT retains its historical implicit units.
-  if (dsr())
+  if (dsr()) {
+    const CheckerClauseRole saved = population_role_;
+    population_role_ = CheckerClauseRole::DerivedUnit;
     add_rup(id, &unit, 1, nullptr, 0);
+    population_role_ = saved;
+  }
 }
 
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
@@ -666,6 +919,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_del(del_id, lits, size);
 #endif
+    observe_checker(CheckerPopulationEventKind::Delete,
+                    CheckerClauseRole::None, line_id, del_id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
     return;
   }
   if (format_ == ProofFormat::DsrBinary)
@@ -690,6 +947,14 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   population_del(del_id, lits, size);
 #endif
+  const CheckerPopulationEventKind deletion_kind =
+      defer ? CheckerPopulationEventKind::StageDeleteRequested
+            : CheckerPopulationEventKind::DeleteRequested;
+  observe_checker(deletion_kind,
+                  CheckerClauseRole::None, line_id, del_id,
+                  PopulationClauseView::internal_lits(lits, size,
+                                                       variable_map_),
+                  false, 0, defer ? pending_population_transaction_ : 0);
 }
 
 namespace {
@@ -710,6 +975,10 @@ bool external_tautological(const int32_t *lits, uint32_t size) {
 
 bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
                              uint32_t size) {
+  const CheckerClauseRole role =
+      population_role_ == CheckerClauseRole::ExternalRat
+          ? CheckerClauseRole::ExternalRat
+          : CheckerClauseRole::ExternalRup;
   if (!input_transaction_ && !commit_dsr())
     return false;
   if (lrat())
@@ -743,6 +1012,8 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
 #else
   (void)id;
 #endif
+  observe_checker(CheckerPopulationEventKind::Add, role, id, id,
+                  PopulationClauseView::external_lits(lits, size), true);
   return true;
 }
 
@@ -750,7 +1021,11 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                              uint32_t size) {
   // DSR/DRAT infer RAT from the first literal after RUP fails, so their byte
   // stream is identical to an external RUP addition.
-  return add_external_rup(id, lits, size);
+  const CheckerClauseRole saved = population_role_;
+  population_role_ = CheckerClauseRole::ExternalRat;
+  const bool result = add_external_rup(id, lits, size);
+  population_role_ = saved;
+  return result;
 }
 
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,
@@ -813,6 +1088,11 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 #else
   (void)del_id;
 #endif
+  observe_checker(defer ? CheckerPopulationEventKind::StageDeleteRequested
+                         : CheckerPopulationEventKind::DeleteRequested,
+                  CheckerClauseRole::None, line_id, del_id,
+                  PopulationClauseView::external_lits(lits, size), true, 0,
+                  defer ? pending_population_transaction_ : 0);
   return true;
 }
 
@@ -894,9 +1174,18 @@ void Proof::population_del(uint64_t id, const Lit *lits, uint32_t size) {
   std::abort();
 }
 
-void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
-  population_add(id, lits, size);
-}
 #endif
+
+void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  population_add(id, lits, size);
+#endif
+  if (!file_)
+    return;
+  observe_checker(CheckerPopulationEventKind::InputSeed,
+                  CheckerClauseRole::Input, id, id,
+                  PopulationClauseView::internal_lits(lits, size,
+                                                       variable_map_));
+}
 
 } // namespace tactix
