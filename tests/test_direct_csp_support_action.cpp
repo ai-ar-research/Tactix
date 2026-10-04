@@ -55,6 +55,17 @@ DirectCspSupportActionSelection selection(uint32_t row) {
   return {{1, 2, 3}, {4, 5, 6, 7}, row};
 }
 
+DirectCspSupportActionSelection reversed_selection(uint32_t row) {
+  return {{4, 5, 6, 7}, {1, 2, 3}, row};
+}
+
+DirectCspSupportActionKey action_key(
+    const DirectCspSupportActionSelection &selected) {
+  return {selected.left_values, selected.right_values,
+          selected.selected_left_value,
+          selected.left_values[selected.selected_left_value]};
+}
+
 DirectCspSupportActionLimits limits(bool extension = false) {
   DirectCspSupportActionLimits result;
   result.maximum_source_clauses = 100;
@@ -70,7 +81,7 @@ DirectCspSupportActionLimits limits(bool extension = false) {
   result.maximum_extent_growth = extension ? 1 : 0;
   result.maximum_external_extent = 100;
   result.maximum_session_keys = 16;
-  result.maximum_session_work = 100;
+  result.maximum_session_work = 10000;
   result.allow_extension = extension;
   assert(result.valid());
   return result;
@@ -138,12 +149,15 @@ void direct_then_extension_and_durable_replay() {
   assert(first.status == DirectCspSupportActionStatus::Applied &&
          first.result == ApplyResult::Ok);
   assert(first.proposed_action_id == 41 && first.committed_action_id == 41 &&
-         first.semantic_id == 41 &&
-         first.key == DirectCspSupportActionKey{1});
+         first.semantic_id == 41 && first.key == action_key(selection(1)));
   assert(first.owner_retained && session.retained() &&
          session.belongs_to(kernel) && session.committed_keys() == 1 &&
-         session.snapshot() &&
-         session.snapshot()->source.size() == clauses().size());
+         session.retained_owners() == 1 &&
+         session.snapshot(selection(1).left_values,
+                          selection(1).right_values) &&
+         session.snapshot(selection(1).left_values,
+                          selection(1).right_values)
+                 ->source.size() == clauses().size());
   assert(first.effort.owner_capture_work && first.effort.recognition_work &&
          first.effort.emitted_additions == 1 &&
          first.live.published_support == std::vector<int32_t>({-2, 5}));
@@ -164,8 +178,9 @@ void direct_then_extension_and_durable_replay() {
          second.effort.extent_growth == 1 && kernel.nvars == 8 &&
          kernel_num_output_vars(kernel) == 7);
   assert(session.committed_keys() == 2 &&
-         session.keys()[0] == DirectCspSupportActionKey{0} &&
-         session.keys()[1] == DirectCspSupportActionKey{1});
+         session.retained_owners() == 1 &&
+         session.keys()[0] == action_key(selection(0)) &&
+         session.keys()[1] == action_key(selection(1)));
   assert(second.live.published_support == std::vector<int32_t>({-1, 8}) &&
          second.semantic_variables.size() == 5);
   assert(second.semantic_variables.back().external == 8 &&
@@ -188,10 +203,58 @@ void direct_then_extension_and_durable_replay() {
   assert(repeated.status ==
              DirectCspSupportActionStatus::AlreadyPublished &&
          repeated.result == ApplyResult::NoOp &&
-         repeated.key == DirectCspSupportActionKey{0} &&
+         repeated.key == action_key(selection(0)) &&
          !repeated.proposed_action_id && !repeated.committed_action_id &&
          repeated.committed_keys == 2 && image(kernel) == before &&
          position(records) == journal);
+  std::fclose(records);
+}
+
+void ordered_domain_pairs_have_distinct_durable_keys() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  DirectCspSupportActionSession session;
+
+  const auto forward = selection(1);
+  const auto reverse = reversed_selection(1);
+  const auto first = direct_csp_support_action_apply(
+      kernel, session, limits(), forward);
+  assert(first.status == DirectCspSupportActionStatus::Applied &&
+         first.live.published_support == std::vector<int32_t>({-2, 5}) &&
+         first.key == action_key(forward) && first.retained_owners == 1);
+
+  // The same row ordinal in the reverse direction selects external literal 5
+  // from a different left domain and publishes a different support clause.
+  const auto second = direct_csp_support_action_apply(
+      kernel, session, limits(), reverse);
+  assert(second.status == DirectCspSupportActionStatus::Applied &&
+         second.live.published_support ==
+             std::vector<int32_t>({-5, 1, 2}) &&
+         second.key == action_key(reverse) && second.key != first.key &&
+         second.effort.owner_capture_work && second.retained_owners == 2 &&
+         session.retained_owners() == 2 && session.committed_keys() == 2);
+  assert(session.snapshot(forward.left_values, forward.right_values) &&
+         session.snapshot(reverse.left_values, reverse.right_values));
+
+  const Image before_reverse_replay = image(kernel);
+  const long reverse_journal = position(records);
+  const auto reverse_replay = direct_csp_support_action_apply(
+      kernel, session, limits(), reverse);
+  assert(reverse_replay.status ==
+             DirectCspSupportActionStatus::AlreadyPublished &&
+         reverse_replay.key == action_key(reverse) &&
+         image(kernel) == before_reverse_replay &&
+         position(records) == reverse_journal);
+
+  const auto forward_replay = direct_csp_support_action_apply(
+      kernel, session, limits(), forward);
+  assert(forward_replay.status ==
+             DirectCspSupportActionStatus::AlreadyPublished &&
+         forward_replay.key == action_key(forward) &&
+         image(kernel) == before_reverse_replay &&
+         position(records) == reverse_journal);
   std::fclose(records);
 }
 
@@ -332,6 +395,32 @@ void retained_payload_and_source_are_exact() {
   std::fclose(records);
 }
 
+void malformed_retained_key_is_rejected_before_live_work() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  attach(kernel, records);
+  DirectCspSupportActionSession session;
+  assert(direct_csp_support_action_apply(kernel, session, limits(),
+                                         selection(1))
+             .status == DirectCspSupportActionStatus::Applied);
+
+  // Production code exposes no mutable session state. This deliberate test
+  // corruption proves that apply validates retained identities rather than
+  // trusting their ordering or redundant selected-literal field.
+  auto &corrupted = const_cast<std::vector<DirectCspSupportActionKey> &>(
+      session.keys());
+  corrupted[0].selected_left_literal = 99;
+  const Image before = image(kernel);
+  const long journal = position(records);
+  const auto rejected = direct_csp_support_action_apply(
+      kernel, session, limits(), selection(2));
+  assert(rejected.status == DirectCspSupportActionStatus::Invalid &&
+         rejected.result == ApplyResult::NoOp && image(kernel) == before &&
+         position(records) == journal && session.committed_keys() == 1);
+  std::fclose(records);
+}
+
 void proof_modes_and_guard() {
   for (const auto &[format, path] :
        {std::pair{ProofFormat::Lrat, "/tmp/direct-csp-action-decline.lrat"},
@@ -446,9 +535,11 @@ void write_model(const char *cnf_path, const char *model_path) {
 
 int main(int argc, char **argv) {
   direct_then_extension_and_durable_replay();
+  ordered_domain_pairs_have_distinct_durable_keys();
   declines_are_atomic_and_sessions_are_kernel_local();
   mapped_live_declines_are_atomic();
   retained_payload_and_source_are_exact();
+  malformed_retained_key_is_rejected_before_live_work();
   proof_modes_and_guard();
   projection_preserves_an_original_model();
   if (argc == 6) {
