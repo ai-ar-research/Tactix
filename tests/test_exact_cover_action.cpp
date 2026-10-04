@@ -93,6 +93,7 @@ static void remove_definitions(Kernel &kernel) {
 static void declines_do_not_consume_identity() {
   Kernel kernel = parse();
   ExactCoverExtensionActionSession session;
+  kernel.exact_cover_extension_action_session = &session;
   FILE *records = std::tmpfile();
   assert(records);
   kernel.structural_provenance = records;
@@ -131,6 +132,7 @@ static void success_stages_candidate_and_commits_identity() {
   Kernel kernel = parse();
   kernel.exact_cover_extension_parameters = parameters();
   ExactCoverExtensionActionSession session;
+  kernel.exact_cover_extension_action_session = &session;
   FILE *records = std::tmpfile();
   assert(records);
   kernel.structural_provenance = records;
@@ -188,6 +190,8 @@ static void success_stages_candidate_and_commits_identity() {
 
 static void state_guard_rejects_assignments() {
   Kernel kernel = parse();
+  ExactCoverExtensionActionSession session;
+  kernel.exact_cover_extension_action_session = &session;
   FILE *records = std::tmpfile();
   assert(records);
   kernel.structural_provenance = records;

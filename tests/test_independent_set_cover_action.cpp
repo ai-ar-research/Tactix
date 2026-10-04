@@ -123,6 +123,7 @@ void exercise() {
   assert(records);
   configure(kernel, records);
   IndependentSetCoverActionSession session;
+  kernel.independent_set_cover_action_session = &session;
   assert(independent_set_cover_action_guard(kernel));
 
   const long initial_records = std::ftell(records);
@@ -216,6 +217,7 @@ void exercise() {
   FILE *other_records = std::tmpfile();
   assert(other_records);
   configure(other, other_records);
+  other.independent_set_cover_action_session = &session;
   declined = independent_set_cover_action_apply(other, session, {1, 2, 3});
   assert(declined.status == IndependentSetLiveStatus::Stale &&
          !other.structural_action_sequence && session.belongs_to(kernel));
