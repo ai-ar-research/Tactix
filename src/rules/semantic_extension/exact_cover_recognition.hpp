@@ -4,18 +4,20 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <limits>
 #include <numeric>
 #include <set>
 #include <vector>
 
 namespace tactix::exact_cover_semantic {
 
-// An occurrence is local to one immutable source snapshot.  It deliberately
-// does not pretend to be an LRAT identity: binary identities are not retained
-// in every kernel proof mode.
+// An occurrence is local to one immutable source snapshot. Native proof IDs
+// are recorded separately when the kernel retains them; zero means that the
+// proof mode names the clause by literals rather than by identity.
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
+  uint64_t native_proof_id = 0;
   bool operator==(const Premise &) const = default;
 };
 
@@ -128,6 +130,7 @@ bool recognize(const std::vector<Premise> &source, uint32_t arity,
   if (edges.empty() || covers.empty() || item_literals.size() > maximum_items)
     return false;
 
+  if (item_literals.size() > UINT32_MAX) return false;
   std::vector<int32_t> literals(item_literals.begin(), item_literals.end());
   std::map<int32_t, uint32_t> index;
   std::map<uint32_t, int32_t> orientation;
@@ -157,7 +160,8 @@ bool recognize(const std::vector<Premise> &source, uint32_t arity,
     if (!charge(1)) return false;
     components[sets.find(i)].push_back(i);
   }
-  if (components.empty() || covers.size() != uint64_t{2} * components.size())
+  if (components.empty() || components.size() > UINT64_MAX / 2 ||
+      covers.size() != uint64_t{2} * components.size())
     return false;
 
   Image image;
@@ -165,7 +169,10 @@ bool recognize(const std::vector<Premise> &source, uint32_t arity,
   std::vector<uint32_t> block_of(literals.size(), UINT32_MAX);
   for (auto &[root, members] : components) {
     (void)root;
-    if (members.size() != arity || !charge(uint64_t{arity} * arity))
+    if (members.size() != arity ||
+        (arity && size_t{arity} > std::numeric_limits<size_t>::max() / arity) ||
+        image.blocks.size() >= UINT32_MAX ||
+        !charge(uint64_t{arity} * arity))
       return false;
     std::sort(members.begin(), members.end(), [&](uint32_t first, uint32_t second) {
       return literals[first] < literals[second];
@@ -190,13 +197,17 @@ bool recognize(const std::vector<Premise> &source, uint32_t arity,
   }
   // A complete clique contains every admitted edge; this also rules out a
   // duplicate or cross-block binary occurrence hidden by connectivity.
-  const uint64_t expected_edges =
-      uint64_t{image.blocks.size()} * arity * (arity - 1) / 2;
+  const uint64_t pairs_per_block = uint64_t{arity} * (arity - 1) / 2;
+  if (pairs_per_block &&
+      image.blocks.size() > UINT64_MAX / pairs_per_block)
+    return false;
+  const uint64_t expected_edges = image.blocks.size() * pairs_per_block;
   if (edge_premise.size() != expected_edges) return false;
 
   std::vector<std::vector<uint32_t>> item_covers(literals.size());
   for (Cover &cover : covers) {
     if (!charge(uint64_t{1} + cover.items.size())) return false;
+    if (image.covers.size() >= UINT32_MAX) return false;
     const uint32_t cover_index = static_cast<uint32_t>(image.covers.size());
     for (int32_t literal : cover.items) {
       const auto found = index.find(literal);
