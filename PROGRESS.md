@@ -60,7 +60,9 @@ certificate-mode override, so a passing focused fuzz report can feed exact
 controller configurations into saved-target diagnostics. Four validated
 diagnostic projections now freeze 12 GF(3) WV100 rows, three Tseitin WV100
 rows, six Tseitin WV2 rows and four plausible direct-PHP WV2 rows while keeping
-the 1,200/600-second contracts separate. Then evaluate
+the 1,200/600-second contracts separate. Their scorer fails closed unless every
+row is independently checked and shows an application plus effective action;
+native campaigns additionally require producer calls and offers. Then evaluate
 the saved target set and regression gates only when benchmark execution is
 authorized. DefaultPolicy keeps all three actions disabled meanwhile.
 
