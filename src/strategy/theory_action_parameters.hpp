@@ -20,6 +20,7 @@ struct AffineConsequenceParameters {
   uint32_t maximum_sources = 0;
   uint32_t maximum_output_width = 0;
   uint64_t maximum_proof_additions = 0;
+  uint64_t maximum_proof_deletions = 0;
   uint64_t maximum_journal_bytes = 0;
   uint64_t consequence = 0;
   bool valid() const {

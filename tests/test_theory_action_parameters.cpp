@@ -15,10 +15,14 @@ int main() {
   affine.maximum_arity = 8;
   affine.maximum_intermediate_width = 16;
   affine.maximum_output_width = 4;
+  affine.maximum_proof_additions = 11;
+  affine.maximum_proof_deletions = 12;
   affine.consequence = 7;
   assert(affine.valid());
   install_rule_parameters(kernel, affine);
   assert(AffineConsequenceParameters::from_kernel(kernel).consequence == 7);
+  assert(AffineConsequenceParameters::from_kernel(kernel)
+             .maximum_proof_deletions == 12);
   affine.maximum_output_width = 5;
   assert(!affine.valid());
 
