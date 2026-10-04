@@ -24,6 +24,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -455,6 +456,7 @@ int main(int argc, char **argv) {
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectPhpActionSession direct_php_action_session(kernel);
+  Gf3GaussianActionSession gf3_gaussian_action_session;
   kernel.affine_basis_action_session = &affine_basis_session;
   kernel.exact_cover_extension_action_session =
       &exact_cover_extension_session;
@@ -464,6 +466,7 @@ int main(int argc, char **argv) {
   kernel.direct_csp_support_action_session =
       &direct_csp_support_action_session;
   kernel.direct_php_action_session = &direct_php_action_session;
+  kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
   const bool default_frontend =
       !random_policy && !controller_selected && !stress_policy && !replay_path;
   if (default_frontend)

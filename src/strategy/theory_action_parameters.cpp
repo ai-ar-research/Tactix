@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
 namespace tactix::strategy {
 
@@ -62,6 +63,28 @@ bool DirectPhpRefutationParameters::valid() const {
       maximum_replay_work}.valid();
 }
 
+bool Gf3GaussianConsequenceParameters::valid() const {
+  return Gf3GaussianActionLimits{
+      {maximum_source_clauses, maximum_source_literals, maximum_domains,
+       maximum_equations, maximum_equation_arity,
+       maximum_tuples_per_equation},
+      {{maximum_bridge_work, maximum_bridge_source_clauses,
+        maximum_bridge_source_literals, maximum_bridge_domains,
+        maximum_bridge_equations, maximum_bridge_terms,
+        maximum_authentication_references, maximum_references_per_equation,
+        {maximum_gaussian_work, maximum_fill_entries,
+         maximum_intermediate_width, maximum_provenance_terms,
+         maximum_derivations, maximum_retained_plan_bytes}},
+       maximum_certificate_work, maximum_events, maximum_event_literals,
+       maximum_active_clauses, maximum_retained_source_references,
+       maximum_event_width, maximum_branch_domains, maximum_consequences},
+      maximum_capture_work, maximum_revalidation_work,
+      maximum_proof_additions, maximum_proof_literal_occurrences,
+      maximum_journal_bytes, maximum_identity_bytes, maximum_external_extent,
+      maximum_session_keys, maximum_session_work,
+      maximum_session_identity_bytes}.valid();
+}
+
 AffineConsequenceParameters
 AffineConsequenceParameters::from_kernel(const Kernel &k) {
   return k.affine_consequence_parameters;
@@ -85,6 +108,10 @@ DirectCspSupportParameters::from_kernel(const Kernel &k) {
 DirectPhpRefutationParameters
 DirectPhpRefutationParameters::from_kernel(const Kernel &k) {
   return k.direct_php_refutation_parameters;
+}
+Gf3GaussianConsequenceParameters
+Gf3GaussianConsequenceParameters::from_kernel(const Kernel &k) {
+  return k.gf3_gaussian_consequence_parameters;
 }
 SemanticVariableAdviceParameters
 SemanticVariableAdviceParameters::from_kernel(const Kernel &k) {
@@ -114,6 +141,10 @@ void install_rule_parameters(Kernel &k,
 void install_rule_parameters(Kernel &k,
                              const DirectPhpRefutationParameters &parameters) {
   k.direct_php_refutation_parameters = parameters;
+}
+void install_rule_parameters(
+    Kernel &k, const Gf3GaussianConsequenceParameters &parameters) {
+  k.gf3_gaussian_consequence_parameters = parameters;
 }
 void install_rule_parameters(
     Kernel &k, const SemanticVariableAdviceParameters &parameters) {

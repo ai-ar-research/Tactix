@@ -5,6 +5,7 @@
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "strategy/random_online.hpp"
 
 #include <map>
@@ -44,6 +45,11 @@ struct DirectCspActionProducerConfig {
   }
 };
 
+struct Gf3GaussianActionProducerConfig {
+  bool enabled = false;
+  bool valid() const { return true; }
+};
+
 struct RandomControllerConfig {
   DefaultStrategyConfig search;
   // The native ranked-prefix mechanism is shared with DefaultPolicy. Full
@@ -56,6 +62,7 @@ struct RandomControllerConfig {
   std::map<std::string, std::vector<strategy::OnlineInvocation>> offered_actions;
   Gf3ActionProducerConfig gf3_action_producer;
   DirectCspActionProducerConfig direct_csp_action_producer;
+  Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
   strategy::controller::ActionAllowance default_allowance{
       strategy::WorkUnit::Applications, 1,
       {strategy::RuleWorkBudgetMode::Bounded,
@@ -163,10 +170,22 @@ private:
     std::optional<DirectCspSupportActionSelection> pending;
     uint64_t pending_sequence = 0;
   };
+  struct Gf3GaussianDiscoveryState {
+    const Kernel *owner = nullptr;
+    const Gf3GaussianActionSession *session = nullptr;
+    strategy::StateVersion state;
+    size_t session_keys = 0;
+    bool terminal = false;
+    std::string profile;
+    std::optional<std::string> offer;
+    std::optional<std::string> pending;
+    uint64_t pending_sequence = 0;
+  };
 
   uint64_t draw(uint64_t bound);
   Gf3DiscoveryState gf3_discovery_;
   DirectCspDiscoveryState direct_csp_discovery_;
+  Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
   uint64_t rng_;
 };
 

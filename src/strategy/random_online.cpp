@@ -143,6 +143,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return config.direct_csp_support_reference;
   if (rule == "DirectPhpRefutation")
     return config.direct_php_refutation_reference;
+  if (rule == "Gf3GaussianConsequence")
+    return config.gf3_gaussian_consequence_reference;
   if (rule == "SemanticVariableAdvice")
     return config.semantic_variable_advice_reference;
   if (rule == "Congruence") {
@@ -834,6 +836,28 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_proof_literals=v[12]; p.maximum_fresh_variables=v[13];
     p.maximum_proof_events=v[14]; p.maximum_replay_work=v[15];
     parameters = p;
+  } else if (tuple(text, "gf3-gaussian-consequence1", v) && v.size() == 38) {
+    Gf3GaussianConsequenceParameters p;
+    p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
+    U32_AT(2,p.maximum_domains); U32_AT(3,p.maximum_equations);
+    U32_AT(4,p.maximum_equation_arity); U32_AT(5,p.maximum_tuples_per_equation);
+    p.maximum_bridge_work=v[6]; p.maximum_bridge_source_clauses=v[7];
+    p.maximum_bridge_source_literals=v[8]; U32_AT(9,p.maximum_bridge_domains);
+    U32_AT(10,p.maximum_bridge_equations); p.maximum_bridge_terms=v[11];
+    p.maximum_authentication_references=v[12]; p.maximum_references_per_equation=v[13];
+    p.maximum_gaussian_work=v[14]; p.maximum_fill_entries=v[15];
+    U32_AT(16,p.maximum_intermediate_width); U32_AT(17,p.maximum_provenance_terms);
+    U32_AT(18,p.maximum_derivations); p.maximum_retained_plan_bytes=v[19];
+    p.maximum_certificate_work=v[20]; p.maximum_events=v[21];
+    p.maximum_event_literals=v[22]; p.maximum_active_clauses=v[23];
+    p.maximum_retained_source_references=v[24]; U32_AT(25,p.maximum_event_width);
+    U32_AT(26,p.maximum_branch_domains); U32_AT(27,p.maximum_consequences);
+    p.maximum_capture_work=v[28]; p.maximum_revalidation_work=v[29];
+    p.maximum_proof_additions=v[30]; p.maximum_proof_literal_occurrences=v[31];
+    p.maximum_journal_bytes=v[32]; p.maximum_identity_bytes=v[33];
+    U32_AT(34,p.maximum_external_extent); p.maximum_session_keys=v[35];
+    p.maximum_session_work=v[36]; p.maximum_session_identity_bytes=v[37];
+    parameters=p;
   } else if (tuple(text, "semantic-variable-advice1", v) && v.size() == 4) {
     SemanticVariableAdviceParameters p;
     U32_AT(0,p.maximum_variables); p.maximum_priority_sum=v[1];
@@ -1567,6 +1591,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.ramsey_startup_reference.valid() ||
       !config.parity_consequence_reference.valid() ||
       !config.direct_php_refutation_reference.valid() ||
+      !config.gf3_gaussian_consequence_reference.valid() ||
       !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||
       !config.maximum_sr_instances ||
       config.maximum_sr_orbitopal_clique_minimum_columns < 2 ||
@@ -1592,7 +1617,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
     for (const RuleVTable &rule : tactix_rules())
       if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover" &&
           std::string_view(rule.name) != "Gf3AffineConsequence" &&
-          std::string_view(rule.name) != "DirectCspSupport")
+          std::string_view(rule.name) != "DirectCspSupport" &&
+          std::string_view(rule.name) != "Gf3GaussianConsequence")
         available.push_back(static_cast<int>(rule.id));
   } else {
     for (const std::string &name : config.rules) {
@@ -1600,7 +1626,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       if (id < 0)
         return reject("random-online action is not registered");
       if (tactix_rules()[id].guard(k) && name != "IndependentSetCover" &&
-          name != "Gf3AffineConsequence" && name != "DirectCspSupport")
+          name != "Gf3AffineConsequence" && name != "DirectCspSupport" &&
+          name != "Gf3GaussianConsequence")
         available.push_back(id);
     }
   }
@@ -1947,6 +1974,28 @@ std::string serialize_online_strategy_program(
           << ',' << p->maximum_proof_literals << ','
           << p->maximum_fresh_variables << ',' << p->maximum_proof_events
           << ',' << p->maximum_replay_work << ')';
+    else if (const auto *p = std::get_if<Gf3GaussianConsequenceParameters>(
+                 &step.parameters))
+      out << ":gf3-gaussian-consequence1(" << p->maximum_source_clauses << ','
+          << p->maximum_source_literals << ',' << p->maximum_domains << ','
+          << p->maximum_equations << ',' << p->maximum_equation_arity << ','
+          << p->maximum_tuples_per_equation << ',' << p->maximum_bridge_work << ','
+          << p->maximum_bridge_source_clauses << ',' << p->maximum_bridge_source_literals << ','
+          << p->maximum_bridge_domains << ',' << p->maximum_bridge_equations << ','
+          << p->maximum_bridge_terms << ',' << p->maximum_authentication_references << ','
+          << p->maximum_references_per_equation << ',' << p->maximum_gaussian_work << ','
+          << p->maximum_fill_entries << ',' << p->maximum_intermediate_width << ','
+          << p->maximum_provenance_terms << ',' << p->maximum_derivations << ','
+          << p->maximum_retained_plan_bytes << ',' << p->maximum_certificate_work << ','
+          << p->maximum_events << ',' << p->maximum_event_literals << ','
+          << p->maximum_active_clauses << ',' << p->maximum_retained_source_references << ','
+          << p->maximum_event_width << ',' << p->maximum_branch_domains << ','
+          << p->maximum_consequences << ',' << p->maximum_capture_work << ','
+          << p->maximum_revalidation_work << ',' << p->maximum_proof_additions << ','
+          << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ','
+          << p->maximum_identity_bytes << ',' << p->maximum_external_extent << ','
+          << p->maximum_session_keys << ',' << p->maximum_session_work << ','
+          << p->maximum_session_identity_bytes << ')';
     else if (const auto *p =
                  std::get_if<SemanticVariableAdviceParameters>(&step.parameters))
       out << ":semantic-variable-advice1(" << p->maximum_variables << ','
@@ -2295,6 +2344,14 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.gf3_gaussian_instances.empty()) {
+      out << ":gf3-gaussian-consequence[";
+      for (size_t i = 0; i < step.gf3_gaussian_instances.size(); ++i) {
+        if (i) out << ';';
+        out << step.gf3_gaussian_instances[i];
+      }
+      out << ']';
+    }
   }
   return out.str();
 }
@@ -2503,6 +2560,18 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         if (!parse_direct_csp_support(text.substr(0, semicolon), instance))
           return reject("online replay DirectCSP payload is malformed");
         step.direct_csp_support_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view gf3_gaussian_marker =
+        ":gf3-gaussian-consequence[";
+    if (text.starts_with(gf3_gaussian_marker) && text.back() == ']') {
+      text.remove_prefix(gf3_gaussian_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        step.gf3_gaussian_instances.emplace_back(text.substr(0, semicolon));
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }

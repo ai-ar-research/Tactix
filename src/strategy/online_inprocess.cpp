@@ -7,6 +7,7 @@
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/sweep/sweep.hpp"
@@ -134,6 +135,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "DirectCspSupport";
   if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
     return step.rule == "DirectPhpRefutation";
+  if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
+    return step.rule == "Gf3GaussianConsequence";
   if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
     return step.rule == "SemanticVariableAdvice";
   if (std::holds_alternative<CongruenceParameters>(step.parameters))
@@ -266,6 +269,30 @@ DirectPhpActionLimits direct_php_limits(
            p.maximum_proof_literals, p.maximum_fresh_variables,
            p.maximum_proof_events},
           p.maximum_replay_work};
+}
+
+Gf3GaussianActionLimits gf3_gaussian_limits(
+    const Gf3GaussianConsequenceParameters &p) {
+  return {{p.maximum_source_clauses, p.maximum_source_literals,
+           p.maximum_domains, p.maximum_equations,
+           p.maximum_equation_arity, p.maximum_tuples_per_equation},
+          {{p.maximum_bridge_work, p.maximum_bridge_source_clauses,
+            p.maximum_bridge_source_literals, p.maximum_bridge_domains,
+            p.maximum_bridge_equations, p.maximum_bridge_terms,
+            p.maximum_authentication_references,
+            p.maximum_references_per_equation,
+            {p.maximum_gaussian_work, p.maximum_fill_entries,
+             p.maximum_intermediate_width, p.maximum_provenance_terms,
+             p.maximum_derivations, p.maximum_retained_plan_bytes}},
+           p.maximum_certificate_work, p.maximum_events,
+           p.maximum_event_literals, p.maximum_active_clauses,
+           p.maximum_retained_source_references, p.maximum_event_width,
+           p.maximum_branch_domains, p.maximum_consequences},
+          p.maximum_capture_work, p.maximum_revalidation_work,
+          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+          p.maximum_journal_bytes, p.maximum_identity_bytes,
+          p.maximum_external_extent, p.maximum_session_keys,
+          p.maximum_session_work, p.maximum_session_identity_bytes};
 }
 
 void record_gf3_affine_feedback(Kernel &k,
@@ -508,6 +535,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         p && !p->valid())
       return reject("DirectPhpRefutation parameters are invalid");
     if (const auto *p =
+            std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Gf3GaussianConsequence parameters are invalid");
+    if (const auto *p =
             std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
         p && !p->valid())
       return reject("SemanticVariableAdvice parameters are invalid");
@@ -618,12 +649,39 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.direct_csp_support_instances.empty() &&
         step.rule != "DirectCspSupport")
       return reject("DirectCSP supports are attached to a different rule");
+    if (!step.gf3_gaussian_instances.empty() &&
+        step.rule != "Gf3GaussianConsequence")
+      return reject("GF3 Gaussian identities are attached to a different rule");
     if (step.rule == "Gf3AffineConsequence" &&
         (step.gf3_affine_instances.empty() || !step.instances.empty()))
       return reject("GF3 affine action requires typed equation-pair payloads");
     if (step.rule == "DirectCspSupport" &&
         (step.direct_csp_support_instances.empty() || !step.instances.empty()))
       return reject("DirectCSP action requires typed support payloads");
+    if (step.rule == "Gf3GaussianConsequence" &&
+        (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
+         step.granularity != InvocationGranularity::OneInstance))
+      return reject("GF3 Gaussian action requires exact identity payloads");
+    for (const std::string &identity : step.gf3_gaussian_instances)
+      if (identity.size() <= 5 || identity.rfind("g3b1:", 0) ||
+          (identity.size() - 5) % 2 ||
+          !std::all_of(identity.begin() + 5, identity.end(), [](char ch) {
+            return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+          }))
+        return reject("GF3 Gaussian identity is malformed");
+    if (!step.gf3_gaussian_instances.empty()) {
+      const auto *p =
+          std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
+      if (!p) return reject("GF3 Gaussian identity has no typed limits");
+      uint64_t bytes = 0;
+      for (const auto &identity : step.gf3_gaussian_instances) {
+        if (identity.size() > p->maximum_identity_bytes ||
+            identity.size() > p->maximum_session_identity_bytes ||
+            bytes > p->maximum_session_identity_bytes - identity.size())
+          return reject("GF3 Gaussian identity exceeds byte limits");
+        bytes += identity.size();
+      }
+    }
     for (const auto &cover : step.independent_set_cover_instances)
       if (cover.size() < 2 || !cover.front() ||
           !std::is_sorted(cover.begin(), cover.end()) ||
@@ -688,7 +746,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.condition_instances.empty() +
         !step.independent_set_cover_instances.empty() +
         !step.gf3_affine_instances.empty() +
-        !step.direct_csp_support_instances.empty();
+        !step.direct_csp_support_instances.empty() +
+        !step.gf3_gaussian_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
     if (structured_payload_kinds > 1)
@@ -707,7 +766,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                          ? step.independent_set_cover_instances.size()
                                                          : !step.gf3_affine_instances.empty()
                                                                ? step.gf3_affine_instances.size()
-                                                               : step.direct_csp_support_instances.size();
+                                                               : !step.direct_csp_support_instances.empty()
+                                                                     ? step.direct_csp_support_instances.size()
+                                                                     : step.gf3_gaussian_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured_payload_kinds && structured_size != 1) ||
@@ -726,14 +787,16 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       break;
     case InvocationGranularity::CompleteCurrentPass:
       if (step.rule == "Gf3AffineConsequence" ||
-          step.rule == "DirectCspSupport")
+          step.rule == "DirectCspSupport" ||
+          step.rule == "Gf3GaussianConsequence")
         return reject("structured theory action requires an explicit payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
       if (step.rule == "Gf3AffineConsequence" ||
-          step.rule == "DirectCspSupport")
+          step.rule == "DirectCspSupport" ||
+          step.rule == "Gf3GaussianConsequence")
         return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("canonical application carries explicit payloads");
@@ -939,7 +1002,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.condition_instances.empty() &&
         step.independent_set_cover_instances.empty() &&
         step.gf3_affine_instances.empty() &&
-        step.direct_csp_support_instances.empty()) {
+        step.direct_csp_support_instances.empty() &&
+        step.gf3_gaussian_instances.empty()) {
       runtime.selection = step.instances;
     } else {
       const size_t size = !step.factor_grids.empty()
@@ -952,7 +1016,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                 ? step.independent_set_cover_instances.size()
                                                 : !step.gf3_affine_instances.empty()
                                                       ? step.gf3_affine_instances.size()
-                                                      : step.direct_csp_support_instances.size();
+                                                      : !step.direct_csp_support_instances.empty()
+                                                            ? step.direct_csp_support_instances.size()
+                                                            : step.gf3_gaussian_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
@@ -1474,6 +1540,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<Gf3AffineActionResult> gf3_affine_application;
     std::optional<DirectCspSupportActionResult> direct_csp_application;
     std::optional<DirectPhpActionResult> direct_php_application;
+    std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
@@ -1547,6 +1614,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
           DirectPhpRefutationParameters,
+          Gf3GaussianConsequenceParameters,
           SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
@@ -1598,6 +1666,18 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_direct_csp_feedback(k, *direct_csp_application,
                                              keys_before, owners_before);
                   return direct_csp_application->result;
+                })
+          : !step.gf3_gaussian_instances.empty()
+              ? apply_rule_structured(rule, k, "gf3-gaussian-consequence", [&] {
+                  const auto &parameters =
+                      std::get<Gf3GaussianConsequenceParameters>(step.parameters);
+                  gf3_gaussian_application.emplace(gf3_gaussian_action_apply(
+                      k, *k.gf3_gaussian_action_session,
+                      gf3_gaussian_limits(parameters),
+                      step.gf3_gaussian_instances[payload]));
+                  record_gf3_gaussian_action_feedback(
+                      k, *gf3_gaussian_application);
+                  return gf3_gaussian_application->result;
                 })
           : !step.independent_set_cover_instances.empty()
               ? apply_rule_structured(rule, k, "independent-set-cover", [&] {
@@ -2097,7 +2177,8 @@ InvocationResult OnlineStrategyExecutor::advance(
     if (generated_sr_pass ||
         !step.independent_set_cover_instances.empty() ||
         !step.gf3_affine_instances.empty() ||
-        !step.direct_csp_support_instances.empty())
+        !step.direct_csp_support_instances.empty() ||
+        !step.gf3_gaussian_instances.empty())
       runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);
     runtime.pass_progress |= out.made_rule_progress;
