@@ -57,6 +57,9 @@ payload suppressing discovery. Fresh immutable sanitizer pin
 `ec7e0ac86c7afde5f7c9288d45272e2b465f1581` to binary SHA-256
 `76090ca862ba7ed07a20140289e398638966ebed8a177cdf7c059d4bcc35b6c2`.
 Its controller CLI check and Direct-PHP/random/Tseitin ASan+UBSan matrix pass.
+The complete fixed fuzz-harness self-test also passes against the frozen
+checker collection, including known-bad model/proof/truncation controls,
+every-lemma audits, shrink, checker-collection validation and native LRAT.
 Require Claude-owned both-policy fuzz: disabled DefaultPolicy is the zero-reach
 compatibility control, while controller-random must show producer calls/offers
 and effective applications for every enabled structured family. The Tier-D
@@ -94,7 +97,8 @@ plus `max(30%, 20s)` completed-proof slowdown rule.
   The scripted-policy fixture retains all schedule transitions while reducing
   its externally stepped conflict path from about 75,000 to about 4,000.
 - The replacement `ec7e0ac86` ASan+UBSan pin is immutable and hash-verified;
-  the fuzz handoff rejects the superseded pre-repair pin.
+  the fixed harness self-test passes and the fuzz handoff rejects the
+  superseded pre-repair pin.
 - The current controller checkpoint exposes replay-fingerprinted native-producer and root-family selection for non-vacuous focused fuzz.
 - `46a7db1cd` exposed public X16 with exact component choice, C v7, repeated-root DSR, random reach and raw feedback; `2921c784d` fixed native structured pending settlement.
 - `cd956aea` exposed the authenticated complete GF(3) Gaussian closure as public X14 with C v6, replay, random reach and raw feedback.
