@@ -12,7 +12,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${TACTIX_REPO_ROOT:-$(cd "$HERE/../.." && pwd)}"
-DEFAULT_OUTDIR="${TACTIX_FUZZ_OUTPUT_ROOT:-$HERE/failures}"
+OUTPUT_BASE="${TACTIX_FUZZ_OUTPUT_ROOT:-$HERE/failures}"
 
 N=10000
 EXTRA=()
@@ -47,11 +47,18 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$SOLVER" ] || { echo "usage: run.sh [--quick|--nightly] --solver CMD [fuzz.py args]" >&2; exit 2; }
 [ "$HAS_OUTDIR" -eq 1 ] || {
-    if [ "$CONTROLLER_V5" -eq 1 ]; then
-        EXTRA+=(--outdir "$DEFAULT_OUTDIR/controller-v5")
+    RUN_ID="${TACTIX_FUZZ_RUN_ID:-local-$$}"
+    if [ -n "${TACTIX_FUZZ_LEG_ID:-}" ]; then
+        LEG_ID="$TACTIX_FUZZ_LEG_ID"
+    elif [ "$CONTROLLER_V5" -eq 1 ]; then
+        LEG_ID=controller-v5
     else
-        EXTRA+=(--outdir "$DEFAULT_OUTDIR")
+        LEG_ID=seeded
     fi
+    DEFAULT_OUTDIR=$(python3 "$HERE/artifact_layout.py" \
+        "$OUTPUT_BASE" "$RUN_ID" "$LEG_ID")
+    EXTRA+=(--outdir "$DEFAULT_OUTDIR")
+    echo "== artifact output: $DEFAULT_OUTDIR =="
 }
 
 if [ -z "$ORACLE" ]; then

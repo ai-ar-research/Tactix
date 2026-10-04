@@ -5,6 +5,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
+python3 "$HERE/controls/artifact_isolation_controls.py"
 KISSAT="$ROOT/tools/solvers/bin/kissat"
 CADICAL="$ROOT/tools/solvers/bin/cadical"
 [ -x "$KISSAT" ] && [ -x "$CADICAL" ] || "$ROOT/tools/solvers/setup.sh"
