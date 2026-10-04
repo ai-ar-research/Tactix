@@ -79,7 +79,7 @@ static BatchPlanningRequest planning_request() {
   request.maximum_extent_growth = 10;
   request.first_output_external = 10;
   request.maximum_external_extent = 100;
-  request.first_semantic_id = 700;
+  request.action_id = 700;
   return request;
 }
 
@@ -96,13 +96,13 @@ static void deterministic_complete_plan() {
   const BatchPlan first = make_plan();
   const BatchPlan second = make_plan();
   assert(first == second);
-  assert(first.arity == 3 && first.source.size() == 15);
-  assert(first.definitions.size() == 3 && first.extent_growth == 3);
-  assert(first.proof_additions == 12 && first.literal_occurrences == 30);
-  for (uint32_t slot = 0; slot < first.definitions.size(); ++slot) {
-    const auto &definition = first.definitions[slot];
-    assert(definition.block == slot && definition.semantic_slot == slot);
-    assert(definition.semantic_id == 700 + slot);
+  assert(first.arity() == 3 && first.source().size() == 15);
+  assert(first.definitions().size() == 3 && first.extent_growth() == 3);
+  assert(first.proof_additions() == 12 && first.literal_occurrences() == 30);
+  for (uint32_t slot = 0; slot < first.definitions().size(); ++slot) {
+    const auto &definition = first.definitions()[slot];
+    assert(definition.block == slot);
+    assert((definition.semantic == SemanticIdentity{700, slot}));
     assert(definition.output == 10 + int32_t(slot));
     assert(definition.kind == TheoryVariableKind::BlockOccupancy);
     assert(definition.projection == ModelProjection::OmitFreshOutput);
@@ -149,8 +149,8 @@ static void deterministic_complete_plan() {
 }
 
 static void no_partial_plan() {
-  BatchPlan sentinel;
-  sentinel.arity = 17;
+  BatchPlan sentinel = make_plan();
+  const BatchPlan expected = sentinel;
   auto bounded_request = planning_request();
   uint64_t left = 8;
   auto bounded = [&](uint64_t amount) {
@@ -158,24 +158,35 @@ static void no_partial_plan() {
     left -= amount;
     return true;
   };
-  assert(!plan_batch(source_formula(), bounded_request, bounded, sentinel));
-  assert(sentinel.arity == 17 && sentinel.definitions.empty());
+  BatchPlanningStatus status = BatchPlanningStatus::Complete;
+  assert(!plan_batch(source_formula(), bounded_request, bounded, sentinel,
+                     &status));
+  assert(status == BatchPlanningStatus::ResourceExhausted);
+  assert(sentinel == expected);
   auto unlimited = [](uint64_t) { return true; };
-  assert(!plan_batch(source_formula(true), bounded_request, unlimited, sentinel));
-  assert(sentinel.arity == 17 && sentinel.definitions.empty());
+  assert(!plan_batch(source_formula(true), bounded_request, unlimited, sentinel,
+                     &status));
+  assert(status == BatchPlanningStatus::NoStructure);
+  assert(sentinel == expected);
   bounded_request.maximum_additions = 11;
-  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel));
-  assert(sentinel.arity == 17 && sentinel.definitions.empty());
+  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel,
+                     &status));
+  assert(status == BatchPlanningStatus::ResourceExhausted);
+  assert(sentinel == expected);
   bounded_request = planning_request();
   bounded_request.maximum_premise_references = 26;
-  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel));
-  assert(sentinel.arity == 17 && sentinel.definitions.empty());
+  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel,
+                     &status));
+  assert(status == BatchPlanningStatus::ResourceExhausted);
+  assert(sentinel == expected);
 
   bounded_request = planning_request();
   bounded_request.first_output_external = INT32_MAX - 1;
   bounded_request.maximum_external_extent = UINT32_MAX;
-  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel));
-  assert(sentinel.arity == 17 && sentinel.definitions.empty());
+  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel,
+                     &status));
+  assert(status == BatchPlanningStatus::ResourceExhausted);
+  assert(sentinel == expected);
 }
 
 static void atomic_publication_uses_retained_plan() {
@@ -184,8 +195,10 @@ static void atomic_publication_uses_retained_plan() {
   const uint32_t original_outputs = kernel_num_output_vars(kernel);
   FILE *records = std::tmpfile();
   assert(records);
-  const auto published = publish_batch(kernel, plan, {81, records});
+  const auto published = publish_batch(kernel, plan, {700, 100000, records});
   assert(published.result == ApplyResult::Ok && published.definitions == 3);
+  assert(published.status == BatchPublicationStatus::Published);
+  assert(published.journal_bytes > 0);
   assert(published.additions == 12 && published.literal_occurrences == 30);
   assert(published.extent_growth == 3 && kernel.nvars == 12);
   assert(kernel_num_output_vars(kernel) == original_outputs);
@@ -212,22 +225,40 @@ static void atomic_publication_uses_retained_plan() {
   assert(records);
   const auto mapping = kernel.external_to_internal;
   const uint64_t id = kernel.next_clause_id;
-  assert(publish_batch(kernel, plan, {82, records}).result == ApplyResult::NoOp);
+  assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
+         ApplyResult::NoOp);
   assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
   assert(std::ftell(records) == 0);
   std::fclose(records);
 }
 
-static void publication_preflight_is_pure() {
-  BatchPlan plan = make_plan();
-  plan.definitions[1].formula[0][0] = 99;
+static void journal_limit_declines_before_mutation() {
+  const BatchPlan plan = make_plan();
   Kernel kernel = parse_source(source_formula());
   FILE *records = std::tmpfile();
   assert(records);
   const auto mapping = kernel.external_to_internal;
   const uint64_t id = kernel.next_clause_id;
   const size_t arena = kernel.arena.size();
-  assert(publish_batch(kernel, plan, {90, records}).result == ApplyResult::NoOp);
+  const auto result = publish_batch(kernel, plan, {700, 1, records});
+  assert(result.status == BatchPublicationStatus::ResourceExhausted);
+  assert(result.result == ApplyResult::NoOp);
+  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
+  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
+  std::fclose(records);
+}
+
+static void publication_identity_preflight_is_pure() {
+  const BatchPlan plan = make_plan();
+  Kernel kernel = parse_source(source_formula());
+  FILE *records = std::tmpfile();
+  assert(records);
+  const auto mapping = kernel.external_to_internal;
+  const uint64_t id = kernel.next_clause_id;
+  const size_t arena = kernel.arena.size();
+  const auto result = publish_batch(kernel, plan, {701, 100000, records});
+  assert(result.result == ApplyResult::NoOp);
+  assert(result.status == BatchPublicationStatus::Invalid);
   assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
   assert(kernel.arena.size() == arena && std::ftell(records) == 0);
   std::fclose(records);
@@ -236,7 +267,7 @@ static void publication_preflight_is_pure() {
 static void stale_retained_source_declines() {
   const BatchPlan plan = make_plan();
   Kernel kernel = parse_source(source_formula());
-  const Premise &lost = plan.source.front();
+  const Premise &lost = plan.source().front();
   assert(lost.literals.size() == 2);
   assert(kernel_delete_binary(kernel,
       kernel_internalize(kernel, lost.literals[0]),
@@ -245,9 +276,29 @@ static void stale_retained_source_declines() {
   assert(records);
   const auto mapping = kernel.external_to_internal;
   const uint64_t id = kernel.next_clause_id;
-  assert(publish_batch(kernel, plan, {91, records}).result == ApplyResult::NoOp);
+  const auto stale = publish_batch(kernel, plan, {700, 100000, records});
+  assert(stale.result == ApplyResult::NoOp);
+  assert(stale.status == BatchPublicationStatus::Stale);
   assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
   assert(std::ftell(records) == 0);
+  std::fclose(records);
+}
+
+static void changed_source_census_declines() {
+  const BatchPlan plan = make_plan();
+  auto extended = source_formula();
+  extended.push_back({extended.size() + 1, {1, 2, 3}});
+  Kernel kernel = parse_source(extended);
+  FILE *records = std::tmpfile();
+  assert(records);
+  const auto mapping = kernel.external_to_internal;
+  const uint64_t id = kernel.next_clause_id;
+  const size_t arena = kernel.arena.size();
+  const auto stale = publish_batch(kernel, plan, {700, 100000, records});
+  assert(stale.result == ApplyResult::NoOp);
+  assert(stale.status == BatchPublicationStatus::Stale);
+  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
+  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
   std::fclose(records);
 }
 
@@ -273,7 +324,8 @@ static void write_certificate(const char *cnf_path, const char *proof_path,
   FILE *records = std::tmpfile();
   assert(records);
   const BatchPlan plan = make_plan(source);
-  assert(publish_batch(kernel, plan, {101, records}).result == ApplyResult::Ok);
+  assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
+         ApplyResult::Ok);
   const int32_t unit = 14;
   assert(proof.add_external_rup(++kernel.next_clause_id, &unit, 1));
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
@@ -286,8 +338,10 @@ int main(int argc, char **argv) {
   deterministic_complete_plan();
   no_partial_plan();
   atomic_publication_uses_retained_plan();
-  publication_preflight_is_pure();
+  journal_limit_declines_before_mutation();
+  publication_identity_preflight_is_pure();
   stale_retained_source_declines();
+  changed_source_census_declines();
   if (argc == 4) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
     write_certificate(argv[1], argv[3], ProofFormat::DratAscii);
