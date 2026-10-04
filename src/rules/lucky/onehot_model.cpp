@@ -656,7 +656,8 @@ bool direct_csp_model(Kernel &k,
     std::vector<uint8_t> assignment =
         direct_csp_boolean_assignment(csp, best_value, k.nvars);
     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
-                                   assignment, best_seen, true);
+                                   assignment, best_seen, true,
+                                   {work, strategy::LocalSearchEffortUnit::CspWork});
   }
   direct_csp_trace_row("stopped", best_seen, work, work_limit);
   return false;
@@ -701,6 +702,7 @@ ApplyResult direct_csp_model_apply(Kernel &k) {
 }
 
 ApplyResult onehot_model_apply(Kernel &k) {
+  const uint64_t candidates_before = k.stats.onehot_model_candidates;
   assert(onehot_model_guard(k));
   ++k.stats.onehot_model_calls;
   const strategy::OnehotModelParameters parameters =
@@ -963,13 +965,17 @@ ApplyResult onehot_model_apply(Kernel &k) {
     if (kernel_rule_interrupt(k, k.stats.onehot_model_interrupted)) {
       if (!guidance.empty())
         kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
-                                       guidance);
+                                       guidance, UINT64_MAX, false,
+                                       {k.stats.onehot_model_candidates - candidates_before,
+                                        strategy::LocalSearchEffortUnit::CandidateChecks});
       return ApplyResult::NoOp;
     }
   }
   if (!guidance.empty())
     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Onehot,
-                                   guidance);
+                                   guidance, UINT64_MAX, false,
+                                   {k.stats.onehot_model_candidates - candidates_before,
+                                    strategy::LocalSearchEffortUnit::CandidateChecks});
   return ApplyResult::NoOp;
 }
 

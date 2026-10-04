@@ -1,6 +1,5 @@
 #undef NDEBUG
 #include "rules/lucky/balanced_signature_model.hpp"
-#include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
@@ -72,18 +71,6 @@ int main() {
     strategy::ScopedBalancedSignatureModelParameters posed(k, parameters);
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.size() == 7);
-  }
-  {
-    Kernel k = balance_fixture();
-    const int lucky_id = tactix_rule_id("Lucky");
-    assert(lucky_id >= 0);
-    const RuleVTable &lucky = tactix_rules()[lucky_id];
-    uint64_t instances[16] = {};
-    const uint32_t count = lucky.instances(k, instances, 16);
-    assert(count == 16 && instances[10] == 10 && instances[11] == 11 &&
-           instances[12] == 12 && instances[13] == 13 &&
-           instances[14] == 14 && instances[15] == 15);
-    assert(lucky.apply_instance(k, 10) == ApplyResult::Sat);
   }
   return 0;
 }

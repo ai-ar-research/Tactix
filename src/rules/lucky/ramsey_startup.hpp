@@ -1,4 +1,4 @@
-// Internal native adapter; public startup action wiring and acceptance pending.
+// Bounded original-input certificate adapter and shared startup action.
 #pragma once
 #include "rules/lucky/ramsey_recognition.hpp"
 #include "rules/registry.hpp"
@@ -19,5 +19,6 @@ struct RamseyStartupResult {
   uint32_t vertices = 0, helpers = 0;
 };
 RuleEligibility ramsey_startup_guard(const Kernel &);
+ApplyResult ramsey_startup_action(Kernel &);
 RamseyStartupResult ramsey_startup_apply(Kernel &, const RamseyStartupRequest &);
 } // namespace tactix

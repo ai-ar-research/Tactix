@@ -27,6 +27,8 @@
  *    tactix_rule_instances. It is an internal variable index, not a DIMACS
  *    literal and not constructible by the caller: enumerate, then apply one of
  *    the values returned, within the same solver state.
+ *  - ParityConsequence selects its bounded consequence through typed online
+ *    parameters and requires a bound structural provenance stream.
  *  - Propagate and SwitchMode have no instance surface at all, so a
  *    non-canonical payload to tactix_apply_instance on one of them is an
  *    invalid argument (-1), never a silent canonical application. Congruence
@@ -46,6 +48,7 @@
 #define TACTIX_H_INCLUDED
 
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,8 +143,22 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_SUBSTITUTE_TICKS 50 /* Substitute binary-watch scan work */
 #define TACTIX_STAT_HBR_UNITS 51 /* semantic resolvents collapsed to units */
 
+#define TACTIX_STAT_PARITY_CONSEQUENCE_ATTEMPTS 52
+#define TACTIX_STAT_PARITY_CONSEQUENCE_CLAUSES 53
+#define TACTIX_STAT_PARITY_CONSEQUENCE_EQUATIONS 54
+#define TACTIX_STAT_PARITY_CONSEQUENCE_SELECTION_WORK 55
+#define TACTIX_STAT_PARITY_CONSEQUENCE_PREFLIGHT_ADDITIONS 56
+#define TACTIX_STAT_PARITY_CONSEQUENCE_ADDITIONS 57
+#define TACTIX_STAT_PARITY_CONSEQUENCE_DELETIONS 58
+#define TACTIX_STAT_PARITY_CONSEQUENCE_HELPERS 59
+#define TACTIX_STAT_PARITY_CONSEQUENCE_PUBLISHED 60
+
 tactix *tactix_init(void);
 void tactix_release(tactix *);
+/* Borrow a writable semantic/proof provenance stream for structural actions.
+ * Caller owns its lifetime; NULL unbinds it. Binding invalidates outstanding
+ * selections. The session's action IDs never reset. Returns 0 or -1. */
+int tactix_bind_structural_provenance(tactix *, FILE *);
 
 /* Input ingest: literals in DIMACS convention, 0 terminates a clause.
  * Input closes on the first status, enumeration, rule, or solve query.
@@ -370,6 +387,10 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_PARITY_MODEL 18
 #define TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL 19
 #define TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY 20
+/* Wire tags 21--25 and 28--30 remain reserved so historical payloads can be
+ * identified, but their Lucky constructor actions are retired. Configuring a
+ * program with one of these parameter kinds is rejected; the tags must not be
+ * reused for a Boolean inprocessing replacement. */
 #define TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL 21
 #define TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL 22
 #define TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL 23
@@ -379,6 +400,9 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF 27
 #define TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL 28
 #define TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL 29
+#define TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING 30
+#define TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE 31
+#define TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP 32
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
 #define TACTIX_ONLINE_BVE_TRAVERSAL_FAST_ELIMINATE 1
 #define TACTIX_ONLINE_AFFINE_BOUNDARY 0
@@ -499,6 +523,16 @@ typedef struct {
   uint32_t clause_size_limit, occurrence_limit;
 } tactix_online_strengthen_parameters;
 typedef struct {
+  /* Every limit is explicit; zero means zero work. Consequence is the ordinal
+   * of the bounded selector output. No FILE pointer is serialized here. */
+  uint64_t maximum_clauses, maximum_groups, selection_work;
+  uint32_t intermediate_width, source_count, output_width;
+  int descending;
+  uint64_t maximum_proof_additions;
+  uint32_t maximum_tree_variables;
+  uint64_t consequence;
+} tactix_online_parity_consequence_parameters;
+typedef struct {
   uint32_t and_arity_limit, xor_arity_limit;
   uint64_t gate_count_limit;
   int binary_watch_order; /* TACTIX_CONGRUENCE_*_WATCH_ORDER; zero is canonical. */
@@ -562,6 +596,10 @@ typedef struct {
   uint32_t even_break_base_milli;
   const tactix_online_walk_score_point *score_curve;
   int score_curve_count;
+  /* Exact LocalSearchGuidance instance identity, or zero for ordinary phases.
+   * Generation-bearing instances are returned by that action's enumeration.
+   * A stale/missing identity declines the Walk; it never substitutes a seed. */
+  uint64_t seed_candidate;
 } tactix_online_walk_parameters;
 typedef struct {
   uint32_t maximum_clause_size;
@@ -571,7 +609,8 @@ typedef struct {
   uint32_t balanced_polarity_milli;
 } tactix_online_reorder_parameters;
 typedef struct {
-  /* Parameters for Lucky semantic instance 6 (structural parity model). */
+  /* Reserved ABI payload for retired Lucky instance 6.  Its structural
+   * recognizer is retained for theory-to-Boolean extraction. */
   uint32_t maximum_variables, maximum_groups, maximum_constraints;
   uint32_t minimum_group_clauses, minimum_equations;
   uint32_t maximum_free_variables;
@@ -584,7 +623,8 @@ typedef struct {
   uint64_t refutation_maximum_proof_additions;
 } tactix_online_parity_model_parameters;
 typedef struct {
-  /* Parameters for Lucky semantic instance 7 (one-hot GF(3) model). */
+  /* Reserved ABI payload for retired Lucky instance 7.  Its one-hot
+   * recognizer is retained for theory-to-Boolean extraction. */
   uint32_t maximum_variables, maximum_domains, maximum_constraints;
   uint32_t maximum_equation_arity, minimum_domains, minimum_equations;
   uint32_t maximum_free_domains;
@@ -596,9 +636,7 @@ typedef struct {
   uint64_t refutation_maximum_proof_additions;
 } tactix_online_onehot_model_parameters;
 typedef struct {
-  /* Parameters for Lucky semantic instance 10.  Recognition is structural;
-   * these fields control its general balanced-signature local search and
-   * private model-completion allowance. */
+  /* Reserved ABI payload for retired Lucky instance 10. */
   uint32_t maximum_balls, maximum_width;
   uint64_t restarts, steps_per_restart;
   uint32_t samples_per_step;
@@ -606,21 +644,18 @@ typedef struct {
   uint32_t completion_rounds;
 } tactix_online_balanced_signature_model_parameters;
 typedef struct {
-  /* Parameters for Lucky instance 11.  The comparator window and Pollard-Rho
-   * work controls follow the owning arithmetic-circuit strategy. */
+  /* Reserved ABI payload for retired Lucky instance 11. */
   uint32_t maximum_bits, comparator_tail_clauses;
   uint64_t rho_constants, rho_iterations;
 } tactix_online_fermat_model_parameters;
 typedef struct {
-  /* Parameters for Lucky instance 13. Recognition recovers feed-forward
-   * lookup tables; these bounds dose SIMD primary-support enumeration. */
+  /* Reserved ABI payload for retired Lucky instance 13. */
   uint32_t maximum_fanin, maximum_fanout, maximum_primary_inputs;
   uint32_t maximum_support;
   uint64_t maximum_vector_gate_evaluations;
 } tactix_online_lookup_circuit_model_parameters;
 typedef struct {
-  /* Parameters for Lucky instance 14. Recognition recovers the Simon round
-   * circuit; these fields bound the admitted rounds and exhaustive key work. */
+  /* Reserved ABI payload for retired Lucky instance 14. */
   uint32_t maximum_rounds;
   uint64_t maximum_candidates;
 } tactix_online_simon_model_parameters;
@@ -638,29 +673,50 @@ typedef struct {
   uint64_t maximum_bdd_nodes, maximum_proof_additions;
 } tactix_online_signed_cardinality_proof_parameters;
 typedef struct {
-  /* Parameters for Lucky instance 17: signed at-most-one block exact cover.
-   * block_arity is the block and covering-clause size; the node bounds dose
-   * the deterministic search and each randomized restart. */
+  /* Reserved ABI payload for retired Lucky instance 17.  Exact-cover
+   * recognition is retained for certified Boolean extraction. */
   uint32_t block_arity;
   uint64_t maximum_nodes, restarts, restart_nodes, seed;
 } tactix_online_exact_cover_model_parameters;
 typedef struct {
-  /* Parameters for Lucky instance 18: independent set with a layered
-   * exact-count encoding. Zero steps or rounds select the vertex count. */
+  /* Reserved ABI payload for retired Lucky instance 18.  Independent-set
+   * recognition is retained for certified Boolean extraction. */
   uint32_t maximum_vertices;
   uint64_t maximum_steps, completion_rounds, seed;
 } tactix_online_independent_set_model_parameters;
+#define TACTIX_GRAPH_RECOGNITION 0
+#define TACTIX_GRAPH_CONSTRUCTION 1
+#define TACTIX_GRAPH_WINDOW 2
+#define TACTIX_GRAPH_REPAIR 3
+#define TACTIX_GRAPH_ANNEAL 4
+#define TACTIX_GRAPH_FINAL_REPAIR 5
+#define TACTIX_GRAPH_COMPLETION 6
+#define TACTIX_GRAPH_PUBLICATION 7
+#define TACTIX_GRAPH_STAGES 8
+typedef struct {
+  /* Reserved ABI payload for retired Lucky instance 21. */
+  uint32_t maximum_vertices;
+  uint64_t workspace_bytes;
+  uint64_t work[TACTIX_GRAPH_STAGES];
+  uint32_t maximum_dfs_vertices;
+  uint64_t maximum_dfs_nodes;
+  uint32_t maximum_dfs_starts, early_dfs_choices;
+  uint64_t repair_rounds, anneal_iterations, stall_anneal_iterations, seed;
+} tactix_online_graph_labeling_parameters;
+
+typedef struct {
+  /* Lucky instance 22; zero bounds disable the original-input certificate. */
+  uint64_t recognition_clauses, recognition_variables, recognition_pair_cells;
+  uint64_t recognition_work, certificate_work, maximum_nodes, maximum_additions;
+  uint32_t maximum_external_extent;
+} tactix_online_ramsey_startup_parameters;
 typedef struct {
   /* UINT64_MAX selects half of the current coordinate count. */
   uint64_t left_size, left_weight, right_weight, total_weight;
 } tactix_online_affine_scope;
 typedef struct {
-  /* Lucky instance 8. Every scalar is explicit; zero limits mean zero work or
-   * an empty domain, never an implicit default. Arrays are copied on configure.
-   * Projection literals use stable external DIMACS identities. Duplicate or
-   * complementary coordinates of the same variable are invalid. A currently
-   * unavailable retired coordinate declines this attempt without mutation.
-   * Explicit empty projection and empty scopes are both valid requests. */
+  /* Reserved ABI payload for retired Lucky instance 8.  Affine recognition
+   * and scopes are retained for certified Boolean extraction. */
   uint64_t maximum_variables, maximum_constraints, maximum_arity;
   uint64_t maximum_projection, minimum_equations, maximum_entries;
   uint64_t import_bytes, linear_bytes, table_bytes, maximum_work;
@@ -831,6 +887,7 @@ typedef struct {
     tactix_online_subsume_parameters subsume;
     tactix_online_strengthen_parameters strengthen;
     tactix_online_congruence_parameters congruence;
+    tactix_online_parity_consequence_parameters parity_consequence;
     tactix_online_instantiate_parameters instantiate;
     tactix_online_backbone_parameters backbone;
     tactix_online_sweep_parameters sweep;
@@ -855,6 +912,8 @@ typedef struct {
     tactix_online_exact_cover_model_parameters exact_cover_model;
     tactix_online_independent_set_model_parameters independent_set_model;
     tactix_online_affine_model_parameters affine_model;
+    tactix_online_graph_labeling_parameters graph_labeling;
+    tactix_online_ramsey_startup_parameters ramsey_startup;
     tactix_online_sr_parameters substitution_redundancy;
   } value;
 } tactix_online_parameters;

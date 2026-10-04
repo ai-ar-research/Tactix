@@ -14,6 +14,7 @@
 #include "strategy/reduction_execution.hpp"
 #include "strategy/sweep_execution.hpp"
 #include "strategy/native_feedback.hpp"
+#include "strategy/guidance_outcome.hpp"
 #include "policies/rule_publication.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
@@ -156,11 +157,27 @@ template <LuckyOpportunity Opportunity>
 ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
                                       PolicyCompletion *completion = nullptr) {
   constexpr uint64_t instance = execution::lucky_feedback_instance<Opportunity>();
+  const strategy::GuidanceOutcomeSnapshot before(k);
   return execution::complete_action(completion, FeedbackKind::Rule, "Lucky", instance,
-      [&] { return execution::native_rule_feedback(k, "Lucky", instance, candidate); }, [&] {
+      [&] {
+        auto spec = execution::native_rule_feedback(k, "Lucky", instance, candidate);
+        if constexpr (Opportunity == LuckyOpportunity::GraphLabeling) {
+          spec.meter = [](const Kernel &kernel) { return kernel.stats.graph_labeling_work; };
+          spec.description.effort_currency = "graph-work";
+          uint64_t allowance = 0;
+          for (uint64_t dose : k.graph_labeling_parameters.work) allowance += dose;
+          if (kernel_has_work_budget(k)) allowance = std::min(allowance, k.work_budget);
+          spec.description.effort_allowance = strategy::WorkLimit::bounded(allowance);
+        }
+        return spec;
+      }, [&] {
     return default_direct_rule(k, "Lucky", candidate, [&] {
       return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
     });
+  }, [&](ApplyResult result) {
+    auto out = strategy::controller::feedback_outcome(result);
+    out.invocation.status = before.refine(k, result, out.invocation.status);
+    return out;
   });
 }
 
@@ -542,6 +559,10 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("signed-cardinality-proof settings are invalid");
   if (!exact_cover_model.parameters.valid())
     return reject("exact-cover-model settings are invalid");
+  if (!ramsey_startup.parameters.valid())
+    return reject("ramsey-startup settings are invalid");
+  if (!graph_labeling_model.parameters.valid())
+    return reject("graph-labeling settings are invalid");
   if (!independent_set_model.parameters.valid())
     return reject("independent-set-model settings are invalid");
 
@@ -926,7 +947,32 @@ std::string DefaultStrategyConfig::serialize() const {
       << independent_set_model.parameters.maximum_steps
       << " independent_set_model.completion_rounds="
       << independent_set_model.parameters.completion_rounds
-      << " independent_set_model.seed=" << independent_set_model.parameters.seed
+      << " independent_set_model.seed=" << independent_set_model.parameters.seed;
+  out << " ramsey_startup.enabled=" << ramsey_startup.enabled;
+  {
+    strategy::OnlineStrategyProgram program;
+    strategy::OnlineInvocation invocation;
+    invocation.id = 1; invocation.rule = "Lucky";
+    invocation.parameters = ramsey_startup.parameters;
+    invocation.granularity = strategy::InvocationGranularity::OneInstance;
+    invocation.instances = {LUCKY_STARTUP_RAMSEY};
+    program.sequence.push_back(std::move(invocation));
+    out << " ramsey_startup.parameters=" << strategy::serialize_online_strategy_program(program);
+  }
+  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
+  {
+    strategy::OnlineStrategyProgram graph;
+    strategy::OnlineInvocation invocation;
+    invocation.id = 1;
+    invocation.rule = "Lucky";
+    invocation.parameters = graph_labeling_model.parameters;
+    invocation.granularity = strategy::InvocationGranularity::OneInstance;
+    invocation.instances = {LUCKY_GRAPH_LABELING};
+    graph.sequence.push_back(std::move(invocation));
+    out << " graph_labeling_model.parameters="
+        << strategy::serialize_online_strategy_program(graph);
+  }
+  out
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
       << " inprocess.factor_enabled=" << inprocess.factor_enabled
@@ -1253,6 +1299,14 @@ std::string DefaultStrategyConfig::serialize() const {
                        &step.parameters)) {
       out << ":c2(" << p->clause_size_limit << ','
           << p->occurrence_limit << ')';
+    } else if (const auto *p =
+                   std::get_if<strategy::ParityConsequenceParameters>(&step.parameters)) {
+      out << ":parity-consequence(" << p->maximum_clauses << ','
+          << p->maximum_groups << ',' << p->selection_work << ','
+          << p->intermediate_width << ',' << p->source_count << ','
+          << p->output_width << ',' << p->descending << ','
+          << p->maximum_proof_additions << ',' << p->maximum_tree_variables
+          << ',' << p->consequence << ')';
     } else if (const auto *p =
                    std::get_if<strategy::CongruenceParameters>(
                        &step.parameters)) {
@@ -3242,7 +3296,8 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
             std::strcmp(rules[i].name, "SubstitutionRedundancy") &&
-            std::strcmp(rules[i].name, "Condition"))
+            std::strcmp(rules[i].name, "Condition") &&
+            std::strcmp(rules[i].name, "ParityConsequence"))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);
@@ -3416,25 +3471,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   execution::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.reorder.parameters}, completion_, "Reorder");
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.parity_model.parameters}, completion_, "Lucky", LUCKY_STARTUP_PARITY);
+                                   config_.parity_model.parameters}, completion_, "Lucky", LUCKY_PARITY_PROOF);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.onehot_model.parameters}, completion_, "Lucky", 7);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.balanced_signature_model.parameters}, completion_, "Lucky", 10);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.fermat_model.parameters}, completion_, "Lucky", 11);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.lookup_circuit_model.parameters}, completion_, "Lucky", 13);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.simon_model.parameters}, completion_, "Lucky", 14);
+                                   config_.onehot_model.parameters}, completion_, "Lucky", LUCKY_EXACT_ONE_PROOF);
   execution::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.stconn_proof.parameters}, completion_, "Lucky", 15);
   execution::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.signed_cardinality_proof.parameters}, completion_, "Lucky", 16);
   execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.exact_cover_model.parameters}, completion_, "Lucky", 17);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.independent_set_model.parameters}, completion_, "Lucky", 18);
+                                   config_.ramsey_startup.parameters}, completion_, "Lucky", LUCKY_STARTUP_RAMSEY);
   strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
   reduce.victim_numerator = config_.reduction.victim_numerator;
   reduce.victim_denominator = config_.reduction.victim_denominator;
@@ -3490,7 +3535,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
-  if (config_.parity_model.enabled && startup_parity_guard(k)) {
+  if (config_.ramsey_startup.enabled && ramsey_startup_guard(k)) {
+    const ApplyResult ramsey = default_lucky_opportunity<LuckyOpportunity::StartupRamsey>(
+        k, "startup-ramsey-dsr", completion_);
+    if (ramsey == ApplyResult::Unsat) return finish(20);
+  }
+  if (startup_parity_guard(k)) {
     const ApplyResult pb = default_lucky_opportunity<LuckyOpportunity::StartupParity>(
         k, "startup-parity-pb", completion_);
     if (pb == ApplyResult::Unsat)
@@ -3525,76 +3575,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
   }
-  // Signed at-most-one block exact cover (the sgen owner): exact recognition
-  // on the live clause set, then the owner's deterministic DFS and dosed
-  // randomized restarts; a completed cover is validated as a total model.
-  if (config_.exact_cover_model.enabled && exact_cover_model_guard(k)) {
-    event_trace.macro(k, "exact_cover_model_begin");
-    const ApplyResult cover = default_lucky_opportunity<LuckyOpportunity::ExactCover>(
-        k, "exact-cover-model", completion_);
-    if (cover == ApplyResult::Sat) {
-      event_trace.macro(k, "exact_cover_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "exact_cover_model_end", "unknown");
-  }
-  // Independent set under a layered exact-count encoding: the owner's count
-  // equation recognizes the shape; a generic greedy + swap search, propagation
-  // completion and full validation construct the model.
-  if (config_.independent_set_model.enabled &&
-      independent_set_model_guard(k)) {
-    event_trace.macro(k, "independent_set_model_begin");
-    const ApplyResult independent = default_lucky_opportunity<LuckyOpportunity::IndependentSet>(
-        k, "independent-set-model", completion_);
-    if (independent == ApplyResult::Sat) {
-      event_trace.macro(k, "independent_set_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "independent_set_model_end", "unknown");
-  }
-  // Arithmetic-circuit construction consumes only the parser's bounded raw
-  // structural summary, then independently validates any completed model.
-  if (config_.fermat_model.enabled && fermat_model_guard(k)) {
-    event_trace.macro(k, "fermat_model_begin");
-    const ApplyResult fermat = default_lucky_opportunity<LuckyOpportunity::Fermat>(
-        k, "fermat-model", completion_);
-    if (fermat == ApplyResult::Sat) {
-      event_trace.macro(k, "fermat_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "fermat_model_end", "unknown");
-  }
-  if (config_.cerny_model.enabled && cerny_model_guard(k)) {
-    event_trace.macro(k, "cerny_model_begin");
-    const ApplyResult cerny = default_lucky_opportunity<LuckyOpportunity::Cerny>(
-        k, "cerny-model", completion_);
-    if (cerny == ApplyResult::Sat) {
-      event_trace.macro(k, "cerny_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "cerny_model_end", "unknown");
-  }
-  if (config_.lookup_circuit_model.enabled &&
-      lookup_circuit_model_guard(k)) {
-    event_trace.macro(k, "lookup_circuit_model_begin");
-    const ApplyResult circuit = default_lucky_opportunity<LuckyOpportunity::LookupCircuit>(
-        k, "lookup-circuit-model", completion_);
-    if (circuit == ApplyResult::Sat) {
-      event_trace.macro(k, "lookup_circuit_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "lookup_circuit_model_end", "unknown");
-  }
-  if (config_.simon_model.enabled && simon_model_guard(k)) {
-    event_trace.macro(k, "simon_model_begin");
-    const ApplyResult simon = default_lucky_opportunity<LuckyOpportunity::Simon>(
-        k, "simon-model", completion_);
-    if (simon == ApplyResult::Sat) {
-      event_trace.macro(k, "simon_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "simon_model_end", "unknown");
-  }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
     event_trace.macro(k, "stconn_proof_begin");
     const ApplyResult stconn = default_lucky_opportunity<LuckyOpportunity::Stconn>(
@@ -3605,53 +3585,33 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "stconn_proof_end", "unknown");
   }
-  // Balance-design construction reads the untouched imported variable blocks.
-  // Its root-signature gate is linear in variables and all clause work occurs
-  // only after the complete diagonal/boundary shape has been established.
-  if (config_.balanced_signature_model.enabled &&
-      balanced_signature_model_guard(k)) {
-    event_trace.macro(k, "balanced_signature_model_begin");
-    const ApplyResult balanced = default_lucky_opportunity<LuckyOpportunity::BalancedSignature>(
-        k, "balanced-signature-model", completion_);
-    if (balanced == ApplyResult::Sat) {
-      event_trace.macro(k, "balanced_signature_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "balanced_signature_model_end", "unknown");
-  }
-  // The parity refutation recognizes a complete imported XOR system and its
-  // proof preflight is transactional.  Offer the complete typed parity action
-  // before structured-root SR can fix variables or add helper clauses that
-  // erase that exact representation.  This is the same lifecycle boundary as
-  // exact-one below; admission remains entirely structural and bounded by the
-  // public parity parameters.
-  if (config_.parity_model.enabled && parity_model_guard(k)) {
-    event_trace.macro(k, "parity_model_begin");
-    const ApplyResult parity = default_lucky_opportunity<LuckyOpportunity::Parity>(
-        k, "parity-model", completion_);
-    if (parity == ApplyResult::Sat) {
-      event_trace.macro(k, "parity_model_end", "sat");
-      return finish(10);
-    }
+  // The proof-only parity action keeps the constructor's exact recognizer and
+  // certificate path without entering its private assignment search.
+  if (parity_model_guard(k)) {
+    event_trace.macro(k, "parity_proof_begin");
+    const ApplyResult parity =
+        default_lucky_opportunity<LuckyOpportunity::ParityProof>(
+            k, "parity-proof", completion_);
     if (parity == ApplyResult::Unsat) {
-      event_trace.macro(k, "parity_model_end", "unsat");
+      event_trace.macro(k, "parity_proof_end", "unsat");
       return finish(20);
     }
-    event_trace.macro(k, "parity_model_end", "unknown");
+    event_trace.macro(k, "parity_proof_end", "unknown");
   }
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
   // imported formula, before structured-root rules may add helpers or retire
   // clauses. Its count-only preflight keeps every decline proof-atomic.
-  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
+  if (onehot_model_guard(k)) {
     event_trace.macro(k, "exact_one_refutation_begin");
     const ApplyResult exact_one = execution::complete_action(completion_, FeedbackKind::Rule,
-        "Lucky", 7, [&] { return execution::native_rule_feedback(k, "Lucky", 7,
+        "Lucky", LUCKY_EXACT_ONE_PROOF, [&] {
+          return execution::native_rule_feedback(
+              k, "Lucky", LUCKY_EXACT_ONE_PROOF,
             "native-exact-one-refutation-opportunity"); }, [&] { return default_direct_rule(
         k, "Lucky", "exact-one-refutation", [&] {
           return execution::execute_action(
-              k, execution::ExactOneRefutationRequest{
-                     strategy::OnehotModelParameters::from_kernel(k)});
+              k, execution::LuckyRequest<LuckyOpportunity::ExactOneProof>{});
         });
     });
     if (exact_one == ApplyResult::Unsat) {
@@ -3736,21 +3696,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return finish(0);
     }
   }
-  // Direct finite-domain model search can be much more expensive than a
-  // proof-producing root pass.  Preserve the parser's stable binary order
-  // through that pass, then search only if preprocessing did not already
-  // decide the formula.  The recognizer and full-model validator still own
-  // admission; this scheduling order is independent of names and families.
-  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    event_trace.macro(k, "direct_csp_model_begin");
-    const ApplyResult direct_csp = default_lucky_opportunity<LuckyOpportunity::DirectCsp>(
-        k, "direct-csp-model", completion_);
-    if (direct_csp == ApplyResult::Sat) {
-      event_trace.macro(k, "direct_csp_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "direct_csp_model_end", "unknown");
-  }
   if (k.input_binary_order_captured) {
     k.input_binary_order.clear();
     k.input_binary_order.shrink_to_fit();
@@ -3769,16 +3714,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     }
     event_trace.macro(k, "lucky_early_end", "unknown");
-  }
-  if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    event_trace.macro(k, "onehot_model_begin");
-    const ApplyResult onehot = default_lucky_opportunity<LuckyOpportunity::Onehot>(
-        k, "onehot-model", completion_);
-    if (onehot == ApplyResult::Sat) {
-      event_trace.macro(k, "onehot_model_end", "sat");
-      return finish(10);
-    }
-    event_trace.macro(k, "onehot_model_end", "unknown");
   }
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
@@ -4302,21 +4237,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return out;
           });
         }
-        // Structural searches retain their best complete assignment even when
-        // it is not a model.  Import one source in a typed round-robin before
-        // generic Walk so Walk can refine it and CDCL later consumes the best
-        // result through the ordinary saved/target phase mechanism.
-        if (config_.rephase.structural_walk_seed &&
-            local_search_guidance_guard(k))
-          (void)execution::complete_action(completion_, FeedbackKind::Rule,
-              "LocalSearchGuidance", INSTANCE_CANONICAL, [&] {
-                auto spec = execution::native_rule_feedback(k, "LocalSearchGuidance",
-                    INSTANCE_CANONICAL, "cursor=" + std::to_string(structural_seed_cursor_) + ";rotation=");
-                for (const auto kind : config_.rephase.structural_seed_rotation)
-                  spec.description.description += std::to_string(static_cast<unsigned>(kind)) + ',';
-                return spec;
-              }, [&] { return execution::execute_action(k, execution::LocalSearchRotationRequest{
-                  config_.rephase.structural_seed_rotation, structural_seed_cursor_}); });
+        // Select an exact retained publication. Walk imports it privately;
+        // constructor advice never overwrites saved/best phases at this boundary.
+        const uint64_t candidate = config_.rephase.structural_walk_seed
+            ? local_search_guidance_select_next(k,
+                config_.rephase.structural_seed_rotation, structural_seed_cursor_)
+            : 0;
         const uint64_t reference = walk_effort_reference(k);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
@@ -4325,6 +4251,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                   ? default_branching_.randec_rng
                                   : config_.rephase.walk_random_seed;
         const uint64_t allowance = scale_permille(reference, config_.rephase.walk_permille);
+        const strategy::GuidanceOutcomeSnapshot before_walk(k);
         (void)execution::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
             [&] {
               auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
@@ -4333,9 +4260,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               auto parameters = strategy::WalkParameters::from_kernel(k);
               parameters.step_budget = allowance;
               parameters.random_seed = seed;
+              parameters.seed_candidate = candidate;
               spec.description.invocation->parameters = std::move(parameters);
               return spec;
-            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed}); });
+            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed, candidate}); },
+            [&](ApplyResult result) {
+              auto out = strategy::controller::feedback_outcome(result);
+              out.invocation.status = before_walk.refine(k, result, out.invocation.status);
+              return out;
+            });
       } else {
         const DefaultRephaseSlot effective =
             slot == DefaultRephaseSlot::Walk
@@ -5271,7 +5204,8 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   execution::CompletionPublication published(ctx.completion);
   execution::ParameterExecutionScope<
       strategy::SubsumeForwardParameters, strategy::StrengthenParameters,
-      strategy::CongruenceParameters, strategy::InstantiateParameters,
+      strategy::CongruenceParameters, strategy::ParityConsequenceParameters,
+      strategy::InstantiateParameters,
       strategy::BackboneParameters, strategy::VivifyParameters>
       parameters(k, e.parameters);
   e.tm.admitted++;

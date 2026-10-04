@@ -999,7 +999,13 @@ static void test_inprocess_registry_requires_root(void) {
   for (const RuleVTable &rule : tactix_rules()) {
     if (rule.tier != RuleTier::Inprocess)
       continue;
-    assert(rule.guard(k));
+    // Ordinary inprocessing rules must be positively eligible at a clean
+    // root. ParityConsequence additionally requires its bound provenance
+    // session, which this registry-level fixture intentionally lacks.
+    if (std::strcmp(rule.name, "ParityConsequence"))
+      assert(rule.guard(k));
+    else
+      assert(!rule.guard(k));
     k.level = 1;
     assert(!rule.guard(k));
     k.level = 0;
@@ -1099,6 +1105,7 @@ static void test_default_slot_membership_matches_kissat(void) {
   static constexpr const char *POSED_ONLY[] = {
       "HyperBinaryRes", "Probe", "HyperTernaryRes",
       "Instantiate",    "BCE",   "CCE", "SubsumeForward",
+      "ParityConsequence",
   };
   for (const auto &entry : p.inprocess().entries) {
     const char *name = rules[entry.rule].name;

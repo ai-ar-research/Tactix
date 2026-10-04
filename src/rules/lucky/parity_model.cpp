@@ -84,6 +84,7 @@ RuleEligibility parity_model_guard(const Kernel &k) {
 }
 
 ApplyResult parity_model_apply(Kernel &k) {
+  const uint64_t candidates_before = k.stats.parity_model_candidates;
   assert(parity_model_guard(k));
   ++k.stats.parity_model_calls;
   const strategy::ParityModelParameters parameters =
@@ -248,13 +249,17 @@ ApplyResult parity_model_apply(Kernel &k) {
       guidance = assignment;
     if (kernel_rule_interrupt(k, k.stats.parity_model_interrupted)) {
       kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
-                                     guidance);
+                                     guidance, UINT64_MAX, false,
+                                     {k.stats.parity_model_candidates - candidates_before,
+                                      strategy::LocalSearchEffortUnit::CandidateChecks});
       return ApplyResult::NoOp;
     }
   }
   if (!guidance.empty())
     kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
-                                   guidance);
+                                   guidance, UINT64_MAX, false,
+                                   {k.stats.parity_model_candidates - candidates_before,
+                                    strategy::LocalSearchEffortUnit::CandidateChecks});
   return ApplyResult::NoOp;
 }
 

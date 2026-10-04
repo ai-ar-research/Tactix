@@ -338,7 +338,106 @@ static void test_root_satisfied_binaries_do_not_reach_the_walk() {
     assert(plain.h->saved[v] == extra.h->saved[v]);
 }
 
+static void test_private_seed_budget_and_export() {
+  // Three binary exclusions and a ternary cover: nine evaluated literals.
+  // Seed preparation costs 3 phase slots + 3 identity slots + 2*9 literals.
+  constexpr uint64_t preparation = 24;
+  for (uint64_t allowance = 0; allowance <= preparation; ++allowance) {
+    Kernel k;
+    ScopedHeuristics h(k);
+    build_conflict_cover(k, 3);
+    k.h->saved = {1, 1, 1};
+    k.h->target = {-1, -1, -1};
+    k.h->best = {-1, 1, -1};
+    kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 0, 0});
+    strategy::WalkParameters p;
+    p.seed_candidate = k.local_search_hints[0].id;
+    p.step_budget = allowance;
+    const auto saved = k.h->saved, target = k.h->target, best = k.h->best;
+    {
+      strategy::ScopedWalkParameters scope(k, p);
+      const auto result = walk_apply(k);
+      if (allowance < preparation) {
+        assert(result == ApplyResult::NoOp);
+        assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
+        assert(k.stats.walk_seed_budget_exhausted == 1);
+      } else {
+        assert(result == ApplyResult::Ok);
+        assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
+        assert(k.h->target == k.h->saved && k.h->best == best);
+        assert(k.stats.walk_seed_ordinary_unsat == 3);
+        assert(k.stats.walk_seed_candidate_unsat == 0);
+        assert(k.stats.walk_seed_imports == 1);
+        assert(k.stats.walk_flips == 0); // an already-good seed must export
+      }
+    }
+    assert(k.walk_seed_candidate == 0);
+    assert(k.stats.walk_steps == allowance);
+    assert(k.stats.walk_seed_steps == allowance);
+    assert(k.level == 0 && k.trail.empty());
+    kernel_check_invariants(k);
+  }
+  Kernel k;
+  ScopedHeuristics h(k);
+  build_conflict_cover(k, 3);
+  k.h->saved = {1, -1, -1}; // ordinary phases are already a model
+  k.h->best = {-1, -1, 1};
+  const auto saved = k.h->saved, best = k.h->best;
+  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 1, 1});
+  k.walk_seed_candidate = k.local_search_hints[0].id;
+  assert(walk_apply_steps(k, preparation) == ApplyResult::NoOp);
+  assert(k.h->saved == saved && k.h->best == best);
+  assert(k.stats.walk_seed_ordinary_unsat == 0 && k.stats.walk_seed_candidate_unsat == 3);
+  const auto walks = k.stats.walks;
+  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0});
+  assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp); // exact old identity is stale
+  assert(k.stats.walks == walks && k.stats.local_search_hints_stale == 1);
+  assert(k.h->saved == saved && k.h->best == best);
+  k.walk_seed_candidate = k.local_search_hints[0].id;
+  volatile sig_atomic_t stop = 1;
+  k.stop = &stop;
+  const auto target = k.h->target;
+  assert(walk_apply_steps(k, 1000) == ApplyResult::NoOp);
+  assert(k.h->saved == saved && k.h->target == target && k.h->best == best);
+  assert(k.stats.walk_seed_interrupted == 1);
+}
+
+static void test_partial_seed_and_empty_objective() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  build_conflict_cover(k, 3);
+  k.h->saved = {-1, -1, -1};
+  k.h->best = {1, 1, -1};
+  k.h->target = {-1, 1, 1};
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp,
+                                        {1, 0, 0});
+  k.walk_seed_candidate = k.local_search_hints[0].id;
+  const auto best = k.h->best;
+  assert(walk_apply_steps(k, 24) == ApplyResult::Ok);
+  assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
+  assert(k.h->best == best && k.stats.walk_flips == 0);
+
+  Kernel empty;
+  ScopedHeuristics empty_h(empty);
+  kernel_reserve_vars(empty, 3);
+  empty.h->saved = {1, -1, 1};
+  empty.h->best = {-1, -1, 1};
+  empty.h->target = {-1, 1, -1};
+  kernel_offer_local_search_partial_hint(empty, strategy::LocalSearchKind::Affine,
+                                        {-1, 0, 0});
+  empty.walk_seed_candidate = empty.local_search_hints[1].id;
+  const auto saved = empty.h->saved, target = empty.h->target;
+  const auto empty_best = empty.h->best;
+  assert(walk_apply_steps(empty, 100) == ApplyResult::NoOp);
+  assert(empty.h->saved == saved && empty.h->target == target &&
+         empty.h->best == empty_best);
+  assert(empty.stats.rephased == 0 && empty.stats.walk_seed_imports == 0);
+  kernel_check_invariants(empty);
+}
+
 int main() {
+  test_partial_seed_and_empty_objective();
+  test_private_seed_budget_and_export();
   test_configurable_score_curve();
   test_break_base_domain_terminates();
   test_near_unit_interpolated_base();

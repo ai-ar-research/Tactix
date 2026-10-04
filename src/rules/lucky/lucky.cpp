@@ -307,12 +307,16 @@ ApplyResult lucky_apply(Kernel &k) {
 
 static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   (void)k;
-  // Public instance identities do not depend on whether a proof writer is
-  // attached. Startup-only instances decline in apply when the original-input
-  // boundary is closed or the selected proof format cannot certify them.
-  uint32_t n = cap < 21 ? cap : 21;
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = i;
+  // Retired constructor IDs remain reserved but are absent from the legal
+  // action surface.  Proof-only replacements have new identities so old
+  // replays cannot silently change from model construction to refutation.
+  static constexpr uint64_t ACTIVE[LUCKY_ACTIVE_INSTANCE_COUNT] = {
+      LUCKY_ALL_TRUE, LUCKY_ALL_FALSE, LUCKY_FORWARD_FALSE,
+      LUCKY_FORWARD_TRUE, LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE,
+      15, 16, LUCKY_STARTUP_PARITY, LUCKY_STARTUP_COUNT,
+      LUCKY_STARTUP_RAMSEY, LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF};
+  const uint32_t n = std::min<uint32_t>(cap, LUCKY_ACTIVE_INSTANCE_COUNT);
+  std::copy_n(ACTIVE, n, out);
   return n;
 }
 
@@ -322,61 +326,31 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
                ? execution::execute_action(k,
                                            execution::LuckyRequest<LuckyOpportunity::StartupParity>{})
                : ApplyResult::NoOp;
+  if (inst == LUCKY_STARTUP_RAMSEY)
+    return execution::execute_action(
+        k, execution::LuckyRequest<LuckyOpportunity::StartupRamsey>{});
   if (inst == LUCKY_STARTUP_COUNT)
     return execution::execute_action(
         k, execution::LuckyRequest<LuckyOpportunity::StartupCount>{});
+  if (lucky_retired_constructor_instance(inst))
+    return ApplyResult::NoOp;
   // D-LEVEL guard purification: complete the root closure U (no-op at a
   // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
+  if (inst == LUCKY_PARITY_PROOF)
+    return parity_model_guard(k)
+               ? execution::execute_action(
+                     k, execution::LuckyRequest<LuckyOpportunity::ParityProof>{})
+               : ApplyResult::NoOp;
+  if (inst == LUCKY_EXACT_ONE_PROOF)
+    return onehot_model_guard(k)
+               ? execution::execute_action(
+                     k, execution::LuckyRequest<LuckyOpportunity::ExactOneProof>{})
+               : ApplyResult::NoOp;
   if (inst == INSTANCE_CANONICAL)
     return execution::execute_action(
         k, execution::LuckyRequest<LuckyOpportunity::Cascade>{});
-  if (inst == 6)
-    return parity_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Parity>{})
-               : ApplyResult::NoOp;
-  if (inst == 7)
-    return onehot_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Onehot>{})
-               : ApplyResult::NoOp;
-  if (inst == 8)
-    return affine_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Affine>{})
-               : ApplyResult::NoOp;
-  if (inst == 9)
-    return onehot_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::DirectCsp>{})
-               : ApplyResult::NoOp;
-  if (inst == 10)
-    return balanced_signature_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::BalancedSignature>{})
-               : ApplyResult::NoOp;
-  if (inst == 11)
-    return fermat_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Fermat>{})
-               : ApplyResult::NoOp;
-  if (inst == 12)
-    return cerny_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Cerny>{})
-               : ApplyResult::NoOp;
-  if (inst == 13)
-    return lookup_circuit_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::LookupCircuit>{})
-               : ApplyResult::NoOp;
-  if (inst == 14)
-    return simon_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::Simon>{})
-               : ApplyResult::NoOp;
   if (inst == 15)
     return stconn_proof_guard(k)
                ? execution::execute_action(k,
@@ -387,21 +361,12 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
                ? execution::execute_action(k,
                                            execution::LuckyRequest<LuckyOpportunity::SignedCardinality>{})
                : ApplyResult::NoOp;
-  if (inst == 17)
-    return exact_cover_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::ExactCover>{})
-               : ApplyResult::NoOp;
-  if (inst == 18)
-    return independent_set_model_guard(k)
-               ? execution::execute_action(k,
-                                           execution::LuckyRequest<LuckyOpportunity::IndependentSet>{})
-               : ApplyResult::NoOp;
   return execution::execute_action(k, execution::LuckyProbeRequest{inst});
 }
 
 static bool lucky_startup_instance(uint64_t inst) {
-  return inst == LUCKY_STARTUP_PARITY || inst == LUCKY_STARTUP_COUNT;
+  return inst == LUCKY_STARTUP_PARITY || inst == LUCKY_STARTUP_COUNT ||
+         inst == LUCKY_STARTUP_RAMSEY;
 }
 
 TACTIX_REGISTER_RULE(Lucky, RuleTier::Macro, lucky_guard, lucky_apply,

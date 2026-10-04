@@ -9,7 +9,7 @@ struct NativeSink {
   bool stopped=false;
   uint32_t fresh;
   uint64_t work=0,nodes=0,additions=0,deletions=0,definitions=0,inequalities=0,sr=0;
-  uint64_t work_limit=10000000,node_limit=1000000,addition_limit=10000000;
+  uint64_t work_limit=0,node_limit=0,addition_limit=0;
   uint32_t namespace_limit=INT32_MAX;
   bool writing=false, interrupted=false;
   Kernel &kernel;
@@ -103,7 +103,8 @@ RuleEligibility ramsey_startup_guard(const Kernel &k) {
         k.trail.empty() && !k.dense && !k.probing.recording && k.large_watches_connected)
     .fact("witness-format",!k.proof || k.proof->dsr());
 }
-RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &request) {
+RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &requested) {
+  RamseyStartupRequest request=requested;
   RamseyStartupResult result;
   if(!ramsey_startup_guard(k) || !request.records || !request.action_id ||
       !request.recognition.clauses || !request.recognition.variables ||
@@ -116,6 +117,10 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
       !k.input_nonunit_uniform || k.input_uniform_nonunit_width!=6 ||
       k.input_nonunit_clause_count>request.recognition.clauses ||
       k.startup_input.empty() || !k.input_restatements.empty())return result;
+  if(kernel_has_work_budget(k)) {
+    request.recognition.work=std::min(request.recognition.work,k.work_budget);
+    if(!request.recognition.work){result.exhausted=true;return result;}
+  }
   const uint32_t extent=static_cast<uint32_t>(k.external_to_internal.size());
   std::vector<ramsey_recovery::Clause> original;
   ramsey_recovery::Clause clause;
@@ -161,6 +166,11 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   // Current certificate admission scope is the independently checked 18/19
   // vertex cases. Larger complete inputs need a separate engineering review.
   if(result.vertices<18 || result.vertices>19)return result;
+  if(kernel_has_work_budget(k)) {
+    const uint64_t remaining=result.recognition_work<k.work_budget
+        ? k.work_budget-result.recognition_work : 0;
+    request.certificate_work=std::min(request.certificate_work,remaining);
+  }
   NativeSink planned(k,extent,k.next_clause_id,request.action_id);
   planned.work_limit=request.certificate_work;planned.node_limit=request.maximum_nodes;
   planned.addition_limit=request.maximum_additions;
@@ -207,5 +217,49 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   result.helpers=helpers;result.additions=emitted.additions;result.deletions=emitted.deletions;
   result.result=ApplyResult::Unsat;
   return result;
+}
+
+ApplyResult ramsey_startup_action(Kernel &k) {
+  const auto &p = k.ramsey_startup_parameters;
+  if (!ramsey_startup_guard(k) || !p.valid() || !k.structural_provenance ||
+      k.structural_action_sequence == UINT64_MAX) return ApplyResult::NoOp;
+  const uint64_t action = ++k.structural_action_sequence;
+  FILE *out = k.structural_provenance;
+  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,\"rule\":\"Lucky\",\"instance\":22,\"strategy_epoch\":%llu,\"arena_generation\":%llu,\"touch_epoch\":%llu,\"proof_id_before\":%llu,\"external_extent\":%zu,\"original_variables\":%u,\"reconstruction\":\"terminal-unsat;proof-only-helpers\"}\n",
+      (unsigned long long)action, (unsigned long long)k.strategy_epoch,
+      (unsigned long long)k.arena_generation, (unsigned long long)k.touch_epoch,
+      (unsigned long long)k.next_clause_id, k.external_to_internal.size(),
+      kernel_num_output_vars(k));
+  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-parameters\",\"recognition_clauses\":%llu,\"recognition_variables\":%llu,\"recognition_pair_cells\":%llu,\"recognition_work\":%llu,\"certificate_work\":%llu,\"maximum_nodes\":%llu,\"maximum_additions\":%llu,\"maximum_external_extent\":%u}\n",
+      (unsigned long long)action, (unsigned long long)p.recognition_clauses,
+      (unsigned long long)p.recognition_variables, (unsigned long long)p.recognition_pair_cells,
+      (unsigned long long)p.recognition_work, (unsigned long long)p.certificate_work,
+      (unsigned long long)p.maximum_nodes, (unsigned long long)p.maximum_additions,
+      p.maximum_external_extent);
+  if (std::ferror(out)) std::abort();
+  const auto result = ramsey_startup_apply(k, {{p.recognition_clauses,
+      p.recognition_variables, p.recognition_pair_cells, p.recognition_work},
+      p.certificate_work, p.maximum_nodes, p.maximum_additions,
+      p.maximum_external_extent, action, out});
+  ++k.stats.ramsey_startup_attempts;
+  k.stats.ramsey_startup_recognized += result.recognized;
+  k.stats.ramsey_startup_recognition_work += result.recognition_work;
+  k.stats.ramsey_startup_certificate_work += result.certificate_work;
+  k.stats.ramsey_startup_nodes += result.nodes;
+  k.stats.ramsey_startup_additions += result.additions;
+  k.stats.ramsey_startup_deletions += result.deletions;
+  k.stats.ramsey_startup_helpers += result.helpers;
+  k.stats.ramsey_startup_interrupted += result.interrupted;
+  k.stats.ramsey_startup_exhausted += result.exhausted;
+  k.stats.ramsey_startup_unsat += result.result == ApplyResult::Unsat;
+  std::fprintf(out, "{\"action\":%llu,\"kind\":\"action-complete\",\"result\":%u,\"recognized\":%u,\"recognition_work\":%llu,\"certificate_work\":%llu,\"nodes\":%llu,\"additions\":%llu,\"deletions\":%llu,\"helpers\":%u,\"interrupted\":%u,\"exhausted\":%u,\"proof_id_after\":%llu}\n",
+      (unsigned long long)action, static_cast<unsigned>(result.result),
+      unsigned(result.recognized), (unsigned long long)result.recognition_work,
+      (unsigned long long)result.certificate_work, (unsigned long long)result.nodes,
+      (unsigned long long)result.additions, (unsigned long long)result.deletions,
+      result.helpers, unsigned(result.interrupted), unsigned(result.exhausted),
+      (unsigned long long)k.next_clause_id);
+  if (std::fflush(out) || std::ferror(out)) std::abort();
+  return result.result;
 }
 } // namespace tactix

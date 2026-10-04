@@ -10,6 +10,7 @@ preserve evidence and history.
 | Winner-integration subplan | `docs/winner-integration-plan.md` | detailed portfolio-convergence objective, planned mechanisms, sequencing and acceptance; linked from the main plan |
 | Status | `PROGRESS.md` | current phase, in-flight work, next actions, active checklist |
 | Rule model | `docs/calculus.md` | abstract preconditions, effects, proof deltas, soundness |
+| Semantic-extension model | `docs/semantic-extension-foundations.md` | live affine, exact-cover and independent-set recognition, transitions, proofs, projection and publication foundations for private adapters and public rules |
 | Rule guide | `docs/proof-rules.html` | manually maintained companion view; its rule-card inventory is checked against the calculus |
 | Engineering | `docs/implementation-notes.md` | guards, deviations, durable design decisions |
 | Controller interface | `docs/controller-interface.md` | concrete versioned controller choices and request/observation contract; plan §5.6 owns architecture |

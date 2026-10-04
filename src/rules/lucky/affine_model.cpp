@@ -53,7 +53,8 @@ ApplyResult affine_model_apply(Kernel &k) {
     k.stats.affine_model_budget += meter.exhausted() || admission_failed;
     if (result != ApplyResult::Sat && !guidance.empty())
       kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine,
-                                     guidance);
+                                     guidance, UINT64_MAX, false,
+                                     {meter.used(), strategy::LocalSearchEffortUnit::AffineWork});
     return result;
   };
   const auto budget_exit = [&] {

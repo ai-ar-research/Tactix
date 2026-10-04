@@ -430,6 +430,7 @@ RuleEligibility balanced_signature_model_guard(const Kernel &k) {
 }
 
 ApplyResult balanced_signature_model_apply(Kernel &k) {
+  const uint64_t steps_before = k.stats.balanced_signature_steps;
   assert(balanced_signature_model_guard(k));
   ++k.stats.balanced_signature_calls;
   const strategy::BalancedSignatureModelParameters parameters =
@@ -452,7 +453,9 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
   std::vector<uint8_t> hint = boolean_assignment(signed_assignment);
   kernel_offer_local_search_hint(k,
                                  strategy::LocalSearchKind::BalancedSignature,
-                                 hint, solution.objective, true);
+                                 hint, solution.objective, true,
+                                 {k.stats.balanced_signature_steps - steps_before,
+                                  strategy::LocalSearchEffortUnit::SignatureSteps});
   if (!solved)
     return ApplyResult::NoOp;
 

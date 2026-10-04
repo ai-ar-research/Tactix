@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <vector>
+#include "strategy/local_search.hpp"
+#include "strategy/graph_labeling_parameters.hpp"
+#include "strategy/ramsey_startup_parameters.hpp"
 
 namespace tactix {
 struct Kernel;
@@ -76,8 +79,8 @@ struct WalkParameters {
 
   static std::vector<ScorePoint> reference_score_curve();
 
-  // Exact occurrence-list entries to scan. Zero is an explicit zero-work
-  // request; omitting WalkParameters retains the canonical reference default.
+  // Native occurrence-list allowance, also charged for seeded preparation's
+  // phase/identity visits and evaluated literals. Zero requests no seed work.
   uint64_t step_budget = STEP_BUDGET_DEFAULT;
   uint64_t random_seed = 0;
   // Kissat alternates this fixed base with the fitted curve on successive
@@ -85,6 +88,8 @@ struct WalkParameters {
   // surface owns them rather than the Walk implementation.
   uint32_t even_break_base_milli = EVEN_BREAK_BASE_DEFAULT;
   std::vector<ScorePoint> score_curve = reference_score_curve();
+  // Exact retained candidate identity, or zero for native phase seeding.
+  uint64_t seed_candidate = 0;
   bool valid() const;
   static WalkParameters from_kernel(const Kernel &);
 };
@@ -452,6 +457,7 @@ void install_rule_parameters(Kernel &, const LookupCircuitModelParameters &);
 void install_rule_parameters(Kernel &, const SimonModelParameters &);
 void install_rule_parameters(Kernel &, const ExactCoverModelParameters &);
 void install_rule_parameters(Kernel &, const IndependentSetModelParameters &);
+void install_rule_parameters(Kernel &, const GraphLabelingParameters &);
 void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
@@ -507,6 +513,7 @@ private:
   Kernel &kernel_;
   uint64_t saved_budget_;
   uint64_t saved_seed_;
+  uint64_t saved_candidate_;
   uint32_t saved_even_break_base_milli_;
   std::vector<WalkParameters::ScorePoint> saved_score_curve_;
   bool saved_bounded_;

@@ -25,6 +25,20 @@ constexpr uint64_t LUCKY_BACKWARD_FALSE = 4;
 constexpr uint64_t LUCKY_BACKWARD_TRUE = 5;
 constexpr uint64_t LUCKY_STARTUP_PARITY = 19;
 constexpr uint64_t LUCKY_STARTUP_COUNT = 20;
+constexpr uint64_t LUCKY_GRAPH_LABELING = 21;
+constexpr uint64_t LUCKY_STARTUP_RAMSEY = 22;
+// IDs 6--14, 17--18 and 21 are retained as retired constructor identities.
+// Never reuse or redirect them: serialized v2 requests must not acquire a new
+// meaning after the constructor retirement.
+constexpr uint64_t LUCKY_PARITY_PROOF = 23;
+constexpr uint64_t LUCKY_EXACT_ONE_PROOF = 24;
+constexpr uint32_t LUCKY_INSTANCE_COUNT = 25;
+constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 13;
+
+constexpr bool lucky_retired_constructor_instance(uint64_t instance) {
+  return (instance >= 6 && instance <= 14) || instance == 17 ||
+         instance == 18 || instance == LUCKY_GRAPH_LABELING;
+}
 
 RuleEligibility lucky_guard(const Kernel &);
 ApplyResult lucky_apply_probe(Kernel &, uint64_t probe);

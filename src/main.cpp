@@ -164,6 +164,7 @@ int main(int argc, char **argv) {
   const char *controller_actions_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
+  const char *structural_provenance_path = nullptr;
   const char *feedback_path = nullptr;
   const char *feedback_replay_path = nullptr;
   RandomControllerConfig controller_config;
@@ -238,6 +239,8 @@ int main(int argc, char **argv) {
       controller_config.default_allowance.native = {
           strategy::RuleWorkBudgetMode::Bounded, amount};
       controller_effort_set = true;
+    } else if (!strncmp(a, "--structural-provenance=", 24)) {
+      structural_provenance_path = a + 24;
     } else if (!strncmp(a, "--feedback=", 11)) {
       feedback_path = a + 11;
     } else if (!strncmp(a, "--feedback-replay=", 18)) {
@@ -300,6 +303,7 @@ int main(int argc, char **argv) {
              "[--controller-actions=FILE] [--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
+             "[--structural-provenance=NEW_FILE] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
@@ -358,6 +362,20 @@ int main(int argc, char **argv) {
                     "choose one nonempty recording or replay path\n");
     printf("s UNKNOWN\n");
     return 1;
+  }
+  if (structural_provenance_path) {
+    for (const char *other : {cnf_path, proof_path, controller_trace_path,
+           controller_replay_path, trace_path, replay_path, feedback_path,
+           feedback_replay_path, controller_actions_path}) {
+      if (!other) continue;
+      std::error_code a, b, c;
+      if ((std::filesystem::weakly_canonical(structural_provenance_path, a) ==
+           std::filesystem::weakly_canonical(other, b) && !a && !b) ||
+          std::filesystem::equivalent(structural_provenance_path, other, c)) {
+        fprintf(stderr, "tactix: structural provenance aliases another artifact\n");
+        return 1;
+      }
+    }
   }
   if (feedback_path || feedback_replay_path) {
     // A feedback destination must never truncate an input, proof or transcript.
@@ -513,6 +531,26 @@ int main(int argc, char **argv) {
     kernel.shrink_glue_promote = sg[0] != '0';
   if (const char *tb = getenv("TACTIX_TUMBLE"))
     kernel.tumble = tb[0] != '0';
+  // The stream is session-owned and outlives policy execution. Exclusive
+  // creation protects retained provenance, input and replay artifacts.
+  std::unique_ptr<FILE, decltype(&std::fclose)> structural_records(nullptr, &std::fclose);
+  if (structural_provenance_path) {
+    std::string input_sha;
+    if (!strategy::controller::feedback_file_sha256(cnf_path, input_sha)) {
+      fprintf(stderr, "tactix: cannot identify structural provenance input\n");
+      return 1;
+    }
+    structural_records.reset(std::fopen(structural_provenance_path, "wx"));
+    if (!structural_records) {
+      fprintf(stderr, "tactix: cannot create structural provenance stream\n");
+      return 1;
+    }
+    std::fprintf(structural_records.get(),
+        "{\"kind\":\"session\",\"version\":1,\"input_file_sha256\":\"%s\"}\n", input_sha.c_str());
+    std::fflush(structural_records.get());
+    if (std::ferror(structural_records.get())) return 1;
+    kernel.structural_provenance = structural_records.get();
+  }
   Proof proof;
   // --no-binary remains an explicit ASCII diagnostic selection; only the
   // automatic binary mode admits startup PBP, with or without an output file.
@@ -584,6 +622,8 @@ int main(int argc, char **argv) {
             default_config, controller_config, metadata)) {
       feedback_setup_error = "cannot read immutable feedback build/input provenance";
     } else {
+      metadata += std::string("structural-provenance=1:") +
+          (structural_provenance_path ? "1\n" : "0\n");
       feedback.emplace();
       // Opening/provenance errors stay in the receiver. Even a rejected header
       // must not steer the selected policy or suppress its certificate/verdict.
@@ -1241,6 +1281,22 @@ int main(int argc, char **argv) {
                kernel.stats.independent_set_model_completion_rounds,
            (unsigned long long)kernel.stats.independent_set_model_sat,
            (unsigned long long)kernel.stats.independent_set_model_interrupted);
+    printf("c graphlabel %llu calls, %llu recognized, %llu vertices, %llu separation, "
+           "%llu seeds, %llu nodes, %llu repairs, %llu anneal attempts, "
+           "%llu work, %llu budget stops, %llu interrupted, %llu models rejected, %llu SAT\n",
+           (unsigned long long)kernel.stats.graph_labeling_calls,
+           (unsigned long long)kernel.stats.graph_labeling_recognized,
+           (unsigned long long)kernel.stats.graph_labeling_vertices,
+           (unsigned long long)kernel.stats.graph_labeling_separation,
+           (unsigned long long)kernel.stats.graph_labeling_seeds,
+           (unsigned long long)kernel.stats.graph_labeling_nodes,
+           (unsigned long long)kernel.stats.graph_labeling_repairs,
+           (unsigned long long)kernel.stats.graph_labeling_anneal_attempts,
+           (unsigned long long)kernel.stats.graph_labeling_work,
+           (unsigned long long)kernel.stats.graph_labeling_budget,
+           (unsigned long long)kernel.stats.graph_labeling_interrupted,
+           (unsigned long long)kernel.stats.graph_labeling_models_rejected,
+           (unsigned long long)kernel.stats.graph_labeling_sat);
     printf("c localsearch %llu hints offered, %llu applied\n",
            (unsigned long long)kernel.stats.local_search_hints_offered,
            (unsigned long long)kernel.stats.local_search_hints_applied);
@@ -1249,6 +1305,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.walk_improved,
            (unsigned long long)kernel.stats.walk_flips,
            (unsigned long long)kernel.stats.walk_steps);
+    printf("c walkseed    %llu imports, %llu steps, %llu budget stops, %llu interrupted, %llu stale hints\n",
+           (unsigned long long)kernel.stats.walk_seed_imports,
+           (unsigned long long)kernel.stats.walk_seed_steps,
+           (unsigned long long)kernel.stats.walk_seed_budget_exhausted,
+           (unsigned long long)kernel.stats.walk_seed_interrupted,
+           (unsigned long long)kernel.stats.local_search_hints_stale);
     printf("c randec      %llu sequences, %llu random decisions\n",
            (unsigned long long)kernel.stats.random_sequences,
            (unsigned long long)kernel.stats.random_decisions);

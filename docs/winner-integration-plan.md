@@ -7,7 +7,7 @@ Status and next actions belong to PROGRESS.md; controller contracts to controlle
 ## Objective and fixed targets
 
 The ultimate goal is to solve substantially more than the virtual portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
-**Primary technical goal:** translate non-Boolean theory/structural information into compact Boolean constraints and new auxiliary variables that expose reusable reasoning to continuing CDCL on both SAT and UNSAT. Refactor existing SAT-only integrations as well as missing techniques; compact formula and proof representations, not merely successful model construction, are the intended outcome. **Replacement acceptance:** eventually remove the dedicated LymphoSAT-derived local-search/constructor implementations from the active solver and recover the LymphoSAT-owned target instances through their Boolean-reasoning replacements. Demonstrate recovery with the corresponding constructors disabled, then remove the production paths after independent SAT/UNSAT certification, both-policy fuzzing and all preservation gates pass. Frozen implementations/results may remain as reference controls; continued dependence on them does not satisfy this goal. Retire or version their public selections explicitly without renumbering unrelated actions or silently redirecting old replays. This requirement does not remove the general Kissat-style Walk/phase mechanism.
+**Primary technical goal:** translate non-Boolean theory/structural information into compact Boolean constraints and new auxiliary variables that expose reusable reasoning to continuing CDCL on both SAT and UNSAT. Refactor existing SAT-only integrations as well as missing techniques; compact formula and proof representations, not merely successful model construction, are the intended outcome. **Retirement first, then recovery:** remove dedicated LymphoSAT-derived local-search/constructor paths from active production scheduling and default/random/public action selection now; do not defer retirement until their replacements recover performance. Preserve implementations and checked results as reference controls. Maintain a coverage ledger mapping every LymphoSAT-owned saved-comparison solve to its theory structure, emitted Boolean information, proof/model verification, and constructor-disabled final result. Every row must recover through sound theory-to-Boolean constraints, auxiliaries, or deductions feeding ordinary CDCL; slower initial recovery is acceptable, but detection alone or a related-family solve is not recovery. Retirement is an engineering checkpoint, not acceptance: independent SAT/UNSAT certification, both-policy fuzzing and all preservation gates remain required. Continued constructor dependence does not satisfy this goal. Retire or version their public selections explicitly without renumbering unrelated actions or silently redirecting old replays. Preserve the general Kissat-style Lucky/Walk/phase mechanisms and certified proof-producing capabilities; extract proof-only components from mixed constructor actions under explicit identities rather than silently changing old replay semantics. Retain and refactor useful recognition code into shared theory front ends: only private assignment search, constructor publication and constructor-specific phase guidance retire. Recognition must expose exact source premises and a declared semantic object before a Boolean producer may use it.
 Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
 Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
@@ -148,7 +148,7 @@ and counting mechanisms identified by the existing
 their relevance to a particular miss must be established, not inferred from names.
 For SAT, validate complete reconstructed models against the original CNF;
 guidance-only work changes heuristics, while permanent transformations still
-owe certificates and reconstruction. Preserve useful partial structural work.
+owe certificates and reconstruction. Preserve useful partial structural work. Each replacement must state the theory facts it recovers, the deductions performed before encoding, and why the Boolean representation faithfully captures that declared information (including auxiliary projection). Check soundness and theory-coverage separately; valid proofs alone do not establish coverage. Naming auxiliaries or boosting variables cannot substitute for theory deductions. Work toward complete constructor-disabled paths, not isolated helpers as acceptance milestones.
 
 For UNSAT, develop the algorithm and its compact certified derivation together.
 **DSR remains the default**, with DRAT where a witness-free clausal derivation
@@ -185,7 +185,7 @@ distinguishing useful search choices from proof-only helpers. Assess EVSIDS boos
 VMTF promotion or explicit Decide selection through shared public/replayable controls;
 producers publish identities/meaning, never silently change rankings. Compare constraints
 alone against added guidance; measure actual decisions, propagation and solve/proof cost.
-No boost strength, repetition schedule or default is chosen without evidence.
+No boost strength, repetition schedule or default is chosen without evidence. The versioned semantic-action, session, lifecycle, advice, and raw-effort contract is owned by [the controller interface](controller-interface.md#semantic-proof-actions); current implementation and integration order are owned by `PROGRESS.md`.
 
 ## Learning-ready acceptance
 
@@ -204,12 +204,12 @@ Demonstrate effective default/random reach for every capability; performance-onl
 
 ## Verification, completion and remaining decisions
 
-The 36-instance checkpoint requires all 36 independently checked on a candidate,
-under the saved 5,000-second solve/32-GiB envelope; use the historical complete
+The primary target gate requires all 44 independently checked on a candidate; the original 36 remains a diagnostic subgroup rather than an earlier completion gate.
+Use the saved 5,000-second solve/32-GiB envelope and the historical complete
 14,400-second checker pipeline for comparable target acceptance. Raw UNSAT,
 checker crashes and clean deadline censors do not close a target. Investigate
 the 13 certificate-side misses separately, retaining their frozen classifications.
-The next checkpoint includes all eight MAB-only misses and retains prior checked coverage. Broader WV/T4 requirements remain distinct.
+Classify WV100/WV2–89 row by row: LymphoSAT-owned rows are checked recovery obligations, while other rows are preservation controls under the standing slowdown/checker rules. Map each mechanism across them and the 44; aggregate similarity cannot hide a lost owned solve. Broader T4 requirements remain distinct.
 
 Every integration increment and cumulative candidate requires continued
 Claude-owned DefaultPolicy/random-policy proof/model fuzz under plan §8.2,
@@ -219,7 +219,7 @@ allowance/overshoot, stale candidate, phase-memory and replay checks, and full D
 For symmetry, include learned/checker-retained clauses and earlier breaking;
 for guidance, test private seeding, saved/best preservation, target supersession,
 fixed/retired/new variables, and unsupported phase profiles without hidden override.
-Keep B28+C5, Rank1–50, WV100 and WV2–89 as regression gates for accepted increments;
+Keep B28+C5 and Rank1–50 as mandatory regression gates; apply the row-level recovery/preservation split above to WV100/WV2–89. The 44 plus LymphoSAT-owned WV/WV2 rows drive mechanism selection, but no promotion gate is optional;
 rerun all four for behavior-changing integrations, including Boolean constraints,
 auxiliary variables and scheduling changes. Acceptance covers the intended
 enabled DefaultPolicy configuration; passing with a new mechanism disabled

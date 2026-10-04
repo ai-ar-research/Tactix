@@ -1,6 +1,5 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
-#include "rules/lucky/lucky.hpp"
 #include "rules/lucky/simon_model.hpp"
 
 #include <cassert>
@@ -102,11 +101,6 @@ int main() {
     parameters.maximum_rounds = 0;
     strategy::ScopedSimonModelParameters posed(k, parameters);
     assert(simon_model_apply(k) == ApplyResult::NoOp);
-  }
-  {
-    Kernel k = fixture();
-    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-    assert(lucky.apply_instance(k, 14) == ApplyResult::Sat);
   }
   return 0;
 }

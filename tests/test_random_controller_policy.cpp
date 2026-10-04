@@ -1,6 +1,9 @@
 #undef NDEBUG
 #include "policies/random_controller_policy.hpp"
 #include "rules/decide/decide.hpp"
+#include "rules/lucky/lucky.hpp"
+#include <algorithm>
+#include <set>
 
 #include <cassert>
 #include <fstream>
@@ -23,7 +26,91 @@ static Kernel fixture(bool unsat) {
   return k;
 }
 
+static void random_guidance_uses_observed_identities() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  RestartController controller(k);
+  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0, 0});
+  kernel_offer_local_search_hint(k, LocalSearchKind::Affine, {0, 1, 0});
+  const auto observation = controller.observe();
+  assert(observation.local_search_candidates.size() == 2);
+  const auto first = observation.local_search_candidates[0].id;
+  const auto second = observation.local_search_candidates[1].id;
+  RandomControllerConfig config;
+  config.parameters.rules = {"Walk", "LocalSearchGuidance"};
+  RandomControllerSelector selector(17);
+  bool plain = false, seeded_first = false, seeded_second = false, target = false;
+  for (unsigned i = 0; i < 200; ++i) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(k, controller.observe(), config, request, error));
+    if (request.type != ActionType::Rule) continue;
+    if (request.invocation.rule == "Walk") {
+      const auto candidate = std::get<WalkParameters>(request.invocation.parameters).seed_candidate;
+      assert(candidate == 0 || candidate == first || candidate == second);
+      plain |= !candidate;
+      seeded_first |= candidate == first;
+      seeded_second |= candidate == second;
+    } else {
+      assert(request.invocation.rule == "LocalSearchGuidance");
+      assert(request.invocation.instances.size() == 1);
+      const auto candidate = request.invocation.instances[0];
+      assert(candidate == first || candidate == second);
+      target = true;
+    }
+  }
+  assert(plain && seeded_first && seeded_second && target);
+}
+
+static void guidance_requires_an_observed_candidate() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  RestartController controller(k);
+  RandomControllerConfig config;
+  config.parameters.rules = {"LocalSearchGuidance"};
+  const auto availability = controller_action_availability(k, config);
+  const auto found = std::find_if(
+      availability.begin(), availability.end(), [](const auto &entry) {
+        return entry.rule == "LocalSearchGuidance";
+      });
+  assert(found != availability.end());
+  assert(!found->eligible && found->reason == "candidate-not-observed");
+
+  RandomControllerSelector selector(19);
+  for (unsigned i = 0; i < 32; ++i) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(k, controller.observe(), config, request, error));
+    assert(request.type == ActionType::ResumeSearch);
+  }
+}
+
+static void finite_lucky_catalog_is_reachable() {
+  Kernel k = fixture(false);
+  RestartController controller(k);
+  RandomControllerConfig config;
+  config.parameters.rules = {"Lucky"};
+  const auto original_config = controller_configuration(config);
+  RandomControllerSelector selector(23);
+  std::set<uint64_t> seen;
+  for (unsigned i = 0; i < 4096; ++i) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(k, controller.observe(), config, request, error));
+    if (request.type != ActionType::Rule || request.invocation.instances.empty()) continue;
+    const uint64_t instance = request.invocation.instances.front();
+    seen.insert(instance);
+    assert(!lucky_retired_constructor_instance(instance));
+  }
+  assert(seen.size() == LUCKY_ACTIVE_INSTANCE_COUNT);
+  config.parameters.graph_labeling_reference.work[0]++;
+  assert(controller_configuration(config) == original_config);
+}
+
 int main() {
+  finite_lucky_catalog_is_reachable();
+  guidance_requires_an_observed_candidate();
+  random_guidance_uses_observed_identities();
   Kernel a = fixture(false), b = fixture(false);
   RestartController ca(a), cb(b);
   RandomControllerSelector sa(17), sb(17);

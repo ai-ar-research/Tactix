@@ -1,8 +1,27 @@
-# Restart controller interface v1
+# Restart controller interface v3
 
 Concrete specification for DEVELOPMENT_PLAN.md §5.6. That section owns the
 architecture; this document owns the versioned interface and choice identities.
 Implementation status belongs in PROGRESS.md. Reward computation is deferred.
+
+Semantic-variable priority uses one producer-neutral advice record. A producer
+names stable external identities, classifies each as an existing or introduced
+theory variable, supplies a positive bounded priority and binds the record to
+its action and source-state version. The controller validates the complete
+record before mutation, then installs the same ordering in VMTF and EVSIDS so
+a later mode switch preserves it. Encoding and proof-only helpers are rejected;
+fixed, retired, missing, duplicate, stale or over-budget identities have no
+effect. A successful application advances the strategy version, so the same
+state-bound request is stale on replay and search/model caches observe the
+ranking transition. A proof rule stages stable external identities and roles;
+registry dispatch publishes them only after its single action-epoch transition.
+Pure observation exposes current candidate metadata, and any intervening action
+makes it stale. Cumulative raw feedback
+separates candidate publication, existing/introduced identities, successful
+advice, malformed/stale/inapplicable/exhausted declines, affected variables and
+the applied priority sum. Feedback JSON serializes current candidate ID,
+producer, source version, originating action ID and role counts; it does not
+expose mutable producer storage or silently apply a priority.
 
 The opt-in frontend is `--controller-policy[=SEED]`; ordinary invocation keeps
 DefaultPolicy. `--controller-effort=N` configures the default native ceiling,
@@ -10,6 +29,20 @@ including an explicit zero-work ceiling. Embeddings use RandomControllerConfig
 for per-family allowances and search/reference profiles. Legacy random-policy
 trace/replay flags belong to their existing format; controller replay uses its
 own versioned records.
+
+Action-space/observation version 3 enumerates Lucky probes 0--5 and proof actions
+15, 16, 19, 20, 22, 23, and 24. Dedicated constructor IDs 6--14, 17, 18, and 21
+remain reserved but are absent from enumeration, DefaultPolicy, random generation,
+and typed replay; direct legacy application is a NoOp, and an old typed request is
+rejected rather than redirected. IDs 23 and 24 contain only the parity and exact-one
+proof portions formerly mixed into 6 and 7. Preserved constructor implementations
+remain reference controls; a recognizer may feed Boolean reasoning only after it
+returns exact current-formula premises and a declared semantic object. Private
+assignments and scores never license a clause. Version 2 added explicit constructor
+candidates and changed LocalSearchGuidance to target-only initialization. The
+transcript container and feedback envelope retain their existing formats; request
+and observation versions identify these semantics. Old controller trajectories are
+not claimed equivalent. The feedback inspector accepts old v1 observations.
 
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
@@ -32,6 +65,93 @@ Zero keep-level enters the root action loop. Explicit full restart remains
 mandatory before root inprocessing or learner configuration changes. Transcript
 configuration records the profile and Restart service records carry keep-level;
 coverage separates full restarts, partial restarts and continuation intervals.
+
+## Startup proof and retired constructor references
+
+Lucky instance 22 is the bounded original-input Ramsey DSR composition: typed `RamseyStartupParameters`, C tag 32 and `ramsey-startup1` replay carry recognition and certificate bounds. The shared action records source/proof provenance under the session action ID and exposes cumulative discovery/proof work, yield and stop counters; zero bounds disable it. It declines after the startup boundary closes. DefaultPolicy exposes an opt-in profile; random selection uses the same parameters. Production profile/scheduling acceptance is pending.
+
+Lucky instance 21 is retained only as a reference SAT constructor or
+partial-candidate producer. It is absent from the v3 action surface and from
+production scheduling; its recognizer remains source material for certified
+Boolean graph reasoning.
+`GraphLabelingParameters` and C `TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING`
+expose the same `graph-labeling1` tuple: vertex/storage limits, DFS limits,
+repair/annealing iteration ceilings, seed and eight stage work allowances.
+The stages are recognition, construction, window search, repair, annealing,
+final repair, completion and publication. Their sum must fit uint64; zero
+allows no work, with no implicit default. An inherited native action ceiling
+also bounds the total. Publication quota is reserved but charged only when used.
+Budgeted search can therefore publish completed advice without overspending;
+interruption before publication leaves existing phase memory untouched.
+
+Recognition recovers indexed signed column covers, including entries omitted
+as root-false during parsing. Unsupported layouts decline. Degree/BFS seeds,
+window DFS and pair-swap/annealing search a projected graph objective, which
+never proves UNSAT. Final reflection normalization is metered before Boolean
+completion; it preserves edge distances but does not establish root validity.
+A SAT result requires private completion and full live/root
+validation; ordinary model reconstruction and original-CNF verification remain
+mandatory. Partial candidates specify primary polarities and leave auxiliaries
+unknown. Producer objectives and actual GraphWork remain separate measurements.
+
+Preserved constructor implementations do not re-enter public or random dispatch.
+Current scheduling, validation, and promotion status belong to `PROGRESS.md`.
+
+## Constructor candidates and phase consumers
+
+Each producer retains its own latest published assignment under stable external
+variable identities. Publication never installs phases. A candidate carries
+an exact identity `(publication << 8) | producer`, formula touch/root-assignment
+stamps, external-domain size, producer objective/exactness and effort/currency.
+Publications start at one independently of telemetry counters and never wrap;
+zero means an explicitly unseeded Walk. Partial candidates leave unknown entries
+zero; malformed or wholly unspecified publications are declined atomically. The bounded
+metadata vector is part of pure observation and deterministic feedback, without
+copying assignment vectors. Producer IDs retain enum order (DirectCsp, Affine,
+Parity, Onehot, BalancedSignature, GraphLabeling). Effort units are Unspecified, CspWork,
+AffineWork, CandidateChecks, SignatureSteps and GraphWork; these are raw scoped
+producer measurements, not comparable rewards or claims of total action cost.
+
+Producers select their within-search best before publication. The channel does
+not compare scores across invocations, whose decoded objectives may differ
+even on an unchanged CNF. Replacing a publication invalidates its old identity.
+Formula changes alone do not prohibit heuristic advice: consumers map surviving
+external identities, honor root assignments and skip retired/unspecified ones.
+Stored scores never certify SAT and never authorize formula transformations.
+
+`LocalSearchGuidance` enumerates exact identities and initializes only known
+target phases at a propagated root. It preserves saved/best, resets the target
+high-water mark only when targets change, and permits ordinary target capture
+to supersede the advice. Focused saved-phase behavior is unaffected. Legacy
+kind-only instance payloads remain explicit aliases for that producer's current
+publication; new random requests bind the observed exact identity.
+
+`WalkParameters.seed_candidate` and the appended C field of the same name
+select a publication for private Walk seeding. Zero retains the native path.
+The `walk2(step,random,identity,base,count,curve...)` tuple serializes a seeded
+request; old `walk(...)` syntax retains unseeded semantics. A missing/replaced
+identity declines rather than silently changing source. DefaultPolicy rotates
+available candidates for its ordinary Walk slots without a preceding target
+import; the random controller chooses either an observed candidate or unseeded
+Walk while retaining the configured allowance.
+
+Seed preparation charges the Walk allowance for each ordinary phase slot,
+candidate identity slot and literal evaluated in the ordinary/candidate copies
+of the same current walkable CNF. Native occurrence scans consume the remainder.
+The producer's objective is not used in this comparison. Walk exports only a
+strict improvement over its ordinary starting phases, including a seed already
+at the improved minimum without flips. Saved/best are untouched during import;
+normal Walk export owns saved/target effects. Insufficient preparation allowance,
+zero allowance, no walkable objective, interrupted preparation or a stale identity
+leaves phase memories untouched. Existing root-clause/watch normalization may
+already have occurred; no solver-state rollback is introduced. Ordinary unseeded
+Walk retains its reference behavior and effort/cadence.
+
+Raw feedback separates target imports, stale requests, successful private seed
+imports, seed work, budget/interruption stops and the two evaluated unsatisfied
+counts. `walk_steps` includes seed preparation for seeded calls; `walk_seed_steps`
+isolates that overhead. This interface work alone does not accept the planned
+graph-labeling constructor increment; current validation belongs to PROGRESS.
 
 ## Search collection
 
@@ -79,6 +199,52 @@ families, then supported legal instances; it does not select arbitrary invalid
 payloads or alter per-action allowances. Explicit-instance generation belongs to
 selection, not observe(). Canonical applications retain native progress; stale
 enumerated scopes are refreshed without undoing completed changes.
+
+## Semantic proof actions
+
+Affine, exact-cover, and independent-set front ends use one controller-facing
+shape: bounded live-source capture, exact structural recognition, a complete
+proof/formula/provenance plan, immediate source and duplicate/lifecycle
+revalidation, then one uninterrupted commit. Runtime action and semantic IDs,
+fresh-variable identities, provenance streams, retained sources, and duplicate
+keys belong to a solver-lifetime controller session and are absent from serialized
+parameters. Every serialized limit is explicit; zero permits zero work.
+
+Keep `ParityConsequence` under its existing identity. `AffineConsequence` is a
+separate source-bound consequence action; `ExactCoverExtension` is one canonical
+all-block conservative-extension action; `IndependentSetCover` takes one sorted,
+duplicate-free variable-length vector of positive stable external vertex identities.
+`SemanticVariableAdvice` is a separate policy operation. Registry IDs and public
+parameter tags are append-only, and retired constructor IDs and wire tags stay
+reserved. Independent-set's variable-length selection requires the additive
+structured-step surface rather than an opaque scalar token.
+
+A successful proof-rule dispatch stages immutable advice bound to the post-action
+state version and publishes it after the registry's single `strategy_epoch`
+transition. Exact-cover outputs have `IntroducedTheory` role; affine variables and
+independent-set vertices have `ExistingTheory` role. Encoding helpers and proof-only
+identities are never candidates. A later advice action applies bounded role-specific
+priority doses uniformly to VMTF and EVSIDS; producer actions never install rankings
+or phases themselves. Candidate IDs combine a monotone session publication generation
+with producer kind, and observation/feedback expose source versions, originating
+action IDs, and existing/introduced counts without mutable producer storage.
+
+Affine publication may leave root propagation pending. Its candidate is observable
+and optionally consumable at a conflict-free level-zero state before a separately
+selected `Propagate`; propagation advances the state version and expires an unconsumed
+candidate. `AffineConsequence` must not hide that propagation or republish advice
+afterward. Exact cover plans its whole batch from one retained source and stores exact
+signed-external duplicate keys in its session; deleting definition clauses cannot
+permit republication. Independent set retains and revalidates the original owner
+snapshot so one published cover or later learned clauses do not block a distinct cover.
+
+All three actions expose decline status and consumed work, including failed
+recognition. Typed recognition, proof, source-scan, journal, formula, and extent
+currencies remain separate raw measurements; the controller initially charges one
+atomic application and does not invent a common reward. A costly near miss therefore
+cannot appear as zero effort. Scheduling and promotion gates remain owned by the
+[winner-integration plan](winner-integration-plan.md#learning-ready-acceptance),
+and current status stays in `PROGRESS.md`.
 
 ## Effort and observation
 
@@ -273,3 +439,5 @@ simple initial law without tuning probabilities or imposing forced resumption.
 The seed and selected requests are replayable. Targeted fuzz scenarios may force
 rare legal choices to establish coverage; they are not a runtime fallback.
 The plan's §8.2 and §8.4 own fuzz and regression acceptance, respectively.
+
+`ParityConsequence` uses the `parity-consequence(clauses,groups,selection-work,intermediate-width,source-count,output-width,descending,proof-additions,tree-variables,consequence)` typed profile. Its canonical payload runs that bounded selector; zero limits mean zero work. A session-owned writable provenance stream is mandatory (`tactix_bind_structural_provenance` or CLI `--structural-provenance=NEW_FILE`); FILE pointers and paths are not action payloads. The stream contains per-attempt context/completion and per-clause provenance. `parity_consequence_*` cumulative counters expose discovery, preflight, emitted proof and publication separately; observe never writes or resets them. The default reference schedule still omits this action.

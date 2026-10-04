@@ -1,7 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "rules/lucky/lookup_circuit_model.hpp"
-#include "rules/lucky/lucky.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -113,11 +112,6 @@ int main() {
     parameters.maximum_fanin = 1;
     strategy::ScopedLookupCircuitModelParameters posed(k, parameters);
     assert(lookup_circuit_model_apply(k) == ApplyResult::NoOp);
-  }
-  {
-    Kernel k = fixture();
-    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-    assert(lucky.apply_instance(k, 13) == ApplyResult::Sat);
   }
   return 0;
 }

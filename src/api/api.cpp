@@ -378,6 +378,18 @@ bool online_parameters(const tactix_online_parameters &source,
                                             p.occurrence_limit};
     return true;
   }
+  case TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE: {
+    const auto &p = source.value.parity_consequence;
+    if (p.descending != 0 && p.descending != 1) return false;
+    strategy::ParityConsequenceParameters converted{
+        p.maximum_clauses, p.maximum_groups, p.selection_work,
+        p.intermediate_width, p.source_count, p.output_width,
+        p.descending != 0, p.maximum_proof_additions,
+        p.maximum_tree_variables, p.consequence};
+    if (!converted.valid()) return false;
+    target = converted;
+    return true;
+  }
   case TACTIX_ONLINE_PARAMETERS_CONGRUENCE: {
     const tactix_online_congruence_parameters &p = source.value.congruence;
     if (p.gate_count_limit > std::numeric_limits<size_t>::max() ||
@@ -499,6 +511,7 @@ bool online_parameters(const tactix_online_parameters &source,
     strategy::WalkParameters walk;
     walk.step_budget = source_walk.step_budget;
     walk.random_seed = source_walk.random_seed;
+    walk.seed_candidate = source_walk.seed_candidate;
     if (source_walk.even_break_base_milli)
       walk.even_break_base_milli = source_walk.even_break_base_milli;
     if (source_walk.score_curve_count) {
@@ -663,6 +676,34 @@ bool online_parameters(const tactix_online_parameters &source,
     if (!independent_set.valid())
       return false;
     target = independent_set;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP: {
+    const auto &p = source.value.ramsey_startup;
+    strategy::RamseyStartupParameters ramsey{p.recognition_clauses,
+        p.recognition_variables, p.recognition_pair_cells, p.recognition_work,
+        p.certificate_work, p.maximum_nodes, p.maximum_additions, p.maximum_external_extent};
+    if (!ramsey.valid()) return false;
+    target = ramsey;
+    return true;
+  }
+  case TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING: {
+    const auto &p = source.value.graph_labeling;
+    strategy::GraphLabelingParameters graph;
+    graph.maximum_vertices = p.maximum_vertices;
+    graph.workspace_bytes = p.workspace_bytes;
+    static_assert(TACTIX_GRAPH_STAGES == strategy::GRAPH_LABELING_STAGES);
+    std::copy(std::begin(p.work), std::end(p.work), graph.work.begin());
+    graph.maximum_dfs_vertices = p.maximum_dfs_vertices;
+    graph.maximum_dfs_nodes = p.maximum_dfs_nodes;
+    graph.maximum_dfs_starts = p.maximum_dfs_starts;
+    graph.early_dfs_choices = p.early_dfs_choices;
+    graph.repair_rounds = p.repair_rounds;
+    graph.anneal_iterations = p.anneal_iterations;
+    graph.stall_anneal_iterations = p.stall_anneal_iterations;
+    graph.seed = p.seed;
+    if (!graph.valid()) return false;
+    target = graph;
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL: {
@@ -1066,6 +1107,12 @@ extern "C" {
 tactix_solver *tactix_init(void) { return new tactix_solver(); }
 
 void tactix_release(tactix_solver *s) { delete s; }
+int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
+  if (!s || (stream && std::ferror(stream))) return -1;
+  s->kernel.structural_provenance = stream;
+  external_state_change(s);
+  return 0;
+}
 
 int tactix_add_checked(tactix_solver *s, int lit) {
   // finish_input retires absent variables and fixes proof input ids. Until O7
@@ -1724,6 +1771,25 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.substitute_ticks;
   case 51: // TACTIX_STAT_HBR_UNITS
     return k.stats.hbr_units;
+  case 52: // TACTIX_STAT_PARITY_CONSEQUENCE_ATTEMPTS
+    return k.stats.parity_consequence_attempts;
+  case 53: // TACTIX_STAT_PARITY_CONSEQUENCE_CLAUSES
+    return k.stats.parity_consequence_clauses;
+  case 54: // TACTIX_STAT_PARITY_CONSEQUENCE_EQUATIONS
+    return k.stats.parity_consequence_equations;
+  case 55: // TACTIX_STAT_PARITY_CONSEQUENCE_SELECTION_WORK
+    return k.stats.parity_consequence_selection_work;
+  case 56: // TACTIX_STAT_PARITY_CONSEQUENCE_PREFLIGHT_ADDITIONS
+    return k.stats.parity_consequence_preflight_additions;
+  case 57: // TACTIX_STAT_PARITY_CONSEQUENCE_ADDITIONS
+    return k.stats.parity_consequence_additions;
+  case 58: // TACTIX_STAT_PARITY_CONSEQUENCE_DELETIONS
+    return k.stats.parity_consequence_deletions;
+  case 59: // TACTIX_STAT_PARITY_CONSEQUENCE_HELPERS
+    return k.stats.parity_consequence_helpers;
+  case 60: // TACTIX_STAT_PARITY_CONSEQUENCE_PUBLISHED
+    return k.stats.parity_consequence_published;
+
   default:
     return UINT64_MAX;
   }

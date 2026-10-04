@@ -8,11 +8,13 @@
 #include "rules/lucky/exact_one_refutation.hpp"
 #include "rules/lucky/fermat_model.hpp"
 #include "rules/lucky/independent_set_model.hpp"
+#include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/lookup_circuit_model.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/parity_refutation.hpp"
+#include "rules/lucky/ramsey_startup.hpp"
 #include "rules/lucky/signed_cardinality_proof.hpp"
 #include "rules/lucky/simon_model.hpp"
 #include "rules/lucky/stconn_proof.hpp"
@@ -25,7 +27,8 @@ namespace tactix::execution {
 enum class LuckyOpportunity : uint8_t {
   Cascade, Parity, Onehot, Affine, DirectCsp, BalancedSignature, Fermat, Cerny,
   LookupCircuit, Simon, Stconn, SignedCardinality, ExactCover, IndependentSet,
-  StartupParity, StartupCount,
+  StartupParity, StartupCount, GraphLabeling, StartupRamsey,
+  ParityProof, ExactOneProof,
 };
 
 template <LuckyOpportunity Opportunity> struct LuckyRequest {};
@@ -60,8 +63,18 @@ ApplyResult execute_action(Kernel &k, LuckyRequest<Opportunity>) {
     return exact_cover_model_apply(k);
   else if constexpr (Opportunity == LuckyOpportunity::IndependentSet)
     return independent_set_model_apply(k);
+  else if constexpr (Opportunity == LuckyOpportunity::GraphLabeling)
+    return graph_labeling_model_apply(k);
+  else if constexpr (Opportunity == LuckyOpportunity::StartupRamsey)
+    return ramsey_startup_action(k);
   else if constexpr (Opportunity == LuckyOpportunity::StartupParity)
     return startup_parity_apply(k);
+  else if constexpr (Opportunity == LuckyOpportunity::ParityProof)
+    return parity_refutation_apply(
+        k, strategy::ParityModelParameters::from_kernel(k));
+  else if constexpr (Opportunity == LuckyOpportunity::ExactOneProof)
+    return exact_one_refutation_apply(
+        k, strategy::OnehotModelParameters::from_kernel(k));
   else {
     static_assert(Opportunity == LuckyOpportunity::StartupCount);
     return count_preservation_apply(k);

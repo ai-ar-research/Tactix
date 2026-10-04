@@ -1,4 +1,4 @@
-// Internal atomic adapter; public action/scheduling integration remains pending.
+// Internal atomic adapter used by the shared ParityConsequence action.
 #pragma once
 #include "rules/lucky/parity_selection.hpp"
 #include "rules/registry.hpp"
@@ -17,6 +17,7 @@ struct ParityLiveRequest {
 struct ParityLiveResult {
   ApplyResult result = ApplyResult::NoOp;
   uint64_t clauses = 0, equations = 0, work = 0;
+  uint64_t preflight_additions = 0;
   uint64_t additions = 0, deletions = 0, published = 0;
   uint32_t helpers = 0;
 };

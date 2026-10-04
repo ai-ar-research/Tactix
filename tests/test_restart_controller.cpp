@@ -30,7 +30,7 @@ int main() {
     const auto calls = k.stats.rule_calls[0];
     const auto first = controller.observe();
     const auto second = controller.observe();
-    assert(first.version == 1 && first.variables == 3);
+    assert(first.version == ACTION_SPACE_VERSION && first.variables == 3);
     assert(first.irredundant_clauses == 1);
     assert(first.state.touch_epoch == second.state.touch_epoch);
     assert(first.sequence == second.sequence && first.sequence == 0);

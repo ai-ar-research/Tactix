@@ -38,6 +38,8 @@ WalkParameters::reference_score_curve() {
 }
 
 bool WalkParameters::valid() const {
+  if (seed_candidate && !valid_local_search_candidate(seed_candidate))
+    return false;
   if (!even_break_base_milli || score_curve.size() < 2 ||
       score_curve.front().average_clause_size_milli != 0)
     return false;
@@ -60,6 +62,7 @@ WalkParameters WalkParameters::from_kernel(const Kernel &k) {
   result.random_seed = k.walk_random_seed;
   result.even_break_base_milli = k.walk_even_break_base_milli;
   result.score_curve = k.walk_score_curve;
+  result.seed_candidate = k.walk_seed_candidate;
   return result;
 }
 ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
@@ -116,6 +119,13 @@ ExactCoverModelParameters
 ExactCoverModelParameters::from_kernel(const Kernel &k) {
   return k.exact_cover_model_parameters;
 }
+GraphLabelingParameters GraphLabelingParameters::from_kernel(const Kernel &k) {
+  return k.graph_labeling_parameters;
+}
+void install_rule_parameters(Kernel &k, const GraphLabelingParameters &p) {
+  k.graph_labeling_parameters = p;
+}
+
 IndependentSetModelParameters
 IndependentSetModelParameters::from_kernel(const Kernel &k) {
   return k.independent_set_model_parameters;
@@ -204,6 +214,7 @@ void install_rule_parameters(Kernel &k, const WalkParameters &p) {
   k.work_budget = p.step_budget;
   k.work_budget_bounded = true;
   k.walk_random_seed = p.random_seed;
+  k.walk_seed_candidate = p.seed_candidate;
   install_walk_guidance(k, p.even_break_base_milli, p.score_curve);
 }
 
@@ -218,6 +229,7 @@ ScopedWalkParameters::ScopedWalkParameters(
     Kernel &kernel, const WalkParameters &parameters)
     : kernel_(kernel), saved_budget_(kernel.work_budget),
       saved_seed_(kernel.walk_random_seed),
+      saved_candidate_(kernel.walk_seed_candidate),
       saved_even_break_base_milli_(kernel.walk_even_break_base_milli),
       saved_score_curve_(kernel.walk_score_curve),
       saved_bounded_(kernel.work_budget_bounded) {
@@ -227,6 +239,7 @@ ScopedWalkParameters::ScopedWalkParameters(
 ScopedWalkParameters::~ScopedWalkParameters() {
   kernel_.work_budget = saved_budget_;
   kernel_.walk_random_seed = saved_seed_;
+  kernel_.walk_seed_candidate = saved_candidate_;
   kernel_.walk_even_break_base_milli = saved_even_break_base_milli_;
   kernel_.walk_score_curve = std::move(saved_score_curve_);
   kernel_.work_budget_bounded = saved_bounded_;
