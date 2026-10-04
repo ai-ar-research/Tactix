@@ -169,6 +169,8 @@ int main(int argc, char **argv) {
   bool controller_effort_set = false;
   bool controller_period_set = false;
   bool controller_retention_set = false;
+  bool controller_native_producers_set = false;
+  bool controller_families_set = false;
   const char *controller_actions_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
@@ -215,6 +217,74 @@ int main(int argc, char **argv) {
       controller_replay_path = a + 20;
     } else if (!strncmp(a, "--controller-actions=", 21)) {
       controller_actions_path = a + 21;
+    } else if (!strncmp(a, "--controller-families=", 22)) {
+      const char *value = a + 22;
+      if (!strcmp(value, "all")) {
+        controller_config.parameters.rules.clear();
+      } else {
+        const std::string list(value);
+        bool valid = !list.empty();
+        for (size_t begin = 0; valid && begin <= list.size();) {
+          const size_t end = list.find(',', begin);
+          const std::string name = list.substr(begin, end - begin);
+          const int id = tactix_rule_id(name.c_str());
+          if (name.empty() || id < 0 ||
+              !strategy::controller::root_exclusion(tactix_rules()[id]).empty()) {
+            valid = false;
+          } else if (std::find(controller_config.parameters.rules.begin(),
+                               controller_config.parameters.rules.end(),
+                               name) == controller_config.parameters.rules.end()) {
+            controller_config.parameters.rules.push_back(name);
+          }
+          if (end == std::string::npos) break;
+          begin = end + 1;
+        }
+        if (!valid) {
+          fprintf(stderr, "tactix: invalid --controller-families value '%s'\n",
+                  value);
+          return 1;
+        }
+      }
+      controller_families_set = true;
+    } else if (!strncmp(a, "--controller-native-producers=", 30)) {
+      const char *value = a + 30;
+      const auto set_all = [&](bool enabled) {
+        controller_config.gf3_action_producer.enabled = enabled;
+        controller_config.direct_csp_action_producer.enabled = enabled;
+        controller_config.gf3_gaussian_action_producer.enabled = enabled;
+        controller_config.tseitin_cycle_action_producer.enabled = enabled;
+      };
+      if (!strcmp(value, "all")) {
+        set_all(true);
+      } else if (!strcmp(value, "none")) {
+        set_all(false);
+      } else {
+        const std::string list(value);
+        bool valid = !list.empty();
+        for (size_t begin = 0; valid && begin <= list.size();) {
+          const size_t end = list.find(',', begin);
+          const std::string name = list.substr(begin, end - begin);
+          if (name == "gf3-affine")
+            controller_config.gf3_action_producer.enabled = true;
+          else if (name == "direct-csp")
+            controller_config.direct_csp_action_producer.enabled = true;
+          else if (name == "gf3-gaussian")
+            controller_config.gf3_gaussian_action_producer.enabled = true;
+          else if (name == "tseitin-cycle")
+            controller_config.tseitin_cycle_action_producer.enabled = true;
+          else
+            valid = false;
+          if (end == std::string::npos) break;
+          begin = end + 1;
+        }
+        if (!valid) {
+          fprintf(stderr,
+                  "tactix: invalid --controller-native-producers value '%s'\n",
+                  value);
+          return 1;
+        }
+      }
+      controller_native_producers_set = true;
     } else if (!strncmp(a, "--controller-trail-retention=", 29)) {
       const char *value = a + 29;
       if (!strcmp(value, "full"))
@@ -308,7 +378,9 @@ int main(int argc, char **argv) {
              "[--random-policy[=SEED]] "
              "[--controller-policy[=SEED] [--controller-effort=N]] "
              "[--controller-trace=FILE | --controller-replay=FILE] "
-             "[--controller-actions=FILE] [--controller-restart-period=N] "
+             "[--controller-actions=FILE | --controller-families=LIST] "
+             "[--controller-native-producers=all|none|LIST] "
+             "[--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
              "[--structural-provenance=NEW_FILE] "
@@ -316,6 +388,10 @@ int main(int argc, char **argv) {
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
+      puts("  native producer LIST: gf3-affine,direct-csp,gf3-gaussian,"
+           "tseitin-cycle");
+      puts("  controller family LIST: comma-separated canonical root-action "
+           "names, or all");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -407,11 +483,19 @@ int main(int argc, char **argv) {
        (random_policy || stress_policy || replay_path || no_heuristics || trace_path)) ||
       (controller_replay_path && (controller_policy || controller_trace_path)) ||
       (controller_trace_path && !controller_policy) ||
-      ((controller_effort_set || controller_period_set || controller_retention_set || controller_actions_path) &&
+      ((controller_effort_set || controller_period_set || controller_retention_set ||
+        controller_native_producers_set || controller_families_set ||
+        controller_actions_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
                     "controller settings require it\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (controller_actions_path && controller_families_set) {
+    fprintf(stderr, "tactix: --controller-actions and --controller-families "
+                    "select the same action collection\n");
     printf("s UNKNOWN\n");
     return 1;
   }

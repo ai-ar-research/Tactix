@@ -86,12 +86,20 @@ syntax as a collection of offered alternatives, not an ordered sequence. It
 selects those families and supplies their typed payloads and fixed allowances;
 choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
-producer. Without an offered witness, each structured family is accounted as
-unavailable rather than sampled as a canonical NoOp. Other
-unavailable/excluded choices have explicit reasons from
-`controller_action_availability`. The default collection includes every root
-family with a native producer. `--controller-restart-period=N` configures the
-reluctant period for focused lifecycle/coverage validation.
+producer. `--controller-native-producers=LIST` independently enables bounded
+native discovery for `gf3-affine`, `direct-csp`, `gf3-gaussian`, and
+`tseitin-cycle`; `all` enables all four and `none` disables all four. They are
+disabled unless explicitly selected. `--controller-families=LIST` restricts
+eligibility to canonical root-action names without inventing structured
+payloads, so focused native-producer campaigns can isolate one action family;
+`all` restores the unrestricted collection. It cannot be combined with
+`--controller-actions`. Both selections enter the controller configuration
+fingerprint and must match on replay. Without a configured or natively offered
+witness, each structured family is accounted as unavailable rather than
+sampled as a canonical NoOp. Other unavailable/excluded choices have explicit
+reasons from `controller_action_availability`.
+`--controller-restart-period=N` configures the reluctant period for focused
+lifecycle/coverage validation.
 
 `--controller-trail-retention=ranked-prefix|full` selects ordinary search
 restart retention; ranked-prefix is the default. The active branch ranking
