@@ -54,6 +54,7 @@ inline NativeFeedbackSpec native_rule_feedback(
   else if (name == "BVE") inv.parameters = BveParameters::from_kernel(k);
   else if (name == "SubsumeForward") inv.parameters = k.subsume_forward_parameters;
   else if (name == "Strengthen") inv.parameters = k.strengthen_parameters;
+  else if (name == "ParityConsequence") inv.parameters = k.parity_consequence_parameters;
   else if (name == "Congruence") inv.parameters = k.congruence_parameters;
   else if (name == "Instantiate") inv.parameters = k.instantiate_parameters;
   else if (name == "Backbone") inv.parameters = k.backbone_parameters;
@@ -67,19 +68,24 @@ inline NativeFeedbackSpec native_rule_feedback(
   else if (name == "Walk") inv.parameters = WalkParameters::from_kernel(k);
   else if (name == "Reorder") inv.parameters = ReorderParameters::from_kernel(k);
   else if (name == "Lucky") {
-    if (instance == 6 || instance == LUCKY_STARTUP_PARITY)
+    if (instance == LUCKY_PARITY_PROOF || instance == LUCKY_STARTUP_PARITY)
       inv.parameters = ParityModelParameters::from_kernel(k);
-    else if (instance == 7 || instance == 9)
+    else if (instance == LUCKY_EXACT_ONE_PROOF)
       inv.parameters = OnehotModelParameters::from_kernel(k);
-    else if (instance == 8) inv.parameters = AffineModelParameters::from_kernel(k);
-    else if (instance == 10) inv.parameters = BalancedSignatureModelParameters::from_kernel(k);
-    else if (instance == 11) inv.parameters = FermatModelParameters::from_kernel(k);
-    else if (instance == 13) inv.parameters = LookupCircuitModelParameters::from_kernel(k);
-    else if (instance == 14) inv.parameters = SimonModelParameters::from_kernel(k);
     else if (instance == 15) inv.parameters = StconnProofParameters::from_kernel(k);
     else if (instance == 16) inv.parameters = SignedCardinalityProofParameters::from_kernel(k);
-    else if (instance == 17) inv.parameters = ExactCoverModelParameters::from_kernel(k);
-    else if (instance == 18) inv.parameters = IndependentSetModelParameters::from_kernel(k);
+    else if (instance == LUCKY_STARTUP_RAMSEY) {
+      const auto p = RamseyStartupParameters::from_kernel(k);
+      inv.parameters = p;
+      spec.meter = [](const Kernel &state) {
+        return state.stats.ramsey_startup_recognition_work +
+               state.stats.ramsey_startup_certificate_work;
+      };
+      spec.description.effort_currency = "ramsey-work";
+      uint64_t bound=p.valid() ? p.recognition_work + p.certificate_work : 0;
+      if(kernel_has_work_budget(k)) bound=std::min(bound,k.work_budget);
+      spec.description.effort_allowance = WorkLimit::bounded(bound);
+    }
   }
   return spec;
 }
@@ -89,6 +95,7 @@ constexpr uint64_t lucky_feedback_instance() {
   if constexpr (Opportunity == LuckyOpportunity::Cascade) return INSTANCE_CANONICAL;
   else if constexpr (Opportunity == LuckyOpportunity::StartupParity) return LUCKY_STARTUP_PARITY;
   else if constexpr (Opportunity == LuckyOpportunity::StartupCount) return LUCKY_STARTUP_COUNT;
+  else if constexpr (Opportunity == LuckyOpportunity::StartupRamsey) return LUCKY_STARTUP_RAMSEY;
   else return 5 + static_cast<uint64_t>(Opportunity);
 }
 

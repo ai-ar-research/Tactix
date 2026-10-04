@@ -72,11 +72,28 @@ def observation(value):
          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
          "have_configuration configuration rotation_intervals next_restart_conflicts "
          "reluctant fast_glue slow_glue last_action native", "observation",
-         optional="native_policy_state semantic_variable_candidates")
+         optional="native_policy_state local_search_candidates semantic_variable_candidates")
     if "native_policy_state" in value:
         require(type(value["native_policy_state"]) is str, "invalid native policy state")
-    require(integer(value["version"], "observation version") == 1,
+    require(integer(value["version"], "observation version") in (1, 2, 3),
             "unsupported observation version")
+    if value["version"] >= 2:
+        require("local_search_candidates" in value, "missing candidate observation")
+    if "local_search_candidates" in value:
+        candidates = value["local_search_candidates"]
+        require(type(candidates) is list, "invalid candidate observation")
+        ids = set()
+        for candidate in candidates:
+            keys(candidate, "id formula_touch_epoch formula_root_assignments "
+                 "external_variables objective objective_exact effort effort_unit", "candidate")
+            for key in ("id", "formula_touch_epoch", "formula_root_assignments",
+                        "external_variables", "objective", "effort"):
+                integer(candidate[key], "candidate " + key)
+            identity = candidate["id"]
+            require(identity >> 8 and identity not in ids, "invalid/repeated candidate identity")
+            ids.add(identity)
+            integer(candidate["effort_unit"], "candidate effort unit", 5)
+            require(type(candidate["objective_exact"]) is bool, "invalid candidate objective flag")
     if "semantic_variable_candidates" in value:
         candidates = value["semantic_variable_candidates"]
         require(type(candidates) is list, "invalid semantic variable candidates")

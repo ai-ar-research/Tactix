@@ -162,27 +162,8 @@ int main() {
   explicit_parameters.seed=UINT64_MAX;explicit_parameters.shuffle_first=true;
   auto p=program(explicit_parameters);
   const auto text=serialize_online_strategy_program(p);OnlineStrategyProgram replay;std::string error;
-  assert(deserialize_online_strategy_program(text,replay,&error));
-  assert(serialize_online_strategy_program(replay)==text);
-  {
-    Kernel k=fixture();ScopedHeuristics owner(k);OnlineStrategyExecutor executor;
-    assert(executor.configure(replay,1));assert(executor.advance(k).status==InvocationStatus::Sat);check(k);
-    assert(k.affine_model_parameters.projection.empty()); // scoped settings unwind
-  }
-  {
-    Kernel k=fixture();ScopedHeuristics owner(k);OnlineStrategyExecutor executor;
-    auto limited=explicit_parameters;limited.maximum_work=0;
-    auto invocation=program(limited);
-    invocation.sequence[0].repeat={RepeatMode::UntilScopedFixpoint,4};
-    assert(executor.configure(invocation,1));
-    const auto stopped=executor.advance(k);
-    assert(stopped.status==InvocationStatus::BudgetExhausted&&!stopped.selection_complete);
-    assert(k.trail.empty()&&executor.step_consumed(1)==1);
-    invocation.sequence[0].parameters=explicit_parameters;
-    assert(executor.configure(invocation,2,ReconfigureMode::RetainMatchingStepBudgets));
-    assert(executor.advance(k).status==InvocationStatus::Sat);
-    assert(executor.step_consumed(1)==2);check(k);
-  }
+  assert(!deserialize_online_strategy_program(text,replay,&error));
+  assert(error.find("retired")!=std::string::npos);
   // Signed coordinates with zero support select ANY requested live assignment,
   // including non-parity variables. The oracle is the original fixture CNF.
   for(unsigned requested=0;requested<32;++requested) {
@@ -206,37 +187,27 @@ int main() {
     install_rule_parameters(k,unavailable);assert(affine_model_apply(k)==ApplyResult::NoOp);
     assert(k.stats.affine_model_unavailable==1&&k.trail.empty());
   }
-  for(bool probe_entry:{false,true}) {
-    Kernel k=fixture();ScopedHeuristics owner(k);DefaultStrategyConfig config;
-    config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
-    assert(config.valid(&error));
-    DefaultInprocessScheduler scheduler(&config.inprocess);scheduler.build(k);
-    const int result=probe_entry?scheduler.run_phase(k,SlotGroup::Probe,nullptr)
-                                :scheduler.run_structured_root(k,nullptr);
-    assert(result==10);check(k);assert(k.stats.affine_model_sat==1);
-  }
   {
-    Kernel k=fixture();ScopedHeuristics owner(k);DefaultStrategyConfig config;
+    DefaultStrategyConfig config;
     config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
-    assert(DefaultPolicy(config).solve(k)==10);check(k);assert(k.stats.affine_model_sat==1);
+    assert(!config.valid(&error));
+    assert(error.find("retired")!=std::string::npos);
   }
   {
     Kernel k=fixture();ScopedHeuristics owner(k);RandomOnlineConfig config;config.rules={"Lucky"};
     config.maximum_sequence_length=1;
-    unsigned affine=0,explicit_count=0,scopes=0;std::set<int> coordinates;
+    unsigned affine=0;
     for(uint64_t seed=1;seed<=256;++seed) {
       OnlineStrategyProgram random;
       assert(random_online_strategy_program(k,seed,config,random,&error));
       const auto serialized=serialize_online_strategy_program(random);OnlineStrategyProgram restored;
       assert(deserialize_online_strategy_program(serialized,restored,&error));
       assert(serialize_online_strategy_program(restored)==serialized);
-      if(const auto*a=std::get_if<AffineModelParameters>(&random.sequence[0].parameters)) {
-        ++affine;explicit_count+=a->projection_mode==AffineProjectionMode::Explicit;
-        for(int l:a->projection)coordinates.insert(l);
-        scopes+=!a->scopes.empty();
+      if(std::holds_alternative<AffineModelParameters>(random.sequence[0].parameters)) {
+        ++affine;
       }
     }
-    assert(affine&&explicit_count&&scopes&&coordinates.count(5)&&coordinates.count(-5));
+    assert(!affine);
   }
-  std::cout<<"Affine model, "<<complete_work<<" exact budget boundaries, root negatives, replay, random configuration and structured SAT composition PASS\n";
+  std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and retired public scheduling PASS\n";
 }

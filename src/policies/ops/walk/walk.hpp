@@ -21,6 +21,11 @@ namespace tactix {
 // occurrence-list entries scanned (kissat's `walk_steps`). INSTANCE_CANONICAL
 // takes a bounded budget from `Kernel::work_budget`, otherwise the typed
 // reference default. Every explicit payload, including zero, is exact.
+// A typed seed_candidate names an exact retained publication. Seeded calls
+// additionally charge phase/identity visits and two evaluations of the same
+// current Walk CNF; export requires improvement over ordinary starting phases,
+// even when the candidate itself required zero flips. An incomplete import,
+// stale identity or zero seed allowance leaves all phase memories untouched.
 
 RuleEligibility walk_guard(const Kernel &);
 ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round

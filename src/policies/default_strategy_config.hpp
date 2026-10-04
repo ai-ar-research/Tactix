@@ -201,13 +201,8 @@ struct DefaultStrategyConfig {
     // A failed structural model search can seed a later generic Walk.  Keep
     // each source distinct and rotate them so unlike objectives are composed
     // without pretending their scores are directly comparable.
-    bool structural_walk_seed = true;
-    std::vector<strategy::LocalSearchKind> structural_seed_rotation{
-        strategy::LocalSearchKind::DirectCsp,
-        strategy::LocalSearchKind::Affine,
-        strategy::LocalSearchKind::Parity,
-        strategy::LocalSearchKind::Onehot,
-        strategy::LocalSearchKind::BalancedSignature};
+    bool structural_walk_seed = false;
+    std::vector<strategy::LocalSearchKind> structural_seed_rotation;
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;
@@ -222,36 +217,36 @@ struct DefaultStrategyConfig {
   } reorder;
 
   struct ParityModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::ParityModelParameters parameters;
   } parity_model;
 
   struct OnehotModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::OnehotModelParameters parameters;
   } onehot_model;
 
   struct BalancedSignatureModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::BalancedSignatureModelParameters parameters;
   } balanced_signature_model;
 
   struct FermatModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::FermatModelParameters parameters;
   } fermat_model;
 
   struct CernyModel {
-    bool enabled = true;
+    bool enabled = false;
   } cerny_model;
 
   struct LookupCircuitModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::LookupCircuitModelParameters parameters;
   } lookup_circuit_model;
 
   struct SimonModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::SimonModelParameters parameters;
   } simon_model;
 
@@ -266,14 +261,24 @@ struct DefaultStrategyConfig {
   } signed_cardinality_proof;
 
   struct ExactCoverModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::ExactCoverModelParameters parameters;
   } exact_cover_model;
 
   struct IndependentSetModel {
-    bool enabled = true;
+    bool enabled = false;
     strategy::IndependentSetModelParameters parameters;
   } independent_set_model;
+
+  struct GraphLabelingModel {
+    // WIP until a measured, source-backed effort profile and all gates pass.
+    bool enabled = false;
+    strategy::GraphLabelingParameters parameters;
+  } graph_labeling_model;
+  struct RamseyStartup {
+    bool enabled = false;
+    strategy::RamseyStartupParameters parameters;
+  } ramsey_startup;
 
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches

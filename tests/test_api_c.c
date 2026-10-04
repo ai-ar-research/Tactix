@@ -137,9 +137,10 @@ static void test_discarded_only_variables_extend_model(void) {
   tactix_release(s);
 }
 
-/* A Lucky model may leave retired identities unassigned and may follow
- * binary-only probing. Its SAT return must agree with the public status. */
-static void test_lucky_model_status_after_inprocessing(void) {
+/* Retired identities may remain unassigned after inprocessing. Continuing
+ * CDCL must still return a public SAT model without invoking a retired Lucky
+ * constructor identity. */
+static void test_model_status_after_inprocessing(void) {
   tactix *s = tactix_init();
   add_clause(s, (const int[]){-24, -8, 0});
   add_clause(s, (const int[]){13, 33, 0});
@@ -154,7 +155,8 @@ static void test_lucky_model_status_after_inprocessing(void) {
   static const int expected[] = {1, 0, 1, 1, 1, 1, 1};
   for (size_t i = 0; i < sizeof steps / sizeof *steps; ++i)
     assert(tactix_apply(s, rule_id(steps[i])) == expected[i]);
-  assert(tactix_apply_instance(s, rule_id("Lucky"), 8) == 10);
+  assert(tactix_apply_instance(s, rule_id("Lucky"), 8) == 1);
+  assert(tactix_solve(s) == 10);
   assert(tactix_status(s) == 10);
   assert(tactix_value(s, -24) == -24 || tactix_value(s, -8) == -8);
   assert(tactix_value(s, 13) == 13 || tactix_value(s, 33) == 33);
@@ -596,12 +598,12 @@ static void test_stats_and_config_surface(void) {
   tactix_set_vivify_scope(s, 0);
   assert(tactix_set_vivify_parameters(s, 0, 1, 0, 10) == 0);
   assert(tactix_solve(s) == 20);
-  /* Completeness: every documented id 0..50 answers, in yield/effort pairs so
+  /* Completeness: every documented id 0..60 answers, in yield/effort pairs so
      the §5.6 learner can order outcomes by cost per unit output. Presence
      only — tools/docs/check-stat-ids.py pins the mapping. */
-  for (id = 0; id <= 51; id++)
+  for (id = 0; id <= 60; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 52) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, 61) == UINT64_MAX); /* first unknown id */
   assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }
@@ -620,7 +622,7 @@ static void test_action_kind(void) {
       "Substitute", "SubstitutionRedundancy", "SubsumeForward", "Sweep",
       "SwitchMode",
       "TransitiveReduce",
-      "Vivify",     "Walk", "Condition"};
+      "Vivify",     "Walk", "Condition", "ParityConsequence"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)
@@ -700,7 +702,7 @@ int main(void) {
   test_solve_sat();
   test_late_input_add_rejected();
   test_discarded_only_variables_extend_model();
-  test_lucky_model_status_after_inprocessing();
+  test_model_status_after_inprocessing();
   test_repeated_solve_after_cce();
   test_external_branching();
   test_decide_candidates_close_input_boundary();

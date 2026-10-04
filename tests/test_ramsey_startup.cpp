@@ -1,6 +1,8 @@
 #undef NDEBUG
 #include "rules/lucky/ramsey_startup.hpp"
 #include "frontend/parse.hpp"
+#include "policies/random_controller_policy.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "proof/proof.hpp"
 #include <cassert>
 #include <filesystem>
@@ -26,6 +28,10 @@ static void controls(const std::string &cnf) {
   Kernel k;parse(k,cnf);FILE *out=std::tmpfile();assert(out);auto r=profile(out);
   const auto map=k.external_to_internal;const auto raw=k.startup_input;const auto ids=k.next_clause_id;const auto n=k.nvars;const auto arena=k.arena.size();
   const auto no_change=[&](){assert(k.external_to_internal==map&&k.startup_input==raw&&k.next_clause_id==ids&&k.nvars==n&&k.arena.size()==arena&&!k.inconsistent&&k.startup_certificate_open&&std::ftell(out)==0);};
+  k.work_budget_bounded=true;k.work_budget=0;
+  assert(ramsey_startup_apply(k,r).exhausted);no_change();
+  k.work_budget=1;assert(ramsey_startup_apply(k,r).exhausted);no_change();
+  k.work_budget=0;k.work_budget_bounded=false;
   auto bad=r;bad.records=nullptr;assert(ramsey_startup_apply(k,bad).result==ApplyResult::NoOp);no_change();
   bad=r;bad.certificate_work=0;assert(ramsey_startup_apply(k,bad).result==ApplyResult::NoOp);no_change();
   bad=r;bad.recognition.work=1;assert(ramsey_startup_apply(k,bad).result==ApplyResult::NoOp);no_change();
@@ -51,12 +57,33 @@ static void controls(const std::string &cnf) {
   std::fclose(out);
 }
 struct Outcome {RamseyStartupResult result;std::vector<Var> map;uint64_t id;};
-static Outcome run(const std::string &cnf,const std::string &prefix,bool with_proof) {
+static Outcome run(const std::string &cnf,const std::string &prefix,bool with_proof,bool public_action=false) {
   Proof proof;Kernel k;
   if(with_proof){assert(proof.open((prefix+".dsr").c_str(),ProofFormat::DsrAscii));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);k.proof=&proof;}
   parse(k,cnf);const auto nvars=k.nvars;const auto extent=k.external_to_internal.size();const auto old_map=k.external_to_internal;
   FILE *out=prefix.empty()?std::tmpfile():std::fopen((prefix+".records.jsonl").c_str(),"w+");assert(out);
-  const auto r=ramsey_startup_apply(k,profile(out));
+  RamseyStartupResult r;
+  if(public_action) {
+    using namespace tactix::strategy;
+    using namespace tactix::strategy::controller;
+    k.structural_provenance=out;k.structural_action_sequence=40;
+    RestartController controller(k);ActionRequest request;
+    request.sequence=controller.observe().sequence+1;request.expected=state_version(k);
+    request.invocation.id=1;request.invocation.rule="Lucky";
+    request.invocation.instances={LUCKY_STARTUP_RAMSEY};
+    request.invocation.granularity=InvocationGranularity::OneInstance;
+    request.invocation.parameters=RamseyStartupParameters{10000,200,40000,10000000,10000000,100000,1000000,200000};
+    r.result=controller.apply_rule(request,ActionAllowance{}).invocation.rule_result;
+    assert(k.stats.ramsey_startup_attempts==1&&k.stats.ramsey_startup_unsat==1);
+    r.recognized=k.stats.ramsey_startup_recognized;
+    r.interrupted=k.stats.ramsey_startup_interrupted;r.exhausted=k.stats.ramsey_startup_exhausted;
+    r.recognition_work=k.stats.ramsey_startup_recognition_work;
+    r.certificate_work=k.stats.ramsey_startup_certificate_work;r.nodes=k.stats.ramsey_startup_nodes;
+    r.additions=k.stats.ramsey_startup_additions;r.deletions=k.stats.ramsey_startup_deletions;
+    r.helpers=k.stats.ramsey_startup_helpers;
+    assert(k.structural_action_sequence==41&&k.ramsey_startup_parameters.recognition_work==0);
+    k.structural_provenance=nullptr;
+  } else r=ramsey_startup_apply(k,profile(out));
   assert(r.result==ApplyResult::Unsat&&r.recognized&&!r.interrupted&&!r.exhausted);
   assert(k.inconsistent&&!k.startup_certificate_open&&k.startup_input.empty());
   assert(k.nvars==nvars&&k.original_external_vars==extent&&k.external_to_internal.size()==extent+r.helpers);
@@ -69,12 +96,12 @@ static Outcome run(const std::string &cnf,const std::string &prefix,bool with_pr
 }
 int main(int argc,char **argv) {
   std::string cnf=fixture(),prefix;
-  if(argc==3){std::ifstream in(argv[1]);assert(in);std::ostringstream s;s<<in.rdbuf();cnf=s.str();prefix=argv[2];}
+  if(argc==3||argc==4){std::ifstream in(argv[1]);assert(in);std::ostringstream s;s<<in.rdbuf();cnf=s.str();prefix=argv[2];}
   else assert(argc==1);
   controls(cnf);
   const auto none=run(cnf,"",false);
   if(!prefix.empty()) {
-    const auto emitted=run(cnf,prefix,true);
+    const auto emitted=run(cnf,prefix,true,argc==4);
     assert(none.map==emitted.map&&none.id==emitted.id);
     assert(none.result.additions==emitted.result.additions&&none.result.deletions==emitted.result.deletions&&none.result.certificate_work==emitted.result.certificate_work);
   }

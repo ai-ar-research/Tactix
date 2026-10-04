@@ -1769,6 +1769,11 @@ static void parameter_domains_are_caller_controlled() {
       assert(parameters->valid());
       independent_set_vertices.insert(parameters->maximum_vertices);
       independent_set_steps.insert(parameters->maximum_steps);
+    } else if (std::holds_alternative<std::monostate>(step.parameters) ||
+               std::holds_alternative<RamseyStartupParameters>(
+                   step.parameters)) {
+      // Generic probes/counting and the optional startup proof carry no
+      // retired constructor parameters.
     } else {
       const auto *onehot_parameters =
           std::get_if<OnehotModelParameters>(&step.parameters);
@@ -1783,10 +1788,10 @@ static void parameter_domains_are_caller_controlled() {
     selected_affine_instance |=
         std::find(step.instances.begin(),step.instances.end(),uint64_t{8})!=step.instances.end();
     selected_parity_instance |=
-        std::find(step.instances.begin(), step.instances.end(), uint64_t{6}) !=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{23}) !=
         step.instances.end();
     selected_onehot_instance |=
-        std::find(step.instances.begin(), step.instances.end(), uint64_t{7}) !=
+        std::find(step.instances.begin(), step.instances.end(), uint64_t{24}) !=
         step.instances.end();
     selected_balanced_instance |=
         std::find(step.instances.begin(), step.instances.end(), uint64_t{10}) !=
@@ -1819,20 +1824,13 @@ static void parameter_domains_are_caller_controlled() {
     assert(serialize_online_strategy_program(replay) ==
            serialize_online_strategy_program(program));
   }
-  assert(selected_affine_instance&&affine_variables.size()>8&&affine_work.size()>8);
+  assert(!selected_affine_instance && affine_variables.empty() &&
+         affine_work.empty());
   assert(selected_parity_instance && selected_onehot_instance);
-  assert(selected_balanced_instance && balanced_balls.size() > 8 &&
-         balanced_widths.size() > 4 && balanced_restarts.size() > 8 &&
-         balanced_steps.size() > 8 && balanced_samples.size() > 8 &&
-         balanced_seeds.size() > 8 && balanced_completion.size() > 8);
-  assert(selected_fermat_instance && fermat_bits.size() > 8 &&
-         fermat_tail.size() > 8 && fermat_constants.size() > 8 &&
-         fermat_iterations.size() > 8);
-  assert(selected_lookup_instance && lookup_fanin.size() > 4 &&
-         lookup_fanout.size() > 4 && lookup_inputs.size() > 8 &&
-         lookup_support.size() > 8 && lookup_evaluations.size() > 8);
-  assert(selected_simon_instance && simon_rounds.size() > 8 &&
-         simon_candidates.size() > 8);
+  assert(!selected_balanced_instance && balanced_balls.empty());
+  assert(!selected_fermat_instance && fermat_bits.empty());
+  assert(!selected_lookup_instance && lookup_fanin.empty());
+  assert(!selected_simon_instance && simon_rounds.empty());
   assert(selected_stconn_instance && stconn_widths.size() > 4 &&
          stconn_columns.size() > 8 && stconn_rup_clauses.size() > 8);
   assert(selected_signed_cardinality_instance &&
@@ -1842,10 +1840,8 @@ static void parameter_domains_are_caller_controlled() {
          signed_cardinality_arities.size() > 4 &&
          signed_cardinality_nodes.size() > 8 &&
          signed_cardinality_additions.size() > 8);
-  assert(selected_exact_cover_instance && exact_cover_arities.size() > 4 &&
-         exact_cover_nodes.size() > 8 && exact_cover_restarts.size() > 2);
-  assert(selected_independent_set_instance &&
-         independent_set_vertices.size() > 8 && independent_set_steps.size() > 8);
+  assert(!selected_exact_cover_instance && exact_cover_arities.empty());
+  assert(!selected_independent_set_instance && independent_set_vertices.empty());
   assert(parity_variables.size() > 8 && parity_groups.size() > 8 &&
          parity_constraints.size() > 8 && parity_free.size() > 8 &&
          parity_candidates.size() > 8);
@@ -1874,19 +1870,13 @@ static void parameter_domains_are_caller_controlled() {
              return std::holds_alternative<ReduceParameters>(p);
            }},
           {"Lucky", [](const ActionParameters &p) {
-             return std::holds_alternative<ParityModelParameters>(p) ||
+             return std::holds_alternative<std::monostate>(p) ||
+                    std::holds_alternative<ParityModelParameters>(p) ||
                     std::holds_alternative<OnehotModelParameters>(p) ||
-                    std::holds_alternative<
-                        BalancedSignatureModelParameters>(p) ||
-                    std::holds_alternative<FermatModelParameters>(p) ||
-                    std::holds_alternative<LookupCircuitModelParameters>(p) ||
-                    std::holds_alternative<SimonModelParameters>(p) ||
                     std::holds_alternative<StconnProofParameters>(p) ||
                     std::holds_alternative<
                         SignedCardinalityProofParameters>(p) ||
-                    std::holds_alternative<ExactCoverModelParameters>(p) ||
-                    std::holds_alternative<IndependentSetModelParameters>(p) ||
-                    std::holds_alternative<AffineModelParameters>(p);
+                    std::holds_alternative<RamseyStartupParameters>(p);
            }},
       };
   for (const auto &[rule, has_expected_type] : typed_rules) {
@@ -1928,7 +1918,10 @@ static void every_registry_action_has_random_support() {
   {
     Kernel k = broad_fixture();
     ScopedHeuristics heuristics(k);
+    FILE *records = std::tmpfile(); assert(records);
+    k.structural_provenance = records;
     sample_each_applicable_action(k, seen);
+    k.structural_provenance = nullptr; std::fclose(records);
   }
   {
     Kernel k = broad_fixture();
@@ -2149,7 +2142,66 @@ static void production_random_reaches_late_semantics_and_replays_them() {
   kernel_check_invariants(replay);
 }
 
+static void seeded_walk_parameters_round_trip() {
+  OnlineInvocation step;
+  step.id = 1;
+  step.rule = "Walk";
+  step.granularity = InvocationGranularity::CanonicalApplication;
+  WalkParameters p;
+  p.step_budget = 24;
+  p.random_seed = 19;
+  p.seed_candidate = 256;
+  step.parameters = p;
+  OnlineStrategyProgram program, decoded;
+  program.sequence = {step};
+  const auto wire = serialize_online_strategy_program(program);
+  assert(wire.find(":walk2(") != std::string::npos);
+  std::string error;
+  assert(deserialize_online_strategy_program(wire, decoded, &error));
+  assert(serialize_online_strategy_program(decoded) == wire);
+  const auto &copy = std::get<WalkParameters>(decoded.sequence[0].parameters);
+  assert(copy.seed_candidate == 256 && copy.step_budget == 24 && copy.random_seed == 19);
+  p.seed_candidate = 1; // kind-only aliases are not exact Walk identities
+  assert(!p.valid());
+  step.parameters = p;
+  program.sequence = {step};
+  assert(!validate_online_strategy_program(program, &error));
+}
+
+static void graph_labeling_parameters_round_trip() {
+  OnlineStrategyProgram program;
+  OnlineInvocation step;
+  step.id = 1;
+  step.rule = "Lucky";
+  step.granularity = InvocationGranularity::OneInstance;
+  step.instances = {21};
+  GraphLabelingParameters parameters;
+  parameters.maximum_vertices = 200;
+  parameters.workspace_bytes = 1000000;
+  for (size_t i = 0; i < parameters.work.size(); ++i) parameters.work[i] = 1000 + i;
+  parameters.stall_anneal_iterations = 19;
+  parameters.seed = 123;
+  step.parameters = parameters;
+  program.sequence.push_back(step);
+  std::string error;
+  assert(!validate_online_strategy_program(program, &error));
+  assert(error == "Lucky constructor parameters are retired");
+  const auto wire = serialize_online_strategy_program(program);
+  assert(wire.find("graph-labeling1(") != std::string::npos);
+  OnlineStrategyProgram replay;
+  assert(!deserialize_online_strategy_program(wire, replay, &error));
+  assert(error == "Lucky constructor parameters are retired");
+  parameters.work[0] = UINT64_MAX;
+  program.sequence[0].parameters = parameters;
+  assert(!validate_online_strategy_program(program, &error));
+  program.sequence[0].parameters = GraphLabelingParameters{};
+  program.sequence[0].rule = "Walk";
+  assert(!validate_online_strategy_program(program, &error));
+}
+
 int main() {
+  graph_labeling_parameters_round_trip();
+  seeded_walk_parameters_round_trip();
   condition_cube_replay_round_trips();
   random_clausal_fixing_retains_known_orbit_targets();
   invalid_configuration_is_rejected();

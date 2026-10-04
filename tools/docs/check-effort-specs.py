@@ -21,10 +21,11 @@ rule is a performance regression, not a soundness one.
                         bounds its call frequency, named here, and that mechanism
                         must still be present in the source (`evidence`). A single
                         round remains structurally bounded by the finite formula.
-    EXPLICIT-ONLY       no default slot or CLI producer; a typed public action
-                        owns the tuple. The canonical registry apply is NoOp,
-                        and dedicated API tests replace an impossible CLI
-                        REACH_SPECS entry. This does not accept N4 scheduling.
+    EXPLICIT-ONLY       no enabled default slot or CLI producer; a typed public
+                        action owns the tuple. An authored disabled row may pin
+                        ordering before admission. The canonical registry apply
+                        is NoOp, and dedicated API tests replace an impossible
+                        CLI REACH_SPECS entry. This does not accept N4 scheduling.
 
 As in check-config-wiring.py, the second half matters as much as the first: a
 scheduled rule missing from the table fails, so classification happens when the
@@ -105,6 +106,13 @@ TABLE = {
                               "sequence fixpoint",
                          [EV_SR_LEGACY_SKIP, EV_SR_ROOT_OWNER, EV_SR_RUN_ONCE,
                           EV_SR_SCOPED_FIXPOINT]),
+    "ParityConsequence": (EXPLICIT, "typed bounded parity action; default schedule pending",
+                         [r'std::strcmp\(rules\[i\]\.name, "ParityConsequence"\)'],
+                         [("src/rules/parity_consequence/parity_consequence.cpp",
+                           r'parity_live_apply\('),
+                          ("src/strategy/online_inprocess.cpp",
+                           r'ParityConsequenceParameters'),
+                          ("tests/test_parity_consequence.cpp", r'public_c\(')]),
     "Condition":        (EXPLICIT, "typed (clause,cube) API; no default producer",
                          [EV_CONDITION_SKIP],
                          [("src/rules/condition/condition.cpp",
@@ -279,7 +287,7 @@ def main():
                              f"every phase.")
             else:
                 notes.append(f"ALT-GOV {n:17} <- {why.split(';')[0].strip()}")
-        elif kind == EXPLICIT:  # No default slot or canonical work to meter.
+        elif kind == EXPLICIT:  # No enabled slot or canonical work to meter.
             if n in specs:
                 fails.append(f"explicit-only `{n}` unexpectedly has an effort "
                              "row; it may now be scheduled")
@@ -294,9 +302,15 @@ def main():
             body = re.search(
                 r"reference_inprocess_program\(\)\s*\{(.*?)return result;",
                 program)
-            if not body or re.search(r'"' + re.escape(n) + r'"', body.group(1)):
-                missing.append(f"{PROGRAM_REL}: default program names {n} "
-                               "or cannot be inspected")
+            if not body:
+                missing.append(f"{PROGRAM_REL}: default program cannot be inspected")
+            else:
+                named = re.search(r'"' + re.escape(n) + r'"', body.group(1))
+                disabled = re.search(
+                    r'\{\s*\d+\s*,\s*"' + re.escape(n) +
+                    r'"\s*,\s*\w+\s*,\s*false\s*\}', body.group(1))
+                if named and not disabled:
+                    missing.append(f"{PROGRAM_REL}: {n} is not explicitly disabled")
             if missing:
                 fails.append(f"explicit-only `{n}` lost omission/NoOp/API "
                              f"evidence: {missing}")

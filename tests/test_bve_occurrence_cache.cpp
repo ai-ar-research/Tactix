@@ -98,7 +98,7 @@ static void cache_lifetime_and_invalidation() {
   }
 }
 
-static void online_boundaries_and_lucky() {
+static void online_rejects_retired_lucky() {
   Kernel k = fixture();
   OnlineStrategyExecutor executor;
   auto p = program();
@@ -109,23 +109,11 @@ static void online_boundaries_and_lucky() {
   lucky.granularity = InvocationGranularity::OneInstance;
   lucky.instances = {8};
   p.sequence.push_back(lucky);
-  assert(executor.configure(p, 1));
-  volatile sig_atomic_t stop = 1;
-  assert(executor.advance(k, &stop).status == InvocationStatus::Interrupted);
+  std::string error;
+  assert(!executor.configure(p, 1, ReconfigureMode::ResetRuntime, &error));
+  assert(error.find("retired") != std::string::npos);
+  assert(k.stats.bve_eliminated == 0 && k.stats.affine_model_calls == 0);
   assert(!k.dense && k.dense_order_scratch.empty());
-  stop = 0;
-  auto first = executor.advance(k, &stop);
-  assert(first.made_rule_progress && k.stats.bve_eliminated == 1);
-  assert(!k.dense && affine_model_guard(k));
-  stop = 1;
-  assert(executor.advance(k, &stop).status == InvocationStatus::Interrupted);
-  assert(!k.dense && k.stats.bve_eliminated == 1);
-  stop = 0;
-  assert(executor.advance(k, &stop).made_rule_progress);
-  assert(!k.dense && k.stats.bve_eliminated == 2);
-  const auto last = executor.advance(k, &stop);
-  assert(last.step_id == 2 && k.stats.affine_model_calls == 1);
-  assert(!k.dense);
   kernel_check_invariants(k);
 }
 
@@ -176,7 +164,7 @@ static void redundant_fallback() {
 
 int main() {
   cache_lifetime_and_invalidation();
-  online_boundaries_and_lucky();
+  online_rejects_retired_lucky();
   external_changes_and_budget();
   redundant_fallback();
   std::puts("BVE occurrence cache: lifetime, invalidation, borrowing and sparse boundaries passed");

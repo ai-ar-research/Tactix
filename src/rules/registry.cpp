@@ -110,7 +110,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "Restart",     "Strengthen",       "Substitute",
         "SubstitutionRedundancy", "SubsumeForward", "Sweep",
         "SwitchMode",  "TransitiveReduce", "Vivify",
-        "Walk",        "Condition"};
+        "Walk",        "Condition", "ParityConsequence"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {

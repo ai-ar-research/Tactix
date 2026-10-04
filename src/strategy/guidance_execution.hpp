@@ -26,6 +26,7 @@ struct LocalSearchRotationRequest {
 struct WalkRequest {
   uint64_t allowance;
   uint64_t seed;
+  uint64_t seed_candidate = 0;
 };
 
 inline ApplyResult execute_action(Kernel &k, const ReorderRequest &request) {
@@ -58,7 +59,11 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
   WorkSettingsScope work(k, {request.allowance, std::nullopt, std::nullopt,
                             std::nullopt}, WorkSettingsExit::ClearBudget);
   k.walk_random_seed = request.seed;
-  return walk_apply(k);
+  const uint64_t previous_candidate = k.walk_seed_candidate;
+  k.walk_seed_candidate = request.seed_candidate;
+  const auto result = walk_apply(k);
+  k.walk_seed_candidate = previous_candidate;
+  return result;
 }
 
 struct WarmupRequest {};

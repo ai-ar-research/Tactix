@@ -1,6 +1,5 @@
 #include "rules/lucky/parity_live.hpp"
 #include "proof/proof.hpp"
-#include "rules/propagate/propagate.hpp"
 #include <cstdlib>
 
 namespace tactix {
@@ -92,7 +91,8 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   ParityLiveResult result;
   if(!request.records||!request.action_id||request.selection.output_width>4||
      k.inconsistent||k.level||k.conflict_valid||k.pending.valid||k.dense||
-     k.probing.recording||!k.large_watches_connected||k.propagate_head!=k.trail.size()||
+     k.probing.recording||!k.large_watches_connected||
+     !kernel_propagation_fixpoint(k)||
      (k.proof&&(k.proof->lrat()||k.proof->pb())))return result;
   Journal journal{request.records,request.action_id};
   std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
@@ -149,10 +149,23 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"tree-bound\",\"variables\":%u,\"limit\":%u}\n",(unsigned long long)request.action_id,tree_variables,request.maximum_tree_variables);
   const uint32_t original=static_cast<uint32_t>(k.external_to_internal.size());
   Sink preflight{k,journal,false,original,request.maximum_proof_additions};
-  if(!derive(preflight,equations,request.selection.output_width)||kernel_terminating(k))return result;
+  const bool ready=derive(preflight,equations,request.selection.output_width);
+  result.preflight_additions=preflight.additions;
+  if(!ready||kernel_terminating(k))return result;
+  bool terminal_root_conflict=false;
+  for(const auto &item:preflight.units) {
+    const Lit literal=kernel_internalize(k,item.clause.lits[0]);
+    if(literal==INVALID_LIT)std::abort();
+    terminal_root_conflict |= k.value(literal)<0;
+  }
+  if(terminal_root_conflict) {
+    if(preflight.additions==request.maximum_proof_additions)return result;
+    ++result.preflight_additions;
+  }
   Var first;
-  result.helpers=preflight.fresh-original;
-  if(!kernel_reserve_proof_variables(k,result.helpers,first))return result;
+  const uint32_t helpers=preflight.fresh-original;
+  if(!kernel_reserve_proof_variables(k,helpers,first))return result;
+  result.helpers=helpers;
   k.close_startup_certificate();
   Sink committed{k,journal,true,original,request.maximum_proof_additions};
   if(!derive(committed,equations,request.selection.output_width)||committed.additions!=preflight.additions||committed.deletions!=preflight.deletions||committed.fresh!=preflight.fresh)std::abort();
@@ -162,7 +175,12 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
     for(uint32_t i=0;i<c.size;++i) {lits[i]=kernel_internalize(k,c.lits[i]);if(lits[i]==INVALID_LIT)std::abort();}
     if(!c.size) {k.inconsistent=true;return;}
     if(c.size==1) {
-      if(k.value(lits[0])<0) {k.inconsistent=true;const uint64_t empty_id=++k.next_clause_id;if(k.proof)k.proof->add_empty(empty_id,nullptr,0);journal.clause("root-conflict",empty_id,nullptr,0);return;}
+      if(k.value(lits[0])<0) {
+        if(!terminal_root_conflict||result.additions==request.maximum_proof_additions)std::abort();
+        k.inconsistent=true;const uint64_t empty_id=++k.next_clause_id;
+        if(k.proof)k.proof->add_empty(empty_id,nullptr,0);
+        ++result.additions;journal.clause("root-conflict",empty_id,nullptr,0);return;
+      }
       if(!k.value(lits[0])) {k.unit_ids[var_of(lits[0])]=item.id;kernel_assign_unit(k,lits[0]);++result.published;}
     } else if(c.size==2) {
       if(!kernel_binary_live(k,lits[0],lits[1])) {kernel_add_binary_clause(k,lits[0],lits[1],item.id);++result.published;}
@@ -173,7 +191,6 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
   for(const auto &item:committed.units) {if(k.inconsistent)break;publish(item);}
   for(const auto &item:committed.exported) {if(k.inconsistent)break;publish(item);}
   if(k.inconsistent)result.result=ApplyResult::Unsat;
-  else if(propagate_service(k)==ApplyResult::Unsat)result.result=ApplyResult::Unsat;
   else result.result=result.published?ApplyResult::Ok:ApplyResult::NoOp;
   std::fflush(request.records);if(std::ferror(request.records))std::abort();
   return result;

@@ -16,6 +16,12 @@
 
 using namespace tactix;
 
+static constexpr uint64_t ACTIVE_LUCKY_INSTANCES[] = {
+    LUCKY_ALL_TRUE, LUCKY_ALL_FALSE, LUCKY_FORWARD_FALSE,
+    LUCKY_FORWARD_TRUE, LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE,
+    15, 16, LUCKY_STARTUP_PARITY, LUCKY_STARTUP_COUNT,
+    LUCKY_STARTUP_RAMSEY, LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF};
+
 static std::string graph_formula(unsigned vertices, bool odd, bool renamed) {
   std::vector<std::vector<int>> incident(vertices), clauses;
   int variables = 0;
@@ -134,15 +140,20 @@ int main(int argc, char **argv) {
     tactix_handle *strict = tactix_init();
     const std::string path = std::string(argv[1]) + "/lucky-strict.dsr";
     assert(tactix_proof(strict, path.c_str(), TACTIX_PROOF_DSR_BINARY) == 0);
-    uint64_t no_proof_instances[21], strict_instances[21];
+    uint64_t no_proof_instances[LUCKY_INSTANCE_COUNT];
+    uint64_t strict_instances[LUCKY_INSTANCE_COUNT];
     const int no_proof_count =
-        tactix_rule_instances(proofless, lucky_id, no_proof_instances, 21);
+        tactix_rule_instances(proofless, lucky_id, no_proof_instances,
+                              LUCKY_INSTANCE_COUNT);
     const int strict_count =
-        tactix_rule_instances(strict, lucky_id, strict_instances, 21);
-    assert(no_proof_count == 21 && strict_count == no_proof_count);
+        tactix_rule_instances(strict, lucky_id, strict_instances,
+                              LUCKY_INSTANCE_COUNT);
+    assert(no_proof_count == int(LUCKY_ACTIVE_INSTANCE_COUNT) &&
+           strict_count == no_proof_count);
     for (int i = 0; i < strict_count; ++i)
       assert(no_proof_instances[i] == strict_instances[i] &&
-             strict_instances[i] == static_cast<uint64_t>(i));
+             strict_instances[i] == ACTIVE_LUCKY_INSTANCES[i] &&
+             !lucky_retired_constructor_instance(strict_instances[i]));
     assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_PARITY) == 1);
     assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_COUNT) == 1);
     tactix_release(strict);
@@ -159,14 +170,15 @@ int main(int argc, char **argv) {
   // An explicit clausal writer closes the PB boundary, but it must not
   // renumber the public Lucky action space seen by replay/random policies.
   const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-  uint64_t available[21];
+  uint64_t available[LUCKY_INSTANCE_COUNT];
   Kernel clausal;
   clausal.close_startup_certificate();
   for (Kernel *state : {&closed, &clausal}) {
-    assert(lucky.instances(*state, available, 21) == 21);
-    for (uint64_t id = 0; id < 21; ++id)
-      assert(available[id] == id);
-    assert(lucky.instances(*state, available, 19) == 19);
+    assert(lucky.instances(*state, available, LUCKY_INSTANCE_COUNT) ==
+           LUCKY_ACTIVE_INSTANCE_COUNT);
+    for (uint64_t index = 0; index < LUCKY_ACTIVE_INSTANCE_COUNT; ++index)
+      assert(available[index] == ACTIVE_LUCKY_INSTANCES[index]);
+    assert(lucky.instances(*state, available, 8) == 8);
     assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_PARITY) ==
            ApplyResult::NoOp);
     assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_COUNT) ==

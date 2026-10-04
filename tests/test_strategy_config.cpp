@@ -108,9 +108,9 @@ int main() {
          std::string::npos);
   assert(defaults.serialize().find(
              "signed_cardinality_proof.enabled=1") != std::string::npos);
-  assert(defaults.serialize().find("exact_cover_model.enabled=1") !=
+  assert(defaults.serialize().find("exact_cover_model.enabled=0") !=
          std::string::npos);
-  assert(defaults.serialize().find("independent_set_model.enabled=1") !=
+  assert(defaults.serialize().find("independent_set_model.enabled=0") !=
          std::string::npos);
   assert(!default_should_cleanup_unique_literal_amo(0, true, false));
   assert(!default_should_cleanup_unique_literal_amo(3, false, false));
@@ -432,11 +432,13 @@ int main() {
     invalid.rephase.walk_score_curve[1].average_clause_size_milli = 0;
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
+    invalid.rephase.structural_walk_seed = true;
     invalid.rephase.structural_seed_rotation.clear();
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
-    invalid.rephase.structural_seed_rotation[0] =
-        static_cast<strategy::LocalSearchKind>(99);
+    invalid.rephase.structural_walk_seed = true;
+    invalid.rephase.structural_seed_rotation.push_back(
+        static_cast<strategy::LocalSearchKind>(99));
     assert(!invalid.valid(&validation_error));
     invalid = defaults;
     invalid.reorder.parameters.clause_decay_milli = 0;

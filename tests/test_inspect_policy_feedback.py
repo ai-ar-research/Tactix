@@ -57,6 +57,15 @@ def main():
         changed[action + 1]["value"] = -1
         rejected(encode(changed), "elapsed nanos")
         changed = json.loads(json.dumps(rows))
+        del changed[action]["before"]["local_search_candidates"]
+        rejected(encode(changed), "missing candidate observation")
+        changed = json.loads(json.dumps(rows))
+        changed[action]["before"]["local_search_candidates"] = [{
+            "id": 0, "formula_touch_epoch": 0, "formula_root_assignments": 0,
+            "external_variables": 2, "objective": 0, "objective_exact": True,
+            "effort": 1, "effort_unit": 0}]
+        rejected(encode(changed), "candidate identity")
+        changed = json.loads(json.dumps(rows))
         changed[action]["before"]["semantic_variable_candidates"] = [{
             "id": 0, "action_id": 1, "arena_generation": 0,
             "touch_epoch": 0, "strategy_epoch": 0, "producer": 0,

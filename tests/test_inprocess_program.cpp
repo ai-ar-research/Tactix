@@ -11,19 +11,28 @@ using namespace tactix::strategy;
 int main() {
   std::vector<InprocessStep> program = reference_inprocess_program();
   std::string error;
-  assert(program.size() == 18);
+  assert(program.size() == 19);
   assert(validate_inprocess_program(program, &error) && error.empty());
-  assert(program[1].rule == "Substitute" &&
-         program[7].rule == "Substitute" &&
-         program[1].id != program[7].id);
+  std::vector<const InprocessStep *> substitutes;
+  for (const InprocessStep &step : program)
+    if (step.rule == "Substitute")
+      substitutes.push_back(&step);
+  assert(substitutes.size() == 2 &&
+         substitutes[0]->id != substitutes[1]->id);
+  assert(substitutes[0]->followup == Followup::AfterCongruence);
+  assert(substitutes[1]->followup == Followup::AfterSweepOrFinal);
+  const auto parity = std::find_if(program.begin(), program.end(),
+                                   [](const InprocessStep &step) {
+                                     return step.rule == "ParityConsequence";
+                                   });
+  assert(parity != program.end() && !parity->enabled &&
+         parity == program.begin() + 1);
   const auto sr = std::find_if(program.begin(), program.end(),
                                [](const InprocessStep &step) {
                                  return step.rule ==
                                         "SubstitutionRedundancy";
                                });
   assert(sr == program.end());
-  assert(program[1].followup == Followup::AfterCongruence);
-  assert(program[7].followup == Followup::AfterSweepOrFinal);
 
   tactix::DefaultStrategyConfig defaults;
   const OnlineStrategyProgram root =
@@ -80,31 +89,30 @@ int main() {
          graph.graph_symmetry.maximum_fixing_instances == 128 &&
          graph.graph_symmetry.maximum_generator_instances_per_pass == 1);
 
-  assert(defaults.inprocess.structured_root_stages.size() == 4);
+  assert(defaults.inprocess.structured_root_stages.size() == 3);
   assert(defaults.inprocess.structured_root_backtracking_domain_limit ==
          32'000);
   assert(defaults.inprocess.structured_root_bounded_backtracking_stages.size() ==
          defaults.inprocess.structured_root_stages.size());
   assert(defaults.inprocess.structured_root_large_domain_limit == 50'000);
   assert(defaults.inprocess.structured_root_large_domain_stages.size() == 2);
-  const auto &model = defaults.inprocess.structured_root_stages[0].program;
-  assert(model.repeat.mode == RepeatMode::Once && model.sequence.size() == 1);
-  assert(model.sequence[0].rule == "Lucky" && model.sequence[0].instances == std::vector<uint64_t>{8});
-  assert(std::holds_alternative<AffineModelParameters>(model.sequence[0].parameters));
-  assert(defaults.inprocess.structured_root_stages[2]
+  for (const auto &stage : defaults.inprocess.structured_root_stages)
+    for (const auto &step : stage.program.sequence)
+      assert(step.rule != "Lucky");
+  assert(defaults.inprocess.structured_root_stages[1]
              .structured_handoff_after_prior_progress);
   const auto no_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], false, false, false);
+          defaults.inprocess.structured_root_stages[1], false, false, false);
   const auto progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], true, false, false);
+          defaults.inprocess.structured_root_stages[1], true, false, false);
   const auto helper_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[2], true, true, false);
+          defaults.inprocess.structured_root_stages[1], true, true, false);
   const auto prior_cut_progress =
       tactix::DefaultStrategyConfig::structured_root_stage_after_feedback(
-          defaults.inprocess.structured_root_stages[3], true, false, true);
+          defaults.inprocess.structured_root_stages[2], true, false, true);
   const auto &no_progress_graph =
       std::get<tactix::SubstitutionRedundancyParameters>(
           no_progress.program.sequence[2].parameters).graph_symmetry;
@@ -218,8 +226,17 @@ int main() {
   assert(!validate_inprocess_program(program, &error));
 
   program = reference_inprocess_program();
-  program[12].parameters = SubsumeForwardParameters{};
-  program[13].parameters = StrengthenParameters{};
+  const auto subsume = std::find_if(
+      program.begin(), program.end(), [](const InprocessStep &step) {
+        return step.rule == "SubsumeForward";
+      });
+  const auto strengthen = std::find_if(
+      program.begin(), program.end(), [](const InprocessStep &step) {
+        return step.rule == "Strengthen";
+      });
+  assert(subsume != program.end() && strengthen != program.end());
+  subsume->parameters = SubsumeForwardParameters{};
+  strengthen->parameters = StrengthenParameters{};
   assert(validate_inprocess_program(program, &error));
   program[0].parameters = StrengthenParameters{};
   assert(!validate_inprocess_program(program, &error));

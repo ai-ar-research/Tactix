@@ -2,6 +2,7 @@
 
 #include "policies/stress_common.hpp"
 #include "rules/decide/decide.hpp"
+#include "rules/lucky/lucky.hpp"
 
 #include <cstdio>
 #include <algorithm>
@@ -70,6 +71,11 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))
       entry.reason = "structured-witness-not-offered";
+    else if (std::string_view(rule.name) == "LocalSearchGuidance" &&
+             std::none_of(k.local_search_hints.begin(),
+                          k.local_search_hints.end(),
+                          [](const auto &hint) { return hint.available(); }))
+      entry.reason = "candidate-not-observed";
     else
       entry.eligible = true;
     result.push_back(std::move(entry));
@@ -87,6 +93,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("SubsumeForward", subsume_reference);
   CONTROLLER_REFERENCE("Strengthen", strengthen_reference);
   CONTROLLER_REFERENCE("Congruence", congruence_reference);
+  CONTROLLER_REFERENCE("ParityConsequence", parity_consequence_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
   CONTROLLER_REFERENCE("Backbone", backbone_reference);
   CONTROLLER_REFERENCE("Sweep", sweep_reference);
@@ -148,6 +155,13 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     invocation.budget = WorkLimit::bounded(allowance.amount);
     invocation.rule_work_budget = allowance.native;
     profiles.sequence.push_back(std::move(invocation));
+    if (std::string_view(rule.name) == "Lucky") {
+      auto ramsey = profiles.sequence.back();
+      ramsey.id = profiles.sequence.size() + 1;
+      ramsey.instances = {LUCKY_STARTUP_RAMSEY};
+      ramsey.parameters = config.parameters.ramsey_startup_reference;
+      profiles.sequence.push_back(std::move(ramsey));
+    }
   }
   out << " profiles " << std::quoted(serialize_online_strategy_program(profiles));
   for (const auto &[family, choices] : config.offered_actions) {
@@ -254,7 +268,11 @@ bool RandomControllerSelector::choose(
       // still accepts any explicit legal identity or structured payload.
       const auto enumerate = rule.semantic_instances ? rule.semantic_instances : rule.instances;
       if (enumerate && config.parameters.maximum_selected_batch && draw(2)) {
-        const auto cap = config.parameters.maximum_selected_batch;
+        // Lucky's finite constructor catalog is not a prefix of a potentially
+        // huge semantic candidate space. Keep every constructor selectable.
+        const auto cap = std::string_view(rule.name) == "Lucky"
+            ? LUCKY_ACTIVE_INSTANCE_COUNT
+            : config.parameters.maximum_selected_batch;
         std::vector<uint64_t> instances(cap);
         const auto count = enumerate(k, instances.data(), cap);
         if (count > cap) {
@@ -269,6 +287,46 @@ bool RandomControllerSelector::choose(
             request.invocation.granularity = InvocationGranularity::OneInstance;
             request.invocation.instances = {selected};
           }
+        }
+      }
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{LUCKY_STARTUP_RAMSEY})
+        request.invocation.parameters = config.parameters.ramsey_startup_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{15})
+        request.invocation.parameters = config.parameters.stconn_proof_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances == std::vector<uint64_t>{16})
+        request.invocation.parameters =
+            config.parameters.signed_cardinality_proof_reference;
+      if (request.invocation.rule == "Lucky" &&
+          (request.invocation.instances ==
+               std::vector<uint64_t>{LUCKY_STARTUP_PARITY} ||
+           request.invocation.instances ==
+               std::vector<uint64_t>{LUCKY_PARITY_PROOF}))
+        request.invocation.parameters = config.parameters.parity_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          request.invocation.instances ==
+              std::vector<uint64_t>{LUCKY_EXACT_ONE_PROOF})
+        request.invocation.parameters = config.parameters.onehot_model_reference;
+      if (request.invocation.rule == "Lucky" &&
+          !request.invocation.instances.empty() &&
+          (request.invocation.instances.front() <= LUCKY_BACKWARD_TRUE ||
+           request.invocation.instances.front() == LUCKY_STARTUP_COUNT))
+        request.invocation.parameters = std::monostate{};
+      // Guidance is a policy choice over the pure candidate snapshot. Bind
+      // the exact publication in the request, including an explicit unseeded
+      // Walk choice, so replacement cannot silently change a queued action.
+      if (!observation.local_search_candidates.empty()) {
+        if (request.invocation.rule == "Walk") {
+          auto &parameters = std::get<WalkParameters>(request.invocation.parameters);
+          const auto selected = draw(observation.local_search_candidates.size() + 1);
+          parameters.seed_candidate = selected < observation.local_search_candidates.size()
+              ? observation.local_search_candidates[selected].id : 0;
+        } else if (request.invocation.rule == "LocalSearchGuidance") {
+          request.invocation.granularity = InvocationGranularity::OneInstance;
+          request.invocation.instances = {observation.local_search_candidates[
+              draw(observation.local_search_candidates.size())].id};
         }
       }
     }

@@ -28,6 +28,7 @@ static void run(const std::string &dir,const char *name,std::vector<Equation> eq
   auto map=k.external_to_internal;const auto id=k.next_clause_id;
   assert(parity_live_apply(k,limited).result==ApplyResult::NoOp);assert(k.external_to_internal==map&&k.next_clause_id==id);
   request.action_id=2;const auto result=parity_live_apply(k,request);
+  assert(result.preflight_additions==result.additions);
   if(root_conflict)assert(result.result==ApplyResult::Unsat&&k.inconsistent);
   else {
     assert(result.result==ApplyResult::Ok&&!k.inconsistent);

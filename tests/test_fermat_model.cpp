@@ -1,7 +1,6 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "rules/lucky/fermat_model.hpp"
-#include "rules/lucky/lucky.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -87,13 +86,6 @@ int main() {
     strategy::ScopedFermatModelParameters posed(k, parameters);
     assert(fermat_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.fermat_model_recognized == 0);
-  }
-  {
-    Kernel k = fixture();
-    const int lucky_id = tactix_rule_id("Lucky");
-    assert(lucky_id >= 0);
-    const RuleVTable &lucky = tactix_rules()[lucky_id];
-    assert(lucky.apply_instance(k, 11) == ApplyResult::Sat);
   }
   return 0;
 }

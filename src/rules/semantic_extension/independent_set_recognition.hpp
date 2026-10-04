@@ -80,21 +80,9 @@ struct Image {
   uint64_t inspected_work = 0;
 };
 
-// Recognize the complete layered exact-count encoding used by the historical
-// LymphoSAT independent-set constructor.  Required clauses are:
-//
-//   (x1 v S[1,0]) and (-x1 v S[1,1]);
-//   (-S[i-1,s] v xi v S[i,s]) and
-//   (-S[i-1,s] v -xi v S[i,min(s+1,K)]) for i >= 2;
-//   pairwise AMO for every state layer i >= 2;
-//   (-S[N,s] v S[N,K]) for s < K; and
-//   (S[N,0] v ... v S[N,K]).
-//
-// Negative vertex binaries are the graph edges.  The exact clauses imply that
-// every model selects at least K vertices; the edge clauses make them an
-// independent set.  The source must contain at least one edge.  Failure,
-// ambiguity, interruption, malformed input, or any missing/extra clause leaves
-// `out` empty.
+// Recognize the complete historical layered exact-count encoding. The exact
+// clause grammar and soundness argument live in docs/calculus.md; recognition
+// accepts no unclassified source clause and leaves `out` empty on any doubt.
 bool recognize(const std::vector<Premise> &source,
                uint32_t external_variables, const Limits &limits,
                Charge charge, void *charge_context, Image &out);

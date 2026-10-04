@@ -55,7 +55,7 @@ VIVIFY_BAND = (r"execution::VivifyBandRequest\{\s*band_scope,\s*cumulative,\s*"
                r"spent,\s*e\.tick_counter,\s*e\.meter\}")
 WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
                   r"reference, config_\.rephase\.walk_permille\)")
-WALK_REQUEST = r"execution::WalkRequest\{allowance, seed\}"
+WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, candidate\}"
 MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
                     r"config\(\)\.touch_filter,\s*"
                     r"config\(\)\.likely_kept_redundant")
@@ -81,6 +81,14 @@ POLICY_BINDINGS = {
         (POLICY[0], WALK_ALLOWANCE),
         (POLICY[0], WALK_REQUEST),
         (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
+    ],
+    "walk_seed_candidate": [
+        (POLICY[0], r"const uint64_t candidate = config_\.rephase\.structural_walk_seed\s*"
+                    r"\? local_search_guidance_select_next\(k,\s*"
+                    r"config_\.rephase\.structural_seed_rotation, structural_seed_cursor_\)\s*:\s*0"),
+        (POLICY[0], WALK_REQUEST),
+        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*request\.seed_candidate"),
+        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*previous_candidate"),
     ],
     "work_budget_offset": [
         (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),
@@ -222,6 +230,7 @@ POLICY_BINDINGS["no_ext_reason_bump"] = [
     (POLICY[0], r"execution::ParameterInstallationRequest\{analysis\}"), PARAMETER_INSTALL,
     ("src/strategy/analyze_parameters.cpp", r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
 POLICY_ADAPTERS["walk_even_break_base_milli"] = [RULE_PARAMETERS]
+POLICY_ADAPTERS["walk_seed_candidate"] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
 POLICY_BINDINGS["walk_even_break_base_milli"] = [
     (POLICY[0], r"execution::WalkGuidanceInstallationRequest\{\s*config_\.rephase\.walk_even_break_base_milli"),
     (PARAMETER_EXECUTION, r"strategy::install_walk_guidance\(k, request\.even_break_base_milli"),
@@ -312,6 +321,7 @@ TABLE = {
                                            "advanced once per ordinary Eliminate phase"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
+    "walk_seed_candidate":     ("POLICY", "exact structural publication selected for private Walk seeding"),
     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
                                           "Vivify tier ceiling"),
     "work_budget_bounded":     ("POLICY", "distinguishes a zero cumulative Vivify "
@@ -332,6 +342,7 @@ TABLE = {
     "conflict_reuse_chrono_levels":
                                 ("POLICY", "configured chronological-gap limit "
                                            "for the conflict-reuse shortcut"),
+    "structural_action_sequence": ("RULE", "monotone structural provenance attempt identity"),
     "semantic_variable_candidate_pending":
                                 ("RULE", "registry transaction state for one staged "
                                          "producer declaration"),
@@ -495,6 +506,9 @@ CONFIG_START = "cold_state_deferred"
 # per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
+              # Candidate publication lifetime; deliberately independent of
+              # resettable statistics and never set by a policy profile.
+              "local_search_publication",
               "warming",
               "strategy_epoch", "subsume_material_count",
               "fixed_external_count",

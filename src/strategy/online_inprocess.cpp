@@ -2,10 +2,12 @@
 
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/rule_execution.hpp"
 #include "strategy/work_execution.hpp"
+#include "strategy/guidance_outcome.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/publication_execution.hpp"
 #include "strategy/sweep_execution.hpp"
@@ -111,6 +113,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "SubsumeForward";
   if (std::holds_alternative<StrengthenParameters>(step.parameters))
     return step.rule == "Strengthen";
+  if (std::holds_alternative<ParityConsequenceParameters>(step.parameters))
+    return step.rule == "ParityConsequence";
   if (std::holds_alternative<CongruenceParameters>(step.parameters))
     return step.rule == "Congruence";
   if (std::holds_alternative<InstantiateParameters>(step.parameters))
@@ -156,6 +160,10 @@ bool parameter_matches(const OnlineInvocation &step) {
   if (std::holds_alternative<ExactCoverModelParameters>(step.parameters))
     return step.rule == "Lucky";
   if (std::holds_alternative<IndependentSetModelParameters>(step.parameters))
+    return step.rule == "Lucky";
+  if (std::holds_alternative<RamseyStartupParameters>(step.parameters))
+    return step.rule == "Lucky";
+  if (std::holds_alternative<GraphLabelingParameters>(step.parameters))
     return step.rule == "Lucky";
   if (std::holds_alternative<AffineModelParameters>(step.parameters))
     return step.rule == "Lucky";
@@ -216,6 +224,18 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("rule material setting is invalid");
     if (!parameter_matches(step))
       return reject("parameters do not match rule");
+    if (step.rule == "Lucky" &&
+        (std::holds_alternative<AffineModelParameters>(step.parameters) ||
+         std::holds_alternative<BalancedSignatureModelParameters>(
+             step.parameters) ||
+         std::holds_alternative<FermatModelParameters>(step.parameters) ||
+         std::holds_alternative<LookupCircuitModelParameters>(step.parameters) ||
+         std::holds_alternative<SimonModelParameters>(step.parameters) ||
+         std::holds_alternative<ExactCoverModelParameters>(step.parameters) ||
+         std::holds_alternative<IndependentSetModelParameters>(
+             step.parameters) ||
+         std::holds_alternative<GraphLabelingParameters>(step.parameters)))
+      return reject("Lucky constructor parameters are retired");
     if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters);
         p && !p->valid())
       return reject("Analyze parameters are invalid");
@@ -229,6 +249,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (const auto *p = std::get_if<StrengthenParameters>(&step.parameters);
         p && !p->valid())
       return reject("C2 parameters are invalid");
+    if (const auto *p = std::get_if<ParityConsequenceParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("ParityConsequence parameters are invalid");
     if (const auto *p = std::get_if<CongruenceParameters>(&step.parameters);
         p && !p->valid())
       return reject("Congruence parameters are invalid");
@@ -305,6 +328,12 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
             std::get_if<IndependentSetModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky independent-set-model parameters are invalid");
+    if (const auto *p = std::get_if<RamseyStartupParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky ramsey-startup parameters are invalid");
+    if (const auto *p = std::get_if<GraphLabelingParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Lucky graph-labeling parameters are invalid");
     if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
         p && !p->valid())
       return reject("Lucky affine-model parameters are invalid");
@@ -343,6 +372,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("scalar and structured selections cannot be mixed");
     if (structured_payload_kinds > 1)
       return reject("different structured selection kinds cannot be mixed");
+    if (step.rule == "Lucky" &&
+        std::any_of(step.instances.begin(), step.instances.end(),
+                    lucky_retired_constructor_instance))
+      return reject("Lucky constructor instance is retired");
     const size_t structured_size = !step.factor_grids.empty()
                                        ? step.factor_grids.size()
                                        : !step.substitution_redundancy_instances.empty()
@@ -1151,6 +1184,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       out.after = state_version(k);
     } else {
       const uint64_t propagations_before = k.stats.propagations;
+      const GuidanceOutcomeSnapshot guidance_before(k);
       execution::ParameterExecutionScope<
           AnalyzeParameters, SubsumeForwardParameters, StrengthenParameters,
           CongruenceParameters, InstantiateParameters, BackboneParameters,
@@ -1161,7 +1195,9 @@ InvocationResult OnlineStrategyExecutor::advance(
           FermatModelParameters, LookupCircuitModelParameters,
           SimonModelParameters, StconnProofParameters,
           SignedCardinalityProofParameters, ExactCoverModelParameters,
-          IndependentSetModelParameters, AffineModelParameters>
+          IndependentSetModelParameters, AffineModelParameters, GraphLabelingParameters,
+          RamseyStartupParameters,
+          ParityConsequenceParameters>
           parameters(k, step.parameters);
       // Invocation-level native work limits override a rule parameter which
       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
@@ -1277,6 +1313,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                        : result == ApplyResult::Ok
                              ? InvocationStatus::Completed
                              : detail::terminal_status(result);
+      out.status = guidance_before.refine(k, result, out.status);
       if (sr_application) {
         switch (sr_application->status) {
         case SubstitutionRedundancyApplicationStatus::Invalid:

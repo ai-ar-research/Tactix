@@ -150,6 +150,21 @@ std::string serialize_observation(const Observation &value) {
   out << '}';
   if (!value.native_policy_state.empty())
     out << ",\"native_policy_state\":" << quote(value.native_policy_state);
+  out << ",\"local_search_candidates\":[";
+  bool first_candidate = true;
+  for (const auto &candidate : value.local_search_candidates) {
+    if (!first_candidate) out << ',';
+    first_candidate = false;
+    out << "{\"id\":" << candidate.id
+        << ",\"formula_touch_epoch\":" << candidate.formula_touch_epoch
+        << ",\"formula_root_assignments\":" << candidate.formula_root_assignments
+        << ",\"external_variables\":" << candidate.external_variables
+        << ",\"objective\":" << candidate.objective
+        << ",\"objective_exact\":" << candidate.objective_exact
+        << ",\"effort\":" << candidate.effort.amount
+        << ",\"effort_unit\":" << unsigned(candidate.effort.unit) << '}';
+  }
+  out << ']';
   if (!value.semantic_variable_candidates.empty()) {
     out << ",\"semantic_variable_candidates\":[";
     bool first_semantic_candidate = true;

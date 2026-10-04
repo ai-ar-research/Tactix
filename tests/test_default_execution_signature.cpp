@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
         assert(k.stats.warmups && k.stats.warming_decisions);
         assert(k.stats.walks && k.stats.walk_steps);
         if (profile == 4) assert(k.stats.switched);
-        if (profile == 6) assert(k.stats.local_search_hints_applied);
+        if (profile == 6) assert(k.stats.walk_seed_imports);
       }
       if (profile == 5 && verdict == 20) assert(k.stats.rephased >= 3);
       if (verdict == 10) {

@@ -4861,7 +4861,36 @@ static int proof_witness(const char *input, const char *output,
   return result;
 }
 
+static void seeded_walk_reports_exact_failure_status() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0});
+  WalkParameters p;
+  p.seed_candidate = k.local_search_hints[0].id;
+  p.step_budget = 0;
+  OnlineInvocation step;
+  step.id = 1;
+  step.rule = "Walk";
+  step.parameters = p;
+  step.granularity = InvocationGranularity::CanonicalApplication;
+  OnlineStrategyProgram program;
+  program.sequence = {step};
+  OnlineStrategyExecutor executor;
+  assert(executor.configure(program, 1));
+  const auto saved = k.h->saved, target = k.h->target;
+  assert(executor.advance(k).status == InvocationStatus::BudgetExhausted);
+  assert(k.h->saved == saved && k.h->target == target);
+  assert(k.walk_seed_candidate == 0);
+  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {0, 1});
+  assert(executor.configure(program, 2));
+  assert(executor.advance(k).status == InvocationStatus::StaleRequest);
+  assert(k.h->saved == saved && k.h->target == target);
+}
+
 int main(int argc, char **argv) {
+  seeded_walk_reports_exact_failure_status();
   std::optional<uint64_t> generator_cap;
   std::optional<bool> root_stabilizer;
   if (argc == 8 || argc == 9) {

@@ -8,6 +8,7 @@
 #include "proof/proof.hpp"
 #include "strategy/analyze_parameters.hpp"
 #include "strategy/congruence_parameters.hpp"
+#include "strategy/parity_consequence_parameters.hpp"
 #include "strategy/forward_parameters.hpp"
 #include "strategy/failed_literal_parameters.hpp"
 #include "strategy/instantiate_parameters.hpp"
@@ -583,6 +584,30 @@ struct Stats {
   uint64_t exact_cover_model_budget_exhausted = 0;
   uint64_t exact_cover_model_sat = 0;
   uint64_t exact_cover_model_interrupted = 0;
+  uint64_t ramsey_startup_attempts = 0;
+  uint64_t ramsey_startup_recognized = 0;
+  uint64_t ramsey_startup_recognition_work = 0;
+  uint64_t ramsey_startup_certificate_work = 0;
+  uint64_t ramsey_startup_nodes = 0;
+  uint64_t ramsey_startup_additions = 0;
+  uint64_t ramsey_startup_deletions = 0;
+  uint64_t ramsey_startup_helpers = 0;
+  uint64_t ramsey_startup_interrupted = 0;
+  uint64_t ramsey_startup_exhausted = 0;
+  uint64_t ramsey_startup_unsat = 0;
+  uint64_t graph_labeling_calls = 0;
+  uint64_t graph_labeling_recognized = 0;
+  uint64_t graph_labeling_vertices = 0;
+  uint64_t graph_labeling_separation = 0;
+  uint64_t graph_labeling_seeds = 0;
+  uint64_t graph_labeling_nodes = 0;
+  uint64_t graph_labeling_repairs = 0;
+  uint64_t graph_labeling_anneal_attempts = 0;
+  uint64_t graph_labeling_work = 0;
+  uint64_t graph_labeling_budget = 0;
+  uint64_t graph_labeling_interrupted = 0;
+  uint64_t graph_labeling_models_rejected = 0;
+  uint64_t graph_labeling_sat = 0;
   uint64_t independent_set_model_calls = 0;
   uint64_t independent_set_model_recognized = 0;
   uint64_t independent_set_model_vertices = 0;
@@ -625,6 +650,7 @@ struct Stats {
   uint64_t signed_cardinality_proof_interrupted = 0;
   uint64_t local_search_hints_offered = 0;
   uint64_t local_search_hints_applied = 0;
+  uint64_t local_search_hints_stale = 0;
   uint64_t semantic_variable_candidates_published = 0;
   uint64_t semantic_variable_candidate_existing = 0;
   uint64_t semantic_variable_candidate_introduced = 0;
@@ -636,9 +662,15 @@ struct Stats {
   uint64_t semantic_variable_advice_inapplicable = 0;
   uint64_t semantic_variable_advice_variables = 0;
   uint64_t semantic_variable_advice_priority = 0;
+  uint64_t walk_seed_imports = 0;
+  uint64_t walk_seed_steps = 0;
+  uint64_t walk_seed_budget_exhausted = 0;
+  uint64_t walk_seed_interrupted = 0;
+  uint64_t walk_seed_ordinary_unsat = UINT64_MAX;
+  uint64_t walk_seed_candidate_unsat = UINT64_MAX;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
-  uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
+  uint64_t walk_steps = 0;    // native occurrence visits plus explicit seed work
   uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
   uint64_t walk_minimum = UINT64_MAX;
   uint64_t warmups = 0; // root decision/propagation sweeps before Walk
@@ -845,6 +877,12 @@ struct Stats {
   uint64_t chronological = 0;  // chrono backtrack targets taken
   uint64_t backjump_stale = 0;
   uint64_t inprocess_phases = 0;   // policy inprocessing phases (a root descent
+  uint64_t parity_consequence_attempts = 0;
+  uint64_t parity_consequence_clauses = 0, parity_consequence_equations = 0;
+  uint64_t parity_consequence_selection_work = 0;
+  uint64_t parity_consequence_preflight_additions = 0;
+  uint64_t parity_consequence_additions = 0, parity_consequence_deletions = 0;
+  uint64_t parity_consequence_helpers = 0, parity_consequence_published = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   uint64_t congruence_binary_rebuilds = 0;
   uint64_t congruence_unjustified = 0;
@@ -1483,6 +1521,9 @@ struct Kernel {
   // advice: failed model searches never alter F, the trail, or proof state.
   std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
       local_search_hints;
+  // Publication identity is solver state, independent of resettable telemetry.
+  uint64_t local_search_publication = 0;
+  uint64_t walk_seed_candidate = 0;
   // Proof-rule declarations are staged until registry dispatch advances the
   // action epoch. Only current post-action candidates are observable/applicable.
   std::array<strategy::SemanticVariableCandidate,
@@ -1575,6 +1616,8 @@ struct Kernel {
   strategy::SimonModelParameters simon_model_parameters;
   strategy::ExactCoverModelParameters exact_cover_model_parameters;
   strategy::IndependentSetModelParameters independent_set_model_parameters;
+  strategy::GraphLabelingParameters graph_labeling_parameters;
+  strategy::RamseyStartupParameters ramsey_startup_parameters;
   strategy::StconnProofParameters stconn_proof_parameters;
   strategy::SignedCardinalityProofParameters signed_cardinality_proof_parameters;
   uint32_t onehot_model_maximum_variables =
@@ -1633,12 +1676,13 @@ struct Kernel {
   strategy::StrengthenParameters strengthen_parameters;
   strategy::AnalyzeParameters analyze_parameters;
   strategy::CongruenceParameters congruence_parameters;
+  strategy::ParityConsequenceParameters parity_consequence_parameters;
   strategy::AffineConsequenceParameters affine_consequence_parameters;
   strategy::ExactCoverExtensionParameters exact_cover_extension_parameters;
   strategy::IndependentSetCoverParameters independent_set_cover_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
-  // Borrowed session stream shared by every structural action. The owner keeps
-  // it open; successful action identities are monotone across rule families.
+  // Borrowed session stream. The owner keeps it open through all structural
+  // actions; sequence IDs never reset on rebind or proof-mode changes.
   FILE *structural_provenance = nullptr;
   uint64_t structural_action_sequence = 0;
   // Non-owning pointers to solver/controller-owned feature caches. They are
@@ -1735,7 +1779,15 @@ void kernel_update_target_phases(Kernel &);
 void kernel_offer_local_search_hint(Kernel &, strategy::LocalSearchKind,
                                     const std::vector<uint8_t> &assignment,
                                     uint64_t objective = UINT64_MAX,
-                                    bool objective_exact = false);
+                                    bool objective_exact = false,
+                                    strategy::LocalSearchEffort effort = {});
+// Signed internal-variable assignment: zero leaves that variable unspecified.
+void kernel_offer_local_search_partial_hint(
+    Kernel &, strategy::LocalSearchKind, const std::vector<int8_t> &assignment,
+    uint64_t objective = UINT64_MAX, bool objective_exact = false,
+    strategy::LocalSearchEffort effort = {});
+const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &,
+                                                         uint64_t candidate);
 
 // Reserve permanent external IDs for proof-only helpers, without creating
 // internal/search variables. Use after input import and before proof emission,

@@ -15,7 +15,7 @@
 /* Entries with no uint64 payload surface: a numeric payload is invalid.
  * Condition instead has a structured public tuple surface below. */
 static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
-                                         "SwitchMode", "Condition"};
+                                         "SwitchMode", "Condition", "ParityConsequence"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -26,7 +26,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
  * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
 static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "SubstitutionRedundancy",
-                                             "SwitchMode", "Walk"};
+                                             "SwitchMode", "Walk", "ParityConsequence"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
   size_t i;
@@ -88,10 +88,15 @@ static void fixture(tactix *s) {
 
 /* A fresh solver where `id`'s guard holds; search-state entries need more
  * than a quiescent root. */
+static FILE *structural_records;
 static tactix *prepare(int id) {
   const char *name = tactix_rule_name(id);
   tactix *s = tactix_init();
   fixture(s);
+  if (!strcmp(name, "ParityConsequence")) {
+    structural_records = tmpfile(); assert(structural_records);
+    assert(tactix_bind_structural_provenance(s, structural_records) == 0);
+  }
   if (!strcmp(name, "Propagate")) {
     assert(tactix_decide(s, 5) == 0); /* a decision leaves the queue nonempty */
   } else if (!strcmp(name, "Restart")) {
@@ -199,9 +204,11 @@ int main(void) {
     tactix *s = prepare(id);
     drive(s, id);
     tactix_release(s);
+    if (structural_records) { fclose(structural_records); structural_records = NULL; }
     tactix *t = prepare(id);
     alias_contract(t, id);
     tactix_release(t);
+    if (structural_records) { fclose(structural_records); structural_records = NULL; }
     reached += (hit_canonical[id] || hit_payload[id] || hit_structured[id]);
     payload += hit_payload[id];
     structured += hit_structured[id];

@@ -58,7 +58,7 @@ uint64_t optional_positive(uint64_t &state, uint64_t maximum) {
   return 1 + bounded(state, maximum);
 }
 
-ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::string &rule,
+ActionParameters random_parameters(const Kernel &, uint64_t &state, const std::string &rule,
                                    const RandomOnlineConfig &config) {
   if (rule == "ConflictAnalysis") {
     AnalyzeParameters p = config.analyze_reference;
@@ -122,6 +122,15 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return StrengthenParameters{
         choice_limit(state, config.strengthen_reference.clause_size_limit),
         choice_limit(state, config.strengthen_reference.occurrence_limit)};
+  if (rule == "ParityConsequence") {
+    auto p = config.parity_consequence_reference;
+    // Keep the caller's joint effort profile; vary only pivot direction and
+    // the selected ordinal within its explicitly supplied range.
+    p.descending = bounded(state, 2) != 0;
+    p.consequence = p.consequence == UINT64_MAX ? draw(state)
+                       : bounded(state, p.consequence + 1);
+    return p;
+  }
   if (rule == "Congruence") {
     CongruenceParameters p;
     p.and_arity_limit =
@@ -254,27 +263,14 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return p;
   }
   if (rule == "Lucky") {
-    const uint64_t lucky_kind = bounded(state, 9);
-    // A derived stream: the draws above and every later one stay unchanged.
-    uint64_t exact_cover_state = state ^ 0x4558414354434f56ull;
-    if (lucky_kind == 7 && bounded(exact_cover_state, 4) == 0) {
-      IndependentSetModelParameters p = config.independent_set_model_reference;
-      p.maximum_vertices = 2 + inclusive_u32(exact_cover_state, 4094);
-      p.maximum_steps = bounded(exact_cover_state, 64);
-      p.completion_rounds = bounded(exact_cover_state, 64);
-      p.seed = exact_cover_state;
-      return p;
-    }
-    if (lucky_kind == 8 && bounded(exact_cover_state, 4) == 0) {
-      ExactCoverModelParameters p = config.exact_cover_model_reference;
-      p.block_arity = 3 + inclusive_u32(exact_cover_state, 13);
-      p.maximum_nodes = 1 + bounded(exact_cover_state, p.maximum_nodes);
-      p.restarts = bounded(exact_cover_state, 4);
-      p.restart_nodes = 1 + bounded(exact_cover_state, p.restart_nodes);
-      p.seed = exact_cover_state;
-      return p;
-    }
-    if (lucky_kind == 8) {
+    // Constructor parameter kinds remain decodable as reference artifacts but
+    // are no longer generated. Random policy explores only generic probes and
+    // proof-producing Lucky opportunities.
+    const uint64_t lucky_kind = bounded(
+        state, 5 + static_cast<uint64_t>(config.ramsey_startup_reference.enabled()));
+    if (lucky_kind == 5)
+      return config.ramsey_startup_reference;
+    if (lucky_kind == 4) {
       SignedCardinalityProofParameters p =
           config.signed_cardinality_proof_reference;
       p.maximum_variables =
@@ -289,7 +285,7 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
           1 + bounded(state, p.maximum_proof_additions);
       return p;
     }
-    if (lucky_kind == 7) {
+    if (lucky_kind == 3) {
       StconnProofParameters p = config.stconn_proof_reference;
       p.maximum_width =
           2 + inclusive_u32(state, p.maximum_width - 2);
@@ -298,102 +294,7 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
       p.maximum_rup_clauses = 1 + bounded(state, p.maximum_rup_clauses);
       return p;
     }
-    if (lucky_kind == 6) {
-      SimonModelParameters p = config.simon_model_reference;
-      p.maximum_rounds = 1 + inclusive_u32(state, p.maximum_rounds - 1);
-      p.maximum_candidates = 1 + bounded(state, p.maximum_candidates);
-      return p;
-    }
-    if (lucky_kind == 5) {
-      LookupCircuitModelParameters p = config.lookup_circuit_model_reference;
-      p.maximum_fanin = 1 + inclusive_u32(state, p.maximum_fanin - 1);
-      p.maximum_fanout = 1 + inclusive_u32(state, p.maximum_fanout - 1);
-      p.maximum_primary_inputs =
-          1 + inclusive_u32(state, p.maximum_primary_inputs - 1);
-      p.maximum_support = 1 + inclusive_u32(state, p.maximum_support - 1);
-      p.maximum_vector_gate_evaluations =
-          1 + bounded(state, p.maximum_vector_gate_evaluations);
-      return p;
-    }
-    if (lucky_kind == 4) {
-      FermatModelParameters p = config.fermat_model_reference;
-      p.maximum_bits = 1 + inclusive_u32(state, p.maximum_bits - 1);
-      p.comparator_tail_clauses =
-          2 + inclusive_u32(state, p.comparator_tail_clauses - 2);
-      p.rho_constants = 1 + bounded(state, p.rho_constants);
-      p.rho_iterations = 1 + bounded(state, p.rho_iterations);
-      return p;
-    }
-    if (lucky_kind == 3) {
-      BalancedSignatureModelParameters p =
-          config.balanced_signature_model_reference;
-      p.maximum_balls = 3 + inclusive_u32(state, p.maximum_balls - 3);
-      p.maximum_width = 1 + inclusive_u32(state, p.maximum_width - 1);
-      p.restarts = 1 + bounded(state, p.restarts);
-      p.steps_per_restart = 1 + bounded(state, p.steps_per_restart);
-      p.samples_per_step =
-          1 + inclusive_u32(state, p.samples_per_step - 1);
-      p.seed = draw(state);
-      p.completion_rounds =
-          1 + inclusive_u32(state, p.completion_rounds - 1);
-      return p;
-    }
     if (lucky_kind == 2) {
-      AffineModelParameters p = config.affine_model_reference;
-      const bool joint = bounded(state,config.affine_joint_positive_denominator) <
-                         config.affine_joint_positive_numerator;
-      const auto sample = [&](uint64_t maximum) {
-        return joint && maximum ? 1+bounded(state,maximum)
-                                : optional_positive(state,maximum);
-      };
-      p.seed = draw(state);
-      p.maximum_variables = sample(p.maximum_variables);
-      p.maximum_constraints = sample(p.maximum_constraints);
-      p.maximum_arity = sample(p.maximum_arity);
-      p.maximum_projection = sample(p.maximum_projection);
-      p.minimum_equations = choice_limit(state,p.minimum_equations);
-      p.maximum_entries = sample(p.maximum_entries);
-      p.import_bytes = sample(p.import_bytes);
-      p.linear_bytes = sample(p.linear_bytes);
-      p.table_bytes = sample(p.table_bytes);
-      p.maximum_work = sample(
-          std::min(p.maximum_work,config.maximum_rule_work_budget));
-      p.candidate_budget = sample(p.candidate_budget);
-      p.permutations = sample(p.permutations);
-      p.automatic_negated = bounded(state,2);
-      p.shuffle_first = bounded(state,2);
-      p.free_phase = bounded(state,2);
-      p.residual_phase = bounded(state,2);
-      p.projection_mode = static_cast<AffineProjectionMode>(bounded(state,3));
-      p.projection.clear();
-      if (p.projection_mode == AffineProjectionMode::Explicit) {
-        std::vector<int> coordinates;
-        for (Var v=0;v<k.nvars;++v)
-          if (!kernel_var_retired(k,v))
-            coordinates.push_back(kernel_externalize(k,make_lit(v,false)));
-        const size_t count = bounded(state,1+std::min<size_t>(
-            coordinates.size(),config.maximum_affine_projection_coordinates));
-        for(size_t i=0;i<count;++i) {
-          const size_t selected=i+bounded(state,coordinates.size()-i);
-          std::swap(coordinates[i],coordinates[selected]);
-          p.projection.push_back(bounded(state,2)?coordinates[i]:-coordinates[i]);
-        }
-      }
-      // Retaining the reference scopes sometimes gives jointly productive
-      // settings; the other branch explores arbitrary noncanonical scopes.
-      if (bounded(state,2)) {
-        p.scopes.clear();
-        const size_t count=bounded(state,uint64_t(config.maximum_affine_scopes)+1);
-        for(size_t i=0;i<count;++i)
-          p.scopes.push_back({bounded(state,2)?AffineSearchScope::AUTO_SPLIT:
-                                 bounded(state,uint64_t(k.nvars)+1),
-              inclusive_u32(state,config.maximum_affine_weight),
-              inclusive_u32(state,config.maximum_affine_weight),
-              inclusive_u32(state,config.maximum_affine_weight)});
-      }
-      return p;
-    }
-    if (bounded(state, 2)) {
       OnehotModelParameters p = config.onehot_model_reference;
       p.maximum_variables =
           1 + inclusive_u32(state, config.maximum_onehot_model_variables - 1);
@@ -412,6 +313,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
           state, config.maximum_onehot_model_candidates);
       return p;
     }
+    if (lucky_kind == 0)
+      return std::monostate{};
     ParityModelParameters p = config.parity_model_reference;
     p.maximum_variables =
         1 + inclusive_u32(state, config.maximum_parity_model_variables - 1);
@@ -724,6 +627,14 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     StrengthenParameters p;
     U32_AT(0, p.clause_size_limit); U32_AT(1, p.occurrence_limit);
     parameters = p;
+  } else if (tuple(text, "parity-consequence", v) && v.size() == 10) {
+    ParityConsequenceParameters p;
+    p.maximum_clauses = v[0]; p.maximum_groups = v[1]; p.selection_work = v[2];
+    U32_AT(3, p.intermediate_width); U32_AT(4, p.source_count);
+    U32_AT(5, p.output_width);
+    if (!boolean(v[6], p.descending)) return false;
+    p.maximum_proof_additions = v[7]; U32_AT(8, p.maximum_tree_variables);
+    p.consequence = v[9]; parameters = p;
   } else if (tuple(text, "congruence", v) && v.size() == 3) {
     CongruenceParameters p;
     U32_AT(0, p.and_arity_limit); p.gate_count_limit = v[1];
@@ -791,20 +702,24 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       if (v.size() == 7 && !boolean(v[6], p.reduction_bookkeeping)) return false;
     }
     parameters = p;
-  } else if (tuple(text, "walk", v) && v.size() >= 2) {
+  } else if ((tuple(text, "walk", v) || tuple(text, "walk2", v)) &&
+             v.size() >= 2) {
     WalkParameters p;
     p.step_budget = v[0];
     p.random_seed = v[1];
-    if (v.size() != 2) {
-      if (v.size() < 4 || v[2] > UINT32_MAX ||
-          v[3] > (v.size() - 4) / 2 || v.size() != 4 + 2 * v[3])
-        return false;
-      p.even_break_base_milli = static_cast<uint32_t>(v[2]);
+    const size_t offset = text.starts_with("walk2(") ? 1 : 0;
+    if (offset && v.size() < 5) return false;
+    if (offset) p.seed_candidate = v[2];
+    if (offset || v.size() != 2) {
+      const size_t head = 4 + offset;
+      if (v.size() < head || v[2 + offset] > UINT32_MAX ||
+          v[3 + offset] > (v.size() - head) / 2 ||
+          v.size() != head + 2 * v[3 + offset]) return false;
+      p.even_break_base_milli = static_cast<uint32_t>(v[2 + offset]);
       p.score_curve.clear();
-      for (size_t i = 0; i < v[3]; ++i) {
-        const uint64_t x = v[4 + 2 * i], y = v[5 + 2 * i];
-        if (x > UINT32_MAX || y > UINT32_MAX)
-          return false;
+      for (size_t i = 0; i < v[3 + offset]; ++i) {
+        const uint64_t x = v[head + 2 * i], y = v[head + 2 * i + 1];
+        if (x > UINT32_MAX || y > UINT32_MAX) return false;
         p.score_curve.push_back(
             {static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
       }
@@ -918,6 +833,27 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_steps = v[1];
     p.completion_rounds = v[2];
     p.seed = v[3];
+    parameters = p;
+  } else if (tuple(text, "ramsey-startup1", v) && v.size() == 8) {
+    RamseyStartupParameters p;
+    p.recognition_clauses=v[0]; p.recognition_variables=v[1];
+    p.recognition_pair_cells=v[2]; p.recognition_work=v[3];
+    p.certificate_work=v[4]; p.maximum_nodes=v[5]; p.maximum_additions=v[6];
+    U32_AT(7, p.maximum_external_extent);
+    parameters = p;
+  } else if (tuple(text, "graph-labeling1", v) && v.size() == 18) {
+    GraphLabelingParameters p;
+    U32_AT(0, p.maximum_vertices);
+    p.workspace_bytes = v[1];
+    U32_AT(2, p.maximum_dfs_vertices);
+    p.maximum_dfs_nodes = v[3];
+    U32_AT(4, p.maximum_dfs_starts);
+    U32_AT(5, p.early_dfs_choices);
+    p.repair_rounds = v[6];
+    p.anneal_iterations = v[7];
+    p.stall_anneal_iterations = v[8];
+    p.seed = v[9];
+    for (size_t i = 0; i < p.work.size(); ++i) p.work[i] = v[10 + i];
     parameters = p;
   } else if (tuple(text, "affine1", v) && v.size() >= 20) {
     AffineModelParameters p;
@@ -1350,17 +1286,10 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.maximum_onehot_model_equation_arity ||
       !config.maximum_onehot_model_candidates ||
       !config.onehot_model_reference.valid() ||
-      !config.balanced_signature_model_reference.valid() ||
-      !config.fermat_model_reference.valid() ||
-      !config.lookup_circuit_model_reference.valid() ||
-      !config.simon_model_reference.valid() ||
       !config.stconn_proof_reference.valid() ||
       !config.signed_cardinality_proof_reference.valid() ||
-      !config.exact_cover_model_reference.valid() ||
-      !config.independent_set_model_reference.valid() ||
-      !config.affine_model_reference.valid() ||
-      !config.affine_joint_positive_denominator ||
-      config.affine_joint_positive_numerator > config.affine_joint_positive_denominator ||
+      !config.ramsey_startup_reference.valid() ||
+      !config.parity_consequence_reference.valid() ||
       !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||
       !config.maximum_sr_instances ||
       config.maximum_sr_orbitopal_clique_minimum_columns < 2 ||
@@ -1608,6 +1537,14 @@ std::string serialize_online_strategy_program(
       out << ":c2(" << p->clause_size_limit << ',' << p->occurrence_limit
           << ')';
     else if (const auto *p =
+                 std::get_if<ParityConsequenceParameters>(&step.parameters))
+      out << ":parity-consequence(" << p->maximum_clauses << ','
+          << p->maximum_groups << ',' << p->selection_work << ','
+          << p->intermediate_width << ',' << p->source_count << ','
+          << p->output_width << ',' << p->descending << ','
+          << p->maximum_proof_additions << ',' << p->maximum_tree_variables
+          << ',' << p->consequence << ')';
+    else if (const auto *p =
                  std::get_if<CongruenceParameters>(&step.parameters))
       out << ":congruence(" << p->and_arity_limit << ','
           << p->gate_count_limit << ',' << p->xor_arity_limit << ')';
@@ -1659,8 +1596,10 @@ std::string serialize_online_strategy_program(
           << p->protect_tiers << ',' << p->compact_collection << ','
           << p->reduction_bookkeeping << ')';
     else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
-      out << ":walk(" << p->step_budget << ',' << p->random_seed << ','
-          << p->even_break_base_milli << ',' << p->score_curve.size();
+      out << (p->seed_candidate ? ":walk2(" : ":walk(")
+          << p->step_budget << ',' << p->random_seed << ',';
+      if (p->seed_candidate) out << p->seed_candidate << ',';
+      out << p->even_break_base_milli << ',' << p->score_curve.size();
       for (const WalkParameters::ScorePoint point : p->score_curve)
         out << ',' << point.average_clause_size_milli << ','
             << point.break_base_milli;
@@ -1737,6 +1676,20 @@ std::string serialize_online_strategy_program(
       out << ":independent-set-model(" << p->maximum_vertices << ','
           << p->maximum_steps << ',' << p->completion_rounds << ',' << p->seed
           << ')';
+    else if (const auto *p = std::get_if<RamseyStartupParameters>(&step.parameters))
+      out << ":ramsey-startup1(" << p->recognition_clauses << "," << p->recognition_variables
+          << "," << p->recognition_pair_cells << "," << p->recognition_work
+          << "," << p->certificate_work << "," << p->maximum_nodes
+          << "," << p->maximum_additions << "," << p->maximum_external_extent << ")";
+    else if (const auto *p = std::get_if<GraphLabelingParameters>(&step.parameters)) {
+      out << ":graph-labeling1(" << p->maximum_vertices << ',' << p->workspace_bytes
+          << ',' << p->maximum_dfs_vertices << ',' << p->maximum_dfs_nodes
+          << ',' << p->maximum_dfs_starts << ',' << p->early_dfs_choices
+          << ',' << p->repair_rounds << ',' << p->anneal_iterations
+          << ',' << p->stall_anneal_iterations << ',' << p->seed;
+      for (uint64_t allowance : p->work) out << ',' << allowance;
+      out << ')';
+    }
     else if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters)) {
       out << ":affine1(" << p->maximum_variables << ',' << p->maximum_constraints
           << ',' << p->maximum_arity << ',' << p->maximum_projection << ','

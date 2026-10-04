@@ -228,6 +228,80 @@ void init_counters(Walker &w) {
     w.initial_binary_unsat += w.count[c] == 0;
 }
 
+// The same walkable current CNF evaluates ordinary phases and imported advice.
+// Producer scores are intentionally ignored. Seed work shares the explicit
+// allowance: one item per phase/identity visited and per evaluated literal.
+// Nothing in this preparation writes CDCL phase memory.
+bool seed_candidate(Walker &w, Kernel &k,
+                    const strategy::LocalSearchHint &hint, uint64_t limit,
+                    uint32_t &ordinary_unsat) {
+  const auto charge = [&] {
+    if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
+      return false;
+    if (w.steps == limit) {
+      ++k.stats.walk_seed_budget_exhausted;
+      return false;
+    }
+    ++w.steps;
+    return true;
+  };
+  w.values.resize(2 * k.nvars);
+  w.best_values.resize(k.nvars);
+  for (Var v = 0; v < k.nvars; ++v) {
+    if (!charge()) return false;
+    const Lit lit = make_lit(v, false);
+    int8_t value = k.value(lit);
+    if (!value) value = negated(heuristics_decide_lit(k, v)) ? -1 : 1;
+    w.values[lit] = value;
+    w.values[lit ^ 1] = static_cast<int8_t>(-value);
+    w.best_values[v] = value;
+  }
+  ordinary_unsat = 0;
+  for (uint32_t c = 0; c < w.nclauses; ++c) {
+    bool satisfied = false;
+    for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
+      if (!charge()) return false;
+      satisfied |= w.values[w.cl_lits[i]] > 0;
+    }
+    ordinary_unsat += !satisfied;
+  }
+  bool imported = false;
+  for (size_t external = 0; external < hint.external_phases.size(); ++external) {
+    if (!charge()) return false;
+    const int8_t phase = hint.external_phases[external];
+    if (!phase || external >= k.external_to_internal.size()) continue;
+    const Var v = k.external_to_internal[external];
+    if (v == INVALID_VAR || v >= k.nvars || kernel_var_retired(k, v) ||
+        k.value(make_lit(v, false))) continue;
+    imported = true;
+    w.values[make_lit(v, false)] = phase;
+    w.values[make_lit(v, true)] = static_cast<int8_t>(-phase);
+    w.best_values[v] = phase;
+  }
+  if (!imported) return false;
+  w.count.assign(w.nclauses, 0);
+  w.pos.assign(w.nclauses, 0);
+  for (uint32_t c = 0; c < w.nclauses; ++c) {
+    uint32_t satisfied = 0;
+    for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
+      if (!charge()) return false;
+      satisfied += w.values[w.cl_lits[i]] > 0;
+    }
+    w.count[c] = satisfied;
+    if (!satisfied) {
+      w.pos[c] = static_cast<uint32_t>(w.unsat.size());
+      w.unsat.push_back(c);
+    }
+  }
+  w.initial = w.minimum = static_cast<uint32_t>(w.unsat.size());
+  for (uint32_t c = 0; c < w.binary_clauses; ++c)
+    w.initial_binary_unsat += w.count[c] == 0;
+  ++k.stats.walk_seed_imports;
+  k.stats.walk_seed_ordinary_unsat = ordinary_unsat;
+  k.stats.walk_seed_candidate_unsat = w.initial;
+  return true;
+}
+
 // --- the flip loop ---------------------------------------------------------
 
 inline void push_unsat(Walker &w, uint32_t c) {
@@ -417,6 +491,17 @@ RuleEligibility walk_guard(const Kernel &k) {
 
 static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
   assert(walk_guard(k));
+  const auto *hint = kernel_local_search_hint(k, k.walk_seed_candidate);
+  if (k.walk_seed_candidate && !hint) {
+    ++k.stats.local_search_hints_stale;
+    return ApplyResult::NoOp;
+  }
+  if (hint && !steps) {
+    ++k.stats.walk_seed_budget_exhausted;
+    return ApplyResult::NoOp;
+  }
+  if (hint && kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
+    return ApplyResult::NoOp;
   k.stats.walks++;
   // Kissat's non-null dense entry removes repeated binary watches before it
   // saves the irredundant pairs consumed by Walk.  Deduplicate at the same
@@ -428,8 +513,20 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
   w.rng = k.walk_random_seed ^ k.stats.walks;
   bool improved = false;
   if (build_table(w, k)) {
-    seed_values(w, k);
-    init_counters(w);
+    uint32_t export_threshold = 0;
+    if (hint) {
+      const bool ready = seed_candidate(w, k, *hint, steps, export_threshold);
+      k.stats.walk_seed_steps += w.steps;
+      if (!ready) {
+        kernel_resume_walk_watches(k);
+        k.stats.walk_steps += w.steps;
+        return ApplyResult::NoOp;
+      }
+    } else {
+      seed_values(w, k);
+      init_counters(w);
+      export_threshold = w.initial;
+    }
     local_search(w, steps);
     // Kissat's walker temporarily repurposes every large-watch list as an
     // occurrence index.  Leaving dense mode consequently reconnects all large
@@ -442,14 +539,21 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
     k.stats.walk_minimum = w.minimum;
-    if (w.minimum < w.initial) {
+    if (w.minimum < export_threshold) {
       sync_best(w); // materialise the winning prefix into best_values
       for (Var v = 0; v < k.nvars; v++)
-        if (!k.value(make_lit(v, false))) // fixed literals keep their phase
+        if (!k.value(make_lit(v, false)) &&
+            (!hint || !kernel_var_retired(k, v)))
           k.h->saved[v] = w.best_values[v];
       k.stats.walk_improved++;
       improved = true;
     }
+  } else if (hint) {
+    // No current walkable objective exists on which to compare the advice.
+    // Dense-entry cleanup may have retired clauses; restore sparse watches,
+    // but decline the seeded request without touching phase memory.
+    kernel_resume_walk_watches(k);
+    return ApplyResult::NoOp;
   }
   // The rephase tail every type runs (kissat reset_phases): the fresh saved
   // phases become the target ones. `best` is not consumed here — kissat resets
