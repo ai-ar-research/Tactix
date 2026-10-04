@@ -66,6 +66,7 @@ struct SnapshotLimits {
   uint64_t maximum_clauses = 0;
   uint64_t maximum_literals = 0;
   uint64_t maximum_work = 0;
+  uint32_t maximum_variables = 0;
 };
 
 struct Request {
@@ -97,6 +98,7 @@ enum class Reason : uint8_t {
   SnapshotClauseLimit,
   SnapshotLiteralLimit,
   SnapshotWorkLimit,
+  SnapshotVariableLimit,
   Interrupted,
   UnsupportedProof,
   SnapshotMismatch,
@@ -151,6 +153,7 @@ private:
   Request request_;
   tseitin_cycle::ProofTransaction transaction_;
   SubstitutionRedundancyInstance instance_;
+  std::vector<tseitin_cycle::CertifiedGroup> groups_;
   Proof *proof_ = nullptr;
 };
 
