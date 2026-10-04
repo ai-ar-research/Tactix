@@ -1,0 +1,132 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\setlength{\emergencystretch}{2em}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pending}{\textcolor{orange!70!black}{pending}}
+\newcommand{\pass}{\textcolor{green!45!black}{pass}}
+\title{Tactix current N1--N4 audit\\Public controller and proof/model checkpoint}
+\author{Development report for Andrew}
+\date{4 October 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Outcome}
+
+The current code-bearing checkpoint has a coherent public action/controller
+surface and passes its focused proof/model checks.  A 46-test Debug matrix
+passes 46/46 in 220.04 seconds, the proof-oracle unit suite passes 69/69 in
+11.035 seconds, and the existing complete Debug authority passes 285/285 in
+957.60 seconds.  The checkout is \code{9c695b479}; its solver, API, tests, and
+tools are byte-identical to code checkpoint \code{ec7e0ac86}.  The audited
+Debug binary SHA-256 begins \code{51d82fe3d0395425}.
+
+This is a current audit, not universal N1--N4 acceptance.  It establishes
+strong scoped N1/N2 evidence.  N1/N2 still require broad effective-policy
+coverage, N3 requires the current four regression gates, and N4 retains open
+cumulative and new-action scheduling evidence.  No benchmark or performance
+campaign was launched, and the saved \code{d170b4a5} comparison was not rerun.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
+\toprule
+Requirement & Current evidence and remaining boundary & State \\
+\midrule
+N1 & 39 public actions, exact branch phases, typed v5/v6/v7 theory payloads,
+controller offers, replay, and root/search boundaries pass focused tests;
+all reachable states and variable-length tuples remain non-exhaustive & \pending \\
+N2 & Focused model reconstruction, certificate derivations, proof routing,
+real checker paths, corrupt-proof controls, and 69 oracle tests pass;
+effective both-policy and target/gate checking remain open & \pending \\
+N3 & The saved baseline leads the four compared solvers, but the changed
+winner-integration tree has not passed B28+C5, Rank1--50, WV100, and WV2--89 & \pending \\
+N4 & Configuration ownership, execution signatures, rule/policy separation,
+and controller retention pass; ledger acceptance and new-action scheduling
+costs remain open & \pending \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section*{N1 public applicability}
+
+The append-only registry contains 39 proof rules and policy operations.
+\code{api\_n1}, \code{api\_instances}, and
+\code{online\_all\_actions} pin the registry, action kind, declared instance
+surface, typed configuration, and action boundary.  The Decide fixture requires
+both phases of every unassigned variable, including retired identities, and
+keeps off-fixpoint decisions legal.  Vivify, Factor, and Subsume have separate
+noncanonical instance tests.
+
+Variable-length theory requests use their actual typed interfaces.  V5 applies
+GF(3) affine and DirectCSP requests; V6 deep-copies and applies one exact
+authenticated Gaussian batch; V7 does the same for an exact Tseitin connected
+component.  Direct PHP uses the ordinary typed step and is terminal.  Controller
+tests cover exact collections, native offerers, restart ownership, retained
+trail semantics, random choice, deterministic replay, and failure-closed
+configuration.
+
+The generic action fixture uses representative legal states.  It does not prove
+every reachable state or tuple, and its scalar placeholder for V6/V7 is only a
+registry check; the dedicated v6/v7 tests own the real effects.  Effective fuzz
+is therefore still required.  Tseitin's physical-isolation restriction is
+declared in the X16 calculus precondition rather than hidden in policy.
+
+\section*{N2 proof and model correctness}
+
+The focused run includes proof serialization, SR encoding, reconstruction,
+compacted-model validation, startup parity, clause-count preservation,
+Congruence SR, micro proofs, Sweep proofs, and certificate/public tests for the
+new theory actions.  Tseitin independently checks ASCII and binary DSR and a
+repeated-root two-action proof through the proof oracle.  Direct PHP validates
+its complete RAT/RUP event stream and exercises parser-finalized DSR
+publication.  GF(3) Gaussian independently verifies each RUP event and the
+small-domain semantics before testing public DSR publication.  Unsupported
+formats and corrupt or stale identities decline before mutation.
+
+The 69 proof-oracle unit tests cover DSR/PBP/DRAT/LRAT routing, binary handling,
+every-lemma audits, duplicate-input bridges, deliberate lies, truncation, and
+known-bad proof rejection.  These validate the checker machinery but do not
+generate every policy/rule path, so they cannot close universal N2 alone.
+
+\section*{Performance and scheduling status}
+
+The saved five-arm Tier-D campaign remains strong historical evidence: Tactix
+has 986 independently verified solves and leads the four compared baselines in
+checked coverage and PAR-2.  The current integration tree differs from that
+accepted no-MAB checkpoint.  Its intended DefaultPolicy has not rerun the four
+regression gates, and the fixed 44 portfolio misses remain open.
+
+The N4 wiring tests are green, but the scheduling-parity ledger explicitly
+keeps combined verification pending.  In particular, the public GF(3)
+Gaussian, Direct PHP, and Tseitin actions have typed allowances, exact replay,
+raw effort/yield feedback, and disabled default rows, but no accepted interval,
+order, dose, or default admission.  Several older ledger rows also retain
+cumulative acceptance obligations.
+
+\section*{Next actions and risks}
+
+The correctness prerequisite is effective Default/random fuzz showing real
+producer calls, offers, applications, replay, and independent proof/model
+checking for every enabled structured family.  The handoff and immutable
+sanitizer pin are prepared; no external owner campaign is counted until it is
+actually launched and returns a report.
+
+When benchmark execution is authorized, first run only the repaired
+\code{cabp}, Break, and Timetable trajectory controls.  Require the accepted
+structured prefix before interpreting wall time.  If restored, evaluate the
+saved target projections and then B28+C5, Rank1--50, WV100, and WV2--89 under
+the 1,800-second checker cap and completed-proof slowdown rule.  The full goal
+still requires all 44 independently checked misses and those acceptance gates.
+
+The detailed evidence is the repository's
+\href{../../benchmarks/reports/2026-10-04-current-n1-n4-audit.md}{current audit}
+and
+\href{../../benchmarks/reports/2026-10-04-public-controller-full-debug.md}{complete Debug checkpoint}.
+
+\end{document}
