@@ -177,6 +177,22 @@ bounded matrix partitioning, incremental reduction/propagation and adaptive
 usefulness scheduling.  Tactix retains learner-visible actions and effort,
 publishes selected compact Boolean consequences, and requires a DSR-checkable
 clausal derivation before a matrix implication or conflict changes CDCL state.
+Pinned rank-263 controls sharpen that requirement. CryptoMiniSat 5.14.7 solves
+with its 736-by-745 matrix in 7.12 seconds; disabling XOR handling or retaining
+XOR recognition/clause detachment while disabling matrices makes both
+180-second controls time out. Static replacement reduces conflicts but does not
+recover the solve. Likewise, a fixed row basis is not propagation-complete:
+assignment-dependent sums can imply a literal although no stored row is unit.
+The next GF(2) increment is therefore a persistent authenticated matrix, not an
+eager full-row dump. It maintains exact combinations of certified source
+equations across trail extension/backtrack. On an implication or conflict it
+must construct the exact entailed reason clause, complete a DSR/DRAT derivation
+against the global formula, publish any bounded shared definitions, and only
+then expose the result to CDCL. Matrix work, reason width, proof additions,
+external extent, duplicate keys, calls, useful propagations/conflicts and
+disable decisions are explicit effort/feedback fields. Static X9 rows remain a
+bounded cache and causal control. This persistent search integration is
+planned; current X9 remains a root inprocessing action.
 An opaque native-XOR propagation or an XOR-aware FRAT-only certificate does
 not satisfy N2.  Compare each adopted mechanism by useful propagation,
 conflict, installed consequence and later search consumption per charged work.
