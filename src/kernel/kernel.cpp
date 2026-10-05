@@ -407,6 +407,24 @@ void kernel_rearm_binary_clause(Kernel &k, Lit a, Lit b) {
   kernel_rearm_propagation(k, a, b);
 }
 
+void kernel_rearm_theory_clause(Kernel &k, const Lit *lits, uint32_t size) {
+  assert(k.level > 0 && !k.conflict_valid && size >= 2);
+  uint32_t earliest = k.propagate_head;
+  bool found = false;
+  for (uint32_t i = 0; i < size; ++i) {
+    const Lit literal = lits[i];
+    if (k.values[literal] >= 0) continue;
+    const uint32_t position = k.assigned[var_of(literal)].trail;
+    earliest = std::min(earliest, position);
+    found = true;
+  }
+  assert(found);
+  if (earliest < k.propagate_head) {
+    k.propagate_head = earliest;
+    k.stats.propagation_rearms++;
+  }
+}
+
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id,
                             bool mark_added_material) {

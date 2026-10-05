@@ -2113,6 +2113,12 @@ const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &,
 bool kernel_reserve_proof_variables(Kernel &, uint32_t count, Var &first);
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
+// Re-arm ordinary watched-clause propagation after an authenticated theory
+// clause is installed above root over assignments already scanned. The caller
+// must have installed a non-unit clause which is currently unit or conflicting
+// and must not call this for learned conflict-analysis clauses.
+void kernel_rearm_theory_clause(Kernel &, const Lit *, uint32_t size);
+
 inline uint32_t kernel_num_output_vars(const Kernel &k) {
   return k.original_external_vars == UINT32_MAX
              ? static_cast<uint32_t>(k.external_to_internal.size())

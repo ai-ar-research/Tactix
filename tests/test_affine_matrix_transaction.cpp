@@ -87,9 +87,10 @@ static void complete_plan_accounts_and_retains_only_reason() {
   assert(transaction.source_identity().size() == 2);
   uint64_t additions = 0, deletions = 0, installs = 0;
   for (const MatrixProofEvent &event : transaction.proof_events()) {
-    if (event.kind == MatrixProofEvent::Kind::Delete)
+    if (event.kind == MatrixProofEvent::Kind::Delete) {
+      assert(event.id >= 1000 && event.deleted_id > 1000);
       ++deletions;
-    else
+    } else
       ++additions;
     if (event.install) {
       ++installs;
