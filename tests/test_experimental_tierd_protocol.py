@@ -50,6 +50,27 @@ assert TIERD.solver_arguments("dsr", [
     "--controller-families=TseitinCycleBreaking",
 ]
 assert TIERD.solver_arguments("auto", []) == ["--auto-proof"]
+assert TIERD.solver_arguments("dsr", [
+    "--controller-policy=2",
+    "--controller-families=NaryCspPrefix",
+], causal_preflight=True) == [
+    "--dsr",
+    "--controller-policy=2",
+    "--controller-families=NaryCspPrefix",
+]
+for artifact in ("--controller-trace=trace", "--feedback=feedback.jsonl.gz",
+                 "--structural-provenance=provenance.jsonl"):
+    try:
+        TIERD.solver_arguments("dsr", [artifact], causal_preflight=True)
+        raise AssertionError("causal preflight accepted a full telemetry artifact")
+    except ValueError:
+        pass
+try:
+    TIERD.solver_arguments("dsr", [], gf2_telemetry=True,
+                           causal_preflight=True)
+    raise AssertionError("causal preflight accepted full GF2 telemetry")
+except ValueError:
+    pass
 for invalid in ([""], ["--dsr"], ["--auto-proof"], ["--drat"], ["--lrat"]):
     try:
         TIERD.solver_arguments("dsr", invalid)

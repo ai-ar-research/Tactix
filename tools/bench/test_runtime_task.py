@@ -8,12 +8,70 @@ import signal
 import sys
 from unittest.mock import patch
 from runtime_task import (atomic_json, atomic_retain, checked_verdict_valid,
-                          checker_timeout_for, gf2_telemetry_contract,
+                          causal_preflight_contract, checker_timeout_for,
+                          gf2_telemetry_contract,
                           expected_matches, failed_proof_retention_contract,
-                          positive_timeout, provisional_result, solver_command)
+                          positive_timeout, provisional_result, solver_command,
+                          terminal_counter_summary)
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_causal_preflight_is_counter_only_and_small(self):
+        contract = {
+            "schema": "tactix-causal-preflight-v1",
+            "maximum_solve_seconds": 60,
+            "output": "terminal-controller-counters",
+            "retain_full_telemetry": False,
+        }
+        arm = {"arguments": ["--controller-families=NaryCspPrefix"]}
+        manifest = {
+            "resource_contract": {"solve_timeout": 60},
+            "arms": {"tactix": arm},
+            "causal_preflight": contract,
+        }
+        self.assertEqual(causal_preflight_contract(manifest), contract)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "solver.stdout"
+            output.write_text(
+                "c controller-rule AffineConsequence requests=9 applications=9 "
+                "effective=9 exhausted=0 stale=0 interrupted=0 work=9 overshoot=0\n"
+                "c controller-rule NaryCspPrefix requests=0 applications=0 "
+                "effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\n"
+                "c controller-producer NaryCspPrefix calls=224 work=1138621224 "
+                "candidates=0 offers=0\n"
+                "c controller-loop full-restarts=223 partial-restarts=733 "
+                "configuration-changes=214 maximum-root-actions=0\n" +
+                "".join(f"service Decide {index}\n" for index in range(1000)) +
+                "c decisions   449783 (0 via API)\n"
+                "c conflicts   306345\n"
+                "c propagations 17669129 (17669129 search, 0 inprocess)\n"
+                "c timing      60000 ms solve\n"
+                "s UNKNOWN\n")
+            summary = terminal_counter_summary(
+                output, arm["arguments"], "UNKNOWN")
+        self.assertEqual(summary["controller_rules"], {
+            "NaryCspPrefix": {
+                "requests": 0, "applications": 0, "effective": 0,
+                "exhausted": 0, "stale": 0, "interrupted": 0,
+                "work": 0, "overshoot": 0,
+            }})
+        self.assertEqual(summary["controller_producers"]["NaryCspPrefix"], {
+            "calls": 224, "work": 1138621224, "candidates": 0, "offers": 0})
+        self.assertNotIn("AffineConsequence", summary["controller_rules"])
+        self.assertFalse(summary["full_telemetry_retained"])
+        self.assertLess(len(json.dumps(summary).encode()), 4096)
+        self.assertFalse(any(line.startswith("service ") for line in summary["lines"]))
+
+        for changed, message in (
+                ({**manifest, "resource_contract": {"solve_timeout": 61}},
+                 "exceeds 60"),
+                ({**manifest, "gf2_telemetry": {}}, "full GF2 telemetry"),
+                ({**manifest, "arms": {"tactix": {"arguments": [
+                    "--controller-trace=large.trace"]}}}, "full telemetry artifact")):
+            with self.subTest(changed=changed), self.assertRaisesRegex(
+                    RuntimeError, message):
+                causal_preflight_contract(changed)
+
     def test_failed_proof_retention_contract_is_bounded_and_relative(self):
         contract = {
             "schema": "tactix-failed-proof-retention-v1",

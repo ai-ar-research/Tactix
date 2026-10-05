@@ -346,6 +346,96 @@ def gf2_telemetry_contract(manifest):
     return contract
 
 
+def causal_preflight_contract(manifest):
+    """Validate the counter-only discovery lane.
+
+    SAT and UNSAT preflight verdicts still keep their certificate until the
+    ordinary checker finishes. Only diagnostic telemetry is suppressed.
+    """
+    contract = manifest.get("causal_preflight")
+    if contract is None:
+        return None
+    required = {"schema", "maximum_solve_seconds", "output",
+                "retain_full_telemetry"}
+    if (type(contract) is not dict or set(contract) != required or
+            contract.get("schema") != "tactix-causal-preflight-v1" or
+            contract.get("maximum_solve_seconds") != 60 or
+            contract.get("output") != "terminal-controller-counters" or
+            contract.get("retain_full_telemetry") is not False):
+        raise RuntimeError("invalid causal-preflight contract")
+    if positive_timeout(manifest, "solve_timeout") > 60:
+        raise RuntimeError("causal preflight solve timeout exceeds 60 seconds")
+    if manifest.get("gf2_telemetry") is not None:
+        raise RuntimeError("causal preflight cannot retain full GF2 telemetry")
+    forbidden = ("--feedback", "--feedback-replay",
+                 "--structural-provenance", "--controller-trace")
+    for arm in manifest.get("arms", {}).values():
+        arguments = [*arm.get("arguments", []),
+                     *arm.get("trailing_arguments", [])]
+        if any(argument == option or argument.startswith(option + "=")
+               for argument in arguments for option in forbidden):
+            raise RuntimeError("causal preflight enables a full telemetry artifact")
+    return contract
+
+
+def _counter_fields(text):
+    fields = {}
+    for token in text.split():
+        if "=" not in token:
+            continue
+        name, value = token.split("=", 1)
+        if name and value.isdigit():
+            fields[name] = int(value)
+    return fields
+
+
+def _controller_families(arguments):
+    values = []
+    for index, argument in enumerate(arguments):
+        if argument.startswith("--controller-families="):
+            values.append(argument.split("=", 1)[1])
+        elif argument == "--controller-families" and index + 1 < len(arguments):
+            values.append(arguments[index + 1])
+    return {family for value in values for family in value.split(",") if family}
+
+
+def terminal_counter_summary(stdout, arguments, verdict):
+    """Extract the small gate record from a completed causal preflight."""
+    configured = _controller_families(arguments)
+    rules, producers, loop, lines = {}, {}, None, []
+    core_prefixes = ("c decisions ", "c conflicts ", "c propagations ")
+    with open(stdout, errors="replace") as source:
+        for raw in source:
+            line = raw.rstrip("\n")
+            rule = re.match(r"^c controller-rule (\S+) (.*)$", line)
+            producer = re.match(r"^c controller-producer (\S+) (.*)$", line)
+            if rule:
+                family, fields = rule.group(1), _counter_fields(rule.group(2))
+                if (family in configured if configured else any(fields.values())):
+                    rules[family] = fields
+                    lines.append(line[-4096:])
+            elif producer:
+                family = producer.group(1)
+                producers[family] = _counter_fields(producer.group(2))
+                lines.append(line[-4096:])
+            elif line.startswith("c controller-loop "):
+                loop = _counter_fields(line.removeprefix("c controller-loop "))
+                lines.append(line[-4096:])
+            elif (line.startswith(core_prefixes) or
+                  re.match(r"^c timing\s+\d+ ms solve$", line) or
+                  line.startswith("s ")):
+                lines.append(line[-4096:])
+    return {
+        "schema": "tactix-causal-preflight-terminal-v1",
+        "verdict": verdict,
+        "controller_rules": rules,
+        "controller_producers": producers,
+        "controller_loop": loop,
+        "lines": lines,
+        "full_telemetry_retained": False,
+    }
+
+
 def collect_gf2_telemetry(campaign, task, contract, feedback_path,
                           provenance_path, solver_statistics, bindings):
     """Retain, hash, and parse the two telemetry streams.
@@ -684,6 +774,7 @@ def main():
     binary = CAMPAIGN / arm["path"]
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
     telemetry_contract = gf2_telemetry_contract(manifest)
+    preflight_contract = causal_preflight_contract(manifest)
     result_schema = ("tactix-experimental-gf2-runtime-result-v1"
                      if telemetry_contract is not None else
                      "tactix-matched-slurm-memory-regression-result-v2")
@@ -713,6 +804,7 @@ def main():
     stdout = scratch / "solver.stdout"
     stderr = scratch / "solver.stderr"
     result = None
+    preflight_payload = None
     retained_proof = None
     try:
         validate_runtime_pin_contract(CAMPAIGN, manifest)
@@ -761,6 +853,11 @@ def main():
             context["end"] = runtime_context(affinity)
             del os.environ["TACTIX_RUNTIME_SAMPLE_VM"]
         verdict, statistics = solver_summary(stdout)
+        if preflight_contract is not None:
+            preflight_payload = terminal_counter_summary(
+                stdout, [*arm.get("arguments", []),
+                         *arm.get("trailing_arguments", [])], verdict)
+            statistics = preflight_payload["lines"]
         if telemetry_contract is not None:
             from gf2_target_score import expected_checker_hashes
             checker_hashes = expected_checker_hashes(manifest, arm)
@@ -802,6 +899,8 @@ def main():
         }
         if telemetry_payload is not None:
             result["gf2_telemetry"] = telemetry_payload
+        if preflight_payload is not None:
+            result["causal_preflight"] = preflight_payload
         # Publish solver timing and verdict before potentially long proof
         # checking.  This is deliberately separate from the final validity
         # result and never satisfies the cumulative correctness gate.
@@ -883,6 +982,17 @@ def main():
             "bindings": {"manifest_sha256": manifest_sha256},
             "sidecars": {},
             "integrity_error": "telemetry collection did not complete",
+        }
+    if preflight_contract is not None and "causal_preflight" not in result:
+        result["causal_preflight"] = preflight_payload or {
+            "schema": "tactix-causal-preflight-terminal-v1",
+            "verdict": result.get("verdict", "INFRA_ERROR"),
+            "controller_rules": {},
+            "controller_producers": {},
+            "controller_loop": None,
+            "lines": [],
+            "full_telemetry_retained": False,
+            "integrity_error": "runtime ended before terminal counters",
         }
     result["artifact_deleted"] = not scratch.exists() and retained_proof is None
     result["derived_artifacts_deleted"] = not scratch.exists()
