@@ -436,6 +436,16 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
   assert(prepared.rows == 1 && prepared.definitions == expected.size() - 1);
   assert(prepared.extent_growth > prepared.definitions);
   assert(prepared.introduced_theory_variables.size() == prepared.definitions);
+  std::map<int32_t, int32_t> retained_units;
+  for (const auto &event : transaction.proof_events()) {
+    if (event.kind == AffineBasisLiveTransaction::Event::Kind::Delete ||
+        event.clause.size() != 1)
+      continue;
+    const int32_t literal = event.clause.front();
+    const int32_t variable = std::abs(literal);
+    const auto [found, inserted] = retained_units.emplace(variable, literal);
+    assert(inserted || found->second == literal);
+  }
   std::vector<ProofClause> database = clausal_form(first, false);
   const auto more = clausal_form(second, true);
   database.insert(database.end(), more.begin(), more.end());

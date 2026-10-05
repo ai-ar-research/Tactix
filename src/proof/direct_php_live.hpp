@@ -292,8 +292,13 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
       if (!watch.binary() || first >= watch.other())
         continue;
       const uint64_t binary_key = kernel_binary_key(first, watch.other());
+      // Inprocessing may leave more than one physical watch pair for the
+      // same logical binary.  Recognition needs one authenticated occurrence;
+      // treating an otherwise valid duplicate as malformed turns a repeated
+      // diagnostic action into a fatal InvalidRequest.  Charge the scan above
+      // and retain the first deterministic occurrence.
       if (!binary_keys.insert(binary_key).second)
-        return finish(CaptureStatus::Invalid);
+        continue;
       const Lit pair[] = {first, watch.other()};
       if (!take(SourceKind::Binary, INVALID_REF, first, watch.other(),
                 k.binary_ids.tracks_values()

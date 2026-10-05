@@ -419,9 +419,25 @@ WideProofStatus prepare_wide_proof(
       continue;
     }
     if (active_variables.count(external)) return WideProofStatus::Invalid;
+    // Some proof-only transition roots already carried a derived unit which
+    // was later deleted from the planner's exact population.  dsr-trim and
+    // srcheck deliberately retain such unit deletions.  Re-fixing the same
+    // identity to the opposite polarity would therefore make the serialized
+    // proof inconsistent even though exact-deletion replay accepts it.  Reuse
+    // the unique historical polarity when it exists; fresh identities may be
+    // fixed arbitrarily.
+    int32_t historical_unit = 0;
+    for (const Event &event : sink.events) {
+      if (event.kind == Event::Kind::Delete || event.clause.size() != 1 ||
+          std::abs(event.clause.front()) != external)
+        continue;
+      if (historical_unit && historical_unit != event.clause.front())
+        return WideProofStatus::Invalid;
+      historical_unit = event.clause.front();
+    }
     SmallClause fixed;
     fixed.size = 1;
-    fixed.lits[0] = external;
+    fixed.lits[0] = historical_unit ? historical_unit : external;
     if (!sink.add(fixed, true))
       return sink.exhausted ? WideProofStatus::Exhausted
                             : WideProofStatus::Invalid;
@@ -630,20 +646,31 @@ bool make_affine_basis_journal(
   }
   for (size_t i = 0; i < transaction.proof_only_helpers_.size(); ++i) {
     const int32_t helper = transaction.proof_only_helpers_[i];
+    int32_t installed_literal = 0;
+    for (const Event &event : transaction.events_)
+      if (event.install && event.clause.size() == 1 &&
+          std::abs(event.clause.front()) == helper) {
+        if (installed_literal && installed_literal != event.clause.front())
+          return false;
+        installed_literal = event.clause.front();
+      }
     if (helper <= static_cast<int32_t>(transaction.starting_extent_) ||
         uint64_t(helper) > uint64_t(transaction.starting_extent_) +
                                transaction.extent_growth_ ||
         (i && transaction.proof_only_helpers_[i - 1] >= helper) ||
         std::binary_search(transaction.introduced_.begin(),
                            transaction.introduced_.end(), helper) ||
+        !installed_literal ||
         !append_bounded(
             journal, request.maximum_journal_bytes,
             "{" + identity +
             ",\"kind\":\"affine-basis-proof-helper\",\"output\":" +
             std::to_string(helper) +
-            ",\"meaning\":\"retired transition identity fixed true\","
+            ",\"meaning\":\"retired transition identity fixed " +
+            (installed_literal > 0 ? "true" : "false") + "\","
             "\"projection\":\"omit-extension\","
-            "\"reconstruction\":\"assign-true\"}\n"))
+            "\"reconstruction\":\"assign-" +
+            (installed_literal > 0 ? "true" : "false") + "\"}\n"))
       return false;
   }
   if (!append_bounded(journal, request.maximum_journal_bytes,
