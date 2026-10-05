@@ -1296,6 +1296,21 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.tseitin_cycle_interrupted,
            (unsigned long long)kernel.stats.tseitin_cycle_stale,
            (unsigned long long)kernel.stats.tseitin_cycle_unsupported_proof);
+    printf("c nary-csp   %llu attempts, %llu applied, %llu no-structure, "
+           "%llu no-consequence, %llu already-published, %llu invalid, "
+           "%llu inapplicable, %llu exhausted, %llu interrupted, %llu stale, "
+           "%llu unsupported-proof\n",
+           (unsigned long long)kernel.stats.nary_csp_prefix_attempts,
+           (unsigned long long)kernel.stats.nary_csp_prefix_applied,
+           (unsigned long long)kernel.stats.nary_csp_prefix_no_structure,
+           (unsigned long long)kernel.stats.nary_csp_prefix_no_consequence,
+           (unsigned long long)kernel.stats.nary_csp_prefix_already_published,
+           (unsigned long long)kernel.stats.nary_csp_prefix_invalid,
+           (unsigned long long)kernel.stats.nary_csp_prefix_inapplicable,
+           (unsigned long long)kernel.stats.nary_csp_prefix_resource_exhausted,
+           (unsigned long long)kernel.stats.nary_csp_prefix_interrupted,
+           (unsigned long long)kernel.stats.nary_csp_prefix_stale,
+           (unsigned long long)kernel.stats.nary_csp_prefix_unsupported_proof);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",

@@ -1012,7 +1012,8 @@ static void test_inprocess_registry_requires_root(void) {
         !std::strcmp(rule.name, "DirectCspSupport") ||
         !std::strcmp(rule.name, "DirectPhpRefutation") ||
         !std::strcmp(rule.name, "Gf3GaussianConsequence") ||
-        !std::strcmp(rule.name, "TseitinCycleBreaking");
+        !std::strcmp(rule.name, "TseitinCycleBreaking") ||
+        !std::strcmp(rule.name, "NaryCspPrefix");
     if (!theory_action)
       assert(rule.guard(k));
     else
@@ -1120,7 +1121,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
       "Gf3AffineConsequence", "DirectCspSupport",
       "DirectPhpRefutation", "Gf3GaussianConsequence",
-      "TseitinCycleBreaking",
+      "TseitinCycleBreaking", "NaryCspPrefix",
   };
   for (const auto &entry : p.inprocess().entries) {
     const char *name = rules[entry.rule].name;

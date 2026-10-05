@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The fuzz batch must execute an immutable harness snapshot, never live code."""
 
+import errno
 import hashlib
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +21,21 @@ def make_writable(path: Path) -> None:
     for entry in path.rglob("*"):
         entry.chmod(entry.stat().st_mode | stat.S_IWUSR)
     path.chmod(path.stat().st_mode | stat.S_IWUSR)
+
+
+def remove_tree(path: Path, attempts: int = 6) -> None:
+    """Remove a read-only tree despite transient NFS ENOTEMPTY responses."""
+    make_writable(path)
+    for attempt in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except OSError as error:
+            if error.errno != errno.ENOTEMPTY or attempt == attempts - 1:
+                raise
+            time.sleep(0.05 * 2**attempt)
 
 
 with tempfile.TemporaryDirectory(prefix="tactix-fuzz-sbatch-") as tmp:
@@ -88,7 +105,6 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-sbatch-") as tmp:
         assert actual_hash == reported_hash
     finally:
         if pin.exists():
-            make_writable(pin)
-            shutil.rmtree(pin)
+            remove_tree(pin)
 
 print("fuzz SLURM immutable harness snapshot: PASS")
