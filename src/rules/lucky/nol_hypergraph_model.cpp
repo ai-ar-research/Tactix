@@ -373,15 +373,22 @@ bool search(Kernel &k, const Shape &shape, Meter &meter,
               !(allowed & (uint8_t{1} << color)))
             continue;
           int64_t delta = 0;
-          if (!move_delta(shape, candidate, meter, vertex, color, delta)) return false;
-          moves[move_count++] = {delta, vertex, color, random()};
+          if (!move_delta(shape, candidate, meter, vertex, color, delta))
+            return false;
+          if (move_count == moves.size()) return false;
+          const Move move{delta, vertex, color, random()};
+          uint32_t position = move_count++;
+          while (position &&
+                 (move.delta < moves[position - 1].delta ||
+                  (move.delta == moves[position - 1].delta &&
+                   move.tie < moves[position - 1].tie))) {
+            moves[position] = moves[position - 1];
+            --position;
+          }
+          moves[position] = move;
         }
       }
       if (!move_count) return false;
-      std::sort(moves.begin(), moves.begin() + move_count,
-                [](const Move &a, const Move &b) {
-                  return a.delta != b.delta ? a.delta < b.delta : a.tie < b.tie;
-                });
       uint32_t pick_limit = 1;
       const uint64_t roll = random() % 1000;
       if (roll < 35) pick_limit = move_count;
