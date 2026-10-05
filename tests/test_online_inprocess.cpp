@@ -1839,6 +1839,32 @@ static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
   assert(enumerated.touched == touched_before);
   kernel_check_invariants(enumerated);
 
+  // Binary clauses carry no redundancy bit, so publication cannot distinguish
+  // an input ALO from a learned source. Do not emit a private ULC certificate
+  // which re-authentication must reject; leave binaries available to the
+  // ordinary orbitopal detector in the same call.
+  Kernel binary_source;
+  kernel_reserve_vars(binary_source, 2);
+  kernel_add_binary_clause(binary_source, internalize(1), internalize(2),
+                           ++binary_source.next_clause_id);
+  std::vector<SubstitutionRedundancyInstance> binary_instances;
+  const auto binary_enumeration = substitution_redundancy_enumerate_orbitopal(
+      binary_source, parameters,
+      [&](const SubstitutionRedundancyInstance &instance) {
+        binary_instances.push_back(instance);
+        return true;
+      });
+  assert(binary_enumeration.status == OrbitopalEnumerationStatus::Complete);
+  assert(std::none_of(binary_instances.begin(), binary_instances.end(),
+                      [](const SubstitutionRedundancyInstance &instance) {
+                        return instance.unique_literal_amo_certificate;
+                      }));
+  assert(!kernel_binary_live(binary_source, internalize(-1), internalize(-2)) &&
+         binary_source.stats.sr_applications == 0 &&
+         binary_source.stats.sr_applied == 0 &&
+         binary_source.stats.sr_unique_literal_amo_binaries == 0);
+  kernel_check_invariants(binary_source);
+
   // Producer provenance on caller-owned input never bypasses X7 validation.
   Kernel forged;
   kernel_reserve_vars(forged, 4);

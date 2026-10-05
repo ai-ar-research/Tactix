@@ -111,6 +111,9 @@ def copy_dependencies(source: Path) -> list[str]:
         "benchmarks/baselines/sc24-26-32g-5000s/manifest.json",
         "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb",
         "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf",
+        "benchmarks/baselines/sc24-26-32g-5000s/pins/dsr-trim",
+        "benchmarks/baselines/sc24-26-32g-5000s/pins/dsr-compress",
+        "benchmarks/baselines/sc24-26-32g-5000s/pins/srcheck",
         "benchmarks/runs/20260921-am333-lymphosat-models-wv100/pins/dsr-trim",
         "benchmarks/runs/20260921-am333-lymphosat-models-wv100/pins/dsr-compress",
         "benchmarks/runs/20260921-am333-lymphosat-models-wv100/pins/srcheck",
@@ -137,6 +140,20 @@ def copy_dependencies(source: Path) -> list[str]:
         copy_entry(ROOT / relative_path, source / relative_path)
         dependencies.append(relative_path.as_posix())
     return sorted(dependencies)
+
+
+def packaged_dependency_paths(source: Path, names: list[str]) -> set[Path]:
+    dependencies = set()
+    for name in names:
+        pure = PurePosixPath(name)
+        candidate = source.joinpath(*pure.parts)
+        if (pure.is_absolute() or ".." in pure.parts or
+                not candidate.is_file() or not inside(candidate, source)):
+            raise ArchiveHarnessError(f"invalid packaged dependency: {name}")
+        dependencies.add(candidate)
+    if len(dependencies) != len(names):
+        raise ArchiveHarnessError("duplicate packaged dependency")
+    return dependencies
 
 
 def canonical_archive(source: Path, archive_path: Path) -> None:
@@ -345,7 +362,10 @@ def finalize(run: Path) -> None:
             candidate = Path(arg)
             if candidate.is_absolute() and candidate.is_file() and inside(candidate, source):
                 direct.add(candidate)
-    sets = {"campaign_files": campaign_files, "direct_test_inputs": direct,
+    dependencies = packaged_dependency_paths(source, template["packaged_dependencies"])
+    sets = {"campaign_files": campaign_files,
+            "packaged_dependencies": dependencies,
+            "direct_test_inputs": direct,
             "build_artifacts": artifacts}
     files = set().union(*sets.values())
     bindings = {relative(path): sha_file(path) for path in sorted(files, key=relative)}
@@ -394,6 +414,12 @@ def verify(run: Path) -> None:
     flattened = [path for paths in manifest["binding_sets"].values() for path in paths]
     if len(flattened) != len(set(flattened)) or set(flattened) != set(manifest["sha256"]):
         raise ArchiveHarnessError("binding inventory is inconsistent")
+    dependency_bindings = manifest["binding_sets"].get("packaged_dependencies")
+    if dependency_bindings is not None:
+        expected = sorted(relative(path) for path in
+                          packaged_dependency_paths(source, manifest["packaged_dependencies"]))
+        if dependency_bindings != expected:
+            raise ArchiveHarnessError("packaged dependency bindings are inconsistent")
     for name, expected in manifest["sha256"].items():
         pure = PurePosixPath(name)
         if pure.is_absolute() or ".." in pure.parts or sha_file(ROOT.joinpath(*pure.parts)) != expected:

@@ -16,6 +16,15 @@ STOP_NAMES = (
 KIND_NAMES = ("rule", "resume-search", "search-service", "support")
 WORK_NAMES = ("applications", "bve-ticks", "propagations", "sr-discovery-ticks")
 UINT64_MAX = (1 << 64) - 1
+OBSERVATION_VERSIONS = (1, 2, 3, 4, 5, 6)
+PRODUCER_STATUS_MAXIMUM = {
+    "AffineConsequence": 6,
+    "Gf3AffineConsequence": 6,
+    "DirectCspSupport": 6,
+    "NaryCspPrefix": 6,
+    "Gf3GaussianConsequence": 9,
+    "TseitinCycleBreaking": 8,
+}
 
 
 def require(condition, message):
@@ -67,6 +76,27 @@ def outcome(value):
     integer(value["unit"], "work unit", 3)
 
 
+def producer_effort(value):
+    keys(value, "family status complete preparation_work enumeration_work "
+         "total_work candidates offers", "producer effort")
+    family = value["family"]
+    require(type(family) is str and family in PRODUCER_STATUS_MAXIMUM,
+            "invalid producer family")
+    integer(value["status"], "producer status", PRODUCER_STATUS_MAXIMUM[family])
+    require(type(value["complete"]) is bool, "invalid producer completeness")
+    for name in ("preparation_work", "enumeration_work", "total_work",
+                 "candidates", "offers"):
+        integer(value[name], "producer " + name)
+    require(value["total_work"] == min(
+        UINT64_MAX, value["preparation_work"] + value["enumeration_work"]),
+        "producer total work mismatch")
+    require(value["offers"] <= value["candidates"],
+            "producer offers exceed candidates")
+    if family == "TseitinCycleBreaking":
+        require(value["complete"] == (value["status"] in (2, 7, 8)),
+                "invalid Tseitin producer completeness")
+
+
 def observation(value):
     keys(value, "version state sequence variables unassigned active_unassigned level trail "
          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
@@ -77,7 +107,7 @@ def observation(value):
                   "local_search_last_target_decision_matched")
     if "native_policy_state" in value:
         require(type(value["native_policy_state"]) is str, "invalid native policy state")
-    require(integer(value["version"], "observation version") in (1, 2, 3, 4, 5),
+    require(integer(value["version"], "observation version") in OBSERVATION_VERSIONS,
             "unsupported observation version")
     if value["version"] >= 2:
         require("local_search_candidates" in value, "missing candidate observation")
@@ -255,7 +285,8 @@ def inspect(path):
                 require(type(row["identity"]) is str and row["identity"], "missing action identity")
                 if row["request"] is not None:
                     req = row["request"]
-                    keys(req, "version sequence type expected search search_components invocation", "request")
+                    keys(req, "version sequence type expected search search_components invocation",
+                         "request", optional="producer_effort")
                     # A v1 record must preserve malformed requests that the
                     # native controller rejected, including unknown versions.
                     integer(req["version"], "request version", (1 << 32) - 1)
@@ -268,6 +299,15 @@ def inspect(path):
                             len(req["search_components"]) == 3, "invalid search components")
                     for component in req["search_components"]:
                         integer(component, "raw search component", 255)
+                    if "producer_effort" in req:
+                        require(type(req["producer_effort"]) is list and
+                                req["producer_effort"], "invalid producer effort list")
+                        families = set()
+                        for item in req["producer_effort"]:
+                            producer_effort(item)
+                            require(item["family"] not in families,
+                                    "duplicate producer family")
+                            families.add(item["family"])
                 if row["allowance"] is not None:
                     keys(row["allowance"], "unit amount native_mode native_amount", "allowance")
                     for key, item in row["allowance"].items():
