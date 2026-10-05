@@ -26,6 +26,34 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def validate_source_result(campaign, retention, row, task, result):
+    require(result.get("task") == task, "source result task does not match matrix")
+    require(result.get("rank") == int(row["rank"]),
+            "source result rank does not match matrix")
+    require(result.get("instance") == row["instance"],
+            "source result instance does not match matrix")
+    require(result.get("arm") == row["arm"],
+            "source result arm does not match matrix")
+    require(result.get("verdict") == "UNSAT" and not result.get("valid"),
+            "source result is not a failed UNSAT check")
+    proof = Path(result.get("retained_artifact", ""))
+    expected_proof = campaign / retention["directory"] / f"{task:03d}.dsr"
+    require(proof.is_absolute() and proof == expected_proof,
+            "retained proof path does not match campaign contract")
+    return proof
+
+
+def validate_checker_spelling(result, spelling):
+    source_spelling = (result.get("proof_check") or {}).get(
+        "checker_input") or {}
+    require(source_spelling.get("original_sha256") ==
+            spelling["original_sha256"],
+            "source result original-CNF hash mismatch")
+    require(source_spelling.get("checker_sha256") ==
+            spelling["checker_sha256"],
+            "source result canonical checker-CNF hash mismatch")
+
+
 def run(campaign, task, timeout):
     campaign = campaign.resolve()
     require(os.environ.get("SLURM_JOB_ID"), "rechecking is SLURM-only")
@@ -43,9 +71,7 @@ def run(campaign, task, timeout):
     row = rows[task]
     result_path = campaign / "results" / f"{task:03d}.json"
     result = json.loads(result_path.read_text())
-    require(result.get("verdict") == "UNSAT" and not result.get("valid"),
-            "source result is not a failed UNSAT check")
-    proof = Path(result.get("retained_artifact", ""))
+    proof = validate_source_result(campaign, retention, row, task, result)
     require(proof.is_file(), "retained proof is missing")
     require(proof.stat().st_size == result.get("retained_artifact_bytes"),
             "retained proof size mismatch")
@@ -74,6 +100,7 @@ def run(campaign, task, timeout):
                     "original_sha256"), "decompressed input hash mismatch")
         checker_cnf = scratch / "checker.cnf"
         spelling = canonical_checker_cnf(cnf, checker_cnf)
+        validate_checker_spelling(result, spelling)
         binary_lsr = scratch / "proof.binary.lsr"
         text_lsr = scratch / "proof.lsr"
 

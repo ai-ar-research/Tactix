@@ -57,17 +57,46 @@ def disposition(parsed):
         return "no-offer"
     if status is None or status["attempts"] == 0:
         return "offered-not-applied"
+    if status["applied"]:
+        return "applied"
     for name in ("invalid", "inapplicable", "exhausted", "interrupted",
                  "stale", "unsupported_proof", "no_structure",
                  "no_consequence", "already_published"):
         if status[name]:
             return name.replace("_", "-")
-    if status["applied"]:
-        return "applied"
     return "unclassified"
 
 
-def score(campaign):
+def validate_controller_counters(parsed):
+    status, rule = parsed["status"], parsed["rule"]
+    if status is None or rule is None:
+        return
+    attempts = sum(status[name] for name in FIELDS[1:])
+    if attempts != status["attempts"]:
+        raise ValueError("native n-ary status counts do not sum to attempts")
+    if rule.get("applications") != status["attempts"]:
+        raise ValueError("controller applications disagree with native attempts")
+    if rule.get("effective") != status["applied"]:
+        raise ValueError("controller effective count disagrees with native applied")
+    if rule.get("requests", -1) < rule.get("applications", 0):
+        raise ValueError("controller applications exceed requests")
+    for controller_name, native_name in (("exhausted", "exhausted"),
+                                         ("stale", "stale"),
+                                         ("interrupted", "interrupted")):
+        if rule.get(controller_name) != status[native_name]:
+            raise ValueError(
+                f"controller {controller_name} disagrees with native status")
+
+
+def validate_result_identity(result, row, task):
+    expected = {"task": task, "rank": int(row["rank"]),
+                "instance": row["instance"], "arm": row["arm"]}
+    for name, value in expected.items():
+        if result.get(name) != value:
+            raise ValueError(f"result {name} does not match matrix")
+
+
+def score(campaign, require_final=False):
     campaign = campaign.resolve()
     manifest = json.loads((campaign / "manifest.json").read_text())
     arm = manifest["arms"]["tactix"]
@@ -86,12 +115,16 @@ def score(campaign):
         task = int(row["task"])
         result_path = campaign / "results" / f"{task:03d}.json"
         if not result_path.is_file():
+            if require_final:
+                raise ValueError(f"missing final result for task {task}")
             output.append({"task": task, "rank": int(row["rank"]),
                            "instance": row["instance"], "disposition": "missing-result"})
             totals["missing-result"] = totals.get("missing-result", 0) + 1
             continue
         result = json.loads(result_path.read_text())
+        validate_result_identity(result, row, task)
         parsed = parse_statistics(result.get("solver_statistics") or [])
+        validate_controller_counters(parsed)
         state = disposition(parsed)
         totals[state] = totals.get(state, 0) + 1
         output.append({"task": task, "rank": int(row["rank"]),
@@ -107,9 +140,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("campaign", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--require-final", action="store_true",
+                        help="reject a campaign until every matrix row has a result")
     args = parser.parse_args()
     try:
-        result = score(args.campaign)
+        result = score(args.campaign, require_final=args.require_final)
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         parser.error(str(error))
     text = json.dumps(result, indent=2) + "\n"
