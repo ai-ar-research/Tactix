@@ -187,6 +187,13 @@ class Gf2BookkeepingTests(unittest.TestCase):
                          ["existing_theory_priority"], 2)
         self.assertEqual(decisions, [{"sequence": 4, "dimacs_literal": 4}])
 
+        actions[1]["sequence"] = 3
+        effects, _ = followups(actions, transactions)
+        self.assertIsNone(effects["propagate"][0]
+                          ["preceding_affine_action_id"])
+        self.assertEqual(effects["propagate"][0]["attribution"],
+                         "unattributed")
+
 
 if __name__ == "__main__":
     unittest.main()
