@@ -80,7 +80,7 @@
   "disposition": {
     "cause": "Trestle semantic checking of the 3,447,844-addition retained LSR core exceeds the remaining 1,800-second deadline; text expansion is immaterial.",
     "checker_route_changed": false,
-    "next_mechanism": "source-bound clique-coloring startup PBP producer with independent VeriPB and CakePB-CNF validation",
+    "classification": "proof-representation/certificate target; no theory action justified by the LymphoSAT result",
     "target_recovered": false
   },
   "identity": {
@@ -96,18 +96,18 @@
     "target_result_sha256": "9a6a843381f014e98e2ab7d66d0d9e8fac35d8bb6ee7bae71036898bf7c77d11"
   },
   "lymphosat_pbp_reference": {
-    "attribution_limit": "The retained comparison result records PBP but not the selected internal bundle slot; the slot is a mechanism lead, not certificate-transfer evidence.",
+    "attribution": "fallback",
     "bundle": "tools/solvers/variants/lymphosat-modlog/tree/solver/bundle.json",
     "bundle_sha256": "c4002cd09f88e87bf3c035afcccbbba50d2865544ca9518ec70b0bee5ad7796b",
-    "bundle_slot": "clique-coloring",
-    "bundle_solver_name": "clique-color-pigeonhole-veripb",
+    "bundle_fallback_key": "kpbp-0de563f",
+    "bundle_solver_name": "kissat-public-pbp-icelake-proofio",
     "certificate_bytes": 1006567937,
     "certificate_format": "pbp",
     "certificate_sha256": "208d4461db008502014b0bb31650a1b30ad96530992a39e736c523dd8cdf4894",
     "expected_match": true,
     "instance": "tierD24-26/f6a085f3c728e53f57542e62df20e56b-crafted_n10_d6_c4_num8.cnf.xz",
-    "mechanism_notes": "tools/solvers/variants/lymphosat-modlog/tree/solver/solvers/clique-coloring/solver/README.md",
-    "mechanism_notes_sha256": "dae28cf7a69f8b5e5fcfe2b47d731f224d4d716ae735e6cc59bc834520dfe0af",
+    "mechanism_notes": "tools/solvers/variants/lymphosat-modlog/tree/solver/solvers/fallback/solver/README.md",
+    "mechanism_notes_sha256": "0bc15ab73c262ca5eac1e073c41ec12701ffe304b33c2b06f734e7b0394c0251",
     "proof_peak_rss_kb": 25516148,
     "proof_pipeline": "pbp",
     "proof_result": "verified",
@@ -130,6 +130,26 @@
       }
     ],
     "verdict": "UNSAT"
+  },
+  "lymphosat_dispatch_attribution": {
+    "accepted_matcher_count": 0,
+    "accepted_matchers": [],
+    "dispatcher_sha256": "e567443af40c8f9ba764e99e2156f80a9f3a85406040e9d50ee7fb67e267cd2b",
+    "fallback_binary_sha256": "814d9bc451f1a6eadf9df87f1b9bd7ef5d7b99b44ec57d9dfdd21d7a51a42219",
+    "fallback_meta_sha256": "964a81806aaa520d076ff49ba7847d27827f2d26b6fb1eff0ece777aaff564f0",
+    "fallback_wrapper_sha256": "7a16f85a96aaa7bb727d0fa8b97598b528ecb6faf20deae166d48ffd680ed1e1",
+    "first_dispatch_matcher": null,
+    "input_cnf_sha256": "7e5fa9f68988f676a75934bbb05776746e09317f3d07205c67ca529283373e59",
+    "matcher_count": 126,
+    "profile": {
+      "clauses_seen": 1000000,
+      "header_clauses": 11135080,
+      "num_vars": 42048,
+      "truncated": true
+    },
+    "profile_sha256": "13028b803704903bdec8e54c0be7a8ca8bc257e7dbcd68acee202e2138d5c889",
+    "raw_result_sha256": "da4c6cdc91c80c8bd56937290cd3fa82b85769f4411bf9f8e48f6871c32f1152",
+    "slurm_job_id": "1750802"
   },
   "retained_core": {
     "additions_parsed": 3448380,
