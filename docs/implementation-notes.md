@@ -426,7 +426,7 @@ DefaultPolicy has no Condition producer and omits X5 from its reference slot pro
 | X6 `HyperBinaryRes` | implemented; individual resolvent surface complete |
 | X7 `SubstitutionRedundancy` | implementation in progress; explicit/general/orbitopal surfaces and direct DSR micro proof pass, full acceptance pending |
 | X8 `ParityConsequence` | typed shared action; guard and provenance engineering contract above; full acceptance pending |
-| X9 `AffineConsequence` · X10 `ExactCoverExtension` · X11 `IndependentSetCover` · X12 `Gf3AffineConsequence` · X13 `DirectCspSupport` · X14 `Gf3GaussianConsequence` · X15 `DirectPhpRefutation` · X16 `TseitinCycleBreaking` · X17 `NaryCspPrefix` | typed shared actions for certified Boolean consequences, conservative definitions, authenticated theory batches, cycle units and terminal refutation; durable owners/identities, proof publication, replay and feedback are implemented; scheduling, effective fuzz, target recovery and full acceptance remain pending |
+| X9 `AffineConsequence` · X10 `ExactCoverExtension` · X11 `IndependentSetCover` · X12 `Gf3AffineConsequence` · X13 `DirectCspSupport` · X14 `Gf3GaussianConsequence` · X15 `DirectPhpRefutation` · X16 `TseitinCycleBreaking` · X17 `NaryCspPrefix` · X18 `GraphIntervalEquivalence` | typed shared actions for certified consequences, definitions, theory batches, cycle units and terminal refutation; durable identities, proof publication, replay and feedback are implemented. X18 authenticates live NORs and final-RUP-checks existing-variable equivalences, but Rank991 produced only already-live binaries. Default scheduling, effective fuzz, target recovery and full acceptance remain pending |
 
 ## 18. Structured rule journal
 
