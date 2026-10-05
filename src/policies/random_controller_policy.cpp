@@ -60,8 +60,9 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
   };
   if (!validate_online_strategy_program(program, error))
     return false;
-  if (program.sequence.size() != 1)
-    return reject("GF2 affine producer profile requires exactly one action");
+  if (program.sequence.empty() || program.sequence.size() > 2)
+    return reject("GF2 affine producer profile requires one affine action and "
+                  "at most one advice action");
   if (program.repeat.mode != RepeatMode::Once || program.repeat.limit != 1)
     return reject("GF2 affine producer profile requires once-only sequence repetition");
   const auto &step = program.sequence.front();
@@ -104,11 +105,92 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
       offered != offered_actions.end() && !offered->second.empty())
     return reject("GF2 affine producer profile conflicts with a static action offer");
 
+  const SemanticVariableAdviceParameters *advice_parameters = nullptr;
+  const OnlineInvocation *advice = nullptr;
+  if (program.sequence.size() == 2) {
+    advice = &program.sequence[1];
+    advice_parameters =
+        std::get_if<SemanticVariableAdviceParameters>(&advice->parameters);
+    if (advice->rule != "SemanticVariableAdvice" || !advice_parameters)
+      return reject("GF2 affine producer profile companion must be semantic "
+                    "variable advice");
+    if (advice->granularity != InvocationGranularity::CanonicalApplication ||
+        !advice->instances.empty() || !advice->factor_grids.empty() ||
+        !advice->substitution_redundancy_instances.empty() ||
+        !advice->condition_instances.empty() ||
+        !advice->independent_set_cover_instances.empty() ||
+        !advice->gf3_affine_instances.empty() ||
+        !advice->affine_basis_instances.empty() ||
+        !advice->gf3_gaussian_instances.empty() ||
+        !advice->tseitin_cycle_instances.empty() ||
+        !advice->direct_csp_support_instances.empty() ||
+        !advice->nary_csp_prefix_instances.empty())
+      return reject("GF2 semantic variable advice profile must be canonical "
+                    "and payload-free");
+    if (advice->repeat.mode != RepeatMode::Once || advice->repeat.limit != 1 ||
+        advice->post_application != PostApplication::None)
+      return reject("GF2 semantic variable advice profile must be once-only "
+                    "with no follow-up");
+    if (advice->material.touch_filter != SettingOverride::Inherit ||
+        advice->material.likely_kept_redundant != SettingOverride::Inherit)
+      return reject("GF2 semantic variable advice profile requires inherited "
+                    "material settings");
+    if (advice->budget.is_unlimited() || !advice->budget.amount())
+      return reject("GF2 semantic variable advice profile requires a positive "
+                    "fixed allowance");
+    if (advice->rule_work_budget.mode != RuleWorkBudgetMode::Bounded ||
+        !advice->rule_work_budget.amount)
+      return reject("GF2 semantic variable advice profile requires a positive "
+                    "fixed native allowance");
+    if (!advice_parameters->maximum_variables ||
+        !advice_parameters->maximum_priority_sum ||
+        !advice_parameters->existing_theory_priority ||
+        !advice_parameters->introduced_theory_priority)
+      return reject("GF2 semantic variable advice profile requires positive "
+                    "limits and both theory-role priorities");
+    if (!parameters.rules.empty() &&
+        std::find(parameters.rules.begin(), parameters.rules.end(),
+                  "SemanticVariableAdvice") == parameters.rules.end())
+      return reject("GF2 semantic variable advice profile is outside the "
+                    "configured action collection");
+    if (const auto offered = offered_actions.find("SemanticVariableAdvice");
+        offered != offered_actions.end() && !offered->second.empty())
+      return reject("GF2 semantic variable advice profile conflicts with a "
+                    "static action offer");
+  }
+
   auto replacement = *this;
   replacement.parameters.affine_consequence_reference = *profile_parameters;
   replacement.allowances["AffineConsequence"] =
       {step.work_unit, step.budget.amount(), step.rule_work_budget};
+  if (advice) {
+    replacement.parameters.semantic_variable_advice_reference =
+        *advice_parameters;
+    replacement.allowances["SemanticVariableAdvice"] =
+        {advice->work_unit, advice->budget.amount(), advice->rule_work_budget};
+  }
   *this = std::move(replacement);
+  if (error) error->clear();
+  return true;
+}
+
+bool RandomControllerConfig::configure_search_configurations(
+    const std::vector<SearchConfiguration> &configurations,
+    std::string *error) {
+  const auto reject = [&](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  if (configurations.empty())
+    return reject("controller search configuration collection is empty");
+  for (size_t i = 0; i < configurations.size(); ++i) {
+    if (!valid(configurations[i]))
+      return reject("controller search configuration is invalid");
+    if (std::find(configurations.begin(), configurations.begin() + i,
+                  configurations[i]) != configurations.begin() + i)
+      return reject("controller search configuration is repeated");
+  }
+  search_configurations = configurations;
   if (error) error->clear();
   return true;
 }
@@ -216,6 +298,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   out << " trail-retention "
       << (config.reuse_search_trail ? "ranked-prefix" : "full")
       << " window " << config.parameters.maximum_selected_batch;
+  for (const auto search : config.search_configurations)
+    out << " search-configuration " << std::quoted(name(search));
   for (const auto &rule : config.parameters.rules)
     out << " family " << std::quoted(rule);
   Kernel reference;
@@ -1434,7 +1518,15 @@ bool RandomControllerSelector::choose(
   const auto choice = draw(eligible.size() + can_resume);
   if (choice == eligible.size()) {
     request.type = ActionType::ResumeSearch;
-    const auto configurations = search_configurations();
+    const auto configurations = config.search_configurations.empty()
+                                    ? controller::search_configurations()
+                                    : config.search_configurations;
+    if (configurations.empty() ||
+        std::any_of(configurations.begin(), configurations.end(),
+                    [](const auto selected) { return !valid(selected); })) {
+      error = "invalid controller search configuration collection";
+      return false;
+    }
     request.search = configurations[draw(configurations.size())];
   } else {
     const auto selected_action = eligible[choice];

@@ -172,6 +172,7 @@ int main(int argc, char **argv) {
   bool controller_retention_set = false;
   bool controller_native_producers_set = false;
   bool controller_families_set = false;
+  bool controller_search_configurations_set = false;
   const char *controller_actions_path = nullptr;
   const char *controller_gf2_affine_profile_path = nullptr;
   const char *controller_trace_path = nullptr;
@@ -295,6 +296,43 @@ int main(int argc, char **argv) {
         }
       }
       controller_native_producers_set = true;
+    } else if (!strncmp(a, "--controller-search-configurations=", 35)) {
+      const char *value = a + 35;
+      if (!strcmp(value, "all")) {
+        controller_config.search_configurations.clear();
+      } else {
+        const std::string list(value);
+        std::vector<strategy::controller::SearchConfiguration> parsed =
+            controller_search_configurations_set
+                ? controller_config.search_configurations
+                : std::vector<strategy::controller::SearchConfiguration>{};
+        bool valid = !list.empty();
+        for (size_t begin = 0; valid && begin <= list.size();) {
+          const size_t end = list.find(',', begin);
+          const std::string name = list.substr(begin, end - begin);
+          strategy::controller::SearchConfiguration configuration;
+          if (name.empty() ||
+              !strategy::controller::parse_search_configuration(name,
+                                                                  configuration) ||
+              std::find(parsed.begin(), parsed.end(), configuration) !=
+                  parsed.end()) {
+            valid = false;
+          } else {
+            parsed.push_back(configuration);
+          }
+          if (end == std::string::npos) break;
+          begin = end + 1;
+        }
+        std::string error;
+        if (!valid ||
+            !controller_config.configure_search_configurations(parsed, &error)) {
+          fprintf(stderr,
+                  "tactix: invalid --controller-search-configurations value '%s'\n",
+                  value);
+          return 1;
+        }
+      }
+      controller_search_configurations_set = true;
     } else if (!strncmp(a, "--controller-trail-retention=", 29)) {
       const char *value = a + 29;
       if (!strcmp(value, "full"))
@@ -390,6 +428,7 @@ int main(int argc, char **argv) {
              "[--controller-trace=FILE | --controller-replay=FILE] "
              "[--controller-actions=FILE | --controller-families=LIST] "
              "[--controller-native-producers=all|none|LIST] "
+             "[--controller-search-configurations=all|LIST] "
              "[--controller-gf2-affine-profile=FILE] "
              "[--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
@@ -403,6 +442,8 @@ int main(int argc, char **argv) {
            "gf3-gaussian,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
            "names, or all");
+      puts("  controller search configuration LIST: comma-separated "
+           "branching/restart/phase names, or all");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -497,6 +538,7 @@ int main(int argc, char **argv) {
       (controller_trace_path && !controller_policy) ||
       ((controller_effort_set || controller_period_set || controller_retention_set ||
         controller_native_producers_set || controller_families_set ||
+        controller_search_configurations_set ||
         controller_actions_path || controller_gf2_affine_profile_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "

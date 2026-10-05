@@ -42,7 +42,8 @@ static void add_external_clause(Kernel &kernel,
 }
 
 static OnlineStrategyProgram affine_producer_profile(
-    const AffineConsequenceParameters &parameters, uint64_t allowance = 3) {
+    const AffineConsequenceParameters &parameters, uint64_t allowance = 3,
+    std::optional<SemanticVariableAdviceParameters> advice = std::nullopt) {
   OnlineInvocation step;
   step.id = 91;
   step.rule = "AffineConsequence";
@@ -52,7 +53,20 @@ static OnlineStrategyProgram affine_producer_profile(
   step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 123456};
   step.work_unit = WorkUnit::Applications;
   step.budget = WorkLimit::bounded(allowance);
-  return {{step}, {RepeatMode::Once, 1}};
+  OnlineStrategyProgram result{{step}, {RepeatMode::Once, 1}};
+  if (advice) {
+    OnlineInvocation companion;
+    companion.id = 92;
+    companion.rule = "SemanticVariableAdvice";
+    companion.parameters = *advice;
+    companion.granularity = InvocationGranularity::CanonicalApplication;
+    companion.repeat = {RepeatMode::Once, 1};
+    companion.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1};
+    companion.work_unit = WorkUnit::Applications;
+    companion.budget = WorkLimit::bounded(1);
+    result.sequence.push_back(std::move(companion));
+  }
+  return result;
 }
 
 static void native_affine_profile_is_exact_transactional_and_effective() {
@@ -88,6 +102,38 @@ static void native_affine_profile_is_exact_transactional_and_effective() {
          allowance.native.amount == 123456);
   const std::string accepted = controller_configuration(config);
   assert(accepted != original);
+
+  RandomControllerConfig advised;
+  advised.parameters.rules = {"AffineConsequence", "Propagate",
+                              "SemanticVariableAdvice"};
+  advised.affine_basis_action_producer.enabled = true;
+  const SemanticVariableAdviceParameters advice{64, 4096, 2, 7};
+  assert(advised.configure_affine_basis_producer_profile(
+      affine_producer_profile(parameters, 5, advice), &error));
+  assert(!advised.offered_actions.contains("AffineConsequence") &&
+         !advised.offered_actions.contains("SemanticVariableAdvice"));
+  assert(advised.parameters.semantic_variable_advice_reference.maximum_variables ==
+             64 &&
+         advised.parameters.semantic_variable_advice_reference
+                 .maximum_priority_sum == 4096 &&
+         advised.parameters.semantic_variable_advice_reference
+                 .existing_theory_priority == 2 &&
+         advised.parameters.semantic_variable_advice_reference
+                 .introduced_theory_priority == 7);
+  const auto advice_allowance = advised.allowance("SemanticVariableAdvice");
+  assert(advice_allowance.unit == WorkUnit::Applications &&
+         advice_allowance.amount == 1 &&
+         advice_allowance.native.mode == RuleWorkBudgetMode::Bounded &&
+         advice_allowance.native.amount == 1);
+  assert(controller_configuration(advised).find(
+             "semantic-variable-advice1(64,4096,2,7)") != std::string::npos);
+
+  auto zero_advice = affine_producer_profile(parameters, 5, advice);
+  std::get<SemanticVariableAdviceParameters>(zero_advice.sequence[1].parameters)
+      .existing_theory_priority = 0;
+  const auto advised_signature = controller_configuration(advised);
+  assert(!advised.configure_affine_basis_producer_profile(zero_advice, &error));
+  assert(controller_configuration(advised) == advised_signature);
 
   auto two_steps = profile;
   two_steps.sequence.push_back(two_steps.sequence.front());
@@ -196,6 +242,43 @@ static void native_affine_profile_is_exact_transactional_and_effective() {
   }
   assert(offered);
   std::fclose(records);
+}
+
+static void exact_search_configuration_collection_is_learner_owned() {
+  RandomControllerConfig config;
+  config.parameters.rules = {"Walk"};
+  const SearchConfiguration selected{Branching::Vmtf, Restart::AdaptiveGlue,
+                                     Phase::FocusedRotation};
+  std::string error;
+  assert(config.configure_search_configurations({selected}, &error));
+  assert(error.empty());
+  const auto accepted = controller_configuration(config);
+  assert(accepted.find("search-configuration \"vmtf/adaptive-glue/"
+                       "focused-rotation\"") != std::string::npos);
+
+  assert(!config.configure_search_configurations({selected, selected}, &error));
+  assert(controller_configuration(config) == accepted);
+  auto invalid = selected;
+  invalid.phase = static_cast<Phase>(255);
+  assert(!config.configure_search_configurations({invalid}, &error));
+  assert(controller_configuration(config) == accepted);
+
+  Kernel kernel = fixture(false);
+  RestartController controller(kernel);
+  RandomControllerSelector selector(17);
+  bool saw_rule = false, saw_resume = false;
+  for (unsigned attempt = 0; attempt < 256; ++attempt) {
+    ActionRequest request;
+    assert(selector.choose(kernel, controller.observe(), config, request, error));
+    if (request.type == ActionType::ResumeSearch) {
+      saw_resume = true;
+      assert(request.search == selected);
+    } else {
+      saw_rule = true;
+      assert(request.invocation.rule == "Walk");
+    }
+  }
+  assert(saw_rule && saw_resume);
 }
 
 static void native_affine_basis_offer_is_exact_and_effective() {
@@ -522,6 +605,7 @@ static void finite_lucky_catalog_is_reachable() {
 
 int main() {
   native_affine_profile_is_exact_transactional_and_effective();
+  exact_search_configuration_collection_is_learner_owned();
   native_affine_basis_offer_is_exact_and_effective();
   native_affine_empty_census_is_durable_across_restarts();
   native_affine_completed_census_keeps_additional_rows();
