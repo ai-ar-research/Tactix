@@ -45,6 +45,9 @@ class RuntimeTaskTests(unittest.TestCase):
                 "candidates=0 offers=0\n"
                 "c controller-loop full-restarts=223 partial-restarts=733 "
                 "configuration-changes=214 maximum-root-actions=0\n" +
+                "c nary-csp-census candidate-domains=3 exact-domains=2 "
+                "relation-keys=1 tuples=7 first-decline=no-semantic-candidate "
+                "status=declined complete=1 work=123 offers=0\n" +
                 "".join(f"service Decide {index}\n" for index in range(1000)) +
                 "c decisions   449783 (0 via API)\n"
                 "c conflicts   306345\n"
@@ -65,6 +68,10 @@ class RuntimeTaskTests(unittest.TestCase):
         self.assertNotIn("AffineConsequence", summary["controller_producers"])
         self.assertEqual(sum("controller-producer" in line
                              for line in summary["lines"]), 1)
+        self.assertEqual(sum(line.startswith("c nary-csp-census ")
+                             for line in summary["lines"]), 1)
+        self.assertIn("candidate-domains=3", summary["lines"][3])
+        self.assertIn("first-decline=no-semantic-candidate", summary["lines"][3])
         self.assertFalse(summary["full_telemetry_retained"])
         self.assertLess(len(json.dumps(summary).encode()), 4096)
         self.assertFalse(any(line.startswith("service ") for line in summary["lines"]))
