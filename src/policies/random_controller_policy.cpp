@@ -69,6 +69,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
       entry.reason = "guard-false";
     else if ((std::string_view(rule.name) == "Condition" ||
               std::string_view(rule.name) == "IndependentSetCover" ||
+              std::string_view(rule.name) == "AffineConsequence" ||
               std::string_view(rule.name) == "Gf3AffineConsequence" ||
               std::string_view(rule.name) == "DirectCspSupport" ||
               std::string_view(rule.name) == "NaryCspPrefix" ||
@@ -230,6 +231,15 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   }
   // Disabled producers are deliberately absent so introducing the opt-in
   // mechanism cannot alter an existing controller fingerprint.
+  if (config.affine_basis_action_producer.enabled) {
+    OnlineInvocation profile;
+    profile.rule = "AffineConsequence";
+    profile.parameters = config.parameters.affine_consequence_reference;
+    profile.granularity = InvocationGranularity::CanonicalApplication;
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << config.affine_basis_action_producer.maximum_offers << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
   if (config.gf3_action_producer.enabled) {
     const auto &producer = config.gf3_action_producer;
     OnlineInvocation profile;
@@ -401,6 +411,39 @@ bool RandomControllerSelector::choose(
                                       : NativeSettlement::Pending;
     }
   };
+  if (affine_basis_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          affine_basis_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const auto pending = *affine_basis_discovery_.pending;
+      affine_basis_discovery_.offers.erase(
+          std::remove(affine_basis_discovery_.offers.begin(),
+                      affine_basis_discovery_.offers.end(), pending),
+          affine_basis_discovery_.offers.end());
+      affine_basis_discovery_.pending.reset();
+      affine_basis_discovery_.pending_sequence = 0;
+      affine_basis_discovery_.state =
+          observation.last_action->invocation.after;
+      if (affine_basis_discovery_.offers.empty() &&
+          !affine_basis_discovery_.more)
+        affine_basis_discovery_.terminal = true;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      affine_basis_discovery_.pending.reset();
+      affine_basis_discovery_.offers.clear();
+      affine_basis_discovery_.pending_sequence = 0;
+      affine_basis_discovery_.terminal = true;
+      affine_basis_discovery_.state =
+          observation.last_action->invocation.after;
+    } else if (settlement ==
+               NativeSettlement::RetainUntilReconfiguration) {
+      affine_basis_discovery_.pending_sequence = 0;
+      affine_basis_discovery_.reconfiguration_required = true;
+      affine_basis_discovery_.state =
+          observation.last_action->invocation.after;
+    }
+  }
   if (gf3_discovery_.pending && observation.last_action &&
       observation.last_action->sequence == gf3_discovery_.pending_sequence) {
     const NativeSettlement settlement =
@@ -563,6 +606,39 @@ bool RandomControllerSelector::choose(
     const auto found = config.offered_actions.find(family);
     return found != config.offered_actions.end() && !found->second.empty();
   };
+  const auto affine_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "AffineConsequence";
+    invocation.parameters = config.parameters.affine_consequence_reference;
+    invocation.granularity = InvocationGranularity::CanonicalApplication;
+    std::ostringstream out;
+    out << config.affine_basis_action_producer.maximum_offers << ' '
+        << serialize_online_strategy_program({{invocation}, {}});
+    return out.str();
+  };
+  const auto affine_limits = [&] {
+    const auto &p = config.parameters.affine_consequence_reference;
+    AffineBasisActionLimits limits;
+    limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
+                    p.maximum_elimination_work, p.maximum_arity,
+                    p.maximum_intermediate_width, p.maximum_sources,
+                    p.maximum_output_width};
+    limits.basis = {p.basis_maximum_work,
+                    p.basis_maximum_intermediate_width,
+                    p.basis_maximum_sources,
+                    p.basis_maximum_premises,
+                    p.basis_maximum_nodes,
+                    p.basis_maximum_direct_width};
+    limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
+    limits.maximum_snapshot_work = p.maximum_snapshot_work;
+    limits.maximum_proof_additions = p.maximum_proof_additions;
+    limits.maximum_proof_deletions = p.maximum_proof_deletions;
+    limits.maximum_journal_bytes = p.maximum_journal_bytes;
+    limits.maximum_external_extent = p.maximum_external_extent;
+    limits.maximum_session_keys = p.maximum_session_keys;
+    limits.maximum_session_work = p.maximum_session_work;
+    return limits;
+  };
   const auto gf3_profile = [&] {
     OnlineInvocation invocation;
     invocation.rule = "Gf3AffineConsequence";
@@ -699,6 +775,81 @@ bool RandomControllerSelector::choose(
     result.maximum_session_work = p.maximum_session_work;
     result.maximum_session_identity_bytes = p.maximum_session_identity_bytes;
     return result;
+  };
+
+  const auto discover_affine = [&]() -> bool {
+    if (!config.affine_basis_action_producer.enabled ||
+        has_static_offer("AffineConsequence") ||
+        !k.affine_basis_action_session)
+      return false;
+    if (!config.affine_basis_action_producer.valid()) {
+      error = "GF2 affine structured action producer window is invalid";
+      return false;
+    }
+    const auto &session = *k.affine_basis_action_session;
+    const auto profile = affine_profile();
+    const auto state = state_version(k);
+    const bool owner_changed = affine_basis_discovery_.owner != &k ||
+                               affine_basis_discovery_.session != &session;
+    const bool profile_changed = affine_basis_discovery_.profile != profile;
+    const bool state_or_session_changed =
+        owner_changed || !same_version(affine_basis_discovery_.state, state) ||
+        affine_basis_discovery_.session_keys != session.committed_keys();
+    if (state_or_session_changed ||
+        (profile_changed &&
+         (!affine_basis_discovery_.reconfiguration_required ||
+          !affine_basis_discovery_.pending))) {
+      affine_basis_discovery_ = {};
+      affine_basis_discovery_.owner = &k;
+      affine_basis_discovery_.session = &session;
+      affine_basis_discovery_.state = state;
+      affine_basis_discovery_.session_keys = session.committed_keys();
+      affine_basis_discovery_.profile = profile;
+    } else if (affine_basis_discovery_.reconfiguration_required &&
+               profile_changed) {
+      affine_basis_discovery_.state = state;
+      affine_basis_discovery_.session_keys = session.committed_keys();
+      affine_basis_discovery_.profile = profile;
+      affine_basis_discovery_.reconfiguration_required = false;
+    }
+    if (affine_basis_discovery_.reconfiguration_required) return false;
+    if (affine_basis_discovery_.pending ||
+        !affine_basis_discovery_.offers.empty())
+      return true;
+    if (affine_basis_discovery_.terminal) return false;
+    const auto limits = affine_limits();
+    if (!limits.valid()) {
+      error = "GF2 affine structured action producer parameters are invalid";
+      return false;
+    }
+    const auto page = affine_basis_action_offers(
+        k, session, limits, affine_basis_discovery_.cursor,
+        config.affine_basis_action_producer.maximum_offers);
+    uint64_t preparation = page.preflight_recognition_work;
+    preparation = saturated_add(preparation, page.preflight_basis_work);
+    preparation = saturated_add(preparation, page.preflight_additions);
+    preparation = saturated_add(preparation, page.preflight_deletions);
+    producer_effort.push_back(
+        {"AffineConsequence", static_cast<uint8_t>(page.status), !page.more,
+         preparation, page.enumeration_work,
+         saturated_add(preparation, page.enumeration_work),
+         page.candidates_examined, page.offers.size()});
+    if (page.status == AffineBasisOfferStatus::Interrupted ||
+        page.status == AffineBasisOfferStatus::ResourceExhausted) {
+      affine_basis_discovery_.reconfiguration_required = true;
+      if (page.status == AffineBasisOfferStatus::Interrupted)
+        error = "controller selection interrupted";
+      return false;
+    }
+    if (page.status != AffineBasisOfferStatus::Complete ||
+        page.offers.empty()) {
+      affine_basis_discovery_.terminal = true;
+      return false;
+    }
+    affine_basis_discovery_.offers = page.offers;
+    affine_basis_discovery_.more = page.more;
+    affine_basis_discovery_.cursor = page.continuation;
+    return true;
   };
 
   const auto discover_gf3 = [&]() -> bool {
@@ -1150,6 +1301,7 @@ bool RandomControllerSelector::choose(
 
   enum class NativeOffer : uint8_t {
     None,
+    AffineBasis,
     Gf3,
     DirectCsp,
     NaryCsp,
@@ -1165,6 +1317,10 @@ bool RandomControllerSelector::choose(
     if (entry.eligible) {
       eligible.push_back(
           {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "AffineConsequence" && discover_affine()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::AffineBasis});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "Gf3AffineConsequence" && discover_gf3()) {
       eligible.push_back(
@@ -1212,6 +1368,18 @@ bool RandomControllerSelector::choose(
         error = "offered invocation identity differs from its action family";
         return false;
       }
+    } else if (selected_action.native == NativeOffer::AffineBasis) {
+      if (!affine_basis_discovery_.pending)
+        affine_basis_discovery_.pending = affine_basis_discovery_.offers[
+            draw(affine_basis_discovery_.offers.size())];
+      affine_basis_discovery_.pending_sequence = request.sequence;
+      request.invocation.id = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.affine_consequence_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.affine_basis_instances = {
+          *affine_basis_discovery_.pending};
     } else if (selected_action.native == NativeOffer::Gf3) {
       if (!gf3_discovery_.pending)
         gf3_discovery_.pending =

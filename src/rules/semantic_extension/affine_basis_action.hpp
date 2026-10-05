@@ -47,6 +47,12 @@ struct AffineBasisActionLimits {
   bool valid() const;
 };
 
+// Allocation-free structural validation for an exact public row payload.
+// Live apply still rederives the selected row and its complete source identity
+// from the retained owner; passing this check never authenticates a payload.
+bool affine_basis_row_selection_within_limits(
+    const AffineBasisRowSelection &, const AffineBasisActionLimits &);
+
 enum class AffineBasisActionStatus : uint8_t {
   Invalid,
   Inapplicable,
@@ -105,7 +111,7 @@ struct AffineBasisOfferPage {
   std::vector<AffineBasisRowSelection> offers;
 };
 
-// Pure bounded deterministic page over exact direct-row actions.  The page is
+// Pure bounded deterministic page over exact row actions.  The page is
 // ordered contradiction, unit, binary, increasing width, then canonical row
 // payload.  It does not bind an unbound session or mutate any solver state.
 AffineBasisOfferPage affine_basis_action_offers(

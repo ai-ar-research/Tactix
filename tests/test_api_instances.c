@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define MAX_RULES 64
@@ -69,6 +70,91 @@ static void add_clause(tactix *s, const int *lits) {
   for (; *lits; lits++)
     tactix_add(s, *lits);
   tactix_add(s, 0);
+}
+
+static int compare_ints(const void *left, const void *right) {
+  const int a = *(const int *)left, b = *(const int *)right;
+  return (a > b) - (a < b);
+}
+
+static void affine_v9_exact_row_boundary(void) {
+  tactix *s = tactix_init();
+  FILE *records = tmpfile();
+  int clauses[32][5], premise = 0, mask, bit;
+  tactix_online_affine_source_identity first_sources[16], second_sources[16];
+  tactix_online_affine_equation_identity equations[2];
+  const int first_variables[] = {1, 2, 3, 4, 5};
+  const int second_variables[] = {1, 2, 3, 4, 6};
+  const int row_variables[] = {5, 6};
+  const uint64_t ordinals[] = {0, 1};
+  tactix_online_affine_basis_instance instance;
+  tactix_online_step_v9 step;
+  tactix_online_program_v9 program;
+  tactix_online_result result;
+  tactix_online_step *base;
+  assert(records && tactix_bind_structural_provenance(s, records) == 0);
+  for (int equation = 0; equation < 2; ++equation) {
+    const int *variables = equation ? second_variables : first_variables;
+    const int rhs = equation != 0;
+    for (mask = 0; mask < 32; ++mask) {
+      unsigned parity = 0;
+      for (bit = 0; bit < 5; ++bit) parity ^= (unsigned)(mask >> bit) & 1u;
+      if (parity == (unsigned)rhs) continue;
+      for (bit = 0; bit < 5; ++bit)
+        clauses[premise][bit] =
+            (mask & (1 << bit)) ? -variables[bit] : variables[bit];
+      add_clause(s, (const int[]){clauses[premise][0], clauses[premise][1],
+                                  clauses[premise][2], clauses[premise][3],
+                                  clauses[premise][4], 0});
+      qsort(clauses[premise], 5, sizeof(int), compare_ints);
+      tactix_online_affine_source_identity *source =
+          equation ? &second_sources[premise - 16] : &first_sources[premise];
+      source->native_clause_id = (uint64_t)premise + 1;
+      source->clause = clauses[premise];
+      source->clause_count = 5;
+      ++premise;
+    }
+  }
+  assert(premise == 32);
+  equations[0] = (tactix_online_affine_equation_identity){
+      first_variables, 5, 0, first_sources, 16};
+  equations[1] = (tactix_online_affine_equation_identity){
+      second_variables, 5, 1, second_sources, 16};
+  instance = (tactix_online_affine_basis_instance){
+      1, 1, TACTIX_ONLINE_AFFINE_ROW_BINARY, row_variables, 2, 1,
+      ordinals, 2, equations, 2};
+  memset(&step, 0, sizeof step);
+  base = &step.base.base.base.base.base.base.base.base;
+  base->step_id = 9001;
+  base->rule_id = rule_id("AffineConsequence");
+  base->parameters.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
+  base->parameters.value.affine_consequence =
+      (tactix_online_affine_consequence_parameters){
+          1000, 10000, 100000, 100, 1000, 1000000, 8, 32, 32, 4,
+          100000, 100000, 1000000, 0,
+          TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2,
+          10000000, 32, 32, 10000, 10000, 3, 100000, 10000, 1000000};
+  base->granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  base->repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  base->repeat_limit = 1;
+  base->work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  base->budget_unlimited = 1;
+  step.affine_basis_instances = &instance;
+  step.affine_basis_instance_count = 1;
+  program = (tactix_online_program_v9){
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure_v9(
+             s, &program, 9001, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  /* Configuration owns every nested array after this point. */
+  clauses[0][0] = 999;
+  assert(tactix_online_advance(s, &result) == 0 &&
+         result.status == TACTIX_ONLINE_COMPLETED &&
+         result.made_rule_progress);
+  instance.owner_version = 0;
+  assert(tactix_online_configure_v9(
+             s, &program, 9002, TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  tactix_release(s);
+  fclose(records);
 }
 
 /* A level-0 formula with material for every inprocessing family, satisfiable
@@ -353,6 +439,7 @@ int main(void) {
   const int n = tactix_rule_count();
   int id, reached = 0, payload = 0, structured = 0;
   assert(n <= MAX_RULES);
+  affine_v9_exact_row_boundary();
 
   for (id = 0; id < n; id++) {
     /* a fresh solver per entry: a shared one lets an earlier rule's effect

@@ -1527,6 +1527,167 @@ bool parse_gf3_affine_instance(std::string_view text,
   return true;
 }
 
+AffineBasisActionLimits replay_affine_basis_limits(
+    const AffineConsequenceParameters &p) {
+  AffineBasisActionLimits limits;
+  limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
+                  p.maximum_elimination_work, p.maximum_arity,
+                  p.maximum_intermediate_width, p.maximum_sources,
+                  p.maximum_output_width};
+  limits.basis = {p.basis_maximum_work,
+                  p.basis_maximum_intermediate_width,
+                  p.basis_maximum_sources,
+                  p.basis_maximum_premises,
+                  p.basis_maximum_nodes,
+                  p.basis_maximum_direct_width};
+  limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
+  limits.maximum_snapshot_work = p.maximum_snapshot_work;
+  limits.maximum_proof_additions = p.maximum_proof_additions;
+  limits.maximum_proof_deletions = p.maximum_proof_deletions;
+  limits.maximum_journal_bytes = p.maximum_journal_bytes;
+  limits.maximum_external_extent = p.maximum_external_extent;
+  limits.maximum_session_keys = p.maximum_session_keys;
+  limits.maximum_session_work = p.maximum_session_work;
+  return limits;
+}
+
+bool parse_affine_basis_row(std::string_view text,
+                            const AffineConsequenceParameters &parameters,
+                            AffineBasisRowSelection &selection) {
+  const auto saturated_add = [](uint64_t left, uint64_t right) {
+    return right > UINT64_MAX - left ? UINT64_MAX : left + right;
+  };
+  const auto saturated_multiply = [](uint64_t left, uint64_t right) {
+    return left && right > UINT64_MAX / left ? UINT64_MAX : left * right;
+  };
+  const uint64_t maximum_field_width = std::max(
+      parameters.basis_maximum_intermediate_width,
+      parameters.basis_maximum_direct_width);
+  uint64_t maximum_fields = saturated_add(7, maximum_field_width);
+  maximum_fields = saturated_add(maximum_fields,
+                                 parameters.basis_maximum_sources);
+  maximum_fields = saturated_add(
+      maximum_fields,
+      saturated_multiply(parameters.basis_maximum_sources,
+                          3 + uint64_t{parameters.maximum_arity}));
+  maximum_fields = saturated_add(
+      maximum_fields, saturated_multiply(parameters.maximum_clauses, 2));
+  maximum_fields = saturated_add(maximum_fields,
+                                 parameters.maximum_snapshot_literals);
+  std::vector<std::string_view> fields;
+  while (!text.empty()) {
+    if (fields.size() >= maximum_fields) return false;
+    const size_t comma = text.find(',');
+    const std::string_view field = text.substr(0, comma);
+    if (field.empty()) return false;
+    fields.push_back(field);
+    if (comma == std::string_view::npos) text = {};
+    else text.remove_prefix(comma + 1);
+  }
+  size_t at = 0;
+  const auto u64 = [&](uint64_t &value) {
+    return at < fields.size() && parse_u64(fields[at++], value);
+  };
+  const auto i32 = [&](int32_t &value) {
+    if (at == fields.size()) return false;
+    int64_t parsed = 0;
+    const auto field = fields[at++];
+    const auto result = std::from_chars(field.data(), field.data() + field.size(),
+                                        parsed);
+    if (result.ec != std::errc{} || result.ptr != field.data() + field.size() ||
+        parsed < INT32_MIN || parsed > INT32_MAX)
+      return false;
+    value = static_cast<int32_t>(parsed);
+    return true;
+  };
+  uint64_t value = 0;
+  if (!u64(selection.owner_version) || !u64(value) || value > UINT32_MAX)
+    return false;
+  selection.elimination_profile = static_cast<uint32_t>(value);
+  if (!u64(value) ||
+      value > static_cast<uint64_t>(
+                  affine_semantic_extension::BasisRowKind::Extended))
+    return false;
+  selection.kind =
+      static_cast<affine_semantic_extension::BasisRowKind>(value);
+  const bool extended = selection.kind ==
+                        affine_semantic_extension::BasisRowKind::Extended;
+  const uint32_t maximum_width =
+      extended ? parameters.basis_maximum_intermediate_width
+               : parameters.basis_maximum_direct_width;
+  if (!u64(value) || value > maximum_width ||
+      value > fields.size() - at)
+    return false;
+  selection.variables.reserve(static_cast<size_t>(value));
+  for (uint64_t i = 0; i < value; ++i) {
+    int32_t variable = 0;
+    if (!i32(variable)) return false;
+    selection.variables.push_back(variable);
+  }
+  if (!u64(value) || value > 1) return false;
+  selection.rhs = value;
+  if (!u64(value) || value < (extended ? 1u : 2u) ||
+      value > parameters.basis_maximum_sources ||
+      value > fields.size() - at)
+    return false;
+  const size_t source_count = static_cast<size_t>(value);
+  selection.source_equation_ordinals.reserve(source_count);
+  for (size_t i = 0; i < source_count; ++i) {
+    uint64_t ordinal = 0;
+    if (!u64(ordinal) || ordinal > SIZE_MAX) return false;
+    selection.source_equation_ordinals.push_back(static_cast<size_t>(ordinal));
+  }
+  if (!u64(value) || value != source_count) return false;
+  selection.source_equations.reserve(source_count);
+  uint64_t clauses = 0, literals = 0;
+  for (size_t equation_index = 0; equation_index < source_count;
+       ++equation_index) {
+    AffineBasisEquationIdentity equation;
+    if (!u64(value) || !value || value > parameters.maximum_arity ||
+        value >= 64 || value > fields.size() - at)
+      return false;
+    const size_t arity = static_cast<size_t>(value);
+    equation.variables.reserve(arity);
+    for (size_t i = 0; i < arity; ++i) {
+      int32_t variable = 0;
+      if (!i32(variable)) return false;
+      equation.variables.push_back(variable);
+    }
+    if (!u64(value) || value > 1) return false;
+    equation.rhs = value;
+    if (!u64(value) || value != (uint64_t{1} << (arity - 1)) ||
+        value > parameters.maximum_patterns ||
+        value > parameters.maximum_clauses -
+                    std::min(clauses, parameters.maximum_clauses))
+      return false;
+    equation.premises.reserve(static_cast<size_t>(value));
+    clauses += value;
+    for (uint64_t premise_index = 0; premise_index < value;
+         ++premise_index) {
+      AffineBasisSourceIdentity premise;
+      uint64_t width = 0;
+      if (!u64(premise.native_clause_id) || !u64(width) || width != arity ||
+          width > fields.size() - at ||
+          width > parameters.maximum_snapshot_literals -
+                      std::min(literals,
+                               parameters.maximum_snapshot_literals))
+        return false;
+      literals += width;
+      premise.clause.reserve(arity);
+      for (size_t i = 0; i < arity; ++i) {
+        int32_t literal = 0;
+        if (!i32(literal)) return false;
+        premise.clause.push_back(literal);
+      }
+      equation.premises.push_back(std::move(premise));
+    }
+    selection.source_equations.push_back(std::move(equation));
+  }
+  return at == fields.size() &&
+         affine_basis_row_selection_within_limits(
+             selection, replay_affine_basis_limits(parameters));
+}
+
 bool parse_direct_csp_support(std::string_view text,
                               DirectCspSupportActionSelection &selection) {
   std::vector<int64_t> values;
@@ -2452,6 +2613,37 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.affine_basis_instances.empty()) {
+      out << ":affine-basis-row1[";
+      for (size_t row = 0; row < step.affine_basis_instances.size(); ++row) {
+        if (row) out << ';';
+        const auto &selection = step.affine_basis_instances[row];
+        out << selection.owner_version << ','
+            << selection.elimination_profile << ','
+            << static_cast<unsigned>(selection.kind) << ','
+            << selection.variables.size();
+        for (const int32_t variable : selection.variables)
+          out << ',' << variable;
+        out << ',' << selection.rhs << ','
+            << selection.source_equation_ordinals.size();
+        for (const size_t ordinal : selection.source_equation_ordinals)
+          out << ',' << ordinal;
+        out << ',' << selection.source_equations.size();
+        for (const auto &equation : selection.source_equations) {
+          out << ',' << equation.variables.size();
+          for (const int32_t variable : equation.variables)
+            out << ',' << variable;
+          out << ',' << equation.rhs << ',' << equation.premises.size();
+          for (const auto &premise : equation.premises) {
+            out << ',' << premise.native_clause_id << ','
+                << premise.clause.size();
+            for (const int32_t literal : premise.clause)
+              out << ',' << literal;
+          }
+        }
+      }
+      out << ']';
+    }
     if (!step.direct_csp_support_instances.empty()) {
       out << ":direct-csp-support[";
       for (size_t i = 0; i < step.direct_csp_support_instances.size(); ++i) {
@@ -2692,6 +2884,31 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         if (!parse_gf3_affine_instance(text.substr(0, semicolon), instance))
           return reject("online replay GF3 affine payload is malformed");
         step.gf3_affine_instances.push_back(instance);
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view affine_basis_marker = ":affine-basis-row1[";
+    if (text.starts_with(affine_basis_marker) && text.back() == ']') {
+      const auto *parameters =
+          std::get_if<AffineConsequenceParameters>(&step.parameters);
+      if (!parameters)
+        return reject("online replay GF2 affine row has no typed limits");
+      text.remove_prefix(affine_basis_marker.size());
+      text.remove_suffix(1);
+      if (text.empty())
+        return reject("online replay GF2 affine row collection is empty");
+      while (!text.empty()) {
+        if (step.affine_basis_instances.size() >=
+            parameters->maximum_session_keys)
+          return reject(
+              "online replay GF2 affine row collection exceeds limits");
+        const size_t semicolon = text.find(';');
+        AffineBasisRowSelection selection;
+        if (!parse_affine_basis_row(text.substr(0, semicolon), *parameters,
+                                    selection))
+          return reject("online replay GF2 affine row is malformed");
+        step.affine_basis_instances.push_back(std::move(selection));
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }

@@ -250,6 +250,7 @@ int main(int argc, char **argv) {
     } else if (!strncmp(a, "--controller-native-producers=", 30)) {
       const char *value = a + 30;
       const auto set_all = [&](bool enabled) {
+        controller_config.affine_basis_action_producer.enabled = enabled;
         controller_config.gf3_action_producer.enabled = enabled;
         controller_config.direct_csp_action_producer.enabled = enabled;
         controller_config.nary_csp_action_producer.enabled = enabled;
@@ -266,7 +267,9 @@ int main(int argc, char **argv) {
         for (size_t begin = 0; valid && begin <= list.size();) {
           const size_t end = list.find(',', begin);
           const std::string name = list.substr(begin, end - begin);
-          if (name == "gf3-affine")
+          if (name == "gf2-affine")
+            controller_config.affine_basis_action_producer.enabled = true;
+          else if (name == "gf3-affine")
             controller_config.gf3_action_producer.enabled = true;
           else if (name == "direct-csp")
             controller_config.direct_csp_action_producer.enabled = true;
@@ -392,7 +395,7 @@ int main(int argc, char **argv) {
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
-      puts("  native producer LIST: gf3-affine,direct-csp,nary-csp,"
+      puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,nary-csp,"
            "gf3-gaussian,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
            "names, or all");

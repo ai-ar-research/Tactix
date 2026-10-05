@@ -3,6 +3,7 @@
 #include "rules/factor/factor.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -82,6 +83,9 @@ struct OnlineInvocation {
   // IndependentSetCover consequences. Each inner vector is one action.
   std::vector<std::vector<uint32_t>> independent_set_cover_instances = {};
   std::vector<Gf3AffineInstance> gf3_affine_instances = {};
+  // Complete exact GF(2) row/source identities.  These are deep-copied action
+  // values; live apply rederives and authenticates every field.
+  std::vector<AffineBasisRowSelection> affine_basis_instances = {};
   // Canonical opaque identities returned by gf3_gaussian_action_offer().
   // They encode exact semantics, derivation provenance, live premise IDs and
   // source clauses; they are stable replay keys rather than mutable ordinals.
