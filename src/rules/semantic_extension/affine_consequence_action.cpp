@@ -271,10 +271,6 @@ RuleEligibility affine_consequence_action_guard(const Kernel &kernel) {
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
-      .fact("basis-assignment-free",
-            kernel.affine_consequence_parameters.semantics !=
-                    strategy::AffineConsequenceSemantics::CertifiedBasisV2 ||
-                kernel.trail.empty())
       .fact("no-conflict",
             !kernel.conflict_valid && !kernel.pending.valid)
       .fact("propagated", kernel_propagation_fixpoint(kernel))

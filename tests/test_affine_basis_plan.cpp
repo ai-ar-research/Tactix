@@ -205,11 +205,34 @@ static void transactional_failures() {
   assert(sentinel.input_rows == 777);
 }
 
+static void direct_slice_ignores_unrelated_extension_cost() {
+  const std::vector<Equation> input = {
+      equation({1, 2, 3, 4, 5, 6, 7, 8}, false, {10}),
+      equation({1, 2, 3, 4, 5, 6, 9}, true, {11})};
+  auto bounded = limits(3);
+  bounded.maximum_nodes = 1;
+  BasisPlan sentinel;
+  sentinel.input_rows = 777;
+  assert(build_basis_plan(input, bounded, [](uint64_t) { return true; },
+                          sentinel) == BasisPlanStatus::Exhausted);
+  assert(sentinel.input_rows == 777);
+  BasisPlan direct;
+  assert(build_direct_basis_plan(input, bounded,
+                                 [](uint64_t) { return true; }, direct) ==
+         BasisPlanStatus::Complete);
+  assert(direct.definitions.empty() && direct.rows.size() == 1);
+  assert(direct.rows[0].kind == BasisRowKind::DirectSmall &&
+         direct.rows[0].variables == std::vector<External>({7, 8, 9}) &&
+         direct.rows[0].rhs &&
+         direct.rows[0].source_equations == std::vector<size_t>({0, 1}));
+}
+
 int main() {
   direct_rows();
   shared_extension_and_projection();
   cancellation_provenance_and_contradiction();
   transactional_failures();
+  direct_slice_ignores_unrelated_extension_cost();
   std::puts("affine basis plan: provenance, direct rows, shared XOR definitions, "
             "projection, and transactional bounds PASS");
 }

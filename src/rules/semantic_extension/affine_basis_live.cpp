@@ -18,7 +18,7 @@ using SmallClause = parity_certificate::SmallClause;
 
 bool state_applicable(const Kernel &kernel) {
   return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
+         !kernel.pending.valid && !kernel.dense &&
          !kernel.probing.recording && kernel.large_watches_connected &&
          kernel_propagation_fixpoint(kernel);
 }
@@ -33,7 +33,12 @@ bool valid_request(const AffineBasisLiveRequest &request) {
          request.image.maximum_arity && request.image.maximum_arity <= 8 &&
          request.image.maximum_intermediate_width &&
          request.image.maximum_sources &&
-         (!request.excluded_keys || request.maximum_exclusion_work);
+         (!request.excluded_keys || request.maximum_exclusion_work) &&
+         (!request.owner || request.owner_version) &&
+         (!request.selection ||
+          (request.owner_version &&
+           request.selection->owner_version == request.owner_version &&
+           request.selection->elimination_profile == 1));
 }
 
 std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
@@ -153,7 +158,86 @@ bool add_arena_words(uint64_t &words, const std::vector<int32_t> &clause) {
   return true;
 }
 
+bool clause_covered(const Kernel &kernel, const std::vector<int32_t> &clause) {
+  for (int32_t external : clause) {
+    const Lit literal = kernel_internalize(kernel, external);
+    if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
+      return false;
+    if (kernel.value(literal) > 0) return true;
+  }
+  if (clause.empty()) return false;
+  if (clause.size() == 1)
+    return kernel.value(kernel_internalize(kernel, clause.front())) > 0;
+  if (clause.size() == 2)
+    return kernel_binary_live(kernel, kernel_internalize(kernel, clause[0]),
+                              kernel_internalize(kernel, clause[1]));
+  std::vector<int32_t> wanted = clause_key(clause);
+  for (Ref ref = 0; ref < kernel.arena.size();) {
+    const Clause *candidate = clause_at(kernel.arena, ref);
+    ref += clause_actual_words(candidate);
+    if (candidate->garbage() || candidate->size != clause.size()) continue;
+    std::vector<int32_t> current;
+    current.reserve(candidate->size);
+    for (Lit literal : *candidate)
+      current.push_back(kernel_externalize(kernel, literal));
+    if (clause_key(std::move(current)) == wanted) return true;
+  }
+  return false;
+}
+
+bool valid_owned_snapshot(const Kernel &kernel,
+                          const AffineBasisLiveRequest &request,
+                          const AffineLiveSnapshot &snapshot,
+                          uint64_t &literals, uint64_t &work) {
+  literals = work = 0;
+  if (snapshot.arena_generation != kernel.arena_generation ||
+      snapshot.premises.size() != snapshot.sources.size() ||
+      snapshot.premises.size() > request.image.maximum_clauses)
+    return false;
+  for (size_t i = 0; i < snapshot.premises.size(); ++i) {
+    const auto &premise = snapshot.premises[i];
+    const auto &source = snapshot.sources[i];
+    if (premise.occurrence != i + 1 || source.occurrence != i + 1 ||
+        premise.literals != source.clause || !source.clause_id)
+      return false;
+    if (premise.literals.size() > request.maximum_snapshot_literals - literals)
+      return false;
+    const uint64_t amount = premise.literals.size() + 1;
+    if (amount > request.maximum_snapshot_work - work) return false;
+    literals += premise.literals.size();
+    work += amount;
+  }
+  return true;
+}
+
 } // namespace
+
+bool AffineBasisRowSelection::operator<(
+    const AffineBasisRowSelection &other) const {
+  const auto priority = [](affine::BasisRowKind kind) {
+    switch (kind) {
+    case affine::BasisRowKind::DirectContradiction: return 0u;
+    case affine::BasisRowKind::DirectUnit: return 1u;
+    case affine::BasisRowKind::DirectBinary: return 2u;
+    case affine::BasisRowKind::DirectSmall: return 3u;
+    case affine::BasisRowKind::Extended: return 4u;
+    }
+    return 5u;
+  };
+  const auto left = priority(kind), right = priority(other.kind);
+  if (left != right) return left < right;
+  if (variables.size() != other.variables.size())
+    return variables.size() < other.variables.size();
+  if (variables != other.variables) return variables < other.variables;
+  if (rhs != other.rhs) return rhs < other.rhs;
+  if (source_equation_ordinals != other.source_equation_ordinals)
+    return source_equation_ordinals < other.source_equation_ordinals;
+  if (source_equations != other.source_equations)
+    return source_equations < other.source_equations;
+  if (owner_version != other.owner_version)
+    return owner_version < other.owner_version;
+  return elimination_profile < other.elimination_profile;
+}
 
 bool make_affine_basis_journal(
     const AffineBasisLiveRequest &request, const affine::Image &image,
@@ -162,7 +246,8 @@ bool make_affine_basis_journal(
   std::string journal;
   const std::string identity = "\"action\":" +
       std::to_string(request.action_id) + ",\"semantic\":" +
-      std::to_string(request.semantic_id);
+      std::to_string(request.semantic_id) + ",\"owner\":" +
+      std::to_string(request.owner_version);
   if (!append_bounded(journal, request.maximum_journal_bytes,
           "{" + identity +
           ",\"kind\":\"affine-basis-begin\",\"equations\":" +
@@ -273,32 +358,42 @@ bool install_clause(Kernel &kernel, const Event &event) {
   return true;
 }
 
-bool consumed_key(const affine::Image &image,
-                  const AffineLiveSnapshot &snapshot,
-                  const affine::BasisRow &row,
-                  AffineBasisConsumedKey &output) {
+bool make_equation_identity(const affine::Image &image,
+                            const AffineLiveSnapshot &snapshot,
+                            size_t source_index,
+                            AffineBasisEquationIdentity &output) {
+  if (source_index >= image.equations.size()) return false;
+  const affine::Equation &source = image.equations[source_index];
+  AffineBasisEquationIdentity equation;
+  equation.variables = source.variables;
+  equation.rhs = source.rhs;
+  for (uint64_t occurrence : source.premises) {
+    if (!occurrence || occurrence > snapshot.sources.size()) return false;
+    const AffineLiveSource &premise = snapshot.sources[occurrence - 1];
+    if (premise.occurrence != occurrence || !premise.clause_id)
+      return false;
+    AffineBasisSourceIdentity identity{premise.clause_id, premise.clause};
+    std::sort(identity.clause.begin(), identity.clause.end());
+    equation.premises.push_back(std::move(identity));
+  }
+  std::sort(equation.premises.begin(), equation.premises.end());
+  if (std::adjacent_find(equation.premises.begin(),
+                         equation.premises.end()) != equation.premises.end())
+    return false;
+  output = std::move(equation);
+  return true;
+}
+
+bool make_consumed_key(const affine::Image &image,
+                       const AffineLiveSnapshot &snapshot,
+                       const affine::BasisRow &row,
+                       AffineBasisConsumedKey &output) {
   AffineBasisConsumedKey key;
   key.variables = row.variables;
   key.rhs = row.rhs;
   for (size_t source_index : row.source_equations) {
-    if (source_index >= image.equations.size()) return false;
-    const affine::Equation &source = image.equations[source_index];
     AffineBasisEquationIdentity equation;
-    equation.variables = source.variables;
-    equation.rhs = source.rhs;
-    for (uint64_t occurrence : source.premises) {
-      if (!occurrence || occurrence > snapshot.sources.size()) return false;
-      const AffineLiveSource &premise = snapshot.sources[occurrence - 1];
-      if (premise.occurrence != occurrence || !premise.clause_id)
-        return false;
-      AffineBasisSourceIdentity identity{premise.clause_id, premise.clause};
-      std::sort(identity.clause.begin(), identity.clause.end());
-      equation.premises.push_back(std::move(identity));
-    }
-    std::sort(equation.premises.begin(), equation.premises.end());
-    if (std::adjacent_find(equation.premises.begin(),
-                           equation.premises.end()) !=
-        equation.premises.end())
+    if (!make_equation_identity(image, snapshot, source_index, equation))
       return false;
     key.source_equations.push_back(std::move(equation));
   }
@@ -402,7 +497,7 @@ FilterStatus filter_excluded_rows(
         row.kind != affine::BasisRowKind::Extended)
       continue;
     AffineBasisConsumedKey key;
-    if (!consumed_key(image, snapshot, row, key))
+    if (!make_consumed_key(image, snapshot, row, key))
       return FilterStatus::Invalid;
     if (!measure_excluded_key(key, maximum, work))
       return FilterStatus::Exhausted;
@@ -496,7 +591,63 @@ FilterStatus filter_excluded_rows(
   return FilterStatus::Complete;
 }
 
+FilterStatus filter_selected_row(
+    const AffineBasisRowSelection &selection, const affine::Image &image,
+    const AffineLiveSnapshot &snapshot, affine::BasisPlan &plan) {
+  size_t selected = SIZE_MAX;
+  for (size_t i = 0; i < plan.rows.size(); ++i) {
+    const affine::BasisRow &row = plan.rows[i];
+    AffineBasisRowSelection actual;
+    if (!affine_basis_row_selection(selection.owner_version, image, snapshot,
+                                    row, actual))
+      return FilterStatus::Invalid;
+    if (actual == selection) {
+      if (selected != SIZE_MAX) return FilterStatus::Invalid;
+      selected = i;
+    }
+  }
+  if (selected == SIZE_MAX) return FilterStatus::AllExcluded;
+  // This first repeated-action slice deliberately publishes direct rows only.
+  // Wide rows remain on the existing whole-basis path until the scalable
+  // certificate replaces the sixteen-variable Deriver boundary.
+  if (plan.rows[selected].kind == affine::BasisRowKind::Extended)
+    return FilterStatus::AllExcluded;
+  plan.rows = {plan.rows[selected]};
+  plan.definitions.clear();
+  plan.projection.clear();
+  return FilterStatus::Complete;
+}
+
 } // namespace
+
+bool affine_basis_consumed_key(const affine::Image &image,
+                               const AffineLiveSnapshot &snapshot,
+                               const affine::BasisRow &row,
+                               AffineBasisConsumedKey &output) {
+  return make_consumed_key(image, snapshot, row, output);
+}
+
+bool affine_basis_row_selection(uint64_t owner_version,
+                                const affine::Image &image,
+                                const AffineLiveSnapshot &snapshot,
+                                const affine::BasisRow &row,
+                                AffineBasisRowSelection &output) {
+  if (!owner_version) return false;
+  AffineBasisRowSelection selection;
+  selection.owner_version = owner_version;
+  selection.kind = row.kind;
+  selection.variables = row.variables;
+  selection.rhs = row.rhs;
+  selection.source_equation_ordinals = row.source_equations;
+  for (size_t source_index : row.source_equations) {
+    AffineBasisEquationIdentity equation;
+    if (!make_equation_identity(image, snapshot, source_index, equation))
+      return false;
+    selection.source_equations.push_back(std::move(equation));
+  }
+  output = std::move(selection);
+  return true;
+}
 
 AffineBasisLiveResult prepare_affine_basis_live(
     Kernel &kernel, const AffineBasisLiveRequest &request,
@@ -530,8 +681,18 @@ AffineBasisLiveResult prepare_affine_basis_live(
   snapshot_request.records = request.records;
   snapshot_request.action_id = request.action_id;
   snapshot_request.semantic_id = request.semantic_id;
-  if (!capture_affine_live_snapshot(kernel, snapshot_request,
-                                    transaction.snapshot_)) {
+  if (request.owner) {
+    uint64_t payload_work = 0;
+    if (!valid_owned_snapshot(kernel, request, *request.owner,
+                              result.snapshot_literals, payload_work)) {
+      result.status = request.owner->arena_generation != kernel.arena_generation
+                          ? AffineBasisLiveStatus::Stale
+                          : AffineBasisLiveStatus::Invalid;
+      return result;
+    }
+    transaction.snapshot_ = *request.owner;
+  } else if (!capture_affine_live_snapshot(kernel, snapshot_request,
+                                           transaction.snapshot_)) {
     result.status = kernel_terminating(kernel)
                         ? AffineBasisLiveStatus::Interrupted
                         : AffineBasisLiveStatus::ResourceExhausted;
@@ -576,9 +737,13 @@ AffineBasisLiveResult prepare_affine_basis_live(
   result.equations = image.equations.size();
 
   affine::BasisPlan basis;
-  const affine::BasisPlanStatus planned = affine::build_basis_plan(
-      image.equations, request.basis,
-      [&](uint64_t) { return !kernel_terminating(kernel); }, basis);
+  const affine::BasisPlanStatus planned = request.selection
+      ? affine::build_direct_basis_plan(
+            image.equations, request.basis,
+            [&](uint64_t) { return !kernel_terminating(kernel); }, basis)
+      : affine::build_basis_plan(
+            image.equations, request.basis,
+            [&](uint64_t) { return !kernel_terminating(kernel); }, basis);
   result.basis_work = basis.planning_work;
   if (planned != affine::BasisPlanStatus::Complete) {
     result.status = planned == affine::BasisPlanStatus::NoStructure
@@ -589,6 +754,17 @@ AffineBasisLiveResult prepare_affine_basis_live(
                         ? AffineBasisLiveStatus::ResourceExhausted
                         : AffineBasisLiveStatus::Invalid;
     return result;
+  }
+  if (request.selection) {
+    const FilterStatus selected = filter_selected_row(
+        *request.selection, image, transaction.snapshot_, basis);
+    if (selected != FilterStatus::Complete) {
+      result.status = selected == FilterStatus::AllExcluded
+                          ? AffineBasisLiveStatus::Stale
+                          : AffineBasisLiveStatus::Invalid;
+      return result;
+    }
+    result.selection = *request.selection;
   }
   if (request.excluded_keys) {
     const FilterStatus filtered = filter_excluded_rows(
@@ -680,7 +856,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
         row.kind != affine::BasisRowKind::Extended)
       continue;
     AffineBasisConsumedKey row_key;
-    if (!consumed_key(image, transaction.snapshot_, row, row_key)) {
+    if (!make_consumed_key(image, transaction.snapshot_, row, row_key)) {
       result.status = AffineBasisLiveStatus::Invalid;
       return result;
     }
@@ -734,6 +910,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
         result.status = AffineBasisLiveStatus::Invalid;
         return result;
       }
+      if (clause_covered(kernel, target)) continue;
       const size_t before = transaction.events_.size();
       parity_certificate::Deriver<PlanningSink> deriver(sink);
       if (!deriver.derive(small, premises, row.variables, kept)) {

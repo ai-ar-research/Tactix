@@ -12,8 +12,18 @@ namespace tactix {
 
 struct AffineBasisActionSessionAccess {
   static void commit(AffineBasisActionSession &session, const Kernel &kernel,
+                     uint64_t owner_version,
+                     const AffineLiveSnapshot *owner,
                      std::vector<AffineBasisConsumedKey> keys) {
-    session.owner_ = &kernel;
+    if (!session.kernel_) {
+      if (!owner || !owner_version) std::abort();
+      session.kernel_ = &kernel;
+      session.owner_version_ = owner_version;
+      session.owner_snapshot_ = *owner;
+    } else if (session.kernel_ != &kernel || owner ||
+               session.owner_version_ != owner_version) {
+      std::abort();
+    }
     session.keys_.swap(keys);
   }
 };
@@ -134,7 +144,10 @@ AffineBasisActionStatus action_status(AffineBasisLiveStatus status) {
 AffineBasisLiveRequest make_request(const Kernel &kernel,
                                     const AffineBasisActionSession &session,
                                     const AffineBasisActionLimits &limits,
-                                    uint64_t action_id) {
+                                    uint64_t action_id,
+                                    const AffineLiveSnapshot &owner,
+                                    uint64_t owner_version,
+                                    const AffineBasisRowSelection *selection) {
   AffineBasisLiveRequest request;
   request.image = limits.image;
   request.basis = limits.basis;
@@ -147,11 +160,217 @@ AffineBasisLiveRequest make_request(const Kernel &kernel,
   request.action_id = action_id;
   request.semantic_id = action_id;
   request.records = kernel.structural_provenance;
+  request.owner = &owner;
+  request.owner_version = owner_version;
+  request.selection = selection;
   if (session.committed_keys()) {
     request.excluded_keys = &session.keys();
     request.maximum_exclusion_work = limits.maximum_session_work;
   }
   return request;
+}
+
+AffineLiveRequest snapshot_request(const Kernel &kernel,
+                                   const AffineBasisActionLimits &limits) {
+  AffineLiveRequest request;
+  request.image = limits.image;
+  request.maximum_snapshot_literals = limits.maximum_snapshot_literals;
+  request.maximum_snapshot_work = limits.maximum_snapshot_work;
+  request.records = kernel.structural_provenance;
+  request.action_id = kernel.structural_action_sequence + 1;
+  request.semantic_id = request.action_id;
+  return request;
+}
+
+bool duplicate_key(const AffineBasisActionSession &session,
+                   const affine_semantic_extension::Image &image,
+                   const AffineLiveSnapshot &snapshot,
+                   const affine_semantic_extension::BasisRow &row) {
+  AffineBasisConsumedKey key;
+  if (!affine_basis_consumed_key(image, snapshot, row, key)) return false;
+  return std::binary_search(session.keys().begin(), session.keys().end(), key);
+}
+
+AffineBasisOfferPage offer_page(
+    Kernel &kernel, const AffineBasisActionSession &session,
+    const AffineBasisActionLimits &limits,
+    const AffineBasisOfferCursor &cursor, uint32_t maximum_offers,
+    const AffineLiveSnapshot &owner, uint64_t owner_version,
+    AffineBasisLiveTransaction *selected_transaction = nullptr,
+    AffineBasisLiveResult *selected_result = nullptr) {
+  AffineBasisOfferPage page;
+  page.owner_version = owner_version;
+  if (!maximum_offers || !limits.valid() || !owner_version) return page;
+  if (!affine_basis_action_guard(kernel)) {
+    page.status = AffineBasisOfferStatus::Inapplicable;
+    return page;
+  }
+  if (session.bound() && (!session.belongs_to(kernel) ||
+                          session.owner_version() != owner_version)) {
+    page.status = AffineBasisOfferStatus::Stale;
+    return page;
+  }
+  if (cursor.present &&
+      (cursor.last_examined.owner_version != owner_version ||
+       cursor.last_examined.elimination_profile != 1))
+    return page;
+
+  namespace affine = affine_semantic_extension;
+  affine::Image image;
+  uint64_t recognition_work = 0;
+  bool interrupted = false, exhausted = false;
+  const auto charge = [&](uint64_t amount) {
+    if (kernel_terminating(kernel)) {
+      interrupted = true;
+      return false;
+    }
+    if (amount > limits.image.maximum_elimination_work - recognition_work) {
+      exhausted = true;
+      return false;
+    }
+    recognition_work += amount;
+    return true;
+  };
+  const affine::Status recognized =
+      affine::recognize(owner.premises, limits.image, charge, image);
+  page.enumeration_work = recognition_work;
+  if (recognized != affine::Status::Complete) {
+    page.status = interrupted ? AffineBasisOfferStatus::Interrupted
+                  : exhausted || recognized == affine::Status::Exhausted
+                      ? AffineBasisOfferStatus::ResourceExhausted
+                  : recognized == affine::Status::NoStructure
+                      ? AffineBasisOfferStatus::NoStructure
+                      : AffineBasisOfferStatus::Invalid;
+    return page;
+  }
+  affine::BasisPlan plan;
+  const affine::BasisPlanStatus planned = affine::build_direct_basis_plan(
+      image.equations, limits.basis,
+      [&](uint64_t amount) {
+        return add_work(amount, UINT64_MAX, page.enumeration_work) &&
+               !kernel_terminating(kernel);
+      },
+      plan);
+  if (planned != affine::BasisPlanStatus::Complete) {
+    page.status = planned == affine::BasisPlanStatus::Interrupted
+                      ? AffineBasisOfferStatus::Interrupted
+                  : planned == affine::BasisPlanStatus::Exhausted
+                      ? AffineBasisOfferStatus::ResourceExhausted
+                  : planned == affine::BasisPlanStatus::NoStructure
+                      ? AffineBasisOfferStatus::NoStructure
+                      : AffineBasisOfferStatus::Invalid;
+    return page;
+  }
+
+  struct Candidate {
+    AffineBasisRowSelection selection;
+    size_t row = 0;
+  };
+  std::vector<Candidate> candidates;
+  for (size_t i = 0; i < plan.rows.size(); ++i) {
+    const affine::BasisRow &row = plan.rows[i];
+    if (row.kind == affine::BasisRowKind::Extended ||
+        row.source_equations.size() < 2)
+      continue;
+    Candidate candidate;
+    candidate.row = i;
+    if (!affine_basis_row_selection(owner_version, image, owner, row,
+                                    candidate.selection)) {
+      page.status = AffineBasisOfferStatus::Invalid;
+      return page;
+    }
+    candidates.push_back(std::move(candidate));
+  }
+  std::sort(candidates.begin(), candidates.end(),
+            [](const Candidate &a, const Candidate &b) {
+              return a.selection < b.selection;
+            });
+  for (size_t i = 1; i < candidates.size(); ++i)
+    if (!(candidates[i - 1].selection < candidates[i].selection)) {
+      page.status = AffineBasisOfferStatus::Invalid;
+      return page;
+    }
+  if (cursor.present) {
+    const auto found = std::lower_bound(
+        candidates.begin(), candidates.end(), cursor.last_examined,
+        [](const Candidate &candidate,
+           const AffineBasisRowSelection &selection) {
+          return candidate.selection < selection;
+        });
+    if (found == candidates.end() ||
+        !(found->selection == cursor.last_examined)) {
+      page.status = AffineBasisOfferStatus::Invalid;
+      return page;
+    }
+  }
+
+  page.status = AffineBasisOfferStatus::NoStructure;
+  for (size_t i = 0; i < candidates.size(); ++i) {
+    const Candidate &candidate = candidates[i];
+    if (cursor.present &&
+        !(cursor.last_examined < candidate.selection))
+      continue;
+    ++page.candidates_examined;
+    const uint64_t enumeration =
+        1 + candidate.selection.variables.size() +
+        candidate.selection.source_equation_ordinals.size();
+    if (!add_work(enumeration, UINT64_MAX, page.enumeration_work)) {
+      page.status = AffineBasisOfferStatus::ResourceExhausted;
+      return page;
+    }
+    page.continuation = {true, candidate.selection};
+    if (duplicate_key(session, image, owner, plan.rows[candidate.row])) {
+      ++page.duplicates;
+      continue;
+    }
+    const AffineBasisLiveRequest request = make_request(
+        kernel, session, limits, kernel.structural_action_sequence + 1, owner,
+        owner_version, &candidate.selection);
+    AffineBasisLiveTransaction transaction;
+    const AffineBasisLiveResult prepared =
+        prepare_affine_basis_live(kernel, request, transaction);
+    if (!add_work(prepared.recognition_work, UINT64_MAX,
+                  page.preflight_recognition_work) ||
+        !add_work(prepared.basis_work, UINT64_MAX,
+                  page.preflight_basis_work) ||
+        !add_work(prepared.preflight_additions, UINT64_MAX,
+                  page.preflight_additions) ||
+        !add_work(prepared.preflight_deletions, UINT64_MAX,
+                  page.preflight_deletions)) {
+      page.status = AffineBasisOfferStatus::ResourceExhausted;
+      return page;
+    }
+    if (prepared.status == AffineBasisLiveStatus::Prepared) {
+      page.status = AffineBasisOfferStatus::Complete;
+      if (page.offers.empty() && selected_transaction && selected_result) {
+        *selected_transaction = std::move(transaction);
+        *selected_result = prepared;
+      }
+      page.offers.push_back(candidate.selection);
+      if (page.offers.size() == maximum_offers) {
+        page.more = i + 1 < candidates.size();
+        break;
+      }
+    } else if (prepared.status == AffineBasisLiveStatus::NoStructure) {
+      ++page.covered;
+    } else if (prepared.status == AffineBasisLiveStatus::Stale) {
+      ++page.stale;
+      if (page.offers.empty()) page.status = AffineBasisOfferStatus::Stale;
+    } else if (prepared.status == AffineBasisLiveStatus::ResourceExhausted ||
+               prepared.status == AffineBasisLiveStatus::UnsupportedProof) {
+      if (page.offers.empty())
+        page.status = AffineBasisOfferStatus::ResourceExhausted;
+    } else if (prepared.status == AffineBasisLiveStatus::Interrupted) {
+      page.status = AffineBasisOfferStatus::Interrupted;
+      return page;
+    } else if (prepared.status == AffineBasisLiveStatus::Invalid) {
+      page.status = AffineBasisOfferStatus::Invalid;
+      return page;
+    }
+    // Per-row proof/resource rejection advances the continuation but does not
+    // hide later rows that may fit the same configured allowance.
+  }
+  return page;
 }
 
 } // namespace
@@ -175,7 +394,6 @@ RuleEligibility affine_basis_action_guard(const Kernel &kernel) {
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
       .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
       .fact("propagated", kernel_propagation_fixpoint(kernel))
       .fact("sparse", !kernel.dense && kernel.large_watches_connected)
@@ -191,9 +409,39 @@ RuleEligibility affine_basis_action_guard(const Kernel &kernel) {
             !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
 }
 
-AffineBasisActionResult affine_basis_action_apply(
+AffineBasisOfferPage affine_basis_action_offers(
+    Kernel &kernel, const AffineBasisActionSession &session,
+    const AffineBasisActionLimits &limits,
+    const AffineBasisOfferCursor &cursor, uint32_t maximum_offers) {
+  AffineBasisOfferPage page;
+  if (!maximum_offers || !limits.valid()) return page;
+  if (session.bound()) {
+    if (!session.belongs_to(kernel) || !session.owner()) {
+      page.status = AffineBasisOfferStatus::Stale;
+      return page;
+    }
+    return offer_page(kernel, session, limits, cursor, maximum_offers,
+                      *session.owner(), session.owner_version());
+  }
+  if (!affine_basis_action_guard(kernel)) {
+    page.status = AffineBasisOfferStatus::Inapplicable;
+    return page;
+  }
+  AffineLiveSnapshot owner;
+  if (!capture_affine_live_snapshot(kernel, snapshot_request(kernel, limits),
+                                    owner)) {
+    page.status = kernel_terminating(kernel)
+                      ? AffineBasisOfferStatus::Interrupted
+                      : AffineBasisOfferStatus::ResourceExhausted;
+    return page;
+  }
+  return offer_page(kernel, session, limits, cursor, maximum_offers, owner, 1);
+}
+
+static AffineBasisActionResult apply_basis_action(
     Kernel &kernel, AffineBasisActionSession &session,
-    const AffineBasisActionLimits &limits) {
+    const AffineBasisActionLimits &limits,
+    const AffineBasisRowSelection *requested_selection) {
   AffineBasisActionResult output;
   output.committed_keys = session.committed_keys();
   if (!affine_basis_action_guard(kernel)) {
@@ -210,10 +458,74 @@ AffineBasisActionResult affine_basis_action_apply(
 
   output.proposed_action_id = kernel.structural_action_sequence + 1;
   output.semantic_id = output.proposed_action_id;
-  const AffineBasisLiveRequest request =
-      make_request(kernel, session, limits, output.proposed_action_id);
+
+  AffineLiveSnapshot captured_owner;
+  const AffineLiveSnapshot *owner = session.owner();
+  uint64_t owner_version = session.owner_version();
+  if (!owner) {
+    if (!capture_affine_live_snapshot(kernel, snapshot_request(kernel, limits),
+                                      captured_owner)) {
+      output.status = kernel_terminating(kernel)
+                          ? AffineBasisActionStatus::Interrupted
+                          : AffineBasisActionStatus::ResourceExhausted;
+      output.live.status = kernel_terminating(kernel)
+                               ? AffineBasisLiveStatus::Interrupted
+                               : AffineBasisLiveStatus::ResourceExhausted;
+      return output;
+    }
+    owner = &captured_owner;
+    owner_version = 1;
+  }
+  AffineBasisOfferPage page;
+  AffineBasisLiveTransaction offered_transaction;
+  AffineBasisLiveResult offered_result;
+  if (!requested_selection)
+    page = offer_page(kernel, session, limits, {}, 1, *owner, owner_version,
+                      &offered_transaction, &offered_result);
+  if (!requested_selection && page.offers.empty()) {
+    switch (page.status) {
+    case AffineBasisOfferStatus::NoStructure:
+      output.status = page.duplicates ? AffineBasisActionStatus::AlreadyPublished
+                                      : AffineBasisActionStatus::NoStructure;
+      output.live.status = AffineBasisLiveStatus::NoStructure;
+      output.live.excluded_rows = page.duplicates;
+      break;
+    case AffineBasisOfferStatus::Inapplicable:
+      output.status = AffineBasisActionStatus::Inapplicable;
+      output.live.status = AffineBasisLiveStatus::Inapplicable;
+      break;
+    case AffineBasisOfferStatus::ResourceExhausted:
+      output.status = AffineBasisActionStatus::ResourceExhausted;
+      output.live.status = AffineBasisLiveStatus::ResourceExhausted;
+      break;
+    case AffineBasisOfferStatus::Interrupted:
+      output.status = AffineBasisActionStatus::Interrupted;
+      output.live.status = AffineBasisLiveStatus::Interrupted;
+      break;
+    case AffineBasisOfferStatus::Stale:
+      output.status = AffineBasisActionStatus::Stale;
+      output.live.status = AffineBasisLiveStatus::Stale;
+      break;
+    case AffineBasisOfferStatus::Complete:
+    case AffineBasisOfferStatus::Invalid:
+      output.status = AffineBasisActionStatus::Invalid;
+      output.live.status = AffineBasisLiveStatus::Invalid;
+      break;
+    }
+    return output;
+  }
+  output.selection = requested_selection ? *requested_selection
+                                         : page.offers.front();
+  const AffineBasisLiveRequest request = make_request(
+      kernel, session, limits, output.proposed_action_id, *owner, owner_version,
+      &output.selection);
   AffineBasisLiveTransaction transaction;
-  output.live = prepare_affine_basis_live(kernel, request, transaction);
+  if (requested_selection) {
+    output.live = prepare_affine_basis_live(kernel, request, transaction);
+  } else {
+    transaction = std::move(offered_transaction);
+    output.live = offered_result;
+  }
   output.status = action_status(output.live.status);
   output.session_work = output.live.exclusion_work;
   if (output.live.status == AffineBasisLiveStatus::NoStructure &&
@@ -256,7 +568,9 @@ AffineBasisActionResult affine_basis_action_apply(
       output.live.result != ApplyResult::Unsat)
     std::abort();
 
-  AffineBasisActionSessionAccess::commit(session, kernel, std::move(merged));
+  AffineBasisActionSessionAccess::commit(
+      session, kernel, owner_version, session.bound() ? nullptr : owner,
+      std::move(merged));
   output.committed_keys = session.committed_keys();
   if (output.live.result == ApplyResult::Ok) {
     std::vector<strategy::SemanticVariable> variables;
@@ -282,6 +596,19 @@ AffineBasisActionResult affine_basis_action_apply(
   kernel.structural_action_sequence = output.proposed_action_id;
   output.committed_action_id = output.proposed_action_id;
   return output;
+}
+
+AffineBasisActionResult affine_basis_action_apply(
+    Kernel &kernel, AffineBasisActionSession &session,
+    const AffineBasisActionLimits &limits) {
+  return apply_basis_action(kernel, session, limits, nullptr);
+}
+
+AffineBasisActionResult affine_basis_action_apply(
+    Kernel &kernel, AffineBasisActionSession &session,
+    const AffineBasisActionLimits &limits,
+    const AffineBasisRowSelection &selection) {
+  return apply_basis_action(kernel, session, limits, &selection);
 }
 
 } // namespace tactix

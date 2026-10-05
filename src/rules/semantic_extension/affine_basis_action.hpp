@@ -13,14 +13,20 @@ namespace tactix {
 // earlier action, preventing a replay from silently consuming a new action id.
 class AffineBasisActionSession {
 public:
-  bool bound() const { return owner_ != nullptr; }
-  bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
+  bool bound() const { return kernel_ != nullptr; }
+  bool belongs_to(const Kernel &kernel) const { return kernel_ == &kernel; }
+  uint64_t owner_version() const { return owner_version_; }
   size_t committed_keys() const { return keys_.size(); }
   const std::vector<AffineBasisConsumedKey> &keys() const { return keys_; }
+  const AffineLiveSnapshot *owner() const {
+    return bound() ? &owner_snapshot_ : nullptr;
+  }
 
 private:
   friend struct AffineBasisActionSessionAccess;
-  const Kernel *owner_ = nullptr;
+  const Kernel *kernel_ = nullptr;
+  uint64_t owner_version_ = 0;
+  AffineLiveSnapshot owner_snapshot_;
   std::vector<AffineBasisConsumedKey> keys_;
 };
 
@@ -63,8 +69,49 @@ struct AffineBasisActionResult {
   uint64_t transaction_keys = 0;
   uint64_t committed_keys = 0;
   bool candidate_staged = false;
+  AffineBasisRowSelection selection;
   AffineBasisLiveResult live;
 };
+
+enum class AffineBasisOfferStatus : uint8_t {
+  Complete,
+  NoStructure,
+  Inapplicable,
+  ResourceExhausted,
+  Interrupted,
+  Stale,
+  Invalid,
+};
+
+struct AffineBasisOfferCursor {
+  bool present = false;
+  AffineBasisRowSelection last_examined;
+};
+
+struct AffineBasisOfferPage {
+  AffineBasisOfferStatus status = AffineBasisOfferStatus::Invalid;
+  uint64_t owner_version = 0;
+  uint64_t candidates_examined = 0;
+  uint64_t enumeration_work = 0;
+  uint64_t preflight_recognition_work = 0;
+  uint64_t preflight_basis_work = 0;
+  uint64_t preflight_additions = 0;
+  uint64_t preflight_deletions = 0;
+  uint64_t duplicates = 0;
+  uint64_t covered = 0;
+  uint64_t stale = 0;
+  bool more = false;
+  AffineBasisOfferCursor continuation;
+  std::vector<AffineBasisRowSelection> offers;
+};
+
+// Pure bounded deterministic page over exact direct-row actions.  The page is
+// ordered contradiction, unit, binary, increasing width, then canonical row
+// payload.  It does not bind an unbound session or mutate any solver state.
+AffineBasisOfferPage affine_basis_action_offers(
+    Kernel &, const AffineBasisActionSession &,
+    const AffineBasisActionLimits &, const AffineBasisOfferCursor &,
+    uint32_t maximum_offers);
 
 // Formula/proof-state guard only.  Limits and retained lifecycle state remain
 // explicit controller inputs, and no heuristic or propagation work occurs.
@@ -72,5 +119,8 @@ RuleEligibility affine_basis_action_guard(const Kernel &);
 
 AffineBasisActionResult affine_basis_action_apply(
     Kernel &, AffineBasisActionSession &, const AffineBasisActionLimits &);
+AffineBasisActionResult affine_basis_action_apply(
+    Kernel &, AffineBasisActionSession &, const AffineBasisActionLimits &,
+    const AffineBasisRowSelection &);
 
 } // namespace tactix
