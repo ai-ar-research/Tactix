@@ -102,7 +102,7 @@ static void finite_lucky_catalog_is_reachable() {
     seen.insert(instance);
     assert(!lucky_retired_constructor_instance(instance));
     if (instance <= LUCKY_BACKWARD_TRUE || instance == 12 ||
-        instance == LUCKY_STARTUP_COUNT)
+        instance == LUCKY_STARTUP_COUNT || instance == LUCKY_NOL_HYPERGRAPH)
       assert(std::holds_alternative<std::monostate>(
           request.invocation.parameters));
     else if (instance == 6 || instance == LUCKY_STARTUP_PARITY ||

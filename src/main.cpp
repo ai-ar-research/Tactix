@@ -1477,6 +1477,20 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.graph_labeling_interrupted,
            (unsigned long long)kernel.stats.graph_labeling_models_rejected,
            (unsigned long long)kernel.stats.graph_labeling_sat);
+    printf("c nolgraph   %llu calls, %llu recognized, %llu vertices, %llu edges, "
+           "%llu restarts, %llu steps, %llu work, %llu budget stops, "
+           "%llu SAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.nol_hypergraph_model_calls,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_recognized,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_vertices,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_edges,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_restarts,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_steps,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_work,
+           (unsigned long long)
+               kernel.stats.nol_hypergraph_model_budget_exhausted,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_sat,
+           (unsigned long long)kernel.stats.nol_hypergraph_model_interrupted);
     printf("c ramsey     %llu attempts, %llu recognized, %llu recognition work, "
            "%llu certificate work, %llu nodes, %llu additions, %llu deletions, "
            "%llu helpers, %llu budget stops, %llu UNSAT, %llu interrupted\n",

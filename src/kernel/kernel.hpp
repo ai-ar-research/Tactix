@@ -626,6 +626,16 @@ struct Stats {
   uint64_t independent_set_model_completion_rounds = 0;
   uint64_t independent_set_model_sat = 0;
   uint64_t independent_set_model_interrupted = 0;
+  uint64_t nol_hypergraph_model_calls = 0;
+  uint64_t nol_hypergraph_model_recognized = 0;
+  uint64_t nol_hypergraph_model_vertices = 0;
+  uint64_t nol_hypergraph_model_edges = 0;
+  uint64_t nol_hypergraph_model_restarts = 0;
+  uint64_t nol_hypergraph_model_steps = 0;
+  uint64_t nol_hypergraph_model_work = 0;
+  uint64_t nol_hypergraph_model_budget_exhausted = 0;
+  uint64_t nol_hypergraph_model_sat = 0;
+  uint64_t nol_hypergraph_model_interrupted = 0;
   uint64_t lookup_circuit_model_calls = 0;
   uint64_t lookup_circuit_model_recognized = 0;
   uint64_t lookup_circuit_model_gates = 0;

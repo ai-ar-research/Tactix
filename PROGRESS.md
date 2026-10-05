@@ -26,6 +26,8 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Restored LymphoSAT SAT constructors | [terminal regression](benchmarks/reports/2026-10-04-restored-lymphosat-sat-regression-terminal.md) | Rejected `156afef6b`: B28+C5 passed, Rank aggregate failed, and seven WV/WV2 solves were lost; no wrong verdict or checker rejection |
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
+| Ramsey startup recovery | `ef4d1f1f1`, job `1749573` | DefaultPolicy's bounded original-root Lucky/22 solves fixed rank-630/WV2-155 `ramsey_4_4_19` UNSAT in 0.167 s with zero decisions/conflicts; its 735,125-byte DSR checks through the canonical pipeline in 7.968 s. The current B28+C5 and Rank reruns are active with no failure so far |
+| noL hypergraph recovery | current unaccepted worktree | Lucky/25 exposes an exact three-color hypergraph constructor with one 2,000,000-move owner-scale attempt per action, replay-stable distinct repeat seeds, whole-CNF SAT validation, partial phase guidance, native effort feedback and CLI telemetry. The exact guard requires all three color clauses per hyperedge; terminal publication is reserved inside the same allowance. DefaultPolicy remains disabled pending checked rank-401/WV2-221 probes |
 | Partial-model guidance | [terminal ablation](benchmarks/reports/2026-10-05-partial-model-guidance-ablation.md) | Walk-only repair is 21/21 independently valid with zero raw CDCL installs, 148 seed imports and 139 exports. It is 12.8% faster than the preceding run but 12.0% slower than saved `d170`. No-seed is 70.0% slower than `d170`, so removing guidance is rejected. The split-budget prototype is deferred: review found an unmetered duplicate scan and feedback inconsistent with its implicit fallback |
 | `a9f1e14d4` no-seed gates | jobs `1749006`--`1749009` | All accepted: B28+C5 33/33 at 959.055 s, Rank 50/50 at 7,669.874 s, WV100 100/100 with 98 checked/two proof censors, and WV2 89/89 with 77 checked/two proof censors/ten unchanged solver censors. No wrong verdict, checker rejection, or scorer failure |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
@@ -75,8 +77,18 @@ passes. Immutable Release commit `64de46fe9` solves and validates cached
 11-control campaign retains 10/11 expected verdicts: `29_4_ttf` reaches its
 1,800-second cap versus 942.814 seconds on saved `d170b4a5`; the full 5,000-second
 oddball campaign remains authoritative for solve retention.
-On the same pin, B28+C5 has solved 33/33 with 32 checks complete; Rank1-50 has
-solved 48/50 with 34 checks complete. Remaining solves and checks are active.
+On immutable forced-TTF pin `64de46fe9`, B28+C5 job `1749473` is accepted:
+33/33 verdicts, 32 independently verified plus one clean proof censor, and
+961.313 solver seconds under the 999.87615 ceiling. Rank job `1749474` is also
+accepted: 50/50 verdicts, 42 independently verified plus eight clean proof
+censors, and 7,647.905 seconds under the 8,521.52175 ceiling; every completed
+proof comparison meets its row bound. Current Ramsey-enabled reruns `1749575`
+and `1749610` have no wrong verdict, checker rejection or scorer failure so
+far. At the last complete snapshot B28+C5 had 32/33 final rows with task 32
+checking, while Rank had 33/50 final, 12 more solved/checking and five solving.
+Replacement Debug job `1749659` had passed 288/289 with zero failures; only the
+long `lucky` test remained active. Full oddball job `1749458` had 19/21 final
+valid rows, with `26_4_ttf` solved and checking and `29_4_ttf` still solving.
 
 ## Next action
 
@@ -117,9 +129,13 @@ justifies separate allowances without duplicate unmetered work or implicit
 fallback. Raw candidates never replace Walk-refined targets. Complete the
 active oddball, Debug, B28+C5 and Rank campaigns, then run WV/WV2. Forced-TTF
 fuzz must distinguish exact forced recognition from guarded-clause near misses.
-The next minimal LymphoSAT recovery slice enables the existing proved Ramsey
-startup action once at the original-input boundary with its bounded production
-profile. Require a checked rank-630/WV2-155 target probe before wider gates.
+The Ramsey slice has passed its checked rank-630/WV2-155 target probe. Finish
+its active Debug/B28+C5/Rank and oddball campaigns, then run WV/WV2. The next
+minimal LymphoSAT slice is generic noL hypergraph coloring through public
+Lucky/25. Keep it out of DefaultPolicy until immutable Release probes recover
+fixed rank-401 `noL-11-10` and WV2 rank-221/original-484 `noL-11-4` with
+independently checked models. Use probe telemetry to tune the general search,
+phase publication and effort allowance rather than adding instance dispatch.
 Retain the seeded/no-seed campaigns as causal evidence.
 The earlier `cabp`, Break and Timetable trajectory controls remain open evidence
 obligations if those rows regress again. The n-ary CSP vertical
@@ -143,6 +159,13 @@ evidence.
 - Forced-TTF recognition now removes unnecessary row selection from balanced-
   signature Lucky and searches only signs under the existing typed limits;
   focused and cached Debug model validation pass, while Release evidence is pending.
+- Ramsey startup now runs once by default at the original-input boundary and
+  the normal CLI supplies anonymous structural provenance when no retained log
+  is requested. Its fixed Tier-D target is checked; current gates are active.
+- Public Lucky/25 adds exact noL three-color recognition and a bounded generic
+  coloring search. It validates every SAT model, publishes only active signed
+  phases after exhaustion, meters terminal publication, records raw feedback
+  and telemetry, and remains disabled in DefaultPolicy pending target probes.
 - The current N1--N4 audit passes 46/46 focused public-action/proof/controller
   checks and 69/69 proof-oracle tests; it keeps universal and performance
   verification explicitly pending.
