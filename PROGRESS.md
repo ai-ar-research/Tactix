@@ -39,8 +39,9 @@ clausal proof/check cost establish need.
 | Public N-ary CSP prefix X17 | [public checkpoint](benchmarks/reports/2026-10-04-public-nary-csp-prefix-action.md), [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Registry ID 39, disabled StepId 28 and C v8 tag 42 expose exact deep-copied domain/residual/prefix payloads through typed replay and a Kernel-owned session. Opt-in `nary-csp` production, raw feedback and post-followup `NaryCsp` semantic-variable publication are wired; focused tests pass. DefaultPolicy remains disabled, and fuzz, checked noL recovery, targets and gates remain open |
 | noL certified discovery hardening | `8d13ca87a` | ULC reauthenticates the live checker population and emits pivot-first RAT through DSR/DRAT; X17 uses bounded canonical relation indexing and durable paging. Six focused Debug tests and Release fixtures pass, including a 363-domain/2,486-relation/22,374-prefix noL census and independently checked ULC microproof. Real noL targets remain unsolved |
 | Scalable repeated GF(2) X9 | `3787d6724`, `2b2d7ecb8`, `405b56724` | Immutable source owners, exact paged direct/extended row payloads, C v9/replay, `gf2-affine` controller production and durable consumed keys are implemented. Wide rows retain exact XOR definitions/root units, fix retired helpers, meter cancellation/proof work and record distinct proof roles. Sixteen focused tests pass; the exact 15-variable/two-source/972-lemma transaction passes pinned DRAT SAT-forward checking. No fixed target recovery or current full gate is claimed yet |
-| Current full Debug | job `1750117`, source `14e09a2a4` | Rejected at 286/292. Two failures were the same binary-source ULC discovery defect, one was a generated all-zero ExactCover profile, two were feedback-inspector v6 drift, and one was a missing DSR checker in the frozen archive. The four causes are repaired in the working tree; all 11 affected CTests and 31 archive/telemetry tests pass together. A fresh immutable full Debug remains required before current-source benchmark gates |
-| Current four regression gates | `5eb58e52c`, jobs `1749575`, `1749610`, `1749666`, `1749709` | All accepted with zero failures: B28+C5 33/33 at 956.316 s; Rank 50/50 at 7,559.461 s; WV100 100/100 with 98 checked/two clean proof censors at 2,718.740 s; WV2 89/89 with 78 checked/two clean proof censors/nine allowed solver timeouts at 3,990.643 s. WV2 improves the retained disposition by checking `ramsey_4_4_19` instead of timing out |
+| Current full Debug | jobs `1750117`, `1750129` | Source `14e09a2a4` was rejected at 286/292 by four diagnosed causes: binary-source ULC discovery, an all-zero generated ExactCover profile, feedback-inspector v6 drift and a missing archived DSR checker. Repaired source `d7e48970d` is accepted at 292/292 in 820.39 s; postflight verified 244 executables and 340 immutable bindings |
+| Accepted four regression references | jobs `1749575`, `1749610`, `1749666`, `1749709` | All accepted with zero failures. B28+C5 and Rank use `ef4d1f1f1`: 33/33 at 956.316 s and 50/50 at 7,559.461 s. WV100 and WV2 use `5eb58e52c`: 100/100 with 98 checked/two clean proof censors at 2,718.740 s, and 89/89 with 78 checked/two clean proof censors/nine allowed solver timeouts at 3,990.643 s. WV2 checks `ramsey_4_4_19` instead of timing out |
+| Fresh current-source gates | `d7e48970d`, jobs `1750135`, `1750168` | Debug-qualified immutable Release SHA-256 `b670b8de…`; full-width B28+C5 and Rank1--50 arrays are running under the standing 1,800-second proof deadline. WV100 and WV2--89 remain prepared but unsubmitted until these first gates score |
 | `7dcd36101` default regressions | [terminal report](benchmarks/reports/2026-10-04-nary-offerer-default-regressions.md) | B28+C5, WV100 and WV2--89 pass the bounded scorer; WV2 retains 79 solves, two unchanged proof censors and ten solver timeouts. Rank solves 50/50 below its aggregate ceiling but fails on rank 45 `oddball_19_4_ttf`: the changed Walk-import effort trajectory emits a larger proof whose 319.565-second check exceeds the 304.5289-second allowance. No wrong verdict or checker rejection |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
 | Focused controller configuration | current checkpoint | CLI selection can enable any subset of six native structured producers and independently restrict canonical root-action families. A frozen, once-only `AffineConsequence` profile can set the GF(2) producer's typed census and proof limits without changing defaults. Configuration is replay-fingerprinted; malformed, excluded and ambiguous collections fail closed. Focused frontend/action/API validation passes; effective campaign evidence remains open |
@@ -99,9 +100,10 @@ censors at 7,559.461 seconds. WV100 `1749666` has 100/100 dispositions, 98
 independently checked and two clean proof censors at 2,718.740 seconds.
 WV2--89 `1749709` has 89/89 dispositions, 78 independently checked, two clean
 proof censors and nine allowed solver timeouts at 3,990.643 seconds; checked
-`ramsey_4_4_19` is the one-row gain over `a9f1e14d4`. All use immutable Release
-source `5eb58e52c`, the shared 1,800-second proof deadline and the standing row
-gates; none has a wrong verdict, checker rejection or scorer failure.
+`ramsey_4_4_19` is the one-row gain over `a9f1e14d4`. B28+C5 and Rank bind
+`ef4d1f1f1`; WV100 and WV2 bind `5eb58e52c`. All use the shared 1,800-second
+proof deadline and standing row gates; none has a wrong verdict, checker
+rejection or scorer failure.
 Replacement Debug job `1749659` is accepted: 289/289 pass in 814.11 seconds,
 with 242 executables and 295 frozen bindings reverified after the run. These
 results predate the ULC/X17 and scalable GF(2) commits, so current source still
@@ -122,8 +124,8 @@ CNF publication, scalable retained XOR definitions, C v9/replay, shared
 controller producer, configurable frozen producer profile and fail-closed
 target telemetry/scorer are implemented. The wide fixture's exact transaction
 is externally DRAT-checked; broader source shapes, DSR and fixed targets remain
-open. Commit the reviewed repair/profile/telemetry slices, run a fresh frozen
-full Debug, then probe WV2-132 Tseitin,
+open. Full Debug is accepted; score the running B28+C5 and Rank gates, then run
+the prepared WV100 and WV2 gates before probing WV2-132 Tseitin,
 WV100-7 two-trees, WV100-51 MDP, fixed rank 263 lightsout and rank 569
 `lec_mult` before expanding to ranks 540/896/1004 and MAB-only 557. Use action,
 offer, proof-work, extent and yield records to distinguish recognition,
