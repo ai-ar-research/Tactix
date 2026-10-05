@@ -26,7 +26,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Restored LymphoSAT SAT constructors | [terminal regression](benchmarks/reports/2026-10-04-restored-lymphosat-sat-regression-terminal.md) | Rejected `156afef6b`: B28+C5 passed, Rank aggregate failed, and seven WV/WV2 solves were lost; no wrong verdict or checker rejection |
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
-| Partial-model guidance | oddball jobs `1748917`/`1748977`; repair after `27e0088ed` | All 21 Tier-D oddballs solve, but guidance-active TTF rows are 29.1% slower while inactive TTO rows are 3.5% slower. The first repair removes the raw-S8 overwrite after seeded Walk. A separate audit shows seed preparation consumes search allowance and admits worse starts; DefaultPolicy therefore disables structural seeding pending split budgets/admission, while explicit controller Walk/S8 actions remain. Focused validation and the isolation campaign are active |
+| Partial-model guidance | oddball jobs `1748917`/`1748977`; repairs `0a35d3f74`/`a9f1e14d4` | The first repair removes the raw-S8 overwrite after seeded Walk: all 21 rows solve, the 20 rows with a terminal preceding result improve 19.8% in aggregate, and 19 checks are valid while two remain active. Seed preparation still consumes search allowance and admits worse starts, so DefaultPolicy disables structural seeding pending split budgets/admission; explicit controller Walk/S8 actions remain. No-seed oddball job `1749005` and the four standing gates `1749006`--`1749009` are active |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Public N-ary CSP prefix X17 | [public checkpoint](benchmarks/reports/2026-10-04-public-nary-csp-prefix-action.md), [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Registry ID 39, disabled StepId 28 and C v8 tag 42 expose exact deep-copied domain/residual/prefix payloads through typed replay and a Kernel-owned session. Opt-in `nary-csp` production, raw feedback and post-followup `NaryCsp` semantic-variable publication are wired; focused tests pass. DefaultPolicy remains disabled, and fuzz, checked noL recovery, targets and gates remain open |
 | `7dcd36101` default regressions | [terminal report](benchmarks/reports/2026-10-04-nary-offerer-default-regressions.md) | B28+C5, WV100 and WV2--89 pass the bounded scorer; WV2 retains 79 solves, two unchanged proof censors and ten solver timeouts. Rank solves 50/50 below its aggregate ceiling but fails on rank 45 `oddball_19_4_ttf`: the changed Walk-import effort trajectory emits a larger proof whose 319.565-second check exceeds the 304.5289-second allowance. No wrong verdict or checker rejection |
@@ -51,11 +51,15 @@ owns exact counts, the unchanged WV2 censors and the Walk-effort diagnosis.
 The focused oddball campaign `1748917` has 21/21 matching solver verdicts and
 no solve timeout. Its solve aggregate is 4,315.167 seconds versus 3,359.788
 seconds saved (+28.4%); guidance-active TTF accounts for the change, and proof
-size tracks solve regression. `oddball_26_5_ttf` emits a 5.312-GB proof and its
-checker exhausts allocation rather than rejecting it; the last proof check is
-still active. The raw-after-refined target overwrite is independently confirmed
-and repaired locally. Full Debug job `1748974` validates the preceding X17
-checkpoint while this repair receives focused and regression validation.
+size tracks solve regression. `oddball_26_5_ttf` emitted a 5.312-GB proof and
+its checker exhausted allocation rather than rejecting it. Repair-isolation job
+`1748977` removes the direct raw-candidate CDCL handoff while retaining seeded
+Walk: all 21 rows solve, 19 are checked valid, and `oddball_26_5_ttf` is valid
+at 544.356 solver / 1,139.677 checker seconds with a 2.287-GB proof. Intended
+DefaultPolicy commit `a9f1e14d4` disables automatic structural seeding while
+retaining its explicit action surface. Its no-seed oddball job is `1749005`;
+B28+C5, Rank1--50, WV100 and WV2--89 are `1749006`--`1749009`. Exact archived
+current-source full Debug job `1749241` binds 289 tests and 297 inputs/artifacts.
 The unrelated interactive allocation `1747502` remains outside this workstream.
 
 ## Next action
@@ -112,7 +116,7 @@ evidence.
 - The [five-arm Tier-D report](benchmarks/reports/2026-10-01-tierd-five-arm-terminal-results.md) owns 986 checked Tactix solves, the 36 checker failures/146 checker timeouts, and the saved portfolio comparison.
 - The newest retained Tier-B window, [AM466 split paired](benchmarks/runs/20260926-163543-B-am466-split-paired/), predates the no-MAB checkpoint and is historical diagnostic evidence only.
 - Accepted regression references: Rank1--50 50/50 and B28+C5 33/33, with aggregate solver ceilings 8,521.52175 and 999.87615 seconds; WV100 is 99 checked plus one checker timeout, WV2--89 is 79 checked plus ten solver timeouts.
-- Current-source full Debug passes 288/288 at `7dcd36101` in 866.85 seconds; the current scoped N1--N4 audit passes, while universal N1/N2, current N3, and N4 verification remain pending. Full acceptance still requires B28+C5, Rank1--50, WV100, and WV2--89; both-policy fuzz with effective new-action reach; and all 44 independently checked targets.
+- Current-source full Debug passes 288/288 at `7dcd36101` in 866.85 seconds. Exact archived 289-test validation for intended no-seed commit `a9f1e14d4` is job `1749241`; the current scoped N1--N4 audit passes, while universal N1/N2, current N3, and N4 verification remain pending. Full acceptance still requires B28+C5, Rank1--50, WV100, and WV2--89; both-policy fuzz with effective new-action reach; and all 44 independently checked targets.
 - Formal T4-K/T4-VBS targets and universal N1--N4 verification remain unmet. The broader objective is to substantially exceed LymphoSAT, Satsuma+Kissat, Kissat-sc2024, and AE-Kissat-MAB combined.
 
 ## Recent changes
