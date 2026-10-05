@@ -842,6 +842,11 @@ FilterStatus filter_excluded_rows(
   if (retained.empty())
     return excluded_rows ? FilterStatus::AllExcluded
                          : FilterStatus::Complete;
+  // An exact selected row is isolated before session exclusion.  When its key
+  // is new, no row or definition needs remapping; a wide selected row has
+  // deliberately discarded the full-basis definition graph because its
+  // scalable certificate rebuilds that graph below.
+  if (retained.size() == plan.rows.size()) return FilterStatus::Complete;
 
   if (plan.projection.size() != plan.definitions.size())
     return FilterStatus::Invalid;
