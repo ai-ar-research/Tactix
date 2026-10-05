@@ -27,7 +27,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Ramsey startup recovery | `ef4d1f1f1`, job `1749573` | DefaultPolicy's bounded original-root Lucky/22 solves fixed rank-630/WV2-155 `ramsey_4_4_19` UNSAT in 0.167 s with zero decisions/conflicts; its 735,125-byte DSR checks through the canonical pipeline in 7.968 s. The current B28+C5 and Rank reruns are active with no failure so far |
-| noL hypergraph recovery | current unaccepted worktree | Lucky/25 exposes an exact three-color hypergraph constructor with one 2,000,000-move owner-scale attempt per action, replay-stable distinct repeat seeds, whole-CNF SAT validation, partial phase guidance, native effort feedback and CLI telemetry. The exact guard requires all three color clauses per hyperedge; terminal publication is reserved inside the same allowance. DefaultPolicy remains disabled pending checked rank-401/WV2-221 probes |
+| noL hypergraph recovery | `5eb58e52c`, job `1749663` | Lucky/25 exposes an exact three-color hypergraph constructor with one 2,000,000-move owner-scale attempt per action, replay-stable distinct repeat seeds, whole-CNF SAT validation, partial phase guidance, native effort feedback and CLI telemetry. The exact guard requires all three color clauses per hyperedge; terminal publication is reserved inside the same allowance. Immutable rank-401/WV2-221 probes are active; DefaultPolicy remains disabled |
 | Partial-model guidance | [terminal ablation](benchmarks/reports/2026-10-05-partial-model-guidance-ablation.md) | Walk-only repair is 21/21 independently valid with zero raw CDCL installs, 148 seed imports and 139 exports. It is 12.8% faster than the preceding run but 12.0% slower than saved `d170`. No-seed is 70.0% slower than `d170`, so removing guidance is rejected. The split-budget prototype is deferred: review found an unmetered duplicate scan and feedback inconsistent with its implicit fallback |
 | `a9f1e14d4` no-seed gates | jobs `1749006`--`1749009` | All accepted: B28+C5 33/33 at 959.055 s, Rank 50/50 at 7,669.874 s, WV100 100/100 with 98 checked/two proof censors, and WV2 89/89 with 77 checked/two proof censors/ten unchanged solver censors. No wrong verdict, checker rejection, or scorer failure |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
@@ -85,9 +85,10 @@ censors, and 7,647.905 seconds under the 8,521.52175 ceiling; every completed
 proof comparison meets its row bound. Current Ramsey-enabled reruns `1749575`
 and `1749610` have no wrong verdict, checker rejection or scorer failure so
 far. At the last complete snapshot B28+C5 had 32/33 final rows with task 32
-checking, while Rank had 33/50 final, 12 more solved/checking and five solving.
-Replacement Debug job `1749659` had passed 288/289 with zero failures; only the
-long `lucky` test remained active. Full oddball job `1749458` had 19/21 final
+checking, while Rank had 38/50 final, all valid and independently checked, with
+the other 12 solving or checking. Replacement Debug job `1749659` is accepted:
+289/289 pass in 814.11 seconds, with 242 executables and 295 frozen bindings
+reverified after the run. Full oddball job `1749458` had 19/21 final
 valid rows, with `26_4_ttf` solved and checking and `29_4_ttf` still solving.
 
 ## Next action
