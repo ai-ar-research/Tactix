@@ -344,8 +344,8 @@ contract in `tools/compete/check.sh` through the `compete` skill.
 
 Profile before structural changes; preserve reference data-structure discipline
 and scheduling before tuning. Optimize without weakening the API, measuring
-search, inprocessing, proof, and memory costs separately. Novel engineering
-starts only in Phase 4.5.
+search, inprocessing, proof, and memory costs separately. When a more complex
+candidate has mixed or comparable results, retain the simpler design. Novel engineering starts only in Phase 4.5.
 
 ## 8. Evaluation plan
 
