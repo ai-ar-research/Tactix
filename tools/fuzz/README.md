@@ -12,6 +12,11 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   Exact typed payloads must make an effective transition in every case, and
   seeded trace/replay is checked first. Ordinary random CNFs cannot supply these
   payloads, so this supplements the default/random legs. Nightly selects 200,000.
+- `run.sh --forced-ttf --quick --solver CMD` — 10,000 deterministic fixed-row
+  cases: binary/guarded encodings, near misses, mutations, SAT/UNSAT validation
+  poison and tight budgets. Positive cases must move the dedicated reach
+  counter before a checked result counts; fixed controls cover replay and
+  deterministic interruption. Nightly selects 200,000.
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2
   nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers.  `--physical-cores
   P` changes all three coherently.  A worker count is parallelism within one
@@ -68,10 +73,8 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   audits on retained fixtures (`controls/every-lemma/PROVENANCE.md`). They
   require the configured `dsr-trim` to elaborate the F2/F2w proofs forward
   correctly, so they fail with the historical root-clone build 02824056.
-
 - `retention.py` — reports which tracked per-job artifact is still cited as evidence (job id, id range, or name, never the basename), for this directory's `slurm-*.log` and `benchmarks/probes/*.out`. Report-only unless `--delete`; uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
 
 The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the recorded seed and each invocation gets a private artifact namespace. Cluster submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations use `failures/runs/local-<pid>/{seeded,controller-v5}/`. This prevents concurrent default, random-policy and typed legs with identical indices/seeds from replacing bundles or `nonterminating.json`.
-Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir` for an exact directory. Run and leg identifiers are restricted to letters, digits, `.`, `_` and `-`.
-
+Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir`; identifiers permit letters, digits, `.`, `_` and `-`.
 Failure bundles land in that private directory (untracked) and are promoted to the corpus manually once diagnosed. Immutable checker and replay-harness stores remain shared under `failures/checkers/` and `failures/harnesses/` because their directory names are content hashes.
