@@ -171,6 +171,15 @@ effective reach, then measure target recovery and the four gates. Every decline
 remains bounded and mutation free; every repeated step uses a fresh live plan.
 For n-ary finite-domain relations, public X17 `NaryCspPrefix` live-captures complete one-hot domains and exact forbidden tuples, defines a selected all-but-one prefix as an exact-AND helper, publishes DSR/DRAT RUP residual exclusions, records projection/provenance, and retains durable owner/prefix keys in a Kernel-owned session. Registry ID 39, disabled StepId 28, C v8 parameter tag 42 and typed replay carry the exact full-domain/residual/prefix selection; C configuration validates and deep-copies the complete nested payload. The bounded opt-in `nary-csp` producer deterministically pages exact native offers, shared execution publishes raw producer/action feedback, and successful post-followup state can publish `NaryCsp` semantic-variable advice. Focused public/interface tests pass.
 Public X9 now pages immutable source-bound GF(2) rows through C v9, replay and the opt-in `gf2-affine` producer. Small rows publish certified parity CNF; wide rows retain only the final bounded XOR definitions and root unit, fix isolated proof helpers, and record exact projection and proof roles. Focused and external microproof checks pass; fixed-target effect and current gates remain unproved.
+Treat CryptoMiniSat as the primary GF(2) mechanism reference, not as an
+architecture to copy exactly.  Study and selectively adapt its XOR discovery,
+bounded matrix partitioning, incremental reduction/propagation and adaptive
+usefulness scheduling.  Tactix retains learner-visible actions and effort,
+publishes selected compact Boolean consequences, and requires a DSR-checkable
+clausal derivation before a matrix implication or conflict changes CDCL state.
+An opaque native-XOR propagation or an XOR-aware FRAT-only certificate does
+not satisfy N2.  Compare each adopted mechanism by useful propagation,
+conflict, installed consequence and later search consumption per charged work.
 X17 remains disabled in DefaultPolicy and is an implementation checkpoint rather than a performance result. Effective both-policy fuzz, checked `noL-11-10` recovery, the remaining fixed targets and all preservation/regression gates remain pending.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula

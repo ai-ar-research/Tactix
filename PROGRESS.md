@@ -44,7 +44,7 @@ clausal proof/check cost establish need.
 | Fresh current-source gates | `d7e48970d`, jobs `1750135`, `1750168`, `1750241`, `1750302` | All four accept with zero failures on Debug-qualified immutable Release SHA-256 `b670b8de…`. B28+C5 is 33/33, 32 independently verified plus one clean proof censor, at 959.350 s below its 999.87615 s ceiling. Rank1--50 is 50/50, 42 independently verified plus eight clean proof censors, at 7,620.029 s below its 8,521.52175 s ceiling. WV100 is 100/100, 98 independently verified plus two clean proof censors, at 2,806.871 s. WV2--89 has 89/89 dispositions, 78 independently verified plus two clean proof censors and nine allowed solver timeouts, at 4,029.436 counted solver seconds |
 | `7dcd36101` default regressions | [terminal report](benchmarks/reports/2026-10-04-nary-offerer-default-regressions.md) | B28+C5, WV100 and WV2--89 pass the bounded scorer; WV2 retains 79 solves, two unchanged proof censors and ten solver timeouts. Rank solves 50/50 below its aggregate ceiling but fails on rank 45 `oddball_19_4_ttf`: the changed Walk-import effort trajectory emits a larger proof whose 319.565-second check exceeds the 304.5289-second allowance. No wrong verdict or checker rejection |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
-| Focused controller configuration | [initial target report](benchmarks/reports/2026-10-05-certified-affine-target-probe-initial.md) | The frozen WV2/WV100 probes passed anonymous runtime validation, but all three completed rows timed out with zero offers: width/source caps block WV2-132 and WV100-7, while the group cap blocks WV100-51. Their feedback streams exceeded 64 MiB because full cumulative observations were repeated for millions of search-service actions, so the supplemental audit fails closed. Current `13eea1458` makes the search-configuration subset learner-owned and replay-fingerprinted, supports a nonzero typed GF(2) semantic-advice companion, and keeps `Propagate` explicit with no fallback. Compact lossless telemetry remains in progress. Fixed-rank job `1750439` is still running; no target recovery is claimed |
+| Focused controller configuration | [initial target report](benchmarks/reports/2026-10-05-certified-affine-target-probe-initial.md) | The frozen WV2/WV100 probes passed anonymous runtime validation, but all three completed rows timed out with zero offers: width/source caps block WV2-132 and WV100-7, while the group cap blocks WV100-51. Feedback v2 now retains exact observation patches and every action in a streaming gzip sidecar with independent stored/decoded/record caps. The search subset is learner-owned and replay-fingerprinted; the GF(2) profile can request nonzero semantic advice while `Propagate` remains explicit with no fallback. Obsolete two-row job `1750439` was canceled; one corrected rank-263 bookkeeping probe replaces it, and no target recovery is claimed yet |
 | Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | `ec7e0ac86` passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Fresh immutable ASan+UBSan pin `build/pin-public-theory-ec7e0ac86-sanitize-01` passes its focused checks; effective both-policy fuzz, targets and gates remain open |
 | Current N1--N4 audit | [scoped audit](benchmarks/reports/2026-10-04-current-n1-n4-audit.md) | Current code passes 46/46 focused public-action/proof/controller/wiring checks and 69/69 proof-oracle tests. N1/N2 universal coverage, current N3 gates, and N4 ledger acceptance remain pending |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
@@ -125,14 +125,20 @@ controller producer, configurable frozen producer profile and fail-closed
 target telemetry/scorer are implemented. The wide fixture's exact transaction
 is externally DRAT-checked; broader source shapes, DSR and fixed targets remain
 open. Full Debug and all four current-source regression gates are accepted.
-Finish the exact search allowlist/advice profile and compact versioned feedback,
-then prepare one validated corrected four-row probe for WV2-132, WV100-7,
-WV100-51 and fixed rank 263. The raw census justifies one bounded profile with
+The exact search allowlist/advice profile, compact versioned feedback and a
+fail-closed transaction/follow-up bookkeeping extractor are implemented. Run
+one corrected fixed-rank-263 probe first; establish whether a nontrivial row is
+offered, DSR-certified, installed, propagated/advised and later visible to
+search before expanding the campaign. The raw census justifies a bounded profile with
 2,500 groups and 68/160 image and basis width/source limits. Exclude rank 569:
 its 24 independent source equations yield no new selectable consequence even
 after its much larger census caps are raised. Use checked outcomes plus action,
 offer, proof-work, extent and yield records before expanding to ranks
-540/896/1004 and MAB-only 557. These are target hypotheses until checked.
+540/896/1004 and MAB-only 557. Use CryptoMiniSat as a selective GF(2)
+mechanism reference for matrix partitioning, incremental reduction/propagation
+and adaptive usefulness scheduling; preserve Tactix's public actions, charged
+effort and DSR-before-CDCL proof boundary. These are target hypotheses until
+checked.
 
 The certified structured verticals now include public X17 NaryCspPrefix.
 Direct PHP is append-only ID 36, GF(3) Gaussian ID 37, Tseitin cycle breaking
