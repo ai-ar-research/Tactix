@@ -82,7 +82,15 @@ void request(std::ostream &out, const ActionRequest &value) {
           << ",\"enumeration_work\":" << effort.enumeration_work
           << ",\"total_work\":" << effort.total_work
           << ",\"candidates\":" << effort.candidates
-          << ",\"offers\":" << effort.offers << '}';
+          << ",\"offers\":" << effort.offers;
+      if (effort.have_detector_census)
+        out << ",\"detector_census\":{\"candidate_domains\":"
+            << effort.candidate_domains << ",\"exact_domains\":"
+            << effort.exact_domains << ",\"relation_keys\":"
+            << effort.relation_keys << ",\"tuple_occurrences\":"
+            << effort.tuple_occurrences << ",\"first_decline_reason\":"
+            << unsigned(effort.first_decline_reason) << '}';
+      out << '}';
     }
     out << ']';
   }

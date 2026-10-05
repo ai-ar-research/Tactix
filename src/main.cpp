@@ -171,6 +171,7 @@ int main(int argc, char **argv) {
   bool controller_period_set = false;
   bool controller_retention_set = false;
   bool controller_native_producers_set = false;
+  bool controller_nary_csp_census_set = false;
   bool controller_families_set = false;
   bool controller_search_configurations_set = false;
   const char *controller_actions_path = nullptr;
@@ -296,6 +297,9 @@ int main(int argc, char **argv) {
         }
       }
       controller_native_producers_set = true;
+    } else if (!strcmp(a, "--controller-nary-csp-census")) {
+      controller_config.nary_csp_action_producer.diagnostic_census_once = true;
+      controller_nary_csp_census_set = true;
     } else if (!strncmp(a, "--controller-search-configurations=", 35)) {
       const char *value = a + 35;
       if (!strcmp(value, "all")) {
@@ -428,6 +432,7 @@ int main(int argc, char **argv) {
              "[--controller-trace=FILE | --controller-replay=FILE] "
              "[--controller-actions=FILE | --controller-families=LIST] "
              "[--controller-native-producers=all|none|LIST] "
+             "[--controller-nary-csp-census] "
              "[--controller-search-configurations=all|LIST] "
              "[--controller-gf2-affine-profile=FILE] "
              "[--controller-restart-period=N] "
@@ -538,12 +543,20 @@ int main(int argc, char **argv) {
       (controller_trace_path && !controller_policy) ||
       ((controller_effort_set || controller_period_set || controller_retention_set ||
         controller_native_producers_set || controller_families_set ||
+        controller_nary_csp_census_set ||
         controller_search_configurations_set ||
         controller_actions_path || controller_gf2_affine_profile_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
                     "controller settings require it\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (controller_nary_csp_census_set &&
+      !controller_config.nary_csp_action_producer.enabled) {
+    fprintf(stderr, "tactix: --controller-nary-csp-census requires the "
+                    "nary-csp native producer\n");
     printf("s UNKNOWN\n");
     return 1;
   }

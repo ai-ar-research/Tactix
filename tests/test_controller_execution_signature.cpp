@@ -38,7 +38,11 @@ static std::string fixture(Kernel &k, bool unsat) {
 
 static std::string read(const std::string &path) {
   std::ifstream file(path, std::ios::binary);
-  return {(std::istreambuf_iterator<char>(file)), {}};
+  assert(file);
+  std::ostringstream contents;
+  contents << file.rdbuf();
+  assert(file.good() || file.eof());
+  return contents.str();
 }
 
 static uint64_t hash(const std::string &text) {

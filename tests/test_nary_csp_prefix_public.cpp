@@ -47,6 +47,24 @@ Kernel parsed_formula() {
   return kernel;
 }
 
+Kernel parsed_domains_without_relations() {
+  std::ostringstream dimacs;
+  dimacs << "p cnf 9 12\n";
+  for (size_t index = 0; index != 12; ++index) {
+    for (const int32_t literal : formula[index]) dimacs << literal << ' ';
+    dimacs << "0\n";
+  }
+  const std::string text = dimacs.str();
+  FILE *input = std::tmpfile();
+  assert(input);
+  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
+  std::rewind(input);
+  Kernel kernel;
+  assert(parse_dimacs(input, kernel) == nullptr);
+  std::fclose(input);
+  return kernel;
+}
+
 NaryCspPrefixParameters parameters() {
   NaryCspPrefixParameters result{
       100, 1000, 100000, 8, 16, 100, 7, 16,
@@ -243,6 +261,50 @@ void native_resource_exhaustion_retains_exact_offer_for_reconfiguration() {
   std::fclose(records);
 }
 
+void opt_in_detector_census_is_one_call_and_terminal() {
+  Kernel kernel = parsed_domains_without_relations();
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession session;
+  kernel.nary_csp_prefix_action_session = &session;
+  RandomControllerConfig config;
+  config.parameters.rules = {"NaryCspPrefix"};
+  config.parameters.nary_csp_prefix_reference = parameters();
+  config.nary_csp_action_producer.enabled = true;
+  config.nary_csp_action_producer.maximum_enumeration_work = 10000000;
+  RestartController controller(kernel);
+  std::string error;
+
+  RandomControllerSelector ordinary(1);
+  ActionRequest plain;
+  const std::string ordinary_fingerprint = controller_configuration(config);
+  assert(ordinary.choose(kernel, controller.observe(), config, plain, error));
+  assert(plain.producer_effort.size() == 1 &&
+         !plain.producer_effort.front().have_detector_census);
+
+  config.nary_csp_action_producer.diagnostic_census_once = true;
+  const std::string diagnostic_fingerprint = controller_configuration(config);
+  assert(diagnostic_fingerprint != ordinary_fingerprint &&
+         diagnostic_fingerprint.find("census-once") != std::string::npos);
+  RandomControllerSelector diagnostic(1);
+  ActionRequest first;
+  assert(diagnostic.choose(kernel, controller.observe(), config, first, error));
+  assert(first.producer_effort.size() == 1);
+  const auto &census = first.producer_effort.front();
+  assert(census.have_detector_census && census.candidate_domains == 12 &&
+         census.exact_domains == 3 && census.relation_keys == 0 &&
+         census.tuple_occurrences == 0 &&
+         census.first_decline_reason == static_cast<uint8_t>(
+             NaryCspPrefixActionOfferReason::NoIndexedRelations));
+
+  ActionRequest later;
+  assert(diagnostic.choose(kernel, controller.observe(), config, later, error));
+  assert(later.producer_effort.empty());
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+}
+
 void add_formula(tactix_c_handle *solver) {
   for (const auto &clause : formula) {
     for (const int32_t literal : clause) tactix_add(solver, literal);
@@ -344,6 +406,7 @@ int main() {
   typed_replay_round_trips_and_rejects_noncanonical_payloads();
   native_random_offer_is_exact_and_applies_with_raw_feedback();
   native_resource_exhaustion_retains_exact_offer_for_reconfiguration();
+  opt_in_detector_census_is_one_call_and_terminal();
   c_v8_deep_copies_and_validates_the_exact_selection();
   std::puts("test_nary_csp_prefix_public: passed");
 }

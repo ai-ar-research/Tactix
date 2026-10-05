@@ -444,6 +444,7 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << producer.maximum_offers << ' '
         << producer.maximum_enumeration_work << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+    if (producer.diagnostic_census_once) out << " census-once";
   }
   if (config.gf3_gaussian_action_producer.enabled) {
     OnlineInvocation profile;
@@ -483,6 +484,12 @@ static std::string request_record(const ActionRequest &request) {
         << effort.preparation_work << ' ' << effort.enumeration_work << ' '
         << effort.total_work << ' ' << effort.candidates << ' '
         << effort.offers;
+  for (const auto &effort : request.producer_effort)
+    if (effort.have_detector_census)
+      out << " census " << effort.candidate_domains << ' '
+          << effort.exact_domains << ' ' << effort.relation_keys << ' '
+          << effort.tuple_occurrences << ' '
+          << static_cast<unsigned>(effort.first_decline_reason);
   return out.str();
 }
 
@@ -855,6 +862,7 @@ bool RandomControllerSelector::choose(
         << producer.maximum_offers << ' '
         << producer.maximum_enumeration_work << ' '
         << serialize_online_strategy_program({{invocation}, {}});
+    if (producer.diagnostic_census_once) out << " census-once";
     return out.str();
   };
 
@@ -1318,11 +1326,21 @@ bool RandomControllerSelector::choose(
     const auto offered =
         nary_csp_prefix_action_offer(k, session, limits, window);
     const uint64_t preparation = offered.effort.session_work;
-    producer_effort.push_back(
-        {"NaryCspPrefix", static_cast<uint8_t>(offered.status),
-         offered.complete, preparation, offered.effort.enumeration_work,
-         saturated_add(preparation, offered.effort.enumeration_work),
-         offered.effort.prefix_candidates, offered.offers.size()});
+    ActionProducerEffort effort{
+        "NaryCspPrefix", static_cast<uint8_t>(offered.status),
+        offered.complete, preparation, offered.effort.enumeration_work,
+        saturated_add(preparation, offered.effort.enumeration_work),
+        offered.effort.prefix_candidates, offered.offers.size()};
+    if (producer.diagnostic_census_once && !nary_csp_census_emitted_) {
+      effort.have_detector_census = true;
+      effort.candidate_domains = offered.effort.domain_candidates;
+      effort.exact_domains = offered.effort.exact_domains;
+      effort.relation_keys = offered.effort.indexed_relation_keys;
+      effort.tuple_occurrences = offered.effort.indexed_tuple_occurrences;
+      effort.first_decline_reason = static_cast<uint8_t>(offered.reason);
+      nary_csp_census_emitted_ = true;
+    }
+    producer_effort.push_back(std::move(effort));
     if (offered.status == NaryCspPrefixActionOfferStatus::Interrupted ||
         offered.status == NaryCspPrefixActionOfferStatus::ResourceExhausted) {
       nary_csp_discovery_.reconfiguration_required = true;
@@ -1976,6 +1994,24 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       counts.producer_offers = counts.producer_offers > UINT64_MAX - effort.offers
                                    ? UINT64_MAX
                                    : counts.producer_offers + effort.offers;
+      if (effort.have_detector_census) {
+        std::printf("c nary-csp-census candidate-domains=%llu "
+                    "exact-domains=%llu relation-keys=%llu tuples=%llu "
+                    "first-decline=%s reason=%u status=%u complete=%u "
+                    "work=%llu offers=%llu\n",
+                    (unsigned long long)effort.candidate_domains,
+                    (unsigned long long)effort.exact_domains,
+                    (unsigned long long)effort.relation_keys,
+                    (unsigned long long)effort.tuple_occurrences,
+                    nary_csp_prefix_action_offer_reason_name(
+                        static_cast<NaryCspPrefixActionOfferReason>(
+                            effort.first_decline_reason)),
+                    unsigned(effort.first_decline_reason),
+                    unsigned(effort.status), unsigned(effort.complete),
+                    (unsigned long long)effort.total_work,
+                    (unsigned long long)effort.offers);
+        std::fflush(stdout);
+      }
     }
     if (trace_ && !emit(request_record(request)))
       return -1;

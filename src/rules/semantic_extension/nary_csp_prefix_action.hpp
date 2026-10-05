@@ -178,6 +178,33 @@ enum class NaryCspPrefixActionOfferStatus : uint8_t {
   Ready,
 };
 
+// Diagnostic terminal boundary for one bounded native discovery call.  This
+// does not refine rule eligibility or affect which offers are returned.
+enum class NaryCspPrefixActionOfferReason : uint8_t {
+  None,
+  GuardInapplicable,
+  InvalidConfiguration,
+  StaleSession,
+  InvalidSession,
+  SessionResourceLimit,
+  Interrupted,
+  EnumerationWorkLimit,
+  DomainCandidateLimit,
+  InsufficientExactDomains,
+  DuplicateTuple,
+  NoIndexedRelations,
+  InvalidRelation,
+  RelationResourceLimit,
+  PrefixCandidateLimit,
+  NoProductivePrefixes,
+  PreflightNoConsequence,
+  PreflightDuplicate,
+  PreflightResourceLimit,
+};
+
+const char *nary_csp_prefix_action_offer_reason_name(
+    NaryCspPrefixActionOfferReason);
+
 struct NaryCspPrefixActionOfferEffort {
   uint64_t formula_clauses = 0;
   uint64_t formula_literals = 0;
@@ -218,6 +245,8 @@ struct NaryCspPrefixActionOfferResult {
   NaryCspPrefixActionKey resume_after;
   std::vector<NaryCspPrefixActionSelection> offers;
   NaryCspPrefixActionOfferEffort effort;
+  NaryCspPrefixActionOfferReason reason =
+      NaryCspPrefixActionOfferReason::None;
 };
 
 // Discover every productive residual-prefix identity for exact live n-ary
