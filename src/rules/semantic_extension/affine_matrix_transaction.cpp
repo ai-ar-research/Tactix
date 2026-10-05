@@ -86,6 +86,7 @@ struct PlanningSink {
     MatrixProofEvent event;
     event.kind = MatrixProofEvent::Kind::Delete;
     event.clause = clause;
+    event.id = next_id;
     event.deleted_id = found->second.back();
     found->second.pop_back();
     events.push_back(std::move(event));

@@ -379,6 +379,14 @@ add_test(NAME affine_matrix_transaction_proof
 set_tests_properties(affine_matrix_transaction_proof PROPERTIES
                      SKIP_RETURN_CODE 77)
 
+# The persistent matrix live bridge emits its preflighted helper proof and
+# reason, while ordinary watched-clause propagation consumes the result.
+add_test(NAME affine_matrix_live_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/affine_matrix_live_proof.sh
+                 $<TARGET_FILE:test_affine_matrix_live>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(affine_matrix_live_proof PROPERTIES SKIP_RETURN_CODE 77)
+
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
 # for the lemmas, lrat-check for the chains), in sub-solver space and again
 # after the sub-solver -> kernel translation. Skips 77 without a checker.

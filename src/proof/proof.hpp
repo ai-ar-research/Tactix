@@ -60,6 +60,7 @@ public:
   bool finish_pb();
   bool pb() const { return format_ == ProofFormat::Pbp; }
   bool lrat() const { return format_ == ProofFormat::Lrat; }
+  ProofFormat format() const { return format_; }
   bool dsr() const {
     return format_ == ProofFormat::DsrBinary ||
            format_ == ProofFormat::DsrAscii;

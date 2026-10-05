@@ -24,6 +24,9 @@ struct MatrixTransactionLimits {
   uint64_t maximum_proof_deletions = 0;
   uint32_t maximum_helper_extent = 0;
   uint64_t maximum_arena_words = 0;
+
+  friend bool operator==(const MatrixTransactionLimits &,
+                         const MatrixTransactionLimits &) = default;
 };
 
 struct MatrixProofEvent {
