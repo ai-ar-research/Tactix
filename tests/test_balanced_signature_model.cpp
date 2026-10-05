@@ -57,6 +57,7 @@ int main() {
     assert(result == ApplyResult::Sat);
     assert(k.stats.balanced_signature_calls == 1);
     assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_forced_ttf == 0);
     assert(k.stats.balanced_signature_candidates == 1);
     assert(k.stats.balanced_signature_sat == 1);
     assert(k.unassigned_active == 0);
@@ -71,6 +72,7 @@ int main() {
     Kernel k = balance_fixture(true, true);
     assert(balanced_signature_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_forced_ttf == 1);
     assert(k.stats.balanced_signature_candidates == 1);
     assert(k.stats.balanced_signature_sat == 1);
     assert(k.stats.balanced_signature_steps > 0);
@@ -83,6 +85,7 @@ int main() {
     Kernel k = balance_fixture(true, true, false);
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_forced_ttf == 0);
     assert(k.stats.balanced_signature_candidates == 1);
     assert(k.stats.balanced_signature_sat == 0);
     assert(k.unassigned_active != 0);
@@ -107,6 +110,7 @@ int main() {
     k.stop = &stop;
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_forced_ttf == 1);
     assert(k.stats.balanced_signature_interrupted == 1);
     assert(k.stats.balanced_signature_steps == 0);
     assert(k.stats.balanced_signature_candidates == 0);
@@ -119,6 +123,7 @@ int main() {
     const size_t trail = k.trail.size();
     assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.balanced_signature_recognized == 0);
+    assert(k.stats.balanced_signature_forced_ttf == 0);
     assert(k.trail.size() == trail);
     assert(!k.local_search_hints[static_cast<size_t>(
                 strategy::LocalSearchKind::BalancedSignature)]

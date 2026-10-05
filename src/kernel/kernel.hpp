@@ -564,6 +564,7 @@ struct Stats {
   uint64_t direct_csp_model_sat = 0;
   uint64_t balanced_signature_calls = 0;
   uint64_t balanced_signature_recognized = 0;
+  uint64_t balanced_signature_forced_ttf = 0;
   uint64_t balanced_signature_candidates = 0;
   uint64_t balanced_signature_restarts = 0;
   uint64_t balanced_signature_steps = 0;
