@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <set>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -18,9 +19,8 @@
 namespace tactix {
 namespace {
 
-constexpr uint64_t DEFAULT_GROUPS = 16;
-constexpr uint64_t FULL_RANK991_GROUPS = 117;
-constexpr uint64_t MAXIMUM_GROUPS = 4096;
+constexpr uint64_t DEFAULT_GROUPS = 1;
+constexpr uint64_t MAXIMUM_GROUPS = UINT32_MAX / 2;
 constexpr uint32_t MAXIMUM_VERTICES = 512;
 constexpr uint64_t MAXIMUM_WORK = 100'000'000;
 constexpr uint64_t MAXIMUM_WORKSPACE = uint64_t{512} << 20;
@@ -74,15 +74,6 @@ ClauseKey key(std::initializer_list<Lit> literals) {
   return result;
 }
 
-uint64_t semantic_payload(const Candidate &candidate, const Kernel &kernel) {
-  uint32_t a = static_cast<uint32_t>(
-      kernel_externalize(kernel, candidate.first.output));
-  uint32_t b = static_cast<uint32_t>(
-      kernel_externalize(kernel, candidate.second.output));
-  if (a > b) std::swap(a, b);
-  return (uint64_t{a} << 32) | b;
-}
-
 // The gate authentication is deliberately narrower than graph recognition.
 // Every accepted z has the live clauses
 //   (a v b v z), (-a v -z), (-b v -z),
@@ -91,11 +82,9 @@ uint64_t semantic_payload(const Candidate &candidate, const Kernel &kernel) {
 // literals therefore proves that z means absence on precisely the recorded
 // contiguous interval.  The final equivalence still has an independent RUP
 // replay before any mutation.
-bool discover(const Kernel &kernel, Discovery &result) {
+bool discover(const Kernel &kernel, uint64_t maximum_work, Discovery &result) {
   result = {};
-  const uint64_t limit = kernel_has_work_budget(kernel)
-                             ? std::min(MAXIMUM_WORK, kernel.work_budget)
-                             : MAXIMUM_WORK;
+  const uint64_t limit = maximum_work;
   bool exhausted = false;
   auto charge = [&](uint64_t amount) {
     if (kernel_terminating(kernel) || amount > limit - result.work) {
@@ -163,8 +152,8 @@ bool discover(const Kernel &kernel, Discovery &result) {
     return true;
   };
 
-  std::vector<Gate> gates;
-  gates.reserve(ternaries.size());
+  std::map<Lit, Gate> definitions;
+  std::set<Lit> ambiguous_outputs;
   for (const auto &[literals, source] : ternaries) {
     if (!charge(4) || !source.id) return false;
     if (var_of(literals[0]) == var_of(literals[1]) ||
@@ -192,8 +181,19 @@ bool discover(const Kernel &kernel, Discovery &result) {
     if (!explain(gate.left, gate.right, gate.output, gate.left_reverse) ||
         !explain(gate.right, gate.left, gate.output, gate.right_reverse))
       continue;
-    gates.push_back(gate);
+    if (ambiguous_outputs.count(output)) continue;
+    const auto [position, inserted] = definitions.emplace(output, gate);
+    if (!inserted) {
+      if (position->second.left == gate.left &&
+          position->second.right == gate.right)
+        continue; // Repeated copies describe the same unique gate.
+      definitions.erase(position);
+      ambiguous_outputs.insert(output);
+    }
   }
+  std::vector<Gate> gates;
+  gates.reserve(definitions.size());
+  for (auto &[output, gate] : definitions) gates.push_back(std::move(gate));
   std::sort(gates.begin(), gates.end(), [&](const Gate &a, const Gate &b) {
     return kernel_externalize(kernel, a.output) <
            kernel_externalize(kernel, b.output);
@@ -232,7 +232,7 @@ bool discover(const Kernel &kernel, Discovery &result) {
       continue;
     const Interval combined{a.row, std::min(a.first, b.first),
                             std::max(a.last, b.last)};
-    meanings[gate.output] = combined;
+    if (!meanings.emplace(gate.output, combined).second) return false;
     groups[{combined.row, combined.first, combined.last}].push_back(gate);
     ++result.intervals;
   }
@@ -258,12 +258,17 @@ struct PlannedClause {
   std::vector<uint64_t> chain;
 };
 
-ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
-                           uint64_t exact_payload) {
+ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
   if (!graph_interval_equivalence_guard(kernel)) return ApplyResult::NoOp;
+  if (!maximum_groups || maximum_groups > MAXIMUM_GROUPS)
+    return ApplyResult::NoOp;
+  const uint64_t maximum_work = kernel_has_work_budget(kernel)
+                                    ? std::min(MAXIMUM_WORK, kernel.work_budget)
+                                    : MAXIMUM_WORK;
+  const uint64_t maximum_additions = 2 * maximum_groups;
   ++kernel.stats.graph_interval_equivalence_calls;
   Discovery discovery;
-  if (!discover(kernel, discovery)) {
+  if (!discover(kernel, maximum_work, discovery)) {
     kernel.stats.graph_interval_equivalence_work += discovery.work;
     return ApplyResult::NoOp;
   }
@@ -275,17 +280,9 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
   kernel.stats.graph_interval_equivalence_work += discovery.work;
 
   std::vector<const Candidate *> selected;
-  if (exact_payload) {
-    for (const Candidate &candidate : discovery.candidates)
-      if (semantic_payload(candidate, kernel) == exact_payload) {
-        selected.push_back(&candidate);
-        break;
-      }
-  } else {
-    const size_t count = static_cast<size_t>(
-        std::min<uint64_t>(maximum_groups, discovery.candidates.size()));
-    for (size_t i = 0; i < count; ++i) selected.push_back(&discovery.candidates[i]);
-  }
+  const size_t count = static_cast<size_t>(
+      std::min<uint64_t>(maximum_groups, discovery.candidates.size()));
+  for (size_t i = 0; i < count; ++i) selected.push_back(&discovery.candidates[i]);
   if (selected.empty()) return ApplyResult::NoOp;
 
   std::vector<PlannedClause> planned;
@@ -307,12 +304,15 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
         return ApplyResult::NoOp;
       }
       planned.push_back(std::move(plan));
+      if (planned.size() > maximum_additions) return ApplyResult::NoOp;
     }
   }
   const uint64_t replay_ticks = kernel.stats.ticks - ticks_before;
   kernel.stats.graph_interval_equivalence_rup_ticks += replay_ticks;
   kernel.stats.graph_interval_equivalence_work += replay_ticks;
   if (planned.empty()) return ApplyResult::NoOp;
+  if (kernel.next_clause_id > uint64_t(INT64_MAX) - planned.size())
+    return ApplyResult::NoOp;
 
   const uint64_t action = kernel.structural_action_sequence + 1;
   FILE *out = kernel.structural_provenance;
@@ -323,14 +323,15 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
       "\"proof_id_before\":%llu,\"external_extent\":%zu,"
       "\"original_variables\":%u,\"existing_variables_only\":true,"
       "\"propagation\":\"separate-action\",\"maximum_groups\":%llu,"
-      "\"exact_payload\":%llu}\n",
+      "\"maximum_work\":%llu,\"maximum_additions\":%llu}\n",
       (unsigned long long)action, (unsigned long long)kernel.strategy_epoch,
       (unsigned long long)kernel.arena_generation,
       (unsigned long long)kernel.touch_epoch,
       (unsigned long long)kernel.next_clause_id,
       kernel.external_to_internal.size(), kernel_num_output_vars(kernel),
       (unsigned long long)maximum_groups,
-      (unsigned long long)exact_payload);
+      (unsigned long long)maximum_work,
+      (unsigned long long)maximum_additions);
   for (const Candidate *candidate : selected) {
     const auto print_gate = [&](const char *name, const Gate &gate) {
       std::fprintf(out,
@@ -351,10 +352,9 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
     };
     std::fprintf(out,
         "{\"action\":%llu,\"kind\":\"authenticated-duplicate-interval\","
-        "\"row\":%u,\"first\":%u,\"last\":%u,\"payload\":%llu,",
+        "\"row\":%u,\"first\":%u,\"last\":%u,",
         (unsigned long long)action, candidate->interval.row,
-        candidate->interval.first, candidate->interval.last,
-        (unsigned long long)semantic_payload(*candidate, kernel));
+        candidate->interval.first, candidate->interval.last);
     print_gate("first_gate", candidate->first);
     std::fputc(',', out);
     print_gate("second_gate", candidate->second);
@@ -399,34 +399,16 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
 }
 
 uint32_t instances(Kernel &, uint64_t *out, uint32_t cap) {
-  static constexpr uint64_t values[] = {INSTANCE_CANONICAL, DEFAULT_GROUPS,
-                                        FULL_RANK991_GROUPS};
-  const uint32_t count = std::min<uint32_t>(cap, 3);
-  std::copy_n(values, count, out);
-  return count;
+  if (!cap) return 0;
+  out[0] = INSTANCE_CANONICAL;
+  return 1;
 }
 
 ApplyResult apply_instance(Kernel &kernel, uint64_t instance) {
   if (instance == INSTANCE_CANONICAL)
-    return apply_selected(kernel, DEFAULT_GROUPS, 0);
+    return apply_selected(kernel, DEFAULT_GROUPS);
   if (!instance || instance > MAXIMUM_GROUPS) return ApplyResult::NoOp;
-  return apply_selected(kernel, instance, 0);
-}
-
-uint32_t semantic_instances(Kernel &kernel, uint64_t *out, uint32_t cap) {
-  if (!cap) return 0;
-  Discovery discovery;
-  if (!discover(kernel, discovery)) return 0;
-  const uint32_t count = std::min<uint32_t>(
-      cap, static_cast<uint32_t>(discovery.candidates.size()));
-  for (uint32_t i = 0; i < count; ++i)
-    out[i] = semantic_payload(discovery.candidates[i], kernel);
-  return count;
-}
-
-ApplyResult apply_semantic_instance(Kernel &kernel, uint64_t instance) {
-  if (instance == INSTANCE_CANONICAL) return graph_interval_equivalence_apply(kernel);
-  return apply_selected(kernel, 1, instance);
+  return apply_selected(kernel, instance);
 }
 
 } // namespace
@@ -446,13 +428,12 @@ RuleEligibility graph_interval_equivalence_guard(const Kernel &kernel) {
 
 ApplyResult graph_interval_equivalence_apply(Kernel &kernel) {
   if (!graph_interval_equivalence_guard(kernel)) return ApplyResult::NoOp;
-  return apply_selected(kernel, DEFAULT_GROUPS, 0);
+  return apply_selected(kernel, DEFAULT_GROUPS);
 }
 
 TACTIX_REGISTER_RULE(GraphIntervalEquivalence, RuleTier::Inprocess,
                      graph_interval_equivalence_guard,
                      graph_interval_equivalence_apply, instances,
-                     apply_instance, semantic_instances,
-                     apply_semantic_instance);
+                     apply_instance);
 
 } // namespace tactix
