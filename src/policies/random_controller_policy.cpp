@@ -1355,7 +1355,8 @@ bool RandomControllerSelector::choose(
       if (request.invocation.rule == "Lucky" &&
           !request.invocation.instances.empty() &&
           (request.invocation.instances.front() <= LUCKY_BACKWARD_TRUE ||
-           request.invocation.instances.front() == LUCKY_STARTUP_COUNT))
+           request.invocation.instances.front() == LUCKY_STARTUP_COUNT ||
+           request.invocation.instances.front() == LUCKY_NOL_HYPERGRAPH))
         request.invocation.parameters = std::monostate{};
       // Guidance is a policy choice over the pure candidate snapshot. Bind
       // the exact publication in the request, including an explicit unseeded

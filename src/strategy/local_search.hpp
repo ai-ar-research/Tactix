@@ -17,6 +17,7 @@ enum class LocalSearchKind : uint8_t {
   Onehot,
   BalancedSignature,
   GraphLabeling,
+  HypergraphColoring,
   Count,
 };
 

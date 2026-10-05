@@ -32,8 +32,9 @@ constexpr uint64_t LUCKY_STARTUP_RAMSEY = 22;
 // acquire UNSAT semantics. Never reuse or redirect a stable identity.
 constexpr uint64_t LUCKY_PARITY_PROOF = 23;
 constexpr uint64_t LUCKY_EXACT_ONE_PROOF = 24;
-constexpr uint32_t LUCKY_INSTANCE_COUNT = 25;
-constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 25;
+constexpr uint64_t LUCKY_NOL_HYPERGRAPH = 25;
+constexpr uint32_t LUCKY_INSTANCE_COUNT = 26;
+constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 26;
 
 constexpr bool lucky_retired_constructor_instance(uint64_t instance) {
   return instance != INSTANCE_CANONICAL && instance >= LUCKY_INSTANCE_COUNT;

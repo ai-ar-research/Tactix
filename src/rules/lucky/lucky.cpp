@@ -19,6 +19,7 @@
 #include "rules/lucky/stconn_proof.hpp"
 #include "rules/lucky/exact_cover_model.hpp"
 #include "rules/lucky/independent_set_model.hpp"
+#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/lucky/signed_cardinality_proof.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -315,7 +316,7 @@ static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
       LUCKY_FORWARD_TRUE, LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE,
       6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, LUCKY_STARTUP_PARITY,
       LUCKY_STARTUP_COUNT, LUCKY_GRAPH_LABELING, LUCKY_STARTUP_RAMSEY,
-      LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF};
+      LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF, LUCKY_NOL_HYPERGRAPH};
   const uint32_t n = std::min<uint32_t>(cap, LUCKY_ACTIVE_INSTANCE_COUNT);
   std::copy_n(ACTIVE, n, out);
   return n;
@@ -398,6 +399,12 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
     return graph_labeling_model_guard(k)
                ? execution::execute_action(
                      k, execution::LuckyRequest<LuckyOpportunity::GraphLabeling>{})
+               : ApplyResult::NoOp;
+  if (inst == LUCKY_NOL_HYPERGRAPH)
+    return nol_hypergraph_model_guard(k)
+               ? execution::execute_action(
+                     k, execution::LuckyRequest<
+                            LuckyOpportunity::NolHypergraph>{})
                : ApplyResult::NoOp;
   // Proof-capable and probe actions enter at a propagated root.  A conflict
   // found while closing that root is a legitimate proof result for them.
