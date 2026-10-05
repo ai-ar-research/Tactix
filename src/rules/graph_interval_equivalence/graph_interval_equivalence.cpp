@@ -24,6 +24,15 @@ constexpr uint64_t MAXIMUM_GROUPS = UINT32_MAX / 2;
 constexpr uint32_t MAXIMUM_VERTICES = 512;
 constexpr uint64_t MAXIMUM_WORK = 100'000'000;
 constexpr uint64_t MAXIMUM_WORKSPACE = uint64_t{512} << 20;
+constexpr uint64_t MAXIMUM_SOURCE_CLAUSES = 2'000'000;
+constexpr uint64_t MAXIMUM_SOURCE_LITERALS = 16'000'000;
+// Conservative retained footprint for the ordered source map, the duplicate
+// ternary index and later gate/meaning bookkeeping. This intentionally
+// overcounts binaries and duplicate clause keys.
+constexpr uint64_t SOURCE_CLAUSE_BYTES = 384;
+constexpr uint64_t SOURCE_LITERAL_BYTES = 32;
+
+enum class DiscoveryStop : uint8_t { None, Interrupted, Resource };
 
 struct Source {
   uint64_t id = 0;
@@ -61,8 +70,11 @@ struct Discovery {
   uint32_t vertices = 0;
   uint64_t work = 0;
   uint64_t clauses = 0;
+  uint64_t literals = 0;
+  uint64_t workspace = 0;
   uint64_t gates = 0;
   uint64_t intervals = 0;
+  DiscoveryStop stop = DiscoveryStop::None;
   std::vector<Candidate> candidates;
 };
 
@@ -82,23 +94,38 @@ ClauseKey key(std::initializer_list<Lit> literals) {
 // literals therefore proves that z means absence on precisely the recorded
 // contiguous interval.  The final equivalence still has an independent RUP
 // replay before any mutation.
-bool discover(const Kernel &kernel, uint64_t maximum_work, Discovery &result) {
+bool discover(Kernel &kernel, uint64_t maximum_work, Discovery &result) {
   result = {};
   const uint64_t limit = maximum_work;
-  bool exhausted = false;
   auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel) || amount > limit - result.work) {
-      exhausted = true;
+    if (kernel_rule_interrupt(
+            kernel, kernel.stats.graph_interval_equivalence_interrupted)) {
+      result.stop = DiscoveryStop::Interrupted;
+      return false;
+    }
+    if (amount > limit - result.work) {
+      result.stop = DiscoveryStop::Resource;
       return false;
     }
     result.work += amount;
+    return true;
+  };
+  const auto retain_source = [&](uint64_t literals) {
+    if (result.clauses == MAXIMUM_SOURCE_CLAUSES ||
+        literals > MAXIMUM_SOURCE_LITERALS - result.literals)
+      return false;
+    const uint64_t bytes = SOURCE_CLAUSE_BYTES + SOURCE_LITERAL_BYTES * literals;
+    if (bytes > MAXIMUM_WORKSPACE - result.workspace) return false;
+    ++result.clauses;
+    result.literals += literals;
+    result.workspace += bytes;
     return true;
   };
 
   graph_labeling::Shape shape;
   if (!graph_labeling::recognize(kernel, MAXIMUM_VERTICES,
                                  MAXIMUM_WORKSPACE, charge, shape) ||
-      exhausted)
+      result.stop != DiscoveryStop::None)
     return false;
   result.vertices = shape.vertices;
 
@@ -110,23 +137,29 @@ bool discover(const Kernel &kernel, uint64_t maximum_work, Discovery &result) {
     if (!charge(1)) return false;
     if (clause->garbage()) continue;
     if (!charge(clause->size)) return false;
+    if (!retain_source(clause->size)) {
+      result.stop = DiscoveryStop::Resource;
+      return false;
+    }
     ClauseKey literals(clause->begin(), clause->end());
     std::sort(literals.begin(), literals.end());
     const Source source{clause->id(), clause->redundant()};
     clauses.emplace(literals, source);
     if (literals.size() == 3) ternaries.emplace_back(literals, source);
-    ++result.clauses;
   }
   for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal) {
     for (WatchEntry watch : kernel.watches.entries(literal)) {
       if (!charge(1)) return false;
       if (!watch.binary() || literal >= watch.other()) continue;
+      if (!retain_source(2)) {
+        result.stop = DiscoveryStop::Resource;
+        return false;
+      }
       ClauseKey literals{literal, watch.other()};
       std::sort(literals.begin(), literals.end());
       clauses.emplace(literals,
                       Source{kernel_binary_id(kernel, literal, watch.other()),
                              false});
-      ++result.clauses;
     }
   }
 
@@ -268,16 +301,20 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
   const uint64_t maximum_additions = 2 * maximum_groups;
   ++kernel.stats.graph_interval_equivalence_calls;
   Discovery discovery;
-  if (!discover(kernel, maximum_work, discovery)) {
-    kernel.stats.graph_interval_equivalence_work += discovery.work;
+  const bool discovered = discover(kernel, maximum_work, discovery);
+  kernel.stats.graph_interval_equivalence_work += discovery.work;
+  kernel.stats.graph_interval_equivalence_source_clauses += discovery.clauses;
+  kernel.stats.graph_interval_equivalence_source_literals += discovery.literals;
+  kernel.stats.graph_interval_equivalence_source_workspace += discovery.workspace;
+  if (discovery.stop == DiscoveryStop::Resource)
+    ++kernel.stats.graph_interval_equivalence_resource_exhausted;
+  if (!discovered)
     return ApplyResult::NoOp;
-  }
   ++kernel.stats.graph_interval_equivalence_recognized;
   kernel.stats.graph_interval_equivalence_vertices += discovery.vertices;
   kernel.stats.graph_interval_equivalence_gates += discovery.gates;
   kernel.stats.graph_interval_equivalence_intervals += discovery.intervals;
   kernel.stats.graph_interval_equivalence_groups += discovery.candidates.size();
-  kernel.stats.graph_interval_equivalence_work += discovery.work;
 
   std::vector<const Candidate *> selected;
   const size_t count = static_cast<size_t>(
@@ -323,7 +360,9 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
       "\"proof_id_before\":%llu,\"external_extent\":%zu,"
       "\"original_variables\":%u,\"existing_variables_only\":true,"
       "\"propagation\":\"separate-action\",\"maximum_groups\":%llu,"
-      "\"maximum_work\":%llu,\"maximum_additions\":%llu}\n",
+      "\"maximum_work\":%llu,\"maximum_additions\":%llu,"
+      "\"maximum_source_clauses\":%llu,\"maximum_source_literals\":%llu,"
+      "\"maximum_source_workspace\":%llu}\n",
       (unsigned long long)action, (unsigned long long)kernel.strategy_epoch,
       (unsigned long long)kernel.arena_generation,
       (unsigned long long)kernel.touch_epoch,
@@ -331,7 +370,10 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
       kernel.external_to_internal.size(), kernel_num_output_vars(kernel),
       (unsigned long long)maximum_groups,
       (unsigned long long)maximum_work,
-      (unsigned long long)maximum_additions);
+      (unsigned long long)maximum_additions,
+      (unsigned long long)MAXIMUM_SOURCE_CLAUSES,
+      (unsigned long long)MAXIMUM_SOURCE_LITERALS,
+      (unsigned long long)MAXIMUM_WORKSPACE);
   for (const Candidate *candidate : selected) {
     const auto print_gate = [&](const char *name, const Gate &gate) {
       std::fprintf(out,
@@ -385,11 +427,17 @@ ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups) {
   std::fprintf(out,
       "{\"action\":%llu,\"kind\":\"action-complete\","
       "\"result\":0,\"discovery_work\":%llu,\"rup_ticks\":%llu,"
+      "\"source_clauses\":%llu,\"source_literals\":%llu,"
+      "\"source_workspace\":%llu,"
       "\"recognized_gates\":%llu,\"intervals\":%llu,\"groups\":%zu,"
       "\"selected\":%zu,\"proof_additions\":%zu,"
       "\"proof_literal_occurrences\":%zu,\"proof_id_after\":%llu}\n",
       (unsigned long long)action, (unsigned long long)discovery.work,
-      (unsigned long long)replay_ticks, (unsigned long long)discovery.gates,
+      (unsigned long long)replay_ticks,
+      (unsigned long long)discovery.clauses,
+      (unsigned long long)discovery.literals,
+      (unsigned long long)discovery.workspace,
+      (unsigned long long)discovery.gates,
       (unsigned long long)discovery.intervals, discovery.candidates.size(),
       selected.size(), planned.size(), 2 * planned.size(),
       (unsigned long long)kernel.next_clause_id);

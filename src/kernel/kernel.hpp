@@ -624,6 +624,11 @@ struct Stats {
   uint64_t graph_interval_equivalence_groups = 0;
   uint64_t graph_interval_equivalence_selected = 0;
   uint64_t graph_interval_equivalence_work = 0;
+  uint64_t graph_interval_equivalence_source_clauses = 0;
+  uint64_t graph_interval_equivalence_source_literals = 0;
+  uint64_t graph_interval_equivalence_source_workspace = 0;
+  uint64_t graph_interval_equivalence_resource_exhausted = 0;
+  uint64_t graph_interval_equivalence_interrupted = 0;
   uint64_t graph_interval_equivalence_rup_ticks = 0;
   uint64_t graph_interval_equivalence_rup_rejected = 0;
   uint64_t graph_interval_equivalence_duplicates = 0;
