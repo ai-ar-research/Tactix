@@ -577,6 +577,47 @@ bool NaryCspPrefixActionOfferWindow::valid() const {
                           after.domains.size() == relation_arity));
 }
 
+const char *nary_csp_prefix_action_offer_reason_name(
+    NaryCspPrefixActionOfferReason reason) {
+  switch (reason) {
+  case NaryCspPrefixActionOfferReason::None: return "none";
+  case NaryCspPrefixActionOfferReason::GuardInapplicable:
+    return "guard-inapplicable";
+  case NaryCspPrefixActionOfferReason::InvalidConfiguration:
+    return "invalid-configuration";
+  case NaryCspPrefixActionOfferReason::StaleSession: return "stale-session";
+  case NaryCspPrefixActionOfferReason::InvalidSession: return "invalid-session";
+  case NaryCspPrefixActionOfferReason::SessionResourceLimit:
+    return "session-resource-limit";
+  case NaryCspPrefixActionOfferReason::Interrupted: return "interrupted";
+  case NaryCspPrefixActionOfferReason::EnumerationWorkLimit:
+    return "enumeration-work-limit";
+  case NaryCspPrefixActionOfferReason::DomainCandidateLimit:
+    return "domain-candidate-limit";
+  case NaryCspPrefixActionOfferReason::InsufficientExactDomains:
+    return "insufficient-exact-domains";
+  case NaryCspPrefixActionOfferReason::DuplicateTuple:
+    return "duplicate-tuple";
+  case NaryCspPrefixActionOfferReason::NoIndexedRelations:
+    return "no-indexed-relations";
+  case NaryCspPrefixActionOfferReason::InvalidRelation:
+    return "invalid-relation";
+  case NaryCspPrefixActionOfferReason::RelationResourceLimit:
+    return "relation-resource-limit";
+  case NaryCspPrefixActionOfferReason::PrefixCandidateLimit:
+    return "prefix-candidate-limit";
+  case NaryCspPrefixActionOfferReason::NoProductivePrefixes:
+    return "no-productive-prefixes";
+  case NaryCspPrefixActionOfferReason::PreflightNoConsequence:
+    return "preflight-no-consequence";
+  case NaryCspPrefixActionOfferReason::PreflightDuplicate:
+    return "preflight-duplicate";
+  case NaryCspPrefixActionOfferReason::PreflightResourceLimit:
+    return "preflight-resource-limit";
+  }
+  std::abort();
+}
+
 RuleEligibility nary_csp_prefix_action_guard(const Kernel &kernel) {
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
@@ -701,38 +742,63 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
   NaryCspPrefixActionOfferResult output;
   if (!nary_csp_prefix_action_guard(kernel)) {
     output.status = NaryCspPrefixActionOfferStatus::Inapplicable;
+    output.reason = NaryCspPrefixActionOfferReason::GuardInapplicable;
     return output;
   }
   if (!limits.valid() || !window.valid() ||
-      window.relation_arity > limits.maximum_domains)
+      window.relation_arity > limits.maximum_domains) {
+    output.reason = NaryCspPrefixActionOfferReason::InvalidConfiguration;
     return output;
+  }
   if (session.retained() && !session.belongs_to(kernel)) {
     output.status = NaryCspPrefixActionOfferStatus::Stale;
+    output.reason = NaryCspPrefixActionOfferReason::StaleSession;
     return output;
   }
   const SessionStatus session_status =
       validate_session(session, limits, output.effort.session_work);
-  if (session_status == SessionStatus::Invalid) return output;
+  if (session_status == SessionStatus::Invalid) {
+    output.reason = NaryCspPrefixActionOfferReason::InvalidSession;
+    return output;
+  }
   if (session_status == SessionStatus::Exhausted ||
       session.committed_keys() >= limits.maximum_session_keys) {
     output.status = NaryCspPrefixActionOfferStatus::ResourceExhausted;
+    output.reason = NaryCspPrefixActionOfferReason::SessionResourceLimit;
     return output;
   }
 
   OfferMeter meter{kernel, window.maximum_enumeration_work};
-  auto finish = [&](NaryCspPrefixActionOfferStatus status, bool complete) {
+  NaryCspPrefixActionOfferReason first_decline =
+      NaryCspPrefixActionOfferReason::None;
+  const auto note_decline = [&](NaryCspPrefixActionOfferReason reason) {
+    if (first_decline == NaryCspPrefixActionOfferReason::None)
+      first_decline = reason;
+  };
+  auto finish = [&](NaryCspPrefixActionOfferStatus status, bool complete,
+                    NaryCspPrefixActionOfferReason reason =
+                        NaryCspPrefixActionOfferReason::None) {
     output.status = status;
     output.complete = complete;
     output.effort.enumeration_work = meter.used;
+    output.reason = reason == NaryCspPrefixActionOfferReason::None
+                        ? first_decline
+                        : reason;
     return output;
   };
   auto stopped = [&]() {
     output.offers.clear();
     output.have_resume_after = false;
+    const auto reason =
+        meter.interrupted
+            ? NaryCspPrefixActionOfferReason::Interrupted
+            : first_decline != NaryCspPrefixActionOfferReason::None
+                  ? first_decline
+                  : NaryCspPrefixActionOfferReason::EnumerationWorkLimit;
     return finish(meter.interrupted
                       ? NaryCspPrefixActionOfferStatus::Interrupted
                       : NaryCspPrefixActionOfferStatus::ResourceExhausted,
-                  false);
+                  false, reason);
   };
 
   // A retained source remains authoritative only while an immediate exact
@@ -767,11 +833,13 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
       return stopped();
     }
     if (capture.status != NaryCspPrefixLiveStatus::Applied)
-      return finish(NaryCspPrefixActionOfferStatus::Stale, false);
+      return finish(NaryCspPrefixActionOfferStatus::Stale, false,
+                    NaryCspPrefixActionOfferReason::StaleSession);
     current.external_extent = retained.external_extent;
     current.capture_work = retained.capture_work;
     if (current != retained)
-      return finish(NaryCspPrefixActionOfferStatus::Stale, false);
+      return finish(NaryCspPrefixActionOfferStatus::Stale, false,
+                    NaryCspPrefixActionOfferReason::StaleSession);
     ++output.effort.retained_owners_revalidated;
   }
 
@@ -783,6 +851,7 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
     if (!canonical_domain_candidate(kernel, literals, size,
                                     limits.maximum_domain_values, domain))
       return true;
+    ++output.effort.domain_candidates;
     const BinaryStatus exact = complete_amo(kernel, domain, meter);
     if (exact == BinaryStatus::Stopped) return false;
     if (exact == BinaryStatus::Absent) return true;
@@ -792,6 +861,7 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
     if (!meter.charge(set_work)) return false;
     if (candidates.contains(domain)) return true;
     if (candidates.size() == window.maximum_domain_candidates) {
+      note_decline(NaryCspPrefixActionOfferReason::DomainCandidateLimit);
       meter.exhausted = true;
       return false;
     }
@@ -819,12 +889,12 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
       if (!observe_domain(pair, 2)) return stopped();
     }
   output.effort.candidate_scan_work = meter.used - candidate_scan_begin;
-  output.effort.domain_candidates = candidates.size();
   output.effort.exact_domains = candidates.size();
   std::vector<std::vector<int32_t>> domains(candidates.begin(),
                                              candidates.end());
   if (domains.size() < window.relation_arity)
-    return finish(NaryCspPrefixActionOfferStatus::NoStructure, true);
+    return finish(NaryCspPrefixActionOfferStatus::NoStructure, true,
+                  NaryCspPrefixActionOfferReason::InsufficientExactDomains);
 
   // Index only clause-backed relations.  The former producer enumerated every
   // C(|domains|, arity) combination and then rescanned the whole formula to
@@ -941,7 +1011,8 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
     if (!clause->garbage() && !observe_tuple(*clause)) return stopped();
   }
   if (duplicate_tuple)
-    return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+    return finish(NaryCspPrefixActionOfferStatus::Invalid, false,
+                  NaryCspPrefixActionOfferReason::DuplicateTuple);
   if (window.have_after)
     for (auto relation = relations.begin(); relation != relations.end();) {
       const auto maximum = maximum_key_for(relation->first, relation->second);
@@ -965,7 +1036,8 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
   }
   if (relations.empty())
     return finish(NaryCspPrefixActionOfferStatus::NoStructure,
-                  !more_relations);
+                  !more_relations,
+                  NaryCspPrefixActionOfferReason::NoIndexedRelations);
 
   std::set<NaryCspPrefixActionKey> keys;
   std::vector<NaryCspPrefixOwnerSnapshot> owners;
@@ -1028,9 +1100,12 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
             fatal = true;
           } else {
             ++output.effort.resource_rejected_relations;
+            note_decline(
+                NaryCspPrefixActionOfferReason::RelationResourceLimit);
           }
         } else if (capture.status == NaryCspPrefixLiveStatus::Invalid ||
                    capture.status == NaryCspPrefixLiveStatus::Inapplicable) {
+          note_decline(NaryCspPrefixActionOfferReason::InvalidRelation);
           invalid = true;
         }
         continue;
@@ -1061,6 +1136,10 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
         if (output.effort.prefix_candidates >=
                 window.maximum_prefix_candidates ||
             !meter.charge(uint64_t{1} + window.relation_arity)) {
+          if (output.effort.prefix_candidates >=
+              window.maximum_prefix_candidates)
+            note_decline(
+                NaryCspPrefixActionOfferReason::PrefixCandidateLimit);
           meter.exhausted = true;
           fatal = true;
           break;
@@ -1079,17 +1158,21 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
     owners.push_back(std::move(captured));
   }
   if (invalid)
-    return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+    return finish(NaryCspPrefixActionOfferStatus::Invalid, false,
+                  NaryCspPrefixActionOfferReason::InvalidRelation);
   if (fatal) return stopped();
   if (keys.empty() && more_relations && have_last_examined) {
     output.have_resume_after = true;
     output.resume_after = last_examined;
-    return finish(NaryCspPrefixActionOfferStatus::Ready, false);
+    return finish(NaryCspPrefixActionOfferStatus::Ready, false,
+                  NaryCspPrefixActionOfferReason::NoProductivePrefixes);
   }
   if (keys.empty() && output.effort.resource_rejected_relations)
-    return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false);
+    return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false,
+                  NaryCspPrefixActionOfferReason::RelationResourceLimit);
   if (keys.empty())
-    return finish(NaryCspPrefixActionOfferStatus::NoStructure, true);
+    return finish(NaryCspPrefixActionOfferStatus::NoStructure, true,
+                  NaryCspPrefixActionOfferReason::NoProductivePrefixes);
 
   for (const auto &key : keys) {
     if (window.have_after && !(window.after < key)) continue;
@@ -1103,6 +1186,7 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
         });
     if (owner == owners.end()) {
       output.status = NaryCspPrefixActionOfferStatus::Invalid;
+      output.reason = NaryCspPrefixActionOfferReason::InvalidRelation;
       output.complete = false;
       output.offers.clear();
       output.effort.enumeration_work = meter.used;
@@ -1116,7 +1200,8 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
     if (key_status == KeyStatus::Invalid) {
       output.offers.clear();
       output.have_resume_after = false;
-      return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+      return finish(NaryCspPrefixActionOfferStatus::Invalid, false,
+                    NaryCspPrefixActionOfferReason::InvalidSession);
     }
     if (key_status == KeyStatus::Exhausted) {
       if (!meter.absorb(candidate_session_work)) return stopped();
@@ -1138,7 +1223,8 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
       if (owner_status == OwnerStatus::Invalid) {
         output.offers.clear();
         output.have_resume_after = false;
-        return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+        return finish(NaryCspPrefixActionOfferStatus::Invalid, false,
+                      NaryCspPrefixActionOfferReason::InvalidSession);
       }
       if (owner_status == OwnerStatus::Exhausted) {
         if (!meter.absorb(candidate_session_work)) return stopped();
@@ -1181,7 +1267,8 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
       return stopped();
     }
     if (preflight.status == NaryCspPrefixLiveStatus::Stale)
-      return finish(NaryCspPrefixActionOfferStatus::Stale, false);
+      return finish(NaryCspPrefixActionOfferStatus::Stale, false,
+                    NaryCspPrefixActionOfferReason::StaleSession);
     if (preflight.status != NaryCspPrefixLiveStatus::Applied) {
       if (preflight.status == NaryCspPrefixLiveStatus::ResourceExhausted &&
           preflight.recognition_limit_exhausted &&
@@ -1192,21 +1279,28 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
       switch (preflight.status) {
       case NaryCspPrefixLiveStatus::NoConsequence:
         ++output.effort.consequence_free_prefixes;
+        note_decline(
+            NaryCspPrefixActionOfferReason::PreflightNoConsequence);
         continue;
       case NaryCspPrefixLiveStatus::Duplicate:
         ++output.effort.live_duplicate_prefixes;
+        note_decline(NaryCspPrefixActionOfferReason::PreflightDuplicate);
         continue;
       case NaryCspPrefixLiveStatus::ResourceExhausted:
         ++output.effort.resource_rejected_prefixes;
+        note_decline(
+            NaryCspPrefixActionOfferReason::PreflightResourceLimit);
         continue;
       case NaryCspPrefixLiveStatus::Inapplicable:
         output.offers.clear();
-        return finish(NaryCspPrefixActionOfferStatus::Inapplicable, false);
+        return finish(NaryCspPrefixActionOfferStatus::Inapplicable, false,
+                      NaryCspPrefixActionOfferReason::GuardInapplicable);
       case NaryCspPrefixLiveStatus::Invalid:
       case NaryCspPrefixLiveStatus::NoStructure:
       case NaryCspPrefixLiveStatus::UnsupportedProof:
         output.offers.clear();
-        return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+        return finish(NaryCspPrefixActionOfferStatus::Invalid, false,
+                      NaryCspPrefixActionOfferReason::InvalidRelation);
       case NaryCspPrefixLiveStatus::Interrupted:
       case NaryCspPrefixLiveStatus::Stale:
       case NaryCspPrefixLiveStatus::Applied:
@@ -1225,7 +1319,10 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
     output.offers.push_back(selection_from_key(key));
   }
   if (output.offers.empty() && output.effort.resource_rejected_prefixes)
-    return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false);
+    return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false,
+                  first_decline == NaryCspPrefixActionOfferReason::None
+                      ? NaryCspPrefixActionOfferReason::PreflightResourceLimit
+                      : first_decline);
   if (more_relations) {
     if (!output.offers.empty()) {
       output.have_resume_after = true;
@@ -1235,7 +1332,10 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
       output.resume_after = last_examined;
     }
   }
-  return finish(NaryCspPrefixActionOfferStatus::Ready, !more_relations);
+  return finish(NaryCspPrefixActionOfferStatus::Ready, !more_relations,
+                output.offers.empty()
+                    ? NaryCspPrefixActionOfferReason::NoProductivePrefixes
+                    : NaryCspPrefixActionOfferReason::None);
 }
 
 } // namespace tactix

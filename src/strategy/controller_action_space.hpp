@@ -7,6 +7,7 @@
 #include <array>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace tactix::strategy::controller {
@@ -87,6 +88,16 @@ enum class ActionType : uint8_t { Rule, ResumeSearch };
 // alters solver statistics.  Raw feedback and deterministic controller traces
 // retain it so learning code can price discovery separately from execution.
 struct ActionProducerEffort {
+  ActionProducerEffort() = default;
+  ActionProducerEffort(std::string family_, uint8_t status_, bool complete_,
+                       uint64_t preparation_work_,
+                       uint64_t enumeration_work_, uint64_t total_work_,
+                       uint64_t candidates_, uint64_t offers_)
+      : family(std::move(family_)), status(status_), complete(complete_),
+        preparation_work(preparation_work_),
+        enumeration_work(enumeration_work_), total_work(total_work_),
+        candidates(candidates_), offers(offers_) {}
+
   std::string family;
   uint8_t status = 0;
   bool complete = false;
@@ -95,6 +106,14 @@ struct ActionProducerEffort {
   uint64_t total_work = 0;
   uint64_t candidates = 0;
   uint64_t offers = 0;
+  // Optional one-call detector boundary. Producers populate this only for an
+  // explicitly enabled diagnostic; ordinary selection emits no census metadata or serialization.
+  bool have_detector_census = false;
+  uint64_t candidate_domains = 0;
+  uint64_t exact_domains = 0;
+  uint64_t relation_keys = 0;
+  uint64_t tuple_occurrences = 0;
+  uint8_t first_decline_reason = 0;
 
   bool operator==(const ActionProducerEffort &) const = default;
 };
