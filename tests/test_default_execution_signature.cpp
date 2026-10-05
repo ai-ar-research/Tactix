@@ -137,8 +137,8 @@ int main(int argc, char **argv) {
         if (profile == 4) assert(k.stats.switched);
         if (profile == 6) {
           assert(k.stats.walk_seed_imports);
-          assert(k.stats.local_search_target_installs);
-          assert(k.stats.local_search_target_eligible_phases);
+          assert(!k.stats.local_search_target_install_attempts);
+          assert(!k.stats.local_search_target_installs);
         }
       }
       if (profile == 5 && verdict == 20) assert(k.stats.rephased >= 3);

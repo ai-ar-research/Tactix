@@ -394,7 +394,10 @@ static void test_private_seed_budget_and_export() {
   kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {1, 1, 1});
   k.walk_seed_candidate = k.local_search_hints[0].id;
   assert(walk_apply_steps(k, preparation) == ApplyResult::NoOp);
-  assert(k.h->saved == saved && k.h->best == best);
+  assert(k.h->saved == saved && k.h->target == saved && k.h->best == best);
+  assert((k.h->target_candidate == std::vector<uint64_t>(3, 0)));
+  assert(!k.stats.local_search_target_install_attempts &&
+         !k.stats.local_search_target_installs);
   assert(k.stats.walk_seed_ordinary_unsat == 0 && k.stats.walk_seed_candidate_unsat == 3);
   const auto walks = k.stats.walks;
   kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp, {0, 1, 0});
