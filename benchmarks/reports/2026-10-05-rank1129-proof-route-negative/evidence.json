@@ -1,0 +1,144 @@
+{
+  "date": "2026-10-05",
+  "diagnostics": [
+    {
+      "node": "node002",
+      "raw_result_sha256": "a6c2143456af350644e4d1103abf6e447d5ac29074fccf0450d3d7c7815e0fca",
+      "route": "canonical-dsr-trim-dsr-compress-trestle",
+      "slurm_job_id": "1750736",
+      "stages": [
+        {
+          "exit_code": 0,
+          "name": "dsr-trim",
+          "output_tail": "c CNF file path: /tmp/tactix-dsr-recheck-003-dsoow_wc/checker.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/003.dsr\nc LSR file path: /tmp/tactix-dsr-recheck-003-dsoow_wc/proof.binary.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 11135080 clauses and 42048 variables.\nc Parsing the CNF took 2.239 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 17940417 proof lines (3448380 additions).\nc Empty clause detected on proof line 17940417.\nc The empty clause was derived after clause 14582924 (add'n line 3447844).\nc Checking proof...\nc Proof checking took 307.564 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 1.441 secs\nc Total runtime took 323.863 secs",
+          "peak_rss_kb": 1246008,
+          "produced_bytes": 380994051,
+          "result": "verified",
+          "timed_out": false,
+          "timeout_seconds": 1760.2055298965424,
+          "wall_seconds": 323.919
+        },
+        {
+          "exit_code": 0,
+          "name": "dsr-compress",
+          "output_tail": "",
+          "peak_rss_kb": 1024,
+          "produced_bytes": 844384806,
+          "result": "verified",
+          "timed_out": false,
+          "timeout_seconds": 1436.2290278412402,
+          "wall_seconds": 6.074
+        },
+        {
+          "exit_code": null,
+          "name": "srcheck",
+          "output_tail": "Parsing formula with 42048 variables, 11135080 clauses\nParsed formula",
+          "peak_rss_kb": null,
+          "result": "error",
+          "timed_out": true,
+          "timeout_seconds": 1430.1546789444983,
+          "wall_seconds": 1430.159
+        }
+      ],
+      "timeout_seconds": 1800,
+      "verified": false,
+      "wall_seconds": 1800.158
+    },
+    {
+      "node": "node008",
+      "raw_result_sha256": "817eb976854b748c44d86c7de0659f03bb48984f49c49a51d24920a89a22bdbc",
+      "route": "canonical-dsr-trim-binary-trestle",
+      "slurm_job_id": "1750754",
+      "stages": [
+        {
+          "exit_code": 0,
+          "name": "dsr-trim",
+          "output_tail": "c CNF file path: /tmp/tactix-dsr-recheck-003-gs2k3asl/checker.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/003.dsr\nc LSR file path: /tmp/tactix-dsr-recheck-003-gs2k3asl/proof.binary.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 11135080 clauses and 42048 variables.\nc Parsing the CNF took 2.352 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 17940417 proof lines (3448380 additions).\nc Empty clause detected on proof line 17940417.\nc The empty clause was derived after clause 14582924 (add'n line 3447844).\nc Checking proof...\nc Proof checking took 320.706 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 1.641 secs\nc Total runtime took 337.847 secs",
+          "peak_rss_kb": 1246008,
+          "produced_bytes": 380994051,
+          "result": "verified",
+          "timed_out": false,
+          "timeout_seconds": 1759.6104081068188,
+          "wall_seconds": 337.955
+        },
+        {
+          "exit_code": null,
+          "name": "srcheck",
+          "output_tail": "Parsing formula with 42048 variables, 11135080 clauses\nParsed formula",
+          "peak_rss_kb": null,
+          "result": "error",
+          "timed_out": true,
+          "timeout_seconds": 1421.5943145919591,
+          "wall_seconds": 1421.598
+        }
+      ],
+      "timeout_seconds": 1800,
+      "verified": false,
+      "wall_seconds": 1800.154
+    }
+  ],
+  "disposition": {
+    "cause": "Trestle semantic checking of the 3,447,844-addition retained LSR core exceeds the remaining 1,800-second deadline; text expansion is immaterial.",
+    "checker_route_changed": false,
+    "next_mechanism": "source-bound clique-coloring startup PBP producer with independent VeriPB and CakePB-CNF validation",
+    "target_recovered": false
+  },
+  "identity": {
+    "certificate_bytes": 230735672,
+    "certificate_sha256": "5331268715736a7895ff07e2bfe6c5951af42e2959e04935387f5404b3f260d7",
+    "checker_cnf_sha256": "7e5fa9f68988f676a75934bbb05776746e09317f3d07205c67ca529283373e59",
+    "instance": "tierD24-26/f6a085f3c728e53f57542e62df20e56b-crafted_n10_d6_c4_num8.cnf.xz",
+    "original_cnf_sha256": "7e5fa9f68988f676a75934bbb05776746e09317f3d07205c67ca529283373e59",
+    "rank": 1129,
+    "retained_result": "benchmarks/runs/20261005-gap44-proof-recovery-small4/results/003.json",
+    "retained_result_sha256": "af856feba2bae7236f4826c4b695fed29e2b5a182fd146b44497d18cf543eded",
+    "target_result": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1128.json",
+    "target_result_sha256": "9a6a843381f014e98e2ab7d66d0d9e8fac35d8bb6ee7bae71036898bf7c77d11"
+  },
+  "lymphosat_pbp_reference": {
+    "attribution_limit": "The retained comparison result records PBP but not the selected internal bundle slot; the slot is a mechanism lead, not certificate-transfer evidence.",
+    "bundle": "tools/solvers/variants/lymphosat-modlog/tree/solver/bundle.json",
+    "bundle_sha256": "c4002cd09f88e87bf3c035afcccbbba50d2865544ca9518ec70b0bee5ad7796b",
+    "bundle_slot": "clique-coloring",
+    "bundle_solver_name": "clique-color-pigeonhole-veripb",
+    "certificate_bytes": 1006567937,
+    "certificate_format": "pbp",
+    "certificate_sha256": "208d4461db008502014b0bb31650a1b30ad96530992a39e736c523dd8cdf4894",
+    "expected_match": true,
+    "instance": "tierD24-26/f6a085f3c728e53f57542e62df20e56b-crafted_n10_d6_c4_num8.cnf.xz",
+    "mechanism_notes": "tools/solvers/variants/lymphosat-modlog/tree/solver/solvers/clique-coloring/solver/README.md",
+    "mechanism_notes_sha256": "dae28cf7a69f8b5e5fcfe2b47d731f224d4d716ae735e6cc59bc834520dfe0af",
+    "proof_peak_rss_kb": 25516148,
+    "proof_pipeline": "pbp",
+    "proof_result": "verified",
+    "proof_wall_seconds": 1340.631,
+    "solve_wall_seconds": 68.338,
+    "source_result": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/results/04513.json",
+    "source_result_sha256": "fc277040f803c7607bcc794f78d6bcb6a294c94aeed381741e02bd0a674d1fe1",
+    "stages": [
+      {
+        "name": "veripb",
+        "peak_rss_kb": 8272476,
+        "result": "verified",
+        "wall_seconds": 1183.965
+      },
+      {
+        "name": "cake-pb-cnf",
+        "peak_rss_kb": 25516148,
+        "result": "verified",
+        "wall_seconds": 156.666
+      }
+    ],
+    "verdict": "UNSAT"
+  },
+  "retained_core": {
+    "additions_parsed": 3448380,
+    "binary_lsr_bytes": 380994051,
+    "empty_clause_after_addition": 3447844,
+    "empty_clause_after_clause": 14582924,
+    "expanded_text_lsr_bytes": 844384806,
+    "proof_lines_parsed": 17940417,
+    "text_expansion_wall_seconds": 6.074
+  },
+  "schema": "rank1129-proof-route-negative-v1"
+}
