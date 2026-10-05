@@ -40,9 +40,13 @@ failures in 51 corpus cases and 10,000 generated cases, with 9,718 terminal
 verdicts and 282 timeouts. Random job `1748418` found zero failures with 8,464
 terminal verdicts and 1,536 timeouts. `LocalSearchGuidance` fired zero times in
 both, so these are compatibility/correctness evidence for terminal cases, not
-full oracle coverage or effective guidance fuzz acceptance. No active campaign
-is part of this checkpoint. **SLURM: NOTHING IN FLIGHT for this workstream**;
-the only user job, interactive allocation `1747502`, is unrelated.
+full oracle coverage or effective guidance fuzz acceptance. Current commit
+`7dcd36101` is pinned as Release binary SHA-256 `c652bed6a98e07d4362146240ccd161c4082065def7c50ccbcc8472d542ae05c`.
+Its full-width controller regressions are active as B28+C5 `1748622`,
+Rank1--50 `1748655`, WV100 `1748669`, and WV2--89 `1748673`; all use the frozen
+matrices, canonical proof route, 1,800-second checker cap, and baseline plus
+`max(30%, 20s)` completed-proof slowdown rule. The unrelated interactive
+allocation `1747502` remains outside this workstream.
 
 ## Next action
 
@@ -76,17 +80,14 @@ native campaigns additionally require producer calls and offers. Then evaluate
 the saved target set and regression gates only when benchmark execution is
 authorized. DefaultPolicy keeps all three actions disabled meanwhile.
 
-Before another full gate, and only when benchmark execution is authorized, run
-the `cabp`, Break and Timetable trajectory controls from `f6d7453f6`. Require
-zero ULC binaries for `cabp` and Break, and five SR applications with zero ULC
-binaries for Timetable. If restored, run the owner subset and then B28+C5,
-Rank1--50, WV100 and WV2--89 with the 1,800-second proof-check cap and baseline
-plus `max(30%, 20s)` completed-proof slowdown rule.
-
-While benchmark execution remains unauthorised, complete the n-ary CSP vertical
-from the verified native offerer: add append-only typed registry/C/replay,
-Kernel-owned session, controller execution/raw feedback and focused effective-
-reach tests. Do not infer noL recovery before checked target evidence.
+Score the four active regression arrays after every row reaches a terminal
+state. Diagnose Rank aggregate movement and every WV/WV2 retained-row loss
+individually; the earlier `cabp`, Break and Timetable trajectory controls remain
+open evidence obligations if those rows regress again. In parallel, complete
+the n-ary CSP vertical from the verified native offerer: add append-only typed
+registry/C/replay, Kernel-owned session, controller execution/raw feedback and
+focused effective-reach tests. Do not infer noL recovery before checked target
+evidence.
 
 ## Established authorities and open gates
 
@@ -94,7 +95,7 @@ reach tests. Do not infer noL recovery before checked target evidence.
 - The [five-arm Tier-D report](benchmarks/reports/2026-10-01-tierd-five-arm-terminal-results.md) owns 986 checked Tactix solves, the 36 checker failures/146 checker timeouts, and the saved portfolio comparison.
 - The newest retained Tier-B window, [AM466 split paired](benchmarks/runs/20260926-163543-B-am466-split-paired/), predates the no-MAB checkpoint and is historical diagnostic evidence only.
 - Accepted regression references: Rank1--50 50/50 and B28+C5 33/33, with aggregate solver ceilings 8,521.52175 and 999.87615 seconds; WV100 is 99 checked plus one checker timeout, WV2--89 is 79 checked plus ten solver timeouts.
-- Current-source full Debug is satisfied at `ec7e0ac86`; the current scoped N1--N4 audit passes, while universal N1/N2, current N3, and N4 verification remain pending. Full acceptance still requires B28+C5, Rank1--50, WV100, and WV2--89; both-policy fuzz with effective new-action reach; and all 44 independently checked targets.
+- Current-source full Debug passes 288/288 at `7dcd36101` in 866.85 seconds; the current scoped N1--N4 audit passes, while universal N1/N2, current N3, and N4 verification remain pending. Full acceptance still requires B28+C5, Rank1--50, WV100, and WV2--89; both-policy fuzz with effective new-action reach; and all 44 independently checked targets.
 - Formal T4-K/T4-VBS targets and universal N1--N4 verification remain unmet. The broader objective is to substantially exceed LymphoSAT, Satsuma+Kissat, Kissat-sc2024, and AE-Kissat-MAB combined.
 
 ## Recent changes
@@ -106,7 +107,7 @@ reach tests. Do not infer noL recovery before checked target evidence.
   with exact-domain discovery, retained-owner revalidation, deterministic
   pagination and session/live preflight; public exposure remains open.
 - Current source repairs terminal-action random generation and synchronizes the
-  append-only public registry tests; the complete Debug suite passes 285/285.
+  append-only public registry tests; the complete Debug suite passes 288/288.
   The scripted-policy fixture retains all schedule transitions while reducing
   its externally stepped conflict path from about 75,000 to about 4,000.
 - The replacement `ec7e0ac86` ASan+UBSan pin is immutable and hash-verified;
