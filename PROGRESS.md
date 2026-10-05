@@ -132,16 +132,15 @@ is externally DRAT-checked; broader source shapes, DSR and fixed targets remain
 open. Full Debug and all four current-source regression gates are accepted.
 The exact search allowlist/advice profile, compact versioned feedback and a
 fail-closed transaction/follow-up bookkeeping extractor are implemented.
-Rank 263 proves that one authenticated wide row can be installed and propagated,
-but CryptoMiniSat's controlled ablation proves that static XOR replacement is
-not the missing mechanism. Fix and measure the repeated-row lifecycle as a
-bounded control, then build a persistent authenticated Gaussian component over
-the certified source equations. It may inspect the current trail, but every
-matrix implication or conflict must first materialize its exact globally
-entailed clausal reason with a DSR-checkable derivation; only then may CDCL
-enqueue or conflict. Cache exact source combinations and shared definitions,
-meter matrix/update/proof work, restore state on backtrack, and suppress
-duplicate reasons. A fixed reduced basis is not claimed propagation-complete.
+Rank 263 now applies 1,328 authenticated rows without a lifecycle failure, but
+its 37,748 extension variables and 300-second UNKNOWN result confirm that
+repeated static XOR export is not the missing mechanism. The pure persistent
+matrix foundation now owns bounded exact source combinations, synchronizes a
+deterministic reduced state across full trail snapshots, and returns entailed
+implication/conflict clauses with transactional failure. Connect those reasons
+to X9's live owner and DSR preflight/publication before any CDCL enqueue or
+conflict; then cache exact reason keys, meter update/proof work and replace
+snapshot reduction with incremental maintenance only if measurement warrants.
 The raw census justifies a bounded profile with 2,500 groups and 68/160 image
 and basis width/source limits. Exclude rank 569 from this first component:
 its 24 independent source equations yield no new selectable consequence even
@@ -256,9 +255,11 @@ evidence.
   startup dose: successful row settlement synchronizes durable keys, preserves
   the remaining exact page across a separately selected root Propagate action,
   and records the dose in the controller fingerprint. This repairs the observed
-  one-row lifecycle defect. Rank263 now reaches two effective rows from one page
-  but rejects its third exact row before search; a focused wide/direct/wide
-  preflight repair, target recovery and current regression gates remain open.
+  one-row lifecycle defect. Rank263 now applies all 1,328 requested rows, but
+  repeated export grows 37,748 variables and remains UNKNOWN at 300 seconds.
+  A pure owner-bound affine matrix now derives exact-source implication/conflict
+  reasons across backtrack; live proof publication, target recovery and gates
+  remain open.
 - Public X18 `GraphIntervalEquivalence` is a generic bounded continuing-CDCL
   action with focused merged-main proof/interface coverage. Its rank-991
   preflight selected scalar 1024 before search and authenticated 116 groups,
