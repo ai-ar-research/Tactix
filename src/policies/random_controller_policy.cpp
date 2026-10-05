@@ -63,8 +63,11 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
   if (program.sequence.empty() || program.sequence.size() > 2)
     return reject("GF2 affine producer profile requires one affine action and "
                   "at most one advice action");
-  if (program.repeat.mode != RepeatMode::Once || program.repeat.limit != 1)
-    return reject("GF2 affine producer profile requires once-only sequence repetition");
+  if ((program.repeat.mode != RepeatMode::Once &&
+       program.repeat.mode != RepeatMode::Count) ||
+      !program.repeat.limit ||
+      (program.repeat.mode == RepeatMode::Once && program.repeat.limit != 1))
+    return reject("GF2 affine producer profile requires once-only or bounded-count sequence repetition");
   const auto &step = program.sequence.front();
   const auto *profile_parameters =
       std::get_if<AffineConsequenceParameters>(&step.parameters);
@@ -159,7 +162,18 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
                     "static action offer");
   }
 
+  if (program.repeat.mode == RepeatMode::Count) {
+    if (!advice)
+      return reject("GF2 affine startup batching requires explicit semantic variable advice");
+    if (!parameters.rules.empty() &&
+        std::find(parameters.rules.begin(), parameters.rules.end(),
+                  "Propagate") == parameters.rules.end())
+      return reject("GF2 affine startup batching requires Propagate in the configured action collection");
+  }
+
   auto replacement = *this;
+  replacement.affine_basis_action_producer.startup_batch_actions =
+      program.repeat.mode == RepeatMode::Count ? program.repeat.limit : 0;
   replacement.parameters.affine_consequence_reference = *profile_parameters;
   replacement.allowances["AffineConsequence"] =
       {step.work_unit, step.budget.amount(), step.rule_work_budget};
@@ -383,6 +397,7 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     profile.granularity = InvocationGranularity::CanonicalApplication;
     out << " producer " << std::quoted(profile.rule) << ' '
         << config.affine_basis_action_producer.maximum_offers << ' '
+        << config.affine_basis_action_producer.startup_batch_actions << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
   if (config.gf3_action_producer.enabled) {
@@ -556,12 +571,20 @@ bool RandomControllerSelector::choose(
                                       : NativeSettlement::Pending;
     }
   };
+  bool affine_session_commit_observed = false;
   if (affine_basis_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
           affine_basis_discovery_.pending_sequence) {
     const NativeSettlement settlement =
         native_settlement(observation.last_action->invocation);
     if (settlement == NativeSettlement::Consume) {
+      affine_session_commit_observed =
+          observation.last_action->invocation.made_rule_progress;
+      if (affine_session_commit_observed && k.affine_basis_action_session &&
+          affine_basis_discovery_.session ==
+              k.affine_basis_action_session)
+        affine_basis_discovery_.session_keys =
+            k.affine_basis_action_session->committed_keys();
       const auto pending = *affine_basis_discovery_.pending;
       affine_basis_discovery_.offers.erase(
           std::remove(affine_basis_discovery_.offers.begin(),
@@ -944,6 +967,8 @@ bool RandomControllerSelector::choose(
         !same_version(affine_basis_discovery_.state, state);
     const bool session_changed =
         affine_basis_discovery_.session_keys != session.committed_keys();
+    const bool session_commit =
+        session.committed_keys() > affine_basis_discovery_.session_keys;
     const auto reset_discovery = [&]() {
       affine_basis_discovery_ = {};
       affine_basis_discovery_.owner = &k;
@@ -952,11 +977,19 @@ bool RandomControllerSelector::choose(
       affine_basis_discovery_.session_keys = session.committed_keys();
       affine_basis_discovery_.profile = profile;
     };
-    if (owner_changed || session_changed ||
+    if (owner_changed ||
+        (session_changed && !affine_session_commit_observed &&
+         !session_commit) ||
         (profile_changed &&
          (!affine_basis_discovery_.reconfiguration_required ||
           !affine_basis_discovery_.pending))) {
       reset_discovery();
+    } else if (session_changed) {
+      // A successful exact row action only grows the durable consumed-key
+      // set.  The retained owner and every other payload in the already
+      // authenticated page stay exact, so preserve them instead of repeating
+      // the full recognition/basis preflight after every row.
+      affine_basis_discovery_.session_keys = session.committed_keys();
     } else if (affine_basis_discovery_.reconfiguration_required &&
                profile_changed) {
       affine_basis_discovery_.state = state;
@@ -964,7 +997,14 @@ bool RandomControllerSelector::choose(
       affine_basis_discovery_.profile = profile;
       affine_basis_discovery_.reconfiguration_required = false;
     } else if (state_changed) {
-      if (affine_basis_discovery_.durable_terminal ||
+      if (session.bound() && session.belongs_to(k) && session.owner() &&
+          session.owner()->arena_generation == k.arena_generation) {
+        // Root propagation changes the touch epoch but does not invalidate
+        // exact rows owned by the durable session snapshot.  Retain the
+        // authenticated page across that boundary; live apply rederives and
+        // validates the selected row and all of its sources before mutation.
+        affine_basis_discovery_.state = state;
+      } else if (affine_basis_discovery_.durable_terminal ||
           affine_basis_discovery_.reconfiguration_required) {
         affine_basis_discovery_.state = state;
       } else {
@@ -1515,7 +1555,28 @@ bool RandomControllerSelector::choose(
   }
   request = {};
   request.sequence = observation.sequence + 1;
-  const auto choice = draw(eligible.size() + can_resume);
+  std::optional<size_t> forced_choice;
+  const uint64_t affine_batch =
+      config.affine_basis_action_producer.startup_batch_actions;
+  if (affine_batch && k.affine_basis_action_session) {
+    const auto find_rule = [&](std::string_view name,
+                               std::optional<NativeOffer> native = std::nullopt) {
+      for (size_t i = 0; i < eligible.size(); ++i)
+        if (std::string_view(eligible[i].rule->name) == name &&
+            (!native || eligible[i].native == *native))
+          return std::optional<size_t>{i};
+      return std::optional<size_t>{};
+    };
+    if (!can_resume) {
+      forced_choice = find_rule("Propagate");
+    } else if (k.affine_basis_action_session->committed_keys() < affine_batch) {
+      forced_choice = find_rule("AffineConsequence", NativeOffer::AffineBasis);
+    }
+    if (!forced_choice)
+      forced_choice = find_rule("SemanticVariableAdvice");
+  }
+  const auto choice = forced_choice ? *forced_choice
+                                    : draw(eligible.size() + can_resume);
   if (choice == eligible.size()) {
     request.type = ActionType::ResumeSearch;
     const auto configurations = config.search_configurations.empty()
