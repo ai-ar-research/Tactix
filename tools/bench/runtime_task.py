@@ -403,7 +403,8 @@ def terminal_counter_summary(stdout, arguments, verdict):
     """Extract the small gate record from a completed causal preflight."""
     configured = _controller_families(arguments)
     rules, producers, loop = {}, {}, None
-    rule_lines, producer_lines, loop_line, core_lines = {}, {}, None, {}
+    rule_lines, producer_lines = {}, {}
+    loop_line, census_line, core_lines = None, None, {}
     core_prefixes = ("c decisions ", "c conflicts ", "c propagations ")
     with open(stdout, errors="replace") as source:
         for raw in source:
@@ -424,6 +425,8 @@ def terminal_counter_summary(stdout, arguments, verdict):
             elif line.startswith("c controller-loop "):
                 loop = _counter_fields(line.removeprefix("c controller-loop "))
                 loop_line = line[-512:]
+            elif line.startswith("c nary-csp-census "):
+                census_line = line[-512:]
             elif (line.startswith(core_prefixes) or
                   re.match(r"^c timing\s+\d+ ms solve$", line) or
                   line.startswith("s ")):
@@ -442,6 +445,8 @@ def terminal_counter_summary(stdout, arguments, verdict):
     lines.extend(producer_lines[name] for name in sorted(producer_lines))
     if loop_line is not None:
         lines.append(loop_line)
+    if census_line is not None:
+        lines.append(census_line)
     lines.extend(core_lines[name] for name in
                  ("decisions", "conflicts", "propagations", "timing", "verdict")
                  if name in core_lines)
