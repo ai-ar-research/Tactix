@@ -1,11 +1,6 @@
 # Organic winner-technique integration
 
-This living subplan owns the portfolio-convergence workstream linked from
-[DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
-Status and next actions belong to PROGRESS.md; controller contracts to
-controller-interface.md. This document mixes accepted requirements, implemented
-foundations, and future mechanisms; `PROGRESS.md` is authoritative for which
-increments are currently wired, tested, or accepted.
+This living subplan owns the portfolio-convergence workstream linked from [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration). Status and next actions belong to PROGRESS.md; controller contracts to controller-interface.md. This document mixes accepted requirements, implemented foundations, and future mechanisms; `PROGRESS.md` is authoritative for which increments are currently wired, tested, or accepted.
 
 ## Objective and fixed targets
 
@@ -17,19 +12,9 @@ Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is cl
 Use the historical no-MAB `d170b4a5` full Tier-D campaign as the approved performance approximation (`375b621b` at entry).
 Do not rerun that baseline, the full comparison or unchanged Tactix to refresh it. Develop current source; historical correctness acceptance does not transfer.
 
-The [saved portfolio report](../report-to-andrew/20261003T164617Z-tierd-portfolio-misses/report.pdf)
-and its CSV/manifest identify the target inputs and original result records.
-CSV SHA-256: `b2444220c04a4e1a05bbe3d21c4bc73d2e119bad625fb31a9a3ac7d773c0b4f6`.
-Freeze the following subset without rerunning its collector: retain rows whose
-`checked_solvers` intersects `lymphosat;satsuma-kissat;kissat-sc2024`.
-This gives **36 misses: 18 SAT, 18 UNSAT; 23 solver timeouts, nine checker
-timeouts and four checker failures**. Their frozen ranks are
-82, 147, 190, 226, 263, 291, 323, 343, 367, 401, 453, 479, 489, 497, 511, 540,
-541, 569, 627, 630, 654, 744, 754, 762, 781, 887, 896, 899, 941, 991, 1004,
-1075, 1129, 1144, 1161 and 1163. These ranks identify evidence, never solver controls.
-The full four-arm gap additionally contains ranks 97, 410, 499, 557, 1009,
-1040, 1085 and 1118, checked only by AE-Kissat-MAB among the reference arms.
-They remain in scope after the 36-instance checkpoint; solving all 44 does not establish superiority beyond the portfolio.
+The [saved portfolio report](../report-to-andrew/20261003T164617Z-tierd-portfolio-misses/report.pdf) and its CSV/manifest identify the target inputs and original result records. CSV SHA-256: `b2444220c04a4e1a05bbe3d21c4bc73d2e119bad625fb31a9a3ac7d773c0b4f6`.
+Freeze the subset whose `checked_solvers` intersects `lymphosat;satsuma-kissat;kissat-sc2024` without rerunning its collector. This gives **36 misses: 18 SAT, 18 UNSAT; 23 solver timeouts, nine checker timeouts and four checker failures** at frozen ranks 82, 147, 190, 226, 263, 291, 323, 343, 367, 401, 453, 479, 489, 497, 511, 540, 541, 569, 627, 630, 654, 744, 754, 762, 781, 887, 896, 899, 941, 991, 1004, 1075, 1129, 1144, 1161 and 1163. Ranks identify evidence, never solver controls.
+The full four-arm gap additionally contains ranks 97, 410, 499, 557, 1009, 1040, 1085 and 1118, checked only by AE-Kissat-MAB among the reference arms. They remain in scope after the 36-instance checkpoint; solving all 44 does not establish superiority beyond the portfolio.
 
 ## Integration and investigation order
 
@@ -57,13 +42,7 @@ They remain in scope after the 36-instance checkpoint; solving all 44 does not e
 
 ## Lightweight symmetry during inprocessing
 
-Make symmetry discovery/application available at full Restart-to-root boundaries.
-Policy owns interval, relevant-change admission, scheduling position and effort;
-legality remains independent of those scheduling choices. An interval becoming
-due does not interrupt an ordinary partial restart or change configuration there.
-Charge snapshot/graph construction, detection, witness validation and application.
-Check cheaply for relevant changes after an unsuccessful attempt; no repeated
-whole-formula discovery on unchanged input merely because another restart occurred.
+Make symmetry discovery/application available at full Restart-to-root boundaries. Policy owns interval, relevant-change admission, scheduling position and effort; legality remains independent of those scheduling choices. An interval becoming due does not interrupt an ordinary partial restart or change configuration there. Charge snapshot/graph construction, detection, witness validation and application. Check cheaply for relevant changes after an unsuccessful attempt; do not repeat whole-formula discovery on unchanged input merely because another restart occurred.
 
 Study positions around other passes because propagation/cleanup may expose
 symmetry while elimination, substitution, factoring and earlier breaking may
