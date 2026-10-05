@@ -1520,7 +1520,8 @@ bool online_program_v7(const tactix_online_program_v7 &source,
 
 bool online_program_v8(const tactix_online_program_v8 &source,
                        const Kernel &kernel,
-                       strategy::OnlineInprocessProgram &target) {
+                       strategy::OnlineInprocessProgram &target,
+                       bool validate = true) {
   if (source.step_count < 0 || (source.step_count && !source.steps))
     return false;
   std::vector<tactix_online_step_v7> base_steps;
@@ -1568,6 +1569,165 @@ bool online_program_v8(const tactix_online_program_v8 &source,
         selection.prefix.prefix.push_back(
             {input.prefix[choice].domain, input.prefix[choice].value});
       if (!nary_csp_prefix_action_selection_valid(selection)) return false;
+      output.push_back(std::move(selection));
+    }
+  }
+  return !validate || strategy::validate_online_strategy_program(target);
+}
+
+bool online_program_v9(const tactix_online_program_v9 &source,
+                       const Kernel &kernel,
+                       strategy::OnlineInprocessProgram &target) {
+  if (source.step_count < 0 || (source.step_count && !source.steps))
+    return false;
+  std::vector<tactix_online_step_v8> base_steps;
+  base_steps.reserve(static_cast<size_t>(source.step_count));
+  for (int i = 0; i < source.step_count; ++i)
+    base_steps.push_back(source.steps[i].base);
+  const tactix_online_program_v8 base_program = {
+      base_steps.data(), source.step_count, source.repeat_mode,
+      source.repeat_limit};
+  if (!online_program_v8(base_program, kernel, target, false)) return false;
+  for (int i = 0; i < source.step_count; ++i) {
+    const auto &input_step = source.steps[i];
+    auto *parameters = std::get_if<strategy::AffineConsequenceParameters>(
+        &target.sequence[i].parameters);
+    if (input_step.affine_basis_instance_count < 0 ||
+        (input_step.affine_basis_instance_count &&
+         !input_step.affine_basis_instances) ||
+        (input_step.affine_basis_instance_count &&
+         (!parameters ||
+          parameters->semantics !=
+              strategy::AffineConsequenceSemantics::CertifiedBasisV2)) ||
+        (parameters &&
+         static_cast<uint64_t>(input_step.affine_basis_instance_count) >
+             parameters->maximum_session_keys))
+      return false;
+    auto &output = target.sequence[i].affine_basis_instances;
+    output.reserve(static_cast<size_t>(input_step.affine_basis_instance_count));
+    for (int row_index = 0;
+         row_index < input_step.affine_basis_instance_count; ++row_index) {
+      const auto &input = input_step.affine_basis_instances[row_index];
+      if (input.kind < TACTIX_ONLINE_AFFINE_ROW_CONTRADICTION ||
+          input.kind > TACTIX_ONLINE_AFFINE_ROW_EXTENDED)
+        return false;
+      const bool extended = input.kind == TACTIX_ONLINE_AFFINE_ROW_EXTENDED;
+      if (input.variable_count < 0 ||
+          input.source_equation_ordinal_count < 0 ||
+          input.source_equation_count < 0 ||
+          (input.variable_count && !input.variables) ||
+          (input.source_equation_ordinal_count &&
+           !input.source_equation_ordinals) ||
+          (input.source_equation_count && !input.source_equations) ||
+          static_cast<uint64_t>(input.variable_count) >
+              (extended ? parameters->basis_maximum_intermediate_width
+                        : parameters->basis_maximum_direct_width) ||
+          static_cast<uint64_t>(input.source_equation_ordinal_count) >
+              parameters->basis_maximum_sources ||
+          input.source_equation_count !=
+              input.source_equation_ordinal_count)
+        return false;
+      AffineBasisRowSelection selection;
+      selection.owner_version = input.owner_version;
+      selection.elimination_profile = input.elimination_profile;
+      selection.kind = static_cast<affine_semantic_extension::BasisRowKind>(
+          input.kind);
+      if (input.rhs != 0 && input.rhs != 1) return false;
+      selection.rhs = input.rhs;
+      selection.variables.reserve(static_cast<size_t>(input.variable_count));
+      for (int j = 0; j < input.variable_count; ++j) {
+        const int64_t variable = input.variables[j];
+        if (variable <= 0 || variable > INT32_MAX) return false;
+        selection.variables.push_back(static_cast<int32_t>(variable));
+      }
+      selection.source_equation_ordinals.reserve(
+          static_cast<size_t>(input.source_equation_ordinal_count));
+      for (int j = 0; j < input.source_equation_ordinal_count; ++j) {
+        const uint64_t ordinal = input.source_equation_ordinals[j];
+        if (ordinal > SIZE_MAX) return false;
+        selection.source_equation_ordinals.push_back(
+            static_cast<size_t>(ordinal));
+      }
+      uint64_t source_clauses = 0, source_literals = 0;
+      selection.source_equations.reserve(
+          static_cast<size_t>(input.source_equation_count));
+      for (int equation_index = 0;
+           equation_index < input.source_equation_count; ++equation_index) {
+        const auto &source = input.source_equations[equation_index];
+        if (source.variable_count <= 0 || source.premise_count < 0 ||
+            !source.variables || (source.premise_count && !source.premises) ||
+            static_cast<uint64_t>(source.variable_count) >
+                parameters->maximum_arity ||
+            static_cast<uint64_t>(source.premise_count) >
+                parameters->maximum_patterns ||
+            static_cast<uint64_t>(source.premise_count) >
+                parameters->maximum_clauses -
+                    std::min(source_clauses, parameters->maximum_clauses) ||
+            (source.rhs != 0 && source.rhs != 1))
+          return false;
+        AffineBasisEquationIdentity equation;
+        equation.rhs = source.rhs;
+        equation.variables.reserve(
+            static_cast<size_t>(source.variable_count));
+        for (int j = 0; j < source.variable_count; ++j) {
+          const int64_t variable = source.variables[j];
+          if (variable <= 0 || variable > INT32_MAX) return false;
+          equation.variables.push_back(static_cast<int32_t>(variable));
+        }
+        source_clauses += static_cast<uint64_t>(source.premise_count);
+        equation.premises.reserve(static_cast<size_t>(source.premise_count));
+        for (int premise_index = 0; premise_index < source.premise_count;
+             ++premise_index) {
+          const auto &source_premise = source.premises[premise_index];
+          if (source_premise.clause_count < 0 ||
+              (source_premise.clause_count && !source_premise.clause) ||
+              source_premise.clause_count != source.variable_count ||
+              static_cast<uint64_t>(source_premise.clause_count) >
+                  parameters->maximum_snapshot_literals -
+                      std::min(source_literals,
+                               parameters->maximum_snapshot_literals))
+            return false;
+          AffineBasisSourceIdentity premise;
+          premise.native_clause_id = source_premise.native_clause_id;
+          premise.clause.reserve(
+              static_cast<size_t>(source_premise.clause_count));
+          for (int j = 0; j < source_premise.clause_count; ++j) {
+            const int64_t literal = source_premise.clause[j];
+            if (!literal || literal < INT32_MIN || literal > INT32_MAX)
+              return false;
+            premise.clause.push_back(static_cast<int32_t>(literal));
+          }
+          source_literals +=
+              static_cast<uint64_t>(source_premise.clause_count);
+          equation.premises.push_back(std::move(premise));
+        }
+        selection.source_equations.push_back(std::move(equation));
+      }
+      AffineBasisActionLimits limits;
+      limits.image = {parameters->maximum_clauses,
+                      parameters->maximum_groups,
+                      parameters->maximum_patterns,
+                      parameters->maximum_elimination_work,
+                      parameters->maximum_arity,
+                      parameters->maximum_intermediate_width,
+                      parameters->maximum_sources,
+                      parameters->maximum_output_width};
+      limits.basis = {parameters->basis_maximum_work,
+                      parameters->basis_maximum_intermediate_width,
+                      parameters->basis_maximum_sources,
+                      parameters->basis_maximum_premises,
+                      parameters->basis_maximum_nodes,
+                      parameters->basis_maximum_direct_width};
+      limits.maximum_snapshot_literals = parameters->maximum_snapshot_literals;
+      limits.maximum_snapshot_work = parameters->maximum_snapshot_work;
+      limits.maximum_proof_additions = parameters->maximum_proof_additions;
+      limits.maximum_proof_deletions = parameters->maximum_proof_deletions;
+      limits.maximum_journal_bytes = parameters->maximum_journal_bytes;
+      limits.maximum_external_extent = parameters->maximum_external_extent;
+      limits.maximum_session_keys = parameters->maximum_session_keys;
+      limits.maximum_session_work = parameters->maximum_session_work;
+      if (!affine_basis_row_selection_within_limits(selection, limits))
+        return false;
       output.push_back(std::move(selection));
     }
   }
@@ -2242,6 +2402,31 @@ int tactix_online_configure_v8(tactix_solver *s,
     return -1;
   strategy::OnlineInprocessProgram program;
   if (!online_program_v8(*source, s->kernel, program)) return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode)) return -1;
+  if (replacement) s->online = std::move(replacement);
+  input_complete(s);
+  return 0;
+}
+
+int tactix_online_configure_v9(tactix_solver *s,
+                               const tactix_online_program_v9 *source,
+                               uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v9(*source, s->kernel, program)) return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = s->online.get();
   if (!executor) {

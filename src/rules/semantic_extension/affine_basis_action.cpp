@@ -244,7 +244,7 @@ AffineBasisOfferPage offer_page(
     return page;
   }
   affine::BasisPlan plan;
-  const affine::BasisPlanStatus planned = affine::build_direct_basis_plan(
+  const affine::BasisPlanStatus planned = affine::build_selectable_basis_plan(
       image.equations, limits.basis,
       [&](uint64_t amount) {
         return add_work(amount, UINT64_MAX, page.enumeration_work) &&
@@ -269,8 +269,8 @@ AffineBasisOfferPage offer_page(
   std::vector<Candidate> candidates;
   for (size_t i = 0; i < plan.rows.size(); ++i) {
     const affine::BasisRow &row = plan.rows[i];
-    if (row.kind == affine::BasisRowKind::Extended ||
-        row.source_equations.size() < 2)
+    if (row.source_equations.size() <
+        (row.kind == affine::BasisRowKind::Extended ? 1u : 2u))
       continue;
     Candidate candidate;
     candidate.row = i;
@@ -388,6 +388,95 @@ bool AffineBasisActionLimits::valid() const {
          maximum_snapshot_work && maximum_proof_additions &&
          maximum_journal_bytes && maximum_external_extent &&
          maximum_session_keys && maximum_session_work;
+}
+
+bool affine_basis_row_selection_within_limits(
+    const AffineBasisRowSelection &selection,
+    const AffineBasisActionLimits &limits) {
+  namespace affine = affine_semantic_extension;
+  const bool extended = selection.kind == affine::BasisRowKind::Extended;
+  const size_t maximum_width = extended
+                                   ? limits.basis.maximum_intermediate_width
+                                   : limits.basis.maximum_direct_width;
+  const size_t minimum_sources = extended ? 1 : 2;
+  if (!limits.valid() || !selection.owner_version ||
+      selection.elimination_profile != 1 ||
+      selection.kind > affine::BasisRowKind::Extended ||
+      selection.variables.size() > maximum_width ||
+      selection.source_equation_ordinals.size() < minimum_sources ||
+      selection.source_equation_ordinals.size() >
+          limits.basis.maximum_sources ||
+      selection.source_equations.size() !=
+          selection.source_equation_ordinals.size())
+    return false;
+  const size_t width = selection.variables.size();
+  if ((selection.kind == affine::BasisRowKind::DirectContradiction &&
+       (width || !selection.rhs)) ||
+      (selection.kind == affine::BasisRowKind::DirectUnit && width != 1) ||
+      (selection.kind == affine::BasisRowKind::DirectBinary && width != 2) ||
+      (selection.kind == affine::BasisRowKind::DirectSmall &&
+       (width < 3 || width > limits.basis.maximum_direct_width)) ||
+      (selection.kind == affine::BasisRowKind::Extended &&
+       width <= limits.basis.maximum_direct_width))
+    return false;
+  for (size_t i = 0; i < width; ++i)
+    if (selection.variables[i] <= 0 ||
+        (i && selection.variables[i - 1] >= selection.variables[i]))
+      return false;
+  for (size_t i = 0; i < selection.source_equation_ordinals.size(); ++i)
+    if (selection.source_equation_ordinals[i] >= limits.image.maximum_groups ||
+        (i && selection.source_equation_ordinals[i - 1] >=
+                  selection.source_equation_ordinals[i]))
+      return false;
+
+  uint64_t clauses = 0, literals = 0, snapshot_work = 0;
+  for (const auto &equation : selection.source_equations) {
+    const size_t arity = equation.variables.size();
+    if (!arity || arity > limits.image.maximum_arity || arity >= 64 ||
+        equation.premises.size() != (uint64_t{1} << (arity - 1)))
+      return false;
+    for (size_t i = 0; i < arity; ++i)
+      if (equation.variables[i] <= 0 ||
+          (i && equation.variables[i - 1] >= equation.variables[i]))
+        return false;
+    for (size_t premise_index = 0;
+         premise_index < equation.premises.size(); ++premise_index) {
+      const auto &premise = equation.premises[premise_index];
+      if (!premise.native_clause_id || premise.clause.size() != arity ||
+          clauses == limits.image.maximum_clauses ||
+          clauses == limits.image.maximum_patterns ||
+          clauses == limits.basis.maximum_premises ||
+          premise.clause.size() >
+              limits.maximum_snapshot_literals - literals ||
+          premise.clause.size() + 1 >
+              limits.maximum_snapshot_work - snapshot_work)
+        return false;
+      if (premise_index &&
+          !(equation.premises[premise_index - 1] < premise))
+        return false;
+      ++clauses;
+      literals += premise.clause.size();
+      snapshot_work += premise.clause.size() + 1;
+      unsigned negative_parity = 0;
+      for (size_t i = 0; i < arity; ++i) {
+        const int32_t literal = premise.clause[i];
+        if (!literal || literal == INT32_MIN ||
+            (i && premise.clause[i - 1] >= literal))
+          return false;
+        negative_parity ^= literal < 0;
+      }
+      for (const int32_t variable : equation.variables)
+        if (std::count_if(premise.clause.begin(), premise.clause.end(),
+                          [variable](int32_t literal) {
+                            return (literal < 0 ? -literal : literal) ==
+                                   variable;
+                          }) != 1)
+          return false;
+      if (negative_parity != static_cast<unsigned>(!equation.rhs))
+        return false;
+    }
+  }
+  return clauses <= limits.image.maximum_patterns;
 }
 
 RuleEligibility affine_basis_action_guard(const Kernel &kernel) {

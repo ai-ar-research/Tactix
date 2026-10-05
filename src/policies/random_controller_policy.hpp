@@ -31,6 +31,12 @@ struct Gf3ActionProducerConfig {
   }
 };
 
+struct AffineBasisActionProducerConfig {
+  bool enabled = false;
+  uint32_t maximum_offers = 8;
+  bool valid() const { return !enabled || maximum_offers; }
+};
+
 struct DirectCspActionProducerConfig {
   bool enabled = false;
   uint64_t maximum_domain_candidates = 64;
@@ -87,6 +93,7 @@ struct RandomControllerConfig {
   // producer below, making an explicit collection exact and replay-stable.
   std::map<std::string, std::vector<strategy::OnlineInvocation>> offered_actions;
   Gf3ActionProducerConfig gf3_action_producer;
+  AffineBasisActionProducerConfig affine_basis_action_producer;
   DirectCspActionProducerConfig direct_csp_action_producer;
   NaryCspActionProducerConfig nary_csp_action_producer;
   Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
@@ -169,6 +176,20 @@ public:
               volatile sig_atomic_t *stop = nullptr) override;
 
 private:
+  struct AffineBasisDiscoveryState {
+    const Kernel *owner = nullptr;
+    const AffineBasisActionSession *session = nullptr;
+    strategy::StateVersion state;
+    size_t session_keys = 0;
+    bool terminal = false;
+    bool reconfiguration_required = false;
+    bool more = false;
+    std::string profile;
+    AffineBasisOfferCursor cursor;
+    std::vector<AffineBasisRowSelection> offers;
+    std::optional<AffineBasisRowSelection> pending;
+    uint64_t pending_sequence = 0;
+  };
   struct Gf3DiscoveryState {
     const Kernel *owner = nullptr;
     const Gf3AffineActionSession *session = nullptr;
@@ -242,6 +263,7 @@ private:
   };
 
   uint64_t draw(uint64_t bound);
+  AffineBasisDiscoveryState affine_basis_discovery_;
   Gf3DiscoveryState gf3_discovery_;
   DirectCspDiscoveryState direct_csp_discovery_;
   NaryCspDiscoveryState nary_csp_discovery_;

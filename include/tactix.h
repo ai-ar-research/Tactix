@@ -1260,6 +1260,50 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v8;
 
+/* Additive v9 payload for one exact certified GF(2) basis row.  The complete
+ * owner/source identity is deep-copied during configuration; live apply
+ * rederives it and rejects stale or mismatched source clauses. */
+#define TACTIX_ONLINE_AFFINE_ROW_CONTRADICTION 0
+#define TACTIX_ONLINE_AFFINE_ROW_UNIT 1
+#define TACTIX_ONLINE_AFFINE_ROW_BINARY 2
+#define TACTIX_ONLINE_AFFINE_ROW_SMALL 3
+#define TACTIX_ONLINE_AFFINE_ROW_EXTENDED 4
+typedef struct {
+  uint64_t native_clause_id;
+  const int *clause;
+  int clause_count;
+} tactix_online_affine_source_identity;
+typedef struct {
+  const int *variables;
+  int variable_count;
+  int rhs;
+  const tactix_online_affine_source_identity *premises;
+  int premise_count;
+} tactix_online_affine_equation_identity;
+typedef struct {
+  uint64_t owner_version;
+  uint32_t elimination_profile;
+  int kind;
+  const int *variables;
+  int variable_count;
+  int rhs;
+  const uint64_t *source_equation_ordinals;
+  int source_equation_ordinal_count;
+  const tactix_online_affine_equation_identity *source_equations;
+  int source_equation_count;
+} tactix_online_affine_basis_instance;
+typedef struct {
+  tactix_online_step_v8 base;
+  const tactix_online_affine_basis_instance *affine_basis_instances;
+  int affine_basis_instance_count;
+} tactix_online_step_v9;
+typedef struct {
+  const tactix_online_step_v9 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v9;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1303,6 +1347,8 @@ int tactix_online_configure_v6(tactix *, const tactix_online_program_v6 *,
 int tactix_online_configure_v7(tactix *, const tactix_online_program_v7 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v8(tactix *, const tactix_online_program_v8 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v9(tactix *, const tactix_online_program_v9 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

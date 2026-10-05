@@ -1148,6 +1148,20 @@ static void affine_consequence_replay_round_trip() {
   affine_basis.budget = WorkLimit::bounded(1);
   program.sequence.push_back(affine_basis);
 
+  OnlineInvocation selected_basis = affine_basis;
+  selected_basis.id = 715;
+  selected_basis.granularity = InvocationGranularity::OneInstance;
+  AffineBasisRowSelection row;
+  row.owner_version = 1;
+  row.kind = affine_semantic_extension::BasisRowKind::DirectBinary;
+  row.variables = {5, 6};
+  row.rhs = true;
+  row.source_equation_ordinals = {0, 1};
+  row.source_equations = {{{5}, false, {{201, {-5}}}},
+                          {{6}, true, {{202, {6}}}}};
+  selected_basis.affine_basis_instances = {row};
+  program.sequence.push_back(selected_basis);
+
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   const std::string wire = serialize_online_strategy_program(program);
@@ -1155,6 +1169,7 @@ static void affine_consequence_replay_round_trip() {
       ":affine-consequence1(101,102,103,104,105,106,4,8,9,3,107,108,109,2)") !=
       std::string::npos);
   assert(wire.find(":affine-consequence2(") != std::string::npos);
+  assert(wire.find(":affine-basis-row1[") != std::string::npos);
   OnlineStrategyProgram replay;
   assert(deserialize_online_strategy_program(wire, replay, &error));
   assert(serialize_online_strategy_program(replay) == wire);
@@ -1166,6 +1181,21 @@ static void affine_consequence_replay_round_trip() {
              AffineConsequenceSemantics::CertifiedBasisV2 &&
          basis_replay.basis_maximum_work == 413 &&
          basis_replay.maximum_session_work == 421);
+  assert(replay.sequence[2].affine_basis_instances ==
+         std::vector<AffineBasisRowSelection>{row});
+  std::string malformed_wire = wire;
+  const std::string valid_row = ":affine-basis-row1[1,1,2,";
+  const size_t row_at = malformed_wire.find(valid_row);
+  assert(row_at != std::string::npos);
+  malformed_wire.replace(row_at, valid_row.size(),
+                         ":affine-basis-row1[0,1,2,");
+  assert(!deserialize_online_strategy_program(malformed_wire, replay, &error));
+
+  auto invalid = selected_basis;
+  invalid.affine_basis_instances.front().source_equations.front()
+      .premises.front().clause = {5};
+  OnlineStrategyProgram invalid_program{{invalid}, {}};
+  assert(!validate_online_strategy_program(invalid_program, &error));
 
   const RandomOnlineConfig defaults;
   assert(defaults.affine_consequence_reference.semantics ==

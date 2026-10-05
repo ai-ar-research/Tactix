@@ -3,7 +3,9 @@
 #include "rules/decide/decide.hpp"
 #include "rules/lucky/lucky.hpp"
 #include <algorithm>
+#include <cstdio>
 #include <set>
+#include <vector>
 
 #include <cassert>
 #include <fstream>
@@ -24,6 +26,73 @@ static Kernel fixture(bool unsat) {
     kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   }
   return k;
+}
+
+static void add_external_clause(Kernel &kernel,
+                                const std::vector<int32_t> &external) {
+  std::vector<Lit> literals;
+  for (const int32_t literal : external)
+    literals.push_back(kernel_internalize(kernel, literal));
+  const uint64_t id = ++kernel.next_clause_id;
+  if (literals.size() == 2)
+    kernel_add_binary_clause(kernel, literals[0], literals[1], id);
+  else
+    kernel_add_large_clause(kernel, literals.data(), literals.size(), false, 0,
+                            id);
+}
+
+static void native_affine_basis_offer_is_exact_and_effective() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 4);
+  auto clauses = affine_semantic_extension::clausal_form({1, 2, 3, 4},
+                                                          false);
+  for (const auto &clause : clauses) add_external_clause(kernel, clause);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+  RestartController controller(kernel);
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineConsequence"};
+  config.affine_basis_action_producer.enabled = true;
+  config.affine_basis_action_producer.maximum_offers = 1;
+  RandomControllerSelector selector(7);
+  bool applied = false;
+  for (unsigned attempt = 0; attempt < 32 && !applied; ++attempt) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(kernel, controller.observe(), config, request, error));
+    if (request.type == ActionType::ResumeSearch) continue;
+    assert(request.invocation.rule == "AffineConsequence" &&
+           request.invocation.affine_basis_instances.size() == 1 &&
+           request.invocation.instances.empty());
+    assert(request.invocation.affine_basis_instances.front().kind ==
+               affine_semantic_extension::BasisRowKind::Extended &&
+           request.invocation.affine_basis_instances.front()
+                   .source_equations.size() == 1);
+    assert(std::any_of(request.producer_effort.begin(),
+                       request.producer_effort.end(), [](const auto &effort) {
+                         return effort.family == "AffineConsequence" &&
+                                effort.candidates && effort.offers;
+                       }));
+    const std::string wire = serialize_online_strategy_program(
+        {{request.invocation}, {}});
+    OnlineStrategyProgram replay;
+    const bool replayed = deserialize_online_strategy_program(wire, replay, &error);
+    assert(replayed &&
+           replay.sequence.front().affine_basis_instances ==
+               request.invocation.affine_basis_instances);
+    const auto result = controller.apply_rule(
+        request, config.allowance("AffineConsequence"));
+    assert(result.invocation.status == InvocationStatus::Completed &&
+           result.invocation.made_rule_progress &&
+           kernel.stats.affine_consequence_applied == 1 &&
+           session.committed_keys() == 1);
+    applied = true;
+  }
+  assert(applied);
+  std::fclose(records);
 }
 
 static void random_guidance_uses_observed_identities() {
@@ -159,6 +228,7 @@ static void finite_lucky_catalog_is_reachable() {
 }
 
 int main() {
+  native_affine_basis_offer_is_exact_and_effective();
   finite_lucky_catalog_is_reachable();
   guidance_requires_an_observed_candidate();
   random_guidance_uses_observed_identities();

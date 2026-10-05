@@ -221,6 +221,30 @@ WorkUnit action_work_unit(const std::string &rule) {
   return WorkUnit::Applications;
 }
 
+AffineBasisActionLimits affine_basis_limits(
+    const AffineConsequenceParameters &p) {
+  AffineBasisActionLimits limits;
+  limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
+                  p.maximum_elimination_work, p.maximum_arity,
+                  p.maximum_intermediate_width, p.maximum_sources,
+                  p.maximum_output_width};
+  limits.basis = {p.basis_maximum_work,
+                  p.basis_maximum_intermediate_width,
+                  p.basis_maximum_sources,
+                  p.basis_maximum_premises,
+                  p.basis_maximum_nodes,
+                  p.basis_maximum_direct_width};
+  limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
+  limits.maximum_snapshot_work = p.maximum_snapshot_work;
+  limits.maximum_proof_additions = p.maximum_proof_additions;
+  limits.maximum_proof_deletions = p.maximum_proof_deletions;
+  limits.maximum_journal_bytes = p.maximum_journal_bytes;
+  limits.maximum_external_extent = p.maximum_external_extent;
+  limits.maximum_session_keys = p.maximum_session_keys;
+  limits.maximum_session_work = p.maximum_session_work;
+  return limits;
+}
+
 Gf3AffineActionLimits gf3_affine_limits(
     const Gf3AffineConsequenceParameters &p) {
   return {{p.maximum_source_clauses, p.maximum_source_literals,
@@ -773,6 +797,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.gf3_affine_instances.empty() &&
         step.rule != "Gf3AffineConsequence")
       return reject("GF3 equation pairs are attached to a different rule");
+    if (!step.affine_basis_instances.empty() &&
+        step.rule != "AffineConsequence")
+      return reject("GF2 affine rows are attached to a different rule");
     if (!step.direct_csp_support_instances.empty() &&
         step.rule != "DirectCspSupport")
       return reject("DirectCSP supports are attached to a different rule");
@@ -788,6 +815,17 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (step.rule == "Gf3AffineConsequence" &&
         (step.gf3_affine_instances.empty() || !step.instances.empty()))
       return reject("GF3 affine action requires typed equation-pair payloads");
+    if (!step.affine_basis_instances.empty()) {
+      const auto *p = std::get_if<AffineConsequenceParameters>(&step.parameters);
+      if (!p || p->semantics != AffineConsequenceSemantics::CertifiedBasisV2)
+        return reject("GF2 affine row requires certified-basis parameters");
+      if (step.affine_basis_instances.size() > p->maximum_session_keys)
+        return reject("GF2 affine row collection exceeds session limits");
+      const auto limits = affine_basis_limits(*p);
+      for (const auto &selection : step.affine_basis_instances)
+        if (!affine_basis_row_selection_within_limits(selection, limits))
+          return reject("GF2 affine row is malformed or exceeds limits");
+    }
     if (step.rule == "DirectCspSupport" &&
         (step.direct_csp_support_instances.empty() || !step.instances.empty()))
       return reject("DirectCSP action requires typed support payloads");
@@ -914,6 +952,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.substitution_redundancy_instances.empty() +
         !step.condition_instances.empty() +
         !step.independent_set_cover_instances.empty() +
+        !step.affine_basis_instances.empty() +
         !step.gf3_affine_instances.empty() +
         !step.direct_csp_support_instances.empty() +
         !step.nary_csp_prefix_instances.empty() +
@@ -935,6 +974,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                    ? step.condition_instances.size()
                                                    : !step.independent_set_cover_instances.empty()
                                                          ? step.independent_set_cover_instances.size()
+                                                         : !step.affine_basis_instances.empty()
+                                                               ? step.affine_basis_instances.size()
                                                          : !step.gf3_affine_instances.empty()
                                                                ? step.gf3_affine_instances.size()
                                                                : !step.direct_csp_support_instances.empty()
@@ -961,7 +1002,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::CompleteCurrentPass:
-      if (step.rule == "Gf3AffineConsequence" ||
+      if (!step.affine_basis_instances.empty() ||
+          step.rule == "Gf3AffineConsequence" ||
           step.rule == "DirectCspSupport" ||
           step.rule == "NaryCspPrefix" ||
           step.rule == "Gf3GaussianConsequence" ||
@@ -971,7 +1013,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
-      if (step.rule == "Gf3AffineConsequence" ||
+      if (!step.affine_basis_instances.empty() ||
+          step.rule == "Gf3AffineConsequence" ||
           step.rule == "DirectCspSupport" ||
           step.rule == "NaryCspPrefix" ||
           step.rule == "Gf3GaussianConsequence" ||
@@ -1180,6 +1223,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.substitution_redundancy_instances.empty() &&
         step.condition_instances.empty() &&
         step.independent_set_cover_instances.empty() &&
+        step.affine_basis_instances.empty() &&
         step.gf3_affine_instances.empty() &&
         step.direct_csp_support_instances.empty() &&
         step.nary_csp_prefix_instances.empty() &&
@@ -1195,6 +1239,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                           ? step.condition_instances.size()
                                           : !step.independent_set_cover_instances.empty()
                                                 ? step.independent_set_cover_instances.size()
+                                                : !step.affine_basis_instances.empty()
+                                                      ? step.affine_basis_instances.size()
                                                 : !step.gf3_affine_instances.empty()
                                                       ? step.gf3_affine_instances.size()
                                                       : !step.direct_csp_support_instances.empty()
@@ -1824,7 +1870,16 @@ InvocationResult OnlineStrategyExecutor::advance(
       bool condition_interrupted = false;
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] { return
-          !step.gf3_affine_instances.empty()
+          !step.affine_basis_instances.empty()
+              ? apply_rule_structured(rule, k, "affine-basis-row", [&] {
+                  if (!k.affine_basis_action_session)
+                    return ApplyResult::NoOp;
+                  affine_application.emplace(affine_consequence_action_apply(
+                      k, *k.affine_basis_action_session,
+                      step.affine_basis_instances[payload]));
+                  return affine_application->result;
+                })
+          : !step.gf3_affine_instances.empty()
               ? apply_rule_structured(rule, k, "gf3-affine-consequence", [&] {
                   const auto &parameters =
                       std::get<Gf3AffineConsequenceParameters>(step.parameters);
@@ -2481,6 +2536,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     // structured discovery after each successful unit.
     if (generated_sr_pass ||
         !step.independent_set_cover_instances.empty() ||
+        !step.affine_basis_instances.empty() ||
         !step.gf3_affine_instances.empty() ||
         !step.direct_csp_support_instances.empty() ||
         !step.nary_csp_prefix_instances.empty() ||

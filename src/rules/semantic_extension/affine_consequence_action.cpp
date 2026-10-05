@@ -347,6 +347,34 @@ AffineConsequenceActionResult affine_consequence_action_apply(
   return output;
 }
 
+AffineConsequenceActionResult affine_consequence_action_apply(
+    Kernel &kernel, AffineBasisActionSession &session,
+    const AffineBasisRowSelection &selection) {
+  AffineConsequenceActionResult output;
+  {
+    RecordAffineConsequence record{kernel, output};
+    output.semantics = kernel.affine_consequence_parameters.semantics;
+    if (kernel.affine_consequence_parameters.valid() &&
+        output.semantics ==
+            strategy::AffineConsequenceSemantics::CertifiedBasisV2) {
+      if (kernel.affine_basis_action_session != &session) {
+        output.status = AffineConsequenceActionStatus::Inapplicable;
+        output.basis.status = AffineBasisActionStatus::Inapplicable;
+      } else {
+        output.basis = affine_basis_action_apply(
+            kernel, session, basis_limits_from_kernel(kernel), selection);
+        output.status = status(output.basis.status);
+        output.result = output.basis.result;
+        output.proposed_action_id = output.basis.proposed_action_id;
+        output.committed_action_id = output.basis.committed_action_id;
+        output.semantic_id = output.basis.semantic_id;
+        output.candidate_staged = output.basis.candidate_staged;
+      }
+    }
+  }
+  return output;
+}
+
 ApplyResult affine_consequence_rule_apply(Kernel &kernel) {
   return affine_consequence_action_apply(kernel).result;
 }

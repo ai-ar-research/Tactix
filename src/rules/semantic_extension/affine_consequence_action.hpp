@@ -48,6 +48,8 @@ RuleEligibility affine_consequence_action_guard(const Kernel &);
 AffineConsequenceActionResult affine_consequence_action_apply(Kernel &);
 AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &, AffineBasisActionSession &);
+AffineConsequenceActionResult affine_consequence_action_apply(
+    Kernel &, AffineBasisActionSession &, const AffineBasisRowSelection &);
 ApplyResult affine_consequence_rule_apply(Kernel &);
 
 } // namespace tactix
