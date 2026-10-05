@@ -1,0 +1,173 @@
+{
+  "campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4",
+  "checker_only_followup": {
+    "bundle": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/recheck-canonical-dsr",
+    "job_id": "1750516",
+    "status": "submitted",
+    "tasks": [
+      1,
+      3
+    ],
+    "validation": "passed",
+    "validation_job": "1750515"
+  },
+  "job_id": "1750469",
+  "manifest_sha256": "8d5d1640a9d98afc468aa04c6ed5c816324563c2057292014ba304cc4b003ec2",
+  "resource_contract": {
+    "array": "0-3",
+    "checker_timeout": 1800,
+    "cpus_per_task": 4,
+    "memory_mib": 32768,
+    "node_constraint": null,
+    "partition": "cpu-q",
+    "scheduler_wall_seconds": 4500,
+    "solve_timeout": 1200,
+    "throttle": null
+  },
+  "rows": [
+    {
+      "artifact_deleted": false,
+      "certificate_bytes": 424530578,
+      "certificate_sha256": "09bcea351f43e00b9b9117f77cb0ccc759ab3397c290c33cf44bef1359c94a47",
+      "cleanup_pending": true,
+      "instance": "tierD24-26/39277cab188349aee0f229cb7341b5c5-crafted_n12_d6_c4_num23.cnf.xz",
+      "matches_d170_certificate": true,
+      "prior_d170_solve_seconds": 245.978,
+      "proof_pipeline": "dsr-trim-dsr-compress-trestle",
+      "proof_result": "not-verified",
+      "proof_seconds": 1800.001,
+      "proof_timed_out": true,
+      "rank": 291,
+      "result_path": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/results/000.json",
+      "result_sha256": "4e6acec6fbf1e521cd803f2357609d29dcfc55bdfbd18b928be536a1dc8215b0",
+      "retained_artifact": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/000.dsr",
+      "retained_artifact_bytes": 424530578,
+      "retained_artifact_sha256": "09bcea351f43e00b9b9117f77cb0ccc759ab3397c290c33cf44bef1359c94a47",
+      "solve_seconds": 248.902,
+      "stages": [
+        {
+          "exit_code": 0,
+          "name": "dsr-trim",
+          "result": "verified",
+          "timed_out": false,
+          "wall_seconds": 679.356
+        },
+        {
+          "exit_code": 0,
+          "name": "dsr-compress",
+          "result": "verified",
+          "timed_out": false,
+          "wall_seconds": 10.781
+        },
+        {
+          "exit_code": null,
+          "name": "pipeline-deadline",
+          "result": "timeout",
+          "timed_out": true,
+          "wall_seconds": null
+        }
+      ],
+      "task": 0
+    },
+    {
+      "artifact_deleted": false,
+      "certificate_bytes": 247511403,
+      "certificate_sha256": "6d8f3c51b3584a2464231ea3b548a96ebfaf3c34967a5b2e4dd803f7082a300b",
+      "cleanup_pending": true,
+      "instance": "tierD24-26/6ff70a3aaf261b35b0b072f454a756be-crafted_n10_d6_c4_num9.cnf.xz",
+      "matches_d170_certificate": true,
+      "prior_d170_solve_seconds": 89.874,
+      "proof_pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "proof_result": "not-verified",
+      "proof_seconds": 1800.001,
+      "proof_timed_out": true,
+      "rank": 541,
+      "result_path": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/results/001.json",
+      "result_sha256": "ffede80830f4c16878253158390c8afb7f9f436a126f1cb4e6928260d5fa2a08",
+      "retained_artifact": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/001.dsr",
+      "retained_artifact_bytes": 247511403,
+      "retained_artifact_sha256": "6d8f3c51b3584a2464231ea3b548a96ebfaf3c34967a5b2e4dd803f7082a300b",
+      "solve_seconds": 93.744,
+      "stages": [
+        {
+          "exit_code": null,
+          "name": "pipeline-deadline",
+          "result": "timeout",
+          "timed_out": true,
+          "wall_seconds": null
+        }
+      ],
+      "task": 1
+    },
+    {
+      "artifact_deleted": false,
+      "certificate_bytes": 401269091,
+      "certificate_sha256": "f63206c14c4d7a27d32148defdecebcb7370a145ccd7bdb891064af2853fc7c4",
+      "cleanup_pending": true,
+      "instance": "tierD24-26/9d7caee59e9d362d132f1cd785de8a0b-ncc_none_21015_5_3_3_0_0_11.cnf.xz",
+      "matches_d170_certificate": true,
+      "prior_d170_solve_seconds": 176.902,
+      "proof_pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "proof_result": "not-verified",
+      "proof_seconds": 1800.001,
+      "proof_timed_out": true,
+      "rank": 744,
+      "result_path": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/results/002.json",
+      "result_sha256": "58427c1334ef81863849e80d7c65d7784092a2fb06893f788586d49ce4408b92",
+      "retained_artifact": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/002.dsr",
+      "retained_artifact_bytes": 401269091,
+      "retained_artifact_sha256": "f63206c14c4d7a27d32148defdecebcb7370a145ccd7bdb891064af2853fc7c4",
+      "solve_seconds": 196.774,
+      "stages": [
+        {
+          "exit_code": null,
+          "name": "pipeline-deadline",
+          "result": "timeout",
+          "timed_out": true,
+          "wall_seconds": null
+        }
+      ],
+      "task": 2
+    },
+    {
+      "artifact_deleted": false,
+      "certificate_bytes": 230735672,
+      "certificate_sha256": "5331268715736a7895ff07e2bfe6c5951af42e2959e04935387f5404b3f260d7",
+      "cleanup_pending": true,
+      "instance": "tierD24-26/f6a085f3c728e53f57542e62df20e56b-crafted_n10_d6_c4_num8.cnf.xz",
+      "matches_d170_certificate": true,
+      "prior_d170_solve_seconds": 80.613,
+      "proof_pipeline": "dsr-as-drat-drat-trim-cake_lpr",
+      "proof_result": "not-verified",
+      "proof_seconds": 1800.001,
+      "proof_timed_out": true,
+      "rank": 1129,
+      "result_path": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/results/003.json",
+      "result_sha256": "af856feba2bae7236f4826c4b695fed29e2b5a182fd146b44497d18cf543eded",
+      "retained_artifact": "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/003.dsr",
+      "retained_artifact_bytes": 230735672,
+      "retained_artifact_sha256": "5331268715736a7895ff07e2bfe6c5951af42e2959e04935387f5404b3f260d7",
+      "solve_seconds": 80.572,
+      "stages": [
+        {
+          "exit_code": null,
+          "name": "pipeline-deadline",
+          "result": "timeout",
+          "timed_out": true,
+          "wall_seconds": null
+        }
+      ],
+      "task": 3
+    }
+  ],
+  "schema": "tactix-gap44-proof-recovery-report-v1",
+  "summary": {
+    "byte_identical_to_d170": 4,
+    "historical_fixed_target_recoveries": [
+      744
+    ],
+    "retained_failed_proofs": 4,
+    "rows": 4,
+    "verified_under_1800_second_cap": 0
+  }
+}
