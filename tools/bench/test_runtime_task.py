@@ -19,7 +19,7 @@ class RuntimeTaskTests(unittest.TestCase):
             "schema": "tactix-failed-proof-retention-v1",
             "directory": "retained-proofs",
             "maximum_bytes": 1 << 30,
-            "purpose": "checker-only recovery",
+            "purpose": "checker-only recovery; retain only after an unsuccessful UNSAT proof check",
         }
         self.assertEqual(
             failed_proof_retention_contract({"failed_proof_retention": contract}),
@@ -29,6 +29,7 @@ class RuntimeTaskTests(unittest.TestCase):
                 dict(contract, directory="/tmp/proofs"),
                 dict(contract, directory="../proofs"),
                 dict(contract, maximum_bytes=0),
+                dict(contract, purpose="arbitrary retention"),
                 dict(contract, extra=True)):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
                 failed_proof_retention_contract({"failed_proof_retention": changed})

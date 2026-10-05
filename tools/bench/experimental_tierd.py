@@ -223,7 +223,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         m['cleanup_contract'] += (' An unsuccessfully checked UNSAT certificate may be copied '
             'after checking into the bounded retained-proofs directory for checker-only recovery; '
             'the result records its exact SHA-256 and remains cleanup-pending.')
-        m['caveat']=('Failed certificates are retained only when their size is within the declared '
+        m['caveat'] += (' Failed certificates are retained only when their size is within the declared '
             'per-task cap; solver or job death before the copy still leaves no artifact.')
     if a.gf2_telemetry:
         m['gf2_telemetry']=dict(
@@ -314,6 +314,8 @@ if __name__=='__main__':
         p.error('--gf2-telemetry is valid only with --prepare')
     if a.retain_failed_proof and not a.prepare:
         p.error('--retain-failed-proof is valid only with --prepare')
+    if a.retain_failed_proof and a.certificate != 'dsr':
+        p.error('--retain-failed-proof requires explicit --certificate dsr')
     if a.retain_failed_proof_max_bytes < 1:
         p.error('--retain-failed-proof-max-bytes must be positive')
     if a.gf2_telemetry != bool(a.gf2_affine_profile):
