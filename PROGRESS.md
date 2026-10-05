@@ -94,15 +94,17 @@ checking, while Rank had 38/50 final, all valid and independently checked, with
 the other 12 solving or checking. Current B28+C5 is now accepted with 33/33
 expected verdicts, 32 independently checked and one clean proof censor; 956.316
 solver seconds meet the 999.87615-second ceiling. Rank has 50/50 expected solver
-verdicts at 7,559.461 seconds under the 8,521.52175-second ceiling; 44 are final
-(42 independently checked and two clean proof censors) and six UNSAT proofs are
-checking. Fresh full-width WV100 job `1749666` and
+verdicts at 7,559.461 seconds under the 8,521.52175-second ceiling and is
+accepted: 42 independently checked plus eight clean proof censors, with every
+completed/censored proof within its row bound. Fresh full-width WV100 job `1749666` and
 WV2--89 job `1749709` use immutable Release source `5eb58e52c`, the shared
 1,800-second proof deadline and the standing row gates. Replacement Debug job
 `1749659` is accepted:
 289/289 pass in 814.11 seconds, with 242 executables and 295 frozen bindings
-reverified after the run. Full oddball job `1749458` had 19/21 final
-valid rows, with `26_4_ttf` solved and checking and `29_4_ttf` still solving.
+reverified after the run. Full oddball job `1749458` has 20/21 final valid rows.
+`26_4_ttf` checks after 1,076.174 solver and 3,944.219 proof-pipeline seconds;
+`29_4_ttf` solved UNSAT in 2,524.876 seconds and is proof-checking. Its verdict is
+recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
@@ -159,7 +161,9 @@ The Ramsey slice has passed its checked rank-630/WV2-155 target probe. Finish
 its active Rank, oddball, WV and WV2 campaigns. Lucky/25 is the noL reference
 constructor. Keep it out of DefaultPolicy; use its rank-401 `noL-11-10` and WV2
 rank-221/original-484 `noL-11-4` probes only to measure recoverability and
-recognition/search effort. The compliant noL path is relation-clause-indexed X17
+recognition/search effort. The
+[certified noL design](benchmarks/reports/2026-10-05-nol-certified-boolean-design.md)
+uses authenticated ULC exact-one completion, relation-clause-indexed X17
 discovery and repeated certified prefix consequences; the current combination
 enumerator is not target-scale for roughly 347 domains. Retain constructor and
 seeded/no-seed campaigns as causal evidence.
