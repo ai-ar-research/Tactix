@@ -20,9 +20,13 @@ FROZEN_DSR_HASHES={
 PROOF_ARGUMENTS={'--auto-proof','--dsr','--drat','--lrat'}
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
-DEFAULT_GF2_FEEDBACK_MAX_BYTES=64 << 20
+DEFAULT_GF2_FEEDBACK_MAX_BYTES=512 << 20
+DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES=8 << 30
+DEFAULT_GF2_FEEDBACK_MAX_RECORDS=20_000_000
 DEFAULT_GF2_PROVENANCE_MAX_BYTES=256 << 20
-MAX_GF2_FEEDBACK_BYTES=64 << 20
+MAX_GF2_FEEDBACK_BYTES=512 << 20
+MAX_GF2_FEEDBACK_DECODED_BYTES=8 << 30
+MAX_GF2_FEEDBACK_RECORDS=20_000_000
 MAX_GF2_PROVENANCE_BYTES=256 << 20
 
 def sha(p):
@@ -211,8 +215,11 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     if a.gf2_telemetry:
         m['gf2_telemetry']=dict(
-            schema='tactix-experimental-gf2-telemetry-v1',directory='telemetry',
-            feedback_max_bytes=a.gf2_feedback_max_bytes,
+            schema='tactix-experimental-gf2-telemetry-v2',directory='telemetry',
+            feedback_compression='gzip',feedback_wire_version=2,
+            feedback_stored_max_bytes=a.gf2_feedback_max_bytes,
+            feedback_decoded_max_bytes=a.gf2_feedback_decoded_max_bytes,
+            feedback_max_records=a.gf2_feedback_max_records,
             structural_provenance_max_bytes=a.gf2_provenance_max_bytes)
     save(c/'manifest.json',m)
     for p in [*(c/'pins').iterdir(),c/'manifest.json',c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']:p.chmod(p.stat().st_mode&~0o222)
@@ -250,8 +257,13 @@ if __name__=='__main__':
                    help='retain and score bounded GF(2) feedback/provenance sidecars')
     p.add_argument('--gf2-affine-profile',type=Path,
                    help='GF(2) producer profile frozen into an opt-in campaign')
-    p.add_argument('--gf2-feedback-max-bytes',type=int,
+    p.add_argument('--gf2-feedback-stored-max-bytes','--gf2-feedback-max-bytes',
+                   dest='gf2_feedback_max_bytes',type=int,
                    default=DEFAULT_GF2_FEEDBACK_MAX_BYTES)
+    p.add_argument('--gf2-feedback-decoded-max-bytes',type=int,
+                   default=DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES)
+    p.add_argument('--gf2-feedback-max-records',type=int,
+                   default=DEFAULT_GF2_FEEDBACK_MAX_RECORDS)
     p.add_argument('--gf2-provenance-max-bytes',type=int,
                    default=DEFAULT_GF2_PROVENANCE_MAX_BYTES)
     p.add_argument('--instance',action='append',default=[])
@@ -269,11 +281,17 @@ if __name__=='__main__':
     if a.solver_argument and not a.prepare:
         p.error('--solver-argument is valid only with --prepare')
     if not 1 <= a.gf2_feedback_max_bytes <= MAX_GF2_FEEDBACK_BYTES:
-        p.error(f'--gf2-feedback-max-bytes must be in 1..{MAX_GF2_FEEDBACK_BYTES}')
+        p.error(f'--gf2-feedback-stored-max-bytes must be in 1..{MAX_GF2_FEEDBACK_BYTES}')
+    if not 1 <= a.gf2_feedback_decoded_max_bytes <= MAX_GF2_FEEDBACK_DECODED_BYTES:
+        p.error(f'--gf2-feedback-decoded-max-bytes must be in 1..{MAX_GF2_FEEDBACK_DECODED_BYTES}')
+    if not 1 <= a.gf2_feedback_max_records <= MAX_GF2_FEEDBACK_RECORDS:
+        p.error(f'--gf2-feedback-max-records must be in 1..{MAX_GF2_FEEDBACK_RECORDS}')
     if not 1 <= a.gf2_provenance_max_bytes <= MAX_GF2_PROVENANCE_BYTES:
         p.error(f'--gf2-provenance-max-bytes must be in 1..{MAX_GF2_PROVENANCE_BYTES}')
     if (not a.gf2_telemetry and
             (a.gf2_feedback_max_bytes != DEFAULT_GF2_FEEDBACK_MAX_BYTES or
+             a.gf2_feedback_decoded_max_bytes != DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES or
+             a.gf2_feedback_max_records != DEFAULT_GF2_FEEDBACK_MAX_RECORDS or
              a.gf2_provenance_max_bytes != DEFAULT_GF2_PROVENANCE_MAX_BYTES)):
         p.error('GF2 telemetry byte caps require --gf2-telemetry')
     if a.gf2_telemetry and not a.prepare:

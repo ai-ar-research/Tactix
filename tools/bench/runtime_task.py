@@ -271,33 +271,52 @@ def atomic_retain(source, target, maximum_bytes):
     if (isinstance(maximum_bytes, bool) or not isinstance(maximum_bytes, int) or
             maximum_bytes <= 0):
         raise RuntimeError("invalid telemetry byte cap")
-    with open(source, "rb") as stream:
-        data = stream.read(maximum_bytes + 1)
-    if len(data) > maximum_bytes:
-        raise RuntimeError(f"telemetry byte cap exceeded: {source.name}")
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + f".tmp.{os.getpid()}")
-    with open(temporary, "xb") as output:
-        output.write(data)
-        output.flush()
-        os.fsync(output.fileno())
-    os.replace(temporary, target)
+    total = 0
+    try:
+        with open(source, "rb") as stream, open(temporary, "xb") as output:
+            for block in iter(lambda: stream.read(1 << 20), b""):
+                total += len(block)
+                if total > maximum_bytes:
+                    raise RuntimeError(f"telemetry byte cap exceeded: {source.name}")
+                output.write(block)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, target)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def gf2_telemetry_contract(manifest):
     contract = manifest.get("gf2_telemetry")
     if contract is None:
         return None
-    from gf2_target_score import (MAX_FEEDBACK_BYTES, MAX_PROVENANCE_BYTES,
+    from gf2_target_score import (LEGACY_SCHEMA, MAX_FEEDBACK_BYTES,
+                                  MAX_FEEDBACK_DECODED_BYTES,
+                                  MAX_FEEDBACK_RECORDS, MAX_PROVENANCE_BYTES,
                                   SCHEMA)
-    required = {"schema", "directory", "feedback_max_bytes",
-                "structural_provenance_max_bytes"}
+    modern = contract.get("schema") == SCHEMA
+    required = ({"schema", "directory", "feedback_compression",
+                 "feedback_wire_version", "feedback_stored_max_bytes",
+                 "feedback_decoded_max_bytes", "feedback_max_records",
+                 "structural_provenance_max_bytes"} if modern else
+                {"schema", "directory", "feedback_max_bytes",
+                 "structural_provenance_max_bytes"})
     if type(contract) is not dict or set(contract) != required:
         raise RuntimeError("invalid GF2 telemetry contract fields")
-    if contract["schema"] != SCHEMA or contract["directory"] != "telemetry":
+    if contract["schema"] not in (LEGACY_SCHEMA, SCHEMA) or contract["directory"] != "telemetry":
         raise RuntimeError("unsupported GF2 telemetry contract")
-    maximums = {"feedback_max_bytes": MAX_FEEDBACK_BYTES,
+    if modern and (contract["feedback_compression"] != "gzip" or
+                   contract["feedback_wire_version"] != 2):
+        raise RuntimeError("unsupported GF2 feedback format")
+    maximums = {("feedback_stored_max_bytes" if modern else "feedback_max_bytes"):
+                MAX_FEEDBACK_BYTES,
                 "structural_provenance_max_bytes": MAX_PROVENANCE_BYTES}
+    if modern:
+        maximums.update(feedback_decoded_max_bytes=MAX_FEEDBACK_DECODED_BYTES,
+                        feedback_max_records=MAX_FEEDBACK_RECORDS)
     for name, maximum in maximums.items():
         value = contract[name]
         if (isinstance(value, bool) or not isinstance(value, int) or
@@ -313,28 +332,37 @@ def collect_gf2_telemetry(campaign, task, contract, feedback_path,
     Raw sidecars are retained before parsing, so a malformed stream remains
     auditable while its integrity error prevents a causal score.
     """
-    from gf2_target_score import (SCHEMA, parse_feedback, parse_provenance,
+    from gf2_target_score import (parse_feedback, parse_provenance,
                                   raw_yield, sidecar_descriptor)
+    modern = contract["schema"].endswith("-v2")
     directory = campaign / contract["directory"]
     retained = {
-        "feedback": directory / f"{task:03d}.feedback.jsonl",
+        "feedback": directory / f"{task:03d}.feedback.jsonl{'.gz' if modern else ''}",
         "structural_provenance": directory / f"{task:03d}.provenance.jsonl",
     }
     sources = {"feedback": feedback_path,
                "structural_provenance": provenance_path}
-    caps = {"feedback": contract["feedback_max_bytes"],
+    caps = {"feedback": contract["feedback_stored_max_bytes" if modern else
+                                 "feedback_max_bytes"],
             "structural_provenance": contract["structural_provenance_max_bytes"]}
-    payload = {"schema": SCHEMA, "bindings": bindings, "sidecars": {}}
+    payload = {"schema": contract["schema"], "bindings": bindings, "sidecars": {}}
     errors = []
     for name in ("feedback", "structural_provenance"):
         try:
             atomic_retain(sources[name], retained[name], caps[name])
-            payload["sidecars"][name] = sidecar_descriptor(retained[name], campaign)
+            if name != "feedback" or not modern:
+                payload["sidecars"][name] = sidecar_descriptor(retained[name], campaign)
         except (OSError, RuntimeError) as error:
             errors.append(f"{name}: {error}")
     if not errors:
         try:
-            feedback = parse_feedback(retained["feedback"], caps["feedback"])
+            feedback = parse_feedback(
+                retained["feedback"], caps["feedback"],
+                contract.get("feedback_decoded_max_bytes", caps["feedback"]),
+                contract.get("feedback_max_records"))
+            if modern:
+                payload["sidecars"]["feedback"] = sidecar_descriptor(
+                    retained["feedback"], campaign, feedback)
             provenance = parse_provenance(
                 retained["structural_provenance"], caps["structural_provenance"])
             payload.update(feedback=feedback, structural_provenance=provenance,
@@ -645,7 +673,8 @@ def main():
         telemetry_local = Path(tempfile.mkdtemp(
             prefix=f"tactix-gf2-telemetry-{task:03d}-", dir=scratch_root))
         telemetry_paths = {
-            "feedback": telemetry_local / "feedback.jsonl",
+            "feedback": telemetry_local / ("feedback.jsonl.gz" if
+                telemetry_contract["schema"].endswith("-v2") else "feedback.jsonl"),
             "structural_provenance": telemetry_local / "provenance.jsonl",
         }
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"

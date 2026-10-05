@@ -8,6 +8,7 @@ a complete stream remains useful diagnostic evidence.
 import argparse
 from collections import Counter
 import csv
+import gzip
 import hashlib
 import json
 import lzma
@@ -16,14 +17,17 @@ import re
 import sys
 
 from inspect_policy_feedback import (integer, keys, native, object_pairs,
-                                     observation, outcome, reject_constant,
+                                     observation, observation_delta, outcome, reject_constant,
                                      state)
 
 
 UINT64_MAX = (1 << 64) - 1
-MAX_FEEDBACK_BYTES = 64 << 20
+MAX_FEEDBACK_BYTES = 512 << 20
+MAX_FEEDBACK_DECODED_BYTES = 8 << 30
+MAX_FEEDBACK_RECORDS = 20_000_000
 MAX_PROVENANCE_BYTES = 256 << 20
-SCHEMA = "tactix-experimental-gf2-telemetry-v1"
+LEGACY_SCHEMA = "tactix-experimental-gf2-telemetry-v1"
+SCHEMA = "tactix-experimental-gf2-telemetry-v2"
 FEEDBACK_SCHEMA = "tactix-experimental-gf2-feedback-summary-v1"
 PROVENANCE_SCHEMA = "tactix-experimental-gf2-provenance-summary-v1"
 
@@ -107,6 +111,51 @@ def _json(line, line_number):
     return value
 
 
+class BoundedJsonl:
+    def __init__(self, path, stored_max_bytes, decoded_max_bytes, maximum_records):
+        self.path = Path(path)
+        self.stored_bytes = self.path.stat().st_size
+        require(type(stored_max_bytes) is int and 0 < stored_max_bytes <= UINT64_MAX,
+                "invalid JSONL stored byte cap")
+        require(type(decoded_max_bytes) is int and 0 < decoded_max_bytes <= UINT64_MAX,
+                "invalid JSONL decoded byte cap")
+        require(type(maximum_records) is int and 0 < maximum_records <= UINT64_MAX,
+                "invalid JSONL record cap")
+        require(self.stored_bytes <= stored_max_bytes, "JSONL stored byte cap exceeded")
+        with self.path.open("rb") as source:
+            self.compression = "gzip" if source.read(2) == b"\x1f\x8b" else "none"
+        self.decoded_max_bytes = decoded_max_bytes
+        self.maximum_records = maximum_records
+        self.decoded_bytes = 0
+        self.records = 0
+        self.terminated = True
+        self.logical_sha256 = hashlib.sha256()
+
+    def __iter__(self):
+        with self.path.open("rb") as raw:
+            source = gzip.GzipFile(fileobj=raw) if self.compression == "gzip" else raw
+            try:
+                for number, line in enumerate(source, 1):
+                    self.decoded_bytes += len(line)
+                    require(self.decoded_bytes <= self.decoded_max_bytes,
+                            "JSONL decoded byte cap exceeded")
+                    self.logical_sha256.update(line)
+                    if not line.endswith(b"\n"):
+                        self.terminated = False
+                        break
+                    require(line != b"\n", f"line {number}: empty JSONL record")
+                    self.records += 1
+                    require(self.records <= self.maximum_records,
+                            "JSONL record cap exceeded")
+                    try:
+                        text = line.decode("utf-8")
+                    except UnicodeDecodeError as error:
+                        raise ValueError("JSONL is not UTF-8") from error
+                    yield _json(text, number)
+            except (EOFError, gzip.BadGzipFile, OSError) as error:
+                raise ValueError("invalid/truncated gzip JSONL") from error
+
+
 def bounded_jsonl(path, maximum_bytes):
     """Return complete JSON records and whether the byte stream was complete.
 
@@ -115,23 +164,11 @@ def bounded_jsonl(path, maximum_bytes):
     Every complete JSONL record remains strict, including duplicate-key and
     non-finite-number rejection.
     """
-    require(type(maximum_bytes) is int and 0 < maximum_bytes <= UINT64_MAX,
-            "invalid JSONL byte cap")
     data = Path(path).read_bytes()
     require(len(data) <= maximum_bytes, "JSONL byte cap exceeded")
-    try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise ValueError("JSONL is not UTF-8") from error
-    terminated = not data or data.endswith(b"\n")
-    lines = text.splitlines(keepends=True)
-    records = []
-    for number, line in enumerate(lines, 1):
-        if not line.endswith("\n"):
-            break
-        require(line != "\n", f"line {number}: empty JSONL record")
-        records.append(_json(line, number))
-    return data, records, terminated
+    stream = BoundedJsonl(path, maximum_bytes, maximum_bytes, UINT64_MAX)
+    records = list(stream)
+    return data, records, stream.terminated
 
 
 def parse_feedback_metadata(metadata):
@@ -236,14 +273,23 @@ def _affine_deltas(before, after):
     return result
 
 
-def parse_feedback(path, maximum_bytes):
-    data, records, terminated = bounded_jsonl(path, maximum_bytes)
+def parse_feedback(path, maximum_bytes, maximum_decoded_bytes=None,
+                   maximum_records=None):
+    maximum_decoded_bytes = maximum_decoded_bytes or maximum_bytes
+    maximum_records = maximum_records or UINT64_MAX
+    records = BoundedJsonl(path, maximum_bytes, maximum_decoded_bytes,
+                           maximum_records)
     header = None
+    wire_version = None
+    current_observation = None
     begun = ended = False
     pending = None
     action_sequence = interval_sequence = 0
     actions = dict(records=0, applications=0, effective=0, work=0,
                    statuses=Counter(), native={name: 0 for name in AFFINE_COUNTERS})
+    bookkeeping = {name: dict(records=0, applications=0, effective=0, work=0,
+                              native=Counter())
+                   for name in ("Propagate", "SemanticVariableAdvice")}
     producer = dict(calls=0, complete=0, preparation_work=0,
                     enumeration_work=0, total_work=0, candidates=0, offers=0,
                     statuses=Counter())
@@ -260,33 +306,50 @@ def parse_feedback(path, maximum_bytes):
                 continue
             if header is None:
                 keys(row, "type version metadata", "header")
-                require(kind == "header" and integer(row["version"], "header version") == 1,
-                        "unsupported header")
+                require(kind == "header", "unsupported header")
+                wire_version = integer(row["version"], "header version")
+                require(wire_version in (1, 2), "unsupported header")
                 header = row
                 continue
             if not begun:
                 keys(row, "type observation", "session begin")
                 require(kind == "session_begin", "missing session begin")
                 observation(row["observation"])
+                current_observation = row["observation"]
                 begun = True
                 continue
             if kind == "session_end":
-                keys(row, "type verdict stop observation", "session end")
+                keys(row, ("type verdict stop observation" if wire_version == 1 else
+                           "type verdict stop observation_delta"), "session end")
                 require(type(row["verdict"]) is int and row["verdict"] in (-1, 0, 10, 20),
                         "invalid verdict")
                 integer(row["stop"], "stop reason", 18)
-                observation(row["observation"])
+                if wire_version == 1:
+                    observation(row["observation"])
+                    current_observation = row["observation"]
+                else:
+                    current_observation = observation_delta(
+                        current_observation, row["observation_delta"])
                 terminal = {"verdict": row["verdict"], "stop": row["stop"]}
                 ended = True
                 continue
             require(kind in ("action", "interval"), "unexpected record type")
-            require(integer(row.get("version"), "record version") == 1,
+            require(integer(row.get("version"), "record version") == wire_version,
                     "unsupported record version")
-            observation(row["before"])
-            observation(row["after"])
+            if wire_version == 1:
+                observation(row["before"])
+                observation(row["after"])
+            else:
+                row["before"] = observation_delta(current_observation,
+                                                    row["before_delta"])
+                row["after"] = observation_delta(row["before"], row["after_delta"])
+                current_observation = row["after"]
             integer(row["stop"], "stop reason", 18)
             if kind == "interval":
-                keys(row, "type version sequence preceding start stop before after", "interval")
+                keys(row, ("type version sequence preceding start stop before after"
+                           if wire_version == 1 else
+                           "type version sequence preceding start stop before_delta after_delta"),
+                     "interval", optional="before after" if wire_version == 2 else "")
                 interval_sequence += 1
                 require(integer(row["sequence"], "interval sequence") == interval_sequence,
                         "interval sequence gap")
@@ -297,8 +360,12 @@ def parse_feedback(path, maximum_bytes):
                         "invalid continuation link")
                 pending = kind
                 continue
-            keys(row, "type version sequence kind identity instance request allowance "
-                 "before after outcome stop", "action", optional="native_request")
+            keys(row, ("type version sequence kind identity instance request allowance "
+                       "before after outcome stop" if wire_version == 1 else
+                       "type version sequence kind identity instance request allowance "
+                       "before_delta after_delta outcome stop"), "action",
+                 optional="native_request before after" if wire_version == 2 else
+                          "native_request")
             action_sequence += 1
             require(integer(row["sequence"], "action sequence") == action_sequence,
                     "action sequence gap")
@@ -335,16 +402,37 @@ def parse_feedback(path, maximum_bytes):
                                         row["after"]["native"])
                 for name, amount in deltas.items():
                     actions["native"][name] += amount
+            if row["identity"] in bookkeeping:
+                entry = bookkeeping[row["identity"]]
+                entry["records"] += 1
+                entry["applications"] += row["outcome"]["applications"]
+                entry["effective"] += int(row["outcome"]["progress"])
+                entry["work"] += (row["native_request"]["work"]
+                                  if "native_request" in row else
+                                  row["outcome"]["work"])
+                for name, after_value in row["after"]["native"].items():
+                    before_value = row["before"]["native"].get(name)
+                    if (type(after_value) is int and type(before_value) is int and
+                            after_value >= before_value and after_value != before_value):
+                        entry["native"][name] += after_value - before_value
             pending = kind
         except (KeyError, TypeError, ValueError, OverflowError) as error:
             raise ValueError(f"line {number}: {error}") from error
-    complete = bool(terminated and ended and pending is None)
+    complete = bool(records.terminated and ended and pending is None)
     metadata = parse_feedback_metadata(header["metadata"]) if header else None
     actions["statuses"] = dict(sorted(actions["statuses"].items()))
     producer["statuses"] = dict(sorted(producer["statuses"].items()))
-    return dict(schema=FEEDBACK_SCHEMA, bytes=len(data), lines=len(records),
-                complete=complete, metadata=metadata, terminal=terminal,
-                producer=producer, action=actions)
+    for entry in bookkeeping.values():
+        entry["native"] = dict(sorted(entry["native"].items()))
+    result = dict(schema=FEEDBACK_SCHEMA, bytes=records.decoded_bytes,
+                  lines=records.records, complete=complete, metadata=metadata,
+                  terminal=terminal, producer=producer, action=actions)
+    if wire_version == 2:
+        result.update(wire_version=wire_version, compression=records.compression,
+                      stored_bytes=records.stored_bytes,
+                      logical_sha256=records.logical_sha256.hexdigest(),
+                      bookkeeping=bookkeeping)
+    return result
 
 
 def _uint(value, name):
@@ -524,7 +612,7 @@ def parse_controller_statistics(lines):
 def raw_yield(feedback, provenance, solver_statistics):
     coverage = parse_controller_statistics(solver_statistics)
     native_counts = feedback["action"]["native"]
-    return {
+    result = {
         "producer": {**coverage["producer"],
                      "statuses": feedback["producer"]["statuses"],
                      "complete": feedback["producer"]["complete"],
@@ -561,12 +649,33 @@ def raw_yield(feedback, provenance, solver_statistics):
             "affine_consequence_committed_keys")},
         "structural": provenance["counts"],
     }
+    if "bookkeeping" in feedback:
+        result["bookkeeping"] = feedback["bookkeeping"]
+    return result
 
 
-def sidecar_descriptor(path, campaign):
+def sidecar_descriptor(path, campaign, logical=None):
     path = Path(path)
-    return {"path": str(path.relative_to(campaign)), "bytes": path.stat().st_size,
-            "sha256": sha256(path)}
+    if logical is None:
+        return {"path": str(path.relative_to(campaign)),
+                "bytes": path.stat().st_size, "sha256": sha256(path)}
+    return {"path": str(path.relative_to(campaign)),
+            "stored_bytes": path.stat().st_size, "stored_sha256": sha256(path),
+            "logical_bytes": logical["bytes"],
+            "logical_sha256": logical["logical_sha256"],
+            "records": logical["lines"]}
+
+
+def _validate_modern_feedback(feedback):
+    require(feedback["wire_version"] == 2, "feedback wire version mismatch")
+    require(feedback["compression"] == "gzip", "feedback compression mismatch")
+
+
+def _verify_logical_descriptor(descriptor, feedback):
+    require(descriptor["logical_bytes"] == feedback["bytes"] and
+            descriptor["logical_sha256"] == feedback["logical_sha256"] and
+            descriptor["records"] == feedback["lines"],
+            "feedback logical descriptor mismatch")
 
 
 def expected_checker_hashes(manifest, arm):
@@ -646,15 +755,20 @@ def independent_checked(result):
                 solve.get("timed_out") is False)
 
 
-def _verify_descriptor(campaign, descriptor, maximum_bytes):
-    require(type(descriptor) is dict and set(descriptor) == {"path", "bytes", "sha256"},
+def _verify_descriptor(campaign, descriptor, maximum_bytes, logical=False):
+    fields = ({"path", "stored_bytes", "stored_sha256", "logical_bytes",
+               "logical_sha256", "records"} if logical else
+              {"path", "bytes", "sha256"})
+    require(type(descriptor) is dict and set(descriptor) == fields,
             "invalid sidecar descriptor")
     path = (campaign / descriptor["path"]).resolve()
     require(path.is_relative_to(campaign.resolve()), "sidecar escapes campaign")
     require(path.is_file(), "missing sidecar")
-    require(path.stat().st_size == descriptor["bytes"] <= maximum_bytes,
+    size_name, hash_name = (("stored_bytes", "stored_sha256") if logical else
+                            ("bytes", "sha256"))
+    require(path.stat().st_size == descriptor[size_name] <= maximum_bytes,
             "sidecar size mismatch")
-    require(sha256(path) == descriptor["sha256"], "sidecar hash mismatch")
+    require(sha256(path) == descriptor[hash_name], "sidecar hash mismatch")
     return path
 
 
@@ -719,11 +833,35 @@ def validate_result(campaign, result_path):
     manifest = json.loads(manifest_path.read_text(), object_pairs_hook=object_pairs,
                           parse_constant=reject_constant)
     contract = manifest.get("gf2_telemetry")
-    require(type(contract) is dict and contract.get("schema") == SCHEMA,
+    require(type(contract) is dict and contract.get("schema") in (LEGACY_SCHEMA, SCHEMA),
             "campaign has no GF2 telemetry contract")
-    require(type(contract.get("feedback_max_bytes")) is int and
-            0 < contract["feedback_max_bytes"] <= MAX_FEEDBACK_BYTES,
-            "invalid campaign feedback cap")
+    modern = contract["schema"] == SCHEMA
+    expected_contract_fields = (
+        {"schema", "directory", "feedback_compression", "feedback_wire_version",
+         "feedback_stored_max_bytes", "feedback_decoded_max_bytes",
+         "feedback_max_records", "structural_provenance_max_bytes"} if modern else
+        {"schema", "directory", "feedback_max_bytes",
+         "structural_provenance_max_bytes"})
+    require(set(contract) == expected_contract_fields and
+            contract.get("directory") == "telemetry",
+            "invalid campaign telemetry contract fields")
+    stored_cap = contract.get("feedback_stored_max_bytes" if modern else
+                              "feedback_max_bytes")
+    require(type(stored_cap) is int and 0 < stored_cap <= MAX_FEEDBACK_BYTES,
+            "invalid campaign feedback stored cap")
+    if modern:
+        require(contract.get("feedback_compression") == "gzip" and
+                contract.get("feedback_wire_version") == 2,
+                "invalid campaign feedback format")
+        decoded_cap = contract.get("feedback_decoded_max_bytes")
+        record_cap = contract.get("feedback_max_records")
+        require(type(decoded_cap) is int and
+                0 < decoded_cap <= MAX_FEEDBACK_DECODED_BYTES,
+                "invalid campaign feedback decoded cap")
+        require(type(record_cap) is int and 0 < record_cap <= MAX_FEEDBACK_RECORDS,
+                "invalid campaign feedback record cap")
+    else:
+        decoded_cap, record_cap = stored_cap, UINT64_MAX
     require(type(contract.get("structural_provenance_max_bytes")) is int and
             0 < contract["structural_provenance_max_bytes"] <= MAX_PROVENANCE_BYTES,
             "invalid campaign provenance cap")
@@ -749,7 +887,7 @@ def validate_result(campaign, result_path):
     require(all(result.get(name) == value for name, value in expected_identity.items()),
             "result/matrix identity mismatch")
     telemetry = result.get("gf2_telemetry")
-    require(type(telemetry) is dict and telemetry.get("schema") == SCHEMA,
+    require(type(telemetry) is dict and telemetry.get("schema") == contract["schema"],
             "missing result telemetry")
     require(not telemetry.get("integrity_error"), "runtime telemetry integrity error")
     bindings = telemetry.get("bindings") or {}
@@ -782,11 +920,15 @@ def validate_result(campaign, result_path):
                 "selection authority mismatch")
     sidecars = telemetry.get("sidecars") or {}
     feedback_path = _verify_descriptor(
-        campaign, sidecars.get("feedback"), contract["feedback_max_bytes"])
+        campaign, sidecars.get("feedback"), stored_cap, modern)
     provenance_path = _verify_descriptor(
         campaign, sidecars.get("structural_provenance"),
         contract["structural_provenance_max_bytes"])
-    feedback = parse_feedback(feedback_path, contract["feedback_max_bytes"])
+    feedback = parse_feedback(feedback_path, stored_cap, decoded_cap, record_cap)
+    if modern:
+        descriptor = sidecars["feedback"]
+        _verify_logical_descriptor(descriptor, feedback)
+        _validate_modern_feedback(feedback)
     provenance = parse_provenance(
         provenance_path, contract["structural_provenance_max_bytes"])
     require(feedback == telemetry.get("feedback"), "feedback summary mismatch")

@@ -343,14 +343,20 @@ def audit_result(campaign, result_path):
     try:
         manifest = strict_json(campaign / "manifest.json")
         contract = manifest["gf2_telemetry"]
+        modern = contract["schema"].endswith("-v2")
+        feedback_cap = contract["feedback_stored_max_bytes" if modern else
+                                "feedback_max_bytes"]
         telemetry = result["gf2_telemetry"]
         feedback_path = _verify_descriptor(
             campaign, telemetry["sidecars"]["feedback"],
-            contract["feedback_max_bytes"])
+            feedback_cap, modern)
         provenance_path = _verify_descriptor(
             campaign, telemetry["sidecars"]["structural_provenance"],
             contract["structural_provenance_max_bytes"])
-        feedback = parse_feedback(feedback_path, contract["feedback_max_bytes"])
+        feedback = parse_feedback(
+            feedback_path, feedback_cap,
+            contract.get("feedback_decoded_max_bytes", feedback_cap),
+            contract.get("feedback_max_records"))
         provenance = parse_provenance(
             provenance_path, contract["structural_provenance_max_bytes"])
         _, provenance_records, terminated = bounded_jsonl(
