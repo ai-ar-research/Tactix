@@ -37,7 +37,7 @@ this row's disposition.  The existing checker route remains authoritative.
 Further work on this certificate should reduce the retained semantic core or
 replace the proof mechanism, then pass the required independent checker.
 
-## Compact-proof mechanism lead
+## Exact LymphoSAT dispatch attribution
 
 The frozen LymphoSAT comparison for the same exact instance solved UNSAT in
 68.338 seconds and emitted a 1,006,567,937-byte PBP certificate.  Its required
@@ -45,27 +45,32 @@ independent pipeline verified in 1,340.631 seconds: VeriPB took 1,183.965
 seconds and CakePB-CNF took 156.666 seconds.  Peak RSS was 8,272,476 KiB and
 25,516,148 KiB respectively.
 
-The frozen LymphoSAT bundle has a dedicated `clique-coloring` slot named
-`clique-color-pigeonhole-veripb`.  Its documented UNSAT construction recovers
-clique-slot and vertex-color one-hot blocks, introduces proof variables saying
-that a clique slot has a color, derives occupancy and pairwise color exclusion,
-and emits a short pigeonhole refutation.  The retained comparison row records
-the PBP certificate and checker timings but does not retain the selected
-internal slot in its result schema.  The exact row plus the frozen bundle
-therefore establish a clique-coloring/PBP mechanism lead, not a transferable
-certificate attribution.
+Detector-only SLURM job `1750802` resolves the internal attribution omitted by
+the retained comparison schema.  It used the exact frozen LymphoSAT dispatcher
+(SHA-256 `e567443af40c8f9ba764e99e2156f80a9f3a85406040e9d50ee7fb67e267cd2b`)
+and the exact saved input.  The dispatcher's normal default profile examined
+1,000,000 clauses; none of its 126 matchers accepted the formula.  Its normal
+control flow therefore selected the configured `fallback` entry.
 
-The smallest constructive follow-up is a source-bound structural preflight for
-this family and a compact Tactix startup PBP producer, followed by independent
-VeriPB and CakePB-CNF validation on the exact target.  It must not be counted as
-recovered until the Tactix-produced certificate passes those checks.  This
-diagnostic does not change Tactix's current certificate semantics.
+That fallback is `kissat-public-pbp-icelake-proofio`, an ordinary Kissat
+4.0.2-derived CDCL solver with PBP logging and proof-output optimizations.  It
+is not the bundle's `clique-coloring` theory solver.  Independently, the target
+header of 42,048 variables and 11,135,080 clauses cannot satisfy that
+clique-color solver's exact layout equations for any of its parameters.  The
+earlier clique-color mechanism lead is withdrawn.
+
+Rank 1129 is therefore a proof-representation/certificate target.  The frozen
+PBP timing shows that the fallback Kissat proof route fits the checker budget;
+it does not justify a new organic theory action, certificate transfer, or
+general CDCL PBP integration in this increment.  This diagnostic does not
+change Tactix's current certificate semantics.
 
 ## Frozen evidence
 
 [`evidence.json`](evidence.json) records the exact identities, job results,
-stage counts and historical PBP reference.  Its source result hashes bind the
-otherwise mutable run directories.  The raw diagnostic JSON SHA-256 values are
+stage counts, detector-only attribution and historical PBP reference.  Its
+source result hashes bind the otherwise mutable run directories.  The raw
+checker diagnostic JSON SHA-256 values are
 `a6c2143456af350644e4d1103abf6e447d5ac29074fccf0450d3d7c7815e0fca`
 for job `1750736` and
 `817eb976854b748c44d86c7de0659f03bb48984f49c49a51d24920a89a22bdbc`
