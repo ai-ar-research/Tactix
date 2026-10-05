@@ -150,6 +150,64 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
   return false;
 }
 
+// Re-authenticate the private unique-literal completion against the proof
+// population which exists at publication time. For (~a | ~b), (~a) is a RAT
+// pivot exactly when the only live clause containing a also contains b: its
+// sole resolvent is tautological. The producer's earlier occurrence count is
+// insufficient here because propagation and learning can add clauses between
+// enumeration and publication. Prefer an unassigned endpoint, and require the
+// unique source to be irredundant so a learned clause cannot masquerade as the
+// at-least-one premise.
+bool authenticate_unique_literal_amo(const Kernel &k,
+                                     std::vector<Lit> &candidate) {
+  if (candidate.size() != 2) return false;
+
+  const auto endpoint_is_rat = [&](size_t pivot_index) {
+    if (k.value(candidate[pivot_index])) return false;
+    const Lit positive = negate(candidate[pivot_index]);
+    const Lit partner = negate(candidate[1 - pivot_index]);
+    uint64_t occurrences = 0;
+    bool sole_source = false;
+
+    for (Var var = 0; var < k.nvars; ++var) {
+      Lit unit = INVALID_LIT;
+      if (k.unit_ids[var])
+        unit = k.value(make_lit(var, false)) > 0 ? make_lit(var, false)
+                                                 : make_lit(var, true);
+      else if (var < k.dsr_root_values.size() && k.dsr_root_values[var])
+        unit = make_lit(var, k.dsr_root_values[var] < 0);
+      if (unit == positive) ++occurrences;
+    }
+
+    std::unordered_set<uint64_t> binaries;
+    for (const WatchEntry watch : k.watches.entries(positive)) {
+      if (!watch.binary()) continue;
+      const Lit other = watch.other();
+      if (!binaries.insert(kernel_binary_key(positive, other)).second)
+        continue;
+      ++occurrences;
+    }
+
+    for (Ref reference = 0; reference < k.arena.size();) {
+      const Clause *clause = clause_at(k.arena, reference);
+      reference += clause_actual_words(clause);
+      if (clause->garbage() ||
+          std::find(clause->begin(), clause->end(), positive) == clause->end())
+        continue;
+      ++occurrences;
+      sole_source = !clause->redundant() &&
+                    std::find(clause->begin(), clause->end(), partner) !=
+                        clause->end();
+    }
+    return occurrences == 1 && sole_source;
+  };
+
+  if (endpoint_is_rat(0)) return true;
+  if (!endpoint_is_rat(1)) return false;
+  std::swap(candidate[0], candidate[1]);
+  return true;
+}
+
 class ValidationFormula {
 public:
   ValidationFormula(const Kernel &k, uint64_t limit,
@@ -547,6 +605,10 @@ substitution_redundancy_apply_detailed_impl(
     if (candidate.size() != 2 || !instance.witness.empty() ||
         !instance.substitution.empty())
       return outcome;
+    if (!authenticate_unique_literal_amo(k, candidate)) {
+      outcome.status = SubstitutionRedundancyApplicationStatus::Inapplicable;
+      return outcome;
+    }
   } else if (!parse_witness(k, candidate.front(), instance, witness, active))
     return outcome;
 
@@ -584,16 +646,7 @@ substitution_redundancy_apply_detailed_impl(
     return outcome;
   }
 
-  // The ULC certificate counts stored-clause occurrences, not root units
-  // exposed since discovery. Its implicit witness only sets the pivot true.
-  // A currently false pivot would therefore falsify an explicit root unit.
-  // Reconstruct that witness and use complete X7 validation in this case:
-  // the request can still be legal when the candidate is already RUP.
-  const bool certified_unique_literal_amo =
-      unique_literal_amo && k.value(candidate.front()) >= 0;
-  if (unique_literal_amo && !certified_unique_literal_amo &&
-      !parse_witness(k, candidate.front(), instance, witness, active))
-    return outcome;
+  const bool certified_unique_literal_amo = unique_literal_amo;
   const bool certified =
       certified_unique_literal_amo ||
       (accept_generated_certificate &&
@@ -638,7 +691,13 @@ substitution_redundancy_apply_detailed_impl(
   // A fully validated tuple can be a no-op after root simplification. That
   // requires no SR line in any proof format, so classify it before refusing a
   // format that cannot serialize a formula-changing direct SR step.
-  if (k.proof && !k.proof->dsr()) {
+  if (k.proof && !certified_unique_literal_amo && !k.proof->dsr()) {
+    outcome.status =
+        SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
+    return outcome;
+  }
+  if (k.proof && certified_unique_literal_amo &&
+      (k.proof->lrat() || k.proof->pb())) {
     outcome.status =
         SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
     return outcome;
@@ -651,20 +710,27 @@ substitution_redundancy_apply_detailed_impl(
   }
 
   const uint64_t sr_id = ++k.next_clause_id;
-  if (k.proof &&
-      !k.proof->add_sr(sr_id, candidate.data(), candidate.size(),
-                       witness.emitted_true.data(), witness.emitted_true.size(),
-                       witness.emitted_mappings.data(),
-                       witness.emitted_mappings.size(),
-                       static_cast<uint32_t>(k.external_to_internal.size()),
-                       /*propagates=*/kept.size() == 1)) {
-    --k.next_clause_id;
-    outcome.status =
-        SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
-    return outcome;
+  if (k.proof) {
+    if (certified_unique_literal_amo) {
+      k.proof->add_rat(sr_id, candidate.data(), candidate.size(), nullptr, 0);
+    } else if (!k.proof->add_sr(
+                   sr_id, candidate.data(), candidate.size(),
+                   witness.emitted_true.data(), witness.emitted_true.size(),
+                   witness.emitted_mappings.data(),
+                   witness.emitted_mappings.size(),
+                   static_cast<uint32_t>(k.external_to_internal.size()),
+                   /*propagates=*/kept.size() == 1)) {
+      --k.next_clause_id;
+      outcome.status =
+          SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
+      return outcome;
+    }
   }
-  outcome.witness_literals = witness.emitted_true.size() +
-                             2 * witness.emitted_mappings.size() + 1;
+  outcome.witness_literals =
+      certified_unique_literal_amo
+          ? 0
+          : witness.emitted_true.size() +
+                2 * witness.emitted_mappings.size() + 1;
   k.stats.sr_witness_literals += outcome.witness_literals;
 
   uint64_t committed_id = sr_id;

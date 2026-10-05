@@ -4,8 +4,8 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <functional>
 #include <limits>
+#include <map>
 #include <set>
 
 namespace tactix {
@@ -822,116 +822,266 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
   if (domains.size() < window.relation_arity)
     return finish(NaryCspPrefixActionOfferStatus::NoStructure, true);
 
+  // Index only clause-backed relations.  The former producer enumerated every
+  // C(|domains|, arity) combination and then rescanned the whole formula to
+  // discover that almost all combinations had no tuple clause.  Here each
+  // eligible tuple clause names its domains directly through a deterministic
+  // literal -> (domain,value) map.  The map is limited to unambiguous domain
+  // variables; overlapping exact-one candidates remain legal explicit X17
+  // inputs but are deliberately not guessed by native discovery.
+  std::vector<uint32_t> domain_variable_occurrences(kernel.nvars, 0);
+  for (const auto &domain : domains)
+    for (int32_t external : domain) {
+      const Lit literal = kernel_internalize(kernel, external);
+      if (literal == INVALID_LIT) std::abort();
+      ++domain_variable_occurrences[var_of(literal)];
+    }
+  std::map<int32_t, nary_csp_prefix::DomainValue> tuple_literals;
+  for (uint32_t domain = 0; domain < domains.size(); ++domain)
+    for (uint32_t value = 0; value < domains[domain].size(); ++value) {
+      const int32_t external = domains[domain][value];
+      const Lit literal = kernel_internalize(kernel, external);
+      if (domain_variable_occurrences[var_of(literal)] == 1)
+        tuple_literals.emplace(
+            -external, nary_csp_prefix::DomainValue{domain, value});
+    }
+
+  using RelationIndexKey = std::vector<uint32_t>;
+  using TupleCoordinates = std::vector<uint32_t>;
+  using IndexedTuples = std::map<TupleCoordinates, uint64_t>;
+  std::map<RelationIndexKey, IndexedTuples> relations;
+  uint64_t relation_capacity = window.maximum_relation_candidates;
+  const uint64_t index_slack = 1 + uint64_t{window.have_after};
+  if (relation_capacity <= UINT64_MAX - index_slack)
+    relation_capacity += index_slack;
+  else
+    relation_capacity = UINT64_MAX;
+  bool more_relations = false;
+  bool duplicate_tuple = false;
+  const auto domains_for = [&](const RelationIndexKey &indices) {
+    std::vector<std::vector<int32_t>> result;
+    result.reserve(indices.size());
+    for (uint32_t index : indices) result.push_back(domains[index]);
+    return result;
+  };
+  const auto maximum_key_for = [&](const RelationIndexKey &indices,
+                                   const IndexedTuples &tuples) {
+    NaryCspPrefixActionKey maximum;
+    maximum.domains = domains_for(indices);
+    bool have_maximum = false;
+    for (const auto &[tuple, native_id] : tuples) {
+      (void)native_id;
+      for (uint32_t residual = 0; residual < window.relation_arity;
+           ++residual) {
+        NaryCspPrefixActionKey key;
+        key.domains = maximum.domains;
+        key.prefix.residual_domain = residual;
+        for (uint32_t domain = 0; domain < window.relation_arity; ++domain)
+          if (domain != residual)
+            key.prefix.prefix.push_back({domain, tuple[domain]});
+        if (!have_maximum || maximum < key) {
+          maximum = std::move(key);
+          have_maximum = true;
+        }
+      }
+    }
+    if (!have_maximum) std::abort();
+    return maximum;
+  };
+  const auto observe_tuple = [&](const Clause &clause) {
+    if (clause.size != window.relation_arity) return true;
+    if (!meter.charge(uint64_t{1} + clause.size)) return false;
+    std::vector<std::pair<uint32_t, uint32_t>> mapped;
+    mapped.reserve(clause.size);
+    for (Lit literal : clause) {
+      const int32_t external = kernel_externalize(kernel, literal);
+      const auto found = tuple_literals.find(external);
+      if (found == tuple_literals.end()) return true;
+      mapped.push_back({found->second.domain, found->second.value});
+    }
+    std::sort(mapped.begin(), mapped.end());
+    for (size_t index = 1; index < mapped.size(); ++index)
+      if (mapped[index - 1].first == mapped[index].first) return true;
+    RelationIndexKey relation;
+    TupleCoordinates coordinates;
+    relation.reserve(mapped.size());
+    coordinates.reserve(mapped.size());
+    for (const auto &[domain, value] : mapped) {
+      relation.push_back(domain);
+      coordinates.push_back(value);
+    }
+    const auto relation_domains = domains_for(relation);
+    if (window.have_after && relation_domains < window.after.domains)
+      return true;
+    auto found = relations.find(relation);
+    if (found == relations.end()) {
+      if (relations.size() == relation_capacity) {
+        auto largest = std::prev(relations.end());
+        if (!(relation < largest->first)) {
+          more_relations = true;
+          return true;
+        }
+        relations.erase(largest);
+        more_relations = true;
+      }
+      found = relations.emplace(relation, IndexedTuples{}).first;
+    }
+    if (!found->second.emplace(std::move(coordinates), clause.id()).second)
+      duplicate_tuple = true;
+    return true;
+  };
+  for (Ref reference = 0; reference < kernel.arena.size();) {
+    const Clause *clause = clause_at(kernel.arena, reference);
+    reference += clause_actual_words(clause);
+    if (!meter.charge(1)) return stopped();
+    if (!clause->garbage() && !observe_tuple(*clause)) return stopped();
+  }
+  if (duplicate_tuple)
+    return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
+  if (window.have_after)
+    for (auto relation = relations.begin(); relation != relations.end();) {
+      const auto maximum = maximum_key_for(relation->first, relation->second);
+      if (!(window.after < maximum))
+        relation = relations.erase(relation);
+      else
+        ++relation;
+    }
+  if (relations.size() > window.maximum_relation_candidates)
+    more_relations = true;
+  output.effort.indexed_relation_keys =
+      std::min<uint64_t>(relations.size(),
+                         window.maximum_relation_candidates);
+  output.effort.indexed_relation_lookahead_keys =
+      relations.size() - output.effort.indexed_relation_keys;
+  for (const auto &[relation, tuples] : relations) {
+    (void)relation;
+    output.effort.indexed_tuple_occurrences += tuples.size();
+    output.effort.indexed_prefix_candidates +=
+        tuples.size() * window.relation_arity;
+  }
+  if (relations.empty())
+    return finish(NaryCspPrefixActionOfferStatus::NoStructure,
+                  !more_relations);
+
   std::set<NaryCspPrefixActionKey> keys;
   std::vector<NaryCspPrefixOwnerSnapshot> owners;
-  std::vector<size_t> chosen;
   bool fatal = false;
   bool invalid = false;
-  std::function<void(size_t)> enumerate = [&](size_t start) {
-    if (fatal || invalid) return;
-    if (chosen.size() == window.relation_arity) {
-      std::vector<std::vector<int32_t>> relation_domains;
-      relation_domains.reserve(chosen.size());
-      for (size_t index : chosen) relation_domains.push_back(domains[index]);
-      if (!disjoint_domains(relation_domains)) return;
-      if (output.effort.relation_candidates >=
-          window.maximum_relation_candidates || !meter.charge(1)) {
+  bool have_last_examined = false;
+  NaryCspPrefixActionKey last_examined;
+  uint64_t processed_relations = 0;
+  for (const auto &[relation, indexed_tuples] : relations) {
+    if (processed_relations == window.maximum_relation_candidates) break;
+    if (fatal || invalid) break;
+    ++processed_relations;
+    const auto relation_domains = domains_for(relation);
+    last_examined = maximum_key_for(relation, indexed_tuples);
+    have_last_examined = true;
+    if (!disjoint_domains(relation_domains)) continue;
+    if (!meter.charge(1)) {
+      fatal = true;
+      break;
+    }
+    ++output.effort.relation_candidates;
+    NaryCspPrefixOwnerSnapshot captured;
+    const auto *retained = session.snapshot(relation_domains);
+    if (retained) {
+      captured = *retained;
+    } else {
+      NaryCspPrefixActionSelection placeholder;
+      placeholder.domains = relation_domains;
+      placeholder.prefix.residual_domain = window.relation_arity - 1;
+      for (uint32_t domain = 0; domain + 1 < window.relation_arity;
+           ++domain)
+        placeholder.prefix.prefix.push_back({domain, 0});
+      NaryCspPrefixLiveRequest request =
+          make_request(kernel, limits, placeholder,
+                       kernel.structural_action_sequence + 1);
+      request.maximum_recognition_work =
+          std::min(request.maximum_recognition_work, meter.remaining());
+      if (!request.maximum_recognition_work) {
         meter.exhausted = true;
         fatal = true;
-        return;
+        break;
       }
-      ++output.effort.relation_candidates;
-      NaryCspPrefixOwnerSnapshot captured;
-      const auto *retained = session.snapshot(relation_domains);
-      if (retained) {
-        captured = *retained;
-      } else {
-        NaryCspPrefixActionSelection placeholder;
-        placeholder.domains = relation_domains;
-        placeholder.prefix.residual_domain = window.relation_arity - 1;
-        for (uint32_t domain = 0; domain + 1 < window.relation_arity;
-             ++domain)
-          placeholder.prefix.prefix.push_back({domain, 0});
-        NaryCspPrefixLiveRequest request =
-            make_request(kernel, limits, placeholder,
-                         kernel.structural_action_sequence + 1);
-        request.maximum_recognition_work =
-            std::min(request.maximum_recognition_work, meter.remaining());
-        if (!request.maximum_recognition_work) {
-          meter.exhausted = true;
-          fatal = true;
-          return;
-        }
-        const auto capture =
-            nary_csp_prefix_live_capture_owner(kernel, request, captured);
-        if (!meter.absorb(capture.recognition_work)) {
-          fatal = true;
-          return;
-        }
-        output.effort.owner_capture_work += capture.recognition_work;
-        if (capture.status == NaryCspPrefixLiveStatus::Interrupted) {
-          meter.interrupted = true;
-          fatal = true;
-          return;
-        }
-        if (capture.status != NaryCspPrefixLiveStatus::Applied) {
-          if (capture.status == NaryCspPrefixLiveStatus::ResourceExhausted) {
-            if (request.maximum_recognition_work <
-                limits.maximum_recognition_work) {
-              meter.exhausted = true;
-              fatal = true;
-            } else {
-              ++output.effort.resource_rejected_relations;
-            }
-          } else if (capture.status == NaryCspPrefixLiveStatus::Invalid ||
-                     capture.status ==
-                         NaryCspPrefixLiveStatus::Inapplicable) {
-            invalid = true;
-          }
-          return;
-        }
+      const auto capture =
+          nary_csp_prefix_live_capture_owner(kernel, request, captured);
+      if (!meter.absorb(capture.recognition_work)) {
+        fatal = true;
+        break;
       }
-      output.effort.forbidden_tuples +=
-          captured.relation.forbidden.size();
-      for (const auto &tuple : captured.relation.forbidden)
-        for (uint32_t residual = 0; residual < window.relation_arity;
-             ++residual) {
-          if (output.effort.prefix_candidates >=
-                  window.maximum_prefix_candidates ||
-              !meter.charge(uint64_t{1} + window.relation_arity)) {
+      output.effort.owner_capture_work += capture.recognition_work;
+      if (capture.status == NaryCspPrefixLiveStatus::Interrupted) {
+        meter.interrupted = true;
+        fatal = true;
+        break;
+      }
+      if (capture.status != NaryCspPrefixLiveStatus::Applied) {
+        if (capture.status == NaryCspPrefixLiveStatus::ResourceExhausted) {
+          if (request.maximum_recognition_work <
+              limits.maximum_recognition_work) {
             meter.exhausted = true;
             fatal = true;
-            return;
+          } else {
+            ++output.effort.resource_rejected_relations;
           }
-          ++output.effort.prefix_candidates;
-          NaryCspPrefixActionKey key;
-          key.domains = relation_domains;
-          key.prefix.residual_domain = residual;
-          for (uint32_t domain = 0; domain < window.relation_arity; ++domain)
-            if (domain != residual)
-              key.prefix.prefix.push_back(
-                  {domain, tuple.value_indices[domain]});
-          keys.insert(std::move(key));
+        } else if (capture.status == NaryCspPrefixLiveStatus::Invalid ||
+                   capture.status == NaryCspPrefixLiveStatus::Inapplicable) {
+          invalid = true;
         }
-      owners.push_back(std::move(captured));
-      return;
-    }
-    const size_t needed = window.relation_arity - chosen.size();
-    for (size_t index = start; index + needed <= domains.size(); ++index) {
-      if (!meter.charge(1)) {
-        fatal = true;
-        return;
+        continue;
       }
-      chosen.push_back(index);
-      enumerate(index + 1);
-      chosen.pop_back();
-      if (fatal || invalid) return;
     }
-  };
-  enumerate(0);
+    // The indexed coordinates are the cheap discovery certificate.  Exact
+    // native clause IDs and the complete ALO/AMO source slice come from the
+    // existing capture path, and preflight below immediately recaptures them
+    // before any offer can be published.
+    IndexedTuples captured_tuples;
+    for (const auto &tuple : captured.relation.forbidden) {
+      if (!tuple.occurrence || tuple.occurrence > captured.source.size()) {
+        invalid = true;
+        break;
+      }
+      captured_tuples.emplace(
+          tuple.value_indices,
+          captured.source[tuple.occurrence - 1].native_proof_id);
+    }
+    if (captured_tuples != indexed_tuples) {
+      invalid = true;
+      break;
+    }
+    output.effort.forbidden_tuples += captured.relation.forbidden.size();
+    for (const auto &tuple : captured.relation.forbidden)
+      for (uint32_t residual = 0; residual < window.relation_arity;
+           ++residual) {
+        if (output.effort.prefix_candidates >=
+                window.maximum_prefix_candidates ||
+            !meter.charge(uint64_t{1} + window.relation_arity)) {
+          meter.exhausted = true;
+          fatal = true;
+          break;
+        }
+        ++output.effort.prefix_candidates;
+        NaryCspPrefixActionKey key;
+        key.domains = relation_domains;
+        key.prefix.residual_domain = residual;
+        for (uint32_t domain = 0; domain < window.relation_arity; ++domain)
+          if (domain != residual)
+            key.prefix.prefix.push_back(
+                {domain, tuple.value_indices[domain]});
+        keys.insert(std::move(key));
+      }
+    if (fatal) break;
+    owners.push_back(std::move(captured));
+  }
   if (invalid)
     return finish(NaryCspPrefixActionOfferStatus::Invalid, false);
   if (fatal) return stopped();
+  if (keys.empty() && more_relations && have_last_examined) {
+    output.have_resume_after = true;
+    output.resume_after = last_examined;
+    return finish(NaryCspPrefixActionOfferStatus::Ready, false);
+  }
   if (keys.empty() && output.effort.resource_rejected_relations)
     return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false);
   if (keys.empty())
@@ -1072,7 +1222,16 @@ NaryCspPrefixActionOfferResult nary_csp_prefix_action_offer(
   }
   if (output.offers.empty() && output.effort.resource_rejected_prefixes)
     return finish(NaryCspPrefixActionOfferStatus::ResourceExhausted, false);
-  return finish(NaryCspPrefixActionOfferStatus::Ready, true);
+  if (more_relations) {
+    if (!output.offers.empty()) {
+      output.have_resume_after = true;
+      output.resume_after = make_key(output.offers.back());
+    } else if (have_last_examined) {
+      output.have_resume_after = true;
+      output.resume_after = last_examined;
+    }
+  }
+  return finish(NaryCspPrefixActionOfferStatus::Ready, !more_relations);
 }
 
 } // namespace tactix

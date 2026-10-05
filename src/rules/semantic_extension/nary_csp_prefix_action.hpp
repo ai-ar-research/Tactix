@@ -183,6 +183,10 @@ struct NaryCspPrefixActionOfferEffort {
   uint64_t candidate_scan_work = 0;
   uint64_t domain_candidates = 0;
   uint64_t exact_domains = 0;
+  uint64_t indexed_relation_keys = 0;
+  uint64_t indexed_relation_lookahead_keys = 0;
+  uint64_t indexed_tuple_occurrences = 0;
+  uint64_t indexed_prefix_candidates = 0;
   uint64_t relation_candidates = 0;
   uint64_t owner_capture_work = 0;
   uint64_t retained_owners_revalidated = 0;

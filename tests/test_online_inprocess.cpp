@@ -1856,9 +1856,8 @@ static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
   assert(forged.stats.sr_unique_literal_amo_binaries == 0);
 
   // Root units are clauses too. A ULC pair certified before propagation may
-  // have a now-false pivot; its pivot-only witness would falsify a live unit.
-  // Fall back to full X7 validation rather than treating the certificate as
-  // timeless or forbidding all requests with an assigned pivot.
+  // have a now-false first endpoint. The private publisher re-authenticates
+  // and pivots on the still-unassigned endpoint; no general X7 scan is needed.
   for (const bool rup : {false, true}) {
     Kernel root;
     kernel_reserve_vars(root, 4);
@@ -1873,23 +1872,38 @@ static void unique_literal_amo_phase_is_checked_bounded_and_composable() {
     }
     const auto result = substitution_redundancy_apply_orbitopal_prefix(
         root, instances.front(), parameters, nullptr);
-    assert(result.validation_ticks > 0);
+    assert(result.validation_ticks == 0);
     assert(root.value(internalize(1)) > 0);
-    if (rup) {
-      assert(result.status == SubstitutionRedundancyApplicationStatus::Applied);
-      assert(root.value(internalize(-2)) > 0);
-    } else {
-      assert(result.status == SubstitutionRedundancyApplicationStatus::Inapplicable);
-      assert(root.stats.sr_applied == 0 && !root.value(internalize(2)));
-      auto reversed = instances.front();
-      std::reverse(reversed.clause.begin(), reversed.clause.end());
-      const auto legal = substitution_redundancy_apply_orbitopal_prefix(
-          root, reversed, parameters, nullptr);
-      assert(legal.status == SubstitutionRedundancyApplicationStatus::Applied);
-      assert(legal.validation_ticks == 0 && root.value(internalize(-2)) > 0);
-    }
+    assert(result.status == SubstitutionRedundancyApplicationStatus::Applied);
+    assert(root.value(internalize(-2)) > 0);
     kernel_check_invariants(root);
   }
+
+  // Learned positive occurrences invalidate the sole-resolvent argument.
+  // If both endpoints gained one, the private certificate declines without
+  // proof, formula, or root-state mutation.
+  Kernel learned;
+  kernel_reserve_vars(learned, 5);
+  kernel_add_large_clause(learned, source, 3, false, 0,
+                          ++learned.next_clause_id);
+  const Lit learned_first[] = {internalize(1), internalize(4),
+                               internalize(5)};
+  const Lit learned_second[] = {internalize(2), internalize(-4),
+                                internalize(-5)};
+  kernel_add_large_clause(learned, learned_first, 3, true, 2,
+                          ++learned.next_clause_id);
+  kernel_add_large_clause(learned, learned_second, 3, true, 2,
+                          ++learned.next_clause_id);
+  const size_t learned_words = learned.arena.size();
+  const uint64_t learned_id = learned.next_clause_id;
+  const auto declined = substitution_redundancy_apply_orbitopal_prefix(
+      learned, instances.front(), parameters, nullptr);
+  assert(declined.status ==
+             SubstitutionRedundancyApplicationStatus::Inapplicable &&
+         declined.rule_result == ApplyResult::NoOp &&
+         learned.next_clause_id == learned_id &&
+         learned.arena.size() == learned_words && !learned.stats.sr_applied);
+  kernel_check_invariants(learned);
 
   // Admission is fresh at each clause boundary.  Both clauses are ULCs in the
   // input snapshot, but completing the first adds binaries containing -1, so

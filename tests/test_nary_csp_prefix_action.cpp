@@ -7,6 +7,7 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -290,6 +291,9 @@ void bounded_offerer_is_complete_paged_pure_and_stale_safe() {
          complete.offers == expected &&
          complete.effort.domain_candidates == 3 &&
          complete.effort.exact_domains == 3 &&
+         complete.effort.indexed_relation_keys == 1 &&
+         complete.effort.indexed_tuple_occurrences == 3 &&
+         complete.effort.indexed_prefix_candidates == 9 &&
          complete.effort.relation_candidates == 1 &&
          complete.effort.forbidden_tuples == 3 &&
          complete.effort.prefix_candidates == 9 &&
@@ -304,6 +308,17 @@ void bounded_offerer_is_complete_paged_pure_and_stale_safe() {
          repeated.complete == complete.complete &&
          repeated.offers == complete.offers && image(kernel) == before &&
          position(records) == journal && !session.retained());
+
+  auto exact_relation_bound = offer_window();
+  exact_relation_bound.maximum_relation_candidates = 1;
+  const auto exact_boundary = nary_csp_prefix_action_offer(
+      kernel, session, limits(), exact_relation_bound);
+  assert(exact_boundary.status == NaryCspPrefixActionOfferStatus::Ready &&
+         exact_boundary.complete && !exact_boundary.have_resume_after &&
+         exact_boundary.offers == expected &&
+         exact_boundary.effort.indexed_relation_keys == 1 &&
+         exact_boundary.effort.indexed_relation_lookahead_keys == 0 &&
+         exact_boundary.effort.relation_candidates == 1);
 
   std::vector<NaryCspPrefixActionSelection> paged;
   auto page_window = offer_window();
@@ -402,6 +417,269 @@ void signed_domains_are_discovered_canonically() {
   std::fclose(records);
 }
 
+void relation_index_pages_clause_backed_relations_only() {
+  const std::vector<std::vector<int32_t>> formula{
+      {1, 2, 3},    {-1, -2}, {-1, -3}, {-2, -3},
+      {4, 5, 6},    {-4, -5}, {-4, -6}, {-5, -6},
+      {7, 8, 9},    {-7, -8}, {-7, -9}, {-8, -9},
+      {10, 11, 12}, {-10, -11}, {-10, -12}, {-11, -12},
+      {-1, -4, -7}, {-4, -7, -10}};
+  Kernel kernel = parse_formula(formula);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession session;
+  auto bounded = limits();
+  bounded.maximum_domains = 4;
+
+  const std::vector<std::vector<std::vector<int32_t>>> relation_domains{
+      {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
+      {{4, 5, 6}, {7, 8, 9}, {10, 11, 12}}};
+  std::vector<NaryCspPrefixActionSelection> expected;
+  for (const auto &domains : relation_domains)
+    for (uint32_t residual = 0; residual < 3; ++residual) {
+      NaryCspPrefixActionSelection selected;
+      selected.domains = domains;
+      selected.prefix.residual_domain = residual;
+      for (uint32_t domain = 0; domain < 3; ++domain)
+        if (domain != residual)
+          selected.prefix.prefix.push_back({domain, 0});
+      expected.push_back(std::move(selected));
+    }
+
+  auto window = offer_window();
+  window.maximum_relation_candidates = 1;
+  std::vector<NaryCspPrefixActionSelection> paged;
+  for (unsigned page = 0; page < 4; ++page) {
+    const auto offered =
+        nary_csp_prefix_action_offer(kernel, session, bounded, window);
+    assert(offered.status == NaryCspPrefixActionOfferStatus::Ready);
+    assert(offered.effort.relation_candidates <= 1 &&
+           offered.effort.indexed_relation_keys == 1 &&
+           offered.effort.indexed_relation_lookahead_keys <= 1);
+    paged.insert(paged.end(), offered.offers.begin(), offered.offers.end());
+    if (offered.complete) break;
+    assert(offered.have_resume_after && !offered.offers.empty());
+    window.have_after = true;
+    window.after = offered.resume_after;
+  }
+  assert(paged == expected && !session.retained() && !position(records));
+
+  Kernel committed = parse_formula(formula);
+  FILE *committed_records = std::tmpfile();
+  assert(committed_records);
+  committed.structural_provenance = committed_records;
+  NaryCspPrefixActionSession committed_session;
+  for (size_t index = 0; index < 3; ++index)
+    assert(nary_csp_prefix_action_apply(committed, committed_session, bounded,
+                                        expected[index])
+               .status == NaryCspPrefixActionStatus::Applied);
+  auto committed_window = offer_window();
+  committed_window.maximum_relation_candidates = 1;
+  const auto empty_page = nary_csp_prefix_action_offer(
+      committed, committed_session, bounded, committed_window);
+  assert(empty_page.status == NaryCspPrefixActionOfferStatus::Ready &&
+         !empty_page.complete && empty_page.offers.empty() &&
+         empty_page.have_resume_after &&
+         empty_page.effort.committed_prefixes_skipped == 3 &&
+         empty_page.effort.relation_candidates == 1);
+  committed_window.have_after = true;
+  committed_window.after = empty_page.resume_after;
+  const auto after_committed = nary_csp_prefix_action_offer(
+      committed, committed_session, bounded, committed_window);
+  assert(after_committed.status == NaryCspPrefixActionOfferStatus::Ready &&
+         after_committed.complete && after_committed.offers.size() == 3 &&
+         after_committed.effort.relation_candidates == 1);
+  std::fclose(committed_records);
+
+  // A ternary clause with two values from one domain is not a relation key.
+  auto malformed = formula;
+  malformed.push_back({-1, -2, -4});
+  Kernel atomic = parse_formula(malformed);
+  FILE *atomic_records = std::tmpfile();
+  assert(atomic_records);
+  atomic.structural_provenance = atomic_records;
+  NaryCspPrefixActionSession atomic_session;
+  auto all = offer_window();
+  all.maximum_relation_candidates = 8;
+  const auto ignored = nary_csp_prefix_action_offer(
+      atomic, atomic_session, bounded, all);
+  assert(ignored.status == NaryCspPrefixActionOfferStatus::Ready &&
+         ignored.complete && ignored.offers == expected &&
+         !atomic_session.retained() && !position(atomic_records));
+  std::fclose(atomic_records);
+  std::fclose(records);
+}
+
+void indexed_discovery_matches_combination_reference() {
+  uint32_t random = 0x5eed1234u;
+  const auto next = [&] {
+    random = random * 1664525u + 1013904223u;
+    return random;
+  };
+  for (unsigned fixture = 0; fixture < 12; ++fixture) {
+    constexpr uint32_t domain_count = 5;
+    std::vector<std::vector<int32_t>> formula;
+    std::vector<std::vector<int32_t>> domains;
+    for (uint32_t domain = 0; domain < domain_count; ++domain) {
+      const int32_t first = 3 * domain + 1;
+      domains.push_back({first, first + 1, first + 2});
+      formula.push_back(domains.back());
+      formula.push_back({-first, -(first + 1)});
+      formula.push_back({-first, -(first + 2)});
+      formula.push_back({-(first + 1), -(first + 2)});
+    }
+
+    // This is the old combination discovery result computed directly from
+    // the generated domain triples and tuple coordinates.  The fixture order
+    // is intentionally unrelated to canonical key order.
+    std::set<NaryCspPrefixActionKey> reference;
+    for (uint32_t first = 0; first < domain_count; ++first)
+      for (uint32_t second = first + 1; second < domain_count; ++second)
+        for (uint32_t third = second + 1; third < domain_count; ++third) {
+          if ((next() & 3u) == 0) continue;
+          const std::vector<uint32_t> relation{first, second, third};
+          std::set<std::vector<uint32_t>> tuples;
+          const uint32_t count = 1 + next() % 3;
+          while (tuples.size() < count)
+            tuples.insert({next() % 3, next() % 3, next() % 3});
+          for (const auto &tuple : tuples) {
+            formula.push_back(
+                {-domains[first][tuple[0]], -domains[second][tuple[1]],
+                 -domains[third][tuple[2]]});
+            for (uint32_t residual = 0; residual < 3; ++residual) {
+              NaryCspPrefixActionKey key;
+              key.domains = {domains[first], domains[second], domains[third]};
+              key.prefix.residual_domain = residual;
+              for (uint32_t index = 0; index < 3; ++index)
+                if (index != residual)
+                  key.prefix.prefix.push_back({index, tuple[index]});
+              reference.insert(std::move(key));
+            }
+          }
+        }
+    assert(!reference.empty());
+
+    Kernel kernel = parse_formula(formula);
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    NaryCspPrefixActionSession session;
+    auto bounded = limits();
+    bounded.maximum_domains = domain_count;
+    auto window = offer_window();
+    window.maximum_relation_candidates = 16;
+    window.maximum_prefix_candidates = 100;
+    window.maximum_offers = 100;
+    const auto indexed =
+        nary_csp_prefix_action_offer(kernel, session, bounded, window);
+    std::vector<NaryCspPrefixActionSelection> expected;
+    for (const auto &key : reference)
+      expected.push_back({key.domains, key.prefix});
+    assert(indexed.status == NaryCspPrefixActionOfferStatus::Ready &&
+           indexed.complete && indexed.offers == expected &&
+           indexed.effort.indexed_relation_lookahead_keys == 0 &&
+           !session.retained() && !position(records));
+    std::fclose(records);
+  }
+}
+
+void rejected_relation_advances_to_later_index_page() {
+  const std::vector<std::vector<int32_t>> formula{
+      {1, 2, 3},    {-1, -2}, {-1, -3}, {-2, -3},
+      {4, 5, 6},    {-4, -5}, {-4, -6}, {-5, -6},
+      {7, 8, 9},    {-7, -8}, {-7, -9}, {-8, -9},
+      {10, 11, 12}, {-10, -11}, {-10, -12}, {-11, -12},
+      {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}, {-4, -7, -10}};
+  Kernel kernel = parse_formula(formula);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession session;
+  auto bounded = limits();
+  bounded.maximum_domains = 4;
+  bounded.maximum_source_clauses = 13;
+  auto window = offer_window();
+  window.maximum_relation_candidates = 1;
+
+  const auto rejected =
+      nary_csp_prefix_action_offer(kernel, session, bounded, window);
+  assert(rejected.status == NaryCspPrefixActionOfferStatus::Ready &&
+         !rejected.complete && rejected.offers.empty() &&
+         rejected.have_resume_after &&
+         rejected.effort.relation_candidates == 1 &&
+         rejected.effort.resource_rejected_relations == 1);
+  window.have_after = true;
+  window.after = rejected.resume_after;
+  const auto later =
+      nary_csp_prefix_action_offer(kernel, session, bounded, window);
+  assert(later.status == NaryCspPrefixActionOfferStatus::Ready &&
+         later.complete && later.offers.size() == 3 &&
+         later.effort.relation_candidates == 1 &&
+         !later.effort.resource_rejected_relations && !session.retained() &&
+         !position(records));
+  for (const auto &offer : later.offers)
+    assert(offer.domains ==
+           std::vector<std::vector<int32_t>>(
+               {{4, 5, 6}, {7, 8, 9}, {10, 11, 12}}));
+  std::fclose(records);
+}
+
+void nol_scale_index_census_starts_a_durable_page() {
+  constexpr uint32_t domains = 363;
+  constexpr uint32_t relations = 2486;
+  std::vector<std::vector<int32_t>> formula;
+  formula.reserve(domains * 4 + relations * 3);
+  for (uint32_t domain = 0; domain < domains; ++domain) {
+    const int32_t first = 3 * domain + 1;
+    formula.push_back({first, first + 1, first + 2});
+    formula.push_back({-first, -(first + 1)});
+    formula.push_back({-first, -(first + 2)});
+    formula.push_back({-(first + 1), -(first + 2)});
+  }
+  uint32_t emitted = 0;
+  for (uint32_t first = 0; first < domains && emitted < relations; ++first)
+    for (uint32_t second = first + 1;
+         second < domains && emitted < relations; ++second)
+      for (uint32_t third = second + 1;
+           third < domains && emitted < relations; ++third) {
+        for (uint32_t value = 0; value < 3; ++value)
+          formula.push_back(
+              {-static_cast<int32_t>(3 * first + value + 1),
+               -static_cast<int32_t>(3 * second + value + 1),
+               -static_cast<int32_t>(3 * third + value + 1)});
+        ++emitted;
+      }
+  assert(emitted == relations);
+
+  Kernel kernel = parse_formula(formula);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession session;
+  auto bounded = limits();
+  bounded.maximum_recognition_work = 10000000;
+  bounded.maximum_external_extent = 2000;
+  bounded.maximum_session_keys = 30000;
+  bounded.maximum_session_work = 100000000;
+  auto window = offer_window();
+  window.maximum_domain_candidates = 400;
+  window.maximum_relation_candidates = 3000;
+  window.maximum_prefix_candidates = 30000;
+  window.maximum_offers = 1;
+  window.maximum_enumeration_work = 1000000000;
+  const auto page =
+      nary_csp_prefix_action_offer(kernel, session, bounded, window);
+  assert(page.status == NaryCspPrefixActionOfferStatus::Ready &&
+         !page.complete && page.have_resume_after &&
+         page.offers.size() == 1 && page.effort.exact_domains == domains &&
+         page.effort.indexed_relation_keys == relations &&
+         page.effort.indexed_tuple_occurrences == uint64_t{relations} * 3 &&
+         page.effort.indexed_prefix_candidates == uint64_t{relations} * 9 &&
+         !session.retained() && !position(records));
+  std::fclose(records);
+}
+
 void offerer_declines_guards_bounds_and_interrupt_atomically() {
   {
     Kernel kernel = parse();
@@ -496,6 +774,10 @@ int main() {
   guard_validation_resource_and_staleness();
   bounded_offerer_is_complete_paged_pure_and_stale_safe();
   signed_domains_are_discovered_canonically();
+  relation_index_pages_clause_backed_relations_only();
+  indexed_discovery_matches_combination_reference();
+  rejected_relation_advances_to_later_index_page();
+  nol_scale_index_census_starts_a_durable_page();
   offerer_declines_guards_bounds_and_interrupt_atomically();
   std::puts("test_nary_csp_prefix_action: passed");
 }

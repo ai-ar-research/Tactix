@@ -17,6 +17,7 @@ CONGRUENCE_TEST="${4:-}"
 RESTART_TEST="${5:-}"
 FACTOR_N1_TEST="${6:-}"
 ONLINE_INPROCESS_TEST="${7:-}"
+ULC_RAT_TEST="${8:-}"
 for checker in "$DSR_TRIM" "$SR_CHECK"; do
   [ -x "$checker" ] \
     || { echo "native DSR checker pipeline not built — skipping"; exit 77; }
@@ -385,6 +386,20 @@ cat > "$T/direct-sr.dsr" <<'EOF'
 0
 EOF
 check_dsr "$T/direct-sr.cnf" "$T/direct-sr.dsr"
+
+# The private unique-literal exact-one completion emits each negative pair as
+# a pivot-first RAT line. Check the same three-line completion through native
+# DSR and compatibility DRAT before the unrelated core closes the proof.
+if [ -n "$ULC_RAT_TEST" ]; then
+  "$ULC_RAT_TEST" "$T/ulc-rat.cnf" "$T/ulc-rat.dsr" "$T/ulc-rat.drat"
+  check_dsr "$T/ulc-rat.cnf" "$T/ulc-rat.dsr"
+  if [ -x "$DRAT_TRIM" ]; then
+    "$DRAT_TRIM" "$T/ulc-rat.cnf" "$T/ulc-rat.drat" -f > "$T/check" 2>&1 \
+      || { echo "FAIL: drat-trim rejected ULC RAT proof"; cat "$T/check"; exit 1; }
+    grep -q 'VERIFIED' "$T/check" \
+      || { echo "FAIL: ULC RAT proof was not verified"; cat "$T/check"; exit 1; }
+  fi
+fi
 
 # Exercise the solver's typed SR application and native DSR writer together.
 # The emitted certificate must contain an effective orbitopal transition and

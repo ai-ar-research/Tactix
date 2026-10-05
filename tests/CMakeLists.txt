@@ -30,6 +30,10 @@ add_executable(test_sr_proof_encoding test_sr_proof_encoding.cpp)
 target_link_libraries(test_sr_proof_encoding PRIVATE tactix_lib)
 add_test(NAME sr_proof_encoding COMMAND test_sr_proof_encoding)
 
+add_executable(test_ulc_rat test_ulc_rat.cpp)
+target_link_libraries(test_ulc_rat PRIVATE tactix_lib)
+add_test(NAME ulc_rat COMMAND test_ulc_rat)
+
 add_executable(test_analyze test_analyze.cpp)
 target_link_libraries(test_analyze PRIVATE tactix_lib)
 add_test(NAME analyze COMMAND test_analyze)
@@ -345,7 +349,8 @@ add_test(NAME micro_proofs
                  $<TARGET_FILE:test_congruence>
                  $<TARGET_FILE:test_restart_reduce>
                  $<TARGET_FILE:test_factor_n1>
-                 $<TARGET_FILE:test_online_inprocess>)
+                 $<TARGET_FILE:test_online_inprocess>
+                 $<TARGET_FILE:test_ulc_rat>)
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
