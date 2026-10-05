@@ -9,7 +9,9 @@
 
 using namespace tactix;
 
-static Kernel balance_fixture(bool complete_shape = true) {
+static Kernel balance_fixture(bool complete_shape = true,
+                              bool forced_ttf = false,
+                              bool valid_guard = true) {
   // N=3, W=2: P=(3^2-1)/2=4, pair block=18, signature boundary=42.
   Kernel k;
   // Variable 44 is deliberately outside the recognized shape and remains
@@ -19,6 +21,18 @@ static Kernel balance_fixture(bool complete_shape = true) {
     kernel_assign_unit(k, internalize(unit));
   if (complete_shape)
     kernel_assign_unit(k, internalize(43));
+  if (forced_ttf) {
+    // Each clause requires ball b to use ternary row b+1, in either
+    // orientation.  Exercise both input encodings recognized by LymphoSAT:
+    // a binary pair and a ternary pair guarded by a positive input unit.
+    const Lit guarded[] = {internalize(valid_guard ? -43 : 44),
+                           internalize(25), internalize(26)};
+    kernel_add_large_clause(k, guarded, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(33), internalize(34));
+    kernel_add_binary_clause(k, internalize(41), internalize(42));
+    if (!valid_guard)
+      kernel_assign_unit(k, internalize(-44));
+  }
   assert(propagate_service(k) == ApplyResult::Ok);
   return k;
 }
@@ -52,6 +66,53 @@ int main() {
     assert(k.local_search_hints[static_cast<size_t>(
                strategy::LocalSearchKind::BalancedSignature)]
                .external_phases[43] == 0);
+  }
+  {
+    Kernel k = balance_fixture(true, true);
+    assert(balanced_signature_model_apply(k) == ApplyResult::Sat);
+    assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_candidates == 1);
+    assert(k.stats.balanced_signature_sat == 1);
+    assert(k.stats.balanced_signature_steps > 0);
+    assert(k.unassigned_active == 0);
+  }
+  {
+    // A third positive literal is not a TTF guard, even when it is root
+    // false.  Falling back to TTO cannot meet all three fixed-row clauses
+    // because TTO always selects row zero, so model completion must reject it.
+    Kernel k = balance_fixture(true, true, false);
+    assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_candidates == 1);
+    assert(k.stats.balanced_signature_sat == 0);
+    assert(k.unassigned_active != 0);
+  }
+  {
+    Kernel k = balance_fixture(true, true);
+    strategy::BalancedSignatureModelParameters parameters;
+    parameters.restarts = 2;
+    parameters.steps_per_restart = 3;
+    parameters.samples_per_step = 1;
+    strategy::ScopedBalancedSignatureModelParameters posed(k, parameters);
+    const ApplyResult result = balanced_signature_model_apply(k);
+    assert(result == ApplyResult::NoOp || result == ApplyResult::Sat);
+    assert(k.stats.balanced_signature_restarts <= 2);
+    assert(k.stats.balanced_signature_steps <= 6);
+    assert(k.stats.balanced_signature_restarts > 0);
+    assert(k.stats.balanced_signature_steps > 0);
+  }
+  {
+    Kernel k = balance_fixture(true, true);
+    volatile sig_atomic_t stop = 1;
+    k.stop = &stop;
+    assert(balanced_signature_model_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.balanced_signature_recognized == 1);
+    assert(k.stats.balanced_signature_interrupted == 1);
+    assert(k.stats.balanced_signature_steps == 0);
+    assert(k.stats.balanced_signature_candidates == 0);
+    assert(!k.local_search_hints[static_cast<size_t>(
+                strategy::LocalSearchKind::BalancedSignature)]
+                .available());
   }
   {
     Kernel k = balance_fixture(false);
