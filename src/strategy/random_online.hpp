@@ -122,7 +122,25 @@ struct RandomOnlineConfig {
     result.maximum_session_work = 1000000;
     return result;
   }();
-  ExactCoverExtensionParameters exact_cover_extension_reference;
+  ExactCoverExtensionParameters exact_cover_extension_reference = [] {
+    // The canonical X10 action has no caller-owned payload, so its random
+    // profile must itself be an executable bounded request.  These are the
+    // same small limits used by the public-action and live-adapter fixtures.
+    ExactCoverExtensionParameters result;
+    result.arity = 3;
+    result.maximum_items = 100;
+    result.maximum_source_clauses = 100;
+    result.maximum_source_literals = 1000;
+    result.maximum_recognition_work = 100000;
+    result.maximum_premise_references = 1000;
+    result.maximum_definitions = 10;
+    result.maximum_additions = 100;
+    result.maximum_literal_occurrences = 1000;
+    result.maximum_extent_growth = 10;
+    result.maximum_external_extent = 1000;
+    result.maximum_journal_bytes = 100000;
+    return result;
+  }();
   IndependentSetCoverParameters independent_set_cover_reference;
   Gf3AffineConsequenceParameters gf3_affine_consequence_reference;
   DirectCspSupportParameters direct_csp_support_reference;

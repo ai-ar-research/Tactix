@@ -1204,6 +1204,18 @@ static void affine_consequence_replay_round_trip() {
 }
 
 static void theory_action_v4_replay_round_trip() {
+  const RandomOnlineConfig defaults;
+  const auto &exact_reference = defaults.exact_cover_extension_reference;
+  assert(exact_reference.arity == 3 && exact_reference.maximum_items &&
+         exact_reference.maximum_source_clauses &&
+         exact_reference.maximum_source_literals &&
+         exact_reference.maximum_recognition_work &&
+         exact_reference.maximum_premise_references &&
+         exact_reference.maximum_definitions && exact_reference.maximum_additions &&
+         exact_reference.maximum_literal_occurrences &&
+         exact_reference.maximum_extent_growth &&
+         exact_reference.maximum_external_extent &&
+         exact_reference.maximum_journal_bytes);
   OnlineStrategyProgram program;
 
   OnlineInvocation exact;
@@ -2227,6 +2239,13 @@ static void sample_each_applicable_action(Kernel &k,
     config.maximum_sequence_length = 1;
     OnlineStrategyProgram program;
     std::string error;
+    if (!std::strcmp(rule.name, "ExactCoverExtension")) {
+      auto invalid = config;
+      invalid.exact_cover_extension_reference = {};
+      assert(!random_online_strategy_program(k, rule.id + 1, invalid, program,
+                                             &error));
+      assert(error == "random-online maxima must be positive");
+    }
     assert(random_online_strategy_program(k, rule.id + 1, config, program,
                                           &error));
     assert(program.sequence.size() == 1);

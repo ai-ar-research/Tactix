@@ -58,6 +58,20 @@ uint64_t optional_positive(uint64_t &state, uint64_t maximum) {
   return 1 + bounded(state, maximum);
 }
 
+bool executable_exact_cover_profile(
+    const ExactCoverExtensionParameters &parameters) {
+  return parameters.valid() && parameters.arity && parameters.maximum_items &&
+         parameters.maximum_source_clauses &&
+         parameters.maximum_source_literals &&
+         parameters.maximum_recognition_work &&
+         parameters.maximum_premise_references &&
+         parameters.maximum_definitions && parameters.maximum_additions &&
+         parameters.maximum_literal_occurrences &&
+         parameters.maximum_extent_growth &&
+         parameters.maximum_external_extent &&
+         parameters.maximum_journal_bytes;
+}
+
 ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::string &rule,
                                    const RandomOnlineConfig &config) {
   if (rule == "ConflictAnalysis") {
@@ -1834,6 +1848,8 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       !config.signed_cardinality_proof_reference.valid() ||
       !config.ramsey_startup_reference.valid() ||
       !config.parity_consequence_reference.valid() ||
+      !executable_exact_cover_profile(
+          config.exact_cover_extension_reference) ||
       !config.direct_php_refutation_reference.valid() ||
       !config.gf3_gaussian_consequence_reference.valid() ||
       !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||

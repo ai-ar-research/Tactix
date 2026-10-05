@@ -45,6 +45,18 @@ def main():
         def encode(changed):
             return "".join(json.dumps(row) + "\n" for row in changed)
 
+        # Action-space v6 changes the payload encoded in request.invocation;
+        # its observation object deliberately retains the v5 field shape.
+        changed = json.loads(json.dumps(rows))
+        for row in changed:
+            if row["type"] in ("session_begin", "session_end"):
+                row["observation"]["version"] = 6
+            elif row["type"] in ("action", "interval"):
+                row["before"]["version"] = 6
+                row["after"]["version"] = 6
+        path.write_text(encode(changed))
+        inspector.inspect(path)
+
         rejected(encode(rows[:-1]), "incomplete")
         rejected(original + "{}\n", "after session end")
         action = next(i for i, row in enumerate(rows) if row["type"] == "action")
@@ -93,6 +105,38 @@ def main():
         changed = json.loads(json.dumps(rows))
         changed[action]["before"]["fast_glue"] = float("inf")
         rejected(encode(changed).replace("Infinity", "1e999"), "fast_glue")
+        changed = json.loads(json.dumps(rows))
+        changed[action]["before"]["version"] = 7
+        rejected(encode(changed), "unsupported observation version")
+        producer_rows = json.loads(json.dumps(rows))
+        producer_action = next(
+            i for i, row in enumerate(producer_rows) if row.get("request"))
+        producer = {
+            "family": "Gf3AffineConsequence", "status": 6,
+            "complete": False, "preparation_work": 11,
+            "enumeration_work": 13, "total_work": 24,
+            "candidates": 3, "offers": 1}
+        producer_rows[producer_action]["request"]["producer_effort"] = [producer]
+        path.write_text(encode(producer_rows))
+        inspector.inspect(path)
+        changed = json.loads(json.dumps(producer_rows))
+        del changed[producer_action]["request"]["producer_effort"][0]["offers"]
+        rejected(encode(changed), "producer effort fields")
+        changed = json.loads(json.dumps(producer_rows))
+        changed[producer_action]["request"]["producer_effort"][0]["family"] = "unknown"
+        rejected(encode(changed), "producer family")
+        changed = json.loads(json.dumps(producer_rows))
+        changed[producer_action]["request"]["producer_effort"][0]["status"] = 7
+        rejected(encode(changed), "producer status")
+        changed = json.loads(json.dumps(producer_rows))
+        changed[producer_action]["request"]["producer_effort"][0]["complete"] = 1
+        rejected(encode(changed), "producer completeness")
+        changed = json.loads(json.dumps(producer_rows))
+        changed[producer_action]["request"]["producer_effort"][0]["total_work"] += 1
+        rejected(encode(changed), "producer total work mismatch")
+        changed = json.loads(json.dumps(producer_rows))
+        changed[producer_action]["request"]["producer_effort"][0]["offers"] = 4
+        rejected(encode(changed), "producer offers exceed candidates")
         subprocess.run([sys.argv[1], str(path), "invalid"], check=True, timeout=30,
                        stdout=subprocess.DEVNULL)
         rejected_summary = inspector.inspect(path)

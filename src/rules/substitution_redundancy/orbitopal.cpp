@@ -468,13 +468,14 @@ bool screen_formula(const Kernel &kernel,
 
   const auto collect_candidates =
       [&](const std::vector<uint32_t> &occurrences,
-          std::vector<std::vector<Lit>> &candidates) {
+          std::vector<std::vector<Lit>> &candidates,
+          bool include_binaries) {
         std::unordered_set<uint64_t> candidate_binaries;
         std::unordered_set<Ref> candidate_large;
         for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal) {
           if (occurrences[literal] != 1)
             continue;
-          if (kernel.watches.binary_size(literal) == 1 &&
+          if (include_binaries && kernel.watches.binary_size(literal) == 1 &&
               parameters.minimum_orbitopal_rows <= 2) {
             for (const WatchEntry watch : kernel.watches.entries(literal)) {
               if (!watch.binary())
@@ -523,9 +524,11 @@ bool screen_formula(const Kernel &kernel,
       };
   if (parameters.complete_unique_literal_amos &&
       !collect_candidates(screen.ulc_occurrences,
-                          screen.ulc_candidate_clauses))
+                          screen.ulc_candidate_clauses,
+                          /*include_binaries=*/false))
     return false;
-  if (!collect_candidates(screen.occurrences, screen.candidate_clauses))
+  if (!collect_candidates(screen.occurrences, screen.candidate_clauses,
+                          /*include_binaries=*/true))
     return false;
   return true;
 }
