@@ -3362,7 +3362,8 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
             std::strcmp(rules[i].name, "DirectPhpRefutation") &&
             std::strcmp(rules[i].name, "Gf3GaussianConsequence") &&
             std::strcmp(rules[i].name, "TseitinCycleBreaking") &&
-            std::strcmp(rules[i].name, "NaryCspPrefix"))
+            std::strcmp(rules[i].name, "NaryCspPrefix") &&
+            std::strcmp(rules[i].name, "GraphIntervalEquivalence"))
           add_entry(i);
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);

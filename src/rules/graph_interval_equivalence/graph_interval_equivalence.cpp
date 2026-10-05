@@ -1,0 +1,458 @@
+#include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
+
+#include "proof/proof.hpp"
+#include "rules/congruence/congruence.hpp"
+#include "rules/lucky/graph_labeling_recognition.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <map>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+namespace tactix {
+namespace {
+
+constexpr uint64_t DEFAULT_GROUPS = 16;
+constexpr uint64_t FULL_RANK991_GROUPS = 117;
+constexpr uint64_t MAXIMUM_GROUPS = 4096;
+constexpr uint32_t MAXIMUM_VERTICES = 512;
+constexpr uint64_t MAXIMUM_WORK = 100'000'000;
+constexpr uint64_t MAXIMUM_WORKSPACE = uint64_t{512} << 20;
+
+struct Source {
+  uint64_t id = 0;
+  bool redundant = false;
+};
+
+struct Explanation {
+  std::array<uint64_t, 2> parents{};
+  uint8_t count = 0;
+  bool direct = false;
+};
+
+struct Gate {
+  Lit output = INVALID_LIT;
+  Lit left = INVALID_LIT;
+  Lit right = INVALID_LIT;
+  uint64_t defining = 0;
+  Explanation left_reverse;
+  Explanation right_reverse;
+};
+
+struct Interval {
+  uint32_t row = 0;
+  uint32_t first = 0;
+  uint32_t last = 0;
+};
+
+struct Candidate {
+  Interval interval;
+  Gate first;
+  Gate second;
+};
+
+struct Discovery {
+  uint32_t vertices = 0;
+  uint64_t work = 0;
+  uint64_t clauses = 0;
+  uint64_t gates = 0;
+  uint64_t intervals = 0;
+  std::vector<Candidate> candidates;
+};
+
+using ClauseKey = std::vector<Lit>;
+
+ClauseKey key(std::initializer_list<Lit> literals) {
+  ClauseKey result(literals);
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
+uint64_t semantic_payload(const Candidate &candidate, const Kernel &kernel) {
+  uint32_t a = static_cast<uint32_t>(
+      kernel_externalize(kernel, candidate.first.output));
+  uint32_t b = static_cast<uint32_t>(
+      kernel_externalize(kernel, candidate.second.output));
+  if (a > b) std::swap(a, b);
+  return (uint64_t{a} << 32) | b;
+}
+
+// The gate authentication is deliberately narrower than graph recognition.
+// Every accepted z has the live clauses
+//   (a v b v z), (-a v -z), (-b v -z),
+// where either reverse binary is explicit or has the exact two-clause RUP
+// chain used by the retained static audit.  Recursing from indexed primary
+// literals therefore proves that z means absence on precisely the recorded
+// contiguous interval.  The final equivalence still has an independent RUP
+// replay before any mutation.
+bool discover(const Kernel &kernel, Discovery &result) {
+  result = {};
+  const uint64_t limit = kernel_has_work_budget(kernel)
+                             ? std::min(MAXIMUM_WORK, kernel.work_budget)
+                             : MAXIMUM_WORK;
+  bool exhausted = false;
+  auto charge = [&](uint64_t amount) {
+    if (kernel_terminating(kernel) || amount > limit - result.work) {
+      exhausted = true;
+      return false;
+    }
+    result.work += amount;
+    return true;
+  };
+
+  graph_labeling::Shape shape;
+  if (!graph_labeling::recognize(kernel, MAXIMUM_VERTICES,
+                                 MAXIMUM_WORKSPACE, charge, shape) ||
+      exhausted)
+    return false;
+  result.vertices = shape.vertices;
+
+  std::map<ClauseKey, Source> clauses;
+  std::vector<std::pair<ClauseKey, Source>> ternaries;
+  for (Ref ref = 0; ref < kernel.arena.size();) {
+    const Clause *clause = clause_at(kernel.arena, ref);
+    ref += clause_actual_words(clause);
+    if (!charge(1)) return false;
+    if (clause->garbage()) continue;
+    if (!charge(clause->size)) return false;
+    ClauseKey literals(clause->begin(), clause->end());
+    std::sort(literals.begin(), literals.end());
+    const Source source{clause->id(), clause->redundant()};
+    clauses.emplace(literals, source);
+    if (literals.size() == 3) ternaries.emplace_back(literals, source);
+    ++result.clauses;
+  }
+  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal) {
+    for (WatchEntry watch : kernel.watches.entries(literal)) {
+      if (!charge(1)) return false;
+      if (!watch.binary() || literal >= watch.other()) continue;
+      ClauseKey literals{literal, watch.other()};
+      std::sort(literals.begin(), literals.end());
+      clauses.emplace(literals,
+                      Source{kernel_binary_id(kernel, literal, watch.other()),
+                             false});
+      ++result.clauses;
+    }
+  }
+
+  const auto lookup = [&](const ClauseKey &clause) -> const Source * {
+    const auto found = clauses.find(clause);
+    return found == clauses.end() ? nullptr : &found->second;
+  };
+  const auto explain = [&](Lit input, Lit other, Lit output,
+                           Explanation &explanation) {
+    if (const Source *direct = lookup(key({negate(input), negate(output)}))) {
+      explanation.parents[0] = direct->id;
+      explanation.count = 1;
+      explanation.direct = true;
+      return direct->id != 0;
+    }
+    const Source *last =
+        lookup(key({other, negate(input), negate(output)}));
+    const Source *first = lookup(key({negate(other), negate(input)}));
+    if (!first) first = lookup(key({negate(other), negate(output)}));
+    if (!first || !last || !first->id || !last->id) return false;
+    explanation.parents = {first->id, last->id};
+    explanation.count = 2;
+    return true;
+  };
+
+  std::vector<Gate> gates;
+  gates.reserve(ternaries.size());
+  for (const auto &[literals, source] : ternaries) {
+    if (!charge(4) || !source.id) return false;
+    if (var_of(literals[0]) == var_of(literals[1]) ||
+        var_of(literals[0]) == var_of(literals[2]) ||
+        var_of(literals[1]) == var_of(literals[2]))
+      continue;
+    Lit output = literals[0];
+    for (Lit literal : literals)
+      if (kernel_externalize(kernel, literal) >
+          kernel_externalize(kernel, output))
+        output = literal;
+    const int32_t external_output = kernel_externalize(kernel, output);
+    if (external_output <= 0) continue;
+    bool strictly_largest = true;
+    for (Lit literal : literals)
+      if (literal != output &&
+          std::abs(kernel_externalize(kernel, literal)) >= external_output)
+        strictly_largest = false;
+    if (!strictly_largest) continue;
+    Lit inputs[2];
+    unsigned next = 0;
+    for (Lit literal : literals)
+      if (literal != output) inputs[next++] = literal;
+    Gate gate{output, inputs[0], inputs[1], source.id, {}, {}};
+    if (!explain(gate.left, gate.right, gate.output, gate.left_reverse) ||
+        !explain(gate.right, gate.left, gate.output, gate.right_reverse))
+      continue;
+    gates.push_back(gate);
+  }
+  std::sort(gates.begin(), gates.end(), [&](const Gate &a, const Gate &b) {
+    return kernel_externalize(kernel, a.output) <
+           kernel_externalize(kernel, b.output);
+  });
+  result.gates = gates.size();
+
+  std::map<Lit, Interval> meanings;
+  for (uint32_t row = 0; row < shape.vertices; ++row)
+    for (uint32_t column = 0; column < shape.vertices; ++column) {
+      const Lit literal = shape.primary[uint64_t(row) * shape.vertices + column];
+      if (literal == INVALID_LIT) return false;
+      meanings.emplace(literal, Interval{row, column, column});
+    }
+
+  std::map<std::tuple<uint32_t, uint32_t, uint32_t>, std::vector<Gate>> groups;
+  for (const Gate &gate : gates) {
+    if (!charge(1)) return false;
+    auto left = meanings.find(gate.left);
+    if (left == meanings.end()) left = meanings.find(negate(gate.left));
+    auto right = meanings.find(gate.right);
+    if (right == meanings.end()) right = meanings.find(negate(gate.right));
+    if (left == meanings.end() || right == meanings.end()) continue;
+    // A derived absence literal occurs negated as the next gate's input. A
+    // primary selection literal occurs with its recovered cover-clause sign.
+    const bool left_base = std::find(shape.primary.begin(), shape.primary.end(),
+                                     gate.left) != shape.primary.end();
+    const bool right_base = std::find(shape.primary.begin(), shape.primary.end(),
+                                      gate.right) != shape.primary.end();
+    if (!left_base && meanings.find(negate(gate.left)) == meanings.end()) continue;
+    if (!right_base && meanings.find(negate(gate.right)) == meanings.end()) continue;
+    const Interval a = left_base ? meanings.at(gate.left)
+                                 : meanings.at(negate(gate.left));
+    const Interval b = right_base ? meanings.at(gate.right)
+                                  : meanings.at(negate(gate.right));
+    if (a.row != b.row || a.last + 1 < b.first || b.last + 1 < a.first)
+      continue;
+    const Interval combined{a.row, std::min(a.first, b.first),
+                            std::max(a.last, b.last)};
+    meanings[gate.output] = combined;
+    groups[{combined.row, combined.first, combined.last}].push_back(gate);
+    ++result.intervals;
+  }
+
+  for (const auto &[meaning, equivalent] : groups) {
+    if (equivalent.size() != 2) continue;
+    Candidate candidate;
+    candidate.interval = {std::get<0>(meaning), std::get<1>(meaning),
+                          std::get<2>(meaning)};
+    candidate.first = equivalent[0];
+    candidate.second = equivalent[1];
+    if (kernel_externalize(kernel, candidate.first.output) >
+        kernel_externalize(kernel, candidate.second.output))
+      std::swap(candidate.first, candidate.second);
+    result.candidates.push_back(std::move(candidate));
+  }
+  return !result.candidates.empty();
+}
+
+struct PlannedClause {
+  Lit first = INVALID_LIT;
+  Lit second = INVALID_LIT;
+  std::vector<uint64_t> chain;
+};
+
+ApplyResult apply_selected(Kernel &kernel, uint64_t maximum_groups,
+                           uint64_t exact_payload) {
+  if (!graph_interval_equivalence_guard(kernel)) return ApplyResult::NoOp;
+  ++kernel.stats.graph_interval_equivalence_calls;
+  Discovery discovery;
+  if (!discover(kernel, discovery)) {
+    kernel.stats.graph_interval_equivalence_work += discovery.work;
+    return ApplyResult::NoOp;
+  }
+  ++kernel.stats.graph_interval_equivalence_recognized;
+  kernel.stats.graph_interval_equivalence_vertices += discovery.vertices;
+  kernel.stats.graph_interval_equivalence_gates += discovery.gates;
+  kernel.stats.graph_interval_equivalence_intervals += discovery.intervals;
+  kernel.stats.graph_interval_equivalence_groups += discovery.candidates.size();
+  kernel.stats.graph_interval_equivalence_work += discovery.work;
+
+  std::vector<const Candidate *> selected;
+  if (exact_payload) {
+    for (const Candidate &candidate : discovery.candidates)
+      if (semantic_payload(candidate, kernel) == exact_payload) {
+        selected.push_back(&candidate);
+        break;
+      }
+  } else {
+    const size_t count = static_cast<size_t>(
+        std::min<uint64_t>(maximum_groups, discovery.candidates.size()));
+    for (size_t i = 0; i < count; ++i) selected.push_back(&discovery.candidates[i]);
+  }
+  if (selected.empty()) return ApplyResult::NoOp;
+
+  std::vector<PlannedClause> planned;
+  planned.reserve(2 * selected.size());
+  const uint64_t ticks_before = kernel.stats.ticks;
+  for (const Candidate *candidate : selected) {
+    const Lit a = candidate->first.output, b = candidate->second.output;
+    for (const std::pair<Lit, Lit> &clause :
+         {std::pair<Lit, Lit>{negate(a), b}, {a, negate(b)}}) {
+      if (kernel_binary_live(kernel, clause.first, clause.second)) {
+        ++kernel.stats.graph_interval_equivalence_duplicates;
+        continue;
+      }
+      PlannedClause plan{clause.first, clause.second, {}};
+      const Lit literals[2] = {plan.first, plan.second};
+      if (!congruence_replay_rup(kernel, literals, 2, plan.chain,
+                                 RupReplay::Decide)) {
+        ++kernel.stats.graph_interval_equivalence_rup_rejected;
+        return ApplyResult::NoOp;
+      }
+      planned.push_back(std::move(plan));
+    }
+  }
+  const uint64_t replay_ticks = kernel.stats.ticks - ticks_before;
+  kernel.stats.graph_interval_equivalence_rup_ticks += replay_ticks;
+  kernel.stats.graph_interval_equivalence_work += replay_ticks;
+  if (planned.empty()) return ApplyResult::NoOp;
+
+  const uint64_t action = kernel.structural_action_sequence + 1;
+  FILE *out = kernel.structural_provenance;
+  std::fprintf(out,
+      "{\"action\":%llu,\"kind\":\"action-context\",\"version\":1,"
+      "\"rule\":\"GraphIntervalEquivalence\",\"strategy_epoch\":%llu,"
+      "\"arena_generation\":%llu,\"touch_epoch\":%llu,"
+      "\"proof_id_before\":%llu,\"external_extent\":%zu,"
+      "\"original_variables\":%u,\"existing_variables_only\":true,"
+      "\"propagation\":\"separate-action\",\"maximum_groups\":%llu,"
+      "\"exact_payload\":%llu}\n",
+      (unsigned long long)action, (unsigned long long)kernel.strategy_epoch,
+      (unsigned long long)kernel.arena_generation,
+      (unsigned long long)kernel.touch_epoch,
+      (unsigned long long)kernel.next_clause_id,
+      kernel.external_to_internal.size(), kernel_num_output_vars(kernel),
+      (unsigned long long)maximum_groups,
+      (unsigned long long)exact_payload);
+  for (const Candidate *candidate : selected) {
+    const auto print_gate = [&](const char *name, const Gate &gate) {
+      std::fprintf(out,
+          "\"%s\":{\"output\":%d,\"inputs\":[%d,%d],"
+          "\"defining\":%llu,\"left_reverse\":[",
+          name, kernel_externalize(kernel, gate.output),
+          kernel_externalize(kernel, gate.left),
+          kernel_externalize(kernel, gate.right),
+          (unsigned long long)gate.defining);
+      for (uint8_t i = 0; i < gate.left_reverse.count; ++i)
+        std::fprintf(out, "%s%llu", i ? "," : "",
+                     (unsigned long long)gate.left_reverse.parents[i]);
+      std::fputs("],\"right_reverse\":[", out);
+      for (uint8_t i = 0; i < gate.right_reverse.count; ++i)
+        std::fprintf(out, "%s%llu", i ? "," : "",
+                     (unsigned long long)gate.right_reverse.parents[i]);
+      std::fputs("]}", out);
+    };
+    std::fprintf(out,
+        "{\"action\":%llu,\"kind\":\"authenticated-duplicate-interval\","
+        "\"row\":%u,\"first\":%u,\"last\":%u,\"payload\":%llu,",
+        (unsigned long long)action, candidate->interval.row,
+        candidate->interval.first, candidate->interval.last,
+        (unsigned long long)semantic_payload(*candidate, kernel));
+    print_gate("first_gate", candidate->first);
+    std::fputc(',', out);
+    print_gate("second_gate", candidate->second);
+    std::fputs("}\n", out);
+  }
+
+  const bool lrat = kernel.proof && kernel.proof->lrat();
+  for (const PlannedClause &plan : planned) {
+    const uint64_t id = ++kernel.next_clause_id;
+    const Lit literals[2] = {plan.first, plan.second};
+    if (kernel.proof)
+      kernel.proof->add_rup(lrat ? id : 0, literals, 2,
+                            lrat ? plan.chain.data() : nullptr,
+                            lrat ? static_cast<uint32_t>(plan.chain.size()) : 0);
+    kernel_add_binary_clause(kernel, plan.first, plan.second, id);
+    std::fprintf(out,
+        "{\"action\":%llu,\"kind\":\"publish-interval-equivalence\","
+        "\"id\":%llu,\"clause\":[%d,%d],\"rup_hints\":%zu}\n",
+        (unsigned long long)action, (unsigned long long)id,
+        kernel_externalize(kernel, plan.first),
+        kernel_externalize(kernel, plan.second), plan.chain.size());
+  }
+  kernel.structural_action_sequence = action;
+  kernel.stats.graph_interval_equivalence_selected += selected.size();
+  kernel.stats.graph_interval_equivalence_published += planned.size();
+  kernel.stats.graph_interval_equivalence_proof_literal_occurrences +=
+      2 * planned.size();
+  std::fprintf(out,
+      "{\"action\":%llu,\"kind\":\"action-complete\","
+      "\"result\":0,\"discovery_work\":%llu,\"rup_ticks\":%llu,"
+      "\"recognized_gates\":%llu,\"intervals\":%llu,\"groups\":%zu,"
+      "\"selected\":%zu,\"proof_additions\":%zu,"
+      "\"proof_literal_occurrences\":%zu,\"proof_id_after\":%llu}\n",
+      (unsigned long long)action, (unsigned long long)discovery.work,
+      (unsigned long long)replay_ticks, (unsigned long long)discovery.gates,
+      (unsigned long long)discovery.intervals, discovery.candidates.size(),
+      selected.size(), planned.size(), 2 * planned.size(),
+      (unsigned long long)kernel.next_clause_id);
+  std::fflush(out);
+  if (std::ferror(out)) std::abort();
+  return ApplyResult::Ok;
+}
+
+uint32_t instances(Kernel &, uint64_t *out, uint32_t cap) {
+  static constexpr uint64_t values[] = {INSTANCE_CANONICAL, DEFAULT_GROUPS,
+                                        FULL_RANK991_GROUPS};
+  const uint32_t count = std::min<uint32_t>(cap, 3);
+  std::copy_n(values, count, out);
+  return count;
+}
+
+ApplyResult apply_instance(Kernel &kernel, uint64_t instance) {
+  if (instance == INSTANCE_CANONICAL)
+    return apply_selected(kernel, DEFAULT_GROUPS, 0);
+  if (!instance || instance > MAXIMUM_GROUPS) return ApplyResult::NoOp;
+  return apply_selected(kernel, instance, 0);
+}
+
+uint32_t semantic_instances(Kernel &kernel, uint64_t *out, uint32_t cap) {
+  if (!cap) return 0;
+  Discovery discovery;
+  if (!discover(kernel, discovery)) return 0;
+  const uint32_t count = std::min<uint32_t>(
+      cap, static_cast<uint32_t>(discovery.candidates.size()));
+  for (uint32_t i = 0; i < count; ++i)
+    out[i] = semantic_payload(discovery.candidates[i], kernel);
+  return count;
+}
+
+ApplyResult apply_semantic_instance(Kernel &kernel, uint64_t instance) {
+  if (instance == INSTANCE_CANONICAL) return graph_interval_equivalence_apply(kernel);
+  return apply_selected(kernel, 1, instance);
+}
+
+} // namespace
+
+RuleEligibility graph_interval_equivalence_guard(const Kernel &kernel) {
+  return RuleEligibility{}
+      .fact("consistent", !kernel.inconsistent)
+      .fact("root", kernel.level == 0)
+      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
+      .fact("propagated", kernel_propagation_fixpoint(kernel))
+      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
+      .fact("no-probe-transaction", !kernel.probing.recording)
+      .fact("provenance-bound", kernel.structural_provenance != nullptr)
+      .fact("action-id-available", kernel.structural_action_sequence != UINT64_MAX)
+      .fact("clausal-proof", !kernel.proof || !kernel.proof->pb());
+}
+
+ApplyResult graph_interval_equivalence_apply(Kernel &kernel) {
+  if (!graph_interval_equivalence_guard(kernel)) return ApplyResult::NoOp;
+  return apply_selected(kernel, DEFAULT_GROUPS, 0);
+}
+
+TACTIX_REGISTER_RULE(GraphIntervalEquivalence, RuleTier::Inprocess,
+                     graph_interval_equivalence_guard,
+                     graph_interval_equivalence_apply, instances,
+                     apply_instance, semantic_instances,
+                     apply_semantic_instance);
+
+} // namespace tactix

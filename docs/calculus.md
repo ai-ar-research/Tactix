@@ -96,6 +96,25 @@ At a consistent, conflict-free, assignment-free propagated sparse root with conn
 ### X17 · NaryCspPrefix — authenticated finite-domain prefix consequence
 Given at least three pairwise-disjoint complete signed one-hot domains and a strictly ordered set of exact forbidden-tuple clauses, select one value from every domain except a residual domain. Introduce fresh `p` with `p iff AND(prefix)` by fresh-`~p` RAT clauses `(~p or l_i)` and the `p`-RAT reverse `(p or ~l_1 or ... or ~l_k)`, whose resolvents are tautological. For each authenticated tuple extending the prefix with residual value `v`, add `(~p or ~v)` by RUP from the forward definitions and exact tuple; if all residual values are excluded, add `(~p)` by RUP from those binaries and the residual ALO. Original clauses remain live; every old model extends uniquely and every new model projects by omitting `p`, with no reconstruction witness. The live adapter captures exact current domains/tuples, preflights and recaptures atomically, emits DSR/DRAT, records complete provenance/projection, and leaves propagation separate; a Kernel-bound session retains owners and durable prefix keys across safe namespace growth. The bounded native `nary-csp` producer discovers canonical signed exact-one domains, forms fixed-arity disjoint collections, revalidates retained owners, enumerates every tuple/residual prefix in deterministic paginated order, suppresses committed keys and returns only session/live-preflighted actions. Registry ID 39, disabled StepId 28, C v8 tag 42 and typed replay expose the exact nested domain/residual/prefix payload; C configuration validates and deep-copies every domain and choice. A successful post-followup result publishes a current `NaryCsp` semantic-variable candidate, while all attempts publish raw feedback. DefaultPolicy remains disabled; focused tests pass, while fuzz, checked noL recovery, targets and gates remain pending.
 **Internal TTF parity-frontier adapter (not a public rule).** From a retained checker-formula snapshot, classify every accepted truth-table root occurrence and independently re-recognize exact AMO witnesses, including shared ownership. On the first odd coordinate whose forced atoms are all nonzero, add one reduced participation clause per domain; each is RUP from its recorded source premises, uses only active existing variables, has identity projection, and leaves propagation separate. Proof/formula/arena/journal bounds, native-ID provenance, and a durable key over truth plus AMO sources precede the atomic commit; focused DSR/DRAT replay verifies the micro-frontier. A retained-copy refresh cannot authenticate a caller snapshot against the checker population, and production cannot enumerate normalized/deleted proof premises. The attempted public action is removed. Public exposure requires a solver-created owner that observed the complete input and every relevant later mutation, an opaque immutable snapshot, and a short-lived source pin revalidated immediately before commit. LRAT sources require their exact live checker IDs. A DSR/DRAT literal-named deletion request conservatively invalidates every owner using that canonical source bucket, because checker retention of an implied unit cannot be inferred from the serialized request. The pin must reject source retirement or rebinding before proof or kernel mutation; post-event observation alone does not meet this precondition. Later AMO reasoning, target recovery, and any complete refutation remain open.
+
+### X18 · GraphIntervalEquivalence — duplicate interval-absence publication
+At a propagated root, recover an indexed square only as a source of primary
+literal identities. Independently authenticate each accepted interval output
+`z` from a live ternary `(a or b or z)` and both reverse implications
+`(-a or -z)`, `(-b or -z)`. A reverse implication may be explicit or have the
+exact two-premise unit-resolution chain recorded in the action provenance.
+Starting from primary singleton intervals, recursive NOR composition then
+proves the exact contiguous row interval represented by each output. If two
+distinct existing output variables have the same authenticated interval,
+preflight both `(-z1 or z2)` and `(z1 or -z2)` by RUP against the unchanged
+live formula, then publish the missing binaries atomically. The clauses are
+entailed, introduce no variable, preserve every model and need no
+reconstruction entry. Duplicate clauses suppress publication. A bounded
+canonical or explicit prefix and one-pair semantic payload expose the same
+deterministic candidate order; provenance records the selected outputs,
+interval, defining clauses, reverse chains, work and proof volume. Publication
+does not run M1 Propagate.
+
 ### S9 · SemanticVariableAdvice — bounded theory-variable priority
 This H-only companion to theory actions that publish semantic candidates, including X9--X13 and X17, has no proof delta. It consumes one current immutable candidate, checks source-state identity and role-specific bounds, and applies the declared priority doses to VMTF and EVSIDS. Encoding helpers and proof-only identities are never branchable theory information.
 

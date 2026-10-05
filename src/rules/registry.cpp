@@ -215,7 +215,8 @@ const std::vector<RuleVTable> &tactix_rules() {
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
         "SemanticVariableAdvice", "Gf3AffineConsequence",
         "DirectCspSupport", "DirectPhpRefutation",
-        "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix"};
+        "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix",
+        "GraphIntervalEquivalence"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {
