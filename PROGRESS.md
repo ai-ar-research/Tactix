@@ -26,7 +26,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Restored LymphoSAT SAT constructors | [terminal regression](benchmarks/reports/2026-10-04-restored-lymphosat-sat-regression-terminal.md) | Rejected `156afef6b`: B28+C5 passed, Rank aggregate failed, and seven WV/WV2 solves were lost; no wrong verdict or checker rejection |
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
-| Partial-model guidance | oddball job `1748917`; repair after `27e0088ed` | All 21 Tier-D oddballs solve, but guidance-active TTF rows are 29.1% slower while inactive TTO rows are 3.5% slower. Seeded Walk's refined full target was being overwritten by the original raw candidate; the repair removes that implicit S8 follow-up while retaining explicit controller S8. Focused Walk/default/feedback/S8 tests pass; repaired performance validation remains open |
+| Partial-model guidance | oddball jobs `1748917`/`1748977`; repair after `27e0088ed` | All 21 Tier-D oddballs solve, but guidance-active TTF rows are 29.1% slower while inactive TTO rows are 3.5% slower. The first repair removes the raw-S8 overwrite after seeded Walk. A separate audit shows seed preparation consumes search allowance and admits worse starts; DefaultPolicy therefore disables structural seeding pending split budgets/admission, while explicit controller Walk/S8 actions remain. Focused validation and the isolation campaign are active |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Public N-ary CSP prefix X17 | [public checkpoint](benchmarks/reports/2026-10-04-public-nary-csp-prefix-action.md), [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Registry ID 39, disabled StepId 28 and C v8 tag 42 expose exact deep-copied domain/residual/prefix payloads through typed replay and a Kernel-owned session. Opt-in `nary-csp` production, raw feedback and post-followup `NaryCsp` semantic-variable publication are wired; focused tests pass. DefaultPolicy remains disabled, and fuzz, checked noL recovery, targets and gates remain open |
 | `7dcd36101` default regressions | [terminal report](benchmarks/reports/2026-10-04-nary-offerer-default-regressions.md) | B28+C5, WV100 and WV2--89 pass the bounded scorer; WV2 retains 79 solves, two unchanged proof censors and ten solver timeouts. Rank solves 50/50 below its aggregate ceiling but fails on rank 45 `oddball_19_4_ttf`: the changed Walk-import effort trajectory emits a larger proof whose 319.565-second check exceeds the 304.5289-second allowance. No wrong verdict or checker rejection |
@@ -91,11 +91,12 @@ native campaigns additionally require producer calls and offers. Then evaluate
 the saved target set and regression gates only when benchmark execution is
 authorized. DefaultPolicy keeps all four actions disabled meanwhile.
 
-Validate the repaired seeded-Walk phase handoff: DefaultPolicy keeps Walk's
-objective-arbitrated full saved/target assignment and never implicitly restores
-raw S8 advice; random/future policies may still select S8 explicitly. Then
-repair the separate fixed-effort Walk import allocation that causes the rank-45
-proof-cost regression without silently enlarging the action dose. Retain both
+Finish the seeded-Walk isolation campaign, but gate the intended DefaultPolicy
+with structural seeding disabled: raw candidates neither replace Walk-refined
+targets nor consume search allowance without a reviewed admission rule.
+Random/future policies retain exact seeded Walk and S8 actions. Next split seed
+preparation from search allowance and define admission without silently
+enlarging the action dose; only then reconsider default enablement. Retain both
 proof-shape diagnostics as causal evidence rather than production profiles.
 The earlier `cabp`, Break and Timetable trajectory controls remain open evidence
 obligations if those rows regress again. The n-ary CSP vertical
