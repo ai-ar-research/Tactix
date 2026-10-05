@@ -273,7 +273,9 @@ void assign_parameters(tactix_online_parameters &output) {
 }
 
 void c_v8_deep_copies_and_validates_the_exact_selection() {
-  assert(tactix_rule_count() == 40);
+  // Registry additions are append-only: X17 keeps ID 39 even when later
+  // public rules are registered.
+  assert(tactix_rule_count() >= 40);
   assert(std::strcmp(tactix_rule_name(39), "NaryCspPrefix") == 0);
   const auto reference = reference_inprocess_program();
   const auto reference_step = std::find_if(
