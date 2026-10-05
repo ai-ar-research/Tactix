@@ -423,6 +423,7 @@ int main() {
          defaults.rephase.rotation[5] == DefaultRephaseSlot::Original);
   assert(defaults.rephase.walk_even_break_base_milli == 2000);
   assert(defaults.rephase.walk_score_curve.size() == 6);
+  assert(!defaults.rephase.structural_walk_seed);
   assert(defaults.reorder.parameters.valid());
   if (defaults.branching.focused_phase_switch_span != 2)
     return 1;

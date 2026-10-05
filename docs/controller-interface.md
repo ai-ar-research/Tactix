@@ -189,11 +189,12 @@ publication; new random requests bind the observed exact identity.
 select a publication for private Walk seeding. Zero retains the native path.
 The `walk2(step,random,identity,base,count,curve...)` tuple serializes a seeded
 request; old `walk(...)` syntax retains unseeded semantics. A missing/replaced
-identity declines rather than silently changing source. DefaultPolicy rotates
-all six producer kinds for its ordinary Walk slots without a preceding target
-import. Seeded Walk compares the raw candidate with ordinary phases and leaves
-its winning full assignment in saved/target; DefaultPolicy does not overwrite
-that result with a later raw target import. The random controller chooses
+identity declines rather than silently changing source. DefaultPolicy keeps
+structural Walk seeding disabled by default until it has an admission rule and
+a preparation allowance distinct from Walk search work. Its opt-in diagnostic
+profile rotates all six producer kinds without a preceding target import;
+seeded Walk leaves its winning full assignment in saved/target and never gets
+followed by an implicit raw target import. The random controller chooses
 seeded/unseeded Walk and target installation independently while retaining the
 configured allowance.
 
