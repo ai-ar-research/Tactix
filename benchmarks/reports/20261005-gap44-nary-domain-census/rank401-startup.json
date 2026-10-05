@@ -15,6 +15,12 @@
   "finished_at": "2026-10-05T20:26:08.265196+00:00",
   "input_cnf_sha256": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
   "input_compressed_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+  "input_statistics": {
+    "clauses": 7831,
+    "declared_variables": 1419,
+    "explicit_unit_clauses": 10,
+    "unit_literals": [674, 53, 335, 182, 1274, 380, 17, 329, 35, 530]
+  },
   "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
   "node": "node008",
   "proof": {
