@@ -61,14 +61,18 @@ its checker exhausted allocation rather than rejecting it. Repair-isolation job
 solver / 10,808.933 checker seconds with a 9.052-GB proof. The four standing
 gates all accept. Archived Debug job `1749241` is invalid infrastructure
 evidence: its snapshot omitted checker binaries and tests mutated the hashed
-source tree, causing 11 harness failures; corrected job `1749472` has passed
-288/289 tests with only the long `lucky` test still running and no failures.
+source tree, causing 11 harness failures. Corrected job `1749472` proves the
+long `lucky` test passes, but is also invalid: its frozen build contains seven
+non-executable test files, six zero length, causing `BAD_COMMAND` rather than
+source assertion failures. Repair and rerun the archive/build harness.
 The unrelated interactive allocation `1747502` remains outside this workstream.
 The current forced-TTF repair makes balanced-signature Lucky fix row `b+1`
 and search only signs when live clauses require those rows. Its focused test
 passes. Immutable Release commit `64de46fe9` solves and validates cached
 `112_5_ttf` in 2.570 seconds versus saved LymphoSAT's 1.970 seconds. The
-11-control and full 21-instance oddball campaigns have no failures so far.
+11-control campaign retains 10/11 expected verdicts: `29_4_ttf` reaches its
+1,800-second cap versus 942.814 seconds on saved `d170b4a5`; the full 5,000-second
+oddball campaign remains authoritative for solve retention.
 On the same pin, B28+C5 has solved 33/33 with 32 checks complete; Rank1-50 has
 solved 48/50 with 34 checks complete. Remaining solves and checks are active.
 
