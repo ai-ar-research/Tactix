@@ -22,6 +22,28 @@ def main():
             "7 8 9 0\n-7 -8 0\n-7 -9 0\n-8 -9 0\n"
             "-1 -4 -7 0\n-2 -5 -8 0\n-3 -6 -9 0\n")
 
+        def affine_profile(maximum_clauses=10000, *, rule="AffineConsequence",
+                           version=2, granularity=3, instances=""):
+            if version == 2:
+                parameters = (
+                    f"affine-consequence2({maximum_clauses},100000,1000000,"
+                    "1000,10000,10000000,8,32,32,4,1000000,1000000,"
+                    "10000000,10000000,32,32,10000,10000,3,100000,"
+                    "10000,1000000)")
+            else:
+                parameters = (
+                    f"affine-consequence1({maximum_clauses},100000,1000000,"
+                    "1000,10000,10000000,8,16,16,4,1000000,1000000,"
+                    "10000000,1)")
+            return (
+                "sequence-repeat=once:1 "
+                f"step=1:{rule}:{granularity}:once:1:0:3:post(0):"
+                f"rulework(2,1000000):material(0,0):{parameters}:"
+                f"instances[{instances}]:grids[]:sr[]")
+
+        profile = work / "gf2-affine.profile"
+        profile.write_text(affine_profile())
+
         def run(*options):
             return subprocess.run(
                 [str(binary), *options, str(cnf)], capture_output=True,
@@ -31,6 +53,7 @@ def main():
             [str(binary), "--help"], capture_output=True, text=True, timeout=30)
         assert help_result.returncode == 0
         assert "--controller-native-producers=all|none|LIST" in help_result.stdout
+        assert "--controller-gf2-affine-profile=FILE" in help_result.stdout
         assert "--controller-families=LIST" in help_result.stdout
 
         for value in ("", "unknown", "gf3-affine,", "all,gf3-affine"):
@@ -42,6 +65,50 @@ def main():
         without_policy = run("--controller-native-producers=tseitin-cycle")
         assert without_policy.returncode == 1
         assert "controller settings require it" in without_policy.stderr
+
+        profile_without_policy = run(
+            f"--controller-gf2-affine-profile={profile}")
+        assert profile_without_policy.returncode == 1
+        assert "controller settings require it" in profile_without_policy.stderr
+
+        invalid_profiles = {
+            "wrong-rule": affine_profile(rule="Walk"),
+            "v1": affine_profile(version=1),
+            "payload": affine_profile(granularity=0, instances="1"),
+        }
+        for name, contents in invalid_profiles.items():
+            path = work / f"{name}.profile"
+            path.write_text(contents)
+            result = run(
+                "--controller-policy=7",
+                "--controller-native-producers=gf2-affine",
+                f"--controller-gf2-affine-profile={path}")
+            assert result.returncode == 1
+            assert "invalid GF2 affine producer profile" in result.stderr
+
+        disabled_profile = run(
+            "--controller-policy=7",
+            f"--controller-gf2-affine-profile={profile}")
+        assert disabled_profile.returncode == 1
+        assert "requires the native producer" in disabled_profile.stderr
+
+        excluded_profile = run(
+            "--controller-policy=7",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=Lucky",
+            f"--controller-gf2-affine-profile={profile}")
+        assert excluded_profile.returncode == 1
+        assert "outside the configured action collection" in excluded_profile.stderr
+
+        static_actions = work / "static-affine.actions"
+        static_actions.write_text(affine_profile())
+        static_profile = run(
+            "--controller-policy=7",
+            "--controller-native-producers=gf2-affine",
+            f"--controller-actions={static_actions}",
+            f"--controller-gf2-affine-profile={profile}")
+        assert static_profile.returncode == 1
+        assert "conflicts with a static action offer" in static_profile.stderr
 
         for value in ("", "unknown", "Decide", "Lucky,"):
             result = run("--controller-policy=7",
@@ -111,6 +178,42 @@ def main():
         mismatch = run(f"--controller-replay={trace}")
         assert mismatch.returncode == 1
         assert "configuration differs" in mismatch.stderr
+
+        profile_trace = work / "profile.trace"
+        profiled = run(
+            "--controller-policy=7",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence",
+            f"--controller-gf2-affine-profile={profile}",
+            f"--controller-trace={profile_trace}")
+        assert profiled.returncode == 10, profiled.stderr
+        profiled_configuration = shlex.split(
+            profile_trace.read_text().splitlines()[1])[1]
+        assert 'producer "AffineConsequence"' in profiled_configuration
+        assert 'offered "AffineConsequence"' not in profiled_configuration
+        assert "affine-consequence2(10000," in profiled_configuration
+
+        same_profile_replay = run(
+            f"--controller-replay={profile_trace}",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence",
+            f"--controller-gf2-affine-profile={profile}")
+        assert same_profile_replay.returncode == 10, same_profile_replay.stderr
+        missing_profile_replay = run(
+            f"--controller-replay={profile_trace}",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence")
+        assert missing_profile_replay.returncode == 1
+        assert "configuration differs" in missing_profile_replay.stderr
+        different_profile = work / "gf2-affine-different.profile"
+        different_profile.write_text(affine_profile(maximum_clauses=9999))
+        different_profile_replay = run(
+            f"--controller-replay={profile_trace}",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence",
+            f"--controller-gf2-affine-profile={different_profile}")
+        assert different_profile_replay.returncode == 1
+        assert "configuration differs" in different_profile_replay.stderr
 
         none_trace = work / "none.trace"
         none = run("--controller-policy=7",

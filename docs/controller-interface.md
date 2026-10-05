@@ -97,8 +97,9 @@ selects those families and supplies their typed payloads and fixed allowances;
 choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
 producer. `--controller-native-producers=LIST` independently enables bounded
-native discovery for `gf3-affine`, `direct-csp`, `nary-csp`, `gf3-gaussian`, and
-`tseitin-cycle`; `all` enables all five and `none` disables all five. They are
+native discovery for `gf2-affine`, `gf3-affine`, `direct-csp`, `nary-csp`,
+`gf3-gaussian`, and `tseitin-cycle`; `all` enables all six and `none` disables
+all six. They are
 disabled unless explicitly selected. `--controller-families=LIST` restricts
 eligibility to canonical root-action names without inventing structured
 payloads, so focused native-producer campaigns can isolate one action family;
@@ -108,6 +109,16 @@ fingerprint and must match on replay. Without a configured or natively offered
 witness, each structured family is accounted as unavailable rather than
 sampled as a canonical NoOp. Other unavailable/excluded choices have explicit
 reasons from `controller_action_availability`.
+`--controller-gf2-affine-profile=FILE` supplies the native `gf2-affine`
+producer's complete certified-basis V2 limits and fixed action/native effort
+allowances without creating an offered action. The file uses the same program
+syntax but must contain exactly one canonical, payload-free, once-only
+`AffineConsequence` invocation with inherited material settings and positive
+bounded allowances. The option is rejected unless `gf2-affine` is enabled,
+`AffineConsequence` belongs to the selected family collection, and no static
+affine offer exists. Its typed values enter the existing configuration
+fingerprint, so replay requires the same profile content; defaults and
+DefaultPolicy remain unchanged.
 `--controller-restart-period=N` configures the reluctant period for focused
 lifecycle/coverage validation.
 

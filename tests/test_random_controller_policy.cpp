@@ -41,6 +41,158 @@ static void add_external_clause(Kernel &kernel,
                             id);
 }
 
+static OnlineStrategyProgram affine_producer_profile(
+    const AffineConsequenceParameters &parameters, uint64_t allowance = 3) {
+  OnlineInvocation step;
+  step.id = 91;
+  step.rule = "AffineConsequence";
+  step.parameters = parameters;
+  step.granularity = InvocationGranularity::CanonicalApplication;
+  step.repeat = {RepeatMode::Once, 1};
+  step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 123456};
+  step.work_unit = WorkUnit::Applications;
+  step.budget = WorkLimit::bounded(allowance);
+  return {{step}, {RepeatMode::Once, 1}};
+}
+
+static void native_affine_profile_is_exact_transactional_and_effective() {
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineConsequence"};
+  config.affine_basis_action_producer.enabled = true;
+  OnlineInvocation unrelated_offer;
+  unrelated_offer.id = 90;
+  unrelated_offer.rule = "Lucky";
+  unrelated_offer.granularity = InvocationGranularity::CanonicalApplication;
+  unrelated_offer.budget = WorkLimit::bounded(1);
+  config.offered_actions["Lucky"] = {unrelated_offer};
+  auto parameters = config.parameters.affine_consequence_reference;
+  parameters.maximum_clauses = 4321;
+  parameters.maximum_snapshot_literals = 8765;
+  parameters.basis_maximum_nodes = 321;
+  parameters.maximum_session_work = 6543;
+  const auto profile = affine_producer_profile(parameters, 5);
+  std::string error;
+  const std::string original = controller_configuration(config);
+  assert(config.configure_affine_basis_producer_profile(profile, &error));
+  assert(error.empty() && config.offered_actions.size() == 1 &&
+         config.offered_actions.at("Lucky").size() == 1 &&
+         config.offered_actions.at("Lucky").front().id == 90);
+  const auto &installed = config.parameters.affine_consequence_reference;
+  assert(installed.maximum_clauses == 4321 &&
+         installed.maximum_snapshot_literals == 8765 &&
+         installed.basis_maximum_nodes == 321 &&
+         installed.maximum_session_work == 6543);
+  const auto allowance = config.allowance("AffineConsequence");
+  assert(allowance.unit == WorkUnit::Applications && allowance.amount == 5 &&
+         allowance.native.mode == RuleWorkBudgetMode::Bounded &&
+         allowance.native.amount == 123456);
+  const std::string accepted = controller_configuration(config);
+  assert(accepted != original);
+
+  auto two_steps = profile;
+  two_steps.sequence.push_back(two_steps.sequence.front());
+  two_steps.sequence.back().id = 92;
+  assert(!config.configure_affine_basis_producer_profile(two_steps, &error));
+  assert(controller_configuration(config) == accepted);
+  auto payload = profile;
+  payload.sequence.front().granularity = InvocationGranularity::OneInstance;
+  payload.sequence.front().instances = {1};
+  assert(!config.configure_affine_basis_producer_profile(payload, &error));
+  assert(controller_configuration(config) == accepted);
+  auto v1 = profile;
+  auto &v1_parameters =
+      std::get<AffineConsequenceParameters>(v1.sequence.front().parameters);
+  v1_parameters.semantics = AffineConsequenceSemantics::SelectedConsequenceV1;
+  v1_parameters.maximum_intermediate_width = 16;
+  assert(!config.configure_affine_basis_producer_profile(v1, &error));
+  assert(controller_configuration(config) == accepted);
+  auto unlimited_native = profile;
+  unlimited_native.sequence.front().rule_work_budget = {
+      RuleWorkBudgetMode::Unlimited, 0};
+  assert(!config.configure_affine_basis_producer_profile(unlimited_native,
+                                                         &error));
+  assert(controller_configuration(config) == accepted);
+  auto zero_native = profile;
+  zero_native.sequence.front().rule_work_budget = {
+      RuleWorkBudgetMode::Bounded, 0};
+  assert(!config.configure_affine_basis_producer_profile(zero_native, &error));
+  assert(controller_configuration(config) == accepted);
+  auto unlimited_composition = profile;
+  unlimited_composition.sequence.front().budget = WorkLimit::unlimited();
+  assert(!config.configure_affine_basis_producer_profile(
+      unlimited_composition, &error));
+  assert(controller_configuration(config) == accepted);
+  auto zero_composition = profile;
+  zero_composition.sequence.front().budget = WorkLimit::bounded(0);
+  assert(!config.configure_affine_basis_producer_profile(zero_composition,
+                                                         &error));
+  assert(controller_configuration(config) == accepted);
+
+  RandomControllerConfig disabled;
+  assert(!disabled.configure_affine_basis_producer_profile(profile, &error));
+  RandomControllerConfig excluded;
+  excluded.affine_basis_action_producer.enabled = true;
+  excluded.parameters.rules = {"Lucky"};
+  assert(!excluded.configure_affine_basis_producer_profile(profile, &error));
+  RandomControllerConfig static_offer;
+  static_offer.affine_basis_action_producer.enabled = true;
+  static_offer.parameters.rules = {"AffineConsequence"};
+  static_offer.offered_actions["AffineConsequence"] = profile.sequence;
+  assert(!static_offer.configure_affine_basis_producer_profile(profile, &error));
+
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 4);
+  for (const auto &clause :
+       affine_semantic_extension::clausal_form({1, 2, 3, 4}, false))
+    add_external_clause(kernel, clause);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+  RestartController controller(kernel);
+
+  RandomControllerConfig low;
+  low.parameters.rules = {"AffineConsequence"};
+  low.affine_basis_action_producer.enabled = true;
+  auto low_parameters = low.parameters.affine_consequence_reference;
+  low_parameters.maximum_clauses = 7;
+  assert(low.configure_affine_basis_producer_profile(
+      affine_producer_profile(low_parameters), &error));
+  RandomControllerSelector low_selector(7);
+  ActionRequest low_request;
+  assert(low_selector.choose(kernel, controller.observe(), low, low_request,
+                             error));
+  assert(low_request.type == ActionType::ResumeSearch);
+  assert(std::any_of(low_request.producer_effort.begin(),
+                     low_request.producer_effort.end(), [](const auto &effort) {
+                       return effort.family == "AffineConsequence" &&
+                              effort.status == static_cast<uint8_t>(
+                                  AffineBasisOfferStatus::ResourceExhausted) &&
+                              !effort.offers;
+                     }));
+
+  RandomControllerConfig raised;
+  raised.parameters.rules = {"AffineConsequence"};
+  raised.affine_basis_action_producer.enabled = true;
+  assert(raised.configure_affine_basis_producer_profile(
+      affine_producer_profile(
+          raised.parameters.affine_consequence_reference),
+      &error));
+  RandomControllerSelector raised_selector(7);
+  bool offered = false;
+  for (unsigned attempt = 0; attempt < 32 && !offered; ++attempt) {
+    ActionRequest request;
+    assert(raised_selector.choose(kernel, controller.observe(), raised, request,
+                                  error));
+    offered = request.type == ActionType::Rule &&
+              request.invocation.rule == "AffineConsequence" &&
+              request.invocation.affine_basis_instances.size() == 1;
+  }
+  assert(offered);
+  std::fclose(records);
+}
+
 static void native_affine_basis_offer_is_exact_and_effective() {
   Kernel kernel;
   kernel_reserve_vars(kernel, 4);
@@ -228,6 +380,7 @@ static void finite_lucky_catalog_is_reachable() {
 }
 
 int main() {
+  native_affine_profile_is_exact_transactional_and_effective();
   native_affine_basis_offer_is_exact_and_effective();
   finite_lucky_catalog_is_reachable();
   guidance_requires_an_observed_candidate();

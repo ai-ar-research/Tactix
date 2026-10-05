@@ -107,6 +107,11 @@ struct RandomControllerConfig {
   // not as an ordered mandatory sequence. Replacement is transactional.
   bool configure_actions(const strategy::OnlineStrategyProgram &,
                          std::string *error = nullptr);
+  // Install the typed limits and fixed dose for native GF(2) row discovery.
+  // The profile never becomes a static action: exact rows remain live,
+  // producer-owned payloads and the replacement is transactional.
+  bool configure_affine_basis_producer_profile(
+      const strategy::OnlineStrategyProgram &, std::string *error = nullptr);
 
   strategy::controller::ActionAllowance allowance(const std::string &rule) const {
     const auto found = allowances.find(rule);

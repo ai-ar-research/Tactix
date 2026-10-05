@@ -173,6 +173,7 @@ int main(int argc, char **argv) {
   bool controller_native_producers_set = false;
   bool controller_families_set = false;
   const char *controller_actions_path = nullptr;
+  const char *controller_gf2_affine_profile_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
   const char *structural_provenance_path = nullptr;
@@ -218,6 +219,8 @@ int main(int argc, char **argv) {
       controller_replay_path = a + 20;
     } else if (!strncmp(a, "--controller-actions=", 21)) {
       controller_actions_path = a + 21;
+    } else if (!strncmp(a, "--controller-gf2-affine-profile=", 32)) {
+      controller_gf2_affine_profile_path = a + 32;
     } else if (!strncmp(a, "--controller-families=", 22)) {
       const char *value = a + 22;
       if (!strcmp(value, "all")) {
@@ -387,6 +390,7 @@ int main(int argc, char **argv) {
              "[--controller-trace=FILE | --controller-replay=FILE] "
              "[--controller-actions=FILE | --controller-families=LIST] "
              "[--controller-native-producers=all|none|LIST] "
+             "[--controller-gf2-affine-profile=FILE] "
              "[--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
@@ -457,7 +461,8 @@ int main(int argc, char **argv) {
   if (structural_provenance_path) {
     for (const char *other : {cnf_path, proof_path, controller_trace_path,
            controller_replay_path, trace_path, replay_path, feedback_path,
-           feedback_replay_path, controller_actions_path}) {
+           feedback_replay_path, controller_actions_path,
+           controller_gf2_affine_profile_path}) {
       if (!other) continue;
       std::error_code a, b, c;
       if ((std::filesystem::weakly_canonical(structural_provenance_path, a) ==
@@ -492,7 +497,7 @@ int main(int argc, char **argv) {
       (controller_trace_path && !controller_policy) ||
       ((controller_effort_set || controller_period_set || controller_retention_set ||
         controller_native_producers_set || controller_families_set ||
-        controller_actions_path) &&
+        controller_actions_path || controller_gf2_affine_profile_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
@@ -515,6 +520,21 @@ int main(int argc, char **argv) {
         !controller_config.configure_actions(program, &error)) {
       fprintf(stderr, "tactix: invalid controller action collection '%s': %s\n",
               controller_actions_path, error.c_str());
+      printf("s UNKNOWN\n");
+      return 1;
+    }
+  }
+  if (controller_gf2_affine_profile_path) {
+    std::ifstream input(controller_gf2_affine_profile_path);
+    strategy::OnlineStrategyProgram program;
+    std::string error;
+    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    if (!input ||
+        !strategy::deserialize_online_strategy_program(source, program, &error) ||
+        !controller_config.configure_affine_basis_producer_profile(program,
+                                                                   &error)) {
+      fprintf(stderr, "tactix: invalid GF2 affine producer profile '%s': %s\n",
+              controller_gf2_affine_profile_path, error.c_str());
       printf("s UNKNOWN\n");
       return 1;
     }
