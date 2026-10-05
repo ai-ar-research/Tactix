@@ -1542,6 +1542,23 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.graph_labeling_interrupted,
            (unsigned long long)kernel.stats.graph_labeling_models_rejected,
            (unsigned long long)kernel.stats.graph_labeling_sat);
+    printf("c graphinterv %llu calls, %llu recognized, %llu vertices, "
+           "%llu gates, %llu intervals, %llu groups, %llu selected, "
+           "%llu work (%llu RUP ticks), %llu RUP rejected, "
+           "%llu duplicates, %llu additions, %llu proof literals\n",
+           (unsigned long long)kernel.stats.graph_interval_equivalence_calls,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_recognized,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_vertices,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_gates,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_intervals,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_groups,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_selected,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_work,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_rup_ticks,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_rup_rejected,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_duplicates,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_published,
+           (unsigned long long)kernel.stats.graph_interval_equivalence_proof_literal_occurrences);
     printf("c nolgraph   %llu calls, %llu recognized, %llu vertices, %llu edges, "
            "%llu restarts, %llu steps, %llu work, %llu budget stops, "
            "%llu SAT, %llu interrupted\n",
