@@ -23,18 +23,22 @@ the opt-in native producer name `nary-csp`.
 
 ## Immutable solver and checker placeholders
 
-Codex must replace every placeholder here and in `MANIFEST.template.json`
-after committing the source and building the immutable pin. Claude must refuse
-submission while any placeholder remains.
+Codex owns the solver, checker, and pin-manifest fields here and in
+`MANIFEST.template.json`. Claude owns the harness snapshot, harness hash,
+self-test, job, and result fields that only exist after it prepares the v8
+harness. Claude must refuse a solver-leg submission while any field required
+by that leg remains unresolved.
 
-- Source commit: `__SOURCE_COMMIT__`
-- Solver: `__ABSOLUTE_SOLVER_PATH__`
-- Solver SHA-256: `__SOLVER_SHA256__`
-- Build details: `__SANITIZER_BUILD_DETAILS__`
-- Required runtime sanitizer environment: `__SANITIZER_ENVIRONMENT__`
+- Source commit: `fecd60cf4ceb1dcbc6346b85e0f90352b1068487`
+- Solver: `/home/hwu/SAT-solving/build/pin-public-theory-v8-fecd60cf-sanitize-02/tactix`
+- Solver SHA-256: `f0878952ef3ec8b30ef5fb7b110f11f854cb872c4d14a8f49955f08076281bdd`
+- Pin manifest: `/home/hwu/SAT-solving/build/pin-public-theory-v8-fecd60cf-sanitize-02/PIN.json`
+- Pin manifest SHA-256: `7b157e22b334cc6dab513301286b685374d38bb9580b22c622ae2cadc0e0bf1c`
+- Build details: `GNU 13.1.0; CMake Debug; CMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer; TACTIX_ENABLE_EVENT_TRACE=OFF; TACTIX_ENABLE_RULE_JOURNAL=OFF; TACTIX_ENABLE_PROOF_SHADOW=OFF`
+- Required runtime sanitizer environment: `ASAN_OPTIONS=detect_leaks=0; UBSAN_OPTIONS=print_stacktrace=1`
 - Frozen checker collection:
-  `__ABSOLUTE_CHECKER_COLLECTION_PATH__`
-- Checker collection SHA-256 / content ID: `__CHECKER_COLLECTION_SHA256__`
+  `/home/hwu/SAT-solving/tools/fuzz/failures/checkers/895f1989468d5e01a81fa647f9cb9739448b81507a4b78515e4e46a7441c44f8`
+- Checker collection SHA-256 / content ID: `895f1989468d5e01a81fa647f9cb9739448b81507a4b78515e4e46a7441c44f8`
 
 The expected build is a fresh Debug ASan+UBSan build with frame pointers. State
 the exact compiler, CMake options, sanitizer flags, and any justified runtime
