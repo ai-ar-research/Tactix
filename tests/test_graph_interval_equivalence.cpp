@@ -144,6 +144,65 @@ void conflicting_definition_is_rejected() {
   std::fclose(records);
 }
 
+void stop_accounting() {
+  const RuleVTable &rule =
+      tactix_rules().at(tactix_rule_id("GraphIntervalEquivalence"));
+  {
+    Kernel kernel;
+    fixture(kernel, true);
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    volatile sig_atomic_t stop = 1;
+    kernel.stop = &stop;
+    assert(rule.apply_instance(kernel, 1) == ApplyResult::NoOp);
+    assert(kernel.stats.graph_interval_equivalence_interrupted == 1);
+    assert(kernel.stats.graph_interval_equivalence_resource_exhausted == 0);
+    assert(kernel.stats.rule_interrupted == 1);
+    kernel.stop = nullptr;
+    kernel.structural_provenance = nullptr;
+    std::fclose(records);
+  }
+  {
+    Kernel kernel;
+    fixture(kernel, true);
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    kernel.work_budget_bounded = true;
+    kernel.work_budget = 1;
+    Capture capture;
+    auto observe = [](const Kernel &value, const void *) {
+      return observe_kernel(value);
+    };
+    execution::PolicyCompletion completion(kernel, &capture, observe, nullptr);
+    completion.begin();
+    assert(completion.execute(
+               FeedbackKind::Rule, "GraphIntervalEquivalence", 1,
+               [&] {
+                 return execution::native_rule_feedback(
+                     kernel, "GraphIntervalEquivalence", 1,
+                     "resource-bounded graph interval publication");
+               },
+               [&] { return apply_rule_instance(rule, kernel, 1); }) ==
+           ApplyResult::NoOp);
+    assert(kernel.stats.graph_interval_equivalence_resource_exhausted == 1);
+    assert(kernel.stats.graph_interval_equivalence_interrupted == 0);
+    assert(capture.actions.size() == 1);
+    assert(capture.actions[0].after.cumulative
+                   .graph_interval_equivalence_resource_exhausted -
+               capture.actions[0].before.cumulative
+                   .graph_interval_equivalence_resource_exhausted ==
+           1);
+    assert(capture.actions[0].after.cumulative
+                   .graph_interval_equivalence_interrupted ==
+           capture.actions[0].before.cumulative
+               .graph_interval_equivalence_interrupted);
+    kernel.structural_provenance = nullptr;
+    std::fclose(records);
+  }
+}
+
 void root_fixed_requires_separate_propagate() {
   Kernel kernel;
   fixture(kernel, true);
@@ -296,6 +355,7 @@ int main(int argc, char **argv) {
   positive(proof);
   negative_near_miss();
   conflicting_definition_is_rejected();
+  stop_accounting();
   root_fixed_requires_separate_propagate();
   c_api_surface();
   replay_and_feedback();
