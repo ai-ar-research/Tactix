@@ -288,12 +288,12 @@ their owning documents.
 | X15 | `DirectPhpRefutation` | terminal direct-PHP certificate: add-RAT/add-RUP/delete | winner integration |
 | X16 | `TseitinCycleBreaking` | authenticated XOR-component cycle unit: direct add-SR/RUP helper route | winner integration |
 | X17 | `NaryCspPrefix` | authenticated finite-domain prefix definition and residual exclusions: add-RAT/add-RUP | winner integration |
+| X18 | `GraphIntervalEquivalence` | authenticated duplicate interval equivalence over existing variables: add-RUP | winner integration |
 Support services—classification, reconstruction, internal checking, occurrence indexes—are not schedulable rules. Phase 3 requires every catalog family to be implemented and reached, or to have a reasoned no-implement disposition with evidence and a reopening path.
 
 ### 5.3 Extensibility contract
 
-A new proof rule adds one `src/rules/<name>/` module and one
-`TACTIX_REGISTER_RULE` line. A guidance operation similarly adds one
+A new proof rule adds one `src/rules/<name>/` module and one `TACTIX_REGISTER_RULE` line. A guidance operation similarly adds one
 `src/policies/ops/<name>/` module and one registration line. Registries drive
 discovery, API exposure, random-policy fuzzing, and default scheduling.
 
