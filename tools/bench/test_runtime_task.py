@@ -7,12 +7,37 @@ import time
 import signal
 import sys
 from unittest.mock import patch
-from runtime_task import (atomic_json, checked_verdict_valid, checker_timeout_for,
+from runtime_task import (atomic_json, atomic_retain, checked_verdict_valid,
+                          checker_timeout_for, gf2_telemetry_contract,
                           expected_matches,
                           positive_timeout, provisional_result, solver_command)
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_v2_telemetry_contract_and_atomic_stored_cap(self):
+        contract = {
+            "schema": "tactix-experimental-gf2-telemetry-v2",
+            "directory": "telemetry", "feedback_compression": "gzip",
+            "feedback_wire_version": 2,
+            "feedback_stored_max_bytes": 512 << 20,
+            "feedback_decoded_max_bytes": 8 << 30,
+            "feedback_max_records": 20_000_000,
+            "structural_provenance_max_bytes": 256 << 20,
+        }
+        self.assertEqual(gf2_telemetry_contract({"gf2_telemetry": contract}), contract)
+        changed = dict(contract, unknown=True)
+        with self.assertRaisesRegex(RuntimeError, "contract fields"):
+            gf2_telemetry_contract({"gf2_telemetry": changed})
+        with tempfile.TemporaryDirectory() as directory:
+            source, target = Path(directory) / "source", Path(directory) / "target"
+            source.write_bytes(b"12345")
+            atomic_retain(source, target, 5)
+            self.assertEqual(target.read_bytes(), b"12345")
+            target.unlink()
+            with self.assertRaisesRegex(RuntimeError, "cap exceeded"):
+                atomic_retain(source, target, 4)
+            self.assertFalse(target.exists())
+
     def test_recorded_route_rejection_is_not_hidden_by_deadline_during_return(self):
         from runtime_task import check_unsat_proof, ProofPipelineDeadline
         for reported in (None, 'dsr-trestle'):

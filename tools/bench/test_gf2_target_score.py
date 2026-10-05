@@ -1,14 +1,17 @@
 """Synthetic acceptance and corruption tests for GF(2) campaign telemetry."""
+import gzip
 import json
 import lzma
 from pathlib import Path
 import tempfile
 import unittest
 
-from gf2_target_score import (AFFINE_COUNTERS, SCHEMA, classify,
+from gf2_target_score import (AFFINE_COUNTERS, LEGACY_SCHEMA,
+                              _validate_modern_feedback, classify,
                               expected_checker_hashes, parse_feedback,
                               parse_provenance, raw_yield, score_campaign, sha256,
-                              sidecar_descriptor, validate_result)
+                              sidecar_descriptor, validate_result,
+                              _verify_logical_descriptor)
 from experimental_tierd import solver_arguments
 from runtime_task import solver_command
 
@@ -82,6 +85,39 @@ def outcome_record(before, after):
 def write_jsonl(path, rows):
     path.write_text("".join(json.dumps(row, separators=(",", ":")) + "\n"
                             for row in rows))
+
+
+def delta(left, right):
+    changed = {name: value for name, value in right.items()
+               if name != "native" and left.get(name) != value}
+    native_delta = {name: value for name, value in right["native"].items()
+                    if left["native"].get(name) != value}
+    result = {"set": changed}
+    if native_delta:
+        result["native"] = native_delta
+    return result
+
+
+def gzip_v2(path):
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[0]["version"] = 2
+    current = rows[1]["observation"]
+    for row in rows[2:]:
+        if row["type"] == "action":
+            before, after = row.pop("before"), row.pop("after")
+            row["version"] = 2
+            row["before_delta"] = delta(current, before)
+            row["after_delta"] = delta(before, after)
+            current = after
+        elif row["type"] == "session_end":
+            final = row.pop("observation")
+            row["observation_delta"] = delta(current, final)
+            current = final
+    logical = b"".join(json.dumps(row, separators=(",", ":")).encode() + b"\n"
+                       for row in rows)
+    target = path.with_suffix(".jsonl.gz")
+    target.write_bytes(gzip.compress(logical, mtime=0))
+    return target, logical, rows
 
 
 def synthetic_streams(directory, build_hash="b" * 64, input_hash="1" * 64):
@@ -176,6 +212,44 @@ def synthetic_streams(directory, build_hash="b" * 64, input_hash="1" * 64):
 
 
 class Gf2TargetScoreTests(unittest.TestCase):
+    def test_v2_gzip_stream_bounds_and_delta_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            feedback, _, _ = synthetic_streams(Path(directory))
+            compressed, logical, rows = gzip_v2(feedback)
+            parsed = parse_feedback(compressed, compressed.stat().st_size,
+                                    len(logical), len(rows))
+            self.assertTrue(parsed["complete"])
+            self.assertEqual(parsed["wire_version"], 2)
+            self.assertEqual(parsed["compression"], "gzip")
+            self.assertEqual(parsed["bytes"], len(logical))
+            descriptor = sidecar_descriptor(compressed, Path(directory), parsed)
+            _verify_logical_descriptor(descriptor, parsed)
+            descriptor["records"] += 1
+            with self.assertRaisesRegex(ValueError, "logical descriptor"):
+                _verify_logical_descriptor(descriptor, parsed)
+            for stored, decoded, records, message in (
+                    (compressed.stat().st_size - 1, len(logical), len(rows), "stored"),
+                    (compressed.stat().st_size, len(logical) - 1, len(rows), "decoded"),
+                    (compressed.stat().st_size, len(logical), len(rows) - 1, "record")):
+                with self.assertRaisesRegex(ValueError, message):
+                    parse_feedback(compressed, stored, decoded, records)
+            truncated = Path(directory) / "truncated.gz"
+            truncated.write_bytes(compressed.read_bytes()[:-4])
+            with self.assertRaisesRegex(ValueError, "gzip"):
+                parse_feedback(truncated, 1 << 20, 1 << 20, 100)
+            rows[2]["after_delta"]["set"]["unknown"] = 1
+            tampered = Path(directory) / "tampered.gz"
+            raw = b"".join(json.dumps(row, separators=(",", ":")).encode() + b"\n"
+                           for row in rows)
+            tampered.write_bytes(gzip.compress(raw, mtime=0))
+            with self.assertRaisesRegex(ValueError, "unknown observation delta"):
+                parse_feedback(tampered, 1 << 20, 1 << 20, 100)
+            plain = Path(directory) / "plain-v2.jsonl"
+            plain.write_bytes(logical)
+            plain_summary = parse_feedback(plain, 1 << 20, 1 << 20, 100)
+            with self.assertRaisesRegex(ValueError, "compression"):
+                _validate_modern_feedback(plain_summary)
+
     def test_opt_in_reserves_paths_while_default_command_is_unchanged(self):
         arm = {"arguments": ["--dsr", "--controller-policy=1"]}
         self.assertEqual(solver_command("solver", arm, "in", "proof"),
@@ -285,7 +359,7 @@ class Gf2TargetScoreTests(unittest.TestCase):
                 "dataset_authority": {"path": str(authority),
                                       "sha256": sha256(authority)},
                 "selection_authority": None,
-                "gf2_telemetry": {"schema": SCHEMA, "directory": "telemetry",
+                "gf2_telemetry": {"schema": LEGACY_SCHEMA, "directory": "telemetry",
                                   "feedback_max_bytes": 1 << 20,
                                   "structural_provenance_max_bytes": 1 << 20},
                 "pin_sha256": {
@@ -302,7 +376,7 @@ class Gf2TargetScoreTests(unittest.TestCase):
                 json.dumps({"manifest_sha256": manifest_hash}) + "\n")
             arm = manifest["arms"]["tactix"]
             telemetry = {
-                "schema": SCHEMA,
+                "schema": LEGACY_SCHEMA,
                 "bindings": {"manifest_sha256": manifest_hash,
                              "compressed_input_sha256": sha256(compressed),
                              "decompressed_input_sha256": input_hash,

@@ -9,7 +9,7 @@ import unittest
 
 from gf2_target_audit import audit_result
 from gf2_target_score import (
-    SCHEMA,
+    LEGACY_SCHEMA,
     expected_checker_hashes,
     parse_feedback,
     parse_provenance,
@@ -67,7 +67,7 @@ def make_campaign(root):
                               "sha256": sha256(authority)},
         "selection_authority": None,
         "gf2_telemetry": {
-            "schema": SCHEMA, "directory": "telemetry",
+            "schema": LEGACY_SCHEMA, "directory": "telemetry",
             "feedback_max_bytes": 1 << 20,
             "structural_provenance_max_bytes": 1 << 20,
         },
@@ -95,7 +95,7 @@ def make_campaign(root):
         "model_check": None,
         "solver_statistics": statistics,
         "gf2_telemetry": {
-            "schema": SCHEMA,
+            "schema": LEGACY_SCHEMA,
             "bindings": {
                 "manifest_sha256": manifest_hash,
                 "compressed_input_sha256": sha256(compressed),
