@@ -117,8 +117,9 @@ NaryCspPrefixLiveResult nary_csp_prefix_live_preflight(
     Kernel &, const NaryCspPrefixLiveRequest &);
 
 // Atomically introduce the exact-AND helper and publish the selected residual
-// exclusions at an assignment-free propagated root.  DSR, DRAT and no-proof
-// modes are supported; LRAT/PBP decline before mutation.
+// exclusions at a propagated root containing only level-zero assignments.
+// Selected domain variables remain unassigned. DSR, DRAT and no-proof modes
+// are supported; LRAT/PBP decline before mutation.
 NaryCspPrefixLiveResult nary_csp_prefix_live_apply(
     Kernel &, const NaryCspPrefixLiveRequest &);
 

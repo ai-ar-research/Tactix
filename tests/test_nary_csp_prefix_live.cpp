@@ -2,18 +2,25 @@
 #include "rules/semantic_extension/nary_csp_prefix_live.hpp"
 
 #include "frontend/parse.hpp"
+#include "policies/default_policy.hpp"
+#include "policies/random_controller_policy.hpp"
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <csignal>
 #include <cstdio>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 using namespace tactix;
+using namespace tactix::strategy;
+using namespace tactix::strategy::controller;
 
 namespace {
 
@@ -358,9 +365,113 @@ void proof_modes_emit() {
   }
 }
 
+std::string root_fixed_unsat_dimacs() {
+  std::vector<std::vector<int32_t>> formula;
+  for (const std::vector<int32_t> &domain :
+       {std::vector<int32_t>{1, 2}, {3, 4}, {5, 6}}) {
+    formula.push_back(domain);
+    formula.push_back({-domain[0], -domain[1]});
+  }
+  for (uint32_t first = 0; first < 2; ++first)
+    for (uint32_t second = 0; second < 2; ++second)
+      for (uint32_t third = 0; third < 2; ++third)
+        formula.push_back({-int32_t(first + 1),
+                           -int32_t(second + 3),
+                           -int32_t(third + 5)});
+  formula.push_back({7});
+  std::ostringstream output;
+  output << "p cnf 7 " << formula.size() << '\n';
+  for (const auto &clause : formula) {
+    for (int32_t literal : clause) output << literal << ' ';
+    output << "0\n";
+  }
+  return output.str();
+}
+
+void emit_root_fixed_unsat_proof(const std::string &prefix) {
+  const std::string cnf = root_fixed_unsat_dimacs();
+  {
+    std::ofstream output(prefix + ".cnf");
+    assert(output && (output << cnf));
+  }
+  Kernel kernel;
+  Proof proof;
+  assert(proof.open((prefix + ".dsr").c_str(), ProofFormat::DsrAscii));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &proof;
+  FILE *input = std::tmpfile();
+  assert(input);
+  assert(std::fwrite(cnf.data(), 1, cnf.size(), input) == cnf.size());
+  std::rewind(input);
+  assert(parse_dimacs(input, kernel) == nullptr);
+  std::fclose(input);
+  assert(kernel_propagation_fixpoint(kernel) && kernel.trail.size() == 1 &&
+         kernel.value(kernel_internalize(kernel, 7)) > 0);
+
+  FILE *records = std::fopen((prefix + ".records.jsonl").c_str(), "w+");
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession session;
+  kernel.nary_csp_prefix_action_session = &session;
+  OnlineInvocation invocation;
+  invocation.id = 28;
+  invocation.rule = "NaryCspPrefix";
+  invocation.parameters = NaryCspPrefixParameters{
+      100, 1000, 100000, 8, 16, 100, 7, 16,
+      1000, 32, 200, 100000, 1, 100, 32, 100000};
+  invocation.granularity = InvocationGranularity::OneInstance;
+  invocation.nary_csp_prefix_instances = {
+      {{{1, 2}, {3, 4}, {5, 6}}, {2, {{0, 0}, {1, 0}}}}};
+  invocation.repeat = {RepeatMode::Once, 1};
+  invocation.post_application = PostApplication::Propagate;
+  invocation.budget = WorkLimit::bounded(1);
+  RestartController controller(kernel);
+  ActionRequest action;
+  action.invocation = invocation;
+  action.sequence = controller.observe().sequence + 1;
+  action.expected = state_version(kernel);
+  const auto applied = controller.apply_rule(action, ActionAllowance{});
+  assert(applied.invocation.status == InvocationStatus::Completed &&
+         applied.invocation.rule_result == ApplyResult::Ok &&
+         applied.invocation.made_rule_progress &&
+         kernel.stats.nary_csp_prefix_emitted_additions == 6 &&
+         kernel_propagation_fixpoint(kernel) &&
+         kernel.value(kernel_internalize(kernel, -8)) > 0);
+  const auto observation = controller.observe();
+  const auto candidate = std::find_if(
+      observation.semantic_variable_candidates.begin(),
+      observation.semantic_variable_candidates.end(), [](const auto &value) {
+        return value.producer == SemanticVariableProducer::NaryCsp;
+      });
+  assert(candidate != observation.semantic_variable_candidates.end() &&
+         candidate->action_id == 1 && candidate->existing_variables == 4 &&
+         candidate->introduced_variables == 0);
+  const auto *published = semantic_variable_candidate(kernel, candidate->id);
+  assert(published && published->variables.size() == 4 &&
+         std::none_of(published->variables.begin(), published->variables.end(),
+                      [](const auto &variable) {
+                        return variable.external == 8;
+                      }));
+  assert(default_solve(kernel) == 20);
+  proof.flush();
+  assert(std::string(proof.verification_route()) == "dsr-trestle" &&
+         !proof.unbacked_deletions());
+  kernel.proof = nullptr;
+  kernel.structural_provenance = nullptr;
+  kernel.nary_csp_prefix_action_session = nullptr;
+  std::fclose(records);
+}
+
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc == 2) {
+    emit_root_fixed_unsat_proof(argv[1]);
+    std::puts("test_nary_csp_prefix_live: root-fixed DSR emitted");
+    return 0;
+  }
+  assert(argc == 1);
   capture_preflight_and_publish();
   complete_row_publishes_unit_and_pending_propagation();
   clean_declines_and_stale_owner();

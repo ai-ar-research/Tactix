@@ -581,7 +581,11 @@ RuleEligibility nary_csp_prefix_action_guard(const Kernel &kernel) {
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
+      .fact("root-assignments-only",
+            std::all_of(kernel.trail.begin(), kernel.trail.end(),
+                        [&](Lit literal) {
+                          return kernel.assigned[var_of(literal)].level == 0;
+                        }))
       .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
       .fact("propagated", kernel_propagation_fixpoint(kernel))
       .fact("sparse", !kernel.dense && kernel.large_watches_connected)

@@ -307,7 +307,11 @@ small-model tests show that old models extend uniquely with
 `p = AND(prefix)` and that dropping `p` projects every extended model to the
 original formula; independent unit propagation replays every RUP step.
 
-The live adapter captures those exact domains and tuples from the current
+The live adapter runs at a propagated root containing only level-zero
+assignments and requires every selected domain variable to remain unassigned.
+It ignores whole clauses containing a root-fixed literal rather than
+residualizing them, so every captured domain/tuple clause and native proof ID
+remains literal exact. It captures those exact domains and tuples from the current
 formula, preflights proof/namespace/arena/journal capacity, immediately
 recaptures the source, and atomically publishes DSR/DRAT plus complete JSONL
 provenance. A Kernel-bound action session retains exact owners and durable

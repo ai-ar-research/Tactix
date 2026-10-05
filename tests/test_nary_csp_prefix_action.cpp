@@ -2,6 +2,7 @@
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 
 #include "frontend/parse.hpp"
+#include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -16,12 +17,16 @@ using namespace tactix;
 
 namespace {
 
-std::string dimacs() {
-  const std::vector<std::vector<int32_t>> formula{
+std::vector<std::vector<int32_t>> base_formula() {
+  return {
       {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
       {4, 5, 6}, {-4, -5}, {-4, -6}, {-5, -6},
       {7, 8, 9}, {-7, -8}, {-7, -9}, {-8, -9},
       {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}};
+}
+
+std::string dimacs() {
+  const auto formula = base_formula();
   std::ostringstream output;
   output << "p cnf 9 " << formula.size() << '\n';
   for (const auto &clause : formula) {
@@ -203,6 +208,118 @@ void repeated_apply_retains_one_owner_and_durable_keys() {
   assert(kernel.structural_action_sequence == 2 &&
          session.committed_keys() == 2 && session.retained_owners() == 1);
   std::fclose(records);
+}
+
+void propagated_root_preserves_exact_source_contract() {
+  {
+    auto formula = base_formula();
+    formula.push_back({10});
+    Kernel kernel = parse_formula(formula);
+    assert(kernel_propagation_fixpoint(kernel) && kernel.trail.size() == 1 &&
+           kernel.value(kernel_internalize(kernel, 10)) > 0);
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    NaryCspPrefixActionSession session;
+
+    assert(nary_csp_prefix_action_guard(kernel));
+    const Image before = image(kernel);
+    const auto offered = nary_csp_prefix_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(offered.status == NaryCspPrefixActionOfferStatus::Ready &&
+           offered.complete && offered.offers == expected_offers() &&
+           image(kernel) == before && !session.retained());
+
+    const auto first = nary_csp_prefix_action_apply(
+        kernel, session, limits(), selection(0));
+    assert(first.status == NaryCspPrefixActionStatus::Applied &&
+           first.projection.extension_variable == 11 &&
+           kernel.trail.size() == 1 &&
+           kernel.value(kernel_internalize(kernel, 10)) > 0 &&
+           kernel_propagation_fixpoint(kernel) &&
+           session.committed_keys() == 1 && session.retained_owners() == 1);
+    kernel_check_invariants(kernel);
+
+    // An unrelated root assignment preserves the retained exact owner.
+    const auto second = nary_csp_prefix_action_apply(
+        kernel, session, limits(), selection(1));
+    assert(second.status == NaryCspPrefixActionStatus::Applied &&
+           second.projection.extension_variable == 12 &&
+           session.committed_keys() == 2 && session.retained_owners() == 1);
+
+    // Once a source-domain variable becomes root fixed, exact recapture can no
+    // longer retain that owner and must report it stale.
+    kernel_assign_unit(kernel, kernel_internalize(kernel, 1));
+    assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
+    const Image fixed = image(kernel);
+    const long journal = position(records);
+    const auto stale = nary_csp_prefix_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(stale.status == NaryCspPrefixActionOfferStatus::Stale &&
+           stale.offers.empty() && image(kernel) == fixed &&
+           position(records) == journal && session.committed_keys() == 2 &&
+           session.retained_owners() == 1);
+    std::fclose(records);
+  }
+
+  {
+    // A domain touched by root propagation is not eligible for discovery, and
+    // an explicit payload over it declines without committing any state.
+    auto formula = base_formula();
+    formula.push_back({1});
+    Kernel kernel = parse_formula(formula);
+    assert(kernel_propagation_fixpoint(kernel) && !kernel.trail.empty());
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    NaryCspPrefixActionSession session;
+    const Image before = image(kernel);
+    const long journal = position(records);
+    const auto offered = nary_csp_prefix_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(offered.status == NaryCspPrefixActionOfferStatus::NoStructure &&
+           offered.offers.empty() && image(kernel) == before &&
+           position(records) == journal);
+    const auto applied = nary_csp_prefix_action_apply(
+        kernel, session, limits(), selection());
+    assert(applied.status == NaryCspPrefixActionStatus::NoStructure &&
+           applied.result == ApplyResult::NoOp && image(kernel) == before &&
+           position(records) == journal && !session.retained() &&
+           !kernel.structural_action_sequence);
+    std::fclose(records);
+  }
+
+  {
+    // The unit makes the extra literal false, but X17 must not shorten the
+    // four-literal clause into a tuple source.
+    auto formula = base_formula();
+    const std::vector<int32_t> exact{-1, -4, -7};
+    const auto found = std::find(formula.begin(), formula.end(), exact);
+    assert(found != formula.end());
+    formula.erase(found);
+    formula.push_back({-1, -4, -7, -10});
+    formula.push_back({10});
+    Kernel kernel = parse_formula(formula);
+    assert(kernel_propagation_fixpoint(kernel) && !kernel.trail.empty());
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    NaryCspPrefixActionSession session;
+    const auto offered = nary_csp_prefix_action_offer(
+        kernel, session, limits(), offer_window());
+    assert(offered.status == NaryCspPrefixActionOfferStatus::Ready &&
+           offered.complete && offered.offers.size() == 6 &&
+           std::find(offered.offers.begin(), offered.offers.end(),
+                     selection(0)) == offered.offers.end());
+    const Image before = image(kernel);
+    const long journal = position(records);
+    const auto residual = nary_csp_prefix_action_apply(
+        kernel, session, limits(), selection(0));
+    assert(residual.status == NaryCspPrefixActionStatus::NoConsequence &&
+           residual.result == ApplyResult::NoOp && image(kernel) == before &&
+           position(records) == journal && !session.retained());
+    std::fclose(records);
+  }
 }
 
 void guard_validation_resource_and_staleness() {
@@ -771,6 +888,7 @@ void offerer_declines_guards_bounds_and_interrupt_atomically() {
 
 int main() {
   repeated_apply_retains_one_owner_and_durable_keys();
+  propagated_root_preserves_exact_source_contract();
   guard_validation_resource_and_staleness();
   bounded_offerer_is_complete_paged_pure_and_stale_safe();
   signed_domains_are_discovered_canonically();
