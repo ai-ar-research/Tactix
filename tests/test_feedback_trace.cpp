@@ -54,7 +54,12 @@ static void synthetic(FeedbackTrace &trace, bool changed = false) {
   before.local_search_candidates = {candidate};
   before.local_search_last_target_decision_candidate = candidate.id;
   before.local_search_last_target_decision_matched = true;
+  before.native_policy_state = "native-clock";
   after = before;
+  after.cumulative.sweep_limit_depth = 4;
+  after.cumulative.rule_calls[3] = 9;
+  after.cumulative.used_glue[1][7] = 11;
+  after.native_policy_state.clear();
   // These timestamps change deliberately and must not affect replay.
   after.cumulative.rule_nanos[0] = changed ? 99 : 17;
   after.cumulative.solve_nanos = changed ? 231 : 51;
@@ -81,6 +86,82 @@ static void synthetic(FeedbackTrace &trace, bool changed = false) {
   trace.session_end(after, 0, StopReason::Interrupted);
 }
 
+static void repeated_services(FeedbackReceiver &receiver, uint64_t count) {
+  Observation current;
+  receiver.session_begin(current);
+  for (uint64_t sequence = 1; sequence <= count; ++sequence) {
+    ActionFeedback action;
+    action.sequence = sequence;
+    action.kind = FeedbackKind::SearchService;
+    action.identity = "Decide";
+    action.before = current;
+    action.after = current;
+    action.after.cumulative.decisions = sequence;
+    action.outcome.invocation.applications = 1;
+    action.outcome.invocation.work = 1;
+    action.outcome.invocation.before = action.before.state;
+    action.outcome.invocation.after = action.after.state;
+    receiver.after_action(action);
+    current = action.after;
+  }
+  receiver.session_end(current, 10, StopReason::Sat);
+}
+
+static void write_legacy_services(const char *path, uint64_t count) {
+  std::ofstream out(path);
+  Observation current;
+  out << "{\"type\":\"header\",\"version\":1,\"metadata\":\"legacy\"}\n";
+  out << "{\"type\":\"session_begin\",\"observation\":"
+      << serialize_observation(current) << "}\n";
+  for (uint64_t sequence = 1; sequence <= count; ++sequence) {
+    ActionFeedback action;
+    action.version = 1;
+    action.sequence = sequence;
+    action.kind = FeedbackKind::SearchService;
+    action.identity = "Decide";
+    action.before = current;
+    action.after = current;
+    action.after.cumulative.decisions = sequence;
+    action.outcome.invocation.applications = 1;
+    action.outcome.invocation.work = 1;
+    action.outcome.invocation.before = action.before.state;
+    action.outcome.invocation.after = action.after.state;
+    out << serialize_feedback(action) << '\n';
+    out << "{\"type\":\"elapsed_nanos\",\"value\":0}\n";
+    current = action.after;
+  }
+  out << "{\"type\":\"session_end\",\"verdict\":10,\"stop\":7,"
+         "\"observation\":" << serialize_observation(current) << "}\n";
+  assert(out.good());
+}
+
+static void test_versions_and_compression(const char *path) {
+  const std::string legacy = std::string(path) + ".v1";
+  write_legacy_services(legacy.c_str(), 3);
+  {
+    FeedbackTrace replay;
+    assert(replay.replay(legacy.c_str(), "legacy"));
+    repeated_services(replay, 3);
+    assert(replay.terminal() && replay.error().empty());
+  }
+  const std::string compressed = std::string(path) + ".jsonl.gz";
+  {
+    FeedbackTrace writer;
+    assert(writer.write(compressed.c_str(), "compressed"));
+    repeated_services(writer, 10000);
+    assert(writer.terminal() && writer.error().empty());
+  }
+  assert(std::filesystem::file_size(compressed) < 500000);
+  {
+    FeedbackTrace replay;
+    assert(replay.replay(compressed.c_str(), "compressed"));
+    repeated_services(replay, 10000);
+    assert(replay.terminal() && replay.error().empty());
+  }
+  unlink(legacy.c_str());
+  unlink(compressed.c_str());
+}
+
 static void test_codec(const char *path) {
   const std::string tag = "metadata\"\\\n\t";
   {
@@ -95,6 +176,10 @@ static void test_codec(const char *path) {
          std::string::npos);
   assert(original.find("\"rule_calls\":[7,") != std::string::npos);
   assert(original.find("\"used_glue\":[[") != std::string::npos);
+  assert(original.find("\"native_arrays\":{\"rule_calls\":[[3,9]],"
+                       "\"used_glue\":[[135,11]]}") != std::string::npos);
+  assert(original.find("\"clear\":[\"native_policy_state\"]") !=
+         std::string::npos);
   assert(original.find("\"producer_effort\":[{\"family\":"
                        "\"Gf3AffineConsequence\"") != std::string::npos);
   assert(original.find("\"known_phases\":1") != std::string::npos);
@@ -250,6 +335,13 @@ static void test_retained_interval_replay(const char *path) {
 }
 
 int main(int argc, char **argv) {
+  if (argc == 3 && std::string(argv[2]) == "stress") {
+    FeedbackTrace writer;
+    assert(writer.write(argv[1], "stress"));
+    repeated_services(writer, 100000);
+    assert(writer.error().empty() && writer.terminal());
+    return 0;
+  }
   if (argc >= 2) {
     FeedbackTrace writer;
     RandomControllerConfig config;
@@ -279,6 +371,7 @@ int main(int argc, char **argv) {
   assert(fd >= 0);
   close(fd);
   test_codec(path);
+  test_versions_and_compression(path);
   test_actual_execution(path);
   test_retained_interval_replay(path);
   unlink(path);

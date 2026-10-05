@@ -560,14 +560,24 @@ Native action and interval durations exclude added observation and receiver
 work. A disabled receiver performs no feedback snapshots, timer reads or
 record allocation.
 
-`FeedbackTrace` records a separate JSON-lines feedback-v1 stream and replays
-every deterministic event. The header metadata must identify the immutable
-build, original input, policy/seed and full configuration. Snapshots retain raw
-Stats; deterministic serialization includes scalar counters, rule-call counts
-and glue-use arrays, while excluding native wall timers. Separate elapsed rows
-are validated but not compared during replay. Truncation, changed provenance,
-divergence and trailing events remain out-of-band receiver errors and cannot
-change solver execution. Use one receiver/transcript per solve invocation.
+`FeedbackTrace` records a separate versioned JSON-lines stream and replays every
+deterministic event. Version 2 writes one complete session-start observation,
+then exact absolute replacement patches relative to the preceding serialized
+observation. Scalar Stats fields are sparse, array Stats fields use ordered
+flat-index replacements, and optional vectors/state have explicit replacement
+and clear operations. An interval's saved before-observation may therefore move
+backward from intervening action observations without using arithmetic deltas.
+Every action, interval and after-atomic-service callback remains a distinct
+record; v2 performs no sampling, omission or aggregation. A `.gz` destination
+enables streaming gzip output and replay, and the inspector detects gzip by its
+header. C++ replay and the inspector continue to accept complete v1 streams.
+The header metadata must identify the immutable build, original input,
+policy/seed and full configuration. Snapshots retain raw Stats while excluding
+native wall timers. Separate elapsed rows are validated but not compared during
+replay. Unknown patch fields, malformed array indices, truncation, changed
+provenance, divergence and trailing events fail closed as out-of-band receiver
+errors and cannot change solver execution. Use one receiver/transcript per
+solve invocation.
 `tools/bench/inspect_policy_feedback.py` validates completed records and reports
 per-action native work, progress, statuses and durations without computing a
 reward. This stream does not replace the existing controller transcript.

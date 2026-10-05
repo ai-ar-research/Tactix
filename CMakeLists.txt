@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(tactix VERSION 0.1.0 LANGUAGES CXX C)
 
+find_package(ZLIB REQUIRED)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -85,7 +87,7 @@ if(TACTIX_ENABLE_PROOF_SHADOW)
   target_link_options(tactix_lib PUBLIC -rdynamic)
 endif()
 target_include_directories(tactix_lib PUBLIC src include)
-target_link_libraries(tactix_lib PUBLIC tactix_symmetry_backend)
+target_link_libraries(tactix_lib PUBLIC tactix_symmetry_backend ZLIB::ZLIB)
 
 add_executable(tactix src/main.cpp)
 target_link_libraries(tactix PRIVATE tactix_lib)

@@ -10,7 +10,7 @@
 
 namespace tactix::strategy::controller {
 
-inline constexpr uint32_t FEEDBACK_VERSION = 1;
+inline constexpr uint32_t FEEDBACK_VERSION = 2;
 
 enum class FeedbackKind : uint8_t { Rule, ResumeSearch, SearchService, Support };
 enum class StopReason : uint8_t {

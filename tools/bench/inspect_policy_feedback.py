@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Validate and summarize policy-feedback v1 JSONL without calculating a reward."""
+"""Validate and summarize policy-feedback JSONL without calculating a reward."""
 import argparse
 from collections import Counter, defaultdict
+import gzip
 import json
 import math
 import pathlib
@@ -97,7 +98,7 @@ def producer_effort(value):
                 "invalid Tseitin producer completeness")
 
 
-def observation(value):
+def observation(value, validate_native=True):
     keys(value, "version state sequence variables unassigned active_unassigned level trail "
          "root_population irredundant_clauses inconsistent conflict fixpoint searching "
          "have_configuration configuration rotation_intervals next_restart_conflicts "
@@ -186,9 +187,10 @@ def observation(value):
     require(type(value["native"]) is dict and
             {"decisions", "conflicts", "root_assignments"} <= value["native"].keys(),
             "missing native measurements")
-    for key, item in value["native"].items():
-        require(not key.endswith("_nanos"), "native timing in deterministic snapshot")
-        native(item)
+    if validate_native:
+        for key, item in value["native"].items():
+            require(not key.endswith("_nanos"), "native timing in deterministic snapshot")
+            native(item)
 
 
 def object_pairs(pairs):
@@ -203,6 +205,94 @@ def reject_constant(value):
     raise ValueError(f"non-finite JSON constant {value}")
 
 
+def open_records(path):
+    path = pathlib.Path(path)
+    with path.open("rb") as source:
+        compressed = source.read(2) == b"\x1f\x8b"
+    return gzip.open(path, "rt") if compressed else path.open()
+
+
+def observation_delta(base, delta):
+    keys(delta, "set", "observation delta", optional="native native_arrays clear")
+    require(type(delta["set"]) is dict, "invalid observation delta replacements")
+    allowed = {
+        "version", "state", "sequence", "variables", "unassigned",
+        "active_unassigned", "level", "trail", "root_population",
+        "irredundant_clauses", "inconsistent", "conflict", "fixpoint",
+        "searching", "have_configuration", "configuration",
+        "rotation_intervals", "next_restart_conflicts", "reluctant",
+        "fast_glue", "slow_glue", "last_action", "native_policy_state",
+        "local_search_candidates", "semantic_variable_candidates",
+        "local_search_last_target_decision_candidate",
+        "local_search_last_target_decision_matched",
+    }
+    require(set(delta["set"]) <= allowed, "unknown observation delta replacement")
+    result = dict(base)
+    result["native"] = dict(base["native"])
+    result.update(delta["set"])
+    if "native" in delta:
+        require(type(delta["native"]) is dict and delta["native"],
+                "invalid native observation delta")
+        require(set(delta["native"]) <= set(result["native"]),
+                "unknown native observation delta field")
+        for name, value in delta["native"].items():
+            require(not name.endswith("_nanos"),
+                    "native timing in deterministic snapshot")
+            native(value)
+        result["native"].update(delta["native"])
+    if "native_arrays" in delta:
+        arrays = delta["native_arrays"]
+        require(type(arrays) is dict and arrays, "invalid native array delta")
+        require(set(arrays) <= set(result["native"]),
+                "unknown native array delta field")
+        require(not (set(arrays) & set(delta.get("native", {}))),
+                "native field has scalar and array delta")
+        for name, replacements in arrays.items():
+            original = result["native"][name]
+            require(type(original) is list and type(replacements) is list and replacements,
+                    "invalid native array replacements")
+            shape = []
+            flat = []
+            def flatten(value, depth=0):
+                if type(value) is list:
+                    if len(shape) == depth:
+                        shape.append(len(value))
+                    require(shape[depth] == len(value), "ragged native array")
+                    for item in value:
+                        flatten(item, depth + 1)
+                else:
+                    integer(value, "native array value")
+                    flat.append(value)
+            flatten(original)
+            previous = -1
+            for replacement in replacements:
+                require(type(replacement) is list and len(replacement) == 2,
+                        "invalid native array replacement")
+                index = integer(replacement[0], "native array index")
+                require(previous < index < len(flat), "invalid native array index order")
+                flat[index] = integer(replacement[1], "native array replacement value")
+                previous = index
+            cursor = 0
+            def restore(depth=0):
+                nonlocal cursor
+                if depth == len(shape):
+                    value = flat[cursor]
+                    cursor += 1
+                    return value
+                return [restore(depth + 1) for _ in range(shape[depth])]
+            result["native"][name] = restore()
+    clears = delta.get("clear", [])
+    require(type(clears) is list and len(clears) == len(set(clears)) and
+            set(clears) <= {"native_policy_state", "semantic_variable_candidates"},
+            "invalid observation delta clear list")
+    require(not (set(clears) & set(delta["set"])),
+            "observation delta replaces and clears field")
+    for name in clears:
+        result.pop(name, None)
+    observation(result, validate_native=False)
+    return result
+
+
 def inspect(path):
     actions = defaultdict(lambda: {"records": 0, "applications": 0, "progress": 0,
                                   "work_by_native_unit": Counter(), "stop": Counter(),
@@ -215,7 +305,9 @@ def inspect(path):
     header = terminal = None
     interval_nanos = 0
     lines = 0
-    with pathlib.Path(path).open() as source:
+    stream_version = None
+    current_observation = None
+    with open_records(path) as source:
         for lines, line in enumerate(source, 1):
             try:
                 row = json.loads(line, object_pairs_hook=object_pairs,
@@ -235,8 +327,9 @@ def inspect(path):
                     continue
                 if header is None:
                     keys(row, "type version metadata", "header")
-                    require(kind == "header" and integer(row["version"], "header version") == 1,
-                            "unsupported header")
+                    require(kind == "header", "unsupported header")
+                    stream_version = integer(row["version"], "header version")
+                    require(stream_version in (1, 2), "unsupported header")
                     require(type(row["metadata"]) is str, "invalid provenance metadata")
                     header = row
                     continue
@@ -244,25 +337,42 @@ def inspect(path):
                     keys(row, "type observation", "session begin")
                     require(kind == "session_begin", "missing session begin")
                     observation(row["observation"])
+                    current_observation = row["observation"]
                     begun = True
                     continue
                 if kind == "session_end":
-                    keys(row, "type verdict stop observation", "session end")
+                    expected = ("type verdict stop observation" if stream_version == 1 else
+                                "type verdict stop observation_delta")
+                    keys(row, expected, "session end")
                     require(type(row["verdict"]) is int and row["verdict"] in (-1, 0, 10, 20),
                             "invalid verdict")
                     integer(row["stop"], "stop reason", len(STOP_NAMES) - 1)
-                    observation(row["observation"])
+                    if stream_version == 1:
+                        observation(row["observation"])
+                        current_observation = row["observation"]
+                    else:
+                        current_observation = observation_delta(
+                            current_observation, row["observation_delta"])
                     terminal = {"verdict": row["verdict"], "stop": STOP_NAMES[row["stop"]]}
                     ended = True
                     continue
                 require(kind in ("action", "interval"), "unexpected record type")
-                require(integer(row.get("version"), "record version") == 1,
+                require(integer(row.get("version"), "record version") == stream_version,
                         "unsupported record version")
-                observation(row["before"])
-                observation(row["after"])
+                if stream_version == 1:
+                    observation(row["before"])
+                    observation(row["after"])
+                else:
+                    before = observation_delta(current_observation, row["before_delta"])
+                    after = observation_delta(before, row["after_delta"])
+                    row["before"], row["after"] = before, after
+                    current_observation = after
                 integer(row["stop"], "stop reason", len(STOP_NAMES) - 1)
                 if kind == "interval":
-                    keys(row, "type version sequence preceding start stop before after", "interval")
+                    expected = ("type version sequence preceding start stop before after"
+                                if stream_version == 1 else
+                                "type version sequence preceding start stop before_delta after_delta")
+                    keys(row, expected, "interval", optional="before after" if stream_version == 2 else "")
                     interval_sequence += 1
                     require(integer(row["sequence"], "interval sequence") == interval_sequence,
                             "interval sequence gap")
@@ -275,8 +385,12 @@ def inspect(path):
                                "native-continuation")[row["start"]]] += 1
                     pending = (kind, None)
                     continue
-                keys(row, "type version sequence kind identity instance request allowance "
-                     "before after outcome stop", "action", optional="native_request")
+                expected = ("type version sequence kind identity instance request allowance "
+                            "before after outcome stop" if stream_version == 1 else
+                            "type version sequence kind identity instance request allowance "
+                            "before_delta after_delta outcome stop")
+                keys(row, expected, "action",
+                     optional="native_request before after" if stream_version == 2 else "native_request")
                 action_sequence += 1
                 require(integer(row["sequence"], "action sequence") == action_sequence,
                         "action sequence gap")
@@ -354,7 +468,7 @@ def inspect(path):
             except (ValueError, KeyError, TypeError, OverflowError) as error:
                 raise ValueError(f"line {lines}: {error}") from error
     require(ended and pending is None, "incomplete feedback session")
-    return {"version": 1, "metadata": header["metadata"], "lines": lines,
+    return {"version": stream_version, "metadata": header["metadata"], "lines": lines,
             "actions": dict(sorted(actions.items())), "intervals": dict(intervals),
             "interval_duration_nanos": interval_nanos, "terminal": terminal}
 

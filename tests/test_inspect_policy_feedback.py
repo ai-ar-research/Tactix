@@ -20,8 +20,8 @@ def main():
         path = pathlib.Path(directory) / "records.jsonl"
         subprocess.run([sys.argv[1], str(path)], check=True, timeout=30,
                        stdout=subprocess.DEVNULL)
-        original = path.read_text()
-        rows = [json.loads(line) for line in original.splitlines()]
+        v2_original = path.read_text()
+        v2_rows = [json.loads(line) for line in v2_original.splitlines()]
         summary = inspector.inspect(path)
         assert summary["terminal"] == {"verdict": 20, "stop": "unsat"}
         assert summary["actions"]["ConflictAnalysis"]["records"] > 0
@@ -44,6 +44,50 @@ def main():
 
         def encode(changed):
             return "".join(json.dumps(row) + "\n" for row in changed)
+
+        def legacy_rows(encoded_rows):
+            """Expand canonical v2 deltas into an equivalent v1 inspector fixture."""
+            expanded = json.loads(json.dumps(encoded_rows))
+            assert expanded[0]["version"] == 2
+            expanded[0]["version"] = 1
+            current = expanded[1]["observation"]
+            for row in expanded[2:]:
+                if row["type"] in ("action", "interval"):
+                    before = inspector.observation_delta(current, row.pop("before_delta"))
+                    after = inspector.observation_delta(before, row.pop("after_delta"))
+                    row["before"], row["after"] = before, after
+                    row["version"] = 1
+                    current = after
+                elif row["type"] == "session_end":
+                    current = inspector.observation_delta(
+                        current, row.pop("observation_delta"))
+                    row["observation"] = current
+            return expanded
+
+        rows = legacy_rows(v2_rows)
+        original = encode(rows)
+        path.write_text(original)
+
+        v2_action = next(i for i, row in enumerate(v2_rows)
+                         if row["type"] == "action")
+        changed = json.loads(json.dumps(v2_rows))
+        changed[v2_action]["after_delta"]["set"]["unknown"] = 1
+        rejected(encode(changed), "unknown observation delta replacement")
+        changed = json.loads(json.dumps(v2_rows))
+        changed[v2_action]["after_delta"]["clear"] = ["last_action"]
+        rejected(encode(changed), "invalid observation delta clear list")
+        arrays = changed = json.loads(json.dumps(v2_rows))
+        array_action = next(i for i, row in enumerate(arrays)
+                            if row.get("after_delta", {}).get("native_arrays"))
+        field = next(iter(changed[array_action]["after_delta"]["native_arrays"]))
+        changed[array_action]["after_delta"]["native_arrays"][field][0][0] = 1 << 30
+        rejected(encode(changed), "native array index order")
+
+        compressed = pathlib.Path(directory) / "records.jsonl.gz"
+        subprocess.run([sys.argv[1], str(compressed)], check=True, timeout=30,
+                       stdout=subprocess.DEVNULL)
+        assert compressed.read_bytes().startswith(b"\x1f\x8b")
+        assert inspector.inspect(compressed)["version"] == 2
 
         # Action-space v6 changes the payload encoded in request.invocation;
         # its observation object deliberately retains the v5 field shape.
@@ -87,7 +131,8 @@ def main():
         changed = json.loads(json.dumps(rows))
         changed[action]["before"]["native"]["solve_nanos"] = 1
         rejected(encode(changed), "native timing")
-        rejected(original.replace('"type":"header"', '"type":"header","type":"header"', 1),
+        rejected(v2_original.replace('"type":"header"',
+                                     '"type":"header","type":"header"', 1),
                  "duplicate JSON field")
         changed = rows[:action + 1] + rows[action + 2:]
         rejected(encode(changed), "elapsed record")
@@ -95,7 +140,7 @@ def main():
         changed[action]["outcome"]["status"] = 99
         rejected(encode(changed), "invocation status")
         changed = json.loads(json.dumps(rows))
-        changed[0]["version"] = 2
+        changed[0]["version"] = 3
         rejected(encode(changed), "unsupported header")
         changed[0]["version"] = True
         rejected(encode(changed), "header version")
@@ -157,7 +202,8 @@ def main():
             default_summary = inspector.inspect(default_path)
             assert default_summary["terminal"]["verdict"] in (10, 20)
         guided_path = pathlib.Path(directory) / "profile-6-pigeons-6.feedback.jsonl"
-        guided_rows = [json.loads(line) for line in guided_path.read_text().splitlines()]
+        guided_rows = legacy_rows(
+            [json.loads(line) for line in inspector.open_records(guided_path)])
         guided_actions = [row for row in guided_rows if row["type"] == "action"]
         imports = 0
         for action in guided_actions:
@@ -176,7 +222,8 @@ def main():
         assert imports > 0
         assert not any(action["identity"] == "LocalSearchGuidance"
                        for action in guided_actions)
-        default_rows = [json.loads(line) for line in default_records[-1].read_text().splitlines()]
+        with inspector.open_records(default_records[-1]) as source:
+            default_rows = legacy_rows([json.loads(line) for line in source])
         native_action = next(i for i, row in enumerate(default_rows)
                              if row["type"] == "action" and "native_request" in row)
         changed = json.loads(json.dumps(default_rows))
