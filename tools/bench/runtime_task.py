@@ -289,6 +289,24 @@ def atomic_retain(source, target, maximum_bytes):
             temporary.unlink()
 
 
+def failed_proof_retention_contract(manifest):
+    contract = manifest.get("failed_proof_retention")
+    if contract is None:
+        return None
+    required = {"schema", "directory", "maximum_bytes", "purpose"}
+    if (type(contract) is not dict or set(contract) != required or
+            contract.get("schema") != "tactix-failed-proof-retention-v1"):
+        raise RuntimeError("invalid failed-proof retention contract")
+    maximum = contract["maximum_bytes"]
+    directory = contract["directory"]
+    relative = Path(directory) if isinstance(directory, str) else Path("/")
+    if (isinstance(maximum, bool) or not isinstance(maximum, int) or
+            maximum < 1 or relative.is_absolute() or ".." in relative.parts or
+            not relative.parts):
+        raise RuntimeError("invalid failed-proof retention bounds")
+    return contract
+
+
 def gf2_telemetry_contract(manifest):
     contract = manifest.get("gf2_telemetry")
     if contract is None:
@@ -692,6 +710,7 @@ def main():
     stdout = scratch / "solver.stdout"
     stderr = scratch / "solver.stderr"
     result = None
+    retained_proof = None
     try:
         validate_runtime_pin_contract(CAMPAIGN, manifest)
         if sha256(compressed) != manifest["input_sha256"][row["instance"]]:
@@ -802,6 +821,32 @@ def main():
             result["valid"] = checked["result"] == "verified"
         result["valid"] = checked_verdict_valid(
             row["expected"], verdict, solve, result["valid"])
+        retention = failed_proof_retention_contract(manifest)
+        if (retention is not None and verdict == "UNSAT" and proof.is_file() and
+                not result["valid"]):
+            maximum = retention["maximum_bytes"]
+            directory = retention["directory"]
+            relative = Path(directory)
+            size = proof.stat().st_size
+            if size <= maximum:
+                destination = CAMPAIGN / relative / f"{task:03d}.dsr"
+                if destination.exists():
+                    raise RuntimeError("retained proof path already exists")
+                atomic_retain(proof, destination, maximum)
+                if (destination.stat().st_size != size or
+                        sha256(destination) != result["certificate_sha256"]):
+                    destination.unlink(missing_ok=True)
+                    raise RuntimeError("retained proof copy mismatch")
+                retained_proof = destination
+                result["retained_artifact"] = str(destination)
+                result["retained_artifact_bytes"] = size
+                result["retained_artifact_sha256"] = result["certificate_sha256"]
+            else:
+                result["retention_skipped"] = {
+                    "reason": "certificate_exceeds_maximum_bytes",
+                    "certificate_bytes": size,
+                    "maximum_bytes": maximum,
+                }
     except Exception as error:
         result = {
             "schema": result_schema,
@@ -833,9 +878,9 @@ def main():
             "sidecars": {},
             "integrity_error": "telemetry collection did not complete",
         }
-    result["artifact_deleted"] = not scratch.exists()
+    result["artifact_deleted"] = not scratch.exists() and retained_proof is None
     result["derived_artifacts_deleted"] = not scratch.exists()
-    result["cleanup_pending"] = (scratch.exists() or
+    result["cleanup_pending"] = (scratch.exists() or retained_proof is not None or
                                  (telemetry_local is not None and
                                   telemetry_local.exists()))
     result["finished_at"] = dt.datetime.now(dt.timezone.utc).isoformat()

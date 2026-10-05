@@ -9,11 +9,30 @@ import sys
 from unittest.mock import patch
 from runtime_task import (atomic_json, atomic_retain, checked_verdict_valid,
                           checker_timeout_for, gf2_telemetry_contract,
-                          expected_matches,
+                          expected_matches, failed_proof_retention_contract,
                           positive_timeout, provisional_result, solver_command)
 
 
 class RuntimeTaskTests(unittest.TestCase):
+    def test_failed_proof_retention_contract_is_bounded_and_relative(self):
+        contract = {
+            "schema": "tactix-failed-proof-retention-v1",
+            "directory": "retained-proofs",
+            "maximum_bytes": 1 << 30,
+            "purpose": "checker-only recovery",
+        }
+        self.assertEqual(
+            failed_proof_retention_contract({"failed_proof_retention": contract}),
+            contract)
+        self.assertIsNone(failed_proof_retention_contract({}))
+        for changed in (
+                dict(contract, directory="/tmp/proofs"),
+                dict(contract, directory="../proofs"),
+                dict(contract, maximum_bytes=0),
+                dict(contract, extra=True)):
+            with self.subTest(changed=changed), self.assertRaises(RuntimeError):
+                failed_proof_retention_contract({"failed_proof_retention": changed})
+
     def test_v2_telemetry_contract_and_atomic_stored_cap(self):
         contract = {
             "schema": "tactix-experimental-gf2-telemetry-v2",
