@@ -156,6 +156,7 @@ def prepare(a):
         arm_arguments.append(f'--controller-gf2-affine-profile={c}/pins/gf2-affine.profile')
     c.mkdir()
     directories=['pins','logs','claims','provisional','results']
+    if a.retain_failed_proof:directories.append('retained-proofs')
     if a.gf2_telemetry:directories.append('telemetry')
     for name in directories:(c/name).mkdir()
     shutil.copy2(a.binary,c/'pins/tactix')
@@ -213,6 +214,17 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
+    if a.retain_failed_proof:
+        m['failed_proof_retention']=dict(
+            schema='tactix-failed-proof-retention-v1',
+            directory='retained-proofs',
+            maximum_bytes=a.retain_failed_proof_max_bytes,
+            purpose='checker-only recovery; retain only after an unsuccessful UNSAT proof check')
+        m['cleanup_contract'] += (' An unsuccessfully checked UNSAT certificate may be copied '
+            'after checking into the bounded retained-proofs directory for checker-only recovery; '
+            'the result records its exact SHA-256 and remains cleanup-pending.')
+        m['caveat']=('Failed certificates are retained only when their size is within the declared '
+            'per-task cap; solver or job death before the copy still leaves no artifact.')
     if a.gf2_telemetry:
         m['gf2_telemetry']=dict(
             schema='tactix-experimental-gf2-telemetry-v2',directory='telemetry',
@@ -266,6 +278,10 @@ if __name__=='__main__':
                    default=DEFAULT_GF2_FEEDBACK_MAX_RECORDS)
     p.add_argument('--gf2-provenance-max-bytes',type=int,
                    default=DEFAULT_GF2_PROVENANCE_MAX_BYTES)
+    p.add_argument('--retain-failed-proof',action='store_true',
+                   help='retain a bounded copy of an UNSAT certificate after checker failure')
+    p.add_argument('--retain-failed-proof-max-bytes',type=int,default=1 << 30,
+                   help='maximum failed certificate bytes retained per task')
     p.add_argument('--instance',action='append',default=[])
     p.add_argument('--selection-table',type=Path)
     g=p.add_mutually_exclusive_group(required=True)
@@ -296,6 +312,10 @@ if __name__=='__main__':
         p.error('GF2 telemetry byte caps require --gf2-telemetry')
     if a.gf2_telemetry and not a.prepare:
         p.error('--gf2-telemetry is valid only with --prepare')
+    if a.retain_failed_proof and not a.prepare:
+        p.error('--retain-failed-proof is valid only with --prepare')
+    if a.retain_failed_proof_max_bytes < 1:
+        p.error('--retain-failed-proof-max-bytes must be positive')
     if a.gf2_telemetry != bool(a.gf2_affine_profile):
         p.error('--gf2-affine-profile is required exactly when --gf2-telemetry is selected')
     prepare(a) if a.prepare else submit(a)
