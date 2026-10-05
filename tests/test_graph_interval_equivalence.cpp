@@ -219,6 +219,20 @@ void replay_and_feedback() {
   assert(serialize_online_strategy_program(replay) == wire);
   assert(replay.sequence[0].instances == step.instances);
 
+  Kernel executed;
+  fixture(executed, true);
+  FILE *execution_records = std::tmpfile();
+  assert(execution_records);
+  executed.structural_provenance = execution_records;
+  OnlineStrategyExecutor executor;
+  assert(executor.configure(replay, 7, ReconfigureMode::ResetRuntime, &error));
+  const InvocationResult invocation = executor.advance(executed);
+  assert(invocation.status == InvocationStatus::Completed);
+  assert(invocation.instance == 3 && invocation.applications == 1);
+  assert(executed.stats.graph_interval_equivalence_published == 2);
+  executed.structural_provenance = nullptr;
+  std::fclose(execution_records);
+
   Kernel kernel;
   fixture(kernel, true);
   FILE *records = std::tmpfile();
