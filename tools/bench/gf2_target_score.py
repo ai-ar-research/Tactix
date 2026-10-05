@@ -710,8 +710,21 @@ def validate_arm_contract(campaign, manifest):
     require(sum(arg == "--controller-policy" or
                 arg.startswith("--controller-policy=") for arg in arguments) == 1,
             "GF2 arm requires one controller policy")
-    require(arguments.count("--controller-families=AffineConsequence") == 1,
-            "GF2 arm requires the AffineConsequence family")
+    family_arguments = [arg for arg in arguments
+                        if arg == "--controller-families" or
+                        arg.startswith("--controller-families=")]
+    require(len(family_arguments) == 1 and "=" in family_arguments[0],
+            "GF2 arm requires one inline controller family collection")
+    families = family_arguments[0].split("=", 1)[1].split(",")
+    require(families and all(families) and len(families) == len(set(families)),
+            "GF2 arm has an empty or duplicate controller family")
+    permitted_families = {
+        "AffineConsequence", "Propagate", "SemanticVariableAdvice",
+    }
+    require("AffineConsequence" in families and
+            set(families) <= permitted_families,
+            "GF2 arm requires AffineConsequence and only its explicit "
+            "bookkeeping follow-ups")
     require(arguments.count("--controller-native-producers=gf2-affine") == 1,
             "GF2 arm requires only the gf2-affine native producer")
     forbidden = ("--feedback", "--feedback-replay", "--structural-provenance",

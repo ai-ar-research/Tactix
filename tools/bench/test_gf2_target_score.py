@@ -10,7 +10,8 @@ from gf2_target_score import (AFFINE_COUNTERS, LEGACY_SCHEMA,
                               _validate_modern_feedback, classify,
                               expected_checker_hashes, parse_feedback,
                               parse_provenance, raw_yield, score_campaign, sha256,
-                              sidecar_descriptor, validate_result,
+                              sidecar_descriptor, validate_arm_contract,
+                              validate_result,
                               _verify_logical_descriptor)
 from experimental_tierd import solver_arguments
 from runtime_task import solver_command
@@ -212,6 +213,30 @@ def synthetic_streams(directory, build_hash="b" * 64, input_hash="1" * 64):
 
 
 class Gf2TargetScoreTests(unittest.TestCase):
+    def test_affine_arm_allows_only_explicit_bookkeeping_followups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            campaign = Path(directory)
+            (campaign / "pins").mkdir()
+            (campaign / "pins/gf2-affine.profile").write_text("profile\n")
+            profile = ("--controller-gf2-affine-profile=" +
+                       str(campaign / "pins/gf2-affine.profile"))
+            arguments = [
+                "--dsr", "--controller-policy=1",
+                "--controller-families="
+                "AffineConsequence,Propagate,SemanticVariableAdvice",
+                "--controller-native-producers=gf2-affine", profile,
+            ]
+            manifest = {
+                "schema": "tactix-experimental-single-tierd-v4-gf2-telemetry",
+                "arms": {"tactix": {"certificate": "dsr",
+                                      "arguments": arguments}},
+                "pin_sha256": {"pins/gf2-affine.profile": "0" * 64},
+            }
+            validate_arm_contract(campaign, manifest)
+            arguments[2] = "--controller-families=AffineConsequence,Lucky"
+            with self.assertRaisesRegex(ValueError, "bookkeeping follow-ups"):
+                validate_arm_contract(campaign, manifest)
+
     def test_v2_gzip_stream_bounds_and_delta_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             feedback, _, _ = synthetic_streams(Path(directory))

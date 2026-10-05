@@ -53,10 +53,14 @@ Three independent defects confound the intended experiment.
 3. Feedback writes a full cumulative observation before and after every
    controller action.  One observation repeats hundreds of scalar and fixed
    array fields; the all-zero native-rule object alone is about 22.5 KiB.
-   Search-service actions occur millions of times, so the raw stream has a
-   tens-of-gigabytes lower bound and is discarded wholesale by the post-run
-   cap.  This is a telemetry representation fault, not evidence that affine
-   work itself generated that volume.
+   WV2-132 records about 2.24 million actions, WV100-7 about 4.83 million, and
+   WV100-51 about 4.34 million.  The duplicated native snapshots alone imply
+   raw lower bounds of 94, 203, and 183 GiB before other fields.  The post-run
+   64 MiB cap consequently discards each stream wholesale.  This is a telemetry
+   representation fault, not evidence that affine work itself generated that
+   volume.  A lossless design therefore needs exact observation references and
+   changed-value patches plus streaming compression; 64 MiB cannot be promised
+   while retaining every search-service event.
 
 The current source already fixes another issue visible here: a completed empty
 or no-structure census of an immutable affine owner now remains terminal across
