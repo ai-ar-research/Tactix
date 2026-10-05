@@ -14,6 +14,8 @@ def main():
         work = Path(tmp)
         cnf = work / "sat.cnf"
         cnf.write_text("p cnf 1 1\n1 0\n")
+        search_cnf = work / "search.cnf"
+        search_cnf.write_text("p cnf 2 1\n1 2 0\n")
         nary_cnf = work / "nary.cnf"
         nary_cnf.write_text(
             "p cnf 9 15\n"
@@ -23,7 +25,7 @@ def main():
             "-1 -4 -7 0\n-2 -5 -8 0\n-3 -6 -9 0\n")
 
         def affine_profile(maximum_clauses=10000, *, rule="AffineConsequence",
-                           version=2, granularity=3, instances=""):
+                           version=2, granularity=3, instances="", advice=False):
             if version == 2:
                 parameters = (
                     f"affine-consequence2({maximum_clauses},100000,1000000,"
@@ -35,18 +37,25 @@ def main():
                     f"affine-consequence1({maximum_clauses},100000,1000000,"
                     "1000,10000,10000000,8,16,16,4,1000000,1000000,"
                     "10000000,1)")
-            return (
+            result = (
                 "sequence-repeat=once:1 "
                 f"step=1:{rule}:{granularity}:once:1:0:3:post(0):"
                 f"rulework(2,1000000):material(0,0):{parameters}:"
                 f"instances[{instances}]:grids[]:sr[]")
+            if advice:
+                result += (
+                    " step=2:SemanticVariableAdvice:3:once:1:0:1:post(0):"
+                    "rulework(2,1):material(0,0):"
+                    "semantic-variable-advice1(64,4096,2,7):"
+                    "instances[]:grids[]:sr[]")
+            return result
 
         profile = work / "gf2-affine.profile"
         profile.write_text(affine_profile())
 
-        def run(*options):
+        def run(*options, source=None):
             return subprocess.run(
-                [str(binary), *options, str(cnf)], capture_output=True,
+                [str(binary), *options, str(source or cnf)], capture_output=True,
                 text=True, timeout=30)
 
         help_result = subprocess.run(
@@ -55,6 +64,7 @@ def main():
         assert "--controller-native-producers=all|none|LIST" in help_result.stdout
         assert "--controller-gf2-affine-profile=FILE" in help_result.stdout
         assert "--controller-families=LIST" in help_result.stdout
+        assert "--controller-search-configurations=all|LIST" in help_result.stdout
 
         for value in ("", "unknown", "gf3-affine,", "all,gf3-affine"):
             result = run("--controller-policy=7",
@@ -120,6 +130,62 @@ def main():
             "--controller-families=TseitinCycleBreaking")
         assert family_without_policy.returncode == 1
         assert "controller settings require it" in family_without_policy.stderr
+
+        for value in ("", "unknown", "vmtf/adaptive-glue/saved,",
+                      "vmtf/adaptive-glue/saved,vmtf/adaptive-glue/saved"):
+            result = run("--controller-policy=7",
+                         f"--controller-search-configurations={value}")
+            assert result.returncode == 1
+            assert "invalid --controller-search-configurations" in result.stderr
+        search_without_policy = run(
+            "--controller-search-configurations=vmtf/adaptive-glue/saved")
+        assert search_without_policy.returncode == 1
+        assert "controller settings require it" in search_without_policy.stderr
+
+        search_trace = work / "search.trace"
+        search_selected = run(
+            "--controller-policy=17",
+            "--controller-families=Walk",
+            "--controller-search-configurations="
+            "vmtf/adaptive-glue/focused-rotation",
+            f"--controller-trace={search_trace}", source=search_cnf)
+        assert search_selected.returncode == 10, search_selected.stderr
+        search_configuration = shlex.split(
+            search_trace.read_text().splitlines()[1])[1]
+        assert ('search-configuration "vmtf/adaptive-glue/focused-rotation"'
+                in search_configuration)
+        requests = [line for line in search_trace.read_text().splitlines()
+                    if line.startswith("request ")]
+        assert any(" ResumeSearch vmtf/adaptive-glue/focused-rotation" in line
+                   for line in requests)
+        assert not any(" ResumeSearch " in line and
+                       "vmtf/adaptive-glue/focused-rotation" not in line
+                       for line in requests)
+        search_replayed = run(
+            f"--controller-replay={search_trace}",
+            "--controller-families=Walk",
+            "--controller-search-configurations="
+            "vmtf/adaptive-glue/focused-rotation", source=search_cnf)
+        assert search_replayed.returncode == 10, search_replayed.stderr
+        search_mismatch = run(
+            f"--controller-replay={search_trace}",
+            "--controller-families=Walk", source=search_cnf)
+        assert search_mismatch.returncode == 1
+        assert "configuration differs" in search_mismatch.stderr
+
+        accumulated_search_trace = work / "accumulated-search.trace"
+        accumulated_search = run(
+            "--controller-policy=17",
+            "--controller-search-configurations=vmtf/adaptive-glue/saved",
+            "--controller-search-configurations=evsids/reluctant/target",
+            f"--controller-trace={accumulated_search_trace}")
+        assert accumulated_search.returncode == 10, accumulated_search.stderr
+        accumulated_configuration = shlex.split(
+            accumulated_search_trace.read_text().splitlines()[1])[1]
+        assert ('search-configuration "vmtf/adaptive-glue/saved"'
+                in accumulated_configuration)
+        assert ('search-configuration "evsids/reluctant/target"'
+                in accumulated_configuration)
 
         trace = work / "selected.trace"
         selected = run(
@@ -192,6 +258,36 @@ def main():
         assert 'producer "AffineConsequence"' in profiled_configuration
         assert 'offered "AffineConsequence"' not in profiled_configuration
         assert "affine-consequence2(10000," in profiled_configuration
+
+        advised_profile = work / "gf2-affine-advised.profile"
+        advised_profile.write_text(affine_profile(advice=True))
+        advised_trace = work / "advised.trace"
+        advised = run(
+            "--controller-policy=7",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence,Propagate,"
+            "SemanticVariableAdvice",
+            f"--controller-gf2-affine-profile={advised_profile}",
+            f"--controller-trace={advised_trace}")
+        assert advised.returncode == 10, advised.stderr
+        advised_configuration = shlex.split(
+            advised_trace.read_text().splitlines()[1])[1]
+        assert "semantic-variable-advice1(64,4096,2,7)" in advised_configuration
+        advised_replayed = run(
+            f"--controller-replay={advised_trace}",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence,Propagate,"
+            "SemanticVariableAdvice",
+            f"--controller-gf2-affine-profile={advised_profile}")
+        assert advised_replayed.returncode == 10, advised_replayed.stderr
+        advice_missing = run(
+            f"--controller-replay={advised_trace}",
+            "--controller-native-producers=gf2-affine",
+            "--controller-families=AffineConsequence,Propagate,"
+            "SemanticVariableAdvice",
+            f"--controller-gf2-affine-profile={profile}")
+        assert advice_missing.returncode == 1
+        assert "configuration differs" in advice_missing.stderr
 
         same_profile_replay = run(
             f"--controller-replay={profile_trace}",

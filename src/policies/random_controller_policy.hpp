@@ -84,6 +84,10 @@ struct TseitinCycleActionProducerConfig {
 
 struct RandomControllerConfig {
   DefaultStrategyConfig search;
+  // Empty preserves the full public search action space.  A non-empty
+  // collection is an exact learner-owned allowlist for ResumeSearch.
+  std::vector<strategy::controller::SearchConfiguration>
+      search_configurations;
   // The native ranked-prefix mechanism is shared with DefaultPolicy. Full
   // restart remains an explicit profile for root-boundary coverage/embeddings.
   bool reuse_search_trail = true;
@@ -107,11 +111,17 @@ struct RandomControllerConfig {
   // not as an ordered mandatory sequence. Replacement is transactional.
   bool configure_actions(const strategy::OnlineStrategyProgram &,
                          std::string *error = nullptr);
-  // Install the typed limits and fixed dose for native GF(2) row discovery.
-  // The profile never becomes a static action: exact rows remain live,
+  // Install the typed limits and fixed dose for native GF(2) row discovery,
+  // plus optional semantic-variable advice limits. The profile never becomes
+  // a static action: exact rows and current candidates remain live,
   // producer-owned payloads and the replacement is transactional.
   bool configure_affine_basis_producer_profile(
       const strategy::OnlineStrategyProgram &, std::string *error = nullptr);
+  // Install one exact, non-empty subset of the public named search
+  // configurations. Replacement is transactional and rejects duplicates.
+  bool configure_search_configurations(
+      const std::vector<strategy::controller::SearchConfiguration> &,
+      std::string *error = nullptr);
 
   strategy::controller::ActionAllowance allowance(const std::string &rule) const {
     const auto found = allowances.find(rule);
