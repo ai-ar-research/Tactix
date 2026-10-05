@@ -321,6 +321,57 @@ static void exact_offer_selection_and_forgery_rejection() {
   std::fclose(records);
 }
 
+static void retained_page_accepts_wide_direct_wide_sequence() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 313);
+  // The three selected consequences have the same shapes as the first three
+  // Rank263 requests: wide (with helpers), direct (without extent growth),
+  // then another wide row from the original immutable owner.
+  add_equation(kernel, {1, 2, 4}, false);
+  add_equation(kernel, {1, 3, 119}, false);
+  add_equation(kernel, {7, 11, 124}, false);
+  add_equation(kernel, {7, 118, 120}, false);
+  add_equation(kernel, {111, 115, 208}, false);
+  add_equation(kernel, {111, 211, 313}, false);
+  add_equation(kernel, {115, 211, 212}, false);
+  FILE *records = std::tmpfile();
+  attach(kernel, records);
+  AffineBasisActionSession session;
+  const auto page =
+      affine_basis_action_offers(kernel, session, limits(), {}, 64);
+  assert(page.status == AffineBasisOfferStatus::Complete);
+  const auto select = [&](std::vector<int32_t> variables) {
+    const auto found = std::find_if(
+        page.offers.begin(), page.offers.end(), [&](const auto &offer) {
+          return offer.variables == variables;
+        });
+    assert(found != page.offers.end());
+    return *found;
+  };
+  const auto first = select({11, 118, 120, 124});
+  const auto second = select({208, 212, 313});
+  const auto third = select({2, 3, 4, 119});
+
+  auto applied =
+      affine_basis_action_apply(kernel, session, limits(), first);
+  assert(applied.status == AffineBasisActionStatus::Applied &&
+         applied.live.extent_growth > 0 && session.committed_keys() == 1);
+  strategy::finish_semantic_variable_candidate_action(kernel,
+                                                       ApplyResult::Ok);
+  assert(propagate_service(kernel) == ApplyResult::Ok);
+
+  applied = affine_basis_action_apply(kernel, session, limits(), second);
+  assert(applied.status == AffineBasisActionStatus::Applied &&
+         applied.live.extent_growth == 0 && session.committed_keys() == 2);
+  strategy::finish_semantic_variable_candidate_action(kernel,
+                                                       ApplyResult::Ok);
+
+  applied = affine_basis_action_apply(kernel, session, limits(), third);
+  assert(applied.status == AffineBasisActionStatus::Applied &&
+         applied.live.extent_growth > 0 && session.committed_keys() == 3);
+  std::fclose(records);
+}
+
 static void escaped_offer_cannot_rebind_to_recaptured_sources() {
   Kernel kernel = direct_fixture();
   FILE *records = std::tmpfile();
@@ -454,6 +505,7 @@ int main() {
   immutable_owner_pages_and_publishes_one_row_at_a_time();
   source_local_invalidation_and_root_trail();
   exact_offer_selection_and_forgery_rejection();
+  retained_page_accepts_wide_direct_wide_sequence();
   escaped_offer_cannot_rebind_to_recaptured_sources();
   declines_do_not_commit_session_or_action();
   guard_is_state_only();
