@@ -297,6 +297,9 @@ def failed_proof_retention_contract(manifest):
     if (type(contract) is not dict or set(contract) != required or
             contract.get("schema") != "tactix-failed-proof-retention-v1"):
         raise RuntimeError("invalid failed-proof retention contract")
+    if contract["purpose"] != (
+            "checker-only recovery; retain only after an unsuccessful UNSAT proof check"):
+        raise RuntimeError("invalid failed-proof retention purpose")
     maximum = contract["maximum_bytes"]
     directory = contract["directory"]
     relative = Path(directory) if isinstance(directory, str) else Path("/")
@@ -713,6 +716,9 @@ def main():
     retained_proof = None
     try:
         validate_runtime_pin_contract(CAMPAIGN, manifest)
+        retention_contract = failed_proof_retention_contract(manifest)
+        if retention_contract is not None and certificate != "dsr":
+            raise RuntimeError("failed-proof retention requires explicit DSR")
         if sha256(compressed) != manifest["input_sha256"][row["instance"]]:
             raise RuntimeError("compressed input hash mismatch")
         with open(cnf, "wb") as target:
@@ -821,7 +827,7 @@ def main():
             result["valid"] = checked["result"] == "verified"
         result["valid"] = checked_verdict_valid(
             row["expected"], verdict, solve, result["valid"])
-        retention = failed_proof_retention_contract(manifest)
+        retention = retention_contract
         if (retention is not None and verdict == "UNSAT" and proof.is_file() and
                 not result["valid"]):
             maximum = retention["maximum_bytes"]
