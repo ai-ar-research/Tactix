@@ -166,6 +166,14 @@ ApplyResult apply_rule_semantic_instance(const RuleVTable &vt, Kernel &k,
 ApplyResult apply_rule_structured(const RuleVTable &, Kernel &,
                                   const char *description,
                                   const std::function<ApplyResult()> &);
+// Online composition may need to settle an explicit Propagate follow-up before
+// a theory producer's semantic-variable candidate becomes observable.  This
+// variant leaves a successfully staged candidate in Kernel; its caller must
+// either publish it with finish_semantic_variable_candidate_action after the
+// composed boundary or discard it with begin_semantic_variable_candidate_action.
+ApplyResult apply_rule_structured_defer_candidate(
+    const RuleVTable &, Kernel &, const char *description,
+    const std::function<ApplyResult()> &);
 // Structured actions that authenticate and commit their own startup-boundary
 // transition use this wrapper so recoverable declines stay mutation-free.
 ApplyResult apply_rule_structured_preserve_startup(

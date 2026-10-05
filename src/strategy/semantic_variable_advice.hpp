@@ -57,6 +57,11 @@ void begin_semantic_variable_candidate_action(Kernel &);
 bool stage_semantic_variable_candidate(
     Kernel &, SemanticVariableProducer, uint64_t action_id,
     const std::vector<SemanticVariable> &);
+// Transfer a successfully staged declaration across a composed action's
+// explicit settlement step.  The declaration is not observable until its
+// owner filters it against the settled root and publishes it with `finish`.
+bool take_staged_semantic_variable_candidate(Kernel &,
+                                             SemanticVariableCandidate &);
 void finish_semantic_variable_candidate_action(Kernel &, ApplyResult);
 
 const SemanticVariableCandidate *semantic_variable_candidate(

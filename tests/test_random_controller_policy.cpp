@@ -171,6 +171,12 @@ static void native_affine_profile_is_exact_transactional_and_effective() {
                                   AffineBasisOfferStatus::ResourceExhausted) &&
                               !effort.offers;
                      }));
+  ++kernel.strategy_epoch;
+  ActionRequest held_request;
+  assert(low_selector.choose(kernel, controller.observe(), low, held_request,
+                             error));
+  assert(held_request.type == ActionType::ResumeSearch &&
+         held_request.producer_effort.empty());
 
   RandomControllerConfig raised;
   raised.parameters.rules = {"AffineConsequence"};
@@ -179,12 +185,11 @@ static void native_affine_profile_is_exact_transactional_and_effective() {
       affine_producer_profile(
           raised.parameters.affine_consequence_reference),
       &error));
-  RandomControllerSelector raised_selector(7);
   bool offered = false;
   for (unsigned attempt = 0; attempt < 32 && !offered; ++attempt) {
     ActionRequest request;
-    assert(raised_selector.choose(kernel, controller.observe(), raised, request,
-                                  error));
+    assert(low_selector.choose(kernel, controller.observe(), raised, request,
+                               error));
     offered = request.type == ActionType::Rule &&
               request.invocation.rule == "AffineConsequence" &&
               request.invocation.affine_basis_instances.size() == 1;
@@ -241,9 +246,145 @@ static void native_affine_basis_offer_is_exact_and_effective() {
            result.invocation.made_rule_progress &&
            kernel.stats.affine_consequence_applied == 1 &&
            session.committed_keys() == 1);
+    // A selected wide row installs its certified root-parity unit but leaves
+    // propagation as an explicit controller action.  An Affine-only
+    // collection therefore has a real action-space dead end: neither another
+    // Affine row nor ResumeSearch is legal while propagation is pending.
+    assert(!kernel_propagation_fixpoint(kernel));
+    ActionRequest blocked;
+    error.clear();
+    assert(!selector.choose(kernel, controller.observe(), config, blocked,
+                            error));
+    assert(error == "no eligible controller action");
+
+    // Admitting Propagate resolves exactly that debt.  It is selected because
+    // it is the sole eligible configured action, not as a hidden fallback.
+    RandomControllerConfig explicit_propagation = config;
+    explicit_propagation.parameters.rules = {"AffineConsequence",
+                                             "Propagate"};
+    ActionRequest propagate;
+    error.clear();
+    assert(selector.choose(kernel, controller.observe(), explicit_propagation,
+                           propagate, error));
+    assert(propagate.type == ActionType::Rule &&
+           propagate.invocation.rule == "Propagate");
+    const auto propagated = controller.apply_rule(
+        propagate, explicit_propagation.allowance("Propagate"));
+    assert(propagated.invocation.status == InvocationStatus::Completed &&
+           kernel_propagation_fixpoint(kernel));
     applied = true;
   }
   assert(applied);
+  std::fclose(records);
+}
+
+static void native_affine_empty_census_is_durable_across_restarts() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 4);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineConsequence"};
+  config.affine_basis_action_producer.enabled = true;
+  RandomControllerSelector selector(7);
+  Observation observation;
+  uint64_t producer_calls = 0, producer_feedback_records = 0;
+  uint64_t producer_work = 0;
+  for (unsigned restart = 0; restart < 512; ++restart) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(kernel, observation, config, request, error));
+    assert(request.type == ActionType::ResumeSearch);
+    producer_calls += !request.producer_effort.empty();
+    producer_feedback_records += request.producer_effort.size();
+    for (const auto &effort : request.producer_effort) {
+      assert(effort.family == "AffineConsequence");
+      producer_work += effort.total_work;
+      if (!restart)
+        assert(effort.status ==
+                   static_cast<uint8_t>(AffineBasisOfferStatus::NoStructure) &&
+               effort.complete && !effort.offers);
+    }
+
+    // A resume/search/restart cycle advances public strategy state, and
+    // learned/root work may advance the formula touch stamp.  Neither expands
+    // the immutable source population whose empty census just completed.
+    ++observation.sequence;
+    ++kernel.strategy_epoch;
+    kernel_touch_var(kernel, restart % kernel.nvars);
+  }
+  assert(producer_calls == 1 && producer_feedback_records == 1);
+  assert(producer_work <=
+         config.parameters.affine_consequence_reference.maximum_elimination_work);
+  assert(!session.bound());
+  std::fclose(records);
+}
+
+static void native_affine_completed_census_keeps_additional_rows() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 8);
+  for (const auto &equation :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 2, 3}, false}, {{1, 2, 4}, true},
+           {{5, 6, 7}, false}, {{5, 6, 8}, true}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(equation.first,
+                                                  equation.second))
+      add_external_clause(kernel, clause);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+  RestartController controller(kernel);
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineConsequence", "Propagate"};
+  config.affine_basis_action_producer.enabled = true;
+  config.affine_basis_action_producer.maximum_offers = 1;
+  RandomControllerSelector selector(7);
+  std::vector<std::vector<int32_t>> applied;
+  for (unsigned attempt = 0; attempt < 128 && applied.size() < 2; ++attempt) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(kernel, controller.observe(), config, request,
+                           error));
+    if (request.type == ActionType::ResumeSearch) {
+      ++kernel.strategy_epoch;
+      continue;
+    }
+    const auto result = controller.apply_rule(
+        request, config.allowance(request.invocation.rule));
+    assert(result.invocation.status == InvocationStatus::Completed);
+    if (request.invocation.rule == "AffineConsequence") {
+      assert(request.invocation.affine_basis_instances.size() == 1);
+      applied.push_back(
+          request.invocation.affine_basis_instances.front().variables);
+    }
+  }
+  assert(applied ==
+         std::vector<std::vector<int32_t>>({{3, 4}, {7, 8}}));
+  assert(session.committed_keys() == 2);
+
+  // The retained owner is now exhausted.  Subsequent restart boundaries do
+  // not enumerate it again or manufacture a duplicate offer.
+  uint64_t later_calls = 0;
+  for (unsigned restart = 0; restart < 64; ++restart) {
+    ActionRequest request;
+    std::string error;
+    assert(selector.choose(kernel, controller.observe(), config, request,
+                           error));
+    later_calls += request.producer_effort.size();
+    assert(request.type == ActionType::ResumeSearch);
+    ++kernel.strategy_epoch;
+  }
+  // One final page establishes that every retained-owner row is now covered;
+  // the remaining restart boundaries reuse that completed census.
+  assert(later_calls == 1);
   std::fclose(records);
 }
 
@@ -382,6 +523,8 @@ static void finite_lucky_catalog_is_reachable() {
 int main() {
   native_affine_profile_is_exact_transactional_and_effective();
   native_affine_basis_offer_is_exact_and_effective();
+  native_affine_empty_census_is_durable_across_restarts();
+  native_affine_completed_census_keeps_additional_rows();
   finite_lucky_catalog_is_reachable();
   guidance_requires_an_observed_candidate();
   random_guidance_uses_observed_identities();
