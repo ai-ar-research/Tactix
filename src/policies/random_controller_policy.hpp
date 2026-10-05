@@ -34,6 +34,11 @@ struct Gf3ActionProducerConfig {
 struct AffineBasisActionProducerConfig {
   bool enabled = false;
   uint32_t maximum_offers = 8;
+  // Zero preserves learner-random scheduling.  A positive value is an
+  // explicit, replay-fingerprinted startup batch: each selected row remains a
+  // separate public action, with propagation/advice still selected at their
+  // own boundaries before search resumes.
+  uint64_t startup_batch_actions = 0;
   bool valid() const { return !enabled || maximum_offers; }
 };
 

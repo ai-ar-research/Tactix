@@ -43,7 +43,8 @@ static void add_external_clause(Kernel &kernel,
 
 static OnlineStrategyProgram affine_producer_profile(
     const AffineConsequenceParameters &parameters, uint64_t allowance = 3,
-    std::optional<SemanticVariableAdviceParameters> advice = std::nullopt) {
+    std::optional<SemanticVariableAdviceParameters> advice = std::nullopt,
+    uint64_t startup_batch_actions = 0) {
   OnlineInvocation step;
   step.id = 91;
   step.rule = "AffineConsequence";
@@ -53,7 +54,9 @@ static OnlineStrategyProgram affine_producer_profile(
   step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 123456};
   step.work_unit = WorkUnit::Applications;
   step.budget = WorkLimit::bounded(allowance);
-  OnlineStrategyProgram result{{step}, {RepeatMode::Once, 1}};
+  OnlineStrategyProgram result{
+      {step}, {startup_batch_actions ? RepeatMode::Count : RepeatMode::Once,
+               startup_batch_actions ? startup_batch_actions : 1}};
   if (advice) {
     OnlineInvocation companion;
     companion.id = 92;
@@ -449,6 +452,7 @@ static void native_affine_completed_census_keeps_additional_rows() {
           request.invocation.affine_basis_instances.front().variables);
     }
   }
+  std::sort(applied.begin(), applied.end());
   assert(applied ==
          std::vector<std::vector<int32_t>>({{3, 4}, {7, 8}}));
   assert(session.committed_keys() == 2);
@@ -465,9 +469,137 @@ static void native_affine_completed_census_keeps_additional_rows() {
     assert(request.type == ActionType::ResumeSearch);
     ++kernel.strategy_epoch;
   }
-  // One final page establishes that every retained-owner row is now covered;
-  // the remaining restart boundaries reuse that completed census.
-  assert(later_calls == 1);
+  // The second preserved page already carried an exact end-of-census marker;
+  // no duplicate-only confirmation pass is needed after its row commits.
+  assert(later_calls == 0);
+  std::fclose(records);
+}
+
+static void native_affine_bounded_startup_batch_preserves_exact_pages() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 8);
+  for (const auto &equation :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 2, 3}, false}, {{1, 2, 4}, true},
+           {{5, 6, 7}, false}, {{5, 6, 8}, true}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(equation.first,
+                                                  equation.second))
+      add_external_clause(kernel, clause);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+  RestartController controller(kernel);
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineConsequence", "Propagate",
+                             "SemanticVariableAdvice"};
+  config.affine_basis_action_producer.enabled = true;
+  config.affine_basis_action_producer.maximum_offers = 2;
+  const SemanticVariableAdviceParameters advice{64, 4096, 2, 7};
+  std::string error;
+  assert(config.configure_affine_basis_producer_profile(
+      affine_producer_profile(config.parameters.affine_consequence_reference,
+                              3, advice, 2),
+      &error));
+  assert(config.affine_basis_action_producer.startup_batch_actions == 2);
+  assert(controller_configuration(config).find(
+             "producer \"AffineConsequence\" 2 2") != std::string::npos);
+
+  RandomControllerSelector selector(1);
+  uint64_t producer_calls = 0;
+  std::vector<std::vector<int32_t>> applied;
+  for (unsigned step = 0; step < 8 && applied.size() < 2; ++step) {
+    ActionRequest request;
+    assert(selector.choose(kernel, controller.observe(), config, request,
+                           error));
+    assert(request.type == ActionType::Rule);
+    producer_calls += request.producer_effort.size();
+    const auto result = controller.apply_rule(
+        request, config.allowance(request.invocation.rule));
+    assert(result.invocation.status == InvocationStatus::Completed);
+    if (request.invocation.rule == "AffineConsequence") {
+      applied.push_back(
+          request.invocation.affine_basis_instances.front().variables);
+    }
+  }
+  std::sort(applied.begin(), applied.end());
+  assert(applied ==
+         std::vector<std::vector<int32_t>>({{3, 4}, {7, 8}}));
+  assert(session.committed_keys() == 2);
+  // Both exact rows came from one authenticated page.  Committing the first
+  // key must not discard and rebuild the remaining offer.
+  assert(producer_calls == 1);
+
+  ActionRequest after_batch;
+  assert(selector.choose(kernel, controller.observe(), config, after_batch,
+                         error));
+  assert(after_batch.type == ActionType::Rule &&
+         after_batch.invocation.rule == "SemanticVariableAdvice");
+  std::fclose(records);
+}
+
+static void native_affine_bounded_startup_batch_crosses_propagation() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 16);
+  for (const auto &equation :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 2, 3, 4, 5}, false}, {{1, 2, 6, 7, 8}, true},
+           {{9, 10, 11, 12, 13}, false}, {{9, 10, 14, 15, 16}, true}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(equation.first,
+                                                  equation.second))
+      add_external_clause(kernel, clause);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  AffineBasisActionSession session;
+  kernel.affine_basis_action_session = &session;
+  RestartController controller(kernel);
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineConsequence", "Propagate",
+                             "SemanticVariableAdvice"};
+  config.affine_basis_action_producer.enabled = true;
+  config.affine_basis_action_producer.maximum_offers = 8;
+  auto parameters = config.parameters.affine_consequence_reference;
+  parameters.basis_maximum_direct_width = 3;
+  const SemanticVariableAdviceParameters advice{64, 4096, 2, 7};
+  std::string error;
+  assert(config.configure_affine_basis_producer_profile(
+      affine_producer_profile(parameters, 3, advice, 2), &error));
+  RandomControllerSelector selector(1);
+
+  const uint64_t proof_id_before = kernel.next_clause_id;
+  const size_t extent_before = kernel.external_to_internal.size();
+  ActionRequest first;
+  assert(selector.choose(kernel, controller.observe(), config, first, error));
+  assert(first.type == ActionType::Rule &&
+         first.invocation.rule == "AffineConsequence");
+  auto result = controller.apply_rule(first, config.allowance("AffineConsequence"));
+  assert(result.invocation.status == InvocationStatus::Completed &&
+         result.invocation.rule_result == ApplyResult::Ok &&
+         result.invocation.made_rule_progress &&
+         session.committed_keys() == 1 &&
+         kernel.next_clause_id > proof_id_before &&
+         kernel.external_to_internal.size() > extent_before &&
+         !kernel_propagation_fixpoint(kernel));
+
+  ActionRequest propagation;
+  assert(selector.choose(kernel, controller.observe(), config, propagation,
+                         error));
+  assert(propagation.type == ActionType::Rule &&
+         propagation.invocation.rule == "Propagate");
+  result = controller.apply_rule(propagation, config.allowance("Propagate"));
+  assert(result.invocation.status == InvocationStatus::Completed &&
+         kernel_propagation_fixpoint(kernel));
+
+  ActionRequest second;
+  assert(selector.choose(kernel, controller.observe(), config, second, error));
+  assert(second.type == ActionType::Rule &&
+         second.invocation.rule == "AffineConsequence");
   std::fclose(records);
 }
 
@@ -609,6 +741,8 @@ int main() {
   native_affine_basis_offer_is_exact_and_effective();
   native_affine_empty_census_is_durable_across_restarts();
   native_affine_completed_census_keeps_additional_rows();
+  native_affine_bounded_startup_batch_preserves_exact_pages();
+  native_affine_bounded_startup_batch_crosses_propagation();
   finite_lucky_catalog_is_reachable();
   guidance_requires_an_observed_candidate();
   random_guidance_uses_observed_identities();
