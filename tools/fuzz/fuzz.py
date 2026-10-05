@@ -374,6 +374,9 @@ REACH_SPECS = [
     # One attempt means an exact nested domain/residual/prefix payload crossed
     # the shared executor. Applied alone would hide sound declines.
     ("NaryCspPrefix", r"^c nary-csp\s+(\d+) attempts,"),
+    # Explicit X18 execution increments calls before bounded discovery, so this
+    # witnesses both productive publication and sound NoOp/resource declines.
+    ("GraphIntervalEquivalence", r"^c graphinterv\s+(\d+) calls,"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
     # These key on attempts, not rounds: they are `dosed` entries reached
     # through apply_instance, whose round counter never moves. See the note
