@@ -72,10 +72,11 @@ def score(campaign):
     manifest = json.loads((campaign / "manifest.json").read_text())
     arm = manifest["arms"]["tactix"]
     arguments = arm["arguments"]
-    required = {"--controller-policy=1",
-                "--controller-native-producers=nary-csp",
+    required = {"--controller-native-producers=nary-csp",
                 "--controller-families=NaryCspPrefix"}
-    if not required.issubset(arguments):
+    policies = [value for value in arguments
+                if value.startswith("--controller-policy=")]
+    if not required.issubset(arguments) or len(policies) != 1:
         raise ValueError("campaign is not the exact native n-ary census profile")
     with (campaign / "matrix.tsv").open(newline="") as source:
         rows = list(csv.DictReader(source, delimiter="\t"))
@@ -98,6 +99,7 @@ def score(campaign):
                        "solve": result.get("solve"), "disposition": state, **parsed})
     return {"schema": "tactix-nary-domain-census-v1",
             "campaign": str(campaign), "rows": len(rows),
+            "controller_policy": policies[0].split("=", 1)[1],
             "totals": dict(sorted(totals.items())), "results": output}
 
 
