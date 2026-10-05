@@ -191,10 +191,11 @@ The `walk2(step,random,identity,base,count,curve...)` tuple serializes a seeded
 request; old `walk(...)` syntax retains unseeded semantics. A missing/replaced
 identity declines rather than silently changing source. DefaultPolicy rotates
 all six producer kinds for its ordinary Walk slots without a preceding target
-import. After a completed private import and normal Walk export decision it
-executes the separate target-only action on the same exact identity. The random
-controller chooses seeded/unseeded Walk and target installation independently
-while retaining the configured allowance.
+import. Seeded Walk compares the raw candidate with ordinary phases and leaves
+its winning full assignment in saved/target; DefaultPolicy does not overwrite
+that result with a later raw target import. The random controller chooses
+seeded/unseeded Walk and target installation independently while retaining the
+configured allowance.
 
 Seed preparation charges the Walk allowance for each ordinary phase slot,
 candidate identity slot and literal evaluated in the ordinary/candidate copies

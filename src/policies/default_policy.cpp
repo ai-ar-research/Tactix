@@ -4458,7 +4458,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                   : config_.rephase.walk_random_seed;
         const uint64_t allowance = scale_permille(reference, config_.rephase.walk_permille);
         const strategy::GuidanceOutcomeSnapshot before_walk(k);
-        const uint64_t seed_imports_before = k.stats.walk_seed_imports;
         (void)execution::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
             [&] {
               auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
@@ -4476,39 +4475,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               out.invocation.status = before_walk.refine(k, result, out.invocation.status);
               return out;
             });
-        // Walk and CDCL consume the same exact retained publication through
-        // separate typed actions.  Only a completed private import earns the
-        // target installation: stale, interrupted, budget-exhausted and
-        // objective-free Walk requests leave CDCL phases untouched.
-        if (candidate && k.stats.walk_seed_imports != seed_imports_before) {
-          assert(local_search_guidance_guard(k));
-          const strategy::GuidanceOutcomeSnapshot before_target(k);
-          (void)execution::complete_action(
-              completion_, FeedbackKind::Rule, "LocalSearchGuidance", candidate,
-              [&] {
-                return execution::native_rule_feedback(
-                    k, "LocalSearchGuidance", candidate,
-                    "post-walk-exact-candidate-target-installation",
-                    [](const Kernel &kernel) {
-                      return kernel.stats.local_search_target_eligible_phases;
-                    },
-                    "eligible-target-phases");
-              },
-              [&] {
-                return default_direct_rule_lazy(
-                    k, "LocalSearchGuidance",
-                    [&] { return "candidate=" + std::to_string(candidate); },
-                    [&] {
-                      return local_search_guidance_apply_candidate(k, candidate);
-                    });
-              },
-              [&](ApplyResult result) {
-                auto out = strategy::controller::feedback_outcome(result);
-                out.invocation.status =
-                    before_target.refine(k, result, out.invocation.status);
-                return out;
-              });
-        }
+        // Seeded Walk already arbitrates the raw candidate against ordinary
+        // phases on the current CNF.  Its tail installs the winning full
+        // assignment in saved/target.  Reapplying the raw partial candidate
+        // here would discard that refinement in stable CDCL.  Controllers
+        // retain LocalSearchGuidance as an independent explicit action.
       } else {
         const DefaultRephaseSlot effective =
             slot == DefaultRephaseSlot::Walk

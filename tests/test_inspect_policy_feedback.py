@@ -116,7 +116,7 @@ def main():
         guided_rows = [json.loads(line) for line in guided_path.read_text().splitlines()]
         guided_actions = [row for row in guided_rows if row["type"] == "action"]
         imports = 0
-        for index, action in enumerate(guided_actions):
+        for action in guided_actions:
             if action["identity"] != "Walk":
                 continue
             before = action["before"]["native"]["walk_seed_imports"]
@@ -128,11 +128,10 @@ def main():
             invocation = action["native_request"]["invocation"]
             match = re.search(r"walk2\([^,]+,[^,]+,(\d+),", invocation)
             assert match
-            assert index + 1 < len(guided_actions)
-            target = guided_actions[index + 1]
-            assert target["identity"] == "LocalSearchGuidance"
-            assert target["instance"] == int(match.group(1))
+            assert int(match.group(1)) > 0
         assert imports > 0
+        assert not any(action["identity"] == "LocalSearchGuidance"
+                       for action in guided_actions)
         default_rows = [json.loads(line) for line in default_records[-1].read_text().splitlines()]
         native_action = next(i for i, row in enumerate(default_rows)
                              if row["type"] == "action" and "native_request" in row)
