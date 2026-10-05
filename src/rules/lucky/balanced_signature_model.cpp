@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <random>
 #include <utility>
@@ -19,6 +20,7 @@ struct Shape {
   uint64_t signatures = 0;
   uint64_t pair_variables = 0;
   uint64_t boundary = 0;
+  bool forced_ttf = false;
 };
 
 int external_value(const Kernel &k, uint64_t dimacs) {
@@ -61,7 +63,78 @@ bool validate_shape(const Kernel &k, uint32_t balls, uint32_t width,
     }
   if (external_value(k, boundary + 1) <= 0)
     return false;
-  out = {balls, width, signatures, pairs, boundary};
+  out = {balls, width, signatures, pairs, boundary, false};
+  return true;
+}
+
+template <class It>
+void mark_forced_ttf_clause(const Kernel &k, const Shape &shape, It begin,
+                            It end, std::vector<uint8_t> &forced) {
+  const size_t size = static_cast<size_t>(std::distance(begin, end));
+  if (size != 2 && size != 3)
+    return;
+  int64_t first = 0, second = 0;
+  bool guarded = false;
+  for (It it = begin; it != end; ++it) {
+    const int64_t literal = kernel_externalize(k, *it);
+    if (literal > static_cast<int64_t>(shape.pair_variables) &&
+        literal <= static_cast<int64_t>(shape.boundary)) {
+      if (!first)
+        first = literal;
+      else
+        second = literal;
+    } else if (literal < 0 &&
+               external_value(k, static_cast<uint64_t>(-literal)) > 0) {
+      guarded = true;
+    }
+  }
+  if (!first || !second || (size == 3 && !guarded))
+    return;
+
+  const uint64_t stride = uint64_t{2} * shape.balls;
+  const uint64_t first_offset =
+      static_cast<uint64_t>(first) - shape.pair_variables - 1;
+  const uint64_t second_offset =
+      static_cast<uint64_t>(second) - shape.pair_variables - 1;
+  const uint64_t first_row = first_offset / stride;
+  const uint64_t second_row = second_offset / stride;
+  const uint64_t first_remainder = first_offset % stride;
+  const uint64_t second_remainder = second_offset % stride;
+  const uint64_t first_ball = first_remainder / 2;
+  const uint64_t second_ball = second_remainder / 2;
+  if (first_ball == second_ball && first_row == second_row &&
+      first_row == first_ball + 1 &&
+      (first_remainder & 1) != (second_remainder & 1))
+    forced[first_ball] = 1;
+}
+
+bool detect_forced_ttf(Kernel &k, Shape &shape) {
+  std::vector<uint8_t> forced(shape.balls);
+  uint64_t visited = 0;
+  for (Lit literal = 0; literal < 2 * k.nvars; ++literal)
+    for (const WatchEntry watch : k.watches.entries(literal)) {
+      if (!watch.binary() || literal > watch.other())
+        continue;
+      const Lit pair[2] = {literal, watch.other()};
+      mark_forced_ttf_clause(k, shape, std::begin(pair), std::end(pair),
+                             forced);
+      if (!(++visited & ((uint64_t{1} << 20) - 1)) &&
+          kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
+        return false;
+    }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    if (!clause->garbage() && !clause->redundant())
+      mark_forced_ttf_clause(k, shape, clause->begin(), clause->end(),
+                             forced);
+    ref += words;
+    if (!(++visited & ((uint64_t{1} << 20) - 1)) &&
+        kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
+      return false;
+  }
+  shape.forced_ttf = std::all_of(forced.begin(), forced.end(),
+                                 [](uint8_t value) { return value != 0; });
   return true;
 }
 
@@ -143,6 +216,95 @@ struct SearchResult {
   std::vector<int8_t> signs;
   uint64_t objective = UINT64_MAX;
 };
+
+bool search_balanced_fixed_rows(Kernel &k, const Shape &shape,
+                                const strategy::BalancedSignatureModelParameters
+                                    &p,
+                                SearchResult &best) {
+  std::vector<uint32_t> rows(shape.balls);
+  std::vector<std::vector<int>> vectors(shape.balls);
+  for (uint32_t ball = 0; ball < shape.balls; ++ball) {
+    rows[ball] = ball + 1;
+    vectors[ball] = ternary_vector(ball + 1, shape.width);
+  }
+  for (uint32_t coordinate = 0; coordinate < shape.width; ++coordinate) {
+    uint32_t nonzero = 0;
+    for (const auto &vector : vectors)
+      nonzero += vector[coordinate] != 0;
+    if (nonzero & 1)
+      return false;
+  }
+
+  // Preserve the owning solver's finite TTF ceilings while allowing an online
+  // policy to dose every loop through the existing typed action parameters.
+  const uint64_t fixed_restarts = std::min<uint64_t>(p.restarts, 240);
+  const uint64_t fixed_steps =
+      std::min<uint64_t>(p.steps_per_restart, 70000);
+  const uint32_t fixed_samples =
+      std::min<uint32_t>(p.samples_per_step, 24);
+  constexpr uint64_t tto_default_seed = 0xabcdef1234567890ULL;
+  std::mt19937_64 random(
+      0x9e3779b97f4a7c15ULL ^ (p.seed ^ tto_default_seed) ^
+      uint64_t{shape.balls} * 1315423911ULL ^ shape.width);
+  std::vector<int8_t> signs(shape.balls);
+  std::vector<int64_t> sums(shape.width);
+  for (uint64_t restart = 0; restart < fixed_restarts; ++restart) {
+    if (kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
+      return false;
+    ++k.stats.balanced_signature_restarts;
+    std::fill(sums.begin(), sums.end(), 0);
+    for (uint32_t ball = 0; ball < shape.balls; ++ball) {
+      signs[ball] = (random() & 1) ? 1 : -1;
+      for (uint32_t coordinate = 0; coordinate < shape.width; ++coordinate)
+        sums[coordinate] += signs[ball] * vectors[ball][coordinate];
+    }
+    uint64_t objective = score(sums);
+    double temperature =
+        std::max(0.1, static_cast<double>(objective) / 5.0);
+    for (uint64_t step = 0; step < fixed_steps; ++step) {
+      ++k.stats.balanced_signature_steps;
+      if (objective < best.objective) {
+        best.objective = objective;
+        best.rows = rows;
+        best.signs = signs;
+      }
+      if (!objective)
+        return true;
+      if (!(step & ((uint64_t{1} << 14) - 1)) &&
+          kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
+        return false;
+
+      uint32_t best_ball = 0;
+      uint64_t best_objective = UINT64_MAX;
+      std::vector<int64_t> best_sums;
+      for (uint32_t sample = 0; sample < fixed_samples; ++sample) {
+        const uint32_t ball = static_cast<uint32_t>(random() % shape.balls);
+        std::vector<int64_t> proposed = sums;
+        for (uint32_t coordinate = 0; coordinate < shape.width; ++coordinate)
+          proposed[coordinate] -=
+              2 * signs[ball] * vectors[ball][coordinate];
+        const uint64_t proposed_objective = score(proposed);
+        if (proposed_objective < best_objective) {
+          best_objective = proposed_objective;
+          best_ball = ball;
+          best_sums = std::move(proposed);
+        }
+      }
+      const double acceptance = std::exp(
+          (static_cast<double>(objective) -
+           static_cast<double>(best_objective)) /
+          std::max(0.01, temperature));
+      if (best_objective <= objective ||
+          std::generate_canonical<double, 32>(random) < acceptance) {
+        signs[best_ball] = -signs[best_ball];
+        sums = std::move(best_sums);
+        objective = best_objective;
+      }
+      temperature *= 0.99972;
+    }
+  }
+  return false;
+}
 
 bool search_balanced_signatures(
     Kernel &k, const Shape &shape,
@@ -440,11 +602,16 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
   Shape shape;
   if (!infer_shape(k, parameters, shape))
     return ApplyResult::NoOp;
+  if (!detect_forced_ttf(k, shape))
+    return ApplyResult::NoOp;
   ++k.stats.balanced_signature_recognized;
 
   SearchResult solution;
-  const bool solved =
-      search_balanced_signatures(k, shape, parameters, solution);
+  const bool solved = shape.forced_ttf
+                          ? search_balanced_fixed_rows(k, shape, parameters,
+                                                       solution)
+                          : search_balanced_signatures(k, shape, parameters,
+                                                       solution);
   if (solution.rows.empty())
     return ApplyResult::NoOp;
   std::vector<int8_t> signed_assignment;

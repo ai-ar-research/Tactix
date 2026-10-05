@@ -26,7 +26,7 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Restored LymphoSAT SAT constructors | [terminal regression](benchmarks/reports/2026-10-04-restored-lymphosat-sat-regression-terminal.md) | Rejected `156afef6b`: B28+C5 passed, Rank aggregate failed, and seven WV/WV2 solves were lost; no wrong verdict or checker rejection |
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
-| Partial-model guidance | [terminal ablation](benchmarks/reports/2026-10-05-partial-model-guidance-ablation.md) | Walk-only repair is 21/21 independently valid with zero raw CDCL installs, 148 seed imports and 139 exports. It is 12.8% faster than the preceding run but 12.0% slower than saved `d170`. No-seed is 70.0% slower than `d170`, so removing guidance is rejected. Split preparation/search budgets plus explicit admission are under review |
+| Partial-model guidance | [terminal ablation](benchmarks/reports/2026-10-05-partial-model-guidance-ablation.md) | Walk-only repair is 21/21 independently valid with zero raw CDCL installs, 148 seed imports and 139 exports. It is 12.8% faster than the preceding run but 12.0% slower than saved `d170`. No-seed is 70.0% slower than `d170`, so removing guidance is rejected. The split-budget prototype is deferred: review found an unmetered duplicate scan and feedback inconsistent with its implicit fallback |
 | `a9f1e14d4` no-seed gates | jobs `1749006`--`1749009` | All accepted: B28+C5 33/33 at 959.055 s, Rank 50/50 at 7,669.874 s, WV100 100/100 with 98 checked/two proof censors, and WV2 89/89 with 77 checked/two proof censors/ten unchanged solver censors. No wrong verdict, checker rejection, or scorer failure |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Public N-ary CSP prefix X17 | [public checkpoint](benchmarks/reports/2026-10-04-public-nary-csp-prefix-action.md), [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Registry ID 39, disabled StepId 28 and C v8 tag 42 expose exact deep-copied domain/residual/prefix payloads through typed replay and a Kernel-owned session. Opt-in `nary-csp` production, raw feedback and post-followup `NaryCsp` semantic-variable publication are wired; focused tests pass. DefaultPolicy remains disabled, and fuzz, checked noL recovery, targets and gates remain open |
@@ -63,6 +63,10 @@ gates all accept. Archived Debug job `1749241` is invalid infrastructure
 evidence: its snapshot omitted checker binaries and tests mutated the hashed
 source tree, causing 11 harness failures; a corrected campaign is pending.
 The unrelated interactive allocation `1747502` remains outside this workstream.
+The current forced-TTF repair makes balanced-signature Lucky fix row `b+1`
+and search only signs when live clauses require those rows. Its focused test
+passes, and a Debug diagnostic solves the cached `112_5_ttf` with a complete
+validated model in 49.30 seconds; Release cluster performance is pending.
 
 ## Next action
 
@@ -97,13 +101,13 @@ native campaigns additionally require producer calls and offers. Then evaluate
 the saved target set and regression gates only when benchmark execution is
 authorized. DefaultPolicy keeps all four actions disabled meanwhile.
 
-Keep intended DefaultPolicy structural seeding disabled while completing the
-reviewed split-budget prototype: preparation and ProbSAT search receive explicit
-allowances, DefaultPolicy compares candidate quality before admission, and an
-explicit learner-selected seed never silently falls back. Raw candidates never
-replace Walk-refined targets. Use short cluster prototypes on the oddball TTF
-controls before reconsidering default enablement, then rerun full Debug and the
-four gates. Retain the seeded/no-seed campaigns as causal evidence.
+Keep intended DefaultPolicy structural seeding disabled. Preserve the rejected
+split-budget patch only as design input; redesign it only if later evidence
+justifies separate allowances without duplicate unmetered work or implicit
+fallback. Raw candidates never replace Walk-refined targets. First measure the
+isolated forced-TTF constructor on `112_5_ttf`, then use the oddball controls
+before broader Debug, fuzz and four-gate validation. Retain the seeded/no-seed
+campaigns as causal evidence.
 The earlier `cabp`, Break and Timetable trajectory controls remain open evidence
 obligations if those rows regress again. The n-ary CSP vertical
 is now public through exact typed C/replay payloads, a Kernel-owned session,
@@ -123,6 +127,9 @@ evidence.
 
 ## Recent changes
 
+- Forced-TTF recognition now removes unnecessary row selection from balanced-
+  signature Lucky and searches only signs under the existing typed limits;
+  focused and cached Debug model validation pass, while Release evidence is pending.
 - The current N1--N4 audit passes 46/46 focused public-action/proof/controller
   checks and 69/69 proof-oracle tests; it keeps universal and performance
   verification explicitly pending.
