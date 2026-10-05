@@ -470,12 +470,15 @@ def followups(actions, transactions):
             latest = transaction_by_sequence[action["sequence"]]
         identity = action.get("identity")
         if identity == "Propagate":
+            direct = (latest is not None and
+                      action["sequence"] == latest["feedback_sequence"] + 1)
             native = _native_delta(action, ("root_assignments", "propagations", "ticks"))
             propagations.append({
                 "sequence": action["sequence"],
                 "preceding_affine_action_id":
-                    (latest["committed"]["action_id"] if latest else None),
-                "attribution": "first-propagate-after-affine" if latest else "unattributed",
+                    (latest["committed"]["action_id"] if direct else None),
+                "attribution": ("direct-propagate-after-affine" if direct
+                                else "unattributed"),
                 "outcome": action["outcome"],
                 "before_fixpoint": action["before"]["fixpoint"],
                 "after_fixpoint": action["after"]["fixpoint"],
