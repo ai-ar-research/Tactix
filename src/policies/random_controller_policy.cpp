@@ -259,6 +259,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("Congruence", congruence_reference);
   CONTROLLER_REFERENCE("ParityConsequence", parity_consequence_reference);
   CONTROLLER_REFERENCE("AffineConsequence", affine_consequence_reference);
+  CONTROLLER_REFERENCE("AffineMatrixInitialize", affine_consequence_reference);
   CONTROLLER_REFERENCE("ExactCoverExtension", exact_cover_extension_reference);
   CONTROLLER_REFERENCE("IndependentSetCover", independent_set_cover_reference);
   CONTROLLER_REFERENCE("Gf3AffineConsequence", gf3_affine_consequence_reference);
@@ -518,6 +519,24 @@ static std::string service_record(const Kernel &k, const char *service,
       << k.arena_generation << ' ' << k.touch_epoch << ' ' << k.strategy_epoch
       << ' ' << k.stats.decisions << ' ' << k.stats.conflicts << ' '
       << k.stats.learned << ' ' << k.stats.learned_glue_sum;
+  return out.str();
+}
+
+std::string affine_matrix_service_trace_record(
+    const Kernel &k, const AffineMatrixServiceResult &result) {
+  std::ostringstream out;
+  out << "service AffineMatrixSearch "
+      << static_cast<unsigned>(result.status) << ' '
+      << std::quoted(result.event_identity) << ' '
+      << result.synchronization_work << ' ' << result.session_work << ' '
+      << result.reason_width << ' ' << result.live.planner_work << ' '
+      << result.live.revalidation_work << ' ' << result.live.additions << ' '
+      << result.live.deletions << ' ' << result.live.helper_extent << ' '
+      << result.live.journal_bytes << ' ' << result.bcp_pending << ' '
+      << k.level << ' ' << k.arena_generation << ' ' << k.touch_epoch << ' '
+      << k.strategy_epoch << ' ' << k.stats.decisions << ' '
+      << k.stats.conflicts << ' ' << k.stats.learned << ' '
+      << k.stats.learned_glue_sum;
   return out.str();
 }
 
@@ -1934,6 +1953,24 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (trace_ && !emit(service_record(k, "Propagate", 0, result)))
           return -1;
         continue;
+      }
+      if (controller.affine_matrix_search_enabled()) {
+        const auto matrix = controller.affine_matrix_fixpoint_service();
+        if (trace_ && matrix.status != AffineMatrixServiceStatus::NoEvent &&
+            matrix.status != AffineMatrixServiceStatus::Disabled &&
+            !emit(affine_matrix_service_trace_record(k, matrix)))
+          return -1;
+        if (matrix.status == AffineMatrixServiceStatus::Applied)
+          continue;
+        if (matrix.terminal_failure())
+          return finish(0, matrix.status == AffineMatrixServiceStatus::Interrupted
+                               ? StopReason::Interrupted
+                           : matrix.status ==
+                                 AffineMatrixServiceStatus::ResourceExhausted
+                               ? StopReason::Resource
+                           : matrix.status == AffineMatrixServiceStatus::Stale
+                               ? StopReason::Stale
+                               : StopReason::Error);
       }
       if (controller.restart_due()) {
         const uint32_t keep_level =

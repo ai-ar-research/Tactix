@@ -145,7 +145,7 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
                        : bounded(state, p.consequence + 1);
     return p;
   }
-  if (rule == "AffineConsequence")
+  if (rule == "AffineConsequence" || rule == "AffineMatrixInitialize")
     return config.affine_consequence_reference;
   if (rule == "ExactCoverExtension")
     return config.exact_cover_extension_reference;

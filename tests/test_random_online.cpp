@@ -9,6 +9,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "strategy/random_online.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
@@ -2264,8 +2265,10 @@ static void every_registry_action_has_random_support() {
     k.direct_php_action_session = &direct_php_session;
     ExactCoverExtensionActionSession exact_session;
     IndependentSetCoverActionSession independent_session;
+    AffineMatrixSearchSession affine_matrix_session;
     k.exact_cover_extension_action_session = &exact_session;
     k.independent_set_cover_action_session = &independent_session;
+    k.affine_matrix_search_session = &affine_matrix_session;
     FILE *records = std::tmpfile(); assert(records);
     k.structural_provenance = records;
     begin_semantic_variable_candidate_action(k);

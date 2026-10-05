@@ -55,7 +55,8 @@ inline NativeFeedbackSpec native_rule_feedback(
   else if (name == "SubsumeForward") inv.parameters = k.subsume_forward_parameters;
   else if (name == "Strengthen") inv.parameters = k.strengthen_parameters;
   else if (name == "ParityConsequence") inv.parameters = k.parity_consequence_parameters;
-  else if (name == "AffineConsequence") inv.parameters = k.affine_consequence_parameters;
+  else if (name == "AffineConsequence" || name == "AffineMatrixInitialize")
+    inv.parameters = k.affine_consequence_parameters;
   else if (name == "ExactCoverExtension") inv.parameters = k.exact_cover_extension_parameters;
   else if (name == "IndependentSetCover") inv.parameters = k.independent_set_cover_parameters;
   else if (name == "Gf3AffineConsequence") inv.parameters = k.gf3_affine_consequence_parameters;

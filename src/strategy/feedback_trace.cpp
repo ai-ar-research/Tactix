@@ -115,7 +115,26 @@ void native_request(std::ostream &out, const NativeActionDescription &value) {
       << ",\"unlimited\":" << value.effort_allowance.is_unlimited()
       << ",\"amount\":" << value.effort_allowance.amount()
       << ",\"work\":" << value.work << ",\"overshoot\":" << value.overshoot
-      << ",\"accounting_overflow\":" << value.accounting_overflow << '}';
+      << ",\"accounting_overflow\":" << value.accounting_overflow;
+  if (value.have_affine_matrix_event)
+    out << ",\"affine_matrix\":{\"status\":"
+        << unsigned(value.affine_matrix_status)
+        << ",\"event\":" << quote(value.affine_matrix_event_identity)
+        << ",\"synchronization_work\":"
+        << value.affine_matrix_synchronization_work
+        << ",\"session_work\":" << value.affine_matrix_session_work
+        << ",\"reason_width\":" << value.affine_matrix_reason_width
+        << ",\"planner_work\":" << value.affine_matrix_planner_work
+        << ",\"revalidation_work\":"
+        << value.affine_matrix_revalidation_work
+        << ",\"proof_additions\":"
+        << value.affine_matrix_proof_additions
+        << ",\"proof_deletions\":"
+        << value.affine_matrix_proof_deletions
+        << ",\"helper_extent\":" << value.affine_matrix_helper_extent
+        << ",\"journal_bytes\":" << value.affine_matrix_journal_bytes
+        << ",\"bcp_pending\":" << value.affine_matrix_bcp_pending << '}';
+  out << '}';
 }
 
 std::ostringstream stream() {

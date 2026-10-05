@@ -24,7 +24,8 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "NaryCspPrefix",
                                          "DirectPhpRefutation",
                                          "Gf3GaussianConsequence",
-                                         "TseitinCycleBreaking"};
+                                         "TseitinCycleBreaking",
+                                         "AffineMatrixInitialize"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
@@ -43,7 +44,8 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "NaryCspPrefix",
                                              "DirectPhpRefutation",
                                              "Gf3GaussianConsequence",
-                                             "TseitinCycleBreaking"};
+                                             "TseitinCycleBreaking",
+                                             "AffineMatrixInitialize"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
   size_t i;
@@ -218,7 +220,8 @@ static tactix *prepare(int id) {
   else
     fixture(s);
   if (!strcmp(name, "ParityConsequence") ||
-      !strcmp(name, "AffineConsequence") ||
+      (!strcmp(name, "AffineConsequence") ||
+       !strcmp(name, "AffineMatrixInitialize")) ||
       !strcmp(name, "ExactCoverExtension") ||
       !strcmp(name, "IndependentSetCover") ||
       !strcmp(name, "Gf3AffineConsequence") ||

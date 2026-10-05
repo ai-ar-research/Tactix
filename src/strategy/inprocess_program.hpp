@@ -126,6 +126,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {26, "Gf3GaussianConsequence", Probe, false},
       {27, "TseitinCycleBreaking", Probe, false},
       {28, "NaryCspPrefix", Probe, false},
+      {29, "AffineMatrixInitialize", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -205,7 +206,8 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
         return reject("ParityConsequence parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<AffineConsequenceParameters>(&step.parameters)) {
-      if (step.rule != "AffineConsequence" || !p->valid())
+      if ((step.rule != "AffineConsequence" &&
+           step.rule != "AffineMatrixInitialize") || !p->valid())
         return reject("AffineConsequence parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<ExactCoverExtensionParameters>(&step.parameters)) {

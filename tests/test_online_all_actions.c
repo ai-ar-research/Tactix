@@ -96,6 +96,7 @@ static tactix *prepare(int id) {
     fixture(solver);
   if (!strcmp(name, "ParityConsequence") ||
       !strcmp(name, "AffineConsequence") ||
+      !strcmp(name, "AffineMatrixInitialize") ||
       !strcmp(name, "ExactCoverExtension") ||
       !strcmp(name, "IndependentSetCover") ||
       !strcmp(name, "SemanticVariableAdvice")) {
@@ -192,7 +193,8 @@ static void configure_parameters(const char *name,
   } else if (!strcmp(name, "Lucky")) {
     /* The generic smoke selects probe ID 0, whose exact payload is inherit. */
     parameters->kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
-  } else if (!strcmp(name, "AffineConsequence")) {
+  } else if (!strcmp(name, "AffineConsequence") ||
+             !strcmp(name, "AffineMatrixInitialize")) {
     parameters->kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
     parameters->value.affine_consequence.maximum_clauses = 1000;
     parameters->value.affine_consequence.maximum_snapshot_literals = 10000;
@@ -276,7 +278,7 @@ static void configure_parameters(const char *name,
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 40);
+  assert(count == 42);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);

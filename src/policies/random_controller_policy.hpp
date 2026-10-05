@@ -42,6 +42,11 @@ struct AffineBasisActionProducerConfig {
   bool valid() const { return !enabled || maximum_offers; }
 };
 
+// Deterministic transcript identity for one enabled fixpoint service call.
+// Exposed for focused replay verification; disabled sessions emit no record.
+std::string affine_matrix_service_trace_record(
+    const Kernel &, const AffineMatrixServiceResult &);
+
 struct DirectCspActionProducerConfig {
   bool enabled = false;
   uint64_t maximum_domain_candidates = 64;

@@ -124,7 +124,8 @@ bool parameter_matches(const OnlineInvocation &step) {
   if (std::holds_alternative<ParityConsequenceParameters>(step.parameters))
     return step.rule == "ParityConsequence";
   if (std::holds_alternative<AffineConsequenceParameters>(step.parameters))
-    return step.rule == "AffineConsequence";
+    return step.rule == "AffineConsequence" ||
+           step.rule == "AffineMatrixInitialize";
   if (std::holds_alternative<ExactCoverExtensionParameters>(step.parameters))
     return step.rule == "ExactCoverExtension";
   if (std::holds_alternative<IndependentSetCoverParameters>(step.parameters))

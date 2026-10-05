@@ -39,6 +39,7 @@ class NaryCspPrefixActionSession;
 class DirectPhpActionSession;
 class Gf3GaussianActionSession;
 class TseitinCycleBreakingSession;
+class AffineMatrixSearchSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 void rule_journal_note_clause_transition(const Kernel &, const char *,
                                          const uint32_t *, uint32_t,
@@ -969,6 +970,28 @@ struct Stats {
   uint64_t affine_consequence_excluded_rows = 0;
   uint64_t affine_consequence_transaction_keys = 0;
   uint64_t affine_consequence_committed_keys = 0;
+  uint64_t affine_matrix_init_attempts = 0;
+  uint64_t affine_matrix_init_applied = 0;
+  uint64_t affine_matrix_init_exhausted = 0;
+  uint64_t affine_matrix_init_interrupted = 0;
+  uint64_t affine_matrix_init_snapshot_work = 0;
+  uint64_t affine_matrix_init_recognition_work = 0;
+  uint64_t affine_matrix_init_matrix_work = 0;
+  uint64_t affine_matrix_service_calls = 0;
+  uint64_t affine_matrix_service_applied = 0;
+  uint64_t affine_matrix_service_no_event = 0;
+  uint64_t affine_matrix_service_duplicate = 0;
+  uint64_t affine_matrix_service_exhausted = 0;
+  uint64_t affine_matrix_service_interrupted = 0;
+  uint64_t affine_matrix_service_stale = 0;
+  uint64_t affine_matrix_service_sync_work = 0;
+  uint64_t affine_matrix_service_session_work = 0;
+  uint64_t affine_matrix_service_planner_work = 0;
+  uint64_t affine_matrix_service_revalidation_work = 0;
+  uint64_t affine_matrix_service_proof_additions = 0;
+  uint64_t affine_matrix_service_proof_deletions = 0;
+  uint64_t affine_matrix_service_helper_extent = 0;
+  uint64_t affine_matrix_service_journal_bytes = 0;
   uint64_t exact_cover_extension_attempts = 0;
   uint64_t exact_cover_extension_applied = 0;
   uint64_t exact_cover_extension_no_structure = 0;
@@ -2008,6 +2031,7 @@ struct Kernel {
   DirectPhpActionSession *direct_php_action_session = nullptr;
   Gf3GaussianActionSession *gf3_gaussian_action_session = nullptr;
   TseitinCycleBreakingSession *tseitin_cycle_breaking_session = nullptr;
+  AffineMatrixSearchSession *affine_matrix_search_session = nullptr;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 
