@@ -50,11 +50,13 @@ struct DirectCspActionProducerConfig {
 struct NaryCspActionProducerConfig {
   bool enabled = false;
   uint32_t relation_arity = 3;
-  uint64_t maximum_domain_candidates = 64;
+  // noL has 363 exact-one colour domains. Discovery is clause-indexed, so
+  // admitting their census no longer implies enumerating domain triples.
+  uint64_t maximum_domain_candidates = 512;
   uint64_t maximum_relation_candidates = 64;
-  uint64_t maximum_prefix_candidates = 256;
+  uint64_t maximum_prefix_candidates = 1024;
   uint64_t maximum_offers = 8;
-  uint64_t maximum_enumeration_work = 100000;
+  uint64_t maximum_enumeration_work = 10000000;
 
   bool valid() const {
     return !enabled ||
