@@ -52,6 +52,67 @@ bool RandomControllerConfig::configure_actions(const OnlineStrategyProgram &prog
   return true;
 }
 
+bool RandomControllerConfig::configure_affine_basis_producer_profile(
+    const OnlineStrategyProgram &program, std::string *error) {
+  const auto reject = [&](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  if (!validate_online_strategy_program(program, error))
+    return false;
+  if (program.sequence.size() != 1)
+    return reject("GF2 affine producer profile requires exactly one action");
+  if (program.repeat.mode != RepeatMode::Once || program.repeat.limit != 1)
+    return reject("GF2 affine producer profile requires once-only sequence repetition");
+  const auto &step = program.sequence.front();
+  const auto *profile_parameters =
+      std::get_if<AffineConsequenceParameters>(&step.parameters);
+  if (step.rule != "AffineConsequence" || !profile_parameters ||
+      profile_parameters->semantics !=
+          AffineConsequenceSemantics::CertifiedBasisV2)
+    return reject("GF2 affine producer profile requires certified-basis parameters");
+  if (step.granularity != InvocationGranularity::CanonicalApplication ||
+      !step.instances.empty() || !step.factor_grids.empty() ||
+      !step.substitution_redundancy_instances.empty() ||
+      !step.condition_instances.empty() ||
+      !step.independent_set_cover_instances.empty() ||
+      !step.gf3_affine_instances.empty() ||
+      !step.affine_basis_instances.empty() ||
+      !step.gf3_gaussian_instances.empty() ||
+      !step.tseitin_cycle_instances.empty() ||
+      !step.direct_csp_support_instances.empty() ||
+      !step.nary_csp_prefix_instances.empty())
+    return reject("GF2 affine producer profile must be canonical and payload-free");
+  if (step.repeat.mode != RepeatMode::Once || step.repeat.limit != 1 ||
+      step.post_application != PostApplication::None)
+    return reject("GF2 affine producer profile must be once-only with no follow-up");
+  if (step.material.touch_filter != SettingOverride::Inherit ||
+      step.material.likely_kept_redundant != SettingOverride::Inherit)
+    return reject("GF2 affine producer profile requires inherited material settings");
+  if (step.budget.is_unlimited() || !step.budget.amount())
+    return reject("GF2 affine producer profile requires a positive fixed allowance");
+  if (step.rule_work_budget.mode != RuleWorkBudgetMode::Bounded ||
+      !step.rule_work_budget.amount)
+    return reject("GF2 affine producer profile requires a positive fixed native allowance");
+  if (!affine_basis_action_producer.enabled)
+    return reject("GF2 affine producer profile requires the native producer");
+  if (!parameters.rules.empty() &&
+      std::find(parameters.rules.begin(), parameters.rules.end(),
+                "AffineConsequence") == parameters.rules.end())
+    return reject("GF2 affine producer profile is outside the configured action collection");
+  if (const auto offered = offered_actions.find("AffineConsequence");
+      offered != offered_actions.end() && !offered->second.empty())
+    return reject("GF2 affine producer profile conflicts with a static action offer");
+
+  auto replacement = *this;
+  replacement.parameters.affine_consequence_reference = *profile_parameters;
+  replacement.allowances["AffineConsequence"] =
+      {step.work_unit, step.budget.amount(), step.rule_work_budget};
+  *this = std::move(replacement);
+  if (error) error->clear();
+  return true;
+}
+
 std::vector<ControllerActionAvailability>
 controller_action_availability(const Kernel &k, const RandomControllerConfig &config) {
   std::vector<ControllerActionAvailability> result;
