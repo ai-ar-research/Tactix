@@ -11,6 +11,49 @@ namespace tactix {
 
 struct AffineBasisConsumedKey;
 
+struct AffineBasisSourceIdentity {
+  uint64_t native_clause_id = 0;
+  std::vector<int32_t> clause;
+  bool operator==(const AffineBasisSourceIdentity &) const = default;
+  bool operator<(const AffineBasisSourceIdentity &other) const {
+    if (native_clause_id != other.native_clause_id)
+      return native_clause_id < other.native_clause_id;
+    return clause < other.clause;
+  }
+};
+
+struct AffineBasisEquationIdentity {
+  std::vector<int32_t> variables;
+  bool rhs = false;
+  std::vector<AffineBasisSourceIdentity> premises;
+  bool operator==(const AffineBasisEquationIdentity &) const = default;
+  bool operator<(const AffineBasisEquationIdentity &other) const {
+    if (variables != other.variables) return variables < other.variables;
+    if (rhs != other.rhs) return rhs < other.rhs;
+    return premises < other.premises;
+  }
+};
+
+// Complete replay identity for one row of one immutable affine owner.  Source
+// equation ordinals are part of the payload: apply never trusts a row ordinal
+// or a digest supplied by a caller.
+struct AffineBasisRowSelection {
+  uint64_t owner_version = 0;
+  uint32_t elimination_profile = 1; // ascending external-variable pivots
+  affine_semantic_extension::BasisRowKind kind =
+      affine_semantic_extension::BasisRowKind::DirectSmall;
+  std::vector<int32_t> variables;
+  bool rhs = false;
+  std::vector<size_t> source_equation_ordinals;
+  // Exact source identity in ordinal order.  This prevents an offer from
+  // rebinding to a freshly recaptured owner whose equation ordinals happen to
+  // derive the same output row.
+  std::vector<AffineBasisEquationIdentity> source_equations;
+
+  bool operator==(const AffineBasisRowSelection &) const = default;
+  bool operator<(const AffineBasisRowSelection &other) const;
+};
+
 enum class AffineBasisLiveStatus : uint8_t {
   Invalid,
   Inapplicable,
@@ -35,6 +78,12 @@ struct AffineBasisLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
+  // A session-owned immutable pre-publication source view.  When supplied,
+  // preparation replays recognition from this view and revalidates only the
+  // exact selected row's sources against the live kernel.
+  const AffineLiveSnapshot *owner = nullptr;
+  uint64_t owner_version = 0;
+  const AffineBasisRowSelection *selection = nullptr;
   // Optional sorted exact identities already committed by the controller's
   // solver-lifetime session.  Planning removes matching rows before it
   // allocates extension variables or constructs proof/journal events.
@@ -68,29 +117,7 @@ struct AffineBasisLiveResult {
   // reports these only; it never changes phase, VMTF, EVSIDS, or scheduling.
   std::vector<int32_t> existing_theory_variables;
   std::vector<int32_t> introduced_theory_variables;
-};
-
-struct AffineBasisSourceIdentity {
-  uint64_t native_clause_id = 0;
-  std::vector<int32_t> clause;
-  bool operator==(const AffineBasisSourceIdentity &) const = default;
-  bool operator<(const AffineBasisSourceIdentity &other) const {
-    if (native_clause_id != other.native_clause_id)
-      return native_clause_id < other.native_clause_id;
-    return clause < other.clause;
-  }
-};
-
-struct AffineBasisEquationIdentity {
-  std::vector<int32_t> variables;
-  bool rhs = false;
-  std::vector<AffineBasisSourceIdentity> premises;
-  bool operator==(const AffineBasisEquationIdentity &) const = default;
-  bool operator<(const AffineBasisEquationIdentity &other) const {
-    if (variables != other.variables) return variables < other.variables;
-    if (rhs != other.rhs) return rhs < other.rhs;
-    return premises < other.premises;
-  }
+  AffineBasisRowSelection selection;
 };
 
 // Exact semantic and proof-source identity of one row actually published by a
@@ -162,6 +189,17 @@ private:
   std::vector<AffineBasisConsumedKey> consumed_keys_;
   AffineBasisLiveResult prepared_;
 };
+
+// Construct the exact durable source/provenance identity for a planned row.
+// This helper is pure and shared by the offerer and publisher so duplicate
+// suppression cannot drift from publication semantics.
+bool affine_basis_consumed_key(
+    const affine_semantic_extension::Image &, const AffineLiveSnapshot &,
+    const affine_semantic_extension::BasisRow &, AffineBasisConsumedKey &);
+bool affine_basis_row_selection(
+    uint64_t owner_version, const affine_semantic_extension::Image &,
+    const AffineLiveSnapshot &, const affine_semantic_extension::BasisRow &,
+    AffineBasisRowSelection &);
 
 // Pure with respect to the kernel, proof stream, and record stream.  It owns a
 // complete source snapshot and precomputes every proof event, identifier,

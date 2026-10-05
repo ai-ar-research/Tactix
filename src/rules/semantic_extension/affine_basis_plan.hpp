@@ -124,4 +124,12 @@ BasisPlanStatus build_basis_plan(const std::vector<Equation> &,
                                  const std::function<bool(uint64_t)> &charge,
                                  BasisPlan &output);
 
+// The repeated row-at-a-time slice enumerates only directly clausal rows.  It
+// performs the same reduction and source accounting but skips wide rows before
+// constructing extension networks, so unrelated wide rows cannot consume a
+// selected direct row's node/proof allowance.
+BasisPlanStatus build_direct_basis_plan(
+    const std::vector<Equation> &, const BasisPlanLimits &,
+    const std::function<bool(uint64_t)> &charge, BasisPlan &output);
+
 } // namespace tactix::affine_semantic_extension

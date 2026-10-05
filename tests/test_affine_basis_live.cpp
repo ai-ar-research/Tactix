@@ -322,6 +322,66 @@ static void bounded_proof_scope() {
   std::fclose(records);
 }
 
+static void exact_owned_row_selection() {
+  Kernel kernel = cancellation_fixture();
+  FILE *records = std::tmpfile();
+  assert(records);
+  auto configured = request(records);
+  AffineLiveRequest capture;
+  capture.image = configured.image;
+  capture.maximum_snapshot_literals = configured.maximum_snapshot_literals;
+  capture.maximum_snapshot_work = configured.maximum_snapshot_work;
+  capture.records = records;
+  capture.action_id = configured.action_id;
+  capture.semantic_id = configured.semantic_id;
+  AffineLiveSnapshot owner;
+  assert(capture_affine_live_snapshot(kernel, capture, owner));
+
+  Image image;
+  assert(recognize(owner.premises, configured.image,
+                   [](uint64_t) { return true; }, image) == Status::Complete);
+  BasisPlan basis;
+  assert(build_direct_basis_plan(image.equations, configured.basis,
+                                 [](uint64_t) { return true; }, basis) ==
+         BasisPlanStatus::Complete);
+  AffineBasisRowSelection selection;
+  const auto row = std::find_if(
+      basis.rows.begin(), basis.rows.end(), [](const BasisRow &candidate) {
+        return candidate.variables == std::vector<External>({5, 6}) &&
+               candidate.rhs;
+      });
+  assert(row != basis.rows.end());
+  assert(affine_basis_row_selection(1, image, owner, *row, selection));
+  configured.owner = &owner;
+  configured.owner_version = 1;
+  configured.selection = &selection;
+  AffineBasisLiveTransaction transaction;
+  const auto prepared =
+      prepare_affine_basis_live(kernel, configured, transaction);
+  assert(prepared.status == AffineBasisLiveStatus::Prepared);
+  assert(prepared.rows == 1 && prepared.definitions == 0 &&
+         prepared.extent_growth == 0 && prepared.selection == selection);
+  verify_transaction_proof(transaction, fixture_clauses(false));
+
+  auto forged = selection;
+  forged.variables = {5, 7};
+  configured.selection = &forged;
+  AffineBasisLiveTransaction rejected;
+  assert(prepare_affine_basis_live(kernel, configured, rejected).status ==
+         AffineBasisLiveStatus::Stale);
+  assert(!rejected.ready() && std::ftell(records) == 0);
+  forged = selection;
+  forged.source_equation_ordinals = {0};
+  configured.selection = &forged;
+  assert(prepare_affine_basis_live(kernel, configured, rejected).status ==
+         AffineBasisLiveStatus::Stale);
+  configured.selection = &selection;
+  configured.owner_version = 2;
+  assert(prepare_affine_basis_live(kernel, configured, rejected).status ==
+         AffineBasisLiveStatus::Invalid);
+  std::fclose(records);
+}
+
 static void contradiction(const char *proof_path) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 5);
@@ -357,6 +417,7 @@ int main(int argc, char **argv) {
   atomic_declines();
   no_new_information();
   bounded_proof_scope();
+  exact_owned_row_selection();
   contradiction(unsat_proof);
   std::puts("affine basis live: atomic definitions, consequences, projection, "
             "stale/resource declines, and proof scope PASS");

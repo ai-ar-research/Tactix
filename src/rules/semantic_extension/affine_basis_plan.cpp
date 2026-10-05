@@ -201,10 +201,10 @@ struct Planner {
 
 } // namespace
 
-BasisPlanStatus build_basis_plan(const std::vector<Equation> &input,
-                                 const BasisPlanLimits &limits,
-                                 const std::function<bool(uint64_t)> &charge,
-                                 BasisPlan &output) {
+BasisPlanStatus build_basis_plan_impl(
+    const std::vector<Equation> &input, const BasisPlanLimits &limits,
+    const std::function<bool(uint64_t)> &charge, BasisPlan &output,
+    bool direct_only) {
   if (!charge || !limits.maximum_work ||
       !limits.maximum_intermediate_width || !limits.maximum_sources ||
       !limits.maximum_premises || !limits.maximum_nodes ||
@@ -256,12 +256,29 @@ BasisPlanStatus build_basis_plan(const std::vector<Equation> &input,
   }
   if (rows.empty()) return BasisPlanStatus::NoStructure;
 
-  for (ReducedRow &row : rows)
+  for (ReducedRow &row : rows) {
+    if (direct_only && row.variables.size() > limits.maximum_direct_width)
+      continue;
     if (!planner.materialize(std::move(row)))
       return planner.interrupted ? BasisPlanStatus::Interrupted
                                  : BasisPlanStatus::Exhausted;
+  }
+  if (planner.plan.rows.empty()) return BasisPlanStatus::NoStructure;
   output = std::move(planner.plan);
   return BasisPlanStatus::Complete;
+}
+
+BasisPlanStatus build_basis_plan(const std::vector<Equation> &input,
+                                 const BasisPlanLimits &limits,
+                                 const std::function<bool(uint64_t)> &charge,
+                                 BasisPlan &output) {
+  return build_basis_plan_impl(input, limits, charge, output, false);
+}
+
+BasisPlanStatus build_direct_basis_plan(
+    const std::vector<Equation> &input, const BasisPlanLimits &limits,
+    const std::function<bool(uint64_t)> &charge, BasisPlan &output) {
+  return build_basis_plan_impl(input, limits, charge, output, true);
 }
 
 } // namespace tactix::affine_semantic_extension

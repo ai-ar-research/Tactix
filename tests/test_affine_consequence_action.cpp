@@ -273,26 +273,25 @@ static void certified_basis_v2_uses_persistent_session() {
   assert(applied.result == ApplyResult::Ok);
   assert(applied.proposed_action_id == 81 &&
          applied.committed_action_id == 81 && applied.semantic_id == 81);
-  assert(applied.basis.live.definitions == 4 &&
-         applied.basis.live.extent_growth == 4);
+  assert(applied.basis.live.definitions == 0 &&
+         applied.basis.live.extent_growth == 0);
   assert(applied.basis.live.existing_theory_variables ==
-         std::vector<int32_t>({1, 2, 3, 4, 5, 6}));
-  assert(applied.basis.live.introduced_theory_variables ==
-         std::vector<int32_t>({7, 8, 9, 10}));
+         std::vector<int32_t>({5, 6}));
+  assert(applied.basis.live.introduced_theory_variables.empty());
   assert(applied.candidate_staged && session.committed_keys() &&
          kernel.semantic_variable_candidate_pending);
   assert(kernel.stats.affine_consequence_attempts == 1 &&
          kernel.stats.affine_consequence_applied == 1 &&
          kernel.stats.affine_consequence_basis_work > 0 &&
          kernel.stats.affine_consequence_rows > 0 &&
-         kernel.stats.affine_consequence_definitions == 4 &&
-         kernel.stats.affine_consequence_extent_growth == 4 &&
+         kernel.stats.affine_consequence_definitions == 0 &&
+         kernel.stats.affine_consequence_extent_growth == 0 &&
          kernel.stats.affine_consequence_session_work > 0 &&
          kernel.stats.affine_consequence_transaction_keys ==
              applied.basis.transaction_keys &&
          kernel.stats.affine_consequence_committed_keys ==
              applied.basis.committed_keys &&
-         kernel.stats.affine_consequence_candidate_variables == 10);
+         kernel.stats.affine_consequence_candidate_variables == 2);
   std::fclose(records);
 }
 
