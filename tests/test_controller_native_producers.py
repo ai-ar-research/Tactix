@@ -143,15 +143,19 @@ def main():
             producer_line = next(
                 (line for line in lines if line.startswith(
                     "c controller-producer NaryCspPrefix ")), "")
+            action_line = next(
+                (line for line in lines if line.startswith("c nary-csp ")), "")
             rule_counts = dict(field.split("=", 1) for field in
                                rule_line.split()[3:] if "=" in field)
             producer_counts = dict(field.split("=", 1) for field in
                                    producer_line.split()[3:] if "=" in field)
+            action_attempts = int(action_line.split()[2]) if action_line else 0
             if (rule_counts and producer_counts and
                     int(rule_counts["requests"]) > 0 and
                     int(rule_counts["effective"]) > 0 and
                     int(producer_counts["calls"]) > 0 and
-                    int(producer_counts["offers"]) > 0):
+                    int(producer_counts["offers"]) > 0 and
+                    action_attempts > 0):
                 assert "c ERROR: controller selection:" not in effective.stderr
                 assert provenance.stat().st_size > 0
                 reached = True
