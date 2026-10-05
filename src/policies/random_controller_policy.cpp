@@ -71,6 +71,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "IndependentSetCover" ||
               std::string_view(rule.name) == "Gf3AffineConsequence" ||
               std::string_view(rule.name) == "DirectCspSupport" ||
+              std::string_view(rule.name) == "NaryCspPrefix" ||
               std::string_view(rule.name) == "Gf3GaussianConsequence" ||
               std::string_view(rule.name) == "TseitinCycleBreaking") &&
              (!config.offered_actions.contains(rule.name) ||
@@ -104,6 +105,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("IndependentSetCover", independent_set_cover_reference);
   CONTROLLER_REFERENCE("Gf3AffineConsequence", gf3_affine_consequence_reference);
   CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
+  CONTROLLER_REFERENCE("NaryCspPrefix", nary_csp_prefix_reference);
   CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
   CONTROLLER_REFERENCE("Gf3GaussianConsequence", gf3_gaussian_consequence_reference);
   CONTROLLER_REFERENCE("TseitinCycleBreaking", tseitin_cycle_breaking_reference);
@@ -160,7 +162,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     if (!root_exclusion(rule).empty())
       continue;
     if (std::string_view(rule.name) == "Gf3AffineConsequence" ||
-        std::string_view(rule.name) == "DirectCspSupport")
+        std::string_view(rule.name) == "DirectCspSupport" ||
+        std::string_view(rule.name) == "NaryCspPrefix")
       // These families have no canonical action.  Their complete typed
       // requests, including limits, are fingerprinted below as offered
       // actions; inventing an empty profile here would serialize a program
@@ -251,6 +254,23 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << producer.maximum_domain_candidates << ' '
         << producer.maximum_pair_candidates << ' '
         << producer.maximum_row_candidates << ' '
+        << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
+  if (config.nary_csp_action_producer.enabled) {
+    const auto &producer = config.nary_csp_action_producer;
+    OnlineInvocation profile;
+    profile.rule = "NaryCspPrefix";
+    profile.parameters = config.parameters.nary_csp_prefix_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
+    profile.nary_csp_prefix_instances = {
+        {{{1, 2}, {3, 4}, {5, 6}}, {2, {{0, 0}, {1, 0}}}}};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << producer.relation_arity << ' '
+        << producer.maximum_domain_candidates << ' '
+        << producer.maximum_relation_candidates << ' '
+        << producer.maximum_prefix_candidates << ' '
         << producer.maximum_offers << ' '
         << producer.maximum_enumeration_work << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
@@ -439,6 +459,36 @@ bool RandomControllerSelector::choose(
       direct_csp_discovery_.state = observation.last_action->invocation.after;
     }
   }
+  if (nary_csp_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          nary_csp_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const auto pending = *nary_csp_discovery_.pending;
+      nary_csp_discovery_.offers.erase(
+          std::remove(nary_csp_discovery_.offers.begin(),
+                      nary_csp_discovery_.offers.end(), pending),
+          nary_csp_discovery_.offers.end());
+      nary_csp_discovery_.pending.reset();
+      nary_csp_discovery_.pending_sequence = 0;
+      nary_csp_discovery_.state = observation.last_action->invocation.after;
+      if (nary_csp_discovery_.offers.empty() &&
+          nary_csp_discovery_.complete)
+        nary_csp_discovery_.terminal = true;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      nary_csp_discovery_.pending.reset();
+      nary_csp_discovery_.offers.clear();
+      nary_csp_discovery_.pending_sequence = 0;
+      nary_csp_discovery_.terminal = true;
+      nary_csp_discovery_.state = observation.last_action->invocation.after;
+    } else if (settlement ==
+               NativeSettlement::RetainUntilReconfiguration) {
+      nary_csp_discovery_.pending_sequence = 0;
+      nary_csp_discovery_.reconfiguration_required = true;
+      nary_csp_discovery_.state = observation.last_action->invocation.after;
+    }
+  }
   if (gf3_gaussian_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
           gf3_gaussian_discovery_.pending_sequence) {
@@ -540,6 +590,38 @@ bool RandomControllerSelector::choose(
         << ' ' << producer.maximum_enumeration_work << ' '
         << serialize_online_strategy_program({{invocation}, {}});
     return out.str();
+  };
+
+  const auto nary_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "NaryCspPrefix";
+    invocation.parameters = config.parameters.nary_csp_prefix_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    invocation.nary_csp_prefix_instances = {
+        {{{1, 2}, {3, 4}, {5, 6}}, {2, {{0, 0}, {1, 0}}}}};
+    std::ostringstream out;
+    const auto &producer = config.nary_csp_action_producer;
+    out << producer.relation_arity << ' '
+        << producer.maximum_domain_candidates << ' '
+        << producer.maximum_relation_candidates << ' '
+        << producer.maximum_prefix_candidates << ' '
+        << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
+        << serialize_online_strategy_program({{invocation}, {}});
+    return out.str();
+  };
+
+  const auto nary_limits = [&] {
+    const auto &p = config.parameters.nary_csp_prefix_reference;
+    return NaryCspPrefixActionLimits{
+        p.maximum_source_clauses, p.maximum_source_literals,
+        p.maximum_recognition_work, p.maximum_domains,
+        p.maximum_domain_values, p.maximum_forbidden_tuples,
+        p.maximum_prefix_arity, p.maximum_definition_clause_literals,
+        p.maximum_proof_work, p.maximum_proof_additions,
+        p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
+        p.maximum_extent_growth, p.maximum_external_extent,
+        p.maximum_session_keys, p.maximum_session_work};
   };
 
   const auto gaussian_profile = [&] {
@@ -823,6 +905,96 @@ bool RandomControllerSelector::choose(
     return !direct_csp_discovery_.offers.empty();
   };
 
+  const auto discover_nary = [&]() -> bool {
+    if (!config.nary_csp_action_producer.enabled ||
+        has_static_offer("NaryCspPrefix") ||
+        !k.nary_csp_prefix_action_session)
+      return false;
+    if (!config.nary_csp_action_producer.valid()) {
+      error = "n-ary CSP structured action producer window is invalid";
+      return false;
+    }
+    const auto &session = *k.nary_csp_prefix_action_session;
+    const auto profile = nary_profile();
+    const auto state = state_version(k);
+    const bool owner_changed = nary_csp_discovery_.owner != &k ||
+                               nary_csp_discovery_.session != &session;
+    const bool profile_changed = nary_csp_discovery_.profile != profile;
+    const bool state_or_session_changed =
+        owner_changed || !same_version(nary_csp_discovery_.state, state) ||
+        nary_csp_discovery_.session_keys != session.committed_keys() ||
+        nary_csp_discovery_.retained_owners != session.retained_owners();
+    if (state_or_session_changed ||
+        (profile_changed &&
+         (!nary_csp_discovery_.reconfiguration_required ||
+          !nary_csp_discovery_.pending))) {
+      nary_csp_discovery_ = {};
+      nary_csp_discovery_.owner = &k;
+      nary_csp_discovery_.session = &session;
+      nary_csp_discovery_.state = state;
+      nary_csp_discovery_.session_keys = session.committed_keys();
+      nary_csp_discovery_.retained_owners = session.retained_owners();
+      nary_csp_discovery_.profile = profile;
+    } else if (nary_csp_discovery_.reconfiguration_required &&
+               profile_changed) {
+      nary_csp_discovery_.state = state;
+      nary_csp_discovery_.session_keys = session.committed_keys();
+      nary_csp_discovery_.retained_owners = session.retained_owners();
+      nary_csp_discovery_.profile = profile;
+      nary_csp_discovery_.reconfiguration_required = false;
+    }
+    if (nary_csp_discovery_.reconfiguration_required) return false;
+    if (nary_csp_discovery_.pending || !nary_csp_discovery_.offers.empty())
+      return true;
+    if (nary_csp_discovery_.terminal) return false;
+    const auto &producer = config.nary_csp_action_producer;
+    NaryCspPrefixActionOfferWindow window;
+    window.relation_arity = producer.relation_arity;
+    window.maximum_domain_candidates = producer.maximum_domain_candidates;
+    window.maximum_relation_candidates = producer.maximum_relation_candidates;
+    window.maximum_prefix_candidates = producer.maximum_prefix_candidates;
+    window.maximum_offers = producer.maximum_offers;
+    window.maximum_enumeration_work = producer.maximum_enumeration_work;
+    window.have_after = nary_csp_discovery_.have_after;
+    if (window.have_after) window.after = nary_csp_discovery_.after;
+    const auto limits = nary_limits();
+    if (!limits.valid()) {
+      error = "n-ary CSP structured action producer parameters are invalid";
+      return false;
+    }
+    const auto offered =
+        nary_csp_prefix_action_offer(k, session, limits, window);
+    const uint64_t preparation = offered.effort.session_work;
+    producer_effort.push_back(
+        {"NaryCspPrefix", static_cast<uint8_t>(offered.status),
+         offered.complete, preparation, offered.effort.enumeration_work,
+         saturated_add(preparation, offered.effort.enumeration_work),
+         offered.effort.prefix_candidates, offered.offers.size()});
+    if (offered.status == NaryCspPrefixActionOfferStatus::Interrupted ||
+        offered.status == NaryCspPrefixActionOfferStatus::ResourceExhausted) {
+      nary_csp_discovery_.reconfiguration_required = true;
+      return false;
+    }
+    if (offered.status != NaryCspPrefixActionOfferStatus::Ready) {
+      nary_csp_discovery_.terminal = true;
+      return false;
+    }
+    const bool cursor_advanced =
+        offered.have_resume_after &&
+        (!nary_csp_discovery_.have_after ||
+         !(offered.resume_after == nary_csp_discovery_.after));
+    nary_csp_discovery_.offers = offered.offers;
+    nary_csp_discovery_.complete = offered.complete;
+    nary_csp_discovery_.have_after = offered.have_resume_after;
+    if (offered.have_resume_after)
+      nary_csp_discovery_.after = offered.resume_after;
+    if (offered.complete && offered.offers.empty())
+      nary_csp_discovery_.terminal = true;
+    else if (offered.offers.empty() && !cursor_advanced)
+      nary_csp_discovery_.terminal = true;
+    return !nary_csp_discovery_.offers.empty();
+  };
+
   const auto discover_gaussian = [&]() -> bool {
     if (!config.gf3_gaussian_action_producer.enabled ||
         has_static_offer("Gf3GaussianConsequence") ||
@@ -980,6 +1152,7 @@ bool RandomControllerSelector::choose(
     None,
     Gf3,
     DirectCsp,
+    NaryCsp,
     Gf3Gaussian,
     TseitinCycle
   };
@@ -1000,6 +1173,10 @@ bool RandomControllerSelector::choose(
                entry.rule == "DirectCspSupport" && discover_direct()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::DirectCsp});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "NaryCspPrefix" && discover_nary()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::NaryCsp});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "Gf3GaussianConsequence" &&
                discover_gaussian()) {
@@ -1058,6 +1235,17 @@ bool RandomControllerSelector::choose(
           config.parameters.direct_csp_support_reference;
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.direct_csp_support_instances = {exact};
+    } else if (selected_action.native == NativeOffer::NaryCsp) {
+      if (!nary_csp_discovery_.pending)
+        nary_csp_discovery_.pending = nary_csp_discovery_.offers[
+            draw(nary_csp_discovery_.offers.size())];
+      const auto exact = *nary_csp_discovery_.pending;
+      nary_csp_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.nary_csp_prefix_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.nary_csp_prefix_instances = {exact};
     } else if (selected_action.native == NativeOffer::Gf3Gaussian) {
       if (!gf3_gaussian_discovery_.pending)
         gf3_gaussian_discovery_.pending = gf3_gaussian_discovery_.offer;

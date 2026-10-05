@@ -126,6 +126,26 @@ struct RandomOnlineConfig {
   IndependentSetCoverParameters independent_set_cover_reference;
   Gf3AffineConsequenceParameters gf3_affine_consequence_reference;
   DirectCspSupportParameters direct_csp_support_reference;
+  NaryCspPrefixParameters nary_csp_prefix_reference = [] {
+    NaryCspPrefixParameters result;
+    result.maximum_source_clauses = 100000;
+    result.maximum_source_literals = 1000000;
+    result.maximum_recognition_work = 10000000;
+    result.maximum_domains = 8;
+    result.maximum_domain_values = 16;
+    result.maximum_forbidden_tuples = 100000;
+    result.maximum_prefix_arity = 7;
+    result.maximum_definition_clause_literals = 16;
+    result.maximum_proof_work = 10000000;
+    result.maximum_proof_additions = 100000;
+    result.maximum_proof_literal_occurrences = 1000000;
+    result.maximum_journal_bytes = 10000000;
+    result.maximum_extent_growth = 1;
+    result.maximum_external_extent = 1000000;
+    result.maximum_session_keys = 10000;
+    result.maximum_session_work = 10000000;
+    return result;
+  }();
   DirectPhpRefutationParameters direct_php_refutation_reference;
   Gf3GaussianConsequenceParameters gf3_gaussian_consequence_reference;
   TseitinCycleBreakingParameters tseitin_cycle_breaking_reference;

@@ -4,6 +4,7 @@
 #include "strategy/action_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -26,6 +27,9 @@ ApplyResult direct_csp_support_canonical_noop(Kernel &) {
 }
 ApplyResult gf3_gaussian_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
 ApplyResult tseitin_cycle_breaking_canonical_noop(Kernel &) {
+  return ApplyResult::NoOp;
+}
+ApplyResult nary_csp_prefix_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
 
@@ -85,6 +89,12 @@ RuleEligibility tseitin_cycle_breaking_registry_guard(const Kernel &kernel) {
                      kernel.tseitin_cycle_breaking_session != nullptr);
 }
 
+RuleEligibility nary_csp_prefix_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = nary_csp_prefix_action_guard(kernel);
+  return result.fact("session-bound",
+                     kernel.nary_csp_prefix_action_session != nullptr);
+}
+
 TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
                      gf3_affine_registry_guard, gf3_affine_canonical_noop);
 TACTIX_REGISTER_RULE(DirectCspSupport, RuleTier::Inprocess,
@@ -98,6 +108,9 @@ TACTIX_REGISTER_RULE(Gf3GaussianConsequence, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(TseitinCycleBreaking, RuleTier::Inprocess,
                      tseitin_cycle_breaking_registry_guard,
                      tseitin_cycle_breaking_canonical_noop);
+TACTIX_REGISTER_RULE(NaryCspPrefix, RuleTier::Inprocess,
+                     nary_csp_prefix_registry_guard,
+                     nary_csp_prefix_canonical_noop);
 
 } // namespace
 
@@ -202,7 +215,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
         "SemanticVariableAdvice", "Gf3AffineConsequence",
         "DirectCspSupport", "DirectPhpRefutation",
-        "Gf3GaussianConsequence", "TseitinCycleBreaking"};
+        "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {

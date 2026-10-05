@@ -538,6 +538,18 @@ NaryCspPrefixActionSelection selection_from_key(
 
 } // namespace
 
+bool nary_csp_prefix_action_selection_valid(
+    const NaryCspPrefixActionSelection &selection) {
+  return identity_valid(make_key(selection));
+}
+
+bool nary_csp_prefix_action_selection_within_limits(
+    const NaryCspPrefixActionSelection &selection,
+    const NaryCspPrefixActionLimits &limits) {
+  const NaryCspPrefixActionKey key = make_key(selection);
+  return identity_valid(key) && key_within_limits(key, limits);
+}
+
 const NaryCspPrefixOwnerSnapshot *NaryCspPrefixActionSession::snapshot(
     const std::vector<std::vector<int32_t>> &domains) const {
   for (const auto &snapshot : snapshots_)

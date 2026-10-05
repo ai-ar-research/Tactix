@@ -14,6 +14,13 @@ def main():
         work = Path(tmp)
         cnf = work / "sat.cnf"
         cnf.write_text("p cnf 1 1\n1 0\n")
+        nary_cnf = work / "nary.cnf"
+        nary_cnf.write_text(
+            "p cnf 9 15\n"
+            "1 2 3 0\n-1 -2 0\n-1 -3 0\n-2 -3 0\n"
+            "4 5 6 0\n-4 -5 0\n-4 -6 0\n-5 -6 0\n"
+            "7 8 9 0\n-7 -8 0\n-7 -9 0\n-8 -9 0\n"
+            "-1 -4 -7 0\n-2 -5 -8 0\n-3 -6 -9 0\n")
 
         def run(*options):
             return subprocess.run(
@@ -50,7 +57,7 @@ def main():
         trace = work / "selected.trace"
         selected = run(
             "--controller-policy=7",
-            "--controller-native-producers=gf3-affine,direct-csp",
+            "--controller-native-producers=gf3-affine,direct-csp,nary-csp",
             "--controller-native-producers=gf3-gaussian,tseitin-cycle",
             f"--controller-trace={trace}")
         assert selected.returncode == 10, selected.stderr
@@ -58,6 +65,7 @@ def main():
         assert len(header) == 2
         configuration = shlex.split(header[1])[1]
         for family in ("Gf3AffineConsequence", "DirectCspSupport",
+                       "NaryCspPrefix",
                        "Gf3GaussianConsequence", "TseitinCycleBreaking"):
             assert f'producer "{family}"' in configuration
 
@@ -112,8 +120,45 @@ def main():
         none_configuration = shlex.split(
             none_trace.read_text().splitlines()[1])[1]
         for family in ("Gf3AffineConsequence", "DirectCspSupport",
+                       "NaryCspPrefix",
                        "Gf3GaussianConsequence", "TseitinCycleBreaking"):
             assert f'producer "{family}"' not in none_configuration
+
+        reached = False
+        last_effective = None
+        for seed in range(1, 129):
+            provenance = work / f"nary-{seed}.jsonl"
+            effective = subprocess.run(
+                [str(binary), f"--controller-policy={seed}",
+                 "--controller-native-producers=nary-csp",
+                 "--controller-families=NaryCspPrefix",
+                 f"--structural-provenance={provenance}", str(nary_cnf)],
+                capture_output=True, text=True, timeout=30)
+            last_effective = effective
+            assert effective.returncode == 10, effective.stderr
+            lines = effective.stdout.splitlines()
+            rule_line = next(
+                (line for line in lines if line.startswith(
+                    "c controller-rule NaryCspPrefix ")), "")
+            producer_line = next(
+                (line for line in lines if line.startswith(
+                    "c controller-producer NaryCspPrefix ")), "")
+            rule_counts = dict(field.split("=", 1) for field in
+                               rule_line.split()[3:] if "=" in field)
+            producer_counts = dict(field.split("=", 1) for field in
+                                   producer_line.split()[3:] if "=" in field)
+            if (rule_counts and producer_counts and
+                    int(rule_counts["requests"]) > 0 and
+                    int(rule_counts["effective"]) > 0 and
+                    int(producer_counts["calls"]) > 0 and
+                    int(producer_counts["offers"]) > 0):
+                assert "c ERROR: controller selection:" not in effective.stderr
+                assert provenance.stat().st_size > 0
+                reached = True
+                break
+        assert reached, (
+            "nary-csp CLI producer never supplied an effective action\n"
+            f"stdout:\n{last_effective.stdout}\nstderr:\n{last_effective.stderr}")
 
         print("controller native-producer CLI controls PASS")
 

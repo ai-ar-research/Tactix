@@ -1,0 +1,119 @@
+{
+  "schema": "tactix-public-theory-v8-fuzz-handoff-v1",
+  "request": "benchmarks/runs/20261004-public-theory-v8-fuzz-handoff/REQUEST.md",
+  "status": "awaiting-pin",
+  "immutable_pin": {
+    "source_commit": "__SOURCE_COMMIT__",
+    "solver_path": "__ABSOLUTE_SOLVER_PATH__",
+    "solver_sha256": "__SOLVER_SHA256__",
+    "build_type": "Debug",
+    "sanitizers": ["address", "undefined"],
+    "frame_pointers": true,
+    "build_details": "__SANITIZER_BUILD_DETAILS__",
+    "runtime_environment": "__SANITIZER_ENVIRONMENT__"
+  },
+  "checkers": {
+    "collection_path": "__ABSOLUTE_CHECKER_COLLECTION_PATH__",
+    "collection_sha256": "__CHECKER_COLLECTION_SHA256__",
+    "manifest_path": "__ABSOLUTE_CHECKER_MANIFEST_PATH__"
+  },
+  "cluster": {
+    "partition": "cpu-q",
+    "full_width": true,
+    "array_throttle": null,
+    "node_constraint": null,
+    "submission_commands": [],
+    "jobs": []
+  },
+  "harness": {
+    "snapshot_path": "__ABSOLUTE_HARNESS_SNAPSHOT_PATH__",
+    "aggregate_sha256": "__HARNESS_SHA256__",
+    "source_hashes": {},
+    "selftest": {
+      "command": "__SELFTEST_COMMAND__",
+      "result": "pending",
+      "known_bad_controls": []
+    }
+  },
+  "legs": {
+    "default_compatibility": {
+      "minimum_fresh_cases": 10000,
+      "corpus_required": true,
+      "expected_theory_producer_calls": 0,
+      "expected_theory_offers": 0,
+      "expected_theory_applications": 0,
+      "expected_theory_effective": 0,
+      "job_ids": [],
+      "result": "pending"
+    },
+    "controller_random_broad": {
+      "minimum_fresh_cases": 10000,
+      "corpus_required": true,
+      "policy": "restart-controller-random",
+      "native_producers": "all",
+      "job_ids": [],
+      "result": "pending"
+    },
+    "targeted_structure_preserving": {
+      "minimum_total_cases": 12000,
+      "minimum_cases_per_family": 2000,
+      "minimum_effective_checked_per_family": 1500,
+      "minimum_declines_checked_per_family": 500,
+      "families": {
+        "Gf3AffineConsequence": {
+          "producer": "gf3-affine",
+          "job_ids": [],
+          "counts": {}
+        },
+        "DirectCspSupport": {
+          "producer": "direct-csp",
+          "job_ids": [],
+          "counts": {}
+        },
+        "NaryCspPrefix": {
+          "catalog_id": "X17",
+          "c_api": "v8",
+          "producer": "nary-csp",
+          "job_ids": [],
+          "counts": {}
+        },
+        "DirectPhpRefutation": {
+          "producer": "native-semantic-enumerator",
+          "job_ids": [],
+          "counts": {}
+        },
+        "Gf3GaussianConsequence": {
+          "producer": "gf3-gaussian",
+          "job_ids": [],
+          "counts": {}
+        },
+        "TseitinCycleBreaking": {
+          "producer": "tseitin-cycle",
+          "job_ids": [],
+          "counts": {}
+        }
+      },
+      "result": "pending"
+    }
+  },
+  "required_count_fields_per_family": [
+    "requested",
+    "producer_or_enumerator_calls",
+    "candidates",
+    "offers",
+    "applications",
+    "effective",
+    "checked_sat",
+    "checked_unsat",
+    "checked_declines",
+    "replay_passes",
+    "provenance_passes",
+    "nonterminating",
+    "failures"
+  ],
+  "artifacts": {
+    "status_path": "benchmarks/runs/20261004-public-theory-v8-fuzz-handoff/STATUS.md",
+    "final_report_path": "benchmarks/runs/20261004-public-theory-v8-fuzz-handoff/FINAL_REPORT.md",
+    "reproducers": []
+  }
+}

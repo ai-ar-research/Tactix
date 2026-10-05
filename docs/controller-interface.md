@@ -1,4 +1,4 @@
-# Restart controller interface v7
+# Restart controller interface v8
 
 Concrete specification for DEVELOPMENT_PLAN.md §5.6. That section owns the
 architecture; this document owns the versioned interface and choice identities.
@@ -81,14 +81,24 @@ bounded, NUL-terminated `tcx2:` identity for that rule and
 `tactix_online_configure_v7` deep-copies it; other v7 steps carry no Tseitin
 payload. Versions 1--6 retain their layouts and meanings.
 
+Version 8 appends registry ID 39, disabled reference StepId 28 and parameter
+tag 42 for X17 `NaryCspPrefix`. A `tactix_online_step_v8` carries zero or more
+exact nested instances: the canonically ordered signed domain vectors, residual
+domain index, and complete ordered `(domain,value)` prefix for every
+non-residual domain. `tactix_online_configure_v8` validates the complete shape
+and limits, then deep-copies every domain literal and prefix choice. Typed
+replay serializes the same exact payload and the `nary-csp-prefix1` limit tuple;
+canonical or scalar requests are invalid. Versions 1--7 retain their layouts
+and meanings.
+
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
 selects those families and supplies their typed payloads and fixed allowances;
 choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
 producer. `--controller-native-producers=LIST` independently enables bounded
-native discovery for `gf3-affine`, `direct-csp`, `gf3-gaussian`, and
-`tseitin-cycle`; `all` enables all four and `none` disables all four. They are
+native discovery for `gf3-affine`, `direct-csp`, `nary-csp`, `gf3-gaussian`, and
+`tseitin-cycle`; `all` enables all five and `none` disables all five. They are
 disabled unless explicitly selected. `--controller-families=LIST` restricts
 eligibility to canonical root-action names without inventing structured
 payloads, so focused native-producer campaigns can isolate one action family;
@@ -277,6 +287,16 @@ action. After it reaches a new root closure, the producer discards its stale
 offer cache and performs a fresh census, so another independent component or
 alternate unassigned cycle can be selected.
 
+X17 extends the same exact-selection contract to n-ary finite-domain relations.
+Its bounded `nary-csp` producer discovers canonical signed exact-one domains,
+captures complete forbidden-tuple relations, and deterministically pages every
+productive all-but-one prefix. The payload names the full domain collection,
+one residual domain, and one selected value in every other domain. Apply
+revalidates the retained owner and exact current relation before atomically
+publishing the exact-AND definition and RUP residual exclusions. Its
+solver-lifetime Kernel session retains owners, durable prefix keys, action IDs,
+and safe namespace growth; propagation remains a separate action.
+
 Native exact producers classify settlement uniformly. Applied, duplicate and
 complete no-structure/no-outcome results consume the payload. Invalid,
 inapplicable, unsupported-proof and stale results discard it until context
@@ -311,7 +331,8 @@ A successful proof-rule dispatch stages immutable advice bound to the post-actio
 state version and publishes it after the registry's single `strategy_epoch`
 transition. Exact-cover and affine-basis extension outputs have `IntroducedTheory`
 role; affine source variables and independent-set vertices have `ExistingTheory`
-role. Encoding helpers and proof-only
+role. X17 publishes its still-branchable semantic variables under the distinct
+`NaryCsp` producer after any configured propagation follow-up. Encoding helpers and proof-only
 identities are never candidates. A later advice action applies bounded role-specific
 priority doses uniformly to VMTF and EVSIDS; producer actions never install rankings
 or phases themselves. Candidate IDs combine a monotone session publication generation
@@ -345,6 +366,12 @@ scan work, proof preflight and emitted additions/deletions, published formula
 objects, journal cost, extent growth, and staged semantic-variable counts.
 Before/after differences are the raw feedback for one action. They are neither
 normalized nor combined into a reward.
+
+X17 additionally exposes cumulative `nary_csp_prefix_*` action counters and
+native-producer records for discovery work, candidates, offers, pagination,
+session/live preflight, settlement, proof/yield, and semantic-variable volume.
+Before/after differences are raw measurements. They do not compute reward or
+authorize DefaultPolicy scheduling.
 
 ## Effort and observation
 
