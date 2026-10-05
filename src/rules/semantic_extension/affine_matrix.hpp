@@ -71,6 +71,14 @@ public:
   const std::vector<MatrixAssignment> &trail() const { return trail_; }
   const std::vector<MatrixRow> &rows() const { return rows_; }
 
+  // Authenticate one event against the exact immutable owner and source
+  // image used to build this matrix.  The event must also be the current
+  // conflict-first/implication-second result for the synchronized trail.
+  bool authenticates(uint64_t owner_identity,
+                     const std::vector<Equation> &exact_sources,
+                     const MatrixEvent &event,
+                     const std::function<bool(uint64_t)> &charge) const;
+
 private:
   friend MatrixStatus build_affine_matrix(
       const std::vector<Equation> &, uint64_t, const MatrixLimits &,

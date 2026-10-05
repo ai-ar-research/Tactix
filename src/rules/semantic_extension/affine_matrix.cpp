@@ -173,6 +173,19 @@ void make_reason(const std::vector<Equation> &sources,
                                                : -event.implied_variable);
 }
 
+bool same_equation(const Equation &first, const Equation &second) {
+  return first.variables == second.variables && first.rhs == second.rhs &&
+         first.premises == second.premises &&
+         first.premise_clauses == second.premise_clauses;
+}
+
+bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
+  return first.kind == second.kind && first.row == second.row &&
+         first.implied_variable == second.implied_variable &&
+         first.implied_value == second.implied_value &&
+         first.reason == second.reason;
+}
+
 } // namespace
 
 MatrixStatus build_affine_matrix(
@@ -235,6 +248,41 @@ MatrixStatus AffineMatrix::synchronize(
     work_ += work.used;
   event = std::move(candidate);
   return MatrixStatus::Complete;
+}
+
+bool AffineMatrix::authenticates(
+    uint64_t owner_identity, const std::vector<Equation> &exact_sources,
+    const MatrixEvent &event,
+    const std::function<bool(uint64_t)> &charge) const {
+  if (!charge || !charge(1) || !owner_identity_ ||
+      owner_identity != owner_identity_ ||
+      exact_sources.size() != sources_.size())
+    return false;
+  for (size_t i = 0; i < sources_.size(); ++i) {
+    const Equation &source = sources_[i];
+    if (!charge(3) || !charge(source.variables.size()) ||
+        !charge(source.premises.size()) ||
+        !charge(source.premise_clauses.size()))
+      return false;
+    for (const std::vector<External> &clause : source.premise_clauses)
+      if (!charge(clause.size())) return false;
+    if (!same_equation(exact_sources[i], sources_[i])) return false;
+  }
+  if (!charge(1) || !charge(trail_.size()) || !charge(rows_.size()))
+    return false;
+  for (const MatrixRow &row : rows_)
+    if (!charge(row.variables.size() + row.source_equations.size()))
+      return false;
+  MatrixEvent expected = find_event(rows_);
+  if (!charge(event.reason.size()) || !charge(event.row.variables.size()) ||
+      !charge(event.row.source_equations.size()))
+    return false;
+  for (size_t source : expected.row.source_equations)
+    if (source >= sources_.size() ||
+        !charge(sources_[source].variables.size()))
+      return false;
+  make_reason(sources_, trail_, expected);
+  return expected.kind != MatrixEventKind::None && same_event(expected, event);
 }
 
 } // namespace tactix::affine_semantic_extension

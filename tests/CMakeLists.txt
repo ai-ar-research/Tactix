@@ -370,6 +370,15 @@ add_test(NAME parity_wide_reason_proof
                  ${CMAKE_SOURCE_DIR})
 set_tests_properties(parity_wide_reason_proof PROPERTIES SKIP_RETURN_CODE 77)
 
+# The pure persistent-matrix bridge must certify one wide event reason, retire
+# all proof-only helpers, and leave only that reason marked for installation.
+add_test(NAME affine_matrix_transaction_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/affine_matrix_transaction_proof.sh
+                 $<TARGET_FILE:test_affine_matrix_transaction>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(affine_matrix_transaction_proof PROPERTIES
+                     SKIP_RETURN_CODE 77)
+
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
 # for the lemmas, lrat-check for the chains), in sub-solver space and again
 # after the sub-solver -> kernel translation. Skips 77 without a checker.
