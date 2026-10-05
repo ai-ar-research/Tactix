@@ -160,6 +160,14 @@ constraint under the supplied limits.  The offerer changes no formula, proof,
 owner/session state, action identifier, provenance stream, observation, or
 heuristic score.
 
+Once paging establishes that the immutable owner has no remaining offer, that
+completed/no-structure census remains terminal across later search and restart
+epochs.  It is reset by an owner or session change, a changed profile under its
+typed reconfiguration rules, or another explicitly retryable terminal state;
+ordinary learned-clause and restart churn cannot make the frozen owner acquire
+new source equations.  Resource exhaustion and interruption remain held for
+explicit reconfiguration rather than being misreported as completion.
+
 Default, random, and future learned policies consume these same exact offers.
 DefaultPolicy may eventually impose a concrete ordering over them; it does not
 receive a private GF(2) implementation.  A selected resource-exhausted,

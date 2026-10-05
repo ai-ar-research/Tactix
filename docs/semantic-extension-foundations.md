@@ -81,9 +81,14 @@ Projection drops the fresh variables; reconstruction evaluates the dependency-or
 XOR tree, so the extension is conservative. Count-only preflight fixes proof, arena,
 extent, journal, and retained-session costs before source-ID/literal revalidation and
 commit. Durable row/RHS/source/native-clause keys suppress repeated rows after deletion
-without blocking newly exposed rows. Existing and introduced theory variables are
-reported separately; publication leaves propagation to `Propagate`. V2 decline never
-falls back to V1 and has no solver or session effect.
+without blocking newly exposed rows. Completing the retained owner's census with no
+remaining offer is also durable across restart/search epochs, so an immutable empty
+census is not rescanned; owner/session/profile changes and explicit retry states retain
+their typed reset rules. Existing and introduced theory variables are reported
+separately; publication leaves propagation to `Propagate`. An explicitly configured
+propagation follow-up defers the one semantic-variable publication until the settled
+root, while an independent later propagation simply stales a previously published
+candidate. V2 decline never falls back to V1 and has no solver or session effect.
 
 ## Exact-cover occupancy extension
 

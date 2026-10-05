@@ -245,6 +245,13 @@ registry IDs. All 20 combinations are initially present:
 | Restart | `adaptive-glue`, `reluctant` |
 | Phase | `saved`, `target`, `positive`, `negative`, `focused-rotation` |
 
+The controller owns this search action set.  By default all 20 remain
+available.  `--controller-search-configurations=all|LIST` installs an exact
+nonempty subset using the names above; repeated list flags accumulate and
+duplicates, empty elements and unknown names fail closed.  The chosen set is
+part of the controller configuration fingerprint, and `ResumeSearch` samples
+only from it.  Rule eligibility and selection remain independent.
+
 Target selection uses the shared saved phase when a target is absent. Explicit
 positive/negative selection changes the decision polarity, not stored phases.
 Focused rotation preserves the reference pattern and configurable span from
@@ -328,6 +335,13 @@ parameter tags, stable Lucky IDs, and wire tags are append-only.
 Independent-set's variable-length selection requires the additive
 structured-step surface rather than an opaque scalar token.
 
+The typed GF(2) native-producer profile may carry one optional second canonical
+`SemanticVariableAdvice` step.  It configures finite nonzero role priorities
+and its allowance without creating a static advice offer: advice becomes
+eligible only after a successful theory action publishes a live candidate.
+`Propagate` remains an independently selected family, so the profile adds
+neither an implicit follow-up nor a fallback.
+
 The v4 public boundary is implemented. Canonical affine and exact-cover calls,
 structured independent-set calls, and semantic advice all pass through the
 same `OnlineStrategyExecutor`, registry dispatch, state-version checks, and
@@ -341,8 +355,11 @@ exact-cover, and advice whenever their guards hold; independent-set selection
 requires a recognized structured cover offered by a producer or caller.
 
 A successful proof-rule dispatch stages immutable advice bound to the post-action
-state version and publishes it after the registry's single `strategy_epoch`
-transition. Exact-cover and affine-basis extension outputs have `IntroducedTheory`
+state version. Without a configured follow-up it publishes after the registry's
+single `strategy_epoch` transition. If the request explicitly composes
+`Propagate`, publication is deferred across that selected follow-up, fixed,
+retired and missing variables are filtered at the settled root, and one candidate
+is published at the final state version. Exact-cover and affine-basis extension outputs have `IntroducedTheory`
 role; affine source variables and independent-set vertices have `ExistingTheory`
 role. X17 publishes its still-branchable semantic variables under the distinct
 `NaryCsp` producer after any configured propagation follow-up. Encoding helpers and proof-only
@@ -355,11 +372,13 @@ action IDs, and existing/introduced counts without mutable producer storage.
 Affine publication may leave root propagation pending. V2 retains exact
 row/RHS/source/native-clause keys across calls, so deleting published clauses cannot
 authorize the same basis row again; a later call may publish genuinely novel rows.
-Its candidate is observable
-and optionally consumable at a conflict-free level-zero state before a separately
-selected `Propagate`; propagation advances the state version and expires an unconsumed
-candidate. `AffineConsequence` must not hide that propagation or republish advice
-afterward. Exact cover plans its whole batch from one retained source and stores exact
+Without a configured follow-up, its candidate is observable and optionally
+consumable at a conflict-free level-zero state before a separately selected
+`Propagate`; that independent action advances the state version and expires an
+unconsumed candidate. `AffineConsequence` never hides propagation and never
+republishes after an independent propagation action. A request that explicitly
+declares the composed follow-up instead defers its first and only publication
+until that propagation completes. Exact cover plans its whole batch from one retained source and stores exact
 signed-external duplicate keys in its session; deleting definition clauses cannot
 permit republication. Independent set retains and revalidates the original owner
 snapshot so one published cover or later learned clauses do not block a distinct cover.
