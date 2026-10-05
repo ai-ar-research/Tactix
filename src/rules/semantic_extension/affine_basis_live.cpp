@@ -126,7 +126,312 @@ struct PlanningSink {
     ++deletions;
     return true;
   }
+
+  bool mark_install(const SmallClause &small, bool definition) {
+    std::vector<int32_t> clause(small.lits.begin(),
+                                small.lits.begin() + small.size);
+    const auto found = active.find(clause_key(std::move(clause)));
+    if (found == active.end() || found->second.empty()) return false;
+    const uint64_t id = found->second.back();
+    for (auto event = events.rbegin(); event != events.rend(); ++event)
+      if (event->kind != Event::Kind::Delete && event->id == id) {
+        if (event->install || event->definition) return false;
+        event->install = true;
+        event->definition = definition;
+        return true;
+      }
+    return false;
+  }
+
+  bool exact_active_population(const std::vector<SmallClause> &expected) const {
+    std::map<std::vector<int32_t>, size_t> wanted;
+    for (const SmallClause &small : expected) {
+      std::vector<int32_t> clause(small.lits.begin(),
+                                  small.lits.begin() + small.size);
+      ++wanted[clause_key(std::move(clause))];
+    }
+    size_t populated = 0;
+    for (const auto &[clause, ids] : active) {
+      if (ids.empty()) continue;
+      ++populated;
+      const auto found = wanted.find(clause);
+      if (found == wanted.end() || found->second != ids.size()) return false;
+    }
+    return populated == wanted.size();
+  }
+
+  std::set<int32_t> active_variables() const {
+    std::set<int32_t> result;
+    for (const auto &[clause, ids] : active) {
+      if (ids.empty()) continue;
+      for (int32_t literal : clause) result.insert(std::abs(literal));
+    }
+    return result;
+  }
 };
+
+// Run the scalable parity certificate over dense theory-variable identities,
+// while every proof event names the kernel's stable external identity.  Dense
+// leaves avoid allocating a segment tree proportional to a sparse/high input
+// variable number.  Helpers form one contiguous external namespace after the
+// current kernel extent so proof-on and proof-off executions stay identical.
+struct DensePlanningSink {
+  PlanningSink &sink;
+  const std::vector<int32_t> &external_variables;
+  uint32_t starting_extent;
+  uint32_t fresh;
+  uint32_t maximum_helpers;
+
+  int32_t external_literal(int32_t literal) const {
+    if (!literal || literal == INT32_MIN) return 0;
+    const uint32_t variable = static_cast<uint32_t>(std::abs(literal));
+    int32_t external = 0;
+    if (variable <= external_variables.size())
+      external = external_variables[variable - 1];
+    else {
+      const uint64_t offset = variable - external_variables.size();
+      const uint64_t mapped = uint64_t{starting_extent} + offset;
+      if (offset > maximum_helpers || mapped > INT32_MAX) return 0;
+      external = static_cast<int32_t>(mapped);
+    }
+    return literal < 0 ? -external : external;
+  }
+
+  int32_t helper_external(uint32_t dense) const {
+    if (dense <= external_variables.size()) return 0;
+    const uint64_t offset = dense - external_variables.size();
+    const uint64_t external = uint64_t{starting_extent} + offset;
+    return offset <= maximum_helpers && external <= INT32_MAX
+               ? static_cast<int32_t>(external)
+               : 0;
+  }
+
+  bool map(const SmallClause &input, SmallClause &output) const {
+    output.size = input.size;
+    for (uint32_t i = 0; i < input.size; ++i) {
+      output.lits[i] = external_literal(input.lits[i]);
+      if (!output.lits[i]) return false;
+    }
+    return true;
+  }
+
+  bool add(const SmallClause &clause, bool rat) {
+    SmallClause external;
+    if (!map(clause, external)) {
+      sink.invalid = true;
+      return false;
+    }
+    return sink.add(external, rat);
+  }
+
+  bool erase(const SmallClause &clause) {
+    SmallClause external;
+    if (!map(clause, external)) {
+      sink.invalid = true;
+      return false;
+    }
+    return sink.erase(external);
+  }
+
+  bool new_variable(int32_t &variable) {
+    const uint64_t used = uint64_t{fresh} - external_variables.size();
+    if (used == maximum_helpers || fresh == INT32_MAX) {
+      sink.exhausted = true;
+      return false;
+    }
+    variable = static_cast<int32_t>(++fresh);
+    return true;
+  }
+
+  bool mark_install(const SmallClause &clause, bool definition) {
+    SmallClause external;
+    return map(clause, external) && sink.mark_install(external, definition);
+  }
+
+  uint32_t helpers() const {
+    return fresh - static_cast<uint32_t>(external_variables.size());
+  }
+};
+
+bool add_arena_words(uint64_t &, const std::vector<int32_t> &);
+
+enum class WideProofStatus : uint8_t {
+  Complete,
+  Invalid,
+  Exhausted,
+  Interrupted,
+  Unsupported,
+};
+
+struct WideProofPlan {
+  uint32_t helpers = 0;
+  uint64_t published = 0;
+  uint64_t arena_words = 0;
+  std::vector<int32_t> introduced;
+  std::vector<AffineBasisProjectionRecord> projection;
+  std::vector<int32_t> proof_only_helpers;
+};
+
+WideProofStatus prepare_wide_proof(
+    Kernel &kernel, const affine::Image &image, const affine::BasisRow &row,
+    uint32_t starting_extent, uint32_t maximum_helpers,
+    uint32_t maximum_live_nodes, uint64_t maximum_work,
+    uint64_t &proof_work,
+    PlanningSink &sink, WideProofPlan &output) {
+  proof_work = 0;
+  bool interrupted = false;
+  bool work_exhausted = false;
+  const auto charge = [&](uint64_t amount) {
+    if (kernel_terminating(kernel)) {
+      interrupted = true;
+      return false;
+    }
+    if (amount > maximum_work - proof_work) {
+      work_exhausted = true;
+      return false;
+    }
+    proof_work += amount;
+    return true;
+  };
+  if (row.kind != affine::BasisRowKind::Extended ||
+      row.variables.size() < 2 || row.source_equations.empty())
+    return WideProofStatus::Invalid;
+  if (row.variables.size() - 1 > maximum_live_nodes)
+    return WideProofStatus::Exhausted;
+
+  std::vector<int32_t> variables;
+  for (size_t source : row.source_equations) {
+    if (source >= image.equations.size()) return WideProofStatus::Invalid;
+    const auto &equation = image.equations[source];
+    if (equation.variables.empty() ||
+        equation.variables.size() >
+            parity_certificate::Equation{}.variables.size())
+      return WideProofStatus::Unsupported;
+    variables.insert(variables.end(), equation.variables.begin(),
+                     equation.variables.end());
+  }
+  std::sort(variables.begin(), variables.end());
+  variables.erase(std::unique(variables.begin(), variables.end()),
+                  variables.end());
+  if (variables.empty() || variables.size() > INT32_MAX)
+    return WideProofStatus::Invalid;
+
+  std::vector<parity_certificate::Equation> equations;
+  equations.reserve(row.source_equations.size());
+  for (size_t source : row.source_equations) {
+    const auto &recognized = image.equations[source];
+    parity_certificate::Equation equation;
+    equation.size = static_cast<uint8_t>(recognized.variables.size());
+    equation.rhs = recognized.rhs;
+    for (size_t i = 0; i < recognized.variables.size(); ++i) {
+      const auto found = std::lower_bound(variables.begin(), variables.end(),
+                                          recognized.variables[i]);
+      if (found == variables.end() || *found != recognized.variables[i])
+        return WideProofStatus::Invalid;
+      equation.variables[i] =
+          static_cast<int32_t>(found - variables.begin() + 1);
+    }
+    equations.push_back(equation);
+  }
+
+  DensePlanningSink mapped{sink, variables, starting_extent,
+                           static_cast<uint32_t>(variables.size()),
+                           maximum_helpers};
+  parity_certificate::Certificate<DensePlanningSink> certificate(
+      mapped, static_cast<uint32_t>(variables.size()), UINT32_MAX, charge);
+  if (!certificate.accumulate(equations))
+    return interrupted ? WideProofStatus::Interrupted
+         : work_exhausted || sink.exhausted ? WideProofStatus::Exhausted
+         : sink.invalid ? WideProofStatus::Invalid
+                                            : WideProofStatus::Unsupported;
+  if (!charge(1))
+    return interrupted ? WideProofStatus::Interrupted
+                       : WideProofStatus::Exhausted;
+  typename parity_certificate::Certificate<DensePlanningSink>::ActiveTree tree;
+  if (!certificate.active_tree(tree)) return WideProofStatus::Invalid;
+
+  std::vector<int32_t> expected_dense;
+  expected_dense.reserve(row.variables.size());
+  for (int32_t external : row.variables) {
+    const auto found =
+        std::lower_bound(variables.begin(), variables.end(), external);
+    if (found == variables.end() || *found != external)
+      return WideProofStatus::Invalid;
+    expected_dense.push_back(
+        static_cast<int32_t>(found - variables.begin() + 1));
+  }
+  if (tree.variables != expected_dense || tree.rhs != row.rhs ||
+      tree.definitions.size() + 1 != tree.variables.size())
+    return WideProofStatus::Invalid;
+
+  std::vector<SmallClause> expected_active;
+  for (const auto &definition : tree.definitions)
+    for (const SmallClause &clause : definition.clauses) {
+      SmallClause external;
+      if (!mapped.map(clause, external)) return WideProofStatus::Invalid;
+      expected_active.push_back(external);
+    }
+  SmallClause external_root;
+  if (!mapped.map(tree.root_unit, external_root))
+    return WideProofStatus::Invalid;
+  expected_active.push_back(external_root);
+  if (!sink.exact_active_population(expected_active))
+    return WideProofStatus::Invalid;
+
+  WideProofPlan plan;
+  std::set<int32_t> live_helpers;
+  for (const auto &definition : tree.definitions) {
+    const int32_t external_output = mapped.helper_external(definition.output);
+    const int32_t external_first = mapped.external_literal(definition.first);
+    const int32_t external_second = mapped.external_literal(definition.second);
+    if (!external_output || !external_first || !external_second ||
+        !live_helpers.insert(external_output).second)
+      return WideProofStatus::Invalid;
+    plan.introduced.push_back(external_output);
+    plan.projection.push_back(
+        {external_output, external_first, external_second});
+    for (const SmallClause &clause : definition.clauses) {
+      SmallClause external;
+      if (!mapped.map(clause, external) ||
+          !mapped.mark_install(clause, true))
+        return WideProofStatus::Invalid;
+      std::vector<int32_t> material(external.lits.begin(),
+                                    external.lits.begin() + external.size);
+      if (!add_arena_words(plan.arena_words, material))
+        return WideProofStatus::Exhausted;
+      ++plan.published;
+    }
+  }
+  if (!mapped.mark_install(tree.root_unit, false))
+    return WideProofStatus::Invalid;
+  ++plan.published;
+
+  const std::set<int32_t> active_variables = sink.active_variables();
+  if (!live_helpers.count(std::abs(external_root.lits[0])))
+    return WideProofStatus::Invalid;
+  plan.helpers = mapped.helpers();
+  for (uint32_t helper = 1; helper <= plan.helpers; ++helper) {
+    const uint64_t candidate = uint64_t{starting_extent} + helper;
+    if (candidate > INT32_MAX) return WideProofStatus::Exhausted;
+    const int32_t external = static_cast<int32_t>(candidate);
+    if (live_helpers.count(external)) {
+      if (!active_variables.count(external)) return WideProofStatus::Invalid;
+      continue;
+    }
+    if (active_variables.count(external)) return WideProofStatus::Invalid;
+    SmallClause fixed;
+    fixed.size = 1;
+    fixed.lits[0] = external;
+    if (!sink.add(fixed, true))
+      return sink.exhausted ? WideProofStatus::Exhausted
+                            : WideProofStatus::Invalid;
+    if (!sink.mark_install(fixed, false)) return WideProofStatus::Invalid;
+    plan.proof_only_helpers.push_back(external);
+    ++plan.published;
+  }
+  output = std::move(plan);
+  return WideProofStatus::Complete;
+}
 
 bool append_bounded(std::string &journal, uint64_t maximum,
                     const std::string &text) {
@@ -253,7 +558,7 @@ bool make_affine_basis_journal(
           ",\"kind\":\"affine-basis-begin\",\"equations\":" +
           std::to_string(image.equations.size()) + ",\"rows\":" +
           std::to_string(plan.rows.size()) + ",\"definitions\":" +
-          std::to_string(plan.definitions.size()) +
+          std::to_string(transaction.projection_.size()) +
           ",\"propagation\":\"deferred-controller\"}\n"))
     return false;
   for (uint64_t occurrence : transaction.source_occurrences_) {
@@ -285,11 +590,14 @@ bool make_affine_basis_journal(
       return false;
   }
   for (const auto &event : transaction.events_) {
-    const char *kind = event.kind == Event::Kind::Rat
-                           ? "affine-basis-definition-rat"
-                       : event.kind == Event::Kind::Rup
-                           ? "affine-basis-proof-rup"
-                           : "affine-basis-proof-delete";
+    const char *kind =
+        event.kind == Event::Kind::Rat
+            ? (event.definition ? "affine-basis-definition-rat"
+               : event.install && event.clause.size() == 1
+                   ? "affine-basis-helper-fix-rat"
+                   : "affine-basis-proof-rat")
+        : event.kind == Event::Kind::Rup ? "affine-basis-proof-rup"
+                                        : "affine-basis-proof-delete";
     if (!append_bounded(journal, request.maximum_journal_bytes,
             "{" + identity + ",\"kind\":\"" + kind +
             "\",\"id\":" +
@@ -299,22 +607,43 @@ bool make_affine_basis_journal(
             ",\"clause\":[" + integers(event.clause) + "]}\n"))
       return false;
   }
-  for (size_t i = 0; i < transaction.introduced_.size(); ++i) {
-    const auto &projection = plan.projection[i];
-    const int32_t first = external_atom(projection.first,
-                                        transaction.starting_extent_ + 1);
-    const int32_t second = external_atom(projection.second,
-                                         transaction.starting_extent_ + 1);
-    if (!first || !second || !append_bounded(
+  if (transaction.introduced_.size() != transaction.projection_.size() ||
+      transaction.introduced_.size() +
+              transaction.proof_only_helpers_.size() !=
+          transaction.extent_growth_)
+    return false;
+  for (size_t i = 0; i < transaction.projection_.size(); ++i) {
+    const auto &projection = transaction.projection_[i];
+    if (projection.output != transaction.introduced_[i] ||
+        !projection.output || !projection.first || !projection.second ||
+        !append_bounded(
             journal, request.maximum_journal_bytes,
             "{" + identity +
             ",\"kind\":\"affine-basis-theory-variable\",\"output\":" +
-            std::to_string(transaction.introduced_[i]) +
+            std::to_string(projection.output) +
             ",\"meaning\":\"output iff first XOR second\",\"first\":" +
-            std::to_string(first) + ",\"second\":" +
-            std::to_string(second) +
+            std::to_string(projection.first) + ",\"second\":" +
+            std::to_string(projection.second) +
             ",\"projection\":\"omit-extension\","
             "\"reconstruction\":\"evaluate-operand-xor\"}\n"))
+      return false;
+  }
+  for (size_t i = 0; i < transaction.proof_only_helpers_.size(); ++i) {
+    const int32_t helper = transaction.proof_only_helpers_[i];
+    if (helper <= static_cast<int32_t>(transaction.starting_extent_) ||
+        uint64_t(helper) > uint64_t(transaction.starting_extent_) +
+                               transaction.extent_growth_ ||
+        (i && transaction.proof_only_helpers_[i - 1] >= helper) ||
+        std::binary_search(transaction.introduced_.begin(),
+                           transaction.introduced_.end(), helper) ||
+        !append_bounded(
+            journal, request.maximum_journal_bytes,
+            "{" + identity +
+            ",\"kind\":\"affine-basis-proof-helper\",\"output\":" +
+            std::to_string(helper) +
+            ",\"meaning\":\"retired transition identity fixed true\","
+            "\"projection\":\"omit-extension\","
+            "\"reconstruction\":\"assign-true\"}\n"))
       return false;
   }
   if (!append_bounded(journal, request.maximum_journal_bytes,
@@ -607,11 +936,9 @@ FilterStatus filter_selected_row(
     }
   }
   if (selected == SIZE_MAX) return FilterStatus::AllExcluded;
-  // This first repeated-action slice deliberately publishes direct rows only.
-  // Wide rows remain on the existing whole-basis path until the scalable
-  // certificate replaces the sixteen-variable Deriver boundary.
-  if (plan.rows[selected].kind == affine::BasisRowKind::Extended)
-    return FilterStatus::AllExcluded;
+  // A selected wide row is rebuilt by the scalable parity certificate.  Drop
+  // the whole-basis planner's local definition graph here so unrelated rows
+  // cannot consume namespace or proof allowance.
   plan.rows = {plan.rows[selected]};
   plan.definitions.clear();
   plan.projection.clear();
@@ -738,7 +1065,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
 
   affine::BasisPlan basis;
   const affine::BasisPlanStatus planned = request.selection
-      ? affine::build_direct_basis_plan(
+      ? affine::build_selectable_basis_plan(
             image.equations, request.basis,
             [&](uint64_t) { return !kernel_terminating(kernel); }, basis)
       : affine::build_basis_plan(
@@ -781,22 +1108,39 @@ AffineBasisLiveResult prepare_affine_basis_live(
     }
   }
   result.rows = basis.rows.size();
+  const bool selected_wide = request.selection && basis.rows.size() == 1 &&
+      basis.rows.front().kind == affine::BasisRowKind::Extended;
   result.definitions = basis.definitions.size();
   if (transaction.starting_extent_ > request.maximum_external_extent ||
       transaction.starting_extent_ > INT32_MAX ||
-      basis.definitions.size() > UINT32_MAX ||
-      basis.definitions.size() > UINT32_MAX - kernel.nvars ||
-      basis.definitions.size() >
-          uint64_t(request.maximum_external_extent) -
-              transaction.starting_extent_ ||
-      transaction.starting_extent_ + basis.definitions.size() > INT32_MAX) {
+      (!selected_wide &&
+       (basis.definitions.size() > UINT32_MAX ||
+        basis.definitions.size() > UINT32_MAX - kernel.nvars ||
+        basis.definitions.size() >
+            uint64_t(request.maximum_external_extent) -
+                transaction.starting_extent_ ||
+        transaction.starting_extent_ + basis.definitions.size() >
+            INT32_MAX))) {
     result.status = AffineBasisLiveStatus::ResourceExhausted;
     return result;
   }
   transaction.extent_growth_ = basis.definitions.size();
   const uint32_t first_extension = transaction.starting_extent_ + 1;
-  for (uint32_t node = 0; node < transaction.extent_growth_; ++node)
-    transaction.introduced_.push_back(first_extension + node);
+  for (const affine::ProjectionObligation &projection : basis.projection) {
+    const int32_t output = external_atom(projection.extension, first_extension);
+    const int32_t first = external_atom(projection.first, first_extension);
+    const int32_t second = external_atom(projection.second, first_extension);
+    if (!output || !first || !second) {
+      result.status = AffineBasisLiveStatus::Invalid;
+      return result;
+    }
+    transaction.introduced_.push_back(output);
+    transaction.projection_.push_back({output, first, second});
+  }
+  if (transaction.projection_.size() != basis.definitions.size()) {
+    result.status = AffineBasisLiveStatus::Invalid;
+    return result;
+  }
 
   std::set<int32_t> existing;
   std::set<uint64_t> occurrences;
@@ -816,6 +1160,58 @@ AffineBasisLiveResult prepare_affine_basis_live(
   PlanningSink sink{transaction.events_, next_id,
                     request.maximum_proof_additions,
                     request.maximum_proof_deletions};
+  if (selected_wide) {
+    const uint64_t extent_allowance =
+        uint64_t(request.maximum_external_extent) -
+        transaction.starting_extent_;
+    const uint64_t internal_allowance = UINT32_MAX - kernel.nvars;
+    const uint64_t signed_allowance =
+        uint64_t(INT32_MAX) - transaction.starting_extent_;
+    const uint64_t allowed =
+        std::min({extent_allowance, internal_allowance, signed_allowance,
+                  uint64_t(request.basis.maximum_nodes),
+                  uint64_t(UINT32_MAX)});
+    if (!allowed) {
+      result.status = AffineBasisLiveStatus::ResourceExhausted;
+      return result;
+    }
+    if (result.basis_work >= request.basis.maximum_work) {
+      result.status = AffineBasisLiveStatus::ResourceExhausted;
+      return result;
+    }
+    WideProofPlan wide;
+    uint64_t proof_work = 0;
+    const WideProofStatus prepared = prepare_wide_proof(
+        kernel, image, basis.rows.front(), transaction.starting_extent_,
+        static_cast<uint32_t>(allowed), request.basis.maximum_nodes,
+        request.basis.maximum_work - result.basis_work, proof_work, sink,
+        wide);
+    result.basis_work += proof_work;
+    if (prepared != WideProofStatus::Complete) {
+      result.status = prepared == WideProofStatus::Exhausted
+                          ? AffineBasisLiveStatus::ResourceExhausted
+                      : prepared == WideProofStatus::Interrupted
+                          ? AffineBasisLiveStatus::Interrupted
+                      : prepared == WideProofStatus::Unsupported
+                          ? AffineBasisLiveStatus::UnsupportedProof
+                          : AffineBasisLiveStatus::Invalid;
+      return result;
+    }
+    transaction.extent_growth_ = wide.helpers;
+    transaction.published_ = wide.published;
+    transaction.arena_words_ = wide.arena_words;
+    transaction.introduced_ = std::move(wide.introduced);
+    transaction.projection_ = std::move(wide.projection);
+    transaction.proof_only_helpers_ = std::move(wide.proof_only_helpers);
+    AffineBasisConsumedKey row_key;
+    if (!make_consumed_key(image, transaction.snapshot_, basis.rows.front(),
+                           row_key)) {
+      result.status = AffineBasisLiveStatus::Invalid;
+      return result;
+    }
+    transaction.consumed_keys_.push_back(std::move(row_key));
+  }
+  if (!selected_wide) {
   for (const affine::XorDefinition &definition : basis.definitions) {
     for (const affine::BasisClause &symbolic : definition.clauses) {
       std::vector<int32_t> clause;
@@ -947,6 +1343,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
     }
     transaction.consumed_keys_.push_back(std::move(row_key));
   }
+  }
   transaction.additions_ = sink.additions;
   transaction.deletions_ = sink.deletions;
   if (!transaction.published_) {
@@ -988,6 +1385,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
   result.preflight_deletions = transaction.deletions_;
   result.published_clauses = transaction.published_;
   result.extent_growth = transaction.extent_growth_;
+  result.definitions = transaction.projection_.size();
   result.journal_bytes = transaction.journal_.size();
   result.contradiction = transaction.contradiction_;
   result.existing_theory_variables = transaction.existing_;
@@ -1046,7 +1444,7 @@ AffineBasisLiveResult publish_affine_basis_live(
     if (first != transaction.starting_nvars_) std::abort();
     for (uint32_t i = 0; i < transaction.extent_growth_; ++i)
       if (kernel_externalize(kernel, make_lit(first + i, false)) !=
-          transaction.introduced_[i])
+          static_cast<int32_t>(transaction.starting_extent_ + i + 1))
         std::abort();
   }
   for (const Event &event : transaction.events_) {
