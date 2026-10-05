@@ -4,6 +4,8 @@
 #   run.sh --nightly --solver CMD    ~200k cases + full proof cross-checks
 #   run.sh --controller-v5 --quick --solver CMD
 #                                      10k typed GF3/DirectCSP mutations
+#   run.sh --forced-ttf --quick --solver CMD
+#                                      10k balanced fixed-row mutations
 #   run.sh [fuzz.py args...]         pass-through
 # Sizes are the cluster scale (10x the workstation defaults); submit
 # via tools/fuzz/slurm.sh (50 physical cores/workers), never in the session shell.
@@ -20,6 +22,7 @@ SOLVER=""
 ORACLE=""
 HAS_OUTDIR=0
 CONTROLLER_V5=0
+FORCED_TTF=0
 NIGHTLY=0
 # The corpus replays whole entries under the leg's own solver command, so a
 # schedule that starves M1 can leave one of them without a verdict. That is
@@ -32,6 +35,7 @@ while [ $# -gt 0 ]; do
         --nightly) N=200000; NIGHTLY=1; shift ;;
         --n)       N="$2"; shift 2 ;;
         --controller-v5) CONTROLLER_V5=1; shift ;;
+        --forced-ttf) FORCED_TTF=1; shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
         --outdir)  HAS_OUTDIR=1; EXTRA+=("$1" "$2"); shift 2 ;;
@@ -52,6 +56,8 @@ done
         LEG_ID="$TACTIX_FUZZ_LEG_ID"
     elif [ "$CONTROLLER_V5" -eq 1 ]; then
         LEG_ID=controller-v5
+    elif [ "$FORCED_TTF" -eq 1 ]; then
+        LEG_ID=forced-ttf
     else
         LEG_ID=seeded
     fi
@@ -69,6 +75,12 @@ fi
 if [ "$CONTROLLER_V5" -eq 1 ]; then
     echo "== controller v5 typed fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
     exec python3 "$HERE/controller_v5.py" --solver "$SOLVER" --oracle "$ORACLE" \
+        --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
+fi
+
+if [ "$FORCED_TTF" -eq 1 ]; then
+    echo "== forced TTF targeted fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
+    exec python3 "$HERE/forced_ttf.py" --solver "$SOLVER" --oracle "$ORACLE" \
         --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
 fi
 

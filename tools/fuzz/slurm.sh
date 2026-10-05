@@ -10,6 +10,7 @@
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
 #   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy"
+#   slurm.sh --name forced-ttf -- --forced-ttf --quick --solver build/debug/tactix
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
 # --checkers DIR freezes the core clausal checkers: DIR holds exactly
@@ -83,10 +84,12 @@ PIN_FUZZ="$PIN_ROOT/fuzz"
 mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
-      "$HERE/controller_v5.py" "$HERE/artifact_layout.py" "$HERE/corpus" \
+      "$HERE/controller_v5.py" "$HERE/forced_ttf.py" \
+      "$HERE/artifact_layout.py" "$HERE/corpus" \
       "$HERE/stress-scenarios" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/controls"
 cp -a "$HERE/controls/controller-v5" "$PIN_FUZZ/controls/"
+cp -a "$HERE/controls/forced-ttf" "$PIN_FUZZ/controls/"
 cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/checkers"
 cp -a "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb" \
