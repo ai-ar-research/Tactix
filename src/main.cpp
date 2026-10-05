@@ -1355,11 +1355,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.exact_one_refutation_interrupted,
            (unsigned long long)kernel.stats.exact_one_refutation_proof_additions,
            (unsigned long long)kernel.stats.exact_one_refutation_proof_deletions);
-    printf("c balance    %llu calls, %llu recognized, %llu candidates, "
-           "%llu restarts, %llu steps, %llu completion rounds, %llu SAT, "
-           "%llu interrupted\n",
+    printf("c balance    %llu calls, %llu recognized, %llu forced TTF, "
+           "%llu candidates, %llu restarts, %llu steps, "
+           "%llu completion rounds, %llu SAT, %llu interrupted\n",
            (unsigned long long)kernel.stats.balanced_signature_calls,
            (unsigned long long)kernel.stats.balanced_signature_recognized,
+           (unsigned long long)kernel.stats.balanced_signature_forced_ttf,
            (unsigned long long)kernel.stats.balanced_signature_candidates,
            (unsigned long long)kernel.stats.balanced_signature_restarts,
            (unsigned long long)kernel.stats.balanced_signature_steps,

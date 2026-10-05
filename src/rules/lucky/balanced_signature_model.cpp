@@ -605,6 +605,8 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
   if (!detect_forced_ttf(k, shape))
     return ApplyResult::NoOp;
   ++k.stats.balanced_signature_recognized;
+  if (shape.forced_ttf)
+    ++k.stats.balanced_signature_forced_ttf;
 
   SearchResult solution;
   const bool solved = shape.forced_ttf

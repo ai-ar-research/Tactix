@@ -45,6 +45,7 @@ static void synthetic(FeedbackTrace &trace, bool changed = false) {
   before.cumulative.used_glue[1][127] = 3;
   before.cumulative.rule_calls[0] = 7;
   before.cumulative.sweep_limit_depth = 5;
+  before.cumulative.balanced_signature_forced_ttf = 2;
   LocalSearchCandidateInfo candidate;
   candidate.id = 256;
   candidate.external_variables = 2;
@@ -90,6 +91,8 @@ static void test_codec(const char *path) {
   }
   const auto original = read(path);
   assert(original.find("\"sweep_limit_depth\":5") != std::string::npos);
+  assert(original.find("\"balanced_signature_forced_ttf\":2") !=
+         std::string::npos);
   assert(original.find("\"rule_calls\":[7,") != std::string::npos);
   assert(original.find("\"used_glue\":[[") != std::string::npos);
   assert(original.find("\"producer_effort\":[{\"family\":"
