@@ -288,8 +288,10 @@ struct DefaultStrategyConfig {
     strategy::GraphLabelingParameters parameters;
   } graph_labeling_model;
   struct RamseyStartup {
-    bool enabled = false;
-    strategy::RamseyStartupParameters parameters;
+    bool enabled = true;
+    strategy::RamseyStartupParameters parameters = {
+        10'000, 200, 40'000, 10'000'000,
+        10'000'000, 100'000, 1'000'000, 200'000};
   } ramsey_startup;
 
   struct Inprocess {

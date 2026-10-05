@@ -15,6 +15,18 @@ using namespace tactix::strategy::controller;
 static RamseyStartupParameters profile() {
   return {10000,200,40000,10000000,10000000,100000,1000000,200000};
 }
+static void assert_production_profile(const DefaultStrategyConfig &config) {
+  const auto expected=profile();const auto &actual=config.ramsey_startup.parameters;
+  assert(config.ramsey_startup.enabled);
+  assert(actual.recognition_clauses==expected.recognition_clauses);
+  assert(actual.recognition_variables==expected.recognition_variables);
+  assert(actual.recognition_pair_cells==expected.recognition_pair_cells);
+  assert(actual.recognition_work==expected.recognition_work);
+  assert(actual.certificate_work==expected.certificate_work);
+  assert(actual.maximum_nodes==expected.maximum_nodes);
+  assert(actual.maximum_additions==expected.maximum_additions);
+  assert(actual.maximum_external_extent==expected.maximum_external_extent);
+}
 static void input(Kernel &k,const std::string &cnf) {
   FILE *file=std::tmpfile();assert(file);
   assert(std::fwrite(cnf.data(),1,cnf.size(),file)==cnf.size());std::rewind(file);
@@ -76,7 +88,7 @@ static Outcome execute(const std::string &cnf,const std::string &prefix,bool ran
     assert(k.stats.ramsey_startup_attempts==2&&k.structural_action_sequence==2);
     assert(trace.error().empty());
   } else {
-    DefaultStrategyConfig config;config.ramsey_startup.enabled=true;config.ramsey_startup.parameters=profile();
+    DefaultStrategyConfig config;assert_production_profile(config);
     DefaultPolicy policy(config);if(proof_enabled)policy.set_feedback(&feedback);
     assert(policy.solve(k)==20);
     assert(k.stats.ramsey_startup_attempts==1&&k.structural_action_sequence==1);
@@ -92,6 +104,25 @@ static Outcome execute(const std::string &cnf,const std::string &prefix,bool ran
   }
   const Outcome result{k.external_to_internal,k.next_clause_id,k.stats.ramsey_startup_recognition_work,k.stats.ramsey_startup_certificate_work,k.stats.ramsey_startup_additions};
   k.structural_provenance=nullptr;k.proof=nullptr;std::fclose(records);return result;
+}
+struct NonRamseyOutcome {
+  int verdict;
+  std::vector<int8_t> model;
+  std::vector<Var> map;
+  uint64_t decisions, conflicts, propagations;
+};
+static NonRamseyOutcome non_ramsey(bool ramsey_enabled) {
+  Kernel k;input(k,"p cnf 3 2\n1 2 3 0\n-1 -2 -3 0\n");
+  FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
+  DefaultStrategyConfig config;assert_production_profile(config);
+  config.ramsey_startup.enabled=ramsey_enabled;
+  const int verdict=DefaultPolicy(config).solve(k);
+  assert(verdict==10);
+  assert(k.stats.ramsey_startup_attempts==(ramsey_enabled?1u:0u));
+  assert(!k.stats.ramsey_startup_recognized&&!k.stats.ramsey_startup_unsat);
+  const NonRamseyOutcome result{verdict,k.model_values,k.external_to_internal,
+      k.stats.decisions,k.stats.conflicts,k.stats.propagations};
+  k.structural_provenance=nullptr;std::fclose(records);return result;
 }
 int main(int argc,char **argv) {
   std::string cnf=fixture(),prefix="/tmp/tactix-ramsey-policy-paths";
@@ -110,5 +141,9 @@ int main(int argc,char **argv) {
     if(!random)reference=plain;
     else assert(reference.map==plain.map&&reference.logical==plain.logical&&reference.additions==plain.additions);
   }
+  const auto enabled=non_ramsey(true),disabled=non_ramsey(false);
+  assert(enabled.verdict==disabled.verdict&&enabled.model==disabled.model);
+  assert(enabled.map==disabled.map&&enabled.decisions==disabled.decisions);
+  assert(enabled.conflicts==disabled.conflicts&&enabled.propagations==disabled.propagations);
   std::cout<<"{\"policy_paths_verified\":true,\"random_seed\":"<<seed<<",\"logical_id\":"<<reference.logical<<",\"additions\":"<<reference.additions<<"}\n";
 }

@@ -61,12 +61,16 @@ its checker exhausted allocation rather than rejecting it. Repair-isolation job
 solver / 10,808.933 checker seconds with a 9.052-GB proof. The four standing
 gates all accept. Archived Debug job `1749241` is invalid infrastructure
 evidence: its snapshot omitted checker binaries and tests mutated the hashed
-source tree, causing 11 harness failures; a corrected campaign is pending.
+source tree, causing 11 harness failures; corrected job `1749472` has passed
+288/289 tests with only the long `lucky` test still running and no failures.
 The unrelated interactive allocation `1747502` remains outside this workstream.
 The current forced-TTF repair makes balanced-signature Lucky fix row `b+1`
 and search only signs when live clauses require those rows. Its focused test
-passes, and a Debug diagnostic solves the cached `112_5_ttf` with a complete
-validated model in 49.30 seconds; Release cluster performance is pending.
+passes. Immutable Release commit `64de46fe9` solves and validates cached
+`112_5_ttf` in 2.570 seconds versus saved LymphoSAT's 1.970 seconds. The
+11-control and full 21-instance oddball campaigns have no failures so far.
+On the same pin, B28+C5 has solved 33/33 with 32 checks complete; Rank1-50 has
+solved 48/50 with 34 checks complete. Remaining solves and checks are active.
 
 ## Next action
 
@@ -104,10 +108,13 @@ authorized. DefaultPolicy keeps all four actions disabled meanwhile.
 Keep intended DefaultPolicy structural seeding disabled. Preserve the rejected
 split-budget patch only as design input; redesign it only if later evidence
 justifies separate allowances without duplicate unmetered work or implicit
-fallback. Raw candidates never replace Walk-refined targets. First measure the
-isolated forced-TTF constructor on `112_5_ttf`, then use the oddball controls
-before broader Debug, fuzz and four-gate validation. Retain the seeded/no-seed
-campaigns as causal evidence.
+fallback. Raw candidates never replace Walk-refined targets. Complete the
+active oddball, Debug, B28+C5 and Rank campaigns, then run WV/WV2. Forced-TTF
+fuzz must distinguish exact forced recognition from guarded-clause near misses.
+The next minimal LymphoSAT recovery slice enables the existing proved Ramsey
+startup action once at the original-input boundary with its bounded production
+profile. Require a checked rank-630/WV2-155 target probe before wider gates.
+Retain the seeded/no-seed campaigns as causal evidence.
 The earlier `cabp`, Break and Timetable trajectory controls remain open evidence
 obligations if those rows regress again. The n-ary CSP vertical
 is now public through exact typed C/replay payloads, a Kernel-owned session,
