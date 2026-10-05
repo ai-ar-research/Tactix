@@ -1774,6 +1774,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
     std::optional<TseitinCycleBreakingResult> tseitin_cycle_application;
+    std::optional<SemanticVariableCandidate> deferred_semantic_candidate;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
@@ -1871,7 +1872,8 @@ InvocationResult OnlineStrategyExecutor::advance(
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] { return
           !step.affine_basis_instances.empty()
-              ? apply_rule_structured(rule, k, "affine-basis-row", [&] {
+              ? apply_rule_structured_defer_candidate(
+                    rule, k, "affine-basis-row", [&] {
                   if (!k.affine_basis_action_session)
                     return ApplyResult::NoOp;
                   affine_application.emplace(affine_consequence_action_apply(
@@ -1954,7 +1956,8 @@ InvocationResult OnlineStrategyExecutor::advance(
                   return tseitin_cycle_application->result;
                     })
           : !step.independent_set_cover_instances.empty()
-              ? apply_rule_structured(rule, k, "independent-set-cover", [&] {
+              ? apply_rule_structured_defer_candidate(
+                    rule, k, "independent-set-cover", [&] {
                   independent_set_application.emplace(
                       independent_set_cover_action_apply(
                           k, *k.independent_set_cover_action_session,
@@ -1980,14 +1983,16 @@ InvocationResult OnlineStrategyExecutor::advance(
                              : ApplyResult::NoOp;
                 })
           : step.rule == "AffineConsequence" && payload == INSTANCE_CANONICAL
-              ? apply_rule_structured(rule, k, "canonical", [&] {
+              ? apply_rule_structured_defer_candidate(
+                    rule, k, "canonical", [&] {
                   affine_application.emplace(
                       affine_consequence_action_apply(k));
                   return affine_application->result;
                 })
           : step.rule == "ExactCoverExtension" &&
                     payload == INSTANCE_CANONICAL
-              ? apply_rule_structured(rule, k, "canonical", [&] {
+              ? apply_rule_structured_defer_candidate(
+                    rule, k, "canonical", [&] {
                   exact_cover_application.emplace(
                       exact_cover_extension_action_apply(
                           k, *k.exact_cover_extension_action_session));
@@ -2077,6 +2082,9 @@ InvocationResult OnlineStrategyExecutor::advance(
       // always reflected in H.
       out.before = out.after;
       out.configuration_revision = revision_;
+      SemanticVariableCandidate staged;
+      if (take_staged_semantic_variable_candidate(k, staged))
+        deferred_semantic_candidate = std::move(staged);
       out.work_unit = step.work_unit;
       out.rule_id = rule.id;
       out.instance = payload;
@@ -2484,6 +2492,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     const auto publish_theory_candidate =
         [&](SemanticVariableProducer producer, uint64_t action_id,
             const std::vector<SemanticVariable> &variables) {
+          if (k.inconsistent) return;
           std::vector<SemanticVariable> branchable;
           branchable.reserve(variables.size());
           for (const SemanticVariable variable : variables) {
@@ -2507,6 +2516,10 @@ InvocationResult OnlineStrategyExecutor::advance(
             std::abort();
           finish_semantic_variable_candidate_action(k, ApplyResult::Ok);
         };
+    if (deferred_semantic_candidate)
+      publish_theory_candidate(deferred_semantic_candidate->producer,
+                               deferred_semantic_candidate->action_id,
+                               deferred_semantic_candidate->variables);
     if (gf3_affine_application &&
         gf3_affine_application->semantic_candidate_ready)
       publish_theory_candidate(

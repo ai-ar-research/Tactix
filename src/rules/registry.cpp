@@ -267,7 +267,7 @@ namespace {
 template <typename Candidate, typename Apply>
 ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
                           [[maybe_unused]] Candidate &&candidate_name,
-                          Apply &&apply) {
+                          Apply &&apply, bool publish_semantic_candidate = true) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   const std::string candidate = candidate_name();
   const bool journal = vt.kind == ActionKind::ProofRule &&
@@ -307,7 +307,10 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     k.stats.rule_calls[vt.id]++;
   }
   ++k.strategy_epoch;
-  strategy::finish_semantic_variable_candidate_action(k, result);
+  if (publish_semantic_candidate)
+    strategy::finish_semantic_variable_candidate_action(k, result);
+  else if (result != ApplyResult::Ok)
+    strategy::begin_semantic_variable_candidate_action(k);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (journal) {
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
@@ -360,6 +363,14 @@ ApplyResult apply_rule_structured(const RuleVTable &vt, Kernel &k,
   execution::execute_action(k, execution::CloseStartupCertificateRequest{});
   return dispatch_rule(vt, k, [description] { return std::string(description); },
                        apply);
+}
+
+ApplyResult apply_rule_structured_defer_candidate(
+    const RuleVTable &vt, Kernel &k, const char *description,
+    const std::function<ApplyResult()> &apply) {
+  execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+  return dispatch_rule(vt, k, [description] { return std::string(description); },
+                       apply, false);
 }
 
 ApplyResult apply_rule_structured_preserve_startup(

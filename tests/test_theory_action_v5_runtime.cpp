@@ -11,6 +11,7 @@ extern "C" {
 #include "policies/heuristics.hpp"
 #include "frontend/parse.hpp"
 #include "policies/random_controller_policy.hpp"
+#include "rules/semantic_extension/affine_image.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "strategy/controller_observation.hpp"
@@ -94,6 +95,18 @@ std::string direct_csp_dimacs() {
   return output.str();
 }
 
+std::string affine_dimacs() {
+  const auto clauses =
+      affine_semantic_extension::clausal_form({1, 2, 3, 4}, false);
+  std::ostringstream output;
+  output << "p cnf 4 " << clauses.size() << '\n';
+  for (const auto &clause : clauses) {
+    for (int32_t literal : clause) output << literal << ' ';
+    output << "0\n";
+  }
+  return output.str();
+}
+
 Gf3AffineConsequenceParameters gf3_parameters() {
   return {2000, 20000, 100, 100, 6, 1000, 8, 10000, 1000, 10000,
           1000000, 1000000, 1000000, 1000000, 100000, 1000, 10000,
@@ -131,6 +144,19 @@ OnlineInvocation direct_step() {
   step.repeat = {RepeatMode::Once, 1};
   step.post_application = PostApplication::Propagate;
   step.budget = WorkLimit::bounded(2);
+  return step;
+}
+
+OnlineInvocation affine_step() {
+  OnlineInvocation step;
+  step.id = 3;
+  step.rule = "AffineConsequence";
+  step.parameters = RandomControllerConfig{}
+                        .parameters.affine_consequence_reference;
+  step.granularity = InvocationGranularity::CanonicalApplication;
+  step.repeat = {RepeatMode::Once, 1};
+  step.post_application = PostApplication::Propagate;
+  step.budget = WorkLimit::bounded(1);
   return step;
 }
 
@@ -274,6 +300,76 @@ void productive_batches_publish_distinct_candidates_and_refresh_generation() {
            executor.complete());
     consume_candidate_and_verify_guidance(
         kernel, executor, SemanticVariableProducer::DirectCsp, 102);
+    std::fclose(records);
+  }
+}
+
+void affine_followup_publishes_one_current_typed_candidate() {
+  for (const bool stable : {false, true}) {
+    Kernel kernel = parse_text(affine_dimacs());
+    ScopedHeuristics heuristics(kernel);
+    kernel.h->stable = stable;
+    if (stable) heuristics_update_scores(kernel);
+    FILE *records = std::tmpfile();
+    assert(records);
+    AffineBasisActionSession session;
+    kernel.structural_provenance = records;
+    kernel.affine_basis_action_session = &session;
+
+    OnlineStrategyProgram program;
+    program.sequence = {affine_step()};
+    const std::string wire = serialize_online_strategy_program(program);
+    OnlineStrategyProgram replay;
+    std::string error;
+    assert(deserialize_online_strategy_program(wire, replay, &error) &&
+           serialize_online_strategy_program(replay) == wire);
+    OnlineStrategyExecutor executor;
+    assert(executor.configure(replay, stable ? 12 : 11));
+    const InvocationResult applied = executor.advance(kernel);
+    assert(applied.status == InvocationStatus::Completed &&
+           applied.made_rule_progress && applied.selection_complete &&
+           kernel_propagation_fixpoint(kernel) &&
+           kernel.stats.affine_consequence_applied == 1 &&
+           kernel.stats.semantic_variable_candidates_published == 1);
+
+    const auto candidates = semantic_variable_candidates(kernel);
+    assert(candidates.size() == 1 &&
+           candidates.front().producer == SemanticVariableProducer::Affine &&
+           candidates.front().existing_variables == 4 &&
+           candidates.front().introduced_variables > 0 &&
+           kernel.stats.semantic_variable_candidate_existing == 4 &&
+           kernel.stats.semantic_variable_candidate_introduced ==
+               candidates.front().introduced_variables &&
+           candidates.front().arena_generation == applied.after.arena_generation &&
+           candidates.front().touch_epoch == applied.after.touch_epoch &&
+           candidates.front().strategy_epoch == applied.after.strategy_epoch);
+    const auto *candidate =
+        semantic_variable_candidate(kernel, candidates.front().id);
+    assert(candidate &&
+           candidate->variables.size() ==
+               candidates.front().existing_variables +
+                   candidates.front().introduced_variables);
+    for (const auto &variable : candidate->variables) {
+      const Var external =
+          var_of(internalize(static_cast<int>(variable.external)));
+      assert(external < kernel.external_to_internal.size());
+      const Var internal = kernel.external_to_internal[external];
+      assert(internal != INVALID_VAR && heuristics_var_active(kernel, internal) &&
+             !kernel_root_value(kernel, make_lit(internal, false)));
+    }
+
+    SemanticVariableAdvice stale;
+    assert(make_semantic_variable_advice(kernel, candidates.front().id, 2, 5,
+                                         stale));
+    assert(executor.advance(kernel).status == InvocationStatus::Completed &&
+           executor.complete());
+    consume_candidate_and_verify_guidance(
+        kernel, executor, SemanticVariableProducer::Affine,
+        stable ? 112 : 111);
+    assert(commit_semantic_variable_advice(
+               kernel, stale, SemanticVariableAdviceLimits{64, 4096})
+               .status == SemanticVariableAdviceStatus::Stale);
+    kernel_check_invariants(kernel);
     std::fclose(records);
   }
 }
@@ -958,6 +1054,7 @@ void random_policy_solves_after_executing_offered_v5_action() {
 
 int main() {
   productive_batches_publish_distinct_candidates_and_refresh_generation();
+  affine_followup_publishes_one_current_typed_candidate();
   invalid_is_consumed_and_resource_exhaustion_is_retryable();
   offered_random_action_is_exact_and_deterministic();
   disabled_dynamic_producers_preserve_configuration_and_selection();

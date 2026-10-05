@@ -488,13 +488,16 @@ bool RandomControllerSelector::choose(
       affine_basis_discovery_.state =
           observation.last_action->invocation.after;
       if (affine_basis_discovery_.offers.empty() &&
-          !affine_basis_discovery_.more)
+          !affine_basis_discovery_.more) {
         affine_basis_discovery_.terminal = true;
+        affine_basis_discovery_.durable_terminal = true;
+      }
     } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
       affine_basis_discovery_.pending.reset();
       affine_basis_discovery_.offers.clear();
       affine_basis_discovery_.pending_sequence = 0;
       affine_basis_discovery_.terminal = true;
+      affine_basis_discovery_.durable_terminal = false;
       affine_basis_discovery_.state =
           observation.last_action->invocation.after;
     } else if (settlement ==
@@ -853,25 +856,36 @@ bool RandomControllerSelector::choose(
     const bool owner_changed = affine_basis_discovery_.owner != &k ||
                                affine_basis_discovery_.session != &session;
     const bool profile_changed = affine_basis_discovery_.profile != profile;
-    const bool state_or_session_changed =
-        owner_changed || !same_version(affine_basis_discovery_.state, state) ||
+    const bool state_changed =
+        !same_version(affine_basis_discovery_.state, state);
+    const bool session_changed =
         affine_basis_discovery_.session_keys != session.committed_keys();
-    if (state_or_session_changed ||
-        (profile_changed &&
-         (!affine_basis_discovery_.reconfiguration_required ||
-          !affine_basis_discovery_.pending))) {
+    const auto reset_discovery = [&]() {
       affine_basis_discovery_ = {};
       affine_basis_discovery_.owner = &k;
       affine_basis_discovery_.session = &session;
       affine_basis_discovery_.state = state;
       affine_basis_discovery_.session_keys = session.committed_keys();
       affine_basis_discovery_.profile = profile;
+    };
+    if (owner_changed || session_changed ||
+        (profile_changed &&
+         (!affine_basis_discovery_.reconfiguration_required ||
+          !affine_basis_discovery_.pending))) {
+      reset_discovery();
     } else if (affine_basis_discovery_.reconfiguration_required &&
                profile_changed) {
       affine_basis_discovery_.state = state;
       affine_basis_discovery_.session_keys = session.committed_keys();
       affine_basis_discovery_.profile = profile;
       affine_basis_discovery_.reconfiguration_required = false;
+    } else if (state_changed) {
+      if (affine_basis_discovery_.durable_terminal ||
+          affine_basis_discovery_.reconfiguration_required) {
+        affine_basis_discovery_.state = state;
+      } else {
+        reset_discovery();
+      }
     }
     if (affine_basis_discovery_.reconfiguration_required) return false;
     if (affine_basis_discovery_.pending ||
@@ -905,6 +919,9 @@ bool RandomControllerSelector::choose(
     if (page.status != AffineBasisOfferStatus::Complete ||
         page.offers.empty()) {
       affine_basis_discovery_.terminal = true;
+      affine_basis_discovery_.durable_terminal =
+          !page.more && (page.status == AffineBasisOfferStatus::Complete ||
+                         page.status == AffineBasisOfferStatus::NoStructure);
       return false;
     }
     affine_basis_discovery_.offers = page.offers;

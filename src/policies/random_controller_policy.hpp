@@ -187,6 +187,10 @@ private:
     strategy::StateVersion state;
     size_t session_keys = 0;
     bool terminal = false;
+    // The immutable source population was enumerated to completion.  Search
+    // and formula epochs may continue to advance, but later clauses are not
+    // part of this owner's census and must not re-arm discovery.
+    bool durable_terminal = false;
     bool reconfiguration_required = false;
     bool more = false;
     std::string profile;

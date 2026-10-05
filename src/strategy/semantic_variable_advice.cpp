@@ -179,6 +179,17 @@ bool stage_semantic_variable_candidate(
   return true;
 }
 
+bool take_staged_semantic_variable_candidate(
+    Kernel &k, SemanticVariableCandidate &out) {
+  if (!k.semantic_variable_candidate_pending) return false;
+  out = std::move(k.staged_semantic_variable_candidate);
+  k.semantic_variable_candidate_pending = false;
+  static_cast<SemanticVariableCandidateInfo &>(
+      k.staged_semantic_variable_candidate) = {};
+  k.staged_semantic_variable_candidate.variables.clear();
+  return true;
+}
+
 void finish_semantic_variable_candidate_action(Kernel &k, ApplyResult result) {
   if (!k.semantic_variable_candidate_pending || result != ApplyResult::Ok) {
     begin_semantic_variable_candidate_action(k);
