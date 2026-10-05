@@ -10,7 +10,7 @@ increments are currently wired, tested, or accepted.
 ## Objective and fixed targets
 
 The ultimate goal is to solve substantially more than the virtual portfolio of **LymphoSAT, Satsuma+Kissat, Kissat-sc2024 and AE-Kissat-MAB combined**.
-**Primary technical goal:** recover every LymphoSAT-owned solve through the mechanism appropriate to its evidence. SAT-only techniques may remain bounded constructors/local search: complete candidates require independent original-CNF validation and incomplete candidates are heuristic guidance only. UNSAT capabilities and reusable deductions require source-authenticated theory reasoning followed by DSR/DRAT-certified Boolean consequences or definitions. Keep action identities append-only, serve default/random/future learned policies through shared execution and feedback, and map each owned row to its mechanism and checked outcome; detection or a related-family solve is not recovery.
+**Primary technical goal:** recover every LymphoSAT-owned solve by transferring authenticated theory information into selective certified Boolean consequences, conservative auxiliary definitions, and deductions consumed by continuing CDCL. This applies to SAT and UNSAT techniques. Existing bounded constructors/local search remain reference controls and recovery diagnostics: complete candidates require independent original-CNF validation and incomplete candidates are heuristic guidance, but neither fulfills this integration goal. If efficient Boolean transfer appears impractical for a technique, document the concrete derivation, growth and proof-cost obstruction and discuss alternatives before changing direction. Keep action identities append-only, serve default/random/future learned policies through shared execution and feedback, and map each owned row to its mechanism and checked outcome; detection, guidance, constructor success or a related-family solve is not certified Boolean recovery.
 Performance and learning readiness are joint acceptance criteria: every capability serves DefaultPolicy, random and future learned selection.
 Parity is intermediate; each increment respects N1–N4 under plan §1.1 and retains formal T4/T5 targets.
 Use the owning API/proof/parity checks and ledger; no blanket N1–N4 pass is claimed.
@@ -43,14 +43,17 @@ They remain in scope after the 36-instance checkpoint; solving all 44 does not e
    Use structural recognition and explicit applicability, never filename/rank
    dispatch, hardcoded answers or external solver stages. Share clauses, root
    assignments, learned information, reconstruction and heuristic state with CDCL.
-3. Retain bounded SAT-only constructors as complete/partial candidate producers;
-   expose UNSAT reasoning and reusable deductions as DSR/DRAT-certified Boolean actions.
-   Both paths use shared typed execution, replay, feedback and policy selection.
+3. Use bounded constructors only as reference/diagnostic candidate producers. For
+   every LymphoSAT technique, seek source-authenticated theory results and expose
+   their useful consequences or conservative definitions as DSR/DRAT-certified
+   Boolean actions for continuing CDCL. Both use shared typed execution, replay,
+   feedback and policy selection, but only the certified Boolean path fulfills integration.
 4. Establish proof/model feasibility and a bounded mechanism review before
    implementation. Integrate one complete increment at a time, with faithful
    reference controls, targeted causal validation and cumulative preservation.
-   Begin with Oddball construction/guidance, then extend the same contract to the
-   remaining owners. O6/reward/training remain deferred; selection stays random.
+   Begin with the repeated GF(2) basis action, then relation-indexed n-ary/noL
+   consequences and the remaining owners. Constructors remain causal controls.
+   O6/reward/training remain deferred; selection stays random.
 
 ## Lightweight symmetry during inprocessing
 
@@ -114,18 +117,18 @@ On a wider corpus, compare matched guidance-enabled/disabled arms with the same 
 ## SAT/UNSAT reasoning and proof production
 
 Review existing and missing LymphoSAT techniques. SAT-only construction may
-finish a validated model or publish partial guidance. Theory-to-Boolean transfer
-applies to UNSAT and reusable deductions: distinguish implied consequences,
-conservative definitions with projection, and proved satisfiability restrictions.
-Chosen assignments are not implied facts.
+finish a validated diagnostic model or publish partial guidance, but integration
+still requires useful theory-to-Boolean transfer for continuing CDCL. Distinguish
+implied consequences, conservative definitions with projection, and proved
+satisfiability restrictions. Chosen assignments are not implied facts.
 
 Explain whether the advantage comes from deductions, representation, coordinated
 choices or a combination. Consider selective/lazy consequences; Boolean encoding
 alone does not establish efficient search. Assess generation effort, formula growth, propagation,
 memory, proof/checking cost and checked SAT/UNSAT outcomes. Share structural
 recognition between certified reasoning and constructive guidance where useful.
-Share recognition between construction and proof paths where useful; a SAT-only
-owner does not need a redundant Boolean encoding to remain integrated.
+A recognizer or constructor can support the certified path, but cannot replace
+the exact Boolean derivation and proof obligation.
 
 Extract structural information from LymphoSAT SAT constructors and UNSAT
 reasoning alike. Candidates include equivalence-chain, XOR/parity, Tseitin

@@ -13,11 +13,15 @@ shared actions, deterministic replay, pure observation, after-action raw
 feedback, both-policy fuzz, and independent proof/model checking remain active.
 
 The primary objective is all 44 misses from the saved four-winner portfolio;
-the original fixed 36 remain a diagnostic subgroup. Use the saved `d170b4a5`
-comparison; do not rerun it. LymphoSAT-owned WV100/WV2 rows are recovery
-obligations, other rows are preservation controls, and B28+C5 plus Rank1--50
-are mandatory gates. DSR is the default; add PB support only after a
-rule-specific derivation and measured clausal proof/check cost establish need.
+the original fixed 36 remain a diagnostic subgroup. LymphoSAT integration means
+authenticated theory information translated into selective certified Boolean
+consequences, definitions or deductions for continuing CDCL, on SAT as well as
+UNSAT techniques. Constructors/local search remain reference evidence and do
+not fulfill this objective. Use the saved `d170b4a5` comparison; do not rerun it.
+LymphoSAT-owned WV100/WV2 rows are recovery obligations, other rows are
+preservation controls, and B28+C5 plus Rank1--50 are mandatory gates. DSR is the
+default; add PB support only after a rule-specific derivation and measured
+clausal proof/check cost establish need.
 
 ## Current evidence and disposition
 
@@ -27,7 +31,8 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Ramsey startup recovery | `ef4d1f1f1`, job `1749573` | DefaultPolicy's bounded original-root Lucky/22 solves fixed rank-630/WV2-155 `ramsey_4_4_19` UNSAT in 0.167 s with zero decisions/conflicts; its 735,125-byte DSR checks through the canonical pipeline in 7.968 s. The current B28+C5 and Rank reruns are active with no failure so far |
-| noL hypergraph recovery | `5eb58e52c`, job `1749663` | Lucky/25 exposes an exact three-color hypergraph constructor with one 2,000,000-move owner-scale attempt per action, replay-stable distinct repeat seeds, whole-CNF SAT validation, partial phase guidance, native effort feedback and CLI telemetry. The exact guard requires all three color clauses per hyperedge; terminal publication is reserved inside the same allowance. Immutable rank-401/WV2-221 probes are active; DefaultPolicy remains disabled |
+| noL hypergraph diagnostic | `5eb58e52c`, job `1749663` | Terminal 0/2: rank-401 `noL-11-10` and WV2-221 `noL-11-4` both timed out at 600 s. Exact recognition fired 372/395 times and charged 743.5M/789.4M moves; Lucky consumed 92.9%/94.1% of runtime, found no model, and no offered partial guidance was consumed. This is a constructor/search-publication miss after recognition, not a guard miss. DefaultPolicy remains disabled; compliant noL work belongs in relation-indexed X17 deductions |
+| Certified target coverage | rank 630 checked result | Current independently checked certified-Boolean coverage is 1/36 and 1/44: Ramsey rank 630. Other theory actions have focused interface/proof evidence but no checked fixed-target recovery yet |
 | Partial-model guidance | [terminal ablation](benchmarks/reports/2026-10-05-partial-model-guidance-ablation.md) | Walk-only repair is 21/21 independently valid with zero raw CDCL installs, 148 seed imports and 139 exports. It is 12.8% faster than the preceding run but 12.0% slower than saved `d170`. No-seed is 70.0% slower than `d170`, so removing guidance is rejected. The split-budget prototype is deferred: review found an unmetered duplicate scan and feedback inconsistent with its implicit fallback |
 | `a9f1e14d4` no-seed gates | jobs `1749006`--`1749009` | All accepted: B28+C5 33/33 at 959.055 s, Rank 50/50 at 7,669.874 s, WV100 100/100 with 98 checked/two proof censors, and WV2 89/89 with 77 checked/two proof censors/ten unchanged solver censors. No wrong verdict, checker rejection, or scorer failure |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
@@ -86,12 +91,32 @@ proof comparison meets its row bound. Current Ramsey-enabled reruns `1749575`
 and `1749610` have no wrong verdict, checker rejection or scorer failure so
 far. At the last complete snapshot B28+C5 had 32/33 final rows with task 32
 checking, while Rank had 38/50 final, all valid and independently checked, with
-the other 12 solving or checking. Replacement Debug job `1749659` is accepted:
+the other 12 solving or checking. Current B28+C5 is now accepted with 33/33
+expected verdicts, 32 independently checked and one clean proof censor; 956.316
+solver seconds meet the 999.87615-second ceiling. Rank has 50/50 expected solver
+verdicts at 7,559.461 seconds under the 8,521.52175-second ceiling; 44 are final
+(42 independently checked and two clean proof censors) and six UNSAT proofs are
+checking. Fresh full-width WV100 job `1749666` and
+WV2--89 job `1749709` use immutable Release source `5eb58e52c`, the shared
+1,800-second proof deadline and the standing row gates. Replacement Debug job
+`1749659` is accepted:
 289/289 pass in 814.11 seconds, with 242 executables and 295 frozen bindings
 reverified after the run. Full oddball job `1749458` had 19/21 final
 valid rows, with `26_4_ttf` solved and checking and `29_4_ttf` still solving.
 
 ## Next action
+
+The immediate certified integration slice is repeated GF(2) under public X9
+`AffineConsequence`, following
+[`2026-10-04-gf2-repeated-action-design.md`](benchmarks/reports/2026-10-04-gf2-repeated-action-design.md).
+Build an immutable live-clause owner that excludes self-produced clauses, a
+bounded deterministic paginated one-row offerer, exact source-ordinal payloads,
+repeated propagated-root eligibility, source-local invalidation and durable
+duplicate suppression. Retain direct small-row CNF and scalable XOR definitions
+with certified final assertions, exact projection and neutral semantic-variable
+advice. Validate focused microproofs, then WV2-132 Tseitin, WV100-7 two-trees,
+WV100-51 MDP, fixed rank 263 lightsout and rank 569 `lec_mult`, before expanding
+to ranks 540/896/1004 and MAB-only 557. These are target hypotheses until checked.
 
 The certified structured verticals now include public X17 NaryCspPrefix.
 Direct PHP is append-only ID 36, GF(3) Gaussian ID 37, Tseitin cycle breaking
@@ -131,13 +156,13 @@ fallback. Raw candidates never replace Walk-refined targets. Complete the
 active oddball, Debug, B28+C5 and Rank campaigns, then run WV/WV2. Forced-TTF
 fuzz must distinguish exact forced recognition from guarded-clause near misses.
 The Ramsey slice has passed its checked rank-630/WV2-155 target probe. Finish
-its active Debug/B28+C5/Rank and oddball campaigns, then run WV/WV2. The next
-minimal LymphoSAT slice is generic noL hypergraph coloring through public
-Lucky/25. Keep it out of DefaultPolicy until immutable Release probes recover
-fixed rank-401 `noL-11-10` and WV2 rank-221/original-484 `noL-11-4` with
-independently checked models. Use probe telemetry to tune the general search,
-phase publication and effort allowance rather than adding instance dispatch.
-Retain the seeded/no-seed campaigns as causal evidence.
+its active Rank, oddball, WV and WV2 campaigns. Lucky/25 is the noL reference
+constructor. Keep it out of DefaultPolicy; use its rank-401 `noL-11-10` and WV2
+rank-221/original-484 `noL-11-4` probes only to measure recoverability and
+recognition/search effort. The compliant noL path is relation-clause-indexed X17
+discovery and repeated certified prefix consequences; the current combination
+enumerator is not target-scale for roughly 347 domains. Retain constructor and
+seeded/no-seed campaigns as causal evidence.
 The earlier `cabp`, Break and Timetable trajectory controls remain open evidence
 obligations if those rows regress again. The n-ary CSP vertical
 is now public through exact typed C/replay payloads, a Kernel-owned session,
@@ -165,8 +190,9 @@ evidence.
   is requested. Its fixed Tier-D target is checked; current gates are active.
 - Public Lucky/25 adds exact noL three-color recognition and a bounded generic
   coloring search. It validates every SAT model, publishes only active signed
-  phases after exhaustion, meters terminal publication, records raw feedback
-  and telemetry, and remains disabled in DefaultPolicy pending target probes.
+  phases after exhaustion, meters terminal publication, and records feedback.
+  Its two target probes timed out despite repeated exact recognition, so it
+  remains a disabled diagnostic and the certified X17 path takes priority.
 - The current N1--N4 audit passes 46/46 focused public-action/proof/controller
   checks and 69/69 proof-oracle tests; it keeps universal and performance
   verification explicitly pending.
