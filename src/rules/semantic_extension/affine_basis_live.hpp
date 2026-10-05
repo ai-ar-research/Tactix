@@ -11,6 +11,13 @@ namespace tactix {
 
 struct AffineBasisConsumedKey;
 
+struct AffineBasisProjectionRecord {
+  int32_t output = 0;
+  int32_t first = 0;
+  int32_t second = 0;
+  bool operator==(const AffineBasisProjectionRecord &) const = default;
+};
+
 struct AffineBasisSourceIdentity {
   uint64_t native_clause_id = 0;
   std::vector<int32_t> clause;
@@ -186,6 +193,8 @@ private:
   std::string journal_;
   std::vector<int32_t> existing_;
   std::vector<int32_t> introduced_;
+  std::vector<AffineBasisProjectionRecord> projection_;
+  std::vector<int32_t> proof_only_helpers_;
   std::vector<AffineBasisConsumedKey> consumed_keys_;
   AffineBasisLiveResult prepared_;
 };

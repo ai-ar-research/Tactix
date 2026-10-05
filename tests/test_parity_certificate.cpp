@@ -68,6 +68,49 @@ int main(int argc,char **argv) {
   }
   { Sink s;Certificate c(s,7);Clauses out;assert(c.accumulate(equations()));
     s.limit=s.additions;assert(!c.export_small_consequence(2,out));assert(out.empty()); }
+  // The scalable continuing-action view retains only the final live XOR tree
+  // and its implied root unit.  Earlier transition helpers stay proof-only.
+  { Sink s;Certificate c(s,7);assert(c.accumulate(equations()));
+    Certificate<Sink>::ActiveTree tree;assert(c.active_tree(tree));
+    assert((tree.variables==std::vector<External>{1,2}));
+    assert(tree.definitions.size()==1);
+    const auto &d=tree.definitions.front();
+    assert(d.output>7&&d.clauses.size()==4);
+    assert(std::min(d.first,d.second)==1&&std::max(d.first,d.second)==2);
+    assert(tree.root_unit.size==1);
+    assert(std::abs(tree.root_unit.lits[0])==d.output);
+    Clauses out;assert(c.export_small_consequence(2,out));
+    Certificate<Sink>::ActiveTree after;assert(!c.active_tree(after)); }
+  // Wider authenticated source equations use the same certificate.  Their
+  // final live tree is compact even though transition helpers were needed.
+  { Sink s;Certificate c(s,8);Equation row{{1,2,3,4,5,6,7,8},8,true};
+    assert(c.accumulate({row}));Certificate<Sink>::ActiveTree tree;
+    assert(c.active_tree(tree));
+    assert((tree.variables==std::vector<External>{1,2,3,4,5,6,7,8}));
+    assert(tree.definitions.size()==7);
+    assert(tree.root_unit.size==1&&tree.root_unit.lits[0]>8);
+    for(size_t i=0;i<tree.definitions.size();++i) {
+      const auto &d=tree.definitions[i];
+      if(i)assert(tree.definitions[i-1].output<d.output);
+      assert(d.first<d.output&&d.second<d.output&&d.clauses.size()==4);
+    } }
+  { Sink s;Certificate c(s,8);Equation row{{1,2,3,4,5,6,7,8},8,false};
+    assert(c.accumulate({row}));Certificate<Sink>::ActiveTree tree;
+    assert(c.active_tree(tree));assert(!tree.rhs);
+    assert(tree.root_unit.size==1&&tree.root_unit.lits[0]<-8); }
+  // The derivation bound follows the authenticated row width, rather than
+  // counting transient proof helpers as independent branch decisions.
+  { Equation first{{1,2,3,4,5,6,7,8},8,false};
+    Equation second{{1,9,10,11,12,13,14,15},8,true};
+    Sink bounded;bounded.fresh=15;Certificate legacy(bounded,15);
+    assert(!legacy.accumulate({first,second}));
+    Sink s;s.fresh=15;Certificate c(s,15,UINT32_MAX);
+    assert(c.accumulate({first,second}));
+    Certificate<Sink>::ActiveTree tree;assert(c.active_tree(tree));
+    assert((tree.variables==std::vector<External>{2,3,4,5,6,7,8,
+                                                   9,10,11,12,13,14,15}));
+    assert(tree.rhs&&tree.definitions.size()==13);
+    assert(tree.root_unit.size==1&&tree.root_unit.lits[0]>15); }
   if(argc==3) {
     auto e=equations();FILE *cnf=std::fopen(argv[1],"w");assert(cnf);
     std::fprintf(cnf,"p cnf 9 20\n");

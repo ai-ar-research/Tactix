@@ -99,7 +99,10 @@ public:
     for (const auto &[scope, group] : groups_) {
       for (unsigned forbidden = 0; forbidden < 2; ++forbidden) {
         CertifiedEquation candidate;
-        candidate.equation = {scope.variables, scope.size, !forbidden};
+        candidate.equation.size = scope.size;
+        candidate.equation.rhs = !forbidden;
+        std::copy_n(scope.variables.begin(), scope.size,
+                    candidate.equation.variables.begin());
         bool complete = true;
         for (unsigned mask = 0; mask < (1u << scope.size); ++mask) {
           if ((std::popcount(mask) & 1u) != forbidden) continue;

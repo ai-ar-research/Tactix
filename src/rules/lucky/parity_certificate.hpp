@@ -7,12 +7,17 @@
 #include <bit>
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <vector>
 #include <utility>
 namespace tactix::parity_certificate {
 using External = int32_t;
 struct Equation {
-  std::array<External, 4> variables{};
+  // Affine semantic-extension recognition admits complete encodings through
+  // arity eight.  The original Lucky callers use at most four entries, but
+  // the scalable row certificate must preserve the authenticated wider source
+  // equations instead of splitting them into unauthenticated fragments.
+  std::array<External, 8> variables{};
   uint8_t size = 0;
   bool rhs = false;
 };
@@ -25,7 +30,8 @@ struct SmallClause {
 using Clauses = std::vector<SmallClause>;
 
 inline Clauses xor_equation(const External *variables, uint32_t size, bool rhs) {
-  std::array<External, 4> normalized{};
+  std::array<External, 8> normalized{};
+  assert(size <= normalized.size());
   uint32_t normalized_size = 0;
   for (uint32_t i = 0; i < size; ++i) {
     const External variable = variables[i];
@@ -68,17 +74,31 @@ template <class Sink> class Deriver {
   Clauses emitted_;
   std::vector<External> variables_;
   std::vector<External> order_;
+  uint32_t maximum_variables_ = 16;
+  std::function<bool(uint64_t)> charge_;
+  bool stopped_ = false;
+
+  bool charge(uint64_t amount) {
+    if (stopped_) return false;
+    if (charge_ && !charge_(amount)) {
+      stopped_ = true;
+      return false;
+    }
+    return true;
+  }
 
   int index(External variable) const {
     variable = variable < 0 ? -variable : variable;
-    for (size_t i = 0; i < variables_.size(); ++i)
-      if (variables_[i] == variable)
-        return static_cast<int>(i);
-    return -1;
+    const auto found = std::lower_bound(variables_.begin(), variables_.end(),
+                                        variable);
+    return found == variables_.end() || *found != variable
+               ? -1
+               : static_cast<int>(found - variables_.begin());
   }
 
   bool propagate(const SmallClause &candidate,
-                 std::vector<int8_t> &assignment) const {
+                 std::vector<int8_t> &assignment) {
+    if (!charge(1 + candidate.size)) return false;
     assignment.assign(variables_.size(), 0);
     for (uint32_t i = 0; i < candidate.size; ++i) {
       const External literal = candidate.lits[i];
@@ -93,6 +113,7 @@ template <class Sink> class Deriver {
     while (changed) {
       changed = false;
       for (const SmallClause &clause : local_) {
+        if (!charge(1 + clause.size)) return false;
         bool satisfied = false;
         uint32_t unassigned = 0;
         External last = 0;
@@ -130,8 +151,10 @@ template <class Sink> class Deriver {
   }
 
   bool visit(SmallClause &candidate) {
+    if (!charge(1)) return false;
     std::vector<int8_t> assignment;
     if (!propagate(candidate, assignment)) {
+      if (stopped_) return false;
       External branch = 0;
       for (const External variable : order_) {
         const int at = index(variable);
@@ -150,7 +173,7 @@ template <class Sink> class Deriver {
       if (!visit(candidate))
         return false;
       --candidate.size;
-      if (!propagate(candidate, assignment))
+      if (!propagate(candidate, assignment) || stopped_)
         return false;
     }
     if (!sink_.add(candidate, false))
@@ -161,13 +184,17 @@ template <class Sink> class Deriver {
   }
 
 public:
-  explicit Deriver(Sink &sink) : sink_(sink) {}
+  explicit Deriver(Sink &sink, uint32_t maximum_variables = 16,
+                   std::function<bool(uint64_t)> charge = {})
+      : sink_(sink), maximum_variables_(maximum_variables),
+        charge_(std::move(charge)) {}
 
   bool derive(const SmallClause &target, const Clauses &premises,
               const std::vector<External> &priority, SmallClause &kept) {
     local_ = premises;
     emitted_.clear();
     variables_.clear();
+    stopped_ = false;
     for (const SmallClause &clause : local_)
       for (uint32_t i = 0; i < clause.size; ++i) {
         const External variable =
@@ -183,8 +210,7 @@ public:
           variables_.end())
         variables_.push_back(variable);
     }
-    if (variables_.size() > 16)
-      return false;
+    if (variables_.size() > maximum_variables_) return false;
     std::sort(variables_.begin(), variables_.end());
     order_.clear();
     for (External variable : priority) {
@@ -213,6 +239,11 @@ template <class Sink> class Certificate {
   uint32_t width_ = 1;
   std::vector<External> nodes_;
   std::vector<Clauses> definitions_;
+  // Operands of the currently live definition at each segment-tree node.
+  // Entries are cleared whenever cancellation removes that node.  Keeping the
+  // graph beside the clauses lets a continuing affine action retain exactly
+  // the final conservative definitions and reconstruct their variables.
+  std::vector<std::pair<External, External>> operands_;
   Clauses current_unit_;
   bool parity_ = false;
   bool emitted_empty_ = false;
@@ -223,6 +254,12 @@ template <class Sink> class Certificate {
   bool retirement_started_ = false;
   bool retired_ = false;
   uint32_t variables_;
+  uint32_t maximum_derivation_variables_ = 16;
+  std::function<bool(uint64_t)> charge_;
+
+  bool charge(uint64_t amount) {
+    return !charge_ || charge_(amount);
+  }
 
   bool erase(const Clauses &clauses) {
     for (const SmallClause &clause : clauses)
@@ -264,11 +301,31 @@ template <class Sink> class Certificate {
   }
 
 public:
-  Certificate(Sink &sink, uint32_t variables) : sink_(sink), variables_(variables) {
+  struct ActiveDefinition {
+    External output = 0;
+    External first = 0;
+    External second = 0;
+    Clauses clauses;
+  };
+
+  struct ActiveTree {
+    std::vector<ActiveDefinition> definitions;
+    std::vector<External> variables;
+    SmallClause root_unit;
+    bool rhs = false;
+  };
+
+  Certificate(Sink &sink, uint32_t variables,
+              uint32_t maximum_derivation_variables = 16,
+              std::function<bool(uint64_t)> charge = {})
+      : sink_(sink), variables_(variables),
+        maximum_derivation_variables_(maximum_derivation_variables),
+        charge_(std::move(charge)) {
     while (width_ < variables)
       width_ <<= 1;
     nodes_.assign(2 * static_cast<size_t>(width_), 0);
     definitions_.resize(nodes_.size());
+    operands_.resize(nodes_.size());
   }
 
   // The input equations must have independently certified clause premises.
@@ -278,6 +335,7 @@ public:
       return false;
     started_ = true;
     for (const Equation &equation : equations) {
+      if (!charge(1 + equation.size)) return false;
       if (equation.size > equation.variables.size())
         return false;
       for (uint32_t i = 0; i < equation.size; ++i)
@@ -285,13 +343,14 @@ public:
             static_cast<uint32_t>(equation.variables[i]) > variables_)
           return false;
     }
-    Deriver<Sink> deriver(sink_);
+    Deriver<Sink> deriver(sink_, maximum_derivation_variables_, charge_);
     for (const Equation &equation : equations) {
       const Clauses row_axioms =
           xor_equation(equation.variables.data(), equation.size, equation.rhs);
       Clauses transitions;
       for (uint32_t variable_at = 0; variable_at < equation.size;
            ++variable_at) {
+        if (!charge(1)) return false;
         const External variable = equation.variables[variable_at];
         uint32_t at = width_ + static_cast<uint32_t>(variable) - 1;
         External old_child = nodes_[at];
@@ -329,6 +388,11 @@ public:
                                  definitions_[parent].end());
           definitions_[parent] = std::move(new_definitions);
           nodes_[parent] = new_parent;
+          operands_[parent] = new_parent && nodes_[at] && nodes_[sibling] &&
+                                      nodes_[at] != nodes_[sibling]
+                                  ? std::pair<External, External>{nodes_[at],
+                                                                  nodes_[sibling]}
+                                  : std::pair<External, External>{};
           relation = std::move(next_relation);
           old_child = old_parent;
           at = parent;
@@ -381,6 +445,58 @@ public:
 
   bool refuted() const { return completed_ && emitted_empty_; }
 
+  // Describe the proof clauses that remain live after accumulation.  This is
+  // a pure snapshot: it emits no proof event and does not settle the later
+  // export/retirement lifecycle.  Definitions are returned in fresh-variable
+  // order, which is also topological because every gate is allocated after
+  // its operands.  A continuing solver may install this exact closed set as a
+  // conservative Boolean extension and retain the final implied root unit.
+  bool active_tree(ActiveTree &output) const {
+    if (!completed_ || emitted_empty_ || export_started_ ||
+        retirement_started_ || current_unit_.size() != 1 ||
+        current_unit_[0].size != 1 || !nodes_[1])
+      return false;
+    const External root_literal = current_unit_[0].lits[0];
+    if ((root_literal < 0 ? -root_literal : root_literal) != nodes_[1] ||
+        (root_literal > 0) != parity_)
+      return false;
+    ActiveTree tree;
+    tree.root_unit = current_unit_[0];
+    tree.rhs = parity_;
+    for (uint32_t i = 0; i < variables_; ++i)
+      if (nodes_[width_ + i]) tree.variables.push_back(i + 1);
+    for (size_t node = 1; node < width_; ++node) {
+      if (!nodes_[node]) {
+        if (!definitions_[node].empty() || operands_[node].first ||
+            operands_[node].second)
+          return false;
+        continue;
+      }
+      if (definitions_[node].empty()) continue;
+      const auto [first, second] = operands_[node];
+      if (!first || !second || first == second)
+        return false;
+      tree.definitions.push_back(
+          {nodes_[node], first, second, definitions_[node]});
+    }
+    std::sort(tree.definitions.begin(), tree.definitions.end(),
+              [](const ActiveDefinition &a, const ActiveDefinition &b) {
+                return a.output < b.output;
+              });
+    for (size_t i = 0; i < tree.definitions.size(); ++i) {
+      const ActiveDefinition &definition = tree.definitions[i];
+      if (i && tree.definitions[i - 1].output >= definition.output)
+        return false;
+      for (External operand : {definition.first, definition.second})
+        if (operand > static_cast<External>(variables_) &&
+            operand >= definition.output)
+          return false;
+    }
+    ActiveTree checked = tree;
+    output = std::move(checked);
+    return true;
+  }
+
   // Export the sum when at most four original variables remain. Current
   // active tree definitions and the accumulated root unit certify every
   // clause. Fresh tree variables remain proof helpers, never search variables.
@@ -408,7 +524,7 @@ public:
     for (const Clauses &definition : definitions_)
       premises.insert(premises.end(), definition.begin(), definition.end());
     const Clauses targets = xor_equation(residue.data(), size, parity_);
-    Deriver<Sink> deriver(sink_);
+    Deriver<Sink> deriver(sink_, maximum_derivation_variables_, charge_);
     for (const SmallClause &target : targets) {
       SmallClause kept;
       if (!deriver.derive(target, premises, {}, kept))
@@ -444,6 +560,8 @@ public:
     current_unit_.clear();
     for (Clauses &definition : definitions_)
       definition.clear();
+    std::fill(operands_.begin(), operands_.end(),
+              std::pair<External, External>{});
     retired_ = true;
     return true;
   }

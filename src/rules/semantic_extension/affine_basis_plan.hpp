@@ -132,4 +132,11 @@ BasisPlanStatus build_direct_basis_plan(
     const std::vector<Equation> &, const BasisPlanLimits &,
     const std::function<bool(uint64_t)> &charge, BasisPlan &output);
 
+// Enumerate every reduced row while leaving wide rows as exact
+// source-carrying metadata.  A selected wide row is certified later by the
+// scalable publication transaction, so unrelated rows allocate no XOR nodes.
+BasisPlanStatus build_selectable_basis_plan(
+    const std::vector<Equation> &, const BasisPlanLimits &,
+    const std::function<bool(uint64_t)> &charge, BasisPlan &output);
+
 } // namespace tactix::affine_semantic_extension

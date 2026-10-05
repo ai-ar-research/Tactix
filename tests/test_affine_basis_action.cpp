@@ -427,6 +427,27 @@ static void guard_is_state_only() {
   std::fclose(records);
 }
 
+static void both_parities_fit_one_recognition_group() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 3);
+  add_equation(kernel, {1, 2, 3}, false);
+  add_equation(kernel, {1, 2, 3}, true);
+  FILE *records = std::tmpfile();
+  attach(kernel, records);
+  AffineBasisActionSession session;
+  const auto page =
+      affine_basis_action_offers(kernel, session, limits(), {}, 1);
+  assert(page.status == AffineBasisOfferStatus::Complete);
+  assert(page.offers.size() == 1);
+  assert(page.offers[0].kind == BasisRowKind::DirectContradiction);
+  assert(page.offers[0].source_equation_ordinals ==
+         std::vector<size_t>({0, 1}));
+  auto one_group = limits();
+  one_group.image.maximum_groups = 1;
+  assert(affine_basis_row_selection_within_limits(page.offers[0], one_group));
+  std::fclose(records);
+}
+
 int main() {
   success_preserves_identity_and_metadata();
   repeated_selection_is_durable_and_atomic();
@@ -436,5 +457,6 @@ int main() {
   escaped_offer_cannot_rebind_to_recaptured_sources();
   declines_do_not_commit_session_or_action();
   guard_is_state_only();
+  both_parities_fit_one_recognition_group();
   std::puts("test_affine_basis_action: passed");
 }

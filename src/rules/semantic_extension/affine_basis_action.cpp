@@ -423,8 +423,12 @@ bool affine_basis_row_selection_within_limits(
     if (selection.variables[i] <= 0 ||
         (i && selection.variables[i - 1] >= selection.variables[i]))
       return false;
+  const uint64_t maximum_equations =
+      limits.image.maximum_groups > UINT64_MAX / 2
+          ? UINT64_MAX
+          : 2 * limits.image.maximum_groups;
   for (size_t i = 0; i < selection.source_equation_ordinals.size(); ++i)
-    if (selection.source_equation_ordinals[i] >= limits.image.maximum_groups ||
+    if (selection.source_equation_ordinals[i] >= maximum_equations ||
         (i && selection.source_equation_ordinals[i - 1] >=
                   selection.source_equation_ordinals[i]))
       return false;

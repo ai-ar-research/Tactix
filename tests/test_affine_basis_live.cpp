@@ -382,6 +382,96 @@ static void exact_owned_row_selection() {
   std::fclose(records);
 }
 
+static void exact_owned_wide_row_selection(const char *proof_path) {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 15);
+  const std::vector<External> first{1, 2, 3, 4, 5, 6, 7, 8};
+  const std::vector<External> second{1, 9, 10, 11, 12, 13, 14, 15};
+  add_equation(kernel, first, false);
+  add_equation(kernel, second, true);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DratAscii));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &proof;
+  FILE *records = std::tmpfile();
+  assert(records);
+  auto configured = request(records);
+  AffineLiveRequest capture;
+  capture.image = configured.image;
+  capture.maximum_snapshot_literals = configured.maximum_snapshot_literals;
+  capture.maximum_snapshot_work = configured.maximum_snapshot_work;
+  capture.records = records;
+  capture.action_id = configured.action_id;
+  capture.semantic_id = configured.semantic_id;
+  AffineLiveSnapshot owner;
+  assert(capture_affine_live_snapshot(kernel, capture, owner));
+
+  Image image;
+  assert(recognize(owner.premises, configured.image,
+                   [](uint64_t) { return true; }, image) == Status::Complete);
+  BasisPlan basis;
+  assert(build_selectable_basis_plan(image.equations, configured.basis,
+                                     [](uint64_t) { return true; }, basis) ==
+         BasisPlanStatus::Complete);
+  assert(basis.definitions.empty() && basis.projection.empty());
+  const std::vector<External> expected{2, 3, 4, 5, 6, 7, 8,
+                                       9, 10, 11, 12, 13, 14, 15};
+  const auto row = std::find_if(
+      basis.rows.begin(), basis.rows.end(), [&](const BasisRow &candidate) {
+        return candidate.kind == BasisRowKind::Extended &&
+               candidate.variables == expected && candidate.rhs;
+      });
+  assert(row != basis.rows.end());
+  AffineBasisRowSelection selection;
+  assert(affine_basis_row_selection(1, image, owner, *row, selection));
+  configured.owner = &owner;
+  configured.owner_version = 1;
+  configured.selection = &selection;
+
+  AffineBasisLiveTransaction transaction;
+  const auto prepared =
+      prepare_affine_basis_live(kernel, configured, transaction);
+  assert(prepared.status == AffineBasisLiveStatus::Prepared);
+  assert(prepared.rows == 1 && prepared.definitions == expected.size() - 1);
+  assert(prepared.extent_growth > prepared.definitions);
+  assert(prepared.introduced_theory_variables.size() == prepared.definitions);
+  std::vector<ProofClause> database = clausal_form(first, false);
+  const auto more = clausal_form(second, true);
+  database.insert(database.end(), more.begin(), more.end());
+  verify_transaction_proof(transaction, std::move(database));
+
+  auto too_tight = configured;
+  too_tight.basis.maximum_nodes = prepared.extent_growth - 1;
+  AffineBasisLiveTransaction declined;
+  assert(prepare_affine_basis_live(kernel, too_tight, declined).status ==
+         AffineBasisLiveStatus::ResourceExhausted);
+  assert(!declined.ready());
+  auto work_tight = configured;
+  work_tight.basis.maximum_work = 1000;
+  assert(prepare_affine_basis_live(kernel, work_tight, declined).status ==
+         AffineBasisLiveStatus::ResourceExhausted);
+  assert(!declined.ready());
+
+  const auto applied =
+      publish_affine_basis_live(kernel, configured, transaction);
+  assert(applied.status == AffineBasisLiveStatus::Applied &&
+         applied.result == ApplyResult::Ok && applied.propagation_pending);
+  assert(kernel.nvars == 15 + prepared.extent_growth &&
+         kernel_num_output_vars(kernel) == 15);
+  assert(propagate_service(kernel) == ApplyResult::Ok);
+  const std::string journal = contents(records);
+  assert(journal.find("\"definitions\":13") != std::string::npos);
+  assert(journal.find("affine-basis-helper-fix-rat") != std::string::npos);
+  assert(journal.find("affine-basis-proof-rat") != std::string::npos);
+  assert(journal.find("affine-basis-proof-helper") != std::string::npos);
+  assert(journal.find("\"projection\":\"omit-extension\"") !=
+         std::string::npos);
+  proof.flush();
+  kernel.proof = nullptr;
+  std::fclose(records);
+}
+
 static void contradiction(const char *proof_path) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 5);
@@ -411,6 +501,7 @@ static void contradiction(const char *proof_path) {
 int main(int argc, char **argv) {
   const char *sat_proof = argc > 1 ? argv[1] : "/tmp/affine-basis-sat.drat";
   const char *unsat_proof = argc > 2 ? argv[2] : "/tmp/affine-basis-unsat.drat";
+  const char *wide_proof = argc > 3 ? argv[3] : "/tmp/affine-basis-wide.drat";
   successful_basis(false, sat_proof);
   successful_basis(true, sat_proof);
   independent_proof_microcheck();
@@ -418,6 +509,7 @@ int main(int argc, char **argv) {
   no_new_information();
   bounded_proof_scope();
   exact_owned_row_selection();
+  exact_owned_wide_row_selection(wide_proof);
   contradiction(unsat_proof);
   std::puts("affine basis live: atomic definitions, consequences, projection, "
             "stale/resource declines, and proof scope PASS");
