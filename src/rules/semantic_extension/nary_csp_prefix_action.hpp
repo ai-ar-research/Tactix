@@ -142,9 +142,10 @@ struct NaryCspPrefixActionResult {
 
 RuleEligibility nary_csp_prefix_action_guard(const Kernel &);
 
-// Deterministically apply one exact prefix at an assignment-free propagated
-// root. Publication and propagation are separate actions. All recoverable
-// declines preserve Kernel, proof, provenance, session and action sequence.
+// Deterministically apply one exact prefix at a propagated root containing
+// only level-zero assignments. Selected domain variables remain unassigned.
+// Publication and propagation are separate actions. All recoverable declines
+// preserve Kernel, proof, provenance, session and action sequence.
 NaryCspPrefixActionResult nary_csp_prefix_action_apply(
     Kernel &, NaryCspPrefixActionSession &,
     const NaryCspPrefixActionLimits &,

@@ -54,7 +54,12 @@ ClauseKey normalized(ClauseKey key) {
 
 bool root_guard(const Kernel &kernel) {
   return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
+         !kernel.pending.valid &&
+         std::all_of(kernel.trail.begin(), kernel.trail.end(),
+                     [&](Lit literal) {
+                       return kernel.assigned[var_of(literal)].level == 0;
+                     }) &&
+         !kernel.dense &&
          !kernel.probing.recording && kernel.large_watches_connected &&
          kernel_propagation_fixpoint(kernel) &&
          !kernel.external_to_internal.empty() &&
@@ -218,14 +223,22 @@ CaptureStatus capture_slice(
     }
     ClauseKey external;
     external.reserve(size);
+    bool assigned = false;
     for (uint32_t index = 0; index < size; ++index) {
       const Var var = var_of(literals[index]);
-      if (kernel_var_retired(kernel, var) || kernel.value(literals[index])) {
+      if (kernel_var_retired(kernel, var)) {
         failure = CaptureStatus::Invalid;
         return false;
       }
+      assigned |= kernel.value(literals[index]) != 0;
       external.push_back(kernel_externalize(kernel, literals[index]));
     }
+    // Expected ALO, AMO, and tuple clauses contain only selected domain
+    // variables, which discovery requires to be unassigned.  An assigned
+    // literal therefore proves that this whole clause is outside the exact
+    // source image.  Never residualize it: literal/native-proof identities
+    // remain exact across capture and revalidation.
+    if (assigned) return true;
     external = normalized(std::move(external));
     const auto domain_clause = expected.domain_clauses.find(external);
     if (domain_clause != expected.domain_clauses.end()) {
