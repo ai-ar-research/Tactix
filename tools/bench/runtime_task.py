@@ -89,13 +89,14 @@ def checker_timeout_for(manifest, instance):
     return min(timeout, value)
 
 
-def solver_command(binary, arm, cnf, proof):
+def solver_command(binary, arm, cnf, proof, instrumentation=()):
     before = arm.get("arguments", [])
     after = arm.get("trailing_arguments", [])
     if (not isinstance(before, list) or not isinstance(after, list) or
-            any(not isinstance(arg, str) for arg in before + after)):
+            not isinstance(instrumentation, (list, tuple)) or
+            any(not isinstance(arg, str) for arg in before + after + list(instrumentation))):
         raise RuntimeError("solver arguments must be string lists")
-    return [binary, *before, cnf, proof, *after]
+    return [binary, *before, *instrumentation, cnf, proof, *after]
 
 
 def sha256(path):
@@ -265,6 +266,87 @@ def atomic_json(path, value):
     os.replace(temporary, path)
 
 
+def atomic_retain(source, target, maximum_bytes):
+    """Retain one bounded raw artifact without exposing a partial sidecar."""
+    if (isinstance(maximum_bytes, bool) or not isinstance(maximum_bytes, int) or
+            maximum_bytes <= 0):
+        raise RuntimeError("invalid telemetry byte cap")
+    with open(source, "rb") as stream:
+        data = stream.read(maximum_bytes + 1)
+    if len(data) > maximum_bytes:
+        raise RuntimeError(f"telemetry byte cap exceeded: {source.name}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + f".tmp.{os.getpid()}")
+    with open(temporary, "xb") as output:
+        output.write(data)
+        output.flush()
+        os.fsync(output.fileno())
+    os.replace(temporary, target)
+
+
+def gf2_telemetry_contract(manifest):
+    contract = manifest.get("gf2_telemetry")
+    if contract is None:
+        return None
+    from gf2_target_score import (MAX_FEEDBACK_BYTES, MAX_PROVENANCE_BYTES,
+                                  SCHEMA)
+    required = {"schema", "directory", "feedback_max_bytes",
+                "structural_provenance_max_bytes"}
+    if type(contract) is not dict or set(contract) != required:
+        raise RuntimeError("invalid GF2 telemetry contract fields")
+    if contract["schema"] != SCHEMA or contract["directory"] != "telemetry":
+        raise RuntimeError("unsupported GF2 telemetry contract")
+    maximums = {"feedback_max_bytes": MAX_FEEDBACK_BYTES,
+                "structural_provenance_max_bytes": MAX_PROVENANCE_BYTES}
+    for name, maximum in maximums.items():
+        value = contract[name]
+        if (isinstance(value, bool) or not isinstance(value, int) or
+                not 0 < value <= maximum):
+            raise RuntimeError(f"invalid GF2 telemetry cap: {name}")
+    return contract
+
+
+def collect_gf2_telemetry(campaign, task, contract, feedback_path,
+                          provenance_path, solver_statistics, bindings):
+    """Retain, hash, and parse the two telemetry streams.
+
+    Raw sidecars are retained before parsing, so a malformed stream remains
+    auditable while its integrity error prevents a causal score.
+    """
+    from gf2_target_score import (SCHEMA, parse_feedback, parse_provenance,
+                                  raw_yield, sidecar_descriptor)
+    directory = campaign / contract["directory"]
+    retained = {
+        "feedback": directory / f"{task:03d}.feedback.jsonl",
+        "structural_provenance": directory / f"{task:03d}.provenance.jsonl",
+    }
+    sources = {"feedback": feedback_path,
+               "structural_provenance": provenance_path}
+    caps = {"feedback": contract["feedback_max_bytes"],
+            "structural_provenance": contract["structural_provenance_max_bytes"]}
+    payload = {"schema": SCHEMA, "bindings": bindings, "sidecars": {}}
+    errors = []
+    for name in ("feedback", "structural_provenance"):
+        try:
+            atomic_retain(sources[name], retained[name], caps[name])
+            payload["sidecars"][name] = sidecar_descriptor(retained[name], campaign)
+        except (OSError, RuntimeError) as error:
+            errors.append(f"{name}: {error}")
+    if not errors:
+        try:
+            feedback = parse_feedback(retained["feedback"], caps["feedback"])
+            provenance = parse_provenance(
+                retained["structural_provenance"], caps["structural_provenance"])
+            payload.update(feedback=feedback, structural_provenance=provenance,
+                           raw_yield=raw_yield(feedback, provenance,
+                                               solver_statistics))
+        except (OSError, KeyError, TypeError, ValueError) as error:
+            errors.append(str(error))
+    if errors:
+        payload["integrity_error"] = "; ".join(errors)
+    return payload
+
+
 def expected_matches(expected, verdict):
     """Unknown dataset labels do not replace independent verdict checking."""
     return verdict in ("SAT", "UNSAT") and expected in (verdict, "UNKNOWN")
@@ -294,6 +376,10 @@ def validate_runtime_pin_contract(campaign, manifest):
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
         required.add("pins/anonymous_scratch.py")
+    if manifest.get("gf2_telemetry") is not None:
+        required.update({"pins/gf2_target_score.py",
+                         "pins/inspect_policy_feedback.py",
+                         "pins/gf2-affine.profile"})
     hashes = manifest.get("pin_sha256", {})
     missing = sorted(rel for rel in required if rel not in hashes)
     if missing:
@@ -540,6 +626,7 @@ def main():
     })
 
     manifest = json.loads((CAMPAIGN / "manifest.json").read_text())
+    manifest_sha256 = sha256(CAMPAIGN / "manifest.json")
     solve_timeout = positive_timeout(manifest, "solve_timeout")
     check_timeout = checker_timeout_for(manifest, row["instance"])
     compressed = ROOT / "benchmarks/cache" / row["instance"]
@@ -547,6 +634,20 @@ def main():
     certificate = arm.get("certificate", "drat")
     binary = CAMPAIGN / arm["path"]
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
+    telemetry_contract = gf2_telemetry_contract(manifest)
+    result_schema = ("tactix-experimental-gf2-runtime-result-v1"
+                     if telemetry_contract is not None else
+                     "tactix-matched-slurm-memory-regression-result-v2")
+    telemetry_local = None
+    telemetry_payload = None
+    telemetry_paths = None
+    if telemetry_contract is not None:
+        telemetry_local = Path(tempfile.mkdtemp(
+            prefix=f"tactix-gf2-telemetry-{task:03d}-", dir=scratch_root))
+        telemetry_paths = {
+            "feedback": telemetry_local / "feedback.jsonl",
+            "structural_provenance": telemetry_local / "provenance.jsonl",
+        }
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
     if anonymous:
         from anonymous_scratch import AnonymousScratch
@@ -568,6 +669,7 @@ def main():
             raise RuntimeError("compressed input hash mismatch")
         with open(cnf, "wb") as target:
             subprocess.run(["xz", "-dc", compressed], stdout=target, check=True)
+        decompressed_input_sha256 = sha256(cnf)
         for rel, expected in manifest["pin_sha256"].items():
             if sha256(CAMPAIGN / rel) != expected:
                 raise RuntimeError(f"pin hash mismatch: {rel}")
@@ -575,8 +677,14 @@ def main():
             if name.startswith(("TACTIX_", "KISSAT_", "SAT_EVENT_", "SAT_INPROCESS_")):
                 del os.environ[name]
         affinity = sorted(os.sched_getaffinity(0))
+        instrumentation = ()
+        if telemetry_paths is not None:
+            instrumentation = (
+                f"--feedback={telemetry_paths['feedback']}",
+                f"--structural-provenance={telemetry_paths['structural_provenance']}",
+            )
         command = ["taskset", "-c", str(affinity[0]),
-                   *solver_command(binary, arm, cnf, proof)]
+                   *solver_command(binary, arm, cnf, proof, instrumentation)]
         context = None
         perf_path = scratch / "solver.perf"
         if manifest.get("collect_runtime_context"):
@@ -599,8 +707,20 @@ def main():
             context["end"] = runtime_context(affinity)
             del os.environ["TACTIX_RUNTIME_SAMPLE_VM"]
         verdict, statistics = solver_summary(stdout)
+        if telemetry_contract is not None:
+            from gf2_target_score import expected_checker_hashes
+            checker_hashes = expected_checker_hashes(manifest, arm)
+            telemetry_payload = collect_gf2_telemetry(
+                CAMPAIGN, task, telemetry_contract,
+                telemetry_paths["feedback"],
+                telemetry_paths["structural_provenance"], statistics,
+                {"manifest_sha256": manifest_sha256,
+                 "compressed_input_sha256": manifest["input_sha256"][row["instance"]],
+                 "decompressed_input_sha256": decompressed_input_sha256,
+                 "binary_sha256": arm["sha256"],
+                 "checker_sha256": checker_hashes})
         result = {
-            "schema": "tactix-matched-slurm-memory-regression-result-v2",
+            "schema": result_schema,
             "task": task,
             "rank": int(row["rank"]),
             "arm": row["arm"],
@@ -626,6 +746,8 @@ def main():
             "valid": False,
             "cleanup_pending": True,
         }
+        if telemetry_payload is not None:
+            result["gf2_telemetry"] = telemetry_payload
         # Publish solver timing and verdict before potentially long proof
         # checking.  This is deliberately separate from the final validity
         # result and never satisfies the cumulative correctness gate.
@@ -653,7 +775,7 @@ def main():
             row["expected"], verdict, solve, result["valid"])
     except Exception as error:
         result = {
-            "schema": "tactix-matched-slurm-memory-regression-result-v2",
+            "schema": result_schema,
             "task": task,
             "rank": int(row["rank"]),
             "arm": row["arm"],
@@ -673,9 +795,20 @@ def main():
             scratch.close()
         else:
             shutil.rmtree(scratch, ignore_errors=True)
+        if telemetry_local is not None:
+            shutil.rmtree(telemetry_local, ignore_errors=True)
+    if telemetry_contract is not None and "gf2_telemetry" not in result:
+        result["gf2_telemetry"] = telemetry_payload or {
+            "schema": telemetry_contract["schema"],
+            "bindings": {"manifest_sha256": manifest_sha256},
+            "sidecars": {},
+            "integrity_error": "telemetry collection did not complete",
+        }
     result["artifact_deleted"] = not scratch.exists()
     result["derived_artifacts_deleted"] = not scratch.exists()
-    result["cleanup_pending"] = scratch.exists()
+    result["cleanup_pending"] = (scratch.exists() or
+                                 (telemetry_local is not None and
+                                  telemetry_local.exists()))
     result["finished_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     atomic_json(result_path, result)
     return 0 if result["valid"] and result["artifact_deleted"] else 1
