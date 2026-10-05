@@ -362,6 +362,14 @@ add_test(NAME nary_csp_root_fixed_proof
                  ${CMAKE_SOURCE_DIR})
 set_tests_properties(nary_csp_root_fixed_proof PROPERTIES SKIP_RETURN_CODE 77)
 
+# A persistent GF(2) event needs one arbitrary-width clausal reason, not the
+# complete parity CNF. Verify the targeted RUP export and helper retirement.
+add_test(NAME parity_wide_reason_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/parity_wide_reason_proof.sh
+                 $<TARGET_FILE:test_parity_lifecycle>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(parity_wide_reason_proof PROPERTIES SKIP_RETURN_CODE 77)
+
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
 # for the lemmas, lrat-check for the chains), in sub-solver space and again
 # after the sub-solver -> kernel translation. Skips 77 without a checker.

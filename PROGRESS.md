@@ -138,8 +138,9 @@ repeated static XOR export is not the missing mechanism. The pure persistent
 matrix foundation now owns bounded exact source combinations, synchronizes a
 deterministic reduced state across full trail snapshots, and returns entailed
 implication/conflict clauses with transactional failure. Connect those reasons
-to X9's live owner and DSR preflight/publication before any CDCL enqueue or
-conflict; then cache exact reason keys, meter update/proof work and replace
+to X9's live owner using the now checked arbitrary-width single-reason RUP
+export and helper retirement before any CDCL enqueue or conflict; then cache
+exact reason keys, meter update/proof work and replace
 snapshot reduction with incremental maintenance only if measurement warrants.
 The raw census justifies a bounded profile with 2,500 groups and 68/160 image
 and basis width/source limits. Exclude rank 569 from this first component:
