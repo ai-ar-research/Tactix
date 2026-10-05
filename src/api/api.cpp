@@ -16,6 +16,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -44,6 +45,7 @@ struct tactix_solver {
                          // before any solve still has an H.
   Proof proof;
   AffineBasisActionSession affine_basis_session;
+  AffineMatrixSearchSession affine_matrix_search_session;
   ExactCoverExtensionActionSession exact_cover_extension_session;
   IndependentSetCoverActionSession independent_set_cover_session;
   Gf3AffineActionSession gf3_affine_action_session;
@@ -63,6 +65,7 @@ struct tactix_solver {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
     kernel.affine_basis_action_session = &affine_basis_session;
+    kernel.affine_matrix_search_session = &affine_matrix_search_session;
     kernel.exact_cover_extension_action_session =
         &exact_cover_extension_session;
     kernel.independent_set_cover_action_session =

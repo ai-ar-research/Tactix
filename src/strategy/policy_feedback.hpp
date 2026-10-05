@@ -78,6 +78,21 @@ struct NativeActionDescription {
   WorkLimit effort_allowance = WorkLimit::unlimited();
   uint64_t work = 0, overshoot = 0;
   bool accounting_overflow = false;
+  // Present only for the opt-in deterministic affine search service. Keeping
+  // the tag false preserves every existing native feedback serialization.
+  bool have_affine_matrix_event = false;
+  uint8_t affine_matrix_status = 0;
+  std::string affine_matrix_event_identity;
+  uint64_t affine_matrix_synchronization_work = 0;
+  uint64_t affine_matrix_session_work = 0;
+  uint64_t affine_matrix_reason_width = 0;
+  uint64_t affine_matrix_planner_work = 0;
+  uint64_t affine_matrix_revalidation_work = 0;
+  uint64_t affine_matrix_proof_additions = 0;
+  uint64_t affine_matrix_proof_deletions = 0;
+  uint64_t affine_matrix_helper_extent = 0;
+  uint64_t affine_matrix_journal_bytes = 0;
+  bool affine_matrix_bcp_pending = false;
 };
 
 struct ActionFeedback {
@@ -168,6 +183,45 @@ public:
     if (native_request) record->native_request = *native_request;
     if (native_request && record->outcome.invocation.rule_id != UINT32_MAX)
       record->instance = record->outcome.invocation.instance;
+    record->outcome.invocation.before = record->before.state;
+    record->outcome.invocation.after = record->after.state;
+    record->stop = stop_reason(record->outcome.invocation.status);
+    receiver_->after_action(*record);
+    resume_interval();
+    return result;
+  }
+
+  // Deterministic fixpoint services can have a very frequent mutation-free
+  // no-event result. Execute every call, but retain feedback only for outcomes
+  // selected by `keep`; interval time still includes suppressed native work.
+  template <class Observe, class Apply, class Keep,
+            class Describe = DescribeFeedbackOutcome>
+  auto execute_filtered(FeedbackKind kind, const char *identity,
+                        uint64_t instance, Observe &&observe, Apply &&apply,
+                        Keep &&keep, Describe &&describe = Describe{},
+                        const NativeActionDescription *native_request = nullptr) {
+    if (!enabled()) return apply();
+    pause_interval();
+    const Observation before = observe();
+    const auto start = Clock::now();
+    auto result = apply();
+    const auto end = Clock::now();
+    const uint64_t duration = nanos(end - start);
+    if (interval_) interval_->duration_nanos += duration;
+    if (!keep(result)) {
+      resume_interval();
+      return result;
+    }
+    auto record = std::make_unique<ActionFeedback>();
+    record->sequence = ++sequence_;
+    record->kind = kind;
+    record->identity = identity;
+    record->instance = instance;
+    record->before = before;
+    record->duration_nanos = duration;
+    record->outcome = describe(result);
+    record->after = observe();
+    if (native_request) record->native_request = *native_request;
     record->outcome.invocation.before = record->before.state;
     record->outcome.invocation.after = record->after.state;
     record->stop = stop_reason(record->outcome.invocation.status);

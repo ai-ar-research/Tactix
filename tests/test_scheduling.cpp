@@ -1121,7 +1121,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
       "Gf3AffineConsequence", "DirectCspSupport",
       "DirectPhpRefutation", "Gf3GaussianConsequence",
-      "TseitinCycleBreaking", "NaryCspPrefix",
+      "TseitinCycleBreaking", "NaryCspPrefix", "AffineMatrixInitialize",
   };
   for (const auto &entry : p.inprocess().entries) {
     const char *name = rules[entry.rule].name;

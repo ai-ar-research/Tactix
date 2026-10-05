@@ -627,7 +627,8 @@ static void test_action_kind(void) {
       "SemanticVariableAdvice", "Gf3AffineConsequence",
       "DirectCspSupport", "DirectPhpRefutation",
       "Gf3GaussianConsequence", "TseitinCycleBreaking",
-      "NaryCspPrefix"};
+      "NaryCspPrefix", "GraphIntervalEquivalence",
+      "AffineMatrixInitialize"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)
@@ -638,6 +639,8 @@ static void test_action_kind(void) {
   assert(tactix_action_kind(rule_id("Walk")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("Reorder")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("LocalSearchGuidance")) ==
+         TACTIX_ACTION_POLICY_OP);
+  assert(tactix_action_kind(rule_id("AffineMatrixInitialize")) ==
          TACTIX_ACTION_POLICY_OP);
 
   /* spot-check proof rules, and assert the frozen policy-op classification */
@@ -651,7 +654,7 @@ static void test_action_kind(void) {
     if (k == TACTIX_ACTION_POLICY_OP)
       policy_ops++;
   }
-  assert(policy_ops == 6);
+  assert(policy_ops == 7);
 
   /* out-of-range → -1 (same convention as tactix_rule_id) */
   assert(tactix_action_kind(-1) == -1);
