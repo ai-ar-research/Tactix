@@ -131,6 +131,31 @@ void allowance_declines_before_action() {
   assert(!session.committed() && kernel.stats.direct_php_attempts == 0);
 }
 
+void duplicate_binary_snapshot_is_not_invalid() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 3);
+  kernel_add_binary_clause(kernel, internalize(1), internalize(2),
+                           ++kernel.next_clause_id);
+  kernel_add_binary_clause(kernel, internalize(1), internalize(2),
+                           ++kernel.next_clause_id);
+  DirectPhpActionSession session(kernel);
+  const auto p = DirectPhpRefutationParameters{};
+  const DirectPhpActionLimits limits{
+      {p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
+       p.maximum_snapshot_work},
+      {p.maximum_recognition_clauses, p.maximum_recognition_literals,
+       p.maximum_recognition_work, p.maximum_row_candidates,
+       p.maximum_row_combinations, p.maximum_mapping_trials,
+       p.maximum_holes},
+      {p.maximum_proof_additions, p.maximum_proof_deletions,
+       p.maximum_proof_literals, p.maximum_fresh_variables,
+       p.maximum_proof_events},
+      p.maximum_replay_work};
+  const auto result = direct_php_action_apply(kernel, session, {1, 1, limits});
+  assert(result.status == DirectPhpActionStatus::NotRecognized);
+  assert(result.effort.snapshot_clauses == 1);
+}
+
 void random_generator_reaches_the_same_action() {
   Kernel kernel = fixture();
   DirectPhpActionSession session(kernel);
@@ -260,6 +285,7 @@ int main() {
   identity_guard_and_disabled_default();
   serialized_replay_and_terminal_feedback();
   allowance_declines_before_action();
+  duplicate_binary_snapshot_is_not_invalid();
   random_generator_reaches_the_same_action();
   parser_surface_has_stable_source_ids();
   c_api_executes_terminal_action();
