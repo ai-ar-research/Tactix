@@ -648,8 +648,10 @@ int main(int argc, char **argv) {
     kernel.shrink_glue_promote = sg[0] != '0';
   if (const char *tb = getenv("TACTIX_TUMBLE"))
     kernel.tumble = tb[0] != '0';
-  // The stream is session-owned and outlives policy execution. Exclusive
-  // creation protects retained provenance, input and replay artifacts.
+  // The stream is session-owned and outlives policy execution. Structural
+  // actions require a complete provenance sink even when the caller does not
+  // retain it; tmpfile keeps the normal CLI capable without creating a named
+  // artifact. Exclusive creation protects explicitly retained provenance.
   std::unique_ptr<FILE, decltype(&std::fclose)> structural_records(nullptr, &std::fclose);
   if (structural_provenance_path) {
     std::string input_sha;
@@ -666,6 +668,13 @@ int main(int argc, char **argv) {
         "{\"kind\":\"session\",\"version\":1,\"input_file_sha256\":\"%s\"}\n", input_sha.c_str());
     std::fflush(structural_records.get());
     if (std::ferror(structural_records.get())) return 1;
+    kernel.structural_provenance = structural_records.get();
+  } else {
+    structural_records.reset(std::tmpfile());
+    if (!structural_records) {
+      fprintf(stderr, "tactix: cannot create anonymous structural provenance stream\n");
+      return 1;
+    }
     kernel.structural_provenance = structural_records.get();
   }
   Proof proof;
@@ -1468,6 +1477,20 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.graph_labeling_interrupted,
            (unsigned long long)kernel.stats.graph_labeling_models_rejected,
            (unsigned long long)kernel.stats.graph_labeling_sat);
+    printf("c ramsey     %llu attempts, %llu recognized, %llu recognition work, "
+           "%llu certificate work, %llu nodes, %llu additions, %llu deletions, "
+           "%llu helpers, %llu budget stops, %llu UNSAT, %llu interrupted\n",
+           (unsigned long long)kernel.stats.ramsey_startup_attempts,
+           (unsigned long long)kernel.stats.ramsey_startup_recognized,
+           (unsigned long long)kernel.stats.ramsey_startup_recognition_work,
+           (unsigned long long)kernel.stats.ramsey_startup_certificate_work,
+           (unsigned long long)kernel.stats.ramsey_startup_nodes,
+           (unsigned long long)kernel.stats.ramsey_startup_additions,
+           (unsigned long long)kernel.stats.ramsey_startup_deletions,
+           (unsigned long long)kernel.stats.ramsey_startup_helpers,
+           (unsigned long long)kernel.stats.ramsey_startup_exhausted,
+           (unsigned long long)kernel.stats.ramsey_startup_unsat,
+           (unsigned long long)kernel.stats.ramsey_startup_interrupted);
     printf("c localsearch %llu hints offered (%llu phases, %llu replacements), "
            "%llu applied / %llu target installs from %llu attempts "
            "(%llu eligible, %llu changed, "
