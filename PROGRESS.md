@@ -64,7 +64,9 @@ evidence: its snapshot omitted checker binaries and tests mutated the hashed
 source tree, causing 11 harness failures. Corrected job `1749472` proves the
 long `lucky` test passes, but is also invalid: its frozen build contains seven
 non-executable test files, six zero length, causing `BAD_COMMAND` rather than
-source assertion failures. Repair and rerun the archive/build harness.
+source assertion failures. The reusable v3 harness now requires a clean build
+and validates every CTest executable before freezing; replacement job `1749659`
+runs the same `64de46fe9` source archive with 289 tests and 295 bindings.
 The unrelated interactive allocation `1747502` remains outside this workstream.
 The current forced-TTF repair makes balanced-signature Lucky fix row `b+1`
 and search only signs when live clauses require those rows. Its focused test
