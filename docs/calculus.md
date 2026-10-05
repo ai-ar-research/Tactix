@@ -42,36 +42,9 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total `apply(σ
 ### X9 · AffineConsequence — source-bound affine export
 **Abstract precondition:** a consistent, conflict-free, propagated root; every affine equation is witnessed by its complete forbidden-assignment CNF over distinct live variables. **Effect:** replay V1 preserves the selected width-at-most-four source consequence. V2 freezes one authenticated pre-publication owner, deterministically reduces its bounded GF(2) basis, and pages exact direct or extended rows in contradiction/unit/binary/width/key order. One-source already-live direct rows are covered. A selected small row publishes its missing complete parity CNF. A selected wide row accumulates its authenticated arity-at-most-eight sources through a dense proof namespace, retains the final balanced XOR definitions and signed root unit as a conservative Boolean extension, and fixes every retired transition helper true after proving that no active clause mentions it; dropping all fresh variables reconstructs the original model, while retained definition variables are evaluated in topological XOR order. The exact selection deep-copies owner version, row kind/variables/RHS and every selected equation's variables/RHS, canonical premise clauses and native proof identities. Apply rebuilds the row and requires full equality, so an escaped offer cannot bind replaced sources. **Proof delta:** direct clauses and wide transition/root steps are counted RUP derivations; XOR definitions and isolated helper fixes are distinct RAT events. The active proof population must equal the retained definition clauses plus the exact root unit. Helper count, proof additions/deletions, external extent, journal bytes and cancellable proof-planning work are preflight bounds. DSR/DRAT/no-proof are supported and LRAT/PBP decline. Exact semantic/source keys durably suppress committed rows. A propagated level-zero trail is allowed; source-local deletion stales affected rows. Public V9 C payloads, replay and the opt-in `gf2-affine` producer carry the same direct/extended selection through Default, random and future learned execution; canonical V2 selects the first exact offer. A complete or no-structure census of the immutable owner is durable across later search/restart epochs, while owner/session/profile changes and retryable interruption/resource states retain their declared reconfiguration behavior. M1 propagation and semantic advice remain separate selectable actions. If an invocation explicitly composes M1, semantic-variable publication is deferred, filtered against the settled root and published once at the final state version; an independently selected later M1 instead stales an already published candidate. V2 never falls back to V1, and a decline changes neither solver nor session. Safe root conditioning, arena-relocation refresh, producer-aware owner rollover and checked target recovery remain planned.
 
-**Implemented bounded X9 startup dose.** A counted producer profile is an
-explicit replay-fingerprinted dose, not one atomic rule. Each row remains its
-own X9 action and required M1 propagation remains a separately observed
-action. Successful X9 settlement synchronizes its durable consumed key before
-the next selection and retains the remaining authenticated offer page. Root
-propagation may change the touch epoch without discarding that page while its
-immutable owner and arena generation remain bound; apply still rebuilds and
-exactly revalidates the chosen row and every source before mutation. The dose
-therefore supports `X9 -> Propagate -> X9` without changing the proof or action
-boundary.
+**Implemented bounded X9 startup dose.** A counted producer profile is an explicit replay-fingerprinted dose, not one atomic rule. Each row remains its own X9 action and required M1 propagation remains a separately observed action. Successful X9 settlement synchronizes its durable consumed key before the next selection and retains the remaining authenticated offer page. Root propagation may change the touch epoch without discarding that page while its immutable owner and arena generation remain bound; apply still rebuilds and exactly revalidates the chosen row and every source before mutation. The dose therefore supports `X9 -> Propagate -> X9` without changing the proof or action boundary.
 
-**Planned persistent GF(2) search contract:** this is not yet an implemented X9
-effect. A bounded connected matrix may retain exact coefficient vectors over an
-authenticated immutable source owner and update its reduced state on trail
-extension and backtrack. A fixed reduced basis or Tseitin encoding is not
-assumed unit-propagation complete. When the matrix detects an implication or
-conflict, it must recover the exact source combination and form a globally
-entailed reason clause consisting of the negations of its assigned support and,
-for an implication, the implied literal. Before that reason affects CDCL, the
-solver must preflight and emit a DSR/DRAT derivation from the certified source
-equations, including any conservative shared XOR definitions, and publish the
-clause into the ordinary proof database. Failure, interruption, width/work/
-extent exhaustion or source staleness produces no enqueue and no conflict.
-Backtracking restores matrix state but never retracts globally proved clauses or
-reuses proof identities. Exact source-combination/reason keys suppress duplicate
-proof work. Calls, row operations, trail updates, useful propagations/conflicts,
-reason width, proof additions/deletions, external extent and adaptive disable
-decisions enter raw after-action/search feedback. A learner may select a search
-configuration that enables this module at a restart; the module's internal
-propagations remain subject to this proof-before-CDCL boundary.
+**Planned persistent GF(2) search contract:** this is not yet an implemented X9 effect. A bounded connected matrix may retain exact coefficient vectors over an authenticated immutable source owner and update its reduced state on trail extension and backtrack. A fixed reduced basis or Tseitin encoding is not assumed unit-propagation complete. When the matrix detects an implication or conflict, it must recover the exact source combination and form a globally entailed reason clause consisting of the negations of its assigned support and, for an implication, the implied literal. Before that reason affects CDCL, the solver must preflight and emit a DSR/DRAT derivation from the certified source equations, including any conservative shared XOR definitions, and publish the clause into the ordinary proof database. Failure, interruption, width/work/extent exhaustion or source staleness produces no enqueue and no conflict. Backtracking restores matrix state but never retracts globally proved clauses or reuses proof identities. Exact source-combination/reason keys suppress duplicate proof work. Calls, row operations, trail updates, useful propagations/conflicts, reason width, proof additions/deletions, external extent and adaptive disable decisions enter raw after-action/search feedback. A learner may select a search configuration that enables this module at a restart; the module's internal propagations remain subject to this proof-before-CDCL boundary.
 
 ### X10 · ExactCoverExtension — conservative occupancy definitions
 **Abstract precondition:** an assignment-free propagated root whose complete live clause census exactly matches the supported signed exact-cover image. **Effect:** for every recognized block `B={x_1,...,x_k}`, append fresh branchable theory variable `b_B`, clauses `(b_B ∨ ¬x_i)` for each `i`, and `(¬b_B ∨ x_1 ∨ ... ∨ x_k)`; record `b_B` for projection and `IntroducedTheory` advice. **Proof delta:** emit each definition in dependency order as fresh-pivot DSR/DRAT RAT additions and record native/generated identities, clauses, projection, and semantic meaning under one action ID. This is exactly `b_B ↔ OR(B)`: every old assignment has one extension and dropping `b_B` projects every new model back. The canonical action commits all blocks atomically because the first definition breaks complete-source recognition. Durable signed-external keys prevent recreation after deletion. Failed census, stale revalidation, bounds, format, or I/O preflight leaves session and solver unchanged.
@@ -102,17 +75,10 @@ This H-only companion to theory actions that publish semantic candidates, includ
 ## 3. Core search (M1–M4)
 
 ### M1 · Propagate — `UnitPropagate`
-- **Precondition (abstract):** `F` not refuted, no unresolved recorded conflict, and the trail is not at a unit-propagation fixpoint
-  (propagation work remains).
-- **Effect:** run BCP to the first conflict or to fixpoint. `F,R,ρ` unchanged; `τ` gains every forced literal (each stamped at its
-  **true level** — the max level among its reason's other literals), `propagate_head` advances. No conflict → `Ok`. Conflict below
-  root → record it (`conflict_valid`), `Conflict`. Conflict at root → `inconsistent`, emit ∅, `Unsat`.
-- **Proof δ:** `add_derived_unit` per level-0 forced unit (LRAT with a hint chain; DSR as an explicit witnessless RUP unit; DRAT
-  leaves it implicit); `add_empty` on a root conflict (LRAT with a hint chain / DSR/DRAT). Below-root propagation and conflicts emit nothing (the
-  learned clause is M3's).
-- **Soundness:** BCP assigns only literals entailed by `F ∧ M`, so it is model-preserving. Each root unit is RUP from its reason
-  plus the reasons of that clause's other root literals (chain ascending by trail position); a root conflict's clause is all-false,
-  so ∅ is RUP from it and those unit ids.
+- **Precondition (abstract):** `F` not refuted, no unresolved recorded conflict, and the trail is not at a unit-propagation fixpoint (propagation work remains).
+- **Effect:** run BCP to the first conflict or to fixpoint. `F,R,ρ` unchanged; `τ` gains every forced literal, stamped at its **true level** (the max level among its reason's other literals), and `propagate_head` advances. No conflict → `Ok`; conflict below root → record it (`conflict_valid`), `Conflict`; conflict at root → `inconsistent`, emit ∅, `Unsat`.
+- **Proof δ:** `add_derived_unit` per level-0 forced unit (LRAT with a hint chain; DSR as an explicit witnessless RUP unit; DRAT leaves it implicit); `add_empty` on a root conflict (LRAT with a hint chain / DSR/DRAT). Below-root propagation and conflicts emit nothing; the learned clause is M3's.
+- **Soundness:** BCP assigns only literals entailed by `F ∧ M`, so it is model-preserving. Each root unit is RUP from its reason plus the reasons of that clause's other root literals, ordered by trail position; a root conflict's clause is all-false, so ∅ is RUP from it and those unit IDs.
 
 ### M2 · Decide — `Decide`
 - **Precondition (abstract):** an unassigned variable exists, no unresolved conflict, `F` not refuted. **No fixpoint requirement** —
