@@ -2,6 +2,7 @@
 
 #include "kernel/kernel.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -48,6 +49,27 @@ bool DirectCspSupportParameters::valid() const {
              maximum_session_keys,
              maximum_session_work,
              allow_extension}
+      .valid();
+}
+
+bool NaryCspPrefixParameters::valid() const {
+  return NaryCspPrefixActionLimits{
+             maximum_source_clauses,
+             maximum_source_literals,
+             maximum_recognition_work,
+             maximum_domains,
+             maximum_domain_values,
+             maximum_forbidden_tuples,
+             maximum_prefix_arity,
+             maximum_definition_clause_literals,
+             maximum_proof_work,
+             maximum_proof_additions,
+             maximum_proof_literal_occurrences,
+             maximum_journal_bytes,
+             maximum_extent_growth,
+             maximum_external_extent,
+             maximum_session_keys,
+             maximum_session_work}
       .valid();
 }
 
@@ -135,6 +157,10 @@ DirectCspSupportParameters
 DirectCspSupportParameters::from_kernel(const Kernel &k) {
   return k.direct_csp_support_parameters;
 }
+NaryCspPrefixParameters
+NaryCspPrefixParameters::from_kernel(const Kernel &k) {
+  return k.nary_csp_prefix_parameters;
+}
 DirectPhpRefutationParameters
 DirectPhpRefutationParameters::from_kernel(const Kernel &k) {
   return k.direct_php_refutation_parameters;
@@ -171,6 +197,10 @@ void install_rule_parameters(
 void install_rule_parameters(Kernel &k,
                              const DirectCspSupportParameters &parameters) {
   k.direct_csp_support_parameters = parameters;
+}
+void install_rule_parameters(Kernel &k,
+                             const NaryCspPrefixParameters &parameters) {
+  k.nary_csp_prefix_parameters = parameters;
 }
 void install_rule_parameters(Kernel &k,
                              const DirectPhpRefutationParameters &parameters) {

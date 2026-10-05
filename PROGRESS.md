@@ -28,9 +28,10 @@ rule-specific derivation and measured clausal proof/check cost establish need.
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
 | Partial-model guidance | `a49191bfa` | Exact immutable candidates can feed Walk and CDCL separately with raw telemetry; mechanics tested, campaign reach/effect still absent |
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
-| N-ary CSP prefix foundation | [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Exact live domains/tuples feed atomic DSR/DRAT exact-AND helpers and RUP residual exclusions with full provenance, projection and durable keys. The pure bounded offerer now enumerates every tuple/residual action with retained-owner revalidation, session/live preflight and deterministic pagination; Debug and fresh ASan/UBSan checks pass. Public controller, fuzz and noL recovery remain open |
+| Public N-ary CSP prefix X17 | [public checkpoint](benchmarks/reports/2026-10-04-public-nary-csp-prefix-action.md), [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Registry ID 39, disabled StepId 28 and C v8 tag 42 expose exact deep-copied domain/residual/prefix payloads through typed replay and a Kernel-owned session. Opt-in `nary-csp` production, raw feedback and post-followup `NaryCsp` semantic-variable publication are wired; focused tests pass. DefaultPolicy remains disabled, and fuzz, checked noL recovery, targets and gates remain open |
+| `7dcd36101` default regressions | [terminal report](benchmarks/reports/2026-10-04-nary-offerer-default-regressions.md) | B28+C5, WV100 and WV2--89 pass the bounded scorer; WV2 retains 79 solves, two unchanged proof censors and ten solver timeouts. Rank solves 50/50 below its aggregate ceiling but fails on rank 45 `oddball_19_4_ttf`: the changed Walk-import effort trajectory emits a larger proof whose 319.565-second check exceeds the 304.5289-second allowance. No wrong verdict or checker rejection |
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
-| Focused controller configuration | current checkpoint | CLI selection can enable any subset of the four native structured producers and independently restrict canonical root-action families. Both choices are replay-fingerprinted; malformed, excluded and ambiguous action collections fail closed. Focused frontend/action/API validation passes 9/9; effective campaign evidence remains open |
+| Focused controller configuration | current checkpoint | CLI selection can enable any subset of the five native structured producers and independently restrict canonical root-action families. Both choices are replay-fingerprinted; malformed, excluded and ambiguous action collections fail closed. Focused frontend/action/API validation passes; effective campaign evidence remains open |
 | Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | `ec7e0ac86` passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Fresh immutable ASan+UBSan pin `build/pin-public-theory-ec7e0ac86-sanitize-01` passes its focused checks; effective both-policy fuzz, targets and gates remain open |
 | Current N1--N4 audit | [scoped audit](benchmarks/reports/2026-10-04-current-n1-n4-audit.md) | Current code passes 46/46 focused public-action/proof/controller/wiring checks and 69/69 proof-oracle tests. N1/N2 universal coverage, current N3 gates, and N4 ledger acceptance remain pending |
 | Naive target row-cover proof | [checker-censor report](benchmarks/reports/2026-10-04-row-cover-target-checker-censor.md) | Rejected: 6,783,269 additions and 187,733,915 bytes reached the 1,800-second checker cap |
@@ -42,16 +43,18 @@ terminal verdicts and 1,536 timeouts. `LocalSearchGuidance` fired zero times in
 both, so these are compatibility/correctness evidence for terminal cases, not
 full oracle coverage or effective guidance fuzz acceptance. Current commit
 `7dcd36101` is pinned as Release binary SHA-256 `c652bed6a98e07d4362146240ccd161c4082065def7c50ccbcc8472d542ae05c`.
-Its full-width controller regressions are active as B28+C5 `1748622`,
-Rank1--50 `1748655`, WV100 `1748669`, and WV2--89 `1748673`; all use the frozen
-matrices, canonical proof route, 1,800-second checker cap, and baseline plus
-`max(30%, 20s)` completed-proof slowdown rule. The unrelated interactive
-allocation `1747502` remains outside this workstream.
+Its full-width controller regressions are terminal: B28+C5 `1748622`, WV100
+`1748669`, and WV2--89 `1748673` pass; Rank1--50 `1748655` fails only the
+rank-45 proof-cost comparison despite 50/50 solves and an accepted aggregate.
+The [terminal report](benchmarks/reports/2026-10-04-nary-offerer-default-regressions.md)
+owns exact counts, the unchanged WV2 censors and the Walk-effort diagnosis.
+The unrelated interactive allocation `1747502` remains outside this workstream.
 
 ## Next action
 
-All three certified UNSAT verticals now reach the public controller. Direct PHP
-is append-only ID 36, GF(3) Gaussian ID 37, and Tseitin cycle breaking ID 38.
+The certified structured verticals now include public X17 NaryCspPrefix.
+Direct PHP is append-only ID 36, GF(3) Gaussian ID 37, Tseitin cycle breaking
+ID 38, and NaryCspPrefix ID 39 with disabled StepId 28 and C v8 tag 42.
 X16 offers exact connected-component identities without a private component
 choice, publishes one authenticated X7 unit, leaves Propagate separate, and
 then permits a fresh root-aware census. Every constraint still retains Boolean
@@ -78,15 +81,17 @@ the 1,200/600-second contracts separate. Their scorer fails closed unless every
 row is independently checked and shows an application plus effective action;
 native campaigns additionally require producer calls and offers. Then evaluate
 the saved target set and regression gates only when benchmark execution is
-authorized. DefaultPolicy keeps all three actions disabled meanwhile.
+authorized. DefaultPolicy keeps all four actions disabled meanwhile.
 
-Score the four active regression arrays after every row reaches a terminal
-state. Diagnose Rank aggregate movement and every WV/WV2 retained-row loss
-individually; the earlier `cabp`, Break and Timetable trajectory controls remain
-open evidence obligations if those rows regress again. In parallel, complete
-the n-ary CSP vertical from the verified native offerer: add append-only typed
-registry/C/replay, Kernel-owned session, controller execution/raw feedback and
-focused effective-reach tests. Do not infer noL recovery before checked target
+Repair the explicit fixed-effort Walk import allocation that causes the rank-45
+proof-cost regression without silently enlarging the action dose; retain the
+compact-proof diagnostic as causal evidence rather than a production profile.
+The earlier `cabp`, Break and Timetable trajectory controls remain open evidence
+obligations if those rows regress again. The n-ary CSP vertical
+is now public through exact typed C/replay payloads, a Kernel-owned session,
+controller execution/raw feedback, native `nary-csp` production and
+semantic-variable publication. Its focused tests pass. Obtain effective
+both-policy fuzz reach next, and do not infer noL recovery before checked target
 evidence.
 
 ## Established authorities and open gates
@@ -103,9 +108,10 @@ evidence.
 - The current N1--N4 audit passes 46/46 focused public-action/proof/controller
   checks and 69/69 proof-oracle tests; it keeps universal and performance
   verification explicitly pending.
-- The internal n-ary CSP vertical now includes a pure bounded native offerer
-  with exact-domain discovery, retained-owner revalidation, deterministic
-  pagination and session/live preflight; public exposure remains open.
+- Public X17 NaryCspPrefix is append-only ID 39/StepId 28/C v8 tag 42. Exact
+  nested payload copying, typed replay, Kernel session, `nary-csp` production,
+  raw feedback and `NaryCsp` semantic-variable publication pass focused tests;
+  DefaultPolicy and every acceptance gate remain unchanged.
 - Current source repairs terminal-action random generation and synchronizes the
   append-only public registry tests; the complete Debug suite passes 288/288.
   The scripted-policy fixture retains all schedule transitions while reducing

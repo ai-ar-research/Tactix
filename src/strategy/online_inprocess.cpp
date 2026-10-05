@@ -133,6 +133,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Gf3AffineConsequence";
   if (std::holds_alternative<DirectCspSupportParameters>(step.parameters))
     return step.rule == "DirectCspSupport";
+  if (std::holds_alternative<NaryCspPrefixParameters>(step.parameters))
+    return step.rule == "NaryCspPrefix";
   if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
     return step.rule == "DirectPhpRefutation";
   if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
@@ -257,6 +259,26 @@ DirectCspSupportActionLimits direct_csp_limits(
           p.maximum_session_keys,
           p.maximum_session_work,
           p.allow_extension};
+}
+
+NaryCspPrefixActionLimits nary_csp_limits(
+    const NaryCspPrefixParameters &p) {
+  return {p.maximum_source_clauses,
+          p.maximum_source_literals,
+          p.maximum_recognition_work,
+          p.maximum_domains,
+          p.maximum_domain_values,
+          p.maximum_forbidden_tuples,
+          p.maximum_prefix_arity,
+          p.maximum_definition_clause_literals,
+          p.maximum_proof_work,
+          p.maximum_proof_additions,
+          p.maximum_proof_literal_occurrences,
+          p.maximum_journal_bytes,
+          p.maximum_extent_growth,
+          p.maximum_external_extent,
+          p.maximum_session_keys,
+          p.maximum_session_work};
 }
 
 DirectPhpActionLimits direct_php_limits(
@@ -433,6 +455,63 @@ void record_direct_csp_feedback(Kernel &k,
                     });
 }
 
+void record_nary_csp_feedback(Kernel &k,
+                              const NaryCspPrefixActionResult &result,
+                              size_t keys_before, size_t owners_before) {
+  ++k.stats.nary_csp_prefix_attempts;
+  switch (result.status) {
+  case NaryCspPrefixActionStatus::Applied:
+    ++k.stats.nary_csp_prefix_applied; break;
+  case NaryCspPrefixActionStatus::NoStructure:
+    ++k.stats.nary_csp_prefix_no_structure; break;
+  case NaryCspPrefixActionStatus::NoConsequence:
+    ++k.stats.nary_csp_prefix_no_consequence; break;
+  case NaryCspPrefixActionStatus::AlreadyPublished:
+    ++k.stats.nary_csp_prefix_already_published; break;
+  case NaryCspPrefixActionStatus::Invalid:
+    ++k.stats.nary_csp_prefix_invalid; break;
+  case NaryCspPrefixActionStatus::Inapplicable:
+    ++k.stats.nary_csp_prefix_inapplicable; break;
+  case NaryCspPrefixActionStatus::ResourceExhausted:
+    ++k.stats.nary_csp_prefix_resource_exhausted; break;
+  case NaryCspPrefixActionStatus::Interrupted:
+    ++k.stats.nary_csp_prefix_interrupted; break;
+  case NaryCspPrefixActionStatus::UnsupportedProof:
+    ++k.stats.nary_csp_prefix_unsupported_proof; break;
+  case NaryCspPrefixActionStatus::Stale:
+    ++k.stats.nary_csp_prefix_stale; break;
+  }
+  const auto &e = result.effort;
+  k.stats.nary_csp_prefix_source_clauses += e.source_clauses;
+  k.stats.nary_csp_prefix_source_literals += e.source_literals;
+  k.stats.nary_csp_prefix_owner_capture_work += e.owner_capture_work;
+  k.stats.nary_csp_prefix_recognition_work += e.recognition_work;
+  k.stats.nary_csp_prefix_source_scan_work += e.source_scan_work;
+  k.stats.nary_csp_prefix_planning_work += e.planning_work;
+  k.stats.nary_csp_prefix_revalidation_work += e.revalidation_work;
+  k.stats.nary_csp_prefix_proof_work += e.proof_work;
+  k.stats.nary_csp_prefix_planned_additions += e.planned_additions;
+  k.stats.nary_csp_prefix_emitted_additions += e.emitted_additions;
+  k.stats.nary_csp_prefix_proof_literal_occurrences +=
+      e.proof_literal_occurrences;
+  k.stats.nary_csp_prefix_journal_work += e.journal_work;
+  k.stats.nary_csp_prefix_journal_bytes += e.journal_bytes;
+  k.stats.nary_csp_prefix_extent_growth += e.extent_growth;
+  k.stats.nary_csp_prefix_session_work += e.session_work;
+  k.stats.nary_csp_prefix_session_commits +=
+      result.committed_keys > keys_before;
+  k.stats.nary_csp_prefix_owner_commits +=
+      result.retained_owners > owners_before;
+  k.stats.nary_csp_prefix_candidate_variables +=
+      result.semantic_variables.size();
+  k.stats.nary_csp_prefix_introduced_variables +=
+      std::count_if(result.semantic_variables.begin(),
+                    result.semantic_variables.end(), [](const auto &variable) {
+                      return variable.role ==
+                             SemanticVariableRole::IntroducedTheory;
+                    });
+}
+
 } // namespace
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &program,
@@ -571,6 +650,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         p && !p->valid())
       return reject("DirectCspSupport parameters are invalid");
     if (const auto *p =
+            std::get_if<NaryCspPrefixParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("NaryCspPrefix parameters are invalid");
+    if (const auto *p =
             std::get_if<DirectPhpRefutationParameters>(&step.parameters);
         p && !p->valid())
       return reject("DirectPhpRefutation parameters are invalid");
@@ -693,6 +776,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.direct_csp_support_instances.empty() &&
         step.rule != "DirectCspSupport")
       return reject("DirectCSP supports are attached to a different rule");
+    if (!step.nary_csp_prefix_instances.empty() &&
+        step.rule != "NaryCspPrefix")
+      return reject("n-ary CSP prefixes are attached to a different rule");
     if (!step.gf3_gaussian_instances.empty() &&
         step.rule != "Gf3GaussianConsequence")
       return reject("GF3 Gaussian identities are attached to a different rule");
@@ -705,6 +791,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (step.rule == "DirectCspSupport" &&
         (step.direct_csp_support_instances.empty() || !step.instances.empty()))
       return reject("DirectCSP action requires typed support payloads");
+    if (step.rule == "NaryCspPrefix" &&
+        (step.nary_csp_prefix_instances.empty() || !step.instances.empty()))
+      return reject("n-ary CSP action requires typed prefix payloads");
     if (step.rule == "Gf3GaussianConsequence" &&
         (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance))
@@ -798,6 +887,14 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           variables.end())
         return reject("DirectCSP domains repeat a variable");
     }
+    if (!step.nary_csp_prefix_instances.empty()) {
+      const auto *p = std::get_if<NaryCspPrefixParameters>(&step.parameters);
+      if (!p) return reject("n-ary CSP prefix has no typed limits");
+      const NaryCspPrefixActionLimits limits = nary_csp_limits(*p);
+      for (const auto &instance : step.nary_csp_prefix_instances)
+        if (!nary_csp_prefix_action_selection_within_limits(instance, limits))
+          return reject("n-ary CSP prefix is malformed or exceeds limits");
+    }
     // These are external Lit encodings. UINT32_MAX has no DIMACS spelling:
     // externalize() would overflow its signed result before a live-state
     // check, even if the malformed tuple came only from replay text.
@@ -819,6 +916,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.independent_set_cover_instances.empty() +
         !step.gf3_affine_instances.empty() +
         !step.direct_csp_support_instances.empty() +
+        !step.nary_csp_prefix_instances.empty() +
         !step.gf3_gaussian_instances.empty() +
         !step.tseitin_cycle_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
@@ -841,6 +939,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                ? step.gf3_affine_instances.size()
                                                                : !step.direct_csp_support_instances.empty()
                                                                      ? step.direct_csp_support_instances.size()
+                                                                     : !step.nary_csp_prefix_instances.empty()
+                                                                           ? step.nary_csp_prefix_instances.size()
                                                                      : !step.gf3_gaussian_instances.empty()
                                                                            ? step.gf3_gaussian_instances.size()
                                                                            : step.tseitin_cycle_instances.size();
@@ -863,6 +963,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     case InvocationGranularity::CompleteCurrentPass:
       if (step.rule == "Gf3AffineConsequence" ||
           step.rule == "DirectCspSupport" ||
+          step.rule == "NaryCspPrefix" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action requires an explicit payload");
@@ -872,6 +973,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     case InvocationGranularity::CanonicalApplication:
       if (step.rule == "Gf3AffineConsequence" ||
           step.rule == "DirectCspSupport" ||
+          step.rule == "NaryCspPrefix" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action has no canonical payload");
@@ -1080,6 +1182,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.independent_set_cover_instances.empty() &&
         step.gf3_affine_instances.empty() &&
         step.direct_csp_support_instances.empty() &&
+        step.nary_csp_prefix_instances.empty() &&
         step.gf3_gaussian_instances.empty() &&
         step.tseitin_cycle_instances.empty()) {
       runtime.selection = step.instances;
@@ -1096,6 +1199,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                       ? step.gf3_affine_instances.size()
                                                       : !step.direct_csp_support_instances.empty()
                                                             ? step.direct_csp_support_instances.size()
+                                                            : !step.nary_csp_prefix_instances.empty()
+                                                                  ? step.nary_csp_prefix_instances.size()
                                                             : !step.gf3_gaussian_instances.empty()
                                                                   ? step.gf3_gaussian_instances.size()
                                                                   : step.tseitin_cycle_instances.size();
@@ -1619,6 +1724,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     bool preserve_theory_selection = false;
     std::optional<Gf3AffineActionResult> gf3_affine_application;
     std::optional<DirectCspSupportActionResult> direct_csp_application;
+    std::optional<NaryCspPrefixActionResult> nary_csp_application;
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
     std::optional<TseitinCycleBreakingResult> tseitin_cycle_application;
@@ -1694,6 +1800,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           ParityConsequenceParameters, AffineConsequenceParameters,
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
+          NaryCspPrefixParameters,
           DirectPhpRefutationParameters,
           Gf3GaussianConsequenceParameters,
           TseitinCycleBreakingParameters,
@@ -1748,6 +1855,22 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_direct_csp_feedback(k, *direct_csp_application,
                                              keys_before, owners_before);
                   return direct_csp_application->result;
+                })
+          : !step.nary_csp_prefix_instances.empty()
+              ? apply_rule_structured(rule, k, "nary-csp-prefix", [&] {
+                  const auto &parameters =
+                      std::get<NaryCspPrefixParameters>(step.parameters);
+                  const size_t keys_before =
+                      k.nary_csp_prefix_action_session->committed_keys();
+                  const size_t owners_before =
+                      k.nary_csp_prefix_action_session->retained_owners();
+                  nary_csp_application.emplace(nary_csp_prefix_action_apply(
+                      k, *k.nary_csp_prefix_action_session,
+                      nary_csp_limits(parameters),
+                      step.nary_csp_prefix_instances[payload]));
+                  record_nary_csp_feedback(k, *nary_csp_application,
+                                           keys_before, owners_before);
+                  return nary_csp_application->result;
                 })
           : !step.gf3_gaussian_instances.empty()
               ? apply_rule_structured(rule, k, "gf3-gaussian-consequence", [&] {
@@ -2066,6 +2189,33 @@ InvocationResult OnlineStrategyExecutor::advance(
           break;
         }
       }
+      if (nary_csp_application) {
+        switch (nary_csp_application->status) {
+        case NaryCspPrefixActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case NaryCspPrefixActionStatus::Inapplicable:
+        case NaryCspPrefixActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case NaryCspPrefixActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case NaryCspPrefixActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case NaryCspPrefixActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case NaryCspPrefixActionStatus::NoStructure:
+        case NaryCspPrefixActionStatus::NoConsequence:
+        case NaryCspPrefixActionStatus::AlreadyPublished:
+        case NaryCspPrefixActionStatus::Applied:
+          break;
+        }
+      }
       if (gf3_gaussian_application) {
         switch (gf3_gaussian_application->status) {
         case Gf3GaussianActionStatus::Invalid:
@@ -2314,6 +2464,12 @@ InvocationResult OnlineStrategyExecutor::advance(
           SemanticVariableProducer::DirectCsp,
           direct_csp_application->committed_action_id,
           direct_csp_application->semantic_variables);
+    if (nary_csp_application &&
+        nary_csp_application->semantic_candidate_ready)
+      publish_theory_candidate(
+          SemanticVariableProducer::NaryCsp,
+          nary_csp_application->committed_action_id,
+          nary_csp_application->semantic_variables);
     out.after = state_version(k);
     runtime.expected_state = state_version(k);
     // Generated SR payloads contain only stable literal identities. A prior
@@ -2327,6 +2483,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         !step.independent_set_cover_instances.empty() ||
         !step.gf3_affine_instances.empty() ||
         !step.direct_csp_support_instances.empty() ||
+        !step.nary_csp_prefix_instances.empty() ||
         !step.gf3_gaussian_instances.empty())
       runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);

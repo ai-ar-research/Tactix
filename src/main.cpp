@@ -23,6 +23,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -251,6 +252,7 @@ int main(int argc, char **argv) {
       const auto set_all = [&](bool enabled) {
         controller_config.gf3_action_producer.enabled = enabled;
         controller_config.direct_csp_action_producer.enabled = enabled;
+        controller_config.nary_csp_action_producer.enabled = enabled;
         controller_config.gf3_gaussian_action_producer.enabled = enabled;
         controller_config.tseitin_cycle_action_producer.enabled = enabled;
       };
@@ -268,6 +270,8 @@ int main(int argc, char **argv) {
             controller_config.gf3_action_producer.enabled = true;
           else if (name == "direct-csp")
             controller_config.direct_csp_action_producer.enabled = true;
+          else if (name == "nary-csp")
+            controller_config.nary_csp_action_producer.enabled = true;
           else if (name == "gf3-gaussian")
             controller_config.gf3_gaussian_action_producer.enabled = true;
           else if (name == "tseitin-cycle")
@@ -388,8 +392,8 @@ int main(int argc, char **argv) {
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
-      puts("  native producer LIST: gf3-affine,direct-csp,gf3-gaussian,"
-           "tseitin-cycle");
+      puts("  native producer LIST: gf3-affine,direct-csp,nary-csp,"
+           "gf3-gaussian,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
            "names, or all");
       return 0;
@@ -540,6 +544,7 @@ int main(int argc, char **argv) {
   IndependentSetCoverActionSession independent_set_cover_session;
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
+  NaryCspPrefixActionSession nary_csp_prefix_action_session;
   DirectPhpActionSession direct_php_action_session(kernel);
   Gf3GaussianActionSession gf3_gaussian_action_session;
   TseitinCycleBreakingSession tseitin_cycle_breaking_session;
@@ -551,6 +556,7 @@ int main(int argc, char **argv) {
   kernel.gf3_affine_action_session = &gf3_affine_action_session;
   kernel.direct_csp_support_action_session =
       &direct_csp_support_action_session;
+  kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
   kernel.direct_php_action_session = &direct_php_action_session;
   kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
   kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;

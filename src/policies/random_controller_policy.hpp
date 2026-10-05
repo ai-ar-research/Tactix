@@ -4,6 +4,7 @@
 #include "policies/controller_trace.hpp"
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -46,6 +47,23 @@ struct DirectCspActionProducerConfig {
   }
 };
 
+struct NaryCspActionProducerConfig {
+  bool enabled = false;
+  uint32_t relation_arity = 3;
+  uint64_t maximum_domain_candidates = 64;
+  uint64_t maximum_relation_candidates = 64;
+  uint64_t maximum_prefix_candidates = 256;
+  uint64_t maximum_offers = 8;
+  uint64_t maximum_enumeration_work = 100000;
+
+  bool valid() const {
+    return !enabled ||
+           (relation_arity >= 3 && maximum_domain_candidates &&
+            maximum_relation_candidates && maximum_prefix_candidates &&
+            maximum_offers && maximum_enumeration_work);
+  }
+};
+
 struct Gf3GaussianActionProducerConfig {
   bool enabled = false;
   bool valid() const { return true; }
@@ -68,6 +86,7 @@ struct RandomControllerConfig {
   std::map<std::string, std::vector<strategy::OnlineInvocation>> offered_actions;
   Gf3ActionProducerConfig gf3_action_producer;
   DirectCspActionProducerConfig direct_csp_action_producer;
+  NaryCspActionProducerConfig nary_csp_action_producer;
   Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
   TseitinCycleActionProducerConfig tseitin_cycle_action_producer;
   strategy::controller::ActionAllowance default_allowance{
@@ -191,6 +210,22 @@ private:
     std::optional<std::string> pending;
     uint64_t pending_sequence = 0;
   };
+  struct NaryCspDiscoveryState {
+    const Kernel *owner = nullptr;
+    const NaryCspPrefixActionSession *session = nullptr;
+    strategy::StateVersion state;
+    size_t session_keys = 0;
+    size_t retained_owners = 0;
+    bool terminal = false;
+    bool reconfiguration_required = false;
+    bool complete = false;
+    bool have_after = false;
+    std::string profile;
+    NaryCspPrefixActionKey after;
+    std::vector<NaryCspPrefixActionSelection> offers;
+    std::optional<NaryCspPrefixActionSelection> pending;
+    uint64_t pending_sequence = 0;
+  };
   struct TseitinCycleDiscoveryState {
     const Kernel *owner = nullptr;
     const TseitinCycleBreakingSession *session = nullptr;
@@ -207,6 +242,7 @@ private:
   uint64_t draw(uint64_t bound);
   Gf3DiscoveryState gf3_discovery_;
   DirectCspDiscoveryState direct_csp_discovery_;
+  NaryCspDiscoveryState nary_csp_discovery_;
   Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
   TseitinCycleDiscoveryState tseitin_cycle_discovery_;
   uint64_t rng_;

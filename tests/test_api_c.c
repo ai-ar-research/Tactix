@@ -626,7 +626,8 @@ static void test_action_kind(void) {
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
       "SemanticVariableAdvice", "Gf3AffineConsequence",
       "DirectCspSupport", "DirectPhpRefutation",
-      "Gf3GaussianConsequence", "TseitinCycleBreaking"};
+      "Gf3GaussianConsequence", "TseitinCycleBreaking",
+      "NaryCspPrefix"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

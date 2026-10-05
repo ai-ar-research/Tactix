@@ -17,6 +17,12 @@ struct NaryCspPrefixActionSelection {
   bool operator==(const NaryCspPrefixActionSelection &) const = default;
 };
 
+// Pure structural validation shared by online/C/replay frontends. It checks
+// canonical domain/literal ordering, disjoint variables and a complete ordered
+// prefix, without consulting or mutating a Kernel.
+bool nary_csp_prefix_action_selection_valid(
+    const NaryCspPrefixActionSelection &);
+
 struct NaryCspPrefixActionKey {
   std::vector<std::vector<int32_t>> domains;
   nary_csp_prefix::Selection prefix;
@@ -73,6 +79,10 @@ struct NaryCspPrefixActionLimits {
 
   bool valid() const;
 };
+
+bool nary_csp_prefix_action_selection_within_limits(
+    const NaryCspPrefixActionSelection &,
+    const NaryCspPrefixActionLimits &);
 
 enum class NaryCspPrefixActionStatus : uint8_t {
   Invalid,

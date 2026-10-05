@@ -141,6 +141,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return config.gf3_affine_consequence_reference;
   if (rule == "DirectCspSupport")
     return config.direct_csp_support_reference;
+  if (rule == "NaryCspPrefix")
+    return config.nary_csp_prefix_reference;
   if (rule == "DirectPhpRefutation")
     return config.direct_php_refutation_reference;
   if (rule == "Gf3GaussianConsequence")
@@ -824,6 +826,18 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(10,p.maximum_extent_growth); U32_AT(11,p.maximum_external_extent);
     p.maximum_session_keys=v[12]; p.maximum_session_work=v[13];
     if (!boolean(v[14], p.allow_extension)) return false;
+    parameters = p;
+  } else if (tuple(text, "nary-csp-prefix1", v) && v.size() == 16) {
+    NaryCspPrefixParameters p;
+    p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
+    p.maximum_recognition_work=v[2]; U32_AT(3,p.maximum_domains);
+    U32_AT(4,p.maximum_domain_values); p.maximum_forbidden_tuples=v[5];
+    U32_AT(6,p.maximum_prefix_arity);
+    U32_AT(7,p.maximum_definition_clause_literals);
+    p.maximum_proof_work=v[8]; p.maximum_proof_additions=v[9];
+    p.maximum_proof_literal_occurrences=v[10]; p.maximum_journal_bytes=v[11];
+    U32_AT(12,p.maximum_extent_growth); U32_AT(13,p.maximum_external_extent);
+    p.maximum_session_keys=v[14]; p.maximum_session_work=v[15];
     parameters = p;
   } else if (tuple(text, "direct-php-refutation1", v) && v.size() == 16) {
     DirectPhpRefutationParameters p;
@@ -1548,6 +1562,59 @@ bool parse_direct_csp_support(std::string_view text,
   return at == values.size();
 }
 
+bool parse_nary_csp_prefix(std::string_view text,
+                           NaryCspPrefixActionSelection &selection) {
+  std::vector<int64_t> values;
+  while (!text.empty()) {
+    const size_t comma = text.find(',');
+    const std::string_view token = text.substr(0, comma);
+    if (token.empty()) return false;
+    int64_t value = 0;
+    const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
+                                        value);
+    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
+      return false;
+    values.push_back(value);
+    if (comma == std::string_view::npos) text = {};
+    else text.remove_prefix(comma + 1);
+  }
+  size_t at = 0;
+  if (at == values.size() || values[at] < 0) return false;
+  const uint64_t domain_count = static_cast<uint64_t>(values[at++]);
+  if (domain_count > values.size() - at) return false;
+  selection.domains.reserve(static_cast<size_t>(domain_count));
+  for (uint64_t domain = 0; domain < domain_count; ++domain) {
+    if (at == values.size() || values[at] < 0) return false;
+    const uint64_t count = static_cast<uint64_t>(values[at++]);
+    if (count > values.size() - at) return false;
+    std::vector<int32_t> literals;
+    literals.reserve(static_cast<size_t>(count));
+    for (uint64_t value = 0; value < count; ++value) {
+      if (values[at] < INT32_MIN || values[at] > INT32_MAX) return false;
+      literals.push_back(static_cast<int32_t>(values[at++]));
+    }
+    selection.domains.push_back(std::move(literals));
+  }
+  if (at == values.size() || values[at] < 0 || values[at] > UINT32_MAX)
+    return false;
+  selection.prefix.residual_domain = static_cast<uint32_t>(values[at++]);
+  if (at == values.size() || values[at] < 0) return false;
+  const uint64_t prefix_count = static_cast<uint64_t>(values[at++]);
+  if (prefix_count > (values.size() - at) / 2) return false;
+  selection.prefix.prefix.reserve(static_cast<size_t>(prefix_count));
+  for (uint64_t i = 0; i < prefix_count; ++i) {
+    if (values[at] < 0 || values[at] > UINT32_MAX ||
+        values[at + 1] < 0 || values[at + 1] > UINT32_MAX)
+      return false;
+    selection.prefix.prefix.push_back(
+        {static_cast<uint32_t>(values[at]),
+         static_cast<uint32_t>(values[at + 1])});
+    at += 2;
+  }
+  return at == values.size() &&
+         nary_csp_prefix_action_selection_valid(selection);
+}
+
 } // namespace
 
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
@@ -1634,6 +1701,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover" &&
           std::string_view(rule.name) != "Gf3AffineConsequence" &&
           std::string_view(rule.name) != "DirectCspSupport" &&
+          std::string_view(rule.name) != "NaryCspPrefix" &&
           std::string_view(rule.name) != "Gf3GaussianConsequence" &&
           std::string_view(rule.name) != "TseitinCycleBreaking")
         available.push_back(static_cast<int>(rule.id));
@@ -1644,6 +1712,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
         return reject("random-online action is not registered");
       if (tactix_rules()[id].guard(k) && name != "IndependentSetCover" &&
           name != "Gf3AffineConsequence" && name != "DirectCspSupport" &&
+          name != "NaryCspPrefix" &&
           name != "Gf3GaussianConsequence" &&
           name != "TseitinCycleBreaking")
         available.push_back(id);
@@ -1984,6 +2053,19 @@ std::string serialize_online_strategy_program(
           << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
           << p->maximum_external_extent << ',' << p->maximum_session_keys
           << ',' << p->maximum_session_work << ',' << p->allow_extension << ')';
+    else if (const auto *p =
+                 std::get_if<NaryCspPrefixParameters>(&step.parameters))
+      out << ":nary-csp-prefix1(" << p->maximum_source_clauses << ','
+          << p->maximum_source_literals << ',' << p->maximum_recognition_work
+          << ',' << p->maximum_domains << ',' << p->maximum_domain_values
+          << ',' << p->maximum_forbidden_tuples << ','
+          << p->maximum_prefix_arity << ','
+          << p->maximum_definition_clause_literals << ','
+          << p->maximum_proof_work << ',' << p->maximum_proof_additions << ','
+          << p->maximum_proof_literal_occurrences << ','
+          << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
+          << p->maximum_external_extent << ',' << p->maximum_session_keys
+          << ',' << p->maximum_session_work << ')';
     else if (const auto *p =
                  std::get_if<DirectPhpRefutationParameters>(&step.parameters))
       out << ":direct-php-refutation1(" << p->maximum_snapshot_clauses << ','
@@ -2383,6 +2465,23 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.nary_csp_prefix_instances.empty()) {
+      out << ":nary-csp-prefix[";
+      for (size_t i = 0; i < step.nary_csp_prefix_instances.size(); ++i) {
+        if (i) out << ';';
+        const auto &instance = step.nary_csp_prefix_instances[i];
+        out << instance.domains.size();
+        for (const auto &domain : instance.domains) {
+          out << ',' << domain.size();
+          for (const int32_t literal : domain) out << ',' << literal;
+        }
+        out << ',' << instance.prefix.residual_domain << ','
+            << instance.prefix.prefix.size();
+        for (const auto choice : instance.prefix.prefix)
+          out << ',' << choice.domain << ',' << choice.value;
+      }
+      out << ']';
+    }
     if (!step.gf3_gaussian_instances.empty()) {
       out << ":gf3-gaussian-consequence[";
       for (size_t i = 0; i < step.gf3_gaussian_instances.size(); ++i) {
@@ -2607,6 +2706,20 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         if (!parse_direct_csp_support(text.substr(0, semicolon), instance))
           return reject("online replay DirectCSP payload is malformed");
         step.direct_csp_support_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view nary_csp_marker = ":nary-csp-prefix[";
+    if (text.starts_with(nary_csp_marker) && text.back() == ']') {
+      text.remove_prefix(nary_csp_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        NaryCspPrefixActionSelection instance;
+        if (!parse_nary_csp_prefix(text.substr(0, semicolon), instance))
+          return reject("online replay n-ary CSP payload is malformed");
+        step.nary_csp_prefix_instances.push_back(std::move(instance));
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }

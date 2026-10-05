@@ -410,6 +410,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION 39
 #define TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE 40
 #define TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING 41
+#define TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX 42
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
@@ -603,6 +604,18 @@ typedef struct {
   uint64_t maximum_session_keys, maximum_session_work;
   int allow_extension;
 } tactix_online_direct_csp_support_parameters;
+typedef struct {
+  uint64_t maximum_source_clauses, maximum_source_literals;
+  uint64_t maximum_recognition_work;
+  uint32_t maximum_domains, maximum_domain_values;
+  uint64_t maximum_forbidden_tuples;
+  uint32_t maximum_prefix_arity;
+  uint32_t maximum_definition_clause_literals;
+  uint64_t maximum_proof_work, maximum_proof_additions;
+  uint64_t maximum_proof_literal_occurrences, maximum_journal_bytes;
+  uint32_t maximum_extent_growth, maximum_external_extent;
+  uint64_t maximum_session_keys, maximum_session_work;
+} tactix_online_nary_csp_prefix_parameters;
 typedef struct {
   uint64_t maximum_snapshot_clauses, maximum_snapshot_literals;
   uint64_t maximum_snapshot_work;
@@ -1022,6 +1035,7 @@ typedef struct {
     tactix_online_independent_set_cover_parameters independent_set_cover;
     tactix_online_gf3_affine_consequence_parameters gf3_affine_consequence;
     tactix_online_direct_csp_support_parameters direct_csp_support;
+    tactix_online_nary_csp_prefix_parameters nary_csp_prefix;
     tactix_online_direct_php_refutation_parameters direct_php_refutation;
     tactix_online_gf3_gaussian_consequence_parameters gf3_gaussian_consequence;
     tactix_online_tseitin_cycle_breaking_parameters tseitin_cycle_breaking;
@@ -1218,6 +1232,34 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v7;
 
+/* Additive v8 payload for one exact n-ary CSP prefix consequence. Configure
+ * deep-copies the domain vectors and the complete ordered non-residual prefix. */
+typedef struct {
+  const int *values;
+  int value_count;
+} tactix_online_nary_csp_domain;
+typedef struct {
+  uint32_t domain, value;
+} tactix_online_nary_csp_choice;
+typedef struct {
+  const tactix_online_nary_csp_domain *domains;
+  int domain_count;
+  uint32_t residual_domain;
+  const tactix_online_nary_csp_choice *prefix;
+  int prefix_count;
+} tactix_online_nary_csp_prefix_instance;
+typedef struct {
+  tactix_online_step_v7 base;
+  const tactix_online_nary_csp_prefix_instance *nary_csp_prefix_instances;
+  int nary_csp_prefix_instance_count;
+} tactix_online_step_v8;
+typedef struct {
+  const tactix_online_step_v8 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v8;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1259,6 +1301,8 @@ int tactix_online_configure_v5(tactix *, const tactix_online_program_v5 *,
 int tactix_online_configure_v6(tactix *, const tactix_online_program_v6 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v7(tactix *, const tactix_online_program_v7 *,
+                               uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v8(tactix *, const tactix_online_program_v8 *,
                                uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

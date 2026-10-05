@@ -19,7 +19,8 @@ enum class SemanticVariableProducer : uint8_t {
   IndependentSet = 2,
   Gf3Affine = 3,
   DirectCsp = 4,
-  Count = 5,
+  NaryCsp = 5,
+  Count = 6,
 };
 
 inline constexpr size_t SEMANTIC_VARIABLE_PRODUCER_COUNT =
