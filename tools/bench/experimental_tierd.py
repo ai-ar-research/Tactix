@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Pinned experimental Tier D with anonymous local certificates and formulas."""
+"""Pinned experimental Tier D with anonymous local certificates and formulas.
+
+``--causal-preflight`` is the cheap 60-second-or-shorter discovery lane.  It
+records only terminal controller counters and forbids full controller traces,
+feedback, and structural provenance.  A later gated target run omits the flag
+and may retain the full telemetry needed for causal scoring.  SAT and UNSAT
+preflight verdicts still take the normal independent checker route.
+"""
 import argparse
 import csv
 import datetime as dt
@@ -20,6 +27,9 @@ FROZEN_DSR_HASHES={
 PROOF_ARGUMENTS={'--auto-proof','--dsr','--drat','--lrat'}
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
+CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',
+                                    '--structural-provenance',
+                                    '--controller-trace')
 DEFAULT_GF2_FEEDBACK_MAX_BYTES=512 << 20
 DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES=8 << 30
 DEFAULT_GF2_FEEDBACK_MAX_RECORDS=20_000_000
@@ -73,7 +83,8 @@ def scheduler_wall_seconds(solve_timeout,checker_timeout):
 def slurm_time(seconds):
     return f'{seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}'
 
-def solver_arguments(certificate, extra, gf2_telemetry=False):
+def solver_arguments(certificate, extra, gf2_telemetry=False,
+                     causal_preflight=False):
     if certificate not in ('dsr','auto'):
         raise ValueError('unsupported certificate mode: '+certificate)
     proof='--auto-proof' if certificate=='auto' else '--dsr'
@@ -83,6 +94,12 @@ def solver_arguments(certificate, extra, gf2_telemetry=False):
             value == reserved or value.startswith(reserved+'=')
             for value in extra for reserved in GF2_TELEMETRY_ARGUMENTS):
         raise ValueError('GF2 telemetry paths are task-local and may not be overridden by solver arguments')
+    if gf2_telemetry and causal_preflight:
+        raise ValueError('causal preflight and full GF2 telemetry are mutually exclusive')
+    if causal_preflight and any(
+            value == reserved or value.startswith(reserved+'=')
+            for value in extra for reserved in CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS):
+        raise ValueError('causal preflight forbids full trace, feedback, and provenance artifacts')
     return [proof,*extra]
 
 def prepare(a):
@@ -149,7 +166,8 @@ def prepare(a):
     inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
     assert set(inputs)=={r['instance'] for r in rows}
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
-    arm_arguments=solver_arguments(a.certificate,a.solver_argument,a.gf2_telemetry)
+    arm_arguments=solver_arguments(a.certificate,a.solver_argument,
+                                   a.gf2_telemetry,a.causal_preflight)
     if a.gf2_telemetry:
         profile=a.gf2_affine_profile.resolve()
         if not profile.is_file():raise ValueError('GF2 affine profile is not a file')
@@ -233,6 +251,12 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             feedback_decoded_max_bytes=a.gf2_feedback_decoded_max_bytes,
             feedback_max_records=a.gf2_feedback_max_records,
             structural_provenance_max_bytes=a.gf2_provenance_max_bytes)
+    if a.causal_preflight:
+        m['causal_preflight']=dict(
+            schema='tactix-causal-preflight-v1',
+            maximum_solve_seconds=60,
+            output='terminal-controller-counters',
+            retain_full_telemetry=False)
     save(c/'manifest.json',m)
     for p in [*(c/'pins').iterdir(),c/'manifest.json',c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']:p.chmod(p.stat().st_mode&~0o222)
     verify(c); print(c)
@@ -267,6 +291,8 @@ if __name__=='__main__':
                    help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
     p.add_argument('--gf2-telemetry',action='store_true',
                    help='retain and score bounded GF(2) feedback/provenance sidecars')
+    p.add_argument('--causal-preflight',action='store_true',
+                   help='for <=60s gate probes, retain terminal controller counters only; full telemetry belongs to the gated target run')
     p.add_argument('--gf2-affine-profile',type=Path,
                    help='GF(2) producer profile frozen into an opt-in campaign')
     p.add_argument('--gf2-feedback-stored-max-bytes','--gf2-feedback-max-bytes',
@@ -312,6 +338,12 @@ if __name__=='__main__':
         p.error('GF2 telemetry byte caps require --gf2-telemetry')
     if a.gf2_telemetry and not a.prepare:
         p.error('--gf2-telemetry is valid only with --prepare')
+    if a.causal_preflight and not a.prepare:
+        p.error('--causal-preflight is valid only with --prepare')
+    if a.causal_preflight and a.solve_timeout > 60:
+        p.error('--causal-preflight requires --solve-timeout <= 60')
+    if a.causal_preflight and a.gf2_telemetry:
+        p.error('--causal-preflight and --gf2-telemetry are mutually exclusive')
     if a.retain_failed_proof and not a.prepare:
         p.error('--retain-failed-proof is valid only with --prepare')
     if a.retain_failed_proof and a.certificate != 'dsr':
