@@ -402,7 +402,8 @@ def _controller_families(arguments):
 def terminal_counter_summary(stdout, arguments, verdict):
     """Extract the small gate record from a completed causal preflight."""
     configured = _controller_families(arguments)
-    rules, producers, loop, lines = {}, {}, None, []
+    rules, producers, loop = {}, {}, None
+    rule_lines, producer_lines, loop_line, core_lines = {}, {}, None, {}
     core_prefixes = ("c decisions ", "c conflicts ", "c propagations ")
     with open(stdout, errors="replace") as source:
         for raw in source:
@@ -413,18 +414,37 @@ def terminal_counter_summary(stdout, arguments, verdict):
                 family, fields = rule.group(1), _counter_fields(rule.group(2))
                 if (family in configured if configured else any(fields.values())):
                     rules[family] = fields
-                    lines.append(line[-4096:])
+                    rule_lines[family] = line[-512:]
             elif producer:
                 family = producer.group(1)
-                producers[family] = _counter_fields(producer.group(2))
-                lines.append(line[-4096:])
+                fields = _counter_fields(producer.group(2))
+                if (family in configured if configured else any(fields.values())):
+                    producers[family] = fields
+                    producer_lines[family] = line[-512:]
             elif line.startswith("c controller-loop "):
                 loop = _counter_fields(line.removeprefix("c controller-loop "))
-                lines.append(line[-4096:])
+                loop_line = line[-512:]
             elif (line.startswith(core_prefixes) or
                   re.match(r"^c timing\s+\d+ ms solve$", line) or
                   line.startswith("s ")):
-                lines.append(line[-4096:])
+                if line.startswith("c decisions "):
+                    key = "decisions"
+                elif line.startswith("c conflicts "):
+                    key = "conflicts"
+                elif line.startswith("c propagations "):
+                    key = "propagations"
+                elif line.startswith("c timing"):
+                    key = "timing"
+                else:
+                    key = "verdict"
+                core_lines[key] = line[-512:]
+    lines = [rule_lines[name] for name in sorted(rule_lines)]
+    lines.extend(producer_lines[name] for name in sorted(producer_lines))
+    if loop_line is not None:
+        lines.append(loop_line)
+    lines.extend(core_lines[name] for name in
+                 ("decisions", "conflicts", "propagations", "timing", "verdict")
+                 if name in core_lines)
     return {
         "schema": "tactix-causal-preflight-terminal-v1",
         "verdict": verdict,
