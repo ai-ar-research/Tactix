@@ -535,6 +535,37 @@ public:
     return true;
   }
 
+  // Export one arbitrary-width clausal reason for the accumulated parity.
+  // Falsifying `target` must assign every active residue variable and violate
+  // the root parity; extra authenticated variables only weaken the clause.
+  // The live proof sink is responsible for checking the RUP addition. This
+  // avoids materializing the exponentially large complete parity CNF when a
+  // Gaussian implication or conflict needs only one reason.
+  bool export_reason(const std::vector<External> &target) {
+    if (!completed_ || emitted_empty_ || export_started_ || target.empty())
+      return false;
+    std::vector<int8_t> signs(static_cast<size_t>(variables_) + 1, 0);
+    for (External literal : target) {
+      if (!literal || literal == INT32_MIN) return false;
+      const uint32_t variable = static_cast<uint32_t>(
+          literal < 0 ? -int64_t{literal} : int64_t{literal});
+      if (!variable || variable > variables_ || signs[variable]) return false;
+      // The value that falsifies this literal.
+      signs[variable] = literal < 0 ? 1 : -1;
+    }
+    bool falsified_parity = false;
+    for (uint32_t i = 0; i < variables_; ++i) {
+      if (!nodes_[width_ + i]) continue;
+      if (!signs[i + 1]) return false;
+      falsified_parity ^= signs[i + 1] > 0;
+    }
+    if (falsified_parity == parity_) return false;
+    export_started_ = true;
+    if (!sink_.add(target, false)) return false;
+    exported_ = true;
+    return true;
+  }
+
   // Retire clauses only, never the variable namespace: some checkers retain
   // deleted helper-unit assignments. The caller must keep fresh IDs monotone.
   // Retire only after a complete export. Original-variable units are retained:

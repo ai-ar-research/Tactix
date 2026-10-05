@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "rules/lucky/parity_certificate.hpp"
 #include <cstdio>
+#include <cstring>
 #include <set>
 using namespace tactix::parity_certificate;
 using ClauseKey = std::vector<External>;
@@ -17,6 +18,11 @@ struct Sink {
   bool add(const SmallClause &c,bool) {
     ++additions;population.insert(key(c));
     if(proof) {for(unsigned i=0;i<c.size;++i)std::fprintf(proof,"%d ",c.lits[i]);std::fprintf(proof,"0\n");}
+    return true;
+  }
+  bool add(const std::vector<External> &c,bool) {
+    ++additions;population.insert(ClauseKey(c.begin(),c.end()));
+    if(proof) {for(External l:c)std::fprintf(proof,"%d ",l);std::fprintf(proof,"0\n");}
     return true;
   }
   bool erase(const SmallClause &c) {
@@ -36,7 +42,28 @@ static std::vector<Equation> equations() {
 static void import(Sink &s,const std::vector<Equation> &equations) {
   for(const auto &e:equations)for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs))s.population.insert(key(c));
 }
+static int wide_reason_proof(const char *cnf_path,const char *proof_path) {
+  const std::vector<Equation> input={
+    {{{1,2,3,4,9,10,0,0}},6,false},
+    {{{5,6,7,8,9,10,0,0}},6,true}};
+  FILE *cnf=std::fopen(cnf_path,"w");assert(cnf);
+  std::fprintf(cnf,"p cnf 10 72\n");
+  for(const auto &e:input)for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs)) {
+    for(unsigned i=0;i<c.size;++i)std::fprintf(cnf,"%d ",c.lits[i]);
+    std::fprintf(cnf,"0\n"); }
+  for(int32_t variable=1;variable<=8;++variable)std::fprintf(cnf,"-%d 0\n",variable);
+  std::fclose(cnf);
+  Sink sink;sink.fresh=10;import(sink,input);
+  sink.proof=std::fopen(proof_path,"w");assert(sink.proof);
+  Certificate certificate(sink,10,UINT32_MAX);assert(certificate.accumulate(input));
+  assert(certificate.export_reason({1,2,3,4,5,6,7,8}));
+  assert(certificate.retire_helpers());
+  std::fprintf(sink.proof,"0\n");std::fclose(sink.proof);
+  return 0;
+}
 int main(int argc,char **argv) {
+  if(argc==4&&std::strcmp(argv[1],"--wide-reason")==0)
+    return wide_reason_proof(argv[2],argv[3]);
   const auto input=equations();
   Sink sink;import(sink,input);
   if(argc==3) {
@@ -68,5 +95,16 @@ int main(int argc,char **argv) {
   // A failed deletion never becomes successful through a second cleanup call.
   { Sink s;import(s,input);Certificate c(s,7);Clauses out;assert(c.accumulate(input));assert(c.export_small_consequence(2,out));
     s.fail_erase=true;assert(!c.retire_helpers());s.fail_erase=false;assert(!c.retire_helpers()); }
+  // A Gaussian reason exports one wide RUP clause, not the complete 2^(n-1)
+  // parity image, and then retires every proof-only tree clause.
+  { Equation row{{1,2,3,4,5,6,7,8},8,true};std::vector<Equation> e{row};Sink s;import(s,e);
+    Certificate c(s,9,UINT32_MAX);assert(c.accumulate(e));
+    const auto before=s.additions;
+    assert(!c.export_reason({1,2,3,4,5,6,7}));assert(s.additions==before);
+    assert(!c.export_reason({-1,2,3,4,5,6,7,8}));assert(s.additions==before);
+    const std::vector<External> reason{1,2,3,4,5,6,7,8,9};
+    assert(c.export_reason(reason));assert(s.population.count(reason));
+    assert(c.retire_helpers());s.no_helpers();assert(s.population.count(reason));
+    assert(!c.export_reason(reason)); }
   std::printf("test_parity_lifecycle: passed; %llu additions, %llu deletions, two retired derivations with monotone helper IDs\n",(unsigned long long)sink.additions,(unsigned long long)sink.deletions);
 }
