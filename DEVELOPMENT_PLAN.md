@@ -289,8 +289,8 @@ their owning documents.
 | X16 | `TseitinCycleBreaking` | authenticated XOR-component cycle unit: direct add-SR/RUP helper route | winner integration |
 | X17 | `NaryCspPrefix` | authenticated finite-domain prefix definition and residual exclusions: add-RAT/add-RUP | winner integration |
 | X18 | `GraphIntervalEquivalence` | authenticated duplicate interval equivalence over existing variables: add-RUP | winner integration |
+| X19 | `Gf3GeneralRowConsequence` | authenticated forbidden tuple of one non-unit Gaussian row: add-RUP | winner integration |
 Support services—classification, reconstruction, internal checking, occurrence indexes—are not schedulable rules. Phase 3 requires every catalog family to be implemented and reached, or to have a reasoned no-implement disposition with evidence and a reopening path.
-
 ### 5.3 Extensibility contract
 
 A new proof rule adds one `src/rules/<name>/` module and one `TACTIX_REGISTER_RULE` line. A guidance operation similarly adds one

@@ -97,7 +97,11 @@ left/right/residual coordinates of one retained ternary X17 owner. Typed replay
 uses `nary-csp-equality1`; the bounded `nary-csp-equality` producer pages only
 freshly revalidated canonical offers. Publication, explicit propagation and
 `NaryCspEquality` semantic advice remain separate actions. Versions 1--9 retain
-their layouts and meanings.
+their layouts and meanings. Version 11 appends registry ID 43, disabled StepId
+32 and parameter tag 44 for `Gf3GeneralRowConsequence`. Its exact `g3r1:`
+payload binds an authenticated Gaussian row and violating tuple to full source
+identities; configure deep-copies it, apply rebuilds and exact-matches it, and
+native discovery pages bounded offers. Propagation and advice remain separate.
 
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
@@ -106,8 +110,8 @@ choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
 producer. `--controller-native-producers=LIST` independently enables bounded
 native discovery for `gf2-affine`, `gf3-affine`, `direct-csp`, `nary-csp`,
-`nary-csp-equality`, `gf3-gaussian`, and `tseitin-cycle`; `all` enables all seven
-and `none` disables all seven. They are
+`nary-csp-equality`, `gf3-gaussian`, `gf3-general-row`, and `tseitin-cycle`; `all`
+enables all eight and `none` disables all eight. They are
 disabled unless explicitly selected. `--controller-families=LIST` restricts
 eligibility to canonical root-action names without inventing structured
 payloads, so focused native-producer campaigns can isolate one action family;
@@ -127,9 +131,13 @@ bounded allowances. The option is rejected unless `gf2-affine` is enabled,
 affine offer exists. Its typed values enter the existing configuration
 fingerprint, so replay requires the same profile content; defaults and
 DefaultPolicy remain unchanged.
+`--controller-startup-prefix=FILE` supplies an exact once-only ordered prefix.
+Fixed allowances and typed payloads enter the configuration fingerprint and
+replay. `CompleteCurrentPass` is reissued until its selection completes; a
+controller-only `NativeProducerOffer` resolves one exact native offer, and an
+explicit `ResumeSearch` ends the prefix. No hidden follow-up or fallback runs.
 `--controller-restart-period=N` configures the reluctant period for focused
 lifecycle/coverage validation.
-
 `--controller-trail-retention=ranked-prefix|full` selects ordinary search
 restart retention; ranked-prefix is the default. The active branch ranking
 chooses a valid keep-level using the shared native reuse mechanism. Positive
@@ -140,7 +148,6 @@ Zero keep-level enters the root action loop. Explicit full restart remains
 mandatory before root inprocessing or learner configuration changes. Transcript
 configuration records the profile and Restart service records carry keep-level;
 coverage separates full restarts, partial restarts and continuation intervals.
-
 ## Startup proofs and graph constructor
 
 Lucky instance 22 is the bounded original-input Ramsey DSR composition: typed `RamseyStartupParameters`, C tag 32 and `ramsey-startup1` replay carry recognition and certificate bounds. The shared action records source/proof provenance under the session action ID and exposes cumulative discovery/proof work, yield and stop counters; zero bounds disable it. It declines after the startup boundary closes. DefaultPolicy exposes an opt-in profile; random selection uses the same parameters. Production profile/scheduling acceptance is pending.

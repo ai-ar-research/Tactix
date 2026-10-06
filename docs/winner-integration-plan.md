@@ -14,7 +14,6 @@ Do not rerun that baseline, the full comparison or unchanged Tactix to refresh i
 The [saved portfolio report](../report-to-andrew/20261003T164617Z-tierd-portfolio-misses/report.pdf) and its CSV/manifest identify the target inputs and original result records. CSV SHA-256: `b2444220c04a4e1a05bbe3d21c4bc73d2e119bad625fb31a9a3ac7d773c0b4f6`.
 Freeze the subset whose `checked_solvers` intersects `lymphosat;satsuma-kissat;kissat-sc2024` without rerunning its collector. This gives **36 misses: 18 SAT, 18 UNSAT; 23 solver timeouts, nine checker timeouts and four checker failures** at frozen ranks 82, 147, 190, 226, 263, 291, 323, 343, 367, 401, 453, 479, 489, 497, 511, 540, 541, 569, 627, 630, 654, 744, 754, 762, 781, 887, 896, 899, 941, 991, 1004, 1075, 1129, 1144, 1161 and 1163. Ranks identify evidence, never solver controls.
 The full four-arm gap additionally contains ranks 97, 410, 499, 557, 1009, 1040, 1085 and 1118, checked only by AE-Kissat-MAB among the reference arms. They remain in scope after the 36-instance checkpoint; solving all 44 does not establish superiority beyond the portfolio.
-
 ## Integration and investigation order
 
 1. Build a source/evidence attribution table from saved records: reference mechanism, Tactix capability, scheduling, cost, certificate route and limits. Start with large disparities such as `noL-11-10` and `ramsey_4_4_19`, while keeping solver-timeout and certificate-verification workstreams separate. A fastest arm or benchmark name is a clue, not a demonstrated cause.
@@ -131,10 +130,11 @@ The isolated first clausal verticals currently have different boundaries.
 Direct PHP now completes one public terminal vertical: exact live admission,
 Kernel-bound replay, DSR/DRAT/no-proof publication, typed registry/C/online
 execution, random reach and raw feedback. It remains disabled by default and
-unaccepted. GF(3) now exposes one authenticated complete Gaussian unit/conflict
-batch through typed replay, C v6, an opt-in random producer and raw feedback;
-it remains disabled by default and lacks effective fuzz, scheduling and target
-evidence. Tseitin X16 now exposes every bounded authenticated connected XOR
+unaccepted. GF(3) exposes the complete Gaussian unit/conflict batch and one
+authenticated non-unit-row forbidden-tuple clause through typed replay, C v11,
+bounded native production and raw feedback. Both are disabled by default; the
+general-row action adds no variables and leaves propagation/advice explicit.
+Effective fuzz, scheduling and target evidence remain open. Tseitin X16 now exposes every bounded authenticated connected XOR
 component through exact `tcx2:` replay, a Kernel-bound semantic-key session,
 C v7, DSR/no-proof publication, repeated propagated-root discovery, opt-in
 random production and raw feedback. It remains disabled by default and lacks
