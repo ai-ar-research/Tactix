@@ -149,6 +149,10 @@ void initialize_resume_publish_and_bcp() {
   assert(journal);
   kernel.structural_provenance = journal;
   install_implication_formula(kernel);
+  // A non-affine binary and its assignments are outside the admitted matrix
+  // support and must not be charged or retained by matrix synchronization.
+  kernel_reserve_vars(kernel, 7);
+  add_clause(kernel, {6, 7});
   Capture capture;
   RestartController controller(kernel, {}, &capture);
   const auto p = parameters();
@@ -160,12 +164,14 @@ void initialize_resume_publish_and_bcp() {
          session.belongs_to(kernel) && session.owner_version() == 1);
   assert(controller.resume_search(resume_request(controller, kernel))
              .resumed_search);
+  decide(controller, kernel, -6);
+  assert(kernel.value(kernel_internalize(kernel, 7)) > 0);
   decide(controller, kernel, -1);
   decide(controller, kernel, -2);
   const auto result = controller.affine_matrix_fixpoint_service();
   assert(result.status == AffineMatrixServiceStatus::Applied &&
          result.result == ApplyResult::Ok && result.bcp_pending &&
-         result.trail_capture_work == 2 &&
+         result.trail_capture_work == 5 &&
          result.synchronization_incremental &&
          result.synchronization_prefix == 0 &&
          result.synchronization_conditioned == 2 &&
@@ -195,7 +201,7 @@ void initialize_resume_publish_and_bcp() {
          kernel.stats.affine_matrix_service_rebuilds == 0 &&
          kernel.stats.affine_matrix_service_retained_assignments == 2 &&
          kernel.stats.affine_matrix_service_conditioned_assignments == 3 &&
-         kernel.stats.affine_matrix_service_trail_capture_work == 5 &&
+         kernel.stats.affine_matrix_service_trail_capture_work == 10 &&
          capture.actions.size() == feedback_after_bcp);
 
   assert(controller.full_restart() == ApplyResult::Ok);

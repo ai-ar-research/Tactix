@@ -171,6 +171,13 @@ std::vector<size_t> source_union(const std::vector<MatrixRow> &rows) {
   return {sources.begin(), sources.end()};
 }
 
+std::vector<External> variable_union(const std::vector<MatrixRow> &rows) {
+  std::set<External> variables;
+  for (const MatrixRow &row : rows)
+    variables.insert(row.variables.begin(), row.variables.end());
+  return {variables.begin(), variables.end()};
+}
+
 External false_literal(const MatrixAssignment assignment) {
   return assignment.value ? -assignment.variable : assignment.variable;
 }
@@ -282,6 +289,7 @@ MatrixStatus build_affine_matrix(
   candidate.sources_ = input;
   candidate.admitted_rows_ = rows;
   candidate.admitted_sources_ = source_union(rows);
+  candidate.admitted_variables_ = variable_union(rows);
   candidate.rows_ = std::move(rows);
   candidate.incremental_ready_ = true;
   output = std::move(candidate);
@@ -294,6 +302,19 @@ MatrixStatus AffineMatrix::synchronize(
   if (!owner_identity_ || !charge) return MatrixStatus::Invalid;
   if (trail.size() > limits_.maximum_assignments)
     return MatrixStatus::Exhausted;
+
+  // An unchanged exact support assignment cannot alter the reduced basis or
+  // its deterministic event. Avoid re-reducing it at every Boolean fixpoint.
+  if (incremental_ready_ && trail == trail_) {
+    MatrixEvent candidate = find_event(rows_);
+    make_reason(sources_, trail_, candidate);
+    last_synchronization_incremental_ = true;
+    last_synchronization_prefix_ = trail_.size();
+    last_synchronization_conditioned_ = 0;
+    last_synchronization_kind_ = MatrixSynchronizationKind::Extension;
+    event = std::move(candidate);
+    return MatrixStatus::Complete;
+  }
 
   Work work{0, limits_.maximum_work, charge};
   std::vector<MatrixRow> rows;

@@ -89,17 +89,18 @@ def main():
         assert compressed.read_bytes().startswith(b"\x1f\x8b")
         assert inspector.inspect(compressed)["version"] == 2
 
-        # Action-space v6 changes the payload encoded in request.invocation;
-        # its observation object deliberately retains the v5 field shape.
-        changed = json.loads(json.dumps(rows))
-        for row in changed:
-            if row["type"] in ("session_begin", "session_end"):
-                row["observation"]["version"] = 6
-            elif row["type"] in ("action", "interval"):
-                row["before"]["version"] = 6
-                row["after"]["version"] = 6
-        path.write_text(encode(changed))
-        inspector.inspect(path)
+        # Action-space v6--v8 changed request/action semantics while retaining
+        # the observation field shape understood by this inspector.
+        for version in (6, 7, 8):
+            changed = json.loads(json.dumps(rows))
+            for row in changed:
+                if row["type"] in ("session_begin", "session_end"):
+                    row["observation"]["version"] = version
+                elif row["type"] in ("action", "interval"):
+                    row["before"]["version"] = version
+                    row["after"]["version"] = version
+            path.write_text(encode(changed))
+            inspector.inspect(path)
 
         rejected(encode(rows[:-1]), "incomplete")
         rejected(original + "{}\n", "after session end")
@@ -151,7 +152,7 @@ def main():
         changed[action]["before"]["fast_glue"] = float("inf")
         rejected(encode(changed).replace("Infinity", "1e999"), "fast_glue")
         changed = json.loads(json.dumps(rows))
-        changed[action]["before"]["version"] = 7
+        changed[action]["before"]["version"] = 9
         rejected(encode(changed), "unsupported observation version")
         producer_rows = json.loads(json.dumps(rows))
         producer_action = next(
@@ -232,8 +233,28 @@ def main():
         changed = json.loads(json.dumps(default_rows))
         changed[native_action]["native_request"]["unlimited"] = 1
         rejected(encode(changed), "native unlimited")
-        changed = json.loads(json.dumps(default_rows))
-        changed[native_action]["native_request"]["version"] = 2
+        version2 = json.loads(json.dumps(default_rows))
+        description = version2[native_action]["native_request"]
+        description["version"] = 2
+        description["affine_matrix"] = {
+            "status": 1, "event": "", "synchronization_work": description["work"],
+            "session_work": 0, "reason_width": 0, "planner_work": 0,
+            "revalidation_work": 0, "proof_additions": 0, "proof_deletions": 0,
+            "helper_extent": 0, "journal_bytes": 0, "bcp_pending": False,
+        }
+        path.write_text(encode(version2))
+        inspector.inspect(path)
+        changed = json.loads(json.dumps(version2))
+        changed[native_action]["native_request"]["affine_matrix"]["status"] = 10
+        rejected(encode(changed), "affine matrix status")
+        changed = json.loads(json.dumps(version2))
+        changed[native_action]["native_request"]["affine_matrix"]["bcp_pending"] = 1
+        rejected(encode(changed), "affine matrix bcp pending")
+        changed = json.loads(json.dumps(version2))
+        changed[native_action]["native_request"]["affine_matrix"]["synchronization_work"] += 1
+        rejected(encode(changed), "affine matrix synchronization work mismatch")
+        changed = json.loads(json.dumps(version2))
+        changed[native_action]["native_request"]["version"] = 3
         rejected(encode(changed), "unsupported native request version")
         changed = json.loads(json.dumps(default_rows))
         changed[native_action]["before"]["native_policy_state"] = 7

@@ -50,7 +50,9 @@ static void derived_implication_conflict_and_backtrack() {
   assert(build_affine_matrix(input, 991, limits(),
                              [](uint64_t) { return true; }, matrix) ==
          MatrixStatus::Complete);
-  assert(matrix.owner_identity() == 991 && matrix.trail().empty());
+  assert(matrix.owner_identity() == 991 && matrix.trail().empty() &&
+         (matrix.admitted_variables() ==
+          std::vector<External>{1, 2, 3, 4, 5}));
 
   MatrixEvent event;
   assert(matrix.synchronize({{1, false}, {2, false}},
@@ -61,6 +63,18 @@ static void derived_implication_conflict_and_backtrack() {
   assert((event.row.source_equations == std::vector<size_t>{0, 1}));
   assert((event.reason == std::vector<External>{1, 2, -5}));
   check_reason(input, event);
+
+  uint64_t unchanged_work = 0;
+  assert(matrix.synchronize({{1, false}, {2, false}},
+                            [&](uint64_t amount) {
+                              unchanged_work += amount;
+                              return true;
+                            }, event) == MatrixStatus::Complete);
+  assert(!unchanged_work && matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_prefix() == 2 &&
+         matrix.last_synchronization_conditioned() == 0 &&
+         event.kind == MatrixEventKind::Implication &&
+         event.implied_variable == 5 && !event.implied_value);
 
   assert(matrix.synchronize({{1, false}, {2, false}, {5, true}},
                             [](uint64_t) { return true; }, event) ==

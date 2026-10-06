@@ -75,17 +75,20 @@ AffineLiveRequest capture_request(
 
 enum class TrailStatus { Complete, Invalid, Exhausted, Interrupted };
 
-TrailStatus exact_trail(const Kernel &kernel, uint64_t maximum,
+TrailStatus exact_trail(const Kernel &kernel,
+                        const std::vector<External> &support,
+                        uint64_t maximum,
                         uint64_t &work,
                         std::vector<MatrixAssignment> &out) {
   out.clear();
-  out.reserve(kernel.trail.size());
-  for (Lit literal : kernel.trail) {
+  out.reserve(support.size());
+  for (const External variable : support) {
     if (kernel_terminating(kernel)) return TrailStatus::Interrupted;
     if (!add(1, maximum, work)) return TrailStatus::Exhausted;
-    const int32_t external = kernel_externalize(kernel, literal);
-    if (!external || external == INT32_MIN) return TrailStatus::Invalid;
-    out.push_back({external < 0 ? -external : external, external > 0});
+    if (variable <= 0 || variable == INT32_MIN)
+      return TrailStatus::Invalid;
+    const int8_t value = kernel_external_value(kernel, internalize(variable));
+    if (value) out.push_back({variable, value > 0});
   }
   return TrailStatus::Complete;
 }
@@ -496,7 +499,8 @@ AffineMatrixServiceResult affine_matrix_search_step(
   }
   std::vector<MatrixAssignment> trail;
   const TrailStatus trail_status = exact_trail(
-      kernel, session.parameters_.basis_maximum_work,
+      kernel, session.matrix_.admitted_variables(),
+      session.parameters_.basis_maximum_work,
       result.trail_capture_work, trail);
   if (trail_status != TrailStatus::Complete) {
     result.status = trail_status == TrailStatus::Interrupted

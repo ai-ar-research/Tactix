@@ -17,7 +17,10 @@ STOP_NAMES = (
 KIND_NAMES = ("rule", "resume-search", "search-service", "support")
 WORK_NAMES = ("applications", "bve-ticks", "propagations", "sr-discovery-ticks")
 UINT64_MAX = (1 << 64) - 1
-OBSERVATION_VERSIONS = (1, 2, 3, 4, 5, 6)
+# Observation versions follow the public controller action-space version. The
+# v7 and v8 revisions changed request/action semantics without removing any
+# observation fields understood by this inspector.
+OBSERVATION_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8)
 PRODUCER_STATUS_MAXIMUM = {
     "AffineConsequence": 6,
     "Gf3AffineConsequence": 6,
@@ -96,6 +99,51 @@ def producer_effort(value):
     if family == "TseitinCycleBreaking":
         require(value["complete"] == (value["status"] in (2, 7, 8)),
                 "invalid Tseitin producer completeness")
+
+
+def native_request(value):
+    version = integer(value.get("version"), "native request version")
+    base = "version description invocation currency unlimited amount work " \
+           "overshoot accounting_overflow"
+    if version == 1:
+        keys(value, base, "native request")
+    elif version == 2:
+        keys(value, base + " affine_matrix", "native request")
+    else:
+        raise ValueError("unsupported native request version")
+
+    for key in ("description", "currency"):
+        require(type(value[key]) is str, f"invalid native {key}")
+    require(value["currency"], "missing native currency")
+    require(value["invocation"] is None or type(value["invocation"]) is str,
+            "invalid native invocation")
+    for key in ("unlimited", "accounting_overflow"):
+        require(type(value[key]) is bool, f"invalid native {key}")
+    for key in ("amount", "work", "overshoot"):
+        integer(value[key], f"native {key}")
+    require(not value["unlimited"] or value["amount"] == 0,
+            "invalid unlimited native allowance")
+    require(value["overshoot"] == (0 if value["unlimited"] else
+            max(value["work"] - value["amount"], 0)),
+            "native overshoot mismatch")
+    require(not value["accounting_overflow"] or value["work"] == 0,
+            "invalid overflow measurement")
+
+    if version == 2:
+        event = value["affine_matrix"]
+        keys(event, "status event synchronization_work session_work reason_width "
+             "planner_work revalidation_work proof_additions proof_deletions "
+             "helper_extent journal_bytes bcp_pending", "affine matrix event")
+        integer(event["status"], "affine matrix status", 9)
+        require(type(event["event"]) is str, "invalid affine matrix event identity")
+        for key in ("synchronization_work", "session_work", "reason_width",
+                    "planner_work", "revalidation_work", "proof_additions",
+                    "proof_deletions", "helper_extent", "journal_bytes"):
+            integer(event[key], "affine matrix " + key)
+        require(type(event["bcp_pending"]) is bool,
+                "invalid affine matrix bcp pending")
+        require(value["work"] == event["synchronization_work"],
+                "affine matrix synchronization work mismatch")
 
 
 def observation(value, validate_native=True):
@@ -440,25 +488,7 @@ def inspect(path):
                 work, overshoot = result["work"], result["composition_overshoot"]
                 if "native_request" in row:
                     desc = row["native_request"]
-                    keys(desc, "version description invocation currency unlimited amount work "
-                         "overshoot accounting_overflow", "native request")
-                    require(integer(desc["version"], "native request version") == 1,
-                            "unsupported native request version")
-                    for key in ("description", "currency"):
-                        require(type(desc[key]) is str, f"invalid native {key}")
-                    require(desc["currency"], "missing native currency")
-                    require(desc["invocation"] is None or type(desc["invocation"]) is str,
-                            "invalid native invocation")
-                    for key in ("unlimited", "accounting_overflow"):
-                        require(type(desc[key]) is bool, f"invalid native {key}")
-                    for key in ("amount", "work", "overshoot"):
-                        integer(desc[key], f"native {key}")
-                    require(not desc["unlimited"] or desc["amount"] == 0,
-                            "invalid unlimited native allowance")
-                    require(desc["overshoot"] == (0 if desc["unlimited"] else
-                            max(desc["work"] - desc["amount"], 0)), "native overshoot mismatch")
-                    require(not desc["accounting_overflow"] or desc["work"] == 0,
-                            "invalid overflow measurement")
+                    native_request(desc)
                     unit, work, overshoot = desc["currency"], desc["work"], desc["overshoot"]
                 entry["work_by_native_unit"][unit] += work
                 entry["overshoot_by_native_unit"][unit] += overshoot

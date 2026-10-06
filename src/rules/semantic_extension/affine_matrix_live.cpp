@@ -97,6 +97,20 @@ bool snapshot_trail(const Kernel &kernel,
   return true;
 }
 
+bool snapshot_support(const Kernel &kernel,
+                      const std::vector<External> &support,
+                      std::vector<MatrixAssignment> &assignments) {
+  assignments.clear();
+  assignments.reserve(support.size());
+  for (const External variable : support) {
+    if (variable <= 0 || variable == INT32_MIN) return false;
+    const int8_t value =
+        kernel_external_value(kernel, internalize(variable));
+    if (value) assignments.push_back({variable, value > 0});
+  }
+  return true;
+}
+
 std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
   std::sort(clause.begin(), clause.end());
   return clause;
@@ -405,9 +419,13 @@ MatrixLiveResult prepare_affine_matrix_live(
   candidate.proof_ = kernel.proof;
   if (kernel.proof) candidate.proof_format_ = kernel.proof->format();
   candidate.records_position_ = std::ftell(request.records);
+  std::vector<MatrixAssignment> support_trail;
   if (candidate.records_position_ < 0 ||
       !snapshot_trail(kernel, candidate.trail_, candidate.trail_levels_) ||
-      candidate.trail_ != request.matrix->trail()) {
+      !snapshot_support(kernel, request.matrix->admitted_variables(),
+                        support_trail) ||
+      (candidate.trail_ != request.matrix->trail() &&
+       support_trail != request.matrix->trail())) {
     result.status = MatrixLiveStatus::Stale;
     return result;
   }
