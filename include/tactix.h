@@ -413,6 +413,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX 42
 #define TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY 43
 #define TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE 44
+#define TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO 45
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1 1
 #define TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2 2
 #define TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE 0
@@ -628,6 +629,16 @@ typedef struct {
   uint32_t maximum_extent_growth, maximum_external_extent;
   uint64_t maximum_session_keys;
 } tactix_online_nary_csp_equality_parameters;
+typedef struct {
+  uint64_t maximum_source_clauses, maximum_source_literals;
+  uint64_t maximum_recognition_work;
+  uint32_t maximum_domain_values;
+  uint64_t maximum_forbidden_tuples;
+  uint64_t maximum_proof_work, maximum_proof_additions;
+  uint64_t maximum_proof_literal_occurrences, maximum_journal_bytes;
+  uint32_t maximum_external_extent;
+  uint64_t maximum_session_keys;
+} tactix_online_nary_csp_equality_amo_parameters;
 typedef struct {
   uint64_t maximum_snapshot_clauses, maximum_snapshot_literals;
   uint64_t maximum_snapshot_work;
@@ -1055,6 +1066,7 @@ typedef struct {
     tactix_online_direct_csp_support_parameters direct_csp_support;
     tactix_online_nary_csp_prefix_parameters nary_csp_prefix;
     tactix_online_nary_csp_equality_parameters nary_csp_equality;
+    tactix_online_nary_csp_equality_amo_parameters nary_csp_equality_amo;
     tactix_online_direct_php_refutation_parameters direct_php_refutation;
     tactix_online_gf3_gaussian_consequence_parameters gf3_gaussian_consequence;
     tactix_online_gf3_general_row_consequence_parameters gf3_general_row_consequence;
@@ -1362,6 +1374,25 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v11;
 
+/* Additive v12 payload for the certified AMO over the three equality
+ * extension variables belonging to one exact retained ternary owner. */
+typedef struct {
+  const tactix_online_nary_csp_domain *domains;
+  int domain_count;
+} tactix_online_nary_csp_equality_amo_instance;
+typedef struct {
+  tactix_online_step_v11 base;
+  const tactix_online_nary_csp_equality_amo_instance
+      *nary_csp_equality_amo_instances;
+  int nary_csp_equality_amo_instance_count;
+} tactix_online_step_v12;
+typedef struct {
+  const tactix_online_step_v12 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v12;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1411,6 +1442,8 @@ int tactix_online_configure_v9(tactix *, const tactix_online_program_v9 *,
 int tactix_online_configure_v10(tactix *, const tactix_online_program_v10 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v11(tactix *, const tactix_online_program_v11 *,
+                                uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v12(tactix *, const tactix_online_program_v12 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

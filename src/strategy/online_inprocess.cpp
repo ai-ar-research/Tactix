@@ -138,6 +138,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "NaryCspPrefix";
   if (std::holds_alternative<NaryCspEqualityParameters>(step.parameters))
     return step.rule == "NaryCspEquality";
+  if (std::holds_alternative<NaryCspEqualityAmoParameters>(step.parameters))
+    return step.rule == "NaryCspEqualityAmo";
   if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
     return step.rule == "DirectPhpRefutation";
   if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
@@ -319,6 +321,16 @@ NaryCspEqualityLimits nary_csp_equality_limits(
           p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
           p.maximum_journal_bytes, p.maximum_extent_growth,
           p.maximum_external_extent, p.maximum_session_keys};
+}
+
+NaryCspEqualityAmoLimits nary_csp_equality_amo_limits(
+    const NaryCspEqualityAmoParameters &p) {
+  return {p.maximum_source_clauses, p.maximum_source_literals,
+          p.maximum_recognition_work, p.maximum_domain_values,
+          p.maximum_forbidden_tuples, p.maximum_proof_work,
+          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+          p.maximum_journal_bytes, p.maximum_external_extent,
+          p.maximum_session_keys};
 }
 
 DirectPhpActionLimits direct_php_limits(
@@ -631,6 +643,35 @@ void record_nary_csp_equality_feedback(
                     });
 }
 
+void record_nary_csp_equality_amo_feedback(
+    Kernel &k, const NaryCspEqualityAmoResult &result, size_t keys_before) {
+  ++k.stats.nary_csp_equality_amo_attempts;
+  switch (result.status) {
+  case NaryCspEqualityAmoStatus::Applied:
+    ++k.stats.nary_csp_equality_amo_applied; break;
+  case NaryCspEqualityAmoStatus::MissingEquality:
+    ++k.stats.nary_csp_equality_amo_missing_equality; break;
+  case NaryCspEqualityAmoStatus::Stale:
+    ++k.stats.nary_csp_equality_amo_stale; break;
+  case NaryCspEqualityAmoStatus::Duplicate:
+    ++k.stats.nary_csp_equality_amo_duplicate; break;
+  default:
+    ++k.stats.nary_csp_equality_amo_declined; break;
+  }
+  k.stats.nary_csp_equality_amo_recognition_work += result.recognition_work;
+  k.stats.nary_csp_equality_amo_proof_work += result.proof_work;
+  k.stats.nary_csp_equality_amo_proof_additions += result.proof_additions;
+  k.stats.nary_csp_equality_amo_proof_deletions += result.proof_deletions;
+  k.stats.nary_csp_equality_amo_proof_literal_occurrences +=
+      result.proof_literal_occurrences;
+  k.stats.nary_csp_equality_amo_journal_bytes += result.journal_bytes;
+  k.stats.nary_csp_equality_amo_binary_clauses +=
+      result.emitted_binary_clauses;
+  k.stats.nary_csp_equality_amo_session_commits +=
+      k.nary_csp_equality_amo_session &&
+      k.nary_csp_equality_amo_session->keys().size() > keys_before;
+}
+
 } // namespace
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &program,
@@ -778,6 +819,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         p && !p->valid())
       return reject("NaryCspEquality parameters are invalid");
     if (const auto *p =
+            std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("NaryCspEqualityAmo parameters are invalid");
+    if (const auto *p =
             std::get_if<DirectPhpRefutationParameters>(&step.parameters);
         p && !p->valid())
       return reject("DirectPhpRefutation parameters are invalid");
@@ -913,6 +958,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.nary_csp_equality_instances.empty() &&
         step.rule != "NaryCspEquality")
       return reject("n-ary CSP equalities are attached to a different rule");
+    if (!step.nary_csp_equality_amo_instances.empty() &&
+        step.rule != "NaryCspEqualityAmo")
+      return reject("n-ary CSP equality AMOs are attached to a different rule");
     if (!step.gf3_gaussian_instances.empty() &&
         step.rule != "Gf3GaussianConsequence")
       return reject("GF3 Gaussian identities are attached to a different rule");
@@ -949,6 +997,11 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.nary_csp_equality_instances.empty() || !step.instances.empty()))
       return reject("n-ary CSP equality requires typed payloads");
+    if (step.rule == "NaryCspEqualityAmo" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
+        (step.nary_csp_equality_amo_instances.empty() ||
+         !step.instances.empty()))
+      return reject("n-ary CSP equality AMO requires typed payloads");
     if (step.rule == "Gf3GaussianConsequence" &&
         step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
@@ -1080,6 +1133,17 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         if (!nary_csp_equality_action_selection_within_limits(instance, limits))
           return reject("n-ary CSP equality is malformed or exceeds limits");
     }
+    if (!step.nary_csp_equality_amo_instances.empty()) {
+      const auto *p =
+          std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
+      if (!p) return reject("n-ary CSP equality AMO has no typed limits");
+      const NaryCspEqualityAmoLimits limits =
+          nary_csp_equality_amo_limits(*p);
+      for (const auto &instance : step.nary_csp_equality_amo_instances)
+        if (!nary_csp_equality_amo_selection_within_limits(instance, limits))
+          return reject(
+              "n-ary CSP equality AMO is malformed or exceeds limits");
+    }
     // These are external Lit encodings. UINT32_MAX has no DIMACS spelling:
     // externalize() would overflow its signed result before a live-state
     // check, even if the malformed tuple came only from replay text.
@@ -1104,6 +1168,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.direct_csp_support_instances.empty() +
         !step.nary_csp_prefix_instances.empty() +
         !step.nary_csp_equality_instances.empty() +
+        !step.nary_csp_equality_amo_instances.empty() +
         !step.gf3_gaussian_instances.empty() +
         !step.gf3_general_row_instances.empty() +
         !step.tseitin_cycle_instances.empty();
@@ -1133,6 +1198,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                            ? step.nary_csp_prefix_instances.size()
                                                                      : !step.nary_csp_equality_instances.empty()
                                                                            ? step.nary_csp_equality_instances.size()
+                                                                     : !step.nary_csp_equality_amo_instances.empty()
+                                                                           ? step.nary_csp_equality_amo_instances.size()
                                                                      : !step.gf3_gaussian_instances.empty()
                                                                            ? step.gf3_gaussian_instances.size()
                                                                      : !step.gf3_general_row_instances.empty()
@@ -1160,6 +1227,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "DirectCspSupport" ||
           step.rule == "NaryCspPrefix" ||
           step.rule == "NaryCspEquality" ||
+          step.rule == "NaryCspEqualityAmo" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "Gf3GeneralRowConsequence" ||
           step.rule == "TseitinCycleBreaking")
@@ -1173,6 +1241,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "DirectCspSupport" ||
           step.rule == "NaryCspPrefix" ||
           step.rule == "NaryCspEquality" ||
+          step.rule == "NaryCspEqualityAmo" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "Gf3GeneralRowConsequence" ||
           step.rule == "TseitinCycleBreaking")
@@ -1190,6 +1259,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule != "DirectCspSupport" &&
           step.rule != "NaryCspPrefix" &&
           step.rule != "NaryCspEquality" &&
+          step.rule != "NaryCspEqualityAmo" &&
           step.rule != "Gf3GaussianConsequence" &&
           step.rule != "Gf3GeneralRowConsequence" &&
           step.rule != "TseitinCycleBreaking")
@@ -1400,6 +1470,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.direct_csp_support_instances.empty() &&
         step.nary_csp_prefix_instances.empty() &&
         step.nary_csp_equality_instances.empty() &&
+        step.nary_csp_equality_amo_instances.empty() &&
         step.gf3_gaussian_instances.empty() &&
         step.gf3_general_row_instances.empty() &&
         step.tseitin_cycle_instances.empty()) {
@@ -1423,6 +1494,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                                   ? step.nary_csp_prefix_instances.size()
                                                             : !step.nary_csp_equality_instances.empty()
                                                                   ? step.nary_csp_equality_instances.size()
+                                                            : !step.nary_csp_equality_amo_instances.empty()
+                                                                  ? step.nary_csp_equality_amo_instances.size()
                                                             : !step.gf3_gaussian_instances.empty()
                                                                   ? step.gf3_gaussian_instances.size()
                                                             : !step.gf3_general_row_instances.empty()
@@ -1952,6 +2025,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<DirectCspSupportActionResult> direct_csp_application;
     std::optional<NaryCspPrefixActionResult> nary_csp_application;
     std::optional<NaryCspEqualityActionResult> nary_csp_equality_application;
+    std::optional<NaryCspEqualityAmoResult> nary_csp_equality_amo_application;
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
     std::optional<Gf3GeneralRowActionResult> gf3_general_row_application;
@@ -2047,6 +2121,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
           NaryCspPrefixParameters, NaryCspEqualityParameters,
+          NaryCspEqualityAmoParameters,
           DirectPhpRefutationParameters,
           Gf3GaussianConsequenceParameters,
           Gf3GeneralRowConsequenceParameters,
@@ -2147,6 +2222,29 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_nary_csp_equality_feedback(
                       k, *nary_csp_equality_application, keys_before);
                   return nary_csp_equality_application->result;
+                })
+          : !step.nary_csp_equality_amo_instances.empty()
+              ? apply_rule_structured(rule, k, "nary-csp-equality-amo", [&] {
+                  const auto &parameters =
+                      std::get<NaryCspEqualityAmoParameters>(step.parameters);
+                  if (!k.nary_csp_prefix_action_session ||
+                      !k.nary_csp_equality_session ||
+                      !k.nary_csp_equality_amo_session ||
+                      !k.structural_provenance)
+                    return ApplyResult::NoOp;
+                  const size_t keys_before =
+                      k.nary_csp_equality_amo_session->keys().size();
+                  nary_csp_equality_amo_application.emplace(
+                      nary_csp_equality_amo_apply(
+                          k, *k.nary_csp_prefix_action_session,
+                          *k.nary_csp_equality_session,
+                          *k.nary_csp_equality_amo_session,
+                          nary_csp_equality_amo_limits(parameters),
+                          step.nary_csp_equality_amo_instances[payload],
+                          k.structural_provenance));
+                  record_nary_csp_equality_amo_feedback(
+                      k, *nary_csp_equality_amo_application, keys_before);
+                  return nary_csp_equality_amo_application->result;
                 })
           : !step.gf3_gaussian_instances.empty()
               ? apply_rule_structured(rule, k, "gf3-gaussian-consequence", [&] {
@@ -2865,6 +2963,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         !step.direct_csp_support_instances.empty() ||
         !step.nary_csp_prefix_instances.empty() ||
         !step.nary_csp_equality_instances.empty() ||
+        !step.nary_csp_equality_amo_instances.empty() ||
         !step.gf3_gaussian_instances.empty() ||
         !step.gf3_general_row_instances.empty())
       runtime.selection_generation = k.arena_generation;

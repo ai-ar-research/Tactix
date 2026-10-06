@@ -159,6 +159,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return config.nary_csp_prefix_reference;
   if (rule == "NaryCspEquality")
     return config.nary_csp_equality_reference;
+  if (rule == "NaryCspEqualityAmo")
+    return config.nary_csp_equality_amo_reference;
   if (rule == "DirectPhpRefutation")
     return config.direct_php_refutation_reference;
   if (rule == "Gf3GaussianConsequence")
@@ -866,6 +868,15 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_proof_literal_occurrences=v[7]; p.maximum_journal_bytes=v[8];
     U32_AT(9,p.maximum_extent_growth); U32_AT(10,p.maximum_external_extent);
     p.maximum_session_keys=v[11]; parameters=p;
+  } else if (tuple(text, "nary-csp-equality-amo1", v) && v.size() == 11) {
+    NaryCspEqualityAmoParameters p;
+    p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
+    p.maximum_recognition_work=v[2]; U32_AT(3,p.maximum_domain_values);
+    p.maximum_forbidden_tuples=v[4]; p.maximum_proof_work=v[5];
+    p.maximum_proof_additions=v[6];
+    p.maximum_proof_literal_occurrences=v[7]; p.maximum_journal_bytes=v[8];
+    U32_AT(9,p.maximum_external_extent); p.maximum_session_keys=v[10];
+    parameters=p;
   } else if (tuple(text, "direct-php-refutation1", v) && v.size() == 16) {
     DirectPhpRefutationParameters p;
     p.maximum_snapshot_clauses=v[0]; p.maximum_snapshot_literals=v[1];
@@ -1868,6 +1879,39 @@ bool parse_nary_csp_equality(std::string_view text,
   return nary_csp_equality_action_selection_valid(selection);
 }
 
+bool parse_nary_csp_equality_amo(std::string_view text,
+                                 NaryCspEqualityAmoSelection &selection) {
+  std::vector<int64_t> values;
+  while (!text.empty()) {
+    const size_t comma = text.find(',');
+    const std::string_view token = text.substr(0, comma);
+    if (token.empty()) return false;
+    int64_t value = 0;
+    const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
+                                        value);
+    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
+      return false;
+    values.push_back(value);
+    if (comma == std::string_view::npos) text = {};
+    else text.remove_prefix(comma + 1);
+  }
+  size_t at = 0;
+  if (values.empty() || values[at++] != 3) return false;
+  for (uint32_t domain = 0; domain != 3; ++domain) {
+    if (at == values.size() || values[at] < 0) return false;
+    const uint64_t count = static_cast<uint64_t>(values[at++]);
+    if (count > values.size() - at) return false;
+    std::vector<int32_t> literals;
+    for (uint64_t i = 0; i != count; ++i) {
+      if (values[at] < INT32_MIN || values[at] > INT32_MAX) return false;
+      literals.push_back(static_cast<int32_t>(values[at++]));
+    }
+    selection.domains.push_back(std::move(literals));
+  }
+  return at == values.size() &&
+         nary_csp_equality_amo_selection_valid(selection);
+}
+
 } // namespace
 
 bool random_online_strategy_program(Kernel &k, uint64_t seed,
@@ -1959,6 +2003,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           std::string_view(rule.name) != "DirectCspSupport" &&
           std::string_view(rule.name) != "NaryCspPrefix" &&
           std::string_view(rule.name) != "NaryCspEquality" &&
+          std::string_view(rule.name) != "NaryCspEqualityAmo" &&
           std::string_view(rule.name) != "Gf3GaussianConsequence" &&
           std::string_view(rule.name) != "Gf3GeneralRowConsequence" &&
           std::string_view(rule.name) != "TseitinCycleBreaking")
@@ -1972,6 +2017,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           name != "Gf3AffineConsequence" && name != "DirectCspSupport" &&
           name != "NaryCspPrefix" &&
           name != "NaryCspEquality" &&
+          name != "NaryCspEqualityAmo" &&
           name != "Gf3GaussianConsequence" &&
           name != "Gf3GeneralRowConsequence" &&
           name != "TseitinCycleBreaking")
@@ -2336,6 +2382,16 @@ std::string serialize_online_strategy_program(
           << p->maximum_proof_literal_occurrences << ','
           << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
           << p->maximum_external_extent << ',' << p->maximum_session_keys << ')';
+    else if (const auto *p =
+                 std::get_if<NaryCspEqualityAmoParameters>(&step.parameters))
+      out << ":nary-csp-equality-amo1(" << p->maximum_source_clauses << ','
+          << p->maximum_source_literals << ',' << p->maximum_recognition_work
+          << ',' << p->maximum_domain_values << ','
+          << p->maximum_forbidden_tuples << ',' << p->maximum_proof_work << ','
+          << p->maximum_proof_additions << ','
+          << p->maximum_proof_literal_occurrences << ','
+          << p->maximum_journal_bytes << ',' << p->maximum_external_extent
+          << ',' << p->maximum_session_keys << ')';
     else if (const auto *p =
                  std::get_if<DirectPhpRefutationParameters>(&step.parameters))
       out << ":direct-php-refutation1(" << p->maximum_snapshot_clauses << ','
@@ -2825,6 +2881,19 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.nary_csp_equality_amo_instances.empty()) {
+      out << ":nary-csp-equality-amo[";
+      for (size_t i = 0; i < step.nary_csp_equality_amo_instances.size(); ++i) {
+        if (i) out << ';';
+        const auto &instance = step.nary_csp_equality_amo_instances[i];
+        out << instance.domains.size();
+        for (const auto &domain : instance.domains) {
+          out << ',' << domain.size();
+          for (int32_t literal : domain) out << ',' << literal;
+        }
+      }
+      out << ']';
+    }
     if (!step.gf3_gaussian_instances.empty()) {
       out << ":gf3-gaussian-consequence[";
       for (size_t i = 0; i < step.gf3_gaussian_instances.size(); ++i) {
@@ -3115,6 +3184,22 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         if (!parse_nary_csp_equality(text.substr(0, semicolon), instance))
           return reject("online replay n-ary CSP equality payload is malformed");
         step.nary_csp_equality_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view nary_csp_equality_amo_marker =
+        ":nary-csp-equality-amo[";
+    if (text.starts_with(nary_csp_equality_amo_marker) && text.back() == ']') {
+      text.remove_prefix(nary_csp_equality_amo_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        NaryCspEqualityAmoSelection instance;
+        if (!parse_nary_csp_equality_amo(text.substr(0, semicolon), instance))
+          return reject(
+              "online replay n-ary CSP equality AMO payload is malformed");
+        step.nary_csp_equality_amo_instances.push_back(std::move(instance));
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }

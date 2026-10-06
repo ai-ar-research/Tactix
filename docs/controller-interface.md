@@ -97,11 +97,7 @@ left/right/residual coordinates of one retained ternary X17 owner. Typed replay
 uses `nary-csp-equality1`; the bounded `nary-csp-equality` producer pages only
 freshly revalidated canonical offers. Publication, explicit propagation and
 `NaryCspEquality` semantic advice remain separate actions. Versions 1--9 retain
-their layouts and meanings. Version 11 appends registry ID 43, disabled StepId
-32 and parameter tag 44 for `Gf3GeneralRowConsequence`. Its exact `g3r1:`
-payload binds an authenticated Gaussian row and violating tuple to full source
-identities; configure deep-copies it, apply rebuilds and exact-matches it, and
-native discovery pages bounded offers. Propagation and advice remain separate.
+their layouts and meanings. Version 11 appends registry ID 43, disabled StepId 32 and tag 44 for `Gf3GeneralRowConsequence`; its exact `g3r1:` payload binds a Gaussian row and violating tuple to full source identities, and apply rebuilds and exact-matches it. Version 12 appends registry ID 44, disabled StepId 33 and tag 45 for `NaryCspEqualityAmo`; its exact payload deep-copies the three domains of one retained ternary owner. Native discovery pages only owners with all three complete live equality definitions; application revalidates those definitions and publishes the pairwise binaries. Propagation remains separate.
 
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It

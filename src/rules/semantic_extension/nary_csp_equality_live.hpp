@@ -28,16 +28,25 @@ struct NaryCspEqualityKey {
   }
 };
 
+struct NaryCspEqualityRecord {
+  NaryCspEqualityKey key;
+  uint32_t extension_variable = 0;
+  std::vector<std::vector<int32_t>> definition_clauses;
+  bool operator==(const NaryCspEqualityRecord &) const = default;
+};
+
 class NaryCspEqualitySession {
 public:
   bool retained() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   const std::vector<NaryCspEqualityKey> &keys() const { return keys_; }
+  const std::vector<NaryCspEqualityRecord> &records() const { return records_; }
 
 private:
   friend struct NaryCspEqualitySessionAccess;
   const Kernel *owner_ = nullptr;
   std::vector<NaryCspEqualityKey> keys_;
+  std::vector<NaryCspEqualityRecord> records_;
 };
 
 struct NaryCspEqualityLimits {

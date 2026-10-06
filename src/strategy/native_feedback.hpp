@@ -62,6 +62,7 @@ inline NativeFeedbackSpec native_rule_feedback(
   else if (name == "Gf3AffineConsequence") inv.parameters = k.gf3_affine_consequence_parameters;
   else if (name == "DirectCspSupport") inv.parameters = k.direct_csp_support_parameters;
   else if (name == "NaryCspEquality") inv.parameters = k.nary_csp_equality_parameters;
+  else if (name == "NaryCspEqualityAmo") inv.parameters = k.nary_csp_equality_amo_parameters;
   else if (name == "DirectPhpRefutation") inv.parameters = k.direct_php_refutation_parameters;
   else if (name == "Gf3GaussianConsequence") inv.parameters = k.gf3_gaussian_consequence_parameters;
   else if (name == "Gf3GeneralRowConsequence") inv.parameters = k.gf3_general_row_consequence_parameters;

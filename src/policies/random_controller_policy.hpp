@@ -110,6 +110,17 @@ struct NaryCspEqualityActionProducerConfig {
   }
 };
 
+struct NaryCspEqualityAmoProducerConfig {
+  bool enabled = false;
+  uint64_t maximum_owner_candidates = 512;
+  uint64_t maximum_offers = 8;
+  uint64_t maximum_enumeration_work = 10000000;
+  bool valid() const {
+    return !enabled || (maximum_owner_candidates && maximum_offers &&
+                        maximum_enumeration_work);
+  }
+};
+
 struct Gf3GaussianActionProducerConfig {
   bool enabled = false;
   bool valid() const { return true; }
@@ -158,6 +169,7 @@ struct RandomControllerConfig {
   DirectCspActionProducerConfig direct_csp_action_producer;
   NaryCspActionProducerConfig nary_csp_action_producer;
   NaryCspEqualityActionProducerConfig nary_csp_equality_action_producer;
+  NaryCspEqualityAmoProducerConfig nary_csp_equality_amo_producer;
   Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
   Gf3GeneralRowActionProducerConfig gf3_general_row_action_producer;
   TseitinCycleActionProducerConfig tseitin_cycle_action_producer;
@@ -381,6 +393,25 @@ private:
     std::optional<Gf3GeneralRowActionSelection> pending;
     uint64_t pending_sequence = 0;
   };
+  struct NaryCspEqualityAmoDiscoveryState {
+    const Kernel *owner = nullptr;
+    const NaryCspPrefixActionSession *prefix_session = nullptr;
+    const NaryCspEqualitySession *equality_session = nullptr;
+    const NaryCspEqualityAmoSession *amo_session = nullptr;
+    strategy::StateVersion state;
+    size_t prefix_owners = 0;
+    size_t equality_keys = 0;
+    size_t amo_keys = 0;
+    bool terminal = false;
+    bool reconfiguration_required = false;
+    bool complete = false;
+    bool have_after = false;
+    std::string profile;
+    NaryCspEqualityAmoKey after;
+    std::vector<NaryCspEqualityAmoSelection> offers;
+    std::optional<NaryCspEqualityAmoSelection> pending;
+    uint64_t pending_sequence = 0;
+  };
 
   uint64_t draw(uint64_t bound);
   AffineBasisDiscoveryState affine_basis_discovery_;
@@ -388,6 +419,7 @@ private:
   DirectCspDiscoveryState direct_csp_discovery_;
   NaryCspDiscoveryState nary_csp_discovery_;
   NaryCspEqualityDiscoveryState nary_csp_equality_discovery_;
+  NaryCspEqualityAmoDiscoveryState nary_csp_equality_amo_discovery_;
   bool nary_csp_census_emitted_ = false;
   Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
   Gf3GeneralRowDiscoveryState gf3_general_row_discovery_;

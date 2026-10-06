@@ -37,6 +37,7 @@ class Gf3AffineActionSession;
 class DirectCspSupportActionSession;
 class NaryCspPrefixActionSession;
 class NaryCspEqualitySession;
+class NaryCspEqualityAmoSession;
 class DirectPhpActionSession;
 class Gf3GaussianActionSession;
 class Gf3GeneralRowActionSession;
@@ -1154,6 +1155,20 @@ struct Stats {
   uint64_t nary_csp_equality_session_commits = 0;
   uint64_t nary_csp_equality_candidate_variables = 0;
   uint64_t nary_csp_equality_introduced_variables = 0;
+  uint64_t nary_csp_equality_amo_attempts = 0;
+  uint64_t nary_csp_equality_amo_applied = 0;
+  uint64_t nary_csp_equality_amo_missing_equality = 0;
+  uint64_t nary_csp_equality_amo_stale = 0;
+  uint64_t nary_csp_equality_amo_duplicate = 0;
+  uint64_t nary_csp_equality_amo_declined = 0;
+  uint64_t nary_csp_equality_amo_recognition_work = 0;
+  uint64_t nary_csp_equality_amo_proof_work = 0;
+  uint64_t nary_csp_equality_amo_proof_additions = 0;
+  uint64_t nary_csp_equality_amo_proof_deletions = 0;
+  uint64_t nary_csp_equality_amo_proof_literal_occurrences = 0;
+  uint64_t nary_csp_equality_amo_journal_bytes = 0;
+  uint64_t nary_csp_equality_amo_binary_clauses = 0;
+  uint64_t nary_csp_equality_amo_session_commits = 0;
   uint64_t direct_php_attempts = 0, direct_php_applied = 0;
   uint64_t direct_php_invalid = 0, direct_php_inapplicable = 0;
   uint64_t direct_php_not_recognized = 0, direct_php_malformed = 0;
@@ -2065,6 +2080,7 @@ struct Kernel {
   strategy::DirectCspSupportParameters direct_csp_support_parameters;
   strategy::NaryCspPrefixParameters nary_csp_prefix_parameters;
   strategy::NaryCspEqualityParameters nary_csp_equality_parameters;
+  strategy::NaryCspEqualityAmoParameters nary_csp_equality_amo_parameters;
   strategy::DirectPhpRefutationParameters direct_php_refutation_parameters;
   strategy::Gf3GaussianConsequenceParameters
       gf3_gaussian_consequence_parameters;
@@ -2087,6 +2103,7 @@ struct Kernel {
   DirectCspSupportActionSession *direct_csp_support_action_session = nullptr;
   NaryCspPrefixActionSession *nary_csp_prefix_action_session = nullptr;
   NaryCspEqualitySession *nary_csp_equality_session = nullptr;
+  NaryCspEqualityAmoSession *nary_csp_equality_amo_session = nullptr;
   DirectPhpActionSession *direct_php_action_session = nullptr;
   Gf3GaussianActionSession *gf3_gaussian_action_session = nullptr;
   Gf3GeneralRowActionSession *gf3_general_row_action_session = nullptr;
