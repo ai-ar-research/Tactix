@@ -1,0 +1,23 @@
+{
+  "job": 1750890,
+  "apply_status": "Applied",
+  "apply_result": 0,
+  "committed_keys": 1,
+  "retained_owners": 1,
+  "emitted_additions": 1,
+  "proof_literal_occurrences": 17,
+  "extent_growth": 0,
+  "variables_before": 945,
+  "variables_after": 945,
+  "propagate_result": 0,
+  "trail_before": 0,
+  "trail_after": 0,
+  "inconsistent": false,
+  "solver_exit_code": 10,
+  "verdict": "SAT",
+  "runtime_seconds": 186.11,
+  "maximum_rss_kib": 19900,
+  "model_check": "OK",
+  "checked_clauses": 61409,
+  "checked_variables": 945
+}

@@ -1,0 +1,17 @@
+{
+  "job": 1750896,
+  "source_commit": "114ba0d7a574929280115b8f0f3954c8d6452010",
+  "solver_exit_code": 10,
+  "verdict": "SAT",
+  "runtime_seconds": 146.86,
+  "maximum_rss_kib": 20500,
+  "decisions": 0,
+  "conflicts": 0,
+  "propagations": 0,
+  "onehot_candidates": 1,
+  "onehot_sat": 1,
+  "model_check": "OK",
+  "checked_clauses": 61409,
+  "checked_variables": 945,
+  "canonical_model_sha256": "6f163ad5850eb12508c4e9146d26f8ea9fdece8027bdef3d45f3803e1d98d917"
+}
