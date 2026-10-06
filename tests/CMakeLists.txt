@@ -362,6 +362,18 @@ add_test(NAME nary_csp_root_fixed_proof
                  ${CMAKE_SOURCE_DIR})
 set_tests_properties(nary_csp_root_fixed_proof PROPERTIES SKIP_RETURN_CODE 77)
 
+# Compact aligned-domain equality abstraction for ternary diagonal nogoods:
+# validate the pure planner/model projection and every RAT/RUP lemma through
+# the pinned native DSR checker route.
+add_executable(test_nary_csp_equality test_nary_csp_equality.cpp)
+target_link_libraries(test_nary_csp_equality PRIVATE tactix_lib)
+add_test(NAME nary_csp_equality COMMAND test_nary_csp_equality)
+add_test(NAME nary_csp_equality_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/nary_csp_equality_proof.sh
+                 $<TARGET_FILE:test_nary_csp_equality>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(nary_csp_equality_proof PROPERTIES SKIP_RETURN_CODE 77)
+
 # A persistent GF(2) event needs one arbitrary-width clausal reason, not the
 # complete parity CNF. Verify the targeted RUP export and helper retirement.
 add_test(NAME parity_wide_reason_proof
