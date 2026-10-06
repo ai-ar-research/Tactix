@@ -1,0 +1,47 @@
+{
+  "binary_lsr_bytes": 342910304,
+  "binary_lsr_sha256": "78583599cc9436911771a4720967694d46010dd08ef013fd18c6b9e046a38334",
+  "bindings": {
+    "/home/hwu/SAT-solving/benchmarks/cache/tierD24-26/6ff70a3aaf261b35b0b072f454a756be-crafted_n10_d6_c4_num9.cnf.xz": "5ae5e573a68bfb55169015d17c6a14319844cd587db9929ee8aca480d827d143",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/540.json": "81877aabdb818c1ff58b3b7346197946b0f062d5562964dd1aba4a36ca537441",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/pins/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/pins/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/001.dsr": "6d8f3c51b3584a2464231ea3b548a96ebfaf3c34967a5b2e4dd803f7082a300b"
+  },
+  "checker_cnf_bytes": 170540906,
+  "checker_cnf_sha256": "fa5f798fc77e1949b6813dfccfa11d0e924c0ad4d3fc24c8962081a26e118f30",
+  "checker_deadline_seconds": 1800,
+  "checker_wall_seconds": 1800.151,
+  "job_id": "1750998",
+  "node": "node008",
+  "outcome": "not-verified",
+  "schema": "rank541-binary-lsr-causal-probe-v1",
+  "stages": [
+    {
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/pins/dsr-trim",
+        "/tmp/r541-binary-lsr-acowidpy/rank541.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/001.dsr",
+        "/tmp/r541-binary-lsr-acowidpy/rank541.binary.lsr"
+      ],
+      "exit_code": 0,
+      "name": "dsr-trim",
+      "output_tail": "c CNF file path: /tmp/r541-binary-lsr-acowidpy/rank541.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/retained-proofs/001.dsr\nc LSR file path: /tmp/r541-binary-lsr-acowidpy/rank541.binary.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 11133828 clauses and 42048 variables.\nc Parsing the CNF took 2.271 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 17998943 proof lines (3477457 additions).\nc Empty clause detected on proof line 17998943.\nc The empty clause was derived after clause 14610263 (add'n line 3476435).\nc Checking proof...\nc Proof checking took 346.915 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 1.485 secs\nc Total runtime took 363.578 secs\n",
+      "timed_out": false,
+      "wall_seconds": 363.628
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20261005-gap44-proof-recovery-small4/pins/srcheck",
+        "/tmp/r541-binary-lsr-acowidpy/rank541.cnf",
+        "/tmp/r541-binary-lsr-acowidpy/rank541.binary.lsr",
+        "c"
+      ],
+      "exit_code": null,
+      "name": "srcheck-binary",
+      "output_tail": "Parsing formula with 42048 variables, 11133828 clauses\nParsed formula\n",
+      "timed_out": true,
+      "wall_seconds": 1436.299
+    }
+  ]
+}
