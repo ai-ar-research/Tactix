@@ -131,6 +131,12 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
+Crash recovery resumed the uncommitted affine root-unit/empty-clause and
+invalidated-session repair. Fresh focused Debug and ASan/UBSan gates pass
+6/6 each, including every-lemma DSR checks; [the recovery checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) owns details and the user-requested old-build cleanup.
+The repaired candidate still requires Claude-owned both-policy fuzz and full
+Debug/regression acceptance; saved pre-repair gates do not qualify it.
+
 Rank263 is now a checked DefaultPolicy recovery at the measured root boundary.
 The next GF(2) work must test generality rather than repeat this target: run full
 Debug, both-policy structure-targeted fuzz and the four regression campaigns;
@@ -146,11 +152,12 @@ Boolean information. Batch full Debug, both-policy fuzz and the four regression
 campaigns at coherent integration checkpoints rather than rebuilding them for
 each internal primitive.
 
-Two disjoint certified SAT lanes proceed in parallel. DirectCSP needs a valid,
-source-derived stock profile and a sufficiently metered native enumeration
-window, followed by repeated learner-visible `DirectCspSupport -> Propagate ->
-SemanticVariableAdvice` scheduling with deterministic replay, raw feedback,
-relevant-change admission and duplicate suppression. Rank401/noL already reaches
+Two disjoint certified SAT lanes proceed in parallel. DirectCSP already has its
+source-derived stock profile, metered native enumeration and repeated
+learner-visible `DirectCspSupport -> Propagate -> SemanticVariableAdvice`
+scheduling with replay, raw feedback, relevant-change admission and duplicate
+suppression at `066c11f2a`; next measure one row versus a small repeated-action
+WV93 batch with independently checked model and causal yield counters. Rank401/noL already reaches
 three effective X17 actions after certified ULC completion; its next increment
 is a stronger generic relation consequence or conservative definition with exact
 premises, DSR/RAT derivation, mapping/reconstruction and bounded repeated

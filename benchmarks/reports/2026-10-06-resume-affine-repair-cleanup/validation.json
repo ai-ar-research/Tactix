@@ -1,0 +1,22 @@
+{
+  "base_commit": "5f647d7eb13a067537cc254c2f0b8880593a4a27",
+  "patch_sha256": "182093875db0bf7bd3cbc7024c1082f2403a2765b2f75c91b57e30b443f82387",
+  "test_binary_sha256": {
+    "build/resume-affine-repair-debug/tests/test_affine_matrix_search": "7a68e9ffe4332cc514a1beb912ef35162d5f261354ab7e58b2df80f6529d8f40",
+    "build/resume-affine-repair-debug/tests/test_affine_matrix_transaction": "425b4b87a3be10e50904658fdf2b6df0edf282368f11ab29d9e25a9423f009a9",
+    "build/resume-affine-repair-debug/tests/test_affine_matrix_live": "d45fbed0889476eec0bf6dfc02f941d89f0d5fece0560ac71e284d634e144815",
+    "build/resume-affine-repair-asan/tests/test_affine_matrix_search": "b94f3b52893c4a322559393df2efd996a814aa103d07deb7c3f92e54b0a6ce64",
+    "build/resume-affine-repair-asan/tests/test_affine_matrix_transaction": "ff0d6b74a331dd948e7ace5ee49bacf178c6f9758318584fa654b2d3565bbe74",
+    "build/resume-affine-repair-asan/tests/test_affine_matrix_live": "4dd3528fcb85997e3908e4c95a4161ea42bd97ce8b5db8c6fc212f82fabaf31b"
+  },
+  "focused_debug": "6/6 pass",
+  "focused_asan_ubsan_proof_shadow": "6/6 pass; run outside ptrace sandbox with detect_leaks=1 and halt_on_error=1",
+  "doc_checks": {
+    "proof_rule_sync": "pass",
+    "progress": "pass, squeue unavailable inside sandbox warning",
+    "doc_size": "preexisting failures: winner-integration-plan 251/240; implementation-notes 569/560, unchanged line counts"
+  },
+  "repository_bytes_before": 745753146880,
+  "removed_test_allocated_bytes": 306372995584,
+  "absent_test_count": 6221
+}

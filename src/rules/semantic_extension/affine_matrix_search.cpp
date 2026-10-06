@@ -482,6 +482,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
   if (!session.enabled()) return result;
   if (!session.attached_to(kernel)) {
     result.status = AffineMatrixServiceStatus::Stale;
+    session.disable();
     record_service(kernel, result);
     return result;
   }
@@ -489,6 +490,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
       kernel.dense || kernel.probing.recording ||
       !kernel.large_watches_connected || !kernel_propagation_fixpoint(kernel)) {
     result.status = AffineMatrixServiceStatus::Inapplicable;
+    session.disable();
     record_service(kernel, result);
     return result;
   }
@@ -599,13 +601,21 @@ AffineMatrixServiceResult affine_matrix_search_step(
   result.status = live_status(result.live.status);
   result.result = result.live.result;
   result.bcp_pending = result.live.propagation_pending;
+  // Formula-changing root actions can retire a captured premise or a reason
+  // variable after initialization.  The rejected event has made no mutation;
+  // release the optional service and let ordinary CDCL continue instead of
+  // repeatedly returning a terminal UNKNOWN.
+  if (result.status == AffineMatrixServiceStatus::Stale ||
+      result.status == AffineMatrixServiceStatus::Inapplicable)
+    session.disable();
   if (result.status == AffineMatrixServiceStatus::Applied) {
     std::vector<std::string> committed = session.published_;
     committed.insert(committed.begin() + (duplicate - session.published_.begin()),
                      result.event_identity);
     session.published_.swap(committed);
     kernel.structural_action_sequence = action_id;
-    if (!result.bcp_pending) std::abort();
+    if (!result.bcp_pending && result.result != ApplyResult::Unsat)
+      std::abort();
   }
   record_service(kernel, result);
   return result;

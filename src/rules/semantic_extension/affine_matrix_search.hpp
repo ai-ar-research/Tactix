@@ -80,11 +80,9 @@ struct AffineMatrixServiceResult {
   bool bcp_pending = false;
 
   bool terminal_failure() const {
-    return status == AffineMatrixServiceStatus::Inapplicable ||
-           status == AffineMatrixServiceStatus::ResourceExhausted ||
+    return status == AffineMatrixServiceStatus::ResourceExhausted ||
            status == AffineMatrixServiceStatus::Interrupted ||
            status == AffineMatrixServiceStatus::UnsupportedProof ||
-           status == AffineMatrixServiceStatus::Stale ||
            status == AffineMatrixServiceStatus::Invalid;
   }
 };

@@ -157,7 +157,12 @@ bool validate_selected_sources(
 bool reason_order(const Kernel &kernel, const MatrixEvent &event,
                   std::vector<Lit> &output) {
   output.clear();
-  if (event.kind == MatrixEventKind::None || event.reason.empty()) return false;
+  if (event.kind == MatrixEventKind::None) return false;
+  // A contradiction with no assigned support is the globally valid empty
+  // clause.  The transaction still has to derive it from the authenticated
+  // source equations before publication.
+  if (event.reason.empty())
+    return event.kind == MatrixEventKind::Conflict;
   std::set<Lit> unique;
   size_t open = SIZE_MAX;
   for (int32_t external : event.reason) {
@@ -370,7 +375,10 @@ bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,
 
 bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
                     uint64_t id) {
-  if (physical.empty()) return false;
+  if (physical.empty()) {
+    kernel.inconsistent = true;
+    return true;
+  }
   if (physical.size() == 1) {
     if (kernel.level || kernel.value(physical[0])) return false;
     kernel.unit_ids[var_of(physical[0])] = id;
@@ -664,11 +672,12 @@ MatrixLiveResult publish_affine_matrix_live(
 
   prepared.spent_ = true;
   result.status = MatrixLiveStatus::Applied;
-  result.result = ApplyResult::Ok;
+  result.result = kernel.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
   result.additions = prepared.transaction_.additions();
   result.deletions = prepared.transaction_.deletions();
   result.journal_bytes = prepared.journal_.size();
-  result.propagation_pending = !kernel_propagation_fixpoint(kernel);
+  result.propagation_pending =
+      !kernel.inconsistent && !kernel_propagation_fixpoint(kernel);
   return result;
 }
 
