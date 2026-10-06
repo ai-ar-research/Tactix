@@ -294,6 +294,23 @@ struct DefaultStrategyConfig {
         10'000'000, 100'000, 1'000'000, 200'000};
   } ramsey_startup;
 
+  struct AffineRootClosure {
+    // The checked Rank263 causal profile bounds this startup-only first
+    // vertical.  At execution, clause/group/source/node/extent allowances are
+    // derived from the exact live formula; these ceilings bound admission and
+    // certificate construction rather than identifying a benchmark.
+    bool enabled = true;
+    uint64_t maximum_clauses = 12'000;
+    uint64_t maximum_snapshot_work = 1'000'000;
+    uint64_t maximum_recognition_work = 10'000'000;
+    uint64_t maximum_basis_work = 100'000'000;
+    uint32_t maximum_row_width = 68;
+    uint64_t maximum_proof_additions = 1'000'000;
+    uint64_t maximum_proof_deletions = 1'000'000;
+    uint64_t maximum_journal_bytes = 100'000'000;
+    uint64_t maximum_session_work = 100'000'000;
+  } affine_root_closure;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.

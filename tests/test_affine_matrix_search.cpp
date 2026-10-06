@@ -315,6 +315,84 @@ void unchanged_terminal_initialization_is_suppressed() {
   std::fclose(journal);
 }
 
+void complete_snapshot_policy_admission() {
+  {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    install_implication_formula(kernel);
+    const auto result = affine_matrix_search_initialize(
+        kernel, session, parameters(),
+        AffineMatrixAdmission::CompleteSnapshot);
+    assert(result.status == AffineMatrixInitStatus::Applied &&
+           result.covered_clauses == result.snapshot_clauses &&
+           result.covered_clauses == kernel_irredundant_clauses(kernel) &&
+           session.enabled() && session.complete_admission());
+    std::fclose(journal);
+  }
+  {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    kernel_reserve_vars(kernel, 7);
+    add_equation(kernel, {1, 2, 3}, false);
+    add_clause(kernel, {4, 5, 6, 7});
+    auto ternary = parameters();
+    ternary.maximum_arity = 3;
+    const auto result = affine_matrix_search_initialize(
+        kernel, session, ternary,
+        AffineMatrixAdmission::CompleteSnapshot);
+    assert(result.status == AffineMatrixInitStatus::IncompleteImage &&
+           result.snapshot_clauses + 1 ==
+               kernel_irredundant_clauses(kernel) &&
+           result.covered_clauses == result.snapshot_clauses &&
+           !session.enabled());
+    std::fclose(journal);
+  }
+  {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    install_implication_formula(kernel);
+    add_clause(kernel, {1, 2, 6});
+    const auto result = affine_matrix_search_initialize(
+        kernel, session, parameters(),
+        AffineMatrixAdmission::CompleteSnapshot);
+    assert(result.status == AffineMatrixInitStatus::IncompleteImage &&
+           result.covered_clauses + 1 == result.snapshot_clauses &&
+           !session.enabled() &&
+           kernel.stats.affine_matrix_init_incomplete_image == 1);
+    std::fclose(journal);
+  }
+  {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    install_partial_formula(kernel);
+    auto limited = parameters();
+    limited.basis_maximum_intermediate_width = 4;
+    const auto result = affine_matrix_search_initialize(
+        kernel, session, limited,
+        AffineMatrixAdmission::CompleteSnapshot);
+    assert(result.status == AffineMatrixInitStatus::IncompleteMatrix &&
+           !session.enabled() &&
+           kernel.stats.affine_matrix_init_incomplete_matrix == 1);
+    std::fclose(journal);
+  }
+}
+
 static std::string initialize_partial_fixture() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -570,6 +648,7 @@ int main(int argc, char **argv) {
   initialize_resume_publish_and_bcp();
   interruption_is_atomic();
   unchanged_terminal_initialization_is_suppressed();
+  complete_snapshot_policy_admission();
   partial_admission_feedback_provenance_and_replay();
   std::puts("test_affine_matrix_search: passed");
 }

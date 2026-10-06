@@ -14,11 +14,23 @@ enum class AffineMatrixInitStatus : uint8_t {
   Invalid,
   Inapplicable,
   NoStructure,
+  IncompleteImage,
+  IncompleteMatrix,
   ResourceExhausted,
   Interrupted,
   Stale,
   Applied,
   AppliedPartial,
+};
+
+// Public controller actions admit any authenticated affine subimage and may
+// retain a bounded partial matrix.  DefaultPolicy can impose the stronger
+// policy admission below before scheduling this relatively expensive service:
+// every captured clause must belong to the image and every recovered equation
+// must enter the matrix.  This changes scheduling only, never rule soundness.
+enum class AffineMatrixAdmission : uint8_t {
+  AuthenticatedSubimage,
+  CompleteSnapshot,
 };
 
 enum class AffineMatrixServiceStatus : uint8_t {
@@ -44,6 +56,7 @@ struct AffineMatrixInitResult {
   uint64_t recognition_work = 0;
   uint64_t matrix_work = 0;
   uint64_t equations = 0;
+  uint64_t covered_clauses = 0;
   uint64_t rows = 0;
   uint64_t admitted_sources = 0;
   uint64_t journal_bytes = 0;
@@ -79,6 +92,10 @@ struct AffineMatrixServiceResult {
 class AffineMatrixSearchSession {
 public:
   bool enabled() const { return owner_ != nullptr; }
+  // Policy-owned scheduling may discard an unused session without touching
+  // the formula or proof. Published Boolean clauses remain ordinary clauses;
+  // this only releases cached algebraic/proof-planning state.
+  void disable() { *this = AffineMatrixSearchSession{}; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   // True while the installed search session is still bound to the same
   // Kernel, provenance sink and proof stream.  Formula/search changes do not
@@ -102,7 +119,7 @@ public:
 private:
   friend AffineMatrixInitResult affine_matrix_search_initialize(
       Kernel &, AffineMatrixSearchSession &,
-      const strategy::AffineConsequenceParameters &);
+      const strategy::AffineConsequenceParameters &, AffineMatrixAdmission);
   friend AffineMatrixServiceResult affine_matrix_search_step(
       Kernel &, AffineMatrixSearchSession &);
 
@@ -133,7 +150,8 @@ private:
 RuleEligibility affine_matrix_initialize_guard(const Kernel &);
 AffineMatrixInitResult affine_matrix_search_initialize(
     Kernel &, AffineMatrixSearchSession &,
-    const strategy::AffineConsequenceParameters &);
+    const strategy::AffineConsequenceParameters &,
+    AffineMatrixAdmission = AffineMatrixAdmission::AuthenticatedSubimage);
 ApplyResult affine_matrix_initialize_apply(Kernel &);
 
 // One deterministic conflict-before-implication event at an exact Boolean

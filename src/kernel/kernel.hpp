@@ -976,6 +976,8 @@ struct Stats {
   uint64_t affine_matrix_init_attempts = 0;
   uint64_t affine_matrix_init_applied = 0;
   uint64_t affine_matrix_init_applied_partial = 0;
+  uint64_t affine_matrix_init_incomplete_image = 0;
+  uint64_t affine_matrix_init_incomplete_matrix = 0;
   uint64_t affine_matrix_init_exhausted = 0;
   uint64_t affine_matrix_init_interrupted = 0;
   uint64_t affine_matrix_init_snapshot_work = 0;
