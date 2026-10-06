@@ -67,6 +67,7 @@ def main():
         assert "--controller-families=LIST" in help_result.stdout
         assert "--controller-search-configurations=all|LIST" in help_result.stdout
         assert "gf3-general-row" in help_result.stdout
+        assert "nary-csp-equality-amo" in help_result.stdout
 
         for value in ("", "unknown", "gf3-affine,", "all,gf3-affine"):
             result = run("--controller-policy=7",
@@ -220,7 +221,8 @@ def main():
         trace = work / "selected.trace"
         selected = run(
             "--controller-policy=7",
-            "--controller-native-producers=gf2-affine,gf3-affine,direct-csp,nary-csp,nary-csp-equality",
+            "--controller-native-producers=gf2-affine,gf3-affine,direct-csp,"
+            "nary-csp,nary-csp-equality,nary-csp-equality-amo",
             "--controller-native-producers=gf3-gaussian,gf3-general-row,tseitin-cycle",
             f"--controller-trace={trace}")
         assert selected.returncode == 10, selected.stderr
@@ -228,7 +230,7 @@ def main():
         assert len(header) == 2
         configuration = shlex.split(header[1])[1]
         for family in ("AffineConsequence", "Gf3AffineConsequence", "DirectCspSupport",
-                       "NaryCspPrefix", "NaryCspEquality",
+                       "NaryCspPrefix", "NaryCspEquality", "NaryCspEqualityAmo",
                        "Gf3GaussianConsequence", "Gf3GeneralRowConsequence",
                        "TseitinCycleBreaking"):
             assert f'producer "{family}"' in configuration

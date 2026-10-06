@@ -270,6 +270,7 @@ int main(int argc, char **argv) {
         controller_config.direct_csp_action_producer.enabled = enabled;
         controller_config.nary_csp_action_producer.enabled = enabled;
         controller_config.nary_csp_equality_action_producer.enabled = enabled;
+        controller_config.nary_csp_equality_amo_producer.enabled = enabled;
         controller_config.gf3_gaussian_action_producer.enabled = enabled;
         controller_config.gf3_general_row_action_producer.enabled = enabled;
         controller_config.tseitin_cycle_action_producer.enabled = enabled;
@@ -294,6 +295,8 @@ int main(int argc, char **argv) {
             controller_config.nary_csp_action_producer.enabled = true;
           else if (name == "nary-csp-equality")
             controller_config.nary_csp_equality_action_producer.enabled = true;
+          else if (name == "nary-csp-equality-amo")
+            controller_config.nary_csp_equality_amo_producer.enabled = true;
           else if (name == "gf3-gaussian")
             controller_config.gf3_gaussian_action_producer.enabled = true;
           else if (name == "gf3-general-row")
@@ -462,7 +465,8 @@ int main(int argc, char **argv) {
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
       puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,nary-csp,"
-           "nary-csp-equality,gf3-gaussian,gf3-general-row,tseitin-cycle");
+           "nary-csp-equality,nary-csp-equality-amo,gf3-gaussian,"
+           "gf3-general-row,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
            "names, or all");
       puts("  controller search configuration LIST: comma-separated "
