@@ -309,6 +309,7 @@ MatrixStatus AffineMatrix::synchronize(
     MatrixEvent candidate = find_event(rows_);
     make_reason(sources_, trail_, candidate);
     last_synchronization_incremental_ = true;
+    last_synchronization_restored_predecessor_ = false;
     last_synchronization_prefix_ = trail_.size();
     last_synchronization_conditioned_ = 0;
     last_synchronization_kind_ = MatrixSynchronizationKind::Extension;
@@ -336,6 +337,7 @@ MatrixStatus AffineMatrix::synchronize(
     predecessor_ready_ = false;
     incremental_ready_ = true;
     last_synchronization_incremental_ = false;
+    last_synchronization_restored_predecessor_ = true;
     last_synchronization_prefix_ = 0;
     last_synchronization_conditioned_ = 0;
     last_synchronization_kind_ = MatrixSynchronizationKind::Backtrack;
@@ -387,6 +389,7 @@ MatrixStatus AffineMatrix::synchronize(
   rows_ = std::move(rows);
   incremental_ready_ = status == MatrixStatus::Complete;
   last_synchronization_incremental_ = incremental;
+  last_synchronization_restored_predecessor_ = false;
   last_synchronization_prefix_ = incremental ? trail_.size() - assignments.size()
                                                : 0;
   last_synchronization_conditioned_ = assignments.size();
