@@ -99,6 +99,7 @@ static tactix *prepare(int id) {
       !strcmp(name, "AffineMatrixInitialize") ||
       !strcmp(name, "ExactCoverExtension") ||
       !strcmp(name, "IndependentSetCover") ||
+      !strcmp(name, "GraphIntervalEquivalence") ||
       !strcmp(name, "SemanticVariableAdvice")) {
     structural_records = tmpfile(); assert(structural_records);
     assert(tactix_bind_structural_provenance(solver, structural_records) == 0);
