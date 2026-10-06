@@ -85,6 +85,11 @@ public:
   const std::vector<size_t> &admitted_sources() const {
     return admitted_sources_;
   }
+  // Sorted external variables that can affect any admitted row. Search-time
+  // capture need not inspect assignments outside this exact support.
+  const std::vector<External> &admitted_variables() const {
+    return admitted_variables_;
+  }
   bool last_synchronization_incremental() const {
     return last_synchronization_incremental_;
   }
@@ -121,6 +126,7 @@ private:
   // enter a reason later.
   std::vector<MatrixRow> admitted_rows_;
   std::vector<size_t> admitted_sources_;
+  std::vector<External> admitted_variables_;
   std::vector<MatrixAssignment> trail_;
   std::vector<MatrixRow> rows_;
   // `rows_` is an exact conditioned basis for `trail_` only after a complete

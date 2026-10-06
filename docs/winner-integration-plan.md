@@ -170,6 +170,17 @@ calls and useful events are explicit feedback fields. Static X9 rows remain a
 bounded cache and causal control. Target recovery, adaptive matrix partitioning
 and incremental maintenance remain evidence-driven follow-ups rather than
 preconditions hidden inside the rule.
+The [mixed-formula support census](../benchmarks/reports/2026-10-06-affine-mixed-support-census/README.md)
+separates recognition capacity from useful matrix scheduling. Raising only the
+group cap admits ranks 540 and 557, but each recovered matrix is a single
+binary XOR and produces no event. Together with rank 896, the old service
+captured 82--86 million unrelated trail assignments per 15-second probe. The
+shared service now captures only the exact admitted-row support and treats an
+unchanged support assignment as a zero-reduction no-event; actual publication
+still revalidates the complete Boolean trail. Next require component-level
+useful yield before scheduling, then add touched-row wakeups for larger
+matrices.
+
 An opaque native-XOR propagation or an XOR-aware FRAT-only certificate does
 not satisfy N2.  Compare each adopted mechanism by useful propagation,
 conflict, installed consequence and later search consumption per charged work.
