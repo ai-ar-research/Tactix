@@ -1,0 +1,549 @@
+{
+  "result": {
+    "batch": 1,
+    "exit_code": 124,
+    "model_check": "not_applicable_no_SAT",
+    "proof_check": "not_attempted_no_UNSAT",
+    "input_cnf_sha256": "00f51d5059170d838edca17715419c9ff937ae5f22c4c575508d3fd99b4bc7ca"
+  },
+  "feedback_complete": false,
+  "feedback_scope": "startup prefix through first ResumeSearch only; full compressed feedback retained",
+  "feedback_errors": [],
+  "producer": {
+    "DirectCspSupport": {
+      "calls": 1,
+      "total_work": 4476027,
+      "candidates": 29,
+      "offers": 8
+    }
+  },
+  "controller_rules": {
+    "DirectCspSupport": {
+      "requests": 7,
+      "applications": 7,
+      "effective": 7
+    },
+    "Propagate": {
+      "requests": 7,
+      "applications": 7,
+      "effective": 0
+    },
+    "SemanticVariableAdvice": {
+      "requests": 7,
+      "applications": 7,
+      "effective": 7
+    }
+  },
+  "action_identities": [
+    "DirectCspSupport",
+    "Propagate",
+    "SemanticVariableAdvice"
+  ],
+  "actions": [
+    {
+      "type": "action",
+      "version": 2,
+      "sequence": 1,
+      "kind": 0,
+      "identity": "DirectCspSupport",
+      "instance": 18446744073709551615,
+      "request": {
+        "version": 8,
+        "sequence": 1,
+        "type": 0,
+        "expected": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 0
+        },
+        "search": "vmtf/adaptive-glue/saved",
+        "search_components": [
+          0,
+          0,
+          0
+        ],
+        "invocation": "sequence-repeat=once:1 step=0:DirectCspSupport:0:once:1:0:3:post(0):rulework(2,10000000):material(0,0):direct-csp-support1(100000,1000000,10000000,64,64,65,10000000,100000,1000000,10000000,1,2147483647,100000,100000000,1):instances[]:grids[]:sr[]:direct-csp-support[21,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,21,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,4]",
+        "producer_effort": [
+          {
+            "family": "DirectCspSupport",
+            "status": 6,
+            "complete": false,
+            "preparation_work": 0,
+            "enumeration_work": 4476027,
+            "total_work": 4476027,
+            "candidates": 29,
+            "offers": 8
+          }
+        ]
+      },
+      "allowance": {
+        "unit": 0,
+        "amount": 3,
+        "native_mode": 2,
+        "native_amount": 10000000
+      },
+      "before_delta": {
+        "set": {}
+      },
+      "after_delta": {
+        "set": {
+          "state": {
+            "arena": 1,
+            "touch": 118860,
+            "strategy": 1
+          },
+          "sequence": 1,
+          "last_action": {
+            "sequence": 1,
+            "type": 0,
+            "before": {
+              "arena": 1,
+              "touch": 118860,
+              "strategy": 0
+            },
+            "after": {
+              "arena": 1,
+              "touch": 118860,
+              "strategy": 1
+            },
+            "propagation_ticks": 0,
+            "root_assignments": 0,
+            "outcome": {
+              "status": 0,
+              "result": 0,
+              "budget_status": 0,
+              "unit": 0,
+              "work": 1,
+              "applications": 1,
+              "step": 1,
+              "instance": 0,
+              "progress": true,
+              "discovery_progress": 0,
+              "discovery_entry_required": false,
+              "discovery_exhausted": false,
+              "selection_complete": true,
+              "revision": 1,
+              "before": {
+                "arena": 1,
+                "touch": 118860,
+                "strategy": 0
+              },
+              "after": {
+                "arena": 1,
+                "touch": 118860,
+                "strategy": 1
+              },
+              "composition_overshoot": 0,
+              "resumed_search": false
+            }
+          },
+          "semantic_variable_candidates": [
+            {
+              "id": 260,
+              "action_id": 1,
+              "arena_generation": 1,
+              "touch_epoch": 118860,
+              "strategy_epoch": 1,
+              "producer": 4,
+              "existing_variables": 19,
+              "introduced_variables": 0
+            }
+          ]
+        },
+        "native": {
+          "semantic_variable_candidates_published": 1,
+          "semantic_variable_candidate_existing": 19,
+          "direct_csp_support_attempts": 1,
+          "direct_csp_support_applied": 1,
+          "direct_csp_support_source_clauses": 523,
+          "direct_csp_support_source_literals": 1084,
+          "direct_csp_support_owner_capture_work": 297226,
+          "direct_csp_support_recognition_work": 298915,
+          "direct_csp_support_source_scan_work": 1607,
+          "direct_csp_support_planning_work": 3676,
+          "direct_csp_support_revalidation_work": 293632,
+          "direct_csp_support_proof_work": 24,
+          "direct_csp_support_planned_additions": 1,
+          "direct_csp_support_emitted_additions": 1,
+          "direct_csp_support_proof_literal_occurrences": 19,
+          "direct_csp_support_journal_work": 55235,
+          "direct_csp_support_journal_bytes": 55235,
+          "direct_csp_support_session_work": 6032,
+          "direct_csp_support_session_commits": 1,
+          "direct_csp_support_owner_commits": 1,
+          "direct_csp_support_candidate_variables": 19
+        },
+        "native_arrays": {
+          "rule_calls": [
+            [
+              35,
+              1
+            ]
+          ]
+        }
+      },
+      "outcome": {
+        "status": 0,
+        "result": 0,
+        "budget_status": 0,
+        "unit": 0,
+        "work": 1,
+        "applications": 1,
+        "step": 1,
+        "instance": 0,
+        "progress": true,
+        "discovery_progress": 0,
+        "discovery_entry_required": false,
+        "discovery_exhausted": false,
+        "selection_complete": true,
+        "revision": 1,
+        "before": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 0
+        },
+        "after": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 1
+        },
+        "composition_overshoot": 0,
+        "resumed_search": false
+      },
+      "stop": 0
+    },
+    {
+      "type": "action",
+      "version": 2,
+      "sequence": 2,
+      "kind": 0,
+      "identity": "Propagate",
+      "instance": 18446744073709551615,
+      "request": {
+        "version": 8,
+        "sequence": 2,
+        "type": 0,
+        "expected": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 1
+        },
+        "search": "vmtf/adaptive-glue/saved",
+        "search_components": [
+          0,
+          0,
+          0
+        ],
+        "invocation": "sequence-repeat=once:1 step=0:Propagate:3:once:1:2:1:post(1):rulework(2,1):material(0,0):inherit:instances[]:grids[]:sr[]"
+      },
+      "allowance": {
+        "unit": 2,
+        "amount": 1,
+        "native_mode": 2,
+        "native_amount": 1
+      },
+      "before_delta": {
+        "set": {}
+      },
+      "after_delta": {
+        "set": {
+          "sequence": 2,
+          "last_action": {
+            "sequence": 2,
+            "type": 0,
+            "before": {
+              "arena": 1,
+              "touch": 118860,
+              "strategy": 1
+            },
+            "after": {
+              "arena": 1,
+              "touch": 118860,
+              "strategy": 1
+            },
+            "propagation_ticks": 0,
+            "root_assignments": 0,
+            "outcome": {
+              "status": 2,
+              "result": 1,
+              "budget_status": 0,
+              "unit": 2,
+              "work": 0,
+              "applications": 1,
+              "step": 2,
+              "instance": 18446744073709551615,
+              "progress": false,
+              "discovery_progress": 0,
+              "discovery_entry_required": false,
+              "discovery_exhausted": false,
+              "selection_complete": true,
+              "revision": 2,
+              "before": {
+                "arena": 1,
+                "touch": 118860,
+                "strategy": 1
+              },
+              "after": {
+                "arena": 1,
+                "touch": 118860,
+                "strategy": 1
+              },
+              "composition_overshoot": 0,
+              "resumed_search": false
+            }
+          }
+        }
+      },
+      "outcome": {
+        "status": 2,
+        "result": 1,
+        "budget_status": 0,
+        "unit": 2,
+        "work": 0,
+        "applications": 1,
+        "step": 2,
+        "instance": 18446744073709551615,
+        "progress": false,
+        "discovery_progress": 0,
+        "discovery_entry_required": false,
+        "discovery_exhausted": false,
+        "selection_complete": true,
+        "revision": 2,
+        "before": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 1
+        },
+        "after": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 1
+        },
+        "composition_overshoot": 0,
+        "resumed_search": false
+      },
+      "stop": 2
+    },
+    {
+      "type": "action",
+      "version": 2,
+      "sequence": 3,
+      "kind": 0,
+      "identity": "SemanticVariableAdvice",
+      "instance": 18446744073709551615,
+      "request": {
+        "version": 8,
+        "sequence": 3,
+        "type": 0,
+        "expected": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 1
+        },
+        "search": "vmtf/adaptive-glue/saved",
+        "search_components": [
+          0,
+          0,
+          0
+        ],
+        "invocation": "sequence-repeat=once:1 step=0:SemanticVariableAdvice:3:once:1:0:1:post(0):rulework(2,1):material(0,0):semantic-variable-advice1(64,4096,2,7):instances[]:grids[]:sr[]"
+      },
+      "allowance": {
+        "unit": 0,
+        "amount": 1,
+        "native_mode": 2,
+        "native_amount": 1
+      },
+      "before_delta": {
+        "set": {}
+      },
+      "after_delta": {
+        "set": {
+          "state": {
+            "arena": 1,
+            "touch": 118860,
+            "strategy": 2
+          },
+          "sequence": 3,
+          "last_action": {
+            "sequence": 3,
+            "type": 0,
+            "before": {
+              "arena": 1,
+              "touch": 118860,
+              "strategy": 1
+            },
+            "after": {
+              "arena": 1,
+              "touch": 118860,
+              "strategy": 2
+            },
+            "propagation_ticks": 0,
+            "root_assignments": 0,
+            "outcome": {
+              "status": 0,
+              "result": 0,
+              "budget_status": 1,
+              "unit": 0,
+              "work": 1,
+              "applications": 1,
+              "step": 3,
+              "instance": 18446744073709551615,
+              "progress": true,
+              "discovery_progress": 0,
+              "discovery_entry_required": false,
+              "discovery_exhausted": false,
+              "selection_complete": true,
+              "revision": 3,
+              "before": {
+                "arena": 1,
+                "touch": 118860,
+                "strategy": 1
+              },
+              "after": {
+                "arena": 1,
+                "touch": 118860,
+                "strategy": 2
+              },
+              "composition_overshoot": 0,
+              "resumed_search": false
+            }
+          }
+        },
+        "native": {
+          "semantic_variable_advice_attempts": 1,
+          "semantic_variable_advice_applied": 1,
+          "semantic_variable_advice_variables": 19,
+          "semantic_variable_advice_priority": 38
+        },
+        "native_arrays": {
+          "rule_calls": [
+            [
+              33,
+              1
+            ]
+          ]
+        },
+        "clear": [
+          "semantic_variable_candidates"
+        ]
+      },
+      "outcome": {
+        "status": 0,
+        "result": 0,
+        "budget_status": 1,
+        "unit": 0,
+        "work": 1,
+        "applications": 1,
+        "step": 3,
+        "instance": 18446744073709551615,
+        "progress": true,
+        "discovery_progress": 0,
+        "discovery_entry_required": false,
+        "discovery_exhausted": false,
+        "selection_complete": true,
+        "revision": 3,
+        "before": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 1
+        },
+        "after": {
+          "arena": 1,
+          "touch": 118860,
+          "strategy": 2
+        },
+        "composition_overshoot": 0,
+        "resumed_search": false
+      },
+      "stop": 0
+    }
+  ],
+  "search_counters": {
+    "decisions": 264912,
+    "conflicts": 178304,
+    "propagations": 16536568
+  },
+  "proof_bytes": 7489772,
+  "publication_records": [
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 1,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 61410
+    },
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 2,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 63466
+    },
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 3,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 71928
+    },
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 4,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 71929
+    },
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 5,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 71930
+    },
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 6,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 71931
+    },
+    {
+      "kind": "direct-csp-support-complete",
+      "action": 7,
+      "additions": 1,
+      "proof_work": 24,
+      "projection": "original-variables-only",
+      "extension_variable": 0,
+      "definition_inputs": [],
+      "reconstruction_witness_required": false,
+      "published_clause_id": 75094
+    }
+  ],
+  "unique_support_action_payloads": 1,
+  "model_check": "not_applicable_no_SAT"
+}
