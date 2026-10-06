@@ -223,6 +223,23 @@ bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
          first.reason == second.reason;
 }
 
+bool valid_extension(const std::vector<MatrixAssignment> &prefix,
+                     const std::vector<MatrixAssignment> &trail) {
+  if (trail.size() < prefix.size() ||
+      !std::equal(prefix.begin(), prefix.end(), trail.begin()))
+    return false;
+  std::set<External> variables;
+  for (const MatrixAssignment assignment : prefix)
+    variables.insert(assignment.variable);
+  for (size_t i = prefix.size(); i < trail.size(); ++i) {
+    const MatrixAssignment assignment = trail[i];
+    if (assignment.variable <= 0 || assignment.variable == INT32_MIN)
+      return false;
+    if (!variables.insert(assignment.variable).second) return false;
+  }
+  return true;
+}
+
 } // namespace
 
 MatrixStatus build_affine_matrix(
@@ -266,6 +283,7 @@ MatrixStatus build_affine_matrix(
   candidate.admitted_rows_ = rows;
   candidate.admitted_sources_ = source_union(rows);
   candidate.rows_ = std::move(rows);
+  candidate.incremental_ready_ = true;
   output = std::move(candidate);
   return status;
 }
@@ -279,7 +297,22 @@ MatrixStatus AffineMatrix::synchronize(
 
   Work work{0, limits_.maximum_work, charge};
   std::vector<MatrixRow> rows;
-  const MatrixStatus status = reduce(admitted_rows_, trail, limits_, work, rows);
+  MatrixSynchronizationKind kind = MatrixSynchronizationKind::Extension;
+  if (!incremental_ready_)
+    kind = MatrixSynchronizationKind::PriorPartial;
+  else if (trail.size() < trail_.size())
+    kind = MatrixSynchronizationKind::Backtrack;
+  else if (!valid_extension(trail_, trail))
+    kind = MatrixSynchronizationKind::Reassignment;
+  const bool incremental = kind == MatrixSynchronizationKind::Extension;
+  const std::vector<MatrixRow> &input = incremental ? rows_ : admitted_rows_;
+  std::vector<MatrixAssignment> assignments;
+  if (incremental)
+    assignments.assign(trail.begin() + trail_.size(), trail.end());
+  else
+    assignments = trail;
+  const MatrixStatus status =
+      reduce(input, assignments, limits_, work, rows);
   if (status != MatrixStatus::Complete && status != MatrixStatus::Partial)
     return status;
   if (rows.empty() && status == MatrixStatus::Partial)
@@ -289,6 +322,12 @@ MatrixStatus AffineMatrix::synchronize(
   make_reason(sources_, trail, candidate);
   trail_ = trail;
   rows_ = std::move(rows);
+  incremental_ready_ = status == MatrixStatus::Complete;
+  last_synchronization_incremental_ = incremental;
+  last_synchronization_prefix_ = incremental ? trail_.size() - assignments.size()
+                                               : 0;
+  last_synchronization_conditioned_ = assignments.size();
+  last_synchronization_kind_ = kind;
   if (work.used > std::numeric_limits<uint64_t>::max() - work_)
     work_ = std::numeric_limits<uint64_t>::max();
   else

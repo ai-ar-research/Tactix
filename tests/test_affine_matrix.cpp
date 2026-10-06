@@ -223,6 +223,203 @@ static void transactional_limits_and_validation() {
   assert(sentinel.trail().empty());
 }
 
+static uint64_t synchronize_work(AffineMatrix &matrix,
+                                 const std::vector<MatrixAssignment> &trail,
+                                 MatrixStatus &status, MatrixEvent &event) {
+  uint64_t work = 0;
+  status = matrix.synchronize(
+      trail,
+      [&](uint64_t amount) {
+        work += amount;
+        return true;
+      },
+      event);
+  return work;
+}
+
+static bool rows_satisfied(const std::vector<MatrixRow> &rows,
+                           uint64_t values) {
+  for (const MatrixRow &row : rows)
+    if (parity(row.variables, values) != row.rhs) return false;
+  return true;
+}
+
+static void incremental_extension_matches_snapshot_reducer() {
+  // Compare every incremental prefix against a fresh full-snapshot reduction.
+  // This covers basis collisions after assigned pivots disappear, not merely
+  // rows that can be conditioned independently.
+  for (uint32_t first_mask = 1; first_mask < 16; ++first_mask)
+    for (uint32_t second_mask = 1; second_mask < 16; ++second_mask)
+      for (uint32_t right = 0; right < 4; ++right)
+        for (uint32_t values = 0; values < 16; ++values) {
+          std::vector<Equation> input(2);
+          for (External variable = 1; variable <= 4; ++variable) {
+            if (first_mask & (1u << (variable - 1)))
+              input[0].variables.push_back(variable);
+            if (second_mask & (1u << (variable - 1)))
+              input[1].variables.push_back(variable);
+          }
+          input[0].rhs = right & 1;
+          input[1].rhs = right & 2;
+          AffineMatrix pristine;
+          assert(build_affine_matrix(input, 73, limits(),
+                                     [](uint64_t) { return true; }, pristine) ==
+                 MatrixStatus::Complete);
+          AffineMatrix incremental = pristine;
+          std::vector<MatrixAssignment> trail;
+          for (External variable = 1; variable <= 4; ++variable) {
+            trail.push_back(
+                {variable, bool(values & (1u << (variable - 1)))});
+            MatrixStatus incremental_status, snapshot_status;
+            MatrixEvent incremental_event, snapshot_event;
+            (void)synchronize_work(incremental, trail, incremental_status,
+                                   incremental_event);
+            AffineMatrix snapshot = pristine;
+            (void)synchronize_work(snapshot, trail, snapshot_status,
+                                   snapshot_event);
+            assert(incremental_status == snapshot_status &&
+                   incremental_event.kind == snapshot_event.kind);
+            for (uint64_t completion = 0; completion < 16; ++completion)
+              assert(rows_satisfied(incremental.rows(), completion) ==
+                     rows_satisfied(snapshot.rows(), completion));
+            if (incremental_event.kind != MatrixEventKind::None) {
+              check_reason(input, incremental_event);
+              check_reason(input, snapshot_event);
+            }
+            assert(incremental.last_synchronization_incremental() &&
+                   incremental.last_synchronization_prefix() ==
+                       size_t(variable - 1));
+          }
+        }
+}
+
+static void incremental_multiple_events_backtrack_and_interruption() {
+  const std::vector<Equation> input = {
+      equation({1, 3}, false), equation({2, 4}, false)};
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 74, limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+
+  MatrixEvent event;
+  assert(matrix.synchronize({{1, false}, {2, false}},
+                            [](uint64_t) { return true; }, event) ==
+             MatrixStatus::Complete &&
+         event.kind == MatrixEventKind::Implication &&
+         event.implied_variable == 3 && !event.implied_value);
+  assert(matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_prefix() == 0);
+
+  assert(matrix.synchronize({{1, false}, {2, false}, {3, false}},
+                            [](uint64_t) { return true; }, event) ==
+             MatrixStatus::Complete &&
+         event.kind == MatrixEventKind::Implication &&
+         event.implied_variable == 4 && !event.implied_value);
+  assert(matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_prefix() == 2);
+
+  const auto retained_trail = matrix.trail();
+  const auto retained_rows = matrix.rows();
+  const uint64_t retained_work = matrix.work();
+  MatrixEvent sentinel;
+  sentinel.implied_variable = 99;
+  assert(matrix.synchronize(
+             {{1, false}, {2, false}, {3, false}, {4, true}},
+             [](uint64_t) { return false; }, sentinel) ==
+         MatrixStatus::Interrupted);
+  assert(matrix.trail() == retained_trail && matrix.rows() == retained_rows &&
+         matrix.work() == retained_work && sentinel.implied_variable == 99 &&
+         matrix.last_synchronization_kind() ==
+             MatrixSynchronizationKind::Extension);
+
+  assert(matrix.synchronize(
+             {{1, false}, {2, false}, {3, false}, {4, true}},
+             [](uint64_t) { return true; }, event) == MatrixStatus::Complete &&
+         event.kind == MatrixEventKind::Conflict);
+  assert(matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_prefix() == 3);
+
+  // A shorter, differently valued snapshot is a real backtrack/reassignment.
+  assert(matrix.synchronize({{1, true}}, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(!matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_prefix() == 0 &&
+         matrix.last_synchronization_kind() ==
+             MatrixSynchronizationKind::Backtrack &&
+         event.kind == MatrixEventKind::Implication &&
+         event.implied_variable == 3 && event.implied_value);
+
+  // Same-length changed assignments are classified independently from a
+  // shorter trail, even though both safely rebuild the immutable basis.
+  assert(matrix.synchronize({{1, false}}, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(!matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_kind() ==
+             MatrixSynchronizationKind::Reassignment);
+}
+
+static void partial_synchronization_forces_next_rebuild() {
+  const std::vector<Equation> input = {
+      equation({1}, false), equation({3}, false), equation({2, 3}, false)};
+  auto bounded = limits();
+  bounded.maximum_row_width = 2;
+  bounded.maximum_sources = 1;
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 76, bounded,
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  MatrixEvent event;
+  assert(matrix.synchronize({{2, false}}, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Partial);
+  assert(matrix.last_synchronization_kind() ==
+             MatrixSynchronizationKind::Extension &&
+         matrix.last_synchronization_conditioned() == 1);
+  assert(matrix.synchronize({{2, false}}, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Partial);
+  assert(!matrix.last_synchronization_incremental() &&
+         matrix.last_synchronization_kind() ==
+             MatrixSynchronizationKind::PriorPartial &&
+         matrix.last_synchronization_conditioned() == 1);
+}
+
+static void retained_rows_reduce_extension_work() {
+  std::vector<Equation> input;
+  for (External row = 0; row < 16; ++row) {
+    Equation item;
+    for (External column = 0; column < 8; ++column)
+      item.variables.push_back(1 + row * 8 + column);
+    item.rhs = row & 1;
+    input.push_back(std::move(item));
+  }
+  auto wide = limits();
+  wide.maximum_rows = 256;
+  wide.maximum_variables = 256;
+  wide.maximum_row_width = 256;
+  wide.maximum_sources = 256;
+  wide.maximum_assignments = 256;
+  AffineMatrix pristine;
+  assert(build_affine_matrix(input, 75, wide,
+                             [](uint64_t) { return true; }, pristine) ==
+         MatrixStatus::Complete);
+  AffineMatrix incremental = pristine;
+  std::vector<MatrixAssignment> trail;
+  uint64_t incremental_total = 0, snapshot_total = 0;
+  for (External column = 0; column < 6; ++column) {
+    for (External row = 0; row < 16; ++row)
+      trail.push_back({1 + row * 8 + column, bool((row + column) & 1)});
+    MatrixStatus status;
+    MatrixEvent event;
+    incremental_total +=
+        synchronize_work(incremental, trail, status, event);
+    assert(status == MatrixStatus::Complete);
+    AffineMatrix snapshot = pristine;
+    snapshot_total += synchronize_work(snapshot, trail, status, event);
+    assert(status == MatrixStatus::Complete);
+  }
+  assert(incremental_total < snapshot_total &&
+         incremental.last_synchronization_prefix() == 80);
+}
+
 static bool literal_value(External literal,
                           const std::vector<MatrixAssignment> &trail,
                           bool &assigned) {
@@ -292,6 +489,10 @@ int main() {
   bounded_partial_admission_is_deterministic();
   partial_implication_conflict_and_backtrack();
   transactional_limits_and_validation();
+  incremental_extension_matches_snapshot_reducer();
+  incremental_multiple_events_backtrack_and_interruption();
+  partial_synchronization_forces_next_rebuild();
+  retained_rows_reduce_extension_work();
   exhaustive_small_reason_oracle();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "
             "backtrack, and transactional bounds PASS");

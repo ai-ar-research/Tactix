@@ -165,7 +165,26 @@ void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
 
 void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
   ++kernel.stats.affine_matrix_service_calls;
+  kernel.stats.affine_matrix_service_trail_capture_work +=
+      result.trail_capture_work;
   kernel.stats.affine_matrix_service_sync_work += result.synchronization_work;
+  kernel.stats.affine_matrix_service_extension_hits +=
+      result.synchronized && result.synchronization_incremental;
+  kernel.stats.affine_matrix_service_rebuilds +=
+      result.synchronized && !result.synchronization_incremental;
+  kernel.stats.affine_matrix_service_rebuild_backtrack +=
+      result.synchronized && result.synchronization_kind ==
+                                 MatrixSynchronizationKind::Backtrack;
+  kernel.stats.affine_matrix_service_rebuild_reassignment +=
+      result.synchronized && result.synchronization_kind ==
+                                 MatrixSynchronizationKind::Reassignment;
+  kernel.stats.affine_matrix_service_rebuild_partial +=
+      result.synchronized && result.synchronization_kind ==
+                                 MatrixSynchronizationKind::PriorPartial;
+  kernel.stats.affine_matrix_service_retained_assignments +=
+      result.synchronization_prefix;
+  kernel.stats.affine_matrix_service_conditioned_assignments +=
+      result.synchronization_conditioned;
   kernel.stats.affine_matrix_service_session_work += result.session_work;
   kernel.stats.affine_matrix_service_planner_work += result.live.planner_work;
   kernel.stats.affine_matrix_service_revalidation_work +=
@@ -433,7 +452,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
   std::vector<MatrixAssignment> trail;
   const TrailStatus trail_status = exact_trail(
       kernel, session.parameters_.basis_maximum_work,
-      result.synchronization_work, trail);
+      result.trail_capture_work, trail);
   if (trail_status != TrailStatus::Complete) {
     result.status = trail_status == TrailStatus::Interrupted
                         ? AffineMatrixServiceStatus::Interrupted
@@ -467,6 +486,14 @@ AffineMatrixServiceResult affine_matrix_search_step(
     record_service(kernel, result);
     return result;
   }
+  result.synchronized = true;
+  result.synchronization_incremental =
+      session.matrix_.last_synchronization_incremental();
+  result.synchronization_prefix =
+      session.matrix_.last_synchronization_prefix();
+  result.synchronization_conditioned =
+      session.matrix_.last_synchronization_conditioned();
+  result.synchronization_kind = session.matrix_.last_synchronization_kind();
   if (event.kind == MatrixEventKind::None) {
     result.status = AffineMatrixServiceStatus::NoEvent;
     record_service(kernel, result);

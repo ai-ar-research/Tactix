@@ -54,6 +54,13 @@ struct AffineMatrixServiceResult {
   ApplyResult result = ApplyResult::NoOp;
   std::string event_identity;
   uint64_t synchronization_work = 0;
+  uint64_t trail_capture_work = 0;
+  bool synchronized = false;
+  bool synchronization_incremental = false;
+  uint64_t synchronization_prefix = 0;
+  uint64_t synchronization_conditioned = 0;
+  affine_semantic_extension::MatrixSynchronizationKind synchronization_kind =
+      affine_semantic_extension::MatrixSynchronizationKind::Extension;
   uint64_t session_work = 0;
   uint64_t reason_width = 0;
   affine_semantic_extension::MatrixLiveResult live;

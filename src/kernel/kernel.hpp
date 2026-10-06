@@ -988,7 +988,15 @@ struct Stats {
   uint64_t affine_matrix_service_exhausted = 0;
   uint64_t affine_matrix_service_interrupted = 0;
   uint64_t affine_matrix_service_stale = 0;
+  uint64_t affine_matrix_service_trail_capture_work = 0;
   uint64_t affine_matrix_service_sync_work = 0;
+  uint64_t affine_matrix_service_extension_hits = 0;
+  uint64_t affine_matrix_service_rebuilds = 0;
+  uint64_t affine_matrix_service_rebuild_backtrack = 0;
+  uint64_t affine_matrix_service_rebuild_reassignment = 0;
+  uint64_t affine_matrix_service_rebuild_partial = 0;
+  uint64_t affine_matrix_service_retained_assignments = 0;
+  uint64_t affine_matrix_service_conditioned_assignments = 0;
   uint64_t affine_matrix_service_session_work = 0;
   uint64_t affine_matrix_service_planner_work = 0;
   uint64_t affine_matrix_service_revalidation_work = 0;
