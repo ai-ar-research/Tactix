@@ -421,6 +421,19 @@ int proof_fixture(const char *cnf_path, const char *proof_path,
          first_service.live.helper_extent);
   assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 1 &&
          kernel.stats.affine_matrix_service_proof_cache_hits == 0);
+  const std::string journal_after_insert = journal_contents(journal);
+  const size_t insert_record_at =
+      journal_after_insert.rfind("{\"kind\":\"affine-matrix-reason\"");
+  assert(insert_record_at != std::string::npos);
+  const std::string insert_record =
+      journal_after_insert.substr(insert_record_at);
+  assert(insert_record.find("\"sources\":[") != std::string::npos &&
+         insert_record.find("\"occurrence\":") != std::string::npos &&
+         insert_record.find("\"clause_id\":") != std::string::npos &&
+         insert_record.find("\"proof_cache\":{\"status\":\"insert\","
+                            "\"entry_id\":1") != std::string::npos &&
+         insert_record.find("\"support_ids\":[") != std::string::npos &&
+         insert_record.find("\"sources_ref\":") == std::string::npos);
 
   assert(controller.full_restart() == ApplyResult::Ok);
   assert(controller.resume_search(resume_request(controller, kernel))
@@ -443,6 +456,19 @@ int proof_fixture(const char *cnf_path, const char *proof_path,
          kernel.external_to_internal.size() == cached_extent);
   assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 1 &&
          kernel.stats.affine_matrix_service_proof_cache_hits == 1);
+  const std::string journal_after_hit = journal_contents(journal);
+  assert(journal_after_hit.size() > journal_after_insert.size());
+  const std::string hit_record =
+      journal_after_hit.substr(journal_after_insert.size());
+  assert(hit_record.find("\"reason\":[") != std::string::npos &&
+         hit_record.find("\"sources_ref\":{\"cache_entry\":1,"
+                         "\"proof_epoch\":0}") != std::string::npos &&
+         hit_record.find("\"proof_cache\":{\"status\":\"hit\","
+                         "\"entry_id\":1") != std::string::npos &&
+         hit_record.find("\"sources\":[") == std::string::npos &&
+         hit_record.find("\"source_ordinals\":") == std::string::npos &&
+         hit_record.find("\"support_ids\":") == std::string::npos &&
+         hit_record.size() < insert_record.size());
   const size_t first_reason = first_service.event_identity.find(";r=");
   const size_t second_reason = second_service.event_identity.find(";r=");
   assert(first_reason != std::string::npos &&
@@ -482,6 +508,15 @@ int proof_fixture(const char *cnf_path, const char *proof_path,
            after_x7.live.helper_extent);
     assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 2 &&
            kernel.stats.affine_matrix_service_proof_cache_hits == 1);
+    const std::string journal_after_x7 = journal_contents(journal);
+    assert(journal_after_x7.size() > journal_after_hit.size());
+    const std::string epoch_insert =
+        journal_after_x7.substr(journal_after_hit.size());
+    assert(epoch_insert.find("\"sources\":[") != std::string::npos &&
+           epoch_insert.find("\"proof_cache\":{\"status\":\"insert\","
+                             "\"entry_id\":2,\"generation\":1,"
+                             "\"proof_epoch\":1") != std::string::npos &&
+           epoch_insert.find("\"sources_ref\":") == std::string::npos);
   } else {
     const size_t retained = proof.persistent_external_clauses();
     assert(!proof.add_sr(++kernel.next_clause_id, witnessed_reason.data(),

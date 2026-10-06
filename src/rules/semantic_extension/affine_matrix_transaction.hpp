@@ -42,6 +42,9 @@ struct MatrixProofEvent {
 };
 
 struct MatrixProofCacheEntry {
+  // Monotone within the owning search session.  Structural provenance uses
+  // this durable identity after recording the full authenticated entry once.
+  uint64_t entry_id = 0;
   uint64_t owner_identity = 0;
   uint64_t proof_epoch = 0;
   uint32_t external_extent = 0;
@@ -53,9 +56,11 @@ struct MatrixProofCacheEntry {
 // Proof-only RAT definitions and their derived root unit may remain in a
 // DSR/DRAT checker population across service calls.  Entries are owned by one
 // affine search session, whose existing proof/owner checks delimit their
-// lifetime.  DSR retires them at the next witnessed add_sr boundary; DRAT has
-// no witnessed boundary and retains them to proof end.  The variables are
-// namespace-only holes and never become branchable kernel variables.
+// lifetime.  Entry IDs are never reused when an epoch retires DSR support, so
+// journal references remain unambiguous.  DSR retires support at the next
+// witnessed add_sr boundary; DRAT has no witnessed boundary and retains them
+// to proof end.  The variables are namespace-only holes and never become
+// branchable kernel variables.
 class AffineMatrixProofCache {
 public:
   uint64_t generation() const { return generation_; }
