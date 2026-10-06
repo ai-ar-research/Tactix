@@ -131,11 +131,14 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
-Crash recovery resumed the uncommitted affine root-unit/empty-clause and
-invalidated-session repair. Fresh focused Debug and ASan/UBSan gates pass
-6/6 each, including every-lemma DSR checks; [the recovery checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) owns details and the user-requested old-build cleanup.
-The repaired candidate still requires Claude-owned both-policy fuzz and full
-Debug/regression acceptance; saved pre-repair gates do not qualify it.
+Crash recovery committed the affine publication/session repair at `95b0fad13`;
+its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
+Claude owns its fresh fuzz campaign; [the preceding owner report](benchmarks/runs/20261006-r263-default-affine-fuzz-owner/FINAL_REPORT.md) rejected root-unit, empty-conflict and invalidated-session handling.
+Parallel increments add a [bounded GF(2) predecessor](benchmarks/reports/2026-10-06-affine-predecessor-microgate.md) and X20 decline/retry feedback (`2ddfcbedf`); cumulative Debug and ASan/UBSan with leak detection and proof shadow each pass 10/10, including independent proofs and restore/rebuild telemetry.
+The [WV93 short probe](benchmarks/reports/2026-10-06-directcsp-repeated-native/README.md) reaches one/four support publications but yields no root deduction or solve; no longer target is justified.
+The final coherent pin still needs effective both-policy fuzz, full Debug,
+B28+C5, Rank1--50, WV100 and WV2--89 acceptance. Follow plan §8.1
+for the standing 700-GB storage check and aggressive cleanup gate.
 
 Rank263 is now a checked DefaultPolicy recovery at the measured root boundary.
 The next GF(2) work must test generality rather than repeat this target: run full
@@ -156,8 +159,9 @@ Two disjoint certified SAT lanes proceed in parallel. DirectCSP already has its
 source-derived stock profile, metered native enumeration and repeated
 learner-visible `DirectCspSupport -> Propagate -> SemanticVariableAdvice`
 scheduling with replay, raw feedback, relevant-change admission and duplicate
-suppression at `066c11f2a`; next measure one row versus a small repeated-action
-WV93 batch with independently checked model and causal yield counters. Rank401/noL already reaches
+suppression at `066c11f2a`. The one/four-row WV93 short probe confirms repeated
+publication but no root deduction; next obtain useful Boolean deduction or an
+isolated independently checked search benefit before extending target runtime. Rank401/noL already reaches
 three effective X17 actions after certified ULC completion; its next increment
 is a stronger generic relation consequence or conservative definition with exact
 premises, DSR/RAT derivation, mapping/reconstruction and bounded repeated

@@ -1,0 +1,9 @@
+Test project /home/hwu/SAT-solving/build/resume-affine-repair-debug
+    Start  87: affine_matrix_search_proof
+1/2 Test  #87: affine_matrix_search_proof .......   Passed    0.90 sec
+    Start 132: affine_matrix_search
+2/2 Test #132: affine_matrix_search .............   Passed    0.03 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =   0.94 sec
