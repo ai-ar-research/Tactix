@@ -251,8 +251,9 @@ def main():
         changed[native_action]["native_request"]["affine_matrix"]["bcp_pending"] = 1
         rejected(encode(changed), "affine matrix bcp pending")
         changed = json.loads(json.dumps(version2))
-        changed[native_action]["native_request"]["affine_matrix"]["synchronization_work"] += 1
-        rejected(encode(changed), "affine matrix synchronization work mismatch")
+        changed[native_action]["native_request"]["affine_matrix"]["synchronization_work"] = \
+            changed[native_action]["native_request"]["work"] + 1
+        rejected(encode(changed), "affine matrix synchronization work exceeds native work")
         changed = json.loads(json.dumps(version2))
         changed[native_action]["native_request"]["version"] = 3
         rejected(encode(changed), "unsupported native request version")

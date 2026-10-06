@@ -142,8 +142,11 @@ def native_request(value):
             integer(event[key], "affine matrix " + key)
         require(type(event["bcp_pending"]) is bool,
                 "invalid affine matrix bcp pending")
-        require(value["work"] == event["synchronization_work"],
-                "affine matrix synchronization work mismatch")
+        # The outer native work is the complete policy-service charge.  It
+        # includes trail capture, session/proof planning and revalidation in
+        # addition to the matrix reducer's own synchronization charge.
+        require(event["synchronization_work"] <= value["work"],
+                "affine matrix synchronization work exceeds native work")
 
 
 def observation(value, validate_native=True):
