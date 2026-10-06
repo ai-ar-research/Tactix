@@ -374,6 +374,14 @@ REACH_SPECS = [
     # One attempt means an exact nested domain/residual/prefix payload crossed
     # the shared executor. Applied alone would hide sound declines.
     ("NaryCspPrefix", r"^c nary-csp\s+(\d+) attempts,"),
+    # These typed actions increment their attempt counters only after the
+    # shared executor crosses the exact public-action boundary.
+    ("NaryCspEquality", r"^c nary-eq\s+(\d+) attempts,"),
+    ("NaryCspEqualityAmo", r"^c nary-eq-amo\s+(\d+) attempts,"),
+    ("Gf3GeneralRowConsequence", r"^c gf3-row\s+(\d+) attempts,"),
+    # Initialization owns a distinct policy action and advances this counter
+    # before bounded affine discovery, including sound admission declines.
+    ("AffineMatrixInitialize", r"^c affine-matrix-init\s+(\d+) attempts,"),
     # Explicit X18 execution increments calls before bounded discovery, so this
     # witnesses both productive publication and sound NoOp/resource declines.
     ("GraphIntervalEquivalence", r"^c graphinterv\s+(\d+) calls,"),

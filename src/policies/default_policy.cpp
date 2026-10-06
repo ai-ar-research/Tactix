@@ -3626,6 +3626,8 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
             std::strcmp(rules[i].name, "Gf3GeneralRowConsequence") &&
             std::strcmp(rules[i].name, "TseitinCycleBreaking") &&
             std::strcmp(rules[i].name, "NaryCspPrefix") &&
+            std::strcmp(rules[i].name, "NaryCspEquality") &&
+            std::strcmp(rules[i].name, "NaryCspEqualityAmo") &&
             std::strcmp(rules[i].name, "GraphIntervalEquivalence") &&
             std::strcmp(rules[i].name, "AffineMatrixInitialize"))
           add_entry(i);

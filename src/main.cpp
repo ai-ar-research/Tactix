@@ -1493,6 +1493,25 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.nary_csp_equality_stale,
            (unsigned long long)kernel.stats.nary_csp_equality_unsupported_proof,
            (unsigned long long)kernel.stats.nary_csp_equality_introduced_variables);
+    printf("c nary-eq-amo %llu attempts, %llu applied, %llu missing-equality, "
+           "%llu stale, %llu duplicate, %llu declined, %llu clauses\n",
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_attempts,
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_applied,
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_missing_equality,
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_stale,
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_duplicate,
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_declined,
+           (unsigned long long)kernel.stats.nary_csp_equality_amo_binary_clauses);
+    printf("c affine-matrix-init %llu attempts, %llu applied, %llu partial, "
+           "%llu incomplete-image, %llu incomplete-matrix, %llu exhausted, "
+           "%llu interrupted\n",
+           (unsigned long long)kernel.stats.affine_matrix_init_attempts,
+           (unsigned long long)kernel.stats.affine_matrix_init_applied,
+           (unsigned long long)kernel.stats.affine_matrix_init_applied_partial,
+           (unsigned long long)kernel.stats.affine_matrix_init_incomplete_image,
+           (unsigned long long)kernel.stats.affine_matrix_init_incomplete_matrix,
+           (unsigned long long)kernel.stats.affine_matrix_init_exhausted,
+           (unsigned long long)kernel.stats.affine_matrix_init_interrupted);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",

@@ -406,7 +406,10 @@ void bounded_offerer_is_complete_paged_pure_and_stale_safe() {
   assert(complete.status == NaryCspPrefixActionOfferStatus::Ready &&
          complete.complete && !complete.have_resume_after &&
          complete.offers == expected &&
-         complete.effort.domain_candidates == 3 &&
+         // Every syntactically valid candidate clause is counted before the
+         // exact-AMO filter; this fixture has 15 such clauses and three exact
+         // domains.
+         complete.effort.domain_candidates == 15 &&
          complete.effort.exact_domains == 3 &&
          complete.effort.indexed_relation_keys == 1 &&
          complete.effort.indexed_tuple_occurrences == 3 &&
@@ -518,7 +521,7 @@ void signed_domains_are_discovered_canonically() {
       {-1, 2, 3}, {4, -5, 6}, {7, 8, -9}};
   assert(offered.status == NaryCspPrefixActionOfferStatus::Ready &&
          offered.complete && offered.offers.size() == 3 &&
-         offered.effort.domain_candidates == 3 &&
+         offered.effort.domain_candidates == 13 &&
          offered.effort.forbidden_tuples == 1);
   for (uint32_t residual = 0; residual < 3; ++residual) {
     NaryCspPrefixActionSelection expected;
