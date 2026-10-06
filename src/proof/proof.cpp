@@ -695,6 +695,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (needs_auxiliary &&
       external_variables >= static_cast<uint32_t>(INT32_MAX))
     return false;
+  flush_persistent_external(id);
   flush_pending_dsr_units();
   if (needs_auxiliary) {
     const Lit auxiliary = make_lit(external_variables, false);
@@ -1026,6 +1027,37 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   const bool result = add_external_rup(id, lits, size);
   population_role_ = saved;
   return result;
+}
+
+bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
+  if (!id || !size || !lits ||
+      external_tautological(lits, size) || lrat() || pb())
+    return false;
+  if (!file_)
+    return true;
+  for (const PersistentExternalClause &clause : persistent_external_)
+    if (clause.id == id)
+      return false;
+  PersistentExternalClause clause;
+  clause.id = id;
+  clause.lits.assign(lits, lits + size);
+  persistent_external_.push_back(std::move(clause));
+  return true;
+}
+
+void Proof::flush_persistent_external(uint64_t line_id) {
+  if (persistent_external_.empty())
+    return;
+  if (!dsr() || persistent_external_epoch_ == UINT64_MAX)
+    std::abort();
+  std::vector<PersistentExternalClause> clauses =
+      std::move(persistent_external_);
+  persistent_external_.clear();
+  for (auto clause = clauses.rbegin(); clause != clauses.rend(); ++clause)
+    if (!del_external(line_id, clause->id, clause->lits.data(),
+                      clause->lits.size()))
+      std::abort();
+  ++persistent_external_epoch_;
 }
 
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,

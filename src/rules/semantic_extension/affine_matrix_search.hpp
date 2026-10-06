@@ -111,6 +111,7 @@ private:
   AffineLiveSnapshot source_owner_;
   affine_semantic_extension::Image image_;
   affine_semantic_extension::AffineMatrix matrix_;
+  affine_semantic_extension::AffineMatrixProofCache proof_cache_;
   std::vector<std::string> published_;
   const Kernel *failed_owner_ = nullptr;
   uint64_t failed_arena_generation_ = 0;

@@ -36,6 +36,7 @@ struct MatrixLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
+  AffineMatrixProofCache *proof_cache = nullptr;
 };
 
 struct MatrixLiveResult {
@@ -57,6 +58,8 @@ struct MatrixLiveResult {
   bool implication = false;
   bool conflict = false;
   bool propagation_pending = false;
+  bool proof_cache_hit = false;
+  bool proof_cache_insert = false;
 };
 
 class AffineMatrixLivePrepared {

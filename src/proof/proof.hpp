@@ -146,6 +146,18 @@ public:
   bool add_external_rat(uint64_t id, const int32_t *lits, uint32_t size);
   bool del_external(uint64_t line_id, uint64_t del_id,
                     const int32_t *lits, uint32_t size);
+  // Keep an already-emitted proof-only clause available for later RUP steps.
+  // The registry is a checker-population boundary.  On DSR routes add_sr
+  // deletes every registered clause before emitting a witnessed line, then
+  // advances the epoch so clients cannot reuse stale support.  DRAT has no
+  // witnessed entry: retained clauses remain legal until the proof ends.
+  bool retain_external(uint64_t id, const int32_t *lits, uint32_t size);
+  uint64_t persistent_external_epoch() const {
+    return persistent_external_epoch_;
+  }
+  size_t persistent_external_clauses() const {
+    return persistent_external_.size();
+  }
 
   void flush(); // signal-safe enough: fflush on the buffered stream
 
@@ -193,6 +205,7 @@ private:
   // prior pair supplies its unit under either assumption on that variable.
   // Deletion bytes are spooled; helpers are retired before a later SR step.
   void flush_pending_dsr_units();
+  void flush_persistent_external(uint64_t line_id);
   CheckerRoute population_route() const noexcept;
   CheckerNaming population_naming() const noexcept;
   void observe_checker(CheckerPopulationEventKind, CheckerClauseRole,
@@ -213,6 +226,12 @@ private:
   std::unordered_set<uint64_t> pending_unit_ids_;
   uint32_t pending_max_external_ = 0;
   uint32_t proof_external_max_ = 0;
+  struct PersistentExternalClause {
+    uint64_t id = 0;
+    std::vector<int32_t> lits;
+  };
+  std::vector<PersistentExternalClause> persistent_external_;
+  uint64_t persistent_external_epoch_ = 0;
   // Binary deletion blocks are usually only a few bytes. Keep them in a
   // bounded buffer and spill exceptional blocks to a temporary file.
   std::vector<unsigned char> pending_deletion_bytes_;
