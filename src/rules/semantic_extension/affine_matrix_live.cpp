@@ -224,39 +224,49 @@ bool make_journal(const MatrixLiveRequest &request,
               "\",\"level\":" + std::to_string(level) +
               ",\"reason\":"))
     return false;
-  if (!list(event.reason) || !append(",\"source_ordinals\":" ) ||
-      !list(transaction.source_equations()) || !append(",\"sources\":["))
-    return false;
-  size_t premise_at = 0;
-  for (size_t source_at = 0;
-       source_at < transaction.source_identity().size(); ++source_at) {
-    const Equation &source = transaction.source_identity()[source_at];
-    if (!append((source_at ? "," : "") +
-                std::string("{\"ordinal\":") +
-                std::to_string(transaction.source_equations()[source_at]) +
-                ",\"variables\":" ) ||
-        !list(source.variables) ||
-        !append(",\"rhs\":" + std::to_string(source.rhs) +
-                ",\"premises\":["))
+  if (!list(event.reason)) return false;
+  if (transaction.proof_cache_hit()) {
+    if (!append(",\"sources_ref\":{\"cache_entry\":" +
+                std::to_string(transaction.proof_cache_entry().entry_id) +
+                ",\"proof_epoch\":" +
+                std::to_string(transaction.proof_cache_entry().proof_epoch) +
+                "}"))
       return false;
-    for (size_t i = 0; i < source.premises.size(); ++i, ++premise_at) {
-      if (premise_at >= occurrences.size() ||
-          premise_at >= source_clause_ids.size() ||
-          !append((i ? "," : "") +
-                  std::string("{\"occurrence\":") +
-                  std::to_string(occurrences[premise_at]) +
-                  ",\"clause_id\":" +
-                  std::to_string(source_clause_ids[premise_at]) +
-                  ",\"clause\":" ) ||
-          !list(source.premise_clauses[i]) || !append("}"))
+  } else {
+    if (!append(",\"source_ordinals\":") ||
+        !list(transaction.source_equations()) || !append(",\"sources\":["))
+      return false;
+    size_t premise_at = 0;
+    for (size_t source_at = 0;
+         source_at < transaction.source_identity().size(); ++source_at) {
+      const Equation &source = transaction.source_identity()[source_at];
+      if (!append((source_at ? "," : "") +
+                  std::string("{\"ordinal\":") +
+                  std::to_string(transaction.source_equations()[source_at]) +
+                  ",\"variables\":") ||
+          !list(source.variables) ||
+          !append(",\"rhs\":" + std::to_string(source.rhs) +
+                  ",\"premises\":["))
         return false;
+      for (size_t i = 0; i < source.premises.size(); ++i, ++premise_at) {
+        if (premise_at >= occurrences.size() ||
+            premise_at >= source_clause_ids.size() ||
+            !append((i ? "," : "") +
+                    std::string("{\"occurrence\":") +
+                    std::to_string(occurrences[premise_at]) +
+                    ",\"clause_id\":" +
+                    std::to_string(source_clause_ids[premise_at]) +
+                    ",\"clause\":") ||
+            !list(source.premise_clauses[i]) || !append("}"))
+          return false;
+      }
+      if (!append("]}")) return false;
     }
-    if (!append("]}")) return false;
+    if (premise_at != occurrences.size() ||
+        premise_at != source_clause_ids.size() || !append("]"))
+      return false;
   }
-  if (premise_at != occurrences.size() ||
-      premise_at != source_clause_ids.size() ||
-      !append("],\"proof_events\":["))
-    return false;
+  if (!append(",\"proof_events\":[")) return false;
   for (size_t i = 0; i < transaction.proof_events().size(); ++i) {
     const MatrixProofEvent &proof = transaction.proof_events()[i];
     const char *kind = proof.kind == MatrixProofEvent::Kind::Rat ? "rat"
@@ -266,7 +276,7 @@ bool make_journal(const MatrixLiveRequest &request,
                 "\",\"id\":" + std::to_string(proof.id) +
                 ",\"deleted_id\":" + std::to_string(proof.deleted_id) +
                 ",\"install\":" + std::to_string(proof.install) +
-                ",\"clause\":" ) ||
+                ",\"clause\":") ||
         !list(proof.clause) || !append("}"))
       return false;
   }
@@ -275,12 +285,15 @@ bool make_journal(const MatrixLiveRequest &request,
                              : transaction.proof_cache_insert() ? "insert"
                                                                 : "disabled";
   if (!append("],\"proof_cache\":{\"status\":\"" +
-              std::string(cache_status) + "\",\"generation\":" +
+              std::string(cache_status) + "\",\"entry_id\":" +
+              std::to_string(transaction.proof_cache_entry().entry_id) +
+              ",\"generation\":" +
               std::to_string(transaction.proof_cache_generation()) +
               ",\"proof_epoch\":" +
-              std::to_string(transaction.proof_cache_entry().proof_epoch) +
-              ",\"support_ids\":" ) ||
-      !list(transaction.proof_cache_entry().support_ids) ||
+              std::to_string(transaction.proof_cache_entry().proof_epoch)) ||
+      (!transaction.proof_cache_hit() &&
+       (!append(",\"support_ids\":") ||
+        !list(transaction.proof_cache_entry().support_ids))) ||
       !append("},\"helpers\":"))
     return false;
   const uint64_t helper_first = transaction.helper_extent()

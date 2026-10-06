@@ -302,7 +302,8 @@ const MatrixProofCacheEntry *AffineMatrixProofCache::find(
 bool AffineMatrixProofCache::commit(MatrixProofCacheEntry &&entry,
                                     uint64_t expected_generation) {
   if (generation_ != expected_generation || generation_ == UINT64_MAX ||
-      !entry.owner_identity || entry.support_ids.empty() ||
+      entry.entry_id != expected_generation + 1 || !entry.owner_identity ||
+      entry.support_ids.empty() ||
       find(entry.owner_identity, entry.proof_epoch, entry.source_equations,
            entry.source_identity))
     return false;
@@ -429,7 +430,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
         candidate.source_identity_);
     if (cached) {
       if (cached->external_extent > starting_external_extent ||
-          cached->support_ids.empty())
+          !cached->entry_id || cached->support_ids.empty())
         return MatrixTransactionStatus::Stale;
       uint64_t next_id = starting_clause_id;
       PlanningSink planning{candidate.events_, next_id,
@@ -482,6 +483,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     if (cache_extent > static_cast<uint32_t>(INT32_MAX))
       return MatrixTransactionStatus::ResourceExhausted;
     candidate.cache_insert_ = true;
+    candidate.cache_entry_.entry_id = candidate.cache_generation_ + 1;
     candidate.cache_entry_.owner_identity = expected_owner_identity;
     candidate.cache_entry_.proof_epoch = proof_epoch;
     candidate.cache_entry_.external_extent =
