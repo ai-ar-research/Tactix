@@ -172,6 +172,10 @@ void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
       result.live.revalidation_work;
   kernel.stats.affine_matrix_service_proof_additions += result.live.additions;
   kernel.stats.affine_matrix_service_proof_deletions += result.live.deletions;
+  kernel.stats.affine_matrix_service_proof_cache_hits +=
+      result.live.proof_cache_hit;
+  kernel.stats.affine_matrix_service_proof_cache_inserts +=
+      result.live.proof_cache_insert;
   kernel.stats.affine_matrix_service_helper_extent += result.live.helper_extent;
   kernel.stats.affine_matrix_service_journal_bytes += result.live.journal_bytes;
   if (result.status == AffineMatrixServiceStatus::Applied)
@@ -514,6 +518,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
   request.action_id = action_id;
   request.semantic_id = session.owner_version_;
   request.records = session.records_;
+  request.proof_cache = &session.proof_cache_;
   result.live = apply_affine_matrix_live(kernel, request);
   result.status = live_status(result.live.status);
   result.result = result.live.result;

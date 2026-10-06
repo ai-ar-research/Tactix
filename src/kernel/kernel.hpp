@@ -992,6 +992,8 @@ struct Stats {
   uint64_t affine_matrix_service_revalidation_work = 0;
   uint64_t affine_matrix_service_proof_additions = 0;
   uint64_t affine_matrix_service_proof_deletions = 0;
+  uint64_t affine_matrix_service_proof_cache_hits = 0;
+  uint64_t affine_matrix_service_proof_cache_inserts = 0;
   uint64_t affine_matrix_service_helper_extent = 0;
   uint64_t affine_matrix_service_journal_bytes = 0;
   uint64_t exact_cover_extension_attempts = 0;

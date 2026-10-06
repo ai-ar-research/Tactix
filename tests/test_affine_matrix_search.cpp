@@ -379,7 +379,8 @@ void partial_admission_feedback_provenance_and_replay() {
   assert(first == replay);
 }
 
-int proof_fixture(const char *cnf_path, const char *proof_path) {
+int proof_fixture(const char *cnf_path, const char *proof_path,
+                  ProofFormat format) {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
@@ -394,7 +395,8 @@ int proof_fixture(const char *cnf_path, const char *proof_path) {
   assert(journal);
   kernel.structural_provenance = journal;
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  assert(format == ProofFormat::DsrAscii || format == ProofFormat::DratAscii);
+  assert(proof.open(proof_path, format));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
@@ -406,14 +408,88 @@ int proof_fixture(const char *cnf_path, const char *proof_path) {
              .invocation.status == InvocationStatus::Completed);
   assert(session.enabled() && !session.complete_admission() &&
          kernel.stats.affine_matrix_init_applied_partial == 1);
-  for (int32_t variable = 1; variable <= 8; ++variable)
-    add_clause(kernel, {-variable});
-  assert(!kernel_propagate(kernel));
   assert(controller.resume_search(resume_request(controller, kernel))
              .resumed_search);
-  const auto service = controller.affine_matrix_fixpoint_service();
-  assert(service.status == AffineMatrixServiceStatus::Applied &&
-         service.live.conflict && service.bcp_pending);
+  for (int32_t variable = 1; variable <= 8; ++variable)
+    decide(controller, kernel, -variable);
+  const auto first_service = controller.affine_matrix_fixpoint_service();
+  assert(first_service.status == AffineMatrixServiceStatus::Applied &&
+         first_service.live.conflict && first_service.bcp_pending &&
+         first_service.live.proof_cache_insert &&
+         !first_service.live.proof_cache_hit &&
+         first_service.live.additions > 1 &&
+         first_service.live.helper_extent);
+  assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 1 &&
+         kernel.stats.affine_matrix_service_proof_cache_hits == 0);
+
+  assert(controller.full_restart() == ApplyResult::Ok);
+  assert(controller.resume_search(resume_request(controller, kernel))
+             .resumed_search);
+  decide(controller, kernel, 1);
+  for (int32_t variable = 2; variable <= 7; ++variable)
+    decide(controller, kernel, -variable);
+  decide(controller, kernel, 8);
+  const uint32_t cached_extent = kernel.external_to_internal.size();
+  const auto second_service = controller.affine_matrix_fixpoint_service();
+  assert(second_service.status == AffineMatrixServiceStatus::Applied &&
+         second_service.live.conflict && second_service.bcp_pending &&
+         second_service.live.proof_cache_hit &&
+         !second_service.live.proof_cache_insert &&
+         second_service.live.additions == 1 &&
+         second_service.live.deletions == 0 &&
+         second_service.live.helper_extent == 0 &&
+         second_service.live.planner_work < first_service.live.planner_work &&
+         second_service.live.journal_bytes < first_service.live.journal_bytes &&
+         kernel.external_to_internal.size() == cached_extent);
+  assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 1 &&
+         kernel.stats.affine_matrix_service_proof_cache_hits == 1);
+  const size_t first_reason = first_service.event_identity.find(";r=");
+  const size_t second_reason = second_service.event_identity.find(";r=");
+  assert(first_reason != std::string::npos &&
+         second_reason != std::string::npos &&
+         first_service.event_identity.substr(0, first_reason) ==
+             second_service.event_identity.substr(0, second_reason) &&
+         first_service.event_identity != second_service.event_identity);
+
+  // A DSR witnessed entry first retires checker-only cached support.  The
+  // epoch then forces this row to build fresh support instead of citing
+  // clauses which the checker no longer owns.  DRAT has no witnessed entry;
+  // a rejected add_sr leaves its legal retained support untouched.
+  assert(proof.persistent_external_clauses() > 0);
+  const uint64_t cache_epoch = proof.persistent_external_epoch();
+  std::vector<Lit> witnessed_reason;
+  for (int32_t variable = 1; variable <= 8; ++variable)
+    witnessed_reason.push_back(kernel_internalize(kernel, variable));
+  if (format == ProofFormat::DsrAscii) {
+    assert(controller.full_restart() == ApplyResult::Ok);
+    assert(controller.resume_search(resume_request(controller, kernel))
+               .resumed_search);
+    assert(proof.add_sr(++kernel.next_clause_id, witnessed_reason.data(),
+                        witnessed_reason.size(), nullptr, 0, nullptr, 0,
+                        kernel.external_to_internal.size()));
+    assert(proof.persistent_external_clauses() == 0 &&
+           proof.persistent_external_epoch() == cache_epoch + 1);
+
+    decide(controller, kernel, 1);
+    decide(controller, kernel, 2);
+    for (int32_t variable = 3; variable <= 8; ++variable)
+      decide(controller, kernel, -variable);
+    const auto after_x7 = controller.affine_matrix_fixpoint_service();
+    assert(after_x7.status == AffineMatrixServiceStatus::Applied &&
+           after_x7.live.conflict && after_x7.bcp_pending &&
+           after_x7.live.proof_cache_insert &&
+           !after_x7.live.proof_cache_hit && after_x7.live.additions > 1 &&
+           after_x7.live.helper_extent);
+    assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 2 &&
+           kernel.stats.affine_matrix_service_proof_cache_hits == 1);
+  } else {
+    const size_t retained = proof.persistent_external_clauses();
+    assert(!proof.add_sr(++kernel.next_clause_id, witnessed_reason.data(),
+                         witnessed_reason.size(), nullptr, 0, nullptr, 0,
+                         kernel.external_to_internal.size()));
+    assert(proof.persistent_external_clauses() == retained &&
+           proof.persistent_external_epoch() == cache_epoch);
+  }
   assert(kernel_propagate(kernel) && kernel.conflict_valid);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
@@ -441,7 +517,9 @@ int proof_fixture(const char *cnf_path, const char *proof_path) {
 
 int main(int argc, char **argv) {
   if (argc == 4 && !std::strcmp(argv[1], "--proof"))
-    return proof_fixture(argv[2], argv[3]);
+    return proof_fixture(argv[2], argv[3], ProofFormat::DsrAscii);
+  if (argc == 4 && !std::strcmp(argv[1], "--proof-drat"))
+    return proof_fixture(argv[2], argv[3], ProofFormat::DratAscii);
   initialize_resume_publish_and_bcp();
   interruption_is_atomic();
   unchanged_terminal_initialization_is_suppressed();

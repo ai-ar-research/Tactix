@@ -74,7 +74,8 @@ bool same_request(const MatrixLiveRequest &first,
          first.maximum_external_extent == second.maximum_external_extent &&
          first.action_id == second.action_id &&
          first.semantic_id == second.semantic_id &&
-         first.records == second.records;
+         first.records == second.records &&
+         first.proof_cache == second.proof_cache;
 }
 
 bool snapshot_trail(const Kernel &kernel,
@@ -269,6 +270,19 @@ bool make_journal(const MatrixLiveRequest &request,
         !list(proof.clause) || !append("}"))
       return false;
   }
+  const char *cache_status = transaction.proof_cache_hit()
+                                 ? "hit"
+                             : transaction.proof_cache_insert() ? "insert"
+                                                                : "disabled";
+  if (!append("],\"proof_cache\":{\"status\":\"" +
+              std::string(cache_status) + "\",\"generation\":" +
+              std::to_string(transaction.proof_cache_generation()) +
+              ",\"proof_epoch\":" +
+              std::to_string(transaction.proof_cache_entry().proof_epoch) +
+              ",\"support_ids\":" ) ||
+      !list(transaction.proof_cache_entry().support_ids) ||
+      !append("},\"helpers\":"))
+    return false;
   const uint64_t helper_first = transaction.helper_extent()
                                     ? uint64_t{starting_extent} + 1
                                     : 0;
@@ -276,11 +290,15 @@ bool make_journal(const MatrixLiveRequest &request,
                                    ? uint64_t{starting_extent} +
                                          transaction.helper_extent()
                                    : 0;
-  if (!append("],\"helpers\":{\"first\":" +
+  if (!append("{\"first\":" +
               std::to_string(helper_first) + ",\"last\":" +
               std::to_string(helper_last) + ",\"count\":" +
               std::to_string(transaction.helper_extent()) +
-              ",\"meaning\":\"proof-only balanced-XOR identities; retired, never branchable\"},"
+              ",\"meaning\":\"proof-only balanced-XOR identities; " +
+              (transaction.proof_cache_insert()
+                   ? std::string("persistent cache support, never branchable")
+                   : std::string("retired or previously cached, never branchable")) +
+              "\"},"
               "\"proof_additions\":" +
               std::to_string(transaction.additions()) +
               ",\"proof_deletions\":" +
@@ -396,7 +414,8 @@ MatrixLiveResult prepare_affine_matrix_live(
         if (kernel_terminating(kernel)) planner_interrupted = true;
         return !planner_interrupted;
       },
-      candidate.transaction_);
+      candidate.transaction_, request.proof_cache,
+      kernel.proof ? kernel.proof->persistent_external_epoch() : 0);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.status = transaction_status(planned);
@@ -449,6 +468,8 @@ MatrixLiveResult prepare_affine_matrix_live(
   result.implication = candidate.event_.kind == MatrixEventKind::Implication;
   result.conflict = candidate.event_.kind == MatrixEventKind::Conflict;
   result.preflight_journal_bytes = candidate.journal_.size();
+  result.proof_cache_hit = candidate.transaction_.proof_cache_hit();
+  result.proof_cache_insert = candidate.transaction_.proof_cache_insert();
   candidate.prepared_ = result;
   output = std::move(candidate);
   return result;
@@ -485,6 +506,12 @@ MatrixLiveResult publish_affine_matrix_live(
       kernel.level != prepared.starting_level_ ||
       !proof_unchanged(kernel, prepared.had_proof_, prepared.proof_,
                        prepared.proof_format_) ||
+      (request.proof_cache &&
+       (request.proof_cache->generation() !=
+            prepared.transaction_.proof_cache_generation() ||
+        (kernel.proof &&
+         kernel.proof->persistent_external_epoch() !=
+             prepared.transaction_.proof_cache_entry().proof_epoch))) ||
       std::ftell(request.records) != prepared.records_position_) {
     result.status = MatrixLiveStatus::Stale;
     return result;
@@ -546,6 +573,10 @@ MatrixLiveResult publish_affine_matrix_live(
       first != prepared.starting_extent_)
     std::abort();
   uint64_t installed_id = 0;
+  std::set<uint64_t> retained_support(
+      prepared.transaction_.proof_cache_entry().support_ids.begin(),
+      prepared.transaction_.proof_cache_entry().support_ids.end());
+  size_t retained = 0;
   for (const MatrixProofEvent &event : prepared.transaction_.proof_events()) {
     if (event.kind == MatrixProofEvent::Kind::Delete) {
       if (event.id != kernel.next_clause_id) std::abort();
@@ -568,17 +599,36 @@ MatrixLiveResult publish_affine_matrix_live(
                 event.clause.size());
       if (!emitted) std::abort();
     }
+    if (retained_support.count(event.id)) {
+      if (event.install || event.kind == MatrixProofEvent::Kind::Delete)
+        std::abort();
+      if (kernel.proof &&
+          !kernel.proof->retain_external(
+              event.id, event.clause.empty() ? nullptr : event.clause.data(),
+              event.clause.size()))
+        std::abort();
+      ++retained;
+    }
     if (event.install) {
       if (installed_id) std::abort();
       installed_id = event.id;
     }
   }
+  if (prepared.transaction_.proof_cache_insert() &&
+      retained != retained_support.size())
+    std::abort();
   if (!installed_id ||
       !install_reason(kernel, prepared.physical_reason_, installed_id))
     std::abort();
   if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
                   request.records) != prepared.journal_.size() ||
       std::fflush(request.records) || std::ferror(request.records))
+    std::abort();
+  if (prepared.transaction_.proof_cache_insert() &&
+      (!request.proof_cache ||
+       !request.proof_cache->commit(
+           MatrixProofCacheEntry(prepared.transaction_.proof_cache_entry()),
+           prepared.transaction_.proof_cache_generation())))
     std::abort();
 
   prepared.spent_ = true;

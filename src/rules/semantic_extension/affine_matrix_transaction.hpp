@@ -41,6 +41,35 @@ struct MatrixProofEvent {
                          const MatrixProofEvent &) = default;
 };
 
+struct MatrixProofCacheEntry {
+  uint64_t owner_identity = 0;
+  uint64_t proof_epoch = 0;
+  uint32_t external_extent = 0;
+  std::vector<size_t> source_equations;
+  std::vector<Equation> source_identity;
+  std::vector<uint64_t> support_ids;
+};
+
+// Proof-only RAT definitions and their derived root unit may remain in a
+// DSR/DRAT checker population across service calls.  Entries are owned by one
+// affine search session, whose existing proof/owner checks delimit their
+// lifetime.  DSR retires them at the next witnessed add_sr boundary; DRAT has
+// no witnessed boundary and retains them to proof end.  The variables are
+// namespace-only holes and never become branchable kernel variables.
+class AffineMatrixProofCache {
+public:
+  uint64_t generation() const { return generation_; }
+  size_t size() const { return entries_.size(); }
+  const MatrixProofCacheEntry *find(
+      uint64_t, uint64_t proof_epoch, const std::vector<size_t> &,
+      const std::vector<Equation> &) const;
+  bool commit(MatrixProofCacheEntry &&, uint64_t expected_generation);
+
+private:
+  uint64_t generation_ = 0;
+  std::vector<MatrixProofCacheEntry> entries_;
+};
+
 class AffineMatrixTransaction {
 public:
   bool ready() const { return ready_; }
@@ -58,13 +87,19 @@ public:
     return source_identity_;
   }
   const std::vector<MatrixProofEvent> &proof_events() const { return events_; }
+  bool proof_cache_hit() const { return cache_hit_; }
+  bool proof_cache_insert() const { return cache_insert_; }
+  uint64_t proof_cache_generation() const { return cache_generation_; }
+  const MatrixProofCacheEntry &proof_cache_entry() const {
+    return cache_entry_;
+  }
 
 private:
   friend MatrixTransactionStatus prepare_affine_matrix_transaction(
       const AffineMatrix &, uint64_t, const std::vector<Equation> &,
       const MatrixEvent &, uint32_t, uint64_t,
       const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
-      AffineMatrixTransaction &);
+      AffineMatrixTransaction &, const AffineMatrixProofCache *, uint64_t);
 
   bool ready_ = false;
   uint64_t owner_identity_ = 0;
@@ -77,6 +112,10 @@ private:
   std::vector<size_t> source_equations_;
   std::vector<Equation> source_identity_;
   std::vector<MatrixProofEvent> events_;
+  bool cache_hit_ = false;
+  bool cache_insert_ = false;
+  uint64_t cache_generation_ = 0;
+  MatrixProofCacheEntry cache_entry_;
 };
 
 // Validate an event against an exact matrix owner/source snapshot, then plan
@@ -89,6 +128,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const std::vector<Equation> &exact_sources, const MatrixEvent &,
     uint32_t starting_external_extent, uint64_t starting_clause_id,
     const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
-    AffineMatrixTransaction &output);
+    AffineMatrixTransaction &output,
+    const AffineMatrixProofCache *proof_cache = nullptr,
+    uint64_t proof_epoch = 0);
 
 } // namespace tactix::affine_semantic_extension
