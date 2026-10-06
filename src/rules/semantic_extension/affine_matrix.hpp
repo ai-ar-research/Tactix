@@ -102,6 +102,9 @@ public:
   MatrixSynchronizationKind last_synchronization_kind() const {
     return last_synchronization_kind_;
   }
+  bool last_synchronization_restored_predecessor() const {
+    return last_synchronization_restored_predecessor_;
+  }
 
   // Authenticate one event against the exact immutable owner and source
   // image used to build this matrix.  The event must also be the current
@@ -143,6 +146,7 @@ private:
   std::vector<MatrixAssignment> predecessor_trail_;
   std::vector<MatrixRow> predecessor_rows_;
   bool last_synchronization_incremental_ = false;
+  bool last_synchronization_restored_predecessor_ = false;
   size_t last_synchronization_prefix_ = 0;
   size_t last_synchronization_conditioned_ = 0;
   MatrixSynchronizationKind last_synchronization_kind_ =

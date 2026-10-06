@@ -534,9 +534,11 @@ static void bounded_predecessor_restore() {
              matrix.last_synchronization_kind() ==
                  MatrixSynchronizationKind::Backtrack);
       if (!row_budget && !trail_budget) {
+        assert(matrix.last_synchronization_restored_predecessor());
         assert(work == 1 + prefix.size());
         assert(matrix.last_synchronization_conditioned() == 0);
       } else {
+        assert(!matrix.last_synchronization_restored_predecessor());
         assert(work > 1 + prefix.size());
         assert(matrix.last_synchronization_conditioned() == prefix.size());
       }
@@ -545,6 +547,7 @@ static void bounded_predecessor_restore() {
       assert(matrix.synchronize({}, [](uint64_t) { return true; }, event) ==
              MatrixStatus::Complete);
       assert(matrix.rows() == matrix.admitted_rows());
+      assert(!matrix.last_synchronization_restored_predecessor());
     }
 
   AffineMatrix matrix;
@@ -562,6 +565,7 @@ static void bounded_predecessor_restore() {
   MatrixStatus status;
   assert(synchronize_work(matrix, prefix, status, event) == 3 &&
          status == MatrixStatus::Complete);
+  assert(matrix.last_synchronization_restored_predecessor());
   assert(event.row == expected.row && event.reason == expected.reason &&
          event.kind == expected.kind);
   assert(matrix.authenticates(94, input, event,
@@ -578,6 +582,19 @@ static void bounded_predecessor_restore() {
   event.row.source_equations = {0};
   assert(!matrix.authenticates(94, input, event,
                                [](uint64_t) { return true; }));
+  // A failed extension preserves diagnostics as well as rows/trail/event.
+  const auto restored_rows = matrix.rows();
+  MatrixEvent sentinel;
+  sentinel.implied_variable = 77;
+  assert(matrix.synchronize({{1, false}, {2, false}, {5, true}},
+                            [](uint64_t) { return false; }, sentinel) ==
+         MatrixStatus::Interrupted);
+  assert(matrix.last_synchronization_restored_predecessor() &&
+         matrix.rows() == restored_rows && matrix.trail() == prefix &&
+         sentinel.implied_variable == 77);
+  assert(matrix.synchronize(prefix, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(!matrix.last_synchronization_restored_predecessor());
 }
 
 int main() {
