@@ -97,6 +97,96 @@ static void reason_excludes_unrelated_assignments() {
   check_reason(input, event);
 }
 
+static void bounded_partial_admission_is_deterministic() {
+  const std::vector<Equation> width_input = {
+      equation({1, 2, 3}, false), equation({1, 4, 5}, true),
+      equation({6, 7}, false)};
+  auto width = limits();
+  width.maximum_row_width = 3;
+  AffineMatrix first;
+  assert(build_affine_matrix(width_input, 41, width,
+                             [](uint64_t) { return true; }, first) ==
+         MatrixStatus::Partial);
+  assert(!first.complete_admission());
+  assert((first.admitted_sources() == std::vector<size_t>{0, 2}));
+  assert(first.admitted_rows().size() == 2);
+
+  AffineMatrix repeated;
+  assert(build_affine_matrix(width_input, 41, width,
+                             [](uint64_t) { return true; }, repeated) ==
+         MatrixStatus::Partial);
+  assert(first.admitted_rows() == repeated.admitted_rows());
+  assert(first.admitted_sources() == repeated.admitted_sources());
+  assert(first.work() == repeated.work());
+
+  const std::vector<Equation> source_input = {
+      equation({1, 2}, false), equation({1, 3}, true),
+      equation({4, 5}, false)};
+  auto sources = limits();
+  sources.maximum_sources = 1;
+  AffineMatrix source_limited;
+  assert(build_affine_matrix(source_input, 42, sources,
+                             [](uint64_t) { return true; }, source_limited) ==
+         MatrixStatus::Partial);
+  assert((source_limited.admitted_sources() ==
+          std::vector<size_t>{0, 2}));
+
+  auto work = limits();
+  work.maximum_work = 3;
+  AffineMatrix work_limited;
+  assert(build_affine_matrix(source_input, 43, work,
+                             [](uint64_t) { return true; }, work_limited) ==
+         MatrixStatus::Partial);
+  assert((work_limited.admitted_sources() == std::vector<size_t>{0}));
+
+  auto none = limits();
+  none.maximum_row_width = 1;
+  AffineMatrix sentinel;
+  assert(build_affine_matrix(source_input, 44, none,
+                             [](uint64_t) { return true; }, sentinel) ==
+         MatrixStatus::Exhausted);
+  assert(!sentinel.owner_identity() && sentinel.rows().empty());
+}
+
+static void partial_implication_conflict_and_backtrack() {
+  // The final source exceeds the width bound.  The first two authenticated
+  // rows still form a useful admitted submatrix.
+  const std::vector<Equation> input = {
+      equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false),
+      equation({6, 7, 8, 9, 10}, true)};
+  auto bounded = limits();
+  bounded.maximum_row_width = 4;
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 45, bounded,
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Partial);
+  assert((matrix.admitted_sources() == std::vector<size_t>{0, 1}));
+
+  MatrixEvent event;
+  assert(matrix.synchronize({{1, false}, {2, false}},
+                            [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(event.kind == MatrixEventKind::Implication &&
+         event.implied_variable == 5 && !event.implied_value &&
+         (event.row.source_equations == std::vector<size_t>{0, 1}));
+  check_reason(input, event);
+
+  assert(matrix.synchronize({{1, false}, {2, false}, {5, true}},
+                            [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(event.kind == MatrixEventKind::Conflict &&
+         (event.row.source_equations == std::vector<size_t>{0, 1}));
+  check_reason(input, event);
+
+  assert(matrix.synchronize({{1, false}, {2, true}},
+                            [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(event.kind == MatrixEventKind::Implication &&
+         event.implied_variable == 5 && event.implied_value &&
+         (event.row.source_equations == std::vector<size_t>{0, 1}));
+  check_reason(input, event);
+}
+
 static void transactional_limits_and_validation() {
   const std::vector<Equation> input = {
       equation({1, 3, 4}, false), equation({2, 3, 4, 5}, false)};
@@ -199,6 +289,8 @@ static void exhaustive_small_reason_oracle() {
 int main() {
   derived_implication_conflict_and_backtrack();
   reason_excludes_unrelated_assignments();
+  bounded_partial_admission_is_deterministic();
+  partial_implication_conflict_and_backtrack();
   transactional_limits_and_validation();
   exhaustive_small_reason_oracle();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "

@@ -51,6 +51,7 @@ struct MatrixEvent {
 
 enum class MatrixStatus : uint8_t {
   Complete,
+  Partial,
   NoStructure,
   Exhausted,
   Interrupted,
@@ -68,8 +69,15 @@ public:
 
   uint64_t owner_identity() const { return owner_identity_; }
   uint64_t work() const { return work_; }
+  bool complete_admission() const { return complete_admission_; }
   const std::vector<MatrixAssignment> &trail() const { return trail_; }
   const std::vector<MatrixRow> &rows() const { return rows_; }
+  const std::vector<MatrixRow> &admitted_rows() const {
+    return admitted_rows_;
+  }
+  const std::vector<size_t> &admitted_sources() const {
+    return admitted_sources_;
+  }
 
   // Authenticate one event against the exact immutable owner and source
   // image used to build this matrix.  The event must also be the current
@@ -86,8 +94,14 @@ private:
 
   uint64_t owner_identity_ = 0;
   uint64_t work_ = 0;
+  bool complete_admission_ = false;
   MatrixLimits limits_;
   std::vector<Equation> sources_;
+  // Immutable sound row space admitted at initialization.  Search-time
+  // conditioning may combine only these rows, so a skipped source can never
+  // enter a reason later.
+  std::vector<MatrixRow> admitted_rows_;
+  std::vector<size_t> admitted_sources_;
   std::vector<MatrixAssignment> trail_;
   std::vector<MatrixRow> rows_;
 };
@@ -95,7 +109,9 @@ private:
 // Build a source-bound matrix without changing the Boolean formula. Source
 // indices are the exact algebraic provenance later returned with every event.
 // `owner_identity` binds the copied equations to the caller's immutable arena.
-// On every result except Complete, `output` is unchanged.
+// Complete means every source was processed within the bounds. Partial means a
+// deterministic, nonempty sound submatrix was retained. On every other result,
+// `output` is unchanged.
 MatrixStatus build_affine_matrix(
     const std::vector<Equation> &, uint64_t owner_identity,
     const MatrixLimits &, const std::function<bool(uint64_t)> &charge,
