@@ -121,7 +121,7 @@ OnlineInvocation equality_invocation() {
 }
 
 void registry_replay_and_exact_payload() {
-  assert(tactix_rule_count() == 43);
+  assert(tactix_rule_count() == 44);
   assert(std::strcmp(tactix_rule_name(42), "NaryCspEquality") == 0);
   const auto reference = reference_inprocess_program();
   const auto step = std::find_if(reference.begin(), reference.end(),

@@ -28,6 +28,7 @@
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 
 #include <algorithm>
@@ -266,6 +267,7 @@ int main(int argc, char **argv) {
         controller_config.nary_csp_action_producer.enabled = enabled;
         controller_config.nary_csp_equality_action_producer.enabled = enabled;
         controller_config.gf3_gaussian_action_producer.enabled = enabled;
+        controller_config.gf3_general_row_action_producer.enabled = enabled;
         controller_config.tseitin_cycle_action_producer.enabled = enabled;
       };
       if (!strcmp(value, "all")) {
@@ -290,6 +292,8 @@ int main(int argc, char **argv) {
             controller_config.nary_csp_equality_action_producer.enabled = true;
           else if (name == "gf3-gaussian")
             controller_config.gf3_gaussian_action_producer.enabled = true;
+          else if (name == "gf3-general-row")
+            controller_config.gf3_general_row_action_producer.enabled = true;
           else if (name == "tseitin-cycle")
             controller_config.tseitin_cycle_action_producer.enabled = true;
           else
@@ -453,7 +457,7 @@ int main(int argc, char **argv) {
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
       puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,nary-csp,"
-           "nary-csp-equality,gf3-gaussian,tseitin-cycle");
+           "nary-csp-equality,gf3-gaussian,gf3-general-row,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
            "names, or all");
       puts("  controller search configuration LIST: comma-separated "
@@ -654,6 +658,7 @@ int main(int argc, char **argv) {
   NaryCspEqualitySession nary_csp_equality_session;
   DirectPhpActionSession direct_php_action_session(kernel);
   Gf3GaussianActionSession gf3_gaussian_action_session;
+  Gf3GeneralRowActionSession gf3_general_row_action_session;
   TseitinCycleBreakingSession tseitin_cycle_breaking_session;
   kernel.affine_basis_action_session = &affine_basis_session;
   kernel.affine_matrix_search_session = &affine_matrix_search_session;
@@ -666,6 +671,7 @@ int main(int argc, char **argv) {
       &direct_csp_support_action_session;
   kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
   kernel.nary_csp_equality_session = &nary_csp_equality_session;
+  kernel.gf3_general_row_action_session = &gf3_general_row_action_session;
   kernel.direct_php_action_session = &direct_php_action_session;
   kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
   kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;
@@ -1404,6 +1410,20 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.gf3_gaussian_interrupted,
            (unsigned long long)kernel.stats.gf3_gaussian_stale,
            (unsigned long long)kernel.stats.gf3_gaussian_unsupported_proof);
+    printf("c gf3-row    %llu attempts, %llu applied, %llu no-structure, "
+           "%llu no-consequence, %llu already-published, %llu exhausted, "
+           "%llu interrupted, %llu stale, %llu unsupported-proof, "
+           "%llu clauses\n",
+           (unsigned long long)kernel.stats.gf3_general_row_attempts,
+           (unsigned long long)kernel.stats.gf3_general_row_applied,
+           (unsigned long long)kernel.stats.gf3_general_row_no_structure,
+           (unsigned long long)kernel.stats.gf3_general_row_no_consequence,
+           (unsigned long long)kernel.stats.gf3_general_row_already_published,
+           (unsigned long long)kernel.stats.gf3_general_row_exhausted,
+           (unsigned long long)kernel.stats.gf3_general_row_interrupted,
+           (unsigned long long)kernel.stats.gf3_general_row_stale,
+           (unsigned long long)kernel.stats.gf3_general_row_unsupported_proof,
+           (unsigned long long)kernel.stats.gf3_general_row_installed_clauses);
     printf("c tseitin-cycle %llu attempts, %llu applied, %llu no-structure, "
            "%llu exhausted, %llu interrupted, %llu stale, "
            "%llu unsupported-proof\n",

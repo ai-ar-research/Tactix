@@ -279,7 +279,7 @@ static void configure_parameters(const char *name,
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 43);
+  assert(count == 44);
   for (id = 0; id < count; ++id) {
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);
@@ -287,6 +287,7 @@ static void reaches_every_registered_action(void) {
         !strcmp(name, "DirectCspSupport") ||
         !strcmp(name, "NaryCspPrefix") ||
         !strcmp(name, "NaryCspEquality") ||
+        !strcmp(name, "Gf3GeneralRowConsequence") ||
         !strcmp(name, "Gf3GaussianConsequence") ||
         !strcmp(name, "TseitinCycleBreaking")) {
       tactix_release(solver);

@@ -163,6 +163,8 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     return config.direct_php_refutation_reference;
   if (rule == "Gf3GaussianConsequence")
     return config.gf3_gaussian_consequence_reference;
+  if (rule == "Gf3GeneralRowConsequence")
+    return config.gf3_general_row_consequence_reference;
   if (rule == "SemanticVariableAdvice")
     return config.semantic_variable_advice_reference;
   if (rule == "Congruence") {
@@ -896,6 +898,31 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_journal_bytes=v[32]; p.maximum_identity_bytes=v[33];
     U32_AT(34,p.maximum_external_extent); p.maximum_session_keys=v[35];
     p.maximum_session_work=v[36]; p.maximum_session_identity_bytes=v[37];
+    parameters=p;
+  } else if (tuple(text, "gf3-general-row1", v) && v.size() == 42) {
+    Gf3GeneralRowConsequenceParameters p;
+    auto &g=p.gaussian;
+    g.maximum_source_clauses=v[0]; g.maximum_source_literals=v[1];
+    U32_AT(2,g.maximum_domains); U32_AT(3,g.maximum_equations);
+    U32_AT(4,g.maximum_equation_arity); U32_AT(5,g.maximum_tuples_per_equation);
+    g.maximum_bridge_work=v[6]; g.maximum_bridge_source_clauses=v[7];
+    g.maximum_bridge_source_literals=v[8]; U32_AT(9,g.maximum_bridge_domains);
+    U32_AT(10,g.maximum_bridge_equations); g.maximum_bridge_terms=v[11];
+    g.maximum_authentication_references=v[12]; g.maximum_references_per_equation=v[13];
+    g.maximum_gaussian_work=v[14]; g.maximum_fill_entries=v[15];
+    U32_AT(16,g.maximum_intermediate_width); U32_AT(17,g.maximum_provenance_terms);
+    U32_AT(18,g.maximum_derivations); g.maximum_retained_plan_bytes=v[19];
+    g.maximum_certificate_work=v[20]; g.maximum_events=v[21];
+    g.maximum_event_literals=v[22]; g.maximum_active_clauses=v[23];
+    g.maximum_retained_source_references=v[24]; U32_AT(25,g.maximum_event_width);
+    U32_AT(26,g.maximum_branch_domains); U32_AT(27,g.maximum_consequences);
+    g.maximum_capture_work=v[28]; g.maximum_revalidation_work=v[29];
+    g.maximum_proof_additions=v[30]; g.maximum_proof_literal_occurrences=v[31];
+    g.maximum_journal_bytes=v[32]; g.maximum_identity_bytes=v[33];
+    U32_AT(34,g.maximum_external_extent); g.maximum_session_keys=v[35];
+    g.maximum_session_work=v[36]; g.maximum_session_identity_bytes=v[37];
+    p.maximum_row_tuples=v[38]; U32_AT(39,p.maximum_row_width);
+    p.maximum_duplicate_scan_work=v[40]; p.maximum_arena_words=v[41];
     parameters=p;
   } else if (tuple(text, "tseitin-cycle-breaking1", v) && v.size() == 26) {
     TseitinCycleBreakingParameters p;
@@ -1903,6 +1930,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           config.exact_cover_extension_reference) ||
       !config.direct_php_refutation_reference.valid() ||
       !config.gf3_gaussian_consequence_reference.valid() ||
+      !config.gf3_general_row_consequence_reference.valid() ||
       !config.maximum_sr_validation_ticks || !config.maximum_sr_matrices ||
       !config.maximum_sr_instances ||
       config.maximum_sr_orbitopal_clique_minimum_columns < 2 ||
@@ -1932,6 +1960,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           std::string_view(rule.name) != "NaryCspPrefix" &&
           std::string_view(rule.name) != "NaryCspEquality" &&
           std::string_view(rule.name) != "Gf3GaussianConsequence" &&
+          std::string_view(rule.name) != "Gf3GeneralRowConsequence" &&
           std::string_view(rule.name) != "TseitinCycleBreaking")
         available.push_back(static_cast<int>(rule.id));
   } else {
@@ -1944,6 +1973,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           name != "NaryCspPrefix" &&
           name != "NaryCspEquality" &&
           name != "Gf3GaussianConsequence" &&
+          name != "Gf3GeneralRowConsequence" &&
           name != "TseitinCycleBreaking")
         available.push_back(id);
     }
@@ -2341,6 +2371,32 @@ std::string serialize_online_strategy_program(
           << p->maximum_identity_bytes << ',' << p->maximum_external_extent << ','
           << p->maximum_session_keys << ',' << p->maximum_session_work << ','
           << p->maximum_session_identity_bytes << ')';
+    else if (const auto *p = std::get_if<Gf3GeneralRowConsequenceParameters>(
+                 &step.parameters)) {
+      const auto &g=p->gaussian;
+      out << ":gf3-general-row1(" << g.maximum_source_clauses << ','
+          << g.maximum_source_literals << ',' << g.maximum_domains << ','
+          << g.maximum_equations << ',' << g.maximum_equation_arity << ','
+          << g.maximum_tuples_per_equation << ',' << g.maximum_bridge_work << ','
+          << g.maximum_bridge_source_clauses << ',' << g.maximum_bridge_source_literals << ','
+          << g.maximum_bridge_domains << ',' << g.maximum_bridge_equations << ','
+          << g.maximum_bridge_terms << ',' << g.maximum_authentication_references << ','
+          << g.maximum_references_per_equation << ',' << g.maximum_gaussian_work << ','
+          << g.maximum_fill_entries << ',' << g.maximum_intermediate_width << ','
+          << g.maximum_provenance_terms << ',' << g.maximum_derivations << ','
+          << g.maximum_retained_plan_bytes << ',' << g.maximum_certificate_work << ','
+          << g.maximum_events << ',' << g.maximum_event_literals << ','
+          << g.maximum_active_clauses << ',' << g.maximum_retained_source_references << ','
+          << g.maximum_event_width << ',' << g.maximum_branch_domains << ','
+          << g.maximum_consequences << ',' << g.maximum_capture_work << ','
+          << g.maximum_revalidation_work << ',' << g.maximum_proof_additions << ','
+          << g.maximum_proof_literal_occurrences << ',' << g.maximum_journal_bytes << ','
+          << g.maximum_identity_bytes << ',' << g.maximum_external_extent << ','
+          << g.maximum_session_keys << ',' << g.maximum_session_work << ','
+          << g.maximum_session_identity_bytes << ',' << p->maximum_row_tuples << ','
+          << p->maximum_row_width << ',' << p->maximum_duplicate_scan_work << ','
+          << p->maximum_arena_words << ')';
+    }
     else if (const auto *p = std::get_if<TseitinCycleBreakingParameters>(
                  &step.parameters))
       out << ":tseitin-cycle-breaking1(" << p->maximum_snapshot_clauses << ','
@@ -2777,6 +2833,16 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.gf3_general_row_instances.empty()) {
+      out << ":gf3-general-row[";
+      for (size_t i = 0; i < step.gf3_general_row_instances.size(); ++i) {
+        if (i) out << ';';
+        const auto &selection = step.gf3_general_row_instances[i];
+        out << selection.outcome << ',' << selection.tuple << ','
+            << selection.identity;
+      }
+      out << ']';
+    }
     if (!step.tseitin_cycle_instances.empty()) {
       out << ":tseitin-cycle-breaking[";
       for (size_t i = 0; i < step.tseitin_cycle_instances.size(); ++i) {
@@ -3060,6 +3126,33 @@ bool deserialize_online_strategy_program(const std::string &encoded,
       while (!text.empty()) {
         const size_t semicolon = text.find(';');
         step.gf3_gaussian_instances.emplace_back(text.substr(0, semicolon));
+        if (semicolon == std::string_view::npos) text = {};
+        else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view gf3_general_row_marker =
+        ":gf3-general-row[";
+    if (text.starts_with(gf3_general_row_marker) && text.back() == ']') {
+      text.remove_prefix(gf3_general_row_marker.size());
+      text.remove_suffix(1);
+      while (!text.empty()) {
+        const size_t semicolon = text.find(';');
+        const std::string_view item = text.substr(0, semicolon);
+        const size_t first = item.find(',');
+        const size_t second = first == std::string_view::npos
+                                  ? first
+                                  : item.find(',', first + 1);
+        uint64_t outcome = 0, tuple_index = 0;
+        if (first == std::string_view::npos ||
+            second == std::string_view::npos ||
+            !parse_u64(item.substr(0, first), outcome) ||
+            outcome > UINT32_MAX ||
+            !parse_u64(item.substr(first + 1, second - first - 1),
+                       tuple_index))
+          return reject("online replay GF3 general-row payload is malformed");
+        step.gf3_general_row_instances.push_back(
+            {static_cast<uint32_t>(outcome), tuple_index,
+             std::string(item.substr(second + 1))});
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }

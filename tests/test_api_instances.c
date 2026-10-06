@@ -25,6 +25,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "NaryCspEquality",
                                          "DirectPhpRefutation",
                                          "Gf3GaussianConsequence",
+                                         "Gf3GeneralRowConsequence",
                                          "TseitinCycleBreaking",
                                          "AffineMatrixInitialize"};
 
@@ -46,6 +47,7 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "NaryCspEquality",
                                              "DirectPhpRefutation",
                                              "Gf3GaussianConsequence",
+                                             "Gf3GeneralRowConsequence",
                                              "TseitinCycleBreaking",
                                              "GraphIntervalEquivalence",
                                              "AffineMatrixInitialize"};
@@ -232,6 +234,7 @@ static tactix *prepare(int id) {
       !strcmp(name, "NaryCspPrefix") ||
       !strcmp(name, "NaryCspEquality") ||
       !strcmp(name, "Gf3GaussianConsequence") ||
+      !strcmp(name, "Gf3GeneralRowConsequence") ||
       !strcmp(name, "TseitinCycleBreaking") ||
       !strcmp(name, "GraphIntervalEquivalence") ||
       !strcmp(name, "SemanticVariableAdvice")) {

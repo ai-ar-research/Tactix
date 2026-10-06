@@ -6,6 +6,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -108,6 +109,16 @@ RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
             kernel.nary_csp_equality_session != nullptr);
 }
 
+ApplyResult gf3_general_row_canonical_noop(Kernel &) {
+  return ApplyResult::NoOp;
+}
+
+RuleEligibility gf3_general_row_registry_guard(const Kernel &kernel) {
+  RuleEligibility result = gf3_general_row_action_guard(kernel);
+  return result.fact("session-bound",
+                     kernel.gf3_general_row_action_session != nullptr);
+}
+
 TACTIX_REGISTER_RULE(Gf3AffineConsequence, RuleTier::Inprocess,
                      gf3_affine_registry_guard, gf3_affine_canonical_noop);
 TACTIX_REGISTER_RULE(DirectCspSupport, RuleTier::Inprocess,
@@ -127,6 +138,9 @@ TACTIX_REGISTER_RULE(NaryCspPrefix, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(NaryCspEquality, RuleTier::Inprocess,
                      nary_csp_equality_registry_guard,
                      nary_csp_equality_canonical_noop);
+TACTIX_REGISTER_RULE(Gf3GeneralRowConsequence, RuleTier::Inprocess,
+                     gf3_general_row_registry_guard,
+                     gf3_general_row_canonical_noop);
 
 } // namespace
 
@@ -233,7 +247,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "DirectCspSupport", "DirectPhpRefutation",
         "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix",
         "GraphIntervalEquivalence", "AffineMatrixInitialize",
-        "NaryCspEquality"};
+        "NaryCspEquality", "Gf3GeneralRowConsequence"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {

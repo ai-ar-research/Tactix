@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -120,6 +121,50 @@ bool Gf3GaussianConsequenceParameters::valid() const {
       maximum_session_identity_bytes}.valid();
 }
 
+namespace {
+Gf3GeneralRowActionLimits general_row_limits(
+    const Gf3GeneralRowConsequenceParameters &p) {
+  const auto &g = p.gaussian;
+  Gf3GeneralRowActionLimits result;
+  result.live.recognition = {
+      g.maximum_source_clauses, g.maximum_source_literals, g.maximum_domains,
+      g.maximum_equations, g.maximum_equation_arity,
+      g.maximum_tuples_per_equation};
+  result.live.planner = {
+      {g.maximum_bridge_work, g.maximum_bridge_source_clauses,
+       g.maximum_bridge_source_literals, g.maximum_bridge_domains,
+       g.maximum_bridge_equations, g.maximum_bridge_terms,
+       g.maximum_authentication_references,
+       g.maximum_references_per_equation,
+       {g.maximum_gaussian_work, g.maximum_fill_entries,
+        g.maximum_intermediate_width, g.maximum_provenance_terms,
+        g.maximum_derivations, g.maximum_retained_plan_bytes}},
+      g.maximum_certificate_work, g.maximum_events,
+      g.maximum_event_literals, g.maximum_active_clauses,
+      g.maximum_retained_source_references, p.maximum_row_tuples,
+      g.maximum_event_width, g.maximum_branch_domains,
+      p.maximum_row_width};
+  result.live.maximum_capture_work = g.maximum_capture_work;
+  result.live.maximum_duplicate_scan_work = p.maximum_duplicate_scan_work;
+  result.live.maximum_revalidation_work = g.maximum_revalidation_work;
+  result.live.maximum_proof_additions = g.maximum_proof_additions;
+  result.live.maximum_proof_literal_occurrences =
+      g.maximum_proof_literal_occurrences;
+  result.live.maximum_arena_words = p.maximum_arena_words;
+  result.live.maximum_journal_bytes = g.maximum_journal_bytes;
+  result.live.maximum_identity_bytes = g.maximum_identity_bytes;
+  result.live.maximum_external_extent = g.maximum_external_extent;
+  result.maximum_session_keys = g.maximum_session_keys;
+  result.maximum_session_work = g.maximum_session_work;
+  result.maximum_session_identity_bytes = g.maximum_session_identity_bytes;
+  return result;
+}
+} // namespace
+
+bool Gf3GeneralRowConsequenceParameters::valid() const {
+  return gaussian.valid() && general_row_limits(*this).valid();
+}
+
 bool TseitinCycleBreakingParameters::valid() const {
   TseitinCycleBreakingLimits limits;
   limits.snapshot = {maximum_snapshot_clauses, maximum_snapshot_literals,
@@ -185,6 +230,10 @@ Gf3GaussianConsequenceParameters
 Gf3GaussianConsequenceParameters::from_kernel(const Kernel &k) {
   return k.gf3_gaussian_consequence_parameters;
 }
+Gf3GeneralRowConsequenceParameters
+Gf3GeneralRowConsequenceParameters::from_kernel(const Kernel &k) {
+  return k.gf3_general_row_consequence_parameters;
+}
 TseitinCycleBreakingParameters
 TseitinCycleBreakingParameters::from_kernel(const Kernel &k) {
   return k.tseitin_cycle_breaking_parameters;
@@ -229,6 +278,10 @@ void install_rule_parameters(Kernel &k,
 void install_rule_parameters(
     Kernel &k, const Gf3GaussianConsequenceParameters &parameters) {
   k.gf3_gaussian_consequence_parameters = parameters;
+}
+void install_rule_parameters(
+    Kernel &k, const Gf3GeneralRowConsequenceParameters &parameters) {
+  k.gf3_general_row_consequence_parameters = parameters;
 }
 void install_rule_parameters(
     Kernel &k, const TseitinCycleBreakingParameters &parameters) {

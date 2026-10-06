@@ -208,6 +208,7 @@ struct RandomOnlineConfig {
   }();
   DirectPhpRefutationParameters direct_php_refutation_reference;
   Gf3GaussianConsequenceParameters gf3_gaussian_consequence_reference;
+  Gf3GeneralRowConsequenceParameters gf3_general_row_consequence_reference;
   TseitinCycleBreakingParameters tseitin_cycle_breaking_reference;
   SemanticVariableAdviceParameters semantic_variable_advice_reference;
   InstantiateParameters instantiate_reference;

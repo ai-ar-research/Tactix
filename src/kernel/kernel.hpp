@@ -39,6 +39,7 @@ class NaryCspPrefixActionSession;
 class NaryCspEqualitySession;
 class DirectPhpActionSession;
 class Gf3GaussianActionSession;
+class Gf3GeneralRowActionSession;
 class TseitinCycleBreakingSession;
 class AffineMatrixSearchSession;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -1195,6 +1196,32 @@ struct Stats {
   uint64_t gf3_gaussian_identity_bytes = 0;
   uint64_t gf3_gaussian_session_identity_bytes = 0;
   uint64_t gf3_gaussian_units = 0, gf3_gaussian_conflicts = 0;
+  uint64_t gf3_general_row_attempts = 0, gf3_general_row_applied = 0;
+  uint64_t gf3_general_row_invalid = 0, gf3_general_row_inapplicable = 0;
+  uint64_t gf3_general_row_no_structure = 0;
+  uint64_t gf3_general_row_no_consequence = 0;
+  uint64_t gf3_general_row_already_published = 0;
+  uint64_t gf3_general_row_exhausted = 0;
+  uint64_t gf3_general_row_interrupted = 0;
+  uint64_t gf3_general_row_stale = 0;
+  uint64_t gf3_general_row_unsupported_proof = 0;
+  uint64_t gf3_general_row_source_clauses = 0;
+  uint64_t gf3_general_row_source_literals = 0;
+  uint64_t gf3_general_row_capture_work = 0;
+  uint64_t gf3_general_row_bridge_work = 0;
+  uint64_t gf3_general_row_planning_work = 0;
+  uint64_t gf3_general_row_validation_work = 0;
+  uint64_t gf3_general_row_duplicate_scan_work = 0;
+  uint64_t gf3_general_row_revalidation_work = 0;
+  uint64_t gf3_general_row_proof_additions = 0;
+  uint64_t gf3_general_row_proof_literals = 0;
+  uint64_t gf3_general_row_arena_words = 0;
+  uint64_t gf3_general_row_journal_bytes = 0;
+  uint64_t gf3_general_row_identity_bytes = 0;
+  uint64_t gf3_general_row_session_work = 0;
+  uint64_t gf3_general_row_session_identity_bytes = 0;
+  uint64_t gf3_general_row_installed_clauses = 0;
+  uint64_t gf3_general_row_semantic_variables = 0;
   uint64_t tseitin_cycle_attempts = 0, tseitin_cycle_applied = 0;
   uint64_t tseitin_cycle_invalid = 0, tseitin_cycle_inapplicable = 0;
   uint64_t tseitin_cycle_no_structure = 0;
@@ -2041,6 +2068,8 @@ struct Kernel {
   strategy::DirectPhpRefutationParameters direct_php_refutation_parameters;
   strategy::Gf3GaussianConsequenceParameters
       gf3_gaussian_consequence_parameters;
+  strategy::Gf3GeneralRowConsequenceParameters
+      gf3_general_row_consequence_parameters;
   strategy::TseitinCycleBreakingParameters tseitin_cycle_breaking_parameters;
   strategy::SemanticVariableAdviceParameters semantic_variable_advice_parameters;
   // Borrowed session stream. The owner keeps it open through all structural
@@ -2060,6 +2089,7 @@ struct Kernel {
   NaryCspEqualitySession *nary_csp_equality_session = nullptr;
   DirectPhpActionSession *direct_php_action_session = nullptr;
   Gf3GaussianActionSession *gf3_gaussian_action_session = nullptr;
+  Gf3GeneralRowActionSession *gf3_general_row_action_session = nullptr;
   TseitinCycleBreakingSession *tseitin_cycle_breaking_session = nullptr;
   AffineMatrixSearchSession *affine_matrix_search_session = nullptr;
   strategy::InstantiateParameters instantiate_parameters;

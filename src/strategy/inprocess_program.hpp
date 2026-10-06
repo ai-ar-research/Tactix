@@ -71,6 +71,7 @@ using ActionParameters =
                  NaryCspPrefixParameters, NaryCspEqualityParameters,
                  DirectPhpRefutationParameters,
                  Gf3GaussianConsequenceParameters,
+                 Gf3GeneralRowConsequenceParameters,
                  TseitinCycleBreakingParameters,
                  SemanticVariableAdviceParameters>;
 
@@ -129,6 +130,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {29, "GraphIntervalEquivalence", Probe, false},
       {30, "AffineMatrixInitialize", Probe, false},
       {31, "NaryCspEquality", Probe, false},
+      {32, "Gf3GeneralRowConsequence", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -244,6 +246,12 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
       if (step.rule != "Gf3GaussianConsequence" || !p->valid())
         return reject(
             "Gf3GaussianConsequence parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<Gf3GeneralRowConsequenceParameters>(
+                       &step.parameters)) {
+      if (step.rule != "Gf3GeneralRowConsequence" || !p->valid())
+        return reject(
+            "Gf3GeneralRowConsequence parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<TseitinCycleBreakingParameters>(
                        &step.parameters)) {

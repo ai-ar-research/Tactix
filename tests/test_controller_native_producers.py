@@ -65,6 +65,7 @@ def main():
         assert "--controller-gf2-affine-profile=FILE" in help_result.stdout
         assert "--controller-families=LIST" in help_result.stdout
         assert "--controller-search-configurations=all|LIST" in help_result.stdout
+        assert "gf3-general-row" in help_result.stdout
 
         for value in ("", "unknown", "gf3-affine,", "all,gf3-affine"):
             result = run("--controller-policy=7",
@@ -191,7 +192,7 @@ def main():
         selected = run(
             "--controller-policy=7",
             "--controller-native-producers=gf2-affine,gf3-affine,direct-csp,nary-csp,nary-csp-equality",
-            "--controller-native-producers=gf3-gaussian,tseitin-cycle",
+            "--controller-native-producers=gf3-gaussian,gf3-general-row,tseitin-cycle",
             f"--controller-trace={trace}")
         assert selected.returncode == 10, selected.stderr
         header = trace.read_text().splitlines()[:2]
@@ -199,7 +200,8 @@ def main():
         configuration = shlex.split(header[1])[1]
         for family in ("AffineConsequence", "Gf3AffineConsequence", "DirectCspSupport",
                        "NaryCspPrefix", "NaryCspEquality",
-                       "Gf3GaussianConsequence", "TseitinCycleBreaking"):
+                       "Gf3GaussianConsequence", "Gf3GeneralRowConsequence",
+                       "TseitinCycleBreaking"):
             assert f'producer "{family}"' in configuration
 
         restricted_trace = work / "restricted.trace"

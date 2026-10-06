@@ -21,7 +21,8 @@ enum class SemanticVariableProducer : uint8_t {
   DirectCsp = 4,
   NaryCsp = 5,
   NaryCspEquality = 6,
-  Count = 7,
+  Gf3GeneralRow = 7,
+  Count = 8,
 };
 
 inline constexpr size_t SEMANTIC_VARIABLE_PRODUCER_COUNT =
