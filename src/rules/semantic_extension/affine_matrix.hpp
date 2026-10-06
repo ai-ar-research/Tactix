@@ -134,6 +134,14 @@ private:
   // event, but the next call must rebuild from `admitted_rows_` so omitted
   // rows cannot disappear permanently.
   bool incremental_ready_ = false;
+  // One complete predecessor only: moving the old basis here avoids copying
+  // it on extension and permits an exact immediate-prefix backtrack restore.
+  // This never retains partial reductions or an unbounded trail history.
+  // The current and predecessor populations share maximum_rows and
+  // maximum_assignments; immutable admitted rows remain separate as before.
+  bool predecessor_ready_ = false;
+  std::vector<MatrixAssignment> predecessor_trail_;
+  std::vector<MatrixRow> predecessor_rows_;
   bool last_synchronization_incremental_ = false;
   size_t last_synchronization_prefix_ = 0;
   size_t last_synchronization_conditioned_ = 0;

@@ -317,6 +317,35 @@ MatrixStatus AffineMatrix::synchronize(
   }
 
   Work work{0, limits_.maximum_work, charge};
+  // A complete predecessor is already conditioned on this exact snapshot.
+  // Restore by move, preserving source ordinals and deterministic event order;
+  // a same-length reassignment can never enter this path.
+  const bool predecessor_candidate =
+      predecessor_ready_ && trail.size() < trail_.size() &&
+      trail.size() == predecessor_trail_.size();
+  if (predecessor_candidate) {
+    if (!work.consume(1 + trail.size()))
+      return work.interrupted ? MatrixStatus::Interrupted
+                              : MatrixStatus::Exhausted;
+  }
+  if (predecessor_candidate && trail == predecessor_trail_) {
+    MatrixEvent candidate = find_event(predecessor_rows_);
+    make_reason(sources_, trail, candidate);
+    trail_ = std::move(predecessor_trail_);
+    rows_ = std::move(predecessor_rows_);
+    predecessor_ready_ = false;
+    incremental_ready_ = true;
+    last_synchronization_incremental_ = false;
+    last_synchronization_prefix_ = 0;
+    last_synchronization_conditioned_ = 0;
+    last_synchronization_kind_ = MatrixSynchronizationKind::Backtrack;
+    if (work.used > std::numeric_limits<uint64_t>::max() - work_)
+      work_ = std::numeric_limits<uint64_t>::max();
+    else
+      work_ += work.used;
+    event = std::move(candidate);
+    return MatrixStatus::Complete;
+  }
   std::vector<MatrixRow> rows;
   MatrixSynchronizationKind kind = MatrixSynchronizationKind::Extension;
   if (!incremental_ready_)
@@ -341,6 +370,19 @@ MatrixStatus AffineMatrix::synchronize(
 
   MatrixEvent candidate = find_event(rows);
   make_reason(sources_, trail, candidate);
+  // Current and predecessor share the existing mutable row/trail population
+  // allowances. Full matrices simply keep the established rebuild behavior.
+  if (incremental && status == MatrixStatus::Complete &&
+      rows_.size() <= limits_.maximum_rows - rows.size() &&
+      trail_.size() <= limits_.maximum_assignments - trail.size()) {
+    predecessor_trail_ = std::move(trail_);
+    predecessor_rows_ = std::move(rows_);
+    predecessor_ready_ = true;
+  } else {
+    predecessor_ready_ = false;
+    predecessor_trail_.clear();
+    predecessor_rows_.clear();
+  }
   trail_ = trail;
   rows_ = std::move(rows);
   incremental_ready_ = status == MatrixStatus::Complete;
