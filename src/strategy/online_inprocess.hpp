@@ -101,6 +101,18 @@ struct OnlineInvocation {
   WorkLimit budget = WorkLimit::unlimited();
 };
 
+// A separately selected Propagate may close an already settled producer
+// boundary.  The self-Propagate marker is part of the serialized request, so
+// replay distinguishes this explicit metered fixpoint service from an
+// ordinary inapplicable Propagate choice. It performs no state transition.
+inline bool explicit_fixpoint_propagation_service(
+    const OnlineInvocation &step, const Kernel &kernel) {
+  return step.rule == "Propagate" &&
+         step.post_application == PostApplication::Propagate &&
+         !kernel.level && !kernel.inconsistent && !kernel.conflict_valid &&
+         kernel_propagation_fixpoint(kernel);
+}
+
 struct OnlineStrategyProgram {
   std::vector<OnlineInvocation> sequence;
   RepeatSpec repeat;
@@ -126,7 +138,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &,
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
 bool deserialize_online_strategy_program(const std::string &,
                                          OnlineStrategyProgram &,
-                                         std::string *error = nullptr);
+                                         std::string *error = nullptr,
+                                         bool direct_csp_producer_template =
+                                             false);
 
 inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
                                               std::string *error = nullptr) {

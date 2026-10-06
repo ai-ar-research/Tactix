@@ -10,6 +10,7 @@
 #include <cassert>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <unistd.h>
 
 using namespace tactix;
@@ -71,6 +72,70 @@ static OnlineStrategyProgram affine_producer_profile(
   }
   return result;
 }
+
+static Kernel direct_csp_fixture() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 7);
+  for (const auto &clause : std::vector<std::vector<int32_t>>{
+           {1, 2, 3},  {-1, -2}, {-1, -3}, {-2, -3},
+           {4, 5, 6, 7}, {-4, -5}, {-4, -6}, {-4, -7}, {-5, -6},
+           {-5, -7}, {-6, -7}, {-1, -7}, {-2, -4}, {-2, -6},
+           {-2, -7}, {-3, -5}})
+    add_external_clause(kernel, clause);
+  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
+  return kernel;
+}
+
+static OnlineStrategyProgram direct_csp_producer_profile(
+    const DirectCspSupportParameters &parameters, uint64_t allowance = 3,
+    std::optional<SemanticVariableAdviceParameters> advice = std::nullopt,
+    uint64_t startup_batch_actions = 0) {
+  OnlineInvocation step;
+  step.id = 101;
+  step.rule = "DirectCspSupport";
+  step.parameters = parameters;
+  step.granularity = InvocationGranularity::CanonicalApplication;
+  step.repeat = {RepeatMode::Once, 1};
+  step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 10000000};
+  step.work_unit = WorkUnit::Applications;
+  step.budget = WorkLimit::bounded(allowance);
+  OnlineStrategyProgram result{
+      {step}, {startup_batch_actions ? RepeatMode::Count : RepeatMode::Once,
+               startup_batch_actions ? startup_batch_actions : 1}};
+  OnlineInvocation propagation;
+  propagation.id = 102;
+  propagation.rule = "Propagate";
+  propagation.granularity = InvocationGranularity::CanonicalApplication;
+  propagation.repeat = {RepeatMode::Once, 1};
+  // Marks a separately observable propagation service even when the support
+  // row adds no root unit and BCP is already settled.
+  propagation.post_application = PostApplication::Propagate;
+  propagation.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1};
+  propagation.work_unit = WorkUnit::Propagations;
+  propagation.budget = WorkLimit::bounded(1);
+  result.sequence.push_back(std::move(propagation));
+  if (advice) {
+    OnlineInvocation companion;
+    companion.id = 103;
+    companion.rule = "SemanticVariableAdvice";
+    companion.parameters = *advice;
+    companion.granularity = InvocationGranularity::CanonicalApplication;
+    companion.repeat = {RepeatMode::Once, 1};
+    companion.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1};
+    companion.work_unit = WorkUnit::Applications;
+    companion.budget = WorkLimit::bounded(1);
+    result.sequence.push_back(std::move(companion));
+  }
+  return result;
+}
+
+struct DirectCspFeedback final : FeedbackReceiver {
+  std::vector<ActionFeedback> actions;
+  void after_action(const ActionFeedback &record) override {
+    actions.push_back(record);
+  }
+  void search_interval(const SearchIntervalFeedback &) override {}
+};
 
 static void native_affine_profile_is_exact_transactional_and_effective() {
   RandomControllerConfig config;
@@ -603,6 +668,198 @@ static void native_affine_bounded_startup_batch_crosses_propagation() {
   std::fclose(records);
 }
 
+static void native_direct_csp_profile_is_exact_and_transactional() {
+  RandomControllerConfig config;
+  assert(config.parameters.direct_csp_support_reference.valid());
+  config.parameters.rules = {"DirectCspSupport", "Propagate",
+                             "SemanticVariableAdvice"};
+  config.direct_csp_action_producer.enabled = true;
+  const SemanticVariableAdviceParameters advice{64, 4096, 2, 7};
+  std::string error;
+  const auto profile = direct_csp_producer_profile(
+      config.parameters.direct_csp_support_reference, 3, advice, 2);
+  const std::string encoded_profile =
+      serialize_online_strategy_program(profile);
+  OnlineStrategyProgram parsed_profile;
+  assert(!deserialize_online_strategy_program(encoded_profile, parsed_profile,
+                                               &error));
+  assert(deserialize_online_strategy_program(encoded_profile, parsed_profile,
+                                              &error, true));
+  assert(serialize_online_strategy_program(parsed_profile) == encoded_profile &&
+         parsed_profile.sequence.front().direct_csp_support_instances.empty());
+  assert(config.configure_direct_csp_producer_profile(profile, &error));
+  assert(error.empty());
+  assert(profile.sequence.front().granularity ==
+             InvocationGranularity::CanonicalApplication &&
+         profile.sequence.front().direct_csp_support_instances.empty() &&
+         !config.offered_actions.contains("DirectCspSupport"));
+  assert(config.direct_csp_action_producer.startup_batch_actions == 2);
+  assert(config.direct_csp_action_producer.maximum_enumeration_work ==
+         DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT);
+  const auto support = config.allowance("DirectCspSupport");
+  assert(support.unit == WorkUnit::Applications && support.amount == 3 &&
+         support.native.mode == RuleWorkBudgetMode::Bounded &&
+         support.native.amount == 10000000);
+  const auto semantic = config.allowance("SemanticVariableAdvice");
+  assert(semantic.unit == WorkUnit::Applications && semantic.amount == 1 &&
+         semantic.native.mode == RuleWorkBudgetMode::Bounded &&
+         semantic.native.amount == 1);
+  const auto propagation = config.allowance("Propagate");
+  assert(propagation.unit == WorkUnit::Propagations &&
+         propagation.amount == 1 &&
+         propagation.native.mode == RuleWorkBudgetMode::Bounded &&
+         propagation.native.amount == 1);
+  assert(controller_configuration(config).find(
+             "producer \"DirectCspSupport\" 64 64 64 8 10000000 2") !=
+         std::string::npos);
+
+  const std::string accepted = controller_configuration(config);
+  auto invalid = profile;
+  invalid.sequence.front().post_application = PostApplication::Propagate;
+  assert(!config.configure_direct_csp_producer_profile(invalid, &error));
+  assert(controller_configuration(config) == accepted);
+  invalid = profile;
+  invalid.sequence.front().rule_work_budget = {};
+  assert(!config.configure_direct_csp_producer_profile(invalid, &error));
+  assert(controller_configuration(config) == accepted);
+  invalid = profile;
+  invalid.sequence.erase(invalid.sequence.begin() + 1);
+  assert(!config.configure_direct_csp_producer_profile(invalid, &error));
+  assert(controller_configuration(config) == accepted);
+
+  RandomControllerConfig disabled;
+  assert(!disabled.configure_direct_csp_producer_profile(
+      direct_csp_producer_profile(
+          disabled.parameters.direct_csp_support_reference, 1, advice),
+      &error));
+  assert(error.find("requires the native producer") != std::string::npos);
+}
+
+static void native_direct_csp_batch_is_replayable_metered_and_observable() {
+  Kernel kernel = direct_csp_fixture();
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  DirectCspSupportActionSession session;
+  kernel.direct_csp_support_action_session = &session;
+  DirectCspFeedback feedback;
+  RestartController controller(kernel, {}, &feedback);
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"DirectCspSupport", "Propagate",
+                             "SemanticVariableAdvice"};
+  config.direct_csp_action_producer.enabled = true;
+  config.direct_csp_action_producer.maximum_offers = 8;
+  const SemanticVariableAdviceParameters advice{64, 4096, 2, 7};
+  std::string error;
+  assert(config.configure_direct_csp_producer_profile(
+      direct_csp_producer_profile(
+          config.parameters.direct_csp_support_reference, 3, advice, 2),
+      &error));
+  RandomControllerSelector selector(5);
+
+  uint64_t producer_calls = 0;
+  std::vector<DirectCspSupportActionSelection> applied;
+  std::vector<std::string> identities;
+  for (unsigned step = 0; step < 4; ++step) {
+    ActionRequest request;
+    assert(selector.choose(kernel, controller.observe(), config, request,
+                           error));
+    assert(request.type == ActionType::Rule);
+    if (step == 0 || step == 3) {
+      assert(request.invocation.rule == "DirectCspSupport");
+      assert(request.invocation.post_application ==
+             PostApplication::None);
+      assert(request.invocation.direct_csp_support_instances.size() == 1);
+      assert(kernel_propagation_fixpoint(kernel));
+      producer_calls += request.producer_effort.size();
+      applied.push_back(
+          request.invocation.direct_csp_support_instances.front());
+
+      auto replay_invocation = request.invocation;
+      replay_invocation.id = request.sequence;
+      const OnlineStrategyProgram encoded{{replay_invocation}, {}};
+      const std::string identity = serialize_online_strategy_program(encoded);
+      OnlineStrategyProgram decoded;
+      std::string replay_error;
+      assert(deserialize_online_strategy_program(identity, decoded,
+                                                 &replay_error));
+      assert(serialize_online_strategy_program(decoded) == identity);
+      identities.push_back(identity);
+    } else if (step == 1) {
+      assert(request.invocation.rule == "Propagate");
+      assert(request.invocation.post_application ==
+             PostApplication::Propagate);
+    } else {
+      assert(request.invocation.rule == "SemanticVariableAdvice");
+    }
+    const auto result = controller.apply_rule(
+        request, config.allowance(request.invocation.rule));
+    assert(result.invocation.status ==
+           (step == 1 ? InvocationStatus::NoChange
+                      : InvocationStatus::Completed));
+    assert(kernel_propagation_fixpoint(kernel));
+  }
+  assert(session.committed_keys() == 2 && applied.size() == 2);
+  assert(applied[0] != applied[1] && identities[0] != identities[1]);
+  // The first bounded census retained the remaining exact rows across the
+  // advice-only H mutation. No duplicate discovery or fallback is needed.
+  assert(producer_calls == 1);
+  assert(feedback.actions.size() == 4);
+  assert(feedback.actions.front().request &&
+         feedback.actions.front().request->producer_effort.size() == 1 &&
+         feedback.actions.front().identity == "DirectCspSupport" &&
+         feedback.actions.front().before.sequence == 0 &&
+         feedback.actions.front().after.sequence == 1);
+  const auto &raw = feedback.actions.front().request->producer_effort.front();
+  assert(raw.family == "DirectCspSupport" && raw.offers > 1 &&
+         raw.total_work > 0);
+  assert(feedback.actions.front().outcome.invocation.made_rule_progress);
+  assert(feedback.actions[1].identity == "Propagate" &&
+         feedback.actions[1].outcome.invocation.status ==
+             InvocationStatus::NoChange &&
+         feedback.actions[1].outcome.invocation.work == 0 &&
+         feedback.actions[1].outcome.invocation.applications == 1 &&
+         !feedback.actions[1].outcome.invocation.made_rule_progress);
+  assert(feedback.actions[1].before.state.arena_generation ==
+             feedback.actions[1].after.state.arena_generation &&
+         feedback.actions[1].before.state.touch_epoch ==
+             feedback.actions[1].after.state.touch_epoch &&
+         feedback.actions[1].before.state.strategy_epoch ==
+             feedback.actions[1].after.state.strategy_epoch);
+  assert(feedback.actions[2].identity == "SemanticVariableAdvice" &&
+         feedback.actions[3].identity == "DirectCspSupport");
+  std::fclose(records);
+}
+
+static void native_direct_csp_batch_has_no_fallback() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 2);
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  DirectCspSupportActionSession session;
+  kernel.direct_csp_support_action_session = &session;
+  RestartController controller(kernel);
+  RandomControllerConfig config;
+  config.parameters.rules = {"DirectCspSupport", "Propagate",
+                             "SemanticVariableAdvice"};
+  config.direct_csp_action_producer.enabled = true;
+  const SemanticVariableAdviceParameters advice{64, 4096, 2, 7};
+  std::string error;
+  assert(config.configure_direct_csp_producer_profile(
+      direct_csp_producer_profile(
+          config.parameters.direct_csp_support_reference, 1, advice, 1),
+      &error));
+  RandomControllerSelector selector(1);
+  ActionRequest request;
+  assert(!selector.choose(kernel, controller.observe(), config, request,
+                          error));
+  assert(error == "DirectCSP startup batch has no eligible support action");
+  assert(controller.observe().sequence == 0 && session.committed_keys() == 0);
+  std::fclose(records);
+}
+
 static void random_guidance_uses_observed_identities() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -743,6 +1000,9 @@ int main() {
   native_affine_completed_census_keeps_additional_rows();
   native_affine_bounded_startup_batch_preserves_exact_pages();
   native_affine_bounded_startup_batch_crosses_propagation();
+  native_direct_csp_profile_is_exact_and_transactional();
+  native_direct_csp_batch_is_replayable_metered_and_observable();
+  native_direct_csp_batch_has_no_fallback();
   finite_lucky_catalog_is_reachable();
   guidance_requires_an_observed_candidate();
   random_guidance_uses_observed_identities();

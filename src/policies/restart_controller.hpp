@@ -373,7 +373,8 @@ private:
     if (id < 0 || !root_exclusion(tactix_rules()[id]).empty())
       return result;
     const auto &rule = tactix_rules()[id];
-    if (!rule.guard(kernel_)) {
+    if (!rule.guard(kernel_) &&
+        !explicit_fixpoint_propagation_service(request.invocation, kernel_)) {
       result.invocation.status = InvocationStatus::Inapplicable;
       return result;
     }

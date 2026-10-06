@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
   bool controller_search_configurations_set = false;
   const char *controller_actions_path = nullptr;
   const char *controller_gf2_affine_profile_path = nullptr;
+  const char *controller_direct_csp_profile_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
   const char *structural_provenance_path = nullptr;
@@ -224,6 +225,8 @@ int main(int argc, char **argv) {
       controller_actions_path = a + 21;
     } else if (!strncmp(a, "--controller-gf2-affine-profile=", 32)) {
       controller_gf2_affine_profile_path = a + 32;
+    } else if (!strncmp(a, "--controller-direct-csp-profile=", 32)) {
+      controller_direct_csp_profile_path = a + 32;
     } else if (!strncmp(a, "--controller-families=", 22)) {
       const char *value = a + 22;
       if (!strcmp(value, "all")) {
@@ -436,6 +439,7 @@ int main(int argc, char **argv) {
              "[--controller-nary-csp-census] "
              "[--controller-search-configurations=all|LIST] "
              "[--controller-gf2-affine-profile=FILE] "
+             "[--controller-direct-csp-profile=FILE] "
              "[--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
@@ -509,7 +513,8 @@ int main(int argc, char **argv) {
     for (const char *other : {cnf_path, proof_path, controller_trace_path,
            controller_replay_path, trace_path, replay_path, feedback_path,
            feedback_replay_path, controller_actions_path,
-           controller_gf2_affine_profile_path}) {
+           controller_gf2_affine_profile_path,
+           controller_direct_csp_profile_path}) {
       if (!other) continue;
       std::error_code a, b, c;
       if ((std::filesystem::weakly_canonical(structural_provenance_path, a) ==
@@ -546,7 +551,8 @@ int main(int argc, char **argv) {
         controller_native_producers_set || controller_families_set ||
         controller_nary_csp_census_set ||
         controller_search_configurations_set ||
-        controller_actions_path || controller_gf2_affine_profile_path) &&
+        controller_actions_path || controller_gf2_affine_profile_path ||
+        controller_direct_csp_profile_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
@@ -591,6 +597,22 @@ int main(int argc, char **argv) {
                                                                    &error)) {
       fprintf(stderr, "tactix: invalid GF2 affine producer profile '%s': %s\n",
               controller_gf2_affine_profile_path, error.c_str());
+      printf("s UNKNOWN\n");
+      return 1;
+    }
+  }
+  if (controller_direct_csp_profile_path) {
+    std::ifstream input(controller_direct_csp_profile_path);
+    strategy::OnlineStrategyProgram program;
+    std::string error;
+    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    if (!input ||
+        !strategy::deserialize_online_strategy_program(source, program,
+                                                        &error, true) ||
+        !controller_config.configure_direct_csp_producer_profile(program,
+                                                                 &error)) {
+      fprintf(stderr, "tactix: invalid DirectCSP producer profile '%s': %s\n",
+              controller_direct_csp_profile_path, error.c_str());
       printf("s UNKNOWN\n");
       return 1;
     }

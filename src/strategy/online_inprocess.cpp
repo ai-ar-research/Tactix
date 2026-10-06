@@ -1213,7 +1213,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   if (!general_sr)
     runtime.sr_general_cursor = {};
   const RuleVTable &rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
-  if (!rule.guard(k)) {
+  if (!rule.guard(k) && !explicit_fixpoint_propagation_service(step, k)) {
     out.status = InvocationStatus::Inapplicable;
     return false;
   }
@@ -1756,7 +1756,9 @@ InvocationResult OnlineStrategyExecutor::advance(
     const RuleVTable &rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
     // Eligibility can change between advances even when arena offsets remain
     // valid. A declined guard does not consume an application or certify scope.
-    if (!rule.guard(k)) {
+    const bool explicit_fixpoint_propagation =
+        explicit_fixpoint_propagation_service(step, k);
+    if (!rule.guard(k) && !explicit_fixpoint_propagation) {
       out.status = InvocationStatus::Inapplicable;
       out.step_id = step.id;
       out.rule_id = rule.id;
@@ -1793,7 +1795,24 @@ InvocationResult OnlineStrategyExecutor::advance(
     const bool generated_sr_pass =
         step.rule == "SubstitutionRedundancy" &&
         step.granularity == InvocationGranularity::CompleteCurrentPass;
-    if (step.rule == "BVE") {
+    if (explicit_fixpoint_propagation) {
+      // The producer has already left BCP at a fixpoint. Preserve its staged
+      // semantic candidate and state identity while still consuming this
+      // explicit public action boundary and emitting raw feedback/replay.
+      out.before = out.after;
+      out.configuration_revision = revision_;
+      out.work_unit = step.work_unit;
+      out.rule_id = rule.id;
+      out.instance = payload;
+      out.work = 0;
+      out.applications = 1;
+      out.rule_result = ApplyResult::NoOp;
+      out.made_rule_progress = false;
+      out.selection_complete = runtime.cursor + 1 == runtime.selection.size();
+      out.budget_status = budget.charge(step.work_unit, 0);
+      out.status = InvocationStatus::NoChange;
+      out.after = state_version(k);
+    } else if (step.rule == "BVE") {
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
       const auto *configured = std::get_if<BveParameters>(&step.parameters);
       const BveParameters parameters =

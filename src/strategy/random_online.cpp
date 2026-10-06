@@ -2712,7 +2712,8 @@ std::string serialize_online_strategy_program(
 
 bool deserialize_online_strategy_program(const std::string &encoded,
                                          OnlineStrategyProgram &out,
-                                         std::string *error) {
+                                         std::string *error,
+                                         bool direct_csp_producer_template) {
   const auto reject = [error](const char *message) {
     if (error)
       *error = message;
@@ -2987,7 +2988,22 @@ bool deserialize_online_strategy_program(const std::string &encoded,
   }
   if (!input.eof())
     return reject("online replay contains unreadable data");
-  if (!validate_online_strategy_program(parsed, error))
+  // Executable action programs still require exact DirectCSP rows. The one
+  // explicit producer-profile caller parses a canonical, payload-free
+  // template and binds the row later. Validate a private executable shape so
+  // the synthetic row can never enter the returned program or its replay
+  // identity.
+  OnlineStrategyProgram validated = parsed;
+  if (direct_csp_producer_template && !validated.sequence.empty()) {
+    auto &step = validated.sequence.front();
+    if (step.rule == "DirectCspSupport" &&
+        step.granularity == InvocationGranularity::CanonicalApplication &&
+        step.direct_csp_support_instances.empty()) {
+      step.granularity = InvocationGranularity::OneInstance;
+      step.direct_csp_support_instances = {{{1, 2}, {3, 4}, 0}};
+    }
+  }
+  if (!validate_online_strategy_program(validated, error))
     return false;
   out = std::move(parsed);
   if (error)

@@ -53,7 +53,16 @@ struct DirectCspActionProducerConfig {
   uint64_t maximum_pair_candidates = 64;
   uint64_t maximum_row_candidates = 64;
   uint64_t maximum_offers = 8;
-  uint64_t maximum_enumeration_work = 100000;
+  // Native discovery is fully metered.  One standard inprocessing effort
+  // quantum admits a bounded structural census without making zero mean
+  // unlimited.
+  uint64_t maximum_enumeration_work =
+      DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT;
+  // Zero preserves learner-random scheduling. A positive value is an exact
+  // replay-fingerprinted count of productive support-row actions. A separate
+  // Propagate action and advice consumption settle before the next row is
+  // selected.
+  uint64_t startup_batch_actions = 0;
 
   bool valid() const {
     return !enabled ||
@@ -129,6 +138,12 @@ struct RandomControllerConfig {
   // a static action: exact rows and current candidates remain live,
   // producer-owned payloads and the replacement is transactional.
   bool configure_affine_basis_producer_profile(
+      const strategy::OnlineStrategyProgram &, std::string *error = nullptr);
+  // Install typed limits and positive fixed allowances for native DirectCSP
+  // discovery. A bounded-count profile exposes repeated support publication,
+  // explicit Propagate, and semantic advice as three deterministic public
+  // shared-execution actions; exact row payloads remain producer-owned.
+  bool configure_direct_csp_producer_profile(
       const strategy::OnlineStrategyProgram &, std::string *error = nullptr);
   // Install one exact, non-empty subset of the public named search
   // configurations. Replacement is transactional and rejects duplicates.
