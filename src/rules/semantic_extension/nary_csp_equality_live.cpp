@@ -58,17 +58,6 @@ NaryCspEqualityKey make_key(const NaryCspPrefixOwnerSnapshot &owner,
   return key;
 }
 
-bool limits_valid(const NaryCspEqualityLimits &limits) {
-  return limits.maximum_source_clauses && limits.maximum_source_literals &&
-         limits.maximum_recognition_work &&
-         limits.maximum_domain_values >= 2 &&
-         limits.maximum_forbidden_tuples && limits.maximum_proof_work &&
-         limits.maximum_proof_additions &&
-         limits.maximum_proof_literal_occurrences &&
-         limits.maximum_journal_bytes && limits.maximum_extent_growth &&
-         limits.maximum_external_extent && limits.maximum_session_keys;
-}
-
 NaryCspPrefixLiveRequest capture_request(
     const NaryCspPrefixOwnerSnapshot &owner,
     const equality::Selection &selection,
@@ -177,11 +166,20 @@ bool render_journal(const NaryCspEqualityRequest &request,
 
 } // namespace
 
+bool NaryCspEqualityLimits::valid() const {
+  return maximum_source_clauses && maximum_source_literals &&
+         maximum_recognition_work && maximum_domain_values >= 2 &&
+         maximum_forbidden_tuples && maximum_proof_work &&
+         maximum_proof_additions && maximum_proof_literal_occurrences &&
+         maximum_journal_bytes && maximum_extent_growth &&
+         maximum_external_extent && maximum_session_keys;
+}
+
 NaryCspEqualityLiveResult nary_csp_equality_live_apply(
     Kernel &kernel, NaryCspEqualitySession &session,
     const NaryCspEqualityRequest &request) {
   NaryCspEqualityLiveResult result;
-  if (!request.owner || !limits_valid(request.limits) || !request.action_id ||
+  if (!request.owner || !request.limits.valid() || !request.action_id ||
       !request.semantic_id || !request.records ||
       (session.retained() && !session.belongs_to(kernel)))
     return result;

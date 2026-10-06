@@ -53,6 +53,8 @@ struct NaryCspEqualityLimits {
   uint32_t maximum_extent_growth = 0;
   uint32_t maximum_external_extent = 0;
   uint64_t maximum_session_keys = 0;
+
+  bool valid() const;
 };
 
 struct NaryCspEqualityRequest {
