@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "rules/semantic_extension/nary_csp_equality_live.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -89,6 +89,16 @@ NaryCspEqualityLimits limits() {
 NaryCspEqualityRequest request(const NaryCspPrefixOwnerSnapshot &owner,
                                FILE *records) {
   return {&owner, {}, limits(), 71, 81, records};
+}
+
+NaryCspPrefixActionLimits prefix_limits() {
+  return {100, 1000, 100000, 8, 16, 100, 7, 16, 1000,
+          32,  200,  100000, 1, 100, 32, 100000};
+}
+
+NaryCspPrefixActionSelection prefix_selection() {
+  return {{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
+          {2, {{0, 0}, {1, 0}}}};
 }
 
 bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
@@ -190,6 +200,42 @@ void clean_declines() {
   std::fclose(records);
 }
 
+void action_uses_exact_retained_owner() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession prefix_session;
+  const auto prefix = nary_csp_prefix_action_apply(
+      kernel, prefix_session, prefix_limits(), prefix_selection());
+  assert(prefix.status == NaryCspPrefixActionStatus::Applied &&
+         prefix_session.belongs_to(kernel) &&
+         kernel.structural_action_sequence == 1);
+
+  NaryCspEqualitySession equality_session;
+  NaryCspEqualityActionSelection selected{
+      {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, {0, 1, 2}};
+  assert(nary_csp_equality_action_selection_valid(selected));
+  assert(nary_csp_equality_action_selection_within_limits(selected, limits()));
+  const auto applied = nary_csp_equality_action_apply(
+      kernel, prefix_session, equality_session, limits(), selected);
+  assert(applied.status == NaryCspEqualityActionStatus::Applied &&
+         applied.result == ApplyResult::Ok &&
+         applied.proposed_action_id == 2 && applied.committed_action_id == 2 &&
+         applied.semantic_id == 2 && applied.semantic_candidate_ready &&
+         applied.semantic_variables.size() == 1 &&
+         kernel.structural_action_sequence == 2 && kernel.nvars == 11);
+
+  selected.coordinates = {1, 0, 2};
+  const auto duplicate = nary_csp_equality_action_apply(
+      kernel, prefix_session, equality_session, limits(), selected);
+  assert(duplicate.status ==
+             NaryCspEqualityActionStatus::AlreadyPublished &&
+         duplicate.result == ApplyResult::NoOp &&
+         kernel.structural_action_sequence == 2 && kernel.nvars == 11);
+  std::fclose(records);
+}
+
 void emit_live_proof(const std::string &stem) {
   const std::string cnf = dimacs(true);
   std::ofstream formula(stem + ".cnf");
@@ -242,5 +288,6 @@ int main(int argc, char **argv) {
   assert(argc == 1);
   publish_duplicate_and_records();
   clean_declines();
+  action_uses_exact_retained_owner();
   std::puts("test_nary_csp_equality_live: passed");
 }
