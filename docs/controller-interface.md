@@ -106,8 +106,9 @@ choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
 producer. `--controller-native-producers=LIST` independently enables bounded
 native discovery for `gf2-affine`, `gf3-affine`, `direct-csp`, `nary-csp`,
-`nary-csp-equality`, `gf3-gaussian`, `gf3-general-row`, and `tseitin-cycle`; `all`
-enables all eight and `none` disables all eight. They are
+`nary-csp-equality`, `nary-csp-equality-amo`, `gf3-gaussian`,
+`gf3-general-row`, and `tseitin-cycle`; `all` enables all nine and `none`
+disables all nine. They are
 disabled unless explicitly selected. `--controller-families=LIST` restricts
 eligibility to canonical root-action names without inventing structured
 payloads, so focused native-producer campaigns can isolate one action family;
