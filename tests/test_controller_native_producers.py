@@ -190,7 +190,7 @@ def main():
         trace = work / "selected.trace"
         selected = run(
             "--controller-policy=7",
-            "--controller-native-producers=gf2-affine,gf3-affine,direct-csp,nary-csp",
+            "--controller-native-producers=gf2-affine,gf3-affine,direct-csp,nary-csp,nary-csp-equality",
             "--controller-native-producers=gf3-gaussian,tseitin-cycle",
             f"--controller-trace={trace}")
         assert selected.returncode == 10, selected.stderr
@@ -198,7 +198,7 @@ def main():
         assert len(header) == 2
         configuration = shlex.split(header[1])[1]
         for family in ("AffineConsequence", "Gf3AffineConsequence", "DirectCspSupport",
-                       "NaryCspPrefix",
+                       "NaryCspPrefix", "NaryCspEquality",
                        "Gf3GaussianConsequence", "TseitinCycleBreaking"):
             assert f'producer "{family}"' in configuration
 
@@ -319,7 +319,7 @@ def main():
         none_configuration = shlex.split(
             none_trace.read_text().splitlines()[1])[1]
         for family in ("AffineConsequence", "Gf3AffineConsequence", "DirectCspSupport",
-                       "NaryCspPrefix",
+                       "NaryCspPrefix", "NaryCspEquality",
                        "Gf3GaussianConsequence", "TseitinCycleBreaking"):
             assert f'producer "{family}"' not in none_configuration
 
