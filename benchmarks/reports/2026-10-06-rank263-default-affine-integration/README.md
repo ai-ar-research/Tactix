@@ -35,3 +35,17 @@ partitioning, useful-work scheduling, watched or touched rows, local pivot
 repair and efficient backtrack state remain open for affine reasoning that must
 continue during CDCL.  Full Debug, both-policy fuzz and the four regression
 campaigns also remain required before broader acceptance.
+
+## Exact-support follow-up
+
+Commit `bf21ed1e98478b00c92fe314754e60362815cfe8` restricts
+search-time matrix synchronization to the admitted row support and reuses an
+unchanged support snapshot without reduction.  CPU-Q array `1751378` confirms
+that this optimization preserves the Rank-263 result: the DSR and no-proof arms
+return UNSAT at root in 0.70 and 0.67 seconds, again with zero decisions, one
+conflict and 577 propagations.  The DSR is byte-identical, with SHA-256
+`6fbc0514e27aa0ea7b8a7d7253a0b6b3c3cd312132d6ec1e60da5bff9259e666`.
+
+CPU-Q job `1751436` independently checked that proof through the every-lemma
+witnessed-DSR/Trestle pipeline.  It returned `s VERIFIED UNSAT` in 47.21
+seconds with 131,652 KiB peak RSS, within the 30-minute checker bound.
