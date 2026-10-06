@@ -135,6 +135,10 @@ Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
 Claude owns its fresh fuzz campaign; [the preceding owner report](benchmarks/runs/20261006-r263-default-affine-fuzz-owner/FINAL_REPORT.md) rejected root-unit, empty-conflict and invalidated-session handling.
 Parallel increments add a [bounded GF(2) predecessor](benchmarks/reports/2026-10-06-affine-predecessor-microgate.md) and X20 decline/retry feedback (`2ddfcbedf`); cumulative Debug and ASan/UBSan with leak detection and proof shadow each pass 10/10, including independent proofs and restore/rebuild telemetry.
+The [test-only replay microgate](benchmarks/reports/2026-10-06-affine-controller-replay-microgate/README.md)
+adds failed-nonmatching predecessor atomicity and independently reexecuted public
+controller extension/restore/deeper-rebuild transcripts; affected Debug and
+sanitizer checks pass with identical proof/provenance and a checked SAT model.
 The [WV93 short probe](benchmarks/reports/2026-10-06-directcsp-repeated-native/README.md) reaches one/four support publications but yields no root deduction or solve; no longer target is justified.
 The coherent source pin is `4096d41b3`; its Claude-owned cumulative fuzz
 request is [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d41b3-fuzz-owner/request.txt).

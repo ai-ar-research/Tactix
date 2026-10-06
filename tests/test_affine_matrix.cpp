@@ -597,6 +597,67 @@ static void bounded_predecessor_restore() {
   assert(!matrix.last_synchronization_restored_predecessor());
 }
 
+static void nonmatching_predecessor_failure_is_atomic() {
+  const std::vector<Equation> input = {equation({1, 2}, false)};
+  for (const bool interrupt : {false, true}) {
+    auto bounded = limits();
+    // Build costs 3; an unsuccessful predecessor comparison costs 2,
+    // leaving too little for the fresh row's 3-unit conditioning charge.
+    if (!interrupt) bounded.maximum_work = 4;
+    AffineMatrix matrix;
+    assert(build_affine_matrix(input, 95, bounded,
+                               [](uint64_t) { return true; }, matrix) ==
+           MatrixStatus::Complete);
+    MatrixEvent event;
+    const std::vector<MatrixAssignment> prefix = {{1, false}};
+    assert(matrix.synchronize(prefix, [](uint64_t) { return true; }, event) ==
+           MatrixStatus::Complete);
+    assert(matrix.synchronize({{1, false}, {2, true}},
+                              [](uint64_t) { return true; }, event) ==
+           MatrixStatus::Complete && event.kind == MatrixEventKind::Conflict);
+    const auto rows = matrix.rows();
+    const auto trail = matrix.trail();
+    const auto work = matrix.work();
+    const auto kind = matrix.last_synchronization_kind();
+    const auto incremental = matrix.last_synchronization_incremental();
+    const auto restored = matrix.last_synchronization_restored_predecessor();
+    const auto conditioned = matrix.last_synchronization_conditioned();
+    const auto retained = matrix.last_synchronization_prefix();
+    const auto prior_event = event;
+    std::vector<uint64_t> charges;
+    const auto result = matrix.synchronize(
+        {{1, true}},
+        [&](uint64_t amount) {
+          charges.push_back(amount);
+          return !interrupt || charges.size() == 1;
+        }, event);
+    assert(result == (interrupt ? MatrixStatus::Interrupted
+                                : MatrixStatus::Exhausted));
+    assert((charges == (interrupt ? std::vector<uint64_t>{2, 3}
+                                  : std::vector<uint64_t>{2})));
+    assert(matrix.rows() == rows && matrix.trail() == trail &&
+           matrix.work() == work && matrix.last_synchronization_kind() == kind &&
+           matrix.last_synchronization_incremental() == incremental &&
+           matrix.last_synchronization_restored_predecessor() == restored &&
+           matrix.last_synchronization_conditioned() == conditioned &&
+           matrix.last_synchronization_prefix() == retained);
+    assert(event.kind == prior_event.kind && event.row == prior_event.row &&
+           event.reason == prior_event.reason &&
+           event.implied_variable == prior_event.implied_variable &&
+           event.implied_value == prior_event.implied_value);
+    assert(matrix.authenticates(95, input, event,
+                                [](uint64_t) { return true; }));
+    // The failed nonmatching request must also preserve the hidden checkpoint.
+    MatrixStatus status;
+    assert(synchronize_work(matrix, prefix, status, event) == 2 &&
+           status == MatrixStatus::Complete &&
+           matrix.last_synchronization_restored_predecessor() &&
+           event.kind == MatrixEventKind::Implication &&
+           event.implied_variable == 2 && !event.implied_value);
+    check_reason(input, event);
+  }
+}
+
 int main() {
   derived_implication_conflict_and_backtrack();
   reason_excludes_unrelated_assignments();
@@ -609,6 +670,7 @@ int main() {
   retained_rows_reduce_extension_work();
   exhaustive_small_reason_oracle();
   bounded_predecessor_restore();
+  nonmatching_predecessor_failure_is_atomic();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "
             "backtrack, and transactional bounds PASS");
 }
