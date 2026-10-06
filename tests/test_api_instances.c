@@ -22,6 +22,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "Gf3AffineConsequence",
                                          "DirectCspSupport",
                                          "NaryCspPrefix",
+                                         "NaryCspEquality",
                                          "DirectPhpRefutation",
                                          "Gf3GaussianConsequence",
                                          "TseitinCycleBreaking",
@@ -42,6 +43,7 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "Gf3AffineConsequence",
                                              "DirectCspSupport",
                                              "NaryCspPrefix",
+                                             "NaryCspEquality",
                                              "DirectPhpRefutation",
                                              "Gf3GaussianConsequence",
                                              "TseitinCycleBreaking",
@@ -228,6 +230,7 @@ static tactix *prepare(int id) {
       !strcmp(name, "Gf3AffineConsequence") ||
       !strcmp(name, "DirectCspSupport") ||
       !strcmp(name, "NaryCspPrefix") ||
+      !strcmp(name, "NaryCspEquality") ||
       !strcmp(name, "Gf3GaussianConsequence") ||
       !strcmp(name, "TseitinCycleBreaking") ||
       !strcmp(name, "GraphIntervalEquivalence") ||
@@ -363,6 +366,12 @@ static void drive(tactix *s, int id) {
     return;
   }
   if (!strcmp(name, "NaryCspPrefix")) {
+    const int count = tactix_rule_instances(s, id, insts, NINST);
+    assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
+    hit_structured[id] = 1;
+    return;
+  }
+  if (!strcmp(name, "NaryCspEquality")) {
     const int count = tactix_rule_instances(s, id, insts, NINST);
     assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
     hit_structured[id] = 1;

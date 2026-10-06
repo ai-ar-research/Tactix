@@ -68,7 +68,7 @@ using ActionParameters =
                  AffineConsequenceParameters, ExactCoverExtensionParameters,
                  IndependentSetCoverParameters,
                  Gf3AffineConsequenceParameters, DirectCspSupportParameters,
-                 NaryCspPrefixParameters,
+                 NaryCspPrefixParameters, NaryCspEqualityParameters,
                  DirectPhpRefutationParameters,
                  Gf3GaussianConsequenceParameters,
                  TseitinCycleBreakingParameters,
@@ -128,6 +128,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {28, "NaryCspPrefix", Probe, false},
       {29, "GraphIntervalEquivalence", Probe, false},
       {30, "AffineMatrixInitialize", Probe, false},
+      {31, "NaryCspEquality", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -230,6 +231,10 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<NaryCspPrefixParameters>(&step.parameters)) {
       if (step.rule != "NaryCspPrefix" || !p->valid())
         return reject("NaryCspPrefix parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<NaryCspEqualityParameters>(&step.parameters)) {
+      if (step.rule != "NaryCspEquality" || !p->valid())
+        return reject("NaryCspEquality parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<DirectPhpRefutationParameters>(&step.parameters)) {
       if (step.rule != "DirectPhpRefutation" || !p->valid())
