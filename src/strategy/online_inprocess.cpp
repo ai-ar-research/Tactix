@@ -2639,6 +2639,33 @@ InvocationResult OnlineStrategyExecutor::advance(
           break;
         }
       }
+      if (nary_csp_equality_amo_application) {
+        switch (nary_csp_equality_amo_application->status) {
+        case NaryCspEqualityAmoStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case NaryCspEqualityAmoStatus::Inapplicable:
+        case NaryCspEqualityAmoStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case NaryCspEqualityAmoStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case NaryCspEqualityAmoStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case NaryCspEqualityAmoStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case NaryCspEqualityAmoStatus::NoStructure:
+        case NaryCspEqualityAmoStatus::MissingEquality:
+        case NaryCspEqualityAmoStatus::Duplicate:
+        case NaryCspEqualityAmoStatus::Applied:
+          break;
+        }
+      }
       if (gf3_gaussian_application) {
         switch (gf3_gaussian_application->status) {
         case Gf3GaussianActionStatus::Invalid:

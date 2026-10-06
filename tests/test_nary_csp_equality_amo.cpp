@@ -276,6 +276,145 @@ void native_controller_offer_applies_once() {
   std::fclose(records);
 }
 
+// Fixed decline fixtures exercise the controller's typed-result translation,
+// not merely the low-level action status or the pre-dispatch stop check.
+void controller_decline_feedback() {
+  struct Receiver final : FeedbackReceiver {
+    std::vector<ActionFeedback> actions;
+    void after_action(const ActionFeedback &action) override {
+      actions.push_back(action);
+    }
+    void search_interval(const SearchIntervalFeedback &) override {}
+  };
+  enum Cause { ProofBudget, RecognitionBudget, Interrupt, Stale, Invalid,
+               Unsupported };
+  for (const Cause cause : {ProofBudget, RecognitionBudget, Interrupt, Stale,
+                            Invalid, Unsupported}) {
+    Kernel kernel;
+    parse_into(kernel);
+    FILE *records = std::tmpfile();
+    assert(records);
+    NaryCspPrefixActionSession prefix;
+    NaryCspEqualitySession equality;
+    NaryCspEqualityAmoSession session;
+    prepare(kernel, prefix, equality, records);
+    kernel.nary_csp_equality_amo_session = &session;
+    Proof proof;
+    if (cause == Unsupported) {
+      assert(proof.open("/dev/null", ProofFormat::Lrat));
+      kernel.proof = &proof;
+    }
+    if (cause == Stale) {
+      const auto &target = equality.records().front().definition_clauses.front();
+      std::vector<Lit> wanted;
+      for (int32_t literal : target)
+        wanted.push_back(kernel_internalize(kernel, literal));
+      std::sort(wanted.begin(), wanted.end());
+      bool removed = false;
+      for (Ref ref = 0; ref < kernel.arena.size();) {
+        Clause *clause = clause_at(kernel.arena, ref);
+        const uint32_t words = clause_actual_words(clause);
+        std::vector<Lit> current(clause->lits, clause->lits + clause->size);
+        std::sort(current.begin(), current.end());
+        if (!clause->garbage() && current == wanted) {
+          if (!clause->redundant()) --kernel.live_irredundant_large;
+          clause->flags |= Clause::GARBAGE;
+          removed = true;
+          break;
+        }
+        ref += words;
+      }
+      assert(removed);
+    }
+
+    if (cause == Interrupt) {
+      // A fixed deterministic stop at live owner capture, after dispatch.
+      kernel.stop_fuzz = 1;
+      kernel.stop_fuzz_state = 0;
+    }
+    Receiver receiver;
+    RestartController controller(kernel, {}, &receiver);
+    ActionRequest request;
+    request.sequence = 1;
+    request.expected = state_version(kernel);
+    request.invocation.id = 33;
+    request.invocation.rule = "NaryCspEqualityAmo";
+    request.invocation.granularity = InvocationGranularity::OneInstance;
+    request.invocation.nary_csp_equality_amo_instances = {{domains}};
+    if (cause == Invalid)
+      request.invocation.nary_csp_equality_amo_instances.front().domains.pop_back();
+    NaryCspEqualityAmoParameters parameters{
+        100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
+    if (cause == ProofBudget) parameters.maximum_proof_additions = 2;
+    if (cause == RecognitionBudget) parameters.maximum_recognition_work = 1;
+    request.invocation.parameters = parameters;
+    const auto before = state_version(kernel);
+    const auto clause_id_before = kernel.next_clause_id;
+    const auto variables_before = kernel.nvars;
+    const auto first = controller.apply_rule(request, {});
+    const bool retryable = cause == ProofBudget || cause == RecognitionBudget ||
+                           cause == Interrupt;
+    const auto expected = cause == Interrupt ? InvocationStatus::Interrupted
+        : cause == Stale ? InvocationStatus::StaleRequest
+        : cause == Invalid ? InvocationStatus::InvalidRequest
+        : cause == Unsupported ? InvocationStatus::Inapplicable
+        : InvocationStatus::ResourceExhausted;
+    const bool predispatch = cause == Invalid || cause == Unsupported;
+    assert(first.invocation.status == expected &&
+           first.invocation.applications == (predispatch ? 0u : 1u) &&
+           first.invocation.work == (predispatch ? 0u : 1u) &&
+           !first.invocation.made_rule_progress &&
+           first.invocation.selection_complete == (!retryable && !predispatch));
+    assert(before.arena_generation == kernel.arena_generation &&
+           kernel.next_clause_id == clause_id_before &&
+           kernel.nvars == variables_before && session.keys().empty());
+    assert(kernel.stats.nary_csp_equality_amo_attempts == (predispatch ? 0u : 1u) &&
+           kernel.stats.nary_csp_equality_amo_applied == 0);
+    assert(receiver.actions.size() == 1);
+    const auto &feedback = receiver.actions.front();
+    assert(feedback.outcome.invocation.status == expected &&
+           feedback.stop == stop_reason(expected) &&
+           feedback.after.cumulative.nary_csp_equality_amo_attempts -
+               feedback.before.cumulative.nary_csp_equality_amo_attempts ==
+                   (predispatch ? 0u : 1u));
+    const auto raw = serialize_feedback(feedback);
+    assert(raw.find("\"status\":" + std::to_string(unsigned(expected))) !=
+           std::string::npos);
+    if (cause == Stale)
+      assert(kernel.stats.nary_csp_equality_amo_stale == 1);
+    else
+      assert(kernel.stats.nary_csp_equality_amo_declined == (predispatch ? 0u : 1u));
+    if (cause == Interrupt) assert(kernel.stats.stop_fuzz_fires == 1);
+    if (retryable) {
+      // Same exact payload remains pending; an explicit fresh allowance or
+      // cleared interruption lets it commit without a replacement action.
+      if (cause != Interrupt) {
+        request.sequence = 2;
+        request.expected = state_version(kernel);
+        const auto repeated = controller.apply_rule(request, {});
+        assert(repeated.invocation.status == InvocationStatus::ResourceExhausted &&
+               repeated.invocation.applications == 1 &&
+               !repeated.invocation.selection_complete && session.keys().empty());
+      }
+      kernel.stop_fuzz = 0;
+      parameters.maximum_proof_additions = 100;
+      parameters.maximum_recognition_work = 300000;
+      request.invocation.parameters = parameters;
+      request.sequence = cause == Interrupt ? 2 : 3;
+      request.expected = state_version(kernel);
+      const auto retry = controller.apply_rule(request, {});
+      assert(retry.invocation.status == InvocationStatus::Completed &&
+             retry.invocation.made_rule_progress &&
+             retry.invocation.selection_complete && session.keys().size() == 1 &&
+             kernel.stats.nary_csp_equality_amo_attempts ==
+                 (cause == Interrupt ? 2u : 3u));
+    }
+    kernel.proof = nullptr;
+    kernel.structural_provenance = nullptr;
+    std::fclose(records);
+  }
+}
+
 void c_v12_deep_copies_and_executes_exact_payload() {
   tactix_c_handle *solver = tactix_init();
   assert(solver);
@@ -439,6 +578,7 @@ int main(int argc, char **argv) {
   public_identity_and_replay();
   stale_definition_declines();
   native_controller_offer_applies_once();
+  controller_decline_feedback();
   c_v12_deep_copies_and_executes_exact_payload();
   std::puts("test_nary_csp_equality_amo: passed");
 }
