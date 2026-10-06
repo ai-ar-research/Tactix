@@ -45,6 +45,7 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "DirectPhpRefutation",
                                              "Gf3GaussianConsequence",
                                              "TseitinCycleBreaking",
+                                             "GraphIntervalEquivalence",
                                              "AffineMatrixInitialize"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
@@ -229,6 +230,7 @@ static tactix *prepare(int id) {
       !strcmp(name, "NaryCspPrefix") ||
       !strcmp(name, "Gf3GaussianConsequence") ||
       !strcmp(name, "TseitinCycleBreaking") ||
+      !strcmp(name, "GraphIntervalEquivalence") ||
       !strcmp(name, "SemanticVariableAdvice")) {
     structural_records = tmpfile(); assert(structural_records);
     assert(tactix_bind_structural_provenance(s, structural_records) == 0);
