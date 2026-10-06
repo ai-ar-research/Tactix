@@ -5,6 +5,7 @@
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -94,6 +95,20 @@ struct NaryCspActionProducerConfig {
   }
 };
 
+struct NaryCspEqualityActionProducerConfig {
+  bool enabled = false;
+  uint64_t maximum_owner_candidates = 512;
+  uint64_t maximum_coordinate_candidates = 1536;
+  uint64_t maximum_offers = 8;
+  uint64_t maximum_enumeration_work = 10000000;
+
+  bool valid() const {
+    return !enabled ||
+           (maximum_owner_candidates && maximum_coordinate_candidates &&
+            maximum_offers && maximum_enumeration_work);
+  }
+};
+
 struct Gf3GaussianActionProducerConfig {
   bool enabled = false;
   bool valid() const { return true; }
@@ -122,6 +137,7 @@ struct RandomControllerConfig {
   AffineBasisActionProducerConfig affine_basis_action_producer;
   DirectCspActionProducerConfig direct_csp_action_producer;
   NaryCspActionProducerConfig nary_csp_action_producer;
+  NaryCspEqualityActionProducerConfig nary_csp_equality_action_producer;
   Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
   TseitinCycleActionProducerConfig tseitin_cycle_action_producer;
   strategy::controller::ActionAllowance default_allowance{
@@ -308,12 +324,30 @@ private:
     std::optional<std::string> pending;
     uint64_t pending_sequence = 0;
   };
+  struct NaryCspEqualityDiscoveryState {
+    const Kernel *owner = nullptr;
+    const NaryCspPrefixActionSession *prefix_session = nullptr;
+    const NaryCspEqualitySession *equality_session = nullptr;
+    strategy::StateVersion state;
+    size_t prefix_owners = 0;
+    size_t equality_keys = 0;
+    bool terminal = false;
+    bool reconfiguration_required = false;
+    bool complete = false;
+    bool have_after = false;
+    std::string profile;
+    NaryCspEqualityKey after;
+    std::vector<NaryCspEqualityActionSelection> offers;
+    std::optional<NaryCspEqualityActionSelection> pending;
+    uint64_t pending_sequence = 0;
+  };
 
   uint64_t draw(uint64_t bound);
   AffineBasisDiscoveryState affine_basis_discovery_;
   Gf3DiscoveryState gf3_discovery_;
   DirectCspDiscoveryState direct_csp_discovery_;
   NaryCspDiscoveryState nary_csp_discovery_;
+  NaryCspEqualityDiscoveryState nary_csp_equality_discovery_;
   bool nary_csp_census_emitted_ = false;
   Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
   TseitinCycleDiscoveryState tseitin_cycle_discovery_;

@@ -25,6 +25,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -647,6 +648,7 @@ int main(int argc, char **argv) {
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
   NaryCspPrefixActionSession nary_csp_prefix_action_session;
+  NaryCspEqualitySession nary_csp_equality_session;
   DirectPhpActionSession direct_php_action_session(kernel);
   Gf3GaussianActionSession gf3_gaussian_action_session;
   TseitinCycleBreakingSession tseitin_cycle_breaking_session;
@@ -660,6 +662,7 @@ int main(int argc, char **argv) {
   kernel.direct_csp_support_action_session =
       &direct_csp_support_action_session;
   kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
+  kernel.nary_csp_equality_session = &nary_csp_equality_session;
   kernel.direct_php_action_session = &direct_php_action_session;
   kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
   kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;

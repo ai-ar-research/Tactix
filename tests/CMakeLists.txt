@@ -397,6 +397,17 @@ add_test(NAME nary_csp_equality_live_proof
                  ${CMAKE_SOURCE_DIR})
 set_tests_properties(nary_csp_equality_live_proof PROPERTIES SKIP_RETURN_CODE 77)
 
+add_executable(test_nary_csp_equality_public
+               test_nary_csp_equality_public.cpp)
+target_link_libraries(test_nary_csp_equality_public PRIVATE tactix_lib)
+add_test(NAME nary_csp_equality_public COMMAND test_nary_csp_equality_public)
+add_test(NAME nary_csp_equality_public_oracle
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/nary_csp_equality_public_oracle.sh
+                 $<TARGET_FILE:test_nary_csp_equality_public>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(nary_csp_equality_public_oracle PROPERTIES
+                     SKIP_RETURN_CODE 77)
+
 # A persistent GF(2) event needs one arbitrary-width clausal reason, not the
 # complete parity CNF. Verify the targeted RUP export and helper retirement.
 add_test(NAME parity_wide_reason_proof

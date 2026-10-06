@@ -1014,6 +1014,7 @@ static void test_inprocess_registry_requires_root(void) {
         !std::strcmp(rule.name, "Gf3GaussianConsequence") ||
         !std::strcmp(rule.name, "TseitinCycleBreaking") ||
         !std::strcmp(rule.name, "NaryCspPrefix") ||
+        !std::strcmp(rule.name, "NaryCspEquality") ||
         !std::strcmp(rule.name, "GraphIntervalEquivalence") ||
         !std::strcmp(rule.name, "AffineMatrixInitialize");
     if (!theory_action)
@@ -1123,7 +1124,8 @@ static void test_default_slot_membership_matches_kissat(void) {
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
       "Gf3AffineConsequence", "DirectCspSupport",
       "DirectPhpRefutation", "Gf3GaussianConsequence",
-      "TseitinCycleBreaking", "NaryCspPrefix", "GraphIntervalEquivalence",
+      "TseitinCycleBreaking", "NaryCspPrefix", "NaryCspEquality",
+      "GraphIntervalEquivalence",
       "AffineMatrixInitialize",
   };
   for (const auto &entry : p.inprocess().entries) {

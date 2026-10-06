@@ -5,6 +5,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/inprocess_program.hpp"
@@ -93,6 +94,7 @@ struct OnlineInvocation {
   std::vector<std::string> tseitin_cycle_instances = {};
   std::vector<DirectCspSupportActionSelection> direct_csp_support_instances = {};
   std::vector<NaryCspPrefixActionSelection> nary_csp_prefix_instances = {};
+  std::vector<NaryCspEqualityActionSelection> nary_csp_equality_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;
   RuleWorkBudget rule_work_budget;
