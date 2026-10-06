@@ -145,12 +145,16 @@ request is [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d
 Claude's [owner leg verdict](benchmarks/reports/2026-10-06-integrated-default-fuzz-owner-verdict/README.md)
 closes DefaultPolicy fuzz job `1751467` as passed after same-pin
 graded corpus rerun `1751474` clears entry 026's 60-second sanitizer timeout.
-The report owns checked counts and timeout coverage limits. Random-controller broad
-`1751468` is live. Calibration `1751466` passed its affine cases but exposed
-X20 harness defects; Claude replaced never-started calibration `1751472` with
-identical-snapshot/task calibration `1751473` (90 CPUs/200 GB/one hour) to fit
-measured resources beside the live broad jobs. It remains uncounted and queued
-before full targeted submission. Claude reports default census `1751469` has
+The report owns checked counts and timeout coverage limits. Claude's
+[random-controller verdict](benchmarks/reports/2026-10-06-integrated-controller-fuzz-owner-verdict/README.md)
+closes `1751468` as passed: 100,010 generated cases and 51 corpus entries,
+zero failures and zero UNKNOWN; effective affine initialization and controller
+transitions are covered. Calibration `1751473` completed without a source
+failure, exposing two private harness expectations that Claude repaired.
+Both broad legs pass; the 13,155-task full targeted matrix `1751475` is running
+with a fresh frozen harness and fixtures-v3. Combined acceptance still requires
+its effective coverage and Claude's terminal report.
+Claude reports default census `1751469` has
 zero UNKNOWN but zero admitted affine startup actions, so targeted reach is
 mandatory. Claude reports
 the completed controller census `1751470` has zero UNKNOWN exits across
