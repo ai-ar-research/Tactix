@@ -3921,7 +3921,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (affine_root == ApplyResult::Unsat ||
       affine_root == ApplyResult::Conflict)
     return finish(20);
-  if ((stop && *stop) || (k.stop && *k.stop)) return finish(0);
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
