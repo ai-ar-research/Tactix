@@ -70,6 +70,7 @@ struct AffineMatrixServiceResult {
   uint64_t trail_capture_work = 0;
   bool synchronized = false;
   bool synchronization_incremental = false;
+  bool synchronization_restored_predecessor = false;
   uint64_t synchronization_prefix = 0;
   uint64_t synchronization_conditioned = 0;
   affine_semantic_extension::MatrixSynchronizationKind synchronization_kind =

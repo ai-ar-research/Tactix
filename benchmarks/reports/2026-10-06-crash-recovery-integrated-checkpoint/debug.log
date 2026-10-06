@@ -1,0 +1,25 @@
+Test project /home/hwu/SAT-solving/build/resume-affine-repair-debug
+      Start  82: nary_csp_equality_amo
+ 1/10 Test  #82: nary_csp_equality_amo .............   Passed    0.05 sec
+      Start  83: nary_csp_equality_amo_proof
+ 2/10 Test  #83: nary_csp_equality_amo_proof .......   Passed    0.18 sec
+      Start  85: affine_matrix_transaction_proof
+ 3/10 Test  #85: affine_matrix_transaction_proof ...   Passed    0.19 sec
+      Start  86: affine_matrix_live_proof
+ 4/10 Test  #86: affine_matrix_live_proof ..........   Passed    0.20 sec
+      Start  87: affine_matrix_search_proof
+ 5/10 Test  #87: affine_matrix_search_proof ........   Passed    0.62 sec
+      Start 130: affine_matrix
+ 6/10 Test #130: affine_matrix .....................   Passed    2.27 sec
+      Start 131: affine_matrix_live
+ 7/10 Test #131: affine_matrix_live ................   Passed    0.04 sec
+      Start 132: affine_matrix_search
+ 8/10 Test #132: affine_matrix_search ..............   Passed    0.03 sec
+      Start 133: affine_matrix_transaction
+ 9/10 Test #133: affine_matrix_transaction .........   Passed    0.11 sec
+      Start 267: restart_controller
+10/10 Test #267: restart_controller ................   Passed    0.01 sec
+
+100% tests passed out of 10
+
+Total Test time (real) =   3.70 sec

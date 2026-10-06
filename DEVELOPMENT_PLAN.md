@@ -351,14 +351,14 @@ candidate has mixed or comparable results, retain the simpler design. Novel engi
 
 ### 8.1 Benchmark tiers
 
-Solver runs use SLURM with one single-threaded solver per task. Each coherent
-Satsuma candidate runs on all 57 rows at c8/32 GiB/300 seconds. Optional
+Solver runs use SLURM with one single-threaded solver per task. Each coherent Satsuma candidate runs on all 57 rows at c8/32 GiB/300 seconds. Optional
 10-second screens measure fast transitions, not final coverage. WV100 development
 and final coverage may use `cpu-q`; development uses the same c8/32 GiB/300s contract. B28+C5 and Rank 1--50 use `cpu-dense-hwulab-q` with 12 logical
 CPUs, 32 GiB and 1,200 solver seconds. Canonical Tier D uses a 32-GiB task-cgroup
 limit and 5,000-second solve limit. Record partition and placement for every
 WV100 run; its final coverage limit remains 1,200 seconds and 32 GiB.
 
+- **Storage gate:** check allocated repository usage before creating a build or submitting jobs and at session wrap-up. Above **700 GB (700,000,000,000 bytes)**, clean up aggressively until usage is below the threshold: remove obsolete generated builds, duplicate test executables, unused campaign scratch and reconstructible source copies. Preserve active/pending-job dependencies, irreproducible source variants, checker authorities and evidence required to interpret or reproduce retained results. Record removed paths/bytes and recheck usage before launching more work. Build only the executables needed by the run.
 - Every arm owns an immutable pin and manifest. One task runs one solver; never
   serialize arms, throttle full-width arrays, constrain their node placement, or
   mutate a queued/running pin.

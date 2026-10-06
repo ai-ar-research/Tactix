@@ -273,6 +273,43 @@ void interruption_is_atomic() {
   }
 }
 
+void predecessor_restore_is_not_counted_as_a_rebuild() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  install_implication_formula(kernel);
+  assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
+         AffineMatrixInitStatus::Applied);
+  RestartController controller(kernel);
+  assert(controller.resume_search(resume_request(controller, kernel))
+             .resumed_search);
+  decide(controller, kernel, -1);
+  assert(controller.affine_matrix_fixpoint_service().status ==
+         AffineMatrixServiceStatus::NoEvent);
+  decide(controller, kernel, -2);
+  assert(controller.affine_matrix_fixpoint_service().status ==
+         AffineMatrixServiceStatus::Applied);
+  kernel_backtrack(kernel, 1);
+  assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
+  const auto restored = controller.affine_matrix_fixpoint_service();
+  assert(restored.status == AffineMatrixServiceStatus::NoEvent &&
+         restored.synchronization_restored_predecessor &&
+         restored.synchronization_kind == MatrixSynchronizationKind::Backtrack &&
+         kernel.stats.affine_matrix_service_rebuilds == 0 &&
+         kernel.stats.affine_matrix_service_rebuild_backtrack == 0);
+  kernel_backtrack(kernel, 0);
+  assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
+  const auto rebuilt = controller.affine_matrix_fixpoint_service();
+  assert(rebuilt.status == AffineMatrixServiceStatus::NoEvent &&
+         !rebuilt.synchronization_restored_predecessor &&
+         kernel.stats.affine_matrix_service_rebuilds == 1 &&
+         kernel.stats.affine_matrix_service_rebuild_backtrack == 1);
+  std::fclose(journal);
+}
+
 void unchanged_terminal_initialization_is_suppressed() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -756,7 +793,7 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
   kernel.proof = nullptr;
   FILE *cnf = std::fopen(cnf_path, "w");
   assert(cnf);
-  std::fprintf(cnf, "p cnf %zu %zu\n", kernel.external_to_internal.size(),
+  std::fprintf(cnf, "p cnf %u %zu\n", unit ? 5u : 3u,
                equations.size() * 4 + (unit ? 1 : 0));
   for (const auto &[variables, rhs] : equations)
     for (const auto &clause : clausal_form(variables, rhs)) {
@@ -782,6 +819,7 @@ int main(int argc, char **argv) {
     return proof_fixture(argv[2], argv[3], ProofFormat::DratAscii);
   initialize_resume_publish_and_bcp();
   interruption_is_atomic();
+  predecessor_restore_is_not_counted_as_a_rebuild();
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
   root_unit_and_empty_conflict_publish();

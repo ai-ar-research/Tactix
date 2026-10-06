@@ -194,9 +194,11 @@ void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
   kernel.stats.affine_matrix_service_extension_hits +=
       result.synchronized && result.synchronization_incremental;
   kernel.stats.affine_matrix_service_rebuilds +=
-      result.synchronized && !result.synchronization_incremental;
+      result.synchronized && !result.synchronization_incremental &&
+      !result.synchronization_restored_predecessor;
   kernel.stats.affine_matrix_service_rebuild_backtrack +=
-      result.synchronized && result.synchronization_kind ==
+      result.synchronized && !result.synchronization_restored_predecessor &&
+      result.synchronization_kind ==
                                  MatrixSynchronizationKind::Backtrack;
   kernel.stats.affine_matrix_service_rebuild_reassignment +=
       result.synchronized && result.synchronization_kind ==
@@ -540,6 +542,8 @@ AffineMatrixServiceResult affine_matrix_search_step(
   result.synchronized = true;
   result.synchronization_incremental =
       session.matrix_.last_synchronization_incremental();
+  result.synchronization_restored_predecessor =
+      session.matrix_.last_synchronization_restored_predecessor();
   result.synchronization_prefix =
       session.matrix_.last_synchronization_prefix();
   result.synchronization_conditioned =

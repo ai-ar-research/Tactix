@@ -7,9 +7,10 @@ checker=${SR_CHECK:-$root/tools/checkers/bin/srcheck}
 compress=${DSR_COMPRESS:-$root/tools/checkers/bin/dsr-compress}
 trim=${DSR_TRIM:-$root/tools/checkers/bin/dsr-trim}
 drat_trim=${DRAT_TRIM:-$root/tools/checkers/bin/drat-trim}
+cake_lpr=${CAKE_LPR:-$root/tools/checkers/bin/cake_lpr}
 
 if [[ ! -x "$checker" || ! -x "$compress" || ! -x "$trim" ||
-      ! -x "$drat_trim" ]]; then
+      ! -x "$drat_trim" || ! -x "$cake_lpr" ]]; then
   exit 77
 fi
 
@@ -23,6 +24,10 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
 
 for scenario in root-unit root-empty; do
   "$binary" "--proof-$scenario" "$tmp/$scenario.cnf" "$tmp/$scenario.dsr"
+  python3 "$root/tools/bench/proof_oracle.py" check \
+    "$tmp/$scenario.cnf" "$tmp/$scenario.dsr" \
+    --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+    --drat-trim "$drat_trim" --cake-lpr "$cake_lpr"
   python3 "$root/tools/bench/proof_oracle.py" check-dsr \
     "$tmp/$scenario.cnf" "$tmp/$scenario.dsr" \
     --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
