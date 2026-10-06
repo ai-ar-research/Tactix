@@ -634,7 +634,8 @@ void record_nary_csp_equality_feedback(
 } // namespace
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &program,
-                                      std::string *error) {
+                                      std::string *error,
+                                      bool allow_native_offer) {
   const auto reject = [error](const char *message) {
     if (error)
       *error = message;
@@ -922,6 +923,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         step.rule != "TseitinCycleBreaking")
       return reject("Tseitin cycle identities are attached to a different rule");
     if (step.rule == "Gf3AffineConsequence" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.gf3_affine_instances.empty() || !step.instances.empty()))
       return reject("GF3 affine action requires typed equation-pair payloads");
     if (!step.affine_basis_instances.empty()) {
@@ -936,25 +938,31 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           return reject("GF2 affine row is malformed or exceeds limits");
     }
     if (step.rule == "DirectCspSupport" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.direct_csp_support_instances.empty() || !step.instances.empty()))
       return reject("DirectCSP action requires typed support payloads");
     if (step.rule == "NaryCspPrefix" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.nary_csp_prefix_instances.empty() || !step.instances.empty()))
       return reject("n-ary CSP action requires typed prefix payloads");
     if (step.rule == "NaryCspEquality" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.nary_csp_equality_instances.empty() || !step.instances.empty()))
       return reject("n-ary CSP equality requires typed payloads");
     if (step.rule == "Gf3GaussianConsequence" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance))
       return reject("GF3 Gaussian action requires exact identity payloads");
     if (step.rule == "Gf3GeneralRowConsequence" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.gf3_general_row_instances.size() != 1 ||
          !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance ||
          step.post_application != PostApplication::Propagate))
       return reject("GF3 general-row action requires one exact payload and Propagate follow-up");
     if (step.rule == "TseitinCycleBreaking" &&
+        step.granularity != InvocationGranularity::NativeProducerOffer &&
         (step.tseitin_cycle_instances.size() != 1 || !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance))
       return reject("Tseitin cycle action requires one exact identity payload");
@@ -1171,6 +1179,21 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured_payload_kinds)
         return reject("canonical application carries explicit payloads");
+      break;
+    case InvocationGranularity::NativeProducerOffer:
+      if (!allow_native_offer)
+        return reject("native producer offer is controller-prefix-only");
+      if (!step.instances.empty() || structured_payload_kinds)
+        return reject("native producer offer carries an explicit payload");
+      if (step.rule != "AffineConsequence" &&
+          step.rule != "Gf3AffineConsequence" &&
+          step.rule != "DirectCspSupport" &&
+          step.rule != "NaryCspPrefix" &&
+          step.rule != "NaryCspEquality" &&
+          step.rule != "Gf3GaussianConsequence" &&
+          step.rule != "Gf3GeneralRowConsequence" &&
+          step.rule != "TseitinCycleBreaking")
+        return reject("action family has no native structured producer");
       break;
     default:
       return reject("granularity is invalid");

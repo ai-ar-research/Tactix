@@ -52,12 +52,129 @@ bool RandomControllerConfig::configure_actions(const OnlineStrategyProgram &prog
   return true;
 }
 
+bool RandomControllerConfig::configure_startup_prefix(
+    const OnlineStrategyProgram &program, std::string *error) {
+  const auto reject = [error](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  if (!startup_prefix.sequence.empty())
+    return reject("controller startup prefix is already installed");
+  if (!validate_online_strategy_program(program, error, true)) return false;
+  if (program.repeat.mode != RepeatMode::Once || program.repeat.limit != 1)
+    return reject("controller startup prefix must be once-only");
+
+  auto replacement = *this;
+  for (const auto &step : program.sequence) {
+    const int id = tactix_rule_id(step.rule.c_str());
+    if (id < 0 || !root_exclusion(tactix_rules()[id]).empty())
+      return reject("controller startup prefix contains an unknown or excluded root action");
+    if (!replacement.parameters.rules.empty() &&
+        std::find(replacement.parameters.rules.begin(),
+                  replacement.parameters.rules.end(), step.rule) ==
+            replacement.parameters.rules.end())
+      return reject("controller startup prefix action is outside the configured collection");
+    if (step.repeat.mode != RepeatMode::Once || step.repeat.limit != 1 ||
+        step.post_application != PostApplication::None)
+      return reject("controller startup prefix steps must be once-only with no hidden follow-up");
+    if (step.budget.is_unlimited() || !step.budget.amount() ||
+        step.rule_work_budget.mode != RuleWorkBudgetMode::Bounded ||
+        !step.rule_work_budget.amount)
+      return reject("controller startup prefix requires fixed positive allowances");
+
+    const ActionAllowance allowance{step.work_unit, step.budget.amount(),
+                                     step.rule_work_budget};
+    if (const auto found = replacement.allowances.find(step.rule);
+        found != replacement.allowances.end()) {
+      const auto previous = found->second;
+      if (previous.unit != allowance.unit ||
+          previous.amount != allowance.amount ||
+          previous.native.mode != allowance.native.mode ||
+          previous.native.amount != allowance.native.amount)
+        return reject("controller startup prefix allowance conflicts with its action collection");
+    } else {
+      replacement.allowances[step.rule] = allowance;
+    }
+
+    if (step.granularity != InvocationGranularity::NativeProducerOffer)
+      continue;
+    if (const auto offered = replacement.offered_actions.find(step.rule);
+        offered != replacement.offered_actions.end() && !offered->second.empty())
+      return reject("controller startup native offer conflicts with a static action offer");
+    if (step.rule == "AffineConsequence") {
+      const auto *parameters =
+          std::get_if<AffineConsequenceParameters>(&step.parameters);
+      if (replacement.affine_basis_profile_configured)
+        return reject("controller startup affine offer conflicts with the GF2 affine producer profile");
+      if (!replacement.affine_basis_action_producer.enabled || !parameters)
+        return reject("controller startup affine offer requires its native producer and typed profile");
+      replacement.parameters.affine_consequence_reference = *parameters;
+    } else if (step.rule == "Gf3AffineConsequence") {
+      const auto *parameters =
+          std::get_if<Gf3AffineConsequenceParameters>(&step.parameters);
+      if (!replacement.gf3_action_producer.enabled || !parameters)
+        return reject("controller startup GF3 offer requires its native producer and typed profile");
+      replacement.parameters.gf3_affine_consequence_reference = *parameters;
+    } else if (step.rule == "DirectCspSupport") {
+      const auto *parameters =
+          std::get_if<DirectCspSupportParameters>(&step.parameters);
+      if (!replacement.direct_csp_action_producer.enabled || !parameters)
+        return reject("controller startup direct-CSP offer requires its native producer and typed profile");
+      replacement.parameters.direct_csp_support_reference = *parameters;
+    } else if (step.rule == "NaryCspPrefix") {
+      const auto *parameters =
+          std::get_if<NaryCspPrefixParameters>(&step.parameters);
+      if (!replacement.nary_csp_action_producer.enabled || !parameters)
+        return reject("controller startup n-ary offer requires its native producer and typed profile");
+      replacement.parameters.nary_csp_prefix_reference = *parameters;
+    } else if (step.rule == "NaryCspEquality") {
+      const auto *parameters =
+          std::get_if<NaryCspEqualityParameters>(&step.parameters);
+      if (!replacement.nary_csp_equality_action_producer.enabled || !parameters)
+        return reject("controller startup n-ary equality offer requires its native producer and typed profile");
+      replacement.parameters.nary_csp_equality_reference = *parameters;
+    } else if (step.rule == "Gf3GaussianConsequence") {
+      const auto *parameters =
+          std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
+      if (!replacement.gf3_gaussian_action_producer.enabled || !parameters)
+        return reject("controller startup GF3 Gaussian offer requires its native producer and typed profile");
+      replacement.parameters.gf3_gaussian_consequence_reference = *parameters;
+    } else if (step.rule == "Gf3GeneralRowConsequence") {
+      const auto *parameters =
+          std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
+      if (!replacement.gf3_general_row_action_producer.enabled || !parameters)
+        return reject("controller startup GF3 general-row offer requires its native producer and typed profile");
+      replacement.parameters.gf3_general_row_consequence_reference =
+          *parameters;
+    } else if (step.rule == "TseitinCycleBreaking") {
+      const auto *parameters =
+          std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
+      if (!replacement.tseitin_cycle_action_producer.enabled || !parameters)
+        return reject("controller startup Tseitin offer requires its native producer and typed profile");
+      replacement.parameters.tseitin_cycle_breaking_reference = *parameters;
+    } else {
+      return reject("controller startup action has no native producer");
+    }
+  }
+  replacement.startup_prefix = program;
+  *this = std::move(replacement);
+  if (error) error->clear();
+  return true;
+}
+
 bool RandomControllerConfig::configure_affine_basis_producer_profile(
     const OnlineStrategyProgram &program, std::string *error) {
   const auto reject = [&](const char *message) {
     if (error) *error = message;
     return false;
   };
+  if (std::any_of(startup_prefix.sequence.begin(),
+                  startup_prefix.sequence.end(), [](const auto &step) {
+                    return step.rule == "AffineConsequence" &&
+                           step.granularity ==
+                               InvocationGranularity::NativeProducerOffer;
+                  }))
+    return reject("GF2 affine producer profile conflicts with the controller startup affine offer");
   if (!validate_online_strategy_program(program, error))
     return false;
   if (program.sequence.empty() || program.sequence.size() > 2)
@@ -174,6 +291,7 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
   }
 
   auto replacement = *this;
+  replacement.affine_basis_profile_configured = true;
   replacement.affine_basis_action_producer.startup_batch_actions =
       program.repeat.mode == RepeatMode::Count ? program.repeat.limit : 0;
   replacement.parameters.affine_consequence_reference = *profile_parameters;
@@ -494,6 +612,10 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     out << " search-configuration " << std::quoted(name(search));
   for (const auto &rule : config.parameters.rules)
     out << " family " << std::quoted(rule);
+  if (!config.startup_prefix.sequence.empty())
+    out << " startup-prefix "
+        << std::quoted(serialize_online_strategy_program(
+               config.startup_prefix));
   Kernel reference;
   OnlineStrategyProgram profiles;
   for (const auto &rule : tactix_rules()) {
@@ -777,6 +899,17 @@ bool RandomControllerSelector::choose(
     return left.arena_generation == right.arena_generation &&
            left.touch_epoch == right.touch_epoch;
   };
+  const auto settled_prefix_dose = [](const InvocationResult &result) {
+    // A CompleteCurrentPass remains one public invocation even when its
+    // current selection takes several atomic controller doses. Completed and
+    // consumed NoChange members retain the executor cursor; reissue the same
+    // required step until that scoped selection reports completion.
+    return result.status == InvocationStatus::Completed ||
+           result.status == InvocationStatus::ScopedFixpoint ||
+           result.status == InvocationStatus::NoChange ||
+           result.status == InvocationStatus::Sat ||
+           result.status == InvocationStatus::Unsat;
+  };
   const auto settled_terminal = [](const InvocationResult &result) {
     if (result.made_rule_progress || result.status == InvocationStatus::Sat ||
         result.status == InvocationStatus::Unsat)
@@ -786,6 +919,41 @@ bool RandomControllerSelector::choose(
             result.status == InvocationStatus::ScopedFixpoint ||
             result.status == InvocationStatus::NoChange);
   };
+  if (startup_prefix_pending_sequence_) {
+    if (!observation.last_action ||
+        observation.last_action->sequence != startup_prefix_pending_sequence_) {
+      error = "required controller startup prefix result is unavailable";
+      return false;
+    }
+    const auto &result = observation.last_action->invocation;
+    if (!settled_prefix_dose(result)) {
+      error = "required controller startup prefix action did not complete";
+      return false;
+    }
+    startup_prefix_pending_sequence_ = 0;
+    if (result.selection_complete)
+      ++startup_prefix_position_;
+  }
+  if (startup_resume_pending_sequence_) {
+    // Choosing does not consume the mandatory ResumeSearch.  A stale request
+    // leaves RestartController::last_action unchanged and therefore fails
+    // here; a trace/replay rejection ends the policy before this selector is
+    // reused.  ResumeSearch itself is atomic and has no interruptible window.
+    if (!observation.last_action ||
+        observation.last_action->sequence !=
+            startup_resume_pending_sequence_) {
+      error = "required controller startup ResumeSearch result is unavailable";
+      return false;
+    }
+    const auto &result = *observation.last_action;
+    if (result.type != ActionType::ResumeSearch || !result.resumed_search ||
+        result.invocation.status != InvocationStatus::Completed) {
+      error = "required controller startup ResumeSearch did not complete";
+      return false;
+    }
+    startup_resume_pending_sequence_ = 0;
+    startup_resume_forced_ = true;
+  }
   enum class NativeSettlement : uint8_t {
     Pending,
     Consume,
@@ -2096,6 +2264,20 @@ bool RandomControllerSelector::choose(
     const RuleVTable *rule = nullptr;
     NativeOffer native = NativeOffer::None;
   };
+  const bool startup_gate = !config.startup_prefix.sequence.empty() &&
+                            !startup_resume_forced_;
+  std::optional<std::string_view> startup_native_family;
+  if (startup_gate &&
+      startup_prefix_position_ < config.startup_prefix.sequence.size()) {
+    const auto &step =
+        config.startup_prefix.sequence[startup_prefix_position_];
+    if (step.granularity == InvocationGranularity::NativeProducerOffer)
+      startup_native_family = step.rule;
+  }
+  const auto native_allowed = [&](std::string_view family) {
+    return !startup_gate ||
+           (startup_native_family && *startup_native_family == family);
+  };
   const uint64_t direct_batch =
       config.direct_csp_action_producer.startup_batch_actions;
   const bool direct_propagation_due =
@@ -2111,7 +2293,18 @@ bool RandomControllerSelector::choose(
       !observation.last_action->invocation.made_rule_progress;
   std::vector<Eligible> eligible;
   for (const auto &entry : controller_action_availability(k, config)) {
+    const bool exact_startup_offer =
+        startup_gate &&
+        startup_prefix_position_ < config.startup_prefix.sequence.size() &&
+        config.startup_prefix.sequence[startup_prefix_position_].granularity !=
+            InvocationGranularity::NativeProducerOffer &&
+        config.startup_prefix.sequence[startup_prefix_position_].rule ==
+            entry.rule;
     if (entry.eligible) {
+      eligible.push_back(
+          {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               exact_startup_offer) {
       eligible.push_back(
           {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
     } else if (entry.reason == "guard-false" &&
@@ -2119,52 +2312,59 @@ bool RandomControllerSelector::choose(
       eligible.push_back(
           {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
     } else if (entry.reason == "structured-witness-not-offered" &&
-               entry.rule == "AffineConsequence" && discover_affine()) {
+               entry.rule == "AffineConsequence" &&
+               native_allowed(entry.rule) && discover_affine()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::AffineBasis});
     } else if (entry.reason == "structured-witness-not-offered" &&
-               entry.rule == "Gf3AffineConsequence" && discover_gf3()) {
+               entry.rule == "Gf3AffineConsequence" &&
+               native_allowed(entry.rule) && discover_gf3()) {
       eligible.push_back(
           {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::Gf3});
     } else if (entry.reason == "structured-witness-not-offered" &&
-               entry.rule == "DirectCspSupport" && discover_direct()) {
+               entry.rule == "DirectCspSupport" &&
+               native_allowed(entry.rule) && discover_direct()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::DirectCsp});
     } else if (entry.reason == "structured-witness-not-offered" &&
-               entry.rule == "NaryCspPrefix" && discover_nary()) {
+               entry.rule == "NaryCspPrefix" &&
+               native_allowed(entry.rule) && discover_nary()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::NaryCsp});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "NaryCspEquality" &&
+               native_allowed(entry.rule) &&
                discover_nary_equality()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::NaryCspEquality});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "Gf3GaussianConsequence" &&
+               native_allowed(entry.rule) &&
                discover_gaussian()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::Gf3Gaussian});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "Gf3GeneralRowConsequence" &&
-               discover_general_row()) {
+               native_allowed(entry.rule) && discover_general_row()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::Gf3GeneralRow});
     } else if (entry.reason == "structured-witness-not-offered" &&
-               entry.rule == "TseitinCycleBreaking" && discover_tseitin()) {
+               entry.rule == "TseitinCycleBreaking" &&
+               native_allowed(entry.rule) && discover_tseitin()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::TseitinCycle});
     } else if (!error.empty()) {
+      request = {};
+      request.sequence = observation.sequence + 1;
+      request.producer_effort = std::move(producer_effort);
       return false;
     }
   }
   const bool can_resume = kernel_propagation_fixpoint(k);
-  if (eligible.empty() && !can_resume) {
-    error = "no eligible controller action";
-    return false;
-  }
   request = {};
   request.sequence = observation.sequence + 1;
   std::optional<size_t> forced_choice;
+  bool startup_forced = false;
   const auto find_rule = [&](std::string_view name,
                              std::optional<NativeOffer> native = std::nullopt) {
     for (size_t i = 0; i < eligible.size(); ++i)
@@ -2173,9 +2373,43 @@ bool RandomControllerSelector::choose(
         return std::optional<size_t>{i};
     return std::optional<size_t>{};
   };
+  if (!config.startup_prefix.sequence.empty() && !startup_resume_forced_) {
+    if (startup_prefix_position_ < config.startup_prefix.sequence.size()) {
+      const auto &step = config.startup_prefix.sequence[startup_prefix_position_];
+      if (step.granularity == InvocationGranularity::NativeProducerOffer) {
+        for (size_t i = 0; i < eligible.size(); ++i)
+          if (std::string_view(eligible[i].rule->name) == step.rule &&
+              eligible[i].native != NativeOffer::None) {
+            forced_choice = i;
+            break;
+          }
+      } else {
+        forced_choice = find_rule(step.rule, NativeOffer::None);
+      }
+      if (!forced_choice) {
+        request.producer_effort = std::move(producer_effort);
+        error = "required controller startup prefix action is unavailable: " +
+                step.rule;
+        return false;
+      }
+      startup_forced = true;
+    } else {
+      if (!can_resume) {
+        request.producer_effort = std::move(producer_effort);
+        error = "controller startup prefix completed away from a propagation fixpoint";
+        return false;
+      }
+      forced_choice = eligible.size();
+    }
+  }
+  if (!forced_choice && eligible.empty() && !can_resume) {
+    request.producer_effort = std::move(producer_effort);
+    error = "no eligible controller action";
+    return false;
+  }
   const uint64_t affine_batch =
       config.affine_basis_action_producer.startup_batch_actions;
-  if (affine_batch && k.affine_basis_action_session) {
+  if (!forced_choice && affine_batch && k.affine_basis_action_session) {
     if (!can_resume) {
       forced_choice = find_rule("Propagate");
     } else if (k.affine_basis_action_session->committed_keys() < affine_batch) {
@@ -2226,11 +2460,23 @@ bool RandomControllerSelector::choose(
       return false;
     }
     request.search = configurations[draw(configurations.size())];
+    if (!config.startup_prefix.sequence.empty() && !startup_resume_forced_ &&
+        startup_prefix_position_ == config.startup_prefix.sequence.size())
+      startup_resume_pending_sequence_ = request.sequence;
   } else {
     const auto selected_action = eligible[choice];
     const auto &rule = *selected_action.rule;
+    const OnlineInvocation *startup_step =
+        startup_forced
+            ? &config.startup_prefix.sequence[startup_prefix_position_]
+            : nullptr;
     const auto offered = config.offered_actions.find(rule.name);
-    if (offered != config.offered_actions.end() && !offered->second.empty()) {
+    if (startup_step &&
+        startup_step->granularity !=
+            InvocationGranularity::NativeProducerOffer) {
+      request.invocation = *startup_step;
+    } else if (offered != config.offered_actions.end() &&
+               !offered->second.empty()) {
       request.invocation = offered->second[draw(offered->second.size())];
       if (request.invocation.rule != rule.name) {
         error = "offered invocation identity differs from its action family";
@@ -2239,7 +2485,7 @@ bool RandomControllerSelector::choose(
     } else if (selected_action.native == NativeOffer::AffineBasis) {
       if (!affine_basis_discovery_.pending)
         affine_basis_discovery_.pending = affine_basis_discovery_.offers[
-            draw(affine_basis_discovery_.offers.size())];
+            startup_forced ? 0 : draw(affine_basis_discovery_.offers.size())];
       affine_basis_discovery_.pending_sequence = request.sequence;
       request.invocation.id = request.sequence;
       request.invocation.rule = rule.name;
@@ -2251,7 +2497,9 @@ bool RandomControllerSelector::choose(
     } else if (selected_action.native == NativeOffer::Gf3) {
       if (!gf3_discovery_.pending)
         gf3_discovery_.pending =
-            gf3_discovery_.offers[draw(gf3_discovery_.offers.size())];
+            gf3_discovery_.offers[startup_forced
+                                      ? 0
+                                      : draw(gf3_discovery_.offers.size())];
       const auto key = *gf3_discovery_.pending;
       gf3_discovery_.pending_sequence = request.sequence;
       request.invocation.rule = rule.name;
@@ -2263,7 +2511,7 @@ bool RandomControllerSelector::choose(
     } else if (selected_action.native == NativeOffer::DirectCsp) {
       if (!direct_csp_discovery_.pending)
         direct_csp_discovery_.pending = direct_csp_discovery_.offers[
-            draw(direct_csp_discovery_.offers.size())];
+            startup_forced ? 0 : draw(direct_csp_discovery_.offers.size())];
       const auto exact = *direct_csp_discovery_.pending;
       direct_csp_discovery_.pending_sequence = request.sequence;
       request.invocation.rule = rule.name;
@@ -2274,7 +2522,7 @@ bool RandomControllerSelector::choose(
     } else if (selected_action.native == NativeOffer::NaryCsp) {
       if (!nary_csp_discovery_.pending)
         nary_csp_discovery_.pending = nary_csp_discovery_.offers[
-            draw(nary_csp_discovery_.offers.size())];
+            startup_forced ? 0 : draw(nary_csp_discovery_.offers.size())];
       const auto exact = *nary_csp_discovery_.pending;
       nary_csp_discovery_.pending_sequence = request.sequence;
       request.invocation.rule = rule.name;
@@ -2286,7 +2534,9 @@ bool RandomControllerSelector::choose(
       if (!nary_csp_equality_discovery_.pending)
         nary_csp_equality_discovery_.pending =
             nary_csp_equality_discovery_.offers[
-                draw(nary_csp_equality_discovery_.offers.size())];
+                startup_forced
+                    ? 0
+                    : draw(nary_csp_equality_discovery_.offers.size())];
       const auto exact = *nary_csp_equality_discovery_.pending;
       nary_csp_equality_discovery_.pending_sequence = request.sequence;
       request.invocation.rule = rule.name;
@@ -2320,7 +2570,8 @@ bool RandomControllerSelector::choose(
     } else if (selected_action.native == NativeOffer::TseitinCycle) {
       if (!tseitin_cycle_discovery_.pending)
         tseitin_cycle_discovery_.pending = tseitin_cycle_discovery_.offers[
-            draw(tseitin_cycle_discovery_.offers.size())];
+            startup_forced ? 0
+                           : draw(tseitin_cycle_discovery_.offers.size())];
       tseitin_cycle_discovery_.pending_sequence = request.sequence;
       request.invocation.rule = rule.name;
       request.invocation.parameters =
@@ -2446,6 +2697,8 @@ bool RandomControllerSelector::choose(
     request.invocation.work_unit = allowance.unit;
     request.invocation.budget = WorkLimit::bounded(allowance.amount);
     request.invocation.rule_work_budget = allowance.native;
+    if (startup_forced)
+      startup_prefix_pending_sequence_ = request.sequence;
   }
   // Discovery can refresh a native scope. Bind to the resulting safe boundary
   // rather than falsely report the chooser's own discovery as external ABA.
@@ -2640,11 +2893,8 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     ActionRequest request;
     std::string error;
-    if (!selection.choose(k, observation, config_, request, error, stop)) {
-      if (!(stop && *stop))
-        std::fprintf(stderr, "c ERROR: controller selection: %s\n", error.c_str());
-      return finish(0, stop && *stop ? StopReason::Interrupted : StopReason::Error);
-    }
+    const bool selected =
+        selection.choose(k, observation, config_, request, error, stop);
     for (const auto &effort : request.producer_effort) {
       auto &counts = coverage_.rules[effort.family];
       ++counts.producer_calls;
@@ -2676,6 +2926,11 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                     (unsigned long long)effort.offers);
         std::fflush(stdout);
       }
+    }
+    if (!selected) {
+      if (!(stop && *stop))
+        std::fprintf(stderr, "c ERROR: controller selection: %s\n", error.c_str());
+      return finish(0, stop && *stop ? StopReason::Interrupted : StopReason::Error);
     }
     if (trace_ && !emit(request_record(request)))
       return -1;

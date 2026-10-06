@@ -254,6 +254,64 @@ static void native_affine_profile_is_exact_transactional_and_effective() {
   static_offer.offered_actions["AffineConsequence"] = profile.sequence;
   assert(!static_offer.configure_affine_basis_producer_profile(profile, &error));
 
+  auto native_affine = profile;
+  native_affine.sequence.front().granularity =
+      InvocationGranularity::NativeProducerOffer;
+  RandomControllerConfig profile_first;
+  profile_first.parameters.rules = {"AffineConsequence"};
+  profile_first.affine_basis_action_producer.enabled = true;
+  assert(profile_first.configure_affine_basis_producer_profile(profile,
+                                                               &error));
+  const auto profile_first_signature = controller_configuration(profile_first);
+  assert(!profile_first.configure_startup_prefix(native_affine, &error));
+  assert(error == "controller startup affine offer conflicts with the GF2 "
+                  "affine producer profile" &&
+         controller_configuration(profile_first) == profile_first_signature);
+
+  RandomControllerConfig prefix_first;
+  prefix_first.parameters.rules = {"AffineConsequence"};
+  prefix_first.affine_basis_action_producer.enabled = true;
+  assert(prefix_first.configure_startup_prefix(native_affine, &error));
+  const auto prefix_first_signature = controller_configuration(prefix_first);
+  assert(!prefix_first.configure_affine_basis_producer_profile(profile,
+                                                               &error));
+  assert(error == "GF2 affine producer profile conflicts with the controller "
+                  "startup affine offer" &&
+         controller_configuration(prefix_first) == prefix_first_signature);
+
+  RandomControllerConfig nary_prefix;
+  nary_prefix.parameters.rules = {"NaryCspPrefix", "AffineConsequence"};
+  nary_prefix.nary_csp_action_producer.enabled = true;
+  nary_prefix.affine_basis_action_producer.enabled = true;
+  OnlineInvocation native_nary;
+  native_nary.id = 1;
+  native_nary.rule = "NaryCspPrefix";
+  native_nary.parameters = nary_prefix.parameters.nary_csp_prefix_reference;
+  native_nary.granularity = InvocationGranularity::NativeProducerOffer;
+  native_nary.work_unit = WorkUnit::Applications;
+  native_nary.budget = WorkLimit::bounded(1);
+  native_nary.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1};
+  assert(nary_prefix.configure_startup_prefix(
+      OnlineStrategyProgram{{native_nary}, {RepeatMode::Once, 1}}, &error));
+  assert(nary_prefix.configure_affine_basis_producer_profile(profile, &error));
+  assert(nary_prefix.affine_basis_profile_configured);
+
+  RandomControllerConfig gf3_row_prefix;
+  gf3_row_prefix.parameters.rules = {"Gf3GeneralRowConsequence"};
+  gf3_row_prefix.gf3_general_row_action_producer.enabled = true;
+  OnlineInvocation native_gf3_row;
+  native_gf3_row.id = 1;
+  native_gf3_row.rule = "Gf3GeneralRowConsequence";
+  native_gf3_row.parameters =
+      gf3_row_prefix.parameters.gf3_general_row_consequence_reference;
+  native_gf3_row.granularity = InvocationGranularity::NativeProducerOffer;
+  native_gf3_row.work_unit = WorkUnit::Applications;
+  native_gf3_row.budget = WorkLimit::bounded(1);
+  native_gf3_row.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1};
+  assert(gf3_row_prefix.configure_startup_prefix(
+      OnlineStrategyProgram{{native_gf3_row}, {RepeatMode::Once, 1}},
+      &error));
+
   Kernel kernel;
   kernel_reserve_vars(kernel, 4);
   for (const auto &clause :
@@ -992,6 +1050,275 @@ static void finite_lucky_catalog_is_reachable() {
   assert(controller_configuration(config) != original_config);
 }
 
+static void complete_pass_prefix_repeats_atomic_doses_until_settled() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 3);
+  add_external_clause(kernel, {1, 2, 3});
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"SubstitutionRedundancy"};
+  OnlineInvocation ulc;
+  ulc.id = 1;
+  ulc.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters sr;
+  sr.producer = SubstitutionRedundancyProducer::Orbitopal;
+  sr.maximum_orbitopal_matrices = 0;
+  sr.complete_unique_literal_amos = true;
+  ulc.parameters = sr;
+  ulc.granularity = InvocationGranularity::CompleteCurrentPass;
+  ulc.work_unit = WorkUnit::Applications;
+  ulc.budget = WorkLimit::bounded(8);
+  ulc.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1'000'000};
+  std::string error;
+  assert(config.configure_startup_prefix(
+      OnlineStrategyProgram{{ulc}, {RepeatMode::Once, 1}}, &error));
+
+  RestartController controller(kernel);
+  RandomControllerSelector selector(1);
+  ActionRequest request;
+  for (unsigned dose = 0; dose < 3; ++dose) {
+    assert(selector.choose(kernel, controller.observe(), config, request, error));
+    assert(request.type == ActionType::Rule &&
+           request.invocation.rule == "SubstitutionRedundancy");
+    const auto result = controller.apply_rule(
+        request, config.allowance(request.invocation.rule));
+    assert(result.invocation.status == InvocationStatus::Completed &&
+           result.invocation.applications == 1 &&
+           result.invocation.made_rule_progress &&
+           result.invocation.selection_complete == (dose == 2));
+  }
+  assert(kernel.stats.sr_unique_literal_amo_binaries == 3);
+  assert(selector.choose(kernel, controller.observe(), config, request, error));
+  assert(request.type == ActionType::ResumeSearch);
+}
+
+static void ordered_startup_prefix_reaches_native_nary_after_ulc() {
+  RandomControllerConfig empty;
+  const std::string empty_signature = controller_configuration(empty);
+  std::string error;
+  assert(empty.configure_startup_prefix({}, &error));
+  assert(error.empty() && controller_configuration(empty) == empty_signature &&
+         empty_signature.find("startup-prefix") == std::string::npos);
+
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 12);
+  for (int first : {1, 4, 7, 10})
+    add_external_clause(kernel, {first, first + 1, first + 2});
+  add_external_clause(kernel, {-1, -4, -7});
+  add_external_clause(kernel, {-2, -5, -8});
+  add_external_clause(kernel, {-3, -6, -9});
+  kernel_assign_unit(kernel, internalize(10));
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspPrefixActionSession session;
+  kernel.nary_csp_prefix_action_session = &session;
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"SubstitutionRedundancy", "Propagate",
+                             "NaryCspPrefix"};
+  config.nary_csp_action_producer.enabled = true;
+  config.nary_csp_action_producer.diagnostic_census_once = true;
+  config.nary_csp_action_producer.maximum_domain_candidates = 16;
+  config.nary_csp_action_producer.maximum_relation_candidates = 4;
+  config.nary_csp_action_producer.maximum_prefix_candidates = 32;
+  config.nary_csp_action_producer.maximum_offers = 4;
+  config.nary_csp_action_producer.maximum_enumeration_work = 1'000'000;
+
+  OnlineInvocation ulc;
+  ulc.id = 1;
+  ulc.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters sr;
+  sr.producer = SubstitutionRedundancyProducer::Orbitopal;
+  sr.maximum_orbitopal_matrices = 0;
+  sr.complete_unique_literal_amos = true;
+  ulc.parameters = sr;
+  ulc.granularity = InvocationGranularity::CompleteCurrentPass;
+  ulc.work_unit = WorkUnit::Applications;
+  ulc.budget = WorkLimit::bounded(32);
+  ulc.rule_work_budget = {RuleWorkBudgetMode::Bounded, 10'000'000};
+
+  OnlineInvocation propagate;
+  propagate.id = 2;
+  propagate.rule = "Propagate";
+  propagate.granularity = InvocationGranularity::CanonicalApplication;
+  propagate.work_unit = WorkUnit::Propagations;
+  propagate.budget = WorkLimit::bounded(1'000'000);
+  propagate.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1'000'000};
+
+  OnlineInvocation nary;
+  nary.id = 3;
+  nary.rule = "NaryCspPrefix";
+  nary.parameters = config.parameters.nary_csp_prefix_reference;
+  nary.granularity = InvocationGranularity::NativeProducerOffer;
+  nary.work_unit = WorkUnit::Applications;
+  nary.budget = WorkLimit::bounded(1);
+  nary.rule_work_budget = {RuleWorkBudgetMode::Bounded, 10'000'000};
+
+  OnlineStrategyProgram prefix{{ulc, propagate, nary}, {RepeatMode::Once, 1}};
+  const std::string encoded_prefix =
+      serialize_online_strategy_program(prefix);
+  OnlineStrategyProgram decoded_prefix;
+  assert(!deserialize_online_strategy_program(encoded_prefix, decoded_prefix,
+                                               &error));
+  assert(error == "native producer offer is controller-prefix-only");
+  assert(deserialize_online_strategy_program(encoded_prefix, decoded_prefix,
+                                              &error, false, true));
+  assert(serialize_online_strategy_program(decoded_prefix) == encoded_prefix);
+  assert(config.configure_startup_prefix(prefix, &error));
+  assert(error.empty());
+  const std::string signature = controller_configuration(config);
+  assert(signature.find("startup-prefix") != std::string::npos);
+  assert(!config.configure_startup_prefix({}, &error));
+  assert(error == "controller startup prefix is already installed" &&
+         controller_configuration(config) == signature);
+
+  RestartController controller(kernel);
+  RandomControllerSelector selector(1);
+  ActionRequest request;
+  uint64_t ulc_applications = 0;
+  uint64_t ulc_effective_doses = 0;
+  ActionResult result;
+  for (unsigned doses = 0; doses < 32; ++doses) {
+    assert(selector.choose(kernel, controller.observe(), config, request, error));
+    if (request.invocation.rule != "SubstitutionRedundancy")
+      break;
+    assert(request.type == ActionType::Rule && request.producer_effort.empty());
+    result = controller.apply_rule(
+        request, config.allowance(request.invocation.rule));
+    assert(result.invocation.status == InvocationStatus::Completed ||
+           result.invocation.status == InvocationStatus::NoChange);
+    ulc_applications += result.invocation.applications;
+    ulc_effective_doses += result.invocation.made_rule_progress;
+  }
+  assert(request.type == ActionType::Rule &&
+         request.invocation.rule == "Propagate" &&
+         ulc_applications == 11 && ulc_effective_doses == 11 &&
+         kernel.stats.sr_unique_literal_amo_binaries == 9);
+
+  assert(request.producer_effort.empty());
+  result = controller.apply_rule(request,
+                                 config.allowance(request.invocation.rule));
+  assert(result.invocation.status == InvocationStatus::Completed &&
+         result.invocation.selection_complete &&
+         kernel_propagation_fixpoint(kernel) &&
+         kernel.value(internalize(-11)) > 0 &&
+         kernel.value(internalize(-12)) > 0);
+
+  assert(selector.choose(kernel, controller.observe(), config, request, error));
+  assert(request.type == ActionType::Rule &&
+         request.invocation.rule == "NaryCspPrefix" &&
+         request.invocation.granularity == InvocationGranularity::OneInstance &&
+         request.invocation.nary_csp_prefix_instances.size() == 1 &&
+         request.producer_effort.size() == 1);
+  const auto &effort = request.producer_effort.front();
+  assert(effort.family == "NaryCspPrefix" &&
+         effort.have_detector_census && effort.exact_domains == 3 &&
+         effort.relation_keys == 1 && effort.tuple_occurrences == 3 &&
+         effort.offers);
+  result = controller.apply_rule(request,
+                                 config.allowance(request.invocation.rule));
+  assert(result.invocation.status == InvocationStatus::Completed &&
+         result.invocation.selection_complete &&
+         result.invocation.made_rule_progress && session.committed_keys() == 1);
+
+  assert(selector.choose(kernel, controller.observe(), config, request, error));
+  assert(request.type == ActionType::ResumeSearch);
+  ++kernel.strategy_epoch;
+  result = controller.resume_search(request);
+  assert(!result.resumed_search &&
+         result.invocation.status == InvocationStatus::StaleRequest);
+  assert(!selector.choose(kernel, controller.observe(), config, request,
+                          error));
+  assert(error ==
+         "required controller startup ResumeSearch result is unavailable");
+  std::fclose(records);
+}
+
+static void exact_structured_startup_payload_needs_no_static_offer() {
+  Kernel kernel = fixture(false);
+  RestartController controller(kernel);
+  RandomControllerConfig config;
+  config.parameters.rules = {"Condition"};
+  OnlineInvocation condition;
+  condition.id = 1;
+  condition.rule = "Condition";
+  condition.granularity = InvocationGranularity::OneInstance;
+  condition.condition_instances.push_back(
+      {{internalize(1), internalize(2)}, {internalize(2)}});
+  condition.work_unit = WorkUnit::Applications;
+  condition.budget = WorkLimit::bounded(1);
+  condition.rule_work_budget = config.default_allowance.native;
+  std::string error;
+  assert(config.configure_startup_prefix(
+      OnlineStrategyProgram{{condition}, {RepeatMode::Once, 1}}, &error));
+  assert(!config.offered_actions.contains("Condition"));
+
+  RandomControllerSelector selector(1);
+  ActionRequest request;
+  assert(selector.choose(kernel, controller.observe(), config, request,
+                         error));
+  assert(request.type == ActionType::Rule &&
+         request.invocation.rule == "Condition" &&
+         request.invocation.condition_instances.size() == 1 &&
+         request.invocation.condition_instances.front().clause ==
+             condition.condition_instances.front().clause &&
+         request.invocation.condition_instances.front().witness ==
+             condition.condition_instances.front().witness);
+  const auto result = controller.apply_rule(request, config.allowance("Condition"));
+  assert(result.invocation.status == InvocationStatus::Completed &&
+         result.invocation.selection_complete &&
+         result.invocation.made_rule_progress);
+  assert(selector.choose(kernel, controller.observe(), config, request,
+                         error));
+  assert(request.type == ActionType::ResumeSearch);
+}
+
+static void required_startup_native_offer_fails_closed_with_effort() {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 9);
+  for (int first : {1, 4, 7}) {
+    add_external_clause(kernel, {first, first + 1, first + 2});
+    for (int a = first; a != first + 3; ++a)
+      for (int b = a + 1; b != first + 3; ++b)
+        add_external_clause(kernel, {-a, -b});
+  }
+  NaryCspPrefixActionSession session;
+  kernel.nary_csp_prefix_action_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"NaryCspPrefix"};
+  config.nary_csp_action_producer.enabled = true;
+  config.nary_csp_action_producer.diagnostic_census_once = true;
+  OnlineInvocation nary;
+  nary.id = 1;
+  nary.rule = "NaryCspPrefix";
+  nary.parameters = config.parameters.nary_csp_prefix_reference;
+  nary.granularity = InvocationGranularity::NativeProducerOffer;
+  nary.work_unit = WorkUnit::Applications;
+  nary.budget = WorkLimit::bounded(1);
+  nary.rule_work_budget = {RuleWorkBudgetMode::Bounded, 1'000'000};
+  std::string error;
+  assert(config.configure_startup_prefix(
+      OnlineStrategyProgram{{nary}, {RepeatMode::Once, 1}}, &error));
+
+  RestartController controller(kernel);
+  RandomControllerSelector selector(1);
+  ActionRequest request;
+  assert(!selector.choose(kernel, controller.observe(), config, request, error));
+  assert(error ==
+         "required controller startup prefix action is unavailable: NaryCspPrefix");
+  assert(request.sequence == 1 && request.producer_effort.size() == 1);
+  const auto &effort = request.producer_effort.front();
+  assert(effort.family == "NaryCspPrefix" && effort.have_detector_census &&
+         effort.candidate_domains == 12 && effort.exact_domains == 3 &&
+         effort.offers == 0);
+  std::fclose(records);
+}
+
 int main() {
   native_affine_profile_is_exact_transactional_and_effective();
   exact_search_configuration_collection_is_learner_owned();
@@ -1004,6 +1331,10 @@ int main() {
   native_direct_csp_batch_is_replayable_metered_and_observable();
   native_direct_csp_batch_has_no_fallback();
   finite_lucky_catalog_is_reachable();
+  complete_pass_prefix_repeats_atomic_doses_until_settled();
+  ordered_startup_prefix_reaches_native_nary_after_ulc();
+  exact_structured_startup_payload_needs_no_static_offer();
+  required_startup_native_offer_fails_closed_with_effort();
   guidance_requires_an_observed_candidate();
   random_guidance_uses_observed_identities();
   Kernel a = fixture(false), b = fixture(false);
