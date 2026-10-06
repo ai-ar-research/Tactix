@@ -206,6 +206,21 @@ struct RandomOnlineConfig {
     result.maximum_session_keys = 10000;
     return result;
   }();
+  NaryCspEqualityAmoParameters nary_csp_equality_amo_reference = [] {
+    NaryCspEqualityAmoParameters result;
+    result.maximum_source_clauses = 100000;
+    result.maximum_source_literals = 1000000;
+    result.maximum_recognition_work = 10000000;
+    result.maximum_domain_values = 16;
+    result.maximum_forbidden_tuples = 100000;
+    result.maximum_proof_work = 10000000;
+    result.maximum_proof_additions = 100000;
+    result.maximum_proof_literal_occurrences = 1000000;
+    result.maximum_journal_bytes = 10000000;
+    result.maximum_external_extent = 1000000;
+    result.maximum_session_keys = 10000;
+    return result;
+  }();
   DirectPhpRefutationParameters direct_php_refutation_reference;
   Gf3GaussianConsequenceParameters gf3_gaussian_consequence_reference;
   Gf3GeneralRowConsequenceParameters gf3_general_row_consequence_reference;

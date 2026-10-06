@@ -6,6 +6,7 @@
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
@@ -96,6 +97,7 @@ struct OnlineInvocation {
   std::vector<DirectCspSupportActionSelection> direct_csp_support_instances = {};
   std::vector<NaryCspPrefixActionSelection> nary_csp_prefix_instances = {};
   std::vector<NaryCspEqualityActionSelection> nary_csp_equality_instances = {};
+  std::vector<NaryCspEqualityAmoSelection> nary_csp_equality_amo_instances = {};
   std::vector<Gf3GeneralRowActionSelection> gf3_general_row_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;

@@ -133,6 +133,12 @@ bool RandomControllerConfig::configure_startup_prefix(
       if (!replacement.nary_csp_equality_action_producer.enabled || !parameters)
         return reject("controller startup n-ary equality offer requires its native producer and typed profile");
       replacement.parameters.nary_csp_equality_reference = *parameters;
+    } else if (step.rule == "NaryCspEqualityAmo") {
+      const auto *parameters =
+          std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
+      if (!replacement.nary_csp_equality_amo_producer.enabled || !parameters)
+        return reject("controller startup n-ary equality AMO offer requires its native producer and typed profile");
+      replacement.parameters.nary_csp_equality_amo_reference = *parameters;
     } else if (step.rule == "Gf3GaussianConsequence") {
       const auto *parameters =
           std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
@@ -203,7 +209,8 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
       !step.tseitin_cycle_instances.empty() ||
       !step.direct_csp_support_instances.empty() ||
       !step.nary_csp_prefix_instances.empty() ||
-      !step.nary_csp_equality_instances.empty())
+      !step.nary_csp_equality_instances.empty() ||
+      !step.nary_csp_equality_amo_instances.empty())
     return reject("GF2 affine producer profile must be canonical and payload-free");
   if (step.repeat.mode != RepeatMode::Once || step.repeat.limit != 1 ||
       step.post_application != PostApplication::None)
@@ -522,6 +529,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "DirectCspSupport" ||
               std::string_view(rule.name) == "NaryCspPrefix" ||
               std::string_view(rule.name) == "NaryCspEquality" ||
+              std::string_view(rule.name) == "NaryCspEqualityAmo" ||
               std::string_view(rule.name) == "Gf3GaussianConsequence" ||
               std::string_view(rule.name) == "Gf3GeneralRowConsequence" ||
               std::string_view(rule.name) == "TseitinCycleBreaking") &&
@@ -559,6 +567,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
   CONTROLLER_REFERENCE("NaryCspPrefix", nary_csp_prefix_reference);
   CONTROLLER_REFERENCE("NaryCspEquality", nary_csp_equality_reference);
+  CONTROLLER_REFERENCE("NaryCspEqualityAmo", nary_csp_equality_amo_reference);
   CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
   CONTROLLER_REFERENCE("Gf3GaussianConsequence", gf3_gaussian_consequence_reference);
   CONTROLLER_REFERENCE("Gf3GeneralRowConsequence", gf3_general_row_consequence_reference);
@@ -759,6 +768,20 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     out << " producer " << std::quoted(profile.rule) << ' '
         << producer.maximum_owner_candidates << ' '
         << producer.maximum_coordinate_candidates << ' '
+        << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
+  if (config.nary_csp_equality_amo_producer.enabled) {
+    const auto &producer = config.nary_csp_equality_amo_producer;
+    OnlineInvocation profile;
+    profile.rule = "NaryCspEqualityAmo";
+    profile.parameters = config.parameters.nary_csp_equality_amo_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
+    profile.nary_csp_equality_amo_instances = {
+        {{{1, 2}, {3, 4}, {5, 6}}}};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << producer.maximum_owner_candidates << ' '
         << producer.maximum_offers << ' '
         << producer.maximum_enumeration_work << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
@@ -1150,6 +1173,38 @@ bool RandomControllerSelector::choose(
           observation.last_action->invocation.after;
     }
   }
+  if (nary_csp_equality_amo_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          nary_csp_equality_amo_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const auto pending = *nary_csp_equality_amo_discovery_.pending;
+      nary_csp_equality_amo_discovery_.offers.erase(
+          std::remove(nary_csp_equality_amo_discovery_.offers.begin(),
+                      nary_csp_equality_amo_discovery_.offers.end(), pending),
+          nary_csp_equality_amo_discovery_.offers.end());
+      nary_csp_equality_amo_discovery_.pending.reset();
+      nary_csp_equality_amo_discovery_.pending_sequence = 0;
+      nary_csp_equality_amo_discovery_.state =
+          observation.last_action->invocation.after;
+      if (nary_csp_equality_amo_discovery_.offers.empty() &&
+          nary_csp_equality_amo_discovery_.complete)
+        nary_csp_equality_amo_discovery_.terminal = true;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      nary_csp_equality_amo_discovery_.pending.reset();
+      nary_csp_equality_amo_discovery_.offers.clear();
+      nary_csp_equality_amo_discovery_.pending_sequence = 0;
+      nary_csp_equality_amo_discovery_.terminal = true;
+      nary_csp_equality_amo_discovery_.state =
+          observation.last_action->invocation.after;
+    } else if (settlement == NativeSettlement::RetainUntilReconfiguration) {
+      nary_csp_equality_amo_discovery_.pending_sequence = 0;
+      nary_csp_equality_amo_discovery_.reconfiguration_required = true;
+      nary_csp_equality_amo_discovery_.state =
+          observation.last_action->invocation.after;
+    }
+  }
   if (gf3_gaussian_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
           gf3_gaussian_discovery_.pending_sequence) {
@@ -1377,6 +1432,33 @@ bool RandomControllerSelector::choose(
         p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
         p.maximum_journal_bytes, p.maximum_extent_growth,
         p.maximum_external_extent, p.maximum_session_keys};
+  };
+
+  const auto nary_equality_amo_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "NaryCspEqualityAmo";
+    invocation.parameters = config.parameters.nary_csp_equality_amo_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    invocation.nary_csp_equality_amo_instances = {
+        {{{1, 2}, {3, 4}, {5, 6}}}};
+    std::ostringstream out;
+    const auto &producer = config.nary_csp_equality_amo_producer;
+    out << producer.maximum_owner_candidates << ' '
+        << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
+        << serialize_online_strategy_program({{invocation}, {}});
+    return out.str();
+  };
+
+  const auto nary_equality_amo_limits = [&] {
+    const auto &p = config.parameters.nary_csp_equality_amo_reference;
+    return NaryCspEqualityAmoLimits{
+        p.maximum_source_clauses, p.maximum_source_literals,
+        p.maximum_recognition_work, p.maximum_domain_values,
+        p.maximum_forbidden_tuples, p.maximum_proof_work,
+        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
+        p.maximum_journal_bytes, p.maximum_external_extent,
+        p.maximum_session_keys};
   };
 
   const auto gaussian_profile = [&] {
@@ -2005,6 +2087,86 @@ bool RandomControllerSelector::choose(
     return !nary_csp_equality_discovery_.offers.empty();
   };
 
+  const auto discover_nary_equality_amo = [&]() -> bool {
+    if (!config.nary_csp_equality_amo_producer.enabled ||
+        has_static_offer("NaryCspEqualityAmo") ||
+        !k.nary_csp_prefix_action_session || !k.nary_csp_equality_session ||
+        !k.nary_csp_equality_amo_session)
+      return false;
+    if (!config.nary_csp_equality_amo_producer.valid()) {
+      error = "n-ary CSP equality AMO producer window is invalid";
+      return false;
+    }
+    const auto &prefix = *k.nary_csp_prefix_action_session;
+    const auto &equality = *k.nary_csp_equality_session;
+    const auto &amo = *k.nary_csp_equality_amo_session;
+    const auto profile = nary_equality_amo_profile();
+    const auto state = state_version(k);
+    const bool relevant_change =
+        nary_csp_equality_amo_discovery_.owner != &k ||
+        nary_csp_equality_amo_discovery_.prefix_session != &prefix ||
+        nary_csp_equality_amo_discovery_.equality_session != &equality ||
+        nary_csp_equality_amo_discovery_.amo_session != &amo ||
+        !same_version(nary_csp_equality_amo_discovery_.state, state) ||
+        nary_csp_equality_amo_discovery_.prefix_owners !=
+            prefix.retained_owners() ||
+        nary_csp_equality_amo_discovery_.equality_keys !=
+            equality.keys().size() ||
+        nary_csp_equality_amo_discovery_.amo_keys != amo.keys().size() ||
+        nary_csp_equality_amo_discovery_.profile != profile;
+    if (relevant_change) {
+      nary_csp_equality_amo_discovery_ = {};
+      nary_csp_equality_amo_discovery_.owner = &k;
+      nary_csp_equality_amo_discovery_.prefix_session = &prefix;
+      nary_csp_equality_amo_discovery_.equality_session = &equality;
+      nary_csp_equality_amo_discovery_.amo_session = &amo;
+      nary_csp_equality_amo_discovery_.state = state;
+      nary_csp_equality_amo_discovery_.prefix_owners = prefix.retained_owners();
+      nary_csp_equality_amo_discovery_.equality_keys = equality.keys().size();
+      nary_csp_equality_amo_discovery_.amo_keys = amo.keys().size();
+      nary_csp_equality_amo_discovery_.profile = profile;
+    }
+    if (nary_csp_equality_amo_discovery_.pending ||
+        !nary_csp_equality_amo_discovery_.offers.empty())
+      return true;
+    if (nary_csp_equality_amo_discovery_.terminal) return false;
+    const auto &producer = config.nary_csp_equality_amo_producer;
+    const NaryCspEqualityAmoOfferWindow window{
+        producer.maximum_owner_candidates, producer.maximum_offers,
+        producer.maximum_enumeration_work,
+        nary_csp_equality_amo_discovery_.have_after,
+        nary_csp_equality_amo_discovery_.after};
+    const auto limits = nary_equality_amo_limits();
+    if (!limits.valid()) {
+      error = "n-ary CSP equality AMO producer parameters are invalid";
+      return false;
+    }
+    const auto offered = nary_csp_equality_amo_offer(
+        k, prefix, equality, amo, limits, window);
+    producer_effort.push_back(
+        {"NaryCspEqualityAmo", static_cast<uint8_t>(offered.status),
+         offered.complete, 0, offered.enumeration_work,
+         offered.enumeration_work, offered.owner_candidates,
+         offered.offers.size()});
+    if (offered.status != NaryCspEqualityAmoOfferStatus::Ready) {
+      nary_csp_equality_amo_discovery_.terminal = true;
+      return false;
+    }
+    const bool cursor_advanced =
+        offered.have_resume_after &&
+        (!nary_csp_equality_amo_discovery_.have_after ||
+         !(offered.resume_after == nary_csp_equality_amo_discovery_.after));
+    nary_csp_equality_amo_discovery_.offers = offered.offers;
+    nary_csp_equality_amo_discovery_.complete = offered.complete;
+    nary_csp_equality_amo_discovery_.have_after = offered.have_resume_after;
+    if (offered.have_resume_after)
+      nary_csp_equality_amo_discovery_.after = offered.resume_after;
+    if ((offered.complete && offered.offers.empty()) ||
+        (offered.offers.empty() && !cursor_advanced))
+      nary_csp_equality_amo_discovery_.terminal = true;
+    return !nary_csp_equality_amo_discovery_.offers.empty();
+  };
+
   const auto discover_gaussian = [&]() -> bool {
     if (!config.gf3_gaussian_action_producer.enabled ||
         has_static_offer("Gf3GaussianConsequence") ||
@@ -2256,6 +2418,7 @@ bool RandomControllerSelector::choose(
     DirectCsp,
     NaryCsp,
     NaryCspEquality,
+    NaryCspEqualityAmo,
     Gf3Gaussian,
     Gf3GeneralRow,
     TseitinCycle
@@ -2337,6 +2500,12 @@ bool RandomControllerSelector::choose(
                discover_nary_equality()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::NaryCspEquality});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "NaryCspEqualityAmo" &&
+               native_allowed(entry.rule) &&
+               discover_nary_equality_amo()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::NaryCspEqualityAmo});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "Gf3GaussianConsequence" &&
                native_allowed(entry.rule) &&
@@ -2544,6 +2713,20 @@ bool RandomControllerSelector::choose(
           config.parameters.nary_csp_equality_reference;
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.nary_csp_equality_instances = {exact};
+    } else if (selected_action.native == NativeOffer::NaryCspEqualityAmo) {
+      if (!nary_csp_equality_amo_discovery_.pending)
+        nary_csp_equality_amo_discovery_.pending =
+            nary_csp_equality_amo_discovery_.offers[
+                startup_forced
+                    ? 0
+                    : draw(nary_csp_equality_amo_discovery_.offers.size())];
+      const auto exact = *nary_csp_equality_amo_discovery_.pending;
+      nary_csp_equality_amo_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.nary_csp_equality_amo_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.nary_csp_equality_amo_instances = {exact};
     } else if (selected_action.native == NativeOffer::Gf3Gaussian) {
       if (!gf3_gaussian_discovery_.pending)
         gf3_gaussian_discovery_.pending = gf3_gaussian_discovery_.offer;

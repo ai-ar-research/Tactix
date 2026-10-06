@@ -10,9 +10,11 @@
 namespace tactix {
 struct NaryCspEqualitySessionAccess {
   static void commit(NaryCspEqualitySession &session, const Kernel &kernel,
-                     std::vector<NaryCspEqualityKey> keys) {
+                     std::vector<NaryCspEqualityKey> keys,
+                     std::vector<NaryCspEqualityRecord> records) {
     session.owner_ = &kernel;
     session.keys_ = std::move(keys);
+    session.records_ = std::move(records);
   }
 };
 
@@ -290,6 +292,20 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
   std::vector<NaryCspEqualityKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), result.key),
               result.key);
+  std::vector<NaryCspEqualityRecord> records = session.records();
+  NaryCspEqualityRecord record;
+  record.key = result.key;
+  record.extension_variable =
+      static_cast<uint32_t>(plan.projection.extension_variable);
+  for (const auto &addition : plan.additions)
+    if (addition.clause.size() == 3 &&
+        (addition.clause[0] == plan.projection.extension_variable ||
+         addition.clause[0] == -plan.projection.extension_variable))
+      record.definition_clauses.push_back(addition.clause);
+  records.push_back(std::move(record));
+  std::sort(records.begin(), records.end(), [](const auto &a, const auto &b) {
+    return a.key < b.key;
+  });
   if (kernel_terminating(kernel)) {
     result.status = NaryCspEqualityLiveStatus::Interrupted;
     return result;
@@ -328,7 +344,8 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
                   request.records) != journal.bytes.size() ||
       std::fflush(request.records) || std::ferror(request.records))
     std::abort();
-  NaryCspEqualitySessionAccess::commit(session, kernel, std::move(keys));
+  NaryCspEqualitySessionAccess::commit(session, kernel, std::move(keys),
+                                       std::move(records));
 
   result.status = NaryCspEqualityLiveStatus::Applied;
   result.result = ApplyResult::Ok;

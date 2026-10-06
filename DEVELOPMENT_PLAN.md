@@ -290,6 +290,7 @@ their owning documents.
 | X17 | `NaryCspPrefix` | authenticated finite-domain prefix definition and residual exclusions: add-RAT/add-RUP | winner integration |
 | X18 | `GraphIntervalEquivalence` | authenticated duplicate interval equivalence over existing variables: add-RUP | winner integration |
 | X19 | `Gf3GeneralRowConsequence` | authenticated forbidden tuple of one non-unit Gaussian row: add-RUP | winner integration |
+| X20 | `NaryCspEqualityAmo` | authenticated pairwise AMO over three aligned-domain equality variables: add-RUP + helper deletion | winner integration |
 Support services—classification, reconstruction, internal checking, occurrence indexes—are not schedulable rules. Phase 3 requires every catalog family to be implemented and reached, or to have a reasoned no-implement disposition with evidence and a reopening path.
 ### 5.3 Extensibility contract
 
@@ -302,7 +303,6 @@ strategies own heuristic parameters and execution budgets. CCE tests phase-5
 extensibility: unrelated kernel/policy/rule/proof edits require architecture repair.
 
 ### 5.4 Revamp discipline
-
 Revamps within this project need no separate user approval: communicate the
 design, then proceed through `revamp` with measurable success and rollback points.
 Preserve N1–N4 and revalidate default, scripted and broad random policies.

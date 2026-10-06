@@ -23,6 +23,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "DirectCspSupport",
                                          "NaryCspPrefix",
                                          "NaryCspEquality",
+                                         "NaryCspEqualityAmo",
                                          "DirectPhpRefutation",
                                          "Gf3GaussianConsequence",
                                          "Gf3GeneralRowConsequence",
@@ -45,6 +46,7 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "DirectCspSupport",
                                              "NaryCspPrefix",
                                              "NaryCspEquality",
+                                             "NaryCspEqualityAmo",
                                              "DirectPhpRefutation",
                                              "Gf3GaussianConsequence",
                                              "Gf3GeneralRowConsequence",
@@ -377,6 +379,13 @@ static void drive(tactix *s, int id) {
   if (!strcmp(name, "NaryCspEquality")) {
     const int count = tactix_rule_instances(s, id, insts, NINST);
     assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
+    hit_structured[id] = 1;
+    return;
+  }
+  if (!strcmp(name, "NaryCspEqualityAmo")) {
+    const int count = tactix_rule_instances(s, id, insts, NINST);
+    assert(count == -1 &&
+           "AMO guard requires the typed prefix/equality session pipeline");
     hit_structured[id] = 1;
     return;
   }

@@ -360,7 +360,7 @@ void emit_public_fixture(const std::string &cnf_path,
 } // namespace
 
 int main(int argc, char **argv) {
-  assert(tactix_rules().size() == 44);
+  assert(tactix_rules().size() == 45);
   assert(std::string(tactix_rules()[43].name) == "Gf3GeneralRowConsequence");
   const auto reference = reference_inprocess_program();
   const auto step = std::find_if(reference.begin(), reference.end(),
