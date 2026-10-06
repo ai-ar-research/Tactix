@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <unistd.h>
 
@@ -308,6 +309,206 @@ void predecessor_restore_is_not_counted_as_a_rebuild() {
          kernel.stats.affine_matrix_service_rebuilds == 1 &&
          kernel.stats.affine_matrix_service_rebuild_backtrack == 1);
   std::fclose(journal);
+}
+
+void public_controller_predecessor_transcript_reexecutes() {
+  char transcript_path[] = "/tmp/tactix-affine-predecessor-replay-XXXXXX";
+  const int transcript_fd = mkstemp(transcript_path);
+  assert(transcript_fd >= 0);
+  close(transcript_fd);
+  const std::string configuration = "fixed-affine-predecessor-controller-v1";
+  std::string first_journal, first_proof;
+  for (const bool replaying : {false, true}) {
+    ControllerTrace trace;
+    assert(replaying ? trace.replay(transcript_path, configuration)
+                     : trace.write(transcript_path, 17, configuration));
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    install_implication_formula(kernel);
+    char proof_path[] = "/tmp/tactix-affine-predecessor-proof-XXXXXX";
+    const int proof_fd = mkstemp(proof_path);
+    assert(proof_fd >= 0);
+    close(proof_fd);
+    Proof proof;
+    assert(proof.open(proof_path, ProofFormat::DsrAscii));
+    proof.bind_variable_map(&kernel.internal_to_external);
+    proof.bind_external_variable_map(&kernel.external_to_internal);
+    kernel.proof = &proof;
+    RestartController controller(kernel);
+
+    // Both passes execute new typed requests against independent live states.
+    // Replay compares regenerated requests/results, not cached event strings.
+    const auto request_event = [&](const ActionRequest &request,
+                                   const std::string &payload) {
+      std::ostringstream out;
+      out << "fixture-request " << request.version << ' ' << request.sequence
+          << ' ' << request.expected.arena_generation << ' '
+          << request.expected.touch_epoch << ' ' << request.expected.strategy_epoch
+          << ' ' << payload;
+      assert(trace.event(out.str()));
+    };
+    const auto result_event = [&](const ActionResult &result) {
+      std::ostringstream out;
+      out << "fixture-result " << result.sequence << ' '
+          << unsigned(result.invocation.status) << ' '
+          << unsigned(result.invocation.rule_result) << ' '
+          << result.invocation.work << ' ' << result.invocation.applications
+          << ' ' << result.invocation.made_rule_progress << ' '
+          << result.invocation.selection_complete << ' ' << result.resumed_search
+          << ' ' << result.after.arena_generation << ' '
+          << result.after.touch_epoch << ' ' << result.after.strategy_epoch;
+      assert(trace.event(out.str()));
+    };
+    auto initialize = initialize_request(controller, kernel, parameters());
+    // ActionRequest does not need a program StepId, but the standalone online
+    // program wire format reserves zero. Give this fixture's sole step an ID.
+    initialize.invocation.id = 1;
+    OnlineStrategyProgram program;
+    program.sequence.push_back(initialize.invocation);
+    const auto encoded = serialize_online_strategy_program(program);
+    OnlineStrategyProgram decoded;
+    std::string decoding_error;
+    const bool decoded_ok =
+        deserialize_online_strategy_program(encoded, decoded, &decoding_error);
+    if (!decoded_ok)
+      std::fprintf(stderr, "affine replay fixture decode: %s\n",
+                   decoding_error.c_str());
+    assert(decoded_ok && decoded.sequence.size() == 1 &&
+           serialize_online_strategy_program(decoded) == encoded);
+    initialize.invocation = decoded.sequence.front();
+    request_event(initialize, encoded);
+    const auto initialized = controller.apply_rule(
+        initialize, {WorkUnit::Applications, 1, {}});
+    assert(initialized.invocation.status == InvocationStatus::Completed &&
+           initialized.invocation.made_rule_progress && session.enabled());
+    result_event(initialized);
+    const auto resume = [&] {
+      const auto request = resume_request(controller, kernel);
+      request_event(request, std::string("ResumeSearch ") + name(request.search));
+      const auto result = controller.resume_search(request);
+      assert(result.resumed_search);
+      result_event(result);
+    };
+    const auto propagate = [&] {
+      const auto result = controller.search_service(
+          "Propagate", INSTANCE_CANONICAL, [&] { return propagate_apply(kernel); });
+      assert(result == ApplyResult::Ok && kernel_propagation_fixpoint(kernel));
+      assert(trace.event("fixture-Propagate " + std::to_string(unsigned(result)) +
+                         " " + std::to_string(kernel.trail.size())));
+    };
+    const auto decision = [&](int32_t external) {
+      assert(trace.event("fixture-Decide-request " + std::to_string(external)));
+      const Lit literal = kernel_internalize(kernel, external);
+      const auto result = controller.search_service(
+          "Decide", lit_instance(kernel, literal), [&] {
+            return execution::execute_action(kernel, execution::DecisionRequest{literal});
+          });
+      assert(result == ApplyResult::Ok);
+      assert(trace.event("fixture-Decide-result " + std::to_string(unsigned(result))));
+      propagate();
+    };
+    const auto matrix = [&] {
+      const auto result = controller.affine_matrix_fixpoint_service();
+      assert(trace.event(affine_matrix_service_trace_record(kernel, result)));
+      std::ostringstream telemetry;
+      telemetry << "fixture-sync " << result.synchronized << ' '
+                << result.synchronization_incremental << ' '
+                << result.synchronization_restored_predecessor << ' '
+                << unsigned(result.synchronization_kind) << ' '
+                << result.synchronization_prefix << ' '
+                << result.synchronization_conditioned << ' '
+                << kernel.stats.affine_matrix_service_rebuilds << ' '
+                << kernel.stats.affine_matrix_service_rebuild_backtrack;
+      assert(trace.event(telemetry.str()));
+      return result;
+    };
+    resume();
+    decision(-1);
+    assert(matrix().status == AffineMatrixServiceStatus::NoEvent);
+    decision(-2);
+    const auto published = matrix();
+    assert(published.status == AffineMatrixServiceStatus::Applied &&
+           published.live.implication && published.bcp_pending &&
+           published.live.additions && session.published_keys() == 1);
+    propagate();
+    assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
+    const auto clause_id = kernel.next_clause_id;
+    const auto extent = kernel.external_to_internal.size();
+    const auto journal_before_backtrack = journal_contents(journal);
+    const auto restart = [&](uint32_t level) {
+      assert(trace.event("fixture-Restart-request " + std::to_string(level)));
+      const auto result = controller.restart(level);
+      assert(result == ApplyResult::Ok);
+      assert(trace.event("fixture-Restart-result " + std::to_string(unsigned(result))));
+      propagate();
+    };
+    restart(1);
+    const auto restored = matrix();
+    assert(restored.status == AffineMatrixServiceStatus::NoEvent &&
+           restored.synchronization_restored_predecessor &&
+           restored.synchronization_kind == MatrixSynchronizationKind::Backtrack &&
+           !kernel.stats.affine_matrix_service_rebuilds &&
+           !kernel.stats.affine_matrix_service_rebuild_backtrack);
+    restart(0);
+    resume();
+    const auto rebuilt = matrix();
+    assert(rebuilt.status == AffineMatrixServiceStatus::NoEvent &&
+           !rebuilt.synchronization_restored_predecessor &&
+           rebuilt.synchronization_kind == MatrixSynchronizationKind::Backtrack &&
+           kernel.stats.affine_matrix_service_rebuilds == 1 &&
+           kernel.stats.affine_matrix_service_rebuild_backtrack == 1 &&
+           kernel.next_clause_id == clause_id &&
+           kernel.external_to_internal.size() == extent &&
+           session.published_keys() == 1 &&
+           journal_contents(journal) == journal_before_backtrack);
+    // Finish a checked model of the original two equations. The previously
+    // published reason remains installed across both backtracks and supplies x5.
+    decision(-1);
+    decision(-2);
+    assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
+    decision(-3);
+    assert(kernel.value(kernel_internalize(kernel, -4)) > 0);
+    decision(-6);
+    assert(!kernel.unassigned_active && !kernel.inconsistent &&
+           !kernel.conflict_valid && kernel_propagation_fixpoint(kernel));
+    kernel_extend_model(kernel);
+    for (const auto &variables : {std::vector<int32_t>{1, 3, 4},
+                                 std::vector<int32_t>{2, 3, 4, 5}})
+      for (const auto &clause : clausal_form(variables, false)) {
+        bool satisfied = false;
+        for (int32_t literal : clause)
+          satisfied |= kernel.value(kernel_internalize(kernel, literal)) > 0;
+        assert(satisfied);
+      }
+    assert(trace.finish(10));
+    proof.flush();
+    kernel.proof = nullptr;
+    FILE *proof_input = std::fopen(proof_path, "rb");
+    assert(proof_input);
+    std::string proof_bytes;
+    char proof_buffer[4096];
+    size_t proof_count;
+    while ((proof_count = std::fread(proof_buffer, 1, sizeof proof_buffer,
+                                    proof_input)))
+      proof_bytes.append(proof_buffer, proof_count);
+    assert(!std::ferror(proof_input));
+    assert(!std::fclose(proof_input));
+    assert(!proof_bytes.empty());
+    const auto journal_bytes = journal_contents(journal);
+    if (replaying) {
+      assert(proof_bytes == first_proof && journal_bytes == first_journal);
+    } else {
+      first_proof = proof_bytes;
+      first_journal = journal_bytes;
+    }
+    std::fclose(journal);
+    std::remove(proof_path);
+  }
+  std::remove(transcript_path);
 }
 
 void unchanged_terminal_initialization_is_suppressed() {
@@ -820,6 +1021,7 @@ int main(int argc, char **argv) {
   initialize_resume_publish_and_bcp();
   interruption_is_atomic();
   predecessor_restore_is_not_counted_as_a_rebuild();
+  public_controller_predecessor_transcript_reexecutes();
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
   root_unit_and_empty_conflict_publish();

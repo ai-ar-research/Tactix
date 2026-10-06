@@ -1,0 +1,11 @@
+/cm/local/apps/gcc/13.1.0/include/c++/13.1.0/bits/basic_string.h:278:29: runtime error: execution reached an unreachable program point
+    #0 0x186af21 in std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const /cm/local/apps/gcc/13.1.0/include/c++/13.1.0/bits/basic_string.h:278
+    #1 0x1856f80 in std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() /cm/local/apps/gcc/13.1.0/include/c++/13.1.0/bits/basic_string.h:293
+    #2 0x18e7ec0 in void std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_construct<std::istreambuf_iterator<char, std::char_traits<char> > >(std::istreambuf_iterator<char, std::char_traits<char> >, std::istreambuf_iterator<char, std::char_traits<char> >, std::input_iterator_tag) (/home/hwu/SAT-solving/build/resume-affine-repair-asan/tests/test_affine_matrix_search+0x18e7ec0)
+    #3 0x18687e6 in std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::istreambuf_iterator<char, std::char_traits<char> >, void>(std::istreambuf_iterator<char, std::char_traits<char> >, std::istreambuf_iterator<char, std::char_traits<char> >, std::allocator<char> const&) (/home/hwu/SAT-solving/build/resume-affine-repair-asan/tests/test_affine_matrix_search+0x18687e6)
+    #4 0x176cbc6 in public_controller_predecessor_transcript_reexecutes /home/hwu/SAT-solving/tests/test_affine_matrix_search.cpp:494
+    #5 0x178b9f8 in main /home/hwu/SAT-solving/tests/test_affine_matrix_search.cpp:1019
+    #6 0x155553e2a60f in __libc_start_call_main (/lib64/libc.so.6+0x2a60f) (BuildId: c66e695b33e96ceda6703ade36b25054e075e060)
+    #7 0x155553e2a6bf in __libc_start_main@GLIBC_2.2.5 (/lib64/libc.so.6+0x2a6bf) (BuildId: c66e695b33e96ceda6703ade36b25054e075e060)
+    #8 0x1746f74 in _start (/home/hwu/SAT-solving/build/resume-affine-repair-asan/tests/test_affine_matrix_search+0x1746f74)
+

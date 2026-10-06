@@ -1,0 +1,17 @@
+Test project /home/hwu/SAT-solving/build/resume-affine-repair-debug
+    Start  87: affine_matrix_search_proof
+1/3 Test  #87: affine_matrix_search_proof .......   Passed    0.88 sec
+    Start 130: affine_matrix
+2/3 Test #130: affine_matrix ....................   Passed    2.25 sec
+    Start 132: affine_matrix_search
+3/3 Test #132: affine_matrix_search .............Subprocess aborted***Exception:   0.16 sec
+test_affine_matrix_search: /home/hwu/SAT-solving/tests/test_affine_matrix_search.cpp:373: void {anonymous}::public_controller_predecessor_transcript_reexecutes(): Assertion `deserialize_online_strategy_program(encoded, decoded) && decoded.sequence.size() == 1 && serialize_online_strategy_program(decoded) == encoded' failed.
+
+
+67% tests passed, 1 tests failed out of 3
+
+Total Test time (real) =   3.29 sec
+
+The following tests FAILED:
+	132 - affine_matrix_search (Subprocess aborted)
+Errors while running CTest
