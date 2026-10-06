@@ -132,6 +132,73 @@ static void implication_event_uses_the_same_general_bridge() {
   assert(installs == 1);
 }
 
+static void root_unit_reuses_the_accumulated_clause() {
+  const std::vector<Equation> input = {
+      authenticated_equation({1, 2, 3}, false, 500),
+      authenticated_equation({1, 2, 4}, false, 504),
+      authenticated_equation({3, 4, 5}, true, 508)};
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 18, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  MatrixEvent event;
+  assert(matrix.synchronize({}, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(event.kind == MatrixEventKind::Implication &&
+         (event.reason == std::vector<External>{5}));
+
+  AffineMatrixProofCache cache;
+  AffineMatrixTransaction transaction;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 18, input, event, 5, 3000, transaction_limits(),
+             [](uint64_t) { return true; }, transaction, &cache, 0) ==
+         MatrixTransactionStatus::Prepared);
+  uint64_t installs = 0;
+  for (const MatrixProofEvent &proof : transaction.proof_events())
+    if (proof.install) {
+      ++installs;
+      assert(proof.clause == event.reason);
+    }
+  assert(installs == 1);
+}
+
+static void empty_root_conflict_is_a_publishable_reason() {
+  const std::vector<Equation> input = {
+      authenticated_equation({1, 2, 3}, false, 600),
+      authenticated_equation({1, 2, 3}, true, 604)};
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 19, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  MatrixEvent event;
+  assert(matrix.synchronize({}, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  assert(event.kind == MatrixEventKind::Conflict && event.reason.empty());
+
+  AffineMatrixProofCache cache;
+  MatrixProofCacheEntry retained;
+  retained.entry_id = 1;
+  retained.owner_identity = 19;
+  retained.proof_epoch = 7;
+  retained.support_ids = {3999};
+  assert(cache.commit(std::move(retained), 0));
+  AffineMatrixTransaction transaction;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 19, input, event, 3, 4000, transaction_limits(),
+             [](uint64_t) { return true; }, transaction, &cache, 7) ==
+         MatrixTransactionStatus::Prepared);
+  uint64_t installs = 0;
+  for (const MatrixProofEvent &proof : transaction.proof_events())
+    if (proof.install) {
+      ++installs;
+      assert(proof.clause.empty());
+    }
+  assert(installs == 1 && transaction.reason().empty() &&
+         !transaction.proof_cache_insert() &&
+         transaction.proof_cache_generation() == cache.generation() &&
+         transaction.proof_cache_entry().proof_epoch == 7);
+}
+
 static void exact_identity_and_atomic_failure() {
   AffineMatrix matrix;
   MatrixEvent event;
@@ -310,6 +377,8 @@ int main(int argc, char **argv) {
     return write_proof(argv[2], argv[3]);
   complete_plan_accounts_and_retains_only_reason();
   implication_event_uses_the_same_general_bridge();
+  root_unit_reuses_the_accumulated_clause();
+  empty_root_conflict_is_a_publishable_reason();
   exact_identity_and_atomic_failure();
   incomplete_or_forged_premises_are_unsupported();
   std::puts("test_affine_matrix_transaction: passed");

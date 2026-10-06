@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "kernel/clause.hpp"
 #include "policies/random_controller_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -399,6 +400,82 @@ void complete_snapshot_policy_admission() {
   }
 }
 
+void root_unit_and_empty_conflict_publish() {
+  {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    kernel_reserve_vars(kernel, 5);
+    add_equation(kernel, {1, 2, 3}, false);
+    add_equation(kernel, {1, 2, 4}, false);
+    add_equation(kernel, {3, 4, 5}, true);
+    assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
+           AffineMatrixInitStatus::Applied);
+    const auto service = affine_matrix_search_step(kernel, session);
+    assert(service.status == AffineMatrixServiceStatus::Applied &&
+           service.result == ApplyResult::Ok && service.bcp_pending &&
+           service.live.implication && !service.live.conflict &&
+           service.reason_width == 1 &&
+           kernel.value(kernel_internalize(kernel, 5)) > 0);
+    std::fclose(journal);
+  }
+  {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    kernel_reserve_vars(kernel, 3);
+    add_equation(kernel, {1, 2, 3}, false);
+    add_equation(kernel, {1, 2, 3}, true);
+    assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
+           AffineMatrixInitStatus::Applied);
+    const auto service = affine_matrix_search_step(kernel, session);
+    assert(service.status == AffineMatrixServiceStatus::Applied &&
+           service.result == ApplyResult::Unsat && !service.bcp_pending &&
+           service.live.conflict && !service.live.implication &&
+           service.reason_width == 0 && kernel.inconsistent);
+    std::fclose(journal);
+  }
+}
+
+void invalidated_session_retires_without_terminal_failure() {
+  for (const bool retire_variable : {false, true}) {
+    Kernel kernel;
+    AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    kernel.structural_provenance = journal;
+    install_implication_formula(kernel);
+    assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
+           AffineMatrixInitStatus::Applied);
+    RestartController controller(kernel);
+    assert(controller.resume_search(resume_request(controller, kernel))
+               .resumed_search);
+    decide(controller, kernel, -1);
+    decide(controller, kernel, -2);
+    if (retire_variable) {
+      kernel.var_status.resize(kernel.nvars, VarStatus::Active);
+      kernel.var_status[var_of(kernel_internalize(kernel, 1))] =
+          VarStatus::Substituted;
+    } else {
+      clause_at(kernel.arena, 0)->flags |= Clause::GARBAGE;
+    }
+    const auto service = controller.affine_matrix_fixpoint_service();
+    assert(service.status == (retire_variable
+                                  ? AffineMatrixServiceStatus::Inapplicable
+                                  : AffineMatrixServiceStatus::Stale));
+    assert(!service.terminal_failure() && !session.enabled() &&
+           service.result == ApplyResult::NoOp);
+    std::fclose(journal);
+  }
+}
+
 static std::string initialize_partial_fixture() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -644,9 +721,61 @@ int proof_fixture(const char *cnf_path, const char *proof_path,
   return 0;
 }
 
+static int root_proof_fixture(const char *cnf_path, const char *proof_path,
+                              bool unit) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, unit ? 5 : 3);
+  const std::vector<std::pair<std::vector<int32_t>, bool>> equations = unit
+      ? std::vector<std::pair<std::vector<int32_t>, bool>>{
+            {{1, 2, 3}, false}, {{1, 2, 4}, false}, {{3, 4, 5}, true}}
+      : std::vector<std::pair<std::vector<int32_t>, bool>>{
+            {{1, 2, 3}, false}, {{1, 2, 3}, true}};
+  for (const auto &[variables, rhs] : equations)
+    add_equation(kernel, variables, rhs);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  kernel.proof = &proof;
+  assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
+         AffineMatrixInitStatus::Applied);
+  const auto service = affine_matrix_search_step(kernel, session);
+  assert(service.status == AffineMatrixServiceStatus::Applied);
+  if (unit) {
+    assert(service.result == ApplyResult::Ok && service.reason_width == 1);
+    // The original CNF also contains -5.  Keeping it out of the captured
+    // matrix isolates publication of the derived root unit before refutation.
+    assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  } else {
+    assert(service.result == ApplyResult::Unsat && kernel.inconsistent);
+  }
+  proof.flush();
+  kernel.proof = nullptr;
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf %zu %zu\n", kernel.external_to_internal.size(),
+               equations.size() * 4 + (unit ? 1 : 0));
+  for (const auto &[variables, rhs] : equations)
+    for (const auto &clause : clausal_form(variables, rhs)) {
+      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
+      std::fprintf(cnf, "0\n");
+    }
+  if (unit) std::fprintf(cnf, "-5 0\n");
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
+  if (argc == 4 && !std::strcmp(argv[1], "--proof-root-unit"))
+    return root_proof_fixture(argv[2], argv[3], true);
+  if (argc == 4 && !std::strcmp(argv[1], "--proof-root-empty"))
+    return root_proof_fixture(argv[2], argv[3], false);
   if (argc == 4 && !std::strcmp(argv[1], "--proof"))
     return proof_fixture(argv[2], argv[3], ProofFormat::DsrAscii);
   if (argc == 4 && !std::strcmp(argv[1], "--proof-drat"))
@@ -655,6 +784,8 @@ int main(int argc, char **argv) {
   interruption_is_atomic();
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
+  root_unit_and_empty_conflict_publish();
+  invalidated_session_retires_without_terminal_failure();
   partial_admission_feedback_provenance_and_replay();
   std::puts("test_affine_matrix_search: passed");
 }

@@ -410,6 +410,7 @@ ApplyResult default_affine_root_closure(
         },
         affine_service_outcome);
     if (service.status == AffineMatrixServiceStatus::Applied) {
+      if (service.result == ApplyResult::Unsat) return ApplyResult::Unsat;
       if (!service.bcp_pending) std::abort();
       const ApplyResult propagated =
           default_propagate(kernel, "affine-matrix-root", completion);

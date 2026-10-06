@@ -109,14 +109,32 @@ struct PlanningSink {
   }
 
   bool mark_install(const std::vector<External> &clause) {
-    const auto found = active.find(key(clause));
-    if (found == active.end() || found->second.size() != 1) return false;
+    auto found = active.find(key(clause));
+    if (found == active.end() || found->second.empty()) return false;
     const uint64_t id = found->second.back();
     for (auto event = events.rbegin(); event != events.rend(); ++event)
       if (event->kind != MatrixProofEvent::Kind::Delete && event->id == id) {
         if (event->install) return false;
         event->install = true;
-        return true;
+        // Accumulation can already leave the requested root unit active.
+        // export_reason then adds the same unit again.  Keep the newest copy
+        // as the solver-owned clause and retire the older proof-only copies,
+        // so the active population has one unambiguous installed identity.
+        while (found->second.size() > 1) {
+          if (deletions == maximum_deletions) {
+            exhausted = true;
+            return false;
+          }
+          MatrixProofEvent deletion;
+          deletion.kind = MatrixProofEvent::Kind::Delete;
+          deletion.clause = clause;
+          deletion.id = next_id;
+          deletion.deleted_id = found->second.front();
+          found->second.erase(found->second.begin());
+          events.push_back(std::move(deletion));
+          ++deletions;
+        }
+        return found->second.front() == id;
       }
     return false;
   }
@@ -144,7 +162,8 @@ struct PlanningSink {
   std::vector<uint64_t> active_support_ids() const {
     std::vector<uint64_t> result;
     for (const MatrixProofEvent &event : events) {
-      if (event.kind == MatrixProofEvent::Kind::Delete) continue;
+      if (event.kind == MatrixProofEvent::Kind::Delete || event.install)
+        continue;
       const auto found = active.find(key(event.clause));
       if (found == active.end() ||
           std::find(found->second.begin(), found->second.end(), event.id) ==
@@ -425,6 +444,9 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   candidate.reason_ = event.reason;
   if (proof_cache) {
     candidate.cache_generation_ = proof_cache->generation();
+    candidate.cache_entry_.proof_epoch = proof_epoch;
+  }
+  if (proof_cache && !event.reason.empty()) {
     const MatrixProofCacheEntry *cached = proof_cache->find(
         expected_owner_identity, proof_epoch, candidate.source_equations_,
         candidate.source_identity_);
@@ -466,16 +488,18 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       [&](uint64_t amount) { return work.consume(amount); });
   if (!certificate.accumulate(equations))
     return failure(work, planning);
-  std::vector<uint64_t> support_ids;
-  if (proof_cache) {
-    support_ids = planning.active_support_ids();
-    if (support_ids.empty() || support_ids.size() != planning.active_size())
-      return MatrixTransactionStatus::Invalid;
+  if (event.reason.empty()) {
+    if (!certificate.refuted()) return MatrixTransactionStatus::Invalid;
+  } else if (!certificate.export_reason(dense_reason)) {
+    return failure(work, planning);
   }
-  if (!certificate.export_reason(dense_reason)) return failure(work, planning);
-  if (!planning.mark_install(event.reason))
-    return MatrixTransactionStatus::Invalid;
-  if (proof_cache) {
+  if (!planning.mark_install(event.reason)) return failure(work, planning);
+
+  std::vector<uint64_t> support_ids;
+  if (proof_cache && !event.reason.empty())
+    support_ids = planning.active_support_ids();
+  const bool retain_cache = proof_cache && !support_ids.empty();
+  if (retain_cache) {
     if (planning.active_size() != support_ids.size() + 1)
       return MatrixTransactionStatus::Invalid;
     const uint64_t cache_extent =
@@ -491,7 +515,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     candidate.cache_entry_.source_equations = candidate.source_equations_;
     candidate.cache_entry_.source_identity = candidate.source_identity_;
     candidate.cache_entry_.support_ids = std::move(support_ids);
-  } else {
+  } else if (!event.reason.empty()) {
     if (!certificate.retire_helpers()) return failure(work, planning);
     if (!planning.only_active(event.reason))
       return MatrixTransactionStatus::Invalid;

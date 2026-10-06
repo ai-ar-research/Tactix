@@ -21,6 +21,14 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
   --every-lemma
 
+for scenario in root-unit root-empty; do
+  "$binary" "--proof-$scenario" "$tmp/$scenario.cnf" "$tmp/$scenario.dsr"
+  python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+    "$tmp/$scenario.cnf" "$tmp/$scenario.dsr" \
+    --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+    --every-lemma
+done
+
 "$binary" --proof-drat "$tmp/input-drat.cnf" "$tmp/proof.drat"
 "$drat_trim" "$tmp/input-drat.cnf" "$tmp/proof.drat" -f \
   > "$tmp/drat-check" 2>&1 || true
