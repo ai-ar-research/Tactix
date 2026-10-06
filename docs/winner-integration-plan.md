@@ -40,6 +40,33 @@ The full four-arm gap additionally contains ranks 97, 410, 499, 557, 1009, 1040,
    consequences and the remaining owners. Constructors remain causal controls.
    O6/reward/training remain deferred; selection stays random.
 
+## Development cadence
+
+Use a staged gate for each mechanism so that wiring failures do not consume
+target or regression budgets:
+
+1. A focused semantic fixture must demonstrate a non-vacuous deduction,
+   projection/reconstruction, deterministic replay and the independent proof or
+   model oracle.
+2. A short CPU-Q admission probe on an owned real instance must require the
+   intended public action to be eligible, requested and applied. Continuing
+   services must also report at least one call; a useful-result counter is
+   required when the instance state is known to offer one.
+3. Only a passing admission probe may launch the bounded causal target screen.
+   The screen must distinguish absent admission, admitted no-op, useful
+   consequences that do not alter search, and actual recovery.
+4. Merge several independently complete primitives into one cumulative pin,
+   then run effective DefaultPolicy/random-controller fuzz and the preservation
+   campaigns. Do not serialize unrelated implementation on a long target or
+   campaign, and do not rerun an unchanged failed arm.
+
+Parallel work owns disjoint semantic modules and scoped commits. The primary
+integration lane alone owns shared registries, controller composition, plan and
+status documents. Each handoff records the source pin, changed paths, immutable
+job artifacts, proof/model oracle and unresolved boundary. This lets discovery,
+proof engineering and target attribution proceed concurrently without turning
+separate prototypes into incompatible policy surfaces.
+
 ## Lightweight symmetry during inprocessing
 
 Make symmetry discovery/application available at full Restart-to-root boundaries. Policy owns interval, relevant-change admission, scheduling position and effort; legality remains independent of those scheduling choices. An interval becoming due does not interrupt an ordinary partial restart or change configuration there. Charge snapshot/graph construction, detection, witness validation and application. Check cheaply for relevant changes after an unsuccessful attempt; do not repeat whole-formula discovery on unchanged input merely because another restart occurred.
@@ -149,7 +176,7 @@ effective fuzz, scheduling, target and regression evidence. Next validate
 effective reach, then measure target recovery and the four gates. Every decline
 remains bounded and mutation free; every repeated step uses a fresh live plan.
 For n-ary finite-domain relations, public X17 `NaryCspPrefix` live-captures complete one-hot domains and exact forbidden tuples, defines a selected all-but-one prefix as an exact-AND helper, publishes DSR/DRAT RUP residual exclusions, records projection/provenance, and retains durable owner/prefix keys in a Kernel-owned session. Registry ID 39, disabled StepId 28, C v8 parameter tag 42 and typed replay carry the exact full-domain/residual/prefix selection; C configuration validates and deep-copies the complete nested payload. The bounded opt-in `nary-csp` producer deterministically pages exact native offers, shared execution publishes raw producer/action feedback, and successful post-followup state can publish `NaryCsp` semantic-variable advice. Focused public/interface tests pass.
-Public X9 now pages immutable source-bound GF(2) rows through C v9, replay and the opt-in `gf2-affine` producer. Small rows publish certified parity CNF; wide rows retain only the final bounded XOR definitions and root unit, fix isolated proof helpers, and record exact projection and proof roles. Its bounded-count profile is a replay-fingerprinted startup dose of separate learner-visible actions: successful settlement retains the rest of an authenticated page across an explicit root Propagate, and focused coverage demonstrates `X9 -> Propagate -> X9`. Rank263 publishes two rows from one page, then rejects its third exact request before search; fix that preflight boundary before another target screen. Focused and external microproof checks pass; fixed-target recovery and current gates remain unproved.
+Public X9 now pages immutable source-bound GF(2) rows through C v9, replay and the opt-in `gf2-affine` producer. Small rows publish certified parity CNF; wide rows retain only the final bounded XOR definitions and root unit, fix isolated proof helpers, and record exact projection and proof roles. Its bounded-count profile is a replay-fingerprinted startup dose of separate learner-visible actions: successful settlement retains the rest of an authenticated page across an explicit root Propagate, and focused coverage demonstrates `X9 -> Propagate -> X9`. The repaired static path can exhaust its Rank263 page, but its eager extensions remain the measured negative control rather than the desired search mechanism. Focused and external microproof checks pass; fixed-target recovery and current gates remain unproved.
 Public X18 `GraphIntervalEquivalence` authenticates equal interval-NOR definitions and can publish their two existing-variable equivalence binaries after final RUP. It remains a reusable generic action where those binaries are absent. The [rank-991 preflight](../benchmarks/reports/2026-10-05-rank991-x18-duplicate-preflight/README.md) found every candidate direction already live, so X18 published nothing and repeated unchanged discovery consumed most of the short solve interval. Do not schedule repeated X18 censuses on that target or treat the graph constructor's solve as evidence for missing interval equivalences. Further rank-991 work must identify different propagation-useful Boolean information or explain and transfer the constructor's coordinated choices.
 Treat CryptoMiniSat as the primary GF(2) mechanism reference, not as an
 architecture to copy exactly.  Study and selectively adapt its XOR discovery,
@@ -163,16 +190,20 @@ XOR recognition/clause detachment while disabling matrices makes both
 180-second controls time out. Static replacement reduces conflicts but does not
 recover the solve. Likewise, a fixed row basis is not propagation-complete:
 assignment-dependent sums can imply a literal although no stored row is unit.
-The next GF(2) increment is therefore a persistent authenticated matrix, not an
-eager full-row dump. It maintains exact combinations of certified source
-equations across trail extension/backtrack. On an implication or conflict it
-must construct the exact entailed reason clause, complete a DSR/DRAT derivation
-against the global formula, publish any bounded shared definitions, and only
-then expose the result to CDCL. Matrix work, reason width, proof additions,
-external extent, duplicate keys, calls, useful propagations/conflicts and
-disable decisions are explicit effort/feedback fields. Static X9 rows remain a
-bounded cache and causal control. This persistent search integration is
-planned; current X9 remains a root inprocessing action.
+The implemented GF(2) search increment is a persistent authenticated matrix,
+not an eager full-row dump. `AffineMatrixInitialize` creates or replaces its
+Kernel-owned basis only through an explicit root action. After `ResumeSearch`,
+the restart controller calls the enabled service only at Boolean propagation
+fixpoints. The service maintains exact combinations of certified source
+equations across trail extension/backtrack, constructs one deterministic
+entailed reason or conflict, completes its bounded DSR/DRAT derivation against
+the global formula, publishes the ordinary Boolean reason, and returns control
+to BCP. It never directly enqueues a literal or reports a theory conflict.
+Matrix work, reason width, proof additions, external extent, duplicate keys,
+calls and useful events are explicit feedback fields. Static X9 rows remain a
+bounded cache and causal control. Target recovery, adaptive matrix partitioning
+and incremental maintenance remain evidence-driven follow-ups rather than
+preconditions hidden inside the rule.
 An opaque native-XOR propagation or an XOR-aware FRAT-only certificate does
 not satisfy N2.  Compare each adopted mechanism by useful propagation,
 conflict, installed consequence and later search consumption per charged work.
@@ -212,7 +243,10 @@ Demonstrate effective default/random reach for every capability; performance-onl
 
 ## Verification, completion and remaining decisions
 
-The primary target gate requires all 44 independently checked on a candidate; the original 36 remains a diagnostic subgroup rather than an earlier completion gate.
+The first target gate requires all original 36 independently checked on one
+candidate. The next gate adds the eight MAB-only rows and requires all 44 on one
+candidate. Neither checkpoint by itself proves superiority beyond the saved
+portfolio.
 Use the saved 5,000-second solve/32-GiB envelope and the historical complete
 14,400-second checker pipeline for comparable target acceptance. Raw UNSAT,
 checker crashes and clean deadline censors do not close a target. Investigate

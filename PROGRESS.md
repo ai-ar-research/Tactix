@@ -12,8 +12,9 @@ Current work is the unaccepted organic winner-integration stage in
 shared actions, deterministic replay, pure observation, after-action raw
 feedback, both-policy fuzz, and independent proof/model checking remain active.
 
-The primary objective is all 44 misses from the saved four-winner portfolio;
-the original fixed 36 remain a diagnostic subgroup. LymphoSAT integration means
+The immediate checkpoint is the original fixed 36 misses from LymphoSAT,
+Satsuma+Kissat and Kissat-sc2024; after that, close the eight MAB-only additions
+for all 44 four-arm misses. LymphoSAT integration means
 authenticated theory information translated into selective certified Boolean
 consequences, definitions or deductions for continuing CDCL, on SAT as well as
 UNSAT techniques. Constructors/local search remain reference evidence and do
@@ -39,7 +40,7 @@ clausal proof/check cost establish need.
 | Certified theory actions v5 | [technical report](benchmarks/reports/2026-10-04-certified-theory-actions-v5.md) | Public GF(3)/DirectCSP consequences and random offerers implemented but unaccepted; ordinary fuzz had incomplete verdict coverage and no effective v5 reach |
 | Public N-ary CSP prefix X17 | [public checkpoint](benchmarks/reports/2026-10-04-public-nary-csp-prefix-action.md), [planner](benchmarks/reports/2026-10-04-nary-csp-prefix-planner.md), [live/action](benchmarks/reports/2026-10-04-nary-csp-prefix-live-action.md), [native offerer](benchmarks/reports/2026-10-04-nary-csp-prefix-native-offerer.md) | Registry ID 39, disabled StepId 28 and C v8 tag 42 expose exact deep-copied domain/residual/prefix payloads through typed replay and a Kernel-owned session. Opt-in `nary-csp` production, raw feedback and post-followup `NaryCsp` semantic-variable publication are wired; focused tests pass. DefaultPolicy remains disabled, and fuzz, checked noL recovery, targets and gates remain open |
 | noL certified discovery hardening | `8d13ca87a` | ULC reauthenticates the live checker population and emits pivot-first RAT through DSR/DRAT; X17 uses bounded canonical relation indexing and durable paging. Six focused Debug tests and Release fixtures pass, including a 363-domain/2,486-relation/22,374-prefix noL census and independently checked ULC microproof. Real noL targets remain unsolved |
-| Scalable repeated GF(2) X9 | `3787d6724`, `2b2d7ecb8`, `405b56724`, `60c023eb9`, [Rank263 boundary](benchmarks/reports/2026-10-05-rank263-repeated-affine-boundary/README.md), [matrix transaction](benchmarks/reports/2026-10-05-affine-matrix-transaction-preflight.md), [live publisher](benchmarks/reports/2026-10-05-affine-matrix-live-publisher.md) | Immutable source owners, exact paged direct/extended row payloads, C v9/replay, `gf2-affine` production and durable consumed keys are implemented. The repaired static path applies all 1,328 Rank263 rows but grows 37,748 variables and remains UNKNOWN at 300 seconds. The bounded persistent matrix authenticates exact source combinations under changing trails; its transaction and live publisher revalidate complete live-premise identities, emit a compact arbitrary-width RUP reason, retire proof helpers, install only the ordinary Boolean reason, and leave implication/conflict consumption to BCP. CPU-Q job `1750800` passes focused Debug+ASan/UBSan and forward DSR/Trestle checks. Restart-time initialization, deterministic search-fixpoint scheduling, checked Rank263 recovery and gates remain open |
+| Scalable repeated GF(2) X9 | `3787d6724`--`114ba0d7a`, [Rank263 boundary](benchmarks/reports/2026-10-05-rank263-repeated-affine-boundary/README.md), [matrix transaction](benchmarks/reports/2026-10-05-affine-matrix-transaction-preflight.md), [live publisher](benchmarks/reports/2026-10-05-affine-matrix-live-publisher.md), [search service](benchmarks/reports/2026-10-05-affine-matrix-search-service.md), [admission failure](benchmarks/reports/2026-10-05-rank263-affine-matrix-admission-failure.md) | Static X9 remains the causal control: 1,328 effective Rank263 rows grow 37,748 variables and remain UNKNOWN at 300 seconds. `AffineMatrixInitialize` creates a Kernel-owned authenticated basis at root; after explicit `ResumeSearch`, the restart controller requests at most one deterministic trail-relevant reason at each Boolean fixpoint, publishes it through the checked live bridge, and leaves implication/conflict consumption to ordinary BCP. Graph/action inventory repair `426d0d03b` plus job `1750900` pass all 11 focused sanitizer contracts. Jobs `1750903` and `1750912` exposed a missing CLI-owned session; the focused CLI ownership test passes after the repair. The five-second and one-second Rank263 gates `1750921`/`1750929` now admit the action but apply no matrix: `1750929` records 83 attempts, 82 resource-exhausted and one interrupted, with zero service calls. Identify the exact evidence-backed cap and suppress unchanged failed retries before another target run |
 | Public graph interval equivalence X18 | `c6aec42a1`--`cf5ef96d6`, [rank-991 preflight](benchmarks/reports/2026-10-05-rank991-x18-duplicate-preflight/README.md) | Registry ID 40 exposes a disabled-by-default generic scalar action through registry/C/online/replay. It recovers indexed primaries, independently authenticates unique live NOR interval definitions, final-RUP-checks both equivalence binaries against the unchanged formula, adds only existing-variable clauses, records identity projection and leaves propagation separate. Focused action, online/C/replay, feedback, DSR emission, root-fixed propagation and documentation/inventory tests pass. On rank 991 the replay-fingerprinted first action recognized 116 groups but all 232 directions were already-live binaries; across 97 calls it published nothing and consumed 17.505 of 29.953 seconds. The paired ablation was stopped at its preflight gate. X18 does not explain the graph constructor's solve; all target and acceptance gates remain open |
 | Current full Debug | jobs `1750117`, `1750129` | Source `14e09a2a4` was rejected at 286/292 by four diagnosed causes: binary-source ULC discovery, an all-zero generated ExactCover profile, feedback-inspector v6 drift and a missing archived DSR checker. Repaired source `d7e48970d` is accepted at 292/292 in 820.39 s; postflight verified 244 executables and 340 immutable bindings |
 | Accepted four regression references | jobs `1749575`, `1749610`, `1749666`, `1749709` | All accepted with zero failures. B28+C5 and Rank use `ef4d1f1f1`: 33/33 at 956.316 s and 50/50 at 7,559.461 s. WV100 and WV2 use `5eb58e52c`: 100/100 with 98 checked/two clean proof censors at 2,718.740 s, and 89/89 with 78 checked/two clean proof censors/nine allowed solver timeouts at 3,990.643 s. WV2 checks `ramsey_4_4_19` instead of timing out |
@@ -48,7 +49,9 @@ clausal proof/check cost establish need.
 | Certified UNSAT verticals | [technical checkpoint](benchmarks/reports/2026-10-04-public-tseitin-cycle-breaking-action.md), [Andrew report](report-to-andrew/20261004T210026Z-public-tseitin-cycle-action/report.pdf) | Direct PHP is public and terminal; GF(3) has a public authenticated Gaussian batch through C v6; Tseitin X16 is public at registry 38/disabled StepId 27/C v7 tag 41 with exact `tcx2:` component replay, repeated propagated-root discovery, DSR/no-proof, random production and raw feedback. Independent fresh Debug is 10/10; ASan/UBSan action/discovery plus ASCII, binary and repeated-root DSR checks pass. Fuzz, targets and gates remain open |
 | Focused controller configuration | [initial target report](benchmarks/reports/2026-10-05-certified-affine-target-probe-initial.md) | The frozen WV2/WV100 probes passed anonymous runtime validation, but all three completed rows timed out with zero offers: width/source caps block WV2-132 and WV100-7, while the group cap blocks WV100-51. Feedback v2 retains exact observation patches and actions in a bounded streaming gzip sidecar; later prototypes use provenance-only telemetry because decoding the full rank-263 stream dominates the short experimental loop. The search subset is learner-owned and replay-fingerprinted; the GF(2) profile can request nonzero semantic advice while `Propagate` remains explicit with no fallback. Rank 263 installed one authenticated wide consequence and propagated six literals, but the attempted 8/64-row startup profiles committed only that one row because of a post-`Propagate` lifecycle defect; both timed out and are not batch evidence. No new target recovery is claimed |
 | Rank-263 CryptoMiniSat mechanism controls | pinned CryptoMiniSat 5.14.7 jobs `1750457`, `1750463` | Default CryptoMiniSat solves UNSAT without proof in 7.12 s at 56,003 conflicts after recognizing 776 XORs and building a 736-by-745 matrix. Disabling all XOR handling times out at 180.21 s with 891,484 conflicts. Retaining XOR discovery, 5,360-clause detachment and native XOR attachment while disabling matrices also times out at 180.16 s with 691,296 conflicts. Clause replacement helps, but the persistent Gaussian matrix is the dominant measured mechanism. This is causal reference evidence, not a checked Tactix recovery |
-| Fixed-44 work partition | frozen four-arm comparison plus [current evidence audit](benchmarks/reports/2026-10-05-fixed44-current-evidence-audit/README.md) | The 44 rows partition into 14 certificate-only acceptance failures, 17 structure-led search gaps and 13 unattributed policy/search gaps. Ranks147/630/744 are checked current recoveries; 41 remain true open. Rank263's repaired static X9 lifecycle applies 1,328 rows but remains UNKNOWN with 37,748 extensions, motivating the persistent matrix. The [Rank401 one-call census](benchmarks/reports/2026-10-05-rank401-x17-onecall-census.md) finds 7,473 ALO candidates but zero exact domains because the input has no AMO binaries; the missing AMOs require certified ULC equisatisfiable completion before X17. Rank991's 232 interval directions are already-live duplicates. These are causal mechanism boundaries, not target recoveries |
+| Fixed-44 work partition | frozen four-arm comparison plus [current evidence audit](benchmarks/reports/2026-10-05-fixed44-current-evidence-audit/README.md) | The 44 rows partition into 14 certificate-only acceptance failures, 17 structure-led search gaps and 13 unattributed policy/search gaps. Ranks147/630/744 are checked current recoveries; 41 remain true open. Rank263's static X9 failure motivates the live matrix probe. On Rank401, certified ULC completion creates 347 exact domains and eight X17 offers; 3/3 X17 applications are effective, but [the target result](benchmarks/runs/20261005-rank401-ulc-x17-753574f34-r2/results/000.json) remains UNKNOWN at 300 seconds, moving the boundary from recognition to deduction strength/scheduling. Rank991's 232 interval directions are already-live duplicates. None is a new recovery |
+| GF(3) Gaussian target boundary | [WV9 measured report](benchmarks/reports/2026-10-05-wv9-x14-no-supported-outcome/README.md), jobs `1750867`/`1750876` | Recognition, bridge, Gaussian planning and certificate work all complete within measured limits. The planner derives 360 multi-variable rows, but X14 supports only unit/conflict publication, so it returns exact `NoSupportedOutcome` with zero candidates/offers. Further cap increases cannot help; useful progress requires certified bounded general-row publication or a different mechanism |
+| RB-SAT DirectCSP boundary | [causal report](benchmarks/reports/2026-10-05-rbsat-direct-csp-causal/README.md), jobs `1750888`/`1750890`/`1750896` | WV100 rank93 reaches 16 exact offers. One selected action publishes a certified 17-literal support row, produces no root propagation, and then returns the same independently checked SAT model as the plain control. The stock DirectCSP profile is invalid/all-zero and its producer allowance is below the measured domain scan. The next reusable increment is a valid derived profile plus repeated shared action/propagation/advice scheduling; no solve gain or target closure is claimed |
 | Current both-policy fuzz defects | [F1/F3 repair](benchmarks/reports/2026-10-05-both-policy-fuzz-f1-f3-repair.md) | The Claude-owned superseded candidate found a repeated Direct-PHP snapshot `InvalidRequest` and an X9 wide-row helper-polarity proof rejection. Both minimized cases are repaired. CPU-Q job `1750809` passes six focused Debug+ASan/UBSan tests, the 51-clause controller reproducer completes SAT without error, and the 12-clause X9 DSR independently verifies UNSAT. A fresh immutable both-policy fuzz campaign remains required; the old candidate's continuing census is diagnostic only |
 | Rank1129 certificate route | [frozen negative diagnostic and dispatch attribution](benchmarks/reports/2026-10-05-rank1129-proof-route-negative/README.md) | Direct binary LSR input removes only the 6.074-second text expansion; Trestle still times out on the 3,447,844-addition retained core, so there is no checker-route change or target closure. Detector-only job `1750802` proves none of the 126 LymphoSAT matchers accepts this row: its verified 1,340.631-second PBP came from the ordinary Kissat-PBP fallback, not the clique-color theory solver. This is a proof-representation/certificate target; no organic theory action or general CDCL PBP integration is justified in this increment |
 | Public controller full Debug | [conformance report](benchmarks/reports/2026-10-04-public-controller-full-debug.md) | `ec7e0ac86` passes 285/285 Debug tests in 957.60 s. Terminal Direct-PHP random programs cannot acquire a bundled follow-up; append-only Tseitin registry contracts and restored Lucky/8 lifecycle tests are synchronized. Fresh immutable ASan+UBSan pin `build/pin-public-theory-ec7e0ac86-sanitize-01` passes its focused checks; effective both-policy fuzz, targets and gates remain open |
@@ -121,39 +124,35 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
-The immediate certified integration slice is persistent GF(2) reasoning built
-on public X9
-`AffineConsequence`, following
-[`2026-10-04-gf2-repeated-action-design.md`](benchmarks/reports/2026-10-04-gf2-repeated-action-design.md).
-The immutable owner, deterministic paged offerer, exact source payload,
-propagated-root eligibility, local invalidation, durable suppression, direct
-CNF publication, scalable retained XOR definitions, C v9/replay, shared
-controller producer, configurable frozen producer profile and fail-closed
-target telemetry/scorer are implemented. The wide fixture's exact transaction
-is externally DRAT-checked; broader source shapes, DSR and fixed targets remain
-open. Full Debug and all four current-source regression gates are accepted.
-The exact search allowlist/advice profile, compact versioned feedback and a
-fail-closed transaction/follow-up bookkeeping extractor are implemented.
-Rank 263 now applies 1,328 authenticated rows without a lifecycle failure, but
-its 37,748 extension variables and 300-second UNKNOWN result confirm that
-repeated static XOR export is not the missing mechanism. The pure persistent
-matrix foundation now owns bounded exact source combinations, synchronizes a
-deterministic reduced state across full trail snapshots, and returns entailed
-implication/conflict clauses with transactional failure. Connect those reasons
-to X9's live owner using the now checked arbitrary-width single-reason RUP
-export and helper retirement before any CDCL enqueue or conflict; then cache
-exact reason keys, meter update/proof work and replace
-snapshot reduction with incremental maintenance only if measurement warrants.
-The raw census justifies a bounded profile with 2,500 groups and 68/160 image
-and basis width/source limits. Exclude rank 569 from this first component:
-its 24 independent source equations yield no new selectable consequence even
-after its much larger census caps are raised. Use checked outcomes plus action,
-offer, proof-work, extent and yield records before expanding to ranks
-540/896/1004 and MAB-only 557. Use CryptoMiniSat as a selective GF(2)
-mechanism reference for matrix partitioning, incremental reduction/propagation
-and adaptive usefulness scheduling; preserve Tactix's public actions, charged
-effort and DSR-before-CDCL proof boundary. These are target hypotheses until
-checked.
+Rank263 jobs `1750903` and `1750912` exposed a missing CLI-owned
+`AffineMatrixSearchSession`. That ownership repair and its focused CLI test now
+pass, but short gates `1750921` and `1750929` stop at the next boundary:
+initialization is admitted yet resource-exhausts before installing a matrix.
+Job `1750929` records 83 attempts, 82 resource-exhausted and one interrupted,
+39,253,155 matrix-work units and zero service calls in one second. Identify the
+specific exhausted cap, prevent repeated unchanged failed initialization, and
+require one effective initialization plus at least one service call in the next
+cheap CPU-Q preflight. Only then run a full target and use reason/service counters
+to decide between trail synchronization, yield, partitioning or downstream-search
+work. Do not return to eager static row materialization, which already failed
+with 37,748 extension variables.
+
+Two disjoint certified SAT lanes proceed in parallel. DirectCSP needs a valid,
+source-derived stock profile and a sufficiently metered native enumeration
+window, followed by repeated learner-visible `DirectCspSupport -> Propagate ->
+SemanticVariableAdvice` scheduling with deterministic replay, raw feedback,
+relevant-change admission and duplicate suppression. Rank401/noL already reaches
+three effective X17 actions after certified ULC completion; its next increment
+is a stronger generic relation consequence or conservative definition with exact
+premises, DSR/RAT derivation, mapping/reconstruction and bounded repeated
+inprocessing. Neither lane may promote to DefaultPolicy from a single target.
+
+After these shared increments are integrated, run their focused proof/model, API,
+replay, feedback and sanitizer checks as one cumulative candidate. Then invoke
+Claude-owned effective DefaultPolicy/random-controller fuzz on that exact pin.
+Only a behavior-changing DefaultPolicy candidate that survives fuzz proceeds to
+full Debug and the B28+C5, Rank1--50, WV100 and WV2--89 gates under the standing
+1,800-second proof-check and slowdown rules.
 
 The certified structured verticals now include public X17 NaryCspPrefix.
 Direct PHP is append-only ID 36, GF(3) Gaussian ID 37, Tseitin cycle breaking
