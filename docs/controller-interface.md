@@ -91,6 +91,14 @@ replay serializes the same exact payload and the `nary-csp-prefix1` limit tuple;
 canonical or scalar requests are invalid. Versions 1--7 retain their layouts
 and meanings.
 
+Version 10 appends registry ID 42, disabled StepId 31 and parameter tag 43 for
+`NaryCspEquality`. Its exact payload deep-copies three signed domains and the
+left/right/residual coordinates of one retained ternary X17 owner. Typed replay
+uses `nary-csp-equality1`; the bounded `nary-csp-equality` producer pages only
+freshly revalidated canonical offers. Publication, explicit propagation and
+`NaryCspEquality` semantic advice remain separate actions. Versions 1--9 retain
+their layouts and meanings.
+
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
 selects those families and supplies their typed payloads and fixed allowances;
@@ -98,8 +106,8 @@ choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
 producer. `--controller-native-producers=LIST` independently enables bounded
 native discovery for `gf2-affine`, `gf3-affine`, `direct-csp`, `nary-csp`,
-`gf3-gaussian`, and `tseitin-cycle`; `all` enables all six and `none` disables
-all six. They are
+`nary-csp-equality`, `gf3-gaussian`, and `tseitin-cycle`; `all` enables all seven
+and `none` disables all seven. They are
 disabled unless explicitly selected. `--controller-families=LIST` restricts
 eligibility to canonical root-action names without inventing structured
 payloads, so focused native-producer campaigns can isolate one action family;
@@ -341,6 +349,19 @@ and its allowance without creating a static advice offer: advice becomes
 eligible only after a successful theory action publishes a live candidate.
 `Propagate` remains an independently selected family, so the profile adds
 neither an implicit follow-up nor a fallback.
+
+The opt-in DirectCSP producer profile is a replay-fingerprinted three-action
+dose: one payload-free support template with fixed discovery/application
+allowances, one independently observed `Propagate`, and one typed
+`SemanticVariableAdvice`. A bounded sequence count limits how many distinct
+native support rows may be committed. Discovery supplies each exact row payload;
+the serialized template never fabricates one. When publication leaves BCP at a
+fixpoint, the explicit propagation request records a zero-work `NoChange`
+boundary without changing solver state, the staged candidate, or heuristic
+state. Advice consumes that current candidate before the next support row. A
+missing required action stops the dose; it does not resume search or choose a
+fallback. A zero configured dose preserves ordinary random selection, and the
+reference DefaultPolicy remains unchanged.
 
 The v4 public boundary is implemented. Canonical affine and exact-cover calls,
 structured independent-set calls, and semantic advice all pass through the

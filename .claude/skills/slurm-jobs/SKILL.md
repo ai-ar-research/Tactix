@@ -26,9 +26,19 @@ reason in the run manifest/report.
 
 1. Pin an immutable build and record its commit and binary hash. Never rebuild a
    directory owned by a submitted job. Concurrent candidate/baseline work uses
-   distinct pins.
+   distinct pins. Compute nodes cannot see login-node `/tmp` worktrees or output;
+   freeze an isolated commit into a hashed source archive under the shared
+   repository pin, extract it in job-local scratch, and write retained artifacts
+   back to the shared pin.
 2. Submit through the owning wrapper (`tools/bench/run.py`, fuzz wrapper, or a
    narrowly quoted `sbatch --wrap`). Capture the parsable job ID and log paths.
+   Hash and retain every executable wrapper as well as the final solver binary;
+   record wrapper-injected flags, referenced programs/profiles and their hashes.
+   A manifest command that names a wrapper is not evidence of the solver's
+   effective argument vector.
+   Batch scripts must not assume that `SLURM_TMPDIR` exists; under `set -u`, use
+   a task-specific fallback such as
+   `scratch="${SLURM_TMPDIR:-/tmp}/name-${SLURM_JOB_ID}"`.
 3. For a task that must finish before Claude continues, launch the wrapper's
    `--wait` command in the background and use the tool-owned watcher
    `tools/slurm/wait.py --job <job-id>` rather than hand-written polling loops.

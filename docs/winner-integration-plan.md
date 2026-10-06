@@ -1,5 +1,4 @@
 # Organic winner-technique integration
-
 This living subplan owns the portfolio-convergence workstream linked from [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration). Status and next actions belong to PROGRESS.md; controller contracts to controller-interface.md. This document mixes accepted requirements, implemented foundations, and future mechanisms; `PROGRESS.md` is authoritative for which increments are currently wired, tested, or accepted.
 
 ## Objective and fixed targets
@@ -18,55 +17,22 @@ The full four-arm gap additionally contains ranks 97, 410, 499, 557, 1009, 1040,
 
 ## Integration and investigation order
 
-1. Build a source/evidence attribution table from saved records: reference
-   mechanism, Tactix capability, scheduling, cost, certificate route and limits.
-   Start with large disparities such as `noL-11-10` and `ramsey_4_4_19`, while
-   keeping solver-timeout and certificate-verification workstreams separate.
-   A fastest arm or benchmark name is a clue, not a demonstrated cause.
-2. Extract complete, general semantic units from LymphoSAT and Satsuma+Kissat,
-   and investigate Kissat/AE-Kissat-MAB mechanisms where they own residual gaps.
-   Use structural recognition and explicit applicability, never filename/rank
-   dispatch, hardcoded answers or external solver stages. Share clauses, root
-   assignments, learned information, reconstruction and heuristic state with CDCL.
-3. Use bounded constructors only as reference/diagnostic candidate producers. For
-   every LymphoSAT technique, seek source-authenticated theory results and expose
-   their useful consequences or conservative definitions as DSR/DRAT-certified
-   Boolean actions for continuing CDCL. Both use shared typed execution, replay,
-   feedback and policy selection, but only the certified Boolean path fulfills integration.
-4. Establish proof/model feasibility and a bounded mechanism review before
-   implementation. Integrate one complete increment at a time, with faithful
-   reference controls, targeted causal validation and cumulative preservation.
-   Begin with the repeated GF(2) basis action, then relation-indexed n-ary/noL
-   consequences and the remaining owners. Constructors remain causal controls.
-   O6/reward/training remain deferred; selection stays random.
+1. Build a source/evidence attribution table from saved records: reference mechanism, Tactix capability, scheduling, cost, certificate route and limits. Start with large disparities such as `noL-11-10` and `ramsey_4_4_19`, while keeping solver-timeout and certificate-verification workstreams separate. A fastest arm or benchmark name is a clue, not a demonstrated cause.
+2. Extract complete, general semantic units from LymphoSAT and Satsuma+Kissat, and investigate Kissat/AE-Kissat-MAB mechanisms where they own residual gaps. Use structural recognition and explicit applicability, never filename/rank dispatch, hardcoded answers or external solver stages. Share clauses, root assignments, learned information, reconstruction and heuristic state with CDCL.
+3. Use bounded constructors only as reference/diagnostic candidate producers. For every LymphoSAT technique, seek source-authenticated theory results and expose their useful consequences or conservative definitions as DSR/DRAT-certified Boolean actions for continuing CDCL. Both use shared typed execution, replay, feedback and policy selection, but only the certified Boolean path fulfills integration.
+4. Establish proof/model feasibility and a bounded mechanism review before implementation. Integrate one complete increment at a time, with faithful reference controls, targeted causal validation and cumulative preservation. Begin with the repeated GF(2) basis action, then relation-indexed n-ary/noL consequences and the remaining owners. Constructors remain causal controls. O6/reward/training remain deferred; selection stays random.
 
 ## Development cadence
 
 Use a staged gate for each mechanism so that wiring failures do not consume
 target or regression budgets:
 
-1. A focused semantic fixture must demonstrate a non-vacuous deduction,
-   projection/reconstruction, deterministic replay and the independent proof or
-   model oracle.
-2. A short CPU-Q admission probe on an owned real instance must require the
-   intended public action to be eligible, requested and applied. Continuing
-   services must also report at least one call; a useful-result counter is
-   required when the instance state is known to offer one.
-3. Only a passing admission probe may launch the bounded causal target screen.
-   The screen must distinguish absent admission, admitted no-op, useful
-   consequences that do not alter search, and actual recovery.
-4. Merge several independently complete primitives into one cumulative pin,
-   then run effective DefaultPolicy/random-controller fuzz and the preservation
-   campaigns. Do not serialize unrelated implementation on a long target or
-   campaign, and do not rerun an unchanged failed arm.
+1. A focused semantic fixture must demonstrate a non-vacuous deduction, projection/reconstruction, deterministic replay and the independent proof or model oracle.
+2. A short CPU-Q admission probe on an owned real instance must require the intended public action to be eligible, requested and applied. Continuing services must also report at least one call; a useful-result counter is required when the instance state is known to offer one.
+3. Only a passing admission probe may launch the bounded causal target screen. The screen must distinguish absent admission, admitted no-op, useful consequences that do not alter search, and actual recovery.
+4. Merge several independently complete primitives into one cumulative pin, then run effective DefaultPolicy/random-controller fuzz and the preservation campaigns. Do not serialize unrelated implementation on a long target or campaign, and do not rerun an unchanged failed arm.
 
-Parallel work owns disjoint semantic modules and scoped commits. The primary
-integration lane alone owns shared registries, controller composition, plan and
-status documents. Each handoff records the source pin, changed paths, immutable
-job artifacts, proof/model oracle and unresolved boundary. This lets discovery,
-proof engineering and target attribution proceed concurrently without turning
-separate prototypes into incompatible policy surfaces.
-
+Parallel work owns disjoint semantic modules and scoped commits. The primary integration lane alone owns shared registries, controller composition, plan and status documents. Each handoff records the source pin, changed paths, immutable job artifacts, proof/model oracle and unresolved boundary. This lets discovery, proof engineering and target attribution proceed concurrently without turning separate prototypes into incompatible policy surfaces.
 ## Lightweight symmetry during inprocessing
 
 Make symmetry discovery/application available at full Restart-to-root boundaries. Policy owns interval, relevant-change admission, scheduling position and effort; legality remains independent of those scheduling choices. An interval becoming due does not interrupt an ordinary partial restart or change configuration there. Charge snapshot/graph construction, detection, witness validation and application. Check cheaply for relevant changes after an unsuccessful attempt; do not repeat whole-formula discovery on unchanged input merely because another restart occurred.
