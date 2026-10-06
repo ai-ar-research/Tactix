@@ -58,6 +58,13 @@ enum class MatrixStatus : uint8_t {
   Invalid,
 };
 
+enum class MatrixSynchronizationKind : uint8_t {
+  Extension,
+  Backtrack,
+  Reassignment,
+  PriorPartial,
+};
+
 class AffineMatrix {
 public:
   // Recondition the immutable authenticated source equations on an exact
@@ -77,6 +84,18 @@ public:
   }
   const std::vector<size_t> &admitted_sources() const {
     return admitted_sources_;
+  }
+  bool last_synchronization_incremental() const {
+    return last_synchronization_incremental_;
+  }
+  size_t last_synchronization_prefix() const {
+    return last_synchronization_prefix_;
+  }
+  size_t last_synchronization_conditioned() const {
+    return last_synchronization_conditioned_;
+  }
+  MatrixSynchronizationKind last_synchronization_kind() const {
+    return last_synchronization_kind_;
   }
 
   // Authenticate one event against the exact immutable owner and source
@@ -104,6 +123,16 @@ private:
   std::vector<size_t> admitted_sources_;
   std::vector<MatrixAssignment> trail_;
   std::vector<MatrixRow> rows_;
+  // `rows_` is an exact conditioned basis for `trail_` only after a complete
+  // reduction.  A bounded partial synchronization may still publish a sound
+  // event, but the next call must rebuild from `admitted_rows_` so omitted
+  // rows cannot disappear permanently.
+  bool incremental_ready_ = false;
+  bool last_synchronization_incremental_ = false;
+  size_t last_synchronization_prefix_ = 0;
+  size_t last_synchronization_conditioned_ = 0;
+  MatrixSynchronizationKind last_synchronization_kind_ =
+      MatrixSynchronizationKind::Extension;
 };
 
 // Build a source-bound matrix without changing the Boolean formula. Source

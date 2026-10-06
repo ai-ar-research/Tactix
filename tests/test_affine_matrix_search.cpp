@@ -165,6 +165,10 @@ void initialize_resume_publish_and_bcp() {
   const auto result = controller.affine_matrix_fixpoint_service();
   assert(result.status == AffineMatrixServiceStatus::Applied &&
          result.result == ApplyResult::Ok && result.bcp_pending &&
+         result.trail_capture_work == 2 &&
+         result.synchronization_incremental &&
+         result.synchronization_prefix == 0 &&
+         result.synchronization_conditioned == 2 &&
          result.event_identity.find("am1:o=1") == 0 &&
          !kernel.value(kernel_internalize(kernel, -5)) &&
          session.published_keys() == 1);
@@ -184,6 +188,14 @@ void initialize_resume_publish_and_bcp() {
   const size_t feedback_after_bcp = capture.actions.size();
   const auto no_event = controller.affine_matrix_fixpoint_service();
   assert(no_event.status == AffineMatrixServiceStatus::NoEvent &&
+         no_event.synchronization_incremental &&
+         no_event.synchronization_prefix == 2 &&
+         no_event.synchronization_conditioned == 1 &&
+         kernel.stats.affine_matrix_service_extension_hits == 2 &&
+         kernel.stats.affine_matrix_service_rebuilds == 0 &&
+         kernel.stats.affine_matrix_service_retained_assignments == 2 &&
+         kernel.stats.affine_matrix_service_conditioned_assignments == 3 &&
+         kernel.stats.affine_matrix_service_trail_capture_work == 5 &&
          capture.actions.size() == feedback_after_bcp);
 
   assert(controller.full_restart() == ApplyResult::Ok);
