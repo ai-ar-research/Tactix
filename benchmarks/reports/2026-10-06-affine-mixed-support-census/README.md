@@ -43,3 +43,34 @@ formula matrices in DefaultPolicy.
 The raw pinned artifacts are under
 `build/pin-affine-mixed-census-3676cff1c-v1` and
 `build/pin-affine-mixed-census-3676cff1c-v2`.
+
+## Exact-support follow-up
+
+Commit `bf21ed1e98478b00c92fe314754e60362815cfe8` changed search-time
+capture to probe only the sorted union of variables in admitted matrix rows
+and made an unchanged support snapshot a zero-reduction fast path.  It did not
+weaken publication: a selected consequence still recaptures and revalidates
+the complete Boolean trail and assignment levels before committing its clause.
+
+CPU-Q array `1751377` reran the same 15-second no-proof mechanism census with
+immutable binary SHA-256
+`5645864b8bd653157fc7e4e0939b9789e94933329a44dfaa8bee50bf91ff3ec2`.
+Ranks 540 and 557 used the prior 400,000-group profile; rank 896 used its prior
+200,000-group profile.  Each retained matrix again contained exactly one
+binary XOR and produced no implication or conflict.
+
+| rank | service calls before / after | trail probes before / after | matrix work before / after | events |
+|---:|---:|---:|---:|---:|
+| 540 | 9,384 / 98,554 | 82,489,467 / 197,108 | 25,515 / 1,008 | 0 / 0 |
+| 557 | 6,249 / 53,620 | 86,322,773 / 107,240 | 8,793 / 27 | 0 / 0 |
+| 896 | 71,049 / 141,930 | 82,817,599 / 283,860 | 119,640 / 4,428 | 0 / 0 |
+
+The new trail-probe totals are exactly two probes per service call.  Relative
+to the matched earlier runs, capture work fell by approximately 419x, 805x and
+292x respectively.  The larger service counts show that full-trail capture
+was a material throughput bottleneck, but they do not make these one-row
+components useful: the next vertical is component-level usefulness admission
+and scheduling, followed by touched-row wakeups for matrices that pass it.
+
+The follow-up raw artifacts are under
+`build/pin-affine-support-census-bf21ed1e9-v1`.
