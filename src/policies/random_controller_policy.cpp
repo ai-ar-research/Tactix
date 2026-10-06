@@ -188,6 +188,168 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
   return true;
 }
 
+bool RandomControllerConfig::configure_direct_csp_producer_profile(
+    const OnlineStrategyProgram &program, std::string *error) {
+  const auto reject = [&](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  if (program.sequence.size() != 3)
+    return reject("DirectCSP producer profile requires support, propagation, "
+                  "and semantic advice actions");
+  // The shared runtime validator correctly requires a concrete typed payload
+  // for an executable DirectCspSupport invocation.  This input is a producer
+  // template: it must remain canonical and payload-free until discovery binds
+  // an exact row. Validate all common fields using a private representative
+  // payload, then apply the stricter template checks below to the untouched
+  // public program.
+  OnlineStrategyProgram executable_shape = program;
+  auto &shape_step = executable_shape.sequence.front();
+  if (shape_step.rule == "DirectCspSupport" &&
+      shape_step.direct_csp_support_instances.empty()) {
+    shape_step.granularity = InvocationGranularity::OneInstance;
+    shape_step.direct_csp_support_instances = {{{1, 2}, {3, 4}, 0}};
+  }
+  if (!validate_online_strategy_program(executable_shape, error)) return false;
+  if ((program.repeat.mode != RepeatMode::Once &&
+       program.repeat.mode != RepeatMode::Count) ||
+      !program.repeat.limit ||
+      (program.repeat.mode == RepeatMode::Once && program.repeat.limit != 1))
+    return reject("DirectCSP producer profile requires once-only or "
+                  "bounded-count sequence repetition");
+
+  const auto payload_free = [](const OnlineInvocation &step) {
+    return step.instances.empty() && step.factor_grids.empty() &&
+           step.substitution_redundancy_instances.empty() &&
+           step.condition_instances.empty() &&
+           step.independent_set_cover_instances.empty() &&
+           step.gf3_affine_instances.empty() &&
+           step.affine_basis_instances.empty() &&
+           step.gf3_gaussian_instances.empty() &&
+           step.tseitin_cycle_instances.empty() &&
+           step.direct_csp_support_instances.empty() &&
+           step.nary_csp_prefix_instances.empty();
+  };
+  const auto fixed_positive = [](const OnlineInvocation &step) {
+    return !step.budget.is_unlimited() && step.budget.amount() &&
+           step.rule_work_budget.mode == RuleWorkBudgetMode::Bounded &&
+           step.rule_work_budget.amount;
+  };
+
+  const OnlineInvocation &step = program.sequence.front();
+  const auto *profile_parameters =
+      std::get_if<DirectCspSupportParameters>(&step.parameters);
+  if (step.rule != "DirectCspSupport" || !profile_parameters ||
+      !profile_parameters->valid())
+    return reject("DirectCSP producer profile requires valid typed support "
+                  "parameters");
+  if (step.granularity != InvocationGranularity::CanonicalApplication ||
+      !payload_free(step))
+    return reject("DirectCSP producer profile must be canonical and "
+                  "payload-free");
+  if (step.repeat.mode != RepeatMode::Once || step.repeat.limit != 1 ||
+      step.post_application != PostApplication::None)
+    return reject("DirectCSP producer profile requires once-only application "
+                  "with no bundled follow-up");
+  if (step.material.touch_filter != SettingOverride::Inherit ||
+      step.material.likely_kept_redundant != SettingOverride::Inherit)
+    return reject("DirectCSP producer profile requires inherited material "
+                  "settings");
+  if (!fixed_positive(step))
+    return reject("DirectCSP producer profile requires positive fixed "
+                  "composition and native allowances");
+  if (!direct_csp_action_producer.enabled)
+    return reject("DirectCSP producer profile requires the native producer");
+  if (!parameters.rules.empty() &&
+      std::find(parameters.rules.begin(), parameters.rules.end(),
+                "DirectCspSupport") == parameters.rules.end())
+    return reject("DirectCSP producer profile is outside the configured "
+                  "action collection");
+  if (const auto offered = offered_actions.find("DirectCspSupport");
+      offered != offered_actions.end() && !offered->second.empty())
+    return reject("DirectCSP producer profile conflicts with a static action "
+                  "offer");
+
+  const OnlineInvocation &propagation = program.sequence[1];
+  if (propagation.rule != "Propagate" ||
+      !std::holds_alternative<std::monostate>(propagation.parameters))
+    return reject("DirectCSP producer profile second action must be Propagate");
+  if (propagation.granularity !=
+          InvocationGranularity::CanonicalApplication ||
+      !payload_free(propagation) ||
+      propagation.repeat.mode != RepeatMode::Once ||
+      propagation.repeat.limit != 1 ||
+      propagation.post_application != PostApplication::Propagate)
+    return reject("DirectCSP propagation must be canonical, payload-free, "
+                  "once-only, and explicitly fixpoint-settling");
+  if (propagation.material.touch_filter != SettingOverride::Inherit ||
+      propagation.material.likely_kept_redundant != SettingOverride::Inherit)
+    return reject("DirectCSP propagation requires inherited material settings");
+  if (!fixed_positive(propagation))
+    return reject("DirectCSP propagation requires positive fixed composition "
+                  "and native allowances");
+  if (!parameters.rules.empty() &&
+      std::find(parameters.rules.begin(), parameters.rules.end(),
+                "Propagate") == parameters.rules.end())
+    return reject("DirectCSP propagation is outside the configured action "
+                  "collection");
+  if (const auto offered = offered_actions.find("Propagate");
+      offered != offered_actions.end() && !offered->second.empty())
+    return reject("DirectCSP propagation conflicts with a static action offer");
+
+  const OnlineInvocation *advice = &program.sequence[2];
+  const auto *advice_parameters =
+      std::get_if<SemanticVariableAdviceParameters>(&advice->parameters);
+  {
+    if (advice->rule != "SemanticVariableAdvice" || !advice_parameters)
+      return reject("DirectCSP producer profile companion must be semantic "
+                    "variable advice");
+    if (advice->granularity != InvocationGranularity::CanonicalApplication ||
+        !payload_free(*advice) ||
+        advice->repeat.mode != RepeatMode::Once ||
+        advice->repeat.limit != 1 ||
+        advice->post_application != PostApplication::None)
+      return reject("DirectCSP semantic variable advice must be canonical, "
+                    "payload-free and once-only");
+    if (advice->material.touch_filter != SettingOverride::Inherit ||
+        advice->material.likely_kept_redundant != SettingOverride::Inherit)
+      return reject("DirectCSP semantic variable advice requires inherited "
+                    "material settings");
+    if (!fixed_positive(*advice) || !advice_parameters->maximum_variables ||
+        !advice_parameters->maximum_priority_sum ||
+        !advice_parameters->existing_theory_priority ||
+        !advice_parameters->introduced_theory_priority)
+      return reject("DirectCSP semantic variable advice requires positive "
+                    "limits and fixed allowances");
+    if (!parameters.rules.empty() &&
+        std::find(parameters.rules.begin(), parameters.rules.end(),
+                  "SemanticVariableAdvice") == parameters.rules.end())
+      return reject("DirectCSP semantic variable advice is outside the "
+                    "configured action collection");
+    if (const auto offered = offered_actions.find("SemanticVariableAdvice");
+        offered != offered_actions.end() && !offered->second.empty())
+      return reject("DirectCSP semantic variable advice conflicts with a "
+                    "static action offer");
+  }
+
+  auto replacement = *this;
+  replacement.direct_csp_action_producer.startup_batch_actions =
+      program.repeat.limit;
+  replacement.parameters.direct_csp_support_reference = *profile_parameters;
+  replacement.allowances["DirectCspSupport"] =
+      {step.work_unit, step.budget.amount(), step.rule_work_budget};
+  replacement.allowances["Propagate"] =
+      {propagation.work_unit, propagation.budget.amount(),
+       propagation.rule_work_budget};
+  replacement.parameters.semantic_variable_advice_reference =
+      *advice_parameters;
+  replacement.allowances["SemanticVariableAdvice"] =
+      {advice->work_unit, advice->budget.amount(), advice->rule_work_budget};
+  *this = std::move(replacement);
+  if (error) error->clear();
+  return true;
+}
+
 bool RandomControllerConfig::configure_search_configurations(
     const std::vector<SearchConfiguration> &configurations,
     std::string *error) {
@@ -432,6 +594,7 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << producer.maximum_row_candidates << ' '
         << producer.maximum_offers << ' '
         << producer.maximum_enumeration_work << ' '
+        << producer.startup_batch_actions << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
   if (config.nary_csp_action_producer.enabled) {
@@ -571,6 +734,10 @@ bool RandomControllerSelector::choose(
            left.touch_epoch == right.touch_epoch &&
            left.strategy_epoch == right.strategy_epoch;
   };
+  const auto same_formula_version = [](StateVersion left, StateVersion right) {
+    return left.arena_generation == right.arena_generation &&
+           left.touch_epoch == right.touch_epoch;
+  };
   const auto settled_terminal = [](const InvocationResult &result) {
     if (result.made_rule_progress || result.status == InvocationStatus::Sat ||
         result.status == InvocationStatus::Unsat)
@@ -680,6 +847,15 @@ bool RandomControllerSelector::choose(
     const NativeSettlement settlement =
         native_settlement(observation.last_action->invocation);
     if (settlement == NativeSettlement::Consume) {
+      if (observation.last_action->invocation.made_rule_progress &&
+          k.direct_csp_support_action_session &&
+          direct_csp_discovery_.session ==
+              k.direct_csp_support_action_session) {
+        direct_csp_discovery_.session_keys =
+            k.direct_csp_support_action_session->committed_keys();
+        direct_csp_discovery_.retained_owners =
+            k.direct_csp_support_action_session->retained_owners();
+      }
       const auto pending = *direct_csp_discovery_.pending;
       direct_csp_discovery_.offers.erase(
           std::remove(direct_csp_discovery_.offers.begin(),
@@ -1207,7 +1383,8 @@ bool RandomControllerSelector::choose(
                                direct_csp_discovery_.session != &session;
     const bool profile_changed = direct_csp_discovery_.profile != profile;
     const bool state_or_session_changed =
-        owner_changed || !same_version(direct_csp_discovery_.state, state) ||
+        owner_changed ||
+        !same_formula_version(direct_csp_discovery_.state, state) ||
         direct_csp_discovery_.session_keys != session.committed_keys() ||
         direct_csp_discovery_.retained_owners != session.retained_owners();
     if (state_or_session_changed ||
@@ -1556,9 +1733,26 @@ bool RandomControllerSelector::choose(
     const RuleVTable *rule = nullptr;
     NativeOffer native = NativeOffer::None;
   };
+  const uint64_t direct_batch =
+      config.direct_csp_action_producer.startup_batch_actions;
+  const bool direct_propagation_due =
+      direct_batch && observation.last_action &&
+      observation.last_action->invocation.rule_id ==
+          static_cast<uint32_t>(tactix_rule_id("DirectCspSupport")) &&
+      observation.last_action->invocation.made_rule_progress;
+  const bool direct_advice_due =
+      direct_batch && observation.last_action &&
+      observation.last_action->invocation.rule_id ==
+          static_cast<uint32_t>(tactix_rule_id("Propagate")) &&
+      observation.last_action->invocation.status == InvocationStatus::NoChange &&
+      !observation.last_action->invocation.made_rule_progress;
   std::vector<Eligible> eligible;
   for (const auto &entry : controller_action_availability(k, config)) {
     if (entry.eligible) {
+      eligible.push_back(
+          {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
+    } else if (entry.reason == "guard-false" &&
+               entry.rule == "Propagate" && direct_propagation_due) {
       eligible.push_back(
           {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::None});
     } else if (entry.reason == "structured-witness-not-offered" &&
@@ -1598,17 +1792,17 @@ bool RandomControllerSelector::choose(
   request = {};
   request.sequence = observation.sequence + 1;
   std::optional<size_t> forced_choice;
+  const auto find_rule = [&](std::string_view name,
+                             std::optional<NativeOffer> native = std::nullopt) {
+    for (size_t i = 0; i < eligible.size(); ++i)
+      if (std::string_view(eligible[i].rule->name) == name &&
+          (!native || eligible[i].native == *native))
+        return std::optional<size_t>{i};
+    return std::optional<size_t>{};
+  };
   const uint64_t affine_batch =
       config.affine_basis_action_producer.startup_batch_actions;
   if (affine_batch && k.affine_basis_action_session) {
-    const auto find_rule = [&](std::string_view name,
-                               std::optional<NativeOffer> native = std::nullopt) {
-      for (size_t i = 0; i < eligible.size(); ++i)
-        if (std::string_view(eligible[i].rule->name) == name &&
-            (!native || eligible[i].native == *native))
-          return std::optional<size_t>{i};
-      return std::optional<size_t>{};
-    };
     if (!can_resume) {
       forced_choice = find_rule("Propagate");
     } else if (k.affine_basis_action_session->committed_keys() < affine_batch) {
@@ -1616,6 +1810,34 @@ bool RandomControllerSelector::choose(
     }
     if (!forced_choice)
       forced_choice = find_rule("SemanticVariableAdvice");
+  }
+  if (!forced_choice && direct_batch && k.direct_csp_support_action_session) {
+    if (direct_propagation_due) {
+      forced_choice = find_rule("Propagate");
+      if (!forced_choice) {
+        error = "DirectCSP startup batch requires explicit propagation";
+        return false;
+      }
+    } else if (!can_resume) {
+      forced_choice = find_rule("Propagate");
+      if (!forced_choice) {
+        error = "DirectCSP startup batch requires propagation";
+        return false;
+      }
+    } else if (direct_advice_due) {
+      forced_choice = find_rule("SemanticVariableAdvice");
+      if (!forced_choice) {
+        error = "DirectCSP startup batch requires semantic variable advice";
+        return false;
+      }
+    } else if (k.direct_csp_support_action_session->committed_keys() <
+               direct_batch) {
+      forced_choice = find_rule("DirectCspSupport", NativeOffer::DirectCsp);
+      if (!forced_choice) {
+        error = "DirectCSP startup batch has no eligible support action";
+        return false;
+      }
+    }
   }
   const auto choice = forced_choice ? *forced_choice
                                     : draw(eligible.size() + can_resume);
@@ -1815,6 +2037,8 @@ bool RandomControllerSelector::choose(
         }
       }
     }
+    if (direct_propagation_due && request.invocation.rule == "Propagate")
+      request.invocation.post_application = PostApplication::Propagate;
     if (stop && *stop) {
       error = "controller selection interrupted";
       return false;

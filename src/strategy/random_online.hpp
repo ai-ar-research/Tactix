@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -143,7 +144,32 @@ struct RandomOnlineConfig {
   }();
   IndependentSetCoverParameters independent_set_cover_reference;
   Gf3AffineConsequenceParameters gf3_affine_consequence_reference;
-  DirectCspSupportParameters direct_csp_support_reference;
+  DirectCspSupportParameters direct_csp_support_reference = [] {
+    // Shared structural-image envelope: source capture uses the same hard
+    // clause/literal/work bounds as the other controller-owned theory
+    // snapshots.  A domain is bounded by the public 64-literal compact
+    // support representation; an exact-OR definition needs one additional
+    // literal for its output.  These are representation limits, not values
+    // fitted to a benchmark instance.
+    DirectCspSupportParameters result;
+    result.maximum_source_clauses = 100000;
+    result.maximum_source_literals = 1000000;
+    result.maximum_recognition_work = 10000000;
+    result.maximum_domain_values = 64;
+    result.maximum_direct_clause_literals = 64;
+    result.maximum_definition_clause_literals = 65;
+    result.maximum_proof_work = 10000000;
+    result.maximum_proof_additions = 100000;
+    result.maximum_proof_literal_occurrences = 1000000;
+    result.maximum_journal_bytes = 10000000;
+    result.maximum_extent_growth = 1;
+    result.maximum_external_extent =
+        static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+    result.maximum_session_keys = 100000;
+    result.maximum_session_work = 100000000;
+    result.allow_extension = true;
+    return result;
+  }();
   NaryCspPrefixParameters nary_csp_prefix_reference = [] {
     NaryCspPrefixParameters result;
     result.maximum_source_clauses = 100000;

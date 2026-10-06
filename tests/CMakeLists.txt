@@ -330,6 +330,20 @@ add_executable(test_theory_action_v5_runtime test_theory_action_v5_runtime.cpp)
 target_link_libraries(test_theory_action_v5_runtime PRIVATE tactix_lib)
 add_test(NAME theory_action_v5_runtime COMMAND test_theory_action_v5_runtime)
 
+add_executable(test_random_controller_policy test_random_controller_policy.cpp)
+target_link_libraries(test_random_controller_policy PRIVATE tactix_lib)
+add_test(NAME random_controller_policy COMMAND test_random_controller_policy)
+
+add_executable(test_direct_csp_support_action test_direct_csp_support_action.cpp)
+target_link_libraries(test_direct_csp_support_action PRIVATE tactix_lib)
+add_test(NAME direct_csp_support_action COMMAND test_direct_csp_support_action)
+add_test(NAME direct_csp_support_proof_model
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/direct_csp_support_proof_model.sh
+                 $<TARGET_FILE:test_direct_csp_support_action>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(direct_csp_support_proof_model PROPERTIES
+                     SKIP_RETURN_CODE 77)
+
 add_executable(test_random_policy test_random_policy.c)
 target_link_libraries(test_random_policy PRIVATE tactix_lib)
 target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -456,6 +470,11 @@ add_test(NAME affine_matrix_cli
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_affine_matrix_cli.py
                  $<TARGET_FILE:tactix>)
+add_test(NAME direct_csp_controller
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_direct_csp_controller.py
+                 $<TARGET_FILE:tactix>
+                 ${CMAKE_SOURCE_DIR}/tools/fuzz/checkmodel)
 add_test(NAME public_theory_target_tables
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
