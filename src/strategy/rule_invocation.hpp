@@ -15,6 +15,9 @@ enum class InvocationGranularity : uint8_t {
   SelectedBatch,
   CompleteCurrentPass,
   CanonicalApplication,
+  // Controller-only placeholder.  It is resolved to one exact current
+  // payload through the configured native producer before execution.
+  NativeProducerOffer,
 };
 
 enum class InvocationStatus : uint8_t {

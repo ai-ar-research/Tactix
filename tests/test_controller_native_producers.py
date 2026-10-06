@@ -63,6 +63,7 @@ def main():
         assert help_result.returncode == 0
         assert "--controller-native-producers=all|none|LIST" in help_result.stdout
         assert "--controller-gf2-affine-profile=FILE" in help_result.stdout
+        assert "--controller-startup-prefix=FILE" in help_result.stdout
         assert "--controller-families=LIST" in help_result.stdout
         assert "--controller-search-configurations=all|LIST" in help_result.stdout
         assert "gf3-general-row" in help_result.stdout
@@ -81,6 +82,34 @@ def main():
             f"--controller-gf2-affine-profile={profile}")
         assert profile_without_policy.returncode == 1
         assert "controller settings require it" in profile_without_policy.stderr
+
+        startup_prefix = work / "startup-prefix.program"
+        startup_prefix.write_text(
+            "sequence-repeat=once:1 "
+            "step=71:Walk:3:once:1:0:1:post(0):"
+            "rulework(2,1000000):material(0,0):"
+            "walk(5,7):instances[]:grids[]\n")
+        startup_without_policy = run(
+            f"--controller-startup-prefix={startup_prefix}")
+        assert startup_without_policy.returncode == 1
+        assert "controller settings require it" in startup_without_policy.stderr
+
+        startup_trace = work / "startup.trace"
+        startup_selected = run(
+            "--controller-policy=7", "--controller-families=Walk",
+            f"--controller-startup-prefix={startup_prefix}",
+            f"--controller-trace={startup_trace}", source=search_cnf)
+        assert startup_selected.returncode == 10, startup_selected.stderr
+        startup_lines = startup_trace.read_text().splitlines()
+        startup_configuration = shlex.split(startup_lines[1])[1]
+        assert "startup-prefix" in startup_configuration
+        assert any(line.startswith("request ") and
+                   "step=71:Walk:" in line for line in startup_lines)
+        startup_replayed = run(
+            f"--controller-replay={startup_trace}",
+            "--controller-families=Walk",
+            f"--controller-startup-prefix={startup_prefix}", source=search_cnf)
+        assert startup_replayed.returncode == 10, startup_replayed.stderr
 
         invalid_profiles = {
             "wrong-rule": affine_profile(rule="Walk"),

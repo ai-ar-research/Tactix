@@ -138,13 +138,15 @@ enum class ReconfigureMode : uint8_t {
 };
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &,
-                                      std::string *error = nullptr);
+                                      std::string *error = nullptr,
+                                      bool allow_native_offer = false);
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
 bool deserialize_online_strategy_program(const std::string &,
                                          OnlineStrategyProgram &,
                                          std::string *error = nullptr,
                                          bool direct_csp_producer_template =
-                                             false);
+                                             false,
+                                         bool allow_native_offer = false);
 
 inline bool validate_online_inprocess_program(const OnlineInprocessProgram &p,
                                               std::string *error = nullptr) {

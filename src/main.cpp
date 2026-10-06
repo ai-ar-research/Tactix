@@ -178,6 +178,7 @@ int main(int argc, char **argv) {
   bool controller_families_set = false;
   bool controller_search_configurations_set = false;
   const char *controller_actions_path = nullptr;
+  const char *controller_startup_prefix_path = nullptr;
   const char *controller_gf2_affine_profile_path = nullptr;
   const char *controller_direct_csp_profile_path = nullptr;
   const char *controller_trace_path = nullptr;
@@ -225,6 +226,8 @@ int main(int argc, char **argv) {
       controller_replay_path = a + 20;
     } else if (!strncmp(a, "--controller-actions=", 21)) {
       controller_actions_path = a + 21;
+    } else if (!strncmp(a, "--controller-startup-prefix=", 28)) {
+      controller_startup_prefix_path = a + 28;
     } else if (!strncmp(a, "--controller-gf2-affine-profile=", 32)) {
       controller_gf2_affine_profile_path = a + 32;
     } else if (!strncmp(a, "--controller-direct-csp-profile=", 32)) {
@@ -443,6 +446,7 @@ int main(int argc, char **argv) {
              "[--controller-policy[=SEED] [--controller-effort=N]] "
              "[--controller-trace=FILE | --controller-replay=FILE] "
              "[--controller-actions=FILE | --controller-families=LIST] "
+             "[--controller-startup-prefix=FILE] "
              "[--controller-native-producers=all|none|LIST] "
              "[--controller-nary-csp-census] "
              "[--controller-search-configurations=all|LIST] "
@@ -521,6 +525,7 @@ int main(int argc, char **argv) {
     for (const char *other : {cnf_path, proof_path, controller_trace_path,
            controller_replay_path, trace_path, replay_path, feedback_path,
            feedback_replay_path, controller_actions_path,
+           controller_startup_prefix_path,
            controller_gf2_affine_profile_path,
            controller_direct_csp_profile_path}) {
       if (!other) continue;
@@ -559,7 +564,8 @@ int main(int argc, char **argv) {
         controller_native_producers_set || controller_families_set ||
         controller_nary_csp_census_set ||
         controller_search_configurations_set ||
-        controller_actions_path || controller_gf2_affine_profile_path ||
+        controller_actions_path || controller_startup_prefix_path ||
+        controller_gf2_affine_profile_path ||
         controller_direct_csp_profile_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
@@ -590,6 +596,21 @@ int main(int argc, char **argv) {
         !controller_config.configure_actions(program, &error)) {
       fprintf(stderr, "tactix: invalid controller action collection '%s': %s\n",
               controller_actions_path, error.c_str());
+      printf("s UNKNOWN\n");
+      return 1;
+    }
+  }
+  if (controller_startup_prefix_path) {
+    std::ifstream input(controller_startup_prefix_path);
+    strategy::OnlineStrategyProgram program;
+    std::string error;
+    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    if (!input ||
+        !strategy::deserialize_online_strategy_program(source, program,
+                                                        &error, false, true) ||
+        !controller_config.configure_startup_prefix(program, &error)) {
+      fprintf(stderr, "tactix: invalid controller startup prefix '%s': %s\n",
+              controller_startup_prefix_path, error.c_str());
       printf("s UNKNOWN\n");
       return 1;
     }

@@ -509,6 +509,9 @@ inline InvocationResult invoke_bve(const RuleVTable &rule, Kernel &k,
                                    request.configuration_revision);
       return session.apply_canonical();
     }
+  case InvocationGranularity::NativeProducerOffer:
+    out.status = InvocationStatus::InvalidRequest;
+    return out;
   }
 
   // Validate external identities transactionally before posing parameters or

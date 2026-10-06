@@ -145,8 +145,16 @@ struct RandomControllerConfig {
   // payloads.  A non-empty structured family takes precedence over the native
   // producer below, making an explicit collection exact and replay-stable.
   std::map<std::string, std::vector<strategy::OnlineInvocation>> offered_actions;
+  // Optional once-only ordered root prefix.  Ordinary invocations are forced
+  // in order; NativeProducerOffer placeholders bind one exact current offer
+  // through the corresponding configured producer.  ResumeSearch is forced
+  // once after the complete prefix before normal random selection begins.
+  strategy::OnlineStrategyProgram startup_prefix;
   Gf3ActionProducerConfig gf3_action_producer;
   AffineBasisActionProducerConfig affine_basis_action_producer;
+  // A native Affine prefix and the separately configured GF2 producer profile
+  // both own the same typed reference.  Keep that ownership mutually exclusive.
+  bool affine_basis_profile_configured = false;
   DirectCspActionProducerConfig direct_csp_action_producer;
   NaryCspActionProducerConfig nary_csp_action_producer;
   NaryCspEqualityActionProducerConfig nary_csp_equality_action_producer;
@@ -162,6 +170,10 @@ struct RandomControllerConfig {
   // not as an ordered mandatory sequence. Replacement is transactional.
   bool configure_actions(const strategy::OnlineStrategyProgram &,
                          std::string *error = nullptr);
+  // One-shot installation: an empty prefix on a fresh configuration is a
+  // no-op; after a nonempty prefix is installed, reconfiguration is rejected.
+  bool configure_startup_prefix(const strategy::OnlineStrategyProgram &,
+                                std::string *error = nullptr);
   // Install the typed limits and fixed dose for native GF(2) row discovery,
   // plus optional semantic-variable advice limits. The profile never becomes
   // a static action: exact rows and current candidates remain live,
@@ -380,6 +392,10 @@ private:
   Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
   Gf3GeneralRowDiscoveryState gf3_general_row_discovery_;
   TseitinCycleDiscoveryState tseitin_cycle_discovery_;
+  size_t startup_prefix_position_ = 0;
+  uint64_t startup_prefix_pending_sequence_ = 0;
+  uint64_t startup_resume_pending_sequence_ = 0;
+  bool startup_resume_forced_ = false;
   uint64_t rng_;
 };
 
