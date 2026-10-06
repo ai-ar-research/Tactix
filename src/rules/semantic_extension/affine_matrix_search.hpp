@@ -18,6 +18,7 @@ enum class AffineMatrixInitStatus : uint8_t {
   Interrupted,
   Stale,
   Applied,
+  AppliedPartial,
 };
 
 enum class AffineMatrixServiceStatus : uint8_t {
@@ -44,6 +45,8 @@ struct AffineMatrixInitResult {
   uint64_t matrix_work = 0;
   uint64_t equations = 0;
   uint64_t rows = 0;
+  uint64_t admitted_sources = 0;
+  uint64_t journal_bytes = 0;
 };
 
 struct AffineMatrixServiceResult {
@@ -71,6 +74,7 @@ public:
   bool enabled() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   uint64_t owner_version() const { return owner_version_; }
+  bool complete_admission() const { return matrix_.complete_admission(); }
   size_t published_keys() const { return published_.size(); }
   uint64_t synchronization_allowance() const {
     return parameters_.basis_maximum_work;
