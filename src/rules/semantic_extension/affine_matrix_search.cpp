@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdlib>
+#include <cstdio>
 #include <sstream>
 
 namespace tactix {
@@ -89,6 +91,41 @@ std::string event_identity(uint64_t owner, const MatrixEvent &event) {
   return out.str();
 }
 
+bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
+                                 uint64_t maximum, std::string &journal) {
+  journal.clear();
+  const auto append = [&](const std::string &text) {
+    if (journal.size() > maximum || text.size() > maximum - journal.size())
+      return false;
+    journal += text;
+    return true;
+  };
+  const auto list = [&](const auto &values) {
+    if (!append("[")) return false;
+    for (size_t i = 0; i < values.size(); ++i)
+      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
+    return append("]");
+  };
+  if (!append("{\"kind\":\"affine-matrix-session\",\"owner\":" +
+              std::to_string(owner) + ",\"admission\":\"" +
+              (matrix.complete_admission() ? "complete" : "partial") +
+              "\",\"work\":" + std::to_string(matrix.work()) +
+              ",\"admitted_sources\":"))
+    return false;
+  if (!list(matrix.admitted_sources()) || !append(",\"rows\":["))
+    return false;
+  for (size_t i = 0; i < matrix.admitted_rows().size(); ++i) {
+    const MatrixRow &row = matrix.admitted_rows()[i];
+    if (!append((i ? "," : "") + std::string("{\"variables\":")) ||
+        !list(row.variables) ||
+        !append(",\"rhs\":" + std::to_string(row.rhs) +
+                ",\"sources\":") ||
+        !list(row.source_equations) || !append("}"))
+      return false;
+  }
+  return append("]}\n");
+}
+
 AffineMatrixServiceStatus live_status(MatrixLiveStatus status) {
   switch (status) {
   case MatrixLiveStatus::Applied: return AffineMatrixServiceStatus::Applied;
@@ -115,8 +152,11 @@ void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
   kernel.stats.affine_matrix_init_snapshot_work += result.snapshot_work;
   kernel.stats.affine_matrix_init_recognition_work += result.recognition_work;
   kernel.stats.affine_matrix_init_matrix_work += result.matrix_work;
-  if (result.status == AffineMatrixInitStatus::Applied)
+  if (result.status == AffineMatrixInitStatus::Applied ||
+      result.status == AffineMatrixInitStatus::AppliedPartial)
     ++kernel.stats.affine_matrix_init_applied;
+  if (result.status == AffineMatrixInitStatus::AppliedPartial)
+    ++kernel.stats.affine_matrix_init_applied_partial;
   else if (result.status == AffineMatrixInitStatus::ResourceExhausted)
     ++kernel.stats.affine_matrix_init_exhausted;
   else if (result.status == AffineMatrixInitStatus::Interrupted)
@@ -283,7 +323,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       },
       matrix);
   result.matrix_work = matrix_work;
-  if (built != MatrixStatus::Complete) {
+  if (built != MatrixStatus::Complete && built != MatrixStatus::Partial) {
     result.status = kernel_terminating(kernel)
                         ? AffineMatrixInitStatus::Interrupted
                     : built == MatrixStatus::NoStructure
@@ -298,6 +338,27 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     return result;
   }
 
+  std::string initialization_journal;
+  if (!make_initialization_journal(owner_version, matrix,
+                                   parameters.maximum_journal_bytes,
+                                   initialization_journal)) {
+    result.status = AffineMatrixInitStatus::ResourceExhausted;
+    session.remember_terminal_initialization_failure(kernel, parameters);
+    record_init(kernel, result);
+    return result;
+  }
+  const long journal_position = std::ftell(kernel.structural_provenance);
+  if (journal_position < 0) {
+    result.status = AffineMatrixInitStatus::Invalid;
+    record_init(kernel, result);
+    return result;
+  }
+  if (kernel_terminating(kernel)) {
+    result.status = AffineMatrixInitStatus::Interrupted;
+    record_init(kernel, result);
+    return result;
+  }
+
   AffineMatrixSearchSession candidate;
   candidate.owner_ = &kernel;
   candidate.owner_version_ = owner_version;
@@ -308,13 +369,23 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   candidate.source_owner_ = std::move(owner);
   candidate.image_ = std::move(image);
   candidate.matrix_ = std::move(matrix);
+  if (std::fwrite(initialization_journal.data(), 1,
+                  initialization_journal.size(),
+                  kernel.structural_provenance) !=
+          initialization_journal.size() ||
+      std::fflush(kernel.structural_provenance))
+    std::abort();
   session = std::move(candidate);
 
-  result.status = AffineMatrixInitStatus::Applied;
+  result.status = session.matrix_.complete_admission()
+                      ? AffineMatrixInitStatus::Applied
+                      : AffineMatrixInitStatus::AppliedPartial;
   result.result = ApplyResult::Ok;
   result.owner_version = session.owner_version_;
   result.equations = session.image_.equations.size();
   result.rows = session.matrix_.rows().size();
+  result.admitted_sources = session.matrix_.admitted_sources().size();
+  result.journal_bytes = initialization_journal.size();
   record_init(kernel, result);
   return result;
 }
@@ -378,7 +449,8 @@ AffineMatrixServiceResult affine_matrix_search_step(
         return true;
       },
       event);
-  if (synchronized != MatrixStatus::Complete) {
+  if (synchronized != MatrixStatus::Complete &&
+      synchronized != MatrixStatus::Partial) {
     result.status = kernel_terminating(kernel)
                         ? AffineMatrixServiceStatus::Interrupted
                     : synchronized == MatrixStatus::Exhausted || exhausted

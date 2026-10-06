@@ -110,6 +110,27 @@ void install_implication_formula(Kernel &kernel) {
   assert(kernel_propagation_fixpoint(kernel));
 }
 
+void install_partial_formula(Kernel &kernel) {
+  kernel_reserve_vars(kernel, 10);
+  add_equation(kernel, {1, 3, 4}, false);
+  add_equation(kernel, {2, 3, 4, 5}, false);
+  add_equation(kernel, {6, 7, 8, 9, 10}, true);
+  assert(kernel_propagation_fixpoint(kernel));
+}
+
+std::string journal_contents(FILE *journal) {
+  assert(!std::fflush(journal));
+  const long length = std::ftell(journal);
+  assert(length >= 0);
+  std::rewind(journal);
+  std::string result(size_t(length), '\0');
+  if (length)
+    assert(std::fread(result.data(), 1, size_t(length), journal) ==
+           size_t(length));
+  assert(!std::fseek(journal, length, SEEK_SET));
+  return result;
+}
+
 void decide(RestartController &controller, Kernel &kernel, int32_t external) {
   const Lit literal = kernel_internalize(kernel, external);
   assert(controller.search_service("Decide", lit_instance(kernel, literal), [&] {
@@ -282,15 +303,81 @@ void unchanged_terminal_initialization_is_suppressed() {
   std::fclose(journal);
 }
 
+static std::string initialize_partial_fixture() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  install_partial_formula(kernel);
+  auto p = parameters();
+  p.basis_maximum_intermediate_width = 4;
+  const auto initialized = affine_matrix_search_initialize(kernel, session, p);
+  assert(initialized.status == AffineMatrixInitStatus::AppliedPartial &&
+         initialized.result == ApplyResult::Ok && initialized.rows == 2 &&
+         initialized.admitted_sources == 2 && initialized.journal_bytes &&
+         session.enabled() && !session.complete_admission() &&
+         kernel.stats.affine_matrix_init_applied == 1 &&
+         kernel.stats.affine_matrix_init_applied_partial == 1);
+  const std::string journal_record = journal_contents(journal);
+  assert(journal_record.find("\"admission\":\"partial\"") !=
+         std::string::npos);
+  assert(journal_record.find("\"sources\":[0]") != std::string::npos &&
+         journal_record.find("\"sources\":[1]") != std::string::npos &&
+         journal_record.find("\"sources\":[2]") == std::string::npos);
+
+  // A zero-row bounded attempt does not replace the useful session or append
+  // an initialization record.  It does become the terminal suppressed
+  // outcome for this exact root/profile pair.
+  const uint64_t owner = session.owner_version();
+  const long before = std::ftell(journal);
+  p.basis_maximum_intermediate_width = 1;
+  const auto rejected = affine_matrix_search_initialize(kernel, session, p);
+  assert(rejected.status == AffineMatrixInitStatus::ResourceExhausted &&
+         session.owner_version() == owner && !session.complete_admission() &&
+         session.initialization_retry_suppressed(kernel, p) &&
+         std::ftell(journal) == before);
+
+  RestartController controller(kernel);
+  assert(controller.resume_search(resume_request(controller, kernel))
+             .resumed_search);
+  decide(controller, kernel, -1);
+  decide(controller, kernel, -2);
+  const auto service = controller.affine_matrix_fixpoint_service();
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.bcp_pending && service.event_identity.find(";s=0,1;") !=
+                                    std::string::npos);
+  assert(controller.search_service("Propagate", INSTANCE_CANONICAL, [&] {
+    return propagate_apply(kernel);
+  }) == ApplyResult::Ok);
+  assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
+  const std::string deterministic_record = journal_contents(journal);
+  assert(deterministic_record.find("\"admission\":\"partial\"") !=
+             std::string::npos &&
+         deterministic_record.find("\"source_ordinals\":[0,1]") !=
+             std::string::npos);
+  std::fclose(journal);
+  return deterministic_record;
+}
+
+void partial_admission_feedback_provenance_and_replay() {
+  const std::string first = initialize_partial_fixture();
+  const std::string replay = initialize_partial_fixture();
+  assert(first == replay);
+}
+
 int proof_fixture(const char *cnf_path, const char *proof_path) {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
-  kernel_reserve_vars(kernel, 10);
+  kernel_reserve_vars(kernel, 17);
   const std::vector<int32_t> first{1, 2, 3, 4, 9, 10};
   const std::vector<int32_t> second{5, 6, 7, 8, 9, 10};
+  const std::vector<int32_t> skipped{11, 12, 13, 14, 15, 16, 17};
   add_equation(kernel, first, false);
   add_equation(kernel, second, true);
+  add_equation(kernel, skipped, false);
   FILE *journal = std::tmpfile();
   assert(journal);
   kernel.structural_provenance = journal;
@@ -300,9 +387,13 @@ int proof_fixture(const char *cnf_path, const char *proof_path) {
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
   RestartController controller(kernel);
-  assert(controller.apply_rule(initialize_request(controller, kernel, parameters()),
+  auto partial = parameters();
+  partial.basis_maximum_intermediate_width = 6;
+  assert(controller.apply_rule(initialize_request(controller, kernel, partial),
                                {WorkUnit::Applications, 1, {}})
              .invocation.status == InvocationStatus::Completed);
+  assert(session.enabled() && !session.complete_admission() &&
+         kernel.stats.affine_matrix_init_applied_partial == 1);
   for (int32_t variable = 1; variable <= 8; ++variable)
     add_clause(kernel, {-variable});
   assert(!kernel_propagate(kernel));
@@ -318,10 +409,11 @@ int proof_fixture(const char *cnf_path, const char *proof_path) {
 
   FILE *cnf = std::fopen(cnf_path, "w");
   assert(cnf);
-  std::fprintf(cnf, "p cnf %zu 72\n", kernel.external_to_internal.size());
+  std::fprintf(cnf, "p cnf %zu 136\n", kernel.external_to_internal.size());
   for (const auto &[variables, rhs] :
        std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
-                                                          {second, true}})
+                                                          {second, true},
+                                                          {skipped, false}})
     for (const auto &clause : clausal_form(variables, rhs)) {
       for (const int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
       std::fprintf(cnf, "0\n");
@@ -341,5 +433,6 @@ int main(int argc, char **argv) {
   initialize_resume_publish_and_bcp();
   interruption_is_atomic();
   unchanged_terminal_initialization_is_suppressed();
+  partial_admission_feedback_provenance_and_replay();
   std::puts("test_affine_matrix_search: passed");
 }
