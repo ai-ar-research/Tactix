@@ -1,0 +1,13 @@
+{
+  "initial_allocated_bytes": 745753146880,
+  "after_cleanup_allocated_bytes": 219930677760,
+  "generated_files_removed_allocated_bytes": 528110623232,
+  "test_executables_removed": 10487,
+  "cmake_directories_removed": 1226,
+  "measurement_source": "du -s --block-size=1 .",
+  "measurement_error_output": "",
+  "storage_guard_bytes": 700000000000,
+  "below_storage_guard": true,
+  "integrated_source_commit": "4096d41b3",
+  "fuzz_campaigns": "95b0fad13 initial owner and 4096d41b3 cumulative owner invoked; unaccepted pending terminal reports"
+}

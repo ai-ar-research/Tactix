@@ -136,6 +136,9 @@ its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-clea
 Claude owns its fresh fuzz campaign; [the preceding owner report](benchmarks/runs/20261006-r263-default-affine-fuzz-owner/FINAL_REPORT.md) rejected root-unit, empty-conflict and invalidated-session handling.
 Parallel increments add a [bounded GF(2) predecessor](benchmarks/reports/2026-10-06-affine-predecessor-microgate.md) and X20 decline/retry feedback (`2ddfcbedf`); cumulative Debug and ASan/UBSan with leak detection and proof shadow each pass 10/10, including independent proofs and restore/rebuild telemetry.
 The [WV93 short probe](benchmarks/reports/2026-10-06-directcsp-repeated-native/README.md) reaches one/four support publications but yields no root deduction or solve; no longer target is justified.
+The coherent source pin is `4096d41b3`; its Claude-owned cumulative fuzz
+request is [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d41b3-fuzz-owner/request.txt).
+[Storage verification](benchmarks/reports/2026-10-06-final-storage-verification/README.md) records 219.93 GB after reclaiming about 528 GB.
 The final coherent pin still needs effective both-policy fuzz, full Debug,
 B28+C5, Rank1--50, WV100 and WV2--89 acceptance. Follow plan §8.1
 for the standing 700-GB storage check and aggressive cleanup gate.
