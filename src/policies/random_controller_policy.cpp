@@ -384,6 +384,10 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
       entry.reason = "outside-configured-action-collection";
     else if (k.level || k.inconsistent || k.conflict_valid)
       entry.reason = "not-a-consistent-root-boundary";
+    else if (std::string_view(rule.name) == "AffineMatrixInitialize" &&
+             k.affine_matrix_search_session &&
+             k.affine_matrix_search_session->attached_to(k))
+      entry.reason = "affine-matrix-session-active";
     else if (!rule.guard(k))
       entry.reason = "guard-false";
     else if (std::string_view(rule.name) == "AffineMatrixInitialize" &&

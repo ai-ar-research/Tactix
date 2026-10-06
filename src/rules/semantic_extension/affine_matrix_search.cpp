@@ -215,6 +215,13 @@ bool AffineMatrixSearchSession::initialization_retry_suppressed(
          failed_parameters_ == parameters;
 }
 
+bool AffineMatrixSearchSession::attached_to(const Kernel &kernel) const {
+  return enabled() && belongs_to(kernel) &&
+         kernel.affine_matrix_search_session == this &&
+         records_ == kernel.structural_provenance && proof_ == kernel.proof &&
+         (!kernel.proof || proof_format_ == kernel.proof->format());
+}
+
 RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
@@ -402,10 +409,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
     Kernel &kernel, AffineMatrixSearchSession &session) {
   AffineMatrixServiceResult result;
   if (!session.enabled()) return result;
-  if (!session.belongs_to(kernel) || kernel.affine_matrix_search_session != &session ||
-      session.records_ != kernel.structural_provenance ||
-      session.proof_ != kernel.proof ||
-      (kernel.proof && session.proof_format_ != kernel.proof->format())) {
+  if (!session.attached_to(kernel)) {
     result.status = AffineMatrixServiceStatus::Stale;
     record_service(kernel, result);
     return result;

@@ -73,6 +73,11 @@ class AffineMatrixSearchSession {
 public:
   bool enabled() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
+  // True while the installed search session is still bound to the same
+  // Kernel, provenance sink and proof stream.  Formula/search changes do not
+  // invalidate it: the service reauthenticates exact source clauses at every
+  // publication boundary.
+  bool attached_to(const Kernel &) const;
   uint64_t owner_version() const { return owner_version_; }
   bool complete_admission() const { return matrix_.complete_admission(); }
   size_t published_keys() const { return published_.size(); }
