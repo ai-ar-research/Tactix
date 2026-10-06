@@ -142,11 +142,17 @@ sanitizer checks pass with identical proof/provenance and a checked SAT model.
 The [WV93 short probe](benchmarks/reports/2026-10-06-directcsp-repeated-native/README.md) reaches one/four support publications but yields no root deduction or solve; no longer target is justified.
 The coherent source pin is `4096d41b3`; its Claude-owned cumulative fuzz
 request is [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d41b3-fuzz-owner/request.txt).
-Combined DefaultPolicy broad job `1751467` is live; random-controller broad
-`1751468` is queued. Calibration `1751466` passed its affine cases but exposed
-X20 harness defects; corrected private fixture calibration `1751472` is queued
-before full targeted submission. Census `1751469` is SLURM-completed, awaiting
-Claude's disposition. Claude reports
+Claude's [owner leg verdict](benchmarks/reports/2026-10-06-integrated-default-fuzz-owner-verdict/README.md)
+closes DefaultPolicy fuzz job `1751467` as passed after same-pin
+graded corpus rerun `1751474` clears entry 026's 60-second sanitizer timeout.
+The report owns checked counts and timeout coverage limits. Random-controller broad
+`1751468` is live. Calibration `1751466` passed its affine cases but exposed
+X20 harness defects; Claude replaced never-started calibration `1751472` with
+identical-snapshot/task calibration `1751473` (90 CPUs/200 GB/one hour) to fit
+measured resources beside the live broad jobs. It remains uncounted and queued
+before full targeted submission. Claude reports default census `1751469` has
+zero UNKNOWN but zero admitted affine startup actions, so targeted reach is
+mandatory. Claude reports
 the completed controller census `1751470` has zero UNKNOWN exits across
 100,000 seeds (timeouts lack oracle coverage). Both matrix differential
 runs passed, but Claude has not issued terminal acceptance. Resume its existing
