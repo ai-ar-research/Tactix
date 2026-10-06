@@ -264,6 +264,7 @@ int main(int argc, char **argv) {
         controller_config.gf3_action_producer.enabled = enabled;
         controller_config.direct_csp_action_producer.enabled = enabled;
         controller_config.nary_csp_action_producer.enabled = enabled;
+        controller_config.nary_csp_equality_action_producer.enabled = enabled;
         controller_config.gf3_gaussian_action_producer.enabled = enabled;
         controller_config.tseitin_cycle_action_producer.enabled = enabled;
       };
@@ -285,6 +286,8 @@ int main(int argc, char **argv) {
             controller_config.direct_csp_action_producer.enabled = true;
           else if (name == "nary-csp")
             controller_config.nary_csp_action_producer.enabled = true;
+          else if (name == "nary-csp-equality")
+            controller_config.nary_csp_equality_action_producer.enabled = true;
           else if (name == "gf3-gaussian")
             controller_config.gf3_gaussian_action_producer.enabled = true;
           else if (name == "tseitin-cycle")
@@ -450,7 +453,7 @@ int main(int argc, char **argv) {
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
       puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,nary-csp,"
-           "gf3-gaussian,tseitin-cycle");
+           "nary-csp-equality,gf3-gaussian,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
            "names, or all");
       puts("  controller search configuration LIST: comma-separated "
@@ -1426,6 +1429,22 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.nary_csp_prefix_interrupted,
            (unsigned long long)kernel.stats.nary_csp_prefix_stale,
            (unsigned long long)kernel.stats.nary_csp_prefix_unsupported_proof);
+    printf("c nary-eq    %llu attempts, %llu applied, %llu no-structure, "
+           "%llu no-consequence, %llu already-published, %llu invalid, "
+           "%llu inapplicable, %llu exhausted, %llu interrupted, %llu stale, "
+           "%llu unsupported-proof, %llu introduced\n",
+           (unsigned long long)kernel.stats.nary_csp_equality_attempts,
+           (unsigned long long)kernel.stats.nary_csp_equality_applied,
+           (unsigned long long)kernel.stats.nary_csp_equality_no_structure,
+           (unsigned long long)kernel.stats.nary_csp_equality_no_consequence,
+           (unsigned long long)kernel.stats.nary_csp_equality_already_published,
+           (unsigned long long)kernel.stats.nary_csp_equality_invalid,
+           (unsigned long long)kernel.stats.nary_csp_equality_inapplicable,
+           (unsigned long long)kernel.stats.nary_csp_equality_resource_exhausted,
+           (unsigned long long)kernel.stats.nary_csp_equality_interrupted,
+           (unsigned long long)kernel.stats.nary_csp_equality_stale,
+           (unsigned long long)kernel.stats.nary_csp_equality_unsupported_proof,
+           (unsigned long long)kernel.stats.nary_csp_equality_introduced_variables);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",
