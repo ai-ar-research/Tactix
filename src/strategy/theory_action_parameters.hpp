@@ -40,6 +40,7 @@ struct AffineConsequenceParameters {
   uint32_t maximum_external_extent = 0;
   uint64_t maximum_session_keys = 0;
   uint64_t maximum_session_work = 0;
+  bool operator==(const AffineConsequenceParameters &) const = default;
   bool valid() const {
     if (maximum_arity > 8 || maximum_output_width > 4) return false;
     if (semantics == AffineConsequenceSemantics::SelectedConsequenceV1)

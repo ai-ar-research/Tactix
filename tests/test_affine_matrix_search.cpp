@@ -4,6 +4,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -232,6 +233,55 @@ void interruption_is_atomic() {
   }
 }
 
+void unchanged_terminal_initialization_is_suppressed() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  install_implication_formula(kernel);
+
+  auto exhausted = parameters();
+  exhausted.maximum_snapshot_work = 1;
+  kernel.affine_consequence_parameters = exhausted;
+  assert(affine_matrix_initialize_guard(kernel));
+  const auto first =
+      affine_matrix_search_initialize(kernel, session, exhausted);
+  assert(first.status == AffineMatrixInitStatus::ResourceExhausted);
+  assert(session.initialization_retry_suppressed(kernel, exhausted));
+  assert(affine_matrix_initialize_guard(kernel));
+  const auto attempts = kernel.stats.affine_matrix_init_attempts;
+  const auto retry =
+      affine_matrix_search_initialize(kernel, session, exhausted);
+  assert(retry.status == AffineMatrixInitStatus::ResourceExhausted &&
+         !retry.snapshot_work && !retry.recognition_work && !retry.matrix_work &&
+         kernel.stats.affine_matrix_init_attempts == attempts + 1);
+
+  RandomControllerConfig config;
+  config.parameters.rules = {"AffineMatrixInitialize"};
+  config.parameters.affine_consequence_reference = exhausted;
+  const auto unchanged = controller_action_availability(kernel, config);
+  const auto unchanged_entry = std::find_if(
+      unchanged.begin(), unchanged.end(), [](const auto &entry) {
+        return entry.rule == "AffineMatrixInitialize";
+      });
+  assert(unchanged_entry != unchanged.end() && !unchanged_entry->eligible &&
+         unchanged_entry->reason == "unchanged-terminal-initialization");
+
+  auto reconfigured = exhausted;
+  ++reconfigured.maximum_snapshot_work;
+  assert(!session.initialization_retry_suppressed(kernel, reconfigured));
+  config.parameters.affine_consequence_reference = reconfigured;
+  const auto changed = controller_action_availability(kernel, config);
+  const auto changed_entry = std::find_if(
+      changed.begin(), changed.end(), [](const auto &entry) {
+        return entry.rule == "AffineMatrixInitialize";
+      });
+  assert(changed_entry != changed.end() && changed_entry->eligible);
+  std::fclose(journal);
+}
+
 int proof_fixture(const char *cnf_path, const char *proof_path) {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -290,5 +340,6 @@ int main(int argc, char **argv) {
     return proof_fixture(argv[2], argv[3]);
   initialize_resume_publish_and_bcp();
   interruption_is_atomic();
+  unchanged_terminal_initialization_is_suppressed();
   std::puts("test_affine_matrix_search: passed");
 }

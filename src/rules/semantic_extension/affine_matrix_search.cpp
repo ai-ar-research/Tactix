@@ -150,6 +150,31 @@ void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
 
 } // namespace
 
+void AffineMatrixSearchSession::remember_terminal_initialization_failure(
+    const Kernel &kernel,
+    const strategy::AffineConsequenceParameters &parameters) {
+  failed_owner_ = &kernel;
+  failed_arena_generation_ = kernel.arena_generation;
+  failed_touch_epoch_ = kernel.touch_epoch;
+  failed_touch_fixed_head_ = kernel.touch_fixed_head;
+  failed_trail_size_ = kernel.trail.size();
+  failed_next_clause_id_ = kernel.next_clause_id;
+  failed_parameters_ = parameters;
+  have_terminal_initialization_failure_ = true;
+}
+
+bool AffineMatrixSearchSession::initialization_retry_suppressed(
+    const Kernel &kernel,
+    const strategy::AffineConsequenceParameters &parameters) const {
+  return have_terminal_initialization_failure_ && failed_owner_ == &kernel &&
+         failed_arena_generation_ == kernel.arena_generation &&
+         failed_touch_epoch_ == kernel.touch_epoch &&
+         failed_touch_fixed_head_ == kernel.touch_fixed_head &&
+         failed_trail_size_ == kernel.trail.size() &&
+         failed_next_clause_id_ == kernel.next_clause_id &&
+         failed_parameters_ == parameters;
+}
+
 RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
@@ -179,6 +204,11 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     record_init(kernel, result);
     return result;
   }
+  if (session.initialization_retry_suppressed(kernel, parameters)) {
+    result.status = AffineMatrixInitStatus::ResourceExhausted;
+    record_init(kernel, result);
+    return result;
+  }
   if (session.enabled() && !session.belongs_to(kernel)) {
     result.status = AffineMatrixInitStatus::Stale;
     record_init(kernel, result);
@@ -187,6 +217,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   if (kernel.structural_action_sequence == UINT64_MAX ||
       session.owner_version_ == UINT64_MAX) {
     result.status = AffineMatrixInitStatus::ResourceExhausted;
+    session.remember_terminal_initialization_failure(kernel, parameters);
     record_init(kernel, result);
     return result;
   }
@@ -197,6 +228,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     result.status = kernel_terminating(kernel)
                         ? AffineMatrixInitStatus::Interrupted
                         : AffineMatrixInitStatus::ResourceExhausted;
+    if (result.status == AffineMatrixInitStatus::ResourceExhausted)
+      session.remember_terminal_initialization_failure(kernel, parameters);
     record_init(kernel, result);
     return result;
   }
@@ -227,6 +260,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
                     : recognized == Status::Exhausted || recognition_exhausted
                         ? AffineMatrixInitStatus::ResourceExhausted
                         : AffineMatrixInitStatus::Invalid;
+    if (result.status == AffineMatrixInitStatus::NoStructure ||
+        result.status == AffineMatrixInitStatus::ResourceExhausted)
+      session.remember_terminal_initialization_failure(kernel, parameters);
     record_init(kernel, result);
     return result;
   }
@@ -255,6 +291,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
                     : built == MatrixStatus::Exhausted || matrix_exhausted
                         ? AffineMatrixInitStatus::ResourceExhausted
                         : AffineMatrixInitStatus::Invalid;
+    if (result.status == AffineMatrixInitStatus::NoStructure ||
+        result.status == AffineMatrixInitStatus::ResourceExhausted)
+      session.remember_terminal_initialization_failure(kernel, parameters);
     record_init(kernel, result);
     return result;
   }
