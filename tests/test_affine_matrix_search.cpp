@@ -327,6 +327,18 @@ static std::string initialize_partial_fixture() {
          journal_record.find("\"sources\":[1]") != std::string::npos &&
          journal_record.find("\"sources\":[2]") == std::string::npos);
 
+  RandomControllerConfig active_config;
+  active_config.parameters.rules = {"AffineMatrixInitialize"};
+  active_config.parameters.affine_consequence_reference = p;
+  const auto availability =
+      controller_action_availability(kernel, active_config);
+  const auto active = std::find_if(
+      availability.begin(), availability.end(), [](const auto &entry) {
+        return entry.rule == "AffineMatrixInitialize";
+      });
+  assert(active != availability.end() && !active->eligible &&
+         active->reason == "affine-matrix-session-active");
+
   // A zero-row bounded attempt does not replace the useful session or append
   // an initialization record.  It does become the terminal suppressed
   // outcome for this exact root/profile pair.
