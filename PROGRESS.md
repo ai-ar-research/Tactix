@@ -138,7 +138,20 @@ Parallel increments add a [bounded GF(2) predecessor](benchmarks/reports/2026-10
 The [WV93 short probe](benchmarks/reports/2026-10-06-directcsp-repeated-native/README.md) reaches one/four support publications but yields no root deduction or solve; no longer target is justified.
 The coherent source pin is `4096d41b3`; its Claude-owned cumulative fuzz
 request is [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d41b3-fuzz-owner/request.txt).
+Combined DefaultPolicy broad job `1751467` is live; random-controller broad
+`1751468` is queued. Calibration `1751466` passed its affine cases but exposed
+X20 harness defects; corrected private fixture calibration `1751472` is queued
+before full targeted submission. Census `1751469` is SLURM-completed, awaiting
+Claude's disposition. Claude reports
+the completed controller census `1751470` has zero UNKNOWN exits across
+100,000 seeds (timeouts lack oracle coverage). Both matrix differential
+runs passed, but Claude has not issued terminal acceptance. Resume its existing
+session `4109784f-d61a-4bd4-8f29-8f842447ddc7` with `claude --resume ID -p`
+after job transitions; Claude alone inspects campaign output and owns the final
+report. The initial repair's targeted job `1751463` and owner remain live.
 [Storage verification](benchmarks/reports/2026-10-06-final-storage-verification/README.md) records 219.93 GB after reclaiming about 528 GB.
+The later [live-pin scan](benchmarks/reports/2026-10-06-live-pin-storage-recheck/README.md)
+completed without errors at 220.95 GB, still below the storage gate.
 The final coherent pin still needs effective both-policy fuzz, full Debug,
 B28+C5, Rank1--50, WV100 and WV2--89 acceptance. Follow plan §8.1
 for the standing 700-GB storage check and aggressive cleanup gate.
