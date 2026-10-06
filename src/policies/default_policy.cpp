@@ -3361,6 +3361,7 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
             std::strcmp(rules[i].name, "DirectCspSupport") &&
             std::strcmp(rules[i].name, "DirectPhpRefutation") &&
             std::strcmp(rules[i].name, "Gf3GaussianConsequence") &&
+            std::strcmp(rules[i].name, "Gf3GeneralRowConsequence") &&
             std::strcmp(rules[i].name, "TseitinCycleBreaking") &&
             std::strcmp(rules[i].name, "NaryCspPrefix") &&
             std::strcmp(rules[i].name, "GraphIntervalEquivalence") &&
@@ -5430,6 +5431,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
       strategy::DirectCspSupportParameters,
       strategy::DirectPhpRefutationParameters,
       strategy::Gf3GaussianConsequenceParameters,
+      strategy::Gf3GeneralRowConsequenceParameters,
       strategy::TseitinCycleBreakingParameters,
       strategy::InstantiateParameters,
       strategy::BackboneParameters, strategy::VivifyParameters>

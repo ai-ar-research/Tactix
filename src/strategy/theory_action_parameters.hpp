@@ -256,6 +256,21 @@ struct Gf3GaussianConsequenceParameters {
   static Gf3GaussianConsequenceParameters from_kernel(const Kernel &);
 };
 
+// One authenticated forbidden tuple of one non-unit GF(3) Gaussian row.
+// Gaussian supplies source/bridge limits; the appended fields bound the
+// single-row Boolean certificate and retained exact replay identity.
+struct Gf3GeneralRowConsequenceParameters {
+  Gf3GaussianConsequenceParameters gaussian;
+  uint64_t maximum_row_tuples = 100000;
+  uint32_t maximum_row_width = 32;
+  uint64_t maximum_duplicate_scan_work = 1000000;
+  uint64_t maximum_arena_words = 1000000;
+
+  bool valid() const;
+  static Gf3GeneralRowConsequenceParameters from_kernel(const Kernel &);
+  bool operator==(const Gf3GeneralRowConsequenceParameters &) const = default;
+};
+
 struct TseitinCycleBreakingParameters {
   uint64_t maximum_snapshot_clauses = 100000;
   uint64_t maximum_snapshot_literals = 1000000;
@@ -308,6 +323,8 @@ void install_rule_parameters(Kernel &, const NaryCspPrefixParameters &);
 void install_rule_parameters(Kernel &, const NaryCspEqualityParameters &);
 void install_rule_parameters(Kernel &, const DirectPhpRefutationParameters &);
 void install_rule_parameters(Kernel &, const Gf3GaussianConsequenceParameters &);
+void install_rule_parameters(Kernel &,
+                             const Gf3GeneralRowConsequenceParameters &);
 void install_rule_parameters(Kernel &, const TseitinCycleBreakingParameters &);
 void install_rule_parameters(Kernel &, const SemanticVariableAdviceParameters &);
 

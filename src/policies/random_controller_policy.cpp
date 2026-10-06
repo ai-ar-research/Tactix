@@ -405,6 +405,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "NaryCspPrefix" ||
               std::string_view(rule.name) == "NaryCspEquality" ||
               std::string_view(rule.name) == "Gf3GaussianConsequence" ||
+              std::string_view(rule.name) == "Gf3GeneralRowConsequence" ||
               std::string_view(rule.name) == "TseitinCycleBreaking") &&
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))
@@ -442,6 +443,7 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("NaryCspEquality", nary_csp_equality_reference);
   CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
   CONTROLLER_REFERENCE("Gf3GaussianConsequence", gf3_gaussian_consequence_reference);
+  CONTROLLER_REFERENCE("Gf3GeneralRowConsequence", gf3_general_row_consequence_reference);
   CONTROLLER_REFERENCE("TseitinCycleBreaking", tseitin_cycle_breaking_reference);
   CONTROLLER_REFERENCE("SemanticVariableAdvice", semantic_variable_advice_reference);
   CONTROLLER_REFERENCE("Instantiate", instantiate_reference);
@@ -646,6 +648,19 @@ std::string controller_configuration(const RandomControllerConfig &config) {
     profile.granularity = InvocationGranularity::OneInstance;
     profile.gf3_gaussian_instances = {"g3b1:00"};
     out << " producer " << std::quoted(profile.rule) << ' '
+        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
+  if (config.gf3_general_row_action_producer.enabled) {
+    const auto &producer = config.gf3_general_row_action_producer;
+    OnlineInvocation profile;
+    profile.rule = "Gf3GeneralRowConsequence";
+    profile.parameters = config.parameters.gf3_general_row_consequence_reference;
+    profile.granularity = InvocationGranularity::OneInstance;
+    profile.post_application = PostApplication::Propagate;
+    profile.gf3_general_row_instances = {{0, 0, "g3r1:00"}};
+    out << " producer " << std::quoted(profile.rule) << ' '
+        << producer.maximum_candidates << ' ' << producer.maximum_offers << ' '
+        << producer.maximum_enumeration_work << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
   if (config.tseitin_cycle_action_producer.enabled) {
@@ -994,6 +1009,38 @@ bool RandomControllerSelector::choose(
           observation.last_action->invocation.after;
     }
   }
+  if (gf3_general_row_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence ==
+          gf3_general_row_discovery_.pending_sequence) {
+    const NativeSettlement settlement =
+        native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::Consume) {
+      const auto pending = *gf3_general_row_discovery_.pending;
+      gf3_general_row_discovery_.offers.erase(
+          std::remove(gf3_general_row_discovery_.offers.begin(),
+                      gf3_general_row_discovery_.offers.end(), pending),
+          gf3_general_row_discovery_.offers.end());
+      gf3_general_row_discovery_.pending.reset();
+      gf3_general_row_discovery_.pending_sequence = 0;
+      gf3_general_row_discovery_.state =
+          observation.last_action->invocation.after;
+      if (gf3_general_row_discovery_.offers.empty() &&
+          gf3_general_row_discovery_.complete)
+        gf3_general_row_discovery_.terminal = true;
+    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
+      gf3_general_row_discovery_.pending.reset();
+      gf3_general_row_discovery_.offers.clear();
+      gf3_general_row_discovery_.pending_sequence = 0;
+      gf3_general_row_discovery_.terminal = true;
+      gf3_general_row_discovery_.state =
+          observation.last_action->invocation.after;
+    } else if (settlement == NativeSettlement::RetainUntilReconfiguration) {
+      gf3_general_row_discovery_.pending_sequence = 0;
+      gf3_general_row_discovery_.reconfiguration_required = true;
+      gf3_general_row_discovery_.state =
+          observation.last_action->invocation.after;
+    }
+  }
   if (tseitin_cycle_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
           tseitin_cycle_discovery_.pending_sequence) {
@@ -1197,6 +1244,51 @@ bool RandomControllerSelector::choose(
         p.maximum_journal_bytes, p.maximum_identity_bytes,
         p.maximum_external_extent, p.maximum_session_keys,
         p.maximum_session_work, p.maximum_session_identity_bytes};
+  };
+
+  const auto general_row_profile = [&] {
+    OnlineInvocation invocation;
+    invocation.rule = "Gf3GeneralRowConsequence";
+    invocation.parameters =
+        config.parameters.gf3_general_row_consequence_reference;
+    invocation.granularity = InvocationGranularity::OneInstance;
+    invocation.post_application = PostApplication::Propagate;
+    invocation.gf3_general_row_instances = {{0, 0, "g3r1:00"}};
+    std::ostringstream out;
+    const auto &producer = config.gf3_general_row_action_producer;
+    out << producer.maximum_candidates << ' ' << producer.maximum_offers
+        << ' ' << producer.maximum_enumeration_work << ' '
+        << serialize_online_strategy_program({{invocation}, {}});
+    return out.str();
+  };
+
+  const auto general_row_limits = [&] {
+    const auto &p = config.parameters.gf3_general_row_consequence_reference;
+    const auto &g = p.gaussian;
+    return Gf3GeneralRowActionLimits{
+        {{g.maximum_source_clauses, g.maximum_source_literals,
+          g.maximum_domains, g.maximum_equations,
+          g.maximum_equation_arity, g.maximum_tuples_per_equation},
+         {{g.maximum_bridge_work, g.maximum_bridge_source_clauses,
+           g.maximum_bridge_source_literals, g.maximum_bridge_domains,
+           g.maximum_bridge_equations, g.maximum_bridge_terms,
+           g.maximum_authentication_references,
+           g.maximum_references_per_equation,
+           {g.maximum_gaussian_work, g.maximum_fill_entries,
+            g.maximum_intermediate_width, g.maximum_provenance_terms,
+            g.maximum_derivations, g.maximum_retained_plan_bytes}},
+          g.maximum_certificate_work, g.maximum_events,
+          g.maximum_event_literals, g.maximum_active_clauses,
+          g.maximum_retained_source_references, p.maximum_row_tuples,
+          g.maximum_event_width, g.maximum_branch_domains,
+          p.maximum_row_width},
+         g.maximum_capture_work, p.maximum_duplicate_scan_work,
+         g.maximum_revalidation_work, g.maximum_proof_additions,
+         g.maximum_proof_literal_occurrences, p.maximum_arena_words,
+         g.maximum_journal_bytes, g.maximum_identity_bytes,
+         g.maximum_external_extent},
+        g.maximum_session_keys, g.maximum_session_work,
+        g.maximum_session_identity_bytes};
   };
 
   const auto tseitin_profile = [&] {
@@ -1817,6 +1909,97 @@ bool RandomControllerSelector::choose(
     return true;
   };
 
+  const auto discover_general_row = [&]() -> bool {
+    if (!config.gf3_general_row_action_producer.enabled ||
+        has_static_offer("Gf3GeneralRowConsequence") ||
+        !k.gf3_general_row_action_session)
+      return false;
+    if (!config.gf3_general_row_action_producer.valid()) {
+      error = "GF3 general-row action producer parameters are invalid";
+      return false;
+    }
+    const auto &session = *k.gf3_general_row_action_session;
+    const auto profile = general_row_profile();
+    const auto state = state_version(k);
+    const bool changed = gf3_general_row_discovery_.owner != &k ||
+                         gf3_general_row_discovery_.session != &session ||
+                         !same_version(gf3_general_row_discovery_.state, state) ||
+                         gf3_general_row_discovery_.session_keys !=
+                             session.keys().size();
+    const bool profile_changed =
+        gf3_general_row_discovery_.profile != profile;
+    if (changed ||
+        (profile_changed &&
+         (!gf3_general_row_discovery_.reconfiguration_required ||
+          !gf3_general_row_discovery_.pending))) {
+      gf3_general_row_discovery_ = {};
+      gf3_general_row_discovery_.owner = &k;
+      gf3_general_row_discovery_.session = &session;
+      gf3_general_row_discovery_.state = state;
+      gf3_general_row_discovery_.session_keys = session.keys().size();
+      gf3_general_row_discovery_.profile = profile;
+    } else if (gf3_general_row_discovery_.reconfiguration_required &&
+               profile_changed) {
+      gf3_general_row_discovery_.state = state;
+      gf3_general_row_discovery_.session_keys = session.keys().size();
+      gf3_general_row_discovery_.profile = profile;
+      gf3_general_row_discovery_.reconfiguration_required = false;
+    }
+    if (gf3_general_row_discovery_.reconfiguration_required) return false;
+    if (gf3_general_row_discovery_.pending ||
+        !gf3_general_row_discovery_.offers.empty())
+      return true;
+    if (gf3_general_row_discovery_.terminal) return false;
+    const auto limits = general_row_limits();
+    if (!limits.valid()) {
+      error = "GF3 general-row action limits are invalid";
+      return false;
+    }
+    const auto &producer = config.gf3_general_row_action_producer;
+    Gf3GeneralRowActionOfferWindow window{
+        producer.maximum_candidates, producer.maximum_offers,
+        producer.maximum_enumeration_work,
+        gf3_general_row_discovery_.have_after,
+        gf3_general_row_discovery_.after};
+    const auto offered =
+        gf3_general_row_action_offer(k, session, limits, window);
+    uint64_t preparation = offered.live_effort.capture_work;
+    preparation = saturated_add(preparation, offered.live_effort.bridge_work);
+    preparation = saturated_add(preparation, offered.live_effort.planning_work);
+    preparation = saturated_add(preparation,
+                                offered.live_effort.validation_work);
+    preparation = saturated_add(preparation,
+                                offered.live_effort.duplicate_scan_work);
+    preparation = saturated_add(preparation,
+                                offered.live_effort.revalidation_work);
+    preparation = saturated_add(preparation, offered.enumeration_work);
+    producer_effort.push_back(
+        {"Gf3GeneralRowConsequence", static_cast<uint8_t>(offered.status),
+         offered.complete, preparation, 0, preparation, offered.candidates,
+         offered.offers.size()});
+    if (offered.status == Gf3GeneralRowActionStatus::Interrupted ||
+        offered.status == Gf3GeneralRowActionStatus::ResourceExhausted) {
+      gf3_general_row_discovery_.reconfiguration_required = true;
+      return false;
+    }
+    if (offered.status != Gf3GeneralRowActionStatus::Applied) {
+      gf3_general_row_discovery_.terminal = true;
+      return false;
+    }
+    const bool cursor_advanced = offered.have_resume_after &&
+        (!gf3_general_row_discovery_.have_after ||
+         !(offered.resume_after == gf3_general_row_discovery_.after));
+    gf3_general_row_discovery_.offers = offered.offers;
+    gf3_general_row_discovery_.complete = offered.complete;
+    gf3_general_row_discovery_.have_after = offered.have_resume_after;
+    if (offered.have_resume_after)
+      gf3_general_row_discovery_.after = offered.resume_after;
+    if ((offered.complete && offered.offers.empty()) ||
+        (offered.offers.empty() && !cursor_advanced))
+      gf3_general_row_discovery_.terminal = true;
+    return !gf3_general_row_discovery_.offers.empty();
+  };
+
   const auto discover_tseitin = [&]() -> bool {
     if (!config.tseitin_cycle_action_producer.enabled ||
         has_static_offer("TseitinCycleBreaking") ||
@@ -1906,6 +2089,7 @@ bool RandomControllerSelector::choose(
     NaryCsp,
     NaryCspEquality,
     Gf3Gaussian,
+    Gf3GeneralRow,
     TseitinCycle
   };
   struct Eligible {
@@ -1960,6 +2144,11 @@ bool RandomControllerSelector::choose(
                discover_gaussian()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::Gf3Gaussian});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "Gf3GeneralRowConsequence" &&
+               discover_general_row()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::Gf3GeneralRow});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "TseitinCycleBreaking" && discover_tseitin()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
@@ -2115,6 +2304,19 @@ bool RandomControllerSelector::choose(
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.gf3_gaussian_instances = {
           *gf3_gaussian_discovery_.pending};
+    } else if (selected_action.native == NativeOffer::Gf3GeneralRow) {
+      if (!gf3_general_row_discovery_.pending)
+        gf3_general_row_discovery_.pending =
+            gf3_general_row_discovery_.offers[
+                draw(gf3_general_row_discovery_.offers.size())];
+      gf3_general_row_discovery_.pending_sequence = request.sequence;
+      request.invocation.rule = rule.name;
+      request.invocation.parameters =
+          config.parameters.gf3_general_row_consequence_reference;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.post_application = PostApplication::Propagate;
+      request.invocation.gf3_general_row_instances = {
+          *gf3_general_row_discovery_.pending};
     } else if (selected_action.native == NativeOffer::TseitinCycle) {
       if (!tseitin_cycle_discovery_.pending)
         tseitin_cycle_discovery_.pending = tseitin_cycle_discovery_.offers[

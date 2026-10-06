@@ -64,6 +64,7 @@ inline NativeFeedbackSpec native_rule_feedback(
   else if (name == "NaryCspEquality") inv.parameters = k.nary_csp_equality_parameters;
   else if (name == "DirectPhpRefutation") inv.parameters = k.direct_php_refutation_parameters;
   else if (name == "Gf3GaussianConsequence") inv.parameters = k.gf3_gaussian_consequence_parameters;
+  else if (name == "Gf3GeneralRowConsequence") inv.parameters = k.gf3_general_row_consequence_parameters;
   else if (name == "TseitinCycleBreaking") inv.parameters = k.tseitin_cycle_breaking_parameters;
   else if (name == "SemanticVariableAdvice") inv.parameters = k.semantic_variable_advice_parameters;
   else if (name == "Congruence") inv.parameters = k.congruence_parameters;

@@ -142,6 +142,9 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "DirectPhpRefutation";
   if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
     return step.rule == "Gf3GaussianConsequence";
+  if (std::holds_alternative<Gf3GeneralRowConsequenceParameters>(
+          step.parameters))
+    return step.rule == "Gf3GeneralRowConsequence";
   if (std::holds_alternative<TseitinCycleBreakingParameters>(step.parameters))
     return step.rule == "TseitinCycleBreaking";
   if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
@@ -354,6 +357,34 @@ Gf3GaussianActionLimits gf3_gaussian_limits(
           p.maximum_journal_bytes, p.maximum_identity_bytes,
           p.maximum_external_extent, p.maximum_session_keys,
           p.maximum_session_work, p.maximum_session_identity_bytes};
+}
+
+Gf3GeneralRowActionLimits gf3_general_row_limits(
+    const Gf3GeneralRowConsequenceParameters &p) {
+  const auto &g = p.gaussian;
+  return {{{g.maximum_source_clauses, g.maximum_source_literals,
+            g.maximum_domains, g.maximum_equations,
+            g.maximum_equation_arity, g.maximum_tuples_per_equation},
+           {{g.maximum_bridge_work, g.maximum_bridge_source_clauses,
+             g.maximum_bridge_source_literals, g.maximum_bridge_domains,
+             g.maximum_bridge_equations, g.maximum_bridge_terms,
+             g.maximum_authentication_references,
+             g.maximum_references_per_equation,
+             {g.maximum_gaussian_work, g.maximum_fill_entries,
+              g.maximum_intermediate_width, g.maximum_provenance_terms,
+              g.maximum_derivations, g.maximum_retained_plan_bytes}},
+            g.maximum_certificate_work, g.maximum_events,
+            g.maximum_event_literals, g.maximum_active_clauses,
+            g.maximum_retained_source_references, p.maximum_row_tuples,
+            g.maximum_event_width, g.maximum_branch_domains,
+            p.maximum_row_width},
+           g.maximum_capture_work, p.maximum_duplicate_scan_work,
+           g.maximum_revalidation_work, g.maximum_proof_additions,
+           g.maximum_proof_literal_occurrences, p.maximum_arena_words,
+           g.maximum_journal_bytes, g.maximum_identity_bytes,
+           g.maximum_external_extent},
+          g.maximum_session_keys, g.maximum_session_work,
+          g.maximum_session_identity_bytes};
 }
 
 TseitinCycleBreakingLimits tseitin_cycle_limits(
@@ -754,6 +785,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         p && !p->valid())
       return reject("Gf3GaussianConsequence parameters are invalid");
     if (const auto *p =
+            std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("Gf3GeneralRowConsequence parameters are invalid");
+    if (const auto *p =
             std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
         p && !p->valid())
       return reject("TseitinCycleBreaking parameters are invalid");
@@ -880,6 +915,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.gf3_gaussian_instances.empty() &&
         step.rule != "Gf3GaussianConsequence")
       return reject("GF3 Gaussian identities are attached to a different rule");
+    if (!step.gf3_general_row_instances.empty() &&
+        step.rule != "Gf3GeneralRowConsequence")
+      return reject("GF3 general-row selections are attached to a different rule");
     if (!step.tseitin_cycle_instances.empty() &&
         step.rule != "TseitinCycleBreaking")
       return reject("Tseitin cycle identities are attached to a different rule");
@@ -910,6 +948,12 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         (step.gf3_gaussian_instances.size() != 1 || !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance))
       return reject("GF3 Gaussian action requires exact identity payloads");
+    if (step.rule == "Gf3GeneralRowConsequence" &&
+        (step.gf3_general_row_instances.size() != 1 ||
+         !step.instances.empty() ||
+         step.granularity != InvocationGranularity::OneInstance ||
+         step.post_application != PostApplication::Propagate))
+      return reject("GF3 general-row action requires one exact payload and Propagate follow-up");
     if (step.rule == "TseitinCycleBreaking" &&
         (step.tseitin_cycle_instances.size() != 1 || !step.instances.empty() ||
          step.granularity != InvocationGranularity::OneInstance))
@@ -933,6 +977,19 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           return reject("GF3 Gaussian identity exceeds byte limits");
         bytes += identity.size();
       }
+    }
+    if (!step.gf3_general_row_instances.empty()) {
+      const auto *p =
+          std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
+      if (!p) return reject("GF3 general-row selection has no typed limits");
+      const auto limits = gf3_general_row_limits(*p);
+      for (const auto &selection : step.gf3_general_row_instances)
+        if (!gf3_general_row_action_selection_valid(selection) ||
+            selection.identity.size() >
+                limits.live.maximum_identity_bytes ||
+            selection.identity.size() >
+                limits.maximum_session_identity_bytes)
+          return reject("GF3 general-row selection is malformed or exceeds limits");
     }
     for (const std::string &identity : step.tseitin_cycle_instances) {
       const size_t split = identity.find(':', 5);
@@ -1040,6 +1097,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.nary_csp_prefix_instances.empty() +
         !step.nary_csp_equality_instances.empty() +
         !step.gf3_gaussian_instances.empty() +
+        !step.gf3_general_row_instances.empty() +
         !step.tseitin_cycle_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
@@ -1069,6 +1127,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                            ? step.nary_csp_equality_instances.size()
                                                                      : !step.gf3_gaussian_instances.empty()
                                                                            ? step.gf3_gaussian_instances.size()
+                                                                     : !step.gf3_general_row_instances.empty()
+                                                                           ? step.gf3_general_row_instances.size()
                                                                            : step.tseitin_cycle_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
@@ -1093,6 +1153,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "NaryCspPrefix" ||
           step.rule == "NaryCspEquality" ||
           step.rule == "Gf3GaussianConsequence" ||
+          step.rule == "Gf3GeneralRowConsequence" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action requires an explicit payload");
       if (!step.instances.empty() || structured_payload_kinds)
@@ -1105,6 +1166,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "NaryCspPrefix" ||
           step.rule == "NaryCspEquality" ||
           step.rule == "Gf3GaussianConsequence" ||
+          step.rule == "Gf3GeneralRowConsequence" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured_payload_kinds)
@@ -1316,6 +1378,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.nary_csp_prefix_instances.empty() &&
         step.nary_csp_equality_instances.empty() &&
         step.gf3_gaussian_instances.empty() &&
+        step.gf3_general_row_instances.empty() &&
         step.tseitin_cycle_instances.empty()) {
       runtime.selection = step.instances;
     } else {
@@ -1339,6 +1402,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                                   ? step.nary_csp_equality_instances.size()
                                                             : !step.gf3_gaussian_instances.empty()
                                                                   ? step.gf3_gaussian_instances.size()
+                                                            : !step.gf3_general_row_instances.empty()
+                                                                  ? step.gf3_general_row_instances.size()
                                                                   : step.tseitin_cycle_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
@@ -1866,6 +1931,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<NaryCspEqualityActionResult> nary_csp_equality_application;
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
+    std::optional<Gf3GeneralRowActionResult> gf3_general_row_application;
     std::optional<TseitinCycleBreakingResult> tseitin_cycle_application;
     std::optional<SemanticVariableCandidate> deferred_semantic_candidate;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
@@ -1960,6 +2026,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           NaryCspPrefixParameters, NaryCspEqualityParameters,
           DirectPhpRefutationParameters,
           Gf3GaussianConsequenceParameters,
+          Gf3GeneralRowConsequenceParameters,
           TseitinCycleBreakingParameters,
           SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
@@ -2069,6 +2136,22 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_gf3_gaussian_action_feedback(
                       k, *gf3_gaussian_application);
                   return gf3_gaussian_application->result;
+                })
+          : !step.gf3_general_row_instances.empty()
+              ? apply_rule_structured(rule, k, "gf3-general-row", [&] {
+                  const auto &parameters =
+                      std::get<Gf3GeneralRowConsequenceParameters>(
+                          step.parameters);
+                  if (!k.gf3_general_row_action_session)
+                    return ApplyResult::NoOp;
+                  gf3_general_row_application.emplace(
+                      gf3_general_row_action_apply(
+                          k, *k.gf3_general_row_action_session,
+                          gf3_general_row_limits(parameters),
+                          step.gf3_general_row_instances[payload]));
+                  record_gf3_general_row_action_feedback(
+                      k, *gf3_general_row_application);
+                  return gf3_general_row_application->result;
                 })
           : !step.tseitin_cycle_instances.empty()
               ? apply_rule_structured_preserve_startup(
@@ -2462,6 +2545,33 @@ InvocationResult OnlineStrategyExecutor::advance(
           break;
         }
       }
+      if (gf3_general_row_application) {
+        switch (gf3_general_row_application->status) {
+        case Gf3GeneralRowActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case Gf3GeneralRowActionStatus::Inapplicable:
+        case Gf3GeneralRowActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case Gf3GeneralRowActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case Gf3GeneralRowActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case Gf3GeneralRowActionStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case Gf3GeneralRowActionStatus::NoStructure:
+        case Gf3GeneralRowActionStatus::NoConsequence:
+        case Gf3GeneralRowActionStatus::AlreadyPublished:
+        case Gf3GeneralRowActionStatus::Applied:
+          break;
+        }
+      }
       if (tseitin_cycle_application) {
         switch (tseitin_cycle_application->status) {
         case TseitinCycleBreakingStatus::Invalid:
@@ -2700,6 +2810,22 @@ InvocationResult OnlineStrategyExecutor::advance(
           SemanticVariableProducer::NaryCspEquality,
           nary_csp_equality_application->committed_action_id,
           nary_csp_equality_application->semantic_variables);
+    if (gf3_general_row_application &&
+        gf3_general_row_application->status ==
+            Gf3GeneralRowActionStatus::Applied) {
+      std::vector<SemanticVariable> variables;
+      variables.reserve(
+          gf3_general_row_application->live.semantic_variables.size());
+      for (const int32_t external :
+           gf3_general_row_application->live.semantic_variables)
+        if (external > 0)
+          variables.push_back(
+              {static_cast<uint32_t>(external),
+               SemanticVariableRole::ExistingTheory, 1});
+      publish_theory_candidate(
+          SemanticVariableProducer::Gf3GeneralRow,
+          gf3_general_row_application->committed_action_id, variables);
+    }
     out.after = state_version(k);
     runtime.expected_state = state_version(k);
     // Generated SR payloads contain only stable literal identities. A prior
@@ -2716,7 +2842,8 @@ InvocationResult OnlineStrategyExecutor::advance(
         !step.direct_csp_support_instances.empty() ||
         !step.nary_csp_prefix_instances.empty() ||
         !step.nary_csp_equality_instances.empty() ||
-        !step.gf3_gaussian_instances.empty())
+        !step.gf3_gaussian_instances.empty() ||
+        !step.gf3_general_row_instances.empty())
       runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);
     runtime.pass_progress |= out.made_rule_progress;
