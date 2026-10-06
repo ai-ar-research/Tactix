@@ -52,23 +52,29 @@ bool bounded(const MatrixRow &row, const MatrixLimits &limits) {
          row.source_equations.size() <= limits.maximum_sources;
 }
 
-bool combine(MatrixRow &row, const MatrixRow &other, const MatrixLimits &limits,
-             Work &work) {
+enum class CombineStatus { Complete, BoundedOut, Exhausted, Interrupted };
+
+CombineStatus combine(MatrixRow &row, const MatrixRow &other,
+                      const MatrixLimits &limits, Work &work) {
   if (!work.consume(1 + row.variables.size() + other.variables.size() +
                     row.source_equations.size() +
                     other.source_equations.size()))
-    return false;
+    return work.interrupted ? CombineStatus::Interrupted
+                            : CombineStatus::Exhausted;
   std::vector<External> variables;
   std::vector<size_t> sources;
   xor_sorted(row.variables, other.variables, variables);
   xor_sorted(row.source_equations, other.source_equations, sources);
+  if (variables.size() > limits.maximum_row_width ||
+      sources.size() > limits.maximum_sources)
+    return CombineStatus::BoundedOut;
   row.variables = std::move(variables);
   row.source_equations = std::move(sources);
   row.rhs ^= other.rhs;
-  return bounded(row, limits);
+  return CombineStatus::Complete;
 }
 
-MatrixStatus reduce(const std::vector<Equation> &input,
+MatrixStatus reduce(const std::vector<MatrixRow> &input,
                     const std::vector<MatrixAssignment> &trail,
                     const MatrixLimits &limits, Work &work,
                     std::vector<MatrixRow> &output) {
@@ -81,49 +87,73 @@ MatrixStatus reduce(const std::vector<Equation> &input,
 
   std::map<External, MatrixRow> basis;
   std::vector<MatrixRow> contradictions;
-  for (size_t source = 0; source < input.size(); ++source) {
+  std::set<External> admitted_variables;
+  bool partial = false;
+  for (const MatrixRow &seed : input) {
     MatrixRow row;
-    row.rhs = input[source].rhs;
-    row.source_equations.push_back(source);
-    for (External variable : input[source].variables) {
+    row.rhs = seed.rhs;
+    row.source_equations = seed.source_equations;
+    for (External variable : seed.variables) {
       const auto found = assignments.find(variable);
       if (found == assignments.end())
         row.variables.push_back(variable);
       else
         row.rhs ^= found->second;
     }
-    if (!work.consume(1 + input[source].variables.size()))
-      return work.interrupted ? MatrixStatus::Interrupted
-                              : MatrixStatus::Exhausted;
+    if (!work.consume(1 + seed.variables.size())) {
+      if (work.interrupted) return MatrixStatus::Interrupted;
+      partial = true;
+      break;
+    }
+    if (!bounded(row, limits)) {
+      partial = true;
+      continue;
+    }
 
     while (!row.variables.empty()) {
       const auto found = basis.find(row.variables.front());
       if (found == basis.end()) break;
-      if (!combine(row, found->second, limits, work))
-        return work.interrupted ? MatrixStatus::Interrupted
-                                : MatrixStatus::Exhausted;
+      const CombineStatus combined =
+          combine(row, found->second, limits, work);
+      if (combined == CombineStatus::Interrupted)
+        return MatrixStatus::Interrupted;
+      if (combined == CombineStatus::Exhausted) {
+        partial = true;
+        goto finished;
+      }
+      if (combined == CombineStatus::BoundedOut) {
+        partial = true;
+        row.variables.clear();
+        row.source_equations.clear();
+        break;
+      }
     }
-    if (!bounded(row, limits)) return MatrixStatus::Exhausted;
+    if (row.source_equations.empty()) continue;
     if (row.variables.empty()) {
-      if (row.rhs) contradictions.push_back(std::move(row));
+      if (row.rhs) {
+        if (contradictions.size() + basis.size() == limits.maximum_rows) {
+          partial = true;
+          continue;
+        }
+        contradictions.push_back(std::move(row));
+      }
       continue;
     }
 
-    // Eliminate the new pivot from every earlier row. Together with the
-    // forward reduction above this keeps the stored basis in reduced form.
-    const External pivot = row.variables.front();
-    for (auto &[old_pivot, old_row] : basis) {
-      (void)old_pivot;
-      if (!std::binary_search(old_row.variables.begin(),
-                              old_row.variables.end(), pivot))
-        continue;
-      if (!combine(old_row, row, limits, work))
-        return work.interrupted ? MatrixStatus::Interrupted
-                                : MatrixStatus::Exhausted;
+    size_t additional_variables = 0;
+    for (External variable : row.variables)
+      additional_variables += !admitted_variables.contains(variable);
+    if (additional_variables >
+            limits.maximum_variables - admitted_variables.size() ||
+        contradictions.size() + basis.size() == limits.maximum_rows) {
+      partial = true;
+      continue;
     }
-    basis.emplace(pivot, std::move(row));
+    admitted_variables.insert(row.variables.begin(), row.variables.end());
+    basis.emplace(row.variables.front(), std::move(row));
   }
 
+finished:
   output.clear();
   output.reserve(contradictions.size() + basis.size());
   for (MatrixRow &row : contradictions) output.push_back(std::move(row));
@@ -131,7 +161,14 @@ MatrixStatus reduce(const std::vector<Equation> &input,
     (void)pivot;
     output.push_back(std::move(row));
   }
-  return MatrixStatus::Complete;
+  return partial ? MatrixStatus::Partial : MatrixStatus::Complete;
+}
+
+std::vector<size_t> source_union(const std::vector<MatrixRow> &rows) {
+  std::set<size_t> sources;
+  for (const MatrixRow &row : rows)
+    sources.insert(row.source_equations.begin(), row.source_equations.end());
+  return {sources.begin(), sources.end()};
 }
 
 External false_literal(const MatrixAssignment assignment) {
@@ -198,32 +235,39 @@ MatrixStatus build_affine_matrix(
       !limits.maximum_assignments)
     return MatrixStatus::Invalid;
   if (input.empty()) return MatrixStatus::NoStructure;
-  if (input.size() > limits.maximum_rows) return MatrixStatus::Exhausted;
 
-  std::set<External> variables;
-  for (const Equation &equation : input) {
+  std::vector<MatrixRow> seeds;
+  seeds.reserve(input.size());
+  for (size_t source = 0; source < input.size(); ++source) {
+    const Equation &equation = input[source];
     if (!valid_equation(equation)) return MatrixStatus::Invalid;
-    if (equation.variables.size() > limits.maximum_row_width)
-      return MatrixStatus::Exhausted;
-    variables.insert(equation.variables.begin(), equation.variables.end());
+    MatrixRow seed;
+    seed.variables = equation.variables;
+    seed.rhs = equation.rhs;
+    seed.source_equations.push_back(source);
+    seeds.push_back(std::move(seed));
   }
-  if (variables.size() > limits.maximum_variables)
-    return MatrixStatus::Exhausted;
 
   Work work{0, limits.maximum_work, charge};
   std::vector<MatrixRow> rows;
-  const MatrixStatus status = reduce(input, {}, limits, work, rows);
-  if (status != MatrixStatus::Complete) return status;
-  if (rows.empty()) return MatrixStatus::NoStructure;
+  const MatrixStatus status = reduce(seeds, {}, limits, work, rows);
+  if (status == MatrixStatus::Interrupted || status == MatrixStatus::Invalid)
+    return status;
+  if (rows.empty())
+    return status == MatrixStatus::Partial ? MatrixStatus::Exhausted
+                                          : MatrixStatus::NoStructure;
 
   AffineMatrix candidate;
   candidate.owner_identity_ = owner_identity;
   candidate.work_ = work.used;
+  candidate.complete_admission_ = status == MatrixStatus::Complete;
   candidate.limits_ = limits;
   candidate.sources_ = input;
+  candidate.admitted_rows_ = rows;
+  candidate.admitted_sources_ = source_union(rows);
   candidate.rows_ = std::move(rows);
   output = std::move(candidate);
-  return MatrixStatus::Complete;
+  return status;
 }
 
 MatrixStatus AffineMatrix::synchronize(
@@ -235,8 +279,11 @@ MatrixStatus AffineMatrix::synchronize(
 
   Work work{0, limits_.maximum_work, charge};
   std::vector<MatrixRow> rows;
-  const MatrixStatus status = reduce(sources_, trail, limits_, work, rows);
-  if (status != MatrixStatus::Complete) return status;
+  const MatrixStatus status = reduce(admitted_rows_, trail, limits_, work, rows);
+  if (status != MatrixStatus::Complete && status != MatrixStatus::Partial)
+    return status;
+  if (rows.empty() && status == MatrixStatus::Partial)
+    return MatrixStatus::Exhausted;
 
   MatrixEvent candidate = find_event(rows);
   make_reason(sources_, trail, candidate);
@@ -247,7 +294,7 @@ MatrixStatus AffineMatrix::synchronize(
   else
     work_ += work.used;
   event = std::move(candidate);
-  return MatrixStatus::Complete;
+  return status;
 }
 
 bool AffineMatrix::authenticates(
@@ -279,6 +326,8 @@ bool AffineMatrix::authenticates(
     return false;
   for (size_t source : expected.row.source_equations)
     if (source >= sources_.size() ||
+        !std::binary_search(admitted_sources_.begin(),
+                            admitted_sources_.end(), source) ||
         !charge(sources_[source].variables.size()))
       return false;
   make_reason(sources_, trail_, expected);
