@@ -38,8 +38,18 @@ LSR streams UNSAT.  The fixture CNF is `75c4df72...`, provenance is
 `dabb75a1...`, forward LSR is `7824e9b5...`, and backward LSR is `e2ac1da1...`;
 full hashes remain in the immutable job artifact manifest.
 
-This establishes correctness and public reach, not a target recovery.  A
-short causal Rank401 probe must show whether the three new binaries produce
-useful propagation or reduce search before promotion.  Effective both-policy
-fuzz, full Debug and the four regression campaigns remain open for the next
-coherent integration checkpoint.
+This establishes correctness and public reach, not a target recovery.
+Follow-up CPU-Q array job `1751018` used source `0af5009ee` and the explicit
+ordered SR/X17/equality startup prefix for a 30-second Rank401 comparison.
+Both arms remained UNKNOWN.  The X20 arm applied two AMO actions, reduced
+conflicts from 141,860 to 75,697 and reduced the raw DSR from 9,867,400 to
+4,753,514 bytes.  It also selected eight rather than eleven later X17 prefix
+actions because adding X20 changes the random controller's eligible-action
+trajectory.  The result is therefore promising integrated behavior, not an
+isolated causal estimate and not grounds for DefaultPolicy promotion.
+Focused CPU-Q job `1751020` independently rebuilt the same immutable source
+and passed `controller_native_producers` 1/1, including explicit X20 selection,
+`all`, configuration fingerprinting and replay; the Debug binary SHA-256 is
+`7f20f153...`.
+Effective both-policy fuzz, full Debug and the four regression campaigns
+remain open for the next coherent integration checkpoint.
