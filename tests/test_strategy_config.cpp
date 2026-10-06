@@ -3,15 +3,42 @@
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/reduce/reduce.hpp"
+#include "rules/semantic_extension/affine_image.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <cassert>
 #include <bit>
+#include <cstdio>
 #include <cstdlib>
 #include <limits>
 #include <string>
 #include <vector>
 
 using namespace tactix;
+
+static void add_affine_equation(Kernel &k,
+                                const std::vector<int32_t> &variables,
+                                bool rhs) {
+  using affine_semantic_extension::clausal_form;
+  for (const auto &external : clausal_form(variables, rhs)) {
+    std::vector<Lit> clause;
+    for (const int32_t literal : external)
+      clause.push_back(kernel_internalize(k, literal));
+    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0,
+                            ++k.next_clause_id);
+  }
+}
+
+static void add_root_affine_contradiction(Kernel &k) {
+  kernel_reserve_vars(k, 4);
+  add_affine_equation(k, {1, 2, 3}, false);
+  add_affine_equation(k, {1, 2, 4}, false);
+  for (const int32_t external : {-3, 4}) {
+    const Lit unit = kernel_internalize(k, external);
+    k.unit_ids[var_of(unit)] = ++k.next_clause_id;
+    kernel_assign_unit(k, unit);
+  }
+}
 
 static void add_affine_model_fixture(Kernel &k) {
   kernel_reserve_vars(k, 5);
@@ -99,6 +126,11 @@ int main() {
   assert(default_snapshot.find("affine_model.enabled=1") != std::string::npos);
   assert(default_snapshot.find("affine_model.parameters=") !=
          std::string::npos);
+  assert(default_snapshot.find("affine_root_closure.enabled=1") !=
+         std::string::npos);
+  assert(default_snapshot.find(
+             "affine_root_closure.maximum_basis_work=100000000") !=
+         std::string::npos);
   for (const auto &step : defaults.inprocess.program)
     assert(step.rule != "Lucky");
   for (const auto *stages : {&defaults.inprocess.structured_root_stages,
@@ -173,6 +205,7 @@ int main() {
     assert(DefaultPolicy(defaults).solve(production) == 10);
     assert(production.stats.affine_model_calls == 1);
     assert(production.stats.graph_labeling_calls == 0);
+    assert(production.stats.affine_matrix_init_attempts == 0);
 
     DefaultStrategyConfig affine_disabled = defaults;
     affine_disabled.affine_model.enabled = false;
@@ -195,6 +228,25 @@ int main() {
     assert(DefaultPolicy(graph_enabled).solve(graph) == 10);
     assert(graph.stats.affine_model_calls == 1);
     assert(graph.stats.graph_labeling_calls == 1);
+  }
+  {
+    // DefaultPolicy schedules the same authenticated matrix service before
+    // formula-mutating startup passes, but only for a complete affine image.
+    DefaultStrategyConfig config = defaults;
+    config.affine_model.enabled = false;
+    Kernel affine;
+    AffineMatrixSearchSession session;
+    affine.affine_matrix_search_session = &session;
+    FILE *journal = std::tmpfile();
+    assert(journal);
+    affine.structural_provenance = journal;
+    add_root_affine_contradiction(affine);
+    assert(DefaultPolicy(config).solve(affine) == 20);
+    assert(affine.stats.affine_matrix_init_attempts == 1 &&
+           affine.stats.affine_matrix_init_applied == 1 &&
+           affine.stats.affine_matrix_service_applied == 1 &&
+           affine.stats.decisions == 0 && affine.stats.conflicts == 1);
+    std::fclose(journal);
   }
   {
     // The accepted Rank-50 behavior depends on Lucky 8 being a real

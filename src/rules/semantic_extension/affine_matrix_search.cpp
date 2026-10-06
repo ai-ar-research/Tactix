@@ -17,6 +17,22 @@ bool add(uint64_t amount, uint64_t maximum, uint64_t &work) {
   return true;
 }
 
+bool covers_complete_snapshot(const AffineLiveSnapshot &owner,
+                              const Image &image, uint64_t expected_clauses,
+                              uint64_t &covered) {
+  covered = 0;
+  std::vector<uint8_t> seen(owner.premises.size());
+  for (const Equation &equation : image.equations)
+    for (const uint64_t occurrence : equation.premises) {
+      if (!occurrence || occurrence > seen.size() || seen[occurrence - 1])
+        return false;
+      seen[occurrence - 1] = 1;
+      ++covered;
+    }
+  return owner.premises.size() == expected_clauses &&
+         covered == owner.premises.size();
+}
+
 MatrixLimits matrix_limits(const strategy::AffineConsequenceParameters &p) {
   return {p.basis_maximum_work,
           p.basis_maximum_nodes,
@@ -157,6 +173,10 @@ void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
     ++kernel.stats.affine_matrix_init_applied;
   if (result.status == AffineMatrixInitStatus::AppliedPartial)
     ++kernel.stats.affine_matrix_init_applied_partial;
+  else if (result.status == AffineMatrixInitStatus::IncompleteImage)
+    ++kernel.stats.affine_matrix_init_incomplete_image;
+  else if (result.status == AffineMatrixInitStatus::IncompleteMatrix)
+    ++kernel.stats.affine_matrix_init_incomplete_matrix;
   else if (result.status == AffineMatrixInitStatus::ResourceExhausted)
     ++kernel.stats.affine_matrix_init_exhausted;
   else if (result.status == AffineMatrixInitStatus::Interrupted)
@@ -261,7 +281,8 @@ RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
 
 AffineMatrixInitResult affine_matrix_search_initialize(
     Kernel &kernel, AffineMatrixSearchSession &session,
-    const strategy::AffineConsequenceParameters &parameters) {
+    const strategy::AffineConsequenceParameters &parameters,
+    AffineMatrixAdmission admission) {
   AffineMatrixInitResult result;
   if (!affine_matrix_initialize_guard(kernel)) {
     result.status = AffineMatrixInitStatus::Inapplicable;
@@ -270,7 +291,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
   if (!parameters.valid() ||
       parameters.semantics !=
-          strategy::AffineConsequenceSemantics::CertifiedBasisV2) {
+          strategy::AffineConsequenceSemantics::CertifiedBasisV2 ||
+      (admission != AffineMatrixAdmission::AuthenticatedSubimage &&
+       admission != AffineMatrixAdmission::CompleteSnapshot)) {
     record_init(kernel, result);
     return result;
   }
@@ -337,6 +360,19 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     return result;
   }
 
+  if (admission == AffineMatrixAdmission::CompleteSnapshot &&
+      !covers_complete_snapshot(owner, image,
+                                kernel_irredundant_clauses(kernel),
+                                result.covered_clauses)) {
+    result.status = AffineMatrixInitStatus::IncompleteImage;
+    record_init(kernel, result);
+    return result;
+  }
+  if (admission == AffineMatrixAdmission::AuthenticatedSubimage)
+    (void)covers_complete_snapshot(owner, image,
+                                   kernel_irredundant_clauses(kernel),
+                                   result.covered_clauses);
+
   AffineMatrix matrix;
   uint64_t matrix_work = 0;
   bool matrix_exhausted = false;
@@ -364,6 +400,15 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     if (result.status == AffineMatrixInitStatus::NoStructure ||
         result.status == AffineMatrixInitStatus::ResourceExhausted)
       session.remember_terminal_initialization_failure(kernel, parameters);
+    record_init(kernel, result);
+    return result;
+  }
+  if (admission == AffineMatrixAdmission::CompleteSnapshot &&
+      built != MatrixStatus::Complete) {
+    result.status = AffineMatrixInitStatus::IncompleteMatrix;
+    result.equations = image.equations.size();
+    result.rows = matrix.rows().size();
+    result.admitted_sources = matrix.admitted_sources().size();
     record_init(kernel, result);
     return result;
   }

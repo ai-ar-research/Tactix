@@ -46,6 +46,7 @@
 #include "rules/lucky/signed_cardinality_proof.hpp"
 #include "rules/lucky/exact_cover_model.hpp"
 #include "rules/lucky/independent_set_model.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -73,6 +74,168 @@
 namespace tactix {
 
 namespace {
+
+uint64_t saturated_sum(uint64_t first, uint64_t second) {
+  return first > UINT64_MAX - second ? UINT64_MAX : first + second;
+}
+
+uint64_t affine_init_work(const Kernel &kernel) {
+  return saturated_sum(
+      saturated_sum(kernel.stats.affine_matrix_init_snapshot_work,
+                    kernel.stats.affine_matrix_init_recognition_work),
+      kernel.stats.affine_matrix_init_matrix_work);
+}
+
+uint64_t affine_service_work(const Kernel &kernel) {
+  uint64_t result = kernel.stats.affine_matrix_service_trail_capture_work;
+  for (const uint64_t value : {
+           kernel.stats.affine_matrix_service_sync_work,
+           kernel.stats.affine_matrix_service_session_work,
+           kernel.stats.affine_matrix_service_planner_work,
+           kernel.stats.affine_matrix_service_revalidation_work})
+    result = saturated_sum(result, value);
+  return result;
+}
+
+std::optional<strategy::AffineConsequenceParameters>
+default_affine_root_parameters(
+    const Kernel &kernel,
+    const DefaultStrategyConfig::AffineRootClosure &config) {
+  const uint64_t clauses = kernel_irredundant_clauses(kernel);
+  const uint64_t extent = kernel.external_to_internal.size();
+  if (!config.enabled || !clauses || clauses > config.maximum_clauses ||
+      clauses > UINT32_MAX || clauses > UINT64_MAX / 3 ||
+      extent > uint64_t{INT32_MAX} ||
+      config.maximum_proof_additions > uint64_t{INT32_MAX} - extent)
+    return std::nullopt;
+
+  strategy::AffineConsequenceParameters result;
+  result.maximum_clauses = clauses;
+  result.maximum_snapshot_literals = 3 * clauses;
+  // The same allowance covers capture and later exact source/matrix
+  // revalidation. Capture itself is bounded by 7*clauses for the admitted
+  // ternary shape; the checked target profile supplies the larger ceiling.
+  result.maximum_snapshot_work = config.maximum_snapshot_work;
+  result.maximum_groups = clauses;
+  result.maximum_patterns = clauses;
+  result.maximum_elimination_work = config.maximum_recognition_work;
+  result.maximum_arity = 3;
+  result.maximum_intermediate_width = config.maximum_row_width;
+  result.maximum_sources = static_cast<uint32_t>(clauses);
+  result.maximum_output_width = 4;
+  result.maximum_proof_additions = config.maximum_proof_additions;
+  result.maximum_proof_deletions = config.maximum_proof_deletions;
+  result.maximum_journal_bytes = config.maximum_journal_bytes;
+  result.semantics = strategy::AffineConsequenceSemantics::CertifiedBasisV2;
+  result.basis_maximum_work = config.maximum_basis_work;
+  result.basis_maximum_intermediate_width = config.maximum_row_width;
+  // No GF(2) derivation can cite more recovered source equations than the
+  // exact live clause population from which those equations were recognized.
+  result.basis_maximum_sources = static_cast<uint32_t>(clauses);
+  result.basis_maximum_premises = static_cast<uint32_t>(clauses);
+  result.basis_maximum_nodes = static_cast<uint32_t>(clauses);
+  result.basis_maximum_direct_width = 3;
+  result.maximum_external_extent = static_cast<uint32_t>(
+      extent + config.maximum_proof_additions);
+  result.maximum_session_keys = clauses;
+  result.maximum_session_work = config.maximum_session_work;
+  if (!result.valid()) return std::nullopt;
+  return result;
+}
+
+strategy::controller::FeedbackOutcome affine_init_outcome(
+    const AffineMatrixInitResult &result) {
+  using strategy::InvocationStatus;
+  strategy::controller::FeedbackOutcome out;
+  auto &inv = out.invocation;
+  inv.rule_result = result.result;
+  inv.applications = result.status == AffineMatrixInitStatus::Applied ||
+                     result.status == AffineMatrixInitStatus::AppliedPartial;
+  inv.made_rule_progress = inv.applications;
+  inv.selection_complete = true;
+  switch (result.status) {
+  case AffineMatrixInitStatus::Applied:
+  case AffineMatrixInitStatus::AppliedPartial:
+    inv.status = InvocationStatus::Completed;
+    break;
+  case AffineMatrixInitStatus::NoStructure:
+  case AffineMatrixInitStatus::IncompleteImage:
+  case AffineMatrixInitStatus::IncompleteMatrix:
+    inv.status = InvocationStatus::NoChange;
+    break;
+  case AffineMatrixInitStatus::Inapplicable:
+    inv.status = InvocationStatus::Inapplicable;
+    break;
+  case AffineMatrixInitStatus::ResourceExhausted:
+    inv.status = InvocationStatus::ResourceExhausted;
+    break;
+  case AffineMatrixInitStatus::Interrupted:
+    inv.status = InvocationStatus::Interrupted;
+    break;
+  case AffineMatrixInitStatus::Stale:
+    inv.status = InvocationStatus::StaleRequest;
+    break;
+  case AffineMatrixInitStatus::Invalid:
+    inv.status = InvocationStatus::InvalidRequest;
+    break;
+  }
+  return out;
+}
+
+strategy::controller::FeedbackOutcome affine_service_outcome(
+    const AffineMatrixServiceResult &result,
+    strategy::controller::NativeActionDescription &description) {
+  using strategy::InvocationStatus;
+  description.affine_matrix_status = static_cast<uint8_t>(result.status);
+  description.affine_matrix_event_identity = result.event_identity;
+  description.affine_matrix_synchronization_work =
+      result.synchronization_work;
+  description.affine_matrix_session_work = result.session_work;
+  description.affine_matrix_reason_width = result.reason_width;
+  description.affine_matrix_planner_work = result.live.planner_work;
+  description.affine_matrix_revalidation_work =
+      result.live.revalidation_work;
+  description.affine_matrix_proof_additions = result.live.additions;
+  description.affine_matrix_proof_deletions = result.live.deletions;
+  description.affine_matrix_helper_extent = result.live.helper_extent;
+  description.affine_matrix_journal_bytes = result.live.journal_bytes;
+  description.affine_matrix_bcp_pending = result.bcp_pending;
+
+  strategy::controller::FeedbackOutcome out;
+  auto &inv = out.invocation;
+  inv.rule_result = result.result;
+  inv.work = result.synchronization_work;
+  inv.applications = result.status == AffineMatrixServiceStatus::Applied;
+  inv.made_rule_progress = inv.applications;
+  inv.selection_complete = true;
+  switch (result.status) {
+  case AffineMatrixServiceStatus::Applied:
+    inv.status = InvocationStatus::Completed;
+    break;
+  case AffineMatrixServiceStatus::Disabled:
+  case AffineMatrixServiceStatus::NoEvent:
+  case AffineMatrixServiceStatus::Duplicate:
+    inv.status = InvocationStatus::NoChange;
+    break;
+  case AffineMatrixServiceStatus::Inapplicable:
+  case AffineMatrixServiceStatus::UnsupportedProof:
+    inv.status = InvocationStatus::Inapplicable;
+    break;
+  case AffineMatrixServiceStatus::ResourceExhausted:
+    inv.status = InvocationStatus::ResourceExhausted;
+    break;
+  case AffineMatrixServiceStatus::Interrupted:
+    inv.status = InvocationStatus::Interrupted;
+    break;
+  case AffineMatrixServiceStatus::Stale:
+    inv.status = InvocationStatus::StaleRequest;
+    break;
+  case AffineMatrixServiceStatus::Invalid:
+    inv.status = InvocationStatus::InvalidRequest;
+    break;
+  }
+  return out;
+}
 
 bool is_affine_structured_step(const strategy::OnlineInvocation &step) {
   return step.id == 109 && step.rule == "Lucky" && step.instances.size() == 1 &&
@@ -189,6 +352,76 @@ ApplyResult default_propagate(Kernel &k, const char *candidate,
       heuristics_consume_root_assignments(k, trail_begin);
     return result;
   });
+}
+
+ApplyResult default_affine_root_closure(
+    Kernel &kernel, const DefaultStrategyConfig::AffineRootClosure &config,
+    PolicyCompletion *completion) {
+  const auto selected = default_affine_root_parameters(kernel, config);
+  if (!selected || !kernel.affine_matrix_search_session ||
+      !kernel.structural_provenance)
+    return ApplyResult::Ok;
+
+  execution::execute_action(
+      kernel, execution::ParameterInstallationRequest{*selected}, completion,
+      "AffineMatrixInitialize");
+  const uint64_t init_allowance = saturated_sum(
+      saturated_sum(selected->maximum_snapshot_work,
+                    selected->maximum_elimination_work),
+      selected->basis_maximum_work);
+  const AffineMatrixInitResult initialized = execution::complete_action(
+      completion, FeedbackKind::Rule, "AffineMatrixInitialize",
+      INSTANCE_CANONICAL,
+      [&] {
+        return execution::native_rule_feedback(
+            kernel, "AffineMatrixInitialize", INSTANCE_CANONICAL,
+            "default-root-complete-snapshot", affine_init_work,
+            "affine-initialization-work",
+            strategy::WorkLimit::bounded(init_allowance));
+      },
+      [&] {
+        return affine_matrix_search_initialize(
+            kernel, *kernel.affine_matrix_search_session, *selected,
+            AffineMatrixAdmission::CompleteSnapshot);
+      },
+      affine_init_outcome);
+  if (initialized.status != AffineMatrixInitStatus::Applied)
+    return ApplyResult::Ok;
+
+  for (;;) {
+    const AffineMatrixServiceResult service = execution::complete_action(
+        completion, FeedbackKind::SearchService, "AffineMatrixSearch",
+        INSTANCE_CANONICAL,
+        [&] {
+          execution::NativeFeedbackSpec spec;
+          spec.meter = affine_service_work;
+          spec.description.version = 2;
+          spec.description.description =
+              "default-root-complete-snapshot-fixpoint";
+          spec.description.effort_currency = "affine-matrix-work";
+          spec.description.effort_allowance = strategy::WorkLimit::bounded(
+              selected->basis_maximum_work);
+          spec.description.have_affine_matrix_event = true;
+          return spec;
+        },
+        [&] {
+          return affine_matrix_search_step(
+              kernel, *kernel.affine_matrix_search_session);
+        },
+        affine_service_outcome);
+    if (service.status == AffineMatrixServiceStatus::Applied) {
+      if (!service.bcp_pending) std::abort();
+      const ApplyResult propagated =
+          default_propagate(kernel, "affine-matrix-root", completion);
+      if (propagated != ApplyResult::Ok) return propagated;
+      continue;
+    }
+    // This startup schedule deliberately retains no dormant matrix. Future
+    // learned policies may initialize the same public action again after an
+    // explicit root transition with their own interval and effort choice.
+    kernel.affine_matrix_search_session->disable();
+    return ApplyResult::Ok;
+  }
 }
 
 template <LuckyOpportunity Opportunity>
@@ -599,6 +832,16 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("exact-cover-model settings are invalid");
   if (!ramsey_startup.parameters.valid())
     return reject("ramsey-startup settings are invalid");
+  if (!affine_root_closure.maximum_clauses ||
+      !affine_root_closure.maximum_snapshot_work ||
+      !affine_root_closure.maximum_recognition_work ||
+      !affine_root_closure.maximum_basis_work ||
+      affine_root_closure.maximum_row_width < 3 ||
+      !affine_root_closure.maximum_proof_additions ||
+      !affine_root_closure.maximum_proof_deletions ||
+      !affine_root_closure.maximum_journal_bytes ||
+      !affine_root_closure.maximum_session_work)
+    return reject("affine-root-closure settings are invalid");
   if (!graph_labeling_model.parameters.valid())
     return reject("graph-labeling settings are invalid");
   if (!independent_set_model.parameters.valid())
@@ -1011,6 +1254,25 @@ std::string DefaultStrategyConfig::serialize() const {
     program.sequence.push_back(std::move(invocation));
     out << " ramsey_startup.parameters=" << strategy::serialize_online_strategy_program(program);
   }
+  out << " affine_root_closure.enabled=" << affine_root_closure.enabled
+      << " affine_root_closure.maximum_clauses="
+      << affine_root_closure.maximum_clauses
+      << " affine_root_closure.maximum_snapshot_work="
+      << affine_root_closure.maximum_snapshot_work
+      << " affine_root_closure.maximum_recognition_work="
+      << affine_root_closure.maximum_recognition_work
+      << " affine_root_closure.maximum_basis_work="
+      << affine_root_closure.maximum_basis_work
+      << " affine_root_closure.maximum_row_width="
+      << affine_root_closure.maximum_row_width
+      << " affine_root_closure.maximum_proof_additions="
+      << affine_root_closure.maximum_proof_additions
+      << " affine_root_closure.maximum_proof_deletions="
+      << affine_root_closure.maximum_proof_deletions
+      << " affine_root_closure.maximum_journal_bytes="
+      << affine_root_closure.maximum_journal_bytes
+      << " affine_root_closure.maximum_session_work="
+      << affine_root_closure.maximum_session_work;
   out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
   {
     strategy::OnlineStrategyProgram graph;
@@ -3652,6 +3914,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ApplyResult startup = default_propagate(k, "startup", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
+  const ApplyResult affine_root = default_affine_root_closure(
+      k, config_.affine_root_closure, completion_);
+  if (affine_root == ApplyResult::Unsat ||
+      affine_root == ApplyResult::Conflict)
+    return finish(20);
+  if ((stop && *stop) || (k.stop && *k.stop)) return finish(0);
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");

@@ -118,6 +118,27 @@ static void test_completion_accounting() {
   const auto &unmetered = capture.actions.back();
   assert(unmetered.native_request->effort_currency == "ticks" &&
          unmetered.native_request->work == 3);
+  enabled.execute(FeedbackKind::SearchService, "dynamic-native", 0,
+      [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.version = 2;
+        spec.description.description = "result-populated-native-description";
+        spec.description.effort_currency = "applications";
+        spec.description.have_affine_matrix_event = true;
+        return spec;
+      }, [] { return uint8_t{7}; },
+      [](uint8_t result, NativeActionDescription &description) {
+        description.affine_matrix_status = result;
+        description.affine_matrix_event_identity = "event-after-apply";
+        FeedbackOutcome outcome;
+        outcome.invocation.status = InvocationStatus::Completed;
+        outcome.invocation.selection_complete = true;
+        return outcome;
+      });
+  const auto &dynamic = *capture.actions.back().native_request;
+  assert(dynamic.version == 2 && dynamic.have_affine_matrix_event &&
+         dynamic.affine_matrix_status == 7 &&
+         dynamic.affine_matrix_event_identity == "event-after-apply");
   assert(!unmetered.outcome.invocation.work && !unmetered.outcome.invocation.applications &&
          !unmetered.outcome.invocation.made_rule_progress);
   enabled.execute(FeedbackKind::Support, "native-composition", 0,

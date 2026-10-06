@@ -80,7 +80,13 @@ public:
     const uint64_t stop_fires = kernel_.stats.stop_fuzz_fires;
     return session_.execute(kind, identity, instance, [&] { return observe(); },
         std::forward<Apply>(apply), nullptr, nullptr, [&](const auto &result) {
-          auto outcome = describe(result);
+          auto outcome = [&] {
+            if constexpr (std::is_invocable_v<Describe &, decltype(result),
+                                              NativeActionDescription &>)
+              return describe(result, spec.description);
+            else
+              return describe(result);
+          }();
           // Support transactions prepare/publish native execution; they are
           // not additional registered-rule applications. Keep their measured
           // work and state deltas, without inheriting the generic Ok result's
