@@ -75,6 +75,13 @@ public:
   uint64_t synchronization_allowance() const {
     return parameters_.basis_maximum_work;
   }
+  // A terminal initialization failure is stable while both the root formula
+  // and its explicit resource profile are unchanged.  The policy can then
+  // stop offering the same expensive no-op until useful state or allowance
+  // changes.
+  bool initialization_retry_suppressed(
+      const Kernel &,
+      const strategy::AffineConsequenceParameters &) const;
 
 private:
   friend AffineMatrixInitResult affine_matrix_search_initialize(
@@ -82,6 +89,9 @@ private:
       const strategy::AffineConsequenceParameters &);
   friend AffineMatrixServiceResult affine_matrix_search_step(
       Kernel &, AffineMatrixSearchSession &);
+
+  void remember_terminal_initialization_failure(
+      const Kernel &, const strategy::AffineConsequenceParameters &);
 
   const Kernel *owner_ = nullptr;
   uint64_t owner_version_ = 0;
@@ -93,6 +103,14 @@ private:
   affine_semantic_extension::Image image_;
   affine_semantic_extension::AffineMatrix matrix_;
   std::vector<std::string> published_;
+  const Kernel *failed_owner_ = nullptr;
+  uint64_t failed_arena_generation_ = 0;
+  uint64_t failed_touch_epoch_ = 0;
+  uint64_t failed_touch_fixed_head_ = 0;
+  uint64_t failed_trail_size_ = 0;
+  uint64_t failed_next_clause_id_ = 0;
+  strategy::AffineConsequenceParameters failed_parameters_;
+  bool have_terminal_initialization_failure_ = false;
 };
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &);

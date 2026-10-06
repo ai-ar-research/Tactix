@@ -224,6 +224,11 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
       entry.reason = "not-a-consistent-root-boundary";
     else if (!rule.guard(k))
       entry.reason = "guard-false";
+    else if (std::string_view(rule.name) == "AffineMatrixInitialize" &&
+             k.affine_matrix_search_session &&
+             k.affine_matrix_search_session->initialization_retry_suppressed(
+                 k, config.parameters.affine_consequence_reference))
+      entry.reason = "unchanged-terminal-initialization";
     else if ((std::string_view(rule.name) == "Condition" ||
               std::string_view(rule.name) == "IndependentSetCover" ||
               std::string_view(rule.name) == "AffineConsequence" ||
