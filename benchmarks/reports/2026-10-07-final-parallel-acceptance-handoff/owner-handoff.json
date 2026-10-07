@@ -1,0 +1,98 @@
+{
+  "duration_api_ms": 2709888,
+  "stop_reason": "end_turn",
+  "session_id": "4109784f-d61a-4bd4-8f29-8f842447ddc7",
+  "total_cost_usd": 30.751983200000005,
+  "usage": {
+    "input_tokens": 36,
+    "cache_creation_input_tokens": 34468,
+    "cache_read_input_tokens": 9382336,
+    "output_tokens": 22948,
+    "output_tokens_details": {
+      "thinking_tokens": 5181
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 34468,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1233,
+        "cache_read_input_tokens": 535778,
+        "cache_creation_input_tokens": 433,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 433
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 410,
+      "outputTokens": 219544,
+      "thinkingTokens": 66015,
+      "cacheReadInputTokens": 65120356,
+      "cacheCreationInputTokens": 1666924,
+      "webSearchRequests": 0,
+      "costUSD": 30.751983200000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 19,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "Durable handoff: 76e1f68b8 is not accepted yet, and no solver failure has been found on either 938a6ae6b or 76e1f68b8 so far.\n\n**Risk assessment.** The final change makes shared X17 prefix capture charge and check for interruption before it allocates. A stopped meter now returns Interrupted or ResourceExhausted instead of Invalid. Every X17/X18/X20 capture site calls this code: the prefix action, the equality native-offer recheck and live apply, and X20 apply. That shifts recognition-work counts and changes when budgets run out and where interruption lands across the whole chain, including native producers. So the 938a6ae6b evidence can't stand in for the final source, and I'm running fresh broad and targeted coverage on 76e1f68b8. DefaultPolicy, the affine path and the default random controller (producers off) don't reach this code. On that basis the 4096d41b3 L1/L2, matrix and affine/predecessor evidence remains applicable. The verdict will state this as a source-reachability argument.\n\n**Final campaign `benchmarks/runs/20261007-prefix-meter-76e1f68b8-fuzz-owner`:**\n- **Frozen inputs:** archive `c2ffe893\u2026`.\n  - ASan pin `build/pin-prefix-meter-76e1f68b8-asan`, tactix `1ec6b0da\u2026`\n  - Release pin `build/pin-prefix-meter-76e1f68b8-rel`, tactix `8452684d\u2026`\n  - Driver `build/pin-prefix-meter-76e1f68b8-drv/x20drv`, `b218066a\u2026`\n  - Frozen checkers `895f1989\u2026`; storage 410 GiB, under the 700 GB gate.\n- **Driver extensions:**\n  - **Recognition-budget sweeps** on the X17 prefix and X18 equality actions (allowance r, 2r, 4r, \u2026 until it applies). Every decline must be exactly ResourceExhausted, never Invalid, with no state change, then a fresh allowance must apply.\n  - **Deterministic interruption** at those two actions: Interrupted, no change, then a fresh call applies.\n  - **X20 recognition-budget sweep** through the controller, with the selection retained until it commits.\n  - The earlier statuses, retry, duplicate/missing, and invalid/LRAT zero-attempt checks are kept.\n- **Jobs on cpu-dense-hwulab-q, full width, no throttle or node constraint:**\n  - **1751519:** final-source smoke calibration, 180 tasks, labelled and not counted. It runs at 90 CPU/200000M/1 h, sized from the measured 19.6 GB peak, so it fits beside the two live 938a6ae6b jobs.\n  - **1751520:** broad leg L4, the random controller with the nary-csp, nary-csp-equality and nary-csp-equality-amo producers on, 100,010 fresh seeds plus the corpus. It is needed because the old native random leg can't cover the new metering.\n  - **Next:** submit `targeted/full.sbatch`, the full targeted run of 6,914 tasks on snapshot `05b17e44\u2026`, once smoke is clean.\n\n**938a6ae6b campaign:** jobs 1751515 and 1751516 are still running and untouched. I'll grade them as intermediate evidence only; they don't cover the metering change.\n\n`IN_FLIGHT.md` and `COVERAGE_PLAN.md` in the campaign directory hold all hashes, seed ranges and minimums. Skipped, unreachable, timed-out and deliberately stopped rows will not count as checked acceptance.",
+  "ttft_ms": 6408,
+  "type": "result",
+  "duration_ms": 1148021,
+  "uuid": "858b5b83-3be8-4da0-ab2d-7a28bff26205",
+  "ttft_stream_ms": 4001,
+  "time_to_request_ms": 1076,
+  "first_content_frame_ms": 4002,
+  "queued_turn_count": 0,
+  "result_index": 1
+}
