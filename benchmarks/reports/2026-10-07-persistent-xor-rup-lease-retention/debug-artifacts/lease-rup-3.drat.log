@@ -1,0 +1,11 @@
+c parsing input formula with 4 variables and 2 clauses
+c finished parsing
+c start forward verification
+c 1 of 2 clauses in core                            
+c 1 of 2 lemmas in core using 1 resolution steps
+c 0 RAT lemmas in core; 0 redundant literals in core lemmas
+c optimized proofs are not supported for forward checking
+c VERIFIED derivation: all lemmas preserve satisfiability
+c WARNING: no empty clause detected, this is not a refutation
+s DERIVATION
+c verification time: 0.044 seconds

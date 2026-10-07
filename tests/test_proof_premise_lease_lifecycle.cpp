@@ -8,8 +8,12 @@
 using namespace tactix;
 namespace {
 struct Observer final:PopulationObserver {
-  uint64_t events=0;
-  void observe(const CheckerPopulationEvent &) noexcept override {++events;}
+  uint64_t events=0,adds=0;
+  CheckerClauseRole last_add_role=CheckerClauseRole::None;
+  void observe(const CheckerPopulationEvent &event) noexcept override {
+   ++events;
+   if(event.kind==CheckerPopulationEventKind::Add){++adds;last_add_role=event.role;}
+  }
 };
 std::string contents(const std::string &path){
  FILE *f=std::fopen(path.c_str(),"rb");assert(f);std::string bytes;char buffer[256];
@@ -107,6 +111,35 @@ void bounded_deletions(ProofFormat format){
  }
  std::remove(path.c_str());
 }
+void witnessless_rup(ProofFormat format,const char *prefix){
+ const std::string stem=prefix?std::string(prefix)+"-rup-"+std::to_string(unsigned(format)):
+     "/tmp/tactix-lease-rup-"+std::to_string(getpid())+"-"+std::to_string(unsigned(format));
+ const std::string cnf=stem+".cnf",path=stem+".proof";
+ FILE *input=std::fopen(cnf.c_str(),"wb");assert(input);
+ assert(std::fputs("p cnf 4 2\n1 2 0\n3 4 0\n",input)>=0);assert(!std::fclose(input));
+ Proof p;assert(p.open(path.c_str(),format));Observer observer;p.bind_population_observer(&observer);
+ const Lit body[]={internalize(1),internalize(2)},other[]={internalize(3),internalize(4)};
+ p.seed_population(1,body,2);p.seed_population(2,other,2);p.arm_population_shadow();
+ std::vector<uint64_t> handles;
+ assert(p.retain_premise_groups({{{1,2}},{{3,4}}},8,100,100000,
+     [](uint64_t){return true;},handles,{4,100}));
+ p.del(3,1,body,2);p.del(4,2,other,2);
+ const auto epoch=p.premise_epoch(),pending=p.premise_pending_deletions();
+ const auto literal_work=p.premise_pending_literal_work(),events=observer.events,adds=observer.adds;
+ const DsrLiteralMapping identity{internalize(1),internalize(1)};const Lit metadata=internalize(3);
+ assert(plan_dsr_witness(body,2,&metadata,1,&identity,1).form==DsrWitnessForm::Rup);
+ if(format==ProofFormat::DsrAscii || format==ProofFormat::DsrBinary)
+  assert(p.add_sr(5,body,2,&metadata,1,&identity,1,4));
+ else p.add_rup(5,body,2,nullptr,0);
+ assert(p.premise_epoch()==epoch && p.premise_pending_deletions()==pending);
+ assert(p.premise_pending_literal_work()==literal_work && pending==2);
+ assert(p.premise_group_active(handles[0]) && p.premise_group_active(handles[1]));
+ assert(observer.events==events+1 && observer.adds==adds+1 && observer.last_add_role==CheckerClauseRole::Rup);
+ assert(!p.population_shadow_available() || (p.population_contains(1,body,2) && p.population_contains(2,other,2)));
+ p.release_premise_groups(handles,6);p.flush();assert(!p.unbacked_deletions());
+ p.bind_population_observer(nullptr);
+ if(!prefix){std::remove(path.c_str());std::remove(cnf.c_str());}
+}
 void format_boundaries(){
  const std::string path="/tmp/tactix-lease-routes-"+std::to_string(getpid());
  {Proof p;assert(p.open(path.c_str(),ProofFormat::Lrat));std::vector<uint64_t> handles{77};
@@ -129,9 +162,9 @@ void format_boundaries(){
  std::remove(path.c_str());
 }
 }
-int main(){
+int main(int argc,char **argv){
  for(auto f:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii,ProofFormat::DratBinary}){
-  bounded_deletions(f);shared_copies(f);pivot_retirement(f,false);pivot_retirement(f,true);
+  witnessless_rup(f,argc>1?argv[1]:nullptr);bounded_deletions(f);shared_copies(f);pivot_retirement(f,false);pivot_retirement(f,true);
  }
  format_boundaries();
 }

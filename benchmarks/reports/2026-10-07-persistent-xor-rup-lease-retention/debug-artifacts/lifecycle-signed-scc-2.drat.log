@@ -1,0 +1,12 @@
+c turning on binary mode checking
+c parsing input formula with 10 variables and 13 clauses
+c finished parsing, read 1671 bytes from proof file
+c start forward verification
+c 11 of 13 clauses in core                            
+c 82 of 165 lemmas in core using 277 resolution steps
+c 24 RAT lemmas in core; 0 redundant literals in core lemmas
+c optimized proofs are not supported for forward checking
+c VERIFIED derivation: all lemmas preserve satisfiability
+c WARNING: no empty clause detected, this is not a refutation
+s DERIVATION
+c verification time: 0.049 seconds
