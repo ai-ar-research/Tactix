@@ -1,0 +1,970 @@
+{
+  "campaign": "benchmarks/runs/20261007-mp1-cut-seed-factorial",
+  "build_job": "1755025",
+  "run_job": "1755051",
+  "manifest": {
+    "schema": "bounded-cut-seed-factorial-v1",
+    "binaries": {
+      "baseline": {
+        "sha256": "4fa9b118c831c8faa0c6a01fb370bf991260807f2edb4e1a10b798ec9f589ffb",
+        "origin": "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-reference-policy-causal/pins/baseline"
+      },
+      "cut-last-original-fastel0": {
+        "sha256": "018c84c2976ca435840be068dea22ae7c961b2afe5a2ac48391523b2ae8efd49",
+        "origin": "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-reference-policy-causal/pins/cut-last-original-fastel0"
+      },
+      "cut-last-original-fastel1": {
+        "sha256": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e",
+        "origin": "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-reference-policy-causal/pins/cut-last-original-fastel1"
+      },
+      "cut-last-residual-fastel1": {
+        "sha256": "f00b716edc65226b8974f30f3fe59f99342fcaa1a7c7fb7612e9a2cee59191b0",
+        "build_array": "1755025",
+        "source_overlay": {
+          "cut": "LargestOrbitLast",
+          "residual_seed": true,
+          "fastel": true
+        }
+      },
+      "cut-first-original-fastel1": {
+        "sha256": "52ce60c984431aae3c0642e69ffdb962352905648355a8c4d40538f5aabd365d",
+        "build_array": "1755025",
+        "source_overlay": {
+          "cut": "FirstOpen",
+          "residual_seed": false,
+          "fastel": true
+        }
+      }
+    },
+    "source_archive": "benchmarks/runs/20261007-cumulative-37226faa7-graph-preparation/source.tar",
+    "source_archive_sha256": "c11109ff8f2358406e48b1f12ba584cfd810bb1c5d48c61257c304f2ce0fd2ea",
+    "source_commit": "37226faa78d052",
+    "purpose": "Isolate B28 small mp1 regression while retaining Rank401 recovery; no production change.",
+    "profiles": {
+      "baseline": {
+        "cut": "FirstOpen",
+        "residual_seed": true,
+        "fastel": true
+      },
+      "cut-last-residual-fastel1": {
+        "cut": "LargestOrbitLast",
+        "residual_seed": true,
+        "fastel": true
+      },
+      "cut-first-original-fastel1": {
+        "cut": "FirstOpen",
+        "residual_seed": false,
+        "fastel": true
+      },
+      "cut-last-original-fastel1": {
+        "cut": "LargestOrbitLast",
+        "residual_seed": false,
+        "fastel": true
+      },
+      "cut-last-original-fastel0": {
+        "cut": "LargestOrbitLast",
+        "residual_seed": false,
+        "fastel": false
+      }
+    },
+    "resource_contract": {
+      "timeout_seconds": 300,
+      "memory_mib": 32768,
+      "cpus_per_task": 4,
+      "partition": "cpu-q",
+      "array": "0-1",
+      "sequential_arms_per_instance": 5,
+      "file_cap_bytes": 2147483648,
+      "no_node_constraint": true,
+      "no_throttle": true,
+      "growth_allowance_bytes": 42949672960,
+      "other_owner_reserve_bytes": 85899345920,
+      "proof_cap_outcome": "INCOMPLETE; never a solve timeout or accepted proof",
+      "unexpected_unsat": "retain proof and stop instance sequence; no acceptance"
+    },
+    "checkers": {
+      "checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "modelcheck.py": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4"
+    },
+    "wrapper_sha256": {
+      "pins/runtime_task.py": "366999414336700f349075876031aa1d296a1b6942969b6e8b393b45bdadc39a",
+      "pins/sequence.py": "c7a62160dfb7d778ecd67ad584a99be289c2dcd21c410b97ae3b8730ef8cd5f9",
+      "pins/admission.py": "453dd0c0605c44d2fbeb68ae248323cabe5db3976010f554480f216937f10279",
+      "array.sbatch": "673360ee6ff4a114046fbce806d1c07a5de5ecfca74f05c7091096505453465a",
+      "build.sbatch": "2a3ed00e14d5596cdbaadf23f9a4909bab786a9491900287d336b849d74e1458",
+      "inputs.json": "830a6e1ccb5139acdc39485da0b0f57b88d098e3efb7a005d27e7fa0861cadeb",
+      "cases.json": "5bc8ab055af8467d627b12ac53542372f67de123eb2bed7dffd126982de5f7b3"
+    },
+    "build_job": "1755025",
+    "created_at_unix": 1791409381.258613
+  },
+  "manifest_sha256": "a4aa1a8bb24fb9f58a680d0efefea4f77ee41537c355d31fbb0119050189397c",
+  "rows": [
+    {
+      "arm": "baseline",
+      "binary_sha256": "4fa9b118c831c8faa0c6a01fb370bf991260807f2edb4e1a10b798ec9f589ffb",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "24",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/baseline",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-0/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-0/proof.auto"
+      ],
+      "cpu_affinity": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 423611,
+        "proof": 172893498,
+        "stderr": 0,
+        "stdout": 90933
+      },
+      "file_sha256": {
+        "input": "9bf4304bcaba2f720f46c1b27354ef77053e5d140422dd248bad9b1be34b6f8b",
+        "proof": "fc91a2715466c81aa657dbd853b34db20d0be05a083fba787d6ba37f07b6890f",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "8db0874d8179fc079381147590b2609e6efd1d8947b2fc1e95d7e815a2742069"
+      },
+      "finished_at_unix": 1791409413.3411698,
+      "incomplete_reason": null,
+      "input_xz_sha256": "4f2acabf92702b337cc1044c4911d7c7015eba07f59fac8989ed62cd744ce14a",
+      "max_rss_kb": 67720,
+      "metrics": {
+        "conflicts": 774534,
+        "decisions": 5701943,
+        "phasecost_line": "c phasecost   structured 384 ms, entry 1 ms, dense-connect 17 ms, slot-loop 4306 ms, exit 34 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 30381,
+        "structured_root_line": "c structured-root runs 1 advances 49 applications 18 effective 16 passes 5 seconds 0.383759 terminal 1 proof-format-declines 0 sr-discovery-ticks 30992356 sr-discovery-window 16777216 renewals 17 sr-discovery-overflow 0"
+      },
+      "original_rank": "mp1-small",
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node013",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "0",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755052",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 30.417,
+      "started_at_unix": 1791409382.5958817,
+      "task": 0,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 25200 clauses satisfied, 6360 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/000-rankmp1-small-baseline.json",
+      "raw_result_sha256": "e9046140292e06b164f1e248ac30ffe8e15ba1f21e7e12115e9751ba763a5236",
+      "selected_stats": [
+        "c decisions   5701943 (0 via API)",
+        "c conflicts   774534",
+        "c sr          16 applications, 16 applied, 0 validation ticks, 172832 witness literals, 0 unique-literal AMO binaries",
+        "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 4498 eliminated, 1465032 resolutions",
+        "c fastel      2 checks, 6735 candidates / 10551 active, 10551 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 2919 eliminated, 87389 resolutions, 0.033 seconds",
+        "c phasecost   structured 384 ms, entry 1 ms, dense-connect 17 ms, slot-loop 4306 ms, exit 34 ms"
+      ]
+    },
+    {
+      "arm": "cut-last-residual-fastel1",
+      "binary_sha256": "f00b716edc65226b8974f30f3fe59f99342fcaa1a7c7fb7612e9a2cee59191b0",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "24",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-last-residual-fastel1",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-1/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-1/proof.auto"
+      ],
+      "cpu_affinity": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 423611,
+        "proof": 890293036,
+        "stderr": 0,
+        "stdout": 90751
+      },
+      "file_sha256": {
+        "input": "9bf4304bcaba2f720f46c1b27354ef77053e5d140422dd248bad9b1be34b6f8b",
+        "proof": "077eb71d5ae2a459763e34fbbce20460e6356aecd5b1f24fe23f3f29de0e6f4a",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "e636ffefec7aa5cfa496f5787fa270a351a342bd0e0f263830e8319fdcf48a3d"
+      },
+      "finished_at_unix": 1791409559.9726033,
+      "incomplete_reason": null,
+      "input_xz_sha256": "4f2acabf92702b337cc1044c4911d7c7015eba07f59fac8989ed62cd744ce14a",
+      "max_rss_kb": 94492,
+      "metrics": {
+        "conflicts": 3764636,
+        "decisions": 20093027,
+        "phasecost_line": "c phasecost   structured 399 ms, entry 2 ms, dense-connect 41 ms, slot-loop 13186 ms, exit 67 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 145201,
+        "structured_root_line": "c structured-root runs 1 advances 49 applications 18 effective 16 passes 5 seconds 0.398966 terminal 1 proof-format-declines 0 sr-discovery-ticks 31298339 sr-discovery-window 16777216 renewals 17 sr-discovery-overflow 0"
+      },
+      "original_rank": "mp1-small",
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node013",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "0",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755052",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 145.271,
+      "started_at_unix": 1791409413.4441228,
+      "task": 1,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 25200 clauses satisfied, 6360 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/001-rankmp1-small-cut-last-residual-fastel1.json",
+      "raw_result_sha256": "fb0af8f410ae8d7f9d9216b15065b0a63623d4831915fc1569607edb275614e7",
+      "selected_stats": [
+        "c decisions   20093027 (0 via API)",
+        "c conflicts   3764636",
+        "c sr          16 applications, 16 applied, 0 validation ticks, 172816 witness literals, 0 unique-literal AMO binaries",
+        "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 4464 eliminated, 1384106 resolutions",
+        "c fastel      2 checks, 6735 candidates / 10545 active, 10545 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 2925 eliminated, 87451 resolutions, 0.034 seconds",
+        "c phasecost   structured 399 ms, entry 2 ms, dense-connect 41 ms, slot-loop 13186 ms, exit 67 ms"
+      ]
+    },
+    {
+      "arm": "cut-first-original-fastel1",
+      "binary_sha256": "52ce60c984431aae3c0642e69ffdb962352905648355a8c4d40538f5aabd365d",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "24",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-first-original-fastel1",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-2/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-2/proof.auto"
+      ],
+      "cpu_affinity": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 423611,
+        "proof": 172893498,
+        "stderr": 0,
+        "stdout": 90933
+      },
+      "file_sha256": {
+        "input": "9bf4304bcaba2f720f46c1b27354ef77053e5d140422dd248bad9b1be34b6f8b",
+        "proof": "fc91a2715466c81aa657dbd853b34db20d0be05a083fba787d6ba37f07b6890f",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "376140eabfedaaef0b6194126c60169df5f53dbee674da379162dadc013e5ec0"
+      },
+      "finished_at_unix": 1791409590.348471,
+      "incomplete_reason": null,
+      "input_xz_sha256": "4f2acabf92702b337cc1044c4911d7c7015eba07f59fac8989ed62cd744ce14a",
+      "max_rss_kb": 67720,
+      "metrics": {
+        "conflicts": 774534,
+        "decisions": 5701943,
+        "phasecost_line": "c phasecost   structured 383 ms, entry 1 ms, dense-connect 18 ms, slot-loop 4164 ms, exit 34 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 29950,
+        "structured_root_line": "c structured-root runs 1 advances 49 applications 18 effective 16 passes 5 seconds 0.383297 terminal 1 proof-format-declines 0 sr-discovery-ticks 30992356 sr-discovery-window 16777216 renewals 17 sr-discovery-overflow 0"
+      },
+      "original_rank": "mp1-small",
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node013",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "0",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755052",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 30.007,
+      "started_at_unix": 1791409560.153327,
+      "task": 2,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 25200 clauses satisfied, 6360 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/002-rankmp1-small-cut-first-original-fastel1.json",
+      "raw_result_sha256": "8f3050ee2bf6a939d8d073edbd9f1469daefb5e5529154c11cb622e292cea09e",
+      "selected_stats": [
+        "c decisions   5701943 (0 via API)",
+        "c conflicts   774534",
+        "c sr          16 applications, 16 applied, 0 validation ticks, 172832 witness literals, 0 unique-literal AMO binaries",
+        "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 4498 eliminated, 1465032 resolutions",
+        "c fastel      2 checks, 6735 candidates / 10551 active, 10551 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 2919 eliminated, 87389 resolutions, 0.033 seconds",
+        "c phasecost   structured 383 ms, entry 1 ms, dense-connect 18 ms, slot-loop 4164 ms, exit 34 ms"
+      ]
+    },
+    {
+      "arm": "cut-last-original-fastel1",
+      "binary_sha256": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "24",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-last-original-fastel1",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-3/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-3/proof.auto"
+      ],
+      "cpu_affinity": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 423611,
+        "proof": 890293036,
+        "stderr": 0,
+        "stdout": 90751
+      },
+      "file_sha256": {
+        "input": "9bf4304bcaba2f720f46c1b27354ef77053e5d140422dd248bad9b1be34b6f8b",
+        "proof": "077eb71d5ae2a459763e34fbbce20460e6356aecd5b1f24fe23f3f29de0e6f4a",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "8ade846578f68bb51100007060ddd20a476159a35a059052c651ade0ec212e33"
+      },
+      "finished_at_unix": 1791409737.2650456,
+      "incomplete_reason": null,
+      "input_xz_sha256": "4f2acabf92702b337cc1044c4911d7c7015eba07f59fac8989ed62cd744ce14a",
+      "max_rss_kb": 94492,
+      "metrics": {
+        "conflicts": 3764636,
+        "decisions": 20093027,
+        "phasecost_line": "c phasecost   structured 391 ms, entry 3 ms, dense-connect 41 ms, slot-loop 12492 ms, exit 67 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 145391,
+        "structured_root_line": "c structured-root runs 1 advances 49 applications 18 effective 16 passes 5 seconds 0.390494 terminal 1 proof-format-declines 0 sr-discovery-ticks 31298339 sr-discovery-window 16777216 renewals 17 sr-discovery-overflow 0"
+      },
+      "original_rank": "mp1-small",
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node013",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "0",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755052",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 145.46,
+      "started_at_unix": 1791409590.4568133,
+      "task": 3,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 25200 clauses satisfied, 6360 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/003-rankmp1-small-cut-last-original-fastel1.json",
+      "raw_result_sha256": "7900f684996c24f14bee1d25ac359312fde477a7eff70abc92381ae3354f267e",
+      "selected_stats": [
+        "c decisions   20093027 (0 via API)",
+        "c conflicts   3764636",
+        "c sr          16 applications, 16 applied, 0 validation ticks, 172816 witness literals, 0 unique-literal AMO binaries",
+        "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 4464 eliminated, 1384106 resolutions",
+        "c fastel      2 checks, 6735 candidates / 10545 active, 10545 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 2925 eliminated, 87451 resolutions, 0.033 seconds",
+        "c phasecost   structured 391 ms, entry 3 ms, dense-connect 41 ms, slot-loop 12492 ms, exit 67 ms"
+      ]
+    },
+    {
+      "arm": "cut-last-original-fastel0",
+      "binary_sha256": "018c84c2976ca435840be068dea22ae7c961b2afe5a2ac48391523b2ae8efd49",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "24",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-last-original-fastel0",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-4/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-0-4/proof.auto"
+      ],
+      "cpu_affinity": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 423611,
+        "proof": 72796230,
+        "stderr": 0,
+        "stdout": 90607
+      },
+      "file_sha256": {
+        "input": "9bf4304bcaba2f720f46c1b27354ef77053e5d140422dd248bad9b1be34b6f8b",
+        "proof": "0aa87aa53b94f6aa3e84c9302786a7d1ae69acd0c0acc6c8b0b4643907d652ac",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "02fde6ed0990cb7ac2ab408c50ab1a1641eea1ff77900949914da2379b6e63a1"
+      },
+      "finished_at_unix": 1791409751.4468386,
+      "incomplete_reason": null,
+      "input_xz_sha256": "4f2acabf92702b337cc1044c4911d7c7015eba07f59fac8989ed62cd744ce14a",
+      "max_rss_kb": 61416,
+      "metrics": {
+        "conflicts": 369370,
+        "decisions": 2915428,
+        "phasecost_line": "c phasecost   structured 389 ms, entry 1 ms, dense-connect 11 ms, slot-loop 2206 ms, exit 29 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 13767,
+        "structured_root_line": "c structured-root runs 1 advances 49 applications 18 effective 16 passes 5 seconds 0.388834 terminal 1 proof-format-declines 0 sr-discovery-ticks 31298339 sr-discovery-window 16777216 renewals 17 sr-discovery-overflow 0"
+      },
+      "original_rank": "mp1-small",
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node013",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "0",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755052",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 13.889,
+      "started_at_unix": 1791409737.4359965,
+      "task": 4,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 25200 clauses satisfied, 6360 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/004-rankmp1-small-cut-last-original-fastel0.json",
+      "raw_result_sha256": "ffe76873ef3649d68dddcd14bed89fd2dd5cb412b1fe5d2c2ba9d19c5361907e",
+      "selected_stats": [
+        "c decisions   2915428 (0 via API)",
+        "c conflicts   369370",
+        "c sr          16 applications, 16 applied, 0 validation ticks, 172816 witness literals, 0 unique-literal AMO binaries",
+        "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 4451 eliminated, 1632706 resolutions",
+        "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 0 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds",
+        "c phasecost   structured 389 ms, entry 1 ms, dense-connect 11 ms, slot-loop 2206 ms, exit 29 ms"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "binary_sha256": "4fa9b118c831c8faa0c6a01fb370bf991260807f2edb4e1a10b798ec9f589ffb",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/baseline",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-5/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-5/proof.auto"
+      ],
+      "cpu_affinity": [
+        5,
+        9,
+        10,
+        11
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 0,
+      "file_bytes": {
+        "input": 133508,
+        "proof": 1064123466,
+        "stderr": 0,
+        "stdout": 54562
+      },
+      "file_sha256": {
+        "input": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
+        "proof": "f083debed5faa50ab186a452c61eefbbf73960c3f41b3f2b204ea1a80d01ffe6",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "a939fe6e8c6a277bb90d074260cd580fd524cdad392b2217e3e6d43111c8b97b"
+      },
+      "finished_at_unix": 1791409684.1863132,
+      "incomplete_reason": null,
+      "input_xz_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+      "max_rss_kb": 78260,
+      "metrics": {
+        "conflicts": 6934327,
+        "decisions": 16707728,
+        "phasecost_line": "c phasecost   structured 391 ms, entry 1 ms, dense-connect 21 ms, slot-loop 20631 ms, exit 40 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 299992,
+        "structured_root_line": "c structured-root runs 1 advances 1176 applications 1107 effective 1072 passes 6 seconds 0.391314 terminal 1 proof-format-declines 0 sr-discovery-ticks 44165790 sr-discovery-window 16777216 renewals 1072 sr-discovery-overflow 0"
+      },
+      "original_rank": 401,
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node006",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "1",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755051",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 300.021,
+      "started_at_unix": 1791409382.6347687,
+      "task": 5,
+      "timed_out": true,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": null,
+        "kind": null,
+        "ok": null,
+        "output": ""
+      },
+      "verdict": "UNKNOWN",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/005-rank401-baseline.json",
+      "raw_result_sha256": "2852d0951731dc31f73f0479b8c801d5a0b6d2f29efccbee3e9deec1e5f09476",
+      "selected_stats": [
+        "c decisions   16707728 (0 via API)",
+        "c conflicts   6934327",
+        "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+        "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+        "c handoff     1 residual seeds, 1089 variables, 0.000 seconds",
+        "c bve         0 rounds, 361 eliminated, 222723 resolutions",
+        "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds",
+        "c phasecost   structured 391 ms, entry 1 ms, dense-connect 21 ms, slot-loop 20631 ms, exit 40 ms"
+      ]
+    },
+    {
+      "arm": "cut-last-residual-fastel1",
+      "binary_sha256": "f00b716edc65226b8974f30f3fe59f99342fcaa1a7c7fb7612e9a2cee59191b0",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-last-residual-fastel1",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-6/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-6/proof.auto"
+      ],
+      "cpu_affinity": [
+        5,
+        9,
+        10,
+        11
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 133508,
+        "proof": 495992615,
+        "stderr": 0,
+        "stdout": 61581
+      },
+      "file_sha256": {
+        "input": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
+        "proof": "62d067a6c5083757dcb88fe4d4a04d4919973ea61e105f0e4310ce62e871c47e",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "2222a70edef61655b52d10a4a5b7ea2c12d5157e22d522fe1b225f5c153861fd"
+      },
+      "finished_at_unix": 1791409830.0031734,
+      "incomplete_reason": null,
+      "input_xz_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+      "max_rss_kb": 79064,
+      "metrics": {
+        "conflicts": 3481145,
+        "decisions": 9710602,
+        "phasecost_line": "c phasecost   structured 391 ms, entry 1 ms, dense-connect 16 ms, slot-loop 9497 ms, exit 25 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 144870,
+        "structured_root_line": "c structured-root runs 1 advances 1176 applications 1107 effective 1072 passes 6 seconds 0.391064 terminal 1 proof-format-declines 0 sr-discovery-ticks 44175887 sr-discovery-window 16777216 renewals 1072 sr-discovery-overflow 0"
+      },
+      "original_rank": 401,
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node006",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "1",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755051",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 144.913,
+      "started_at_unix": 1791409684.363087,
+      "task": 6,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/006-rank401-cut-last-residual-fastel1.json",
+      "raw_result_sha256": "6f1888b2e2f180e23a0203b1b864af3adf482651076deff570b8a12a234f1a69",
+      "selected_stats": [
+        "c decisions   9710602 (0 via API)",
+        "c conflicts   3481145",
+        "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+        "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+        "c handoff     1 residual seeds, 1089 variables, 0.000 seconds",
+        "c bve         0 rounds, 361 eliminated, 221956 resolutions",
+        "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds",
+        "c phasecost   structured 391 ms, entry 1 ms, dense-connect 16 ms, slot-loop 9497 ms, exit 25 ms"
+      ]
+    },
+    {
+      "arm": "cut-first-original-fastel1",
+      "binary_sha256": "52ce60c984431aae3c0642e69ffdb962352905648355a8c4d40538f5aabd365d",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-first-original-fastel1",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-7/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-7/proof.auto"
+      ],
+      "cpu_affinity": [
+        5,
+        9,
+        10,
+        11
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 133508,
+        "proof": 201611298,
+        "stderr": 0,
+        "stdout": 61540
+      },
+      "file_sha256": {
+        "input": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
+        "proof": "3e4628106e2921aa0dbb68bb6cb67a62846a2ff717878cb989164dd02406bbe8",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "6c84a49fb8889d0ccc2b7d2a07f7ad8e64d7422ac9cbb1e616d21ead46fdbb24"
+      },
+      "finished_at_unix": 1791409882.4147034,
+      "incomplete_reason": null,
+      "input_xz_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+      "max_rss_kb": 51636,
+      "metrics": {
+        "conflicts": 1434581,
+        "decisions": 4249699,
+        "phasecost_line": "c phasecost   structured 385 ms, entry 1 ms, dense-connect 10 ms, slot-loop 3905 ms, exit 14 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 52009,
+        "structured_root_line": "c structured-root runs 1 advances 1176 applications 1107 effective 1072 passes 6 seconds 0.384517 terminal 1 proof-format-declines 0 sr-discovery-ticks 44165790 sr-discovery-window 16777216 renewals 1072 sr-discovery-overflow 0"
+      },
+      "original_rank": 401,
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node006",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "1",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755051",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 52.088,
+      "started_at_unix": 1791409830.133532,
+      "task": 7,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/007-rank401-cut-first-original-fastel1.json",
+      "raw_result_sha256": "f36908edb00bd63d4e845a7fc016d9b4ae22286a5d5ca2699bb21180c4f637d0",
+      "selected_stats": [
+        "c decisions   4249699 (0 via API)",
+        "c conflicts   1434581",
+        "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+        "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 361 eliminated, 223995 resolutions",
+        "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds",
+        "c phasecost   structured 385 ms, entry 1 ms, dense-connect 10 ms, slot-loop 3905 ms, exit 14 ms"
+      ]
+    },
+    {
+      "arm": "cut-last-original-fastel1",
+      "binary_sha256": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-last-original-fastel1",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-8/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-8/proof.auto"
+      ],
+      "cpu_affinity": [
+        5,
+        9,
+        10,
+        11
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 133508,
+        "proof": 387099335,
+        "stderr": 0,
+        "stdout": 61566
+      },
+      "file_sha256": {
+        "input": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
+        "proof": "f6ad3fe0ee2505b14853a1236c9498932ed2187765e08ca5892525fef78fcb15",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "fa41ed7e1ad4565bb63bf4d918774cc8e2b787b40edea1a89407632ecab6abfc"
+      },
+      "finished_at_unix": 1791409982.7745643,
+      "incomplete_reason": null,
+      "input_xz_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+      "max_rss_kb": 59832,
+      "metrics": {
+        "conflicts": 2643452,
+        "decisions": 6956249,
+        "phasecost_line": "c phasecost   structured 388 ms, entry 1 ms, dense-connect 17 ms, slot-loop 6927 ms, exit 22 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 99286,
+        "structured_root_line": "c structured-root runs 1 advances 1176 applications 1107 effective 1072 passes 6 seconds 0.387924 terminal 1 proof-format-declines 0 sr-discovery-ticks 44175887 sr-discovery-window 16777216 renewals 1072 sr-discovery-overflow 0"
+      },
+      "original_rank": 401,
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node006",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "1",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755051",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 99.342,
+      "started_at_unix": 1791409882.525695,
+      "task": 8,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/008-rank401-cut-last-original-fastel1.json",
+      "raw_result_sha256": "9ff8de41db436d8060c015aec9b58d498e2ef8c6a2fe48b006a93682442b8fec",
+      "selected_stats": [
+        "c decisions   6956249 (0 via API)",
+        "c conflicts   2643452",
+        "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+        "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 361 eliminated, 223621 resolutions",
+        "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds",
+        "c phasecost   structured 388 ms, entry 1 ms, dense-connect 17 ms, slot-loop 6927 ms, exit 22 ms"
+      ]
+    },
+    {
+      "arm": "cut-last-original-fastel0",
+      "binary_sha256": "018c84c2976ca435840be068dea22ae7c961b2afe5a2ac48391523b2ae8efd49",
+      "checker_module_sha256": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+      "checker_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/pins/cut-last-original-fastel0",
+        "--auto-proof",
+        "--default-graph-labeling=on",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-9/input.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20261007-mp1-cut-seed-factorial/scratch/fixed44-sat-1755051-1-9/proof.auto"
+      ],
+      "cpu_affinity": [
+        5,
+        9,
+        10,
+        11
+      ],
+      "effective_environment": {
+        "TACTIX_SLOT_STATS": "1",
+        "TACTIX_STRATEGY_CONFIG": "1"
+      },
+      "exit_code": 10,
+      "file_bytes": {
+        "input": 133508,
+        "proof": 387099335,
+        "stderr": 0,
+        "stdout": 61566
+      },
+      "file_sha256": {
+        "input": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
+        "proof": "f6ad3fe0ee2505b14853a1236c9498932ed2187765e08ca5892525fef78fcb15",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout": "ef9df59b04a5c7c40771f7912c8070d01fc278b2acbbdaf77ad8687b749d040e"
+      },
+      "finished_at_unix": 1791410082.916536,
+      "incomplete_reason": null,
+      "input_xz_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+      "max_rss_kb": 59832,
+      "metrics": {
+        "conflicts": 2643452,
+        "decisions": 6956249,
+        "phasecost_line": "c phasecost   structured 668 ms, entry 1 ms, dense-connect 26 ms, slot-loop 8819 ms, exit 24 ms",
+        "residual_exact_line": null,
+        "solve_milliseconds": 99238,
+        "structured_root_line": "c structured-root runs 1 advances 1176 applications 1107 effective 1072 passes 6 seconds 0.668181 terminal 1 proof-format-declines 0 sr-discovery-ticks 44175887 sr-discovery-window 16777216 renewals 1072 sr-discovery-overflow 0"
+      },
+      "original_rank": 401,
+      "proof_file_cap_bytes": 2147483648,
+      "retained_failure_proof": null,
+      "slurm": {
+        "SLURMD_NODENAME": "node006",
+        "SLURM_ARRAY_JOB_ID": "1755051",
+        "SLURM_ARRAY_TASK_ID": "1",
+        "SLURM_CPUS_PER_TASK": "4",
+        "SLURM_JOB_ID": "1755051",
+        "SLURM_MEM_PER_NODE": "32768"
+      },
+      "solver_wall_seconds": 99.3,
+      "started_at_unix": 1791409982.9061224,
+      "task": 9,
+      "timed_out": false,
+      "timeout_seconds": 300,
+      "validator": {
+        "exit_code": 0,
+        "kind": "model",
+        "ok": true,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      },
+      "verdict": "SAT",
+      "raw_result": "benchmarks/runs/20261007-mp1-cut-seed-factorial/results/009-rank401-cut-last-original-fastel0.json",
+      "raw_result_sha256": "51577f4360b235564f1dc2ea70785d68b877058784c786de706e0c1e8d99d32a",
+      "selected_stats": [
+        "c decisions   6956249 (0 via API)",
+        "c conflicts   2643452",
+        "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+        "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+        "c handoff     0 residual seeds, 0 variables, 0.000 seconds",
+        "c bve         0 rounds, 361 eliminated, 223621 resolutions",
+        "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 0 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds",
+        "c phasecost   structured 668 ms, entry 1 ms, dense-connect 26 ms, slot-loop 8819 ms, exit 24 ms"
+      ]
+    }
+  ],
+  "facts": {
+    "mp1_seed_toggle_identical_proof_under_each_cut": true,
+    "rank401_fastel_toggle_identical_proof_with_last_cut_original_seed": true,
+    "independently_verified_models": 9,
+    "storage_censored_rows": 0
+  }
+}

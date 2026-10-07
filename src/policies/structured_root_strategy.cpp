@@ -101,9 +101,9 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.stabilize_structured_variables = true;
   group.structured_scope = SymmetryStructuredScope::WholeMatrix;
   group.base_selection = SymmetryBaseSelection::FirstAmoThenForwardRemainder;
-  // Follow the owner's largest-orbit/highest-variable cut after its
-  // negation-fixing pass. The typed parameter remains caller-selectable.
-  group.cut_point = SymmetryCutPoint::LargestOrbitLast;
+  // Keep the accepted FirstOpen startup policy after negation fixing.
+  // LargestOrbitLast remains available through the typed parameter.
+  group.cut_point = SymmetryCutPoint::FirstOpen;
   group.negation_fixing_first = true;
   // Root-forcing chains earn their complete atomic prefix. A kind-2-only batch
   // merely perturbs the initial search trajectory, so the startup policy waits
