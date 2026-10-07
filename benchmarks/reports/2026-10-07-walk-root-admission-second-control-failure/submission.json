@@ -1,0 +1,7 @@
+{
+  "job_id": "1751824",
+  "submitted_utc": "2026-10-07T04:59:20.945539+00:00",
+  "source_commit": "b56b1b0ce",
+  "supersedes_control_failure": "1751820",
+  "purpose": "public imported-root admission diagnostic; no historical trajectory or performance acceptance"
+}

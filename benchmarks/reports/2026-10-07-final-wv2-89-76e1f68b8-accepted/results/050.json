@@ -1,0 +1,258 @@
+{
+  "address_space_limit": null,
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "binary_sha256": "8452684d34cfc461b1c2eac415380f24ca51f61954dca65b7a77b11e521cb687",
+  "certificate_bytes": 109247203,
+  "certificate_sha256": "083256c2c0afc542ab3440d5e8db9d649d8cb4e8c09779b6c5d8ec9326487e48",
+  "cleanup_pending": false,
+  "command": [
+    "perf",
+    "stat",
+    "-x",
+    "\t",
+    "-o",
+    "/proc/2908119/fd/7",
+    "-e",
+    "task-clock,cycles,instructions,context-switches,cpu-migrations,page-faults",
+    "--",
+    "taskset",
+    "-c",
+    "24",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261007-final-76e1f68b8-regression-wv2-89/pins/tactix",
+    "--auto-proof",
+    "/proc/2908119/fd/3",
+    "/proc/2908119/fd/4"
+  ],
+  "cpu_affinity": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125
+  ],
+  "derived_artifacts_deleted": true,
+  "expected": "SAT",
+  "expected_match": false,
+  "finished_at": "2026-10-07T04:39:04.162457+00:00",
+  "instance": "tierD24-26/c15b09b9a7ceff4d4c8fe705958f92ba-snw_16_9_preOpt_pre.cnf.xz",
+  "memory_enforcement": "slurm_task_cgroup",
+  "model_check": null,
+  "node": "node018",
+  "proof_check": null,
+  "rank": 196,
+  "runtime_context": {
+    "end": {
+      "observed_at": "2026-10-07T04:39:04.081353+00:00",
+      "occupancy": {
+        "exit_code": 0,
+        "rows": [
+          "cpu-dense-hwulab-q|RUNNING|100",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12"
+        ],
+        "stderr": ""
+      },
+      "topology": [
+        {
+          "core": "24",
+          "cpu": 24,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "25",
+          "cpu": 25,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "26",
+          "cpu": 26,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "27",
+          "cpu": 27,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "28",
+          "cpu": 28,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "29",
+          "cpu": 29,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "24",
+          "cpu": 120,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "25",
+          "cpu": 121,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "26",
+          "cpu": 122,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "27",
+          "cpu": 123,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "28",
+          "cpu": 124,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        },
+        {
+          "core": "29",
+          "cpu": 125,
+          "l3_shared_cpus": "24-29,120-125",
+          "socket": "0"
+        }
+      ]
+    },
+    "observed_at": "2026-10-07T04:29:04.043846+00:00",
+    "occupancy": {
+      "exit_code": 0,
+      "rows": [
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12"
+      ],
+      "stderr": ""
+    },
+    "perf_probe": {
+      "exit_code": 0,
+      "stderr": "\n Performance counter stats for 'true':\n\n           3090273      cycles                                                                \n\n       0.002583864 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002626000 seconds sys\n\n\n"
+    },
+    "perf_statistics": [],
+    "topology": [
+      {
+        "core": "24",
+        "cpu": 24,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "25",
+        "cpu": 25,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "26",
+        "cpu": 26,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "27",
+        "cpu": 27,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "28",
+        "cpu": 28,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "29",
+        "cpu": 29,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "24",
+        "cpu": 120,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "25",
+        "cpu": 121,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "26",
+        "cpu": 122,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "27",
+        "cpu": 123,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "28",
+        "cpu": 124,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      },
+      {
+        "core": "29",
+        "cpu": 125,
+        "l3_shared_cpus": "24-29,120-125",
+        "socket": "0"
+      }
+    ]
+  },
+  "schema": "tactix-matched-slurm-memory-regression-result-v2",
+  "solve": {
+    "exit_code": null,
+    "peak_rss_kb": null,
+    "sampled_process_vm_peak_kb": 1318740,
+    "timed_out": true,
+    "wall_seconds": 600.005
+  },
+  "solver_statistics": [],
+  "solver_stderr_tail": [],
+  "task": 50,
+  "tier": "WV2-89",
+  "valid": false,
+  "verdict": "UNKNOWN"
+}

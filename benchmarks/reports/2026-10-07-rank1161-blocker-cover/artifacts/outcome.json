@@ -1,0 +1,19 @@
+{
+  "job": "1751830",
+  "host": "node010",
+  "manifest_sha256": "1548abbcc85044d2c9c5238dc6970afd219a1e8a3ea194eefb2ffbff6fac0f9c",
+  "census_exit": 0,
+  "checker_exit": 0,
+  "combined_wall_seconds": 11.905018834397197,
+  "solver_run": false,
+  "native_admission": false,
+  "model_validation": "not_applicable_no_solver",
+  "gate": "checked_standalone_deduction_requires_root_review",
+  "input_hash_verified": true,
+  "source_complete": true,
+  "query_complete": true,
+  "census_status": "four_aligned_tuples_require_independent_original_cnf_rup",
+  "proposed_tuples": 4,
+  "proof_validation": "checked_useful_deduction",
+  "novel_checked_tuples": 2
+}
