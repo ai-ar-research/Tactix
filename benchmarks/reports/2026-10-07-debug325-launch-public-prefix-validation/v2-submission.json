@@ -1,0 +1,6 @@
+{
+  "job": 1752244,
+  "submitted_at_utc": "2026-10-07T07:12:58.462182+00:00",
+  "manifest_sha256": "df5b498e5c9e6ae36865d57ef803addce753e37bd38b0d142e1378e8cc281558",
+  "scope": "matched public C15 consumption diagnostic with composed SR propagation; not recovery/performance"
+}
