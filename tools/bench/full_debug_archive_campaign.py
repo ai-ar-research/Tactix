@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare, freeze, and verify an archived current-worktree full-Debug run."""
+"""Prepare, freeze, and verify full Debug from a worktree or immutable source."""
 
 from __future__ import annotations
 
@@ -266,8 +266,38 @@ def archived_source(source_campaign: Path, source: Path) -> tuple[dict, list[str
     return metadata, list(manifest["packaged_dependencies"])
 
 
+def pinned_source(pin_path: Path, source: Path) -> tuple[dict, list[str]]:
+    pin_path = pin_path.resolve(strict=True)
+    if not inside(pin_path, ROOT):
+        raise ArchiveHarnessError("source pin must be in the repository")
+    pin = json.loads(pin_path.read_text())
+    if pin.get("schema") != "tactix-campaign-pin-v1":
+        raise ArchiveHarnessError("source pin has an unsupported schema")
+    archive_path = (ROOT / pin["source_archive"]).resolve(strict=True)
+    if not inside(archive_path, ROOT) or sha_file(archive_path) != pin["source_archive_sha256"]:
+        raise ArchiveHarnessError("source pin archive changed or is outside the repository")
+    with tarfile.open(archive_path, "r") as archive:
+        archive.extractall(source, filter="data")
+    for name, digest in pin["source_sha256"].items():
+        path = source / name
+        if not inside(path, source) or not path.is_file() or sha_file(path) != digest:
+            raise ArchiveHarnessError(f"source pin input changed: {name}")
+    original_digest = tree_digest(source, [])
+    dependencies = copy_dependencies(source)
+    return {
+        "source_head": pin["source_commit"],
+        "worktree_state_sha256": original_digest,
+        "source_authority": {"manifest": relative(pin_path),
+                             "manifest_sha256": sha_file(pin_path),
+                             "archive_sha256": pin["source_archive_sha256"]},
+    }, dependencies
+
+
 def prepare(run: Path, build: Path, *, force: bool,
-            source_campaign: Optional[Path] = None) -> None:
+            source_campaign: Optional[Path] = None,
+            source_pin: Optional[Path] = None) -> None:
+    if source_campaign is not None and source_pin is not None:
+        raise ArchiveHarnessError("choose one archived source authority")
     if run.parent.resolve(strict=True) != RUNS.resolve(strict=True):
         raise ArchiveHarnessError(f"campaign is not a direct child of {RUNS}: {run}")
     if run.is_symlink():
@@ -279,7 +309,10 @@ def prepare(run: Path, build: Path, *, force: bool,
     run.mkdir()
     source = run / "source"
     archive_path = run / "source.tar"
-    if source_campaign is None:
+    if source_pin is not None:
+        source.mkdir()
+        source_metadata, dependencies = pinned_source(source_pin, source)
+    elif source_campaign is None:
         source.mkdir()
         entries = source_entries(run)
         before = entry_digest(entries)
@@ -298,7 +331,7 @@ def prepare(run: Path, build: Path, *, force: bool,
         source_metadata, dependencies = archived_source(source_campaign, source)
     for relative_path in MUTABLE:
         (source / relative_path).mkdir(parents=True, exist_ok=True)
-    if source_campaign is None and (source_entries(run) != entries or entry_digest(entries) != before):
+    if source_campaign is None and source_pin is None and (source_entries(run) != entries or entry_digest(entries) != before):
         raise ArchiveHarnessError("worktree changed while snapshotting")
     canonical_archive(source, archive_path)
 
@@ -442,6 +475,8 @@ def main() -> int:
     prepare_parser.add_argument("--build-name", required=True)
     prepare_parser.add_argument("--force", action="store_true")
     prepare_parser.add_argument("--source-campaign", type=campaign_path)
+    prepare_parser.add_argument("--source-pin", type=campaign_path,
+                                help="rebuild a checksum-bound campaign pin while development continues")
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("campaign", type=campaign_path)
     args = parser.parse_args()
@@ -450,7 +485,7 @@ def main() -> int:
             if "/" in args.build_name or args.build_name in ("", ".", ".."):
                 raise ArchiveHarnessError("build name must be one path component")
             prepare(args.campaign, BUILD_ROOT / args.build_name, force=args.force,
-                    source_campaign=args.source_campaign)
+                    source_campaign=args.source_campaign, source_pin=args.source_pin)
         else:
             verify(args.campaign)
     except ArchiveHarnessError as error:

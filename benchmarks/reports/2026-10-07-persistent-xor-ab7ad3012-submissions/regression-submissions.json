@@ -1,0 +1,30 @@
+[
+  {
+    "set": "b28c5",
+    "job_id": 1752737,
+    "submitted_at": "2026-10-07T12:10:50.890936+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-b28c5",
+    "manifest_sha256": "417fe5944e082b9edef8529fb4b25c11f12910174c0fd14dcb1c6b85ff2c0c50"
+  },
+  {
+    "set": "rank1-50",
+    "job_id": 1752738,
+    "submitted_at": "2026-10-07T12:10:52.256303+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-rank1-50",
+    "manifest_sha256": "c5f5b139bbe7c01fd8c5063901744f89ea2fb489e6dc66d9394d61a91935dda0"
+  },
+  {
+    "set": "wv100",
+    "job_id": 1752739,
+    "submitted_at": "2026-10-07T12:10:53.835312+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-wv100",
+    "manifest_sha256": "aa0bf8444729835245e3ac95c8caf9ead34d34b31a1674d1dda0c736656b0753"
+  },
+  {
+    "set": "wv2-89",
+    "job_id": 1752740,
+    "submitted_at": "2026-10-07T12:10:55.140856+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-wv2-89",
+    "manifest_sha256": "0a74e001347bdf6185c9c00ca5d019d3a74b57265982664b97e5315a397cd747"
+  }
+]

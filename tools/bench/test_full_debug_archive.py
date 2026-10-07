@@ -2,15 +2,75 @@
 """Focused non-solving tests for the archived full-Debug harness."""
 
 import json
+import io
 from pathlib import Path
+import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from full_debug_archive import ArchiveHarnessError, prepare_clean_build, validate_test_commands
 from full_debug_archive_campaign import packaged_dependency_paths
+import full_debug_archive_campaign as campaign
 
 
 class FullDebugArchiveTests(unittest.TestCase):
+    def make_pin(self, root):
+        archive = root / "source.tar"
+        payload = b"committed source\n"
+        with tarfile.open(archive, "w") as stream:
+            entry = tarfile.TarInfo("src/example.cpp")
+            entry.size = len(payload)
+            stream.addfile(entry, io.BytesIO(payload))
+        pin = root / "PIN.json"
+        data = {"schema": "tactix-campaign-pin-v1", "source_commit": "fixed-commit",
+                "source_archive": "source.tar", "source_archive_sha256": campaign.sha_file(archive),
+                "source_sha256": {"src/example.cpp": campaign.sha_bytes(payload)}}
+        pin.write_text(json.dumps(data))
+        return pin, data
+
+    def test_pin_uses_archive_without_reading_changed_worktree(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pin, data = self.make_pin(root)
+            (root / "src").mkdir()
+            (root / "src/example.cpp").write_text("unfinished development\n")
+            destination = root / "snapshot"
+            destination.mkdir()
+            with patch.object(campaign, "ROOT", root), patch.object(campaign, "copy_dependencies", return_value=[]) as dependencies:
+                metadata, packaged = campaign.pinned_source(pin, destination)
+            self.assertEqual((destination / "src/example.cpp").read_bytes(), b"committed source\n")
+            self.assertEqual(metadata["source_head"], data["source_commit"])
+            self.assertEqual(metadata["source_authority"]["manifest_sha256"], campaign.sha_file(pin))
+            self.assertEqual(packaged, [])
+            dependencies.assert_called_once_with(destination)
+
+    def test_pin_rejects_changed_archive_before_packaging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pin, data = self.make_pin(root)
+            with (root / "source.tar").open("ab") as archive:
+                archive.write(b"changed")
+            destination = root / "snapshot"
+            destination.mkdir()
+            with patch.object(campaign, "ROOT", root), patch.object(campaign, "copy_dependencies") as dependencies:
+                with self.assertRaisesRegex(ArchiveHarnessError, "archive changed"):
+                    campaign.pinned_source(pin, destination)
+                dependencies.assert_not_called()
+
+    def test_pin_rejects_source_hash_mismatch_before_packaging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pin, data = self.make_pin(root)
+            data["source_sha256"]["src/example.cpp"] = "0" * 64
+            pin.write_text(json.dumps(data))
+            destination = root / "snapshot"
+            destination.mkdir()
+            with patch.object(campaign, "ROOT", root), patch.object(campaign, "copy_dependencies") as dependencies:
+                with self.assertRaisesRegex(ArchiveHarnessError, "input changed"):
+                    campaign.pinned_source(pin, destination)
+                dependencies.assert_not_called()
+
     def inventory(self, executable: Path) -> dict:
         return {"tests": [{"name": "sample", "command": [str(executable)]}]}
 
