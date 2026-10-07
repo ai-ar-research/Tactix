@@ -1,0 +1,35 @@
+  ok    METERED BVE               <- 100 permille (&DefaultStrategyConfig::Inprocess::bve_permille), meter_bve, dosed
+  ok    METERED Probe             <- 8 permille (&DefaultStrategyConfig::Inprocess::probe_permille), meter_probe, dosed
+  ok    METERED Backbone          <- 20 permille (&DefaultStrategyConfig::Inprocess::backbone_permille), meter_backbone, budgeted
+  ok    METERED TransitiveReduce  <- 20 permille (&DefaultStrategyConfig::Inprocess::transitive_permille), meter_transitive, dosed, budgeted
+  ok    METERED Vivify            <- 100 permille (&DefaultStrategyConfig::Inprocess::vivify_permille), meter_vivify, budgeted
+  ok    METERED Strengthen        <- 100 permille (&DefaultStrategyConfig::Inprocess::strengthen_permille), meter_forward_pair, budgeted
+  ok    METERED SubsumeForward    <- 100 permille (&DefaultStrategyConfig::Inprocess::subsume_forward_permille), meter_forward_pair, budgeted
+  ok    METERED Factor            <- 50 permille (&DefaultStrategyConfig::Inprocess::factor_permille), meter_factor, budgeted
+  ok    METERED HyperTernaryRes   <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_ternary_permille), meter_ternary, budgeted
+  ok    METERED HyperBinaryRes    <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_binary_permille), meter_hbr, dosed, budgeted
+  ok    METERED BCE               <- 20 permille (&DefaultStrategyConfig::Inprocess::bce_permille), meter_bce, budgeted
+  ok    METERED CCE               <- 4 permille (&DefaultStrategyConfig::Inprocess::cce_permille), meter_cce, budgeted
+  ok    METERED Instantiate       <- 20 permille (&DefaultStrategyConfig::Inprocess::instantiate_permille), meter_instantiate, budgeted
+  ok    METERED Sweep             <- 100 permille (&DefaultStrategyConfig::Inprocess::sweep_permille), meter_sweep, budgeted
+  ok    ALT-GOV Congruence        <- the exact Kissat productivity delay ladder
+  ok    METERED Substitute        <- 10 permille (&DefaultStrategyConfig::Inprocess::substitute_permille), meter_substitute, budgeted
+  ok    ALT-GOV SubstitutionRedundancy <- the root-only structured program's run-once ownership, typed producer limits and semantic sequence fixpoint
+  ok    EXPLICIT ParityConsequence <- typed bounded parity action; default schedule pending
+  ok    EXPLICIT AffineConsequence <- typed certified affine consequence; default schedule pending
+  ok    EXPLICIT ExactCoverExtension <- typed conservative exact-cover extension; default schedule pending
+  ok    EXPLICIT IndependentSetCover <- typed structured independent-set consequence; no canonical producer
+  ok    EXPLICIT Gf3AffineConsequence <- typed caller-selected GF(3) equation-pair consequence; no canonical producer
+  ok    EXPLICIT DirectCspSupport <- typed caller-selected Direct CSP support row; no canonical producer
+  ok    EXPLICIT DirectPhpRefutation <- typed terminal direct-PHP action; default schedule pending
+  ok    EXPLICIT Gf3GaussianConsequence <- typed authenticated complete-batch GF(3) action; default schedule pending
+  ok    EXPLICIT TseitinCycleBreaking <- typed authenticated selected XOR-component action; default schedule pending
+  ok    EXPLICIT NaryCspPrefix    <- typed authenticated n-ary CSP prefix action; default schedule pending
+  ok    EXPLICIT NaryCspEquality  <- typed authenticated n-ary equality action; default slot disabled
+  ok    EXPLICIT NaryCspEqualityAmo <- typed equality-derived AMO action; default slot disabled
+  ok    EXPLICIT NaryCspEqualityTransitivity <- typed retained-owner triangle action; default slot disabled
+  ok    EXPLICIT Gf3GeneralRowConsequence <- typed authenticated GF(3) general-row action; default slot disabled
+  ok    EXPLICIT AffineMatrixInitialize <- typed bounded matrix initialization; default slot disabled and startup owner explicit
+  ok    EXPLICIT GraphIntervalEquivalence <- typed bounded graph-interval equivalence action; default schedule pending
+  ok    EXPLICIT Condition        <- typed (clause,cube) API; no default producer
+check-effort-specs: 34 registered Inprocess rules (17 default-scheduled, 17 explicit-only), 15 EFFORT_SPECS rows, 2 alternate-governor, 0 failure(s)

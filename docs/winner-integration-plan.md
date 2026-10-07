@@ -167,9 +167,7 @@ the global formula, publishes the ordinary Boolean reason, and returns control
 to BCP. It never directly enqueues a literal or reports a theory conflict.
 Matrix work, reason width, proof additions, external extent, duplicate keys,
 calls and useful events are explicit feedback fields. Static X9 rows remain a
-bounded cache and causal control. Target recovery, adaptive matrix partitioning
-and incremental maintenance remain evidence-driven follow-ups rather than
-preconditions hidden inside the rule.
+bounded cache and causal control. Persistent mixed-CNF admission must retain authenticated source/proof provenance independently of later native source deletion, with proof-preserving source leases or certified durable representations and explicit substitution/elimination handling. Ordinary DefaultPolicy must run bounded restart-root and assumption-dependent search services, skip unchanged states, and retain every conditional reason antecedent across backtracking. Rank569 is a compact-proof and substantial solve-time reduction target against verified Kissat3359.975s, with consequence yield, proof size and independent checking measured. Adaptive matrix partitioning and incremental maintenance remain evidence-driven follow-ups rather than preconditions hidden inside the rule.
 The [mixed-formula support census](../benchmarks/reports/2026-10-06-affine-mixed-support-census/README.md)
 separates recognition capacity from useful matrix scheduling. Raising only the
 group cap admits ranks 540 and 557, but each recovered matrix is a single

@@ -198,6 +198,15 @@ TABLE = {
                            r'native_controller_offer_applies_once\('),
                           ("tests/test_nary_csp_equality_amo.cpp",
                            r'c_v12_deep_copies_and_executes_exact_payload\(')]),
+    "NaryCspEqualityTransitivity":
+                        (EXPLICIT, "typed retained-owner triangle action; default slot disabled",
+                         [r'std::strcmp\(rules\[i\]\.name, "NaryCspEqualityTransitivity"\)'],
+                         [("src/rules/semantic_extension/nary_csp_equality_transitivity_action.cpp",
+                           r'nary_csp_equality_transitivity_apply\('),
+                          ("tests/test_nary_csp_equality_transitivity_frontend.cpp",
+                           r'controller_selection\('),
+                          ("tests/test_nary_csp_equality_transitivity_frontend.cpp",
+                           r'c15_deep_copy\(')]),
     "Gf3GeneralRowConsequence":
                         (EXPLICIT, "typed authenticated GF(3) general-row action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "Gf3GeneralRowConsequence"\)'],

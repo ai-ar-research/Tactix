@@ -110,7 +110,8 @@ namespace tactix {
 
         Lit l=kernel_internalize(k,external);
 
-        if(l==INVALID_LIT||kernel_var_retired(k,var_of(l))||k.value(l))return Status::Stale;
+        if(l==INVALID_LIT||kernel_var_retired(k,var_of(l))||
+           kernel_externalize(k,l)!=external||k.value(l))return Status::Stale;
 
       }
 
@@ -341,7 +342,8 @@ namespace tactix {
         }
         Lit l=kernel_internalize(k,x);
 
-        if(l==INVALID_LIT||kernel_var_retired(k,var_of(l))||k.value(l)){
+        if(l==INVALID_LIT||kernel_var_retired(k,var_of(l))||
+           kernel_externalize(k,l)!=x||k.value(l)){
           finish(Status::Stale);
           return;
         }

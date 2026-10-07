@@ -4,6 +4,7 @@
 #include "policies/controller_trace.hpp"
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -142,6 +143,14 @@ struct TseitinCycleActionProducerConfig {
   bool valid() const { return true; }
 };
 
+struct GuardedCoverProducerConfig {
+  bool enabled = false;
+  DirectCspGuardedCoverOfferLimits limits;
+  strategy::OnlineInvocation profile;
+  DirectCspGuardedCoverOfferWindow window;
+  uint64_t revision = 0;
+};
+
 struct RandomControllerConfig {
   DefaultStrategyConfig search;
   // Empty preserves the full public search action space.  A non-empty
@@ -167,6 +176,7 @@ struct RandomControllerConfig {
   // both own the same typed reference.  Keep that ownership mutually exclusive.
   bool affine_basis_profile_configured = false;
   DirectCspActionProducerConfig direct_csp_action_producer;
+  GuardedCoverProducerConfig guarded_cover_producer;
   NaryCspActionProducerConfig nary_csp_action_producer;
   NaryCspEqualityActionProducerConfig nary_csp_equality_action_producer;
   NaryCspEqualityAmoProducerConfig nary_csp_equality_amo_producer;
@@ -198,6 +208,11 @@ struct RandomControllerConfig {
   // shared-execution actions; exact row payloads remain producer-owned.
   bool configure_direct_csp_producer_profile(
       const strategy::OnlineStrategyProgram &, std::string *error = nullptr);
+  // Opt-in, authored native discovery profile; exact public requests remain
+  // ExplicitPayloadCollection. Reconfiguration permits a bounded retry.
+  bool configure_guarded_cover_producer_profile(
+      const strategy::OnlineStrategyProgram &,
+      const DirectCspGuardedCoverOfferLimits &, std::string *error = nullptr);
   // Install one exact, non-empty subset of the public named search
   // configurations. Replacement is transactional and rejects duplicates.
   bool configure_search_configurations(
@@ -413,6 +428,17 @@ private:
     uint64_t pending_sequence = 0;
   };
 
+  struct GuardedCoverDiscoveryState {
+    const Kernel *owner = nullptr;
+    const DirectCspGuardedCoverActionSession *actions = nullptr;
+    uint64_t revision = 0, pending_sequence = 0;
+    size_t session_keys = 0;
+    bool reconfiguration_required = false;
+    DirectCspGuardedCoverOfferSession session;
+    DirectCspGuardedCoverOfferWindow window;
+    std::optional<DirectCspGuardedCoverActionSelection> pending;
+  };
+  GuardedCoverDiscoveryState guarded_cover_discovery_;
   uint64_t draw(uint64_t bound);
   AffineBasisDiscoveryState affine_basis_discovery_;
   Gf3DiscoveryState gf3_discovery_;
