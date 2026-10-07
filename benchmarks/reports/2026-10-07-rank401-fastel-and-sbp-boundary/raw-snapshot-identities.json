@@ -1,0 +1,16 @@
+{
+  "benchmarks/runs/20261007-rank401-actual-residual-fastel-split/results/kissat-fastel1.tsv": "7675b24183271c48f40f649ad97d1340a6ad36df8f81613dabcdf409f65d58ea",
+  "benchmarks/runs/20261007-rank401-actual-residual-fastel-split/results/tactix-fastel1.tsv": "5f4420f730a9670be0ecf12e8b5b3910653dbb08f03e16c9cf0ac57837a62e45",
+  "benchmarks/runs/20261007-rank401-actual-residual-fastel-split/results/kissat-fastel0.tsv": "b8070dabbf60866a18b2a7ecbcf762982e33f45c44fcc981cbd318ee5aa4b219",
+  "benchmarks/runs/20261007-rank401-actual-residual-fastel-split/results/tactix-fastel0.tsv": "3cf45a4b17c9f5e66ea19f5ca8f5ced8756230b53fc58e8bf151d5955d73cd70",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/integrated.queue.tsv": "4df7ed56f7bf15f83e2b31f08953be66ee9d3dbf23bdba3446618ee9a29111b4",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/integrated.tsv": "81edaddea8bca6c9ed2a40432443bd991d75158f9ab56c160e7d7f8a0c879d2a",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/integrated.macro.tsv": "7fba6764dd3b15549d675e6f20584e57f0173c02ce5931286f0bf877cf9b24e1",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/integrated.binary.tsv": "771d71cc75fd4eab5be150740c9ac6e765f758c90ae08f2069a9353150808d7f",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/integrated.large.tsv": "6b6edc8537312abb61e5ff9d529105ea8c0fc0eba4f251d6bacfdfc7e140517c",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/fresh-residual.binary.tsv": "32383fed746635f5acb12b1c9d4be7076b1a2bdb33fc003e704fb6b398a2b099",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/fresh-residual.tsv": "d0089c091e6181c467b5e97dbd5f51d1f5770324726005dcb9d6aefb5a60b68c",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/fresh-residual.large.tsv": "4d711f54dbbfea77b2345e48c453c279c1f56a9daebf61b939c7a3278d0f46e4",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/fresh-residual.macro.tsv": "5b8c8048efc1c922bbbca7a201edc6fcc8c0dd8f547e5176b71206f23de862c6",
+  "benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/fresh-residual.queue.tsv": "ce2158042e5d6dc210633d0cccbc4ac58d77ec9ca93473b482763c65375c2320"
+}

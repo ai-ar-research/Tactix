@@ -1,0 +1,36 @@
+[
+  {
+    "arm": "integrated",
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/pins/tactix",
+      "--default-graph-labeling=off",
+      "--default-structured-symmetry=on",
+      "--auto-proof",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/pins/original.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/integrated.proof"
+    ],
+    "code": 0,
+    "seconds": 0.46796940453350544,
+    "cpu": 5
+  },
+  {
+    "arm": "fresh-residual",
+    "command": [
+      "taskset",
+      "-c",
+      "5",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/pins/tactix",
+      "--default-graph-labeling=off",
+      "--default-structured-symmetry=off",
+      "--auto-proof",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/pins/residual.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-handoff-transform-snapshot-r3/results/fresh-residual.proof"
+    ],
+    "code": 0,
+    "seconds": 0.11729224398732185,
+    "cpu": 5
+  }
+]
