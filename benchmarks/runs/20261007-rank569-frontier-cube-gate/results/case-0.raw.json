@@ -1,0 +1,15 @@
+{
+  "schema":"rank569-frontier-cube-case-v1",
+  "target":3411,
+  "frontier":[9,21],
+  "cube":0,
+  "assumptions":[3411,-9,-21],
+  "result":"UNSAT",
+  "ticks":2370276785,
+  "kitten_ticks":86070964,
+  "conflicts":35861,
+  "derivation_steps":35551,
+  "target_clause":[21,9,-3411],
+  "proof_bytes":12582802,
+  "reason":"complete-assumption-refutation"
+}

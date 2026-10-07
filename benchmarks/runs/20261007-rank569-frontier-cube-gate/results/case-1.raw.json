@@ -1,0 +1,15 @@
+{
+  "schema":"rank569-frontier-cube-case-v1",
+  "target":3411,
+  "frontier":[9,21],
+  "cube":1,
+  "assumptions":[3411,9,-21],
+  "result":"BUDGET",
+  "ticks":2642856934,
+  "kitten_ticks":100000866,
+  "conflicts":38158,
+  "derivation_steps":0,
+  "target_clause":[],
+  "proof_bytes":0,
+  "reason":"tick-cap"
+}
