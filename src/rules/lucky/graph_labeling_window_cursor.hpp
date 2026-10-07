@@ -65,10 +65,35 @@ public:
     return bytes;
   }
 
+  static uint64_t initialization_work(const Shape &shape) {
+    const uint64_t n = shape.vertices;
+    return n * ((n + 63) / 64) + 3 * n;
+  }
+
   WindowCursorAdmission initialize(const Shape &shape,
                                    const WindowLimits &limits,
                                    uint64_t total_work_allowance,
                                    uint64_t maximum_workspace_bytes) {
+    return initialize_impl(shape, limits, total_work_allowance,
+                           maximum_workspace_bytes, false);
+  }
+
+  // The retained session admits and charges initialization before allocating
+  // cursor storage. This entry preserves the legacy total-work count without
+  // charging the same setup a second time in step().
+  WindowCursorAdmission initialize_after_charge(
+      const Shape &shape, const WindowLimits &limits,
+      uint64_t total_work_allowance, uint64_t maximum_workspace_bytes) {
+    return initialize_impl(shape, limits, total_work_allowance,
+                           maximum_workspace_bytes, true);
+  }
+
+private:
+  WindowCursorAdmission initialize_impl(const Shape &shape,
+                                        const WindowLimits &limits,
+                                        uint64_t total_work_allowance,
+                                        uint64_t maximum_workspace_bytes,
+                                        bool initialization_charged) {
     const uint64_t n = shape.vertices;
     if (!n || !shape.separation || shape.adjacency.size() != n ||
         n > SIZE_MAX / n)
@@ -101,12 +126,21 @@ public:
     next.remaining_degree_.resize(static_cast<size_t>(n));
     next.leaf_.labels.resize(static_cast<size_t>(n));
     next.random_.seed(limits.seed);
-    next.phase_ = !limits.nodes || !limits.starts || !limits.early_choices
-                      ? Phase::SearchLimit
-                      : Phase::InitialCharge;
+    const bool search_enabled =
+        limits.nodes && limits.starts && limits.early_choices;
+    if (initialization_charged && search_enabled) {
+      const uint64_t setup = initialization_work(shape);
+      if (setup > total_work_allowance) return WindowCursorAdmission::Invalid;
+      next.work_ = setup;
+      next.phase_ = Phase::BuildAdjacency;
+    } else {
+      next.phase_ = search_enabled ? Phase::InitialCharge : Phase::SearchLimit;
+    }
     *this = std::move(next);
     return WindowCursorAdmission::Ready;
   }
+
+public:
 
   bool ready() const { return phase_ != Phase::Empty; }
   bool terminal() const {

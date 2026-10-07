@@ -316,6 +316,7 @@ public:
 
 private:
   friend struct DefaultAffineSearchTestAccess;
+  friend struct DefaultGraphLabelingTestAccess;
   DefaultAffineSearchDiagnostics affine_search_diagnostics_;
   std::optional<std::array<uint64_t, 13>> affine_completed_census_;
   std::vector<uint64_t> affine_reason_ids_;

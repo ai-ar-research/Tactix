@@ -25,6 +25,10 @@ public:
   bool authenticated() const;
   bool complete() const;
   uint64_t candidate_fingerprint() const;
+  // DefaultPolicy uses the retained profile's construction dose as the
+  // per-invocation Window allowance. The Window stage keeps its independent
+  // total cap; zero means the current stage needs no policy-imposed slice.
+  uint64_t recommended_continuation_work() const;
   void clear();
 
 private:

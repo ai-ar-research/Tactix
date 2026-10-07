@@ -7,6 +7,7 @@
 #include "policies/heuristics.hpp"
 #include "strategy/lucky_execution.hpp"
 #include "strategy/random_online.hpp"
+#include "strategy/work_execution.hpp"
 #include <cassert>
 #include <fstream>
 using namespace tactix;
@@ -116,6 +117,66 @@ int main(int argc, char **argv) {
       assert(sat == (public_result.status==InvocationStatus::Sat));
     }
     assert(sat && replay.stats.graph_labeling_recognized == 1);
+  }
+  {
+    // Public 26/27 replay carries the same bounded Window continuation as the
+    // native action. Repeated slices preserve cursor/random/candidate identity.
+    Kernel native, replay;
+    ScopedHeuristics nh(native), rh(replay);
+    permutation(native, true);
+    permutation(replay, true);
+    native.graph_labeling_parameters.work[size_t(
+        GraphLabelingStage::Construction)] = 64;
+    replay.graph_labeling_parameters = native.graph_labeling_parameters;
+    OnlineStrategyProgram program;
+    for (uint64_t i = 0; i < 512; ++i) {
+      OnlineInvocation step;
+      step.id = i + 1;
+      step.rule = "Lucky";
+      step.granularity = InvocationGranularity::OneInstance;
+      step.instances = {i ? LUCKY_GRAPH_CONTINUE
+                          : LUCKY_GRAPH_AUTHENTICATE};
+      step.parameters = native.graph_labeling_parameters;
+      if (i)
+        step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 64};
+      program.sequence.push_back(step);
+    }
+    const auto wire = serialize_online_strategy_program(program);
+    OnlineStrategyProgram decoded;
+    std::string error;
+    assert(deserialize_online_strategy_program(wire, decoded, &error));
+    assert(serialize_online_strategy_program(decoded) == wire);
+    OnlineStrategyExecutor executor;
+    assert(executor.configure(decoded, 1, ReconfigureMode::ResetRuntime,
+                              &error));
+    uint64_t window_slices = 0;
+    bool reached_window = false;
+    for (uint64_t i = 0; i < 512; ++i) {
+      execution::GraphLabelingActionResult direct;
+      if (!i) {
+        direct = act(native, true);
+      } else {
+        strategy::ScopedRuleWorkBudget budget(
+            native, {RuleWorkBudgetMode::Bounded, 64});
+        reached_window |=
+            native.graph_labeling_session.recommended_continuation_work() != 0;
+        window_slices +=
+            native.graph_labeling_session.recommended_continuation_work() != 0;
+        direct = act(native, false);
+      }
+      const auto public_result = executor.advance(replay);
+      assert(native.graph_labeling_session.candidate_fingerprint() ==
+             replay.graph_labeling_session.candidate_fingerprint());
+      assert(native.stats.graph_labeling_work == replay.stats.graph_labeling_work);
+      assert(direct.result == public_result.rule_result);
+      if (reached_window &&
+          !native.graph_labeling_session.recommended_continuation_work())
+        break;
+    }
+    assert(reached_window && window_slices > 1);
+    assert(!native.graph_labeling_session.recommended_continuation_work());
+    assert(!replay.graph_labeling_session.recommended_continuation_work());
+    assert(native.trail.empty() && replay.trail.empty());
   }
   {
     auto *solver=tactix_init();
