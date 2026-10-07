@@ -4330,6 +4330,16 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
       !kernel.graph_labeling_session.authenticated() || kernel.level ||
       !graph_labeling_model_guard(kernel))
     return result;
+  const uint64_t suggested =
+      kernel.graph_labeling_session.recommended_continuation_work();
+  const uint64_t allowance = kernel_has_work_budget(kernel)
+      ? std::min(kernel.work_budget, suggested ? suggested : kernel.work_budget)
+      : suggested;
+  strategy::ScopedRuleWorkBudget work_budget(
+      kernel, suggested
+                  ? strategy::RuleWorkBudget{
+                        strategy::RuleWorkBudgetMode::Bounded, allowance}
+                  : strategy::RuleWorkBudget{});
   const strategy::GuidanceOutcomeSnapshot before(kernel);
   result = execution::complete_action(
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,

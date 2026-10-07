@@ -73,6 +73,21 @@ int main() {
   assert(small.nodes() == legacy_nodes);
   assert(sliced.labels == legacy.labels && sliced.score == legacy.score);
 
+  Candidate prepaid_candidate;
+  WindowCursor prepaid;
+  const uint64_t setup = WindowCursor::initialization_work(shape);
+  assert(setup < legacy_work);
+  assert(prepaid.initialize_after_charge(shape, limits, legacy_work, required) ==
+         WindowCursorAdmission::Ready);
+  assert(prepaid.work() == setup);
+  const auto prepaid_result =
+      prepaid.step(shape, legacy_work - setup, prepaid_candidate);
+  assert(prepaid_result.status == WindowCursorStatus::Found);
+  assert(prepaid_result.work == legacy_work - setup);
+  assert(prepaid.work() == legacy_work && prepaid.nodes() == legacy_nodes);
+  assert(prepaid_candidate.labels == legacy.labels);
+  assert(prepaid_candidate.score == legacy.score);
+
   // The same slice sequence is a deterministic replay of every frontier and
   // random-stream transition, including exhaustion boundaries.
   WindowCursor replay_a, replay_b;
@@ -111,10 +126,25 @@ int main() {
 
   WindowCursor capped;
   Candidate capped_candidate;
-  assert(capped.initialize(shape, limits, legacy_work - 1, required) ==
+  const uint64_t capped_allowance = legacy_work - 1;
+  uint64_t legacy_capped_work = 0, legacy_capped_nodes = 0;
+  Candidate legacy_capped_candidate;
+  const auto legacy_capped = window_search(
+      shape, limits,
+      [&](uint64_t amount) {
+        if (amount > capped_allowance - legacy_capped_work) return false;
+        legacy_capped_work += amount;
+        return true;
+      },
+      legacy_capped_candidate, legacy_capped_nodes);
+  assert(legacy_capped == WindowStatus::Limited);
+  assert(capped.initialize(shape, limits, capped_allowance, required) ==
          WindowCursorAdmission::Ready);
   assert(finish(capped, shape, 29, capped_candidate) ==
          WindowCursorStatus::TotalWorkExhausted);
-  assert(capped.work() < legacy_work);
+  assert(capped.work() == legacy_capped_work);
+  assert(capped.nodes() == legacy_capped_nodes);
+  assert(capped_candidate.labels == legacy_capped_candidate.labels);
+  assert(capped_candidate.score == legacy_capped_candidate.score);
   assert(capped.terminal());
 }

@@ -1,14 +1,32 @@
 #undef NDEBUG
 #include "rules/lucky/graph_labeling_model.hpp"
+#include "rules/lucky/graph_labeling_window_cursor.hpp"
 #include "rules/lucky/model.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/guidance_outcome.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/work_execution.hpp"
 
+#include <algorithm>
 #include <cassert>
 
 using namespace tactix;
+
+namespace tactix {
+struct DefaultGraphLabelingTestAccess {
+  static GraphLabelingSliceResult service(DefaultPolicy &policy, Kernel &kernel) {
+    return policy.service_graph_labeling(kernel);
+  }
+};
+} // namespace tactix
+
+static GraphLabelingSliceResult sliced(
+    Kernel &kernel, GraphLabelingModelSession &session, uint64_t allowance) {
+  strategy::ScopedRuleWorkBudget budget(
+      kernel, {strategy::RuleWorkBudgetMode::Bounded, allowance});
+  return graph_labeling_model_slice(kernel, session);
+}
 
 struct StopAfterGraphRoot final : BranchingPolicy {
   DefaultPolicy &policy;
@@ -148,6 +166,114 @@ int main() {
     for (Var v = 0; v < measured.nvars; ++v)
       model[v] = measured.value(make_lit(v, false)) > 0;
     assert(lucky_model_valid(measured, model));
+  }
+  {
+    // The retained model adapter must preserve the Window cursor exactly:
+    // many bounded public-style continuations reach the same frontier,
+    // random stream, work count and candidate as one large continuation.
+    Kernel boundary;
+    ScopedHeuristics boundary_h(boundary);
+    permutation(boundary, true);
+    boundary.graph_labeling_parameters.work.fill(100000);
+    boundary.graph_labeling_parameters.work[size_t(
+        strategy::GraphLabelingStage::Construction)] = 64;
+    graph_labeling::Shape footprint;
+    footprint.vertices = 4;
+    const uint64_t graph_bytes = 16 * 4 * 4 + 64 * 4;
+    const uint64_t cursor_bytes =
+        graph_labeling::WindowCursor::required_workspace(footprint) +
+        sizeof(graph_labeling::Candidate) + 4 * sizeof(uint32_t);
+    boundary.graph_labeling_parameters.workspace_bytes =
+        graph_bytes + std::max<uint64_t>(16 * 4 * 4 + 256 * 4, cursor_bytes);
+    Kernel boundary_small;
+    ScopedHeuristics boundary_small_h(boundary_small);
+    permutation(boundary_small, true);
+    boundary_small.graph_labeling_parameters =
+        boundary.graph_labeling_parameters;
+    --boundary_small.graph_labeling_parameters.workspace_bytes;
+    GraphLabelingModelSession boundary_small_session;
+    assert(graph_labeling_model_authenticate(boundary_small,
+               boundary_small_session).status ==
+           GraphLabelingAuthenticationStatus::Exhausted);
+    assert(!boundary_small_session.authenticated());
+    GraphLabelingModelSession boundary_session;
+    assert(graph_labeling_model_authenticate(boundary, boundary_session).status ==
+           GraphLabelingAuthenticationStatus::Authenticated);
+    assert(graph_labeling_model_slice(boundary, boundary_session).status ==
+           GraphLabelingSliceStatus::Pending);
+    const uint64_t setup =
+        graph_labeling::WindowCursor::initialization_work(footprint);
+    const uint64_t boundary_fingerprint =
+        boundary_session.candidate_fingerprint();
+    const auto short_setup =
+        sliced(boundary, boundary_session, setup - 1);
+    assert(short_setup.status == GraphLabelingSliceStatus::Pending);
+    assert(!short_setup.work);
+    assert(boundary_session.candidate_fingerprint() == boundary_fingerprint);
+    const auto exact_setup = sliced(boundary, boundary_session, setup);
+    assert(exact_setup.status == GraphLabelingSliceStatus::Pending);
+    assert(exact_setup.work == setup);
+    assert(boundary_session.candidate_fingerprint() == boundary_fingerprint);
+
+    Kernel whole, split;
+    ScopedHeuristics whole_h(whole), split_h(split);
+    permutation(whole, true);
+    permutation(split, true);
+    for (Kernel *kernel : {&whole, &split}) {
+      kernel->graph_labeling_parameters.work.fill(100000);
+      kernel->graph_labeling_parameters.work[size_t(
+          strategy::GraphLabelingStage::Construction)] = 64;
+    }
+    GraphLabelingModelSession whole_session, split_session;
+    assert(graph_labeling_model_authenticate(whole, whole_session).status ==
+           GraphLabelingAuthenticationStatus::Authenticated);
+    assert(graph_labeling_model_authenticate(split, split_session).status ==
+           GraphLabelingAuthenticationStatus::Authenticated);
+    assert(graph_labeling_model_slice(whole, whole_session).status ==
+           GraphLabelingSliceStatus::Pending);
+    assert(graph_labeling_model_slice(split, split_session).status ==
+           GraphLabelingSliceStatus::Pending);
+    assert(whole_session.recommended_continuation_work() == 64);
+    assert(split_session.recommended_continuation_work() == 64);
+
+    const auto whole_window = graph_labeling_model_slice(whole, whole_session);
+    assert(whole_window.status == GraphLabelingSliceStatus::Pending);
+    uint64_t split_calls = 0;
+    while (split_session.recommended_continuation_work()) {
+      const auto part = sliced(split, split_session, 64);
+      assert(part.status == GraphLabelingSliceStatus::Pending);
+      assert(part.work <= 64);
+      assert(++split_calls < 10000);
+    }
+    assert(split_calls > 1);
+    assert(!whole_session.recommended_continuation_work());
+    assert(whole_session.candidate_fingerprint() ==
+           split_session.candidate_fingerprint());
+    assert(whole.stats.graph_labeling_nodes == split.stats.graph_labeling_nodes);
+    assert(whole.stats.graph_labeling_work == split.stats.graph_labeling_work);
+
+    // Default uses the same retained action and its serialized construction
+    // dose as the Window invocation ceiling; no separate hidden profile exists.
+    Kernel policy_kernel;
+    ScopedHeuristics policy_h(policy_kernel);
+    permutation(policy_kernel, true);
+    policy_kernel.graph_labeling_parameters = split.graph_labeling_parameters;
+    GraphLabelingModelSession &policy_session =
+        policy_kernel.graph_labeling_session;
+    assert(graph_labeling_model_authenticate(policy_kernel, policy_session).status ==
+           GraphLabelingAuthenticationStatus::Authenticated);
+    assert(graph_labeling_model_slice(policy_kernel, policy_session).status ==
+           GraphLabelingSliceStatus::Pending);
+    DefaultStrategyConfig config;
+    config.graph_labeling_model.enabled = true;
+    config.graph_labeling_model.parameters =
+        policy_kernel.graph_labeling_parameters;
+    DefaultPolicy policy(config);
+    const auto policy_slice =
+        DefaultGraphLabelingTestAccess::service(policy, policy_kernel);
+    assert(policy_slice.status == GraphLabelingSliceStatus::Pending);
+    assert(policy_slice.work <= 64);
+    assert(policy_session.recommended_continuation_work() == 64);
   }
   {
     Kernel k;

@@ -2,9 +2,11 @@
 
 #include "rules/lucky/graph_labeling_completion.hpp"
 #include "rules/lucky/graph_labeling_repair.hpp"
+#include "rules/lucky/graph_labeling_window_cursor.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <limits>
 
 namespace tactix {
@@ -24,6 +26,7 @@ struct GraphLabelingModelSession::State {
   graph_labeling::Shape shape;
   graph_labeling::Candidate best;
   graph_labeling::Score published{UINT64_MAX, UINT64_MAX};
+  std::unique_ptr<graph_labeling::WindowCursor> window;
   std::vector<uint8_t> primary_negative;
   uint64_t cumulative_work = 0;
 };
@@ -54,6 +57,17 @@ uint64_t GraphLabelingModelSession::candidate_fingerprint() const {
   mix(state_->best.score.second);
   for (uint32_t label : state_->best.labels) mix(label);
   return result;
+}
+uint64_t GraphLabelingModelSession::recommended_continuation_work() const {
+  using ParameterStage = strategy::GraphLabelingStage;
+  if (!state_ || state_->stage != State::Stage::Window) return 0;
+  const uint64_t total =
+      state_->parameters.work[size_t(ParameterStage::Window)];
+  uint64_t dose =
+      state_->parameters.work[size_t(ParameterStage::Construction)];
+  if (!dose)
+    dose = state_->parameters.work[size_t(ParameterStage::Recognition)];
+  return std::min(total, dose ? dose : total);
 }
 
 namespace {
@@ -161,7 +175,14 @@ GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
   }
   const uint64_t n = shape.vertices, square = n * n;
   const uint64_t graph_bytes = 16 * square + 64 * n;
-  const uint64_t search_bytes = 16 * square + 256 * n;
+  const bool window_enabled = n <= p.maximum_dfs_vertices &&
+      p.maximum_dfs_nodes && p.maximum_dfs_starts && p.early_dfs_choices &&
+      p.work[size_t(Stage::Window)];
+  const uint64_t cursor_bytes = window_enabled
+      ? saturated_add(WindowCursor::required_workspace(shape),
+                      sizeof(Candidate) + n * sizeof(uint32_t))
+      : 0;
+  const uint64_t search_bytes = std::max(16 * square + 256 * n, cursor_bytes);
   if (graph_bytes > p.workspace_bytes ||
       search_bytes > p.workspace_bytes - graph_bytes) {
     ++k.stats.graph_labeling_budget;
@@ -252,16 +273,62 @@ GraphLabelingSliceResult graph_labeling_model_slice(
     break;
   }
   case SessionStage::Window: {
-    uint64_t nodes = 0;
-    if (!state.best.labels.empty() && state.best.score.first &&
-        state.shape.vertices <= p.maximum_dfs_vertices)
-      (void)window_search(state.shape,
+    if (state.best.labels.empty() || !state.best.score.first ||
+        state.shape.vertices > p.maximum_dfs_vertices ||
+        !p.maximum_dfs_nodes || !p.maximum_dfs_starts ||
+        !p.early_dfs_choices) {
+      state.window.reset();
+      state.stage = SessionStage::Repair;
+      break;
+    }
+    if (!state.window) {
+      const uint64_t setup = WindowCursor::initialization_work(state.shape);
+      if (setup > stage_remaining || meter.poll()) {
+        if (!meter.interrupted) {
+          ++k.stats.graph_labeling_budget;
+          meter.exhausted = true;
+        }
+        break;
+      }
+      if (!meter.charge(setup)) break;
+      stage_remaining -= setup;
+      const uint64_t n = state.shape.vertices;
+      auto window = std::make_unique<WindowCursor>();
+      const auto admission = window->initialize_after_charge(
+          state.shape,
           {p.maximum_dfs_nodes, p.maximum_dfs_starts, p.early_dfs_choices,
-           p.seed ^ 0x51A7EULL ^ (uint64_t(state.shape.vertices) << 20) ^
-               state.shape.separation},
-          charge, state.best, nodes);
-    k.stats.graph_labeling_nodes += nodes;
-    state.stage = SessionStage::Repair;
+           p.seed ^ 0x51A7EULL ^ (n << 20) ^ state.shape.separation},
+          p.work[size_t(ParameterStage::Window)],
+          p.workspace_bytes - (16 * n * n + 64 * n));
+      if (admission != WindowCursorAdmission::Ready) {
+        ++k.stats.graph_labeling_budget;
+        state.stage = SessionStage::Repair;
+        break;
+      }
+      state.window = std::move(window);
+    }
+    const auto stepped = state.window->step(
+        state.shape, stage_remaining, state.best,
+        [&] { return meter.poll(); });
+    if (!meter.charge(stepped.work)) std::abort();
+    stage_remaining -= stepped.work;
+    k.stats.graph_labeling_nodes += stepped.nodes;
+    switch (stepped.status) {
+    case WindowCursorStatus::Pending:
+    case WindowCursorStatus::Interrupted:
+      break;
+    case WindowCursorStatus::Found:
+    case WindowCursorStatus::NoCandidate:
+    case WindowCursorStatus::SearchLimit:
+      state.window.reset();
+      state.stage = SessionStage::Repair;
+      break;
+    case WindowCursorStatus::TotalWorkExhausted:
+      ++k.stats.graph_labeling_budget;
+      state.window.reset();
+      state.stage = SessionStage::Repair;
+      break;
+    }
     break;
   }
   case SessionStage::Repair:
