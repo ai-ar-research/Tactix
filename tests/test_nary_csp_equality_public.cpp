@@ -64,13 +64,6 @@ Kernel parse(bool unsat = false) {
   return kernel;
 }
 
-NaryCspPrefixParameters prefix_parameters() {
-  NaryCspPrefixParameters result{
-      100, 1000, 100000, 8, 16, 100, 7, 16,
-      1000, 32, 200, 100000, 1, 100, 32, 100000};
-  assert(result.valid());
-  return result;
-}
 
 NaryCspEqualityParameters equality_parameters() {
   NaryCspEqualityParameters result{
@@ -375,18 +368,6 @@ void c_parameters(tactix_online_parameters &out, bool equality) {
         p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
         p.maximum_journal_bytes, p.maximum_extent_growth,
         p.maximum_external_extent, p.maximum_session_keys};
-  } else {
-    const auto p = prefix_parameters();
-    out.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX;
-    out.value.nary_csp_prefix = {
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_recognition_work, p.maximum_domains,
-        p.maximum_domain_values, p.maximum_forbidden_tuples,
-        p.maximum_prefix_arity, p.maximum_definition_clause_literals,
-        p.maximum_proof_work, p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-        p.maximum_extent_growth, p.maximum_external_extent,
-        p.maximum_session_keys, p.maximum_session_work};
   }
 }
 
@@ -397,26 +378,11 @@ void c_v10_deep_copies_and_executes_exact_payload() {
   add_formula(solver);
   int d0[] = {1, 2, 3}, d1[] = {4, 5, 6}, d2[] = {7, 8, 9};
   tactix_online_nary_csp_domain domains[] = {{d0, 3}, {d1, 3}, {d2, 3}};
-  tactix_online_nary_csp_choice prefix[] = {{0, 0}, {1, 0}};
-  tactix_online_nary_csp_prefix_instance prefix_instance{
-      domains, 3, 2, prefix, 2};
   tactix_online_nary_csp_equality_instance equality_instance{
       domains, 3, 0, 1, 2};
-  tactix_online_step_v10 steps[2]{};
-  auto &prefix_base =
-      steps[0].base.base.base.base.base.base.base.base.base;
-  prefix_base.step_id = 28;
-  prefix_base.rule_id = 39;
-  c_parameters(prefix_base.parameters, false);
-  prefix_base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  prefix_base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  prefix_base.repeat_limit = 1;
-  prefix_base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  prefix_base.budget = 1;
-  steps[0].base.base.nary_csp_prefix_instances = &prefix_instance;
-  steps[0].base.base.nary_csp_prefix_instance_count = 1;
+  tactix_online_step_v10 steps[1]{};
   auto &equality_base =
-      steps[1].base.base.base.base.base.base.base.base.base;
+      steps[0].base.base.base.base.base.base.base.base.base;
   equality_base.step_id = 31;
   equality_base.rule_id = 42;
   c_parameters(equality_base.parameters, true);
@@ -425,17 +391,15 @@ void c_v10_deep_copies_and_executes_exact_payload() {
   equality_base.repeat_limit = 1;
   equality_base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   equality_base.budget = 1;
-  steps[1].nary_csp_equality_instances = &equality_instance;
-  steps[1].nary_csp_equality_instance_count = 1;
+  steps[0].nary_csp_equality_instances = &equality_instance;
+  steps[0].nary_csp_equality_instance_count = 1;
   tactix_online_program_v10 program{
-      steps, 2, TACTIX_ONLINE_REPEAT_ONCE, 1};
+      steps, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure_v10(
              solver, &program, 100, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
   d0[0] = 99;
   equality_instance.left_domain = 2;
   tactix_online_result result{};
-  assert(tactix_online_advance(solver, &result) == 0 &&
-         result.rule_id == 39 && result.made_rule_progress);
   assert(tactix_online_advance(solver, &result) == 0 &&
          result.rule_id == 42 && result.made_rule_progress);
   tactix_release(solver);

@@ -5,7 +5,6 @@
 #include "policies/restart_controller.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -75,27 +74,6 @@ struct DirectCspActionProducerConfig {
   }
 };
 
-struct NaryCspActionProducerConfig {
-  bool enabled = false;
-  // Emit exactly one compact detector census through request metadata. This
-  // is diagnostic-only and leaves the offer surface and policy unchanged.
-  bool diagnostic_census_once = false;
-  uint32_t relation_arity = 3;
-  // noL has 363 exact-one colour domains. Discovery is clause-indexed, so
-  // admitting their census no longer implies enumerating domain triples.
-  uint64_t maximum_domain_candidates = 512;
-  uint64_t maximum_relation_candidates = 64;
-  uint64_t maximum_prefix_candidates = 1024;
-  uint64_t maximum_offers = 8;
-  uint64_t maximum_enumeration_work = 10000000;
-
-  bool valid() const {
-    return !enabled ||
-           (relation_arity >= 3 && maximum_domain_candidates &&
-            maximum_relation_candidates && maximum_prefix_candidates &&
-            maximum_offers && maximum_enumeration_work);
-  }
-};
 
 struct NaryCspEqualityActionProducerConfig {
   bool enabled = false;
@@ -177,7 +155,6 @@ struct RandomControllerConfig {
   bool affine_basis_profile_configured = false;
   DirectCspActionProducerConfig direct_csp_action_producer;
   GuardedCoverProducerConfig guarded_cover_producer;
-  NaryCspActionProducerConfig nary_csp_action_producer;
   NaryCspEqualityActionProducerConfig nary_csp_equality_action_producer;
   NaryCspEqualityAmoProducerConfig nary_csp_equality_amo_producer;
   Gf3GaussianActionProducerConfig gf3_gaussian_action_producer;
@@ -348,22 +325,6 @@ private:
     std::optional<std::string> pending;
     uint64_t pending_sequence = 0;
   };
-  struct NaryCspDiscoveryState {
-    const Kernel *owner = nullptr;
-    const NaryCspPrefixActionSession *session = nullptr;
-    strategy::StateVersion state;
-    size_t session_keys = 0;
-    size_t retained_owners = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    bool complete = false;
-    bool have_after = false;
-    std::string profile;
-    NaryCspPrefixActionKey after;
-    std::vector<NaryCspPrefixActionSelection> offers;
-    std::optional<NaryCspPrefixActionSelection> pending;
-    uint64_t pending_sequence = 0;
-  };
   struct TseitinCycleDiscoveryState {
     const Kernel *owner = nullptr;
     const TseitinCycleBreakingSession *session = nullptr;
@@ -443,10 +404,8 @@ private:
   AffineBasisDiscoveryState affine_basis_discovery_;
   Gf3DiscoveryState gf3_discovery_;
   DirectCspDiscoveryState direct_csp_discovery_;
-  NaryCspDiscoveryState nary_csp_discovery_;
   NaryCspEqualityDiscoveryState nary_csp_equality_discovery_;
   NaryCspEqualityAmoDiscoveryState nary_csp_equality_amo_discovery_;
-  bool nary_csp_census_emitted_ = false;
   Gf3GaussianDiscoveryState gf3_gaussian_discovery_;
   Gf3GeneralRowDiscoveryState gf3_general_row_discovery_;
   TseitinCycleDiscoveryState tseitin_cycle_discovery_;

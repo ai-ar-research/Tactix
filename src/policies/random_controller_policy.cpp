@@ -121,12 +121,6 @@ bool RandomControllerConfig::configure_startup_prefix(
       if (!replacement.direct_csp_action_producer.enabled || !parameters)
         return reject("controller startup direct-CSP offer requires its native producer and typed profile");
       replacement.parameters.direct_csp_support_reference = *parameters;
-    } else if (step.rule == "NaryCspPrefix") {
-      const auto *parameters =
-          std::get_if<NaryCspPrefixParameters>(&step.parameters);
-      if (!replacement.nary_csp_action_producer.enabled || !parameters)
-        return reject("controller startup n-ary offer requires its native producer and typed profile");
-      replacement.parameters.nary_csp_prefix_reference = *parameters;
     } else if (step.rule == "NaryCspEquality") {
       const auto *parameters =
           std::get_if<NaryCspEqualityParameters>(&step.parameters);
@@ -209,7 +203,6 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
       !step.tseitin_cycle_instances.empty() ||
       !step.direct_csp_guarded_cover_instances.empty() ||
       !step.direct_csp_support_instances.empty() ||
-      !step.nary_csp_prefix_instances.empty() ||
       !step.nary_csp_equality_instances.empty() ||
       !step.nary_csp_equality_transitivity_instances.empty() ||
       !step.nary_csp_equality_amo_instances.empty())
@@ -255,7 +248,6 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
         !advice->tseitin_cycle_instances.empty() ||
         !advice->direct_csp_guarded_cover_instances.empty() ||
         !advice->direct_csp_support_instances.empty() ||
-        !advice->nary_csp_prefix_instances.empty() ||
         !advice->nary_csp_equality_instances.empty())
       return reject("GF2 semantic variable advice profile must be canonical "
                     "and payload-free");
@@ -420,8 +412,7 @@ bool RandomControllerConfig::configure_direct_csp_producer_profile(
            step.gf3_gaussian_instances.empty() &&
            step.tseitin_cycle_instances.empty() &&
            step.direct_csp_guarded_cover_instances.empty() &&
-           step.direct_csp_support_instances.empty() &&
-           step.nary_csp_prefix_instances.empty();
+           step.direct_csp_support_instances.empty();
   };
   const auto fixed_positive = [](const OnlineInvocation &step) {
     return !step.budget.is_unlimited() && step.budget.amount() &&
@@ -609,7 +600,6 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "AffineConsequence" ||
               std::string_view(rule.name) == "Gf3AffineConsequence" ||
               std::string_view(rule.name) == "DirectCspSupport" ||
-              std::string_view(rule.name) == "NaryCspPrefix" ||
               std::string_view(rule.name) == "NaryCspEquality" ||
               std::string_view(rule.name) == "NaryCspEqualityTransitivity" ||
               std::string_view(rule.name) == "NaryCspEqualityAmo" ||
@@ -648,7 +638,6 @@ static ActionParameters reference_parameters(const Kernel &k,
   CONTROLLER_REFERENCE("IndependentSetCover", independent_set_cover_reference);
   CONTROLLER_REFERENCE("Gf3AffineConsequence", gf3_affine_consequence_reference);
   CONTROLLER_REFERENCE("DirectCspSupport", direct_csp_support_reference);
-  CONTROLLER_REFERENCE("NaryCspPrefix", nary_csp_prefix_reference);
   CONTROLLER_REFERENCE("NaryCspEquality", nary_csp_equality_reference);
   CONTROLLER_REFERENCE("NaryCspEqualityAmo", nary_csp_equality_amo_reference);
   CONTROLLER_REFERENCE("DirectPhpRefutation", direct_php_refutation_reference);
@@ -715,7 +704,6 @@ std::string controller_configuration(const RandomControllerConfig &config) {
       continue;
     if (std::string_view(rule.name) == "Gf3AffineConsequence" ||
         std::string_view(rule.name) == "DirectCspSupport" ||
-        std::string_view(rule.name) == "NaryCspPrefix" ||
         std::string_view(rule.name) == "NaryCspEquality")
       // These families have no canonical action.  Their complete typed
       // requests, including limits, are fingerprinted below as offered
@@ -844,24 +832,6 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << producer.startup_batch_actions << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
-  if (config.nary_csp_action_producer.enabled) {
-    const auto &producer = config.nary_csp_action_producer;
-    OnlineInvocation profile;
-    profile.rule = "NaryCspPrefix";
-    profile.parameters = config.parameters.nary_csp_prefix_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
-    profile.nary_csp_prefix_instances = {
-        {{{1, 2}, {3, 4}, {5, 6}}, {2, {{0, 0}, {1, 0}}}}};
-    out << " producer " << std::quoted(profile.rule) << ' '
-        << producer.relation_arity << ' '
-        << producer.maximum_domain_candidates << ' '
-        << producer.maximum_relation_candidates << ' '
-        << producer.maximum_prefix_candidates << ' '
-        << producer.maximum_offers << ' '
-        << producer.maximum_enumeration_work << ' '
-        << std::quoted(serialize_online_strategy_program({{profile}, {}}));
-    if (producer.diagnostic_census_once) out << " census-once";
-  }
   if (config.nary_csp_equality_action_producer.enabled) {
     const auto &producer = config.nary_csp_equality_action_producer;
     OnlineInvocation profile;
@@ -942,12 +912,6 @@ static std::string request_record(const ActionRequest &request) {
         << effort.preparation_work << ' ' << effort.enumeration_work << ' '
         << effort.total_work << ' ' << effort.candidates << ' '
         << effort.offers;
-  for (const auto &effort : request.producer_effort)
-    if (effort.have_detector_census)
-      out << " census " << effort.candidate_domains << ' '
-          << effort.exact_domains << ' ' << effort.relation_keys << ' '
-          << effort.tuple_occurrences << ' '
-          << static_cast<unsigned>(effort.first_decline_reason);
   return out.str();
 }
 
@@ -1226,36 +1190,6 @@ bool RandomControllerSelector::choose(
       direct_csp_discovery_.state = observation.last_action->invocation.after;
     }
   }
-  if (nary_csp_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          nary_csp_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      const auto pending = *nary_csp_discovery_.pending;
-      nary_csp_discovery_.offers.erase(
-          std::remove(nary_csp_discovery_.offers.begin(),
-                      nary_csp_discovery_.offers.end(), pending),
-          nary_csp_discovery_.offers.end());
-      nary_csp_discovery_.pending.reset();
-      nary_csp_discovery_.pending_sequence = 0;
-      nary_csp_discovery_.state = observation.last_action->invocation.after;
-      if (nary_csp_discovery_.offers.empty() &&
-          nary_csp_discovery_.complete)
-        nary_csp_discovery_.terminal = true;
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      nary_csp_discovery_.pending.reset();
-      nary_csp_discovery_.offers.clear();
-      nary_csp_discovery_.pending_sequence = 0;
-      nary_csp_discovery_.terminal = true;
-      nary_csp_discovery_.state = observation.last_action->invocation.after;
-    } else if (settlement ==
-               NativeSettlement::RetainUntilReconfiguration) {
-      nary_csp_discovery_.pending_sequence = 0;
-      nary_csp_discovery_.reconfiguration_required = true;
-      nary_csp_discovery_.state = observation.last_action->invocation.after;
-    }
-  }
   if (nary_csp_equality_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
           nary_csp_equality_discovery_.pending_sequence) {
@@ -1489,38 +1423,7 @@ bool RandomControllerSelector::choose(
     return out.str();
   };
 
-  const auto nary_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "NaryCspPrefix";
-    invocation.parameters = config.parameters.nary_csp_prefix_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
-    invocation.nary_csp_prefix_instances = {
-        {{{1, 2}, {3, 4}, {5, 6}}, {2, {{0, 0}, {1, 0}}}}};
-    std::ostringstream out;
-    const auto &producer = config.nary_csp_action_producer;
-    out << producer.relation_arity << ' '
-        << producer.maximum_domain_candidates << ' '
-        << producer.maximum_relation_candidates << ' '
-        << producer.maximum_prefix_candidates << ' '
-        << producer.maximum_offers << ' '
-        << producer.maximum_enumeration_work << ' '
-        << serialize_online_strategy_program({{invocation}, {}});
-    if (producer.diagnostic_census_once) out << " census-once";
-    return out.str();
-  };
 
-  const auto nary_limits = [&] {
-    const auto &p = config.parameters.nary_csp_prefix_reference;
-    return NaryCspPrefixActionLimits{
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_recognition_work, p.maximum_domains,
-        p.maximum_domain_values, p.maximum_forbidden_tuples,
-        p.maximum_prefix_arity, p.maximum_definition_clause_literals,
-        p.maximum_proof_work, p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-        p.maximum_extent_growth, p.maximum_external_extent,
-        p.maximum_session_keys, p.maximum_session_work};
-  };
 
   const auto nary_equality_profile = [&] {
     OnlineInvocation invocation;
@@ -2010,105 +1913,6 @@ bool RandomControllerSelector::choose(
     return !direct_csp_discovery_.offers.empty();
   };
 
-  const auto discover_nary = [&]() -> bool {
-    if (!config.nary_csp_action_producer.enabled ||
-        has_static_offer("NaryCspPrefix") ||
-        !k.nary_csp_prefix_action_session)
-      return false;
-    if (!config.nary_csp_action_producer.valid()) {
-      error = "n-ary CSP structured action producer window is invalid";
-      return false;
-    }
-    const auto &session = *k.nary_csp_prefix_action_session;
-    const auto profile = nary_profile();
-    const auto state = state_version(k);
-    const bool owner_changed = nary_csp_discovery_.owner != &k ||
-                               nary_csp_discovery_.session != &session;
-    const bool profile_changed = nary_csp_discovery_.profile != profile;
-    const bool state_or_session_changed =
-        owner_changed || !same_version(nary_csp_discovery_.state, state) ||
-        nary_csp_discovery_.session_keys != session.committed_keys() ||
-        nary_csp_discovery_.retained_owners != session.retained_owners();
-    if (state_or_session_changed ||
-        (profile_changed &&
-         (!nary_csp_discovery_.reconfiguration_required ||
-          !nary_csp_discovery_.pending))) {
-      nary_csp_discovery_ = {};
-      nary_csp_discovery_.owner = &k;
-      nary_csp_discovery_.session = &session;
-      nary_csp_discovery_.state = state;
-      nary_csp_discovery_.session_keys = session.committed_keys();
-      nary_csp_discovery_.retained_owners = session.retained_owners();
-      nary_csp_discovery_.profile = profile;
-    } else if (nary_csp_discovery_.reconfiguration_required &&
-               profile_changed) {
-      nary_csp_discovery_.state = state;
-      nary_csp_discovery_.session_keys = session.committed_keys();
-      nary_csp_discovery_.retained_owners = session.retained_owners();
-      nary_csp_discovery_.profile = profile;
-      nary_csp_discovery_.reconfiguration_required = false;
-    }
-    if (nary_csp_discovery_.reconfiguration_required) return false;
-    if (nary_csp_discovery_.pending || !nary_csp_discovery_.offers.empty())
-      return true;
-    if (nary_csp_discovery_.terminal) return false;
-    const auto &producer = config.nary_csp_action_producer;
-    NaryCspPrefixActionOfferWindow window;
-    window.relation_arity = producer.relation_arity;
-    window.maximum_domain_candidates = producer.maximum_domain_candidates;
-    window.maximum_relation_candidates = producer.maximum_relation_candidates;
-    window.maximum_prefix_candidates = producer.maximum_prefix_candidates;
-    window.maximum_offers = producer.maximum_offers;
-    window.maximum_enumeration_work = producer.maximum_enumeration_work;
-    window.have_after = nary_csp_discovery_.have_after;
-    if (window.have_after) window.after = nary_csp_discovery_.after;
-    const auto limits = nary_limits();
-    if (!limits.valid()) {
-      error = "n-ary CSP structured action producer parameters are invalid";
-      return false;
-    }
-    const auto offered =
-        nary_csp_prefix_action_offer(k, session, limits, window);
-    const uint64_t preparation = offered.effort.session_work;
-    ActionProducerEffort effort{
-        "NaryCspPrefix", static_cast<uint8_t>(offered.status),
-        offered.complete, preparation, offered.effort.enumeration_work,
-        saturated_add(preparation, offered.effort.enumeration_work),
-        offered.effort.prefix_candidates, offered.offers.size()};
-    if (producer.diagnostic_census_once && !nary_csp_census_emitted_) {
-      effort.have_detector_census = true;
-      effort.candidate_domains = offered.effort.domain_candidates;
-      effort.exact_domains = offered.effort.exact_domains;
-      effort.relation_keys = offered.effort.indexed_relation_keys;
-      effort.tuple_occurrences = offered.effort.indexed_tuple_occurrences;
-      effort.first_decline_reason = static_cast<uint8_t>(offered.reason);
-      nary_csp_census_emitted_ = true;
-    }
-    producer_effort.push_back(std::move(effort));
-    if (offered.status == NaryCspPrefixActionOfferStatus::Interrupted ||
-        offered.status == NaryCspPrefixActionOfferStatus::ResourceExhausted) {
-      nary_csp_discovery_.reconfiguration_required = true;
-      return false;
-    }
-    if (offered.status != NaryCspPrefixActionOfferStatus::Ready) {
-      nary_csp_discovery_.terminal = true;
-      return false;
-    }
-    const bool cursor_advanced =
-        offered.have_resume_after &&
-        (!nary_csp_discovery_.have_after ||
-         !(offered.resume_after == nary_csp_discovery_.after));
-    nary_csp_discovery_.offers = offered.offers;
-    nary_csp_discovery_.complete = offered.complete;
-    nary_csp_discovery_.have_after = offered.have_resume_after;
-    if (offered.have_resume_after)
-      nary_csp_discovery_.after = offered.resume_after;
-    if (offered.complete && offered.offers.empty())
-      nary_csp_discovery_.terminal = true;
-    else if (offered.offers.empty() && !cursor_advanced)
-      nary_csp_discovery_.terminal = true;
-    return !nary_csp_discovery_.offers.empty();
-  };
 
   const auto discover_nary_equality = [&]() -> bool {
     if (!config.nary_csp_equality_action_producer.enabled ||
@@ -2585,7 +2389,6 @@ bool RandomControllerSelector::choose(
     Gf3,
     DirectCsp,
     GuardedCover,
-    NaryCsp,
     NaryCspEquality,
     NaryCspEqualityAmo,
     Gf3Gaussian,
@@ -2663,11 +2466,6 @@ bool RandomControllerSelector::choose(
                native_allowed(entry.rule) && discover_direct()) {
       eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
                           NativeOffer::DirectCsp});
-    } else if (entry.reason == "structured-witness-not-offered" &&
-               entry.rule == "NaryCspPrefix" &&
-               native_allowed(entry.rule) && discover_nary()) {
-      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
-                          NativeOffer::NaryCsp});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "NaryCspEquality" &&
                native_allowed(entry.rule) &&
@@ -2868,17 +2666,6 @@ bool RandomControllerSelector::choose(
           config.parameters.direct_csp_support_reference;
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.direct_csp_support_instances = {exact};
-    } else if (selected_action.native == NativeOffer::NaryCsp) {
-      if (!nary_csp_discovery_.pending)
-        nary_csp_discovery_.pending = nary_csp_discovery_.offers[
-            startup_forced ? 0 : draw(nary_csp_discovery_.offers.size())];
-      const auto exact = *nary_csp_discovery_.pending;
-      nary_csp_discovery_.pending_sequence = request.sequence;
-      request.invocation.rule = rule.name;
-      request.invocation.parameters =
-          config.parameters.nary_csp_prefix_reference;
-      request.invocation.granularity = InvocationGranularity::OneInstance;
-      request.invocation.nary_csp_prefix_instances = {exact};
     } else if (selected_action.native == NativeOffer::NaryCspEquality) {
       if (!nary_csp_equality_discovery_.pending)
         nary_csp_equality_discovery_.pending =
@@ -3290,24 +3077,6 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       counts.producer_offers = counts.producer_offers > UINT64_MAX - effort.offers
                                    ? UINT64_MAX
                                    : counts.producer_offers + effort.offers;
-      if (effort.have_detector_census) {
-        std::printf("c nary-csp-census candidate-domains=%llu "
-                    "exact-domains=%llu relation-keys=%llu tuples=%llu "
-                    "first-decline=%s reason=%u status=%u complete=%u "
-                    "work=%llu offers=%llu\n",
-                    (unsigned long long)effort.candidate_domains,
-                    (unsigned long long)effort.exact_domains,
-                    (unsigned long long)effort.relation_keys,
-                    (unsigned long long)effort.tuple_occurrences,
-                    nary_csp_prefix_action_offer_reason_name(
-                        static_cast<NaryCspPrefixActionOfferReason>(
-                            effort.first_decline_reason)),
-                    unsigned(effort.first_decline_reason),
-                    unsigned(effort.status), unsigned(effort.complete),
-                    (unsigned long long)effort.total_work,
-                    (unsigned long long)effort.offers);
-        std::fflush(stdout);
-      }
     }
     if (!selected) {
       if (!(stop && *stop))

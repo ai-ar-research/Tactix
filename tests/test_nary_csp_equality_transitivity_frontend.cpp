@@ -111,15 +111,7 @@ void c15_deep_copy(){
  capi::tactix_online_nary_csp_equality_transitivity_instance choice{};
  for(size_t i=0;i<3;++i){
   for(size_t d=0;d<3;++d)owner_domains[i][d]={original[owners[i][d]],2};
-  capi::tactix_online_nary_csp_choice choices[]={{1,0},{2,0}};
-  capi::tactix_online_nary_csp_prefix_instance prefix{owner_domains[i],3,0,choices,2};
-  capi::tactix_online_step_v8 ps{};configure_base(base_step(ps),39);
-  base_step(ps).parameters.kind=TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX;
-  base_step(ps).parameters.value.nary_csp_prefix={1000,10000,1000000,8,16,1000,7,16,10000,1000,10000,100000,1,100,100,1000000};
-  ps.nary_csp_prefix_instances=&prefix;ps.nary_csp_prefix_instance_count=1;
-  capi::tactix_online_program_v8 pp{&ps,1,TACTIX_ONLINE_REPEAT_ONCE,1};
-  assert(capi::tactix_online_configure_v8(solver,&pp,100+i,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
-  capi::tactix_online_result out{};assert(capi::tactix_online_advance(solver,&out)==0&&out.status==TACTIX_ONLINE_COMPLETED&&out.made_rule_progress);
+  capi::tactix_online_result out{};
   capi::tactix_online_nary_csp_equality_instance eq{owner_domains[i],3,0,1,2};
   capi::tactix_online_step_v10 es{};configure_base(base_step(es),42);
   base_step(es).parameters.kind=TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
@@ -128,7 +120,7 @@ void c15_deep_copy(){
   capi::tactix_online_program_v10 ep{&es,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(capi::tactix_online_configure_v10(solver,&ep,200+i,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   assert(capi::tactix_online_advance(solver,&out)==0&&out.status==TACTIX_ONLINE_COMPLETED&&out.made_rule_progress);
-  choice.domains[i]={original[i],2};choice.equalities[i]=eq;choice.equality_variables[i]=uint32_t(14+2*i);
+  choice.domains[i]={original[i],2};choice.equalities[i]=eq;choice.equality_variables[i]=uint32_t(13+i);
  }
  capi::tactix_online_step_v15 step{};configure_base(base_step(step),45);
  step.equality_transitivity_profile=TACTIX_EQUALITY_TRANSITIVITY_PROFILE_EXACT;

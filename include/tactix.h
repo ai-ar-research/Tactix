@@ -273,15 +273,16 @@ int tactix_value(tactix *, int lit);
 
 /* --- R3/N1: rule introspection and stepwise application ---------------- */
 
-/* number of registered rule families (stable ids: 0..count-1; the original
- * names were sorted, and later actions append without renumbering them) */
+/* Number of stable registry slots, including retired holes (0..count-1).
+ * ID 39 is retired: its name is Retired39 and it cannot be selected.
+ * Original names were sorted; later actions append without renumbering. */
 int tactix_rule_count(void);
 const char *tactix_rule_name(int rule_id);
 
 /* Action kind (plan §4): a proof rule, which affects the proof state and so
  * carries a proof obligation, or an H-only policy operation. Both share one
  * append-only id space. Returns TACTIX_ACTION_*, or -1 if rule_id is out of
- * range. */
+ * range or retired. */
 #define TACTIX_ACTION_PROOF_RULE 0
 #define TACTIX_ACTION_POLICY_OP 1
 int tactix_action_kind(int rule_id);
@@ -410,7 +411,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION 39
 #define TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE 40
 #define TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING 41
-#define TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX 42
+#define TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX 42 /* retired; rejected */
 #define TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY 43
 #define TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE 44
 #define TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO 45
@@ -1264,8 +1265,8 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v7;
 
-/* Additive v8 payload for one exact n-ary CSP prefix consequence. Configure
- * deep-copies the domain vectors and the complete ordered non-residual prefix. */
+/* Retired v8 ABI payload types. Nonzero prefix fields are rejected.
+ * The signed-domain type remains shared by the independent equality APIs. */
 typedef struct {
   const int *values;
   int value_count;
@@ -1282,6 +1283,7 @@ typedef struct {
 } tactix_online_nary_csp_prefix_instance;
 typedef struct {
   tactix_online_step_v7 base;
+  /* Retired v8 ABI slots: both must be zero, including in later versions. */
   const tactix_online_nary_csp_prefix_instance *nary_csp_prefix_instances;
   int nary_csp_prefix_instance_count;
 } tactix_online_step_v8;
@@ -1337,7 +1339,7 @@ typedef struct {
 } tactix_online_program_v9;
 
 /* Additive v10 payload for one compact equality consequence over an exact
- * retained ternary X17 owner. Domains and coordinates are deep-copied. */
+ * authenticated ternary relation owner. Domains and coordinates are deep-copied. */
 typedef struct {
   const tactix_online_nary_csp_domain *domains;
   int domain_count;

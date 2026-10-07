@@ -71,6 +71,7 @@ inline bool parse_search_configuration(std::string_view text,
 // public surfaces remain unchanged; the controller owns the full restart and
 // the search loop, and installs strategy choices only in ResumeSearch.
 inline std::string_view root_exclusion(const RuleVTable &rule) {
+  if (rule.retired) return "retired-action";
   const std::string_view identity(rule.name);
   if (identity == "Decide" || identity == "ConflictAnalysis")
     return "search-service";
@@ -106,15 +107,6 @@ struct ActionProducerEffort {
   uint64_t total_work = 0;
   uint64_t candidates = 0;
   uint64_t offers = 0;
-  // Optional one-call detector boundary. Producers populate this only for an
-  // explicitly enabled diagnostic; ordinary selection emits no census metadata or serialization.
-  bool have_detector_census = false;
-  uint64_t candidate_domains = 0;
-  uint64_t exact_domains = 0;
-  uint64_t relation_keys = 0;
-  uint64_t tuple_occurrences = 0;
-  uint8_t first_decline_reason = 0;
-
   bool operator==(const ActionProducerEffort &) const = default;
 };
 

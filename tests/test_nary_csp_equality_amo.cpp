@@ -59,10 +59,6 @@ void parse_into(Kernel &kernel, bool unsat = false) {
   assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
 }
 
-NaryCspPrefixActionLimits prefix_limits() {
-  return {100, 1000, 100000, 8, 16, 100, 7, 16,
-          10000, 100, 1000, 100000, 1, 100, 100, 100000};
-}
 
 NaryCspEqualityLimits equality_limits() {
   return {100, 1000, 300000, 16, 100, 10000,
@@ -428,9 +424,6 @@ void c_v12_deep_copies_and_executes_exact_payload() {
   int d0[] = {1, 2, 3}, d1[] = {4, 5, 6}, d2[] = {7, 8, 9};
   tactix_online_nary_csp_domain c_domains[] = {
       {d0, 3}, {d1, 3}, {d2, 3}};
-  tactix_online_nary_csp_choice prefix[] = {{0, 0}, {1, 0}};
-  tactix_online_nary_csp_prefix_instance prefix_instance{
-      c_domains, 3, 2, prefix, 2};
   tactix_online_nary_csp_equality_instance equality_instances[] = {
       {c_domains, 3, 1, 2, 0},
       {c_domains, 3, 0, 2, 1},
@@ -452,22 +445,6 @@ void c_v12_deep_copies_and_executes_exact_payload() {
     out.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
     out.budget = 1;
   };
-  set_common(steps[0], 28, 39);
-  auto &prefix_parameter = base(steps[0]).parameters;
-  prefix_parameter.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX;
-  const auto pl = prefix_limits();
-  prefix_parameter.value.nary_csp_prefix = {
-      pl.maximum_source_clauses, pl.maximum_source_literals,
-      pl.maximum_recognition_work, pl.maximum_domains,
-      pl.maximum_domain_values, pl.maximum_forbidden_tuples,
-      pl.maximum_prefix_arity, pl.maximum_definition_clause_literals,
-      pl.maximum_proof_work, pl.maximum_proof_additions,
-      pl.maximum_proof_literal_occurrences, pl.maximum_journal_bytes,
-      pl.maximum_extent_growth, pl.maximum_external_extent,
-      pl.maximum_session_keys, pl.maximum_session_work};
-  steps[0].base.base.base.base.nary_csp_prefix_instances = &prefix_instance;
-  steps[0].base.base.base.base.nary_csp_prefix_instance_count = 1;
-
   const auto el = equality_limits();
   set_common(steps[1], 31, 42);
   auto &equality_parameter = base(steps[1]).parameters;
@@ -497,16 +474,8 @@ void c_v12_deep_copies_and_executes_exact_payload() {
   steps[2].nary_csp_equality_amo_instance_count = 1;
 
   tactix_online_program_v12 program{
-      &steps[0], 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
-  assert(tactix_online_configure_v12(
-             solver, &program, 10, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-  d0[0] = 99;
+      &steps[1], 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   tactix_online_result result{};
-  assert(tactix_online_advance(solver, &result) == 0 &&
-         result.rule_id == 39 && result.status == TACTIX_ONLINE_COMPLETED &&
-         result.made_rule_progress);
-  d0[0] = 1;
-
   program.steps = &steps[1];
   for (unsigned i = 0; i != 3; ++i) {
     steps[1].base.base.nary_csp_equality_instances = &equality_instances[i];

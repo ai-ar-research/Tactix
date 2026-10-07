@@ -81,19 +81,19 @@ bounded, NUL-terminated `tcx2:` identity for that rule and
 `tactix_online_configure_v7` deep-copies it; other v7 steps carry no Tseitin
 payload. Versions 1--6 retain their layouts and meanings.
 
-Version 8 appends registry ID 39, disabled reference StepId 28 and parameter
-tag 42 for X17 `NaryCspPrefix`. A `tactix_online_step_v8` carries zero or more
-exact nested instances: the canonically ordered signed domain vectors, residual
-domain index, and complete ordered `(domain,value)` prefix for every
-non-residual domain. `tactix_online_configure_v8` validates the complete shape
-and limits, then deep-copies every domain literal and prefix choice. Typed
-replay serializes the same exact payload and the `nary-csp-prefix1` limit tuple;
-canonical or scalar requests are invalid. Versions 1--7 retain their layouts
-and meanings.
+Version 8 retains the physical ABI slots of retired X17. Registry ID 39,
+authored reference StepId 28 and C parameter tag 42 are reserved and rejected;
+subsequent IDs do not move. Registry enumeration names slot 39 `Retired39`,
+while action lookup, kind and execution reject it. Both inherited v8 prefix
+pointer and count must be zero in every later C version. Old prefix replay,
+producer options and parameter tuples are rejected. Caller-chosen online
+request IDs are independent of authored reference IDs, so an ordinary online
+request may still use ID 28. Neutral authenticated relation owners remain
+available to independently retained equality actions and produce no facts.
 
 Version 10 appends registry ID 42, disabled StepId 31 and parameter tag 43 for
 `NaryCspEquality`. Its exact payload deep-copies three signed domains and the
-left/right/residual coordinates of one retained ternary X17 owner. Typed replay
+left/right/residual coordinates of one authenticated ternary relation owner. Typed replay
 uses `nary-csp-equality1`; the bounded `nary-csp-equality` producer pages only
 freshly revalidated canonical offers. Publication, explicit propagation and
 `NaryCspEquality` semantic advice remain separate actions. Versions 1--9 retain
@@ -107,10 +107,10 @@ selects those families and supplies their typed payloads and fixed allowances;
 choices in one family must agree on allowance. This also supplies structured
 Condition witnesses and independent-set covers, which have no scalar native
 producer. `--controller-native-producers=LIST` independently enables bounded
-native discovery for `gf2-affine`, `gf3-affine`, `direct-csp`, `nary-csp`,
+native discovery for `gf2-affine`, `gf3-affine`, `direct-csp`,
 `nary-csp-equality`, `nary-csp-equality-amo`, `gf3-gaussian`,
-`gf3-general-row`, and `tseitin-cycle`; `all` enables all nine and `none`
-disables all nine. They are
+`gf3-general-row`, and `tseitin-cycle`; `all` enables all eight and `none`
+disables all eight. They are
 disabled unless explicitly selected. `--controller-families=LIST` restricts
 eligibility to canonical root-action names without inventing structured
 payloads, so focused native-producer campaigns can isolate one action family;
@@ -326,16 +326,6 @@ action. After it reaches a new root closure, the producer discards its stale
 offer cache and performs a fresh census, so another independent component or
 alternate unassigned cycle can be selected.
 
-X17 extends the same exact-selection contract to n-ary finite-domain relations.
-Its bounded `nary-csp` producer discovers canonical signed exact-one domains,
-captures complete forbidden-tuple relations, and deterministically pages every
-productive all-but-one prefix. The payload names the full domain collection,
-one residual domain, and one selected value in every other domain. Apply
-revalidates the retained owner and exact current relation before atomically
-publishing the exact-AND definition and RUP residual exclusions. Its
-solver-lifetime Kernel session retains owners, durable prefix keys, action IDs,
-and safe namespace growth; propagation remains a separate action.
-
 Native exact producers classify settlement uniformly. Applied, duplicate and
 complete no-structure/no-outcome results consume the payload. Invalid,
 inapplicable, unsupported-proof and stale results discard it until context
@@ -393,8 +383,7 @@ single `strategy_epoch` transition. If the request explicitly composes
 retired and missing variables are filtered at the settled root, and one candidate
 is published at the final state version. Exact-cover and affine-basis extension outputs have `IntroducedTheory`
 role; affine source variables and independent-set vertices have `ExistingTheory`
-role. X17 publishes its still-branchable semantic variables under the distinct
-`NaryCsp` producer after any configured propagation follow-up. Encoding helpers and proof-only
+role. Encoding helpers and proof-only
 identities are never candidates. A later advice action applies bounded role-specific
 priority doses uniformly to VMTF and EVSIDS; producer actions never install rankings
 or phases themselves. Candidate IDs combine a monotone session publication generation
@@ -430,12 +419,6 @@ scan work, proof preflight and emitted additions/deletions, published formula
 objects, journal cost, extent growth, and staged semantic-variable counts.
 Before/after differences are the raw feedback for one action. They are neither
 normalized nor combined into a reward.
-
-X17 additionally exposes cumulative `nary_csp_prefix_*` action counters and
-native-producer records for discovery work, candidates, offers, pagination,
-session/live preflight, settlement, proof/yield, and semantic-variable volume.
-Before/after differences are raw measurements. They do not compute reward or
-authorize DefaultPolicy scheduling.
 
 ## Effort and observation
 

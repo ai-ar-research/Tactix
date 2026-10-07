@@ -21,10 +21,9 @@ c localsearch 3 hints offered (127 phases, 1 replacements), 2 applied / 2 target
 """
     present, counts, seen = FUZZ.rule_reachability(stdout)
     assert present
+    assert "NaryCspPrefix" not in counts
     assert seen["TseitinCycleBreaking"]
     assert counts["TseitinCycleBreaking"] == 4
-    assert seen["NaryCspPrefix"]
-    assert counts["NaryCspPrefix"] == 5
     assert seen["LocalSearchGuidance"]
     assert counts["LocalSearchGuidance"] == 2
 
@@ -34,8 +33,6 @@ c localsearch 3 hints offered (127 phases, 1 replacements), 2 applied / 2 target
     assert counts["LocalSearchGuidance"] == 0
     assert seen["TseitinCycleBreaking"]
     assert counts["TseitinCycleBreaking"] == 4
-    assert seen["NaryCspPrefix"]
-    assert counts["NaryCspPrefix"] == 5
 
 
 if __name__ == "__main__":

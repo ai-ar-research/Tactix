@@ -21,7 +21,6 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "IndependentSetCover",
                                          "Gf3AffineConsequence",
                                          "DirectCspSupport",
-                                         "NaryCspPrefix",
                                          "NaryCspEquality",
                                          "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
                                          "DirectPhpRefutation",
@@ -44,7 +43,6 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "IndependentSetCover",
                                              "Gf3AffineConsequence",
                                              "DirectCspSupport",
-                                             "NaryCspPrefix",
                                              "NaryCspEquality",
                                              "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
                                              "DirectPhpRefutation",
@@ -233,7 +231,6 @@ static tactix *prepare(int id) {
       !strcmp(name, "IndependentSetCover") ||
       !strcmp(name, "Gf3AffineConsequence") ||
       !strcmp(name, "DirectCspSupport") ||
-      !strcmp(name, "NaryCspPrefix") ||
       !strcmp(name, "NaryCspEquality") ||
       !strcmp(name, "Gf3GaussianConsequence") ||
       !strcmp(name, "Gf3GeneralRowConsequence") ||
@@ -370,12 +367,6 @@ static void drive(tactix *s, int id) {
     hit_structured[id] = 1;
     return;
   }
-  if (!strcmp(name, "NaryCspPrefix")) {
-    const int count = tactix_rule_instances(s, id, insts, NINST);
-    assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
-    hit_structured[id] = 1;
-    return;
-  }
   if (!strcmp(name, "NaryCspEquality")) {
     const int count = tactix_rule_instances(s, id, insts, NINST);
     assert(count == 1 && insts[0] == TACTIX_INSTANCE_CANONICAL);
@@ -476,6 +467,7 @@ int main(void) {
   affine_v9_exact_row_boundary();
 
   for (id = 0; id < n; id++) {
+    if (id == 39) continue; // Retired stable slot.
     /* a fresh solver per entry: a shared one lets an earlier rule's effect
        make a later guard false, so the run reads green over less */
     tactix *s = prepare(id);
@@ -498,7 +490,7 @@ int main(void) {
                               : hit_payload[id] ? "PAYLOAD" : "CANON  ",
            enum_empty[id] ? "  (enumeration empty here)" : "");
 
-  assert(reached == n &&
+  assert(reached == n - 1 &&
          "every registry entry must be reachable through its public action surface");
   assert(progressed > 0 &&
          "not one application made progress, so this run pinned the return "

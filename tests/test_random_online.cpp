@@ -2303,11 +2303,11 @@ static void every_registry_action_has_random_support() {
   }
   static constexpr const char *PRODUCER_OWNED[] = {
       "IndependentSetCover", "Gf3AffineConsequence", "DirectCspSupport",
-      "NaryCspPrefix", "NaryCspEquality", "Gf3GaussianConsequence",
+      "NaryCspEquality", "Gf3GaussianConsequence",
       "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
       "Gf3GeneralRowConsequence",
       "TseitinCycleBreaking"};
-  assert(seen.size() + std::size(PRODUCER_OWNED) == tactix_rules().size());
+  assert(seen.size() + std::size(PRODUCER_OWNED) + 1 == tactix_rules().size());
   for (const char *name : PRODUCER_OWNED)
     assert(!seen.count(name));
 }
