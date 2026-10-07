@@ -1,0 +1,40 @@
+{
+  "job_id": "1754535",
+  "slurm_state": "FAILED",
+  "source_commit": "1e8295106b34616eefe5f434b4fc72a4654a3527",
+  "source_patch_sha256": "9de4ab1b83e52d6402dc846170764e28325719f7e1911d9b856d9967dfd28163",
+  "solver_sha256": "3a403b2038649a0ec82515a32b9b221aea0727a7f5369fef88f773841acb3cba",
+  "solver_verdict": "UNSAT",
+  "solver_exit_code": 20,
+  "solver_wall_seconds": 3627.98,
+  "certificate_bytes": 4115525606,
+  "certificate_sha256": "9dd8775c0b685071aefd276a52d51dc8369de2e55c6fb4fe147722b5f35ed6c0",
+  "proof_check": {
+    "result": "not-verified",
+    "pipeline": "dsr-trim-dsr-compress-trestle",
+    "dsr_trim_sha256": "94f5fc0c122b7996207fb38f9010180f2d1e6b61b3008a3ef515ab5d971bc614",
+    "exit_code": 1,
+    "wall_seconds": 223.949,
+    "peak_rss_kb": 17260268,
+    "parsed_proof_lines": 90194257,
+    "parsed_additions": 45073931,
+    "failing_line": 45073817,
+    "failing_clause": 45084048,
+    "failing_literal": 18,
+    "error": "Clause 45084048 not in watch pointers for literal 18"
+  },
+  "mechanism": {
+    "fastel_checks": 2,
+    "fastel_eliminated": 2246,
+    "fastel_resolutions": 30012,
+    "parity_equations": 24,
+    "parity_rank": 24,
+    "parity_candidates": 0,
+    "affine_implications_consumed": 0,
+    "affine_conflicts_consumed": 0
+  },
+  "valid": false,
+  "fixed44_closed": false,
+  "artifact_deleted": true,
+  "authoritative_result_sha256": "18a8867a5159ebe2bbecbe05ce89bc5db2198cd1f6d68d4cc6b0b7bc0c75254c"
+}
