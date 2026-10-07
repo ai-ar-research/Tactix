@@ -1,0 +1,135 @@
+{
+  "created_at": "2026-10-07T22:14:27.703052+00:00",
+  "candidate_binding": "benchmarks/runs/20261007-firstopen-original-seed-release-r2/release-binding.json",
+  "candidate_binding_sha256": "bcaa8bbb9d5521d3dc2aa4413a7f4b33048740ff5169833f7435913e958408c2",
+  "release": {
+    "path": "build/pin-firstopen-original-seed-rel-r2/tactix",
+    "sha256": "b26efc0fb133787a797820d40c759ae552e2cf4eaabde4bee990f27947890bcf"
+  },
+  "reviewed_source_commit": "0a15ecaf1",
+  "source_archive_sha256": "ab70cbb55e8d9ea06e2e16a4254ccefd729ad66d9edf3a4cb7a63b428ec7476e",
+  "focused_job": "1755109",
+  "full_debug_job": "1755126",
+  "claude_owner": "385a3588-c5ba-4eef-b07a-a5a237bd1182",
+  "jobs": {
+    "b28c5": {
+      "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5",
+      "launch": {
+        "job_id": "1755134",
+        "submitted_at": "2026-10-07T22:05:59.598601+00:00",
+        "manifest_sha256": "164dccfba2957eb813377618758e3b9b4b74aba6b1728099dd56521a78d3d82e",
+        "candidate_commit": "0a15ecaf1",
+        "source_archive_sha256": "ab70cbb55e8d9ea06e2e16a4254ccefd729ad66d9edf3a4cb7a63b428ec7476e",
+        "oracle": "canonical32, pure-Python transport; no optional native helper",
+        "full_width": true
+      },
+      "resource_contract": {
+        "array": "0-32",
+        "checker_timeout": 1800,
+        "cpus_per_task": 12,
+        "memory_mib": 32768,
+        "node_constraint": null,
+        "one_solver_per_task": true,
+        "partition": "cpu-dense-hwulab-q",
+        "proof_mode": "automatic PBP/DSR",
+        "solve_timeout": 1200,
+        "throttle": null,
+        "checker_timeout_overrides": {}
+      },
+      "oracle_profile": "frozen canonical32, purePython fallback",
+      "all_pin_hashes_verified": true
+    },
+    "rank1-50": {
+      "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50",
+      "launch": {
+        "job_id": "1755135",
+        "submitted_at": "2026-10-07T22:05:59.762835+00:00",
+        "manifest_sha256": "a2cba9f201a8855cf99d3c940949b5f180e36f4853c7e71119bf8e75fb8c4975",
+        "candidate_commit": "0a15ecaf1",
+        "source_archive_sha256": "ab70cbb55e8d9ea06e2e16a4254ccefd729ad66d9edf3a4cb7a63b428ec7476e",
+        "oracle": "canonical32, pure-Python transport; no optional native helper",
+        "full_width": true
+      },
+      "resource_contract": {
+        "array": "0-49",
+        "checker_timeout": 1800,
+        "cpus_per_task": 12,
+        "memory_mib": 32768,
+        "node_constraint": null,
+        "one_solver_per_task": true,
+        "partition": "cpu-dense-hwulab-q",
+        "proof_mode": "automatic PBP/DSR",
+        "solve_timeout": 1200,
+        "throttle": null,
+        "checker_timeout_overrides": {}
+      },
+      "oracle_profile": "frozen canonical32, purePython fallback",
+      "all_pin_hashes_verified": true
+    },
+    "wv100": {
+      "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100",
+      "launch": {
+        "job_id": "1755136",
+        "submitted_at": "2026-10-07T22:05:59.928565+00:00",
+        "manifest_sha256": "9bc8042991ad4d3867a7c61f53a49ba8d6d3594d3c7d6c8a0c28447065ab4ebe",
+        "candidate_commit": "0a15ecaf1",
+        "source_archive_sha256": "ab70cbb55e8d9ea06e2e16a4254ccefd729ad66d9edf3a4cb7a63b428ec7476e",
+        "oracle": "canonical32, pure-Python transport; no optional native helper",
+        "full_width": true
+      },
+      "resource_contract": {
+        "array": "0-99",
+        "checker_timeout": 1800,
+        "checker_timeout_overrides": {},
+        "cpus_per_task": 12,
+        "memory_mib": 32768,
+        "node_constraint": null,
+        "one_solver_per_task": true,
+        "partition": "cpu-dense-hwulab-q",
+        "proof_mode": "automatic startup PBP; solver-declared native DSR final route after no-option dsr-trim",
+        "solve_timeout": 1200,
+        "throttle": null
+      },
+      "oracle_profile": "frozen canonical32, purePython fallback",
+      "all_pin_hashes_verified": true
+    },
+    "wv2-89": {
+      "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89",
+      "launch": {
+        "job_id": "1755160",
+        "submitted_at": "2026-10-07T22:06:00.093511+00:00",
+        "manifest_sha256": "e8977bdb9d5db9db94ca12a5d10cea3d4527c8bf0cdbacacb94f6b76ac2664d8",
+        "candidate_commit": "0a15ecaf1",
+        "source_archive_sha256": "ab70cbb55e8d9ea06e2e16a4254ccefd729ad66d9edf3a4cb7a63b428ec7476e",
+        "oracle": "canonical32, pure-Python transport; no optional native helper",
+        "full_width": true
+      },
+      "resource_contract": {
+        "array": "0-88",
+        "checker_timeout": 1800,
+        "checker_timeout_overrides": {},
+        "cpus_per_task": 12,
+        "memory_mib": 32768,
+        "node_constraint": null,
+        "one_solver_per_task": true,
+        "partition": "cpu-dense-hwulab-q",
+        "proof_mode": "automatic startup PBP; solver-declared native DSR final route after no-option dsr-trim",
+        "solve_timeout": 600,
+        "throttle": null
+      },
+      "oracle_profile": "frozen canonical32, purePython fallback",
+      "all_pin_hashes_verified": true
+    }
+  },
+  "accepted": false,
+  "new_generality_gate": "DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration",
+  "independent_checker_review_owner": "49c00a94-873e-4626-abb4-41fd26df74f8",
+  "canceled_superseded": {
+    "queued": 34,
+    "running": 7,
+    "evidence": [
+      "benchmarks/runs/20261007-obsolete-10942-pending-cancellation",
+      "benchmarks/runs/20261007-obsolete-10942-running-cancellation"
+    ]
+  }
+}
