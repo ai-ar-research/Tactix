@@ -133,7 +133,8 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
-Claude owns its fresh fuzz campaign; [the preceding owner report](benchmarks/runs/20261006-r263-default-affine-fuzz-owner/FINAL_REPORT.md) rejected root-unit, empty-conflict and invalidated-session handling.
+Claude accepted its [fresh fuzz campaign](benchmarks/reports/2026-10-06-affine-repair-fuzz-owner-verdict/README.md): both broad legs and 12,998 targeted tasks pass. A disclosed width-one conflict publication decline remains a nonfatal follow-up; service-time interruption was not reached. This does not accept the later cumulative pin.
+[The preceding owner report](benchmarks/runs/20261006-r263-default-affine-fuzz-owner/FINAL_REPORT.md) rejected root-unit, empty-conflict and invalidated-session handling.
 Parallel increments add a [bounded GF(2) predecessor](benchmarks/reports/2026-10-06-affine-predecessor-microgate.md) and X20 decline/retry feedback (`2ddfcbedf`); cumulative Debug and ASan/UBSan with leak detection and proof shadow each pass 10/10, including independent proofs and restore/rebuild telemetry.
 The [test-only replay microgate](benchmarks/reports/2026-10-06-affine-controller-replay-microgate/README.md)
 adds failed-nonmatching predecessor atomicity and independently reexecuted public
