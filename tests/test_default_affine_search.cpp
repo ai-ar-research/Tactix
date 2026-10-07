@@ -4,11 +4,88 @@
 #include "rules/semantic_extension/affine_image.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
+#include "rules/propagate/propagate.hpp"
 #include <cassert>
 #include <fstream>
 #include <sstream>
 #include <cstdio>
 using namespace tactix;
+
+namespace tactix {
+struct DefaultAffineSearchTestAccess {
+  static AffineMatrixInitResult refresh(DefaultPolicy &policy, Kernel &kernel,
+                                        bool initial, bool recognize) {
+    return policy.initialize_affine_search(kernel, !initial, recognize);
+  }
+  static AffineMatrixServiceResult service(DefaultPolicy &policy, Kernel &kernel) {
+    return policy.service_affine_search(kernel, !kernel.level);
+  }
+  static bool paused(const DefaultPolicy &policy) { return policy.affine_usefulness_paused_; }
+  static uint64_t calls(const DefaultPolicy &policy) { return policy.affine_usefulness_calls_; }
+};
+}
+
+// A completed empty census survives root-only retries; a newly admitted source
+// must invalidate it. This exercises the same Default scheduling entrypoint,
+// without making recognition work depend on a machine-speed threshold.
+void empty_census_retry() {
+  Kernel kernel;
+  FILE *input = std::tmpfile();
+  assert(input);
+  std::fputs("p cnf 6 2\n1 2 3 0\n4 5 6 0\n", input);
+  std::rewind(input);
+  assert(!parse_dimacs(input, kernel));
+  std::fclose(input);
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  Proof proof;
+  assert(proof.open("/tmp/tactix-default-empty-census.dsr", ProofFormat::DsrAscii));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &proof;
+  DefaultStrategyConfig settings;
+  settings.affine_search.enabled = true;
+  DefaultPolicy policy(settings);
+  auto first = DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true);
+  assert(first.status == AffineMatrixInitStatus::NoStructure);
+  assert(!session.enabled());
+  const auto work = policy.affine_search_diagnostics().initialization_work;
+  assert(work > 0);
+  for (unsigned retry = 0; retry < 8; ++retry) {
+    DefaultAffineSearchTestAccess::refresh(policy, kernel, false, false);
+    const auto unchanged = DefaultAffineSearchTestAccess::refresh(policy, kernel, false, true);
+    assert(unchanged.unchanged && unchanged.status == AffineMatrixInitStatus::NoStructure);
+  }
+  assert(policy.affine_search_diagnostics().initialization_work == work);
+  assert(policy.affine_search_diagnostics().refreshes == 0);
+  assert(policy.affine_search_diagnostics().empty_maintenance_skips == 8);
+  assert(policy.affine_search_diagnostics().unchanged_census_skips == 8);
+  for (const auto &clause : affine_semantic_extension::clausal_form({4,5,6}, false)) {
+    std::vector<Lit> internal;
+    for (int32_t literal : clause) internal.push_back(internalize(literal));
+    const auto id = ++kernel.next_clause_id;
+    kernel_add_large_clause(kernel, internal.data(), internal.size(), false, 0, id);
+    proof.seed_population(id, internal.data(), internal.size());
+  }
+  // Changed sources alone do not earn another recognition dose.
+  DefaultAffineSearchTestAccess::refresh(policy, kernel, false, false);
+  assert(!session.enabled());
+  assert(policy.affine_search_diagnostics().initialization_work == work);
+  const auto admitted = DefaultAffineSearchTestAccess::refresh(policy, kernel, false, true);
+  assert(admitted.status == AffineMatrixInitStatus::Applied);
+  assert(session.enabled() && session.active_sources() == 1);
+  assert(session.persistence_limits().maximum_deferred_deletions > 0);
+  assert(session.persistence_limits().maximum_deferred_literal_work > 0);
+  assert(policy.affine_search_diagnostics().initialization_work > work);
+  session.disable(kernel);
+  kernel.proof = nullptr;
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+  std::remove("/tmp/tactix-default-empty-census.dsr");
+}
 
 struct Fixture {
   uint32_t variables;
@@ -108,12 +185,182 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
   kernel.proof=nullptr;kernel.structural_provenance=nullptr;std::fclose(records);
   if(stem.empty() && with_proof)std::remove(proof_path.c_str());
 }
+// An explicit short sampling profile isolates the scheduling protocol; the
+// ordinary reference-derived thresholds remain unchanged in production.
+void paused_owner_retry(const std::string &stem = "",
+                        ProofFormat format = ProofFormat::DsrAscii) {
+  Fixture f{9, {{5,6,7}, {8,9,1}}};
+  for (const auto &variables : {std::vector<int32_t>{1,2,3},
+                                std::vector<int32_t>{2,3,4}})
+    for (const auto &clause : affine_semantic_extension::clausal_form(variables, false))
+      f.clauses.push_back(clause);
+  Kernel kernel;
+  FILE *input = std::tmpfile();
+  assert(input);
+  const auto text = cnf(f);
+  std::fwrite(text.data(), 1, text.size(), input);
+  std::rewind(input);
+  assert(!parse_dimacs(input, kernel));
+  std::fclose(input);
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  Proof proof;
+  const bool dsr = format == ProofFormat::DsrAscii || format == ProofFormat::DsrBinary;
+  const std::string path = stem.empty() ? "/tmp/tactix-default-paused-owner" +
+      std::string(dsr ? ".dsr" : ".drat") : stem + (dsr ? ".dsr" : ".drat");
+  assert(proof.open(path.c_str(), format));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &proof;
+  auto settings = config(true);
+  settings.affine_search.autodisable_minimum_calls = 1;
+  settings.affine_search.autodisable_check_every = 1;
+  settings.affine_search.minimum_usefulness = 1;
+  DefaultPolicy policy(settings);
+  auto first = DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true);
+  assert(first.status == AffineMatrixInitStatus::Applied);
+  assert(policy.affine_search_diagnostics().retained_basis_rank == 2);
+  assert(policy.affine_search_diagnostics().retained_support_variables == 4);
+  assert(policy.affine_search_diagnostics().recognition_rank_gains == 2);
+  assert(policy.affine_search_diagnostics().rank_before_last_action == 0);
+  assert(policy.affine_search_diagnostics().rank_after_last_action == 2);
+  auto pause = [&] {
+    for (int32_t literal : {2,-2}) {
+      kernel_assign_decision(kernel, kernel_internalize(kernel, literal));
+      assert(propagate_apply(kernel) == ApplyResult::Ok);
+      const auto result = DefaultAffineSearchTestAccess::service(policy, kernel);
+      assert(result.status == AffineMatrixServiceStatus::NoEvent);
+      kernel_backtrack(kernel, 0);
+    }
+    assert(DefaultAffineSearchTestAccess::paused(policy));
+    assert(session.enabled() && session.persistent());
+    assert(policy.affine_search_diagnostics().paused_basis_rank == session.basis_rank());
+    assert(policy.affine_search_diagnostics().paused_support_variables == session.support_variables());
+  };
+  pause();
+  const auto sampled = DefaultAffineSearchTestAccess::calls(policy);
+  const auto owner = session.owner_version();
+  const auto limits = session.persistence_limits();
+  // Change the physical CNF owner and force a paid recognition pass, without
+  // adding a complete XOR family or a root unit. Snapshot change alone must
+  // not be treated as fresh evidence of search usefulness.
+  const std::vector<int32_t> unrelated{5,8,9};
+  std::vector<Lit> unrelated_body;
+  for (int32_t literal : unrelated)
+    unrelated_body.push_back(kernel_internalize(kernel, literal));
+  const auto unrelated_id = ++kernel.next_clause_id;
+  kernel_add_large_clause(kernel, unrelated_body.data(), unrelated_body.size(),
+                          false, 0, unrelated_id);
+  proof.seed_population(unrelated_id, unrelated_body.data(), unrelated_body.size());
+  f.clauses.push_back(unrelated);
+  for (unsigned retry = 0; retry < 4; ++retry) {
+    DefaultAffineSearchTestAccess::refresh(policy, kernel, false, false);
+    const auto duplicate = DefaultAffineSearchTestAccess::refresh(policy, kernel, false, true);
+    assert(duplicate.status == AffineMatrixInitStatus::NoStructure && duplicate.unchanged);
+    if (!retry) assert(duplicate.recognition_work > 0);
+    assert(DefaultAffineSearchTestAccess::paused(policy));
+    assert(DefaultAffineSearchTestAccess::calls(policy) == sampled);
+    assert(session.owner_version() == owner);
+    assert(policy.affine_search_diagnostics().retained_basis_rank == 2);
+    assert(policy.affine_search_diagnostics().recognition_rank_gains == 2);
+    assert(policy.affine_search_diagnostics().recognition_rank_losses == 0);
+    assert(policy.affine_search_diagnostics().maintenance_rank_losses == 0);
+    assert(policy.affine_search_diagnostics().native_session_disables == 0);
+    assert(session.persistence_limits().maximum_deferred_deletions == limits.maximum_deferred_deletions);
+    assert(session.persistence_limits().maximum_deferred_literal_work == limits.maximum_deferred_literal_work);
+    const auto root = DefaultAffineSearchTestAccess::service(policy, kernel);
+    assert(root.status == AffineMatrixServiceStatus::NoEvent);
+    assert(DefaultAffineSearchTestAccess::paused(policy));
+  }
+  kernel_assign_decision(kernel, kernel_internalize(kernel, 2));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto services = policy.affine_search_diagnostics().search_services;
+  DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(policy.affine_search_diagnostics().search_services == services);
+  assert(policy.affine_search_diagnostics().paused_search_skips == 1);
+  kernel_backtrack(kernel, 0);
+  for (const auto &clause : affine_semantic_extension::clausal_form({5,6,7}, false)) {
+    std::vector<Lit> body;
+    for (int32_t literal : clause) body.push_back(kernel_internalize(kernel, literal));
+    const auto id = ++kernel.next_clause_id;
+    kernel_add_large_clause(kernel, body.data(), body.size(), false, 0, id);
+    proof.seed_population(id, body.data(), body.size());
+    f.clauses.push_back(clause);
+  }
+  const auto changed = DefaultAffineSearchTestAccess::refresh(policy, kernel, false, true);
+  assert(changed.status == AffineMatrixInitStatus::Applied);
+  assert(session.active_sources() == 3 && session.owner_version() != owner);
+  assert(policy.affine_search_diagnostics().retained_basis_rank == 3);
+  assert(policy.affine_search_diagnostics().retained_support_variables == 7);
+  assert(policy.affine_search_diagnostics().recognition_rank_gains == 3);
+  assert(!DefaultAffineSearchTestAccess::paused(policy));
+  assert(DefaultAffineSearchTestAccess::calls(policy) == 0);
+  assert(policy.affine_search_diagnostics().usefulness_resumptions == 1);
+  pause();
+  // Extend this evolving fixed input with a root fact. The two authenticated
+  // XORs imply x1=x4, although ordinary Boolean propagation alone cannot discover it here.
+  const Lit unit = kernel_internalize(kernel, 1);
+  proof.seed_population(++kernel.next_clause_id, &unit, 1);
+  f.clauses.push_back({1});
+  kernel_assign_unit(kernel, unit);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  assert(kernel.values[kernel_internalize(kernel, 4)] == 0);
+  const auto root = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(root.status == AffineMatrixServiceStatus::Applied && root.bcp_pending);
+  assert(!DefaultAffineSearchTestAccess::paused(policy));
+  assert(policy.affine_search_diagnostics().usefulness_resumptions == 2);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  assert(kernel.values[kernel_internalize(kernel, 4)] > 0);
+  // A native guard decline clears its owner independently of the zero-yield
+  // pause. Record rank loss at that boundary, rather than interpreting the
+  // final zero-source gauge as proof that projection lost every equation.
+  const auto rank_before_disable = session.basis_rank();
+  kernel.large_watches_connected = false;
+  const auto declined = DefaultAffineSearchTestAccess::service(policy, kernel);
+  kernel.large_watches_connected = true;
+  assert(declined.status == AffineMatrixServiceStatus::Inapplicable);
+  const auto &survival = policy.affine_search_diagnostics();
+  assert(!session.enabled() && survival.active_sources == 0);
+  assert(survival.retained_basis_rank == 0 && survival.retained_support_variables == 0);
+  assert(survival.rank_before_last_action == rank_before_disable && survival.rank_after_last_action == 0);
+  assert(survival.service_rank_losses == rank_before_disable);
+  assert(survival.native_session_disables == 1 && survival.optional_failure_disables == 0);
+  assert(survival.last_survival_action == 3 && survival.last_disable_cause == 1);
+  assert(survival.isolated_projection_rank_losses == 0);
+  session.disable(kernel);
+  kernel.proof = nullptr;
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+  if (stem.empty()) std::remove(path.c_str());
+  else {
+    // Exact union of the actual staged input premises, not constraints added
+    // merely to make the final model or proof pass. Every prefix is checked
+    // against this satisfiable strengthened input independently.
+    std::ofstream original(stem + ".cnf");
+    original << cnf(f);
+    std::ofstream model(stem + ".model");
+    model << "s SATISFIABLE\nv 1 -2 3 4 5 6 -7 -8 -9 0\n";
+  }
+}
+
 int main(int argc,char **argv) {
   assert(argc==1 || argc==2);
+  empty_census_retry();
+  for (const auto &[format, suffix] : {
+      std::pair{ProofFormat::DsrAscii, "/paused"},
+      std::pair{ProofFormat::DsrBinary, "/paused-dsr-binary"},
+      std::pair{ProofFormat::DratAscii, "/paused-drat"},
+      std::pair{ProofFormat::DratBinary, "/paused-drat-binary"}})
+    paused_owner_retry(argc == 2 ? std::string(argv[1]) + suffix : "", format);
   Kernel k;kernel_reserve_vars(k,30);auto c=config(true);
   auto p=default_affine_search_parameters(k,c);assert(p && p->valid());
   assert(p->maximum_arity>3 && p->basis_maximum_intermediate_width==30);
   c.affine_search.maximum_retained_bytes=1;assert(!default_affine_search_parameters(k,c));
+  c=config(true);c.affine_root_closure.maximum_proof_deletions=0;
+  assert(!default_affine_search_parameters(k,c));
   c=config(true);assert(c.serialize().find("affine_search.enabled=1")!=std::string::npos);
   assert(!DefaultStrategyConfig{}.affine_search.enabled);
   for(bool sat:{true,false}) {

@@ -7,6 +7,7 @@
 #include "strategy/policy_completion.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include <optional>
+#include <array>
 
 namespace tactix {
 
@@ -60,17 +61,38 @@ default_affine_search_parameters(const Kernel &, const DefaultStrategyConfig &);
 
 struct DefaultAffineSearchDiagnostics {
   uint64_t initializations = 0, refreshes = 0, unchanged_refreshes = 0;
+  uint64_t empty_maintenance_skips = 0, unchanged_census_skips = 0;
+  uint64_t usefulness_resumptions = 0, paused_search_skips = 0;
   uint64_t root_services = 0, search_services = 0;
   uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
   uint64_t reasons_published = 0, implications_consumed = 0, conflicts_consumed = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
+  uint64_t cached_event_calls = 0;
   uint64_t proof_additions = 0, proof_deletions = 0;
   uint64_t root_unit_work = 0, root_unit_additions = 0, premise_maintenance_work = 0;
   uint64_t alias_work = 0, alias_proof_additions = 0;
   uint64_t recognized_equations = 0, admitted_sources = 0, active_sources = 0;
   uint64_t retired_sources = 0, projected_variables = 0;
+  // Last observed native-boundary gauges, independent of cumulative
+  // admitted-source counts; source count means retained archived equations.
+  uint64_t retained_basis_rank = 0, retained_support_variables = 0;
+  uint64_t rank_before_last_action = 0, rank_after_last_action = 0;
+  uint64_t support_before_last_action = 0, support_after_last_action = 0;
+  // Cumulative net rank changes at completed native action boundaries, including
+  // finite declines that explicitly disable a retained session.
+  uint64_t recognition_rank_gains = 0, recognition_rank_losses = 0;
+  uint64_t maintenance_rank_gains = 0, maintenance_rank_losses = 0;
+  uint64_t service_rank_losses = 0, isolated_projection_rank_losses = 0;
+  uint64_t native_session_disables = 0, optional_failure_disables = 0;
+  // Last-pause snapshots, retained after resumption for attribution.
+  uint64_t paused_basis_rank = 0, paused_support_variables = 0;
+  // Last action: 1 recognition, 2 maintenance, 3 root service, 4 search service.
+  // Historical last disable: 1 native action cleared owner,
+  // 2 Default terminal failure; retained after a new admission.
+  uint64_t last_survival_action = 0, last_disable_cause = 0;
+
   uint64_t conditioned_rows = 0, unchanged_reductions = 0, widest_reason = 0;
 };
 
@@ -266,7 +288,9 @@ public:
   void update_formula_classification(Kernel &) const;
 
 private:
+  friend struct DefaultAffineSearchTestAccess;
   DefaultAffineSearchDiagnostics affine_search_diagnostics_;
+  std::optional<std::array<uint64_t, 13>> affine_completed_census_;
   std::vector<uint64_t> affine_reason_ids_;
   std::vector<std::pair<int32_t,int32_t>> affine_binary_reasons_;
   uint64_t affine_refresh_ticks_ = 0, affine_refresh_work_ = 0;

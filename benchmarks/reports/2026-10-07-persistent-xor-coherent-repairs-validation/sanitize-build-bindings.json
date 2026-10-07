@@ -1,0 +1,27 @@
+{
+  "source_tree_sha256": "14ed77b8956b6ee3802bd56877e052fa2780eaa3c78cc2ac8438d3976d33b66b",
+  "binaries": {
+    "test_affine_matrix_dirty_rows": "efdd0d8f317f44ea0951e7aa1a889b0e20a4dd7ab9caa6fd3eb1826f5a9a1b13",
+    "test_default_affine_search": "7158496986872a3a9614020292db4377389246b63958028124813158195863ba",
+    "test_affine_matrix_persistent_lifecycle": "102e4904efa7bfa945fbc32bdbe0db7daaff556cca1566b6fd008ffca8b488e2",
+    "test_affine_matrix_persistent_frontend": "3f1eb004c334f5fd68142428553e80f85cb0c7e625a37b79a731cfd67d0793cc",
+    "test_proof_premise_lease_lifecycle": "752a9e7a310e235a08acf4906aec3ba92967ff2d3439737fd6063e85da7a3f0d",
+    "test_affine_matrix_sorted_extension": "ce9da9767034a99e726c2dc656195c0ec829a5ec4b557fffb744dc241507ea82",
+    "test_affine_matrix_sorted_extension_budget": "02c057e9cd71045b0bb170b346ffa853c72be140e2a06d84076ec39a26815a8e",
+    "test_affine_matrix_sorted_extension_memory": "b8d73f87aab208f3557bb97fcca98d4cf089ac606a4b8042186974975105b453",
+    "test_affine_matrix_incremental_capture": "b9f9180cc681b9b9f029a31d3052467e94be7083081c515c0f4e2d98050e28b4",
+    "test_affine_matrix_projection": "65520a30604153d0d52f01f2de4e20306b205be9ff3b73bd00519782a8da5f13",
+    "test_sr_proof_encoding": "052e977609dc5385a113eda93dc548db38d129b94240a85d612f15f7446b7352",
+    "test_population_observer": "8541308a310df6dbfaf48fb1b52080348ac6cfce7b83e751d683c7a7c4522c37",
+    "test_affine_matrix_transaction": "930bc33e4155f3e7153e07992ad5bd74549d1b484fb4c5e16fb373cb534ab303",
+    "test_affine_matrix_search": "15650e98205d8e9288424d1a29079c5598eb994d5f336d5f59eb9c15d55b99ba",
+    "test_affine_matrix_live": "7f672a16b3e00d7f58cfb42ad52c4012cc900519128181b274420c40dacf8758",
+    "test_affine_matrix": "5682124f8df6d7a0731a0a8ea150ef0e1b135fde41f8b9c07f27594a1f2aa405",
+    "test_api_c": "e49c4a75ecd63d5a95c2967e35d71386fd425da66f08574a7b561a367255e33d",
+    "test_flat_payload_replay": "c7176eff1362fe2c18b7f566e942f7b14113ed8562d3d205b63bae10f99060db",
+    "test_affine_basis_action": "97c2f69b12cd48c2d4f2c0a14489078ae163ad7f3ff7010a65501162dd8c10b3",
+    "test_affine_matrix_actual_geometry": "a1b632cf4e82886faa8974bac2b89fc287e61714fbfdb1f167b4bb72bdeabc8c",
+    "test_random_controller_affine_resource": "a4292f2b685881a7391e2f4098205b3a849ce3062a0eec65fc22c9ffa7d03480"
+  },
+  "tactix_sha256": "30c7d5a1adc34e2ca6bb2a226dcbac115188699fac4d75cd9a263be13811e4ed"
+}

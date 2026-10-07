@@ -49,19 +49,27 @@ void capture() {
       {64*1024*1024,1000,10000}).status==AffineMatrixInitStatus::Applied);
   auto first=affine_matrix_search_step(k,session);assert(first.status==AffineMatrixServiceStatus::NoEvent);
   auto repeat=affine_matrix_search_step(k,session);
-  assert(repeat.status==AffineMatrixServiceStatus::NoEvent && repeat.incremental_capture && repeat.unchanged_support);
+  assert(repeat.status==AffineMatrixServiceStatus::NoEvent && repeat.incremental_capture && repeat.unchanged_support && repeat.cached_event);
   assert(repeat.lifecycle_work==0 && repeat.trail_capture_work==0 && repeat.synchronization_work<=2);
   kernel_assign_decision(k,kernel_internalize(k,8));assert(propagate_apply(k)==ApplyResult::Ok);
   auto outside=affine_matrix_search_step(k,session);
-  assert(outside.status==AffineMatrixServiceStatus::NoEvent && outside.incremental_capture && outside.unchanged_support);
+  assert(outside.status==AffineMatrixServiceStatus::NoEvent && outside.incremental_capture && outside.unchanged_support && outside.cached_event);
   assert(outside.capture_delta_literals==1 && outside.lifecycle_work==0);
   kernel_assign_decision(k,kernel_internalize(k,1));assert(propagate_apply(k)==ApplyResult::Ok);
   volatile sig_atomic_t stop=1;k.stop=&stop;
   const auto before=k.next_clause_id; const auto journal_before=std::ftell(journal);
   assert(affine_matrix_search_step(k,session).status==AffineMatrixServiceStatus::Interrupted);
   assert(k.next_clause_id==before && std::ftell(journal)==journal_before);k.stop=nullptr;
+  // A fixed stop schedule fires at the first synchronization charge after
+  // capture has committed. This is one causal microcase, not a fuzz campaign.
+  k.stop_fuzz_state=156;k.stop_fuzz=32;
+  const auto late=affine_matrix_search_step(k,session);
+  assert(late.status==AffineMatrixServiceStatus::Interrupted && late.incremental_capture &&
+         late.capture_delta_literals==1 && !late.synchronized && !late.cached_event);
+  assert(k.next_clause_id==before && std::ftell(journal)==journal_before);k.stop_fuzz=0;
   auto positive=affine_matrix_search_step(k,session);
-  assert(positive.status==AffineMatrixServiceStatus::Applied && positive.incremental_capture && positive.capture_delta_literals==1);
+  assert(positive.status==AffineMatrixServiceStatus::Applied && positive.incremental_capture &&
+         positive.capture_delta_literals==0 && positive.unchanged_support && !positive.cached_event && positive.synchronized);
   assert((positive.installed_reason==std::vector<int32_t>{-1,-4}));assert(propagate_apply(k)==ApplyResult::Ok);
   kernel_backtrack(k,0);
   // Same trail length after opposite reassignment must not reuse the old

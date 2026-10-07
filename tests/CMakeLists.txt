@@ -361,6 +361,16 @@ add_test(NAME default_affine_search_proof_model
                  $<TARGET_FILE:test_default_affine_search> ${CMAKE_SOURCE_DIR})
 set_tests_properties(default_affine_search_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
+add_test(NAME affine_matrix_actual_geometry_proof_model
+         COMMAND bash ${CMAKE_SOURCE_DIR}/tests/affine_matrix_actual_geometry_proof_model.sh
+                 $<TARGET_FILE:test_affine_matrix_actual_geometry> ${CMAKE_SOURCE_DIR})
+set_tests_properties(affine_matrix_actual_geometry_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME random_controller_affine_resource_proof_model
+         COMMAND bash ${CMAKE_SOURCE_DIR}/tests/random_controller_affine_resource_proof_model.sh
+                 $<TARGET_FILE:test_random_controller_affine_resource> ${CMAKE_SOURCE_DIR})
+set_tests_properties(random_controller_affine_resource_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(test_direct_csp_guarded_cover_frontend test_direct_csp_guarded_cover_frontend.cpp)
 target_link_libraries(test_direct_csp_guarded_cover_frontend PRIVATE tactix_lib)
 add_test(NAME direct_csp_guarded_cover_frontend COMMAND test_direct_csp_guarded_cover_frontend)

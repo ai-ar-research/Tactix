@@ -50,4 +50,32 @@ if "$drat" "$temporary/sat-drat.cnf" "$temporary/bad.dsr" -f -U > "$temporary/ba
   exit 1
 fi
 grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR' "$temporary/bad-drat.log"
+# Paused-owner resumption uses the exact union of staged original inputs.
+# This is SAT, so the root consequence cannot pass vacuously via an empty line.
+printf '2 0\n' > "$temporary/paused-bad.dsr"
+for stem in paused paused-dsr-binary; do
+  "$trim" -f -c "$temporary/$stem.cnf" "$temporary/$stem.dsr" "$temporary/$stem.lsr" > "$temporary/$stem-trim.log" 2>&1
+  grep -q '^s VALID$' "$temporary/$stem-trim.log"
+  "$trestle" "$temporary/$stem.cnf" "$temporary/$stem.lsr" c > "$temporary/$stem-trestle.log" 2>&1
+  grep -q '^s VALID$' "$temporary/$stem-trestle.log"
+  "$model" "$temporary/$stem.cnf" "$temporary/$stem.model"
+  if "$trim" -f -c -U "$temporary/$stem.cnf" "$temporary/paused-bad.dsr" "$temporary/$stem-bad.lsr" > "$temporary/$stem-bad.log" 2>&1; then
+    echo 'Unsupported paused-owner unit was accepted'
+    exit 1
+  fi
+  grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR|is not RUP' "$temporary/$stem-bad.log"
+done
+for stem in paused-drat paused-drat-binary; do
+  drat_status=0
+  "$drat" "$temporary/$stem.cnf" "$temporary/$stem.drat" -f > "$temporary/$stem-check.log" 2>&1 || drat_status=$?
+  [[ "$drat_status" -eq 1 ]]
+  tr -d '\r' < "$temporary/$stem-check.log" | grep -q '^s DERIVATION$'
+  grep -q 'VERIFIED derivation: all lemmas preserve satisfiability' "$temporary/$stem-check.log"
+  "$model" "$temporary/$stem.cnf" "$temporary/$stem.model"
+  if "$drat" "$temporary/$stem.cnf" "$temporary/paused-bad.dsr" -f -U > "$temporary/$stem-bad.log" 2>&1; then
+    echo 'Unsupported paused-owner DRAT unit was accepted'
+    exit 1
+  fi
+  grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR' "$temporary/$stem-bad.log"
+done
 echo 'default_affine_search_proof_model OK'

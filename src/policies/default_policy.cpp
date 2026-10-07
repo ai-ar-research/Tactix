@@ -79,6 +79,49 @@ uint64_t saturated_sum(uint64_t first, uint64_t second) {
   return first > UINT64_MAX - second ? UINT64_MAX : first + second;
 }
 
+struct AffineSurvivalImage {
+  bool enabled;
+  uint64_t rank, support;
+};
+
+AffineSurvivalImage affine_survival_image(const AffineMatrixSearchSession &session) {
+  return {session.enabled(), session.basis_rank(), session.support_variables()};
+}
+
+void record_affine_survival(DefaultAffineSearchDiagnostics &stats,
+                           const AffineSurvivalImage &before,
+                           const AffineMatrixSearchSession &session,
+                           uint64_t action, bool isolated_projection = false,
+                           bool optional_disable = false) {
+  const auto after = affine_survival_image(session);
+  stats.active_sources = session.active_sources();
+  stats.retained_basis_rank = after.rank;
+  stats.retained_support_variables = after.support;
+  stats.rank_before_last_action = before.rank;
+  stats.rank_after_last_action = after.rank;
+  stats.support_before_last_action = before.support;
+  stats.support_after_last_action = after.support;
+  stats.last_survival_action = action;
+  const auto loss = before.rank > after.rank ? before.rank - after.rank : 0;
+  const auto gain = after.rank > before.rank ? after.rank - before.rank : 0;
+  if (action == 1) {
+    stats.recognition_rank_gains = saturated_sum(stats.recognition_rank_gains, gain);
+    stats.recognition_rank_losses = saturated_sum(stats.recognition_rank_losses, loss);
+  } else if (action == 2) {
+    stats.maintenance_rank_gains = saturated_sum(stats.maintenance_rank_gains, gain);
+    stats.maintenance_rank_losses = saturated_sum(stats.maintenance_rank_losses, loss);
+  } else {
+    stats.service_rank_losses = saturated_sum(stats.service_rank_losses, loss);
+    if (isolated_projection && after.enabled)
+      stats.isolated_projection_rank_losses = saturated_sum(stats.isolated_projection_rank_losses, loss);
+  }
+  if (before.enabled && !after.enabled) {
+    if (optional_disable) ++stats.optional_failure_disables;
+    else ++stats.native_session_disables;
+    stats.last_disable_cause = optional_disable ? 2 : 1;
+  }
+}
+
 uint64_t affine_init_work(const Kernel &kernel) {
   uint64_t result = 0;
   for (uint64_t value : {kernel.stats.affine_matrix_init_snapshot_work,
@@ -295,7 +338,8 @@ default_affine_search_parameters(const Kernel &kernel,
   const uint64_t clauses = std::min<uint64_t>(UINT32_MAX, bytes / source_entry_bytes);
   const uint32_t rows = static_cast<uint32_t>(std::min<uint64_t>(search.maximum_rows, clauses));
   const uint32_t width = std::min(search.maximum_row_width, kernel.nvars);
-  if (!clauses || !rows || width < 2 || !initialization || !service)
+  if (!clauses || !rows || width < 2 || !initialization || !service ||
+      !config.affine_root_closure.maximum_proof_deletions)
     return std::nullopt;
   strategy::AffineConsequenceParameters result;
   result.maximum_clauses = clauses;
@@ -3813,16 +3857,48 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
 AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bool refresh,bool recognize) {
   AffineMatrixInitResult result;
   if (!kernel.affine_matrix_search_session) return result;
-  auto parameters = default_affine_search_parameters(kernel,config_);
-  const bool retained_maintenance=refresh && !recognize &&
-      kernel.affine_matrix_search_session->enabled() && kernel.affine_matrix_search_session->persistent();
-  if (retained_maintenance) parameters=kernel.affine_matrix_search_session->parameters();
+  // Root maintenance has no source owner to maintain after an empty admission.
+  // Additional recognition still requires its ordinary-search-earned dose.
+  if (refresh && !recognize &&
+      (!kernel.affine_matrix_search_session->enabled() ||
+       !kernel.affine_matrix_search_session->persistent())) {
+    ++affine_search_diagnostics_.empty_maintenance_skips;
+    return result;
+  }
+  const auto census_stamp = [&] {
+    return std::array<uint64_t, 13>{kernel.arena_generation, kernel.touch_epoch,
+        kernel.touch_fixed_head, kernel.next_clause_id,
+        kernel.affine_semantic_namespace_epoch, kernel.arena.size(),
+        kernel.nvars, kernel.external_to_internal.size(),
+        kernel.proof ? kernel.proof->premise_epoch() : 0,
+        static_cast<uint64_t>(reinterpret_cast<uintptr_t>(kernel.proof)),
+        kernel.stats.root_assignments, kernel.affine_trail_retraction_epoch,
+        kernel.trail.size()};
+  };
+  // A completed empty census is useful negative evidence only for this exact
+  // source state. Learned additions and in-place simplifications invalidate it.
+  if (refresh && recognize && kernel.affine_capture_epochs_trusted &&
+      affine_completed_census_ && *affine_completed_census_ == census_stamp()) {
+    ++affine_search_diagnostics_.unchanged_census_skips;
+    result.status = AffineMatrixInitStatus::NoStructure;
+    result.unchanged = true;
+    return result;
+  }
+  const bool retained_maintenance = refresh && !recognize &&
+      kernel.affine_matrix_search_session->enabled() &&
+      kernel.affine_matrix_search_session->persistent();
+  auto parameters = retained_maintenance
+      ? std::optional{kernel.affine_matrix_search_session->parameters()}
+      : default_affine_search_parameters(kernel, config_);
   if (!parameters) return result;
   const uint64_t bytes = config_.affine_search.maximum_retained_bytes
       ? config_.affine_search.maximum_retained_bytes
       : config_.affine_root_closure.maximum_journal_bytes;
-  AffineMatrixPersistenceLimits persistence{bytes};
+  AffineMatrixPersistenceLimits persistence{
+      bytes, parameters->maximum_proof_deletions, parameters->maximum_session_work};
   if (retained_maintenance) persistence=kernel.affine_matrix_search_session->persistence_limits();
+  const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
+  const uint64_t owner_before = kernel.affine_matrix_search_session->owner_version();
   const uint64_t started = now_nanos();
   if(refresh)++affine_search_diagnostics_.refreshes;
   else ++affine_search_diagnostics_.initializations;
@@ -3863,6 +3939,17 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
         return initialized;
       },affine_init_outcome);
   affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
+  if (!refresh || recognize) {
+    // Only remember a genuinely empty successful census. A nonempty owner
+    // retains its own refresh/lifecycle protocol, including usefulness resets.
+    if (kernel.affine_capture_epochs_trusted &&
+        result.status == AffineMatrixInitStatus::NoStructure &&
+        !kernel.affine_matrix_search_session->enabled())
+      affine_completed_census_ = census_stamp();
+    else if (result.status == AffineMatrixInitStatus::Applied ||
+             result.status == AffineMatrixInitStatus::AppliedPartial)
+      affine_completed_census_.reset();
+  }
   if(result.unchanged)++affine_search_diagnostics_.unchanged_refreshes;
   affine_search_diagnostics_.root_unit_work+=result.root_unit_work;
   affine_search_diagnostics_.root_unit_additions+=result.root_unit_additions;
@@ -3879,19 +3966,34 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
     affine_search_diagnostics_.recognized_equations += result.equations;
     affine_search_diagnostics_.admitted_sources += result.admitted_sources;
   }
-  affine_search_diagnostics_.active_sources = kernel.affine_matrix_search_session->active_sources();
-  if(result.status==AffineMatrixInitStatus::Applied || result.status==AffineMatrixInitStatus::AppliedPartial)
-  {
-    affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
-    affine_usefulness_paused_=false;
+  record_affine_survival(affine_search_diagnostics_, survival_before,
+      *kernel.affine_matrix_search_session, (!refresh || recognize) ? 1 : 2);
+  const bool applied = result.status == AffineMatrixInitStatus::Applied ||
+                       result.status == AffineMatrixInitStatus::AppliedPartial;
+  const bool admitted_change = applied && !result.unchanged &&
+      (!refresh || recognize) && kernel.affine_matrix_search_session->enabled() &&
+      kernel.affine_matrix_search_session->owner_version() != owner_before;
+  // Maintenance completion is not new evidence of search usefulness. Only a
+  // newly authenticated system or an actual new certified root fact starts
+  // another sample; duplicate recognition retains its prior zero-yield pause.
+  if (admitted_change || result.root_unit_additions) {
+    if (affine_usefulness_paused_)
+      ++affine_search_diagnostics_.usefulness_resumptions;
+    affine_usefulness_calls_ = affine_usefulness_yield_ = affine_usefulness_checks_ = 0;
+    affine_usefulness_paused_ = false;
   }
   return result;
 }
 
 AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bool root) {
   AffineMatrixServiceResult result;
-  if(!config_.affine_search.enabled || affine_usefulness_paused_ || !kernel.affine_matrix_search_session ||
-      !kernel.affine_matrix_search_session->enabled())return result;
+  if (!config_.affine_search.enabled || !kernel.affine_matrix_search_session ||
+      !kernel.affine_matrix_search_session->enabled()) return result;
+  if (affine_usefulness_paused_ && kernel.level) {
+    ++affine_search_diagnostics_.paused_search_skips;
+    return result;
+  }
+  const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
   const uint64_t started=now_nanos();
   // Prepare observational storage before publication. Metadata insertion after
   // Applied then cannot allocate or invalidate the certified formula commit.
@@ -3932,6 +4034,7 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
   affine_search_diagnostics_.incremental_capture_calls+=result.incremental_capture;
   affine_search_diagnostics_.unchanged_support_calls+=result.unchanged_support;
+  affine_search_diagnostics_.cached_event_calls+=result.synchronized && result.cached_event;
   affine_search_diagnostics_.capture_delta_literals=saturated_sum(
       affine_search_diagnostics_.capture_delta_literals,result.capture_delta_literals);
   affine_search_diagnostics_.lifecycle_work+=result.lifecycle_work;
@@ -3940,7 +4043,7 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   affine_search_diagnostics_.conditioned_rows+=result.synchronization_conditioned;
   affine_search_diagnostics_.retired_sources+=result.retired_source_groups;
   affine_search_diagnostics_.projected_variables+=result.projected_variables;
-  if(result.synchronized && result.unchanged_support)++affine_search_diagnostics_.unchanged_reductions;
+  if(result.synchronized && result.cached_event)++affine_search_diagnostics_.unchanged_reductions;
   if(result.status==AffineMatrixServiceStatus::NoEvent)++affine_search_diagnostics_.no_event;
   if(result.status==AffineMatrixServiceStatus::Duplicate)++affine_search_diagnostics_.duplicates;
   if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
@@ -3961,11 +4064,20 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
       if(it==affine_binary_reasons_.end() || *it!=key)affine_binary_reasons_.insert(it,key);
     }
   }
-  // Reference-style usefulness sampling counts charged reductions with
-  // changed admitted assignment support, excluding charged cache copies.
+  // A paused owner can still deliver a genuinely useful root consequence.
+  // Its guarded lemma is consumed by ordinary BCP before further search.
+  if (affine_usefulness_paused_ && !kernel.level &&
+      result.status == AffineMatrixServiceStatus::Applied) {
+    ++affine_search_diagnostics_.usefulness_resumptions;
+    affine_usefulness_calls_ = affine_usefulness_yield_ = affine_usefulness_checks_ = 0;
+    affine_usefulness_paused_ = false;
+  }
+  // Reference-style usefulness sampling counts charged noncached reductions.
+  // Unchanged capture can still reduce after an interrupted synchronization.
   // A later work-earned root refresh may
   // admit a changed theory and begins a new sample round.
-  if(result.synchronized && result.synchronization_work && !result.unchanged_support) {
+  if (!affine_usefulness_paused_ && result.synchronized &&
+      result.synchronization_work && !result.cached_event) {
     ++affine_usefulness_calls_;
     if(result.status==AffineMatrixServiceStatus::Applied)++affine_usefulness_yield_;
     if(++affine_usefulness_checks_>=config_.affine_search.autodisable_check_every) {
@@ -3976,16 +4088,24 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
           affine_usefulness_calls_>config_.affine_search.autodisable_minimum_calls &&
           affine_usefulness_yield_<required) {
         ++affine_search_diagnostics_.usefulness_disabled;
-        affine_usefulness_paused_=true;
-        kernel.affine_matrix_search_session->disable(kernel);
+        affine_usefulness_paused_ = true;
+        affine_search_diagnostics_.paused_basis_rank = kernel.affine_matrix_search_session->basis_rank();
+        affine_search_diagnostics_.paused_support_variables = kernel.affine_matrix_search_session->support_variables();
+        // Keep the bounded authenticated owner and its leases. Erasing it
+        // would make an identical later census look like a fresh admission,
+        // and would lose independent root maintenance while search is paused.
       }
     }
   }
   // Ordinary CDCL continues after a finite optional-service decline. Repeated
   // resource failures do not spend the same allowance at every decision.
-  if(result.terminal_failure() && result.status!=AffineMatrixServiceStatus::Interrupted)
-    kernel.affine_matrix_search_session->disable(kernel);
-  affine_search_diagnostics_.active_sources=kernel.affine_matrix_search_session->active_sources();
+  const bool optional_disable = result.terminal_failure() &&
+      result.status != AffineMatrixServiceStatus::Interrupted &&
+      kernel.affine_matrix_search_session->enabled();
+  if (optional_disable) kernel.affine_matrix_search_session->disable(kernel);
+  record_affine_survival(affine_search_diagnostics_, survival_before,
+      *kernel.affine_matrix_search_session, root ? 3 : 4,
+      result.projected_variables && !result.retired_source_groups, optional_disable);
   return result;
 }
 
@@ -4072,6 +4192,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   solves++;
   affine_search_diagnostics_={};
+  affine_completed_census_.reset();
   const uint64_t alias_work_begin=k.stats.affine_matrix_alias_work;
   const uint64_t alias_additions_begin=k.stats.affine_matrix_alias_proof_additions;
   const uint64_t premise_maintenance_begin=k.proof ? k.proof->premise_maintenance_work() : 0;
@@ -4735,7 +4856,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if(refreshed.root_unit_additions) continue;
       }
       const size_t service_trail_begin=k.trail.size();
-      const auto service=service_affine_search(k,false);
+      const auto service=service_affine_search(k,!k.level);
       observe_affine_consumption(k,service_trail_begin);
       if(service.result==ApplyResult::Unsat)return finish(20);
       if(service.status==AffineMatrixServiceStatus::Applied) {

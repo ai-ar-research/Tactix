@@ -6,6 +6,7 @@
 #include "tactix.h"
 #undef tactix
 #include "frontend/parse.hpp"
+#include "api/api_internal.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -98,6 +99,15 @@ struct tactix_solver {
     kernel.conflict_reuse = true;
   }
 };
+
+// Private fixed-test introspection keeps fault injection independent of the
+// opaque C handle layout. Production actions still use the public C API.
+namespace tactix::api_detail {
+Kernel &kernel_for_fixed_testing(void *opaque) {
+  assert(opaque);
+  return static_cast<::tactix_solver *>(opaque)->kernel;
+}
+}
 
 namespace {
 

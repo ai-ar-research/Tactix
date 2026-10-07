@@ -174,6 +174,10 @@ public:
         : maximum_pending_deletions(deletions), maximum_pending_literal_work(work) {}
   };
   using PremiseGroup = std::vector<std::vector<int32_t>>;
+  // Read-only reservation for the physical helper deletions queued after a
+  // new lease transaction. Every shared owner's common minimum is respected.
+  bool can_defer_premise_group_deletions(const std::vector<PremiseGroup> &,
+      DeferredDeletionLimits, const std::function<bool(uint64_t)> &) const;
   bool retain_premise_groups(const std::vector<PremiseGroup> &,
       uint64_t maximum_groups, uint64_t maximum_literals,
       uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,

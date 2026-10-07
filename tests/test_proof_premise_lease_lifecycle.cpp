@@ -90,6 +90,17 @@ void bounded_deletions(ProofFormat format){
   p.del(5,1,body,3);
   assert(p.premise_pending_deletions()==1 && p.premise_pending_literal_work()==4);
   const auto epoch=p.premise_epoch(),bytes=p.premise_bytes();
+  // New helper reservations include outstanding physical deletions and cannot
+  // bypass a stricter shared cap by offering a larger incoming allowance.
+  const Proof::PremiseGroup two_helpers{{6,7},{-6,-7}};
+  assert(!p.can_defer_premise_group_deletions({two_helpers},{1000,1000},
+      [](uint64_t){return true;}));
+  assert(p.can_defer_premise_group_deletions({{{6,7}}},{1000,1000},
+      [](uint64_t){return true;})==!wide);
+  assert(!p.can_defer_premise_group_deletions({{{6,7}}},{1000,1000},
+      [](uint64_t){return false;}));
+  assert(p.premise_epoch()==epoch && p.premise_bytes()==bytes &&
+      p.premise_pending_deletions()==1 && p.premise_pending_literal_work()==4);
   std::vector<uint64_t> rejected{999};
   assert(!p.retain_premise_groups({{{6,7}}},8,100,100000,
       [](uint64_t){return true;},rejected,{1,3}));

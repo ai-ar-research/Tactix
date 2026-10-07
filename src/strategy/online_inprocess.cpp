@@ -4,6 +4,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/semantic_extension/affine_consequence_action.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -2299,6 +2300,8 @@ InvocationResult OnlineStrategyExecutor::advance(
           generated_sr_pass;
       std::optional<SubstitutionRedundancyApplicationResult> sr_application;
       std::optional<AffineConsequenceActionResult> affine_application;
+      std::optional<AffineMatrixInitResult> affine_matrix_initialization;
+      std::optional<AffineMatrixServiceResult> affine_matrix_service;
       std::optional<ExactCoverExtensionActionResult> exact_cover_application;
       std::optional<IndependentSetCoverActionResult>
           independent_set_application;
@@ -2509,6 +2512,34 @@ InvocationResult OnlineStrategyExecutor::advance(
                              ? ApplyResult::Unsat
                              : ApplyResult::NoOp;
                 })
+          : step.rule == "AffineMatrixInitialize" && payload == INSTANCE_CANONICAL &&
+                std::holds_alternative<AffineMatrixInitializeParameters>(step.parameters)
+              ? apply_rule_structured_defer_candidate(
+                    rule, k, "persistent-affine-profile", [&] {
+                  const auto &profile = std::get<AffineMatrixInitializeParameters>(step.parameters);
+                  const AffineMatrixPersistenceLimits limits{
+                      profile.maximum_retained_bytes, profile.maximum_deferred_deletions,
+                      profile.maximum_deferred_literal_work};
+                  using Operation = AffineMatrixInitializeParameters::Operation;
+                  switch (profile.operation) {
+                  case Operation::Initialize:
+                    affine_matrix_initialization.emplace(affine_matrix_search_initialize(
+                        k, *k.affine_matrix_search_session, profile.basis,
+                        AffineMatrixAdmission::AuthenticatedSubimage, limits));
+                    return affine_matrix_initialization->result;
+                  case Operation::Refresh:
+                  case Operation::RootMaintenance:
+                    affine_matrix_initialization.emplace(affine_matrix_search_refresh(
+                        k, *k.affine_matrix_search_session, profile.basis, limits,
+                        profile.operation == Operation::Refresh));
+                    return affine_matrix_initialization->result;
+                  case Operation::SearchStep:
+                    affine_matrix_service.emplace(affine_matrix_search_step(
+                        k, *k.affine_matrix_search_session));
+                    return affine_matrix_service->result;
+                  }
+                  return ApplyResult::NoOp;
+                })
           : step.rule == "AffineConsequence" && payload == INSTANCE_CANONICAL
               ? apply_rule_structured_defer_candidate(
                     rule, k, "canonical", [&] {
@@ -2638,6 +2669,69 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.selection_complete = false;
         preserve_theory_selection = true;
       };
+      // The append-only persistent profile preserves detailed native declines.
+      // Legacy zero-persistence dispatch and its historical statuses stay on
+      // the registered adapter path above.
+      if (affine_matrix_initialization) {
+        switch (affine_matrix_initialization->status) {
+        case AffineMatrixInitStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          retain_theory_selection();
+          break;
+        case AffineMatrixInitStatus::Inapplicable:
+          out.status = InvocationStatus::Inapplicable;
+          retain_theory_selection();
+          break;
+        case AffineMatrixInitStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case AffineMatrixInitStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case AffineMatrixInitStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          retain_theory_selection();
+          break;
+        case AffineMatrixInitStatus::NoStructure:
+        case AffineMatrixInitStatus::IncompleteImage:
+        case AffineMatrixInitStatus::IncompleteMatrix:
+        case AffineMatrixInitStatus::Applied:
+        case AffineMatrixInitStatus::AppliedPartial:
+          break;
+        }
+      }
+      if (affine_matrix_service) {
+        switch (affine_matrix_service->status) {
+        case AffineMatrixServiceStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          retain_theory_selection();
+          break;
+        case AffineMatrixServiceStatus::Disabled:
+        case AffineMatrixServiceStatus::Inapplicable:
+        case AffineMatrixServiceStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          retain_theory_selection();
+          break;
+        case AffineMatrixServiceStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case AffineMatrixServiceStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case AffineMatrixServiceStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          retain_theory_selection();
+          break;
+        case AffineMatrixServiceStatus::NoEvent:
+        case AffineMatrixServiceStatus::Duplicate:
+        case AffineMatrixServiceStatus::Applied:
+          break;
+        }
+      }
       if (affine_application) {
         switch (affine_application->status) {
         case AffineConsequenceActionStatus::Invalid:

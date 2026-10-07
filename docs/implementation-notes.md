@@ -3,7 +3,7 @@
 The affine search matrix retains the sorted union of variables in its admitted
 rows. Fixpoint synchronization probes only assignments on that exact support;
 an unchanged support snapshot reuses the completed reduced basis with zero
-reduction work. `affine_matrix_service_trail_capture_work` now counts support
+reduction work. Positive-persistence reduction indexes current row occurrences and repairs affected pivots transactionally; backtrack, reassignment and namespace projection use bounded reconstruction. Sorted monotone extension permits newly admitted lower coordinates. Logical row reserves cover twice the admitted coordinate-union width and source cardinality, independently of source ordinal magnitude; legacy profiles retain their declared bounds. Work and reason memory are charged before predecessor restoration commits. `affine_matrix_service_trail_capture_work` now counts support
 variable probes. When a deduction is available, the live publisher still
 snapshots and revalidates the complete Boolean trail and decision levels before
 committing the ordinary reason clause. Low-level callers that synchronized a
