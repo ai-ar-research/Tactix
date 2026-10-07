@@ -230,6 +230,12 @@ struct MClause {
 struct BveResolvent {
   PoolSlice<Lit> lits;
   PoolSlice<uint64_t> chain;
+  // Logical source identity is needed even when no LRAT hint chain is built:
+  // FastEliminate can replace either parent during its feasibility scan and
+  // must discard any earlier tentative image of that now-stale pair in every
+  // proof mode.
+  Ref first_parent = INVALID_REF;
+  Ref second_parent = INVALID_REF;
 };
 
 // Sparse literal-to-clause lookup for one candidate. The dense value image is
@@ -1840,6 +1846,14 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   const size_t gen_limit =
       std::min(commit_limit,
                static_cast<size_t>(k.bve_resolvent_count_limit));
+  // SC2024 enters its mutating feasibility scan only when the raw cross
+  // product exceeds fastelim.  At or below that absolute cap it proceeds
+  // straight to ordinary resolution, so self-strengthening there would be a
+  // broader transformation rather than a port of FastEliminate.
+  const bool fastel_feasibility =
+      k.bve_fastel_traversal && !neg.empty() &&
+      pos.size() > static_cast<size_t>(k.bve_resolvent_count_limit) /
+                       neg.size();
   bool oversized = false; // configured resolvent-size limit was exceeded
   bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
   bool immediate_unsat = false;
@@ -1993,7 +2007,13 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                                d.ref, d.id, "satisfied-or-tautology");
           continue;
         }
-        if (++resolved > gen_limit) {
+        // Ordinary eliminate counts every surviving pair before materializing
+        // it.  SC2024 fastel first lets a mixed or large/large resolution
+        // shorten a large antecedent; such a pair is not part of its absolute
+        // resolvent count.
+        // Defer that traversal's count until after the checked strengthening
+        // below (fastel.c::can_fast_resolve_large_large).
+        if (!fastel_feasibility && ++resolved > gen_limit) {
           def->resolvent_lits.resize(lits_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                c.ref, c.id, d.active.data(), d.active.size(),
@@ -2047,6 +2067,100 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
           }
           continue;
         }
+        if (fastel_feasibility &&
+            (c.ref != INVALID_REF || d.ref != INVALID_REF)) {
+          // Reuse the resolution marks with a second bit for the materialized
+          // resolvent.  This keeps containment linear in the two parents and
+          // resolvent (the same work covered by this resolution tick), rather
+          // than performing an uncharged quadratic membership search.
+          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
+            seen[def->resolvent_lits[i]] |= 2;
+          const auto subsumes_parent = [&](const MClause &parent) {
+            if (parent.ref == INVALID_REF)
+              return false;
+            const Clause *live = clause_at(k.arena, parent.ref);
+            if (live->garbage() || lits_size >= live->size)
+              return false;
+            size_t contained = 0;
+            for (const Lit l : parent.active)
+              contained += !!(seen[l] & 2);
+            return contained == lits_size;
+          };
+          const bool c_subsumed = subsumes_parent(c);
+          const bool d_subsumed = subsumes_parent(d);
+          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
+            seen[def->resolvent_lits[i]] &= 1;
+          if (c_subsumed || d_subsumed) {
+            event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                                 c.ref, c.id, d.active.data(), d.active.size(),
+                                 d.ref, d.id, "fastel-strengthened");
+            const uint64_t id = ++k.next_clause_id;
+            const Lit *const lits = def->resolvent_lits.data() + lits_begin;
+            if (k.proof) {
+              if (lrat)
+                k.proof->add_rup(id, lits, static_cast<uint32_t>(lits_size),
+                                 def->resolvent_chains.data() + chain_begin,
+                                 chain_size);
+              else
+                k.proof->add_rup(0, lits, static_cast<uint32_t>(lits_size),
+                                 nullptr, 0);
+            }
+
+            // A pending resolvent whose parent is replaced is still entailed,
+            // but native fastel recomputes the final resolvents after this
+            // feasibility pass and therefore does not publish that stale
+            // image.  Remove it by its retained two-parent identity (the same
+            // pair is the LRAT chain tail when present) while retaining the
+            // append-only pools backing every surviving slice.
+            const auto uses_replaced_parent = [&](const BveResolvent &r) {
+              return (c_subsumed &&
+                      (r.first_parent == c.ref || r.second_parent == c.ref)) ||
+                     (d_subsumed &&
+                      (r.first_parent == d.ref || r.second_parent == d.ref));
+            };
+            resolvents.erase(
+                std::remove_if(resolvents.begin(), resolvents.end(),
+                               uses_replaced_parent),
+                resolvents.end());
+
+            const MClause &victim = c_subsumed ? c : d;
+            Ref replacement = INVALID_REF;
+            const ReplaceOutcome outcome = kernel_replace_clause(
+                k, clause_at(k.arena, victim.ref), id, lits,
+                static_cast<uint32_t>(lits_size), /*redundant=*/false, 0,
+                &replacement);
+            assert(outcome == ReplaceOutcome::Binary ||
+                   outcome == ReplaceOutcome::Large);
+            (void)outcome;
+            (void)replacement;
+            if (c_subsumed && d_subsumed) {
+              const Ref other = victim.ref == c.ref ? d.ref : c.ref;
+              Clause *const clause = clause_at(k.arena, other);
+              if (!clause->garbage())
+                kernel_delete_clause(k, clause);
+            }
+            k.stats.strengthened++;
+            def->resolvent_lits.resize(lits_begin);
+            def->resolvent_chains.resize(chain_begin);
+            // Replacing the outer antecedent ends its row.  The next outer
+            // entry observes the compacted connected stream; replacing only
+            // the inner antecedent continues with the next live entry.
+            if (c_subsumed) {
+              first_satisfied = true;
+              break;
+            }
+            continue;
+          }
+        }
+        if (fastel_feasibility && ++resolved > gen_limit) {
+          def->resolvent_lits.resize(lits_begin);
+          def->resolvent_chains.resize(chain_begin);
+          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                               c.ref, c.id, d.active.data(), d.active.size(),
+                               d.ref, d.id, "bound");
+          over_gen = true;
+          break;
+        }
         if (lits_size > k.bve_resolvent_size_limit) {
           def->resolvent_lits.resize(lits_begin);
           def->resolvent_chains.resize(chain_begin);
@@ -2059,6 +2173,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         BveResolvent r;
         r.lits = pool_slice(def->resolvent_lits, lits_begin);
         r.chain = pool_slice(def->resolvent_chains, chain_begin);
+        r.first_parent = c.ref;
+        r.second_parent = d.ref;
         resolvents.push_back(r);
         event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                              c.ref, c.id, d.active.data(), d.active.size(),

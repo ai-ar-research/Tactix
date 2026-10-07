@@ -3,6 +3,7 @@
 #include "rules/bve/bve.hpp"
 #include "strategy/bve_invocation.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <csignal>
 #include <cstdio>
@@ -21,6 +22,21 @@ static void add_pair(Kernel &k, int pivot, int positive_partner,
                            internalize(positive_partner));
   kernel_add_binary_clause(k, internalize(-pivot),
                            internalize(negative_partner));
+}
+
+static bool has_live_large(Kernel &k, std::vector<Lit> want) {
+  std::sort(want.begin(), want.end());
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage()) {
+      std::vector<Lit> got(clause->begin(), clause->end());
+      std::sort(got.begin(), got.end());
+      if (got == want)
+        return true;
+    }
+    ref += clause_actual_words(clause);
+  }
+  return false;
 }
 
 static void build_two_pivots(Kernel &k) {
@@ -158,6 +174,140 @@ static void test_absolute_resolvent_cap_is_effective_and_scoped() {
   assert(!kernel_var_retired(k, var_of(internalize(1))));
   assert(k.bve_resolvent_count_limit == 77 &&
          "the invocation must restore the caller's absolute cap");
+}
+
+static InvocationResult invoke_fastel(Kernel &k, uint32_t pivot,
+                                      uint32_t resolvent_limit) {
+  BveParameters parameters = BveParameters::from_kernel(k);
+  parameters.gate_mask = 0;
+  parameters.growth_bound = UINT32_MAX;
+  parameters.resolvent_count_limit = resolvent_limit;
+  parameters.resolvent_size_limit = UINT32_MAX;
+  parameters.backward = false;
+  parameters.traversal = BveTraversal::FastEliminate;
+  const uint64_t selected[] = {lit_instance(k, internalize(pivot))};
+  BveInvocationRequest request{parameters, InvocationGranularity::OneInstance,
+                               selected, 0};
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  return invoke_bve(bve_rule(), k, request, budget);
+}
+
+static void test_fastel_self_strengthening_precedes_resolvent_cap() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, positive, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+
+  const InvocationResult result = invoke_fastel(k, 1, 0);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.rule_result == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(1))));
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(k.stats.strengthened == 1);
+  kernel_check_invariants(k);
+}
+
+static void test_fastel_at_raw_cap_skips_feasibility_strengthening() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, positive, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+
+  const InvocationResult result = invoke_fastel(k, 1, 1);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.rule_result == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(1))));
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(k.stats.strengthened == 0 &&
+         "SC2024 skips its mutating feasibility scan at the raw cap");
+  kernel_check_invariants(k);
+}
+
+static void test_fastel_prunes_stale_resolvent_without_proof_sink() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, positive, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+
+  const InvocationResult result = invoke_fastel(k, 1, 1);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.rule_result == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(1))));
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(!has_live_large(k, {internalize(2), internalize(3),
+                             internalize(4)}) &&
+         "a tentative resolvent of a replaced parent must not be published");
+  assert(k.stats.strengthened == 1);
+  kernel_check_invariants(k);
+}
+
+static void test_fastel_decline_retains_checked_strengthening() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit strengthened[3] = {internalize(1), internalize(2),
+                               internalize(3)};
+  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
+  const Ref strengthened_ref =
+      kernel_add_large_clause(k, strengthened, 3, false, 0);
+  kernel_add_large_clause(k, survivor, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+
+  const InvocationResult result = invoke_fastel(k, 1, 0);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.rule_result == ApplyResult::Ok &&
+         "the retained strengthening is progress even when the pivot stays");
+  assert(!kernel_var_retired(k, var_of(internalize(1))));
+  assert(clause_at(k.arena, strengthened_ref)->garbage());
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(k.stats.strengthened == 1);
+  kernel_check_invariants(k);
+}
+
+static void test_fastel_strengthening_is_atomic_at_budget_boundary() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  const Lit strengthened[3] = {internalize(1), internalize(2),
+                               internalize(3)};
+  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
+  const Ref strengthened_ref =
+      kernel_add_large_clause(k, strengthened, 3, false, 0);
+  kernel_add_large_clause(k, survivor, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  add_pair(k, 6, 7, 8);
+
+  BveParameters parameters = BveParameters::from_kernel(k);
+  parameters.gate_mask = 0;
+  parameters.growth_bound = UINT32_MAX;
+  parameters.resolvent_count_limit = 0;
+  parameters.resolvent_size_limit = UINT32_MAX;
+  parameters.backward = false;
+  parameters.traversal = BveTraversal::FastEliminate;
+  const uint64_t selected[] = {lit_instance(k, internalize(1)),
+                               lit_instance(k, internalize(6))};
+  BveInvocationRequest request{parameters,
+                               InvocationGranularity::SelectedBatch, selected,
+                               0};
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::bounded(1));
+  const InvocationResult result = invoke_bve(bve_rule(), k, request, budget);
+
+  // An invocation budget interrupts only between atomic pivots.  The first
+  // pivot may strengthen before its elimination declines; that checked edit
+  // must survive, while the next selected pivot must remain untouched.
+  assert(result.status == InvocationStatus::BudgetExhausted);
+  assert(result.budget_status == BudgetStatus::Exhausted);
+  assert(result.applications == 1 && !result.selection_complete);
+  assert(result.made_rule_progress && result.work >= 1);
+  assert(!kernel_var_retired(k, var_of(internalize(1))));
+  assert(clause_at(k.arena, strengthened_ref)->garbage());
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(!kernel_var_retired(k, var_of(internalize(6))));
+  assert(kernel_binary_live(k, internalize(6), internalize(7)));
+  assert(kernel_binary_live(k, internalize(-6), internalize(8)));
+  kernel_check_invariants(k);
 }
 
 static void build_xor3(Kernel &k) {
@@ -595,6 +745,11 @@ int main() {
   test_one_instance_matches_legacy_and_restores_parameters();
   test_per_call_bound_is_effective_and_scoped();
   test_absolute_resolvent_cap_is_effective_and_scoped();
+  test_fastel_self_strengthening_precedes_resolvent_cap();
+  test_fastel_at_raw_cap_skips_feasibility_strengthening();
+  test_fastel_prunes_stale_resolvent_without_proof_sink();
+  test_fastel_decline_retains_checked_strengthening();
+  test_fastel_strengthening_is_atomic_at_budget_boundary();
   test_per_call_xor_arity_is_effective_and_scoped();
   test_batch_budget_stops_between_atomic_pivots();
   test_pass_session_poses_once_and_keeps_cumulative_budget();

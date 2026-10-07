@@ -414,7 +414,7 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   explicit legal variable remains applicable under either setting. A strategy
   may also impose an absolute cap on non-tautological resolvents in addition to
   the ordinary growth bound; exceeding either cap returns `NoOp` before the
-  pivot deletion. The cap changes admission only, not the proof transition.
+  pivot deletion. FastEliminate's feasibility scan, entered only when the raw cross product exceeds its absolute cap, may first add a two-parent RUP resolvent of size at least two that strictly shortens a large antecedent and delete that parent; this standalone strengthening survives a later capped decline. Otherwise the cap changes admission only, not the proof transition.
 - **Gate reduction:** the resolvent set above is the *full* cross product; when a subset of `x`'s clauses is a **gate** — writing
   them `(x∨Cᵢ)` for `i∈P`, `(¬x∨Dⱼ)` for `j∈N`, with marked subsets `G⁺⊆P`, `G⁻⊆N` — the *antecedent×antecedent* resolvents are
   dropped. Marking is legal exactly when
