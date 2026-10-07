@@ -19,18 +19,24 @@ def proof(elapsed, timeout=False):
 class CandidateArgumentTests(unittest.TestCase):
     def test_legacy_command_unchanged_and_profile_exact(self):
         self.assertEqual(candidate_arguments(), ['--auto-proof'])
-        for mode in ('on', 'off'):
-            argument = '--default-affine-search=' + mode
-            self.assertEqual(candidate_arguments([argument]), ['--auto-proof', argument])
+        for family in ('affine-search', 'graph-labeling'):
+            for mode in ('on', 'off'):
+                argument = '--default-' + family + '=' + mode
+                self.assertEqual(candidate_arguments([argument]), ['--auto-proof', argument])
+        combined = ['--default-affine-search=off', '--default-graph-labeling=on']
+        self.assertEqual(candidate_arguments(combined), ['--auto-proof', *combined])
 
     def test_rejects_empty_proof_policy_and_conflicting_overrides(self):
         for arguments in ([''], ['--drat'], ['--auto-proof'], ['--lrat'],
                           ['--random-policy'], ['--default-affine-search=maybe'],
+                          ['--default-graph-labeling=maybe'],
                           ['--default-nol-walk=on'],
                           [' --default-affine-search=on'],
                           ['--default-affine-search=on --drat'],
                           ['--default-affine-search=on', '--default-affine-search=off'],
-                          ['--default-affine-search=on', '--default-affine-search=on']):
+                          ['--default-affine-search=on', '--default-affine-search=on'],
+                          ['--default-graph-labeling=on', '--default-graph-labeling=off'],
+                          ['--default-graph-labeling=on', '--default-graph-labeling=on']):
             with self.subTest(arguments=arguments), self.assertRaises(ValueError):
                 candidate_arguments(arguments)
         # Reject before any authority/pin read or campaign mutation.
@@ -73,7 +79,8 @@ class CandidateArgumentTests(unittest.TestCase):
             with patch.object(regression, 'ROOT', root), patch.object(regression, 'BASELINE', baseline), \
                  patch.object(regression, 'CANONICAL_CHECKERS', checkers), \
                  patch.object(regression.subprocess, 'run') as verified:
-                for prefix, arguments in (('legacy', []), ('enabled', ['--default-affine-search=on'])):
+                for prefix, arguments in (('legacy', []),
+                                          ('enabled', ['--default-graph-labeling=on'])):
                     campaigns = regression.prepare(prefix, release, arguments)
                     manifest = json.loads((Path(campaigns[0]) / 'manifest.json').read_text())
                     self.assertEqual(manifest['arms']['tactix']['arguments'],
