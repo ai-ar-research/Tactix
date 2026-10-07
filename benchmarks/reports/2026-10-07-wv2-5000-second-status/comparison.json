@@ -1,0 +1,719 @@
+{
+  "historical_source": "d170b4a5",
+  "historical_solver_limit_seconds": 5000,
+  "collection_sha256": "1f2cf9f41932e0d0abef45c5e00b08294ff9dbb1268adb74ea0860b20c70bdd6",
+  "rows": [
+    {
+      "wv_rank": 244,
+      "tierd_rank": 3,
+      "instance": "tierD24-26/00fd8ac9acd186a7a78a2c4d92f90de1-2.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 30.52,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/002.json"
+    },
+    {
+      "wv_rank": 234,
+      "tierd_rank": 12,
+      "instance": "tierD24-26/032941f5f28c9ac53fa1c80d35f3206f-GP_216_290_40.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 8.679,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/011.json"
+    },
+    {
+      "wv_rank": 158,
+      "tierd_rank": 27,
+      "instance": "tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 35.115,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/026.json"
+    },
+    {
+      "wv_rank": 131,
+      "tierd_rank": 29,
+      "instance": "tierD24-26/07b476c83150d3cb7e08f5d045e255ab-marg5x5.shuffled-as.sat03-1455.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.067,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/028.json"
+    },
+    {
+      "wv_rank": 230,
+      "tierd_rank": 46,
+      "instance": "tierD24-26/09befe1ffd4e02a988cadecd0a012261-GP_300_140_20.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 4.873,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/045.json"
+    },
+    {
+      "wv_rank": 202,
+      "tierd_rank": 50,
+      "instance": "tierD24-26/09e0775d2b51c49ec1ec4d214ee7c8c8-ntil-90d-37.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 23.949,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/049.json"
+    },
+    {
+      "wv_rank": 184,
+      "tierd_rank": 52,
+      "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 323.04,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/051.json"
+    },
+    {
+      "wv_rank": 248,
+      "tierd_rank": 54,
+      "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 85.676,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/053.json"
+    },
+    {
+      "wv_rank": 199,
+      "tierd_rank": 76,
+      "instance": "tierD24-26/0e06895600b5cd0b6fadb87e17bf8145-ntil-90d-39.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 4989.624,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/075.json"
+    },
+    {
+      "wv_rank": 167,
+      "tierd_rank": 81,
+      "instance": "tierD24-26/0ec8c5e9084cbc8a326f8f37e1abf741-oddball_54_5_tto_zp.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.275,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/080.json"
+    },
+    {
+      "wv_rank": 137,
+      "tierd_rank": 91,
+      "instance": "tierD24-26/110f8eb8b9b80204fe955ea0973bbb00-clqcl_30_7_6.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.167,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/090.json"
+    },
+    {
+      "wv_rank": 157,
+      "tierd_rank": 93,
+      "instance": "tierD24-26/1156429862d3c03160406d6d1a786f11-rphp_p8_r170.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.667,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/092.json"
+    },
+    {
+      "wv_rank": 198,
+      "tierd_rank": 94,
+      "instance": "tierD24-26/115fa7f61704bc12b2373aa471bc434f-Circuit_multiplier24.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 80.399,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/093.json"
+    },
+    {
+      "wv_rank": 232,
+      "tierd_rank": 130,
+      "instance": "tierD24-26/1753a71fefceb0250a75e67b610050a0-GP_190_225_30.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.176,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/129.json"
+    },
+    {
+      "wv_rank": 164,
+      "tierd_rank": 148,
+      "instance": "tierD24-26/1b8806812861df2b7e91dc316ad1ef80-oddball_52_5_tto_zp.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.276,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/147.json"
+    },
+    {
+      "wv_rank": 153,
+      "tierd_rank": 175,
+      "instance": "tierD24-26/21415e807689ea75536e846a24623de1-clqcl_50_6_5.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 3.424,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/174.json"
+    },
+    {
+      "wv_rank": 160,
+      "tierd_rank": 181,
+      "instance": "tierD24-26/22c8d6aa86d51e15ef5ab37479eda22b-xor_op_n40_d3.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 153.014,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/180.json"
+    },
+    {
+      "wv_rank": 132,
+      "tierd_rank": 189,
+      "instance": "tierD24-26/24bdfb34654b1aa703fae31ea91e7c7f-tseitin_d3_n158.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.019,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/188.json"
+    },
+    {
+      "wv_rank": 138,
+      "tierd_rank": 208,
+      "instance": "tierD24-26/292bedf65cee7cc38fe8b2725eb50868-cliquecoloring_n32_k5_c4.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.117,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/207.json"
+    },
+    {
+      "wv_rank": 194,
+      "tierd_rank": 223,
+      "instance": "tierD24-26/2b4467a5ac4ac41b36d4c3432b07f767-oddball_69_5_tto_zp.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 10.647,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/222.json"
+    },
+    {
+      "wv_rank": 156,
+      "tierd_rank": 240,
+      "instance": "tierD24-26/2dd4b14a8a820e7baa073554ae2c6cb0-rphp_p8_r160.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.518,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/239.json"
+    },
+    {
+      "wv_rank": 139,
+      "tierd_rank": 271,
+      "instance": "tierD24-26/35789168b67a74985804902008251269-tseitingrid6x200_shuffled.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.035,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/270.json"
+    },
+    {
+      "wv_rank": 146,
+      "tierd_rank": 281,
+      "instance": "tierD24-26/36dbc206c7d9773bebb03f752070cee9-tseitin_grid_n11_m20.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.019,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/280.json"
+    },
+    {
+      "wv_rank": 193,
+      "tierd_rank": 326,
+      "instance": "tierD24-26/41915707d831e1365389d3cc47c7953f-oddball_51_5_tto_zp.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.126,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/325.json"
+    },
+    {
+      "wv_rank": 147,
+      "tierd_rank": 328,
+      "instance": "tierD24-26/41f4cb4992a481c9d43e2e1a4e2349ac-sgen1-sat-180-100.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.067,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/327.json"
+    },
+    {
+      "wv_rank": 133,
+      "tierd_rank": 332,
+      "instance": "tierD24-26/42f1311ce504db8cc0cb590a568da20a-tseitin_n188_d3.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.019,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/331.json"
+    },
+    {
+      "wv_rank": 242,
+      "tierd_rank": 333,
+      "instance": "tierD24-26/42fdd4f4c27fd03267afd82490cb59a4-GP_100_1000_10.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 14.994,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/332.json"
+    },
+    {
+      "wv_rank": 191,
+      "tierd_rank": 338,
+      "instance": "tierD24-26/43ebdada6f6153b50a140ba908d5bf44-oddball_67_5_tto_zp.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 9.834,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/337.json"
+    },
+    {
+      "wv_rank": 222,
+      "tierd_rank": 363,
+      "instance": "tierD24-26/47e1ada0070708c2953d322c06aea00d-noL-11-8.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 43.597,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/362.json"
+    },
+    {
+      "wv_rank": 140,
+      "tierd_rank": 370,
+      "instance": "tierD24-26/4aab4f954196d3277d9ca7b17c52acca-clqcl_25_8_7.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.117,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/369.json"
+    },
+    {
+      "wv_rank": 189,
+      "tierd_rank": 374,
+      "instance": "tierD24-26/4c037368864330bff3940837ac28ac14-lockchart-group2-rnd0.3-L18-K36-P8D4J1.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 362.008,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/373.json"
+    },
+    {
+      "wv_rank": 241,
+      "tierd_rank": 380,
+      "instance": "tierD24-26/4d6e18e506b7e62d3f32cc775219be24-GP_100_951_33.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 14.105,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/379.json"
+    },
+    {
+      "wv_rank": 224,
+      "tierd_rank": 406,
+      "instance": "tierD24-26/53d23b2b464a5c041114eb1f00cc4b81-puzzle32_sat.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 2380.155,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/405.json"
+    },
+    {
+      "wv_rank": 141,
+      "tierd_rank": 419,
+      "instance": "tierD24-26/556cf803f9de4b2ec688825b5ff7e325-tseitin_d3_n174.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.019,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/418.json"
+    },
+    {
+      "wv_rank": 201,
+      "tierd_rank": 433,
+      "instance": "tierD24-26/59825ed96dc3bbdbd8789a4870b323ec-hcp_CP18_18.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 1003.133,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/432.json"
+    },
+    {
+      "wv_rank": 195,
+      "tierd_rank": 447,
+      "instance": "tierD24-26/5cae5c0629ce1c724746af890410cfc1-jkkk-one-one-11-38-sat.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 645.491,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/446.json"
+    },
+    {
+      "wv_rank": 142,
+      "tierd_rank": 452,
+      "instance": "tierD24-26/5d06225b27017e9a703f10cb577cf3bf-clqcl_25_7_6.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.117,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/451.json"
+    },
+    {
+      "wv_rank": 197,
+      "tierd_rank": 472,
+      "instance": "tierD24-26/6008b958ff6877f32c26b72728df4523-linked_list_swap_contents_safety_unwind76.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 106.693,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/471.json"
+    },
+    {
+      "wv_rank": 231,
+      "tierd_rank": 478,
+      "instance": "tierD24-26/619e9e0d70c78c97b0516afedf086fee-20.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.922,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/477.json"
+    },
+    {
+      "wv_rank": 221,
+      "tierd_rank": 484,
+      "instance": "tierD24-26/634a271f5fe339007a186539d615e92f-noL-11-4.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 3203.498,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/483.json"
+    },
+    {
+      "wv_rank": 161,
+      "tierd_rank": 485,
+      "instance": "tierD24-26/63732c330adb8de8dd47ce1693b86d0e-FmlaEquivChain_4_8_8.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 3.521,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/484.json"
+    },
+    {
+      "wv_rank": 243,
+      "tierd_rank": 486,
+      "instance": "tierD24-26/6415a71364351c0a521fdee510bc2589-18.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 17.281,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/485.json"
+    },
+    {
+      "wv_rank": 225,
+      "tierd_rank": 518,
+      "instance": "tierD24-26/6cb995b1c550beb579c53e27f6ca881a-RoundRobin_n16_d13.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.066,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/517.json"
+    },
+    {
+      "wv_rank": 192,
+      "tierd_rank": 529,
+      "instance": "tierD24-26/6ebe901234af9615bb85b688a26ef2c4-17.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 186.705,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/528.json"
+    },
+    {
+      "wv_rank": 134,
+      "tierd_rank": 534,
+      "instance": "tierD24-26/6f40bd5ac85e2a53b392d8f0369e7f1f-harder-fphp-016-015.sat05-1230.reshuffled-07.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.018,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/533.json"
+    },
+    {
+      "wv_rank": 239,
+      "tierd_rank": 542,
+      "instance": "tierD24-26/7083b70c1976162e2693d7a493717ffd-battleship-14-26-sat.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 3.37,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/541.json"
+    },
+    {
+      "wv_rank": 240,
+      "tierd_rank": 558,
+      "instance": "tierD24-26/753757e87d34bd1075c413d801bf99b8-16.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 15.791,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/557.json"
+    },
+    {
+      "wv_rank": 163,
+      "tierd_rank": 581,
+      "instance": "tierD24-26/7a206b67366c3049f214f360ff943f62-oddball_56_5_tto_zp.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.976,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/580.json"
+    },
+    {
+      "wv_rank": 228,
+      "tierd_rank": 593,
+      "instance": "tierD24-26/7cf696bae2c50af38414b61b8d92581a-GP_105_308_40.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.425,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/592.json"
+    },
+    {
+      "wv_rank": 154,
+      "tierd_rank": 612,
+      "instance": "tierD24-26/80d8c77f6cab179d469462221f3f624a-clqcl_30_11_10.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 292.484,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/611.json"
+    },
+    {
+      "wv_rank": 186,
+      "tierd_rank": 617,
+      "instance": "tierD24-26/822cf4daaa4e1d16ad53d088ff567f32-RoundRobin_n15_d13.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.068,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/616.json"
+    },
+    {
+      "wv_rank": 245,
+      "tierd_rank": 624,
+      "instance": "tierD24-26/83aa254f7d17e1df7bee19322ac4752b-1.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 32.762,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/623.json"
+    },
+    {
+      "wv_rank": 155,
+      "tierd_rank": 630,
+      "instance": "tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz",
+      "historical_status": "solver_timeout",
+      "historical_solver_seconds": 5000.005,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/629.json"
+    },
+    {
+      "wv_rank": 148,
+      "tierd_rank": 639,
+      "instance": "tierD24-26/8707ef793f0443b5804c56c2ffca322e-clqcl_40_6_5.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.217,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/638.json"
+    },
+    {
+      "wv_rank": 233,
+      "tierd_rank": 653,
+      "instance": "tierD24-26/8a7977519abed3e4c005da7506349f52-GP_300_180_30.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 6.475,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/652.json"
+    },
+    {
+      "wv_rank": 187,
+      "tierd_rank": 678,
+      "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.117,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/677.json"
+    },
+    {
+      "wv_rank": 165,
+      "tierd_rank": 689,
+      "instance": "tierD24-26/918d9e7c2e197312517736421d728958-SCPC-500-1.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 37.269,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/688.json"
+    },
+    {
+      "wv_rank": 149,
+      "tierd_rank": 691,
+      "instance": "tierD24-26/91e0db01b254eb78f6643328045bfeb9-sted5_0x1e3-20.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 4759.27,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/690.json"
+    },
+    {
+      "wv_rank": 168,
+      "tierd_rank": 705,
+      "instance": "tierD24-26/95931bb010dba306e24c79c120044ff9-SC25_Timetable_C_496_E_48_Cl_33_D_7_T_50.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 550.601,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/704.json"
+    },
+    {
+      "wv_rank": 135,
+      "tierd_rank": 715,
+      "instance": "tierD24-26/973d699ec01b88da869233a79aaa1912-cliquecolouring_n13_k9_c8.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.067,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/714.json"
+    },
+    {
+      "wv_rank": 247,
+      "tierd_rank": 737,
+      "instance": "tierD24-26/9af78578225115b54d5e7338562664fd-5.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 40.168,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/736.json"
+    },
+    {
+      "wv_rank": 249,
+      "tierd_rank": 739,
+      "instance": "tierD24-26/9b998be0c639d06988c4902eb125c0b7-frb35-17-5_ext.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 21.544,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/738.json"
+    },
+    {
+      "wv_rank": 190,
+      "tierd_rank": 746,
+      "instance": "tierD24-26/9da32436de386f3b4f8e6ec1db552349-HCP-529-420.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 327.556,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/745.json"
+    },
+    {
+      "wv_rank": 227,
+      "tierd_rank": 753,
+      "instance": "tierD24-26/9ef9243ff051b32795890fccd6c3f6b2-sum_of_3_cubes_50_bits_91.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 3.721,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/752.json"
+    },
+    {
+      "wv_rank": 235,
+      "tierd_rank": 770,
+      "instance": "tierD24-26/a38affaa741c958fc32769d5fe89b06c-frb65-12-2.used-as.sat04-874.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.619,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/769.json"
+    },
+    {
+      "wv_rank": 237,
+      "tierd_rank": 788,
+      "instance": "tierD24-26/a789d0722f1aa0d44c5a38b374719c69-13.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 11.081,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/787.json"
+    },
+    {
+      "wv_rank": 188,
+      "tierd_rank": 799,
+      "instance": "tierD24-26/a9cb77454c6cfdf4092fb304d3aae8b7-mdp-32-16-sat.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.116,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/798.json"
+    },
+    {
+      "wv_rank": 246,
+      "tierd_rank": 810,
+      "instance": "tierD24-26/ab02c7ef78bda1f427d5e3f1f26b1ae5-sum_of_three_cubes_906_known_representation.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 19.342,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/809.json"
+    },
+    {
+      "wv_rank": 220,
+      "tierd_rank": 831,
+      "instance": "tierD24-26/ae9522ea003ea9f75891b2d37a5e264b-srhd-sgi-m37-q446.25-n35-p30-s33692332.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.417,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/830.json"
+    },
+    {
+      "wv_rank": 229,
+      "tierd_rank": 834,
+      "instance": "tierD24-26/af750c18578d52e60472315692ad83c0-si2-b03m-m800-03.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 7.327,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/833.json"
+    },
+    {
+      "wv_rank": 223,
+      "tierd_rank": 872,
+      "instance": "tierD24-26/b8c7c777e76995e5bf7b517f2db234ba-noL-11-16.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 55.896,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/871.json"
+    },
+    {
+      "wv_rank": 238,
+      "tierd_rank": 893,
+      "instance": "tierD24-26/be78afd2e0b3d1a955fc403b2d100d55-4.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 13.28,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/892.json"
+    },
+    {
+      "wv_rank": 166,
+      "tierd_rank": 899,
+      "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+      "historical_status": "solver_timeout",
+      "historical_solver_seconds": 5000.004,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/898.json"
+    },
+    {
+      "wv_rank": 196,
+      "tierd_rank": 907,
+      "instance": "tierD24-26/c15b09b9a7ceff4d4c8fe705958f92ba-snw_16_9_preOpt_pre.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 794.04,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/906.json"
+    },
+    {
+      "wv_rank": 143,
+      "tierd_rank": 926,
+      "instance": "tierD24-26/c69c5163c9087ffe770743bd4cdafcc9-tseitin_d3_n162.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.019,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/925.json"
+    },
+    {
+      "wv_rank": 185,
+      "tierd_rank": 937,
+      "instance": "tierD24-26/c8d21db50338d9d5743802bcae77a466-cliquecoloring_n14_k7_c6.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 14.838,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/936.json"
+    },
+    {
+      "wv_rank": 144,
+      "tierd_rank": 947,
+      "instance": "tierD24-26/cb950b9accfb53eb98f77b0f995ac0ae-rphp5_050_shuffled.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.117,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/946.json"
+    },
+    {
+      "wv_rank": 159,
+      "tierd_rank": 953,
+      "instance": "tierD24-26/cccee4b0d4c70a5d5422663e2d8887da-1-ET-512-K-96.sanitized.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.568,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/952.json"
+    },
+    {
+      "wv_rank": 162,
+      "tierd_rank": 957,
+      "instance": "tierD24-26/cdd131110acc861a5a01fae6c4936c91-6g_6color_366_050_04.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 940.071,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/956.json"
+    },
+    {
+      "wv_rank": 200,
+      "tierd_rank": 1006,
+      "instance": "tierD24-26/db099269d468029b70419bf4a49e99a1-stable-400-0.1-2-9876543214002.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 114.417,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1005.json"
+    },
+    {
+      "wv_rank": 150,
+      "tierd_rank": 1036,
+      "instance": "tierD24-26/e12874b16df577b301608d03731595d8-rphp5_085_shuffled.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 8.228,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1035.json"
+    },
+    {
+      "wv_rank": 151,
+      "tierd_rank": 1038,
+      "instance": "tierD24-26/e207ba2df64495327f715e08155a220f-fermat-834855329100173267.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 0.067,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1037.json"
+    },
+    {
+      "wv_rank": 236,
+      "tierd_rank": 1039,
+      "instance": "tierD24-26/e23edb67db2d1dfdbfe2f4c02d09c6c7-14.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 10.281,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1038.json"
+    },
+    {
+      "wv_rank": 136,
+      "tierd_rank": 1049,
+      "instance": "tierD24-26/e430acf720b63044e5c825a00a76b0eb-rphp_p25_r25.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.116,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1048.json"
+    },
+    {
+      "wv_rank": 152,
+      "tierd_rank": 1072,
+      "instance": "tierD24-26/ea37a677b357328c1641ef2f6087bf66-clqcl_30_9_8.normalised.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 0.318,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1071.json"
+    },
+    {
+      "wv_rank": 226,
+      "tierd_rank": 1079,
+      "instance": "tierD24-26/ed6d842f96d10f3400bce251f9e95bfb-battleship-16-31-sat.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 19.64,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1078.json"
+    },
+    {
+      "wv_rank": 203,
+      "tierd_rank": 1102,
+      "instance": "tierD24-26/f1973c0a4e960a914ff12aa7e4e9293c-lockchart-group2-rnd0.3-L19-K38-P8D4J1_4.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 1761.656,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1101.json"
+    },
+    {
+      "wv_rank": 250,
+      "tierd_rank": 1114,
+      "instance": "tierD24-26/f406e2b8b28f205f16e8983bd522db13-oddball_112_5_ttf.normalised.cnf.xz",
+      "historical_status": "checked_SAT",
+      "historical_solver_seconds": 181.942,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1113.json"
+    },
+    {
+      "wv_rank": 145,
+      "tierd_rank": 1140,
+      "instance": "tierD24-26/fa5c6d6736a42650656c5bc018413254-bphp_p23_h22.sanitized.cnf.xz",
+      "historical_status": "checked_UNSAT",
+      "historical_solver_seconds": 529.81,
+      "source": "benchmarks/runs/20260928-am546-no-mab-tactix-hybrid-tierd-cpuq/results/1139.json"
+    }
+  ]
+}
