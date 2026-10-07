@@ -142,18 +142,18 @@ XOR recognition/clause detachment while disabling matrices makes both
 180-second controls time out. Static replacement reduces conflicts but does not
 recover the solve. Likewise, a fixed row basis is not propagation-complete:
 assignment-dependent sums can imply a literal although no stored row is unit.
-The implemented GF(2) search increment is a persistent authenticated matrix,
-not an eager full-row dump. `AffineMatrixInitialize` creates or replaces its
-Kernel-owned basis only through an explicit root action. After `ResumeSearch`,
-the restart controller calls the enabled service only at Boolean propagation
-fixpoints. The service maintains exact combinations of certified source
-equations across trail extension/backtrack, constructs one deterministic
-entailed reason or conflict, completes its bounded DSR/DRAT derivation against
-the global formula, publishes the ordinary Boolean reason, and returns control
-to BCP. It never directly enqueues a literal or reports a theory conflict.
+The GF(2) mechanism retains a persistent authenticated matrix.
+`AffineMatrixInitialize` creates or replaces its Kernel-owned basis through an
+explicit root action. All discovery, maintenance, bounded continuation and
+proof publication run only in initial/full-restart root windows before
+`ResumeSearch`; ordinary search fixpoints and partial restarts do no theory work.
+The service incorporates newly certified root facts, retains exact source
+combinations, derives a checked Boolean reason or conflict, and returns to
+explicit root BCP. A certified empty clause terminates with UNSAT; a nonempty
+reason uses ordinary propagation. Retained state survives search intervals.
 Matrix work, reason width, proof additions, external extent, duplicate keys,
 calls and useful events are explicit feedback fields. Static X9 rows remain a
-bounded cache and causal control. Persistent mixed-CNF admission must retain authenticated source/proof provenance independently of later native source deletion, with proof-preserving source leases or certified durable representations and explicit substitution/elimination handling. Ordinary DefaultPolicy must run bounded restart-root and assumption-dependent search services, skip unchanged states, and retain every conditional reason antecedent across backtracking. Rank569 is a compact-proof and substantial solve-time reduction target against verified Kissat3359.975s, with consequence yield, proof size and independent checking measured. Adaptive matrix partitioning and incremental maintenance remain evidence-driven follow-ups rather than preconditions hidden inside the rule.
+bounded cache and causal control. Persistent mixed-CNF admission must retain authenticated source/proof provenance independently of later native source deletion, with proof-preserving source leases or certified durable representations and explicit substitution/elimination handling. Ordinary DefaultPolicy must resume bounded restart-root service, skip unchanged states, and preserve proof-premise scope; no conditional consequence may become an unconditional unit. Service uses the existing tick/interval and fruitlessness-delay mechanisms with charged work. Rank569 is a compact-proof and substantial solve-time reduction target against verified Kissat3359.975s, with consequence yield, proof size and independent checking measured. Adaptive matrix partitioning and incremental maintenance remain evidence-driven follow-ups rather than preconditions hidden inside the rule.
 The [mixed-formula support census](../benchmarks/reports/2026-10-06-affine-mixed-support-census/README.md)
 separates recognition capacity from useful matrix scheduling. Raising only the
 group cap admits ranks 540 and 557, but each recovered matrix is a single
@@ -194,7 +194,7 @@ eligible-action interfaces, with DefaultPolicy an explicit scheduling instantiat
 Do not hide useful capabilities, ordering or budgets inside a default-only solver
 path. Keep legal guards and proof/reconstruction in rules; policy owns admission,
 intervals, order, candidate selection and effort. Preserve repeated eligible
-actions at full root and ordinary partial-trail continuation during search.
+actions at full root; partial-trail search continuation performs no theory work.
 Version/serialize new actions, instances, parameters, candidate references and
 continuation/stale/interruption behavior; replay selection and results deterministically.
 Extend pure observation and after-action feedback with relevant raw state,
