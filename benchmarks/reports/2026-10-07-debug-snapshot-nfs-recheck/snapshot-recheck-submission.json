@@ -1,0 +1,12 @@
+{
+  "job_id": "1751521",
+  "submitted_at": "2026-10-07T03:39:02.509980+00:00",
+  "test": "fuzz_slurm_snapshot",
+  "command": "python3 source/tests/test_fuzz_slurm_snapshot.py",
+  "purpose": "exact unchanged harness rerun after NFS EBUSY cleanup failure; original failure preserved",
+  "resources": {
+    "cpus": 1,
+    "memory_mib": 2048,
+    "wall_seconds": 300
+  }
+}

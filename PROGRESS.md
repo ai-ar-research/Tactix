@@ -131,14 +131,14 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
-The [native equality repair](benchmarks/reports/2026-10-07-nary-equality-stale-owner-repair/README.md)
-passes focused Debug and sanitizer/proof/model checks 9/9 each. Freeze the repaired
-commit `938a6ae6b` is now supplied to the existing Claude owner for affected
-targeted coverage and three minimized reproducers; cumulative acceptance remains
-pending. Full Debug archive `20261007-equality-repair-938a6ae6b-full-debug` is building.
-Claude reports smoke reproducers 36/36 checked; targeted `1751516` and native
-controller broad `1751515` are live. A reviewed expected-image metering follow-up
-is committed as `76e1f68b8`; [Debug and sanitizer 13/13](benchmarks/reports/2026-10-07-prefix-meter-public-sanitizer-supplement/README.md) pass. Claude final-source and full Debug preparation are active; regressions follow Debug.
+Final runtime source `76e1f68b8` passes focused Debug and sanitizer/proof/model
+checks 13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-07-final-parallel-acceptance-handoff/README.md)
+owns all active pin/job bindings and provisional dispositions. Final Debug
+`1751523` is running; [preceding equality Debug](benchmarks/reports/2026-10-07-equality-full-debug-terminal/README.md)
+passes313/315, with NFS recheck passing and doc-size debt remaining. Claude smoke `1751519` and
+native broad `1751520` are queued; intermediate `1751515`/`1751516` remain live.
+B28+C5 `1751524`, Rank1–50 `1751525`, WV100 `1751526`, WV2–89 `1751527`
+are submitted concurrently. Grade each gate; pending checks never promote.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
@@ -180,8 +180,8 @@ after job transitions; Claude alone inspects campaign output and owns the final
 report. The initial repair campaign is terminal accepted; its evidence does
 not accept the cumulative X18 failure.
 [Storage verification](benchmarks/reports/2026-10-06-final-storage-verification/README.md) records 219.93 GB after reclaiming about 528 GB.
-The later [live-pin scan](benchmarks/reports/2026-10-06-live-pin-storage-recheck/README.md)
-completed without errors at 220.95 GB, still below the storage gate.
+The [allocated scan](benchmarks/reports/2026-10-07-final-allocated-storage-recheck/README.md)
+completes without errors at 259.23 GB; the earlier 452.94-GB scan measured apparent size.
 The final coherent pin still needs effective both-policy fuzz, full Debug,
 B28+C5, Rank1--50, WV100 and WV2--89 acceptance. Follow plan §8.1
 for the standing 700-GB storage check and aggressive cleanup gate.
