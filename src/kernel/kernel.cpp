@@ -3959,6 +3959,12 @@ void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
   assert(v < k.nvars);
   assert(k.values[lit] > 0);
   assert(k.assigned[v].level == 0);
+  if (!k.proof->stream_identity() || k.dsr_root_proof!=k.proof ||
+      k.dsr_root_stream_identity!=k.proof->stream_identity()) {
+    k.dsr_root_values.assign(k.nvars,0);
+    k.dsr_root_proof=k.proof;
+    k.dsr_root_stream_identity=k.proof->stream_identity();
+  }
   if (k.dsr_root_values.empty())
     k.dsr_root_values.resize(k.nvars, 0);
   const int8_t polarity = negated(lit) ? -1 : 1;

@@ -52,33 +52,28 @@ void capture() {
   assert(repeat.status==AffineMatrixServiceStatus::NoEvent && repeat.incremental_capture && repeat.unchanged_support && repeat.cached_event);
   assert(repeat.lifecycle_work==0 && repeat.trail_capture_work==0 && repeat.synchronization_work<=2);
   kernel_assign_decision(k,kernel_internalize(k,8));assert(propagate_apply(k)==ApplyResult::Ok);
+  const auto pending_owner=session.owner_version(),pending_id=k.next_clause_id;
+  const auto pending_bytes=proof.premise_bytes();
+  const auto pending_journal=std::ftell(journal);
+  const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
   auto outside=affine_matrix_search_step(k,session);
-  assert(outside.status==AffineMatrixServiceStatus::NoEvent && outside.incremental_capture && outside.unchanged_support && outside.cached_event);
-  assert(outside.capture_delta_literals==1 && outside.lifecycle_work==0);
+  assert(outside.status==AffineMatrixServiceStatus::Inapplicable && session.enabled() && session.attached_to(k));
+  assert(session.owner_version()==pending_owner && k.next_clause_id==pending_id &&
+         proof.premise_bytes()==pending_bytes && std::ftell(journal)==pending_journal && k.trail==pending_trail);
   kernel_assign_decision(k,kernel_internalize(k,1));assert(propagate_apply(k)==ApplyResult::Ok);
-  volatile sig_atomic_t stop=1;k.stop=&stop;
-  const auto before=k.next_clause_id; const auto journal_before=std::ftell(journal);
-  assert(affine_matrix_search_step(k,session).status==AffineMatrixServiceStatus::Interrupted);
-  assert(k.next_clause_id==before && std::ftell(journal)==journal_before);k.stop=nullptr;
-  // A fixed stop schedule fires at the first synchronization charge after
-  // capture has committed. This is one causal microcase, not a fuzz campaign.
-  k.stop_fuzz_state=156;k.stop_fuzz=32;
-  const auto late=affine_matrix_search_step(k,session);
-  assert(late.status==AffineMatrixServiceStatus::Interrupted && late.incremental_capture &&
-         late.capture_delta_literals==1 && !late.synchronized && !late.cached_event);
-  assert(k.next_clause_id==before && std::ftell(journal)==journal_before);k.stop_fuzz=0;
-  auto positive=affine_matrix_search_step(k,session);
-  assert(positive.status==AffineMatrixServiceStatus::Applied && positive.incremental_capture &&
-         positive.capture_delta_literals==0 && positive.unchanged_support && !positive.cached_event && positive.synchronized);
-  assert((positive.installed_reason==std::vector<int32_t>{-1,-4}));assert(propagate_apply(k)==ApplyResult::Ok);
+  const auto conditioned_trail=std::vector<Lit>(k.trail.begin(),k.trail.end());
+  const auto conditioned=affine_matrix_search_step(k,session);
+  assert(conditioned.status==AffineMatrixServiceStatus::Inapplicable &&
+         conditioned.installed_reason.empty() && k.trail==conditioned_trail);
   kernel_backtrack(k,0);
-  // Same trail length after opposite reassignment must not reuse the old
-  // support value or unconditionalize the previous guarded consequence.
+  assert(affine_matrix_search_step(k,session).status==AffineMatrixServiceStatus::NoEvent);
+  // Opposite decision assignments are likewise left to CDCL. The retained
+  // matrix is serviced only after the following full backtrack to root.
   kernel_assign_decision(k,kernel_internalize(k,8));assert(propagate_apply(k)==ApplyResult::Ok);
   kernel_assign_decision(k,kernel_internalize(k,-1));assert(propagate_apply(k)==ApplyResult::Ok);
   auto negative=affine_matrix_search_step(k,session);
-  assert(!negative.incremental_capture && negative.status==AffineMatrixServiceStatus::Applied);
-  assert((negative.installed_reason==std::vector<int32_t>{1,4}));assert(propagate_apply(k)==ApplyResult::Ok);
+  assert(negative.status==AffineMatrixServiceStatus::Inapplicable &&
+         negative.installed_reason.empty() && session.enabled());
   kernel_backtrack(k,0);assert(!kernel_external_value(k,internalize(1)) && !kernel_external_value(k,internalize(4)));
   auto rooted=affine_matrix_search_step(k,session);assert(rooted.status==AffineMatrixServiceStatus::NoEvent);
   kernel_affine_note_namespace_change(k);

@@ -97,6 +97,15 @@ struct SlotOrderRow {
 };
 const SlotOrderRow *default_slot_order(size_t *count);
 
+// Shared existing Kissat-style delay ladder: finite unproductive rounds grow
+// one occasion, productive rounds halve it. Both scheduling clients use this
+// exact saturation rule, with their own ordinary effort clock.
+inline void update_inprocess_delay(uint32_t &current,uint32_t &count,bool unproductive) {
+  if(unproductive)current+=(current<UINT32_MAX);
+  else current/=2;
+  count=current;
+}
+
 class DefaultInprocessScheduler {
 public:
   // Compatibility aliases for tests and external design probes.  The numbers

@@ -14,6 +14,7 @@ extern "C" {
 #include "rules/semantic_extension/affine_image.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/random_online.hpp"
+#include "strategy/online_sequence.hpp"
 #include "api/api_internal.hpp"
 #include <fstream>
 #include <iterator>
@@ -113,8 +114,7 @@ static void c_surface(bool with_proof) {
     step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base=saved_base;
     step.affine_matrix_profile=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
     step.affine_matrix=valid;step.affine_matrix.operation=TACTIX_AFFINE_MATRIX_SEARCH_STEP;
-    // The explicit service is legal above root and installs a conditional
-    // ordinary watched reason. It must not be blocked by an initializer guard.
+    // Even an exact public profile cannot authorize theory work above root.
     ++step.affine_matrix.maximum_retained_bytes;
     assert(capi::tactix_online_configure_v16(s,&program,942,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
     assert(capi::tactix_online_advance(s,&result)==0);
@@ -122,9 +122,10 @@ static void c_surface(bool with_proof) {
     --step.affine_matrix.maximum_retained_bytes;
     assert(capi::tactix_online_configure_v16(s,&program,943,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
     assert(capi::tactix_online_advance(s,&result)==0);
-    assert(result.status==TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
-    assert(capi::tactix_apply(s,propagate)>=0);
-    assert(capi::tactix_value(s,4)==-4);
+    assert(result.status==TACTIX_ONLINE_INAPPLICABLE && !result.made_rule_progress);
+    assert(kernel_propagation_fixpoint(api_detail::kernel_for_fixed_testing(s)));
+    auto &kernel=api_detail::kernel_for_fixed_testing(s);
+    assert(!kernel.value(kernel_internalize(kernel,4)));
   }
   capi::tactix_release(s);std::fclose(records);std::remove(path);
 }
@@ -238,7 +239,7 @@ static void c_decline_retry(unsigned mode) {
 
 // Exact admitted limits are reused for the service request; tightening a
 // different profile would correctly decline at the public guard instead.
-static void c_service_resource() {
+static void c_service_continuation(bool typed_replay) {
   auto *solver = capi::tactix_init();
   assert(solver);
   FILE *records = std::tmpfile();
@@ -291,19 +292,55 @@ static void c_service_resource() {
   const auto proof_before = file_bytes(path);
   const auto journal_before = std::ftell(records);
   step.affine_matrix.operation = TACTIX_AFFINE_MATRIX_SEARCH_STEP;
-  for (uint64_t revision : {2002,2003}) {
-    assert(capi::tactix_online_configure_v16(solver, &program, revision,
+  base.budget = 64;
+  OnlineStrategySequence replay;
+  if (typed_replay) {
+    p.operation = AffineMatrixInitializeParameters::Operation::SearchStep;
+    OnlineStrategyProgram exact;
+    exact.sequence = {invocation(p)};
+    exact.sequence[0].budget = WorkLimit::bounded(64);
+    const auto wire = serialize_online_strategy_program(exact);
+    OnlineStrategyProgram decoded;
+    assert(deserialize_online_strategy_program(wire, decoded));
+    assert(serialize_online_strategy_program(decoded) == wire);
+    assert(replay.configure(decoded, 2002));
+  } else {
+    assert(capi::tactix_online_configure_v16(solver, &program, 2002,
         TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-    assert(capi::tactix_online_advance(solver, &result) == 0);
-    assert(result.status == TACTIX_ONLINE_RESOURCE_EXHAUSTED);
-    assert(!result.made_rule_progress && !result.selection_complete);
+  }
+  unsigned applications = 0, pending = 0;
+  bool complete = false;
+  for (unsigned dose = 0; dose < 64 && !complete; ++dose) {
+    int status, budget_status;
+    bool selection_complete;
+    if (typed_replay) {
+      const auto out = replay.advance(kernel);
+      status = static_cast<int>(out.status);
+      budget_status = static_cast<int>(out.budget_status);
+      selection_complete = out.selection_complete;
+      applications += out.applications;
+    } else {
+      assert(capi::tactix_online_advance(solver, &result) == 0);
+      status = result.status; budget_status = result.budget_status;
+      selection_complete = result.selection_complete;
+      applications += result.applications;
+    }
+    assert(!(status == TACTIX_ONLINE_BUDGET_EXHAUSTED &&
+             budget_status == static_cast<int>(BudgetStatus::Ready)));
+    assert(status == TACTIX_ONLINE_COMPLETED || status == TACTIX_ONLINE_NO_CHANGE);
     assert(session.enabled() && session.owner_version() == owner);
     assert(kernel.next_clause_id == id && kernel.trail.empty());
     assert(kernel.arena == arena && kernel.watches.arena == watches && kernel.values == values);
     assert(kernel.proof->premise_bytes() == premises && kernel.proof->premise_epoch() == epoch);
     kernel.proof->flush();
     assert(file_bytes(path) == proof_before && std::ftell(records) == journal_before);
+    complete = selection_complete;
+    if (!dose) assert(!complete);
+    if (!complete) ++pending;
   }
+  assert(complete && pending > 0 && applications > 1);
+  assert(kernel.stats.affine_matrix_service_pending_slices > 0);
+  assert(kernel.stats.affine_matrix_service_resumed_slices > 0);
   capi::tactix_release(solver);
   std::fclose(records);
   std::remove(path);
@@ -313,6 +350,7 @@ int main() {
   replay_and_scope();
   c_surface(true);
   c_surface(false);
-  c_service_resource();
+  c_service_continuation(false);
+  c_service_continuation(true);
   for (unsigned mode = 0; mode < 5; ++mode) c_decline_retry(mode);
 }

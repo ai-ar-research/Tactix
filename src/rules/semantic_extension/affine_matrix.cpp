@@ -16,9 +16,13 @@ struct Work {
   uint64_t limit = 0;
   const std::function<bool(uint64_t)> &charge;
   bool interrupted = false;
+  bool *work_exhausted = nullptr;
 
   bool consume(uint64_t amount) {
-    if (amount > limit - used) return false;
+    if (amount > limit - used) {
+      if (work_exhausted) *work_exhausted = true;
+      return false;
+    }
     if (!charge(amount)) {
       interrupted = true;
       return false;
@@ -268,10 +272,12 @@ MatrixStatus build_affine_matrix(
     return MatrixStatus::Invalid;
   if (input.empty()) return MatrixStatus::NoStructure;
 
+  uint64_t source_width_bound = 0;
   std::vector<MatrixRow> seeds;
   seeds.reserve(input.size());
   for (size_t source = 0; source < input.size(); ++source) {
     const Equation &equation = input[source];
+    source_width_bound = std::max(source_width_bound,uint64_t(equation.variables.size()));
     if (!valid_equation(equation)) return MatrixStatus::Invalid;
     MatrixRow seed;
     seed.variables = equation.variables;
@@ -291,6 +297,7 @@ MatrixStatus build_affine_matrix(
                                           : MatrixStatus::NoStructure;
 
   AffineMatrix candidate;
+  candidate.source_width_bound_ = source_width_bound;
   candidate.owner_identity_ = owner_identity;
   candidate.work_ = work.used;
   candidate.complete_admission_ = status == MatrixStatus::Complete;
@@ -298,6 +305,9 @@ MatrixStatus build_affine_matrix(
   candidate.sources_ = input;
   candidate.admitted_rows_ = rows;
   candidate.admitted_sources_ = source_union(rows);
+  __uint128_t source_support=0;
+  for(size_t id:candidate.admitted_sources_) source_support+=input[id].variables.size();
+  candidate.source_support_bound_=source_support>UINT64_MAX?UINT64_MAX:uint64_t(source_support);
   candidate.admitted_variables_ = variable_union(rows);
   if (bounded_geometry) {
     // Subsequent row operations only condition/combine this admitted basis.
@@ -321,6 +331,7 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
       std::adjacent_find(unavailable.begin(), unavailable.end()) != unavailable.end() ||
       std::any_of(unavailable.begin(), unavailable.end(), [](External v){return v <= 0;}))
     return MatrixStatus::Invalid;
+  continuation_ = {};
   if (unavailable.empty()) return MatrixStatus::Complete;
   Work work{0, limits_.maximum_work, charge};
   for (const auto &row : admitted_rows_)
@@ -354,6 +365,9 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
   basis_rank_ = rank;
   admitted_rows_ = std::move(reduced);
   admitted_sources_ = source_union(admitted_rows_);
+  __uint128_t source_support=0;
+  for(size_t id:admitted_sources_) source_support+=sources_[id].variables.size();
+  source_support_bound_=source_support>UINT64_MAX?UINT64_MAX:uint64_t(source_support);
   admitted_variables_ = variable_union(admitted_rows_);
   rows_ = admitted_rows_; trail_.clear(); incremental_ready_ = false;
   index_ = {}; index_ready_ = false; index_reservation_ = 0;
@@ -366,6 +380,8 @@ MatrixStatus AffineMatrix::synchronize(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
     bool sorted_set_extension, const MatrixIncrementalLimits *incremental_limits) {
+  last_synchronization_work_exhausted_ = false;
+  continuation_ = {};
   if (!owner_identity_ || !charge) return MatrixStatus::Invalid;
   if (trail.size() > limits_.maximum_assignments)
     return MatrixStatus::Exhausted;
@@ -373,7 +389,8 @@ MatrixStatus AffineMatrix::synchronize(
   if (incremental_limits && (!incremental_limits->maximum_index_bytes ||
       index_reservation_ > incremental_limits->maximum_index_bytes)) return MatrixStatus::Exhausted;
 
-  Work work{0, limits_.maximum_work, charge};
+  Work work{0, limits_.maximum_work, charge, false,
+            &last_synchronization_work_exhausted_};
   bool monotone_set = false;
   if (sorted_set_extension) {
     // Both validation/comparison and staging are reserved before inspecting
@@ -606,6 +623,218 @@ MatrixStatus AffineMatrix::synchronize(
   return status;
 }
 
+MatrixStatus AffineMatrix::synchronize_sliced(
+    const std::vector<MatrixAssignment> &trail,
+    const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
+    const MatrixSliceLimits &slice) {
+  slice_effort_ = {};
+  slice_effort_.cumulative_work = continuation_.cumulative_work;
+  struct Accounting {
+    uint64_t &total; MatrixSliceEffort &effort; Continuation &state;
+    ~Accounting() {
+      total = effort.work > UINT64_MAX-total ? UINT64_MAX : total+effort.work;
+      effort.cumulative_work = effort.work > UINT64_MAX-effort.cumulative_work ?
+          UINT64_MAX : effort.cumulative_work+effort.work;
+      if (state.active) state.cumulative_work = effort.cumulative_work;
+    }
+  } accounting{work_,slice_effort_,continuation_};
+  if (!owner_identity_ || !charge || !slice.maximum_work || !slice.maximum_bytes ||
+      slice.maximum_work > limits_.maximum_work)
+    return MatrixStatus::Invalid;
+  if (trail.size() > limits_.maximum_assignments) return MatrixStatus::Exhausted;
+  const uint64_t support_bound=source_support_bound_;
+  const uint64_t comparisons = 2 * std::bit_width(std::max({
+      uint64_t(admitted_rows_.size()),uint64_t(admitted_variables_.size()),
+      uint64_t(trail.size()),support_bound})) + 3;
+  auto take = [&](uint64_t amount) {
+    slice_effort_.minimum_slice_work = std::max(slice_effort_.minimum_slice_work, amount);
+    if (amount > slice.maximum_work - slice_effort_.work) return false;
+    if (!charge(amount)) return false;
+    slice_effort_.work += amount;
+    return true;
+  };
+  // Compare/copy the exact input only after its scan charge. These costs are
+  // distinct from retained algebra; no completed row reduction is repeated.
+  const __uint128_t wide_boundary=1+__uint128_t(trail.size())+continuation_.trail.size();
+  if (wide_boundary>UINT64_MAX) return MatrixStatus::Exhausted;
+  const uint64_t boundary_work=uint64_t(wide_boundary);
+  if (boundary_work > slice.maximum_work) {
+    slice_effort_.minimum_slice_work = boundary_work;
+    return MatrixStatus::Exhausted;
+  }
+  if (!take(boundary_work)) { continuation_ = {}; return MatrixStatus::Interrupted; }
+  const bool same = continuation_.active && continuation_.trail == trail;
+  slice_effort_.resumed = same;
+  if (same) slice_effort_.cumulative_work = continuation_.cumulative_work;
+  slice_effort_.invalidated = continuation_.active && !same;
+  if (!same) {
+    slice_effort_.cumulative_work = 0;
+    continuation_ = {};
+    // Tree metadata, mutable row populations and scratch XOR/reason buffers.
+    // This reservation excludes the already-owned immutable/current matrix.
+    const uint64_t row_variables=std::min<uint64_t>(admitted_variables_.size(),limits_.maximum_row_width);
+    const uint64_t row_sources=std::min<uint64_t>(admitted_sources_.size(),limits_.maximum_sources);
+    const __uint128_t bytes = sizeof(Continuation) +
+        __uint128_t(trail.size()) * (sizeof(MatrixAssignment) + sizeof(std::pair<const External,bool>) + 8*sizeof(void*)) +
+        __uint128_t(admitted_rows_.size()) * (4*sizeof(MatrixRow) + 16*sizeof(void*)) +
+        4*(__uint128_t(row_variables)*sizeof(External)+__uint128_t(row_sources)*sizeof(size_t)) +
+        __uint128_t(support_bound) * (sizeof(External)+8*sizeof(void*)) +
+        (__uint128_t(trail.size())+1)*sizeof(External);
+    if (bytes > slice.maximum_bytes) return MatrixStatus::Exhausted;
+    if (trail.size() > slice.maximum_work - slice_effort_.work) return MatrixStatus::Exhausted;
+    if (!take(trail.size())) return MatrixStatus::Interrupted;
+    continuation_.trail = trail;
+    continuation_.bytes = continuation_.base_bytes = uint64_t(bytes);
+    continuation_.active = true;
+  } else if (continuation_.bytes > slice.maximum_bytes) return MatrixStatus::Exhausted;
+  auto &state = continuation_;
+  bool stopped = false;
+  auto step = [&](__uint128_t requested) {
+    if (requested + boundary_work > UINT64_MAX) {
+      slice_effort_.minimum_slice_work = UINT64_MAX;return false;
+    }
+    const uint64_t amount=uint64_t(requested);
+    slice_effort_.minimum_slice_work = std::max(slice_effort_.minimum_slice_work, amount + boundary_work);
+    if (amount > slice.maximum_work - slice_effort_.work) return false;
+    if (!charge(amount)) { stopped = true; return false; }
+    slice_effort_.work += amount;
+    ++slice_effort_.completed_steps;
+    return true;
+  };
+  auto pending = [&]() {
+    if (stopped) { continuation_ = {}; return MatrixStatus::Interrupted; }
+    return slice_effort_.minimum_slice_work > slice.maximum_work ?
+        MatrixStatus::Exhausted : MatrixStatus::Pending;
+  };
+  for (;;) {
+    if (state.phase == 0) {
+      if (state.assignment < state.trail.size()) {
+        if (!step(1 + comparisons)) return pending();
+        const auto value = state.trail[state.assignment];
+        if (value.variable <= 0 || (state.assignment &&
+            state.trail[state.assignment-1].variable>=value.variable) ||
+            !state.assignments.emplace(value.variable,value.value).second) {
+          continuation_ = {}; return MatrixStatus::Invalid;
+        }
+        ++state.assignment; continue;
+      }
+      state.phase = 1;
+    }
+    if (state.phase == 1) {
+      if (state.seed == admitted_rows_.size()) { state.phase = 2; continue; }
+      if (!state.row_loaded) {
+        const auto &seed = admitted_rows_[state.seed];
+        if (!step(1 + __uint128_t(seed.variables.size())*comparisons + seed.source_equations.size())) return pending();
+        state.row.rhs = seed.rhs;
+        state.row.source_equations = seed.source_equations;
+        for (External variable : seed.variables) {
+          auto found = state.assignments.find(variable);
+          if (found == state.assignments.end()) state.row.variables.push_back(variable);
+          else state.row.rhs ^= found->second;
+        }
+        state.row_loaded = true;
+      }
+        if (state.combine_pivot) {
+        const auto &other=state.basis.at(state.combine_pivot);
+        if (!step(1 + state.row.variables.size() + other.variables.size() +
+                  state.row.source_equations.size() + other.source_equations.size())) return pending();
+        std::vector<External> variables; std::vector<size_t> sources;
+        xor_sorted(state.row.variables,other.variables,variables);
+        xor_sorted(state.row.source_equations,other.source_equations,sources);
+        if (variables.size()>limits_.maximum_row_width || sources.size()>limits_.maximum_sources) {
+          continuation_={};return MatrixStatus::Exhausted;
+        }
+        state.row.variables=std::move(variables);state.row.source_equations=std::move(sources);
+        state.row.rhs ^= other.rhs;state.combine_pivot=0;
+        continue;
+      }
+      if (!step(1 + comparisons)) return pending();
+      // Reserve finalized sparse row payload before its ownership transfer.
+      const __uint128_t payload=4*(__uint128_t(state.row.variables.size())*sizeof(External)+
+          __uint128_t(state.row.source_equations.size())*sizeof(size_t));
+      const __uint128_t next_bytes=__uint128_t(state.base_bytes)+state.payload_bytes+payload;
+      if (next_bytes>slice.maximum_bytes) return MatrixStatus::Exhausted;
+      if (!state.row.variables.empty()) {
+        auto pivot=state.basis.find(state.row.variables.front());
+        if (pivot!=state.basis.end()) {state.combine_pivot=pivot->first;continue;}
+        state.payload_bytes+=uint64_t(payload);
+        state.bytes=uint64_t(next_bytes);
+        state.basis.emplace(state.row.variables.front(),std::move(state.row));
+      } else if (state.row.rhs) {
+        state.payload_bytes+=uint64_t(payload);state.bytes=uint64_t(next_bytes);
+        state.contradictions.push_back(std::move(state.row));
+      }
+      state.row = {}; state.row_loaded=false; ++state.seed;
+      continue;
+    }
+    if (state.phase == 2) {
+      if (!state.contradictions.empty()) {
+        if (!step(1)) return pending();
+        // Preserve contradiction insertion order, followed by ascending pivots.
+        state.rows = std::move(state.contradictions);
+      }
+      if (!state.basis.empty()) {
+        if (!step(1 + comparisons)) return pending();
+        auto first=state.basis.begin();state.rows.push_back(std::move(first->second));state.basis.erase(first);
+        continue;
+      }
+      state.phase=3;state.scan=0;
+    }
+    if (state.phase==3 || state.phase==4) {
+      if (state.scan<state.rows.size()) {
+        const auto &row=state.rows[state.scan];
+        if (!step(1 + row.variables.size()+row.source_equations.size())) return pending();
+        const bool selected=state.phase==3 ? row.variables.empty()&&row.rhs : row.variables.size()==1;
+        ++state.scan;
+        if (!selected) continue;
+        state.event.kind=state.phase==3?MatrixEventKind::Conflict:MatrixEventKind::Implication;
+        state.event.row=row;
+        if (state.phase==4) {state.event.implied_variable=row.variables.front();state.event.implied_value=row.rhs;}
+        state.phase=5;continue;
+      }
+      if (state.phase==3) {state.phase=4;state.scan=0;continue;}
+      state.phase=7;continue;
+    }
+    if (state.phase==5) {
+      if (state.reason_source<state.event.row.source_equations.size()) {
+        const size_t id=state.event.row.source_equations[state.reason_source];
+        if (id>=sources_.size()) {continuation_={};return MatrixStatus::Invalid;}
+        const auto &source=sources_[id];
+        if (!step(1+__uint128_t(source.variables.size())*comparisons)) return pending();
+        state.support.insert(source.variables.begin(),source.variables.end());
+        ++state.reason_source;continue;
+      }
+      state.phase=6;
+    }
+    if (state.phase==6) {
+      if (state.reason_trail<state.trail.size()) {
+        if (!step(1+comparisons)) return pending();
+        const auto value=state.trail[state.reason_trail++];
+        if (state.support.contains(value.variable)) state.event.reason.push_back(false_literal(value));
+        continue;
+      }
+      if (state.event.kind==MatrixEventKind::Implication) {
+        if (!step(1)) return pending();
+        state.event.reason.push_back(state.event.implied_value?state.event.implied_variable:-state.event.implied_variable);
+      }
+      state.phase=7;
+    }
+    if (state.phase==7) {
+      if (!step(1)) return pending();
+      trail_=std::move(state.trail);rows_=std::move(state.rows);event=std::move(state.event);
+      incremental_ready_=true;index_={};index_ready_=false;index_reservation_=0;
+      predecessor_ready_=false;predecessor_rows_.clear();predecessor_trail_.clear();
+      last_dirty_update_=false;last_dirty_rows_=0;
+      last_synchronization_incremental_=false;last_synchronization_restored_predecessor_=false;
+      last_synchronization_prefix_=0;
+      last_synchronization_conditioned_=trail_.size();
+      last_synchronization_kind_=MatrixSynchronizationKind::PriorPartial;
+      continuation_={};
+      return MatrixStatus::Complete;
+    }
+  }
+}
+
 namespace {
 // Conservative pinned GNU tree allocation envelope: three RB-tree links,
 // colour/alignment padding and allocator bookkeeping fit within eight pointer
@@ -673,7 +902,7 @@ MatrixEvent AffineMatrix::indexed_event() const {
 MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment> &delta,
     const std::vector<MatrixAssignment> &trail,const std::function<bool(uint64_t)> &charge,
     uint64_t maximum_work,uint64_t maximum_bytes,uint64_t &used,MatrixEvent &event) {
-  Work work{0,maximum_work,charge};
+  Work work{0,maximum_work,charge,false,&last_synchronization_work_exhausted_};
   auto declined=[&](){used=work.used;return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;};
   if(index_reservation_>maximum_bytes)return declined();
   uint64_t staging=0;

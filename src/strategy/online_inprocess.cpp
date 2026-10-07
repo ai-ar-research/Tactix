@@ -2682,6 +2682,12 @@ InvocationResult OnlineStrategyExecutor::advance(
           out.status = InvocationStatus::Inapplicable;
           retain_theory_selection();
           break;
+        case AffineMatrixInitStatus::Pending:
+          out.status = out.budget_status == BudgetStatus::Exhausted
+                           ? InvocationStatus::BudgetExhausted
+                           : InvocationStatus::Completed;
+          retain_theory_selection();
+          break;
         case AffineMatrixInitStatus::ResourceExhausted:
           out.status = InvocationStatus::ResourceExhausted;
           retain_theory_selection();
@@ -2712,6 +2718,14 @@ InvocationResult OnlineStrategyExecutor::advance(
         case AffineMatrixServiceStatus::Inapplicable:
         case AffineMatrixServiceStatus::UnsupportedProof:
           out.status = InvocationStatus::Inapplicable;
+          retain_theory_selection();
+          break;
+        case AffineMatrixServiceStatus::Pending:
+          // A private Gaussian slice consumed one public application, not
+          // the enclosing allowance. Keep this exact selected action pending.
+          out.status = out.budget_status == BudgetStatus::Exhausted
+                           ? InvocationStatus::BudgetExhausted
+                           : InvocationStatus::Completed;
           retain_theory_selection();
           break;
         case AffineMatrixServiceStatus::ResourceExhausted:

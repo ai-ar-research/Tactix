@@ -23,6 +23,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
+#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -57,6 +58,7 @@ struct tactix_solver {
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
+  NolHypergraphWalkSession nol_hypergraph_walk_session;
   NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspEqualitySession nary_csp_equality_session;
   NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
@@ -86,6 +88,7 @@ struct tactix_solver {
         &direct_csp_support_action_session;
     kernel.direct_csp_guarded_cover_action_session =
         &direct_csp_guarded_cover_action_session;
+    kernel.nol_hypergraph_walk_session = &nol_hypergraph_walk_session;
     kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
     kernel.nary_csp_equality_session = &nary_csp_equality_session;
     kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;

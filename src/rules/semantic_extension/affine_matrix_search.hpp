@@ -1,12 +1,14 @@
-// Opt-in persistent GF(2) search service built above the authenticated live
-// publisher.  Initialization is a typed root policy action; search publication
-// remains a deterministic service and leaves all implications to ordinary BCP.
+// Opt-in persistent GF(2) restart service built above the authenticated live
+// publisher. Initialization, retained maintenance and publication are root
+// actions inside a full-restart window; implications remain ordinary BCP.
 #pragma once
 
 #include "rules/semantic_extension/affine_matrix_live.hpp"
+#include "rules/semantic_extension/affine_root_image.hpp"
 #include "strategy/theory_action_parameters.hpp"
 
 #include <string>
+#include <optional>
 #include <utility>
 
 namespace tactix {
@@ -22,6 +24,7 @@ enum class AffineMatrixInitStatus : uint8_t {
   Stale,
   Applied,
   AppliedPartial,
+  Pending, // Retained Gaussian slice incomplete; resume at a later restart.
 };
 
 // Public controller actions admit any authenticated affine subimage and may
@@ -45,28 +48,10 @@ enum class AffineMatrixServiceStatus : uint8_t {
   UnsupportedProof,
   Stale,
   Invalid,
+  Pending,
 };
 
-struct AffineMatrixInitResult {
-  AffineMatrixInitStatus status = AffineMatrixInitStatus::Invalid;
-  ApplyResult result = ApplyResult::NoOp;
-  uint64_t owner_version = 0;
-  uint64_t snapshot_clauses = 0;
-  uint64_t snapshot_literals = 0;
-  uint64_t snapshot_work = 0;
-  uint64_t recognition_work = 0;
-  uint64_t matrix_work = 0;
-  uint64_t equations = 0;
-  uint64_t covered_clauses = 0;
-  uint64_t rows = 0;
-  uint64_t admitted_sources = 0;
-  uint64_t journal_bytes = 0;
-  uint64_t retained_bytes = 0;
-  uint64_t premise_retention_work = 0;
-  bool unchanged = false;
-  uint64_t root_unit_additions = 0, root_unit_work = 0;
-  AffineMatrixInitStatus additional_recognition_status = AffineMatrixInitStatus::Applied;
-};
+
 
 // Zero retains the legacy live-source contract. A positive byte allowance
 // requests checker-premise ownership across native deletion/simplification.
@@ -102,6 +87,8 @@ struct AffineMatrixServiceResult {
   uint64_t capture_delta_literals = 0;
   bool dirty_row_update = false;
   uint64_t dirty_rows = 0;
+  bool slice_pending=false, slice_resumed=false, slice_invalidated=false;
+  uint64_t slice_work=0, slice_cumulative_work=0, slice_completed_steps=0, slice_minimum_work=0;
 
   bool terminal_failure() const {
     return status == AffineMatrixServiceStatus::ResourceExhausted ||
@@ -115,6 +102,32 @@ struct AffineMatrixAliasResult {
   AffineMatrixServiceStatus status = AffineMatrixServiceStatus::Disabled;
   ApplyResult result = ApplyResult::NoOp;
   uint64_t work = 0, proof_additions = 0, retained_aliases = 0, journal_bytes = 0;
+};
+
+struct AffineMatrixInitResult {
+  AffineMatrixInitStatus status = AffineMatrixInitStatus::Invalid;
+  ApplyResult result = ApplyResult::NoOp;
+  uint64_t owner_version = 0;
+  uint64_t snapshot_clauses = 0;
+  uint64_t snapshot_literals = 0;
+  uint64_t snapshot_work = 0;
+  uint64_t recognition_work = 0;
+  uint64_t normalization_rup_checks = 0, shortening_additions = 0;
+  uint64_t discovery_recognized_groups=0, discovery_skipped_groups=0, discovery_recognizer_work=0;
+  uint64_t matrix_work = 0;
+  uint64_t equations = 0;
+  uint64_t covered_clauses = 0;
+  uint64_t rows = 0;
+  uint64_t admitted_sources = 0;
+  uint64_t journal_bytes = 0;
+  uint64_t retained_bytes = 0;
+  uint64_t premise_retention_work = 0;
+  bool unchanged = false;
+  // RootMaintenance executes retained GE, independently of discovery.
+  uint64_t root_reason_additions = 0, maintenance_service_work = 0;
+  std::optional<AffineMatrixServiceResult> root_service;
+  uint64_t root_unit_additions = 0, root_unit_work = 0;
+  AffineMatrixInitStatus additional_recognition_status = AffineMatrixInitStatus::Applied;
 };
 
 class AffineMatrixSearchSession {
@@ -141,7 +154,10 @@ public:
   size_t active_sources() const { return image_.equations.size(); }
   size_t basis_rank() const noexcept { return matrix_.basis_rank(); }
   size_t support_variables() const noexcept { return matrix_.admitted_variables().size(); }
-  uint64_t retained_bytes() const { return retained_bytes_; }
+  uint64_t retained_bytes() const {
+    const uint64_t extra=matrix_.continuation_bytes();
+    return extra>UINT64_MAX-retained_bytes_?UINT64_MAX:retained_bytes_+extra;
+  }
   bool matches_profile(const strategy::AffineConsequenceParameters &basis,
       const AffineMatrixPersistenceLimits &limits) const {
     return parameters_ == basis && persistence_.maximum_retained_bytes == limits.maximum_retained_bytes &&
@@ -182,10 +198,19 @@ private:
   const Kernel *owner_ = nullptr;
   uint64_t owner_version_ = 0;
   Proof *proof_ = nullptr;
+  uint64_t proof_stream_identity_ = 0;
   ProofFormat proof_format_ = ProofFormat::DratAscii;
   FILE *records_ = nullptr;
   strategy::AffineConsequenceParameters parameters_;
   AffineLiveSnapshot source_owner_;
+  // Discovery has an independent bounded census; the admitted system never
+  // needs original physical sources again. Pending IDs denote only unresolved
+  // populations, not equation premises or proof authority.
+  const Kernel *discovery_owner_=nullptr;
+  const Proof *discovery_proof_=nullptr;
+  uint64_t discovery_stream_=0, discovery_clause_id_=0, discovery_bytes_=0;
+  std::vector<uint64_t> discovery_known_binaries_, discovery_pending_large_, discovery_pending_binaries_;
+  affine_semantic_extension::RootScopeCensus discovery_census_;
   affine_semantic_extension::Image image_;
   affine_semantic_extension::AffineMatrix matrix_;
   affine_semantic_extension::AffineMatrixProofCache proof_cache_;
@@ -193,6 +218,7 @@ private:
   affine_semantic_extension::MatrixEvent cached_event_;
   uint64_t cached_event_owner_ = 0, cached_event_bytes_ = 0;
   bool cached_event_valid_ = false;
+  bool slice_retry_=false;
   std::vector<std::pair<Var, uint32_t>> capture_index_;
   std::vector<affine_semantic_extension::MatrixAssignment> capture_trail_;
   uint64_t capture_owner_ = 0, capture_namespace_epoch_ = 0, capture_retraction_epoch_ = 0;

@@ -3202,28 +3202,6 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           return -1;
         continue;
       }
-      if (controller.affine_matrix_search_enabled()) {
-        const auto matrix = controller.affine_matrix_fixpoint_service();
-        if (trace_ && matrix.status != AffineMatrixServiceStatus::NoEvent &&
-            matrix.status != AffineMatrixServiceStatus::Disabled &&
-            !emit(affine_matrix_service_trace_record(k, matrix)))
-          return -1;
-        if (matrix.status == AffineMatrixServiceStatus::Applied)
-          continue;
-        if (matrix.status == AffineMatrixServiceStatus::ResourceExhausted) {
-          // A finite optional service allowance is local to its session. The
-          // recorded resource result remains exact; ordinary CDCL continues.
-          k.affine_matrix_search_session->disable(k);
-        } else if (matrix.terminal_failure() || matrix.status == AffineMatrixServiceStatus::Stale)
-          return finish(0, matrix.status == AffineMatrixServiceStatus::Interrupted
-                               ? StopReason::Interrupted
-                           : matrix.status ==
-                                 AffineMatrixServiceStatus::ResourceExhausted
-                               ? StopReason::Resource
-                           : matrix.status == AffineMatrixServiceStatus::Stale
-                               ? StopReason::Stale
-                               : StopReason::Error);
-      }
       if (controller.restart_due()) {
         const uint32_t keep_level =
             config_.reuse_search_trail && k.level && k.unassigned_active
@@ -3263,6 +3241,38 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return -1;
       continue;
     }
+    if (controller.affine_matrix_root_service_due()) {
+        if (!kernel_propagation_fixpoint(k)) {
+          const size_t trail = k.trail.size();
+          const auto result = controller.search_service("Propagate", INSTANCE_CANONICAL, [&] {
+            const auto native = apply_rule(propagation, k);
+            heuristics_consume_root_assignments(k, trail);
+            return native;
+          });
+          if (trace_ && !emit(service_record(k, "Propagate", 0, result))) return -1;
+          continue;
+        }
+        const auto matrix = controller.affine_matrix_fixpoint_service();
+        if (trace_ && matrix.status != AffineMatrixServiceStatus::NoEvent &&
+            matrix.status != AffineMatrixServiceStatus::Disabled &&
+            !emit(affine_matrix_service_trace_record(k, matrix)))
+          return -1;
+        if (matrix.status == AffineMatrixServiceStatus::Applied)
+          continue;
+        if (matrix.status == AffineMatrixServiceStatus::ResourceExhausted) {
+          // A finite optional service allowance is local to its session. The
+          // recorded resource result remains exact; ordinary CDCL continues.
+          k.affine_matrix_search_session->disable(k);
+        } else if (matrix.terminal_failure() || matrix.status == AffineMatrixServiceStatus::Stale)
+          return finish(0, matrix.status == AffineMatrixServiceStatus::Interrupted
+                               ? StopReason::Interrupted
+                           : matrix.status ==
+                                 AffineMatrixServiceStatus::ResourceExhausted
+                               ? StopReason::Resource
+                           : matrix.status == AffineMatrixServiceStatus::Stale
+                               ? StopReason::Stale
+                               : StopReason::Error);
+      }
     ActionRequest request;
     std::string error;
     const bool selected =

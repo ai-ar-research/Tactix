@@ -51,6 +51,14 @@ struct MatrixEvent {
   std::vector<External> reason;
 };
 
+struct MatrixSliceLimits {
+  uint64_t maximum_work = 0, maximum_bytes = 0;
+};
+struct MatrixSliceEffort {
+  uint64_t work = 0, cumulative_work = 0, completed_steps = 0, minimum_slice_work = 0;
+  bool resumed = false, invalidated = false;
+};
+
 struct MatrixIncrementalLimits { uint64_t maximum_index_bytes = 0; };
 
 enum class MatrixStatus : uint8_t {
@@ -60,6 +68,7 @@ enum class MatrixStatus : uint8_t {
   Exhausted,
   Interrupted,
   Invalid,
+  Pending, // Private reduction incomplete; no event or basis publication.
 };
 
 enum class MatrixSynchronizationKind : uint8_t {
@@ -81,6 +90,21 @@ public:
       const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
       bool sorted_set_extension = false,
       const MatrixIncrementalLimits *incremental = nullptr);
+
+  // Opt-in deterministic full-basis reduction in bounded atomic row/XOR steps.
+  // Pending retains private progress; exact trail equality resumes it. An
+  // atomic step larger than maximum_work declines Exhausted with its required
+  // minimum rather than spinning. Interrupted clears private continuation.
+  MatrixStatus synchronize_sliced(const std::vector<MatrixAssignment> &,
+      const std::function<bool(uint64_t)> &, MatrixEvent &,
+      const MatrixSliceLimits &);
+  const MatrixSliceEffort &last_slice_effort() const { return slice_effort_; }
+  uint64_t continuation_bytes() const { return continuation_.bytes; }
+  bool continuation_pending() const { return continuation_.active; }
+  bool last_synchronization_work_exhausted() const {
+    return last_synchronization_work_exhausted_;
+  }
+  void cancel_continuation() { continuation_ = {}; }
 
   // Existentially project unavailable external variables. Derivation indices
   // still cite the original authenticated equations; no assignment is guessed
@@ -135,6 +159,23 @@ public:
                      const std::function<bool(uint64_t)> &charge) const;
 
 private:
+  struct Continuation {
+    bool active = false;
+    uint64_t bytes = 0, base_bytes = 0, payload_bytes = 0, cumulative_work = 0;
+    External combine_pivot = 0;
+    std::vector<MatrixAssignment> trail;
+    std::map<External, bool> assignments;
+    std::map<External, MatrixRow> basis;
+    std::vector<MatrixRow> contradictions, rows;
+    MatrixRow row;
+    MatrixEvent event;
+    size_t assignment = 0, seed = 0, scan = 0, reason_source = 0, reason_trail = 0;
+    std::set<External> support;
+    uint8_t phase = 0;
+    bool row_loaded = false;
+  };
+  Continuation continuation_;
+  MatrixSliceEffort slice_effort_;
   struct RowIndex {
     std::map<External, std::vector<size_t>> occurrences;
     std::map<External, size_t> pivots, singletons;
@@ -155,6 +196,7 @@ private:
       const std::vector<Equation> &, uint64_t, const MatrixLimits &,
       const std::function<bool(uint64_t)> &, AffineMatrix &, bool);
 
+  uint64_t source_width_bound_ = 0, source_support_bound_ = 0;
   size_t basis_rank_ = 0;
   uint64_t owner_identity_ = 0;
   uint64_t work_ = 0;
@@ -183,6 +225,7 @@ private:
   std::vector<MatrixAssignment> predecessor_trail_;
   std::vector<MatrixRow> predecessor_rows_;
   bool last_synchronization_incremental_ = false;
+  bool last_synchronization_work_exhausted_ = false;
   bool last_synchronization_restored_predecessor_ = false;
   size_t last_synchronization_prefix_ = 0;
   size_t last_synchronization_conditioned_ = 0;

@@ -70,12 +70,15 @@ struct Resume final:ControllerSelection {
  }
 };
 struct Feedback final:FeedbackReceiver {
- uint64_t resources=0;int verdict=-1;
- void after_action(const ActionFeedback &a) override{if(a.identity=="AffineMatrixSearch" && a.outcome.invocation.status==InvocationStatus::ResourceExhausted)++resources;}
+ uint64_t resources=0,pending=0;int verdict=-1;
+ void after_action(const ActionFeedback &a) override{
+  if(a.identity=="AffineMatrixSearch" && a.outcome.invocation.status==InvocationStatus::ResourceExhausted)++resources;
+  if(a.identity=="AffineMatrixSearch" && a.outcome.invocation.status==InvocationStatus::BudgetExhausted){assert(!a.outcome.invocation.selection_complete);++pending;}
+ }
  void search_interval(const SearchIntervalFeedback &) override{}
  void session_end(const Observation &,int v,StopReason) override{verdict=v;}
 };
-void explicit_decline(){
+void explicit_continuation_and_cancellation(){
  Fixture f;RestartController controller(f.k);ActionRequest request;
  request.type=ActionType::Rule;request.sequence=1;request.expected=state_version(f.k);
  request.invocation.id=73;request.invocation.rule="AffineMatrixInitialize";
@@ -84,27 +87,57 @@ void explicit_decline(){
  p.operation=AffineMatrixInitializeParameters::Operation::SearchStep;request.invocation.parameters=p;
  request.invocation.repeat={RepeatMode::Once,1};request.invocation.work_unit=WorkUnit::Applications;request.invocation.budget=WorkLimit::bounded(1);
  const auto id=f.k.next_clause_id,owner=f.session.owner_version();
- const auto result=controller.apply_rule(request,{WorkUnit::Applications,1,{RuleWorkBudgetMode::Bounded,1000000}});
- assert(result.invocation.status==InvocationStatus::ResourceExhausted);
- assert(f.session.enabled() && f.k.next_clause_id==id && f.session.owner_version()==owner && f.k.trail.empty());
+ bool complete=false;unsigned doses=0;
+ while(!complete){
+  request.sequence=controller.observe().sequence+1;request.expected=state_version(f.k);
+  const auto result=controller.apply_rule(request,{WorkUnit::Applications,1,{RuleWorkBudgetMode::Bounded,1000000}});
+  assert(result.invocation.status==InvocationStatus::Completed || result.invocation.status==InvocationStatus::NoChange || result.invocation.status==InvocationStatus::BudgetExhausted);
+  complete=result.invocation.selection_complete;
+  if(!doses)assert(!complete&&f.k.stats.affine_matrix_service_pending_slices==1);
+  assert(f.session.enabled() && f.k.next_clause_id==id && f.session.owner_version()==owner && f.k.trail.empty());
+  assert(++doses<64);
+ }
+ assert(doses>1&&f.k.stats.affine_matrix_service_resumed_slices>0);
+ // Genuine cancellation remains distinct from a resumable bounded dose.
+ volatile sig_atomic_t stop=1;f.k.stop=&stop;
+ request.sequence=controller.observe().sequence+1;request.expected=state_version(f.k);
+ const auto interrupted=controller.apply_rule(request,{WorkUnit::Applications,1,{RuleWorkBudgetMode::Bounded,1000000}});
+ assert(interrupted.invocation.status==InvocationStatus::Interrupted);
+ assert(f.session.enabled()&&f.k.next_clause_id==id&&f.session.owner_version()==owner);
+ f.k.stop=nullptr;
+}
+void restart_pending_feedback(){
+ Fixture f;Feedback feedback;RestartController controller(f.k,{},&feedback);
+ ActionRequest resume;resume.type=ActionType::ResumeSearch;resume.sequence=1;resume.expected=state_version(f.k);resume.search={};
+ assert(controller.resume_search(resume).resumed_search);
+ assert(controller.full_restart()==ApplyResult::Ok);
+ unsigned doses=0;AffineMatrixServiceResult result;
+ do{
+  result=controller.affine_matrix_fixpoint_service();
+  if(!doses)assert(result.status==AffineMatrixServiceStatus::Pending&&feedback.pending==1);
+  assert(result.status==AffineMatrixServiceStatus::Pending||result.status==AffineMatrixServiceStatus::NoEvent);
+  assert(++doses<64);
+ }while(result.status==AffineMatrixServiceStatus::Pending);
+ assert(doses>1&&!feedback.resources&&f.session.enabled()&&!controller.affine_matrix_root_service_due());
 }
 }
 int main(int argc,char **argv){
  assert(argc<=2);const std::string directory=argc==2?argv[1]:"";
  if(!directory.empty())std::filesystem::create_directories(directory);
- explicit_decline();
+ explicit_continuation_and_cancellation();
+ restart_pending_feedback();
  const std::string path="/tmp/tactix-controller-resource-trace-"+std::to_string(getpid());RandomControllerConfig config;Resume resume;
  {
   Fixture f;ControllerTrace trace;assert(trace.write(path.c_str(),73,controller_configuration(config)));Feedback feedback;
   RandomControllerPolicy policy(73,config,&trace,&resume,&feedback);
   assert(policy.solve(f.k)==10 && trace.error().empty());
-  assert(feedback.resources==1 && feedback.verdict==10 && !f.session.enabled());f.check_model();f.export_artifacts(directory,"record");
+  assert(feedback.resources==0 && feedback.verdict==10 && f.session.enabled());f.check_model();f.export_artifacts(directory,"record");
  }
  {
   Fixture f;ControllerTrace trace;assert(trace.replay(path.c_str(),controller_configuration(config)));Feedback feedback;
   RandomControllerPolicy policy(999,config,&trace,&resume,&feedback);
   assert(policy.solve(f.k)==10 && trace.error().empty());
-  assert(feedback.resources==1 && feedback.verdict==10 && !f.session.enabled());f.check_model();f.export_artifacts(directory,"replay");
+  assert(feedback.resources==0 && feedback.verdict==10 && f.session.enabled());f.check_model();f.export_artifacts(directory,"replay");
  }
  std::remove(path.c_str());
 }

@@ -76,10 +76,19 @@ int main(int argc,char **argv){
  assert(k.arena==arena&&k.watches.arena==watches&&k.next_clause_id==id&&session.owner_version()==owner&&proof.premise_bytes()==bytes&&std::ftell(journal)==position);
  const auto service=DefaultAffineSearchTestAccess::step(policy,k);assert(service.synchronized&&service.status==AffineMatrixServiceStatus::NoEvent);
  assert(policy.affine_search_diagnostics().root_services>0);
+ MatrixEvent conditioned;
+ assert(matrix.synchronize({{1,true}},[](uint64_t){return true;},conditioned)==MatrixStatus::Complete);
+ assert(conditioned.kind==MatrixEventKind::Implication&&conditioned.implied_variable==4&&
+        conditioned.implied_value&&(conditioned.reason==std::vector<int32_t>{-1,4}));
  kernel_assign_decision(k,kernel_internalize(k,1));assert(propagate_apply(k)==ApplyResult::Ok);
- const auto useful=DefaultAffineSearchTestAccess::step(policy,k);assert(useful.status==AffineMatrixServiceStatus::Applied);
- assert((useful.installed_reason==std::vector<int32_t>{-1,4}));assert(propagate_apply(k)==ApplyResult::Ok);
+ const auto pending_owner=session.owner_version(),pending_id=k.next_clause_id;
+ const auto pending_bytes=proof.premise_bytes();const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
+ const auto useful=DefaultAffineSearchTestAccess::step(policy,k);
+ assert(useful.status==AffineMatrixServiceStatus::Inapplicable&&useful.installed_reason.empty()&&session.enabled());
+ assert(session.owner_version()==pending_owner&&k.next_clause_id==pending_id&&
+        proof.premise_bytes()==pending_bytes&&k.trail==pending_trail&&!k.value(kernel_internalize(k,4)));
  kernel_backtrack(k,0);
+ assert(DefaultAffineSearchTestAccess::step(policy,k).status==AffineMatrixServiceStatus::NoEvent);
  // Complete planted model is checked against every original input clause.
  for(const auto &clause:clauses){bool satisfied=false;for(int x:clause)satisfied|=x<0;assert(satisfied);}
  if(argc>1){FILE *out=std::fopen((base+".model").c_str(),"w");assert(out);std::fputs("s SATISFIABLE\nv ",out);for(int i=1;i<=120;++i)std::fprintf(out,"-%d ",i);std::fputs("0\n",out);std::fclose(out);}

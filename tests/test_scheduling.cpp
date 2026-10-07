@@ -949,7 +949,7 @@ static void test_authored_slot_order_covers_registry(void) {
   const DefaultStrategyConfig defaults;
   const std::vector<RuleVTable> &rules = tactix_rules();
   for (const RuleVTable &r : rules) {
-    if (r.tier != RuleTier::Inprocess)
+    if (r.tier != RuleTier::Inprocess || !r.default_inprocess)
       continue;
     // X5's only current owner is its explicit variable-length public action.
     // The pinned reference also ships Condition off; no default slot exists.
@@ -968,6 +968,10 @@ static void test_authored_slot_order_covers_registry(void) {
            "in the reference strategy program (SCHED-D1); the append fallback puts it last "
            "by accident, which is the T6 defect");
   }
+  const int x17 = tactix_rule_id("NaryCspPrefix");
+  assert(x17 >= 0 && rules[x17].tier == RuleTier::Inprocess &&
+         !rules[x17].default_inprocess &&
+         "X17 stays public but must never be appended to DefaultPolicy");
   for (size_t o = 0; o < norder; o++) {
     bool found = false;
     for (const RuleVTable &r : rules)

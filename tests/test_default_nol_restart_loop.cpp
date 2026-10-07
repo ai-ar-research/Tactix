@@ -50,6 +50,37 @@ static std::string complete_hypergraph(unsigned groups, unsigned active) {
   return cnf.str();
 }
 
+static std::string rank_shape_hypergraph(unsigned groups, unsigned active,
+                                         unsigned edge_limit) {
+  std::vector<std::array<unsigned, 3>> selected;
+  for (unsigned a = 0; a < 7; ++a)
+    for (unsigned b = a + 1; b < 7; ++b)
+      for (unsigned c = b + 1; c < 7; ++c)
+        selected.push_back({a, b, c});
+  for (unsigned a = 0; a < active && selected.size() < edge_limit; ++a)
+    for (unsigned b = a + 1; b < active && selected.size() < edge_limit; ++b)
+      for (unsigned c = b + 1; c < active && selected.size() < edge_limit; ++c) {
+        if (c < 7) continue;
+        selected.push_back({a, b, c});
+      }
+  assert(selected.size() == edge_limit);
+  std::ostringstream body;
+  uint64_t clauses = active;
+  for (unsigned vertex = 0; vertex < active; ++vertex)
+    body << 3 * vertex + 1 << ' ' << 3 * vertex + 2 << ' '
+         << 3 * vertex + 3 << " 0\n";
+  for (const auto &edge : selected)
+    for (unsigned color = 0; color < 3; ++color) {
+          body << -int(3 * edge[0] + color + 1) << ' '
+               << -int(3 * edge[1] + color + 1) << ' '
+               << -int(3 * edge[2] + color + 1) << " 0\n";
+          ++clauses;
+    }
+  std::ostringstream cnf;
+  cnf << "p cnf " << 3 * groups << ' ' << clauses << '\n' << body.str();
+  return cnf.str();
+}
+
 static Kernel parse(const std::string &text) {
   FILE *input = std::tmpfile();
   assert(input);
@@ -89,7 +120,15 @@ static DefaultStrategyConfig quiet_config() {
   return config;
 }
 
-enum class Scenario { AffineOrdering, NolRestart, PartialRestart, Disabled };
+enum class Scenario {
+  AffineOrdering,
+  NolRestart,
+  AuthenticationAllowance,
+  AuthenticationExhausted,
+  ScheduleOptOut,
+  PartialRestart,
+  Disabled
+};
 
 struct Capture final : FeedbackReceiver {
   DefaultPolicy *policy = nullptr;
@@ -98,12 +137,19 @@ struct Capture final : FeedbackReceiver {
   std::vector<SearchIntervalFeedback> intervals;
   uint64_t slices_before_restart = 0;
   uint64_t affine_before_nol = 0;
+  uint64_t initial_affine_before_nol = 0;
   bool awaiting_affine = false;
 
   Capture(DefaultPolicy *owner, Scenario kind)
       : policy(owner), scenario(kind) {}
 
   void after_action(const ActionFeedback &action) override {
+    if ((action.identity == "AffineMatrixInitialize" ||
+         action.identity == "AffineMatrixSearch") &&
+        policy->nol_walk_diagnostics().slices == 0) {
+      assert(policy->nol_walk_diagnostics().authentication_attempts == 1);
+      ++initial_affine_before_nol;
+    }
     if (action.identity == "Restart") {
       restart_levels.push_back(action.instance);
       slices_before_restart = policy->nol_walk_diagnostics().slices;
@@ -162,7 +208,7 @@ struct ControlledBranching final : BranchingPolicy {
   Lit pick(Kernel &kernel) override {
     const auto slices = policy.nol_walk_diagnostics().slices;
     if (scenario == Scenario::AffineOrdering) {
-      assert(slices == picks);
+      assert(slices == 0);
       assert(kernel.stats.nol_hypergraph_model_calls == slices);
       if (picks) {
         assert(kernel.level == 0);
@@ -170,8 +216,9 @@ struct ControlledBranching final : BranchingPolicy {
         assert(capture.affine_before_nol >= picks);
         stop = 1;
       } else {
+        assert(capture.initial_affine_before_nol > 0);
         const uint64_t due = std::max(
-            policy.nol_walk_diagnostics().next_ticks,
+            kernel.stats.search_ticks,
             DefaultNolWalkTestAccess::affine_due(policy));
         kernel.stats.search_ticks = std::max(kernel.stats.search_ticks, due);
       }
@@ -180,9 +227,9 @@ struct ControlledBranching final : BranchingPolicy {
     }
 
     if (scenario == Scenario::NolRestart) {
-      // Every call is an ordinary propagation fixpoint. The first occurs
-      // before any root service; later calls are after a full-root interval.
-      assert(slices == picks);
+      // The first call follows initial affine service at root; later calls are
+      // after full-root search intervals.
+      assert(slices == picks + 1);
       assert(kernel.stats.nol_hypergraph_model_calls == slices);
       if (picks) {
         assert(kernel.level == 0);
@@ -199,13 +246,55 @@ struct ControlledBranching final : BranchingPolicy {
       return make_lit(extreme_unassigned(kernel, true), false);
     }
 
-    assert(slices == 0);
-    assert(kernel.stats.nol_hypergraph_model_calls == 0);
-    if (scenario == Scenario::Disabled) {
+    if (scenario == Scenario::AuthenticationAllowance) {
+      assert(picks == 0 && slices == 1);
+      assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+      assert(policy.nol_walk_diagnostics().authentication_successes == 1);
+      assert(policy.nol_walk_diagnostics().authentication_exhausted == 0);
+      assert(policy.nol_walk_diagnostics().authentication_work >
+             policy.strategy_config().nol_walk.work_quantum);
+      assert(kernel.stats.nol_hypergraph_model_calls == 1);
+      assert(kernel.stats.nol_hypergraph_model_recognized == 1);
       stop = 1;
       ++picks;
       return make_lit(extreme_unassigned(kernel, true), false);
     }
+
+    if (scenario == Scenario::AuthenticationExhausted) {
+      assert(picks == 0 && slices == 0);
+      assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+      assert(policy.nol_walk_diagnostics().authentication_successes == 0);
+      assert(policy.nol_walk_diagnostics().authentication_exhausted == 1);
+      assert(kernel.stats.nol_hypergraph_model_calls == 0);
+      assert(kernel.stats.nol_hypergraph_model_recognized == 0);
+      stop = 1;
+      ++picks;
+      return make_lit(extreme_unassigned(kernel, true), false);
+    }
+
+    if (scenario == Scenario::ScheduleOptOut) {
+      assert(picks == 0 && slices == 0);
+      assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+      assert(policy.nol_walk_diagnostics().authentication_no_structure == 1);
+      assert(policy.nol_walk_diagnostics().delay_ticks ==
+             policy.strategy_config().nol_walk.initial_tick_interval);
+      assert(policy.nol_walk_diagnostics().next_ticks != 0);
+      assert(kernel.stats.nol_hypergraph_model_calls == 0);
+      stop = 1;
+      ++picks;
+      return make_lit(extreme_unassigned(kernel, true), false);
+    }
+
+    if (scenario == Scenario::Disabled) {
+      assert(slices == 0);
+      assert(kernel.stats.nol_hypergraph_model_calls == 0);
+      stop = 1;
+      ++picks;
+      return make_lit(extreme_unassigned(kernel, true), false);
+    }
+
+    assert(slices == 1);
+    assert(kernel.stats.nol_hypergraph_model_calls == 1);
 
     if (picks == 1) {
       // Arm the real ordinary restart clock. Both focused adaptive glue and
@@ -288,6 +377,31 @@ static std::string affine_search_formula() {
   return cnf.str();
 }
 
+static void schedule_opt_out_case() {
+  Kernel kernel = parse(affine_search_formula());
+  NolHypergraphWalkSession session;
+  kernel.nol_hypergraph_walk_session = &session;
+  ScopedHeuristics heuristics(kernel);
+  auto config = quiet_config();
+  config.nol_walk.enabled = true;
+  config.nol_walk.initial_tick_interval = 37;
+  config.nol_walk.maximum_delay_ticks = 148;
+  DefaultPolicy policy(config);
+  policy.reset_schedule_per_solve = false;
+  volatile sig_atomic_t stop = 0;
+  Capture capture{&policy, Scenario::ScheduleOptOut};
+  ControlledBranching branching{policy, capture, stop, Scenario::ScheduleOptOut};
+  policy.branching = &branching;
+  policy.set_feedback(&capture);
+  assert(policy.solve(kernel, &stop) == 0);
+  assert(branching.picks == 1);
+  assert(policy.nol_walk_diagnostics().delay_ticks == 37);
+  assert(policy.nol_walk_diagnostics().next_ticks == 37);
+  assert(policy.nol_walk_diagnostics().slices == 0);
+  assert(capture.restart_levels.empty());
+  kernel.nol_hypergraph_walk_session = nullptr;
+}
+
 static void affine_ordering_case() {
   Kernel kernel = parse(affine_search_formula());
   NolHypergraphWalkSession nol_session;
@@ -335,9 +449,11 @@ static void affine_ordering_case() {
 
   assert(branching.picks == 2);
   assert(policy.affine_search_diagnostics().recognized_equations == 2);
-  assert(policy.nol_walk_diagnostics().slices == 1);
-  assert(kernel.stats.nol_hypergraph_model_calls == 1);
+  assert(policy.nol_walk_diagnostics().slices == 0);
+  assert(kernel.stats.nol_hypergraph_model_calls == 0);
   assert(kernel.stats.nol_hypergraph_model_recognized == 0);
+  assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+  assert(policy.nol_walk_diagnostics().authentication_no_structure == 1);
   assert(capture.restart_levels == std::vector<uint64_t>({0}));
   assert(capture.affine_before_nol >= 1);
   assert(capture.intervals.size() == 2);
@@ -375,9 +491,11 @@ static void nol_restart_case() {
   assert(policy.solve(kernel, &stop) == 0);
 
   assert(branching.picks == 3);
-  assert(policy.nol_walk_diagnostics().slices == 2);
-  assert(kernel.stats.nol_hypergraph_model_calls == 2);
+  assert(policy.nol_walk_diagnostics().slices == 3);
+  assert(kernel.stats.nol_hypergraph_model_calls == 3);
   assert(kernel.stats.nol_hypergraph_model_recognized == 1);
+  assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+  assert(policy.nol_walk_diagnostics().authentication_successes == 1);
   assert(capture.restart_levels == std::vector<uint64_t>({0, 0}));
   assert(capture.intervals.size() == 3);
   assert(capture.intervals[0].start == IntervalStart::ResumeSearch);
@@ -388,6 +506,77 @@ static void nol_restart_case() {
   assert(capture.intervals[1].after.level == 0);
   assert(capture.intervals[2].start == IntervalStart::NativeContinuation);
   assert(capture.intervals[2].stop == StopReason::Interrupted);
+  kernel.nol_hypergraph_walk_session = nullptr;
+}
+
+static void authentication_allowance_case() {
+  // Rank401's retained source shape needs more than the recurring 100k Walk
+  // dose to authenticate. The separate initialization allowance captures all
+  // 473 triples / 363 active vertices / 2486 edges once, before the first
+  // trajectory slice and before preprocessing can change the clause image.
+  Kernel kernel = parse(rank_shape_hypergraph(473, 363, 2486));
+  NolHypergraphWalkSession session;
+  kernel.nol_hypergraph_walk_session = &session;
+  ScopedHeuristics heuristics(kernel);
+  auto config = quiet_config();
+  config.nol_walk.enabled = true;
+  config.nol_walk.maximum_authentication_work = 10'000'000;
+  config.nol_walk.work_quantum = 100'000;
+  config.nol_walk.initial_tick_interval = UINT64_C(1) << 60;
+  config.nol_walk.maximum_delay_ticks = UINT64_C(1) << 60;
+  DefaultPolicy policy(config);
+  volatile sig_atomic_t stop = 0;
+  Capture capture{&policy, Scenario::AuthenticationAllowance};
+  ControlledBranching branching{
+      policy, capture, stop, Scenario::AuthenticationAllowance};
+  policy.branching = &branching;
+  policy.set_feedback(&capture);
+  assert(policy.solve(kernel, &stop) == 0);
+  assert(branching.picks == 1);
+  assert(session.authenticated(kernel));
+  assert(session.steps() == 0 && session.trajectories() == 0);
+  assert(policy.nol_walk_diagnostics().slices == 1);
+  assert(policy.nol_walk_diagnostics().pending_slices == 1);
+  assert(kernel.stats.nol_hypergraph_model_vertices == 363);
+  assert(kernel.stats.nol_hypergraph_model_edges == 2486);
+  assert(capture.restart_levels.empty());
+  kernel.nol_hypergraph_walk_session = nullptr;
+}
+
+static void authentication_exhaustion_case() {
+  const auto input = rank_shape_hypergraph(473, 363, 2486);
+  Kernel measured = parse(input);
+  NolHypergraphWalkSession measured_session;
+  measured.nol_hypergraph_walk_session = &measured_session;
+  const auto measurement = nol_hypergraph_model_authenticate(measured);
+  assert(measurement.status == NolHypergraphAuthenticationStatus::Authenticated);
+  assert(measurement.work > 0);
+
+  Kernel kernel = parse(input);
+  NolHypergraphWalkSession session;
+  kernel.nol_hypergraph_walk_session = &session;
+  ScopedHeuristics heuristics(kernel);
+  auto config = quiet_config();
+  config.nol_walk.enabled = true;
+  config.nol_walk.maximum_authentication_work = measurement.work - 1;
+  // This deliberately exceeds authentication cost: if policy accidentally
+  // invoked the legacy slice fallback, it would recognize the source.
+  config.nol_walk.work_quantum = 10'000'000;
+  config.nol_walk.initial_tick_interval = 1;
+  config.nol_walk.maximum_delay_ticks = 64;
+  DefaultPolicy policy(config);
+  volatile sig_atomic_t stop = 0;
+  Capture capture{&policy, Scenario::AuthenticationExhausted};
+  ControlledBranching branching{
+      policy, capture, stop, Scenario::AuthenticationExhausted};
+  policy.branching = &branching;
+  policy.set_feedback(&capture);
+  assert(policy.solve(kernel, &stop) == 0);
+  assert(branching.picks == 1);
+  assert(!session.authenticated(kernel));
+  assert(policy.nol_walk_diagnostics().slices == 0);
+  assert(kernel.stats.nol_hypergraph_model_calls == 0);
+  assert(capture.restart_levels.empty());
   kernel.nol_hypergraph_walk_session = nullptr;
 }
 
@@ -410,9 +599,10 @@ static void partial_restart_case() {
   assert(policy.solve(kernel, &stop) == 0);
 
   assert(branching.picks == 3 && branching.partial_keep > 0);
-  assert(policy.nol_walk_diagnostics().slices == 0);
-  assert(kernel.stats.nol_hypergraph_model_calls == 0);
-  assert(kernel.stats.nol_hypergraph_model_recognized == 0);
+  assert(policy.nol_walk_diagnostics().slices == 1);
+  assert(kernel.stats.nol_hypergraph_model_calls == 1);
+  assert(kernel.stats.nol_hypergraph_model_recognized == 1);
+  assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
   assert(capture.restart_levels ==
          std::vector<uint64_t>({branching.partial_keep}));
   assert(capture.intervals.size() == 2);
@@ -442,13 +632,17 @@ static void disabled_default_case() {
   assert(policy.nol_walk_diagnostics().slices == 0);
   assert(kernel.stats.nol_hypergraph_model_calls == 0);
   assert(kernel.stats.nol_hypergraph_model_recognized == 0);
+  assert(policy.nol_walk_diagnostics().authentication_attempts == 0);
   assert(capture.restart_levels.empty());
   kernel.nol_hypergraph_walk_session = nullptr;
 }
 
 int main() {
+  schedule_opt_out_case();
   affine_ordering_case();
   nol_restart_case();
+  authentication_allowance_case();
+  authentication_exhaustion_case();
   partial_restart_case();
   disabled_default_case();
   std::puts("test_default_nol_restart_loop OK");

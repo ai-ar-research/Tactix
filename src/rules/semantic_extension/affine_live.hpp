@@ -9,7 +9,7 @@
 
 namespace tactix {
 
-enum class AffineSourceKind : uint8_t { Large, Binary, CheckerPremise };
+enum class AffineSourceKind : uint8_t { Large, Binary, CheckerPremise, RootUnit };
 
 struct AffineLiveSource {
   uint64_t occurrence = 0;
@@ -18,7 +18,9 @@ struct AffineLiveSource {
   Lit first = INVALID_LIT;     // Binary source only.
   Lit second = INVALID_LIT;    // Binary source only.
   uint64_t clause_id = 0;
+  bool proof_id_exact = true; // False for authenticated presence sentinels.
   std::vector<int32_t> clause;
+  bool recognition_candidate=true; // False for authenticated root-RUP oracle support only.
 };
 
 struct AffineLiveSnapshot {
@@ -46,7 +48,20 @@ struct AffineLiveRequest {
   // and selected sources are revalidated immediately before commit; stale
   // occurrences make the action a clean NoOp.
   const AffineLiveSnapshot *snapshot = nullptr;
+  uint64_t maximum_snapshot_bytes = 0; // Zero retains legacy allocation contract.
+  bool full_root_view = false; // Positive persistence only; legacy arity filter remains.
+  // Incremental discovery: known large IDs are excluded unless unresolved;
+  // binaries use exact signed external-body identity even without native IDs.
+  uint64_t discovered_through_clause_id = 0;
+  const std::vector<uint64_t> *known_binary_bodies = nullptr;
+  const std::vector<uint64_t> *pending_large_ids = nullptr;
+  const std::vector<uint64_t> *pending_binary_bodies = nullptr;
 };
+
+inline uint64_t affine_binary_body_identity(int32_t a,int32_t b) {
+  if(b<a)std::swap(a,b);
+  return (uint64_t(uint32_t(a))<<32)|uint32_t(b);
+}
 
 enum class AffineLiveStatus : uint8_t {
   Invalid,

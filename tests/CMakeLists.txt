@@ -371,6 +371,13 @@ add_test(NAME random_controller_affine_resource_proof_model
                  $<TARGET_FILE:test_random_controller_affine_resource> ${CMAKE_SOURCE_DIR})
 set_tests_properties(random_controller_affine_resource_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
+foreach(normalization_test affine_root_image affine_matrix_root_normalized)
+  add_test(NAME ${normalization_test}_proof_model
+           COMMAND bash ${CMAKE_SOURCE_DIR}/tests/affine_root_normalization_proof_model.sh
+                   $<TARGET_FILE:test_${normalization_test}> ${CMAKE_SOURCE_DIR})
+  set_tests_properties(${normalization_test}_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+endforeach()
+
 add_executable(test_direct_csp_guarded_cover_frontend test_direct_csp_guarded_cover_frontend.cpp)
 target_link_libraries(test_direct_csp_guarded_cover_frontend PRIVATE tactix_lib)
 add_test(NAME direct_csp_guarded_cover_frontend COMMAND test_direct_csp_guarded_cover_frontend)

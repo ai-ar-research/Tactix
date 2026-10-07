@@ -36,6 +36,7 @@ struct IndependentSetCoverActionSession;
 class Gf3AffineActionSession;
 class DirectCspSupportActionSession;
 class DirectCspGuardedCoverActionSession;
+class NolHypergraphWalkSession;
 class NaryCspPrefixActionSession;
 class NaryCspEqualitySession;
 class NaryCspEqualityTransitivitySession;
@@ -1392,6 +1393,20 @@ struct Stats {
   // Appended so extending the public semantic HBR surface does not perturb the
   // layout of existing hot counters.
   uint64_t hbr_units = 0; // explicit semantic resolvents collapsed to units
+  // Appended diagnostics: completed Prepared normalization certificates, and
+  // actual committed shortened RUP premises; work remains recognition_work.
+  uint64_t affine_matrix_init_normalization_rup_checks = 0;
+  uint64_t affine_matrix_init_shortening_additions = 0;
+  uint64_t affine_matrix_init_maintenance_service_work = 0;
+  uint64_t affine_matrix_init_discovery_recognized_groups = 0;
+  uint64_t affine_matrix_init_discovery_skipped_groups = 0;
+  uint64_t affine_matrix_init_discovery_recognizer_work = 0;
+  uint64_t affine_matrix_service_pending_slices = 0;
+  uint64_t affine_matrix_service_resumed_slices = 0;
+  uint64_t affine_matrix_service_slice_steps = 0;
+  uint64_t affine_matrix_service_slice_work = 0;
+  uint64_t affine_matrix_service_slice_invalidations = 0;
+  uint64_t affine_matrix_service_minimum_slice_work_max = 0;
 };
 
 struct PendingLearned {
@@ -1722,6 +1737,8 @@ struct Kernel {
   // Kernel root units already written to the native-DSR proof, by variable:
   // emitted polarity, 0 if none.  Never a unit the kernel does not hold.
   std::vector<int8_t> dsr_root_values;
+  const Proof *dsr_root_proof = nullptr;
+  uint64_t dsr_root_stream_identity = 0;
   BinaryIdMap binary_ids;
   // Eager input for later native-LRAT replay retains exact binary identities
   // until the proof is attached; clause admission and root work remain eager.
@@ -2153,6 +2170,7 @@ struct Kernel {
   Gf3AffineActionSession *gf3_affine_action_session = nullptr;
   DirectCspSupportActionSession *direct_csp_support_action_session = nullptr;
   DirectCspGuardedCoverActionSession *direct_csp_guarded_cover_action_session = nullptr;
+  NolHypergraphWalkSession *nol_hypergraph_walk_session = nullptr;
   NaryCspPrefixActionSession *nary_csp_prefix_action_session = nullptr;
   NaryCspEqualitySession *nary_csp_equality_session = nullptr;
   NaryCspEqualityTransitivitySession *nary_csp_equality_transitivity_session = nullptr;

@@ -26,6 +26,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
+#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -43,7 +44,6 @@
 #include <utility>
 #include <vector>
 #include <fstream>
-#include <iterator>
 
 #include <csignal>
 #include <cstdlib>
@@ -54,6 +54,20 @@ using namespace tactix;
 
 static volatile sig_atomic_t caught_signal = 0;
 static void handle_signal(int) { caught_signal = 1; }
+
+static std::string read_stream_text(std::ifstream &input) {
+  std::string text;
+  if (!input) return text;
+  char buffer[4096];
+  do {
+    input.read(buffer, sizeof buffer);
+    text.append(buffer, static_cast<size_t>(input.gcount()));
+  } while (input);
+  // A complete final chunk is ordinary EOF, not a file-load failure.
+  // Preserve genuine read errors for the existing caller checks.
+  if (input.eof() && !input.bad()) input.clear();
+  return text;
+}
 
 static FILE *open_input(const char *path, bool *piped) {
   const size_t n = strlen(path);
@@ -625,7 +639,7 @@ int main(int argc, char **argv) {
     std::ifstream input(controller_actions_path);
     strategy::OnlineStrategyProgram program;
     std::string error;
-    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    const std::string source = read_stream_text(input);
     if (!input || !strategy::deserialize_online_strategy_program(source, program, &error) ||
         !controller_config.configure_actions(program, &error)) {
       fprintf(stderr, "tactix: invalid controller action collection '%s': %s\n",
@@ -638,7 +652,7 @@ int main(int argc, char **argv) {
     std::ifstream input(controller_startup_prefix_path);
     strategy::OnlineStrategyProgram program;
     std::string error;
-    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    const std::string source = read_stream_text(input);
     if (!input ||
         !strategy::deserialize_online_strategy_program(source, program,
                                                         &error, false, true) ||
@@ -653,7 +667,7 @@ int main(int argc, char **argv) {
     std::ifstream input(controller_gf2_affine_profile_path);
     strategy::OnlineStrategyProgram program;
     std::string error;
-    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    const std::string source = read_stream_text(input);
     if (!input ||
         !strategy::deserialize_online_strategy_program(source, program, &error) ||
         !controller_config.configure_affine_basis_producer_profile(program,
@@ -668,7 +682,7 @@ int main(int argc, char **argv) {
     std::ifstream input(controller_direct_csp_profile_path);
     strategy::OnlineStrategyProgram program;
     std::string error;
-    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    const std::string source = read_stream_text(input);
     if (!input ||
         !strategy::deserialize_online_strategy_program(source, program,
                                                         &error, true) ||
@@ -691,8 +705,8 @@ int main(int argc, char **argv) {
     strategy::OnlineStrategyProgram program;
     DirectCspGuardedCoverOfferLimits limits;
     std::string error;
-    const std::string profile((std::istreambuf_iterator<char>(profile_input)), {});
-    const std::string bounds((std::istreambuf_iterator<char>(limits_input)), {});
+    const std::string profile = read_stream_text(profile_input);
+    const std::string bounds = read_stream_text(limits_input);
     if (!profile_input || !limits_input ||
         !strategy::parse_guarded_cover_offer_limits(bounds, limits, &error) ||
         !strategy::deserialize_online_strategy_program(profile, program, &error, false, true) ||
@@ -732,6 +746,7 @@ int main(int argc, char **argv) {
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
+  NolHypergraphWalkSession nol_hypergraph_walk_session;
   NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspEqualitySession nary_csp_equality_session;
   NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
@@ -751,6 +766,7 @@ int main(int argc, char **argv) {
       &direct_csp_support_action_session;
   kernel.direct_csp_guarded_cover_action_session =
       &direct_csp_guarded_cover_action_session;
+  kernel.nol_hypergraph_walk_session = &nol_hypergraph_walk_session;
   kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
   kernel.nary_csp_equality_session = &nary_csp_equality_session;
   kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
@@ -998,6 +1014,12 @@ int main(int argc, char **argv) {
       };
       metric("enabled", default_config.affine_search.enabled);
       metric("initializations", affine.initializations);
+      metric("normalization_rup_checks", kernel.stats.affine_matrix_init_normalization_rup_checks);
+      metric("shortening_additions", kernel.stats.affine_matrix_init_shortening_additions);
+      metric("maintenance_service_work", kernel.stats.affine_matrix_init_maintenance_service_work);
+      metric("discovery_recognized_groups", kernel.stats.affine_matrix_init_discovery_recognized_groups);
+      metric("discovery_skipped_groups", kernel.stats.affine_matrix_init_discovery_skipped_groups);
+      metric("discovery_recognizer_work", kernel.stats.affine_matrix_init_discovery_recognizer_work);
       metric("refreshes", affine.refreshes);
       metric("unchanged_refreshes", affine.unchanged_refreshes);
       metric("empty_maintenance_skips", affine.empty_maintenance_skips);
@@ -1041,6 +1063,19 @@ int main(int argc, char **argv) {
       metric("incremental_capture_calls", affine.incremental_capture_calls);
       metric("unchanged_support_calls", affine.unchanged_support_calls);
       metric("cached_event_calls", affine.cached_event_calls);
+      metric("service_due_ticks", affine.service_due_ticks);
+      metric("service_delay_current", affine.service_delay_current);
+      metric("service_tick_skips", affine.service_tick_skips);
+      metric("pending_slices", affine.pending_slices);
+      metric("resumed_slices", affine.resumed_slices);
+      metric("completed_slice_steps", affine.completed_slice_steps);
+      metric("slice_work", affine.slice_work);
+      metric("slice_cumulative_work", affine.slice_cumulative_work);
+      metric("minimum_slice_work", affine.minimum_slice_work);
+      metric("no_yield_delays", affine.no_yield_delays);
+      metric("productive_delay_decays", affine.productive_delay_decays);
+      metric("service_wakeups", affine.service_wakeups);
+
       metric("capture_delta_literals", affine.capture_delta_literals);
       metric("premise_maintenance_work", affine.premise_maintenance_work);
       metric("alias_work", affine.alias_work);
@@ -1621,14 +1656,21 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.nary_csp_equality_amo_binary_clauses);
     printf("c affine-matrix-init %llu attempts, %llu applied, %llu partial, "
            "%llu incomplete-image, %llu incomplete-matrix, %llu exhausted, "
-           "%llu interrupted\n",
+           "%llu interrupted, %llu normalization-RUP-checks, %llu shortening-additions, %llu maintenance-service-work\n",
            (unsigned long long)kernel.stats.affine_matrix_init_attempts,
            (unsigned long long)kernel.stats.affine_matrix_init_applied,
            (unsigned long long)kernel.stats.affine_matrix_init_applied_partial,
            (unsigned long long)kernel.stats.affine_matrix_init_incomplete_image,
            (unsigned long long)kernel.stats.affine_matrix_init_incomplete_matrix,
            (unsigned long long)kernel.stats.affine_matrix_init_exhausted,
-           (unsigned long long)kernel.stats.affine_matrix_init_interrupted);
+           (unsigned long long)kernel.stats.affine_matrix_init_interrupted,
+           (unsigned long long)kernel.stats.affine_matrix_init_normalization_rup_checks,
+           (unsigned long long)kernel.stats.affine_matrix_init_shortening_additions,
+           (unsigned long long)kernel.stats.affine_matrix_init_maintenance_service_work);
+    printf("c affine_discovery %llu recognized-groups, %llu unchanged-groups, %llu recognizer-work\n",
+           (unsigned long long)kernel.stats.affine_matrix_init_discovery_recognized_groups,
+           (unsigned long long)kernel.stats.affine_matrix_init_discovery_skipped_groups,
+           (unsigned long long)kernel.stats.affine_matrix_init_discovery_recognizer_work);
     printf("c affine     %llu calls, %llu equations, %llu coordinates, "
            "%llu entries, %llu candidates, %llu SAT, %llu work, "
            "%llu budgets, %llu unavailable, %llu interrupted\n",
