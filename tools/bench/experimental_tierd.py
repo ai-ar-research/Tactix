@@ -25,6 +25,11 @@ FROZEN_DSR_HASHES={
     'dsr-compress':'a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55',
     'srcheck':'19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945',
 }
+LONG_DSR=ROOT/'benchmarks/runs/20261007-dsr-capacity-long-audit-r3/long-pin'
+LONG_DSR_HASHES={
+    'dsr-trim':'94f5fc0c122b7996207fb38f9010180f2d1e6b61b3008a3ef515ab5d971bc614',
+    'dsr-compress':'3adb3fd6f98ff743550eea0a7f7096b2dcc8ef0637e9dec382c582b553e64ff9',
+}
 PROOF_ARGUMENTS={'--auto-proof','--dsr','--drat','--lrat'}
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
@@ -55,9 +60,11 @@ def verify(c):
         if sha(c/rel)!=digest:raise ValueError('pin mismatch: '+rel)
     return m
 
-def checker_sources(reference, baseline, certificate):
+def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
     if certificate not in ('dsr','auto'):
         raise ValueError('unsupported certificate mode: '+certificate)
+    if dsr_profile not in ('frozen','long64'):
+        raise ValueError('unsupported DSR checker profile: '+dsr_profile)
     names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py',
            'drat-trim':'drat-trim','cake_lpr':'cake-lpr'}
     if certificate=='auto':
@@ -71,8 +78,11 @@ def checker_sources(reference, baseline, certificate):
         sources[target]=source
     for name,expected in FROZEN_DSR_HASHES.items():
         source=FROZEN_DSR/name
+        if dsr_profile=='long64' and name in LONG_DSR_HASHES:
+            source=LONG_DSR/('compress' if name=='dsr-compress' else name)
+            expected=LONG_DSR_HASHES[name]
         if not source.is_file() or sha(source)!=expected:
-            raise ValueError('frozen AM369 DSR checker pin mismatch: '+name)
+            raise ValueError('DSR checker pin mismatch ('+dsr_profile+'): '+name)
         sources[name]=source
     return sources
 
@@ -123,7 +133,8 @@ def prepare(a):
         raise ValueError('uncommitted source in build tree')
     manifest=json.loads((ref/'manifest.json').read_text())
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
-    checkers=checker_sources(ref,manifest,a.certificate)
+    dsr_profile=getattr(a,'dsr_checker_profile','frozen')
+    checkers=checker_sources(ref,manifest,a.certificate,dsr_profile)
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
     source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
@@ -224,6 +235,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
         selection_authority=selection_authority,
+        dsr_checker_profile=dsr_profile,
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
             checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
             array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
@@ -282,6 +294,8 @@ if __name__=='__main__':
     p.add_argument('--source',type=Path)
     p.add_argument('--binary',type=Path)
     p.add_argument('--dsr-transport',type=Path)
+    p.add_argument('--dsr-checker-profile',choices=['frozen','long64'],default='frozen',
+                   help='immutable DSR elaborator/compressor pins; long64 selects the audited upstream LONGTYPE build, with unchanged independent Trestle verification')
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)
@@ -325,6 +339,8 @@ if __name__=='__main__':
         p.error('--afterany requires a positive job id and --submit or --validate')
     if a.solver_argument and not a.prepare:
         p.error('--solver-argument is valid only with --prepare')
+    if a.dsr_checker_profile!='frozen' and not a.prepare:
+        p.error('--dsr-checker-profile is valid only with --prepare')
     if not 1 <= a.gf2_feedback_max_bytes <= MAX_GF2_FEEDBACK_BYTES:
         p.error(f'--gf2-feedback-stored-max-bytes must be in 1..{MAX_GF2_FEEDBACK_BYTES}')
     if not 1 <= a.gf2_feedback_decoded_max_bytes <= MAX_GF2_FEEDBACK_DECODED_BYTES:
