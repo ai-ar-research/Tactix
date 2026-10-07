@@ -1,0 +1,4 @@
+a19291b4c074b453be2ff310bffc2f1d865832adc670e54441ad5faed4ab20fc  tools/bench/score_fixed44.py
+e2a6e99b52c33c4ffc434e4469593bd0a200be777d9c124cb88265fe97a9606e  tools/bench/test_score_fixed44.py
+09c0ad664dc6208b6455e4863cf5d8821efb8f4bcf263d7fb027dc995723a568  benchmarks/reports/2026-10-07-fixed44-retry-accounting/README.md
+7a5ebb8aee2e8b1a07161d07e214188ea03e67a8ff103df7dbd7c496b9b2ec6c  benchmarks/reports/2026-10-07-fixed44-retry-accounting/tests.txt
