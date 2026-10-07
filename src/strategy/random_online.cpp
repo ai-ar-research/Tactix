@@ -887,6 +887,25 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_proof_literal_occurrences=v[7]; p.maximum_journal_bytes=v[8];
     U32_AT(9,p.maximum_extent_growth); U32_AT(10,p.maximum_external_extent);
     p.maximum_session_keys=v[11]; parameters=p;
+  } else if (tuple(text, "nary-csp-equality-transitivity1", v) && v.size() == 16) {
+    NaryCspEqualityTransitivityParameters p;
+    p.maximum_source_clauses=v[0];
+    p.maximum_source_literals=v[1];
+    p.maximum_recognition_work=v[2];
+    p.maximum_planning_work=v[3];
+    U32_AT(4,p.maximum_domain_values);
+    p.maximum_forbidden_tuples=v[5];
+    p.maximum_proof_work=v[6];
+    p.maximum_proof_additions=v[7];
+    p.maximum_proof_literal_occurrences=v[8];
+    p.maximum_journal_bytes=v[9];
+    U32_AT(10,p.maximum_external_extent);
+    p.maximum_session_keys=v[11];
+    p.maximum_session_bytes=v[12];
+    p.maximum_arena_words=v[13];
+    p.maximum_watch_words=v[14];
+    p.maximum_preparation_bytes=v[15];
+    parameters=p;
   } else if (tuple(text, "nary-csp-equality-amo1", v) && v.size() == 11) {
     NaryCspEqualityAmoParameters p;
     p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
@@ -1953,6 +1972,41 @@ bool parse_nary_csp_equality(std::string_view text,
   return nary_csp_equality_action_selection_valid(selection);
 }
 
+bool parse_nary_csp_equality_transitivity(std::string_view text,
+                                        NaryCspEqualityTransitivitySelection &out) {
+  std::vector<int64_t> values;
+  while(!text.empty()) {
+    const auto comma=text.find(','); const auto token=text.substr(0,comma);
+    int64_t value=0;
+    auto parsed=std::from_chars(token.data(),token.data()+token.size(),value);
+    if(token.empty() || parsed.ec!=std::errc{} || parsed.ptr!=token.data()+token.size()) return false;
+    values.push_back(value);
+    if(comma==std::string_view::npos) text={}; else text.remove_prefix(comma+1);
+  }
+  size_t at=0;
+  const auto domain=[&](std::vector<int32_t> &d) {
+    if(at==values.size() || values[at]<2 || uint64_t(values[at])>values.size()-at-1) return false;
+    const uint64_t count=values[at++];
+    for(uint64_t i=0;i<count;++i) {
+      if(!values[at] || values[at]<=INT32_MIN || values[at]>INT32_MAX) return false;
+      d.push_back(int32_t(values[at++]));
+    }
+    return true;
+  };
+  const auto u32=[&](uint32_t &v) {
+    if(at==values.size() || values[at]<0 || uint64_t(values[at])>UINT32_MAX) return false;
+    v=uint32_t(values[at++]); return true;
+  };
+  for(auto &d:out.domains) if(!domain(d)) return false;
+  for(size_t e=0;e<3;++e) {
+    auto &key=out.equalities[e];
+    for(size_t d=0;d<3;++d) { key.domains.emplace_back(); if(!domain(key.domains.back())) return false; }
+    if(!u32(key.first_equal_domain) || !u32(key.second_equal_domain) || !u32(key.residual_domain) ||
+       !u32(out.equality_variables[e])) return false;
+  }
+  return at==values.size() && nary_csp_equality_transitivity_selection_valid(out);
+}
+
 bool parse_nary_csp_equality_amo(std::string_view text,
                                  NaryCspEqualityAmoSelection &selection) {
   std::vector<int64_t> values;
@@ -2077,6 +2131,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           std::string_view(rule.name) != "DirectCspSupport" &&
           std::string_view(rule.name) != "NaryCspPrefix" &&
           std::string_view(rule.name) != "NaryCspEquality" &&
+          std::string_view(rule.name) != "NaryCspEqualityTransitivity" &&
           std::string_view(rule.name) != "NaryCspEqualityAmo" &&
           std::string_view(rule.name) != "Gf3GaussianConsequence" &&
           std::string_view(rule.name) != "Gf3GeneralRowConsequence" &&
@@ -2091,6 +2146,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           name != "Gf3AffineConsequence" && name != "DirectCspSupport" &&
           name != "NaryCspPrefix" &&
           name != "NaryCspEquality" &&
+          name != "NaryCspEqualityTransitivity" &&
           name != "NaryCspEqualityAmo" &&
           name != "Gf3GaussianConsequence" &&
           name != "Gf3GeneralRowConsequence" &&
@@ -2459,6 +2515,8 @@ std::string serialize_online_strategy_program(
           << p->maximum_proof_literal_occurrences << ','
           << p->maximum_journal_bytes << ',' << p->maximum_extent_growth << ','
           << p->maximum_external_extent << ',' << p->maximum_session_keys << ')';
+    else if (const auto *p = std::get_if<NaryCspEqualityTransitivityParameters>(&step.parameters))
+      out << ":nary-csp-equality-transitivity1(" << p->maximum_source_clauses << ',' << p->maximum_source_literals << ',' << p->maximum_recognition_work << ',' << p->maximum_planning_work << ',' << p->maximum_domain_values << ',' << p->maximum_forbidden_tuples << ',' << p->maximum_proof_work << ',' << p->maximum_proof_additions << ',' << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ',' << p->maximum_external_extent << ',' << p->maximum_session_keys << ',' << p->maximum_session_bytes << ',' << p->maximum_arena_words << ',' << p->maximum_watch_words << ',' << p->maximum_preparation_bytes << ')';
     else if (const auto *p =
                  std::get_if<NaryCspEqualityAmoParameters>(&step.parameters))
       out << ":nary-csp-equality-amo1(" << p->maximum_source_clauses << ','
@@ -2984,6 +3042,24 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.nary_csp_equality_transitivity_instances.empty()) {
+      out << ":nary-csp-equality-transitivity[";
+      for(size_t i=0;i<step.nary_csp_equality_transitivity_instances.size();++i) {
+        if(i) out << ';';
+        const auto &v=step.nary_csp_equality_transitivity_instances[i];
+        bool first=true;
+        const auto domain=[&](const auto &d) {
+          if(!first) out << ','; first=false;
+          out << d.size(); for(auto l:d) out << ',' << l;
+        };
+        for(const auto &d:v.domains) domain(d);
+        for(size_t e=0;e<3;++e) {
+          const auto &key=v.equalities[e]; for(const auto &d:key.domains) domain(d);
+          out << ',' << key.first_equal_domain << ',' << key.second_equal_domain << ',' << key.residual_domain << ',' << v.equality_variables[e];
+        }
+      }
+      out << ']';
+    }
     if (!step.nary_csp_equality_amo_instances.empty()) {
       out << ":nary-csp-equality-amo[";
       for (size_t i = 0; i < step.nary_csp_equality_amo_instances.size(); ++i) {
@@ -3302,6 +3378,16 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         step.nary_csp_equality_instances.push_back(std::move(instance));
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
+      }
+    }
+    constexpr std::string_view transitivity_marker=":nary-csp-equality-transitivity[";
+    if(text.starts_with(transitivity_marker) && text.back()==']') {
+      text.remove_prefix(transitivity_marker.size()); text.remove_suffix(1);
+      while(!text.empty()) {
+        const auto semicolon=text.find(';'); NaryCspEqualityTransitivitySelection v;
+        if(!parse_nary_csp_equality_transitivity(text.substr(0,semicolon),v)) return reject("malformed transitivity replay selection");
+        step.nary_csp_equality_transitivity_instances.push_back(std::move(v));
+        if(semicolon==std::string_view::npos) text={}; else text.remove_prefix(semicolon+1);
       }
     }
     constexpr std::string_view nary_csp_equality_amo_marker =

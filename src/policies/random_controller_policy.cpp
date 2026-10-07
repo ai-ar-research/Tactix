@@ -211,6 +211,7 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
       !step.direct_csp_support_instances.empty() ||
       !step.nary_csp_prefix_instances.empty() ||
       !step.nary_csp_equality_instances.empty() ||
+      !step.nary_csp_equality_transitivity_instances.empty() ||
       !step.nary_csp_equality_amo_instances.empty())
     return reject("GF2 affine producer profile must be canonical and payload-free");
   if (step.repeat.mode != RepeatMode::Once || step.repeat.limit != 1 ||
@@ -545,6 +546,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "DirectCspSupport" ||
               std::string_view(rule.name) == "NaryCspPrefix" ||
               std::string_view(rule.name) == "NaryCspEquality" ||
+              std::string_view(rule.name) == "NaryCspEqualityTransitivity" ||
               std::string_view(rule.name) == "NaryCspEqualityAmo" ||
               std::string_view(rule.name) == "Gf3GaussianConsequence" ||
               std::string_view(rule.name) == "Gf3GeneralRowConsequence" ||

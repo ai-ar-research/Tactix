@@ -11,7 +11,7 @@ using namespace tactix::strategy;
 int main() {
   std::vector<InprocessStep> program = reference_inprocess_program();
   std::string error;
-  assert(program.size() == 33);
+  assert(program.size() == 34);
   assert(validate_inprocess_program(program, &error) && error.empty());
   std::vector<const InprocessStep *> substitutes;
   for (const InprocessStep &step : program)
@@ -33,7 +33,7 @@ int main() {
       "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix",
       "GraphIntervalEquivalence", "AffineMatrixInitialize",
       "NaryCspEquality", "Gf3GeneralRowConsequence",
-      "NaryCspEqualityAmo"};
+      "NaryCspEqualityAmo", "NaryCspEqualityTransitivity"};
   for (size_t i = 0; i < std::size(theory_actions); ++i) {
     const auto action = std::find_if(
         program.begin(), program.end(), [&](const InprocessStep &step) {

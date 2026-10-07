@@ -38,6 +38,7 @@ class DirectCspSupportActionSession;
 class DirectCspGuardedCoverActionSession;
 class NaryCspPrefixActionSession;
 class NaryCspEqualitySession;
+class NaryCspEqualityTransitivitySession;
 class NaryCspEqualityAmoSession;
 class DirectPhpActionSession;
 class Gf3GaussianActionSession;
@@ -1184,6 +1185,31 @@ struct Stats {
   uint64_t nary_csp_equality_amo_journal_bytes = 0;
   uint64_t nary_csp_equality_amo_binary_clauses = 0;
   uint64_t nary_csp_equality_amo_session_commits = 0;
+  uint64_t nary_csp_equality_transitivity_invalid = 0;
+  uint64_t nary_csp_equality_transitivity_inapplicable = 0;
+  uint64_t nary_csp_equality_transitivity_resource_exhausted = 0;
+  uint64_t nary_csp_equality_transitivity_interrupted = 0;
+  uint64_t nary_csp_equality_transitivity_unsupported_proof = 0;
+  uint64_t nary_csp_equality_transitivity_attempts = 0;
+  uint64_t nary_csp_equality_transitivity_applied = 0;
+  uint64_t nary_csp_equality_transitivity_missing_equality = 0;
+  uint64_t nary_csp_equality_transitivity_stale = 0;
+  uint64_t nary_csp_equality_transitivity_duplicate = 0;
+  uint64_t nary_csp_equality_transitivity_declined = 0;
+  uint64_t nary_csp_equality_transitivity_recognition_work = 0;
+  uint64_t nary_csp_equality_transitivity_proof_work = 0;
+  uint64_t nary_csp_equality_transitivity_proof_additions = 0;
+  uint64_t nary_csp_equality_transitivity_proof_deletions = 0;
+  uint64_t nary_csp_equality_transitivity_proof_literal_occurrences = 0;
+  uint64_t nary_csp_equality_transitivity_journal_bytes = 0;
+  uint64_t nary_csp_equality_transitivity_ternary_clauses = 0;
+  uint64_t nary_csp_equality_transitivity_session_commits = 0;
+  uint64_t nary_csp_equality_transitivity_planning_work = 0;
+  uint64_t nary_csp_equality_transitivity_preparation_work = 0;
+  uint64_t nary_csp_equality_transitivity_source_clauses = 0;
+  uint64_t nary_csp_equality_transitivity_source_literals = 0;
+  uint64_t nary_csp_equality_transitivity_session_bytes = 0;
+
   uint64_t direct_php_attempts = 0, direct_php_applied = 0;
   uint64_t direct_php_invalid = 0, direct_php_inapplicable = 0;
   uint64_t direct_php_not_recognized = 0, direct_php_malformed = 0;
@@ -2097,6 +2123,7 @@ struct Kernel {
   strategy::DirectCspSupportParameters direct_csp_support_parameters;
   strategy::NaryCspPrefixParameters nary_csp_prefix_parameters;
   strategy::NaryCspEqualityParameters nary_csp_equality_parameters;
+  strategy::NaryCspEqualityTransitivityParameters nary_csp_equality_transitivity_parameters;
   strategy::NaryCspEqualityAmoParameters nary_csp_equality_amo_parameters;
   strategy::DirectPhpRefutationParameters direct_php_refutation_parameters;
   strategy::Gf3GaussianConsequenceParameters
@@ -2121,6 +2148,7 @@ struct Kernel {
   DirectCspGuardedCoverActionSession *direct_csp_guarded_cover_action_session = nullptr;
   NaryCspPrefixActionSession *nary_csp_prefix_action_session = nullptr;
   NaryCspEqualitySession *nary_csp_equality_session = nullptr;
+  NaryCspEqualityTransitivitySession *nary_csp_equality_transitivity_session = nullptr;
   NaryCspEqualityAmoSession *nary_csp_equality_amo_session = nullptr;
   DirectPhpActionSession *direct_php_action_session = nullptr;
   Gf3GaussianActionSession *gf3_gaussian_action_session = nullptr;

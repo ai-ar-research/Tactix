@@ -5,6 +5,7 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -118,6 +119,8 @@ bool NaryCspEqualityAmoParameters::valid() const {
              maximum_session_keys}
       .valid();
 }
+
+bool NaryCspEqualityTransitivityParameters::valid() const { return NaryCspEqualityTransitivityLimits{maximum_source_clauses,maximum_source_literals,maximum_recognition_work,maximum_planning_work,maximum_domain_values,maximum_forbidden_tuples,maximum_proof_work,maximum_proof_additions,maximum_proof_literal_occurrences,maximum_journal_bytes,maximum_external_extent,maximum_session_keys,maximum_session_bytes,maximum_arena_words,maximum_watch_words,maximum_preparation_bytes}.valid(); }
 
 bool DirectPhpRefutationParameters::valid() const {
   return DirectPhpActionLimits{
@@ -259,6 +262,8 @@ NaryCspEqualityAmoParameters
 NaryCspEqualityAmoParameters::from_kernel(const Kernel &k) {
   return k.nary_csp_equality_amo_parameters;
 }
+NaryCspEqualityTransitivityParameters NaryCspEqualityTransitivityParameters::from_kernel(const Kernel &k) { return k.nary_csp_equality_transitivity_parameters; }
+
 DirectPhpRefutationParameters
 DirectPhpRefutationParameters::from_kernel(const Kernel &k) {
   return k.direct_php_refutation_parameters;
@@ -312,6 +317,7 @@ void install_rule_parameters(
     Kernel &k, const NaryCspEqualityAmoParameters &parameters) {
   k.nary_csp_equality_amo_parameters = parameters;
 }
+void install_rule_parameters(Kernel &k, const NaryCspEqualityTransitivityParameters &p) { k.nary_csp_equality_transitivity_parameters = p; }
 void install_rule_parameters(Kernel &k,
                              const DirectPhpRefutationParameters &parameters) {
   k.direct_php_refutation_parameters = parameters;

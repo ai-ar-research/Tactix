@@ -27,6 +27,7 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -684,6 +685,7 @@ int main(int argc, char **argv) {
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
   NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspEqualitySession nary_csp_equality_session;
+  NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
   NaryCspEqualityAmoSession nary_csp_equality_amo_session;
   DirectPhpActionSession direct_php_action_session(kernel);
   Gf3GaussianActionSession gf3_gaussian_action_session;
@@ -702,6 +704,7 @@ int main(int argc, char **argv) {
       &direct_csp_guarded_cover_action_session;
   kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
   kernel.nary_csp_equality_session = &nary_csp_equality_session;
+  kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
   kernel.nary_csp_equality_amo_session = &nary_csp_equality_amo_session;
   kernel.gf3_general_row_action_session = &gf3_general_row_action_session;
   kernel.direct_php_action_session = &direct_php_action_session;
