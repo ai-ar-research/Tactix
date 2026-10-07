@@ -1,0 +1,6 @@
+{
+  "job": 1752050,
+  "manifest_sha256": "f241b4de79c0ce01bdc72d5b87b8198730f0301422d8291260fe9b98840bcc26",
+  "source_commit": "ef0e00e9d",
+  "purpose": "bounded public native consumption diagnostic; no recovery claim"
+}
