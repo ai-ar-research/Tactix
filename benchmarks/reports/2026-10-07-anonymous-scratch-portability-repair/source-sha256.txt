@@ -1,0 +1,2 @@
+f9e9bbdfa2503b9160a81cb764e3cc852d967022adf7c4c2593d927e8258c99c  build/anonymous-scratch-portability-fixed-20261007/anonymous_scratch.py
+ee7b103378495f028a34e88278a3ca48fa54356b6087202f1a20567c0b58aae5  build/anonymous-scratch-portability-fixed-20261007/test_anonymous_scratch.py

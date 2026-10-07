@@ -1,0 +1,22 @@
+[
+  {
+    "arm": "off",
+    "manifest_sha256": "a6c993712b9d469b980e7b604d54575edd21c739a7524697c05bbea8441b5993",
+    "solve_exit": 124,
+    "solve_wall_seconds": 5000.079424537718,
+    "verdict": "UNKNOWN",
+    "terminal_record": null,
+    "failure": "Expecting value: line 1 column 1 (char 0)",
+    "recovered": false
+  },
+  {
+    "arm": "on",
+    "manifest_sha256": "a6c993712b9d469b980e7b604d54575edd21c739a7524697c05bbea8441b5993",
+    "solve_exit": 124,
+    "solve_wall_seconds": 5000.07502829656,
+    "verdict": "UNKNOWN",
+    "terminal_record": null,
+    "failure": "Expecting value: line 1 column 1 (char 0)",
+    "recovered": false
+  }
+]

@@ -1,0 +1,9 @@
+# Anonymous scratch portability repair
+
+All 272 tasks in regression arrays1752737–1752740 failed before solver execution: compute Python was compiled without `os.O_TMPFILE`. These campaigns provide no solver correctness or performance result. Their original pins and artifacts remain unchanged; the complete log census is hash-bound here.
+
+The shared runner now uses the Linux UAPI anonymous-file bit when the Python constant is absent on known x86-64/AArch64 ABIs. Unknown platforms and kernel/filesystem rejection fail closed. It never creates a named fallback. Local five lifecycle controls and19 controller-regression controls pass. Initial compute control1753012 exposed test code that itself assumed the Python constant existed; corrected frozen controls1753014 pass5/5, including reopening, absent-constant handling, crash/timeout/TERM/KILL cleanup and unsupported-filesystem refusal.
+
+Replacement full-width arrays1753016/17/18/19 use the unchanged ab7ad3012 Release pin (2bb5059e09176ef7cc6262d7de9dcc8d27a24f124215d8d6fb1db888244ec46e; exact authority is replacement manifests) and corrected runner. No throttle or node constraint. Acceptance remains pending terminal artifacts and scoring. Same-source full Debug346-test archive1753015 is submitted; no pass claimed. Native root-normalized XOR integration remains unqualified working-tree work and is absent from these pins.
+
+Paired older-source rank1161 job1752156 also terminated: both arms hit the5000-second solve limit (5000.079s off,5000.075s on), UNKNOWN with no terminal verdict. Its harness then tried to parse an empty anonymous checker-output inode, raising JSONDecodeError. Frozen failure records/logs are included. No target recovery or independent validation is claimed; rerunning that unchanged candidate is not justified. This is separate from the O_TMPFILE runner failure.

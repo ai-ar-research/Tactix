@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-b28c5/pins/runtime_task.py", line 1033, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/hwu/SAT-solving/benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-b28c5/pins/runtime_task.py", line 826, in main
+    cnf = scratch / "input.cnf"
+          ~~~~~~~~^~~~~~~~~~~~~
+  File "/home/hwu/SAT-solving/benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-on-b28c5/pins/anonymous_scratch.py", line 20, in __truediv__
+    fd = os.open(self.directory, os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o600)
+                                 ^^^^^^^^^^^^
+AttributeError: module 'os' has no attribute 'O_TMPFILE'
