@@ -318,12 +318,74 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
   return true;
 }
 
+bool RandomControllerConfig::configure_guarded_cover_producer_profile(
+    const OnlineStrategyProgram &program,
+    const DirectCspGuardedCoverOfferLimits &limits, std::string *error) {
+  const auto reject = [&](const char *message) {
+    if (error) *error = message;
+    return false;
+  };
+  if (!limits.valid() || program.sequence.size() != 1 ||
+      program.repeat.mode != RepeatMode::Once || program.repeat.limit != 1)
+    return reject("GuardedCover producer requires one bounded once-only profile");
+  if (!validate_online_strategy_program(program, error, true)) return false;
+  const auto &step = program.sequence.front();
+  const auto *p = std::get_if<DirectCspGuardedCoverParameters>(&step.parameters);
+  if (step.rule != "DirectCspSupport" || !p || !p->valid() ||
+      step.granularity != InvocationGranularity::NativeProducerOffer ||
+      step.repeat.mode != RepeatMode::Once || step.repeat.limit != 1 ||
+      step.post_application != PostApplication::None ||
+      step.budget.is_unlimited() || !step.budget.amount() ||
+      step.rule_work_budget.mode != RuleWorkBudgetMode::Bounded ||
+      !step.rule_work_budget.amount ||
+      step.material.touch_filter != SettingOverride::Inherit ||
+      step.material.likely_kept_redundant != SettingOverride::Inherit)
+    return reject("GuardedCover producer requires a payload-free V2 native offer with fixed allowances");
+  if (guarded_cover_producer.window.after_cover || guarded_cover_producer.window.stamp.kernel)
+    return reject("GuardedCover producer starts with an unbound cover window");
+  if (guarded_cover_producer.window.preferred_literals.size() > limits.maximum_work ||
+      std::any_of(guarded_cover_producer.window.preferred_literals.begin(),
+                  guarded_cover_producer.window.preferred_literals.end(),
+                  [](int32_t x) { return !x || x == INT32_MIN; }))
+    return reject("GuardedCover producer preference snapshot is invalid or exceeds its authored work envelope");
+  const auto &b = limits.theory;
+  if (b.maximum_source_clauses != p->maximum_source_clauses ||
+      b.maximum_source_literals != p->maximum_source_literals ||
+      b.maximum_domains != p->maximum_domains ||
+      b.maximum_domain_values != p->maximum_domain_values ||
+      b.maximum_cover_literals != p->maximum_cover_literals ||
+      b.maximum_or_definitions != p->maximum_or_definitions ||
+      b.maximum_or_inputs != p->maximum_or_inputs ||
+      b.maximum_output_literals != p->maximum_output_literals)
+    return reject("GuardedCover producer theory must match the authored public profile");
+  const auto offers = offered_actions.find(step.rule);
+  if ((offers != offered_actions.end() && !offers->second.empty()) ||
+      direct_csp_action_producer.enabled)
+    return reject("GuardedCover producer conflicts with another DirectCspSupport owner");
+  if (!parameters.rules.empty() &&
+      std::find(parameters.rules.begin(), parameters.rules.end(), step.rule) == parameters.rules.end())
+    return reject("GuardedCover producer is outside the configured action collection");
+  if (guarded_cover_producer.revision == UINT64_MAX)
+    return reject("GuardedCover producer revision exhausted");
+  auto replacement = guarded_cover_producer;
+  replacement.enabled = true;
+  replacement.limits = limits;
+  replacement.profile = step;
+  ++replacement.revision;
+  guarded_cover_producer = std::move(replacement);
+  allowances[step.rule] = {step.work_unit, step.budget.amount(), step.rule_work_budget};
+  if (error) error->clear();
+  return true;
+}
+
 bool RandomControllerConfig::configure_direct_csp_producer_profile(
     const OnlineStrategyProgram &program, std::string *error) {
   const auto reject = [&](const char *message) {
     if (error) *error = message;
     return false;
   };
+  if (guarded_cover_producer.enabled)
+    return reject("DirectCSP producer conflicts with the GuardedCover producer owner");
   if (program.sequence.size() != 3)
     return reject("DirectCSP producer profile requires support, propagation, "
                   "and semantic advice actions");
@@ -510,6 +572,9 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
     const auto selected_guard = [&] {
       if (rule.guard(k)) return true;
       if (std::string_view(rule.name) != "DirectCspSupport") return false;
+      if (config.guarded_cover_producer.enabled &&
+          k.direct_csp_guarded_cover_action_session &&
+          direct_csp_guarded_cover_action_guard(k)) return true;
       const auto offers = config.offered_actions.find(rule.name);
       return offers != config.offered_actions.end() &&
           k.direct_csp_guarded_cover_action_session &&
@@ -727,6 +792,28 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << config.affine_basis_action_producer.maximum_offers << ' '
         << config.affine_basis_action_producer.startup_batch_actions << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
+  }
+  if (config.guarded_cover_producer.enabled) {
+    const auto &p = config.guarded_cover_producer;
+    const auto &l = p.limits;
+    const auto &b = l.theory;
+    const auto &q = l.proposals;
+    out << " producer GuardedCoverV2 "
+        << std::quoted(serialize_online_strategy_program({{p.profile}, {}}));
+    for (uint64_t n : {b.maximum_source_clauses, b.maximum_source_literals,
+          uint64_t(b.maximum_domains), uint64_t(b.maximum_domain_values),
+          uint64_t(b.maximum_cover_literals), uint64_t(b.maximum_or_definitions),
+          uint64_t(b.maximum_or_inputs), uint64_t(b.maximum_output_literals),
+          q.maximum_work, q.maximum_proposals, q.maximum_single_moves,
+          q.maximum_pair_moves, q.maximum_repair_steps, q.maximum_visited_keys,
+          q.maximum_nominations, l.maximum_work, l.maximum_index_clauses,
+          l.maximum_index_literals, l.maximum_index_bytes,
+          l.maximum_cover_candidates, l.maximum_role_queries, l.maximum_owners,
+          l.maximum_offers, l.maximum_binary_assignments, l.maximum_binary_edges})
+      out << ' ' << n;
+    out << " role " << p.window.role_blocker << ' ' << p.window.role_alternative
+        << " preferences " << p.window.preferred_literals.size();
+    for (int32_t x : p.window.preferred_literals) out << ' ' << x;
   }
   if (config.gf3_action_producer.enabled) {
     const auto &producer = config.gf3_action_producer;
@@ -1017,6 +1104,17 @@ bool RandomControllerSelector::choose(
                                       : NativeSettlement::Pending;
     }
   };
+  if (guarded_cover_discovery_.pending && observation.last_action &&
+      observation.last_action->sequence == guarded_cover_discovery_.pending_sequence) {
+    const auto settlement = native_settlement(observation.last_action->invocation);
+    if (settlement == NativeSettlement::RetainUntilReconfiguration) {
+      guarded_cover_discovery_.reconfiguration_required = true;
+      guarded_cover_discovery_.pending_sequence = 0;
+    } else if (settlement != NativeSettlement::Pending) {
+      guarded_cover_discovery_.pending.reset();
+      guarded_cover_discovery_.pending_sequence = 0;
+    }
+  }
   bool affine_session_commit_observed = false;
   if (affine_basis_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
@@ -2429,11 +2527,64 @@ bool RandomControllerSelector::choose(
     return true;
   };
 
+  const auto discover_guarded_cover = [&]() -> bool {
+    const auto &producer = config.guarded_cover_producer;
+    auto &d = guarded_cover_discovery_;
+    if (!producer.enabled || has_static_offer("DirectCspSupport") ||
+        !k.direct_csp_guarded_cover_action_session) return false;
+    const auto *actions = k.direct_csp_guarded_cover_action_session;
+    if (d.owner != &k || d.actions != actions || d.revision != producer.revision) {
+      d = {};
+      d.owner = &k; d.actions = actions; d.revision = producer.revision;
+      d.window = producer.window;
+    }
+    if (d.reconfiguration_required) return false;
+    // A new formula/session image invalidates a resume cursor, never the
+    // durable committed keys authenticated by the offer module.
+    if (d.window.stamp.kernel &&
+        (d.window.stamp.arena_generation != k.arena_generation ||
+         d.window.stamp.touch_epoch != k.touch_epoch ||
+         d.window.stamp.strategy_epoch != k.strategy_epoch ||
+         d.window.stamp.arena_words != k.arena.size() ||
+         d.window.stamp.next_clause_id != k.next_clause_id ||
+         d.window.stamp.variables != k.nvars ||
+         d.window.stamp.external_extent != k.external_to_internal.size() ||
+         d.session_keys != actions->committed_keys())) {
+      d.window.after_cover = 0;
+      d.window.stamp = {};
+      d.pending.reset();
+    }
+    if (d.pending) return true;
+    const auto result = direct_csp_guarded_cover_offer(k, *actions, d.session,
+                                                     producer.limits, d.window);
+    producer_effort.push_back({"DirectCspSupport", static_cast<uint8_t>(result.status),
+        false, 0, result.effort.work, result.effort.work,
+        result.effort.cover_candidates, result.offers.size()});
+    d.session_keys = actions->committed_keys();
+    if (result.status == DirectCspGuardedCoverOfferStatus::Interrupted ||
+        result.status == DirectCspGuardedCoverOfferStatus::ResourceExhausted) {
+      d.reconfiguration_required = true; return false;
+    }
+    if (result.status != DirectCspGuardedCoverOfferStatus::Offered &&
+        result.status != DirectCspGuardedCoverOfferStatus::NoOffer) return false;
+    d.window.stamp = result.stamp;
+    // NoOffer is merely a bounded local page. A complete page starts over;
+    // no global terminal/exhaustion state is inferred.
+    d.window.after_cover = result.cover_window_complete ? 0 : result.after_cover;
+    if (result.offers.empty()) return false;
+    // Consume one request at a time; revisit this page after publication so
+    // durable keys filter consumed tuples without losing other offers.
+    d.window.after_cover = 0;
+    d.pending = result.offers.front().selection;
+    return true;
+  };
+
   enum class NativeOffer : uint8_t {
     None,
     AffineBasis,
     Gf3,
     DirectCsp,
+    GuardedCover,
     NaryCsp,
     NaryCspEquality,
     NaryCspEqualityAmo,
@@ -2502,6 +2653,11 @@ bool RandomControllerSelector::choose(
                native_allowed(entry.rule) && discover_gf3()) {
       eligible.push_back(
           {&tactix_rules()[tactix_rule_id(entry.rule.c_str())], NativeOffer::Gf3});
+    } else if (entry.reason == "structured-witness-not-offered" &&
+               entry.rule == "DirectCspSupport" &&
+               native_allowed(entry.rule) && discover_guarded_cover()) {
+      eligible.push_back({&tactix_rules()[tactix_rule_id(entry.rule.c_str())],
+                          NativeOffer::GuardedCover});
     } else if (entry.reason == "structured-witness-not-offered" &&
                entry.rule == "DirectCspSupport" &&
                native_allowed(entry.rule) && discover_direct()) {
@@ -2695,6 +2851,12 @@ bool RandomControllerSelector::choose(
       request.invocation.granularity = InvocationGranularity::OneInstance;
       request.invocation.gf3_affine_instances = {
           {key.first_equation, key.second_equation}};
+    } else if (selected_action.native == NativeOffer::GuardedCover) {
+      request.invocation = config.guarded_cover_producer.profile;
+      request.invocation.id = request.sequence;
+      request.invocation.granularity = InvocationGranularity::OneInstance;
+      request.invocation.direct_csp_guarded_cover_instances = {*guarded_cover_discovery_.pending};
+      guarded_cover_discovery_.pending_sequence = request.sequence;
     } else if (selected_action.native == NativeOffer::DirectCsp) {
       if (!direct_csp_discovery_.pending)
         direct_csp_discovery_.pending = direct_csp_discovery_.offers[

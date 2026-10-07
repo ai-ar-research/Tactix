@@ -10,6 +10,7 @@
 #include "policies/random_controller_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/feedback_provenance.hpp"
+#include "strategy/guarded_cover_offer_profile.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/trace.hpp"
 // The stress policies reach `main` only as a StressSolveFn from this table, so
@@ -184,6 +185,8 @@ int main(int argc, char **argv) {
   const char *controller_startup_prefix_path = nullptr;
   const char *controller_gf2_affine_profile_path = nullptr;
   const char *controller_direct_csp_profile_path = nullptr;
+  const char *controller_guarded_cover_profile_path = nullptr;
+  const char *controller_guarded_cover_limits_path = nullptr;
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
   const char *structural_provenance_path = nullptr;
@@ -235,6 +238,10 @@ int main(int argc, char **argv) {
       controller_gf2_affine_profile_path = a + 32;
     } else if (!strncmp(a, "--controller-direct-csp-profile=", 32)) {
       controller_direct_csp_profile_path = a + 32;
+    } else if (!strncmp(a, "--controller-guarded-cover-profile=", 35)) {
+      controller_guarded_cover_profile_path = a + 35;
+    } else if (!strncmp(a, "--controller-guarded-cover-limits=", 34)) {
+      controller_guarded_cover_limits_path = a + 34;
     } else if (!strncmp(a, "--controller-families=", 22)) {
       const char *value = a + 22;
       if (!strcmp(value, "all")) {
@@ -458,6 +465,7 @@ int main(int argc, char **argv) {
              "[--controller-search-configurations=all|LIST] "
              "[--controller-gf2-affine-profile=FILE] "
              "[--controller-direct-csp-profile=FILE] "
+             "[--controller-guarded-cover-profile=FILE --controller-guarded-cover-limits=FILE] "
              "[--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
@@ -534,7 +542,9 @@ int main(int argc, char **argv) {
            feedback_replay_path, controller_actions_path,
            controller_startup_prefix_path,
            controller_gf2_affine_profile_path,
-           controller_direct_csp_profile_path}) {
+           controller_direct_csp_profile_path,
+           controller_guarded_cover_profile_path,
+           controller_guarded_cover_limits_path}) {
       if (!other) continue;
       std::error_code a, b, c;
       if ((std::filesystem::weakly_canonical(structural_provenance_path, a) ==
@@ -573,7 +583,8 @@ int main(int argc, char **argv) {
         controller_search_configurations_set ||
         controller_actions_path || controller_startup_prefix_path ||
         controller_gf2_affine_profile_path ||
-        controller_direct_csp_profile_path) &&
+        controller_direct_csp_profile_path || controller_guarded_cover_profile_path ||
+        controller_guarded_cover_limits_path) &&
        !controller_selected)) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
@@ -649,6 +660,28 @@ int main(int argc, char **argv) {
                                                                  &error)) {
       fprintf(stderr, "tactix: invalid DirectCSP producer profile '%s': %s\n",
               controller_direct_csp_profile_path, error.c_str());
+      printf("s UNKNOWN\n");
+      return 1;
+    }
+  }
+  if (bool(controller_guarded_cover_profile_path) != bool(controller_guarded_cover_limits_path)) {
+    fprintf(stderr, "tactix: guarded-cover discovery requires both profile and limits files\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (controller_guarded_cover_profile_path) {
+    std::ifstream profile_input(controller_guarded_cover_profile_path);
+    std::ifstream limits_input(controller_guarded_cover_limits_path);
+    strategy::OnlineStrategyProgram program;
+    DirectCspGuardedCoverOfferLimits limits;
+    std::string error;
+    const std::string profile((std::istreambuf_iterator<char>(profile_input)), {});
+    const std::string bounds((std::istreambuf_iterator<char>(limits_input)), {});
+    if (!profile_input || !limits_input ||
+        !strategy::parse_guarded_cover_offer_limits(bounds, limits, &error) ||
+        !strategy::deserialize_online_strategy_program(profile, program, &error, false, true) ||
+        !controller_config.configure_guarded_cover_producer_profile(program, limits, &error)) {
+      fprintf(stderr, "tactix: invalid guarded-cover producer profile or limits: %s\n", error.c_str());
       printf("s UNKNOWN\n");
       return 1;
     }

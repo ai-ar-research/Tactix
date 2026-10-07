@@ -72,6 +72,67 @@ namespace tactix {
       std::abort();
     }
 
+    // Shared durable identity: preserve the exact established dgc2 spelling.
+    bool build_key(const DirectCspGuardedCoverActionSelection &selection,
+                   const direct_csp_guarded_cover::Expected &image,
+                   const direct_csp_guarded_cover::Charge &charge,
+                   std::string &key, std::vector<int32_t> &tuple) {
+      namespace detail = direct_csp_guarded_cover::detail;
+      if (!charge) return false;
+      for (const auto &clause : image.clauses)
+        if (!charge(detail::add(1, detail::multiply(16, clause.size()))))
+          return false;
+      if (!charge(detail::add(8, detail::multiply(selection.domains.size(),
+                         detail::add(selection.domains.size(), 16)))))
+        return false;
+      std::ostringstream text;
+      text << "dgc2:";
+      for (const auto &clause : image.clauses) {
+        for (int32_t literal : clause) text << literal << ',';
+        text << ';';
+      }
+      text << '|';
+      std::vector<int32_t> normalized_tuple;
+      for (size_t domain = 0; domain < selection.domains.size(); ++domain)
+        normalized_tuple.push_back(selection.domains[domain]
+                                  [selection.selected_values[domain]]);
+      std::sort(normalized_tuple.begin(), normalized_tuple.end());
+      for (int32_t literal : normalized_tuple) text << literal << ',';
+      std::string candidate_key = text.str();
+      if (!charge(candidate_key.size())) return false;
+      key = std::move(candidate_key);
+      tuple = std::move(normalized_tuple);
+      return true;
+    }
+
+    // Clause identities may advance for a freshly proved replacement large
+    // premise. Literal image, occurrence ordering and binary archive/sentinel
+    // identities must remain exact; this never residualizes or remaps sources.
+    bool refresh_compatible(const DirectCspGuardedCoverOwnerSnapshot &old,
+                            const DirectCspGuardedCoverOwnerSnapshot &fresh,
+                            const direct_csp_guarded_cover::Charge &charge) {
+      namespace detail = direct_csp_guarded_cover::detail;
+      uint64_t shape_work = detail::add(1, detail::add(
+          old.selection.cover.size(), detail::multiply(4, old.selection.blockers.size())));
+      for (const auto &domain : old.selection.domains)
+        shape_work = detail::add(shape_work, detail::add(1, domain.size()));
+      for (const auto &definition : old.selection.exact_or)
+        shape_work = detail::add(shape_work, detail::add(1, definition.inputs.size()));
+      if (!charge(shape_work) ||
+          !direct_csp_guarded_cover_owner_shape_equal(old.selection,
+                                                    fresh.selection) ||
+          old.source_literals != fresh.source_literals ||
+          old.source.size() != fresh.source.size()) return false;
+      for (size_t index = 0; index < old.source.size(); ++index) {
+        const auto &a = old.source[index], &b = fresh.source[index];
+        if (!charge(1 + a.literals.size()) ||
+            a.occurrence != b.occurrence || a.literals != b.literals ||
+            (a.literals.size() < 3 && a.native_proof_id != b.native_proof_id))
+          return false;
+      }
+      return true;
+    }
+
     void copy_effort(DirectCspSupportActionResult&r){
       const auto&v=r.live;
       auto&e=r.effort;
@@ -93,6 +154,29 @@ namespace tactix {
       e.journal_bytes=v.journal_bytes;
     }
 
+  }
+
+  DirectCspGuardedCoverKeyLookup
+  DirectCspGuardedCoverActionSession::lookup_committed(
+      const DirectCspGuardedCoverActionSelection &selection,
+      const direct_csp_guarded_cover::Bounds &limits,
+      direct_csp_guarded_cover::Charge charge) const {
+    const auto image = direct_csp_guarded_cover::expected_clauses(
+        selection, limits, charge);
+    if (image.status != direct_csp_guarded_cover::Status::Planned)
+      return image.status == direct_csp_guarded_cover::Status::ResourceExhausted
+                 ? DirectCspGuardedCoverKeyLookup::ResourceExhausted
+                 : DirectCspGuardedCoverKeyLookup::Invalid;
+    std::string key;
+    std::vector<int32_t> tuple;
+    if (!build_key(selection, image, charge, key, tuple))
+      return DirectCspGuardedCoverKeyLookup::ResourceExhausted;
+    for (const auto &committed : keys_) {
+      if (!charge(1 + committed.size()))
+        return DirectCspGuardedCoverKeyLookup::ResourceExhausted;
+      if (committed == key) return DirectCspGuardedCoverKeyLookup::Present;
+    }
+    return DirectCspGuardedCoverKeyLookup::Absent;
   }
 
   bool DirectCspGuardedCoverActionLimits::valid()const{
@@ -156,34 +240,9 @@ namespace tactix {
       return out;
     }
 
-    // Precharge worst-case text conversion, tuple normalization and copies.
-    uint64_t key_work = 8;
-
-    for (const auto &clause : image.clauses) {
-
-      if (!charge(direct_csp_guarded_cover::detail::add(1, direct_csp_guarded_cover::detail::multiply(16, clause.size())))) return exhausted();
-
-    }
-
-    if (!charge(direct_csp_guarded_cover::detail::add(key_work, direct_csp_guarded_cover::detail::multiply(s.domains.size(), direct_csp_guarded_cover::detail::add(s.domains.size(), 16))))) return exhausted();
-
-    std::ostringstream text;
-    text<<"dgc2:";
-
-    for(const auto&c:image.clauses){
-      for(int32_t x:c)text<<x<<',';
-      text<<';';
-    }
-
-    text<<'|';
+    std::string key;
     std::vector<int32_t> tuple;
-    for(size_t d=0;d<s.domains.size();++d)tuple.push_back(s.domains[d][s.selected_values[d]]);
-
-    std::sort(tuple.begin(),tuple.end());
-    for(int32_t x:tuple)text<<x<<',';
-    const std::string key=text.str();
-
-    if(!charge(key.size()))return exhausted();
+    if (!build_key(s, image, charge, key, tuple)) return exhausted();
 
     for(const auto&old:DirectCspGuardedCoverSessionAccess::keys(session)){
 
@@ -258,46 +317,51 @@ namespace tactix {
 
     out.owner_retained=retained!=nullptr;
 
-    if(retained)r.retained_owner=retained;
-
-    else {
-
-      DirectCspGuardedCoverOwnerSnapshot captured;
-      auto capture=direct_csp_guarded_cover_live_capture_owner(k,r,captured);
-
-      out.effort.owner_capture_work=capture.recognition_work;
-      out.effort.recognition_work=capture.recognition_work;
-
-      if(capture.status!=DirectCspSupportLiveStatus::Applied){
-        out.live.status=capture.status;
-        out.live.recognition_limit_exhausted=capture.recognition_limit_exhausted;
-        out.status=status(capture.status);
+    // Capture every requested source image freshly. A retained owner may have
+    // the same semantic premises under new large-clause proof identities.
+    // Stage that refresh only in the detached vector; failed work never
+    // modifies the session's authoritative snapshot or committed tuple keys.
+    DirectCspGuardedCoverOwnerSnapshot captured;
+    const auto capture = direct_csp_guarded_cover_live_capture_owner(k,r,captured);
+    out.effort.owner_capture_work=capture.recognition_work;
+    out.effort.recognition_work=capture.recognition_work;
+    if(capture.status!=DirectCspSupportLiveStatus::Applied){
+      out.live.status=retained&&capture.status==DirectCspSupportLiveStatus::NoStructure
+                          ?DirectCspSupportLiveStatus::Stale:capture.status;
+      out.live.recognition_limit_exhausted=capture.recognition_limit_exhausted;
+      out.status=status(out.live.status);
+      return out;
+    }
+    if(capture.recognition_work>=r.maximum_recognition_work){
+      out.status=DirectCspSupportActionStatus::ResourceExhausted;
+      out.live.status=DirectCspSupportLiveStatus::ResourceExhausted;
+      out.live.recognition_limit_exhausted=true;
+      out.effort.session_work=work;
+      return out;
+    }
+    r.maximum_recognition_work-=capture.recognition_work;
+    for(const auto &premise:captured.source)
+      if(!charge(1+premise.literals.size()))return exhausted();
+    if(retained){
+      bool comparison_stopped=false;
+      auto compare_charge=[&](uint64_t amount){
+        if(charge(amount))return true;
+        comparison_stopped=true;return false;
+      };
+      if(!refresh_compatible(*retained,captured,compare_charge)){
+        if(comparison_stopped)return exhausted();
+        out.status=DirectCspSupportActionStatus::Stale;
+        out.live.status=DirectCspSupportLiveStatus::Stale;
+        out.effort.session_work=work;
         return out;
       }
-
-      if (capture.recognition_work >= r.maximum_recognition_work) {
-
-        out.status = DirectCspSupportActionStatus::ResourceExhausted;
-
-        out.live.status = DirectCspSupportLiveStatus::ResourceExhausted;
-
-        out.live.recognition_limit_exhausted = true;
-
-        out.live.recognition_work = capture.recognition_work;
-
-        out.effort.session_work = work;
-
-        return out;
-
-      }
-
-      r.maximum_recognition_work-=capture.recognition_work;
-
-      for(const auto&p:captured.source)if(!charge(1+p.literals.size()))return exhausted();
-
+      const size_t index=static_cast<size_t>(retained-
+          DirectCspGuardedCoverSessionAccess::owners(session).data());
+      owners[index]=std::move(captured);
+      r.retained_owner=&owners[index];
+    }else{
       owners.push_back(std::move(captured));
       r.retained_owner=&owners.back();
-
     }
 
     // All allocation for advice precedes irreversible proof/clause publication.

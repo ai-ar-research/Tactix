@@ -1037,9 +1037,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       }
     }
     if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters) &&
-        (step.direct_csp_guarded_cover_instances.empty() ||
-         step.granularity == InvocationGranularity::NativeProducerOffer))
-      return reject("GuardedCoverV2 requires explicit selections; discovery is unavailable");
+        (step.direct_csp_guarded_cover_instances.empty() &&
+         !(allow_native_offer &&
+           step.granularity == InvocationGranularity::NativeProducerOffer)))
+      return reject("GuardedCoverV2 requires explicit selections or an authorized native producer template");
     if (!step.direct_csp_support_instances.empty() &&
         step.rule != "DirectCspSupport")
       return reject("DirectCSP supports are attached to a different rule");

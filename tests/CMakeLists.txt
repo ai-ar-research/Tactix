@@ -346,6 +346,11 @@ add_test(NAME direct_csp_guarded_cover_proof_model
                  $<TARGET_FILE:test_direct_csp_guarded_cover_live> ${CMAKE_SOURCE_DIR})
 set_tests_properties(direct_csp_guarded_cover_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
+add_test(NAME direct_csp_guarded_cover_owner_refresh_proof_model
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/direct_csp_guarded_cover_owner_refresh_proof_model.sh
+                 $<TARGET_FILE:test_direct_csp_guarded_cover_owner_refresh> ${CMAKE_SOURCE_DIR})
+set_tests_properties(direct_csp_guarded_cover_owner_refresh_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(test_direct_csp_guarded_cover_frontend test_direct_csp_guarded_cover_frontend.cpp)
 target_link_libraries(test_direct_csp_guarded_cover_frontend PRIVATE tactix_lib)
 add_test(NAME direct_csp_guarded_cover_frontend COMMAND test_direct_csp_guarded_cover_frontend)

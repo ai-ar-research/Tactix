@@ -1,0 +1,17 @@
+Test project /home/hwu/SAT-solving/build/guarded-offer-cumulative-20261007/debug
+    Start  65: api_instances
+1/6 Test  #65: api_instances ....................   Passed    0.04 sec
+    Start  69: random_controller_policy
+2/6 Test  #69: random_controller_policy .........   Passed    0.46 sec
+    Start 175: controller_execution_signature
+3/6 Test #175: controller_execution_signature ...   Passed    0.06 sec
+    Start 202: flat_payload_replay
+4/6 Test #202: flat_payload_replay ..............   Passed    0.04 sec
+    Start 254: online_inprocess
+5/6 Test #254: online_inprocess .................   Passed    6.92 sec
+    Start 280: restart_controller
+6/6 Test #280: restart_controller ...............   Passed    0.02 sec
+
+100% tests passed out of 6
+
+Total Test time (real) =   7.55 sec

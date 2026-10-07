@@ -1,0 +1,25 @@
+Test project /home/hwu/SAT-solving/build/guarded-offer-cumulative-20261007/debug
+    Start  73: direct_csp_guarded_cover_owner_refresh_proof_model
+1/7 Test  #73: direct_csp_guarded_cover_owner_refresh_proof_model ...   Passed    0.35 sec
+    Start  74: direct_csp_guarded_cover_frontend
+2/7 Test  #74: direct_csp_guarded_cover_frontend ....................   Passed    0.02 sec
+    Start 179: direct_csp_guarded_cover_offer
+3/7 Test #179: direct_csp_guarded_cover_offer .......................   Passed    0.09 sec
+    Start 180: direct_csp_guarded_cover_owner_refresh
+4/7 Test #180: direct_csp_guarded_cover_owner_refresh ...............   Passed    0.01 sec
+    Start 224: guarded_cover_controller_producer
+5/7 Test #224: guarded_cover_controller_producer ....................Subprocess aborted***Exception:   0.22 sec
+test_guarded_cover_controller_producer: /home/hwu/SAT-solving/build/guarded-offer-cumulative-20261007/source/tests/test_guarded_cover_controller_producer.cpp:60: int main(): Assertion `config.configure_guarded_cover_producer_profile(profile(),limits(),&error)' failed.
+
+    Start 225: guarded_cover_offer_profile
+6/7 Test #225: guarded_cover_offer_profile ..........................   Passed    0.01 sec
+    Start 245: nary_csp_equality_transitivity_frontend
+7/7 Test #245: nary_csp_equality_transitivity_frontend ..............   Passed    0.04 sec
+
+86% tests passed, 1 tests failed out of 7
+
+Total Test time (real) =   0.76 sec
+
+The following tests FAILED:
+	224 - guarded_cover_controller_producer (Subprocess aborted)
+Errors while running CTest
