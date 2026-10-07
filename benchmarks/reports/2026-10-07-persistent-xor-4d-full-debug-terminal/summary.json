@@ -1,0 +1,13 @@
+{
+  "job": 1752523,
+  "source_head": "4d7069a4c3ca8342a96ad93b1409093a83291ba1",
+  "tests": 338,
+  "passed": 336,
+  "failed": [
+    "comment_hygiene",
+    "doc_size"
+  ],
+  "ctest_exit_code": 8,
+  "missing_packaged_dependency": "benchmarks/reports/2026-09-14-orbitopal-certified-claude-fuzz/terminal-report.md",
+  "dependency_sha256": "15572a54bf3e5f2bfeafc6c6959b3490fd112fa17bbd89597d25ab7521436654"
+}
