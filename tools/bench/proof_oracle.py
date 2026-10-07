@@ -504,24 +504,71 @@ def _remove_transport_staging(directory):
     Use the existing frozen_baseline.remove_tree_nfs_safe retry policy here
     without importing that campaign runner into standalone pinned oracles.
     Reaping a child does not synchronously complete the NFS client's close.
+
+    A process deadline or interactive interrupt can arrive while ``rmtree`` or
+    its retry sleep is active.  Defer the first such exception until cleanup
+    succeeds or the same finite attempt budget is exhausted.  Repeated
+    interrupts therefore cannot turn cleanup into an unbounded loop.
     """
     import errno
     import shutil
     import time
     delay = 0.05
-    for attempt in range(20):
+    deferred = None
+    failure = None
+
+    def remove_once():
+        """Return the file-system failure, or None once the namespace is gone.
+
+        Keep the ENOENT follow-up stat inside this call so a signal during that
+        potentially blocking NFS operation reaches the attempt-level handler.
+        A signal deadline is a TimeoutError without an OS errno; an actual
+        ETIMEDOUT remains a terminal file-system error.
+        """
         try:
             shutil.rmtree(directory)
-            return
         except OSError as error:
-            if error.errno == errno.ENOENT and not Path(directory).exists():
-                return
-            # A .nfs entry may disappear between rmtree's scan and unlink.
-            # ENOENT for that child does not mean its parent was removed.
-            if error.errno not in (errno.EBUSY, errno.ENOTEMPTY, errno.ENOENT) or attempt == 19:
+            if isinstance(error, TimeoutError) and error.errno is None:
                 raise
+            if error.errno == errno.ENOENT and not Path(directory).exists():
+                return None
+            return error
+        return None
+
+    for attempt in range(20):
+        try:
+            failure = remove_once()
+        except BaseException as interrupt:
+            if deferred is None:
+                deferred = interrupt
+            failure = OSError(
+                errno.EINTR,
+                'transport staging cleanup repeatedly interrupted',
+                str(directory))
+            continue
+
+        if failure is None:
+            break
+        # A .nfs entry may disappear between rmtree's scan and unlink.  ENOENT
+        # for that child does not mean its parent was removed.
+        if (failure.errno not in (errno.EBUSY, errno.ENOTEMPTY, errno.ENOENT)
+                or attempt == 19):
+            break
+
+        try:
             time.sleep(delay)
+        except BaseException as interrupt:
+            if deferred is None:
+                deferred = interrupt
+        else:
             delay = min(2.0, delay * 2)
+
+    if failure is not None:
+        if deferred is not None:
+            raise deferred from failure
+        raise failure
+    if deferred is not None:
+        raise deferred
 
 
 def _native_dsr_transport(mode, proof, destination=None):
@@ -569,9 +616,10 @@ def _native_dsr_transport(mode, proof, destination=None):
             original = sys.exc_info()[1]
             try:
                 _remove_transport_staging(directory)
-            except OSError as cleanup:
-                # Keep a pipeline deadline or interrupt as the primary error;
-                # a terminal cleanup failure remains visible as its cause.
+            except BaseException as cleanup:
+                # Keep the exception that first left the converter as primary.
+                # Cleanup itself defers a deadline or interrupt until its
+                # bounded retry sequence has completed.
                 if original is not None:
                     raise original from cleanup
                 raise
