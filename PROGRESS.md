@@ -138,7 +138,7 @@ targeted coverage and three minimized reproducers; cumulative acceptance remains
 pending. Full Debug archive `20261007-equality-repair-938a6ae6b-full-debug` is building.
 Claude reports smoke reproducers 36/36 checked; targeted `1751516` and native
 controller broad `1751515` are live. A reviewed expected-image metering follow-up
-passes [Debug 13/13 and sanitizer 12/12](benchmarks/reports/2026-10-07-prefix-expected-image-meter-repair/README.md); freeze for Claude acceptance. Storage 452.94 GB; regressions follow Debug.
+is committed as `76e1f68b8`; [Debug and sanitizer 13/13](benchmarks/reports/2026-10-07-prefix-meter-public-sanitizer-supplement/README.md) pass. Claude final-source and full Debug preparation are active; regressions follow Debug.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
