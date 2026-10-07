@@ -1,0 +1,141 @@
+{
+  "schema": "blocker-cover-launch-v1",
+  "source_snapshot_commit": "8b3110f0adc5f247616ade33cdec2c2e403dbb5b",
+  "input": {
+    "rank": 1161,
+    "path": "benchmarks/cache/tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+    "sha256": "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+    "hash_kind": "complete_compressed_input",
+    "authority_path": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/manifest.json",
+    "authority_field": "input_sha256",
+    "authority_key": "tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+    "variables": 2248832,
+    "clauses": 4534906,
+    "compressed_bytes": 3707176,
+    "decoded_bytes": 90176990,
+    "size_provenance": "Previously reviewed xz --robot --list --verbose --verbose metadata; no target read during preparation",
+    "header_authority": "benchmarks/probes/20261007-fixed44-directcsp-admission/result-1751725-0/census.json"
+  },
+  "selection": {
+    "seed_or": 10145,
+    "seed_blocker": 17249,
+    "original_seed_link_occurrence": 128634,
+    "authorized_domain_begin": 0,
+    "selection_authority": "Retained complete-stream result chooses minimum negative seed neighbor; authorized domain row0 is a candidate selection, authenticated by exact OR membership across all8 positions before any deduction."
+  },
+  "resources": {
+    "partition": "cpu-q",
+    "array": "0-0",
+    "throttle": null,
+    "cpus_per_task": 1,
+    "memory": "4G",
+    "slurm_time": "00:01:00"
+  },
+  "limits": {
+    "census_seconds": 14,
+    "census_process_seconds": 15,
+    "combined_process_seconds": 30,
+    "allocation_bytes": 268435456,
+    "metadata_bytes": 33554432,
+    "query_work": 10000000,
+    "checker_work": 10000000,
+    "blocker_covers": 1,
+    "blockers": 32,
+    "positions": 8,
+    "domain_width": 4,
+    "fixed_positions": 7,
+    "residual_pairs": 4
+  },
+  "source_grammar": "One positive32-blocker cover,32 one-sided b->key and b->negative-lock pairs; sixteen exact4-value original domains;32 exact positive-key-input OR definitions. No blocker AND converse or blocker-cover AMO inferred. Each unauthorized value maps bijectively to one authorized input value by exact OR membership.",
+  "finite_work": "Inherited compressed/decoded/header caps; <=M binary records,<=2M CSR edges, fixed indexing passes, capped sort comparisons; independent10M metered query operations including binary-closure edges and searches. Checker separately hashes entire compressed input and parses all original terminating-zero occurrences within the same byte/header caps, then <=10M witness/RUP operations. Sequential whole experiment externally bounded30s.",
+  "absence_and_binary_exclusion": "C++ collects original negative16-key clauses and performs global multi-assumption binary closure under each candidate negation. Independent checker rereads complete original input, verifies every physical occurrence witness and final clause absence, then independently performs original-premise RUP. Binary exclusion is tool-owned, fixed-control-validated; checker does not rebuild global adjacency.",
+  "admission_gate": "Four independently RUP-checked aligned tuples, with at least one absent and not original-binary-implied. Residual relation has3 unexcluded supports per value; no global allowed-tuple/SAT claim. Standalone proof success still requires root review before any native integration or solver benefit run. No fresh identities or model change.",
+  "compile_command": [
+    "g++",
+    "-O2",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Wconversion",
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/census.cpp",
+    "-llzma",
+    "-lcrypto",
+    "-o",
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/census"
+  ],
+  "compiler_version": "g++ (GCC) 13.1.0",
+  "liblzma_version": "5.2.5",
+  "libcrypto_version": "3.5.1",
+  "bindings": [
+    {
+      "path": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/manifest.json",
+      "sha256": "c5112af8380a8fd76c2b231960c6a9470ea1f54578e105cfbe855628f7e824d3"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-stream-admission/launch-manifest.json",
+      "sha256": "2c4be21beabc57063a3461466cc508f1a1efd25657ca27749937f8da670d5d3c"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-stream-admission/result-1751806-0/census.json",
+      "sha256": "ba335e90d0c6ef216b8898dfd0e2b2849ce0a3e639347c806ce4f988d27dc0ca"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-stream-admission/result-1751806-0/outcome.json",
+      "sha256": "e7e86f25925249ec94a34a76f6a01df624b9d7722be11993184e64f4f4e73882"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/census.cpp",
+      "sha256": "62cbf3856b2f97e6285838fae099bc322e2599d075664b0bc3d09c5593926ecc"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/census.cpp",
+      "sha256": "62cbf3856b2f97e6285838fae099bc322e2599d075664b0bc3d09c5593926ecc"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/census",
+      "sha256": "0cdb85bc5b2db0b32c5c8ec6edc7654d2a9f6197332b3f9f84ab4adb838987b1"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/check_original_rup.py",
+      "sha256": "535b31b50534f44438ed42839cd86a261e36e081795af5ea12164b172466badc"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/check_original_rup.py",
+      "sha256": "535b31b50534f44438ed42839cd86a261e36e081795af5ea12164b172466badc"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/test_controls.py",
+      "sha256": "6340a2c7a51f0ee744a828944f3d5a76bebd5900f7ac4b0dee094418103e3f88"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/test_controls.py",
+      "sha256": "6340a2c7a51f0ee744a828944f3d5a76bebd5900f7ac4b0dee094418103e3f88"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/fixed-controls.txt",
+      "sha256": "10474fb858cdaffff23d166bdbbc8bfc9ebacc68653a91b23af65a0e47aba8c9"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/launch.py",
+      "sha256": "c239f612b8e4b54bcf305e3accb2ae60be649512c85e1c1a6e21002be7f9ec4c"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/census.sbatch",
+      "sha256": "1d434ccd7641bb78267133d34b1bd58ce03a48ad14c603834a8d380db8341ac5"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-blocker-cover-admission/prepare.py",
+      "sha256": "7302899b0a07a6a05a4115dedbf3c11668d443b0bc33e376f4a1a2220002e52d"
+    },
+    {
+      "path": "tools/solvers/variants/lymphosat-modlog/tree/solver/solvers/mechanical-master-key/solver/solver.cpp",
+      "sha256": "95393215e7d01e8fbc133bcbc159f0586d836ae771eb35fed61c7b191daccb82"
+    }
+  ],
+  "storage_guard": {
+    "maximum_repository_bytes": 700000000000,
+    "pre_submission_check_owner": "root; verify before sbatch"
+  },
+  "solver_run": false,
+  "submission": "not_submitted"
+}

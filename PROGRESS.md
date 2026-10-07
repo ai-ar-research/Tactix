@@ -131,14 +131,14 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
-Pinned checkpoint source `76e1f68b8` passes focused Debug and sanitizer/proof/model
-checks 13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-07-final-parallel-acceptance-handoff/README.md)
+Next: poll Claude handle44038 before resuming its same session; preserve1751604; finish support-aware blocker/public equality admission. Pinned76e1f68b8 passes
+focused Debug and sanitizer/proof/model checks13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-07-final-parallel-acceptance-handoff/README.md)
 owns all active pin/job bindings and provisional dispositions. [Final Debug](benchmarks/reports/2026-10-07-prefix-meter-full-debug-terminal/README.md)
 `1751523` finishes314/315; only doc-size debt fails, and post-run pin verification passes.
-[Claude smoke](benchmarks/reports/2026-10-07-final-fuzz-resource-priority-handoff/README.md) `1751519` has zero owner-reported failures; native broad `1751520` runs
-and full target `1751604` runs. Owner marks cancelled `1751515`/`1751516` superseded, with no verdict.
-[B28+C5](benchmarks/reports/2026-10-07-final-b28c5-76e1f68b8-accepted/README.md) and [Rank](benchmarks/reports/2026-10-07-final-rank1-50-76e1f68b8-accepted/README.md) accept33/33 and50/50; [WV100](benchmarks/reports/2026-10-07-final-wv100-76e1f68b8-accepted/README.md) accepts100/100; WV2 `1751527`
-remain live; [Walk split](benchmarks/reports/2026-10-07-walk-split-sanitizer-supplement/README.md) b56 passesDebug9/9+ASan9/9; [fuzz prep](benchmarks/reports/2026-10-07-walk-split-fuzz-preparation-handoff/README.md) requires fresh broad legs; [selector repair](benchmarks/reports/2026-10-07-walk-split-selector-repair/README.md) passesDebug/ASan; [X20 replay](benchmarks/reports/2026-10-07-rank401-x20-matched-consumption-replay/README.md) passes.
+[Claude smoke](benchmarks/reports/2026-10-07-final-fuzz-resource-priority-handoff/README.md) `1751519` has zero owner-reported failures; native broad `1751520` completes, owner grade pending;
+full target `1751604` runs. Owner marks cancelled `1751515`/`1751516` superseded, with no verdict.
+[B28+C5](benchmarks/reports/2026-10-07-final-b28c5-76e1f68b8-accepted/README.md) and [Rank](benchmarks/reports/2026-10-07-final-rank1-50-76e1f68b8-accepted/README.md) accept33/33 and50/50; [WV100](benchmarks/reports/2026-10-07-final-wv100-76e1f68b8-accepted/README.md) accepts100/100; [WV2](benchmarks/reports/2026-10-07-final-wv2-89-76e1f68b8-accepted/README.md) accepts89/89; [Walk split](benchmarks/reports/2026-10-07-walk-split-sanitizer-supplement/README.md) b56 passesDebug9/9+ASan9/9; [owner resume](benchmarks/reports/2026-10-07-walk-selector-owner-resume/README.md) on8b3110f0a requires fresh broad/target legs; [selector repair](benchmarks/reports/2026-10-07-walk-split-selector-repair/README.md) passesDebug/ASan; [X20 replay](benchmarks/reports/2026-10-07-rank401-x20-matched-consumption-replay/README.md) passes.
+[Blocker cover](benchmarks/reports/2026-10-07-rank1161-blocker-cover/README.md) checks4 original-RUP tuples,2 novel; support/native gates pending. [Walk pilot](benchmarks/reports/2026-10-07-walk-imported-root-admission-terminal.md)1751827:9 checked prefixes,no Walk; prior control failures retained; storage267.12GB.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.

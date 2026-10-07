@@ -1,0 +1,29 @@
+{
+  "census": [
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/census",
+    "/home/hwu/SAT-solving/benchmarks/cache/tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/result-1751830-0/census.json",
+    "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+    "2248832",
+    "4534906",
+    "90176990",
+    "10145",
+    "14",
+    "10000000",
+    "268435456",
+    "3707176",
+    "17249",
+    "0"
+  ],
+  "checker_base": [
+    "python3",
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/pins/check_original_rup.py",
+    "/home/hwu/SAT-solving/benchmarks/cache/tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/result-1751830-0/census.json",
+    "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-blocker-cover-admission/result-1751830-0/proof-check.json",
+    "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+    "2248832",
+    "4534906",
+    "90176990"
+  ]
+}
