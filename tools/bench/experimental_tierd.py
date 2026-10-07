@@ -12,6 +12,7 @@ import csv
 import datetime as dt
 import hashlib
 import json
+import os
 from pathlib import Path
 from proof_oracle import pin_dsr_transport
 import shutil
@@ -52,6 +53,16 @@ FIXED44_SCRATCH_CAPACITY={
     'maximum_live_handles':6,
     'reserve_bytes':40_000_000_000,
 }
+FIXED44_COOPERATIVE_SCRATCH_CAPACITY={
+    'schema':'tactix-anonymous-scratch-capacity-v2',
+    'directory':'/tmp',
+    'minimum_free_bytes':400_000_000_000,
+    'maximum_file_bytes':60_000_000_000,
+    'maximum_live_handles':6,
+    'reserve_bytes':40_000_000_000,
+    'cooperative_lock_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
+    'cooperative_lock_name':'fixed44-managed-scratch.lock',
+}
 FIXED44_SELECTION={
     'path':'benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv',
     'sha256':'74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333',
@@ -62,6 +73,12 @@ FIXED44_RESOURCE_PROFILE={
     'outer_allocation_memory':'all',
     'inner_step_cpus':4,
     'inner_step_memory_mib':32768,
+}
+FIXED44_COOPERATIVE_RESOURCE_PROFILE={
+    'schema':'tactix-fixed44-cooperative-isolation-v1',
+    'participant_scope':'same-user-repository-profile',
+    'task_cpus':4,
+    'task_memory_mib':32768,
 }
 
 def sha(p):
@@ -135,7 +152,7 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
 def selected_scratch_capacity(a, selection_authority, rows):
     profile=getattr(a,'scratch_capacity_profile',None)
     if profile is None:return None
-    if profile!='fixed44-whole-memory-v2':
+    if profile not in ('fixed44-whole-memory-v2', 'fixed44-cooperative-v1'):
         raise ValueError('unsupported scratch capacity profile')
     if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
             a.cpus_per_task!=4 or a.partition!='cpu-q' or
@@ -143,19 +160,24 @@ def selected_scratch_capacity(a, selection_authority, rows):
         raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and automatic proof')
     if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
         raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
-    return dict(FIXED44_SCRATCH_CAPACITY)
+    return dict(FIXED44_COOPERATIVE_SCRATCH_CAPACITY
+                if profile=='fixed44-cooperative-v1'
+                else FIXED44_SCRATCH_CAPACITY)
 
 def selected_scratch_resources(profile):
     if profile is None:return None
+    if profile=='fixed44-cooperative-v1':
+        return dict(FIXED44_COOPERATIVE_RESOURCE_PROFILE)
     if profile!='fixed44-whole-memory-v2':
         raise ValueError('unsupported scratch capacity profile')
     return dict(FIXED44_RESOURCE_PROFILE)
 
 def scratch_srun_prefix(resources):
     if resources is None:return []
+    cpus=resources.get('inner_step_cpus',resources.get('task_cpus'))
+    memory=resources.get('inner_step_memory_mib',resources.get('task_memory_mib'))
     return ['srun','--exact','--nodes=1','--ntasks=1',
-            f'--cpus-per-task={resources["inner_step_cpus"]}',
-            f'--mem={resources["inner_step_memory_mib"]}M','--cpu-bind=cores']
+            f'--cpus-per-task={cpus}',f'--mem={memory}M','--cpu-bind=cores']
 
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
@@ -249,9 +271,13 @@ def prepare(a):
     pin_dsr_transport(getattr(a, 'dsr_transport', None), c/'pins')
     with (c/'matrix.tsv').open('x',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
-    batch_cpus=(capacity_resources['outer_allocation_cpus']
+    batch_cpus=(capacity_resources.get('outer_allocation_cpus',
+                                       capacity_resources.get('task_cpus'))
                 if capacity_resources else a.cpus_per_task)
-    batch_memory=('0' if capacity_resources else '32768M')
+    batch_memory=(
+        ('0' if capacity_resources.get('outer_allocation_memory')=='all'
+         else f'{capacity_resources["task_memory_mib"]}M')
+        if capacity_resources else '32768M')
     def slurm_header(cpus, memory):
         return f'''#!/usr/bin/env bash
 #SBATCH --partition={a.partition}
@@ -267,7 +293,7 @@ def prepare(a):
     runtime_prefix=' '.join(scratch_srun_prefix(capacity_resources))
     runtime_command=(
         f'exec {runtime_prefix} python3 {c}/pins/runtime_task.py {c} '
-        f'"$SLURM_ARRAY_TASK_ID"' if capacity_resources else
+        f'"$SLURM_ARRAY_TASK_ID"' if runtime_prefix else
         f'exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"')
     (c/'array.sbatch').write_text(slurm_header(batch_cpus,batch_memory)+f'''#SBATCH --job-name=tierd-{commit[:8]}
 #SBATCH --time={slurm_time(wall)}
@@ -304,19 +330,30 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
-        caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
+        caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission, contention, ENOSPC, or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
                 if capacity_profile else
                 'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.'),
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     if capacity_profile:
         m['anonymous_scratch_capacity']=scratch_capacity
         m['scratch_capacity_profile']=capacity_profile
-        m['cleanup_contract'] += (' Each array task reserves all schedulable node memory with a '
-            '52-CPU outer allocation, then runs the solver/checker in a four-CPU, 32768-MiB '
-            'Slurm step. It admits only with at least '
-            '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
-            'and permits at most six simultaneously live anonymous files, preserving a '
-            'declared 40000000000-byte reserve for managed scratch.')
+        if capacity_profile=='fixed44-whole-memory-v2':
+            m['cleanup_contract'] += (' Each array task reserves all schedulable node memory with a '
+                '52-CPU outer allocation, then runs the solver/checker in a four-CPU, 32768-MiB '
+                'Slurm step. It admits only with at least '
+                '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
+                'and permits at most six simultaneously live anonymous files, preserving a '
+                'declared 40000000000-byte reserve for managed scratch.')
+        else:
+            m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
+                'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step and takes the '
+                'stable repository-wide node lock without waiting before scratch admission and '
+                'holds it through cleanup. Contention is retryable incomplete evidence. The lock '
+                'coordinates only jobs using this same profile; older or foreign jobs remain '
+                'external interference. It admits only with at least 400000000000 available bytes, '
+                'inherits a 60000000000-byte per-file limit, and permits at most six simultaneously '
+                'live anonymous files, preserving a declared 40000000000-byte reserve for managed '
+                'scratch. ENOSPC is incomplete infrastructure evidence.')
     if a.retain_failed_proof:
         m['failed_proof_retention']=dict(
             schema='tactix-failed-proof-retention-v1',
@@ -367,7 +404,8 @@ if __name__=='__main__':
     p.add_argument('--dsr-transport',type=Path)
     p.add_argument('--dsr-checker-profile',choices=['frozen','long64'],default='frozen',
                    help='immutable DSR elaborator/compressor pins; long64 selects the audited upstream LONGTYPE build, with unchanged independent Trestle verification')
-    p.add_argument('--scratch-capacity-profile',choices=['fixed44-whole-memory-v2'],
+    p.add_argument('--scratch-capacity-profile',choices=[
+        'fixed44-whole-memory-v2','fixed44-cooperative-v1'],
                    help='opt-in fixed-44 whole-memory allocation, bounded task step, and anonymous-file bounds')
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')

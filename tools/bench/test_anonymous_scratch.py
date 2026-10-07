@@ -105,6 +105,103 @@ class ScratchTests(unittest.TestCase):
             self.assertEqual(scratch.resource_status()['available_bytes'], 400)
             scratch.close()
 
+    def test_cooperative_lock_contention_crash_release_and_stable_inode(self):
+        script = r'''import json,os,sys,time
+from anonymous_scratch import AnonymousScratch, ScratchResourceError
+root=sys.argv[1];lock=root+'/private-locks'
+try:
+ s=AnonymousScratch(root,minimum_free_bytes=1,maximum_file_bytes=4096,
+   maximum_live_handles=2,cooperative_lock_directory=lock,
+   cooperative_lock_name='managed.lock')
+except ScratchResourceError as error:
+ print(json.dumps({'reason':error.scratch_reason}),flush=True);sys.exit(23)
+print(json.dumps(s.resource_status()['cooperative_lock']),flush=True)
+if sys.argv[2]=='hold':time.sleep(60)
+s.close()
+'''
+        environment = dict(os.environ, PYTHONPATH=str(Path(__file__).parent))
+        with tempfile.TemporaryDirectory() as tmp:
+            first = subprocess.Popen(
+                [sys.executable, '-c', script, tmp, 'hold'], env=environment,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                import json
+                identity = json.loads(first.stdout.readline())
+                lock_path = Path(tmp)/'private-locks/managed.lock'
+                self.assertTrue(lock_path.is_file())
+                inode = lock_path.stat().st_ino
+                self.assertEqual(identity['inode'], inode)
+                contender = subprocess.run(
+                    [sys.executable, '-c', script, tmp, 'once'], env=environment,
+                    capture_output=True, text=True, timeout=5)
+                self.assertEqual(contender.returncode, 23, contender.stderr)
+                self.assertEqual(json.loads(contender.stdout),
+                                 {'reason': 'scratch_node_busy'})
+                self.assertEqual(lock_path.stat().st_ino, inode)
+                first.kill()
+                first.wait(timeout=5)
+                resumed = subprocess.run(
+                    [sys.executable, '-c', script, tmp, 'once'], env=environment,
+                    capture_output=True, text=True, timeout=5)
+                self.assertEqual(resumed.returncode, 0, resumed.stderr)
+                self.assertEqual(json.loads(resumed.stdout)['inode'], inode)
+                self.assertEqual(lock_path.stat().st_ino, inode)
+            finally:
+                if first.poll() is None:
+                    first.kill()
+                    first.wait()
+                first.stdout.close()
+                first.stderr.close()
+
+    def test_cooperative_lock_rejects_nonprivate_directory_and_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            public = root/'public'
+            public.mkdir(mode=0o755)
+            with self.assertRaisesRegex(OSError, 'not private'):
+                AnonymousScratch(
+                    root, minimum_free_bytes=1, maximum_file_bytes=4096,
+                    maximum_live_handles=2,
+                    cooperative_lock_directory=public,
+                    cooperative_lock_name='managed.lock')
+            private = root/'private'
+            private.mkdir(mode=0o700)
+            target = root/'target'
+            target.write_text('unsafe')
+            (private/'managed.lock').symlink_to(target)
+            with self.assertRaises(OSError):
+                AnonymousScratch(
+                    root, minimum_free_bytes=1, maximum_file_bytes=4096,
+                    maximum_live_handles=2,
+                    cooperative_lock_directory=private,
+                    cooperative_lock_name='managed.lock')
+
+    def test_cooperative_admission_releases_lock_before_anonymous_open(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(os, 'statvfs', return_value=SimpleNamespace(
+                 f_bavail=399, f_frsize=1)), \
+             mock.patch.object(anonymous_scratch, 'anonymous_open_flag',
+                               side_effect=AssertionError('anonymous open')):
+            lock_directory = Path(tmp)/'private-locks'
+            with self.assertRaisesRegex(RuntimeError, 'scratch_admission'):
+                AnonymousScratch(
+                    tmp, minimum_free_bytes=400, maximum_file_bytes=60,
+                    maximum_live_handles=6,
+                    cooperative_lock_directory=lock_directory,
+                    cooperative_lock_name='managed.lock')
+            lock_path = lock_directory/'managed.lock'
+            inode = lock_path.stat().st_ino
+            # Admission released the flock but retained the one stable inode.
+            with mock.patch.object(os, 'statvfs', return_value=SimpleNamespace(
+                    f_bavail=399, f_frsize=1)):
+                with self.assertRaisesRegex(RuntimeError, 'scratch_admission'):
+                    AnonymousScratch(
+                        tmp, minimum_free_bytes=400, maximum_file_bytes=60,
+                        maximum_live_handles=6,
+                        cooperative_lock_directory=lock_directory,
+                        cooperative_lock_name='managed.lock')
+            self.assertEqual(lock_path.stat().st_ino, inode)
+
     def test_handle_cap_is_atomic_and_release_preserves_high_water(self):
         import resource
         with tempfile.TemporaryDirectory() as tmp, \

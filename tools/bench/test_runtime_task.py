@@ -11,9 +11,11 @@ import sys
 from unittest.mock import patch
 from runtime_task import (atomic_json, atomic_retain, checked_verdict_valid,
                           causal_preflight_contract, checker_timeout_for,
+                          effective_cgroup_memory_limit,
                           gf2_telemetry_contract,
                           expected_matches, failed_proof_retention_contract,
                           positive_timeout, provisional_result, solver_command,
+                          scratch_incomplete, scratch_resource_reason,
                           terminal_counter_summary)
 
 
@@ -53,7 +55,7 @@ class RuntimeTaskTests(unittest.TestCase):
         self.assertEqual(scratch_capacity_contract(manifest), contract)
         self.assertIsNone(scratch_capacity_contract({}))
         for changed, message in (
-                ({**manifest, 'resource_contract': {}}, 'whole-memory'),
+                ({**manifest, 'resource_contract': {}}, 'isolation'),
                 ({**manifest, 'gf2_telemetry': {}}, 'telemetry'),
                 ({**manifest, 'failed_proof_retention': {}}, 'retention'),
                 ({**manifest, 'anonymous_scratch_capacity': {
@@ -62,6 +64,71 @@ class RuntimeTaskTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(
                     RuntimeError, message):
                 scratch_capacity_contract(changed)
+
+    def test_cooperative_scratch_contract_and_resource_classification(self):
+        import errno
+        from runtime_task import scratch_capacity_contract
+        contract = {
+            'schema': 'tactix-anonymous-scratch-capacity-v2',
+            'directory': '/tmp', 'minimum_free_bytes': 400_000_000_000,
+            'maximum_file_bytes': 60_000_000_000,
+            'maximum_live_handles': 6, 'reserve_bytes': 40_000_000_000,
+            'cooperative_lock_directory': f'/tmp/tactix-sat-solving-{os.getuid()}',
+            'cooperative_lock_name': 'fixed44-managed-scratch.lock',
+        }
+        manifest = {
+            'scratch_policy': 'anonymous-local-files-v1',
+            'resource_contract': {
+                'partition': 'cpu-q', 'cpus_per_task': 4,
+                'memory_mib': 32768,
+                'scratch_isolation': {
+                    'schema': 'tactix-fixed44-cooperative-isolation-v1',
+                    'participant_scope': 'same-user-repository-profile',
+                    'task_cpus': 4, 'task_memory_mib': 32768,
+                }},
+            'anonymous_scratch_capacity': contract,
+        }
+        self.assertEqual(scratch_capacity_contract(manifest), contract)
+        for changed in (
+                {**contract, 'cooperative_lock_name': 'per-campaign.lock'},
+                {**contract, 'cooperative_lock_directory': '/tmp/public'}):
+            with self.assertRaisesRegex(RuntimeError, 'lock identity'):
+                scratch_capacity_contract({
+                    **manifest, 'anonymous_scratch_capacity': changed})
+        self.assertEqual(scratch_resource_reason(
+            OSError(errno.ENOSPC, 'full')), 'scratch_enospc')
+        self.assertEqual(scratch_resource_reason(
+            OSError(errno.EFBIG, 'large')), 'scratch_file_limit')
+        self.assertEqual(scratch_resource_reason(
+            subprocess.CalledProcessError(-signal.SIGXFSZ, ['xz'])),
+            'scratch_file_limit')
+        self.assertEqual(scratch_resource_reason(
+            subprocess.CalledProcessError(128 + signal.SIGXFSZ, ['xz'])),
+            'scratch_file_limit')
+        self.assertIsNone(scratch_resource_reason(OSError(errno.EIO, 'io')))
+        self.assertEqual(scratch_incomplete('scratch_node_busy'), {
+            'status': 'incomplete', 'reason': 'scratch_node_busy',
+            'details': {}, 'retryable': True})
+        self.assertNotIn('retryable', scratch_incomplete('scratch_enospc'))
+
+    def test_effective_cgroup_memory_limit_uses_tightest_ancestor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cgroup = root/'proc-cgroup'
+            cgroup.write_text('0::/job/step/user/task\n')
+            path = root/'job/step/user/task'
+            path.mkdir(parents=True)
+            for relative, value in (
+                    ('memory.max', 'max'),
+                    ('../memory.max', str(1 << 36)),
+                    ('../../memory.max', str(32 << 30)),
+                    ('../../../memory.max', 'max')):
+                target = path/relative
+                target.write_text(value+'\n')
+            (root/'memory.max').write_text('max\n')
+            limit, records = effective_cgroup_memory_limit(cgroup, root)
+            self.assertEqual(limit, 32 << 30)
+            self.assertEqual(len(records), 5)
 
     def test_measured_file_limit_reaps_the_process_group(self):
         script = r'''import json,os,resource,sys,tempfile,time
@@ -106,6 +173,25 @@ with tempfile.TemporaryDirectory() as tmp:
                      'import sys;sys.stderr.write("File too large\\n")'],
                     stdout, stderr, metrics, 10)
             self.assertEqual(result['resource_limit'], 'file_size')
+
+    def test_native_sigxfsz_is_classified_from_exit_status(self):
+        script = r'''import json,resource,tempfile
+from pathlib import Path
+from runtime_task import measured
+with tempfile.TemporaryDirectory() as tmp:
+ root=Path(tmp)
+ resource.setrlimit(resource.RLIMIT_FSIZE,(4096,4096))
+ result=measured(['head','-c','8192','/dev/zero'],root/'out',root/'err',root/'time',10)
+ print(json.dumps(result))
+'''
+        environment = dict(os.environ, PYTHONPATH=str(Path(__file__).parent))
+        completed = subprocess.run(
+            [sys.executable, '-c', script], env=environment,
+            capture_output=True, text=True, timeout=10)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['resource_limit'], 'file_size')
+        self.assertIn(result['exit_code'], (153, -signal.SIGXFSZ))
 
     def test_runtime_capacity_failures_are_terminal_infrastructure_records(self):
         import lzma
