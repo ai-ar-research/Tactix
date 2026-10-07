@@ -627,7 +627,7 @@ static void test_action_kind(void) {
       "SemanticVariableAdvice", "Gf3AffineConsequence",
       "DirectCspSupport", "DirectPhpRefutation",
       "Gf3GaussianConsequence", "TseitinCycleBreaking",
-      "NaryCspPrefix", "GraphIntervalEquivalence",
+      "Retired39", "GraphIntervalEquivalence",
       "AffineMatrixInitialize", "NaryCspEquality",
       "Gf3GeneralRowConsequence", "NaryCspEqualityAmo", "NaryCspEqualityTransitivity"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
@@ -651,6 +651,7 @@ static void test_action_kind(void) {
   int policy_ops = 0;
   for (int i = 0; i < n; i++) {
     const int k = tactix_action_kind(i);
+    if (i == 39) { assert(k == -1); continue; }
     assert(k == TACTIX_ACTION_PROOF_RULE || k == TACTIX_ACTION_POLICY_OP);
     if (k == TACTIX_ACTION_POLICY_OP)
       policy_ops++;

@@ -170,26 +170,6 @@ struct RandomOnlineConfig {
     result.allow_extension = true;
     return result;
   }();
-  NaryCspPrefixParameters nary_csp_prefix_reference = [] {
-    NaryCspPrefixParameters result;
-    result.maximum_source_clauses = 100000;
-    result.maximum_source_literals = 1000000;
-    result.maximum_recognition_work = 10000000;
-    result.maximum_domains = 8;
-    result.maximum_domain_values = 16;
-    result.maximum_forbidden_tuples = 100000;
-    result.maximum_prefix_arity = 7;
-    result.maximum_definition_clause_literals = 16;
-    result.maximum_proof_work = 10000000;
-    result.maximum_proof_additions = 100000;
-    result.maximum_proof_literal_occurrences = 1000000;
-    result.maximum_journal_bytes = 10000000;
-    result.maximum_extent_growth = 1;
-    result.maximum_external_extent = 1000000;
-    result.maximum_session_keys = 10000;
-    result.maximum_session_work = 10000000;
-    return result;
-  }();
   NaryCspEqualityParameters nary_csp_equality_reference = [] {
     NaryCspEqualityParameters result;
     result.maximum_source_clauses = 100000;

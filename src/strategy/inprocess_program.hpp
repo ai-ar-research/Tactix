@@ -68,7 +68,7 @@ using ActionParameters =
                  AffineConsequenceParameters, ExactCoverExtensionParameters,
                  IndependentSetCoverParameters,
                  Gf3AffineConsequenceParameters, DirectCspSupportParameters,
-                 NaryCspPrefixParameters, NaryCspEqualityParameters,
+                 NaryCspEqualityParameters,
                  NaryCspEqualityAmoParameters,
                  DirectPhpRefutationParameters,
                  Gf3GaussianConsequenceParameters,
@@ -127,7 +127,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {25, "DirectPhpRefutation", Probe, false},
       {26, "Gf3GaussianConsequence", Probe, false},
       {27, "TseitinCycleBreaking", Probe, false},
-      {28, "NaryCspPrefix", Probe, false},
+      // StepId 28 is retired and must never be reused.
       {29, "GraphIntervalEquivalence", Probe, false},
       {30, "AffineMatrixInitialize", Probe, false},
       {31, "NaryCspEquality", Probe, false},
@@ -164,6 +164,8 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
   };
   for (size_t i = 0; i < program.size(); ++i) {
     const InprocessStep &step = program[i];
+    if (step.id == 28)
+      return reject("StepId 28 is retired");
     if (!step.id)
       return reject("StepId zero is reserved");
     if (step.rule.empty())
@@ -239,10 +241,6 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<DirectCspSupportParameters>(&step.parameters)) {
       if (step.rule != "DirectCspSupport" || !p->valid())
         return reject("DirectCspSupport parameters are invalid or misplaced");
-    } else if (const auto *p =
-                   std::get_if<NaryCspPrefixParameters>(&step.parameters)) {
-      if (step.rule != "NaryCspPrefix" || !p->valid())
-        return reject("NaryCspPrefix parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<NaryCspEqualityParameters>(&step.parameters)) {
       if (step.rule != "NaryCspEquality" || !p->valid())

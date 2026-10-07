@@ -373,7 +373,6 @@ REACH_SPECS = [
     ("TseitinCycleBreaking", r"^c tseitin-cycle\s+(\d+) attempts,"),
     # One attempt means an exact nested domain/residual/prefix payload crossed
     # the shared executor. Applied alone would hide sound declines.
-    ("NaryCspPrefix", r"^c nary-csp\s+(\d+) attempts,"),
     # These typed actions increment their attempt counters only after the
     # shared executor crosses the exact public-action boundary.
     ("NaryCspEquality", r"^c nary-eq\s+(\d+) attempts,"),

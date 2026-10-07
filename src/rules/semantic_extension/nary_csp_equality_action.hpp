@@ -94,7 +94,8 @@ struct NaryCspEqualityActionOfferResult {
 };
 
 // Enumerate only canonical equality coordinate choices from exact owners that
-// X17 has already retained.  The offerer is read-only and caller-bounded.
+// the neutral relation session has authenticated. The offerer is read-only
+// and caller-bounded.
 NaryCspEqualityActionOfferResult nary_csp_equality_action_offer(
     Kernel &, const NaryCspRelationOwnerSession &,
     const NaryCspEqualitySession &, const NaryCspEqualityLimits &,

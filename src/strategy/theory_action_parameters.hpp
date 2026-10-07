@@ -191,27 +191,6 @@ struct DirectCspSupportParameters {
   static DirectCspSupportParameters from_kernel(const Kernel &);
 };
 
-struct NaryCspPrefixParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domains = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint32_t maximum_prefix_arity = 0;
-  uint32_t maximum_definition_clause_literals = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
-
-  bool valid() const;
-  static NaryCspPrefixParameters from_kernel(const Kernel &);
-};
 
 struct NaryCspEqualityParameters {
   uint64_t maximum_source_clauses = 0;
@@ -409,7 +388,6 @@ void install_rule_parameters(Kernel &, const ExactCoverExtensionParameters &);
 void install_rule_parameters(Kernel &, const IndependentSetCoverParameters &);
 void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const DirectCspSupportParameters &);
-void install_rule_parameters(Kernel &, const NaryCspPrefixParameters &);
 void install_rule_parameters(Kernel &, const NaryCspEqualityParameters &);
 void install_rule_parameters(Kernel &, const NaryCspEqualityTransitivityParameters &);
 void install_rule_parameters(Kernel &, const NaryCspEqualityAmoParameters &);

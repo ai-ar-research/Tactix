@@ -73,12 +73,6 @@ static void synthetic(FeedbackTrace &trace, bool changed = false) {
   action.request->invocation.rule = "Rephase";
   ActionProducerEffort effort{
       "Gf3AffineConsequence", 6, false, 11, 13, 24, 3, 1};
-  effort.have_detector_census = true;
-  effort.candidate_domains = 12;
-  effort.exact_domains = 3;
-  effort.relation_keys = 0;
-  effort.tuple_occurrences = 0;
-  effort.first_decline_reason = 11;
   action.request->producer_effort.push_back(std::move(effort));
   action.allowance = ActionAllowance{WorkUnit::Applications, 0, {}};
   action.stop = StopReason::Budget;
@@ -195,11 +189,7 @@ static void test_codec(const char *path) {
   assert(original.find("\"local_search_last_target_decision_matched\":true") !=
          std::string::npos);
   assert(original.find("\"total_work\":24") != std::string::npos);
-  assert(original.find("\"detector_census\":{\"candidate_domains\":12,"
-                       "\"exact_domains\":3,\"relation_keys\":0,"
-                       "\"tuple_occurrences\":0,"
-                       "\"first_decline_reason\":11}") !=
-         std::string::npos);
+
   assert(original.find("rule_nanos") == std::string::npos);
   assert(original.find("solve_nanos") == std::string::npos);
   {

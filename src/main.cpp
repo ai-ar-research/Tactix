@@ -27,7 +27,6 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/lucky/nol_hypergraph_model.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -196,7 +195,6 @@ int main(int argc, char **argv) {
   bool controller_period_set = false;
   bool controller_retention_set = false;
   bool controller_native_producers_set = false;
-  bool controller_nary_csp_census_set = false;
   bool controller_families_set = false;
   bool controller_search_configurations_set = false;
   const char *controller_actions_path = nullptr;
@@ -319,7 +317,6 @@ int main(int argc, char **argv) {
         controller_config.affine_basis_action_producer.enabled = enabled;
         controller_config.gf3_action_producer.enabled = enabled;
         controller_config.direct_csp_action_producer.enabled = enabled;
-        controller_config.nary_csp_action_producer.enabled = enabled;
         controller_config.nary_csp_equality_action_producer.enabled = enabled;
         controller_config.nary_csp_equality_amo_producer.enabled = enabled;
         controller_config.gf3_gaussian_action_producer.enabled = enabled;
@@ -342,8 +339,6 @@ int main(int argc, char **argv) {
             controller_config.gf3_action_producer.enabled = true;
           else if (name == "direct-csp")
             controller_config.direct_csp_action_producer.enabled = true;
-          else if (name == "nary-csp")
-            controller_config.nary_csp_action_producer.enabled = true;
           else if (name == "nary-csp-equality")
             controller_config.nary_csp_equality_action_producer.enabled = true;
           else if (name == "nary-csp-equality-amo")
@@ -367,9 +362,6 @@ int main(int argc, char **argv) {
         }
       }
       controller_native_producers_set = true;
-    } else if (!strcmp(a, "--controller-nary-csp-census")) {
-      controller_config.nary_csp_action_producer.diagnostic_census_once = true;
-      controller_nary_csp_census_set = true;
     } else if (!strncmp(a, "--controller-search-configurations=", 35)) {
       const char *value = a + 35;
       if (!strcmp(value, "all")) {
@@ -505,7 +497,6 @@ int main(int argc, char **argv) {
              "[--controller-actions=FILE | --controller-families=LIST] "
              "[--controller-startup-prefix=FILE] "
              "[--controller-native-producers=all|none|LIST] "
-             "[--controller-nary-csp-census] "
              "[--controller-search-configurations=all|LIST] "
              "[--controller-gf2-affine-profile=FILE] "
              "[--controller-direct-csp-profile=FILE] "
@@ -518,7 +509,7 @@ int main(int argc, char **argv) {
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
-      puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,nary-csp,"
+      puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,"
            "nary-csp-equality,nary-csp-equality-amo,gf3-gaussian,"
            "gf3-general-row,tseitin-cycle");
       puts("  controller family LIST: comma-separated canonical root-action "
@@ -641,7 +632,6 @@ int main(int argc, char **argv) {
       (controller_trace_path && !controller_policy) ||
       ((controller_effort_set || controller_period_set || controller_retention_set ||
         controller_native_producers_set || controller_families_set ||
-        controller_nary_csp_census_set ||
         controller_search_configurations_set ||
         controller_actions_path || controller_startup_prefix_path ||
         controller_gf2_affine_profile_path ||
@@ -651,13 +641,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "tactix: --controller-policy selects an attached controller "
                     "and cannot be combined with another policy or legacy trace; "
                     "controller settings require it\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (controller_nary_csp_census_set &&
-      !controller_config.nary_csp_action_producer.enabled) {
-    fprintf(stderr, "tactix: --controller-nary-csp-census requires the "
-                    "nary-csp native producer\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -779,7 +762,6 @@ int main(int argc, char **argv) {
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
   NolHypergraphWalkSession nol_hypergraph_walk_session;
-  NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspRelationOwnerSession nary_csp_relation_owner_session;
   NaryCspEqualitySession nary_csp_equality_session;
   NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
@@ -800,7 +782,6 @@ int main(int argc, char **argv) {
   kernel.direct_csp_guarded_cover_action_session =
       &direct_csp_guarded_cover_action_session;
   kernel.nol_hypergraph_walk_session = &nol_hypergraph_walk_session;
-  kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
   kernel.nary_csp_relation_owner_session = &nary_csp_relation_owner_session;
   kernel.nary_csp_equality_session = &nary_csp_equality_session;
   kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
@@ -1678,21 +1659,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.tseitin_cycle_interrupted,
            (unsigned long long)kernel.stats.tseitin_cycle_stale,
            (unsigned long long)kernel.stats.tseitin_cycle_unsupported_proof);
-    printf("c nary-csp   %llu attempts, %llu applied, %llu no-structure, "
-           "%llu no-consequence, %llu already-published, %llu invalid, "
-           "%llu inapplicable, %llu exhausted, %llu interrupted, %llu stale, "
-           "%llu unsupported-proof\n",
-           (unsigned long long)kernel.stats.nary_csp_prefix_attempts,
-           (unsigned long long)kernel.stats.nary_csp_prefix_applied,
-           (unsigned long long)kernel.stats.nary_csp_prefix_no_structure,
-           (unsigned long long)kernel.stats.nary_csp_prefix_no_consequence,
-           (unsigned long long)kernel.stats.nary_csp_prefix_already_published,
-           (unsigned long long)kernel.stats.nary_csp_prefix_invalid,
-           (unsigned long long)kernel.stats.nary_csp_prefix_inapplicable,
-           (unsigned long long)kernel.stats.nary_csp_prefix_resource_exhausted,
-           (unsigned long long)kernel.stats.nary_csp_prefix_interrupted,
-           (unsigned long long)kernel.stats.nary_csp_prefix_stale,
-           (unsigned long long)kernel.stats.nary_csp_prefix_unsupported_proof);
     printf("c nary-eq    %llu attempts, %llu applied, %llu no-structure, "
            "%llu no-consequence, %llu already-published, %llu invalid, "
            "%llu inapplicable, %llu exhausted, %llu interrupted, %llu stale, "

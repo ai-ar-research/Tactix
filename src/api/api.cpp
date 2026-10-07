@@ -24,7 +24,6 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/lucky/nol_hypergraph_model.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -60,7 +59,6 @@ struct tactix_solver {
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
   NolHypergraphWalkSession nol_hypergraph_walk_session;
-  NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspRelationOwnerSession nary_csp_relation_owner_session;
   NaryCspEqualitySession nary_csp_equality_session;
   NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
@@ -91,7 +89,6 @@ struct tactix_solver {
     kernel.direct_csp_guarded_cover_action_session =
         &direct_csp_guarded_cover_action_session;
     kernel.nol_hypergraph_walk_session = &nol_hypergraph_walk_session;
-    kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
     kernel.nary_csp_relation_owner_session = &nary_csp_relation_owner_session;
     kernel.nary_csp_equality_session = &nary_csp_equality_session;
     kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
@@ -594,29 +591,8 @@ bool online_parameters(const tactix_online_parameters &source,
     target = converted;
     return true;
   }
-  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX: {
-    const auto &p = source.value.nary_csp_prefix;
-    strategy::NaryCspPrefixParameters converted{
-        p.maximum_source_clauses,
-        p.maximum_source_literals,
-        p.maximum_recognition_work,
-        p.maximum_domains,
-        p.maximum_domain_values,
-        p.maximum_forbidden_tuples,
-        p.maximum_prefix_arity,
-        p.maximum_definition_clause_literals,
-        p.maximum_proof_work,
-        p.maximum_proof_additions,
-        p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes,
-        p.maximum_extent_growth,
-        p.maximum_external_extent,
-        p.maximum_session_keys,
-        p.maximum_session_work};
-    if (!converted.valid()) return false;
-    target = converted;
-    return true;
-  }
+  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX:
+    return false; // Retired tag 42; never reinterpret old payloads.
   case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY: {
     const auto &p = source.value.nary_csp_equality;
     strategy::NaryCspEqualityParameters converted{
@@ -1234,6 +1210,7 @@ bool online_program(const tactix_online_program &source, const Kernel &kernel,
   for (int i = 0; i < source.step_count; ++i) {
     const tactix_online_step &in = source.steps[i];
     if (in.rule_id < 0 || in.rule_id >= static_cast<int>(rules.size()) ||
+        rules[in.rule_id].retired ||
         in.instance_count < 0 || in.factor_grid_count < 0 ||
         (in.instance_count && !in.instances) ||
         (in.factor_grid_count && !in.factor_grids))
@@ -1637,43 +1614,10 @@ bool online_program_v8(const tactix_online_program_v8 &source,
   if (!online_program_v7(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input_step = source.steps[i];
-    if (input_step.nary_csp_prefix_instance_count < 0 ||
-        (input_step.nary_csp_prefix_instance_count &&
-         !input_step.nary_csp_prefix_instances))
+    // The inherited v8 ABI slots stay physical, but X17 payloads are retired.
+    if (input_step.nary_csp_prefix_instance_count != 0 ||
+        input_step.nary_csp_prefix_instances != nullptr)
       return false;
-    auto &output = target.sequence[i].nary_csp_prefix_instances;
-    output.reserve(
-        static_cast<size_t>(input_step.nary_csp_prefix_instance_count));
-    for (int j = 0; j < input_step.nary_csp_prefix_instance_count; ++j) {
-      const auto &input = input_step.nary_csp_prefix_instances[j];
-      if (input.domain_count < 0 || input.prefix_count < 0 ||
-          (input.domain_count && !input.domains) ||
-          (input.prefix_count && !input.prefix))
-        return false;
-      NaryCspPrefixActionSelection selection;
-      selection.domains.reserve(static_cast<size_t>(input.domain_count));
-      for (int domain = 0; domain < input.domain_count; ++domain) {
-        const auto &source_domain = input.domains[domain];
-        if (source_domain.value_count < 0 ||
-            (source_domain.value_count && !source_domain.values))
-          return false;
-        std::vector<int32_t> values;
-        values.reserve(static_cast<size_t>(source_domain.value_count));
-        for (int value = 0; value < source_domain.value_count; ++value) {
-          const int64_t literal = source_domain.values[value];
-          if (literal < INT32_MIN || literal > INT32_MAX) return false;
-          values.push_back(static_cast<int32_t>(literal));
-        }
-        selection.domains.push_back(std::move(values));
-      }
-      selection.prefix.residual_domain = input.residual_domain;
-      selection.prefix.prefix.reserve(static_cast<size_t>(input.prefix_count));
-      for (int choice = 0; choice < input.prefix_count; ++choice)
-        selection.prefix.prefix.push_back(
-            {input.prefix[choice].domain, input.prefix[choice].value});
-      if (!nary_csp_prefix_action_selection_valid(selection)) return false;
-      output.push_back(std::move(selection));
-    }
   }
   return !validate || strategy::validate_online_strategy_program(target);
 }
@@ -2493,7 +2437,8 @@ const char *tactix_rule_name(int rule_id) {
 
 int tactix_action_kind(int rule_id) {
   const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired)
     return -1;
   return static_cast<int>(rules[rule_id].kind);
 }
@@ -2529,7 +2474,8 @@ static int result_code(tactix_solver *solver, ApplyResult res) {
 int tactix_apply(tactix_solver *s, int rule_id) {
   input_complete(s);
   const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired)
     return -1;
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
@@ -2544,7 +2490,8 @@ int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
                           int cap) {
   input_complete(s);
   const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) || cap < 0)
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired || cap < 0)
     return -1;
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
@@ -2561,7 +2508,8 @@ int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
 int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   input_complete(s);
   const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired)
     return -1;
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
@@ -2642,7 +2590,8 @@ int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,
                                    uint64_t *out, int cap) {
   input_complete(s);
   const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) || cap < 0)
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired || cap < 0)
     return -1;
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
@@ -2662,7 +2611,8 @@ int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
                                    uint64_t instance) {
   input_complete(s);
   const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) ||
+      rules[rule_id].retired)
     return -1;
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))

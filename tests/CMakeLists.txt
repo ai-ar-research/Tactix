@@ -415,14 +415,6 @@ add_test(NAME micro_proofs
                  $<TARGET_FILE:test_ulc_rat>)
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
-# X17 accepts unrelated propagated level-zero assignments without
-# residualizing source clauses; verify its DSR additions through the complete
-# pinned checker pipeline before CDCL closes the tiny UNSAT fixture.
-add_test(NAME nary_csp_root_fixed_proof
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/nary_csp_root_fixed_proof.sh
-                 $<TARGET_FILE:test_nary_csp_prefix_live>
-                 ${CMAKE_SOURCE_DIR})
-set_tests_properties(nary_csp_root_fixed_proof PROPERTIES SKIP_RETURN_CODE 77)
 
 # Compact aligned-domain equality abstraction for ternary diagonal nogoods:
 # validate the pure planner/model projection and every RAT/RUP lemma through

@@ -19,7 +19,7 @@ enum class SemanticVariableProducer : uint8_t {
   IndependentSet = 2,
   Gf3Affine = 3,
   DirectCsp = 4,
-  NaryCsp = 5,
+  RetiredNaryCsp = 5, // Reserved producer wire identity; never published.
   NaryCspEquality = 6,
   Gf3GeneralRow = 7,
   Count = 8,
@@ -30,7 +30,8 @@ inline constexpr size_t SEMANTIC_VARIABLE_PRODUCER_COUNT =
 
 inline constexpr bool valid_semantic_variable_producer(
     SemanticVariableProducer producer) {
-  return static_cast<size_t>(producer) < SEMANTIC_VARIABLE_PRODUCER_COUNT;
+  return producer != SemanticVariableProducer::RetiredNaryCsp &&
+         static_cast<size_t>(producer) < SEMANTIC_VARIABLE_PRODUCER_COUNT;
 }
 
 struct SemanticVariable {

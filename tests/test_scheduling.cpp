@@ -968,10 +968,8 @@ static void test_authored_slot_order_covers_registry(void) {
            "in the reference strategy program (SCHED-D1); the append fallback puts it last "
            "by accident, which is the T6 defect");
   }
-  const int x17 = tactix_rule_id("NaryCspPrefix");
-  assert(x17 >= 0 && rules[x17].tier == RuleTier::Inprocess &&
-         !rules[x17].default_inprocess &&
-         "X17 stays public but must never be appended to DefaultPolicy");
+  assert(tactix_rule_id("NaryCspPrefix") == -1);
+  assert(rules[39].retired && !rules[39].default_inprocess);
   for (size_t o = 0; o < norder; o++) {
     bool found = false;
     for (const RuleVTable &r : rules)
@@ -1001,7 +999,7 @@ static void test_inprocess_registry_requires_root(void) {
   kernel_reserve_vars(k, 4);
   ScopedHeuristics heuristics(k);
   for (const RuleVTable &rule : tactix_rules()) {
-    if (rule.tier != RuleTier::Inprocess)
+    if (rule.retired || rule.tier != RuleTier::Inprocess)
       continue;
     // Ordinary inprocessing rules must be positively eligible at a clean
     // root. Certified theory actions additionally require provenance and, for
@@ -1018,7 +1016,6 @@ static void test_inprocess_registry_requires_root(void) {
         !std::strcmp(rule.name, "Gf3GaussianConsequence") ||
         !std::strcmp(rule.name, "Gf3GeneralRowConsequence") ||
         !std::strcmp(rule.name, "TseitinCycleBreaking") ||
-        !std::strcmp(rule.name, "NaryCspPrefix") ||
         !std::strcmp(rule.name, "NaryCspEquality") ||
         !std::strcmp(rule.name, "NaryCspEqualityAmo") ||
         !std::strcmp(rule.name, "NaryCspEqualityTransitivity") ||
@@ -1131,7 +1128,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
       "Gf3AffineConsequence", "DirectCspSupport",
       "DirectPhpRefutation", "Gf3GaussianConsequence",
-      "TseitinCycleBreaking", "NaryCspPrefix", "NaryCspEquality",
+      "TseitinCycleBreaking", "NaryCspEquality",
       "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
       "Gf3GeneralRowConsequence",
       "GraphIntervalEquivalence",

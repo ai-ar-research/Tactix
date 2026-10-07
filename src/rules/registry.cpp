@@ -4,7 +4,6 @@
 #include "strategy/action_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
@@ -31,9 +30,6 @@ ApplyResult direct_csp_support_canonical_noop(Kernel &) {
 }
 ApplyResult gf3_gaussian_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
 ApplyResult tseitin_cycle_breaking_canonical_noop(Kernel &) {
-  return ApplyResult::NoOp;
-}
-ApplyResult nary_csp_prefix_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
 ApplyResult nary_csp_equality_canonical_noop(Kernel &) {
@@ -99,11 +95,6 @@ RuleEligibility tseitin_cycle_breaking_registry_guard(const Kernel &kernel) {
                      kernel.tseitin_cycle_breaking_session != nullptr);
 }
 
-RuleEligibility nary_csp_prefix_registry_guard(const Kernel &kernel) {
-  RuleEligibility result = nary_csp_prefix_action_guard(kernel);
-  return result.fact("session-bound",
-                     kernel.nary_csp_prefix_action_session != nullptr);
-}
 
 RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
   RuleEligibility result = nary_csp_equality_action_guard(kernel);
@@ -153,9 +144,6 @@ TACTIX_REGISTER_RULE(Gf3GaussianConsequence, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(TseitinCycleBreaking, RuleTier::Inprocess,
                      tseitin_cycle_breaking_registry_guard,
                      tseitin_cycle_breaking_canonical_noop);
-TACTIX_REGISTER_OPT_IN_RULE(NaryCspPrefix, RuleTier::Inprocess,
-                            nary_csp_prefix_registry_guard,
-                            nary_csp_prefix_canonical_noop);
 TACTIX_REGISTER_RULE(NaryCspEquality, RuleTier::Inprocess,
                      nary_csp_equality_registry_guard,
                      nary_csp_equality_canonical_noop);
@@ -271,13 +259,13 @@ const std::vector<RuleVTable> &tactix_rules() {
         "AffineConsequence", "ExactCoverExtension", "IndependentSetCover",
         "SemanticVariableAdvice", "Gf3AffineConsequence",
         "DirectCspSupport", "DirectPhpRefutation",
-        "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix",
+        "Gf3GaussianConsequence", "TseitinCycleBreaking", nullptr, // Retired X17 registry ID 39.
         "GraphIntervalEquivalence", "AffineMatrixInitialize",
         "NaryCspEquality", "Gf3GeneralRowConsequence",
         "NaryCspEqualityAmo", "NaryCspEqualityTransitivity"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
-    if (registered.size() != count) {
+    if (registered.size() + 1 != count) {
       std::fprintf(stderr,
                    "c ERROR: registry has %zu actions but %zu frozen IDs; "
                    "append new action names to registry.cpp\n",
@@ -287,6 +275,18 @@ const std::vector<RuleVTable> &tactix_rules() {
     std::vector<RuleVTable> rules;
     rules.reserve(count);
     for (const char *name : names) {
+      if (!name) {
+        RuleVTable retired{"Retired39", RuleTier::Inprocess,
+                          [](const Kernel &) {
+                            return RuleEligibility{}.fact("retired", false);
+                          },
+                          [](Kernel &) { return ApplyResult::NoOp; }};
+        retired.id = static_cast<uint32_t>(rules.size());
+        retired.default_inprocess = false;
+        retired.retired = true;
+        rules.push_back(retired);
+        continue;
+      }
       const auto match = std::find_if(
           registered.begin(), registered.end(),
           [name](const RuleVTable &rule) {
@@ -473,7 +473,7 @@ ApplyResult journal_direct_rule(Kernel &k, const char *name,
 int tactix_rule_id(const char *name) {
   const auto &rules = tactix_rules();
   for (size_t i = 0; i < rules.size(); i++)
-    if (!std::strcmp(rules[i].name, name))
+    if (!rules[i].retired && !std::strcmp(rules[i].name, name))
       return static_cast<int>(i);
   return -1;
 }
