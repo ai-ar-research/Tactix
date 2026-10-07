@@ -1,0 +1,1 @@
+PASS: complete parsing/hash, original occurrence witnesses, RUP, exhaustive soundness, nontrivial support, missing premises, duplicate/reachability suppression, EOF/CRC/header/work/wall/memory bounds
