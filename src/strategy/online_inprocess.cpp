@@ -140,6 +140,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "NaryCspPrefix";
   if (std::holds_alternative<NaryCspEqualityParameters>(step.parameters))
     return step.rule == "NaryCspEquality";
+  if (std::holds_alternative<NaryCspEqualityTransitivityParameters>(step.parameters))
+    return step.rule == "NaryCspEqualityTransitivity";
   if (std::holds_alternative<NaryCspEqualityAmoParameters>(step.parameters))
     return step.rule == "NaryCspEqualityAmo";
   if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
@@ -339,6 +341,8 @@ NaryCspEqualityAmoLimits nary_csp_equality_amo_limits(
           p.maximum_journal_bytes, p.maximum_external_extent,
           p.maximum_session_keys};
 }
+
+NaryCspEqualityTransitivityLimits nary_csp_equality_transitivity_limits(const NaryCspEqualityTransitivityParameters &p) { return {p.maximum_source_clauses,p.maximum_source_literals,p.maximum_recognition_work,p.maximum_planning_work,p.maximum_domain_values,p.maximum_forbidden_tuples,p.maximum_proof_work,p.maximum_proof_additions,p.maximum_proof_literal_occurrences,p.maximum_journal_bytes,p.maximum_external_extent,p.maximum_session_keys,p.maximum_session_bytes,p.maximum_arena_words,p.maximum_watch_words,p.maximum_preparation_bytes}; }
 
 DirectPhpActionLimits direct_php_limits(
     const DirectPhpRefutationParameters &p) {
@@ -679,6 +683,56 @@ void record_nary_csp_equality_amo_feedback(
       k.nary_csp_equality_amo_session->keys().size() > keys_before;
 }
 
+void record_nary_csp_equality_transitivity_feedback(
+    Kernel &k, const NaryCspEqualityTransitivityResult &result, size_t keys_before) {
+  ++k.stats.nary_csp_equality_transitivity_attempts;
+  switch (result.status) {
+  case NaryCspEqualityTransitivityStatus::Applied:
+    ++k.stats.nary_csp_equality_transitivity_applied; break;
+  case NaryCspEqualityTransitivityStatus::MissingEquality:
+    ++k.stats.nary_csp_equality_transitivity_missing_equality; break;
+  case NaryCspEqualityTransitivityStatus::Stale:
+    ++k.stats.nary_csp_equality_transitivity_stale; break;
+  case NaryCspEqualityTransitivityStatus::Duplicate:
+    ++k.stats.nary_csp_equality_transitivity_duplicate; break;
+  case NaryCspEqualityTransitivityStatus::Invalid:
+    ++k.stats.nary_csp_equality_transitivity_invalid;
+    ++k.stats.nary_csp_equality_transitivity_declined; break;
+  case NaryCspEqualityTransitivityStatus::Inapplicable:
+    ++k.stats.nary_csp_equality_transitivity_inapplicable;
+    ++k.stats.nary_csp_equality_transitivity_declined; break;
+  case NaryCspEqualityTransitivityStatus::ResourceExhausted:
+    ++k.stats.nary_csp_equality_transitivity_resource_exhausted;
+    ++k.stats.nary_csp_equality_transitivity_declined; break;
+  case NaryCspEqualityTransitivityStatus::Interrupted:
+    ++k.stats.nary_csp_equality_transitivity_interrupted;
+    ++k.stats.nary_csp_equality_transitivity_declined; break;
+  case NaryCspEqualityTransitivityStatus::UnsupportedProof:
+    ++k.stats.nary_csp_equality_transitivity_unsupported_proof;
+    ++k.stats.nary_csp_equality_transitivity_declined; break;
+  default:
+    ++k.stats.nary_csp_equality_transitivity_declined; break;
+  }
+  k.stats.nary_csp_equality_transitivity_recognition_work += result.recognition_work;
+  k.stats.nary_csp_equality_transitivity_proof_work += result.proof_work;
+  k.stats.nary_csp_equality_transitivity_proof_additions += result.proof_additions;
+  k.stats.nary_csp_equality_transitivity_proof_deletions += result.proof_deletions;
+  k.stats.nary_csp_equality_transitivity_proof_literal_occurrences +=
+      result.proof_literal_occurrences;
+  k.stats.nary_csp_equality_transitivity_journal_bytes += result.journal_bytes;
+  k.stats.nary_csp_equality_transitivity_ternary_clauses +=
+      result.published_consequences.size();
+  k.stats.nary_csp_equality_transitivity_session_commits +=
+      k.nary_csp_equality_transitivity_session &&
+      k.nary_csp_equality_transitivity_session->keys().size() > keys_before;
+
+  k.stats.nary_csp_equality_transitivity_planning_work += result.planning_work;
+  k.stats.nary_csp_equality_transitivity_preparation_work += result.preparation_work;
+  k.stats.nary_csp_equality_transitivity_source_clauses += result.source_clauses;
+  k.stats.nary_csp_equality_transitivity_source_literals += result.source_literals;
+  k.stats.nary_csp_equality_transitivity_session_bytes += result.session_bytes;
+}
+
 } // namespace
 
 bool validate_online_strategy_program(const OnlineStrategyProgram &program,
@@ -995,6 +1049,15 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.nary_csp_equality_instances.empty() &&
         step.rule != "NaryCspEquality")
       return reject("n-ary CSP equalities are attached to a different rule");
+    if (step.rule == "NaryCspEqualityTransitivity") {
+      const auto *p=std::get_if<NaryCspEqualityTransitivityParameters>(&step.parameters);
+      if (!p || !p->valid() || step.nary_csp_equality_transitivity_instances.empty() ||
+          step.granularity==InvocationGranularity::NativeProducerOffer)
+        return reject("transitivity requires positive typed limits and explicit selections");
+    }
+    if (!step.nary_csp_equality_transitivity_instances.empty() &&
+        step.rule != "NaryCspEqualityTransitivity")
+      return reject("transitivity payload belongs to a different rule");
     if (!step.nary_csp_equality_amo_instances.empty() &&
         step.rule != "NaryCspEqualityAmo")
       return reject("n-ary CSP equality AMOs are attached to a different rule");
@@ -1171,6 +1234,23 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         if (!nary_csp_equality_action_selection_within_limits(instance, limits))
           return reject("n-ary CSP equality is malformed or exceeds limits");
     }
+    if (!step.nary_csp_equality_transitivity_instances.empty()) {
+      const auto *p=std::get_if<NaryCspEqualityTransitivityParameters>(&step.parameters);
+      if (!p || !p->valid() || step.nary_csp_equality_transitivity_instances.size()>p->maximum_session_keys)
+        return reject("transitivity typed limits are missing or exceeded");
+      for(const auto &v:step.nary_csp_equality_transitivity_instances) {
+        if (!nary_csp_equality_transitivity_selection_valid(v)) return reject("malformed transitivity selection");
+        const auto domain_ok=[&](const auto &d) {
+          if(d.size()>p->maximum_domain_values) return false;
+          for(auto l:d) if(uint64_t(l<0?-int64_t(l):l)>=p->maximum_external_extent) return false;
+          return true;
+        };
+        for(const auto &d:v.domains) if(!domain_ok(d)) return reject("transitivity domain exceeds limits");
+        for(const auto &key:v.equalities) for(const auto &d:key.domains)
+          if(!domain_ok(d)) return reject("transitivity owner exceeds limits");
+        for(auto v:v.equality_variables) if(v>=p->maximum_external_extent) return reject("transitivity variable exceeds limits");
+      }
+    }
     if (!step.nary_csp_equality_amo_instances.empty()) {
       const auto *p =
           std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
@@ -1207,6 +1287,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.direct_csp_support_instances.empty() +
         !step.nary_csp_prefix_instances.empty() +
         !step.nary_csp_equality_instances.empty() +
+        !step.nary_csp_equality_transitivity_instances.empty() +
         !step.nary_csp_equality_amo_instances.empty() +
         !step.gf3_gaussian_instances.empty() +
         !step.gf3_general_row_instances.empty() +
@@ -1239,8 +1320,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                            ? step.nary_csp_prefix_instances.size()
                                                                      : !step.nary_csp_equality_instances.empty()
                                                                            ? step.nary_csp_equality_instances.size()
-                                                                     : !step.nary_csp_equality_amo_instances.empty()
-                                                                           ? step.nary_csp_equality_amo_instances.size()
+                                                                     : !step.nary_csp_equality_transitivity_instances.empty()
+ ? step.nary_csp_equality_transitivity_instances.size()
+ : !step.nary_csp_equality_amo_instances.empty()
+ ? step.nary_csp_equality_amo_instances.size()
                                                                      : !step.gf3_gaussian_instances.empty()
                                                                            ? step.gf3_gaussian_instances.size()
                                                                      : !step.gf3_general_row_instances.empty()
@@ -1268,6 +1351,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "DirectCspSupport" ||
           step.rule == "NaryCspPrefix" ||
           step.rule == "NaryCspEquality" ||
+          step.rule == "NaryCspEqualityTransitivity" ||
           step.rule == "NaryCspEqualityAmo" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "Gf3GeneralRowConsequence" ||
@@ -1282,6 +1366,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "DirectCspSupport" ||
           step.rule == "NaryCspPrefix" ||
           step.rule == "NaryCspEquality" ||
+          step.rule == "NaryCspEqualityTransitivity" ||
           step.rule == "NaryCspEqualityAmo" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "Gf3GeneralRowConsequence" ||
@@ -1517,6 +1602,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.direct_csp_support_instances.empty() &&
         step.nary_csp_prefix_instances.empty() &&
         step.nary_csp_equality_instances.empty() &&
+        step.nary_csp_equality_transitivity_instances.empty() &&
         step.nary_csp_equality_amo_instances.empty() &&
         step.gf3_gaussian_instances.empty() &&
         step.gf3_general_row_instances.empty() &&
@@ -1543,8 +1629,10 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                                   ? step.nary_csp_prefix_instances.size()
                                                             : !step.nary_csp_equality_instances.empty()
                                                                   ? step.nary_csp_equality_instances.size()
-                                                            : !step.nary_csp_equality_amo_instances.empty()
-                                                                  ? step.nary_csp_equality_amo_instances.size()
+                                                            : !step.nary_csp_equality_transitivity_instances.empty()
+ ? step.nary_csp_equality_transitivity_instances.size()
+ : !step.nary_csp_equality_amo_instances.empty()
+ ? step.nary_csp_equality_amo_instances.size()
                                                             : !step.gf3_gaussian_instances.empty()
                                                                   ? step.gf3_gaussian_instances.size()
                                                             : !step.gf3_general_row_instances.empty()
@@ -2079,6 +2167,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<DirectCspSupportActionResult> direct_csp_application;
     std::optional<NaryCspPrefixActionResult> nary_csp_application;
     std::optional<NaryCspEqualityActionResult> nary_csp_equality_application;
+    std::optional<NaryCspEqualityTransitivityResult> nary_csp_equality_transitivity_application;
     std::optional<NaryCspEqualityAmoResult> nary_csp_equality_amo_application;
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
@@ -2175,7 +2264,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
           NaryCspPrefixParameters, NaryCspEqualityParameters,
-          NaryCspEqualityAmoParameters,
+          NaryCspEqualityTransitivityParameters, NaryCspEqualityAmoParameters,
           DirectPhpRefutationParameters,
           Gf3GaussianConsequenceParameters,
           Gf3GeneralRowConsequenceParameters,
@@ -2287,6 +2376,29 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_nary_csp_equality_feedback(
                       k, *nary_csp_equality_application, keys_before);
                   return nary_csp_equality_application->result;
+                })
+          : !step.nary_csp_equality_transitivity_instances.empty()
+              ? apply_rule_structured(rule, k, "nary-csp-equality-transitivity", [&] {
+                  const auto &parameters =
+                      std::get<NaryCspEqualityTransitivityParameters>(step.parameters);
+                  if (!k.nary_csp_prefix_action_session ||
+                      !k.nary_csp_equality_session ||
+                      !k.nary_csp_equality_transitivity_session ||
+                      !k.structural_provenance)
+                    return ApplyResult::NoOp;
+                  const size_t keys_before =
+                      k.nary_csp_equality_transitivity_session->keys().size();
+                  nary_csp_equality_transitivity_application.emplace(
+                      nary_csp_equality_transitivity_apply(
+                          k, *k.nary_csp_prefix_action_session,
+                          *k.nary_csp_equality_session,
+                          *k.nary_csp_equality_transitivity_session,
+                          nary_csp_equality_transitivity_limits(parameters),
+                          step.nary_csp_equality_transitivity_instances[payload],
+                          k.structural_provenance));
+                  record_nary_csp_equality_transitivity_feedback(
+                      k, *nary_csp_equality_transitivity_application, keys_before);
+                  return nary_csp_equality_transitivity_application->result;
                 })
           : !step.nary_csp_equality_amo_instances.empty()
               ? apply_rule_structured(rule, k, "nary-csp-equality-amo", [&] {
@@ -2731,6 +2843,33 @@ InvocationResult OnlineStrategyExecutor::advance(
           break;
         }
       }
+      if (nary_csp_equality_transitivity_application) {
+        switch (nary_csp_equality_transitivity_application->status) {
+        case NaryCspEqualityTransitivityStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case NaryCspEqualityTransitivityStatus::Inapplicable:
+        case NaryCspEqualityTransitivityStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case NaryCspEqualityTransitivityStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case NaryCspEqualityTransitivityStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case NaryCspEqualityTransitivityStatus::Stale:
+          out.status = InvocationStatus::StaleRequest;
+          break;
+        case NaryCspEqualityTransitivityStatus::Ready:
+        case NaryCspEqualityTransitivityStatus::MissingEquality:
+        case NaryCspEqualityTransitivityStatus::Duplicate:
+        case NaryCspEqualityTransitivityStatus::Applied:
+          break;
+        }
+      }
       if (gf3_gaussian_application) {
         switch (gf3_gaussian_application->status) {
         case Gf3GaussianActionStatus::Invalid:
@@ -3056,6 +3195,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         !step.direct_csp_support_instances.empty() ||
         !step.nary_csp_prefix_instances.empty() ||
         !step.nary_csp_equality_instances.empty() ||
+        !step.nary_csp_equality_transitivity_instances.empty() ||
         !step.nary_csp_equality_amo_instances.empty() ||
         !step.gf3_gaussian_instances.empty() ||
         !step.gf3_general_row_instances.empty())

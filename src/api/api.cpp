@@ -24,6 +24,7 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -57,6 +58,7 @@ struct tactix_solver {
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
   NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspEqualitySession nary_csp_equality_session;
+  NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
   NaryCspEqualityAmoSession nary_csp_equality_amo_session;
   DirectPhpActionSession direct_php_action_session;
   Gf3GaussianActionSession gf3_gaussian_action_session;
@@ -85,6 +87,7 @@ struct tactix_solver {
         &direct_csp_guarded_cover_action_session;
     kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
     kernel.nary_csp_equality_session = &nary_csp_equality_session;
+    kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
     kernel.nary_csp_equality_amo_session = &nary_csp_equality_amo_session;
     kernel.direct_php_action_session = &direct_php_action_session;
     kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
@@ -1990,7 +1993,8 @@ bool online_program_v13(const tactix_online_program_v13 &source,
 
 bool online_program_v14(const tactix_online_program_v14 &source,
                         const Kernel &kernel,
-                        strategy::OnlineInprocessProgram &target) {
+                        strategy::OnlineInprocessProgram &target,
+                        bool validate = true) {
   if (source.step_count < 0 || (source.step_count && !source.steps)) return false;
   std::vector<tactix_online_step_v13> bases;
   for (int i = 0; i < source.step_count; ++i) bases.push_back(source.steps[i].base);
@@ -2071,6 +2075,76 @@ bool online_program_v14(const tactix_online_program_v14 &source,
       step.direct_csp_guarded_cover_instances.push_back(std::move(dst));
     }
     step.parameters = p;
+  }
+  return !validate || strategy::validate_online_strategy_program(target);
+}
+
+bool online_program_v15(const tactix_online_program_v15 &source,
+                        const Kernel &kernel, strategy::OnlineInprocessProgram &target) {
+  if(source.step_count<0 || (source.step_count && !source.steps)) return false;
+  std::vector<tactix_online_step_v14> bases;
+  for(int i=0;i<source.step_count;++i) bases.push_back(source.steps[i].base);
+  const tactix_online_program_v14 base{bases.data(),source.step_count,source.repeat_mode,source.repeat_limit};
+  if(!online_program_v14(base,kernel,target,false)) return false;
+  for(int i=0;i<source.step_count;++i) {
+    const auto &input=source.steps[i]; auto &step=target.sequence[i];
+    const auto &srcp=input.equality_transitivity_parameters;
+    if(input.equality_transitivity_profile==TACTIX_EQUALITY_TRANSITIVITY_PROFILE_LEGACY) {
+      if(input.equality_transitivity_instances || input.equality_transitivity_instance_count ||
+         srcp.maximum_source_clauses || srcp.maximum_source_literals || srcp.maximum_recognition_work || srcp.maximum_planning_work || srcp.maximum_domain_values || srcp.maximum_forbidden_tuples || srcp.maximum_proof_work || srcp.maximum_proof_additions || srcp.maximum_proof_literal_occurrences || srcp.maximum_journal_bytes || srcp.maximum_external_extent || srcp.maximum_session_keys || srcp.maximum_session_bytes || srcp.maximum_arena_words || srcp.maximum_watch_words || srcp.maximum_preparation_bytes) return false;
+      continue;
+    }
+    if(input.equality_transitivity_profile!=TACTIX_EQUALITY_TRANSITIVITY_PROFILE_EXACT ||
+       step.rule!="NaryCspEqualityTransitivity" || !std::holds_alternative<std::monostate>(step.parameters)) return false;
+    strategy::NaryCspEqualityTransitivityParameters p;
+    p.maximum_source_clauses=srcp.maximum_source_clauses;
+    p.maximum_source_literals=srcp.maximum_source_literals;
+    p.maximum_recognition_work=srcp.maximum_recognition_work;
+    p.maximum_planning_work=srcp.maximum_planning_work;
+    p.maximum_domain_values=srcp.maximum_domain_values;
+    p.maximum_forbidden_tuples=srcp.maximum_forbidden_tuples;
+    p.maximum_proof_work=srcp.maximum_proof_work;
+    p.maximum_proof_additions=srcp.maximum_proof_additions;
+    p.maximum_proof_literal_occurrences=srcp.maximum_proof_literal_occurrences;
+    p.maximum_journal_bytes=srcp.maximum_journal_bytes;
+    p.maximum_external_extent=srcp.maximum_external_extent;
+    p.maximum_session_keys=srcp.maximum_session_keys;
+    p.maximum_session_bytes=srcp.maximum_session_bytes;
+    p.maximum_arena_words=srcp.maximum_arena_words;
+    p.maximum_watch_words=srcp.maximum_watch_words;
+    p.maximum_preparation_bytes=srcp.maximum_preparation_bytes;
+
+    if(!p.valid() || input.equality_transitivity_instance_count<=0 || !input.equality_transitivity_instances ||
+       uint64_t(input.equality_transitivity_instance_count)>p.maximum_session_keys) return false;
+    const auto copy_domain=[&](const tactix_online_nary_csp_domain &d, std::vector<int32_t> &out) {
+      if(d.value_count<2 || uint64_t(d.value_count)>p.maximum_domain_values || !d.values) return false;
+      for(int j=0;j<d.value_count;++j) {
+        const int64_t value=d.values[j];
+        if(!value || value==INT32_MIN || uint64_t(value<0?-value:value)>=p.maximum_external_extent) return false;
+        out.push_back(int32_t(value));
+      }
+      return true;
+    };
+    for(int j=0;j<input.equality_transitivity_instance_count;++j) {
+      const auto &input_instance=input.equality_transitivity_instances[j];
+      NaryCspEqualityTransitivitySelection choice;
+      for(size_t d=0;d<3;++d) {
+        if(!copy_domain(input_instance.domains[d],choice.domains[d])) return false;
+        const auto &e=input_instance.equalities[d];
+        if(e.domain_count!=3 || !e.domains) return false;
+        auto &key=choice.equalities[d];
+        key.first_equal_domain=e.left_domain; key.second_equal_domain=e.right_domain; key.residual_domain=e.residual_domain;
+        for(size_t owner_domain=0;owner_domain<3;++owner_domain) {
+          key.domains.emplace_back();
+          if(!copy_domain(e.domains[owner_domain],key.domains.back())) return false;
+        }
+        choice.equality_variables[d]=input_instance.equality_variables[d];
+        if(!choice.equality_variables[d] || choice.equality_variables[d]>=p.maximum_external_extent) return false;
+      }
+      if(!nary_csp_equality_transitivity_selection_valid(choice)) return false;
+      step.nary_csp_equality_transitivity_instances.push_back(std::move(choice));
+    }
+    step.parameters=p;
   }
   return strategy::validate_online_strategy_program(target);
 }
@@ -2891,6 +2965,31 @@ int tactix_online_configure_v14(tactix_solver *s,
     return -1;
   strategy::OnlineInprocessProgram program;
   if (!online_program_v14(*source, s->kernel, program)) return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode)) return -1;
+  if (replacement) s->online = std::move(replacement);
+  input_complete(s);
+  return 0;
+}
+
+int tactix_online_configure_v15(tactix_solver *s,
+                                const tactix_online_program_v15 *source,
+                                uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v15(*source, s->kernel, program)) return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = s->online.get();
   if (!executor) {

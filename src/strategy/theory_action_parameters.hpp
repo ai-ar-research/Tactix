@@ -223,6 +223,28 @@ struct NaryCspEqualityAmoParameters {
   bool operator==(const NaryCspEqualityAmoParameters &) const = default;
 };
 
+struct NaryCspEqualityTransitivityParameters {
+  uint64_t maximum_source_clauses = 0;
+  uint64_t maximum_source_literals = 0;
+  uint64_t maximum_recognition_work = 0;
+  uint64_t maximum_planning_work = 0;
+  uint32_t maximum_domain_values = 0;
+  uint64_t maximum_forbidden_tuples = 0;
+  uint64_t maximum_proof_work = 0;
+  uint64_t maximum_proof_additions = 0;
+  uint64_t maximum_proof_literal_occurrences = 0;
+  uint64_t maximum_journal_bytes = 0;
+  uint32_t maximum_external_extent = 0;
+  uint64_t maximum_session_keys = 0;
+  uint64_t maximum_session_bytes = 0;
+  uint64_t maximum_arena_words = 0;
+  uint64_t maximum_watch_words = 0;
+  uint64_t maximum_preparation_bytes = 0;
+  bool valid() const;
+  static NaryCspEqualityTransitivityParameters from_kernel(const Kernel &);
+  bool operator==(const NaryCspEqualityTransitivityParameters &) const = default;
+};
+
 // Exact controller-visible limits for the terminal direct pigeonhole
 // refutation.  The three producer budgets and replay budget remain distinct
 // so feedback can attribute work to the phase that consumed it.
@@ -361,6 +383,7 @@ void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const DirectCspSupportParameters &);
 void install_rule_parameters(Kernel &, const NaryCspPrefixParameters &);
 void install_rule_parameters(Kernel &, const NaryCspEqualityParameters &);
+void install_rule_parameters(Kernel &, const NaryCspEqualityTransitivityParameters &);
 void install_rule_parameters(Kernel &, const NaryCspEqualityAmoParameters &);
 void install_rule_parameters(Kernel &, const DirectPhpRefutationParameters &);
 void install_rule_parameters(Kernel &, const Gf3GaussianConsequenceParameters &);

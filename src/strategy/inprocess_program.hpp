@@ -74,7 +74,7 @@ using ActionParameters =
                  Gf3GaussianConsequenceParameters,
                  Gf3GeneralRowConsequenceParameters,
                  TseitinCycleBreakingParameters,
-                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters>;
+                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters, NaryCspEqualityTransitivityParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
 // the same typed parameter vocabulary for every registered action.
@@ -133,6 +133,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {31, "NaryCspEquality", Probe, false},
       {32, "Gf3GeneralRowConsequence", Probe, false},
       {33, "NaryCspEqualityAmo", Probe, false},
+      {34, "NaryCspEqualityTransitivity", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},
@@ -243,6 +244,8 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<NaryCspEqualityParameters>(&step.parameters)) {
       if (step.rule != "NaryCspEquality" || !p->valid())
         return reject("NaryCspEquality parameters are invalid or misplaced");
+    } else if (std::holds_alternative<NaryCspEqualityTransitivityParameters>(step.parameters)) {
+      return reject("transitivity requires explicit online selections");
     } else if (const auto *p = std::get_if<NaryCspEqualityAmoParameters>(
                    &step.parameters)) {
       if (step.rule != "NaryCspEqualityAmo" || !p->valid())

@@ -669,3 +669,8 @@ add_test(NAME tseitin_cycle_action_journal
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_tseitin_cycle_action_journal.py
                  $<TARGET_FILE:test_tseitin_cycle_action>)
+
+add_test(NAME nary_csp_equality_transitivity_proof_model
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/nary_csp_equality_transitivity_proof_model.sh
+                 $<TARGET_FILE:test_nary_csp_equality_transitivity_live> ${CMAKE_SOURCE_DIR})
+set_tests_properties(nary_csp_equality_transitivity_proof_model PROPERTIES SKIP_RETURN_CODE 77)

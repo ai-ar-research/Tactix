@@ -1475,6 +1475,48 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v14;
 
+/* Additive v15, rule ID 45: exact three-owner equality transitivity.
+ * Profile zero preserves v14; profile one requires INHERIT base parameters,
+ * positive explicit limits and exact AB/AD/BD keys and variable identities.
+ * All nested domains are deep-copied; no native discovery is implied. */
+#define TACTIX_EQUALITY_TRANSITIVITY_PROFILE_LEGACY 0
+#define TACTIX_EQUALITY_TRANSITIVITY_PROFILE_EXACT 1
+typedef struct {
+  uint64_t maximum_source_clauses;
+  uint64_t maximum_source_literals;
+  uint64_t maximum_recognition_work;
+  uint64_t maximum_planning_work;
+  uint32_t maximum_domain_values;
+  uint64_t maximum_forbidden_tuples;
+  uint64_t maximum_proof_work;
+  uint64_t maximum_proof_additions;
+  uint64_t maximum_proof_literal_occurrences;
+  uint64_t maximum_journal_bytes;
+  uint32_t maximum_external_extent;
+  uint64_t maximum_session_keys;
+  uint64_t maximum_session_bytes;
+  uint64_t maximum_arena_words;
+  uint64_t maximum_watch_words;
+  uint64_t maximum_preparation_bytes;
+} tactix_online_nary_csp_equality_transitivity_parameters;
+typedef struct {
+  tactix_online_nary_csp_domain domains[3];
+  tactix_online_nary_csp_equality_instance equalities[3];
+  uint32_t equality_variables[3];
+} tactix_online_nary_csp_equality_transitivity_instance;
+typedef struct {
+  tactix_online_step_v14 base;
+  uint32_t equality_transitivity_profile;
+  tactix_online_nary_csp_equality_transitivity_parameters equality_transitivity_parameters;
+  const tactix_online_nary_csp_equality_transitivity_instance *equality_transitivity_instances;
+  int equality_transitivity_instance_count;
+} tactix_online_step_v15;
+typedef struct {
+  const tactix_online_step_v15 *steps;
+  int step_count, repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v15;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1530,6 +1572,8 @@ int tactix_online_configure_v12(tactix *, const tactix_online_program_v12 *,
 int tactix_online_configure_v14(tactix *, const tactix_online_program_v14 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v13(tactix *, const tactix_online_program_v13 *,
+                                uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v15(tactix *, const tactix_online_program_v15 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

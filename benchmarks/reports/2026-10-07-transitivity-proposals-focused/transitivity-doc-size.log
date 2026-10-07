@@ -1,0 +1,10 @@
+  warn  CLAUDE.md: 74 of 80 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  PROGRESS.md: 350 of 350 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/proof-rules.html: 973 of 1000 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  tools/fuzz/README.md: 80 of 80 lines — under 10% reserve left, compact it before the next addition needs the room
+  FAIL  DEVELOPMENT_PLAN.md: 751 lines exceeds budget 750
+  FAIL  docs/winner-integration-plan.md: 251 lines exceeds budget 240
+  FAIL  docs/calculus.md: 683 lines exceeds budget 680
+  FAIL  docs/implementation-notes.md: 569 lines exceeds budget 560
+check-doc-size: 4 error(s), 5 warning(s), 31 file budget(s) checked

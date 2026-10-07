@@ -1017,6 +1017,7 @@ static void test_inprocess_registry_requires_root(void) {
         !std::strcmp(rule.name, "NaryCspPrefix") ||
         !std::strcmp(rule.name, "NaryCspEquality") ||
         !std::strcmp(rule.name, "NaryCspEqualityAmo") ||
+        !std::strcmp(rule.name, "NaryCspEqualityTransitivity") ||
         !std::strcmp(rule.name, "GraphIntervalEquivalence") ||
         !std::strcmp(rule.name, "AffineMatrixInitialize");
     if (!theory_action)
@@ -1127,7 +1128,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "Gf3AffineConsequence", "DirectCspSupport",
       "DirectPhpRefutation", "Gf3GaussianConsequence",
       "TseitinCycleBreaking", "NaryCspPrefix", "NaryCspEquality",
-      "NaryCspEqualityAmo",
+      "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
       "Gf3GeneralRowConsequence",
       "GraphIntervalEquivalence",
       "AffineMatrixInitialize",

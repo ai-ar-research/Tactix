@@ -291,6 +291,7 @@ their owning documents.
 | X18 | `GraphIntervalEquivalence` | authenticated duplicate interval equivalence over existing variables: add-RUP | winner integration |
 | X19 | `Gf3GeneralRowConsequence` | authenticated forbidden tuple of one non-unit Gaussian row: add-RUP | winner integration |
 | X20 | `NaryCspEqualityAmo` | authenticated pairwise AMO over three aligned-domain equality variables: add-RUP + helper deletion | winner integration |
+| X21 | `NaryCspEqualityTransitivity` | authenticated cross-owner equality closure: guarded RUP bridges, three ternaries and helper deletion | winner integration |
 Support services—classification, reconstruction, internal checking, occurrence indexes—are not schedulable rules. Phase 3 requires every catalog family to be implemented and reached, or to have a reasoned no-implement disposition with evidence and a reopening path.
 ### 5.3 Extensibility contract
 

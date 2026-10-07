@@ -6,6 +6,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -124,6 +125,11 @@ RuleEligibility nary_csp_equality_amo_registry_guard(const Kernel &kernel) {
             kernel.nary_csp_equality_amo_session != nullptr);
 }
 
+ApplyResult nary_csp_equality_transitivity_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
+RuleEligibility nary_csp_equality_transitivity_registry_guard(const Kernel &k) {
+ return nary_csp_equality_transitivity_guard(k).fact("prefix-session-bound", k.nary_csp_prefix_action_session != nullptr).fact("equality-session-bound", k.nary_csp_equality_session != nullptr).fact("transitivity-session-bound", k.nary_csp_equality_transitivity_session != nullptr);
+}
+
 ApplyResult gf3_general_row_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
@@ -156,6 +162,8 @@ TACTIX_REGISTER_RULE(NaryCspEquality, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(Gf3GeneralRowConsequence, RuleTier::Inprocess,
                      gf3_general_row_registry_guard,
                      gf3_general_row_canonical_noop);
+TACTIX_REGISTER_RULE(NaryCspEqualityTransitivity, RuleTier::Inprocess, nary_csp_equality_transitivity_registry_guard, nary_csp_equality_transitivity_canonical_noop);
+
 TACTIX_REGISTER_RULE(NaryCspEqualityAmo, RuleTier::Inprocess,
                      nary_csp_equality_amo_registry_guard,
                      nary_csp_equality_amo_canonical_noop);
@@ -266,7 +274,7 @@ const std::vector<RuleVTable> &tactix_rules() {
         "Gf3GaussianConsequence", "TseitinCycleBreaking", "NaryCspPrefix",
         "GraphIntervalEquivalence", "AffineMatrixInitialize",
         "NaryCspEquality", "Gf3GeneralRowConsequence",
-        "NaryCspEqualityAmo"};
+        "NaryCspEqualityAmo", "NaryCspEqualityTransitivity"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() != count) {
