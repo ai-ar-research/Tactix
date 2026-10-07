@@ -5,6 +5,7 @@
 #include "policies/default_restart.hpp"
 #include "policies/policy.hpp"
 #include "strategy/policy_completion.hpp"
+#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include <optional>
 #include <array>
@@ -70,6 +71,10 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
   uint64_t cached_event_calls = 0;
+  uint64_t service_due_ticks=0, service_delay_current=0, service_tick_skips=0;
+  uint64_t pending_slices=0, resumed_slices=0, completed_slice_steps=0;
+  uint64_t slice_work=0, slice_cumulative_work=0, minimum_slice_work=0;
+  uint64_t no_yield_delays=0, productive_delay_decays=0, service_wakeups=0;
   uint64_t proof_additions = 0, proof_deletions = 0;
   uint64_t root_unit_work = 0, root_unit_additions = 0, premise_maintenance_work = 0;
   uint64_t alias_work = 0, alias_proof_additions = 0;
@@ -94,6 +99,23 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t last_survival_action = 0, last_disable_cause = 0;
 
   uint64_t conditioned_rows = 0, unchanged_reductions = 0, widest_reason = 0;
+};
+
+struct DefaultNolWalkDiagnostics {
+  uint64_t authentication_attempts = 0;
+  uint64_t authentication_successes = 0;
+  uint64_t authentication_exhausted = 0;
+  uint64_t authentication_no_structure = 0;
+  uint64_t authentication_interrupted = 0;
+  uint64_t authentication_work = 0;
+  uint64_t next_ticks = 0;
+  uint64_t delay_ticks = 0;
+  uint32_t fruitless_completions = 0;
+  uint64_t slices = 0;
+  uint64_t pending_slices = 0;
+  uint64_t completed_trajectories = 0;
+  uint64_t useful_hints = 0;
+  uint64_t wakeups = 0;
 };
 
 class DefaultBranching final : public BranchingPolicy {
@@ -226,6 +248,9 @@ public:
   const DefaultAffineSearchDiagnostics &affine_search_diagnostics() const {
     return affine_search_diagnostics_;
   }
+  const DefaultNolWalkDiagnostics &nol_walk_diagnostics() const {
+    return nol_walk_diagnostics_;
+  }
 
   void reset_schedule(const Kernel &);
   // White-box seams for Kissat's exact `classify.c` predicates. The count
@@ -289,19 +314,35 @@ public:
 
 private:
   friend struct DefaultAffineSearchTestAccess;
+  friend struct DefaultNolWalkTestAccess;
   DefaultAffineSearchDiagnostics affine_search_diagnostics_;
   std::optional<std::array<uint64_t, 13>> affine_completed_census_;
   std::vector<uint64_t> affine_reason_ids_;
   std::vector<std::pair<int32_t,int32_t>> affine_binary_reasons_;
   uint64_t affine_refresh_ticks_ = 0, affine_refresh_work_ = 0;
   uint64_t affine_service_allowance_ = 0;
+  DefaultInprocessScheduler::SlotEntry affine_service_slot_;
+  uint64_t affine_service_next_ticks_=0;
+  std::array<uint64_t,3> affine_service_wake_stamp_{};
   uint64_t affine_tracking_limit_ = 0;
   uint64_t affine_usefulness_calls_ = 0, affine_usefulness_yield_ = 0;
   uint64_t affine_usefulness_checks_ = 0;
   bool affine_usefulness_paused_ = false;
   AffineMatrixInitResult initialize_affine_search(Kernel &, bool refresh = false, bool recognize = true);
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
+  bool record_affine_service_result(Kernel &,const AffineMatrixServiceResult &,bool root);
+  bool affine_service_due(const Kernel &,bool root);
+  void schedule_affine_service(const Kernel &,const AffineMatrixServiceResult &);
   void observe_affine_consumption(const Kernel &, size_t trail_begin);
+
+  DefaultNolWalkDiagnostics nol_walk_diagnostics_;
+  bool nol_walk_schedule_initialized_ = false;
+  std::array<uint64_t,5> nol_walk_wake_stamp_{};
+  NolHypergraphAuthenticationResult authenticate_nol_walk(Kernel &);
+  NolHypergraphSliceResult service_nol_walk(Kernel &);
+  bool nol_walk_due(const Kernel &);
+  void schedule_nol_walk(const Kernel &,const NolHypergraphSliceResult &);
+  void reset_nol_walk_schedule(const Kernel &);
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);

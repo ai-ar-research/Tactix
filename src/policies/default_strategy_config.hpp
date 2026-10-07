@@ -333,6 +333,19 @@ struct DefaultStrategyConfig {
     uint64_t maximum_retained_bytes = 0;
   } affine_search;
 
+  struct NolWalk {
+    // Retained SAT-only construction is scheduled by search work, independent
+    // of formula identity or benchmark dimensions.
+    bool enabled = false;
+    // Zero inherits the initial preprocessing allowance. Authentication is an
+    // all-or-nothing source capture and is separate from recurring Walk doses.
+    uint64_t maximum_authentication_work = 0;
+    uint64_t work_quantum = 100'000;
+    uint64_t initial_tick_interval = 1'000'000;
+    uint64_t maximum_delay_ticks = 64'000'000;
+    uint32_t fruitlessness_threshold = 4;
+  } nol_walk;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.

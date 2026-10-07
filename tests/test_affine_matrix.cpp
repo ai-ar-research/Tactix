@@ -658,7 +658,135 @@ static void nonmatching_predecessor_failure_is_atomic() {
   }
 }
 
+static void sliced_reduction_controls() {
+  const std::vector<Equation> input={equation({1,3,4},false),equation({2,3,4,5},false)};
+  auto l=limits();l.maximum_sources=8;l.maximum_row_width=8;
+  AffineMatrix original;
+  assert(build_affine_matrix(input,777,l,[](uint64_t){return true;},original)==MatrixStatus::Complete);
+  const std::vector<MatrixAssignment> trail={{1,false},{2,false}};
+  auto one=original;
+  MatrixEvent expected;
+  assert(one.synchronize(trail,[](uint64_t){return true;},expected,true)==MatrixStatus::Complete);
+  assert(expected.kind==MatrixEventKind::Implication);
+  auto run=[&](AffineMatrix &matrix, const std::vector<MatrixAssignment> &values,
+               MatrixEvent &event, std::vector<uint64_t> &steps) {
+    const auto old_rows=matrix.rows();const auto old_trail=matrix.trail();
+    MatrixStatus status=MatrixStatus::Pending;
+    uint64_t previous=0;
+    size_t calls=0;
+    while(status==MatrixStatus::Pending) {
+      uint64_t charged=0;
+      status=matrix.synchronize_sliced(values,[&](uint64_t n){charged+=n;return true;},event,{120,1000000});
+      const auto &effort=matrix.last_slice_effort();
+      assert(charged==effort.work && charged<=120);
+      assert(effort.cumulative_work>previous);previous=effort.cumulative_work;
+      steps.push_back(effort.completed_steps);
+      if(status==MatrixStatus::Pending) {
+        assert(matrix.rows()==old_rows && matrix.trail()==old_trail);
+        assert(matrix.continuation_pending() && matrix.continuation_bytes()>0);
+      }
+      assert(++calls<100);
+    }
+    assert(status==MatrixStatus::Complete && calls>1);
+    assert(!matrix.continuation_pending());
+  };
+  auto sliced=original;MatrixEvent event;
+  std::vector<uint64_t> trace;
+  run(sliced,trail,event,trace);
+  assert(event.kind==expected.kind && event.row==expected.row && event.reason==expected.reason);
+  assert(sliced.rows()==one.rows() && sliced.trail()==one.trail());
+  assert(sliced.authenticates(777,input,event,[](uint64_t){return true;}));
+  check_reason(input,event);
+  auto replay=original;MatrixEvent replay_event;std::vector<uint64_t> replay_trace;
+  run(replay,trail,replay_event,replay_trace);assert(trace==replay_trace);
+  // Total completed algebra steps do not depend on the number of slices.
+  auto large=original;MatrixEvent large_event;
+  assert(large.synchronize_sliced(trail,[](uint64_t){return true;},large_event,{1000000,1000000})==MatrixStatus::Complete);
+  uint64_t total=0;for(auto n:trace)total+=n;
+  assert(total==large.last_slice_effort().completed_steps);
+  // Full-basis slicing is independent of previously conditioned mutable rows.
+  auto previously_synchronized=one;MatrixEvent from_previous;
+  std::vector<uint64_t> previous_trace;
+  run(previously_synchronized,trail,from_previous,previous_trace);
+  assert(previous_trace==trace && from_previous.row==expected.row && from_previous.reason==expected.reason);
+  const std::vector<MatrixAssignment> conflict_trail={{1,false},{2,false},{5,true}};
+  auto conflict_reference=original;MatrixEvent conflict_expected;
+  assert(conflict_reference.synchronize(conflict_trail,[](uint64_t){return true;},conflict_expected,true)==MatrixStatus::Complete);
+  auto conflict_sliced=one;MatrixEvent conflict_event;std::vector<uint64_t> conflict_trace;
+  run(conflict_sliced,conflict_trail,conflict_event,conflict_trace);
+  assert(conflict_event.kind==MatrixEventKind::Conflict && conflict_event.row==conflict_expected.row && conflict_event.reason==conflict_expected.reason);
+  check_reason(input,conflict_event);
+  // Backtracking after a completed slice uses the immutable source basis.
+  MatrixEvent backtracked;std::vector<uint64_t> backtrack_trace;
+  run(conflict_sliced,trail,backtracked,backtrack_trace);
+  assert(backtracked.reason==expected.reason && backtracked.row==expected.row);
+  auto too_small_retry=original;MatrixEvent retry_event;
+  assert(too_small_retry.synchronize_sliced(trail,[](uint64_t){return true;},retry_event,{120,1000000})==MatrixStatus::Pending);
+  const auto prior_cumulative=too_small_retry.last_slice_effort().cumulative_work;
+  assert(too_small_retry.synchronize_sliced(trail,[](uint64_t){return true;},retry_event,{3,1000000})==MatrixStatus::Exhausted);
+  assert(too_small_retry.continuation_pending() && too_small_retry.last_slice_effort().cumulative_work==prior_cumulative);
+  assert(too_small_retry.synchronize_sliced({{2,false},{1,false}},[](uint64_t){return true;},retry_event,{1000000,1000000})==MatrixStatus::Invalid);
+  assert(!too_small_retry.continuation_pending());
+  auto huge_limits=l;huge_limits.maximum_rows=UINT32_MAX;huge_limits.maximum_variables=UINT32_MAX;
+  huge_limits.maximum_row_width=UINT32_MAX;huge_limits.maximum_sources=UINT32_MAX;
+  huge_limits.maximum_assignments=UINT32_MAX;
+  AffineMatrix huge;
+  assert(build_affine_matrix(input,888,huge_limits,[](uint64_t){return true;},huge)==MatrixStatus::Complete);
+  assert(huge.synchronize_sliced(trail,[](uint64_t){return true;},retry_event,{1000000,1000000})==MatrixStatus::Complete);
+  assert(retry_event.reason==expected.reason && !huge.continuation_pending());
+  auto default_limits=l;default_limits.maximum_rows=100000;default_limits.maximum_variables=100000;
+  default_limits.maximum_row_width=100000;default_limits.maximum_sources=100000;
+  AffineMatrix default_shaped;
+  assert(build_affine_matrix(input,999,default_limits,[](uint64_t){return true;},default_shaped)==MatrixStatus::Complete);
+  assert(default_shaped.synchronize_sliced(trail,[](uint64_t){return true;},retry_event,{1000000,100000000})==MatrixStatus::Complete);
+  assert(retry_event.reason==expected.reason);
+  std::vector<Equation> family;
+  for(int i=0;i<40;++i) family.push_back(equation({3*i+1,3*i+2,3*i+3},false));
+  auto family_limits=default_limits;family_limits.maximum_assignments=100000;
+  AffineMatrix family_owner;
+  assert(build_affine_matrix(family,1000,family_limits,[](uint64_t){return true;},family_owner)==MatrixStatus::Complete);
+  MatrixEvent family_event;MatrixStatus family_status=MatrixStatus::Pending;
+  size_t family_calls=0;uint64_t family_peak=0;
+  while(family_status==MatrixStatus::Pending) {
+    family_status=family_owner.synchronize_sliced({},[](uint64_t){return true;},family_event,{120,100000000});
+    family_peak=std::max(family_peak,family_owner.continuation_bytes());
+    assert(++family_calls<1000);
+  }
+  assert(family_status==MatrixStatus::Complete && family_calls>1 && family_peak<100000000);
+  assert(family_owner.rows()==family_owner.admitted_rows() && family_event.kind==MatrixEventKind::None);
+  std::printf("sliced default-shaped rows=40 calls=%zu private_peak=%llu\n",family_calls,(unsigned long long)family_peak);
+  auto interrupted=original;MatrixEvent untouched=expected;
+  assert(interrupted.synchronize_sliced(trail,[](uint64_t){return true;},untouched,{120,1000000})==MatrixStatus::Pending);
+  size_t interrupted_charges=0;
+  assert(interrupted.synchronize_sliced(trail,[&](uint64_t){return interrupted_charges++==0;},untouched,{120,1000000})==MatrixStatus::Interrupted);
+  assert(interrupted_charges==2 && interrupted.last_slice_effort().work>0);
+  assert(!interrupted.continuation_pending() && interrupted.rows()==original.rows());
+  assert(untouched.reason==expected.reason);
+  // Reassignment discards the private prefix and matches a fresh reducer.
+  auto changed=original;
+  assert(changed.synchronize_sliced(trail,[](uint64_t){return true;},untouched,{120,1000000})==MatrixStatus::Pending);
+  const std::vector<MatrixAssignment> opposite={{1,true},{2,false}};
+  assert(changed.synchronize_sliced(opposite,[](uint64_t){return true;},untouched,{120,1000000})==MatrixStatus::Pending);
+  assert(changed.last_slice_effort().invalidated && !changed.last_slice_effort().resumed);
+  MatrixStatus changed_status=MatrixStatus::Pending;
+  while(changed_status==MatrixStatus::Pending)
+    changed_status=changed.synchronize_sliced(opposite,[](uint64_t){return true;},untouched,{120,1000000});
+  auto changed_reference=original;MatrixEvent changed_expected;
+  assert(changed_reference.synchronize(opposite,[](uint64_t){return true;},changed_expected,true)==MatrixStatus::Complete);
+  assert(changed_status==MatrixStatus::Complete && untouched.row==changed_expected.row && untouched.reason==changed_expected.reason);
+  changed.cancel_continuation();assert(!changed.continuation_pending());
+  assert(changed.synchronize_sliced(trail,[](uint64_t){return true;},untouched,{120,1})==MatrixStatus::Exhausted);
+  assert(!changed.continuation_pending());
+  assert(changed.synchronize_sliced(trail,[](uint64_t){return true;},untouched,{10,1000000})==MatrixStatus::Exhausted);
+  assert(changed.last_slice_effort().minimum_slice_work>10);
+  changed.cancel_continuation();
+  assert(changed.synchronize_sliced(trail,[](uint64_t){return true;},untouched,{120,1000000})==MatrixStatus::Pending);
+  assert(changed.project({},[](uint64_t){return true;})==MatrixStatus::Complete);
+  assert(!changed.continuation_pending());
+}
+
 int main() {
+  sliced_reduction_controls();
   derived_implication_conflict_and_backtrack();
   reason_excludes_unrelated_assignments();
   bounded_partial_admission_is_deterministic();

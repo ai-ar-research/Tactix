@@ -51,6 +51,7 @@ public:
   ~Proof();
 
   bool open(const char *path, ProofFormat format);
+  uint64_t stream_identity() const noexcept { return stream_identity_; }
   // Automatic output privately stages only input-normalization DSR events.
   // At the original-input action boundary the caller may commit a complete
   // PB refutation. The first subsequent clausal event commits DSR instead.
@@ -273,6 +274,7 @@ private:
   std::map<std::vector<int32_t>, LeasedPremise> leased_premises_;
   std::map<uint64_t, PremiseGroup> premise_groups_;
   uint64_t next_premise_group_ = 0, premise_epoch_ = 0;
+  uint64_t stream_identity_ = 0;
   uint64_t premise_literals_ = 0, premise_bytes_ = 0, premise_deferred_ = 0;
   uint64_t premise_pending_deletions_ = 0, premise_pending_literal_work_ = 0;
   uint64_t premise_pending_deletion_cap_ = UINT64_MAX, premise_pending_work_cap_ = UINT64_MAX;

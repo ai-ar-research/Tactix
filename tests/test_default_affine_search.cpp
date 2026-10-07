@@ -171,7 +171,7 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
     // This small search never earns another recognition quantum. Root-only
     // maintenance must not count the same two source equations as new census.
     assert(stats.refreshes>0 && stats.recognized_equations==2);
-    assert(kernel.stats.decisions>0 && stats.search_services>0);
+    assert(kernel.stats.decisions>0 && stats.root_services>0 && !stats.search_services);
     assert(stats.reasons_published>0 && stats.widest_reason>=2);
     assert(stats.implications_consumed+stats.conflicts_consumed>0);
     if(f.variables==26)assert(stats.conflicts_consumed>0);
@@ -231,9 +231,15 @@ void paused_owner_retry(const std::string &stem = "",
     for (int32_t literal : {2,-2}) {
       kernel_assign_decision(kernel, kernel_internalize(kernel, literal));
       assert(propagate_apply(kernel) == ApplyResult::Ok);
+      const auto owner_before = session.owner_version();
+      const auto trail_before = std::vector<Lit>(kernel.trail.begin(),kernel.trail.end());
+      const auto declined = DefaultAffineSearchTestAccess::service(policy, kernel);
+      assert(declined.status == AffineMatrixServiceStatus::Inapplicable &&
+             session.owner_version() == owner_before && kernel.trail == trail_before);
+      kernel_backtrack(kernel, 0);
+      assert(propagate_apply(kernel) == ApplyResult::Ok);
       const auto result = DefaultAffineSearchTestAccess::service(policy, kernel);
       assert(result.status == AffineMatrixServiceStatus::NoEvent);
-      kernel_backtrack(kernel, 0);
     }
     assert(DefaultAffineSearchTestAccess::paused(policy));
     assert(session.enabled() && session.persistent());
@@ -278,9 +284,11 @@ void paused_owner_retry(const std::string &stem = "",
   kernel_assign_decision(kernel, kernel_internalize(kernel, 2));
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   const auto services = policy.affine_search_diagnostics().search_services;
-  DefaultAffineSearchTestAccess::service(policy, kernel);
+  const auto paused_skips = policy.affine_search_diagnostics().paused_search_skips;
+  const auto declined = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(declined.status == AffineMatrixServiceStatus::Inapplicable);
   assert(policy.affine_search_diagnostics().search_services == services);
-  assert(policy.affine_search_diagnostics().paused_search_skips == 1);
+  assert(policy.affine_search_diagnostics().paused_search_skips == paused_skips);
   kernel_backtrack(kernel, 0);
   for (const auto &clause : affine_semantic_extension::clausal_form({5,6,7}, false)) {
     std::vector<Lit> body;

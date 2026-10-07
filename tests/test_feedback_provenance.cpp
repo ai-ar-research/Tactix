@@ -2,9 +2,9 @@
 #include "strategy/feedback_provenance.hpp"
 
 #include <cassert>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <iterator>
 #include <regex>
 #include <set>
 #include <unistd.h>
@@ -62,8 +62,15 @@ int main() {
   const std::regex pattern("\"((?:TACTIX|SAT)_[A-Z0-9_]+)\"");
   for (const auto &entry : std::filesystem::recursive_directory_iterator(root / "src")) {
     if (entry.path().extension() != ".cpp" && entry.path().extension() != ".hpp") continue;
-    std::ifstream input(entry.path());
-    const std::string source((std::istreambuf_iterator<char>(input)), {});
+    FILE *input = std::fopen(entry.path().c_str(), "rb");
+    assert(input);
+    std::string source;
+    char buffer[4096];
+    size_t size;
+    while ((size = std::fread(buffer, 1, sizeof buffer, input)))
+      source.append(buffer, size);
+    assert(!std::ferror(input));
+    assert(!std::fclose(input));
     for (std::sregex_iterator match(source.begin(), source.end(), pattern), end; match != end; ++match)
       assert(declared.count((*match)[1].str()));
   }

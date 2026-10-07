@@ -1,4 +1,5 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
+#include "rules/semantic_extension/affine_root_image.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -173,6 +174,11 @@ void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
   kernel.stats.affine_matrix_init_recognition_work += result.recognition_work;
   kernel.stats.affine_matrix_init_matrix_work += result.matrix_work;
   kernel.stats.affine_matrix_init_premise_retention_work += result.premise_retention_work;
+  kernel.stats.affine_matrix_init_normalization_rup_checks += result.normalization_rup_checks;
+  kernel.stats.affine_matrix_init_shortening_additions += result.shortening_additions;
+  kernel.stats.affine_matrix_init_discovery_recognized_groups += result.discovery_recognized_groups;
+  kernel.stats.affine_matrix_init_discovery_skipped_groups += result.discovery_skipped_groups;
+  kernel.stats.affine_matrix_init_discovery_recognizer_work += result.discovery_recognizer_work;
   if (result.status == AffineMatrixInitStatus::Applied ||
       result.status == AffineMatrixInitStatus::AppliedPartial)
     ++kernel.stats.affine_matrix_init_applied;
@@ -190,6 +196,13 @@ void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {
 
 void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
   ++kernel.stats.affine_matrix_service_calls;
+  kernel.stats.affine_matrix_service_pending_slices+=result.slice_pending;
+  kernel.stats.affine_matrix_service_resumed_slices+=result.slice_resumed;
+  kernel.stats.affine_matrix_service_slice_steps+=result.slice_completed_steps;
+  kernel.stats.affine_matrix_service_slice_work+=result.slice_work;
+  kernel.stats.affine_matrix_service_slice_invalidations+=result.slice_invalidated;
+  kernel.stats.affine_matrix_service_minimum_slice_work_max=std::max(
+      kernel.stats.affine_matrix_service_minimum_slice_work_max,result.slice_minimum_work);
   kernel.stats.affine_matrix_service_lifecycle_work += result.lifecycle_work;
   kernel.stats.affine_matrix_service_trail_capture_work +=
       result.trail_capture_work;
@@ -267,7 +280,8 @@ bool AffineMatrixSearchSession::initialization_retry_suppressed(
 }
 
 void AffineMatrixSearchSession::disable(Kernel &kernel) {
-  if (owner_ == &kernel && proof_ && kernel.proof == proof_)
+  if (owner_ == &kernel && proof_ && kernel.proof == proof_ &&
+      (!persistent() || (proof_stream_identity_ && proof_->stream_identity()==proof_stream_identity_)))
     proof_->release_premise_groups(premise_leases_, kernel.next_clause_id);
   *this = AffineMatrixSearchSession{};
 }
@@ -276,7 +290,8 @@ bool AffineMatrixSearchSession::attached_to(const Kernel &kernel) const {
   return enabled() && belongs_to(kernel) &&
          kernel.affine_matrix_search_session == this &&
          records_ == kernel.structural_provenance && proof_ == kernel.proof &&
-         (!kernel.proof || proof_format_ == kernel.proof->format());
+         (!kernel.proof || (proof_format_ == kernel.proof->format() &&
+          (!persistent() || (proof_stream_identity_ && kernel.proof->stream_identity()==proof_stream_identity_))));
 }
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
@@ -337,7 +352,76 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
 
   AffineLiveSnapshot owner;
-  const auto capture = capture_request(kernel, parameters);
+  auto capture = capture_request(kernel, parameters);
+  capture.full_root_view = persistence.maximum_retained_bytes != 0;
+  const bool incremental_discovery=persistence.maximum_retained_bytes &&
+      session.discovery_owner_==&kernel && session.discovery_proof_==kernel.proof && kernel.proof &&
+      session.discovery_stream_ && session.discovery_stream_==kernel.proof->stream_identity() &&
+      session.parameters_==parameters && session.persistence_.maximum_retained_bytes==persistence.maximum_retained_bytes &&
+      session.persistence_.maximum_deferred_deletions==persistence.maximum_deferred_deletions &&
+      session.persistence_.maximum_deferred_literal_work==persistence.maximum_deferred_literal_work;
+  if(incremental_discovery) {
+    capture.discovered_through_clause_id=session.discovery_clause_id_;
+    capture.known_binary_bodies=&session.discovery_known_binaries_;
+    capture.pending_large_ids=&session.discovery_pending_large_;
+    capture.pending_binary_bodies=&session.discovery_pending_binaries_;
+  }
+  const __uint128_t resident_wide=__uint128_t(session.enabled()?session.retained_bytes():session.discovery_bytes_)+
+      (kernel.proof?__uint128_t(kernel.proof->premise_bytes())+kernel.proof->persistent_external_bytes():0);
+  const uint64_t previous_bytes=resident_wide>UINT64_MAX?UINT64_MAX:uint64_t(resident_wide);
+  const __uint128_t root_vector_wide = __uint128_t(2)*kernel.trail.size()*sizeof(External);
+  const uint64_t root_vector_bytes = root_vector_wide > UINT64_MAX ? UINT64_MAX : uint64_t(root_vector_wide);
+  if (persistence.maximum_retained_bytes &&
+      (resident_wide+root_vector_wide+sizeof(AffineLiveSnapshot) >= persistence.maximum_retained_bytes)) {
+    result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+  }
+  capture.maximum_snapshot_bytes = persistence.maximum_retained_bytes ?
+      persistence.maximum_retained_bytes-previous_bytes-root_vector_bytes : 0;
+  RootImagePlan root_plan;
+  RootScopeCensus discovered_census;
+  RootScopeEffort discovery_effort;
+  std::vector<uint64_t> discovered_binaries,pending_large,pending_binaries;
+  uint64_t discovery_bytes=0;
+  AffineLiveSnapshot full_owner;
+  std::vector<External> root_facts;
+  std::vector<size_t> proof_copies;
+  uint64_t root_capture_bytes = 0;
+  uint64_t preparation_private_bytes = 0;
+  uint64_t prospective_journal_bytes = 0;
+  if(persistence.maximum_retained_bytes) root_facts.reserve(kernel.trail.size());
+  Proof *const root_proof=kernel.proof;
+  const uint64_t root_proof_stream=root_proof?root_proof->stream_identity():0;
+  const uint64_t root_namespace = kernel.affine_semantic_namespace_epoch;
+  const uint64_t root_retraction = kernel.affine_trail_retraction_epoch;
+  const uint64_t root_assignments = kernel.stats.root_assignments;
+  const uint64_t root_clause_id = kernel.next_clause_id;
+  const auto commit_discovery=[&](AffineMatrixSearchSession &target) {
+    const uint64_t base=target.enabled()?target.retained_bytes_-std::min(target.retained_bytes_,target.discovery_bytes_):0;
+    target.discovery_owner_=&kernel;target.discovery_proof_=kernel.proof;
+    target.discovery_stream_=root_proof_stream;target.discovery_clause_id_=kernel.next_clause_id;
+    target.discovery_bytes_=discovery_bytes;target.discovery_census_=std::move(discovered_census);
+    target.discovery_known_binaries_=std::move(discovered_binaries);
+    target.discovery_pending_large_=std::move(pending_large);target.discovery_pending_binaries_=std::move(pending_binaries);
+    if(target.enabled())target.retained_bytes_=base+discovery_bytes;
+    else {target.parameters_=parameters;target.persistence_=persistence;}
+  };
+  const uint64_t root_touch_epoch=kernel.touch_epoch;
+  const uint64_t root_arena_generation=kernel.arena_generation;
+  bool postvalidation_stale=false;
+  const auto context_current=[&]() {
+    return kernel.proof==root_proof && root_proof && root_proof_stream &&
+        root_proof->stream_identity()==root_proof_stream &&
+        kernel.affine_semantic_namespace_epoch==root_namespace &&
+        kernel.affine_trail_retraction_epoch==root_retraction &&
+        kernel.stats.root_assignments==root_assignments &&
+        kernel.next_clause_id==root_clause_id && kernel.touch_epoch==root_touch_epoch &&
+        kernel.arena_generation==root_arena_generation && !kernel.model_extended;
+  };
+  const auto postvalidation_charge=[&](uint64_t amount) {
+    const bool stopped=kernel_terminating(kernel);
+    if(!context_current()) {postvalidation_stale=true;return false;}
+    return !stopped&&add(amount,parameters.maximum_session_work,result.premise_retention_work);
+  };
   if (!capture_affine_live_snapshot(kernel, capture, owner)) {
     result.status = kernel_terminating(kernel)
                         ? AffineMatrixInitStatus::Interrupted
@@ -354,17 +438,238 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   Image image;
   uint64_t recognition = 0;
   bool recognition_exhausted = false;
-  const Status recognized = recognize(
-      owner.premises, capture.image,
-      [&](uint64_t amount) {
-        if (kernel_terminating(kernel)) return false;
-        if (!add(amount, parameters.maximum_elimination_work, recognition)) {
-          recognition_exhausted = true;
-          return false;
+  Status recognized = Status::Invalid;
+  if (persistence.maximum_retained_bytes) {
+    auto charge = [&](uint64_t amount) {
+      return !kernel_terminating(kernel) &&
+          add(amount, parameters.maximum_elimination_work, recognition);
+    };
+    bool root_input_ready = true;
+    // Exact level-zero trail facts only; reconstructed/model values and search
+    // assumptions never enter the unconditional normalization oracle.
+    for (Lit literal : kernel.trail) {
+      if (!charge(1)) {recognized = Status::Exhausted; root_input_ready=false; break;}
+      if (kernel.assigned[var_of(literal)].level || kernel_var_retired(kernel,var_of(literal))) continue;
+      const External external = kernel_externalize(kernel,literal);
+      if (kernel_internalize(kernel,external) != literal) {recognized=Status::Invalid;root_input_ready=false;break;}
+      root_facts.push_back(external);
+    }
+    __uint128_t capture_bytes_wide = sizeof(AffineLiveSnapshot);
+    for (const auto &source : owner.sources) {
+      if (!charge(1+source.clause.size())) {recognized=Status::Exhausted;root_input_ready=false;break;}
+      capture_bytes_wide += 4*(sizeof(AffineLiveSource)+sizeof(Premise)) +
+          4*uint64_t(source.clause.size())*sizeof(External);
+    }
+    root_capture_bytes = capture_bytes_wide > UINT64_MAX ? UINT64_MAX : uint64_t(capture_bytes_wide);
+    if(capture_bytes_wide > UINT64_MAX) root_input_ready=false;
+    if (root_input_ready && !kernel_terminating(kernel) && recognition < parameters.maximum_elimination_work &&
+        root_capture_bytes <= persistence.maximum_retained_bytes &&
+        __uint128_t(previous_bytes)+root_vector_bytes <= persistence.maximum_retained_bytes-root_capture_bytes) {
+      RootImageLimits limits{capture.image,parameters.maximum_clauses,
+          parameters.maximum_snapshot_literals,parameters.maximum_external_extent,
+          parameters.maximum_elimination_work-recognition,
+          persistence.maximum_retained_bytes-root_capture_bytes-previous_bytes-root_vector_bytes,
+          parameters.maximum_proof_additions};
+      const RootImageStatus planned = prepare_affine_root_image(owner.sources,root_facts,limits,charge,root_plan,
+          incremental_discovery?&session.discovery_census_:nullptr,&discovered_census,&discovery_effort);
+      result.discovery_recognized_groups=discovery_effort.recognized_groups;
+      result.discovery_skipped_groups=discovery_effort.skipped_groups;
+      result.discovery_recognizer_work=discovery_effort.recognition_work;
+      // The census is a bounded discovery cache, not proof authority. Its exact
+      // signed body populations prevent re-recognition; only still-unresolved
+      // physical IDs may be recaptured. New bodies sharing a known scope remain
+      // eligible, including opposite parity.
+      if(planned==RootImageStatus::Prepared||planned==RootImageStatus::NoStructure) {
+        __uint128_t ledger_bytes=0;
+        for(const auto &record:discovered_census) {
+          if(!charge(1+record.scope.size())) {root_input_ready=false;break;}
+          ledger_bytes+=4*(sizeof(RootScopeRecord)+__uint128_t(record.scope.size())*sizeof(External));
+          for(const auto &body:record.normalized_bodies) {
+            if(!charge(1+body.size())) {root_input_ready=false;break;}
+            ledger_bytes+=4*(sizeof(std::vector<External>)+__uint128_t(body.size())*sizeof(External));
+          }
         }
-        return true;
-      },
-      image);
+        // A recognized equation may consume only a subset of a scope's
+        // population. Price and remember that exact selected subpopulation;
+        // never mark unrelated opposite-parity clauses admitted by scope alone.
+        for(const auto &eq:root_plan.image.equations) {
+          uint64_t payload=1+eq.variables.size();
+          ledger_bytes+=4*(sizeof(RootScopeRecord)+__uint128_t(eq.variables.size())*sizeof(External));
+          for(const auto &body:eq.premise_clauses) {
+            payload+=1+body.size();
+            ledger_bytes+=4*(sizeof(std::vector<External>)+__uint128_t(body.size())*sizeof(External));
+          }
+          const __uint128_t work=__uint128_t(payload)*(2+eq.premise_clauses.size()+discovered_census.size());
+          if(work>UINT64_MAX||!charge(uint64_t(work))) {root_input_ready=false;break;}
+        }
+        const __uint128_t vectors=4*__uint128_t((incremental_discovery?session.discovery_known_binaries_.size():0)+3*owner.sources.size())*sizeof(uint64_t);
+        ledger_bytes+=vectors;
+        if(ledger_bytes>UINT64_MAX || __uint128_t(previous_bytes)+root_capture_bytes+root_vector_bytes+
+            root_plan.reserved_bytes+ledger_bytes>persistence.maximum_retained_bytes) root_input_ready=false;
+        if(root_input_ready) {
+          discovery_bytes=uint64_t(ledger_bytes);
+          for(const auto &eq:root_plan.image.equations) {
+            RootScopeRecord selected;selected.scope=eq.variables;selected.normalized_bodies=eq.premise_clauses;selected.admitted=true;
+            for(auto &body:selected.normalized_bodies)std::sort(body.begin(),body.end());
+            std::sort(selected.normalized_bodies.begin(),selected.normalized_bodies.end());
+            auto found=std::find_if(discovered_census.begin(),discovered_census.end(),[&](const RootScopeRecord &record) {
+              return record.scope==selected.scope&&record.normalized_bodies==selected.normalized_bodies;
+            });
+            if(found==discovered_census.end())discovered_census.push_back(std::move(selected));
+            else found->admitted=true;
+          }
+          if(incremental_discovery) {
+            if(!charge(session.discovery_known_binaries_.size()))root_input_ready=false;
+            else discovered_binaries=session.discovery_known_binaries_;
+          }
+          for(const auto &source:owner.sources) {
+            if(!charge(1+source.clause.size()*source.clause.size()+source.clause.size())) {root_input_ready=false;break;}
+            if(source.kind==AffineSourceKind::RootUnit||!source.recognition_candidate)continue;
+            if(source.kind==AffineSourceKind::Binary)
+              discovered_binaries.push_back(affine_binary_body_identity(source.clause[0],source.clause[1]));
+            std::vector<External> normalized,scope;
+            bool satisfied=false;
+            for(External literal:source.clause) {
+              const Lit internal=kernel_internalize(kernel,literal);
+              const int value=internal==INVALID_LIT?0:kernel.value(internal);
+              const bool root=internal!=INVALID_LIT&&!kernel.assigned[var_of(internal)].level;
+              if(root&&value>0) {satisfied=true;break;}
+              if(root&&value<0)continue;
+              normalized.push_back(literal);scope.push_back(literal<0?-literal:literal);
+            }
+            if(satisfied||normalized.empty())continue;
+            std::sort(normalized.begin(),normalized.end());std::sort(scope.begin(),scope.end());
+            if(!charge(1+std::bit_width(root_plan.residuals.size()))) {root_input_ready=false;break;}
+            const auto selected=std::lower_bound(root_plan.residuals.begin(),root_plan.residuals.end(),source.occurrence,
+                [](const RootResidual &residual,uint64_t occurrence){return residual.physical_source.occurrence<occurrence;});
+            bool admitted=selected!=root_plan.residuals.end()&&selected->physical_source.occurrence==source.occurrence;
+            if(!admitted)for(const auto &record:discovered_census) {
+              if(!charge(1+scope.size()+normalized.size()*(1+std::bit_width(record.normalized_bodies.size())))) {root_input_ready=false;break;}
+              if(record.admitted&&record.scope==scope&&std::binary_search(record.normalized_bodies.begin(),record.normalized_bodies.end(),normalized)) {admitted=true;break;}
+            }
+            if(!root_input_ready)break;
+            if(admitted)continue;
+            if(source.kind==AffineSourceKind::Large)pending_large.push_back(source.clause_id);
+            else if(source.kind==AffineSourceKind::Binary)pending_binaries.push_back(affine_binary_body_identity(source.clause[0],source.clause[1]));
+          }
+          for(auto *values:{&discovered_binaries,&pending_large,&pending_binaries}) {
+            if(!charge(values->size()*(1+std::bit_width(values->size())))) {root_input_ready=false;break;}
+            std::sort(values->begin(),values->end());values->erase(std::unique(values->begin(),values->end()),values->end());
+          }
+
+        }
+      }
+      if(!root_input_ready) {
+        result.recognition_work=recognition;result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+        record_init(kernel,result);return result;
+      }
+      recognized = planned==RootImageStatus::Prepared?Status::Complete:
+          planned==RootImageStatus::NoStructure?Status::NoStructure:
+          planned==RootImageStatus::ResourceExhausted||planned==RootImageStatus::Interrupted?Status::Exhausted:Status::Invalid;
+      if (recognized==Status::Complete) {
+        result.normalization_rup_checks=root_plan.rup_checks;
+        // Reserve the complete simultaneous transaction BEFORE copying any
+        // normalized source, old owner, equation, matrix, lease group or journal.
+        // Actual source geometry bounds every XOR intermediate; declared maxima
+        // remain validation ceilings. Four populations cover retained/current,
+        // staging and replacement capacities; row payloads allow symmetric-
+        // difference's two-input capacity. Registry owns its separate clone guard.
+        __uint128_t eq_bytes=0, source_bytes=0, variable_occurrences=0;
+        __uint128_t premise_count=0, registry_payload=0, journal=512;
+        uint64_t equations=0;
+        auto price_equations=[&](const Image &input) {
+          for(const auto &eq:input.equations) {
+            if(!charge(1+eq.variables.size()+eq.premises.size())) return false;
+            ++equations; variable_occurrences+=eq.variables.size(); premise_count+=eq.premises.size();
+            eq_bytes+=4*(sizeof(Equation)+__uint128_t(eq.variables.size())*sizeof(External)+
+                __uint128_t(eq.premises.size())*sizeof(uint64_t));
+            journal+=512+__uint128_t(eq.variables.size())*12+__uint128_t(eq.premises.size())*21;
+            for(const auto &body:eq.premise_clauses) {
+              if(!charge(1+body.size())) return false;
+              eq_bytes+=4*(sizeof(std::vector<int32_t>)+__uint128_t(body.size())*sizeof(External));
+              // Combined owners may copy an occurrence separately for each
+              // admitted equation, even when residual premises were shared.
+              source_bytes+=4*(sizeof(AffineLiveSource)+sizeof(Premise))+
+                  __uint128_t(4)*body.size()*sizeof(External);
+              registry_payload+=4*sizeof(Proof::PremiseGroup)+16*sizeof(void*)+2*sizeof(uint64_t)+
+                  __uint128_t(2)*body.size()*sizeof(External);
+              journal+=512+__uint128_t(body.size())*12;
+            }
+          }
+          return true;
+        };
+        bool priced=price_equations(root_plan.image);
+        if(priced&&session.enabled()) priced=price_equations(session.image_);
+        auto price_source=[&](size_t width) {
+          source_bytes+=4*(sizeof(AffineLiveSource)+sizeof(Premise))+__uint128_t(4)*width*sizeof(External);
+        };
+        for(const auto &r:root_plan.residuals) {if(!charge(1+r.clause.size())) {priced=false;break;} price_source(r.clause.size());}
+        if(session.enabled()) for(const auto &old:session.source_owner_.sources) {
+          if(!charge(1+old.clause.size())) {priced=false;break;} price_source(old.clause.size());
+        }
+        for(const auto &source:owner.sources) {
+          if(!charge(1+source.clause.size())) {priced=false;break;}
+          journal+=512+__uint128_t(source.clause.size())*12;
+        }
+        const __uint128_t width=std::min<__uint128_t>(parameters.basis_maximum_intermediate_width,variable_occurrences);
+        const __uint128_t provenance=std::min<__uint128_t>(parameters.basis_maximum_sources,equations);
+        const __uint128_t rows=4*__uint128_t(equations)*(sizeof(MatrixRow)+2*width*sizeof(External)+2*provenance*sizeof(size_t));
+        journal+=__uint128_t(equations)*(512+12*width+21*provenance)+12*root_facts.size()+21*premise_count;
+        const __uint128_t arrays=4*(premise_count+equations)*sizeof(uint64_t);
+        const __uint128_t private_bytes=__uint128_t(previous_bytes)+2*capture_bytes_wide+
+            root_vector_bytes+root_plan.reserved_bytes+4*journal+arrays+discovery_bytes;
+        const __uint128_t stage=sizeof(AffineMatrixSearchSession)+eq_bytes+source_bytes+rows+
+            4*variable_occurrences*sizeof(MatrixAssignment)+
+            (session.enabled()?session.matrix_index_bytes_:0)+
+            (kernel.proof?kernel.proof->persistent_external_bytes():0);
+        const __uint128_t registry=kernel.proof?2*(__uint128_t(kernel.proof->premise_bytes())+registry_payload):0;
+        if(!priced || private_bytes+stage+registry>persistence.maximum_retained_bytes) {
+          recognized=Status::Exhausted;
+        } else {
+          preparation_private_bytes=uint64_t(private_bytes);
+          prospective_journal_bytes=uint64_t(journal);
+        }
+        if(recognized!=Status::Complete) {
+          result.recognition_work=recognition;
+          result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+          record_init(kernel,result);return result;
+        }
+        image = std::move(root_plan.image);
+        full_owner = std::move(owner);
+        owner = {};
+        owner.arena_generation = full_owner.arena_generation;
+        for (const auto &residual : root_plan.residuals) {
+          if (!charge(2+2*residual.clause.size())) {recognized=Status::Exhausted;break;}
+          AffineLiveSource source;
+          source.kind=residual.physical_source.kind;source.ref=residual.physical_source.ref;
+          source.first=residual.physical_source.first;source.second=residual.physical_source.second;
+          source.clause_id=residual.physical_source.clause_id;
+          source.proof_id_exact=residual.physical_source.proof_id_exact;
+          source.occurrence=owner.sources.size()+1;
+          source.clause=residual.clause;
+          if (!residual.removed_root_facts.empty()) {
+            source.kind=AffineSourceKind::CheckerPremise;source.clause_id=0;source.proof_id_exact=true;
+          }
+          owner.literals+=source.clause.size();
+          owner.premises.push_back({source.occurrence,source.clause});
+          owner.sources.push_back(std::move(source));
+        }
+        if(recognized==Status::Complete) for(auto &equation:image.equations)for(auto &occurrence:equation.premises) {
+          if (!charge(1+std::bit_width(root_plan.residuals.size()))) {recognized=Status::Exhausted;break;}
+          const auto it=std::lower_bound(root_plan.residuals.begin(),root_plan.residuals.end(),occurrence,
+              [](const RootResidual &r,uint64_t value){return r.occurrence<value;});
+          if(it==root_plan.residuals.end()||it->occurrence!=occurrence) {recognized=Status::Invalid;break;}
+          occurrence=1+size_t(it-root_plan.residuals.begin());
+        }
+      }
+    } else if(root_input_ready) recognized=Status::Exhausted;
+  } else {
+    recognized = recognize(owner.premises,capture.image,[&](uint64_t amount) {
+      if (kernel_terminating(kernel)) return false;
+      if (!add(amount,parameters.maximum_elimination_work,recognition)) {recognition_exhausted=true;return false;}
+      return true;
+    },image);
+  }
   result.recognition_work = recognition;
   if (recognized != Status::Complete) {
     result.status = recognized == Status::NoStructure
@@ -374,6 +679,10 @@ AffineMatrixInitResult affine_matrix_search_initialize(
                     : recognized == Status::Exhausted || recognition_exhausted
                         ? AffineMatrixInitStatus::ResourceExhausted
                         : AffineMatrixInitStatus::Invalid;
+    if(result.status==AffineMatrixInitStatus::NoStructure&&persistence.maximum_retained_bytes) {
+      if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+      commit_discovery(session);
+    }
     if (result.status == AffineMatrixInitStatus::NoStructure ||
         result.status == AffineMatrixInitStatus::ResourceExhausted)
       session.remember_terminal_initialization_failure(kernel, parameters);
@@ -419,8 +728,21 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     retained_equations = combined.equations.size();
     // Retained occurrence IDs remain stable. Newly captured IDs are remapped
     // once into the same durable source namespace.
+    for(const auto &source:session.source_owner_.sources)
+      if(!add(1+2*source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
     AffineLiveSnapshot combined_owner = session.source_owner_;
-    for (auto equation : image.equations) {
+    for (const auto &captured_equation : image.equations) {
+      uint64_t copy_work=1+captured_equation.variables.size()+captured_equation.premises.size();
+      for(const auto &clause:captured_equation.premise_clauses) {
+        if(clause.size()>UINT64_MAX-copy_work-1) {copy_work=UINT64_MAX;break;}
+        copy_work+=1+clause.size();
+      }
+      if(!add(copy_work,parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      auto equation=captured_equation;
       bool duplicate = false;
       for (const auto &existing : combined.equations) {
         if (!add(1 + existing.variables.size(), parameters.maximum_session_work,
@@ -433,6 +755,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       }
       if (duplicate) continue;
       for (auto &occurrence : equation.premises) {
+        if(!add(1+2*owner.sources[occurrence-1].clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+          result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+        }
         auto source = owner.sources[occurrence - 1];
         source.occurrence = combined_owner.sources.size() + 1;
         occurrence = source.occurrence;
@@ -444,11 +769,31 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     }
     image = std::move(combined); owner = std::move(combined_owner);
     if (image.equations.size() == retained_equations) {
+      if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+      commit_discovery(session);
       result.status = AffineMatrixInitStatus::NoStructure;
       result.unchanged = true;
       record_init(kernel, result); return result;
     }
   }
+  // Fresh proof IDs are assigned only to genuinely new shortened premises,
+  // after retained-equation duplicate elimination. The live counter is untouched.
+  uint64_t planned_clause_id = kernel.next_clause_id;
+  if(persistence.maximum_retained_bytes) for(size_t i=retained_equations;i<image.equations.size();++i)
+    for(uint64_t occurrence:image.equations[i].premises) {
+      if (!add(1,parameters.maximum_session_work,result.premise_retention_work) ||
+          !occurrence || occurrence>owner.sources.size()) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      auto &source=owner.sources[occurrence-1];
+      if(source.kind!=AffineSourceKind::CheckerPremise || source.clause_id)continue;
+      if(planned_clause_id==UINT64_MAX || proof_copies.size()==parameters.maximum_proof_additions ||
+          proof_copies.size()==parameters.maximum_proof_deletions) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      source.clause_id=++planned_clause_id;
+      proof_copies.push_back(occurrence-1);
+    }
   AffineMatrix matrix;
   uint64_t matrix_work = 0;
   bool matrix_exhausted = false;
@@ -516,11 +861,48 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   fits &= retain(4 * uint64_t(matrix.admitted_variables().size()) * sizeof(MatrixAssignment));
   if (session.enabled() && session.attached_to(kernel)) fits &= retain(session.matrix_index_bytes_);
   if (kernel.proof) fits &= retain(kernel.proof->persistent_external_bytes());
+  if(persistence.maximum_retained_bytes) {
+    const __uint128_t peak = __uint128_t(retained_bytes) + root_plan.reserved_bytes +
+        __uint128_t(2)*root_capture_bytes + (session.enabled()?session.retained_bytes_:0);
+    if(peak>persistence.maximum_retained_bytes) fits=false;
+  }
   if (!fits) {
     result.status = AffineMatrixInitStatus::ResourceExhausted;
     record_init(kernel, result); return result;
   }
 
+  if(persistence.maximum_retained_bytes) {
+    // Decimal uint64 fields need at most 20 characters, signed int32 literals
+    // 11 plus separator. A 512-character envelope covers each fixed JSON record
+    // header/key scaffold. Four envelopes cover stream growth, returned string,
+    // append replacement and short formatting temporaries before publication.
+    __uint128_t journal_reserve=512+__uint128_t(root_facts.size())*12+
+        __uint128_t(proof_copies.size())*21;
+    for(const auto &row:matrix.rows()) {
+      if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      journal_reserve+=512+__uint128_t(row.variables.size())*12+__uint128_t(row.source_equations.size())*21;
+    }
+    for(const auto &equation:image.equations) {
+      if(!add(1+equation.premises.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      journal_reserve+=512;
+      for(const auto &clause:equation.premise_clauses)journal_reserve+=512+__uint128_t(clause.size())*12;
+    }
+    if(!proof_copies.empty())for(const auto &source:full_owner.sources) {
+      if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      journal_reserve+=512+__uint128_t(source.clause.size())*12;
+    }
+    const __uint128_t peak=__uint128_t(retained_bytes)+root_plan.reserved_bytes+
+        __uint128_t(2)*root_capture_bytes+(session.enabled()?session.retained_bytes_:0)+4*journal_reserve;
+    if(journal_reserve>prospective_journal_bytes || journal_reserve>parameters.maximum_journal_bytes||peak>persistence.maximum_retained_bytes) {
+      result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+    }
+  }
   std::string initialization_journal;
   if (!make_initialization_journal(owner_version, matrix,
                                    parameters.maximum_journal_bytes,
@@ -551,7 +933,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         const auto &source = owner.sources[equation.premises[j] - 1];
         journal_fits = append((j ? "," : "") + std::string("{\"occurrence\":") +
             std::to_string(source.occurrence) + ",\"clause_id\":" +
-            std::to_string(source.clause_id) + ",\"clause\":[");
+            std::to_string(source.clause_id) + ",\"proof_id_exact\":" +
+            std::to_string(source.proof_id_exact) + ",\"clause\":[");
         for (size_t l = 0; journal_fits && l < source.clause.size(); ++l)
           journal_fits = append((l ? "," : "") + std::to_string(source.clause[l]));
         journal_fits &= append("]}");
@@ -559,6 +942,27 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       journal_fits &= append("]}");
     }
     journal_fits &= append("]}\n");
+    if(!proof_copies.empty()) {
+      journal_fits &= append("{\"kind\":\"affine-root-normalization\",\"owner\":"+
+          std::to_string(owner_version)+",\"root_facts\":[");
+      for(size_t i=0;journal_fits&&i<root_facts.size();++i)
+        journal_fits &= append((i?",":"")+std::to_string(root_facts[i]));
+      journal_fits &= append("],\"oracle_sources\":[");
+      for(size_t i=0;journal_fits&&i<full_owner.sources.size();++i) {
+        const auto &source=full_owner.sources[i];
+        journal_fits &= append((i?",":"")+std::string("{\"kind\":")+
+            std::to_string(unsigned(source.kind))+",\"clause_id\":"+
+            std::to_string(source.clause_id)+",\"proof_id_exact\":"+
+            std::to_string(source.proof_id_exact)+",\"clause\":[");
+        for(size_t j=0;journal_fits&&j<source.clause.size();++j)
+          journal_fits &= append((j?",":"")+std::to_string(source.clause[j]));
+        journal_fits &= append("]}");
+      }
+      journal_fits &= append("],\"shortened_clause_ids\":[");
+      for(size_t i=0;journal_fits&&i<proof_copies.size();++i)
+        journal_fits &= append((i?",":"")+std::to_string(owner.sources[proof_copies[i]].clause_id));
+      journal_fits &= append("]}\n");
+    }
     if (!journal_fits) {
       result.status = AffineMatrixInitStatus::ResourceExhausted;
       record_init(kernel, result); return result;
@@ -576,34 +980,112 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     return result;
   }
 
+  if(persistence.maximum_retained_bytes) {
+    // Recapture the complete oracle source population, rather than validating
+    // only selected parity patterns: root RUP may depend on unrelated CNF.
+    auto recheck_request=capture;
+    recheck_request.maximum_snapshot_work=parameters.maximum_snapshot_work-
+        std::min(result.snapshot_work,parameters.maximum_snapshot_work);
+    AffineLiveSnapshot rechecked;
+    if(!capture_affine_live_snapshot(kernel,recheck_request,rechecked)) {
+      result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+      record_init(kernel,result);return result;
+    }
+    result.snapshot_work+=rechecked.work;
+    bool same=kernel.proof==root_proof && kernel.proof && root_proof_stream &&
+        kernel.proof->stream_identity()==root_proof_stream && kernel.next_clause_id==root_clause_id &&
+        kernel.affine_semantic_namespace_epoch==root_namespace &&
+        kernel.affine_trail_retraction_epoch==root_retraction &&
+        kernel.stats.root_assignments==root_assignments &&
+        rechecked.arena_generation==full_owner.arena_generation &&
+        rechecked.sources.size()==full_owner.sources.size();
+    for(size_t i=0;same&&i<full_owner.sources.size();++i) {
+      const auto &before=full_owner.sources[i];const auto &after=rechecked.sources[i];
+      if(!add(2+before.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      same=before.kind==after.kind&&before.ref==after.ref&&before.first==after.first&&
+          before.second==after.second&&before.clause_id==after.clause_id&&
+          before.proof_id_exact==after.proof_id_exact&&
+          before.recognition_candidate==after.recognition_candidate&&before.clause==after.clause;
+    }
+    for(External external:root_facts) {
+      if(!add(1,parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      const Lit literal=kernel_internalize(kernel,external);
+      same=same&&literal!=INVALID_LIT&&kernel_externalize(kernel,literal)==external&&
+          !kernel_var_retired(kernel,var_of(literal))&&kernel.values[literal]>0&&
+          !kernel.assigned[var_of(literal)].level&&!kernel.model_extended;
+    }
+    if(!same) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+    Proof::PremiseGroup copies;
+    for(size_t occurrence:proof_copies) {
+      const auto &source=owner.sources[occurrence];
+      if(!add(1+source.clause.size(),parameters.maximum_session_work,result.premise_retention_work)) {
+        result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+      }
+      copies.push_back(source.clause);
+    }
+    std::vector<Proof::PremiseGroup> pending_copies;
+    if(!copies.empty()) {pending_copies.reserve(1);pending_copies.push_back(std::move(copies));}
+    if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+    if(!pending_copies.empty()&&!root_proof->can_defer_premise_group_deletions(pending_copies,
+        {persistence.maximum_deferred_deletions,persistence.maximum_deferred_literal_work},
+        postvalidation_charge)) {
+      result.status=postvalidation_stale?AffineMatrixInitStatus::Stale:
+          kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+      record_init(kernel,result);return result;
+    }
+  }
+  if(persistence.maximum_retained_bytes &&
+      __uint128_t(retained_bytes)+preparation_private_bytes>=persistence.maximum_retained_bytes) {
+    result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
+  }
   std::vector<uint64_t> leases;
+  if(persistence.maximum_retained_bytes) retained_leases.reserve(image.equations.size());
   if (persistence.maximum_retained_bytes) {
     std::vector<Proof::PremiseGroup> groups;
     for (size_t i = retained_equations; i < image.equations.size(); ++i) {
       const auto &equation = image.equations[i];
-      if (!add(1 + equation.premises.size(), parameters.maximum_session_work,
+      uint64_t group_work=1+equation.premises.size();
+      for(const auto &body:equation.premise_clauses) {
+        if(body.size()>UINT64_MAX-group_work-1) {group_work=UINT64_MAX;break;}
+        group_work+=1+body.size();
+      }
+      if (!add(group_work, parameters.maximum_session_work,
                result.premise_retention_work)) {
         result.status = AffineMatrixInitStatus::ResourceExhausted;
         record_init(kernel, result); return result;
       }
       groups.push_back(equation.premise_clauses);
     }
-    if (!kernel.proof->retain_premise_groups(groups, parameters.maximum_groups,
+    if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
+    if (!root_proof->retain_premise_groups(groups, parameters.maximum_groups,
         parameters.maximum_snapshot_literals,
-        persistence.maximum_retained_bytes - retained_bytes,
-        [&](uint64_t amount) {
-          return !kernel_terminating(kernel) &&
-              add(amount, parameters.maximum_session_work, result.premise_retention_work);
-        }, leases, {persistence.maximum_deferred_deletions, persistence.maximum_deferred_literal_work})) {
-      result.status = kernel_terminating(kernel) ? AffineMatrixInitStatus::Interrupted :
+        persistence.maximum_retained_bytes - retained_bytes - preparation_private_bytes,
+        postvalidation_charge, leases, {persistence.maximum_deferred_deletions, persistence.maximum_deferred_literal_work})) {
+      result.status = postvalidation_stale?AffineMatrixInitStatus::Stale:
+          kernel_terminating(kernel) ? AffineMatrixInitStatus::Interrupted :
                                                  AffineMatrixInitStatus::ResourceExhausted;
       record_init(kernel, result); return result;
     }
   }
+  const uint64_t committed_epoch=kernel.proof?kernel.proof->premise_epoch():0;
+  for(size_t occurrence:proof_copies) {
+    const auto &source=owner.sources[occurrence];
+    if(++kernel.next_clause_id!=source.clause_id ||
+        !kernel.proof->add_external_rup(source.clause_id,source.clause.data(),source.clause.size()) ||
+        !kernel.proof->del_external(kernel.next_clause_id,source.clause_id,source.clause.data(),source.clause.size())) std::abort();
+  }
+  result.shortening_additions=proof_copies.size();
+  if(kernel.proof&&kernel.proof->premise_epoch()!=committed_epoch)std::abort();
+  for(uint64_t handle:leases)if(!kernel.proof->premise_group_active(handle))std::abort();
   AffineMatrixSearchSession candidate;
   candidate.persistence_ = persistence;
+  if(persistence.maximum_retained_bytes) commit_discovery(candidate);
   candidate.matrix_row_bytes_ = row_reserve;
-  candidate.retained_bytes_ = retained_bytes + (kernel.proof ? kernel.proof->premise_bytes() : 0);
+  candidate.retained_bytes_ = retained_bytes + discovery_bytes + (kernel.proof ? kernel.proof->premise_bytes() : 0);
   retained_leases.insert(retained_leases.end(), leases.begin(), leases.end());
   candidate.premise_leases_ = std::move(retained_leases);
   candidate.premise_epoch_ = kernel.proof ? kernel.proof->premise_epoch() : 0;
@@ -611,6 +1093,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   candidate.owner_ = &kernel;
   candidate.owner_version_ = owner_version;
   candidate.proof_ = kernel.proof;
+  candidate.proof_stream_identity_ = kernel.proof ? kernel.proof->stream_identity() : 0;
   if (kernel.proof) candidate.proof_format_ = kernel.proof->format();
   candidate.records_ = kernel.structural_provenance;
   candidate.parameters_ = parameters;
@@ -728,6 +1211,30 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
           AffineMatrixInitStatus::AppliedPartial : AffineMatrixInitStatus::NoStructure;
     result.result = rooted.result; result.root_unit_additions = rooted.proof_additions;
     result.root_unit_work = rooted.work;
+    if(session.enabled()&&rooted.status!=AffineMatrixServiceStatus::Applied) {
+      result.root_service=affine_matrix_search_step(kernel,session);
+      const auto &service=*result.root_service;
+      for(uint64_t amount:{service.lifecycle_work,service.trail_capture_work,
+          service.synchronization_work,service.session_work,service.live.planner_work,
+          service.live.revalidation_work})
+        result.maintenance_service_work=amount>UINT64_MAX-result.maintenance_service_work?
+            UINT64_MAX:result.maintenance_service_work+amount;
+      kernel.stats.affine_matrix_init_maintenance_service_work+=result.maintenance_service_work;
+      if(service.status==AffineMatrixServiceStatus::Applied) {
+        result.status=AffineMatrixInitStatus::AppliedPartial;result.result=service.result;
+        result.root_reason_additions=1;
+      } else if(service.status==AffineMatrixServiceStatus::Pending) {
+        result.status=AffineMatrixInitStatus::Pending;
+      } else if(service.status!=AffineMatrixServiceStatus::NoEvent&&
+          service.status!=AffineMatrixServiceStatus::Duplicate) {
+        result.status=service.status==AffineMatrixServiceStatus::Interrupted?AffineMatrixInitStatus::Interrupted:
+            service.status==AffineMatrixServiceStatus::ResourceExhausted?AffineMatrixInitStatus::ResourceExhausted:
+            service.status==AffineMatrixServiceStatus::Stale?AffineMatrixInitStatus::Stale:
+            service.status==AffineMatrixServiceStatus::UnsupportedProof?AffineMatrixInitStatus::Invalid:
+            service.status==AffineMatrixServiceStatus::Inapplicable?AffineMatrixInitStatus::Inapplicable:
+            AffineMatrixInitStatus::Invalid;
+      }
+    }
     if (session.enabled()) {
       result.owner_version = session.owner_version_; result.retained_bytes = session.retained_bytes_;
       result.equations = session.image_.equations.size(); result.rows = session.matrix_.rows().size();
@@ -1048,11 +1555,13 @@ AffineMatrixServiceResult affine_matrix_search_step(
     record_service(kernel, result);
     return result;
   }
-  if (kernel.inconsistent || kernel.conflict_valid || kernel.pending.valid ||
+  if (kernel.level || kernel.inconsistent || kernel.conflict_valid || kernel.pending.valid ||
       (session.persistent() && kernel.model_extended) || kernel.dense || kernel.probing.recording ||
       !kernel.large_watches_connected || !kernel_propagation_fixpoint(kernel)) {
     result.status = AffineMatrixServiceStatus::Inapplicable;
-    session.disable(kernel);
+    // A transient Boolean/inprocessing boundary cannot revoke durable source
+    // ownership. Legacy live-only sessions retain their historical lifecycle.
+    if(!session.persistent())session.disable(kernel);
     record_service(kernel, result);
     return result;
   }
@@ -1131,6 +1640,15 @@ AffineMatrixServiceResult affine_matrix_search_step(
       session.projected_variables_.insert(session.projected_variables_.end(),
                                          unavailable.begin(), unavailable.end());
     }
+  }
+  if(session.matrix_.continuation_pending()&&
+      (!kernel.affine_capture_epochs_trusted || !session.capture_valid_ ||
+       session.capture_owner_!=session.owner_version_ ||
+       session.capture_namespace_epoch_!=kernel.affine_semantic_namespace_epoch ||
+       session.capture_retraction_epoch_!=kernel.affine_trail_retraction_epoch ||
+       session.capture_cursor_!=kernel.trail.size())) {
+    session.matrix_.cancel_continuation();
+    result.slice_invalidated=true;
   }
   std::vector<MatrixAssignment> fresh_trail;
   const std::vector<MatrixAssignment> *trail_view = &fresh_trail;
@@ -1279,8 +1797,36 @@ AffineMatrixServiceResult affine_matrix_search_step(
   const uint64_t index_base = session.retained_bytes_ - session.matrix_index_bytes_;
   const MatrixIncrementalLimits index_limits{session.persistence_.maximum_retained_bytes -
       std::min(index_base, session.persistence_.maximum_retained_bytes)};
-  const MatrixStatus synchronized = cached ? MatrixStatus::Complete : session.matrix_.synchronize(
-      trail, synchronization_charge, event, session.persistent(), session.persistent() ? &index_limits : nullptr);
+  MatrixStatus synchronized=MatrixStatus::Complete;
+  if(!cached) {
+    if(session.persistent()&&(session.slice_retry_||session.matrix_.continuation_pending())) {
+      const MatrixSliceLimits slice{session.parameters_.basis_maximum_work-result.synchronization_work,
+          session.persistence_.maximum_retained_bytes-std::min(session.retained_bytes_,session.persistence_.maximum_retained_bytes)};
+      synchronized=session.matrix_.synchronize_sliced(trail,synchronization_charge,event,slice);
+      const auto &effort=session.matrix_.last_slice_effort();
+      result.slice_work=effort.work;result.slice_cumulative_work=effort.cumulative_work;
+      result.slice_completed_steps=effort.completed_steps;result.slice_minimum_work=effort.minimum_slice_work;
+      result.slice_resumed=effort.resumed;result.slice_invalidated=result.slice_invalidated||effort.invalidated;
+      result.slice_pending=synchronized==MatrixStatus::Pending ||
+          (synchronized==MatrixStatus::Exhausted&&session.matrix_.continuation_pending());
+      session.slice_retry_=result.slice_pending;
+    } else {
+      synchronized=session.matrix_.synchronize(trail,synchronization_charge,event,session.persistent(),
+          session.persistent()?&index_limits:nullptr);
+      const bool work_decline = session.matrix_.last_synchronization_work_exhausted() || exhausted;
+      if(session.persistent()&&work_decline&&
+          (synchronized==MatrixStatus::Exhausted || synchronized==MatrixStatus::Interrupted)&&
+          session.parameters_.basis_maximum_work>1+trail.size()&&!kernel_terminating(kernel)) {
+        // This bounded attempt published nothing. Resume through private
+        // row/XOR microsteps on the next dose rather than repeating it forever.
+        session.slice_retry_=true;result.slice_pending=true;
+      }
+    }
+  }
+  if(result.slice_pending) {
+    result.status=AffineMatrixServiceStatus::Pending;
+    record_service(kernel,result);return result;
+  }
   if (synchronized != MatrixStatus::Complete &&
       synchronized != MatrixStatus::Partial) {
     result.status = kernel_terminating(kernel)
@@ -1303,17 +1849,26 @@ AffineMatrixServiceResult affine_matrix_search_step(
         uint64_t(event.row.variables.size() + event.reason.size()) * sizeof(External) +
         uint64_t(event.row.source_equations.size()) * sizeof(size_t)));
     const uint64_t base = session.retained_bytes_ - session.cached_event_bytes_;
-    if (bytes <= session.persistence_.maximum_retained_bytes -
+    const uint64_t copy_work = 1 + event.row.variables.size() +
+        event.row.source_equations.size() + event.reason.size();
+    const bool cache_fits = bytes <= session.persistence_.maximum_retained_bytes -
                     std::min(base, session.persistence_.maximum_retained_bytes) &&
-        synchronization_charge(1 + event.row.variables.size() + event.row.source_equations.size() + event.reason.size())) {
+        copy_work <= session.parameters_.basis_maximum_work -
+                    std::min(result.synchronization_work, session.parameters_.basis_maximum_work);
+    // The completed event is already independently metered by the reducer.
+    // Its optional reuse copy must not turn a completed final slice into a
+    // resource failure merely because that slice used the whole work dose.
+    if (cache_fits) {
+      if (!synchronization_charge(copy_work)) {
+        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
+                                                   AffineMatrixServiceStatus::ResourceExhausted;
+        record_service(kernel, result); return result;
+      }
       session.cached_event_ = event;
       session.cached_event_bytes_ = bytes; session.retained_bytes_ = base + bytes;
       session.cached_event_owner_ = session.owner_version_; session.cached_event_valid_ = true;
     } else {
       session.cached_event_valid_ = false;
-      result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                 AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result); return result;
     }
   }
   result.synchronized = true;
@@ -1434,6 +1989,7 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                     strategy::AffineMatrixInitializeParameters::Operation::SearchStep)
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
+                                  .fact("root-level", kernel.level == 0)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
                                   .fact("propagated", kernel_propagation_fixpoint(kernel))
                                   .fact("sparse", !kernel.dense && kernel.large_watches_connected)

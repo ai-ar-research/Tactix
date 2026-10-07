@@ -2,6 +2,8 @@
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/nol_hypergraph_model.hpp"
+#include "rules/lucky/model.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "strategy/native_feedback.hpp"
 
 #include <cassert>
@@ -99,7 +101,7 @@ int main() {
     // unknown in a partial hint instead of receiving invented false phases.
     Kernel kernel = parse(hypergraph(8, edges, false, 7));
     kernel.work_budget_bounded = true;
-    kernel.work_budget = 5000;
+    kernel.work_budget = 8000;
     assert(nol_hypergraph_model_apply(kernel) == ApplyResult::Ok);
     assert(kernel.stats.nol_hypergraph_model_recognized == 1);
     assert(kernel.stats.nol_hypergraph_model_budget_exhausted == 1);
@@ -145,15 +147,130 @@ int main() {
            ApplyResult::Sat);
   }
   {
-    // If recognition plus the reserved terminal publication cannot fit, the
-    // bounded action declines without overshooting or publishing a hint.
-    Kernel kernel = parse(hypergraph(5, {{{0, 1, 2}}, {{1, 2, 3}},
-                                          {{2, 3, 4}}}));
-    kernel.work_budget_bounded = true;
-    kernel.work_budget = 100;
-    assert(nol_hypergraph_model_apply(kernel) == ApplyResult::NoOp);
-    assert(kernel.stats.nol_hypergraph_model_work <= kernel.work_budget);
-    assert(!kernel.stats.local_search_hints_offered);
+    // Authentication is atomic at the measured work boundary. One work unit
+    // below the exact successful cost retains no partial source image, starts
+    // no trajectory and publishes no logical or phase claim.
+    const auto input = hypergraph(5, {{{0, 1, 2}}, {{1, 2, 3}},
+                                      {{2, 3, 4}}});
+    Kernel measured = parse(input);
+    NolHypergraphWalkSession measured_session;
+    measured.nol_hypergraph_walk_session = &measured_session;
+    const auto measurement = nol_hypergraph_model_authenticate(measured);
+    assert(measurement.status == NolHypergraphAuthenticationStatus::Authenticated);
+    assert(measurement.recognized && measurement.work > 0);
+
+    Kernel short_kernel = parse(input);
+    NolHypergraphWalkSession short_session;
+    short_kernel.nol_hypergraph_walk_session = &short_session;
+    short_kernel.work_budget_bounded = true;
+    short_kernel.work_budget = measurement.work - 1;
+    const auto short_result = nol_hypergraph_model_authenticate(short_kernel);
+    assert(short_result.status == NolHypergraphAuthenticationStatus::Exhausted);
+    assert(!short_result.recognized && !short_session.authenticated(short_kernel));
+    assert(short_kernel.stats.nol_hypergraph_model_calls == 0);
+    assert(short_session.steps() == 0 && short_session.trajectories() == 0);
+    assert(short_result.work <= short_kernel.work_budget);
+    assert(short_kernel.trail.empty() &&
+           !short_kernel.stats.local_search_hints_offered);
+
+    Kernel exact_kernel = parse(input);
+    NolHypergraphWalkSession exact_session;
+    exact_kernel.nol_hypergraph_walk_session = &exact_session;
+    exact_kernel.work_budget_bounded = true;
+    exact_kernel.work_budget = measurement.work;
+    const auto exact_result = nol_hypergraph_model_authenticate(exact_kernel);
+    assert(exact_result.status == NolHypergraphAuthenticationStatus::Authenticated);
+    assert(exact_result.recognized && exact_session.authenticated(exact_kernel));
+    assert(exact_result.work == measurement.work);
+    assert(!exact_session.initialized() && exact_session.steps() == 0 &&
+           exact_session.trajectories() == 0);
+    assert(exact_kernel.stats.nol_hypergraph_model_calls == 0);
+    assert(exact_kernel.trail.empty() &&
+           !exact_kernel.stats.local_search_hints_offered);
+  }
+  {
+    std::vector<std::array<int,3>> edges;
+    for(int a=0;a<7;++a)for(int b=a+1;b<7;++b)for(int c=b+1;c<7;++c)edges.push_back({a,b,c});
+    const auto input=hypergraph(7,edges);
+    Kernel k=parse(input),replay=parse(input);
+    NolHypergraphWalkSession session,replay_session;
+    k.nol_hypergraph_walk_session=&session;replay.nol_hypergraph_walk_session=&replay_session;
+    k.work_budget_bounded=replay.work_budget_bounded=true;
+    k.work_budget=replay.work_budget=8000;
+    const auto authenticated=nol_hypergraph_model_authenticate(k);
+    const auto replay_authenticated=nol_hypergraph_model_authenticate(replay);
+    assert(authenticated.status==NolHypergraphAuthenticationStatus::Authenticated);
+    assert(replay_authenticated.status==NolHypergraphAuthenticationStatus::Authenticated);
+    assert(authenticated.recognized&&replay_authenticated.recognized);
+    assert(session.authenticated(k)&&replay_session.authenticated(replay));
+    assert(!session.initialized()&&!replay_session.initialized());
+    assert(session.steps()==0&&session.trajectories()==0);
+    assert(replay_session.steps()==0&&replay_session.trajectories()==0);
+    assert(k.stats.nol_hypergraph_model_calls==0&&
+           replay.stats.nol_hypergraph_model_calls==0);
+    assert(k.trail.empty()&&replay.trail.empty());
+    assert(!k.stats.local_search_hints_offered&&
+           !replay.stats.local_search_hints_offered);
+    const auto first_slice=nol_hypergraph_model_slice(k);
+    assert(first_slice.result==ApplyResult::Ok);
+    assert(first_slice.status==NolHypergraphSliceStatus::Pending);
+    assert(!first_slice.recognized&&first_slice.hint_published&&first_slice.useful_hint);
+    assert(first_slice.work<=k.work_budget);
+    assert(nol_hypergraph_model_apply(replay)==ApplyResult::Ok);
+    assert(session.initialized()&&session.steps()>0&&session.trajectories()==1);
+    assert(session.steps()==replay_session.steps()&&session.candidate_fingerprint()==replay_session.candidate_fingerprint());
+    // Learned/redundant clauses, semantic helper allocation and collection
+    // can change live representation epochs without invalidating this
+    // external-coordinate, SAT-only source image. Resumption must not scan the
+    // original clauses again.
+    const Lit redundant[] = {kernel_internalize(k, 1),
+                             kernel_internalize(k, 2),
+                             kernel_internalize(k, 3)};
+    kernel_add_large_clause(k, redundant, 3, true, 0, ++k.next_clause_id);
+    kernel_affine_note_namespace_change(k);
+    kernel_collect_garbage(k);
+    const auto recognized=k.stats.nol_hypergraph_model_recognized;
+    const auto steps=session.steps(),trajectory=session.trajectories();
+    const auto arena=k.arena;const auto watches=k.watches.arena;const auto id=k.next_clause_id;
+    const auto cumulative=k.stats.nol_hypergraph_model_work;
+    k.work_budget=replay.work_budget=3000;
+    const auto resumed=nol_hypergraph_model_slice(k);
+    assert(resumed.result==ApplyResult::Ok);
+    assert(resumed.status==NolHypergraphSliceStatus::Pending);
+    assert(!resumed.recognized);
+    assert(nol_hypergraph_model_apply(replay)==ApplyResult::Ok);
+    assert(k.stats.nol_hypergraph_model_recognized==recognized&&session.steps()>steps&&session.trajectories()==trajectory);
+    assert(k.stats.nol_hypergraph_model_work-cumulative<=k.work_budget);
+    assert(session.steps()==replay_session.steps()&&session.candidate_fingerprint()==replay_session.candidate_fingerprint());
+    assert(k.arena==arena&&k.watches.arena==watches&&k.next_clause_id==id&&k.trail.empty()&&!k.inconsistent&&!k.conflict_valid&&!k.pending.valid);
+    const auto hints=k.stats.local_search_hints_offered,fingerprint=session.candidate_fingerprint(),stopped_steps=session.steps();
+    volatile sig_atomic_t stop=1;k.stop=&stop;
+    assert(nol_hypergraph_model_apply(k)==ApplyResult::NoOp);
+    assert(k.stats.local_search_hints_offered==hints&&session.candidate_fingerprint()==fingerprint&&session.steps()==stopped_steps);
+    k.stop=nullptr;
+    // Root masks update without recognizing the unchanged original clauses.
+    kernel_assign_unit(k,kernel_internalize(k,1));assert(propagate_apply(k)==ApplyResult::Ok);
+    const auto root_trail=k.trail.size();
+    assert(nol_hypergraph_model_apply(k)==ApplyResult::Ok);
+    assert(k.stats.nol_hypergraph_model_recognized==recognized&&k.trail.size()==root_trail&&k.next_clause_id==id);
+    const auto &hint=k.local_search_hints[size_t(strategy::LocalSearchKind::HypergraphColoring)];
+    assert(hint.available()&&hint.external_phases[0]==1&&hint.external_phases[1]==-1&&hint.external_phases[2]==-1);
+    assert(!k.inconsistent&&!k.conflict_valid&&!k.pending.valid);
+  }
+  {
+    // A theory-satisfying coloring is not a model of arbitrary live redundant
+    // CNF. Reproduce the deterministic first coloring then forbid it with one
+    // redundant large clause: the full validator must reject SAT publication.
+    const auto input=hypergraph(4,{{{0,1,2}},{{1,2,3}}});
+    Kernel baseline=parse(input);assert(nol_hypergraph_model_apply(baseline)==ApplyResult::Sat);
+    Kernel k=parse(input);NolHypergraphWalkSession session;k.nol_hypergraph_walk_session=&session;
+    std::vector<Lit> reject;
+    for(Var v=0;v<3;++v){Var chosen=3*v;while(baseline.values[make_lit(chosen,false)]<0)++chosen;reject.push_back(make_lit(chosen,true));}
+    kernel_add_large_clause(k,reject.data(),reject.size(),true,0,++k.next_clause_id);
+    const auto id=k.next_clause_id;const auto arena=k.arena;
+    assert(nol_hypergraph_model_apply(k)!=ApplyResult::Sat);
+    assert(k.trail.empty()&&k.next_clause_id==id&&k.arena==arena&&!k.inconsistent&&!k.conflict_valid&&!k.pending.valid);
+    assert(!k.stats.nol_hypergraph_model_sat);
   }
   std::puts("test_nol_hypergraph_model OK");
   return 0;

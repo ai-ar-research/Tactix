@@ -67,7 +67,10 @@ struct AffineConsequenceParameters {
 struct AffineMatrixInitializeParameters {
   enum class Admission : uint8_t { AuthenticatedSubimage = 1 };
   enum class Operation : uint8_t {
-    Initialize = 1, Refresh = 2, RootMaintenance = 3, SearchStep = 4
+    Initialize = 1, Refresh = 2, RootMaintenance = 3,
+    // Append-only compatibility tag. It is root-only like RootMaintenance;
+    // the name no longer grants execution during a search interval.
+    SearchStep = 4
   };
   AffineConsequenceParameters basis;
   Admission admission = Admission::AuthenticatedSubimage;

@@ -153,9 +153,9 @@ TACTIX_REGISTER_RULE(Gf3GaussianConsequence, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(TseitinCycleBreaking, RuleTier::Inprocess,
                      tseitin_cycle_breaking_registry_guard,
                      tseitin_cycle_breaking_canonical_noop);
-TACTIX_REGISTER_RULE(NaryCspPrefix, RuleTier::Inprocess,
-                     nary_csp_prefix_registry_guard,
-                     nary_csp_prefix_canonical_noop);
+TACTIX_REGISTER_OPT_IN_RULE(NaryCspPrefix, RuleTier::Inprocess,
+                            nary_csp_prefix_registry_guard,
+                            nary_csp_prefix_canonical_noop);
 TACTIX_REGISTER_RULE(NaryCspEquality, RuleTier::Inprocess,
                      nary_csp_equality_registry_guard,
                      nary_csp_equality_canonical_noop);

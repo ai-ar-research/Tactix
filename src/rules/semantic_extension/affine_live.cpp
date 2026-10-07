@@ -3,6 +3,7 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -345,6 +346,7 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
     result.work += amount;
     return true;
   };
+  uint64_t reserved_bytes = sizeof(AffineLiveSnapshot);
   auto take = [&](AffineSourceKind kind, Ref ref, Lit first, Lit second,
                   uint64_t clause_id, const Lit *literals, uint32_t size) {
     if (result.premises.size() == request.image.maximum_clauses ||
@@ -353,6 +355,13 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
       return false;
     }
     if (!charge(size + 1)) return false;
+    const uint64_t bytes = 4 * (sizeof(AffineLiveSource) + sizeof(affine_semantic_extension::Premise)) +
+        4 * uint64_t(size) * sizeof(int32_t);
+    if (request.maximum_snapshot_bytes && (reserved_bytes > request.maximum_snapshot_bytes ||
+        bytes > request.maximum_snapshot_bytes - reserved_bytes)) {
+      failure = CaptureStatus::ResourceExhausted; return false;
+    }
+    reserved_bytes += bytes;
     AffineLiveSource source;
     source.occurrence = result.sources.size() + 1;
     source.kind = kind;
@@ -360,6 +369,7 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
     source.first = first;
     source.second = second;
     source.clause_id = clause_id;
+    source.proof_id_exact = kind != AffineSourceKind::Binary || k.binary_ids.tracks_values();
     source.clause.reserve(size);
     for (uint32_t i = 0; i < size; ++i) {
       if (kernel_var_retired(k, var_of(literals[i]))) {
@@ -378,7 +388,12 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
     const Clause *clause = clause_at(k.arena, ref);
     ref += clause_actual_words(clause);
     if (!charge(1)) return finish(failure);
-    if (!clause->garbage() && clause->size <= request.image.maximum_arity &&
+    bool eligible=true;
+    if(request.discovered_through_clause_id && clause->id()<=request.discovered_through_clause_id) {
+      if(!charge(1+(request.pending_large_ids?std::bit_width(request.pending_large_ids->size()):0))) return finish(failure);
+      eligible=request.pending_large_ids&&std::binary_search(request.pending_large_ids->begin(),request.pending_large_ids->end(),clause->id());
+    }
+    if (eligible && !clause->garbage() && (request.full_root_view || clause->size <= request.image.maximum_arity) &&
         !take(AffineSourceKind::Large, current, INVALID_LIT, INVALID_LIT,
               clause->id(), clause->lits, clause->size))
       return finish(failure);
@@ -388,13 +403,78 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
     for (const WatchEntry watch : k.watches.entries(first)) {
       if (!charge(1)) return finish(failure);
       if (!watch.binary() || first >= watch.other()) continue;
-      if (!binaries.insert(kernel_binary_key(first, watch.other())).second)
-        continue;
+      if(request.known_binary_bodies) {
+        if(!charge(3+std::bit_width(request.known_binary_bodies->size())+
+            (request.pending_binary_bodies?std::bit_width(request.pending_binary_bodies->size()):0))) return finish(failure);
+        const auto identity=affine_binary_body_identity(kernel_externalize(k,first),kernel_externalize(k,watch.other()));
+        if(std::binary_search(request.known_binary_bodies->begin(),request.known_binary_bodies->end(),identity)&&
+            !(request.pending_binary_bodies&&std::binary_search(request.pending_binary_bodies->begin(),request.pending_binary_bodies->end(),identity))) continue;
+      }
+      const auto native_key=kernel_binary_key(first,watch.other());
+      if(request.maximum_snapshot_bytes) {
+        if(!charge(2*(1+std::bit_width(binaries.size()))))return finish(failure);
+        if(binaries.contains(native_key))continue;
+        // The four source-metadata populations also cover this unique-pair
+        // tree node (three links/color/alignment) and its allocator overhead.
+        // Reserve the next source envelope before allocating the node.
+        const uint64_t bytes=4*(sizeof(AffineLiveSource)+sizeof(affine_semantic_extension::Premise))+8*sizeof(int32_t);
+        if(reserved_bytes>request.maximum_snapshot_bytes||bytes>request.maximum_snapshot_bytes-reserved_bytes) {
+          failure=CaptureStatus::ResourceExhausted;return finish(failure);
+        }
+        binaries.insert(native_key);
+      } else if(!binaries.insert(native_key).second)continue;
       const Lit pair[] = {first, watch.other()};
       if (!take(AffineSourceKind::Binary, INVALID_REF, first, watch.other(),
                 kernel_binary_id(k, first, watch.other()), pair, 2))
         return finish(failure);
     }
+  if (request.full_root_view) {
+    for (Var v = 0; v < k.nvars; ++v) {
+      if (!charge(1)) return finish(failure);
+      const Lit positive = make_lit(v, false);
+      if (kernel_var_retired(k,v) || !k.values[positive] || k.assigned[v].level) continue;
+      const Lit literal = k.values[positive] > 0 ? positive : negate(positive);
+      const uint64_t unit_id = k.unit_ids[v];
+      const bool recorded = k.proof && k.proof->dsr() && k.proof->stream_identity() &&
+          k.dsr_root_proof==k.proof && k.dsr_root_stream_identity==k.proof->stream_identity() &&
+          v < k.dsr_root_values.size() &&
+          k.dsr_root_values[v] == (negated(literal) ? -1 : 1);
+      if(!unit_id&&!recorded) {
+        const auto &assigned=k.assigned[v];
+        if(assigned.reason==UNIT_REASON||assigned.reason==DECISION_REASON)continue;
+        if(assigned.binary) {
+          if(assigned.reason>=2*k.nvars||!kernel_binary_live(k,literal,assigned.reason))continue;
+          const auto identity=kernel_binary_key(literal,assigned.reason);
+          if(!charge(2*(1+std::bit_width(binaries.size()))))return finish(failure);
+          if(binaries.contains(identity))continue;
+          const uint64_t bytes=4*(sizeof(AffineLiveSource)+sizeof(affine_semantic_extension::Premise))+8*sizeof(int32_t);
+          if(request.maximum_snapshot_bytes&&(reserved_bytes>request.maximum_snapshot_bytes||bytes>request.maximum_snapshot_bytes-reserved_bytes)) {
+            failure=CaptureStatus::ResourceExhausted;return finish(failure);
+          }
+          binaries.insert(identity);
+          const Lit pair[]={literal,assigned.reason};
+          if(!take(AffineSourceKind::Binary,INVALID_REF,literal,assigned.reason,
+              kernel_binary_id(k,literal,assigned.reason),pair,2))return finish(failure);
+        } else {
+          if(assigned.reason>=k.arena.size())continue;
+          if(!charge(1+result.sources.size()))return finish(failure);
+          const Clause *reason=clause_at(k.arena,assigned.reason);
+          if(reason->garbage())continue;
+          bool present=false;
+          for(const auto &source:result.sources)
+            if(source.kind==AffineSourceKind::Large&&source.ref==assigned.reason) {present=true;break;}
+          if(present)continue;
+          if(!take(AffineSourceKind::Large,assigned.reason,INVALID_LIT,INVALID_LIT,
+              reason->id(),reason->lits,reason->size))return finish(failure);
+        }
+        result.sources.back().recognition_candidate=false;
+        continue;
+      }
+      if (!take(AffineSourceKind::RootUnit, INVALID_REF, literal, INVALID_LIT,
+                unit_id, &literal, 1)) return finish(failure);
+      result.sources.back().proof_id_exact = unit_id != 0;
+    }
+  }
   return finish(CaptureStatus::Complete);
 }
 
@@ -432,6 +512,17 @@ bool affine_live_sources_valid(const Kernel &k,
         return false;
       const Lit pair[] = {source.first, source.second};
       if (!same_clause(k, pair, 2, source.clause)) return false;
+    } else if (source.kind == AffineSourceKind::RootUnit) {
+      const Lit literal = source.first;
+      if (literal == INVALID_LIT || var_of(literal) >= k.nvars ||
+          k.values[literal] <= 0 || k.assigned[var_of(literal)].level ||
+          !same_clause(k, &literal, 1, source.clause)) return false;
+      if (source.proof_id_exact) {
+        if (!source.clause_id || k.unit_ids[var_of(literal)] != source.clause_id) return false;
+      } else if (!k.proof || !k.proof->dsr() || !k.proof->stream_identity() ||
+          k.dsr_root_proof!=k.proof || k.dsr_root_stream_identity!=k.proof->stream_identity() ||
+          var_of(literal) >= k.dsr_root_values.size() ||
+          k.dsr_root_values[var_of(literal)] != (negated(literal) ? -1 : 1)) return false;
     } else return false;
   }
   return true;

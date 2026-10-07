@@ -147,7 +147,16 @@ struct RuleVTable {
   // Declares explicit instances belonging to the original-input certificate
   // boundary. Choosing any other action closes that boundary for this run.
   bool (*startup_instance)(uint64_t) = nullptr;
+  // Registry-driven DefaultPolicy append is an explicit capability. Public
+  // opt-in actions retain their stable IDs and API reach without leaking a
+  // name-specific exclusion into the default scheduler.
+  bool default_inprocess = true;
 };
+
+inline RuleVTable opt_in_rule(RuleVTable rule) {
+  rule.default_inprocess = false;
+  return rule;
+}
 
 // --- rule-dispatch timing (diagnostic; see Stats' wall-clock block) ---------
 // Monotonic nanoseconds. These wrappers only ever fire on registry dispatch —
@@ -206,6 +215,12 @@ int tactix_rule_id(const char *name); // -1 if unknown
   static const int tactix_rule_registered_##NAME = \
       ::tactix::tactix_register_rule( \
           ::tactix::ActionKind::ProofRule, {#NAME, TIER, __VA_ARGS__})
+
+#define TACTIX_REGISTER_OPT_IN_RULE(NAME, TIER, ...) \
+  static const int tactix_rule_registered_##NAME = \
+      ::tactix::tactix_register_rule( \
+          ::tactix::ActionKind::ProofRule, \
+          ::tactix::opt_in_rule({#NAME, TIER, __VA_ARGS__}))
 
 // A policy operation (plan §4): H-only search guidance, no proof obligation.
 // Same registry, same append-only id space, same guard/apply(/instance)

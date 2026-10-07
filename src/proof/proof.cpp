@@ -4,6 +4,7 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <bit>
 #include <cassert>
 #include <cinttypes>
@@ -203,9 +204,22 @@ Proof::~Proof() {
   bind_population_observer(nullptr);
   if (file_ && std::fclose(file_))
     std::abort();
+  stream_identity_=0;
 }
 
+namespace {
+uint64_t next_proof_stream_identity() noexcept {
+  static std::atomic<uint64_t> next{1};
+  uint64_t value=next.load(std::memory_order_relaxed);
+  while(value) {
+    const uint64_t successor=value==UINT64_MAX?0:value+1;
+    if(next.compare_exchange_weak(value,successor,std::memory_order_relaxed))return value;
+  }
+  return 0; // Exhaustion is permanent, never wraps into a reused identity.
+}
+}
 bool Proof::open(const char *path, ProofFormat format) {
+  stream_identity_=0; // Failed opens cannot lend cached-unit authority.
   if (file_ || automatic_output_ || format == ProofFormat::Pbp)
     return false;
   file_ = fopen(path, "wb");
@@ -221,6 +235,14 @@ bool Proof::open(const char *path, ProofFormat format) {
     }
     format_ = ProofFormat::DsrBinary;
     automatic_pending_ = input_transaction_ = true;
+  }
+  if(file_) {
+    stream_identity_=next_proof_stream_identity();
+    if(!stream_identity_) {
+      std::fclose(file_);file_=nullptr;
+      if(automatic_output_){std::fclose(automatic_output_);automatic_output_=nullptr;}
+      automatic_pending_=input_transaction_=false;return false;
+    }
   }
   if (file_)
     setvbuf(file_, nullptr, binary() ? _IONBF : _IOFBF, 1 << 20);

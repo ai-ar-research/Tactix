@@ -5,7 +5,6 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/bve/bve.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -222,13 +221,15 @@ void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix
   kernel_assign_decision(k,kernel_internalize(k,1));
   assert(propagate_apply(k)!=ApplyResult::Unsat && kernel_propagation_fixpoint(k));
   assert(!k.value(kernel_internalize(k,5)));
+  const auto pending_owner=session.owner_version(),pending_id=k.next_clause_id;
+  const auto pending_bytes=proof.premise_bytes();
+  const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
   const auto consequence=affine_matrix_search_step(k,session);
-  assert(consequence.status==AffineMatrixServiceStatus::Applied && consequence.live.implication);
-  auto reason=consequence.installed_reason;std::sort(reason.begin(),reason.end());
-  const std::vector<int32_t> expected=signed_alias?std::vector<int32_t>{-1,5}:std::vector<int32_t>{-5,-1};
-  assert(reason==expected && consequence.live.installed_reason_id);
-  assert(propagate_apply(k)!=ApplyResult::Unsat);
-  assert(k.value(kernel_internalize(k,signed_alias?5:-5))>0);
+  assert(consequence.status==AffineMatrixServiceStatus::Inapplicable &&
+         consequence.installed_reason.empty() && session.enabled() && session.attached_to(k));
+  assert(session.owner_version()==pending_owner && k.next_clause_id==pending_id &&
+         proof.premise_bytes()==pending_bytes && k.trail==pending_trail &&
+         !k.value(kernel_internalize(k,5)));
   const auto retraction_before_backtrack=k.affine_trail_retraction_epoch;
   kernel_backtrack(k,0);assert(propagate_apply(k)!=ApplyResult::Unsat);
   assert(k.affine_trail_retraction_epoch>retraction_before_backtrack);

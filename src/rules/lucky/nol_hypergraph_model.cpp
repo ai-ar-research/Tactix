@@ -6,17 +6,15 @@
 #include <array>
 #include <cstdint>
 #include <numeric>
+#include <bit>
 #include <random>
 #include <vector>
 
 namespace tactix {
 namespace {
 
-// LymphoSAT gives its first restart 2,000,000 moves. One public invocation is
-// exactly that first bounded attempt; the generic rule-work budget can shorten
-// it and the controller's repeated-action loop can request another attempt.
-// Mix the call ordinal into the deterministic seed so repeated actions explore
-// distinct trajectories while replaying the same action sequence exactly.
+// LymphoSAT's first trajectory allowance bounds retained trajectories. Public
+// doses resume that trajectory; only reaching this limit starts another one.
 constexpr uint64_t FIRST_RESTART_STEPS = 2'000'000;
 constexpr uint64_t DEFAULT_SEED = 0x9e3779b97f4a7c15ULL;
 
@@ -103,6 +101,7 @@ bool recognize(Kernel &k, Meter &meter, Shape &shape) {
       k.nvars != external)
     return false;
   shape.groups = static_cast<uint32_t>(external / 3);
+  if (!meter.charge(4 * uint64_t(shape.groups))) return false;
   shape.group_to_vertex.assign(shape.groups, -1);
   shape.allowed_colors.assign(shape.groups, 7);
   std::vector<uint8_t> active(shape.groups, 0);
@@ -123,6 +122,7 @@ bool recognize(Kernel &k, Meter &meter, Shape &shape) {
 
   uint64_t visited = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
+    if (!meter.charge(1)) return false;
     const Clause *clause = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(clause);
     shape.validation_work += 1 + (clause->garbage() ? 0 : clause->size);
@@ -183,6 +183,8 @@ bool recognize(Kernel &k, Meter &meter, Shape &shape) {
   }
   if (shape.active_groups.empty()) return false;
 
+  if (!meter.charge(uint64_t(colored_edges.size()) *
+      (2 * std::bit_width(uint64_t(colored_edges.size())) + 3))) return false;
   std::sort(colored_edges.begin(), colored_edges.end(),
             [](const ColoredEdge &a, const ColoredEdge &b) {
               return a.group != b.group ? a.group < b.group
@@ -211,6 +213,8 @@ bool recognize(Kernel &k, Meter &meter, Shape &shape) {
     begin = end;
   }
   if (mapped.empty()) return false;
+  if (!meter.charge(uint64_t(mapped.size()) *
+      (2 * std::bit_width(uint64_t(mapped.size())) + 5))) return false;
   std::sort(mapped.begin(), mapped.end(), [](const Edge &a, const Edge &b) {
     return a.vertex < b.vertex;
   });
@@ -264,164 +268,6 @@ bool edge_bad_after(const Shape &shape, const Candidate &candidate,
   return true;
 }
 
-bool rebuild(const Shape &shape, Meter &meter, Candidate &candidate) {
-  candidate.bad.assign(shape.edges.size(), 0);
-  candidate.bad_position.assign(shape.edges.size(), -1);
-  candidate.bad_edges.clear();
-  for (uint32_t edge = 0; edge < shape.edges.size(); ++edge) {
-    if (!meter.charge(3)) return false;
-    const auto &vertices = shape.edges[edge].vertex;
-    if (candidate.colors[vertices[0]] == candidate.colors[vertices[1]] &&
-        candidate.colors[vertices[1]] == candidate.colors[vertices[2]])
-      add_bad(candidate, edge);
-  }
-  return true;
-}
-
-bool greedy_initialize(const Shape &shape, Meter &meter,
-                       std::mt19937_64 &random, Candidate &candidate) {
-  const uint32_t vertices = static_cast<uint32_t>(shape.active_groups.size());
-  candidate.colors.assign(vertices, 3);
-  std::vector<uint32_t> order(vertices);
-  std::iota(order.begin(), order.end(), 0);
-  std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) {
-    const bool fixed_a = (shape.allowed_colors[shape.active_groups[a]] &
-                          (shape.allowed_colors[shape.active_groups[a]] - 1)) == 0;
-    const bool fixed_b = (shape.allowed_colors[shape.active_groups[b]] &
-                          (shape.allowed_colors[shape.active_groups[b]] - 1)) == 0;
-    if (fixed_a != fixed_b) return fixed_a;
-    return shape.incident[a].size() > shape.incident[b].size();
-  });
-  for (uint32_t vertex : order) {
-    if (meter.poll())
-      return false;
-    const uint8_t allowed = shape.allowed_colors[shape.active_groups[vertex]];
-    uint32_t best_score = UINT32_MAX;
-    std::array<uint8_t, 3> best{};
-    uint32_t count = 0;
-    for (uint8_t color = 0; color < 3; ++color) {
-      if (!(allowed & (uint8_t{1} << color))) continue;
-      candidate.colors[vertex] = color;
-      uint32_t score = 0;
-      for (uint32_t edge : shape.incident[vertex]) {
-        if (!meter.charge(1)) return false;
-        const auto &e = shape.edges[edge].vertex;
-        if (candidate.colors[e[0]] == color && candidate.colors[e[1]] == color &&
-            candidate.colors[e[2]] == color)
-          ++score;
-      }
-      if (score < best_score) { best_score = score; count = 0; }
-      if (score == best_score) best[count++] = color;
-    }
-    candidate.colors[vertex] = best[random() % count];
-  }
-  return rebuild(shape, meter, candidate);
-}
-
-bool move_delta(const Shape &shape, const Candidate &candidate, Meter &meter,
-                uint32_t vertex, uint8_t color, int64_t &delta) {
-  delta = 0;
-  for (uint32_t edge : shape.incident[vertex]) {
-    if (!meter.charge(1)) return false;
-    delta += int64_t(edge_bad_after(shape, candidate, edge, vertex, color)) -
-             int64_t(candidate.bad[edge]);
-  }
-  return true;
-}
-
-bool flip(const Shape &shape, Meter &meter, Candidate &candidate,
-          uint32_t vertex, uint8_t color) {
-  if (candidate.colors[vertex] == color) return true;
-  if (!meter.charge(shape.incident[vertex].size())) return false;
-  for (uint32_t edge : shape.incident[vertex]) remove_bad(candidate, edge);
-  candidate.colors[vertex] = color;
-  for (uint32_t edge : shape.incident[vertex])
-    if (edge_bad_after(shape, candidate, edge, UINT32_MAX, 0))
-      add_bad(candidate, edge);
-  return true;
-}
-
-bool search(Kernel &k, const Shape &shape, Meter &meter,
-            std::vector<uint8_t> &best_colors, uint64_t &best_bad) {
-  const uint64_t call_ordinal = k.stats.nol_hypergraph_model_calls - 1;
-  std::mt19937_64 random(shape.seed ^
-                        (call_ordinal * DEFAULT_SEED));
-  Candidate candidate;
-  if (!greedy_initialize(shape, meter, random, candidate)) return false;
-  ++k.stats.nol_hypergraph_model_restarts;
-  if (candidate.bad_edges.size() < best_bad) {
-    best_bad = candidate.bad_edges.size();
-    best_colors = candidate.colors;
-  }
-  for (uint64_t step = 0; step < FIRST_RESTART_STEPS; ++step) {
-      if (candidate.bad_edges.empty()) {
-        best_bad = 0;
-        best_colors = candidate.colors;
-        return true;
-      }
-      ++k.stats.nol_hypergraph_model_steps;
-      if (!(step & 8191) && meter.poll())
-        return false;
-      const uint32_t edge = candidate.bad_edges[random() % candidate.bad_edges.size()];
-      struct Move { int64_t delta; uint32_t vertex; uint8_t color; uint64_t tie; };
-      std::array<Move, 6> moves{};
-      uint32_t move_count = 0;
-      for (uint32_t vertex : shape.edges[edge].vertex) {
-        const uint8_t allowed = shape.allowed_colors[shape.active_groups[vertex]];
-        for (uint8_t color = 0; color < 3; ++color) {
-          if (color == candidate.colors[vertex] ||
-              !(allowed & (uint8_t{1} << color)))
-            continue;
-          int64_t delta = 0;
-          if (!move_delta(shape, candidate, meter, vertex, color, delta))
-            return false;
-          if (move_count == moves.size()) return false;
-          const Move move{delta, vertex, color, random()};
-          uint32_t position = move_count++;
-          while (position &&
-                 (move.delta < moves[position - 1].delta ||
-                  (move.delta == moves[position - 1].delta &&
-                   move.tie < moves[position - 1].tie))) {
-            moves[position] = moves[position - 1];
-            --position;
-          }
-          moves[position] = move;
-        }
-      }
-      if (!move_count) return false;
-      uint32_t pick_limit = 1;
-      const uint64_t roll = random() % 1000;
-      if (roll < 35) pick_limit = move_count;
-      else if (roll < 140) pick_limit = std::min<uint32_t>(4, move_count);
-      const Move move = moves[random() % pick_limit];
-      if (!flip(shape, meter, candidate, move.vertex, move.color)) return false;
-      if (candidate.bad_edges.size() < best_bad) {
-        best_bad = candidate.bad_edges.size();
-        best_colors = candidate.colors;
-      }
-      if ((step & 8191) == 8191 && !candidate.bad_edges.empty() &&
-          random() % 1000 < 15) {
-        // Perturb only a vertex that has another root-compatible color.
-        for (uint32_t attempt = 0; attempt < candidate.colors.size(); ++attempt) {
-          const uint32_t vertex = random() % candidate.colors.size();
-          const uint8_t allowed = shape.allowed_colors[shape.active_groups[vertex]];
-          if (!(allowed & (allowed - 1))) continue;
-          uint8_t color = candidate.colors[vertex];
-          do color = static_cast<uint8_t>(random() % 3);
-          while (color == candidate.colors[vertex] ||
-                 !(allowed & (uint8_t{1} << color)));
-          if (!flip(shape, meter, candidate, vertex, color)) return false;
-          if (candidate.bad_edges.size() < best_bad) {
-            best_bad = candidate.bad_edges.size();
-            best_colors = candidate.colors;
-          }
-          break;
-        }
-      }
-  }
-  return false;
-}
-
 std::vector<int8_t> signed_assignment(const Kernel &k, const Shape &shape,
                                       const std::vector<uint8_t> &colors) {
   // Zero is an unknown phase in the partial-guidance API.  Only variables in
@@ -442,6 +288,158 @@ std::vector<int8_t> signed_assignment(const Kernel &k, const Shape &shape,
 
 } // namespace
 
+struct NolHypergraphWalkSession::State {
+  const Kernel *owner = nullptr;
+  Shape shape;
+  Candidate candidate;
+  std::vector<uint32_t> order;
+  size_t cursor = 0;
+  bool initialized = false;
+  std::mt19937_64 random;
+  std::vector<uint8_t> best;
+  uint64_t best_bad = UINT64_MAX;
+  uint64_t published_best_bad = UINT64_MAX;
+  uint64_t steps = 0, trajectory_steps = 0, trajectories = 0;
+};
+NolHypergraphWalkSession::NolHypergraphWalkSession() = default;
+NolHypergraphWalkSession::~NolHypergraphWalkSession() = default;
+void NolHypergraphWalkSession::clear() { state_.reset(); }
+bool NolHypergraphWalkSession::authenticated(const Kernel &kernel) const {
+  return state_ && state_->owner == &kernel;
+}
+bool NolHypergraphWalkSession::initialized() const { return state_ && state_->initialized; }
+uint64_t NolHypergraphWalkSession::steps() const { return state_ ? state_->steps : 0; }
+uint64_t NolHypergraphWalkSession::trajectories() const { return state_ ? state_->trajectories : 0; }
+uint64_t NolHypergraphWalkSession::candidate_fingerprint() const {
+  uint64_t hash = DEFAULT_SEED;
+  if(state_) for(uint8_t color:state_->candidate.colors)hash=(hash^color)*1099511628211ULL;
+  return hash;
+}
+namespace {
+using Walk = NolHypergraphWalkSession::State;
+void rebuild_private(const Shape &shape, Candidate &candidate) {
+  candidate.bad.assign(shape.edges.size(),0);
+  candidate.bad_position.assign(shape.edges.size(),-1);
+  candidate.bad_edges.clear();
+  for(uint32_t edge=0;edge<shape.edges.size();++edge)
+    if(edge_bad_after(shape,candidate,edge,UINT32_MAX,0))add_bad(candidate,edge);
+}
+bool update_root(Kernel &k,Meter &meter,Walk &walk,bool &changed) {
+  const auto &shape=walk.shape;
+  if(!meter.charge(3*uint64_t(shape.groups)))return false;
+  std::vector<uint8_t> allowed(shape.groups,7);
+  for(uint32_t group=0;group<shape.groups;++group) {
+    unsigned true_count=0,true_color=0;
+    for(uint32_t color=0;color<3;++color) {
+      const Lit lit=make_lit(3*group+color,false);
+      const Lit internal=kernel_internalize(k,3*group+color+1);
+      if(internal==INVALID_LIT||kernel_externalize(k,internal)!=int(3*group+color+1))return false;
+      const int value=kernel_external_value(k,lit);
+      if(value<0)allowed[group]&=uint8_t(~(1u<<color));
+      if(value>0){++true_count;true_color=color;}
+    }
+    if(true_count>1||(!shape.group_to_vertex.empty()&&shape.group_to_vertex[group]<0&&true_count))return false;
+    if(true_count)allowed[group]=uint8_t(1u<<true_color);
+    if(shape.group_to_vertex[group]>=0&&!allowed[group])return false;
+  }
+  if(allowed==walk.shape.allowed_colors)return true;
+  const uint64_t work=uint64_t(shape.active_groups.size())*3+uint64_t(shape.edges.size())*3;
+  if(!meter.charge(work)||meter.poll())return false;
+  walk.shape.allowed_colors=std::move(allowed);
+  changed=true;
+  // Root restrictions change the private optimization problem, never CNF.
+  if(walk.initialized) {
+    for(size_t vertex=0;vertex<walk.candidate.colors.size();++vertex) {
+      const uint8_t mask=walk.shape.allowed_colors[walk.shape.active_groups[vertex]];
+      if(!(mask&(1u<<walk.candidate.colors[vertex])))walk.candidate.colors[vertex]=uint8_t(std::countr_zero(unsigned(mask)));
+    }
+    rebuild_private(walk.shape,walk.candidate);
+    walk.best=walk.candidate.colors;walk.best_bad=walk.candidate.bad_edges.size();
+  } else {
+    walk.cursor=0;walk.order.clear();walk.candidate.colors.clear();walk.best.clear();walk.best_bad=UINT64_MAX;
+  }
+  walk.published_best_bad=UINT64_MAX;
+  return true;
+}
+bool initialize_candidate(Kernel &k,Meter &meter,Walk &walk) {
+  const Shape &shape=walk.shape;
+  const size_t vertices=shape.active_groups.size();
+  if(walk.order.empty()) {
+    const uint64_t work=vertices*(2*std::bit_width(uint64_t(vertices))+4);
+    if(!meter.charge(work)||meter.poll())return false;
+    walk.candidate.colors.assign(vertices,3);walk.order.resize(vertices);
+    std::iota(walk.order.begin(),walk.order.end(),0);
+    std::stable_sort(walk.order.begin(),walk.order.end(),[&](uint32_t a,uint32_t b) {
+      const auto fixed=[&](uint32_t v){const auto mask=shape.allowed_colors[shape.active_groups[v]];return !(mask&(mask-1));};
+      if(fixed(a)!=fixed(b))return fixed(a);
+      return shape.incident[a].size()>shape.incident[b].size();
+    });
+  }
+  while(walk.cursor<walk.order.size()) {
+    const uint32_t vertex=walk.order[walk.cursor];
+    if(!meter.charge(1+9*uint64_t(shape.incident[vertex].size()))||meter.poll())return false;
+    const uint8_t allowed=shape.allowed_colors[shape.active_groups[vertex]];
+    uint32_t best_score=UINT32_MAX,count=0;std::array<uint8_t,3> best{};
+    for(uint8_t color=0;color<3;++color)if(allowed&(1u<<color)) {
+      walk.candidate.colors[vertex]=color;uint32_t score=0;
+      for(uint32_t edge:shape.incident[vertex])score+=edge_bad_after(shape,walk.candidate,edge,UINT32_MAX,0);
+      if(score<best_score){best_score=score;count=0;}if(score==best_score)best[count++]=color;
+    }
+    walk.candidate.colors[vertex]=best[walk.random()%count];++walk.cursor;
+  }
+  if(!meter.charge(3*uint64_t(shape.edges.size())+vertices)||meter.poll())return false;
+  rebuild_private(shape,walk.candidate);walk.initialized=true;walk.trajectory_steps=0;
+  ++walk.trajectories;++k.stats.nol_hypergraph_model_restarts;
+  if(walk.candidate.bad_edges.size()<walk.best_bad){walk.best_bad=walk.candidate.bad_edges.size();walk.best=walk.candidate.colors;}
+  return true;
+}
+enum class WalkProgress { Pending, Found, Complete };
+WalkProgress resume_search(Kernel &k,Meter &meter,Walk &walk) {
+  if(!walk.initialized&&!initialize_candidate(k,meter,walk))return WalkProgress::Pending;
+  const Shape &shape=walk.shape;
+  while(walk.trajectory_steps<FIRST_RESTART_STEPS) {
+    if(walk.candidate.bad_edges.empty())return WalkProgress::Found;
+    if(meter.poll())return WalkProgress::Pending;
+    // Stage RNG before selecting an edge. A declined move consumes no RNG,
+    // candidate mutation or step; the next public dose resumes exactly.
+    if(!meter.charge(2*((sizeof(walk.random)+sizeof(uint64_t)-1)/sizeof(uint64_t))))return WalkProgress::Pending;
+    auto random=walk.random;
+    const uint32_t edge=walk.candidate.bad_edges[random()%walk.candidate.bad_edges.size()];
+    uint64_t work=1;
+    for(uint32_t vertex:shape.edges[edge].vertex)work+=10*uint64_t(shape.incident[vertex].size())+40;
+    if(!meter.charge(work))return WalkProgress::Pending;
+    struct Move{int64_t delta;uint32_t vertex;uint8_t color;uint64_t tie;};
+    std::array<Move,6> moves{};uint32_t count=0;
+    for(uint32_t vertex:shape.edges[edge].vertex)for(uint8_t color=0;color<3;++color) {
+      const uint8_t allowed=shape.allowed_colors[shape.active_groups[vertex]];
+      if(color==walk.candidate.colors[vertex]||!(allowed&(1u<<color)))continue;
+      int64_t delta=0;for(uint32_t incident:shape.incident[vertex])
+        delta+=int64_t(edge_bad_after(shape,walk.candidate,incident,vertex,color))-walk.candidate.bad[incident];
+      moves[count++]={delta,vertex,color,random()};
+    }
+    if(!count) {
+      walk.initialized=false;walk.cursor=0;walk.order.clear();
+      return WalkProgress::Complete;
+    }
+    std::sort(moves.begin(),moves.begin()+count,[](const Move&a,const Move&b){return a.delta!=b.delta?a.delta<b.delta:a.tie<b.tie;});
+    uint32_t limit=1;const auto roll=random()%1000;
+    if(roll<35)limit=count;else if(roll<140)limit=std::min<uint32_t>(4,count);
+    const auto move=moves[random()%limit];
+    const uint64_t next_bad=uint64_t(int64_t(walk.candidate.bad_edges.size())+move.delta);
+    if(next_bad<walk.best_bad&&!meter.charge(walk.candidate.colors.size()))return WalkProgress::Pending;
+    // Two color deltas and both flip incidence scans were reserved above.
+    for(uint32_t incident:shape.incident[move.vertex])remove_bad(walk.candidate,incident);
+    walk.candidate.colors[move.vertex]=move.color;
+    for(uint32_t incident:shape.incident[move.vertex])if(edge_bad_after(shape,walk.candidate,incident,UINT32_MAX,0))add_bad(walk.candidate,incident);
+    walk.random=random;++walk.steps;++walk.trajectory_steps;++k.stats.nol_hypergraph_model_steps;
+    if(walk.candidate.bad_edges.size()<walk.best_bad){walk.best_bad=walk.candidate.bad_edges.size();walk.best=walk.candidate.colors;}
+  }
+  // Explicit bounded trajectory boundary; initialization resumes separately.
+  walk.initialized=false;walk.cursor=0;walk.order.clear();
+  return WalkProgress::Complete;
+}
+} // namespace
+
 RuleEligibility nol_hypergraph_model_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
@@ -454,15 +452,89 @@ RuleEligibility nol_hypergraph_model_guard(const Kernel &k) {
       .fact("large-watches-connected", k.large_watches_connected);
 }
 
-ApplyResult nol_hypergraph_model_apply(Kernel &k) {
+NolHypergraphAuthenticationResult nol_hypergraph_model_authenticate(Kernel &k) {
+  assert(nol_hypergraph_model_guard(k));
+  Meter meter(k);
+  NolHypergraphAuthenticationResult result;
+  const auto finish = [&](NolHypergraphAuthenticationStatus status) {
+    result.status = status;
+    result.work = meter.used;
+    return result;
+  };
+  if (meter.poll())
+    return finish(NolHypergraphAuthenticationStatus::Interrupted);
+  if (!k.nol_hypergraph_walk_session)
+    return finish(NolHypergraphAuthenticationStatus::NoStructure);
+  auto &session = *k.nol_hypergraph_walk_session;
+  if (session.state_ && session.state_->owner == &k)
+    return finish(NolHypergraphAuthenticationStatus::Authenticated);
+
+  auto next = std::make_unique<NolHypergraphWalkSession::State>();
+  if (!recognize(k, meter, next->shape)) {
+    if (meter.poll())
+      return finish(NolHypergraphAuthenticationStatus::Interrupted);
+    return finish(meter.exhausted
+                      ? NolHypergraphAuthenticationStatus::Exhausted
+                      : NolHypergraphAuthenticationStatus::NoStructure);
+  }
+  if (meter.poll())
+    return finish(NolHypergraphAuthenticationStatus::Interrupted);
+  next->owner = &k;
+  next->random.seed(next->shape.seed);
+  k.stats.nol_hypergraph_model_vertices = next->shape.active_groups.size();
+  k.stats.nol_hypergraph_model_edges = next->shape.edges.size();
+  session.state_ = std::move(next);
+  ++k.stats.nol_hypergraph_model_recognized;
+  result.recognized = true;
+  return finish(NolHypergraphAuthenticationStatus::Authenticated);
+}
+
+NolHypergraphSliceResult nol_hypergraph_model_slice(Kernel &k) {
   assert(nol_hypergraph_model_guard(k));
   ++k.stats.nol_hypergraph_model_calls;
   Meter meter(k);
-  Shape shape;
-  if (!recognize(k, meter, shape)) return ApplyResult::NoOp;
-  ++k.stats.nol_hypergraph_model_recognized;
-  k.stats.nol_hypergraph_model_vertices = shape.active_groups.size();
-  k.stats.nol_hypergraph_model_edges = shape.edges.size();
+  NolHypergraphSliceResult result;
+  const auto finish = [&](NolHypergraphSliceStatus status,
+                          ApplyResult applied = ApplyResult::NoOp) {
+    result.status = status;
+    result.result = applied;
+    result.work = meter.used;
+    return result;
+  };
+  if(meter.poll())return finish(NolHypergraphSliceStatus::Interrupted);
+  NolHypergraphWalkSession temporary;
+  auto &session=k.nol_hypergraph_walk_session?*k.nol_hypergraph_walk_session:temporary;
+  // This SAT-only heuristic keeps the authenticated source image once it has
+  // recognized it.  Learned clauses, simplification, proof helpers and
+  // compaction do not invalidate a coloring trajectory: current external
+  // mappings and root values are checked below, and SAT is reported only
+  // after validating the completed assignment against the whole live CNF.
+  // A stale image can therefore waste a slice but cannot justify a clause,
+  // unit, conflict or model.
+  const bool compatible=session.state_&&session.state_->owner==&k;
+  if(!compatible) {
+    auto next=std::make_unique<NolHypergraphWalkSession::State>();
+    if(!recognize(k,meter,next->shape)) {
+      if(meter.poll())return finish(NolHypergraphSliceStatus::Interrupted);
+      return finish(meter.exhausted ? NolHypergraphSliceStatus::Pending
+                                    : NolHypergraphSliceStatus::NoStructure);
+    }
+    if(meter.poll())return finish(NolHypergraphSliceStatus::Interrupted);
+    next->owner=&k;
+    next->random.seed(next->shape.seed);session.state_=std::move(next);
+    ++k.stats.nol_hypergraph_model_recognized;
+    result.recognized=true;
+  }
+  auto &walk=*session.state_;auto &shape=walk.shape;
+  result.objective_before=walk.published_best_bad;
+  if(!update_root(k,meter,walk,result.root_changed)) {
+    if(meter.poll())return finish(NolHypergraphSliceStatus::Interrupted);
+    return finish(meter.exhausted ? NolHypergraphSliceStatus::Pending
+                                  : NolHypergraphSliceStatus::NoStructure);
+  }
+  if(result.root_changed)result.objective_before=UINT64_MAX;
+  k.stats.nol_hypergraph_model_vertices=shape.active_groups.size();
+  k.stats.nol_hypergraph_model_edges=shape.edges.size();
   const auto saturated_add = [](uint64_t a, uint64_t b) {
     return b > UINT64_MAX - a ? UINT64_MAX : a + b;
   };
@@ -473,36 +545,62 @@ ApplyResult nol_hypergraph_model_apply(Kernel &k) {
   const uint64_t hint_tail = saturated_add(variables, external);
   const uint64_t terminal_reserve = saturated_add(
       variables, std::max(sat_tail, hint_tail));
-  if (!meter.reserve_terminal(terminal_reserve)) return ApplyResult::NoOp;
-  std::vector<uint8_t> best;
-  uint64_t best_bad = UINT64_MAX;
-  const bool found = search(k, shape, meter, best, best_bad);
-  if (best.empty() || meter.interrupted) return ApplyResult::NoOp;
+  if (!meter.reserve_terminal(terminal_reserve))
+    return finish(NolHypergraphSliceStatus::Pending);
+  WalkProgress progress = resume_search(k, meter, walk);
+  const auto &best=walk.best;const auto best_bad=walk.best_bad;
+  result.objective_after=best_bad;
+  if (meter.poll()) return finish(NolHypergraphSliceStatus::Interrupted);
+  if (best.empty())
+    return finish(progress==WalkProgress::Complete
+                      ? NolHypergraphSliceStatus::TrajectoryComplete
+                      : NolHypergraphSliceStatus::Pending);
   meter.release_terminal();
-  if (!meter.charge(variables)) return ApplyResult::NoOp;
+  if (!meter.charge(variables)) return finish(NolHypergraphSliceStatus::Pending);
   std::vector<int8_t> signed_model = signed_assignment(k, shape, best);
-  if (found) {
-    if (!meter.charge(variables)) return ApplyResult::NoOp;
+  if (progress==WalkProgress::Found) {
+    if (!meter.charge(variables)) return finish(NolHypergraphSliceStatus::Pending);
     std::vector<uint8_t> model(k.nvars);
     for (Var variable = 0; variable < k.nvars; ++variable)
       model[variable] = signed_model[variable] > 0;
     if (lucky_model_valid(k, model, [&](uint64_t amount) {
           return meter.charge(amount);
         })) {
-      if (!meter.charge(variables)) return ApplyResult::NoOp;
+      if (!meter.charge(variables)) return finish(NolHypergraphSliceStatus::Pending);
+      if(meter.poll())return finish(NolHypergraphSliceStatus::Interrupted);
       lucky_publish_model(k, model);
       ++k.stats.nol_hypergraph_model_sat;
-      return ApplyResult::Sat;
+      result.objective_after=0;
+      return finish(NolHypergraphSliceStatus::Sat,ApplyResult::Sat);
+    }
+    if(meter.exhausted)return finish(NolHypergraphSliceStatus::Pending);
+    if(!meter.interrupted) {
+      // A complete theory coloring rejected by full CNF is an explicit
+      // bounded trajectory boundary, never a SAT certificate or a conflict.
+      walk.initialized=false;walk.cursor=0;walk.order.clear();
+      progress=WalkProgress::Complete;
     }
   }
   if (!meter.charge(saturated_add(variables, external)))
-    return ApplyResult::NoOp;
+    return finish(NolHypergraphSliceStatus::Pending);
+  if(meter.poll())return finish(NolHypergraphSliceStatus::Interrupted);
   const uint64_t offered = k.stats.local_search_hints_offered;
   kernel_offer_local_search_partial_hint(
       k, strategy::LocalSearchKind::HypergraphColoring, signed_model, best_bad,
       true, {meter.used, strategy::LocalSearchEffortUnit::GraphWork});
-  return k.stats.local_search_hints_offered != offered ? ApplyResult::Ok
-                                                       : ApplyResult::NoOp;
+  result.hint_published=k.stats.local_search_hints_offered!=offered;
+  if(result.hint_published) {
+    result.useful_hint=best_bad<walk.published_best_bad;
+    if(result.useful_hint)walk.published_best_bad=best_bad;
+  }
+  return finish(progress==WalkProgress::Complete
+                    ? NolHypergraphSliceStatus::TrajectoryComplete
+                    : NolHypergraphSliceStatus::Pending,
+                result.hint_published ? ApplyResult::Ok : ApplyResult::NoOp);
+}
+
+ApplyResult nol_hypergraph_model_apply(Kernel &k) {
+  return nol_hypergraph_model_slice(k).result;
 }
 
 } // namespace tactix

@@ -133,384 +133,6 @@ std::string journal_contents(FILE *journal) {
   return result;
 }
 
-void decide(RestartController &controller, Kernel &kernel, int32_t external) {
-  const Lit literal = kernel_internalize(kernel, external);
-  assert(controller.search_service("Decide", lit_instance(kernel, literal), [&] {
-    return execution::execute_action(kernel,
-                                     execution::DecisionRequest{literal});
-  }) == ApplyResult::Ok);
-  assert(!kernel_propagate(kernel));
-  assert(kernel_propagation_fixpoint(kernel));
-}
-
-void initialize_resume_publish_and_bcp() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  install_implication_formula(kernel);
-  // A non-affine binary and its assignments are outside the admitted matrix
-  // support and must not be charged or retained by matrix synchronization.
-  kernel_reserve_vars(kernel, 7);
-  add_clause(kernel, {6, 7});
-  Capture capture;
-  RestartController controller(kernel, {}, &capture);
-  const auto p = parameters();
-  const auto initialized = controller.apply_rule(
-      initialize_request(controller, kernel, p),
-      {WorkUnit::Applications, 1, {}});
-  assert(initialized.invocation.status == InvocationStatus::Completed &&
-         initialized.invocation.made_rule_progress && session.enabled() &&
-         session.belongs_to(kernel) && session.owner_version() == 1);
-  assert(controller.resume_search(resume_request(controller, kernel))
-             .resumed_search);
-  decide(controller, kernel, -6);
-  assert(kernel.value(kernel_internalize(kernel, 7)) > 0);
-  decide(controller, kernel, -1);
-  decide(controller, kernel, -2);
-  const auto result = controller.affine_matrix_fixpoint_service();
-  assert(result.status == AffineMatrixServiceStatus::Applied &&
-         result.result == ApplyResult::Ok && result.bcp_pending &&
-         result.trail_capture_work == 5 &&
-         result.synchronization_incremental &&
-         result.synchronization_prefix == 0 &&
-         result.synchronization_conditioned == 2 &&
-         result.event_identity.find("am1:o=1") == 0 &&
-         !kernel.value(kernel_internalize(kernel, -5)) &&
-         session.published_keys() == 1);
-  assert(!capture.actions.empty());
-  const auto &feedback = capture.actions.back();
-  assert(feedback.identity == "AffineMatrixSearch" &&
-         feedback.native_request &&
-         feedback.native_request->have_affine_matrix_event &&
-         feedback.native_request->affine_matrix_event_identity ==
-             result.event_identity &&
-         feedback.native_request->affine_matrix_bcp_pending);
-  assert(controller.search_service("Propagate", INSTANCE_CANONICAL, [&] {
-    return propagate_apply(kernel);
-  }) == ApplyResult::Ok);
-  assert(kernel.value(kernel_internalize(kernel, -5)) > 0 &&
-         kernel_propagation_fixpoint(kernel));
-  const size_t feedback_after_bcp = capture.actions.size();
-  const auto no_event = controller.affine_matrix_fixpoint_service();
-  assert(no_event.status == AffineMatrixServiceStatus::NoEvent &&
-         no_event.synchronization_incremental &&
-         no_event.synchronization_prefix == 2 &&
-         no_event.synchronization_conditioned == 1 &&
-         kernel.stats.affine_matrix_service_extension_hits == 2 &&
-         kernel.stats.affine_matrix_service_rebuilds == 0 &&
-         kernel.stats.affine_matrix_service_retained_assignments == 2 &&
-         kernel.stats.affine_matrix_service_conditioned_assignments == 3 &&
-         kernel.stats.affine_matrix_service_trail_capture_work == 10 &&
-         capture.actions.size() == feedback_after_bcp);
-
-  assert(controller.full_restart() == ApplyResult::Ok);
-  const uint64_t version = session.owner_version();
-  auto invalid = p;
-  invalid.basis_maximum_work = 0;
-  assert(affine_matrix_search_initialize(kernel, session, invalid).status ==
-         AffineMatrixInitStatus::Invalid);
-  assert(session.owner_version() == version && session.belongs_to(kernel));
-  auto exhausted = p;
-  exhausted.maximum_snapshot_work = 1;
-  assert(affine_matrix_search_initialize(kernel, session, exhausted).status ==
-         AffineMatrixInitStatus::ResourceExhausted);
-  assert(session.owner_version() == version && session.belongs_to(kernel));
-
-  const std::string line = affine_matrix_service_trace_record(kernel, result);
-  char path[] = "/tmp/tactix-affine-search-replay-XXXXXX";
-  const int descriptor = mkstemp(path);
-  assert(descriptor >= 0);
-  close(descriptor);
-  {
-    ControllerTrace trace;
-    assert(trace.write(path, 17, "affine-search-test"));
-    assert(trace.event(line));
-    assert(trace.finish(10));
-  }
-  {
-    ControllerTrace replay;
-    assert(replay.replay(path, "affine-search-test"));
-    assert(replay.event(line));
-    assert(replay.finish(10));
-  }
-  std::remove(path);
-  std::fclose(journal);
-}
-
-void interruption_is_atomic() {
-  for (const bool interrupt : {false, true}) {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
-    install_implication_formula(kernel);
-    RestartController controller(kernel);
-    auto p = parameters();
-    if (!interrupt) p.maximum_session_work = 1;
-    assert(controller.apply_rule(initialize_request(controller, kernel, p),
-                                 {WorkUnit::Applications, 1, {}})
-               .invocation.status == InvocationStatus::Completed);
-    assert(controller.resume_search(resume_request(controller, kernel))
-               .resumed_search);
-    decide(controller, kernel, -1);
-    decide(controller, kernel, -2);
-    volatile sig_atomic_t stop = interrupt;
-    kernel.stop = &stop;
-    const auto id = kernel.next_clause_id;
-    const auto arena = kernel.arena.size();
-    const long journal_size = std::ftell(journal);
-    const auto result = controller.affine_matrix_fixpoint_service();
-    assert(result.status ==
-           (interrupt ? AffineMatrixServiceStatus::Interrupted
-                      : AffineMatrixServiceStatus::ResourceExhausted));
-    assert(kernel.next_clause_id == id && kernel.arena.size() == arena &&
-           std::ftell(journal) == journal_size && !session.published_keys());
-    std::fclose(journal);
-  }
-}
-
-void predecessor_restore_is_not_counted_as_a_rebuild() {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  install_implication_formula(kernel);
-  assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
-         AffineMatrixInitStatus::Applied);
-  RestartController controller(kernel);
-  assert(controller.resume_search(resume_request(controller, kernel))
-             .resumed_search);
-  decide(controller, kernel, -1);
-  assert(controller.affine_matrix_fixpoint_service().status ==
-         AffineMatrixServiceStatus::NoEvent);
-  decide(controller, kernel, -2);
-  assert(controller.affine_matrix_fixpoint_service().status ==
-         AffineMatrixServiceStatus::Applied);
-  kernel_backtrack(kernel, 1);
-  assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
-  const auto restored = controller.affine_matrix_fixpoint_service();
-  assert(restored.status == AffineMatrixServiceStatus::NoEvent &&
-         restored.synchronization_restored_predecessor &&
-         restored.synchronization_kind == MatrixSynchronizationKind::Backtrack &&
-         kernel.stats.affine_matrix_service_rebuilds == 0 &&
-         kernel.stats.affine_matrix_service_rebuild_backtrack == 0);
-  kernel_backtrack(kernel, 0);
-  assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
-  const auto rebuilt = controller.affine_matrix_fixpoint_service();
-  assert(rebuilt.status == AffineMatrixServiceStatus::NoEvent &&
-         !rebuilt.synchronization_restored_predecessor &&
-         kernel.stats.affine_matrix_service_rebuilds == 1 &&
-         kernel.stats.affine_matrix_service_rebuild_backtrack == 1);
-  std::fclose(journal);
-}
-
-void public_controller_predecessor_transcript_reexecutes() {
-  char transcript_path[] = "/tmp/tactix-affine-predecessor-replay-XXXXXX";
-  const int transcript_fd = mkstemp(transcript_path);
-  assert(transcript_fd >= 0);
-  close(transcript_fd);
-  const std::string configuration = "fixed-affine-predecessor-controller-v1";
-  std::string first_journal, first_proof;
-  for (const bool replaying : {false, true}) {
-    ControllerTrace trace;
-    assert(replaying ? trace.replay(transcript_path, configuration)
-                     : trace.write(transcript_path, 17, configuration));
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
-    install_implication_formula(kernel);
-    char proof_path[] = "/tmp/tactix-affine-predecessor-proof-XXXXXX";
-    const int proof_fd = mkstemp(proof_path);
-    assert(proof_fd >= 0);
-    close(proof_fd);
-    Proof proof;
-    assert(proof.open(proof_path, ProofFormat::DsrAscii));
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-    RestartController controller(kernel);
-
-    // Both passes execute new typed requests against independent live states.
-    // Replay compares regenerated requests/results, not cached event strings.
-    const auto request_event = [&](const ActionRequest &request,
-                                   const std::string &payload) {
-      std::ostringstream out;
-      out << "fixture-request " << request.version << ' ' << request.sequence
-          << ' ' << request.expected.arena_generation << ' '
-          << request.expected.touch_epoch << ' ' << request.expected.strategy_epoch
-          << ' ' << payload;
-      assert(trace.event(out.str()));
-    };
-    const auto result_event = [&](const ActionResult &result) {
-      std::ostringstream out;
-      out << "fixture-result " << result.sequence << ' '
-          << unsigned(result.invocation.status) << ' '
-          << unsigned(result.invocation.rule_result) << ' '
-          << result.invocation.work << ' ' << result.invocation.applications
-          << ' ' << result.invocation.made_rule_progress << ' '
-          << result.invocation.selection_complete << ' ' << result.resumed_search
-          << ' ' << result.after.arena_generation << ' '
-          << result.after.touch_epoch << ' ' << result.after.strategy_epoch;
-      assert(trace.event(out.str()));
-    };
-    auto initialize = initialize_request(controller, kernel, parameters());
-    // ActionRequest does not need a program StepId, but the standalone online
-    // program wire format reserves zero. Give this fixture's sole step an ID.
-    initialize.invocation.id = 1;
-    OnlineStrategyProgram program;
-    program.sequence.push_back(initialize.invocation);
-    const auto encoded = serialize_online_strategy_program(program);
-    OnlineStrategyProgram decoded;
-    std::string decoding_error;
-    const bool decoded_ok =
-        deserialize_online_strategy_program(encoded, decoded, &decoding_error);
-    if (!decoded_ok)
-      std::fprintf(stderr, "affine replay fixture decode: %s\n",
-                   decoding_error.c_str());
-    assert(decoded_ok && decoded.sequence.size() == 1 &&
-           serialize_online_strategy_program(decoded) == encoded);
-    initialize.invocation = decoded.sequence.front();
-    request_event(initialize, encoded);
-    const auto initialized = controller.apply_rule(
-        initialize, {WorkUnit::Applications, 1, {}});
-    assert(initialized.invocation.status == InvocationStatus::Completed &&
-           initialized.invocation.made_rule_progress && session.enabled());
-    result_event(initialized);
-    const auto resume = [&] {
-      const auto request = resume_request(controller, kernel);
-      request_event(request, std::string("ResumeSearch ") + name(request.search));
-      const auto result = controller.resume_search(request);
-      assert(result.resumed_search);
-      result_event(result);
-    };
-    const auto propagate = [&] {
-      const auto result = controller.search_service(
-          "Propagate", INSTANCE_CANONICAL, [&] { return propagate_apply(kernel); });
-      assert(result == ApplyResult::Ok && kernel_propagation_fixpoint(kernel));
-      assert(trace.event("fixture-Propagate " + std::to_string(unsigned(result)) +
-                         " " + std::to_string(kernel.trail.size())));
-    };
-    const auto decision = [&](int32_t external) {
-      assert(trace.event("fixture-Decide-request " + std::to_string(external)));
-      const Lit literal = kernel_internalize(kernel, external);
-      const auto result = controller.search_service(
-          "Decide", lit_instance(kernel, literal), [&] {
-            return execution::execute_action(kernel, execution::DecisionRequest{literal});
-          });
-      assert(result == ApplyResult::Ok);
-      assert(trace.event("fixture-Decide-result " + std::to_string(unsigned(result))));
-      propagate();
-    };
-    const auto matrix = [&] {
-      const auto result = controller.affine_matrix_fixpoint_service();
-      assert(trace.event(affine_matrix_service_trace_record(kernel, result)));
-      std::ostringstream telemetry;
-      telemetry << "fixture-sync " << result.synchronized << ' '
-                << result.synchronization_incremental << ' '
-                << result.synchronization_restored_predecessor << ' '
-                << unsigned(result.synchronization_kind) << ' '
-                << result.synchronization_prefix << ' '
-                << result.synchronization_conditioned << ' '
-                << kernel.stats.affine_matrix_service_rebuilds << ' '
-                << kernel.stats.affine_matrix_service_rebuild_backtrack;
-      assert(trace.event(telemetry.str()));
-      return result;
-    };
-    resume();
-    decision(-1);
-    assert(matrix().status == AffineMatrixServiceStatus::NoEvent);
-    decision(-2);
-    const auto published = matrix();
-    assert(published.status == AffineMatrixServiceStatus::Applied &&
-           published.live.implication && published.bcp_pending &&
-           published.live.additions && session.published_keys() == 1);
-    propagate();
-    assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
-    const auto clause_id = kernel.next_clause_id;
-    const auto extent = kernel.external_to_internal.size();
-    const auto journal_before_backtrack = journal_contents(journal);
-    const auto restart = [&](uint32_t level) {
-      assert(trace.event("fixture-Restart-request " + std::to_string(level)));
-      const auto result = controller.restart(level);
-      assert(result == ApplyResult::Ok);
-      assert(trace.event("fixture-Restart-result " + std::to_string(unsigned(result))));
-      propagate();
-    };
-    restart(1);
-    const auto restored = matrix();
-    assert(restored.status == AffineMatrixServiceStatus::NoEvent &&
-           restored.synchronization_restored_predecessor &&
-           restored.synchronization_kind == MatrixSynchronizationKind::Backtrack &&
-           !kernel.stats.affine_matrix_service_rebuilds &&
-           !kernel.stats.affine_matrix_service_rebuild_backtrack);
-    restart(0);
-    resume();
-    const auto rebuilt = matrix();
-    assert(rebuilt.status == AffineMatrixServiceStatus::NoEvent &&
-           !rebuilt.synchronization_restored_predecessor &&
-           rebuilt.synchronization_kind == MatrixSynchronizationKind::Backtrack &&
-           kernel.stats.affine_matrix_service_rebuilds == 1 &&
-           kernel.stats.affine_matrix_service_rebuild_backtrack == 1 &&
-           kernel.next_clause_id == clause_id &&
-           kernel.external_to_internal.size() == extent &&
-           session.published_keys() == 1 &&
-           journal_contents(journal) == journal_before_backtrack);
-    // Finish a checked model of the original two equations. The previously
-    // published reason remains installed across both backtracks and supplies x5.
-    decision(-1);
-    decision(-2);
-    assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
-    decision(-3);
-    assert(kernel.value(kernel_internalize(kernel, -4)) > 0);
-    decision(-6);
-    assert(!kernel.unassigned_active && !kernel.inconsistent &&
-           !kernel.conflict_valid && kernel_propagation_fixpoint(kernel));
-    kernel_extend_model(kernel);
-    for (const auto &variables : {std::vector<int32_t>{1, 3, 4},
-                                 std::vector<int32_t>{2, 3, 4, 5}})
-      for (const auto &clause : clausal_form(variables, false)) {
-        bool satisfied = false;
-        for (int32_t literal : clause)
-          satisfied |= kernel.value(kernel_internalize(kernel, literal)) > 0;
-        assert(satisfied);
-      }
-    assert(trace.finish(10));
-    proof.flush();
-    kernel.proof = nullptr;
-    FILE *proof_input = std::fopen(proof_path, "rb");
-    assert(proof_input);
-    std::string proof_bytes;
-    char proof_buffer[4096];
-    size_t proof_count;
-    while ((proof_count = std::fread(proof_buffer, 1, sizeof proof_buffer,
-                                    proof_input)))
-      proof_bytes.append(proof_buffer, proof_count);
-    assert(!std::ferror(proof_input));
-    assert(!std::fclose(proof_input));
-    assert(!proof_bytes.empty());
-    const auto journal_bytes = journal_contents(journal);
-    if (replaying) {
-      assert(proof_bytes == first_proof && journal_bytes == first_journal);
-    } else {
-      first_proof = proof_bytes;
-      first_journal = journal_bytes;
-    }
-    std::fclose(journal);
-    std::remove(proof_path);
-  }
-  std::remove(transcript_path);
-}
-
 void unchanged_terminal_initialization_is_suppressed() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -638,82 +260,6 @@ void complete_snapshot_policy_admission() {
   }
 }
 
-void root_unit_and_empty_conflict_publish() {
-  {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
-    kernel_reserve_vars(kernel, 5);
-    add_equation(kernel, {1, 2, 3}, false);
-    add_equation(kernel, {1, 2, 4}, false);
-    add_equation(kernel, {3, 4, 5}, true);
-    assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
-           AffineMatrixInitStatus::Applied);
-    const auto service = affine_matrix_search_step(kernel, session);
-    assert(service.status == AffineMatrixServiceStatus::Applied &&
-           service.result == ApplyResult::Ok && service.bcp_pending &&
-           service.live.implication && !service.live.conflict &&
-           service.reason_width == 1 &&
-           kernel.value(kernel_internalize(kernel, 5)) > 0);
-    std::fclose(journal);
-  }
-  {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
-    kernel_reserve_vars(kernel, 3);
-    add_equation(kernel, {1, 2, 3}, false);
-    add_equation(kernel, {1, 2, 3}, true);
-    assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
-           AffineMatrixInitStatus::Applied);
-    const auto service = affine_matrix_search_step(kernel, session);
-    assert(service.status == AffineMatrixServiceStatus::Applied &&
-           service.result == ApplyResult::Unsat && !service.bcp_pending &&
-           service.live.conflict && !service.live.implication &&
-           service.reason_width == 0 && kernel.inconsistent);
-    std::fclose(journal);
-  }
-}
-
-void invalidated_session_retires_without_terminal_failure() {
-  for (const bool retire_variable : {false, true}) {
-    Kernel kernel;
-    AffineMatrixSearchSession session;
-    kernel.affine_matrix_search_session = &session;
-    FILE *journal = std::tmpfile();
-    assert(journal);
-    kernel.structural_provenance = journal;
-    install_implication_formula(kernel);
-    assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
-           AffineMatrixInitStatus::Applied);
-    RestartController controller(kernel);
-    assert(controller.resume_search(resume_request(controller, kernel))
-               .resumed_search);
-    decide(controller, kernel, -1);
-    decide(controller, kernel, -2);
-    if (retire_variable) {
-      kernel.var_status.resize(kernel.nvars, VarStatus::Active);
-      kernel.var_status[var_of(kernel_internalize(kernel, 1))] =
-          VarStatus::Substituted;
-    } else {
-      clause_at(kernel.arena, 0)->flags |= Clause::GARBAGE;
-    }
-    const auto service = controller.affine_matrix_fixpoint_service();
-    assert(service.status == (retire_variable
-                                  ? AffineMatrixServiceStatus::Inapplicable
-                                  : AffineMatrixServiceStatus::Stale));
-    assert(!service.terminal_failure() && !session.enabled() &&
-           service.result == ApplyResult::NoOp);
-    std::fclose(journal);
-  }
-}
-
 static std::string initialize_partial_fixture() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -750,9 +296,6 @@ static std::string initialize_partial_fixture() {
   assert(active != availability.end() && !active->eligible &&
          active->reason == "affine-matrix-session-active");
 
-  // A zero-row bounded attempt does not replace the useful session or append
-  // an initialization record.  It does become the terminal suppressed
-  // outcome for this exact root/profile pair.
   const uint64_t owner = session.owner_version();
   const long before = std::ftell(journal);
   p.basis_maximum_intermediate_width = 1;
@@ -762,11 +305,16 @@ static std::string initialize_partial_fixture() {
          session.initialization_retry_suppressed(kernel, p) &&
          std::ftell(journal) == before);
 
+  // Make the old conditional event a root event.  The initialized partial
+  // owner remains unchanged, while ordinary root units supply its antecedents.
+  add_clause(kernel, {-1});
+  add_clause(kernel, {-2});
+  assert(!kernel_propagate(kernel) && kernel_propagation_fixpoint(kernel));
   RestartController controller(kernel);
   assert(controller.resume_search(resume_request(controller, kernel))
              .resumed_search);
-  decide(controller, kernel, -1);
-  decide(controller, kernel, -2);
+  assert(controller.full_restart() == ApplyResult::Ok &&
+         controller.affine_matrix_root_service_due());
   const auto service = controller.affine_matrix_fixpoint_service();
   assert(service.status == AffineMatrixServiceStatus::Applied &&
          service.bcp_pending && service.event_identity.find(";s=0,1;") !=
@@ -790,177 +338,91 @@ void partial_admission_feedback_provenance_and_replay() {
   assert(first == replay);
 }
 
-int proof_fixture(const char *cnf_path, const char *proof_path,
-                  ProofFormat format) {
-  Kernel kernel;
-  AffineMatrixSearchSession session;
-  kernel.affine_matrix_search_session = &session;
-  kernel_reserve_vars(kernel, 17);
-  const std::vector<int32_t> first{1, 2, 3, 4, 9, 10};
-  const std::vector<int32_t> second{5, 6, 7, 8, 9, 10};
-  const std::vector<int32_t> skipped{11, 12, 13, 14, 15, 16, 17};
-  add_equation(kernel, first, false);
-  add_equation(kernel, second, true);
-  add_equation(kernel, skipped, false);
-  FILE *journal = std::tmpfile();
-  assert(journal);
-  kernel.structural_provenance = journal;
-  Proof proof;
-  assert(format == ProofFormat::DsrAscii || format == ProofFormat::DratAscii);
-  assert(proof.open(proof_path, format));
-  proof.bind_variable_map(&kernel.internal_to_external);
-  proof.bind_external_variable_map(&kernel.external_to_internal);
-  kernel.proof = &proof;
-  RestartController controller(kernel);
-  auto partial = parameters();
-  partial.basis_maximum_intermediate_width = 6;
-  assert(controller.apply_rule(initialize_request(controller, kernel, partial),
-                               {WorkUnit::Applications, 1, {}})
-             .invocation.status == InvocationStatus::Completed);
-  assert(session.enabled() && !session.complete_admission() &&
-         kernel.stats.affine_matrix_init_applied_partial == 1);
-  assert(controller.resume_search(resume_request(controller, kernel))
-             .resumed_search);
-  for (int32_t variable = 1; variable <= 8; ++variable)
-    decide(controller, kernel, -variable);
-  const auto first_service = controller.affine_matrix_fixpoint_service();
-  assert(first_service.status == AffineMatrixServiceStatus::Applied &&
-         first_service.live.conflict && first_service.bcp_pending &&
-         first_service.live.proof_cache_insert &&
-         !first_service.live.proof_cache_hit &&
-         first_service.live.additions > 1 &&
-         first_service.live.helper_extent);
-  assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 1 &&
-         kernel.stats.affine_matrix_service_proof_cache_hits == 0);
-  const std::string journal_after_insert = journal_contents(journal);
-  const size_t insert_record_at =
-      journal_after_insert.rfind("{\"kind\":\"affine-matrix-reason\"");
-  assert(insert_record_at != std::string::npos);
-  const std::string insert_record =
-      journal_after_insert.substr(insert_record_at);
-  assert(insert_record.find("\"sources\":[") != std::string::npos &&
-         insert_record.find("\"occurrence\":") != std::string::npos &&
-         insert_record.find("\"clause_id\":") != std::string::npos &&
-         insert_record.find("\"proof_cache\":{\"status\":\"insert\","
-                            "\"entry_id\":1") != std::string::npos &&
-         insert_record.find("\"support_ids\":[") != std::string::npos &&
-         insert_record.find("\"sources_ref\":") == std::string::npos);
 
-  assert(controller.full_restart() == ApplyResult::Ok);
-  assert(controller.resume_search(resume_request(controller, kernel))
-             .resumed_search);
-  decide(controller, kernel, 1);
-  for (int32_t variable = 2; variable <= 7; ++variable)
-    decide(controller, kernel, -variable);
-  decide(controller, kernel, 8);
-  const uint32_t cached_extent = kernel.external_to_internal.size();
-  const auto second_service = controller.affine_matrix_fixpoint_service();
-  assert(second_service.status == AffineMatrixServiceStatus::Applied &&
-         second_service.live.conflict && second_service.bcp_pending &&
-         second_service.live.proof_cache_hit &&
-         !second_service.live.proof_cache_insert &&
-         second_service.live.additions == 1 &&
-         second_service.live.deletions == 0 &&
-         second_service.live.helper_extent == 0 &&
-         second_service.live.planner_work < first_service.live.planner_work &&
-         second_service.live.journal_bytes < first_service.live.journal_bytes &&
-         kernel.external_to_internal.size() == cached_extent);
-  assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 1 &&
-         kernel.stats.affine_matrix_service_proof_cache_hits == 1);
-  const std::string journal_after_hit = journal_contents(journal);
-  assert(journal_after_hit.size() > journal_after_insert.size());
-  const std::string hit_record =
-      journal_after_hit.substr(journal_after_insert.size());
-  assert(hit_record.find("\"reason\":[") != std::string::npos &&
-         hit_record.find("\"sources_ref\":{\"cache_entry\":1,"
-                         "\"proof_epoch\":0}") != std::string::npos &&
-         hit_record.find("\"proof_cache\":{\"status\":\"hit\","
-                         "\"entry_id\":1") != std::string::npos &&
-         hit_record.find("\"sources\":[") == std::string::npos &&
-         hit_record.find("\"source_ordinals\":") == std::string::npos &&
-         hit_record.find("\"support_ids\":") == std::string::npos &&
-         hit_record.size() < insert_record.size());
-  const size_t first_reason = first_service.event_identity.find(";r=");
-  const size_t second_reason = second_service.event_identity.find(";r=");
-  assert(first_reason != std::string::npos &&
-         second_reason != std::string::npos &&
-         first_service.event_identity.substr(0, first_reason) ==
-             second_service.event_identity.substr(0, second_reason) &&
-         first_service.event_identity != second_service.event_identity);
-
-  // A DSR witnessed entry first retires checker-only cached support.  The
-  // epoch then forces this row to build fresh support instead of citing
-  // clauses which the checker no longer owns.  DRAT has no witnessed entry;
-  // a rejected add_sr leaves its legal retained support untouched.
-  assert(proof.persistent_external_clauses() > 0);
-  const uint64_t cache_epoch = proof.persistent_external_epoch();
-  std::vector<Lit> witnessed_reason;
-  for (int32_t variable = 1; variable <= 8; ++variable)
-    witnessed_reason.push_back(kernel_internalize(kernel, variable));
-  if (format == ProofFormat::DsrAscii) {
-    assert(controller.full_restart() == ApplyResult::Ok);
-    assert(controller.resume_search(resume_request(controller, kernel))
-               .resumed_search);
-    assert(proof.add_sr(++kernel.next_clause_id, witnessed_reason.data(),
-                        witnessed_reason.size(), nullptr, 0, nullptr, 0,
-                        kernel.external_to_internal.size()));
-    assert(proof.persistent_external_clauses() == 0 &&
-           proof.persistent_external_epoch() == cache_epoch + 1);
-
-    decide(controller, kernel, 1);
-    decide(controller, kernel, 2);
-    for (int32_t variable = 3; variable <= 8; ++variable)
-      decide(controller, kernel, -variable);
-    const auto after_x7 = controller.affine_matrix_fixpoint_service();
-    assert(after_x7.status == AffineMatrixServiceStatus::Applied &&
-           after_x7.live.conflict && after_x7.bcp_pending &&
-           after_x7.live.proof_cache_insert &&
-           !after_x7.live.proof_cache_hit && after_x7.live.additions > 1 &&
-           after_x7.live.helper_extent);
-    assert(kernel.stats.affine_matrix_service_proof_cache_inserts == 2 &&
-           kernel.stats.affine_matrix_service_proof_cache_hits == 1);
-    const std::string journal_after_x7 = journal_contents(journal);
-    assert(journal_after_x7.size() > journal_after_hit.size());
-    const std::string epoch_insert =
-        journal_after_x7.substr(journal_after_hit.size());
-    assert(epoch_insert.find("\"sources\":[") != std::string::npos &&
-           epoch_insert.find("\"proof_cache\":{\"status\":\"insert\","
-                             "\"entry_id\":2,\"generation\":1,"
-                             "\"proof_epoch\":1") != std::string::npos &&
-           epoch_insert.find("\"sources_ref\":") == std::string::npos);
-  } else {
-    const size_t retained = proof.persistent_external_clauses();
-    assert(!proof.add_sr(++kernel.next_clause_id, witnessed_reason.data(),
-                         witnessed_reason.size(), nullptr, 0, nullptr, 0,
-                         kernel.external_to_internal.size()));
-    assert(proof.persistent_external_clauses() == retained &&
-           proof.persistent_external_epoch() == cache_epoch);
-  }
-  assert(kernel_propagate(kernel) && kernel.conflict_valid);
-  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
-  proof.flush();
-  kernel.proof = nullptr;
-
-  FILE *cnf = std::fopen(cnf_path, "w");
-  assert(cnf);
-  std::fprintf(cnf, "p cnf %zu 136\n", kernel.external_to_internal.size());
-  for (const auto &[variables, rhs] :
-       std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
-                                                          {second, true},
-                                                          {skipped, false}})
-    for (const auto &clause : clausal_form(variables, rhs)) {
-      for (const int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
-      std::fprintf(cnf, "0\n");
-    }
-  for (int32_t variable = 1; variable <= 8; ++variable)
-    std::fprintf(cnf, "-%d 0\n", variable);
-  std::fclose(cnf);
-  std::fclose(journal);
-  return 0;
+void root_formula(Kernel &kernel) {
+  kernel_reserve_vars(kernel, 7);
+  add_equation(kernel,{1,2,3},false);
+  add_equation(kernel,{1,2,4},false);
+  add_equation(kernel,{3,4,5},true);
 }
-
+void decide(RestartController &controller,Kernel &kernel,int literal) {
+  assert(controller.search_service("Decide",INSTANCE_CANONICAL,[&]{
+    kernel_assign_decision(kernel,kernel_internalize(kernel,literal));return ApplyResult::Ok;
+  })==ApplyResult::Ok);
+  assert(controller.search_service("Propagate",INSTANCE_CANONICAL,[&]{return propagate_apply(kernel);})==ApplyResult::Ok);
+}
+void restart_only_replay() {
+  char path[]="/tmp/tactix-affine-restart-only-XXXXXX";
+  const int fd=mkstemp(path);assert(fd>=0);assert(!close(fd));
+  for(bool replay:{false,true}) {
+    Kernel kernel;AffineMatrixSearchSession session;
+    kernel.affine_matrix_search_session=&session;
+    FILE *journal=std::tmpfile();assert(journal);kernel.structural_provenance=journal;
+    root_formula(kernel);Capture feedback;RestartController controller(kernel,{},&feedback);
+    ControllerTrace trace;
+    assert(replay?trace.replay(path,"restart-only-v1"):trace.write(path,17,"restart-only-v1"));
+    const auto record=[&](const char *kind,uint64_t status){
+      const auto state=state_version(kernel);
+      assert(trace.event(std::string(kind)+" "+std::to_string(status)+" "+std::to_string(state.strategy_epoch)+" "+std::to_string(kernel.trail.size())));
+    };
+    const auto initialized=controller.apply_rule(initialize_request(controller,kernel,parameters()),{WorkUnit::Applications,1,{}});
+    assert(initialized.invocation.status==InvocationStatus::Completed);record("initialize",unsigned(initialized.invocation.status));
+    // Initial root setup is an explicit public action, not an implicit restart.
+    assert(!controller.affine_matrix_root_service_due());
+    assert(controller.resume_search(resume_request(controller,kernel)).resumed_search);record("resume",1);
+    decide(controller,kernel,-6);decide(controller,kernel,-7);
+    const auto calls=kernel.stats.affine_matrix_service_calls;
+    const auto owner=session.owner_version(),id=kernel.next_clause_id;
+    const auto declined=controller.affine_matrix_fixpoint_service();
+    assert(declined.status==AffineMatrixServiceStatus::Inapplicable&&kernel.stats.affine_matrix_service_calls==calls&&session.owner_version()==owner&&kernel.next_clause_id==id&&!session.published_keys());
+    record("mid-interval",unsigned(declined.status));
+    assert(controller.restart(1)==ApplyResult::Ok&&kernel.level==1);
+    assert(!controller.affine_matrix_root_service_due());
+    assert(controller.affine_matrix_fixpoint_service().status==AffineMatrixServiceStatus::Inapplicable&&kernel.stats.affine_matrix_service_calls==calls);
+    record("partial-restart",1);
+    assert(controller.full_restart()==ApplyResult::Ok&&kernel.level==0&&controller.affine_matrix_root_service_due());record("full-restart",0);
+    const auto used=controller.affine_matrix_fixpoint_service();
+    assert(used.status==AffineMatrixServiceStatus::Applied&&used.installed_reason==std::vector<int32_t>{5}&&used.bcp_pending&&session.published_keys()==1);
+    assert(trace.event(affine_matrix_service_trace_record(kernel,used)));
+    assert(controller.resume_search(resume_request(controller,kernel)).invocation.status==InvocationStatus::Inapplicable);
+    assert(session.enabled()&&session.published_keys()==1);
+    assert(controller.search_service("Propagate",INSTANCE_CANONICAL,[&]{return propagate_apply(kernel);})==ApplyResult::Ok);
+    assert(kernel.value(kernel_internalize(kernel,5))>0&&kernel_propagation_fixpoint(kernel));record("consume",1);
+    const auto finished=controller.affine_matrix_fixpoint_service();
+    assert(finished.status==AffineMatrixServiceStatus::NoEvent||finished.status==AffineMatrixServiceStatus::Duplicate);
+    assert(!controller.affine_matrix_root_service_due());
+    assert(controller.resume_search(resume_request(controller,kernel)).resumed_search);record("resume",2);
+    const auto resumed_calls=kernel.stats.affine_matrix_service_calls;
+    assert(controller.affine_matrix_fixpoint_service().status==AffineMatrixServiceStatus::Inapplicable&&kernel.stats.affine_matrix_service_calls==resumed_calls);
+    decide(controller,kernel,-1);if(!kernel.value(kernel_internalize(kernel,2)))decide(controller,kernel,-2);
+    if(!kernel.value(kernel_internalize(kernel,6)))decide(controller,kernel,-6);
+    if(!kernel.value(kernel_internalize(kernel,7)))decide(controller,kernel,-7);
+    assert(!kernel.unassigned_active);kernel_extend_model(kernel);
+    for(const auto &pair:std::vector<std::pair<std::vector<int32_t>,bool>>{{{1,2,3},false},{{1,2,4},false},{{3,4,5},true}})
+      for(const auto &clause:clausal_form(pair.first,pair.second)){bool sat=false;for(int x:clause)sat|=kernel.model_values[internalize(x)]>0;assert(sat);}
+    assert(trace.finish(10));std::fclose(journal);
+  }
+  std::remove(path);
+}
+void root_decline_atomicity() {
+  for(bool interrupted:{false,true}){
+    Kernel kernel;AffineMatrixSearchSession session;kernel.affine_matrix_search_session=&session;
+    FILE *journal=std::tmpfile();assert(journal);kernel.structural_provenance=journal;root_formula(kernel);
+    auto p=parameters();if(!interrupted)p.maximum_session_work=1;
+    RestartController controller(kernel);
+    assert(controller.apply_rule(initialize_request(controller,kernel,p),{WorkUnit::Applications,1,{}}).invocation.status==InvocationStatus::Completed);
+    assert(controller.resume_search(resume_request(controller,kernel)).resumed_search);
+    assert(controller.full_restart()==ApplyResult::Ok);
+    const auto id=kernel.next_clause_id,owner=session.owner_version();const auto arena=kernel.arena;const long position=std::ftell(journal);
+    volatile sig_atomic_t stop=interrupted;kernel.stop=&stop;
+    const auto result=controller.affine_matrix_fixpoint_service();
+    assert(result.status==(interrupted?AffineMatrixServiceStatus::Interrupted:AffineMatrixServiceStatus::ResourceExhausted));
+    assert(kernel.next_clause_id==id&&kernel.arena==arena&&session.owner_version()==owner&&!session.published_keys()&&std::ftell(journal)==position);
+    kernel.stop=nullptr;std::fclose(journal);
+  }
+}
 static int root_proof_fixture(const char *cnf_path, const char *proof_path,
-                              bool unit) {
+                              bool unit, ProofFormat format = ProofFormat::DsrAscii) {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
@@ -976,19 +438,24 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
   for (const auto &[variables, rhs] : equations)
     add_equation(kernel, variables, rhs);
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  assert(proof.open(proof_path, format));
   kernel.proof = &proof;
   assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
          AffineMatrixInitStatus::Applied);
   const auto service = affine_matrix_search_step(kernel, session);
   assert(service.status == AffineMatrixServiceStatus::Applied);
   if (unit) {
-    assert(service.result == ApplyResult::Ok && service.reason_width == 1);
+    assert(service.result == ApplyResult::Ok && service.bcp_pending &&
+           service.live.implication && !service.live.conflict &&
+           service.reason_width == 1 &&
+           kernel.value(kernel_internalize(kernel, 5)) > 0);
     // The original CNF also contains -5.  Keeping it out of the captured
     // matrix isolates publication of the derived root unit before refutation.
     assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   } else {
-    assert(service.result == ApplyResult::Unsat && kernel.inconsistent);
+    assert(service.result == ApplyResult::Unsat && !service.bcp_pending &&
+           service.live.conflict && !service.live.implication &&
+           service.reason_width == 0 && kernel.inconsistent);
   }
   proof.flush();
   kernel.proof = nullptr;
@@ -1008,24 +475,13 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
 }
 
 } // namespace
-
-int main(int argc, char **argv) {
-  if (argc == 4 && !std::strcmp(argv[1], "--proof-root-unit"))
-    return root_proof_fixture(argv[2], argv[3], true);
-  if (argc == 4 && !std::strcmp(argv[1], "--proof-root-empty"))
-    return root_proof_fixture(argv[2], argv[3], false);
-  if (argc == 4 && !std::strcmp(argv[1], "--proof"))
-    return proof_fixture(argv[2], argv[3], ProofFormat::DsrAscii);
-  if (argc == 4 && !std::strcmp(argv[1], "--proof-drat"))
-    return proof_fixture(argv[2], argv[3], ProofFormat::DratAscii);
-  initialize_resume_publish_and_bcp();
-  interruption_is_atomic();
-  predecessor_restore_is_not_counted_as_a_rebuild();
-  public_controller_predecessor_transcript_reexecutes();
+int main(int argc,char **argv){
+  if(argc==4&&!std::strcmp(argv[1],"--proof-root-unit"))return root_proof_fixture(argv[2],argv[3],true);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-root-empty"))return root_proof_fixture(argv[2],argv[3],false);
+  if(argc==4&&!std::strcmp(argv[1],"--proof"))return root_proof_fixture(argv[2],argv[3],true);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-drat"))return root_proof_fixture(argv[2],argv[3],true,ProofFormat::DratAscii);
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
-  root_unit_and_empty_conflict_publish();
-  invalidated_session_retires_without_terminal_failure();
   partial_admission_feedback_provenance_and_replay();
-  std::puts("test_affine_matrix_search: passed");
+  restart_only_replay();root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
 }

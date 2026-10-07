@@ -118,6 +118,7 @@ private:
       heuristics_reset_queue_search(kernel_);
     restarts_.update_restart_limit(kernel_, settings_.restart);
     searching_ = have_search_ = true;
+    affine_root_window_ = false;
     sequence_ = request.sequence;
     ++kernel_.strategy_epoch;
     result.after = state_version(kernel_);
@@ -204,6 +205,7 @@ private:
     ++kernel_.strategy_epoch;
     if (!keep_level || result == ApplyResult::Unsat) {
       searching_ = false;
+      affine_root_window_ = result != ApplyResult::Unsat;
     } else {
       // Continuing the installed configuration consumes the due restart,
       // without reinstalling branch/phase state or entering the root loop.
@@ -227,13 +229,17 @@ public:
            kernel_.affine_matrix_search_session->enabled();
   }
 
-  // An initialized matrix is part of the installed search configuration.
-  // At a Boolean fixpoint it may publish one authenticated reason; ordinary
-  // Propagate remains the only consumer of that reason.
+  bool affine_matrix_root_service_due() const {
+    return affine_root_window_ && !searching_ && !kernel_.level &&
+           affine_matrix_search_enabled();
+  }
+
+  // Only an explicit full restart opens this root maintenance window.
+  // Ordinary search fixpoints and partial restarts cannot publish theory work.
   AffineMatrixServiceResult affine_matrix_fixpoint_service() {
     NativeActionDescription description;
     description.version = 2;
-    description.description = "deterministic-affine-matrix-fixpoint";
+    description.description = "deterministic-affine-matrix-restart-root";
     description.effort_currency = "matrix-synchronization-work";
     description.have_affine_matrix_event = true;
     if (kernel_.affine_matrix_search_session)
@@ -272,6 +278,10 @@ public:
       case AffineMatrixServiceStatus::Invalid:
         inv.status = InvocationStatus::InvalidRequest;
         break;
+      case AffineMatrixServiceStatus::Pending:
+        inv.status = InvocationStatus::BudgetExhausted;
+        inv.selection_complete = false;
+        break;
       }
       return out;
     };
@@ -280,7 +290,7 @@ public:
         [&] { return observe(); },
         [&] {
           AffineMatrixServiceResult result;
-          if (!searching_ || !kernel_.affine_matrix_search_session) {
+          if (!affine_matrix_root_service_due()) {
             result.status = AffineMatrixServiceStatus::Inapplicable;
           } else {
             result = affine_matrix_search_step(
@@ -308,6 +318,9 @@ public:
           return result.status != AffineMatrixServiceStatus::NoEvent &&
                  result.status != AffineMatrixServiceStatus::Disabled;
         }, describe, &description);
+    if (result.status != AffineMatrixServiceStatus::Applied &&
+        result.status != AffineMatrixServiceStatus::Pending)
+      affine_root_window_ = false;
     return result;
   }
 
@@ -439,6 +452,7 @@ private:
   DefaultRestartControl restarts_;
   uint64_t sequence_ = 0;
   bool searching_ = false;
+  bool affine_root_window_ = false;
   bool have_search_ = false;
   uint64_t rotation_intervals_ = 0;
   int8_t rotation_phase_ = 0;
