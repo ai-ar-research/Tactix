@@ -1,0 +1,12 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/checker.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/proof.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/forward.lsr
+c Using a STREAMING parsing strategy.
+c Doing FORWARDS proof checking.
+c The CNF formula has 7831 clauses and 1419 variables.
+c Parsing the CNF took 0.002 secs
+c Checking proof...
+c Proof checking took 0.020 secs
+s VALID
+c A valid proof, without an empty clause.
+c Total runtime took 0.023 secs

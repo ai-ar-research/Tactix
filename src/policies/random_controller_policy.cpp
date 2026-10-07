@@ -2854,12 +2854,17 @@ bool RandomControllerSelector::choose(
            request.invocation.instances.front() == LUCKY_NOL_HYPERGRAPH))
         request.invocation.parameters = std::monostate{};
       // Guidance is a policy choice over the pure candidate snapshot. Bind
-      // the exact publication in the request, including an explicit unseeded
-      // Walk choice, so replacement cannot silently change a queued action.
+      // the exact publication so replacement cannot change a queued action.
+      // Only legacy Walk permits the additional ordinary-phase (zero) choice;
+      // full-CNF admission requires an exact nonzero candidate. With no live
+      // candidates, keep its configured identity for an explicit stale decline.
       if (!observation.local_search_candidates.empty()) {
         if (request.invocation.rule == "Walk") {
           auto &parameters = std::get<WalkParameters>(request.invocation.parameters);
-          const auto selected = draw(observation.local_search_candidates.size() + 1);
+          const bool ordinary =
+              parameters.objective == WalkParameters::Objective::LegacyWalk;
+          const auto selected =
+              draw(observation.local_search_candidates.size() + ordinary);
           parameters.seed_candidate = selected < observation.local_search_candidates.size()
               ? observation.local_search_candidates[selected].id : 0;
         } else if (request.invocation.rule == "LocalSearchGuidance") {

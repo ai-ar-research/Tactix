@@ -136,9 +136,9 @@ checks 13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-
 owns all active pin/job bindings and provisional dispositions. [Final Debug](benchmarks/reports/2026-10-07-prefix-meter-full-debug-terminal/README.md)
 `1751523` finishes314/315; only doc-size debt fails, and post-run pin verification passes.
 [Claude smoke](benchmarks/reports/2026-10-07-final-fuzz-resource-priority-handoff/README.md) `1751519` has zero owner-reported failures; native broad `1751520` runs
-and full target `1751604` is queued. Owner marks cancelled `1751515`/`1751516` superseded, with no verdict.
-[B28+C5](benchmarks/reports/2026-10-07-final-b28c5-76e1f68b8-accepted/README.md) and [Rank](benchmarks/reports/2026-10-07-final-rank1-50-76e1f68b8-accepted/README.md) accept33/33 and50/50; WV100 `1751526`, WV2 `1751527`
-remain live; [Walk split](benchmarks/reports/2026-10-07-walk-split-sanitizer-supplement/README.md) b56 passesDebug9/9+ASan9/9, owner77672 runs; X20 replay passes, rank1161 is no-yield.
+and full target `1751604` runs. Owner marks cancelled `1751515`/`1751516` superseded, with no verdict.
+[B28+C5](benchmarks/reports/2026-10-07-final-b28c5-76e1f68b8-accepted/README.md) and [Rank](benchmarks/reports/2026-10-07-final-rank1-50-76e1f68b8-accepted/README.md) accept33/33 and50/50; [WV100](benchmarks/reports/2026-10-07-final-wv100-76e1f68b8-accepted/README.md) accepts100/100; WV2 `1751527`
+remain live; [Walk split](benchmarks/reports/2026-10-07-walk-split-sanitizer-supplement/README.md) b56 passesDebug9/9+ASan9/9; [fuzz prep](benchmarks/reports/2026-10-07-walk-split-fuzz-preparation-handoff/README.md) requires fresh broad legs; [selector repair](benchmarks/reports/2026-10-07-walk-split-selector-repair/README.md) passesDebug/ASan; [X20 replay](benchmarks/reports/2026-10-07-rank401-x20-matched-consumption-replay/README.md) passes.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.

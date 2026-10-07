@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/campaign.py", line 173, in <module>
+    elif args.command=='task': assert args.arm; task(args.arm)
+  File "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/campaign.py", line 113, in task
+    assert independent['exit']==0 and independent['valid_token'], independent
+AssertionError: {'stage': 'Trestle-full-prefix', 'command': ['/home/hwu/SAT-solving/tools/checkers/bin/srcheck', '/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/checker.cnf', '/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/forward.lsr'], 'exit': 0, 'sha256': '0a24f71a919f599712bf167ba0d2cbeafcb2dfb9e7629ea4938bb5c3ec642550', 'unsat_token': False, 'valid_token': False}
