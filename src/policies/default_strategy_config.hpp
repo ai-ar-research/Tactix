@@ -285,7 +285,33 @@ struct DefaultStrategyConfig {
   struct GraphLabelingModel {
     // WIP until a measured, source-backed effort profile and all gates pass.
     bool enabled = false;
-    strategy::GraphLabelingParameters parameters;
+    strategy::GraphLabelingParameters parameters = [] {
+      strategy::GraphLabelingParameters p;
+      p.maximum_vertices = 140;
+      p.workspace_bytes = 512ull << 20;
+      p.work[size_t(strategy::GraphLabelingStage::Recognition)] = 100'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::Construction)] = 100'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::Window)] = 5'000'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::Repair)] = 1'000'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::Anneal)] = 500'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::FinalRepair)] = 1'000'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::Completion)] = 100'000'000;
+      p.work[size_t(strategy::GraphLabelingStage::Publication)] = 1'000'000;
+      p.maximum_dfs_vertices = 140;
+      p.maximum_dfs_nodes = 50'000'000;
+      p.maximum_dfs_starts = 12;
+      p.early_dfs_choices = 28;
+      p.repair_rounds = UINT64_MAX;
+      p.anneal_iterations = UINT64_MAX;
+      p.stall_anneal_iterations = 100'000;
+      p.seed = 0;
+      return p;
+    }();
+    // Source capture and all trajectory work occur only in initial or full
+    // restart root windows. The interval is measured in ordinary search ticks.
+    uint64_t initial_tick_interval = 1'000'000;
+    uint64_t maximum_delay_ticks = 64'000'000;
+    uint32_t fruitlessness_threshold = 4;
   } graph_labeling_model;
   struct RamseyStartup {
     bool enabled = true;

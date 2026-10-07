@@ -1,6 +1,7 @@
 #undef NDEBUG
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/model.hpp"
+#include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/guidance_outcome.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -8,6 +9,33 @@
 #include <cassert>
 
 using namespace tactix;
+
+struct StopAfterGraphRoot final : BranchingPolicy {
+  DefaultPolicy &policy;
+  volatile sig_atomic_t &stop;
+  unsigned picks = 0;
+  StopAfterGraphRoot(DefaultPolicy &p, volatile sig_atomic_t &s)
+      : policy(p), stop(s) {}
+  const char *name() const override { return "graph-root-test"; }
+  Lit pick(Kernel &kernel) override {
+    assert(!picks++);
+    const auto &diagnostics = policy.graph_labeling_diagnostics();
+    assert(diagnostics.authentication_attempts == 1);
+    assert(diagnostics.authentication_successes == 1);
+    assert(diagnostics.slices == 1);
+    assert(diagnostics.useful_hints == 1);
+    assert(diagnostics.phase_install_attempts == 1);
+    assert(diagnostics.phase_installs == 1);
+    assert(kernel.stats.graph_labeling_recognized == 1);
+    assert(kernel.stats.graph_labeling_calls == 2);
+    stop = 1;
+    for (Var variable = 0; variable < kernel.nvars; ++variable)
+      if (!kernel.value(make_lit(variable, false)) &&
+          !kernel_var_retired(kernel, variable))
+        return make_lit(variable, false);
+    return INVALID_LIT;
+  }
+};
 
 static void permutation(Kernel &k, bool difficult) {
   constexpr uint32_t n = 4;
@@ -38,6 +66,87 @@ static void permutation(Kernel &k, bool difficult) {
 }
 
 int main() {
+  {
+    Kernel kernel;
+    ScopedHeuristics heuristics(kernel);
+    permutation(kernel, true);
+    DefaultStrategyConfig config;
+    config.affine_root_closure.enabled = false;
+    config.affine_model.enabled = false;
+    config.parity_model.enabled = false;
+    config.onehot_model.enabled = false;
+    config.ramsey_startup.enabled = false;
+    config.signed_cardinality_proof.enabled = false;
+    config.balanced_signature_model.enabled = false;
+    config.exact_cover_model.enabled = false;
+    config.independent_set_model.enabled = false;
+    config.fermat_model.enabled = false;
+    config.cerny_model.enabled = false;
+    config.lookup_circuit_model.enabled = false;
+    config.simon_model.enabled = false;
+    config.stconn_proof.enabled = false;
+    config.inprocess.program.clear();
+    config.inprocess.append_unlisted_rules = false;
+    config.inprocess.structured_root_stages.clear();
+    config.inprocess.structured_root_bounded_backtracking_stages.clear();
+    config.inprocess.structured_root_large_domain_stages.clear();
+    config.inprocess.initial_fast_elimination = false;
+    config.rephase.late_lucky = false;
+    config.rephase.walk_warmup = false;
+    config.graph_labeling_model.enabled = true;
+    config.graph_labeling_model.parameters = kernel.graph_labeling_parameters;
+    DefaultPolicy policy(config);
+    volatile sig_atomic_t stop = 0;
+    StopAfterGraphRoot branching(policy, stop);
+    policy.branching = &branching;
+    assert(policy.solve(kernel, &stop) == 0);
+    assert(branching.picks == 1);
+  }
+  {
+    Kernel measured;
+    ScopedHeuristics measured_h(measured);
+    permutation(measured, false);
+    GraphLabelingModelSession measured_session;
+    const auto successful =
+        graph_labeling_model_authenticate(measured, measured_session);
+    assert(successful.status == GraphLabelingAuthenticationStatus::Authenticated);
+    assert(successful.work && measured_session.authenticated());
+
+    Kernel bounded;
+    ScopedHeuristics bounded_h(bounded);
+    permutation(bounded, false);
+    bounded.work_budget_bounded = true;
+    bounded.work_budget = successful.work - 1;
+    GraphLabelingModelSession bounded_session;
+    const auto exhausted =
+        graph_labeling_model_authenticate(bounded, bounded_session);
+    assert(exhausted.status == GraphLabelingAuthenticationStatus::Exhausted);
+    assert(!bounded_session.authenticated() && bounded.trail.empty());
+
+    Kernel replay;
+    ScopedHeuristics replay_h(replay);
+    permutation(replay, false);
+    GraphLabelingModelSession replay_session;
+    assert(graph_labeling_model_authenticate(replay, replay_session).status ==
+           GraphLabelingAuthenticationStatus::Authenticated);
+    auto first = graph_labeling_model_slice(measured, measured_session);
+    auto second = graph_labeling_model_slice(replay, replay_session);
+    assert(first.status == GraphLabelingSliceStatus::Pending);
+    assert(second.status == GraphLabelingSliceStatus::Pending);
+    assert(measured_session.candidate_fingerprint() ==
+           replay_session.candidate_fingerprint());
+    assert(first.hint_published && second.hint_published);
+    assert(measured.trail.empty() && replay.trail.empty());
+    for (unsigned i = 0; i < 8 && first.status != GraphLabelingSliceStatus::Sat;
+         ++i)
+      first = graph_labeling_model_slice(measured, measured_session);
+    assert(first.status == GraphLabelingSliceStatus::Sat);
+    assert(measured_session.complete() && measured.stats.graph_labeling_recognized == 1);
+    std::vector<uint8_t> model(measured.nvars);
+    for (Var v = 0; v < measured.nvars; ++v)
+      model[v] = measured.value(make_lit(v, false)) > 0;
+    assert(lucky_model_valid(measured, model));
+  }
   {
     Kernel k;
     ScopedHeuristics h(k);

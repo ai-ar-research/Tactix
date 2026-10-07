@@ -968,6 +968,11 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("noL-walk schedule is invalid");
   if (!graph_labeling_model.parameters.valid())
     return reject("graph-labeling settings are invalid");
+  if (!graph_labeling_model.initial_tick_interval ||
+      graph_labeling_model.maximum_delay_ticks <
+          graph_labeling_model.initial_tick_interval ||
+      !graph_labeling_model.fruitlessness_threshold)
+    return reject("graph-labeling schedule is invalid");
   if (!independent_set_model.parameters.valid())
     return reject("independent-set-model settings are invalid");
 
@@ -1414,7 +1419,13 @@ std::string DefaultStrategyConfig::serialize() const {
       << affine_root_closure.maximum_journal_bytes
       << " affine_root_closure.maximum_session_work="
       << affine_root_closure.maximum_session_work;
-  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
+  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled
+      << " graph_labeling_model.initial_tick_interval="
+      << graph_labeling_model.initial_tick_interval
+      << " graph_labeling_model.maximum_delay_ticks="
+      << graph_labeling_model.maximum_delay_ticks
+      << " graph_labeling_model.fruitlessness_threshold="
+      << graph_labeling_model.fruitlessness_threshold;
   {
     strategy::OnlineStrategyProgram graph;
     strategy::OnlineInvocation invocation;
@@ -4364,6 +4375,133 @@ ApplyResult DefaultPolicy::install_nol_walk_hint(
   return installed;
 }
 
+void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
+  graph_labeling_diagnostics_ = {};
+  graph_labeling_schedule_initialized_ = true;
+  graph_labeling_diagnostics_.delay_ticks =
+      config_.graph_labeling_model.initial_tick_interval;
+  graph_labeling_diagnostics_.next_ticks = saturated_sum(
+      search_ticks(kernel), config_.graph_labeling_model.initial_tick_interval);
+  graph_labeling_wake_stamp_ = {kernel.stats.root_assignments, kernel.nvars,
+                                kernel.external_to_internal.size()};
+}
+
+bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
+  if (!config_.graph_labeling_model.enabled ||
+      !graph_labeling_session_.authenticated() ||
+      graph_labeling_session_.complete())
+    return false;
+  const std::array<uint64_t, 3> current{
+      kernel.stats.root_assignments, kernel.nvars,
+      kernel.external_to_internal.size()};
+  if (current != graph_labeling_wake_stamp_) {
+    graph_labeling_wake_stamp_ = current;
+    graph_labeling_diagnostics_.delay_ticks =
+        config_.graph_labeling_model.initial_tick_interval;
+    graph_labeling_diagnostics_.fruitless_completions = 0;
+    graph_labeling_diagnostics_.next_ticks = search_ticks(kernel);
+    ++graph_labeling_diagnostics_.wakeups;
+  }
+  return search_ticks(kernel) >= graph_labeling_diagnostics_.next_ticks;
+}
+
+void DefaultPolicy::schedule_graph_labeling(
+    const Kernel &kernel, const GraphLabelingSliceResult &result) {
+  ++graph_labeling_diagnostics_.slices;
+  const auto &settings = config_.graph_labeling_model;
+  if (result.useful_hint || result.status == GraphLabelingSliceStatus::Sat) {
+    ++graph_labeling_diagnostics_.useful_hints;
+    graph_labeling_diagnostics_.fruitless_completions = 0;
+    graph_labeling_diagnostics_.delay_ticks = std::max(
+        settings.initial_tick_interval,
+        graph_labeling_diagnostics_.delay_ticks / 2);
+  } else if (result.status != GraphLabelingSliceStatus::Pending &&
+             result.status != GraphLabelingSliceStatus::Interrupted &&
+             result.status != GraphLabelingSliceStatus::Sat &&
+             ++graph_labeling_diagnostics_.fruitless_completions >=
+                 settings.fruitlessness_threshold) {
+    graph_labeling_diagnostics_.fruitless_completions = 0;
+    const uint64_t delay = graph_labeling_diagnostics_.delay_ticks;
+    graph_labeling_diagnostics_.delay_ticks =
+        delay > settings.maximum_delay_ticks / 2
+            ? settings.maximum_delay_ticks
+            : std::min(settings.maximum_delay_ticks, delay * 2);
+  }
+  if (result.status == GraphLabelingSliceStatus::Pending ||
+      result.status == GraphLabelingSliceStatus::Interrupted)
+    ++graph_labeling_diagnostics_.pending_slices;
+  if (result.status == GraphLabelingSliceStatus::TrajectoryComplete)
+    ++graph_labeling_diagnostics_.completed_trajectories;
+  graph_labeling_diagnostics_.next_ticks = saturated_sum(
+      search_ticks(kernel), graph_labeling_diagnostics_.delay_ticks);
+  graph_labeling_wake_stamp_ = {kernel.stats.root_assignments, kernel.nvars,
+                                kernel.external_to_internal.size()};
+}
+
+GraphLabelingAuthenticationResult
+DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
+  GraphLabelingAuthenticationResult result;
+  if (!config_.graph_labeling_model.enabled || kernel.level ||
+      !graph_labeling_model_guard(kernel))
+    return result;
+  ++graph_labeling_diagnostics_.authentication_attempts;
+  result = graph_labeling_model_authenticate(kernel, graph_labeling_session_);
+  graph_labeling_diagnostics_.authentication_work = saturated_sum(
+      graph_labeling_diagnostics_.authentication_work, result.work);
+  switch (result.status) {
+  case GraphLabelingAuthenticationStatus::Authenticated:
+    ++graph_labeling_diagnostics_.authentication_successes;
+    break;
+  case GraphLabelingAuthenticationStatus::Exhausted:
+    ++graph_labeling_diagnostics_.authentication_exhausted;
+    break;
+  case GraphLabelingAuthenticationStatus::NoStructure:
+    ++graph_labeling_diagnostics_.authentication_no_structure;
+    break;
+  case GraphLabelingAuthenticationStatus::Interrupted:
+    ++graph_labeling_diagnostics_.authentication_interrupted;
+    break;
+  }
+  return result;
+}
+
+GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
+  GraphLabelingSliceResult result;
+  if (!config_.graph_labeling_model.enabled ||
+      !graph_labeling_session_.authenticated() || kernel.level ||
+      !graph_labeling_model_guard(kernel))
+    return result;
+  result = graph_labeling_model_slice(kernel, graph_labeling_session_);
+  schedule_graph_labeling(kernel, result);
+  return result;
+}
+
+ApplyResult DefaultPolicy::install_graph_labeling_hint(
+    Kernel &kernel, const GraphLabelingSliceResult &result) {
+  if (!result.useful_hint || !result.hint_published || kernel.level ||
+      !graph_labeling_session_.authenticated() ||
+      !local_search_guidance_guard(kernel))
+    return ApplyResult::NoOp;
+  const auto &hint = kernel.local_search_hints[static_cast<size_t>(
+      strategy::LocalSearchKind::GraphLabeling)];
+  if (!hint.available() || !hint.objective_exact ||
+      hint.objective != result.objective_after)
+    return ApplyResult::NoOp;
+  ++graph_labeling_diagnostics_.phase_install_attempts;
+  const ApplyResult installed = execution::complete_action(
+      completion_, FeedbackKind::Rule, "LocalSearchGuidance", hint.id,
+      [&] {
+        return execution::native_rule_feedback(
+            kernel, "LocalSearchGuidance", hint.id,
+            "authenticated-graph-labeling-improvement;objective=" +
+                std::to_string(hint.objective));
+      },
+      [&] { return local_search_guidance_apply_candidate(kernel, hint.id); });
+  if (installed == ApplyResult::Ok)
+    ++graph_labeling_diagnostics_.phase_installs;
+  return installed;
+}
+
 void DefaultPolicy::observe_affine_consumption(const Kernel &kernel,size_t begin) {
   if(!config_.affine_search.enabled)return;
   auto published=[&](uint64_t id) {
@@ -4473,6 +4611,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_tracking_limit_=0;
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
+  graph_labeling_session_.clear();
+  reset_graph_labeling_schedule(k);
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
   analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
@@ -4616,6 +4756,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (nol_authentication.status ==
       NolHypergraphAuthenticationStatus::Interrupted)
     return finish(0);
+  const auto graph_authentication = authenticate_graph_labeling(k);
+  if (graph_authentication.status ==
+      GraphLabelingAuthenticationStatus::Interrupted)
+    return finish(0);
   const ApplyResult affine_root = default_affine_root_closure(
       k, config_.affine_root_closure, completion_);
   if (affine_root == ApplyResult::Unsat ||
@@ -4636,15 +4780,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if(propagated!=ApplyResult::Ok)return finish(20);
     }
   }
-  // Affine owns the first theory slot. Once its root publications have reached
-  // a fixpoint, consume exactly one ordinary noL dose in this initial root
-  // window. Later doses remain full-restart-only.
-  if (config_.nol_walk.enabled) {
-    const auto nol = service_nol_walk(k);
-    if (nol.status == NolHypergraphSliceStatus::Sat)
-      return finish(10);
-    (void)install_nol_walk_hint(k, nol);
-  }
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
@@ -4655,15 +4790,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(20);
     }
     event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
-  }
-  // The graph-labeling constructor remains opt-in until its production effort
-  // profile is accepted. A failed completion can still publish partial advice.
-  if (config_.graph_labeling_model.enabled && graph_labeling_model_guard(k)) {
-    const ApplyResult graph =
-        default_lucky_opportunity<LuckyOpportunity::GraphLabeling>(
-            k, "graph-labeling", completion_);
-    if (graph == ApplyResult::Sat)
-      return finish(10);
   }
   // Signed at-most-one block exact cover (the sgen owner): exact recognition
   // on the live clause set, then bounded search and whole-formula model check.
@@ -5062,6 +5188,24 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
+  // Authentication captured the original noL source before any rewriting.
+  // Run the first trajectory slice only after structured-root, its root
+  // propagation/residual handoff, and startup preprocessing have finalized
+  // the phases search will consume. Affine has already reached its initial
+  // root fixpoint; later noL doses remain full-restart-only.
+  if (config_.nol_walk.enabled) {
+    const auto nol = service_nol_walk(k);
+    if (nol.status == NolHypergraphSliceStatus::Sat)
+      return finish(10);
+    (void)install_nol_walk_hint(k, nol);
+  }
+  if (config_.graph_labeling_model.enabled &&
+      graph_labeling_session_.authenticated()) {
+    const auto graph = service_graph_labeling(k);
+    if (graph.status == GraphLabelingSliceStatus::Sat)
+      return finish(10);
+    (void)install_graph_labeling_hint(k, graph);
+  }
   presearch_ticks.reset();
   // There is no Kissat collection point between late Lucky and search
   // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
@@ -5357,9 +5501,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           k.affine_matrix_search_session->enabled() &&
           affine_service_due(k, false);
       const bool nol_restart=nol_walk_due(k);
+      const bool graph_restart=graph_labeling_due(k);
       // A due retained service owns an explicit full-root window even when
       // the ordinary conflict restart clock has not fired.
-      if ((ordinary_restart || affine_restart || nol_restart) &&
+      if ((ordinary_restart || affine_restart || nol_restart || graph_restart) &&
           k.level > 0 && restart_guard(k)) {
         event_trace.macro(k, "restart_begin");
       // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
@@ -5370,7 +5515,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // theory slice instead owns a full root restart and does not consume a
       // speculative reuse draw.
       uint32_t keep = 0;
-      if (!affine_restart && !nol_restart) {
+      if (!affine_restart && !nol_restart && !graph_restart) {
         BranchingPolicy &bp = branching ? *branching : default_branching_;
         const Lit next = bp.pick_for_restart_reuse(k);
         keep = heuristics_restart_reuse_level_for(k, var_of(next));
@@ -5379,7 +5524,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           completion_, FeedbackKind::SearchService,
           "Restart", keep, [&] { return execution::native_rule_feedback(
               k, "Restart", keep, "retained-level=" + std::to_string(keep) +
-                  ((affine_restart||nol_restart) ? ";purpose=theory-root" : ";purpose=scheduled")); }, [&] {
+                  ((affine_restart||nol_restart||graph_restart)
+                       ? ";purpose=retained-root" : ";purpose=scheduled")); }, [&] {
         if (keep < k.level)
           heuristics_update_target_phases(k);
         const ApplyResult restarted = default_direct_rule_lazy(
@@ -5396,7 +5542,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       feedback.end_interval(StopReason::Restart);
       if (restart_result == ApplyResult::Unsat)
         return finish(20);
-      if (affine_restart || nol_restart) {
+      if (affine_restart || nol_restart || graph_restart) {
         if (k.level) std::abort();
         const ApplyResult rooted = default_propagate(
             k, "retained-service-restart-root", completion_);
@@ -5439,6 +5585,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         const auto nol=service_nol_walk(k);
         if(nol.status==NolHypergraphSliceStatus::Sat)return finish(10);
         (void)install_nol_walk_hint(k,nol);
+      }
+      const bool run_graph = graph_restart || graph_labeling_due(k);
+      if (run_graph) {
+        const auto graph = service_graph_labeling(k);
+        if (graph.status == GraphLabelingSliceStatus::Sat)
+          return finish(10);
+        (void)install_graph_labeling_hint(k, graph);
       }
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
                                     : IntervalStart::NativeContinuation);

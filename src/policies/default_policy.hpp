@@ -5,6 +5,7 @@
 #include "policies/default_restart.hpp"
 #include "policies/policy.hpp"
 #include "strategy/policy_completion.hpp"
+#include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include <optional>
@@ -102,6 +103,25 @@ struct DefaultAffineSearchDiagnostics {
 };
 
 struct DefaultNolWalkDiagnostics {
+  uint64_t authentication_attempts = 0;
+  uint64_t authentication_successes = 0;
+  uint64_t authentication_exhausted = 0;
+  uint64_t authentication_no_structure = 0;
+  uint64_t authentication_interrupted = 0;
+  uint64_t authentication_work = 0;
+  uint64_t next_ticks = 0;
+  uint64_t delay_ticks = 0;
+  uint32_t fruitless_completions = 0;
+  uint64_t slices = 0;
+  uint64_t pending_slices = 0;
+  uint64_t completed_trajectories = 0;
+  uint64_t useful_hints = 0;
+  uint64_t phase_install_attempts = 0;
+  uint64_t phase_installs = 0;
+  uint64_t wakeups = 0;
+};
+
+struct DefaultGraphLabelingDiagnostics {
   uint64_t authentication_attempts = 0;
   uint64_t authentication_successes = 0;
   uint64_t authentication_exhausted = 0;
@@ -253,6 +273,9 @@ public:
   const DefaultNolWalkDiagnostics &nol_walk_diagnostics() const {
     return nol_walk_diagnostics_;
   }
+  const DefaultGraphLabelingDiagnostics &graph_labeling_diagnostics() const {
+    return graph_labeling_diagnostics_;
+  }
 
   void reset_schedule(const Kernel &);
   // White-box seams for Kissat's exact `classify.c` predicates. The count
@@ -348,6 +371,19 @@ private:
   bool nol_walk_due(const Kernel &);
   void schedule_nol_walk(const Kernel &,const NolHypergraphSliceResult &);
   void reset_nol_walk_schedule(const Kernel &);
+
+  GraphLabelingModelSession graph_labeling_session_;
+  DefaultGraphLabelingDiagnostics graph_labeling_diagnostics_;
+  bool graph_labeling_schedule_initialized_ = false;
+  std::array<uint64_t, 3> graph_labeling_wake_stamp_{};
+  GraphLabelingAuthenticationResult authenticate_graph_labeling(Kernel &);
+  GraphLabelingSliceResult service_graph_labeling(Kernel &);
+  ApplyResult install_graph_labeling_hint(Kernel &,
+                                          const GraphLabelingSliceResult &);
+  bool graph_labeling_due(const Kernel &);
+  void schedule_graph_labeling(const Kernel &,
+                               const GraphLabelingSliceResult &);
+  void reset_graph_labeling_schedule(const Kernel &);
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);

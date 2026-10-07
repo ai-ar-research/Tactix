@@ -178,6 +178,66 @@ struct ConsumptionCapture final : FeedbackReceiver {
   }
 };
 
+struct StructuredConsumptionCapture final : FeedbackReceiver {
+  bool saw_structured_action = false;
+  bool saw_guidance = false;
+  uint64_t structured_sequence = 0;
+  uint64_t guidance_sequence = 0;
+  uint64_t root_population_at_guidance = 0;
+  uint64_t slices_at_guidance = 0;
+  DefaultPolicy *policy = nullptr;
+  bool search_started = false;
+
+  void after_action(const ActionFeedback &action) override {
+    if (action.identity == "SubstitutionRedundancy") {
+      // The first noL slice must not have run on the pre-symmetry root.
+      assert(!saw_guidance);
+      saw_structured_action = true;
+      structured_sequence = action.sequence;
+    } else if (action.identity == "LocalSearchGuidance" &&
+               strategy::local_search_candidate_kind(action.instance) ==
+                   strategy::LocalSearchKind::HypergraphColoring) {
+      assert(saw_structured_action);
+      assert(!search_started);
+      assert(action.before.level == 0 && action.after.level == 0);
+      assert(policy && policy->nol_walk_diagnostics().slices == 1);
+      const auto candidate = std::find_if(
+          action.after.local_search_candidates.begin(),
+          action.after.local_search_candidates.end(), [&](const auto &hint) {
+            return hint.id == action.instance;
+          });
+      assert(candidate != action.after.local_search_candidates.end());
+      assert(candidate->formula_root_assignments ==
+             action.after.cumulative.root_assignments);
+      saw_guidance = true;
+      guidance_sequence = action.sequence;
+      root_population_at_guidance = action.after.root_population;
+      slices_at_guidance = policy->nol_walk_diagnostics().slices;
+    }
+  }
+
+  void search_interval(const SearchIntervalFeedback &) override {
+    search_started = true;
+  }
+};
+
+struct StopAfterStructuredGuidance final : BranchingPolicy {
+  volatile sig_atomic_t &stop;
+  unsigned picks = 0;
+  explicit StopAfterStructuredGuidance(volatile sig_atomic_t &signal)
+      : stop(signal) {}
+  const char *name() const override { return "structured-noL-order-test"; }
+  Lit pick(Kernel &kernel) override {
+    assert(!picks++);
+    stop = 1;
+    for (Var variable = 0; variable < kernel.nvars; ++variable)
+      if (!kernel.value(make_lit(variable, false)) &&
+          !kernel_var_retired(kernel, variable))
+        return make_lit(variable, false);
+    return INVALID_LIT;
+  }
+};
+
 struct Capture final : FeedbackReceiver {
   DefaultPolicy *policy = nullptr;
   Scenario scenario = Scenario::Disabled;
@@ -685,6 +745,93 @@ static ConsumptionRecord phase_consumption_case() {
   return capture.record;
 }
 
+static void structured_root_before_initial_nol_case() {
+  Kernel kernel = parse(complete_hypergraph(7, 7));
+  NolHypergraphWalkSession session;
+  kernel.nol_hypergraph_walk_session = &session;
+  ScopedHeuristics heuristics(kernel);
+  kernel.h->stable = true;
+  auto config = quiet_config();
+  strategy::OnlineInvocation symmetry;
+  bool found_symmetry = false;
+  for (const auto &stage :
+       DefaultStrategyConfig{}.inprocess.structured_root_stages) {
+    for (const auto &step : stage.program.sequence)
+      if (const auto *parameters =
+              std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+          parameters &&
+          parameters->producer ==
+              SubstitutionRedundancyProducer::GraphSymmetry) {
+        symmetry = step;
+        found_symmetry = true;
+        break;
+      }
+    if (found_symmetry) break;
+  }
+  assert(found_symmetry);
+  strategy::OnlineStrategyProgram program;
+  program.sequence = {symmetry};
+  config.inprocess.structured_root_stages = {
+      {program, strategy::BudgetExhaustionPolicy::Continue}};
+  config.nol_walk.enabled = true;
+  config.nol_walk.work_quantum = 8000;
+  config.nol_walk.initial_tick_interval = UINT64_C(1) << 60;
+  config.nol_walk.maximum_delay_ticks = UINT64_C(1) << 60;
+  config.mode.force = 2;
+  DefaultPolicy policy(config);
+  volatile sig_atomic_t stop = 0;
+  StopAfterStructuredGuidance branching(stop);
+  policy.branching = &branching;
+  StructuredConsumptionCapture capture;
+  capture.policy = &policy;
+  policy.set_feedback(&capture);
+  assert(policy.solve(kernel, &stop) == 0);
+  assert(branching.picks == 1);
+  assert(capture.saw_structured_action && capture.saw_guidance);
+  assert(capture.structured_sequence < capture.guidance_sequence);
+  assert(capture.slices_at_guidance == 1);
+  assert(capture.root_population_at_guidance > 0);
+  assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+  assert(kernel.stats.nol_hypergraph_model_recognized == 1);
+  assert(kernel.stats.nol_hypergraph_model_calls >= 1);
+  const auto &hint = kernel.local_search_hints[
+      size_t(strategy::LocalSearchKind::HypergraphColoring)];
+  assert(hint.available());
+  for (Var variable = 0; variable < kernel.nvars; ++variable) {
+    const Lit positive = make_lit(variable, false);
+    if (!kernel.value(positive) || kernel.assigned[variable].level) continue;
+    const Var external = kernel.internal_to_external[variable];
+    assert(external < hint.external_phases.size());
+    assert(hint.external_phases[external] ==
+           (kernel.value(positive) > 0 ? 1 : -1));
+  }
+  kernel.nol_hypergraph_walk_session = nullptr;
+}
+
+static void structured_root_terminal_skips_initial_nol_case() {
+  Kernel kernel = parse(complete_hypergraph(7, 7));
+  NolHypergraphWalkSession session;
+  kernel.nol_hypergraph_walk_session = &session;
+  ScopedHeuristics heuristics(kernel);
+  auto config = quiet_config();
+  const DefaultStrategyConfig reference;
+  config.inprocess.structured_root_stages =
+      reference.inprocess.structured_root_stages;
+  config.nol_walk.enabled = true;
+  config.nol_walk.work_quantum = 8000;
+  DefaultPolicy policy(config);
+  assert(policy.solve(kernel) == 20);
+  assert(kernel.stats.sr_applications > 0);
+  assert(policy.nol_walk_diagnostics().authentication_attempts == 1);
+  assert(policy.nol_walk_diagnostics().authentication_successes == 1);
+  assert(policy.nol_walk_diagnostics().slices == 0);
+  assert(kernel.stats.nol_hypergraph_model_calls == 0);
+  assert(session.authenticated(kernel));
+  assert(!session.initialized() && !session.steps() &&
+         !session.trajectories());
+  kernel.nol_hypergraph_walk_session = nullptr;
+}
+
 static void partial_restart_case() {
   Kernel kernel = parse(complete_hypergraph(10, 7));
   NolHypergraphWalkSession session;
@@ -751,6 +898,8 @@ int main() {
   // Exact publication identities, installed targets and the first consuming
   // CDCL decision replay identically from the same source image and budgets.
   assert(phase_consumption_case() == phase_consumption_case());
+  structured_root_before_initial_nol_case();
+  structured_root_terminal_skips_initial_nol_case();
   partial_restart_case();
   disabled_default_case();
   std::puts("test_default_nol_restart_loop OK");
