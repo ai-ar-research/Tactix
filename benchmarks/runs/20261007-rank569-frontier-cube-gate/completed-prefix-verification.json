@@ -1,0 +1,53 @@
+{
+  "checker_semantic_result": "both completed prefixes independently verified against original CNF",
+  "full_four_case_conflicts": 152428,
+  "full_four_case_kitten_ticks": 359164226,
+  "input_sha256": "06d08c3b44a98a2eea13d37b2bb5fe60913fc1d38989997595ddedbcb10b1d9b",
+  "job": "1755123",
+  "parser_failure": "anchored grep did not allow checker carriage-return prefix",
+  "proof_contract": "forward every-lemma derivation; 0 RAT lemmas; no deletion lines; final clause is actual negated-assumption subset",
+  "rows": [
+    {
+      "checker_exit": 1,
+      "checker_result": "VERIFIED derivation",
+      "checker_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "checker_stdout_sha256": "4c196577925f20a64f961cb6708fccadbd4825c4a39714602828fe8a30ddb02c",
+      "conflicts": 35861,
+      "cube": 0,
+      "deletion_lines": 0,
+      "kitten_ticks": 86070964,
+      "proof_bytes": 12582802,
+      "proof_sha256": "4a0f39e358ef00eded03bbba018beda259f557155f64d9ff911061e029640ff4",
+      "rat_lemmas": 0,
+      "raw_sha256": "0c316c447dc61ea8d4c0ae5b0371b6fd693dd771194bcb43060ce6181dc90aec",
+      "target_clause": [
+        21,
+        9,
+        -3411
+      ]
+    },
+    {
+      "checker_exit": 1,
+      "checker_result": "VERIFIED derivation",
+      "checker_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "checker_stdout_sha256": "7e7470b895d167eb0751ae4b20fb98db09412838c30534188dbef566d77e2313",
+      "conflicts": 37614,
+      "cube": 3,
+      "deletion_lines": 0,
+      "kitten_ticks": 73089405,
+      "proof_bytes": 12509185,
+      "proof_sha256": "e54b3ba0ffb397ef814b5928ee719522406d4c7b5cad7f87b5e4c43c015a5973",
+      "rat_lemmas": 0,
+      "raw_sha256": "10ddba137d8b4903f2b7da0291a0ed3d0fb0382779fd65f865246dfe0e56a763",
+      "target_clause": [
+        -21,
+        -9,
+        -3411
+      ]
+    }
+  ],
+  "scheduler_state": "FAILED(parser-only)",
+  "schema": "rank569-frontier-completed-prefix-verification-v1",
+  "successful_kitten_ticks": 159160369,
+  "successful_prefix_bytes": 25091987
+}

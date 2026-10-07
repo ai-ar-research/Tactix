@@ -1,0 +1,56 @@
+{
+  "schema": "rank569-frontier-cube-gate-v1",
+  "source_commit": "fd6ede71a",
+  "source_archive_sha256": "2d92d0743ba3f25a7610505829dd81aa4e00c53a9e61887679bfa4864388ef4f",
+  "input": "tierD24-26/778e0fd8f034b7cfd539b1b523ed4c4a-lec_mult_CvW_12x12.sanitized.cnf.xz",
+  "input_sha256": "dbadc0aa9040c4394a12709e838d677c584934186a9154284e70051e2ed69446",
+  "selection": {
+    "method": "first exhausted terminal XOR equality after an independently proved immediate predecessor whose transitive primary-support set is nested and differs by exactly two variables",
+    "proved_predecessor": 3410,
+    "proved_predecessor_support": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20],
+    "target": 3411,
+    "target_support": [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+    "frontier": [9, 21]
+  },
+  "prior_evidence": {
+    "results": "benchmarks/runs/20261007-rank569-miter-subsolver-feasibility/independent-results.json",
+    "results_sha256": "c84bd021e1f2a629d2ff7e35a3fdf1fe33dce6855928d222b6d98c07b9d4c23a",
+    "predecessor_checked_prefix": "benchmarks/runs/20261007-rank569-miter-subsolver-feasibility/results/prefixes/7.drat",
+    "predecessor_checked_prefix_sha256": "d69a682423f7a5d0b4cb4c55892f93371fb898bd7e2b652ceaf3d00830cb5a1e",
+    "predecessor_checker_transcript_sha256": "e0026f46450038a5856136a533f9f06bcb6e7c19cb9a317078f19b21bf894a02",
+    "predecessor_kitten_ticks": 30465452,
+    "predecessor_proof_bytes": 5547104,
+    "target_unsplit_disposition": "BUDGET",
+    "target_unsplit_kitten_ticks": 100000958
+  },
+  "case_contract": {
+    "cubes": 4,
+    "tick_cap_per_case": 100000000,
+    "serialized_proof_byte_cap_per_case": 67108864,
+    "serialized_proof_byte_cap_total": 268435456,
+    "source_formula": "original CNF",
+    "required_case_checker": "drat-trim -f -U reports VERIFIED derivation and s DERIVATION with exit 1",
+    "required_combination": "actual final targets are negated-assumption subsets; four signed cubes cover the frontier; weaken each target to its canonical blocker, resolve the frontier variables, derive -3411",
+    "negative_controls": ["missing cube rejected", "wrong assumption sign rejected"],
+    "failure_disposition": "stop; publish no logical consequence; do not launch a full Rank569 run"
+  },
+  "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+  "build": {
+    "job": "1755099",
+    "state": "COMPLETED",
+    "exit": "0:0",
+    "node": "node017",
+    "probe_sha256": "95df14529a4abda9022c6f2392b92b820bde4c04840702cdb3963f579c9bcd0a"
+  },
+  "terminal": {
+    "case_job": "1755105",
+    "case_job_state": "FAILED",
+    "complete_cubes": [0, 3],
+    "budget_cubes": [1, 2],
+    "semantic_verification_job": "1755123",
+    "semantic_verification_state": "checker accepted; wrapper parser failed",
+    "completed_prefix_verification": "completed-prefix-verification.json",
+    "disposition": "failed four-cube gate; no combined proof, no unit, no solver rerun"
+  },
+  "production_changes": false
+}
