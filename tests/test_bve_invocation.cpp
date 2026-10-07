@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "proof/proof.hpp"
 #include "rules/bve/bve.hpp"
 #include "strategy/bve_invocation.hpp"
 
@@ -7,6 +8,10 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -223,6 +228,127 @@ static void test_fastel_at_raw_cap_skips_feasibility_strengthening() {
   assert(k.stats.strengthened == 0 &&
          "SC2024 skips its mutating feasibility scan at the raw cap");
   kernel_check_invariants(k);
+}
+
+static Ref build_fastel_collapsed_binary_large(Kernel &k,
+                                                bool explicit_ids = false) {
+  kernel_reserve_vars(k, 6);
+  const auto id = [&]() { return explicit_ids ? ++k.next_clause_id : 0; };
+  const Lit victim[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref victim_ref =
+      kernel_add_large_clause(k, victim, 3, false, 0, id());
+  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, survivor, 3, false, 0, id());
+  kernel_add_binary_clause(k, internalize(-1), internalize(2), id());
+  kernel_add_binary_clause(k, internalize(-1), internalize(6), id());
+  const uint64_t root_id = id();
+  if (root_id)
+    k.unit_ids[var_of(internalize(-3))] = root_id;
+  kernel_assign_unit(k, internalize(-3));
+  return victim_ref;
+}
+
+static void test_fastel_collapsed_binary_large_deletes_source_on_decline() {
+  Kernel k;
+  const Ref victim = build_fastel_collapsed_binary_large(k);
+
+  const InvocationResult result = invoke_fastel(k, 1, 0);
+  assert(result.status == InvocationStatus::Completed);
+  assert(result.rule_result == ApplyResult::Ok && result.made_rule_progress);
+  assert(!kernel_var_retired(k, var_of(internalize(1))) &&
+         "the later unresolved pair must still decline the pivot");
+  assert(k.value(internalize(2)) > 0 &&
+         "the collapsed self-strengthening must assert its unit");
+  assert(clause_at(k.arena, victim)->garbage() &&
+         "SC2024 deletes the large source of binary x large collapsed SSR");
+  assert(k.stats.strengthened == 1);
+  assert(kernel_binary_live(k, internalize(-1), internalize(6)));
+  kernel_check_invariants(k);
+}
+
+static void test_fastel_collapsed_proof_add_precedes_source_delete() {
+  const std::string path = "/tmp/tactix-fastel-collapsed-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  Kernel k;
+  const Ref victim = build_fastel_collapsed_binary_large(k, true);
+  const uint64_t victim_id = clause_at(k.arena, victim)->id();
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+
+  const InvocationResult result = invoke_fastel(k, 1, 0);
+  assert(result.status == InvocationStatus::Completed);
+  proof.flush();
+  k.proof = nullptr;
+
+  std::ifstream input(path);
+  std::string line;
+  size_t line_number = 0, unit_line = 0, deletion_line = 0;
+  while (std::getline(input, line)) {
+    ++line_number;
+    std::istringstream fields(line);
+    uint64_t line_id = 0;
+    assert(fields >> line_id);
+    fields >> std::ws;
+    if (fields.peek() == 'd') {
+      char deletion = 0;
+      uint64_t deleted_id = 0;
+      fields >> deletion >> deleted_id;
+      assert(deletion == 'd');
+      if (deleted_id == victim_id)
+        deletion_line = line_number;
+      continue;
+    }
+    int literal = 0, terminator = -1;
+    fields >> literal >> terminator;
+    if (literal == 2 && terminator == 0)
+      unit_line = line_number;
+  }
+  assert(unit_line && deletion_line && unit_line < deletion_line &&
+         "the collapsed RUP unit must be emitted before its source is deleted");
+  std::remove(path.c_str());
+  kernel_check_invariants(k);
+}
+
+// Emit a complete original-CNF LRAT witness for an external checker.  The
+// first six clauses match the order in focused-array.sbatch; input unit -3 is
+// clause 7.  FastEliminate derives 2 by the collapsed binary x large path,
+// and clauses 5/6 then propagate an ordinary root conflict.
+static void emit_fastel_collapsed_lrat(const char *path) {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit victim[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref victim_ref = kernel_add_large_clause(
+      k, victim, 3, false, 0, ++k.next_clause_id);
+  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, survivor, 3, false, 0, ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2),
+                           ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-1), internalize(6),
+                           ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-2), internalize(7),
+                           ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-2), internalize(-7),
+                           ++k.next_clause_id);
+  const uint64_t root_id = ++k.next_clause_id;
+  k.unit_ids[var_of(internalize(-3))] = root_id;
+  kernel_assign_unit(k, internalize(-3));
+
+  Proof proof;
+  assert(proof.open(path, ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  const InvocationResult result = invoke_fastel(k, 1, 0);
+  assert(result.status == InvocationStatus::Completed);
+  assert(k.value(internalize(2)) > 0);
+  assert(clause_at(k.arena, victim_ref)->garbage());
+  const RuleVTable &propagate =
+      tactix_rules()[static_cast<size_t>(tactix_rule_id("Propagate"))];
+  assert(apply_rule(propagate, k) == ApplyResult::Unsat && k.inconsistent);
+  proof.flush();
+  k.proof = nullptr;
 }
 
 static void test_fastel_prunes_stale_resolvent_without_proof_sink() {
@@ -738,7 +864,12 @@ static void test_instance_decline_that_changes_state_reports_ok() {
   assert(found && "the fixture no longer has a state-changing decline");
 }
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc == 3 && std::string(argv[1]) == "--collapsed-proof") {
+    emit_fastel_collapsed_lrat(argv[2]);
+    return 0;
+  }
+  assert(argc == 1);
   test_empty_pivot_progress_distinguishes_retirement();
   test_round_ends_when_declined_candidate_changes_state();
   test_instance_decline_that_changes_state_reports_ok();
@@ -747,6 +878,8 @@ int main() {
   test_absolute_resolvent_cap_is_effective_and_scoped();
   test_fastel_self_strengthening_precedes_resolvent_cap();
   test_fastel_at_raw_cap_skips_feasibility_strengthening();
+  test_fastel_collapsed_binary_large_deletes_source_on_decline();
+  test_fastel_collapsed_proof_add_precedes_source_delete();
   test_fastel_prunes_stale_resolvent_without_proof_sink();
   test_fastel_decline_retains_checked_strengthening();
   test_fastel_strengthening_is_atomic_at_budget_boundary();
