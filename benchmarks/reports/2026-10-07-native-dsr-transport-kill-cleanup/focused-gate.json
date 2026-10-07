@@ -1,0 +1,36 @@
+{
+  "job": "1754249",
+  "source_sha256": "209b96edf7793d17aede320816d07c65498590a51df5f92fe83aa175a65ccd89",
+  "source_archive": "benchmarks/runs/20261007-dsr-native-transport-kill-cleanup-r1/source.tar",
+  "release_helper_sha256": "3ee37b53eec0e303ccef64ac1ea1413718f401b9d27671347e0bf1d770f6b6c9",
+  "release": {
+    "transport_suites": 8,
+    "protocol_tests": 92,
+    "skips": 0,
+    "exit_status": 0
+  },
+  "asan_ubsan": {
+    "transport_suites": 8,
+    "protocol_tests": 92,
+    "skips": 0,
+    "exit_status": 0
+  },
+  "real_kill_cases": [
+    "standalone SIGXFSZ",
+    "standalone SIGKILL during output write",
+    "managed SIGXFSZ",
+    "managed SIGKILL during output write",
+    "managed pipeline-deadline SIGKILL during output write"
+  ],
+  "throughput": {
+    "scope": "transport only; no solver closure",
+    "input_bytes": 33554340,
+    "seconds": {
+      "python": 14.438459698110819,
+      "native": 0.17275401391088963
+    },
+    "output_sha256": "e59cd96a1888ebbea456b6f995220e668144c6fae2ec195c577a1ac345c790c3"
+  },
+  "claude_affected_leg_requalification": "pending",
+  "checker_acceptance_changed": false
+}

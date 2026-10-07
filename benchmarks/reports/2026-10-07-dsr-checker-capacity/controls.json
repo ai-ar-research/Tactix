@@ -1,0 +1,155 @@
+{
+  "controls": [
+    {
+      "case": "32-valid_rup-ascii-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_rup-ascii-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_rup-binary-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_rup-binary-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_witness-ascii-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_witness-ascii-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_witness-binary-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-valid_witness-binary-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "32-invalid_empty-ascii-backward",
+      "elaborator_status": "rejected"
+    },
+    {
+      "case": "32-invalid_empty-ascii-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "32-invalid_empty-binary-backward",
+      "elaborator_status": "rejected"
+    },
+    {
+      "case": "32-invalid_empty-binary-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "32-invalid_witness-ascii-backward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "32-invalid_witness-ascii-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "32-invalid_witness-binary-backward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "32-invalid_witness-binary-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "64-valid_rup-ascii-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_rup-ascii-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_rup-binary-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_rup-binary-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_witness-ascii-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_witness-ascii-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_witness-binary-backward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-valid_witness-binary-forward",
+      "elaborator_status": "verified",
+      "independent_trestle_status": "verified"
+    },
+    {
+      "case": "64-invalid_empty-ascii-backward",
+      "elaborator_status": "rejected"
+    },
+    {
+      "case": "64-invalid_empty-ascii-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "64-invalid_empty-binary-backward",
+      "elaborator_status": "rejected"
+    },
+    {
+      "case": "64-invalid_empty-binary-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "64-invalid_witness-ascii-backward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "64-invalid_witness-ascii-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "64-invalid_witness-binary-backward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "64-invalid_witness-binary-forward",
+      "elaborator_status": "error"
+    },
+    {
+      "case": "trestle-invalid",
+      "independent_trestle_status": "rejected"
+    }
+  ],
+  "total": 33,
+  "status": "passed",
+  "scope": "tiny directed controls; no large-proof acceptance or target closure"
+}
