@@ -22,10 +22,16 @@ class CandidateArgumentTests(unittest.TestCase):
         for mode in ('on', 'off'):
             argument = '--default-affine-search=' + mode
             self.assertEqual(candidate_arguments([argument]), ['--auto-proof', argument])
+            argument = '--default-nol-walk=' + mode
+            self.assertEqual(candidate_arguments([argument]), ['--auto-proof', argument])
+        self.assertEqual(
+            candidate_arguments(['--default-affine-search=off', '--default-nol-walk=on']),
+            ['--auto-proof', '--default-affine-search=off', '--default-nol-walk=on'])
 
     def test_rejects_empty_proof_policy_and_conflicting_overrides(self):
         for arguments in ([''], ['--drat'], ['--auto-proof'], ['--lrat'],
                           ['--random-policy'], ['--default-affine-search=maybe'],
+                          ['--default-nol-walk=maybe'],
                           [' --default-affine-search=on'],
                           ['--default-affine-search=on --drat'],
                           ['--default-affine-search=on', '--default-affine-search=off'],
