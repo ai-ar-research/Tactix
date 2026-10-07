@@ -38,6 +38,12 @@ WalkParameters::reference_score_curve() {
 }
 
 bool WalkParameters::valid() const {
+  if (objective == Objective::LegacyWalk) {
+    if (admission != Admission::Legacy || preparation_budget) return false;
+  } else if (objective != Objective::FullCurrentCnf ||
+             admission != Admission::StrictlyBetter || !seed_candidate) {
+    return false;
+  }
   if (seed_candidate && !valid_local_search_candidate(seed_candidate))
     return false;
   if (!even_break_base_milli || score_curve.size() < 2 ||
@@ -63,6 +69,9 @@ WalkParameters WalkParameters::from_kernel(const Kernel &k) {
   result.even_break_base_milli = k.walk_even_break_base_milli;
   result.score_curve = k.walk_score_curve;
   result.seed_candidate = k.walk_seed_candidate;
+  result.objective = static_cast<WalkParameters::Objective>(k.walk_objective);
+  result.admission = static_cast<WalkParameters::Admission>(k.walk_admission);
+  result.preparation_budget = k.walk_preparation_budget;
   return result;
 }
 ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
@@ -215,6 +224,9 @@ void install_rule_parameters(Kernel &k, const WalkParameters &p) {
   k.work_budget_bounded = true;
   k.walk_random_seed = p.random_seed;
   k.walk_seed_candidate = p.seed_candidate;
+  k.walk_objective = static_cast<uint32_t>(p.objective);
+  k.walk_admission = static_cast<uint32_t>(p.admission);
+  k.walk_preparation_budget = p.preparation_budget;
   install_walk_guidance(k, p.even_break_base_milli, p.score_curve);
 }
 
@@ -230,6 +242,9 @@ ScopedWalkParameters::ScopedWalkParameters(
     : kernel_(kernel), saved_budget_(kernel.work_budget),
       saved_seed_(kernel.walk_random_seed),
       saved_candidate_(kernel.walk_seed_candidate),
+      saved_preparation_budget_(kernel.walk_preparation_budget),
+      saved_objective_(kernel.walk_objective),
+      saved_admission_(kernel.walk_admission),
       saved_even_break_base_milli_(kernel.walk_even_break_base_milli),
       saved_score_curve_(kernel.walk_score_curve),
       saved_bounded_(kernel.work_budget_bounded) {
@@ -240,6 +255,9 @@ ScopedWalkParameters::~ScopedWalkParameters() {
   kernel_.work_budget = saved_budget_;
   kernel_.walk_random_seed = saved_seed_;
   kernel_.walk_seed_candidate = saved_candidate_;
+  kernel_.walk_preparation_budget = saved_preparation_budget_;
+  kernel_.walk_objective = saved_objective_;
+  kernel_.walk_admission = saved_admission_;
   kernel_.walk_even_break_base_milli = saved_even_break_base_milli_;
   kernel_.walk_score_curve = std::move(saved_score_curve_);
   kernel_.work_budget_bounded = saved_bounded_;

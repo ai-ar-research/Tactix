@@ -1,0 +1,17 @@
+{
+  "slurm_job": "1751725",
+  "task": 0,
+  "host": "node008",
+  "python": "3.9.24",
+  "source_snapshot_commit": "5a3db0f39069fe59b47fdc2ebc18cb34409dd3f0",
+  "launch_manifest_sha256": "8db9385c49f83090f6ca7d5c6fd0c0e85028b71fef99bc9ebb71bff2324ecd8c",
+  "solver_run": false,
+  "process_exit": 0,
+  "input_hash_complete": true,
+  "input_sha256": "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+  "authority_input_sha256": "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+  "input_hash_verified": true,
+  "negative_census_incomplete": true,
+  "proof_validation": "not_run",
+  "model_validation": "not_applicable_no_solver"
+}

@@ -61,6 +61,119 @@ struct Walker {
   uint32_t nlits() const { return 2 * k->nvars; }
 };
 
+// The opt-in full-CNF profile owns a separate preparation meter. It never
+// performs the legacy mutating dense-entry normalization on a declined dose.
+struct PreparationMeter {
+  Kernel &kernel;
+  uint64_t limit, used = 0;
+  bool stopped = false;
+  bool charge(uint64_t amount = 1) {
+    if (stopped) return false;
+    if (kernel_rule_interrupt(kernel, kernel.stats.walk_seed_interrupted)) {
+      stopped = true;
+      return false;
+    }
+    if (amount > limit - used) {
+      ++kernel.stats.walk_seed_budget_exhausted;
+      ++kernel.stats.walk_preparation_budget_exhausted;
+      stopped = true;
+      return false;
+    }
+    used += amount;
+    return true;
+  }
+};
+
+// One mirror per physical binary occurrence and every live arena clause form
+// the same current-CNF objective for both assignments and the entire walk.
+// Duplicate physical clauses have their current multiplicity in both scores.
+bool build_full_table(Walker &w, Kernel &k, PreparationMeter &meter) {
+  const uint32_t nlits = 2 * k.nvars;
+  if (!meter.charge()) return false;
+  w.cl_beg.push_back(0);
+  const auto emit = [&](const Lit *literals, uint32_t size) {
+    bool root_satisfied = false;
+    uint32_t free = 0;
+    for (uint32_t i = 0; i < size; ++i) {
+      if (!meter.charge()) return false;
+      const auto value = k.value(literals[i]);
+      root_satisfied |= value > 0;
+      free += value == 0;
+    }
+    if (root_satisfied) return true;
+    // A root-falsified clause is not a local-search admission objective.
+    if (!free) return false;
+    if (!meter.charge(uint64_t{1} + size)) return false;
+    for (uint32_t i = 0; i < size; ++i)
+      if (!k.value(literals[i])) w.cl_lits.push_back(literals[i]);
+    w.cl_beg.push_back(static_cast<uint32_t>(w.cl_lits.size()));
+    return true;
+  };
+  for (Lit literal = 0; literal < nlits; ++literal) {
+    if (!meter.charge()) return false;
+    for (const auto watch : k.watches.entries(literal)) {
+      if (!meter.charge()) return false;
+      if (!watch.binary() || literal > watch.other()) continue;
+      const Lit pair[] = {literal, watch.other()};
+      const auto before = w.cl_beg.size();
+      if (!emit(pair, 2)) return false;
+      w.binary_clauses += w.cl_beg.size() != before;
+    }
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    if (!meter.charge()) return false;
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    if (!clause->garbage() && !emit(clause->lits, clause->size)) return false;
+    ref += words;
+  }
+  w.nclauses = w.cl_beg.size() - 1;
+  if (!w.nclauses) return false;
+  // Charge arrays before allocation; subsequent visits have their own charge.
+  if (!meter.charge(uint64_t{1} + nlits)) return false;
+  w.occ_beg.assign(size_t(nlits) + 1, 0);
+  for (Lit literal : w.cl_lits) {
+    if (!meter.charge()) return false;
+    ++w.occ_beg[literal + 1];
+  }
+  for (uint32_t literal = 0; literal < nlits; ++literal) {
+    if (!meter.charge()) return false;
+    w.occ_beg[literal + 1] += w.occ_beg[literal];
+  }
+  if (!meter.charge(w.cl_lits.size() + nlits)) return false;
+  w.occ.resize(w.cl_lits.size());
+  std::vector<uint32_t> fill(w.occ_beg.begin(), w.occ_beg.end() - 1);
+  for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
+    if (!meter.charge()) return false;
+    for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+      if (!meter.charge()) return false;
+      w.occ[fill[w.cl_lits[i]]++] = clause;
+    }
+  }
+  // Snapshot copying, validation and interpolation each visit the curve.
+  if (!meter.charge(uint64_t{3} * k.walk_score_curve.size())) return false;
+  const auto parameters = strategy::WalkParameters::from_kernel(k);
+  const double average = double(w.cl_lits.size()) / w.nclauses;
+  w.score_base = 1 / walk_break_base(parameters, average, k.stats.walks);
+  w.increasing_scores = w.score_base >= 1;
+  if (w.increasing_scores) return true;
+  uint32_t maximum_breaks = 0;
+  for (uint32_t literal = 0; literal < nlits; ++literal) {
+    if (!meter.charge()) return false;
+    maximum_breaks = std::max(maximum_breaks,
+        w.occ_beg[literal + 1] - w.occ_beg[literal]);
+  }
+  double next = 1;
+  for (w.epsilon = 1; next && w.table.size() <= maximum_breaks;) {
+    if (!meter.charge()) return false;
+    w.table.push_back(w.epsilon = next);
+    const double candidate = next * w.score_base;
+    if (candidate == next) break;
+    next = candidate;
+  }
+  return true;
+}
+
 // --- table construction ----------------------------------------------------
 
 // Collect the walkable clauses. Binaries live only in watch lists, so they are
@@ -234,8 +347,10 @@ void init_counters(Walker &w) {
 // Nothing in this preparation writes CDCL phase memory.
 bool seed_candidate(Walker &w, Kernel &k,
                     const strategy::LocalSearchHint &hint, uint64_t limit,
-                    uint32_t &ordinary_unsat) {
+                    uint32_t &ordinary_unsat,
+                    PreparationMeter *preparation = nullptr) {
   const auto charge = [&] {
+    if (preparation) return preparation->charge();
     if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
       return false;
     if (w.steps == limit) {
@@ -245,6 +360,7 @@ bool seed_candidate(Walker &w, Kernel &k,
     ++w.steps;
     return true;
   };
+  if (preparation && !preparation->charge(uint64_t{3} * k.nvars)) return false;
   w.values.resize(2 * k.nvars);
   w.best_values.resize(k.nvars);
   for (Var v = 0; v < k.nvars; ++v) {
@@ -258,6 +374,7 @@ bool seed_candidate(Walker &w, Kernel &k,
   }
   ordinary_unsat = 0;
   for (uint32_t c = 0; c < w.nclauses; ++c) {
+    if (preparation && !charge()) return false;
     bool satisfied = false;
     for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
       if (!charge()) return false;
@@ -279,9 +396,12 @@ bool seed_candidate(Walker &w, Kernel &k,
     w.best_values[v] = phase;
   }
   if (!imported) return false;
+  if (preparation && !preparation->charge(uint64_t{3} * w.nclauses)) return false;
+  if (preparation) w.unsat.reserve(w.nclauses);
   w.count.assign(w.nclauses, 0);
   w.pos.assign(w.nclauses, 0);
   for (uint32_t c = 0; c < w.nclauses; ++c) {
+    if (preparation && !charge()) return false;
     uint32_t satisfied = 0;
     for (uint32_t i = w.cl_beg[c]; i < w.cl_beg[c + 1]; ++i) {
       if (!charge()) return false;
@@ -289,13 +409,16 @@ bool seed_candidate(Walker &w, Kernel &k,
     }
     w.count[c] = satisfied;
     if (!satisfied) {
+      if (preparation && !charge()) return false;
       w.pos[c] = static_cast<uint32_t>(w.unsat.size());
       w.unsat.push_back(c);
     }
   }
   w.initial = w.minimum = static_cast<uint32_t>(w.unsat.size());
-  for (uint32_t c = 0; c < w.binary_clauses; ++c)
+  for (uint32_t c = 0; c < w.binary_clauses; ++c) {
+    if (preparation && !charge()) return false;
     w.initial_binary_unsat += w.count[c] == 0;
+  }
   ++k.stats.walk_seed_imports;
   k.stats.walk_seed_imported_phases += imported;
   k.stats.walk_seed_ordinary_unsat = ordinary_unsat;
@@ -490,8 +613,121 @@ RuleEligibility walk_guard(const Kernel &k) {
       .fact("has-variables", k.nvars > 0);
 }
 
+static ApplyResult walk_apply_split(Kernel &k, uint64_t search_allowance) {
+  const auto *hint = kernel_local_search_hint(k, k.walk_seed_candidate);
+  if (!hint) {
+    ++k.stats.local_search_hints_stale;
+    return ApplyResult::NoOp;
+  }
+  k.stats.walk_seed_ordinary_unsat = UINT64_MAX;
+  k.stats.walk_seed_candidate_unsat = UINT64_MAX;
+  PreparationMeter preparation{k, k.walk_preparation_budget};
+  Walker w;
+  w.k = &k;
+  ++k.stats.walks;
+  w.rng = k.walk_random_seed ^ k.stats.walks;
+  uint32_t ordinary_unsat = 0;
+  const bool ready = build_full_table(w, k, preparation) &&
+      seed_candidate(w, k, *hint, 0, ordinary_unsat, &preparation);
+  k.stats.walk_preparation_steps += preparation.used;
+  if (!ready) {
+    if (!preparation.stopped) ++k.stats.walk_seed_rejected;
+    return ApplyResult::NoOp;
+  }
+  if (w.initial >= ordinary_unsat) {
+    ++k.stats.walk_seed_rejected;
+    return ApplyResult::NoOp;
+  }
+  // Reserve the saved/provenance/target visitation dose before search so
+  // preparation exhaustion cannot start a walk that cannot publish its result.
+  const auto before_export = preparation.used;
+  const bool export_ready = preparation.charge(uint64_t{3} * k.nvars);
+  k.stats.walk_preparation_steps += preparation.used - before_export;
+  if (!export_ready) return ApplyResult::NoOp;
+  ++k.stats.walk_seed_admitted;
+  std::vector<double> scores;
+  bool interrupted = false, exhausted = false;
+  const auto charge_search = [&](uint64_t amount) {
+    if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted)) {
+      interrupted = true;
+      return false;
+    }
+    if (amount > search_allowance - w.steps) {
+      exhausted = true;
+      ++k.stats.walk_search_budget_exhausted;
+      ++k.stats.walk_seed_budget_exhausted;
+      return false;
+    }
+    w.steps += amount;
+    return true;
+  };
+  while (!w.unsat.empty() && w.steps < search_allowance) {
+    // Charge selection metadata before visiting it. Reserve a complete flip
+    // quantum before roulette, occurrence scans or private assignment changes.
+    if (!charge_search(1)) break;
+    const auto clause = w.unsat[(2 * w.flips + 1) % w.unsat.size()];
+    const auto begin = w.cl_beg[clause], end = w.cl_beg[clause + 1];
+    uint64_t pick_work = 0, flip_work = 0;
+    for (auto i = begin; i < end; ++i) {
+      if (!charge_search(1)) break;
+      const auto literal = w.cl_lits[i];
+      const uint64_t positive = w.occ_beg[literal + 1] - w.occ_beg[literal];
+      const auto negative_literal = negate(literal);
+      const uint64_t negative = w.occ_beg[negative_literal + 1] -
+                                w.occ_beg[negative_literal];
+      pick_work += negative + 1; // exact native break_value charge
+      // Every positive occurrence can also require pop_unsat's replacement.
+      flip_work = std::max(flip_work, 2 * positive + negative + 2);
+    }
+    if (interrupted || exhausted) break;
+    // Score allocation, generation, optional scaling, summation and roulette
+    // each visit at most the selected clause's literal count. Best assignment
+    // materialization visits nvars, with no flip-log allocation or export scan.
+    const uint64_t quantum = pick_work + flip_work +
+                            uint64_t{5} * (end - begin) + k.nvars;
+    if (!charge_search(quantum)) break;
+    const auto charged = w.steps;
+    scores.clear();
+    scores.reserve(end - begin);
+    w.steps = 0; // native helpers report the already-reserved occurrence dose
+    const auto literal = pick_literal(w, scores);
+    ++w.flips;
+    flip(w, literal);
+    assert(w.steps <= pick_work + flip_work);
+    w.steps = charged;
+    if (w.unsat.size() < w.minimum) {
+      w.minimum = w.unsat.size();
+      for (Var variable = 0; variable < k.nvars; ++variable)
+        w.best_values[variable] = w.values[make_lit(variable, false)];
+    }
+  }
+  k.stats.walk_search_steps += w.steps;
+  k.stats.walk_steps += w.steps;
+  k.stats.walk_flips += w.flips;
+  k.stats.walk_minimum = w.minimum;
+  if (w.minimum < w.initial) ++k.stats.walk_seed_improved;
+  if (interrupted || exhausted) return ApplyResult::NoOp;
+  // A completed search still needs a fresh stop check before any phase write.
+  if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted))
+    return ApplyResult::NoOp;
+  // Strict admission already proves this complete private assignment improves
+  // ordinary phases, even when the exact search allowance is zero.
+  for (Var variable = 0; variable < k.nvars; ++variable)
+    if (!k.value(make_lit(variable, false)) && !kernel_var_retired(k, variable))
+      k.h->saved[variable] = w.best_values[variable];
+  heuristics_supersede_all_target_guidance(k, TargetGuidanceOverwrite::Walk);
+  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+  k.h->target_assigned = 0;
+  ++k.stats.rephased;
+  ++k.stats.walk_improved;
+  ++k.stats.walk_seed_exported;
+  return ApplyResult::Ok;
+}
+
 static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
   assert(walk_guard(k));
+  if (k.walk_objective == uint32_t(strategy::WalkParameters::Objective::FullCurrentCnf))
+    return walk_apply_split(k, steps);
   const auto *hint = kernel_local_search_hint(k, k.walk_seed_candidate);
   if (k.walk_seed_candidate && !hint) {
     ++k.stats.local_search_hints_stale;

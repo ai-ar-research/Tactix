@@ -90,6 +90,11 @@ struct WalkParameters {
   std::vector<ScorePoint> score_curve = reference_score_curve();
   // Exact retained candidate identity, or zero for native phase seeding.
   uint64_t seed_candidate = 0;
+  enum class Objective : uint32_t { LegacyWalk = 0, FullCurrentCnf = 1 };
+  enum class Admission : uint32_t { Legacy = 0, StrictlyBetter = 1 };
+  Objective objective = Objective::LegacyWalk;
+  Admission admission = Admission::Legacy;
+  uint64_t preparation_budget = 0;
   bool valid() const;
   static WalkParameters from_kernel(const Kernel &);
 };
@@ -514,6 +519,8 @@ private:
   uint64_t saved_budget_;
   uint64_t saved_seed_;
   uint64_t saved_candidate_;
+  uint64_t saved_preparation_budget_;
+  uint32_t saved_objective_, saved_admission_;
   uint32_t saved_even_break_base_milli_;
   std::vector<WalkParameters::ScorePoint> saved_score_curve_;
   bool saved_bounded_;

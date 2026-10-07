@@ -211,8 +211,13 @@ publication; new random requests bind the observed exact identity.
 `WalkParameters.seed_candidate` and the appended C field of the same name
 select a publication for private Walk seeding. Zero retains the native path.
 The `walk2(step,random,identity,base,count,curve...)` tuple serializes a seeded
-request; old `walk(...)` syntax retains unseeded semantics. A missing/replaced
-identity declines rather than silently changing source. DefaultPolicy keeps
+request; old `walk(...)` syntax retains unseeded semantics. Opt-in
+`walk3(search,random,identity,preparation,objective,admission,base,count,curve...)`
+and additive C v13 select full-current-CNF objective `1` and strict-improvement
+admission `1`. One private CSR retains physical clause multiplicity, including
+learned large clauses; preparation and complete search quanta have independent
+allowances. Equal/worse or incomplete admissions install no phases and select no
+fallback. A missing/replaced identity declines rather than changing source. DefaultPolicy keeps
 structural Walk seeding disabled by default until it has an admission rule and
 a preparation allowance distinct from Walk search work. Its opt-in diagnostic
 profile rotates all six producer kinds without a preceding target import;

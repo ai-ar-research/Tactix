@@ -1393,6 +1393,29 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v12;
 
+/* Additive v13 profile for existing Walk. Zero objective/admission preserves
+ * legacy semantics; FullCurrentCnf + StrictlyBetter requires an exact seed
+ * identity in the base Walk parameters and an independent preparation dose.
+ * The scalar Walk instance, when explicit, remains the exact search dose. */
+#define TACTIX_WALK_OBJECTIVE_LEGACY 0
+#define TACTIX_WALK_OBJECTIVE_FULL_CURRENT_CNF 1
+#define TACTIX_WALK_ADMISSION_LEGACY 0
+#define TACTIX_WALK_ADMISSION_STRICTLY_BETTER 1
+typedef struct {
+  uint64_t preparation_budget;
+  uint32_t objective, admission;
+} tactix_online_walk_profile;
+typedef struct {
+  tactix_online_step_v12 base;
+  tactix_online_walk_profile walk_profile;
+} tactix_online_step_v13;
+typedef struct {
+  const tactix_online_step_v13 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v13;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1444,6 +1467,8 @@ int tactix_online_configure_v10(tactix *, const tactix_online_program_v10 *,
 int tactix_online_configure_v11(tactix *, const tactix_online_program_v11 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v12(tactix *, const tactix_online_program_v12 *,
+                                uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v13(tactix *, const tactix_online_program_v13 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

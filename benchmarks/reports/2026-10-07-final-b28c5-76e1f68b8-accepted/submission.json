@@ -1,0 +1,6 @@
+{
+  "job_id": "1751524",
+  "submitted_at": "2026-10-07T03:47:42.814159+00:00",
+  "source_commit": "76e1f68b8",
+  "acceptance": "provisional pending full Debug and Claude-owned fuzz; no promotion"
+}

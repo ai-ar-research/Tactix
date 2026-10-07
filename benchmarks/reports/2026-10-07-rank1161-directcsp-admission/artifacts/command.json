@@ -1,0 +1,21 @@
+[
+  "python3",
+  "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-directcsp-admission/pins/census.py",
+  "/home/hwu/SAT-solving/benchmarks/cache/tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+  "--output",
+  "/home/hwu/SAT-solving/benchmarks/probes/20261007-fixed44-directcsp-admission/result-1751725-0/census.json",
+  "--expected-input-sha256",
+  "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+  "--seconds",
+  "10",
+  "--maximum-work",
+  "10000000",
+  "--maximum-source-clauses",
+  "100000",
+  "--maximum-domain-candidates",
+  "64",
+  "--maximum-domain-values",
+  "64",
+  "--maximum-offers",
+  "16"
+]

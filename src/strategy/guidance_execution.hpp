@@ -27,6 +27,11 @@ struct WalkRequest {
   uint64_t allowance;
   uint64_t seed;
   uint64_t seed_candidate = 0;
+  strategy::WalkParameters::Objective objective =
+      strategy::WalkParameters::Objective::LegacyWalk;
+  strategy::WalkParameters::Admission admission =
+      strategy::WalkParameters::Admission::Legacy;
+  uint64_t preparation_allowance = 0;
 };
 
 inline ApplyResult execute_action(Kernel &k, const ReorderRequest &request) {
@@ -59,10 +64,14 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
   WorkSettingsScope work(k, {request.allowance, std::nullopt, std::nullopt,
                             std::nullopt}, WorkSettingsExit::ClearBudget);
   k.walk_random_seed = request.seed;
-  const uint64_t previous_candidate = k.walk_seed_candidate;
-  k.walk_seed_candidate = request.seed_candidate;
+  auto parameters = strategy::WalkParameters::from_kernel(k);
+  parameters.seed_candidate = request.seed_candidate;
+  parameters.objective = request.objective;
+  parameters.admission = request.admission;
+  parameters.preparation_budget = request.preparation_allowance;
+  if (!parameters.valid()) return ApplyResult::NoOp;
+  strategy::ScopedWalkParameters selected(k, parameters);
   const auto result = walk_apply(k);
-  k.walk_seed_candidate = previous_candidate;
   return result;
 }
 
