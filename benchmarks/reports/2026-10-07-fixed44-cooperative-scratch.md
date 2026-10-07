@@ -35,12 +35,13 @@ inherited cgroup memory limit, walking ancestor cgroups because Slurm leaves
 the task leaf at `memory.max=max` while enforcing 34,359,738,368 bytes at its
 user and job ancestors.
 
-Focused job 1754811 passed 15 anonymous-scratch tests, 34 runtime tests, five
-scorer tests, ten repository runtime/builder tests, Python compilation, CLI
-help, whitespace checking, and pre/post source hashes. The final native-signal
-and PAR-2 supplement is required on the committed successor. Earlier focused
-jobs are retained because they exposed only packaging/postcheck mistakes; job
-1754799 was otherwise fully green before the cgroup-ancestry addition.
+Final focused job 1754860 passed 15 anonymous-scratch tests, 35 runtime tests,
+six scorer tests, ten repository runtime/builder tests, Python compilation,
+CLI help, whitespace checking, and pre/post source hashes. This includes the
+native-SIGXFSZ, cgroup-ancestry, and PAR-2-censoring supplements. Earlier
+focused jobs are retained because they exposed packaging/postcheck or cgroup
+inspection mistakes; job 1754811 was fully green before the final
+native-signal and scorer supplement.
 
 Exact mechanics pilot 1754816 completed on unconstrained `cpu-q` node006 in
 an ordinary four-CPU/32-GiB allocation. Its inner step had four CPUs and an
