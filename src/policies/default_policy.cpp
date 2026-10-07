@@ -4304,6 +4304,37 @@ NolHypergraphSliceResult DefaultPolicy::service_nol_walk(Kernel &kernel) {
   return result;
 }
 
+ApplyResult DefaultPolicy::install_nol_walk_hint(
+    Kernel &kernel, const NolHypergraphSliceResult &result) {
+  // A noL slice is SAT-only search.  Its only nonterminal output is phase
+  // guidance, and only the producer's strictly improved authenticated best is
+  // admitted.  This helper is called immediately after the root-only slice,
+  // so an exact publication identity cannot be confused with a later offer.
+  if (!result.useful_hint || !result.hint_published || kernel.level ||
+      !kernel.nol_hypergraph_walk_session ||
+      !kernel.nol_hypergraph_walk_session->authenticated(kernel) ||
+      !local_search_guidance_guard(kernel))
+    return ApplyResult::NoOp;
+  const auto &hint = kernel.local_search_hints[static_cast<size_t>(
+      strategy::LocalSearchKind::HypergraphColoring)];
+  if (!hint.available() || !hint.objective_exact ||
+      hint.objective != result.objective_after)
+    return ApplyResult::NoOp;
+  ++nol_walk_diagnostics_.phase_install_attempts;
+  const ApplyResult installed = execution::complete_action(
+      completion_, FeedbackKind::Rule, "LocalSearchGuidance", hint.id,
+      [&] {
+        return execution::native_rule_feedback(
+            kernel, "LocalSearchGuidance", hint.id,
+            "authenticated-nol-improvement;objective=" +
+                std::to_string(hint.objective));
+      },
+      [&] { return local_search_guidance_apply_candidate(kernel, hint.id); });
+  if (installed == ApplyResult::Ok)
+    ++nol_walk_diagnostics_.phase_installs;
+  return installed;
+}
+
 void DefaultPolicy::observe_affine_consumption(const Kernel &kernel,size_t begin) {
   if(!config_.affine_search.enabled)return;
   auto published=[&](uint64_t id) {
@@ -4583,6 +4614,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const auto nol = service_nol_walk(k);
     if (nol.status == NolHypergraphSliceStatus::Sat)
       return finish(10);
+    (void)install_nol_walk_hint(k, nol);
   }
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
@@ -5382,6 +5414,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if(run_nol) {
         const auto nol=service_nol_walk(k);
         if(nol.status==NolHypergraphSliceStatus::Sat)return finish(10);
+        (void)install_nol_walk_hint(k,nol);
       }
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
                                     : IntervalStart::NativeContinuation);

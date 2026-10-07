@@ -130,6 +130,54 @@ enum class Scenario {
   Disabled
 };
 
+struct ConsumptionRecord {
+  std::vector<uint64_t> candidates;
+  std::vector<uint64_t> objectives;
+  std::vector<uint64_t> install_intervals;
+  int64_t decision_instance = 0;
+  bool saw_decision = false;
+  uint64_t hints_offered = 0;
+  uint64_t install_attempts = 0;
+  uint64_t installs = 0;
+  uint64_t guided_decisions = 0;
+  uint64_t guided_matches = 0;
+
+  bool operator==(const ConsumptionRecord &) const = default;
+};
+
+struct ConsumptionCapture final : FeedbackReceiver {
+  ConsumptionRecord record;
+  uint64_t search_intervals = 0;
+
+  void after_action(const ActionFeedback &action) override {
+    if (action.identity == "LocalSearchGuidance") {
+      // Every improved publication is consumed at either the initial root or
+      // a later full-restart root, never inside a continuing search interval.
+      assert(action.before.level == 0 && action.after.level == 0);
+      assert(strategy::local_search_candidate_kind(action.instance) ==
+             strategy::LocalSearchKind::HypergraphColoring);
+      const auto candidate = std::find_if(
+          action.after.local_search_candidates.begin(),
+          action.after.local_search_candidates.end(), [&](const auto &hint) {
+            return hint.id == action.instance;
+          });
+      assert(candidate != action.after.local_search_candidates.end());
+      assert(candidate->objective_exact);
+      record.candidates.push_back(action.instance);
+      record.objectives.push_back(candidate->objective);
+      record.install_intervals.push_back(search_intervals);
+    } else if (action.identity == "Decide" && !record.saw_decision) {
+      assert(!record.candidates.empty() && action.after.level == 1);
+      record.decision_instance = static_cast<int64_t>(action.instance);
+      record.saw_decision = true;
+    }
+  }
+
+  void search_interval(const SearchIntervalFeedback &) override {
+    ++search_intervals;
+  }
+};
+
 struct Capture final : FeedbackReceiver {
   DefaultPolicy *policy = nullptr;
   Scenario scenario = Scenario::Disabled;
@@ -580,6 +628,63 @@ static void authentication_exhaustion_case() {
   kernel.nol_hypergraph_walk_session = nullptr;
 }
 
+static ConsumptionRecord phase_consumption_case() {
+  Kernel kernel = parse(complete_hypergraph(7, 7));
+  NolHypergraphWalkSession session;
+  kernel.nol_hypergraph_walk_session = &session;
+  ScopedHeuristics heuristics(kernel);
+  kernel.h->stable = true;
+  auto config = quiet_config();
+  config.nol_walk.enabled = true;
+  config.nol_walk.work_quantum = 8000;
+  config.nol_walk.initial_tick_interval = UINT64_C(1) << 60;
+  config.nol_walk.maximum_delay_ticks = UINT64_C(1) << 60;
+  config.mode.force = 2; // stable CDCL consumes target phases
+  DefaultPolicy policy(config);
+  ConsumptionCapture capture;
+  policy.set_feedback(&capture);
+  assert(policy.solve(kernel) == 20);
+
+  assert(!capture.record.candidates.empty());
+  assert(capture.record.objectives.size() == capture.record.candidates.size());
+  assert(capture.record.install_intervals.size() ==
+         capture.record.candidates.size());
+  assert(capture.record.install_intervals.front() == 0);
+  assert(std::all_of(capture.record.objectives.begin(),
+                     capture.record.objectives.end(),
+                     [](uint64_t value) { return value < UINT64_MAX; }));
+  assert(capture.record.saw_decision);
+  assert(policy.nol_walk_diagnostics().slices >= 1);
+  assert(policy.nol_walk_diagnostics().useful_hints ==
+         capture.record.candidates.size());
+  assert(policy.nol_walk_diagnostics().phase_install_attempts ==
+         capture.record.candidates.size());
+  assert(policy.nol_walk_diagnostics().phase_installs ==
+         capture.record.candidates.size());
+  assert(kernel.stats.local_search_hints_offered >=
+         capture.record.candidates.size());
+  assert(kernel.stats.local_search_target_install_attempts ==
+         capture.record.candidates.size());
+  assert(kernel.stats.local_search_target_installs ==
+         capture.record.candidates.size());
+  assert(kernel.stats.local_search_hints_applied ==
+         capture.record.candidates.size());
+  assert(kernel.stats.local_search_target_decisions >= 1);
+  assert(kernel.stats.local_search_target_decision_matches >= 1);
+  assert(kernel.stats.local_search_target_decision_overrides == 0);
+  assert(capture.search_intervals >= 1);
+
+  capture.record.hints_offered = kernel.stats.local_search_hints_offered;
+  capture.record.install_attempts =
+      kernel.stats.local_search_target_install_attempts;
+  capture.record.installs = kernel.stats.local_search_target_installs;
+  capture.record.guided_decisions = kernel.stats.local_search_target_decisions;
+  capture.record.guided_matches =
+      kernel.stats.local_search_target_decision_matches;
+  kernel.nol_hypergraph_walk_session = nullptr;
+  return capture.record;
+}
+
 static void partial_restart_case() {
   Kernel kernel = parse(complete_hypergraph(10, 7));
   NolHypergraphWalkSession session;
@@ -643,6 +748,9 @@ int main() {
   nol_restart_case();
   authentication_allowance_case();
   authentication_exhaustion_case();
+  // Exact publication identities, installed targets and the first consuming
+  // CDCL decision replay identically from the same source image and budgets.
+  assert(phase_consumption_case() == phase_consumption_case());
   partial_restart_case();
   disabled_default_case();
   std::puts("test_default_nol_restart_loop OK");
