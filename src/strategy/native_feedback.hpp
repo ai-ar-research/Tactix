@@ -114,14 +114,6 @@ inline NativeFeedbackSpec native_rule_feedback(
       if (kernel_has_work_budget(k)) bound = std::min(bound, k.work_budget);
       spec.description.effort_allowance = WorkLimit::bounded(bound);
     }
-    else if (instance == LUCKY_NOL_HYPERGRAPH) {
-      spec.meter = [](const Kernel &state) {
-        return state.stats.nol_hypergraph_model_work;
-      };
-      spec.description.effort_currency = "hypergraph-work";
-      if (kernel_has_work_budget(k))
-        spec.description.effort_allowance = WorkLimit::bounded(k.work_budget);
-    }
     else if (instance == LUCKY_STARTUP_RAMSEY) {
       const auto p = RamseyStartupParameters::from_kernel(k);
       inv.parameters = p;

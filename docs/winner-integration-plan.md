@@ -11,7 +11,7 @@ The [saved portfolio report](../report-to-andrew/20261003T164617Z-tierd-portfoli
 1. Build a source/evidence attribution table from saved records: reference mechanism, Tactix capability, scheduling, cost, certificate route and limits. Start with large disparities such as `noL-11-10` and `ramsey_4_4_19`, while keeping solver-timeout and certificate-verification workstreams separate. A fastest arm or benchmark name is a clue, not a demonstrated cause.
 2. Extract complete, general semantic units from LymphoSAT and Satsuma+Kissat, and investigate Kissat/AE-Kissat-MAB mechanisms where they own residual gaps. Use structural recognition and explicit applicability, never filename/rank dispatch, hardcoded answers or external solver stages. Share clauses, root assignments, learned information, reconstruction and heuristic state with CDCL.
 3. Attribute each reference technique before selecting its integration path: proof-producing restart-root inprocessing for UNSAT-compatible analysis, or budgeted resumable local search and partial-model guidance for SAT-only analysis. Both use shared typed execution, replay, feedback and policy selection. Count recovery only through independent verification on the exact fixed input.
-4. Establish proof/model feasibility and a bounded mechanism review before implementation. Integrate one complete increment at a time, with faithful reference controls, targeted causal validation and cumulative preservation. Continue persistent GF(2), retained noL Walk and the remaining owners according to measured bottlenecks. Use matched controls to distinguish mechanism benefit from scheduling overhead. O6/reward/training remain deferred; selection stays random.
+4. Establish proof/model feasibility and a bounded mechanism review before implementation. Integrate one complete increment at a time, with faithful reference controls, targeted causal validation and cumulative preservation. Continue persistent GF(2), general Boolean-trajectory repairs and the remaining owners according to measured bottlenecks; retire noL-specific Walk rather than treating its target solve as sufficient justification. Use matched controls to distinguish mechanism benefit from scheduling overhead. O6/reward/training remain deferred; selection stays random.
 
 ## Development cadence
 
@@ -168,7 +168,7 @@ matrices.
 An opaque native-XOR propagation or an XOR-aware FRAT-only certificate does
 not satisfy N2.  Compare each adopted mechanism by useful propagation,
 conflict, installed consequence and later search consumption per charged work.
-The retired X17 action is not part of either policy. Effective both-policy fuzz, checked `noL-11-10` recovery, the remaining fixed targets and all preservation/regression gates remain pending.
+X17 and noL-specific local search are excluded from the intended candidate. Rank401 needs a general Boolean/search-scheduling diagnosis against pinned Kissat; retain shared authenticated owners only for other consumers. Effective both-policy fuzz, independent target recovery and every preservation gate remain required.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and

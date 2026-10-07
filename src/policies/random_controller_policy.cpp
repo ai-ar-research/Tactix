@@ -610,9 +610,14 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               config.offered_actions.at(rule.name).empty()))
       entry.reason = "structured-witness-not-offered";
     else if (std::string_view(rule.name) == "LocalSearchGuidance" &&
-             std::none_of(k.local_search_hints.begin(),
-                          k.local_search_hints.end(),
-                          [](const auto &hint) { return hint.available(); }))
+             [&] {
+               for (size_t i = 0; i < k.local_search_hints.size(); ++i)
+                 if (strategy::valid_local_search_kind(
+                         static_cast<strategy::LocalSearchKind>(i)) &&
+                     k.local_search_hints[i].available())
+                   return false;
+               return true;
+             }())
       entry.reason = "candidate-not-observed";
     else
       entry.eligible = true;
@@ -2817,8 +2822,7 @@ bool RandomControllerSelector::choose(
       if (request.invocation.rule == "Lucky" &&
           !request.invocation.instances.empty() &&
           (request.invocation.instances.front() <= LUCKY_BACKWARD_TRUE ||
-           request.invocation.instances.front() == LUCKY_STARTUP_COUNT ||
-           request.invocation.instances.front() == LUCKY_NOL_HYPERGRAPH))
+          request.invocation.instances.front() == LUCKY_STARTUP_COUNT))
         request.invocation.parameters = std::monostate{};
       // Guidance is a policy choice over the pure candidate snapshot. Bind
       // the exact publication so replacement cannot change a queued action.

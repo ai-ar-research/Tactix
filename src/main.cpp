@@ -26,7 +26,6 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
-#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -187,7 +186,6 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
-  std::optional<bool> default_nol_walk;
   std::optional<bool> default_graph_labeling;
   std::optional<bool> default_structured_symmetry;
   bool random_policy = false;
@@ -243,14 +241,6 @@ int main(int argc, char **argv) {
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
       else {
         fprintf(stderr, "tactix: --default-affine-search requires on or off\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
-    } else if (!strncmp(a, "--default-nol-walk=", 19)) {
-      if (!strcmp(a + 19, "on")) default_nol_walk = true;
-      else if (!strcmp(a + 19, "off")) default_nol_walk = false;
-      else {
-        fprintf(stderr, "tactix: --default-nol-walk requires on or off\n");
         printf("s UNKNOWN\n");
         return 1;
       }
@@ -498,7 +488,7 @@ int main(int argc, char **argv) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
-             "[--default-affine-search=on|off] [--default-nol-walk=on|off] "
+             "[--default-affine-search=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
              "[--random-policy[=SEED]] "
@@ -574,12 +564,6 @@ int main(int argc, char **argv) {
   if (default_affine_search &&
       (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
     fprintf(stderr, "tactix: --default-affine-search requires DefaultPolicy\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (default_nol_walk &&
-      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
-    fprintf(stderr, "tactix: --default-nol-walk requires DefaultPolicy\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -777,7 +761,6 @@ int main(int argc, char **argv) {
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
   DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
-  NolHypergraphWalkSession nol_hypergraph_walk_session;
   NaryCspRelationOwnerSession nary_csp_relation_owner_session;
   NaryCspEqualitySession nary_csp_equality_session;
   NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
@@ -797,7 +780,6 @@ int main(int argc, char **argv) {
       &direct_csp_support_action_session;
   kernel.direct_csp_guarded_cover_action_session =
       &direct_csp_guarded_cover_action_session;
-  kernel.nol_hypergraph_walk_session = &nol_hypergraph_walk_session;
   kernel.nary_csp_relation_owner_session = &nary_csp_relation_owner_session;
   kernel.nary_csp_equality_session = &nary_csp_equality_session;
   kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
@@ -969,7 +951,6 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
-  if (default_nol_walk) default_config.nol_walk.enabled = *default_nol_walk;
   if (default_graph_labeling)
     default_config.graph_labeling_model.enabled = *default_graph_labeling;
   if (default_structured_symmetry)
@@ -1070,32 +1051,6 @@ int main(int argc, char **argv) {
       metric("conflicts_consumed", affine.conflicts_consumed);
       metric("admitted_sources", affine.admitted_sources);
       metric("active_sources", affine.active_sources);
-      const auto &nol = default_policy.nol_walk_diagnostics();
-      const auto nol_metric = [](const char *name, uint64_t value) {
-        printf("c nol-schedule %s=%llu\n", name,
-               (unsigned long long)value);
-      };
-      nol_metric("enabled", default_config.nol_walk.enabled);
-      nol_metric("authentication_attempts", nol.authentication_attempts);
-      nol_metric("authentication_successes", nol.authentication_successes);
-      nol_metric("authentication_exhausted", nol.authentication_exhausted);
-      nol_metric("authentication_no_structure", nol.authentication_no_structure);
-      nol_metric("authentication_interrupted", nol.authentication_interrupted);
-      nol_metric("authentication_work", nol.authentication_work);
-      nol_metric("slices", nol.slices);
-      nol_metric("pending_slices", nol.pending_slices);
-      nol_metric("completed_trajectories", nol.completed_trajectories);
-      nol_metric("useful_hints", nol.useful_hints);
-      nol_metric("phase_install_attempts", nol.phase_install_attempts);
-      nol_metric("phase_installs", nol.phase_installs);
-      nol_metric("wakeups", nol.wakeups);
-      nol_metric("recognized", kernel.stats.nol_hypergraph_model_recognized);
-      nol_metric("vertices", kernel.stats.nol_hypergraph_model_vertices);
-      nol_metric("edges", kernel.stats.nol_hypergraph_model_edges);
-      nol_metric("work", kernel.stats.nol_hypergraph_model_work);
-      nol_metric("trajectory_steps", nol_hypergraph_walk_session.steps());
-      nol_metric("trajectories", nol_hypergraph_walk_session.trajectories());
-      nol_metric("search_ticks", kernel.stats.search_ticks);
       const auto &graph = default_policy.graph_labeling_diagnostics();
       const auto graph_metric = [](const char *name, uint64_t value) {
         printf("c graph-schedule %s=%llu\n", name,
@@ -1927,20 +1882,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.graph_interval_equivalence_duplicates,
            (unsigned long long)kernel.stats.graph_interval_equivalence_published,
            (unsigned long long)kernel.stats.graph_interval_equivalence_proof_literal_occurrences);
-    printf("c nolgraph   %llu calls, %llu recognized, %llu vertices, %llu edges, "
-           "%llu restarts, %llu steps, %llu work, %llu budget stops, "
-           "%llu SAT, %llu interrupted\n",
-           (unsigned long long)kernel.stats.nol_hypergraph_model_calls,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_recognized,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_vertices,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_edges,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_restarts,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_steps,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_work,
-           (unsigned long long)
-               kernel.stats.nol_hypergraph_model_budget_exhausted,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_sat,
-           (unsigned long long)kernel.stats.nol_hypergraph_model_interrupted);
     printf("c ramsey     %llu attempts, %llu recognized, %llu recognition work, "
            "%llu certificate work, %llu nodes, %llu additions, %llu deletions, "
            "%llu helpers, %llu budget stops, %llu UNSAT, %llu interrupted\n",

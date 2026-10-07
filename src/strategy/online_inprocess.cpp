@@ -1221,6 +1221,16 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         std::any_of(step.instances.begin(), step.instances.end(),
                     lucky_retired_constructor_instance))
       return reject("Lucky constructor instance is retired");
+    if (step.rule == "LocalSearchGuidance" &&
+        std::any_of(step.instances.begin(), step.instances.end(),
+                    [](uint64_t instance) {
+                      const strategy::LocalSearchKind kind =
+                          instance < strategy::LOCAL_SEARCH_KIND_COUNT
+                              ? static_cast<strategy::LocalSearchKind>(instance)
+                              : strategy::local_search_candidate_kind(instance);
+                      return !strategy::valid_local_search_kind(kind);
+                    }))
+      return reject("LocalSearchGuidance kind is retired");
     const size_t structured_size = !step.factor_grids.empty()
                                        ? step.factor_grids.size()
                                        : !step.substitution_redundancy_instances.empty()

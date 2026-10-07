@@ -17,7 +17,8 @@ enum class LocalSearchKind : uint8_t {
   Onehot,
   BalancedSignature,
   GraphLabeling,
-  HypergraphColoring,
+  // Stable candidate-kind tombstone for the retired noL constructor.
+  RetiredHypergraphColoring,
   Count,
 };
 
@@ -25,7 +26,8 @@ constexpr size_t LOCAL_SEARCH_KIND_COUNT =
     static_cast<size_t>(LocalSearchKind::Count);
 
 constexpr bool valid_local_search_kind(LocalSearchKind kind) {
-  return static_cast<size_t>(kind) < LOCAL_SEARCH_KIND_COUNT;
+  return static_cast<size_t>(kind) < LOCAL_SEARCH_KIND_COUNT &&
+         kind != LocalSearchKind::RetiredHypergraphColoring;
 }
 
 // Public candidate payload: low eight bits name the producer, the remaining

@@ -94,7 +94,9 @@ ApplyResult local_search_guidance_apply_next(
 ApplyResult local_search_guidance_apply(Kernel &k) {
   assert(local_search_guidance_guard(k));
   for (size_t i = 0; i < strategy::LOCAL_SEARCH_KIND_COUNT; ++i)
-    if (k.local_search_hints[i].available())
+    if (strategy::valid_local_search_kind(
+            static_cast<strategy::LocalSearchKind>(i)) &&
+        k.local_search_hints[i].available())
       return local_search_guidance_apply_kind(
           k, static_cast<strategy::LocalSearchKind>(i));
   return ApplyResult::NoOp;
@@ -104,7 +106,9 @@ static uint32_t local_search_guidance_instances(Kernel &k, uint64_t *out,
                                                 uint32_t cap) {
   uint32_t n = 0;
   for (size_t i = 0; i < strategy::LOCAL_SEARCH_KIND_COUNT && n < cap; ++i)
-    if (k.local_search_hints[i].available())
+    if (strategy::valid_local_search_kind(
+            static_cast<strategy::LocalSearchKind>(i)) &&
+        k.local_search_hints[i].available())
       out[n++] = k.local_search_hints[i].id;
   return n;
 }
