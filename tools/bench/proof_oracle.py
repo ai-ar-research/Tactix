@@ -579,10 +579,12 @@ def _remove_transport_staging(directory):
 
 def _native_dsr_transport(mode, proof, destination=None):
     """Use only the helper bound beside this module; None means Python fallback."""
+    import errno
     import hashlib
     import os
     import signal
     import subprocess
+    import time
     helper = Path(__file__).resolve().with_name('dsr-transport')
     binding = helper.with_name('dsr-transport.sha256')
     if not helper.exists() and not binding.exists():
@@ -594,23 +596,128 @@ def _native_dsr_transport(mode, proof, destination=None):
     command = [str(helper), mode, str(proof)]
     if destination is not None:
         command.append(str(destination))
-    # Own the staging namespace outside the killable converter.  Block the two
-    # Python-delivered interrupts used by this runner before acquiring that
-    # namespace and until it has been removed.  Merely wrapping increasingly
-    # large try/finally regions cannot close the bytecode boundaries around
-    # mkdtemp and finally entry.  A short communicate loop observes a pending
-    # signal, kills and reaps the converter, and cleanup completes before the
-    # old mask is restored and the original handler raises.
+    # Own the staging namespace outside the killable converter.  On CPython,
+    # handled signals run on the main thread between bytecodes.  Replace the
+    # two handlers used by this runner before acquiring the namespace: the
+    # replacement only records the first delivery of each signal.  A short
+    # communicate loop observes that record, kills and reaps the converter,
+    # and cleanup completes before the original handlers run at a controlled
+    # boundary.  Do not use pthread_sigmask/sigpending/sigwait here.  Process-
+    # directed signals can be delivered to another thread, and CPython may
+    # raise after pthread_sigmask has already changed the mask.
     import stat
     import tempfile
-    handlers = {sig: signal.getsignal(sig)
-                for sig in (signal.SIGALRM, signal.SIGINT)
-                if callable(signal.getsignal(sig))}
-    handled = set(handlers)
-    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, handled)
+    import threading
+    handlers = {}
+    deferred_signals = []
+
+    def defer_signal(signum, _frame):
+        if signum not in deferred_signals:
+            deferred_signals.append(signum)
+
+    def same_handler(signum, expected):
+        try:
+            current = signal.getsignal(signum)
+            return current is expected or current == expected
+        except BaseException:
+            return False
+
+    def restore_signal_handlers(saved):
+        """Restore all managed handlers before any recorded exception escapes.
+
+        Stop the real-time timer while SIGALRM still has the non-raising
+        recorder, restore SIGALRM first, and restore SIGINT last.  A SIGINT
+        delivered after that final state change may raise, but no deferring
+        handler remains by then.  An exception raised after signal.signal has
+        applied a handler is a delivered signal; retry only when inspection
+        shows that the requested handler was not installed.
+        """
+        timer = None
+        timer_stopped = None
+        delivered = []
+        permanent = None
+        if signal.SIGALRM in saved:
+            try:
+                timer = signal.getitimer(signal.ITIMER_REAL)
+                timer_stopped = time.monotonic()
+                signal.setitimer(signal.ITIMER_REAL, 0)
+            except BaseException as error:
+                if permanent is None:
+                    permanent = error
+
+        ordered = sorted(saved.items(), key=lambda item: item[0] == signal.SIGINT)
+        for signum, handler in ordered:
+            for attempt in range(4):
+                try:
+                    signal.signal(signum, handler)
+                    break
+                except BaseException as error:
+                    if same_handler(signum, handler):
+                        delivered.append(error)
+                        break
+                    if attempt == 3 and permanent is None:
+                        permanent = error
+
+        if timer is not None and timer[0] > 0:
+            remaining, interval = timer
+            if signal.SIGALRM in deferred_signals:
+                remaining = interval
+            elif timer_stopped is not None:
+                remaining = max(0.0, remaining - (time.monotonic() - timer_stopped))
+                if remaining == 0 and signal.SIGALRM not in deferred_signals:
+                    deferred_signals.append(signal.SIGALRM)
+            if remaining > 0:
+                try:
+                    signal.setitimer(signal.ITIMER_REAL, remaining, interval)
+                except BaseException as error:
+                    delivered.append(error)
+        return delivered, permanent
+
+    # Python only permits handler replacement on the main thread.  A worker
+    # thread cannot itself receive a Python signal handler; retain ordinary
+    # try/finally cleanup there.  The runtime task and its deadline owner call
+    # this function on the main thread, including when unrelated threads exist.
+    if threading.current_thread() is threading.main_thread():
+        try:
+            for sig in (signal.SIGALRM, signal.SIGINT):
+                handler = signal.getsignal(sig)
+                if callable(handler):
+                    handlers[sig] = handler
+                    signal.signal(sig, defer_signal)
+        except BaseException as installation_failure:
+            # No resource has been acquired yet, but a partial handler swap is
+            # process state and must not leak into later pipeline calls.
+            installed = {signum: handler for signum, handler in handlers.items()
+                         if same_handler(signum, defer_signal)}
+            _delivered, rollback_failure = restore_signal_handlers(installed)
+            if rollback_failure is not None:
+                raise installation_failure from rollback_failure
+            raise
+
     directory = None
+    process = None
     result = None
     primary = primary_traceback = cleanup_failure = None
+
+    def kill_and_reap():
+        if process is None or process.poll() is not None:
+            return process.communicate() if process is not None else (b'', b'')
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            return process.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            # Retry the whole group once, then keep the caller bounded.  A
+            # second timeout is an explicit cleanup failure, never swallowed.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=10)
+            return b'', b''
+
     try:
         if destination is not None:
             target = Path(destination)
@@ -625,27 +732,10 @@ def _native_dsr_transport(mode, proof, destination=None):
                     prefix='.' + target.name + '.dsr-transport-', dir=target.parent)
                 command.append(str(Path(directory) / 'output'))
 
-        process = subprocess.Popen(command, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE,
-                                   start_new_session=True)
-
-        def kill_and_reap():
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            try:
-                return process.communicate(timeout=10)
-            except subprocess.TimeoutExpired:
-                # Retry the whole group once, then keep the caller bounded.
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait(timeout=10)
-                return b'', b''
-
-        try:
+        if not deferred_signals:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       start_new_session=True)
             while True:
                 try:
                     stdout, stderr = process.communicate(timeout=0.05)
@@ -653,43 +743,36 @@ def _native_dsr_transport(mode, proof, destination=None):
                         command, process.returncode, stdout, stderr)
                     break
                 except subprocess.TimeoutExpired:
-                    if handled.intersection(signal.sigpending()):
+                    if deferred_signals:
                         stdout, stderr = kill_and_reap()
                         result = subprocess.CompletedProcess(
                             command, process.returncode, stdout, stderr)
                         break
-        except BaseException:
-            kill_and_reap()
-            raise
-        finally:
-            # Drop both the closure and the reaped Popen while handled signals
-            # are still blocked.  Otherwise a later conversion's deadline can
-            # interrupt this object's deferred __del__ bookkeeping.
-            kill_and_reap = None
-            process = None
     except BaseException as error:
         primary = error
         primary_traceback = error.__traceback__
     finally:
+        if process is not None and process.poll() is None:
+            try:
+                kill_and_reap()
+            except BaseException as reap_failure:
+                if cleanup_failure is None:
+                    cleanup_failure = reap_failure
+        # Release the reaped Popen before replaying a deadline.  Otherwise a
+        # later handler exception can surface from Popen.__del__ and be ignored.
+        process = None
         if directory is not None:
             try:
                 _remove_transport_staging(directory)
             except BaseException as cleanup:
-                cleanup_failure = cleanup
-        # Consume pending handled signals while they are still blocked, then
-        # invoke their original Python handlers at this controlled boundary.
-        # Letting pthread_sigmask deliver one later can interrupt Popen.__del__
-        # and Python will discard the resulting deadline as an ignored
-        # destructor exception. Standard signals coalesce; the finite loop also
-        # prevents repeated interactive interrupts from delaying restoration.
-        deferred_signals = []
-        for _ in range(16):
-            pending = handled.intersection(signal.sigpending())
-            if not pending:
-                break
-            chosen = min(pending, key=int)
-            signal.sigwait({chosen})
-            deferred_signals.append(chosen)
+                if cleanup_failure is None:
+                    cleanup_failure = cleanup
+        # Resources are now gone.  Restore every handler before invoking any
+        # of them, so an exception from the first cannot leak a deferring
+        # handler into the next proof-pipeline call.
+        delivered_during_restore, restoration_failure = restore_signal_handlers(handlers)
+        if restoration_failure is not None and cleanup_failure is None:
+            cleanup_failure = restoration_failure
         for deferred_signal in deferred_signals:
             try:
                 handlers[deferred_signal](deferred_signal, None)
@@ -697,26 +780,27 @@ def _native_dsr_transport(mode, proof, destination=None):
                 if primary is None:
                     primary = deferred
                     primary_traceback = deferred.__traceback__
-        try:
-            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
-        except BaseException as deferred:
-            # A new signal can race the bounded drain. Resources are already
-            # gone, and an exception delivered by mask restoration is still
-            # captured as the operation's primary outcome.
-            if primary is None:
-                primary = deferred
-                primary_traceback = deferred.__traceback__
-    if primary is not None:
-        if cleanup_failure is not None:
-            raise primary.with_traceback(primary_traceback) from cleanup_failure
-        raise primary.with_traceback(primary_traceback)
+        if primary is None and delivered_during_restore:
+            primary = delivered_during_restore[0]
+            primary_traceback = primary.__traceback__
+        if primary is not None:
+            if cleanup_failure is not None:
+                raise primary.with_traceback(primary_traceback) from cleanup_failure
+            raise primary.with_traceback(primary_traceback)
     if cleanup_failure is not None:
         raise cleanup_failure
+    if result is None:
+        raise InterruptedError('DSR transport interrupted before helper start')
     if result.returncode in (0, 2):
         return result.returncode == 2
     detail = result.stderr.decode(errors='replace').strip()
     if result.returncode == 3:
         raise DSRFormatError(detail or 'malformed binary DSR')
+    if result.returncode in (-signal.SIGXFSZ, 128 + signal.SIGXFSZ):
+        # Preserve the resource class across the native-helper boundary.  The
+        # runtime maps EFBIG to an incomplete scratch_file_limit disposition;
+        # a capped conversion must never be reported as a malformed proof.
+        raise OSError(errno.EFBIG, detail or 'DSR transport file limit exceeded')
     raise OSError(f'DSR transport failed ({result.returncode}): {detail}')
 
 
