@@ -327,9 +327,9 @@ void paused_owner_retry(const std::string &stem = "",
   // final zero-source gauge as proof that projection lost every equation.
   const auto rank_before_disable = session.basis_rank();
   kernel.large_watches_connected = false;
-  const auto declined = DefaultAffineSearchTestAccess::service(policy, kernel);
+  const auto guard_declined = DefaultAffineSearchTestAccess::service(policy, kernel);
   kernel.large_watches_connected = true;
-  assert(declined.status == AffineMatrixServiceStatus::Inapplicable);
+  assert(guard_declined.status == AffineMatrixServiceStatus::Inapplicable);
   const auto &survival = policy.affine_search_diagnostics();
   assert(!session.enabled() && survival.active_sources == 0);
   assert(survival.retained_basis_rank == 0 && survival.retained_support_variables == 0);
