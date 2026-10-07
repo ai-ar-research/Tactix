@@ -1,0 +1,40 @@
+{
+  "observed_at_utc": "2026-10-07T06:55:45.996903+00:00",
+  "source_commit": "2bce79528aaaa2ec2c1c77b9517df461ba802e59",
+  "release_pin": "build/pin-transitivity-2bce79528/rel/PIN.json",
+  "release_pin_sha256": "dee0dffc95772e9acb4e0346dc0ea8c2ee4f62ae3510d24f4843a96dd629c535",
+  "campaigns": {
+    "b28c5": {
+      "path": "benchmarks/runs/20261007-transitivity-2bce79528-regression-b28c5",
+      "job": 1752160,
+      "sha256": {
+        "manifest.json": "38f17920447a7a42a1cd503cc082b1d186db7241dde7f0b5d5a6068a7ea0f46c",
+        "submission.json": "9680af550bfdc0fd8f28e68cfabab96302e9efd22401ed68dba7d7d2028e9461"
+      }
+    },
+    "rank1-50": {
+      "path": "benchmarks/runs/20261007-transitivity-2bce79528-regression-rank1-50",
+      "job": 1752161,
+      "sha256": {
+        "manifest.json": "e41e0b42df489e35516512ffeba4bb2cbbb8c82af92e4ded8478657aa913897d",
+        "submission.json": "b7587aa83cd0b382c90d97295b175cda73b690a701de94162ae11c408c9f80b1"
+      }
+    },
+    "wv100": {
+      "path": "benchmarks/runs/20261007-transitivity-2bce79528-regression-wv100",
+      "job": 1752162,
+      "sha256": {
+        "manifest.json": "9f5bd8d8ef546af5223d63cc3b82f0dfdc6e58e57364941ddf23a84cc6d66b72",
+        "submission.json": "efa6c89802d78c23f2ea264b4ac8c39fb9a91b3205f20ef09f73181bbcf7a312"
+      }
+    },
+    "wv2-89": {
+      "path": "benchmarks/runs/20261007-transitivity-2bce79528-regression-wv2-89",
+      "job": 1752163,
+      "sha256": {
+        "manifest.json": "9b173872b3572989eeefc4ac9baceb6dbf76c24c107afa6fd3c5fc9dbd5376f4",
+        "submission.json": "c6ee9e18ee07479a27a1b2a544c0a357832d07891de80746de2ed53e51e75916"
+      }
+    }
+  }
+}
