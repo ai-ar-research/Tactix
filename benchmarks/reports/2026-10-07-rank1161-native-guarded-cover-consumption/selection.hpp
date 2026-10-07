@@ -1,0 +1,60 @@
+#pragma once
+#include <array>
+#include <cstdint>
+namespace selected {
+inline constexpr int32_t domain0[] = {65,66,67,68};
+inline constexpr int32_t domain1[] = {69,70,71,72};
+inline constexpr int32_t domain2[] = {73,74,75,76};
+inline constexpr int32_t domain3[] = {77,78,79,80};
+inline constexpr int32_t domain4[] = {81,82,83,84};
+inline constexpr int32_t domain5[] = {85,86,87,88};
+inline constexpr int32_t domain6[] = {89,90,91,92};
+inline constexpr int32_t domain7[] = {93,94,95,96};
+inline constexpr int32_t domain8[] = {1,2,3,4};
+inline constexpr int32_t domain9[] = {5,6,7,8};
+inline constexpr int32_t domain10[] = {9,10,11,12};
+inline constexpr int32_t domain11[] = {13,14,15,16};
+inline constexpr int32_t domain12[] = {17,18,19,20};
+inline constexpr int32_t domain13[] = {21,22,23,24};
+inline constexpr int32_t domain14[] = {25,26,27,28};
+inline constexpr int32_t domain15[] = {29,30,31,32};
+inline constexpr int32_t or_inputs0[] = {1,33,129,737,3105};
+inline constexpr int32_t or_inputs1[] = {2,34,130,738,3106};
+inline constexpr int32_t or_inputs2[] = {3,35,131,739,3107};
+inline constexpr int32_t or_inputs3[] = {4,36,132,740,3108};
+inline constexpr int32_t or_inputs4[] = {5,37,133,741,3109};
+inline constexpr int32_t or_inputs5[] = {6,38,134,742,3110};
+inline constexpr int32_t or_inputs6[] = {7,39,135,743,3111};
+inline constexpr int32_t or_inputs7[] = {8,40,136,744,3112};
+inline constexpr int32_t or_inputs8[] = {9,41,137,745,3113};
+inline constexpr int32_t or_inputs9[] = {10,42,138,746,3114};
+inline constexpr int32_t or_inputs10[] = {11,43,139,747,3115};
+inline constexpr int32_t or_inputs11[] = {12,44,140,748,3116};
+inline constexpr int32_t or_inputs12[] = {13,45,141,749,3117};
+inline constexpr int32_t or_inputs13[] = {14,46,142,750,3118};
+inline constexpr int32_t or_inputs14[] = {15,47,143,751,3119};
+inline constexpr int32_t or_inputs15[] = {16,48,144,752,3120};
+inline constexpr int32_t or_inputs16[] = {17,49,145,753,3121};
+inline constexpr int32_t or_inputs17[] = {18,50,146,754,3122};
+inline constexpr int32_t or_inputs18[] = {19,51,147,755,3123};
+inline constexpr int32_t or_inputs19[] = {20,52,148,756,3124};
+inline constexpr int32_t or_inputs20[] = {21,53,149,757,3125};
+inline constexpr int32_t or_inputs21[] = {22,54,150,758,3126};
+inline constexpr int32_t or_inputs22[] = {23,55,151,759,3127};
+inline constexpr int32_t or_inputs23[] = {24,56,152,760,3128};
+inline constexpr int32_t or_inputs24[] = {25,57,153,761,3129};
+inline constexpr int32_t or_inputs25[] = {26,58,154,762,3130};
+inline constexpr int32_t or_inputs26[] = {27,59,155,763,3131};
+inline constexpr int32_t or_inputs27[] = {28,60,156,764,3132};
+inline constexpr int32_t or_inputs28[] = {29,61,157,765,3133};
+inline constexpr int32_t or_inputs29[] = {30,62,158,766,3134};
+inline constexpr int32_t or_inputs30[] = {31,63,159,767,3135};
+inline constexpr int32_t or_inputs31[] = {32,64,160,768,3136};
+inline constexpr int32_t cover[] = {17249,17250,17251,17252,17253,17254,17255,17256,17257,17258,17259,17260,17261,17262,17263,17264,17265,17266,17267,17268,17269,17270,17271,17272,17273,17274,17275,17276,17277,17278,17279,17280};
+inline constexpr int32_t prefix[] = {65,69,73,77,81,85,90,1,5,9,13,17,21,26};
+inline constexpr int32_t expected0[] = {-93,-90,-85,-81,-77,-73,-69,-65,-29,-26,-21,-17,-13,-9,-5,-1};
+inline constexpr std::array<std::array<uint32_t,16>,3> tuples = {{{{0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0}},{{0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1}},{{0,0,0,0,0,0,1,2,0,0,0,0,0,0,1,2}}}};
+inline const tactix_direct_csp_literal_array domains[] = {{domain0,4},{domain1,4},{domain2,4},{domain3,4},{domain4,4},{domain5,4},{domain6,4},{domain7,4},{domain8,4},{domain9,4},{domain10,4},{domain11,4},{domain12,4},{domain13,4},{domain14,4},{domain15,4}};
+inline const tactix_direct_csp_exact_or ors[] = {{10145,{or_inputs0,5}},{10146,{or_inputs1,5}},{10147,{or_inputs2,5}},{10148,{or_inputs3,5}},{10149,{or_inputs4,5}},{10150,{or_inputs5,5}},{10151,{or_inputs6,5}},{10152,{or_inputs7,5}},{10153,{or_inputs8,5}},{10154,{or_inputs9,5}},{10155,{or_inputs10,5}},{10156,{or_inputs11,5}},{10157,{or_inputs12,5}},{10158,{or_inputs13,5}},{10159,{or_inputs14,5}},{10160,{or_inputs15,5}},{10161,{or_inputs16,5}},{10162,{or_inputs17,5}},{10163,{or_inputs18,5}},{10164,{or_inputs19,5}},{10165,{or_inputs20,5}},{10166,{or_inputs21,5}},{10167,{or_inputs22,5}},{10168,{or_inputs23,5}},{10169,{or_inputs24,5}},{10170,{or_inputs25,5}},{10171,{or_inputs26,5}},{10172,{or_inputs27,5}},{10173,{or_inputs28,5}},{10174,{or_inputs29,5}},{10175,{or_inputs30,5}},{10176,{or_inputs31,5}}};
+inline const tactix_direct_csp_blocker blockers[] = {{17249,0,0,0},{17250,0,1,1},{17251,0,2,2},{17252,0,3,3},{17253,1,0,4},{17254,1,1,5},{17255,1,2,6},{17256,1,3,7},{17257,2,0,8},{17258,2,1,9},{17259,2,2,10},{17260,2,3,11},{17261,3,0,12},{17262,3,1,13},{17263,3,2,14},{17264,3,3,15},{17265,4,0,16},{17266,4,1,17},{17267,4,2,18},{17268,4,3,19},{17269,5,0,20},{17270,5,1,21},{17271,5,2,22},{17272,5,3,23},{17273,6,0,24},{17274,6,1,25},{17275,6,2,26},{17276,6,3,27},{17277,7,0,28},{17278,7,1,29},{17279,7,2,30},{17280,7,3,31}};
+}
