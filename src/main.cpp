@@ -188,6 +188,7 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
+  std::optional<bool> default_nol_walk;
   bool random_policy = false;
   bool controller_policy = false;
   bool controller_effort_set = false;
@@ -242,6 +243,14 @@ int main(int argc, char **argv) {
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
       else {
         fprintf(stderr, "tactix: --default-affine-search requires on or off\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
+    } else if (!strncmp(a, "--default-nol-walk=", 19)) {
+      if (!strcmp(a + 19, "on")) default_nol_walk = true;
+      else if (!strcmp(a + 19, "off")) default_nol_walk = false;
+      else {
+        fprintf(stderr, "tactix: --default-nol-walk requires on or off\n");
         printf("s UNKNOWN\n");
         return 1;
       }
@@ -479,7 +488,7 @@ int main(int argc, char **argv) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
-             "[--default-affine-search=on|off] "
+             "[--default-affine-search=on|off] [--default-nol-walk=on|off] "
              "[--random-policy[=SEED]] "
              "[--controller-policy[=SEED] [--controller-effort=N]] "
              "[--controller-trace=FILE | --controller-replay=FILE] "
@@ -554,6 +563,12 @@ int main(int argc, char **argv) {
   if (default_affine_search &&
       (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
     fprintf(stderr, "tactix: --default-affine-search requires DefaultPolicy\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (default_nol_walk &&
+      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
+    fprintf(stderr, "tactix: --default-nol-walk requires DefaultPolicy\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -941,6 +956,7 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
+  if (default_nol_walk) default_config.nol_walk.enabled = *default_nol_walk;
   DefaultPolicy default_policy(default_config);
   ControllerTrace controller_transcript;
   ControllerTrace *controller_trace = nullptr;
@@ -1036,6 +1052,32 @@ int main(int argc, char **argv) {
       metric("conflicts_consumed", affine.conflicts_consumed);
       metric("admitted_sources", affine.admitted_sources);
       metric("active_sources", affine.active_sources);
+      const auto &nol = default_policy.nol_walk_diagnostics();
+      const auto nol_metric = [](const char *name, uint64_t value) {
+        printf("c nol-schedule %s=%llu\n", name,
+               (unsigned long long)value);
+      };
+      nol_metric("enabled", default_config.nol_walk.enabled);
+      nol_metric("authentication_attempts", nol.authentication_attempts);
+      nol_metric("authentication_successes", nol.authentication_successes);
+      nol_metric("authentication_exhausted", nol.authentication_exhausted);
+      nol_metric("authentication_no_structure", nol.authentication_no_structure);
+      nol_metric("authentication_interrupted", nol.authentication_interrupted);
+      nol_metric("authentication_work", nol.authentication_work);
+      nol_metric("slices", nol.slices);
+      nol_metric("pending_slices", nol.pending_slices);
+      nol_metric("completed_trajectories", nol.completed_trajectories);
+      nol_metric("useful_hints", nol.useful_hints);
+      nol_metric("phase_install_attempts", nol.phase_install_attempts);
+      nol_metric("phase_installs", nol.phase_installs);
+      nol_metric("wakeups", nol.wakeups);
+      nol_metric("recognized", kernel.stats.nol_hypergraph_model_recognized);
+      nol_metric("vertices", kernel.stats.nol_hypergraph_model_vertices);
+      nol_metric("edges", kernel.stats.nol_hypergraph_model_edges);
+      nol_metric("work", kernel.stats.nol_hypergraph_model_work);
+      nol_metric("trajectory_steps", nol_hypergraph_walk_session.steps());
+      nol_metric("trajectories", nol_hypergraph_walk_session.trajectories());
+      nol_metric("search_ticks", kernel.stats.search_ticks);
       printf("c affine-survival gauges=last-native-boundary rank=unconditioned-coefficient-rank "
              "sources=retained-equations pause=last-pause "
              "action-codes=1:recognition,2:maintenance,3:root-service,4:search-service "
