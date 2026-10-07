@@ -19,6 +19,8 @@ struct GraphLabelingModelSession::State {
     Completion,
     Done,
   } stage = Stage::Construction;
+  const Kernel *owner = nullptr;
+  strategy::GraphLabelingParameters parameters;
   graph_labeling::Shape shape;
   graph_labeling::Candidate best;
   graph_labeling::Score published{UINT64_MAX, UINT64_MAX};
@@ -28,6 +30,14 @@ struct GraphLabelingModelSession::State {
 
 GraphLabelingModelSession::GraphLabelingModelSession() = default;
 GraphLabelingModelSession::~GraphLabelingModelSession() = default;
+// Kernel copies start with an empty heuristic cache, never an aliased owner.
+GraphLabelingModelSession::GraphLabelingModelSession(const GraphLabelingModelSession &) {}
+GraphLabelingModelSession &GraphLabelingModelSession::operator=(const GraphLabelingModelSession &other) {
+  if (this != &other) clear();
+  return *this;
+}
+GraphLabelingModelSession::GraphLabelingModelSession(GraphLabelingModelSession &&) noexcept = default;
+GraphLabelingModelSession &GraphLabelingModelSession::operator=(GraphLabelingModelSession &&) noexcept = default;
 bool GraphLabelingModelSession::authenticated() const { return bool(state_); }
 bool GraphLabelingModelSession::complete() const {
   return state_ && state_->stage == State::Stage::Done;
@@ -124,11 +134,15 @@ GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
   GraphLabelingAuthenticationResult result;
   ++k.stats.graph_labeling_calls;
   const auto p = strategy::GraphLabelingParameters::from_kernel(k);
+  if (!p.valid() || !graph_labeling_model_guard(k)) return result;
+  if (session.state_ && session.state_->owner != &k) return result;
+  // Authentication with a new profile explicitly replaces the trajectory;
+  // invalid profiles/guards and foreign owners leave it untouched.
+  if (session.state_ && !(session.state_->parameters == p)) session.clear();
   if (session.authenticated()) {
     result.status = GraphLabelingAuthenticationStatus::Authenticated;
     return result;
   }
-  if (!p.valid() || !graph_labeling_model_guard(k)) return result;
   GraphMeter meter(k, p.work[size_t(Stage::Recognition)]);
   Shape shape;
   auto charge = [&](uint64_t amount) {
@@ -156,6 +170,8 @@ GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
     return result;
   }
   auto next = std::make_unique<GraphLabelingModelSession::State>();
+  next->owner = &k;
+  next->parameters = p;
   next->primary_negative.resize(static_cast<size_t>(square));
   for (uint64_t i = 0; i < square; ++i)
     next->primary_negative[i] = negated(shape.primary[i]);
@@ -177,7 +193,10 @@ GraphLabelingSliceResult graph_labeling_model_slice(
   using SessionStage = GraphLabelingModelSession::State::Stage;
   GraphLabelingSliceResult result;
   ++k.stats.graph_labeling_calls;
-  if (!session.state_ || !graph_labeling_model_guard(k)) return result;
+  const auto p = strategy::GraphLabelingParameters::from_kernel(k);
+  if (!session.state_ || session.state_->owner != &k || !p.valid() ||
+      !(session.state_->parameters == p) || !graph_labeling_model_guard(k))
+    return result;
   auto &state = *session.state_;
   result.objective_before = state.best.score.first;
   if (state.stage == SessionStage::Done) {
@@ -185,7 +204,6 @@ GraphLabelingSliceResult graph_labeling_model_slice(
     result.objective_after = state.best.score.first;
     return result;
   }
-  const auto p = strategy::GraphLabelingParameters::from_kernel(k);
   const auto parameter_stage = [&] {
     switch (state.stage) {
     case SessionStage::Construction: return ParameterStage::Construction;
@@ -201,6 +219,11 @@ GraphLabelingSliceResult graph_labeling_model_slice(
   const uint64_t stage_allowance = p.work[size_t(parameter_stage)];
   const uint64_t publication_allowance = p.work[size_t(ParameterStage::Publication)];
   GraphMeter meter(k, saturated_add(stage_allowance, publication_allowance));
+  if (meter.poll()) {
+    result.status = GraphLabelingSliceStatus::Interrupted;
+    result.objective_after = state.best.score.first;
+    return result;
+  }
   const SessionStage stage_before = state.stage;
   uint64_t stage_remaining = std::min(stage_allowance, meter.ceiling);
   auto charge = [&](uint64_t amount) {

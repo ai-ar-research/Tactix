@@ -316,7 +316,8 @@ static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
       LUCKY_FORWARD_TRUE, LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE,
       6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, LUCKY_STARTUP_PARITY,
       LUCKY_STARTUP_COUNT, LUCKY_GRAPH_LABELING, LUCKY_STARTUP_RAMSEY,
-      LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF, LUCKY_NOL_HYPERGRAPH};
+      LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF, LUCKY_NOL_HYPERGRAPH,
+      LUCKY_GRAPH_AUTHENTICATE, LUCKY_GRAPH_CONTINUE};
   const uint32_t n = std::min<uint32_t>(cap, LUCKY_ACTIVE_INSTANCE_COUNT);
   std::copy_n(ACTIVE, n, out);
   return n;
@@ -395,6 +396,12 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
                ? execution::execute_action(
                      k, execution::LuckyRequest<LuckyOpportunity::IndependentSet>{})
                : ApplyResult::NoOp;
+  if (inst == LUCKY_GRAPH_AUTHENTICATE || inst == LUCKY_GRAPH_CONTINUE)
+    return execution::execute_action(k, execution::GraphLabelingActionRequest{
+        inst == LUCKY_GRAPH_AUTHENTICATE
+            ? execution::GraphLabelingOperation::Authenticate
+            : execution::GraphLabelingOperation::Continue,
+        strategy::GraphLabelingParameters::from_kernel(k)}).result;
   if (inst == LUCKY_GRAPH_LABELING)
     return graph_labeling_model_guard(k)
                ? execution::execute_action(

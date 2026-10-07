@@ -372,7 +372,6 @@ private:
   void schedule_nol_walk(const Kernel &,const NolHypergraphSliceResult &);
   void reset_nol_walk_schedule(const Kernel &);
 
-  GraphLabelingModelSession graph_labeling_session_;
   DefaultGraphLabelingDiagnostics graph_labeling_diagnostics_;
   bool graph_labeling_schedule_initialized_ = false;
   std::array<uint64_t, 3> graph_labeling_wake_stamp_{};

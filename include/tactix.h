@@ -867,7 +867,7 @@ typedef struct {
 #define TACTIX_GRAPH_PUBLICATION 7
 #define TACTIX_GRAPH_STAGES 8
 typedef struct {
-  /* Lucky instance 21: graph-labeling constructor and partial guidance. */
+  /* Lucky 21: monolithic graph constructor; 26: authenticate; 27: continue. */
   uint32_t maximum_vertices;
   uint64_t workspace_bytes;
   uint64_t work[TACTIX_GRAPH_STAGES];

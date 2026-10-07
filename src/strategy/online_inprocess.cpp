@@ -767,8 +767,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("Lucky independent-set parameters require instance 18");
     if (std::holds_alternative<GraphLabelingParameters>(step.parameters) &&
         (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{LUCKY_GRAPH_LABELING}))
-      return reject("Lucky graph-labeling parameters require instance 21");
+         (step.instances.size() != 1 || !lucky_graph_instance(step.instances[0]))))
+      return reject("Lucky graph-labeling parameters require instance 21, 26 or 27");
     if (std::holds_alternative<RamseyStartupParameters>(step.parameters) &&
         (step.granularity != InvocationGranularity::OneInstance ||
          step.instances !=

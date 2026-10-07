@@ -101,13 +101,16 @@ inline NativeFeedbackSpec native_rule_feedback(
     else if (instance == 16) inv.parameters = SignedCardinalityProofParameters::from_kernel(k);
     else if (instance == 17) inv.parameters = ExactCoverModelParameters::from_kernel(k);
     else if (instance == 18) inv.parameters = IndependentSetModelParameters::from_kernel(k);
-    else if (instance == LUCKY_GRAPH_LABELING) {
+    else if (lucky_graph_instance(instance)) {
       const auto p = GraphLabelingParameters::from_kernel(k);
       inv.parameters = p;
       spec.meter = [](const Kernel &state) { return state.stats.graph_labeling_work; };
       spec.description.effort_currency = "graph-work";
       uint64_t bound = 0;
-      for (uint64_t allowance : p.work) bound += allowance;
+      if (instance == LUCKY_GRAPH_AUTHENTICATE)
+        bound = p.work[size_t(GraphLabelingStage::Recognition)];
+      else
+        for (uint64_t allowance : p.work) bound += allowance;
       if (kernel_has_work_budget(k)) bound = std::min(bound, k.work_budget);
       spec.description.effort_allowance = WorkLimit::bounded(bound);
     }

@@ -4388,8 +4388,8 @@ void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
 
 bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
   if (!config_.graph_labeling_model.enabled ||
-      !graph_labeling_session_.authenticated() ||
-      graph_labeling_session_.complete())
+      !kernel.graph_labeling_session.authenticated() ||
+      kernel.graph_labeling_session.complete())
     return false;
   const std::array<uint64_t, 3> current{
       kernel.stats.root_assignments, kernel.nvars,
@@ -4445,7 +4445,16 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
       !graph_labeling_model_guard(kernel))
     return result;
   ++graph_labeling_diagnostics_.authentication_attempts;
-  result = graph_labeling_model_authenticate(kernel, graph_labeling_session_);
+  result = execution::complete_action(
+      completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_AUTHENTICATE,
+      [&] { return execution::native_rule_feedback(kernel, "Lucky",
+          LUCKY_GRAPH_AUTHENTICATE, "graph-authenticate"); },
+      [&] { return execution::execute_action(kernel, execution::GraphLabelingActionRequest{
+          execution::GraphLabelingOperation::Authenticate,
+          strategy::GraphLabelingParameters::from_kernel(kernel)}); },
+      [](const execution::GraphLabelingActionResult &out) {
+        return strategy::controller::feedback_outcome(out.result);
+      }).authentication;
   graph_labeling_diagnostics_.authentication_work = saturated_sum(
       graph_labeling_diagnostics_.authentication_work, result.work);
   switch (result.status) {
@@ -4468,10 +4477,22 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
 GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
   GraphLabelingSliceResult result;
   if (!config_.graph_labeling_model.enabled ||
-      !graph_labeling_session_.authenticated() || kernel.level ||
+      !kernel.graph_labeling_session.authenticated() || kernel.level ||
       !graph_labeling_model_guard(kernel))
     return result;
-  result = graph_labeling_model_slice(kernel, graph_labeling_session_);
+  const strategy::GuidanceOutcomeSnapshot before(kernel);
+  result = execution::complete_action(
+      completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,
+      [&] { return execution::native_rule_feedback(kernel, "Lucky",
+          LUCKY_GRAPH_CONTINUE, "graph-continue"); },
+      [&] { return execution::execute_action(kernel, execution::GraphLabelingActionRequest{
+          execution::GraphLabelingOperation::Continue,
+          strategy::GraphLabelingParameters::from_kernel(kernel)}); },
+      [&](const execution::GraphLabelingActionResult &out) {
+        auto feedback = strategy::controller::feedback_outcome(out.result);
+        feedback.invocation.status = before.refine(kernel, out.result, feedback.invocation.status);
+        return feedback;
+      }).slice;
   schedule_graph_labeling(kernel, result);
   return result;
 }
@@ -4479,7 +4500,7 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
 ApplyResult DefaultPolicy::install_graph_labeling_hint(
     Kernel &kernel, const GraphLabelingSliceResult &result) {
   if (!result.useful_hint || !result.hint_published || kernel.level ||
-      !graph_labeling_session_.authenticated() ||
+      !kernel.graph_labeling_session.authenticated() ||
       !local_search_guidance_guard(kernel))
     return ApplyResult::NoOp;
   const auto &hint = kernel.local_search_hints[static_cast<size_t>(
@@ -4611,7 +4632,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_tracking_limit_=0;
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
-  graph_labeling_session_.clear();
+  k.graph_labeling_session.clear();
   reset_graph_labeling_schedule(k);
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
@@ -5200,7 +5221,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     (void)install_nol_walk_hint(k, nol);
   }
   if (config_.graph_labeling_model.enabled &&
-      graph_labeling_session_.authenticated()) {
+      k.graph_labeling_session.authenticated()) {
     const auto graph = service_graph_labeling(k);
     if (graph.status == GraphLabelingSliceStatus::Sat)
       return finish(10);

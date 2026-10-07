@@ -151,9 +151,15 @@ coverage separates full restarts, partial restarts and continuation intervals.
 
 Lucky instance 22 is the bounded original-input Ramsey DSR composition: typed `RamseyStartupParameters`, C tag 32 and `ramsey-startup1` replay carry recognition and certificate bounds. The shared action records source/proof provenance under the session action ID and exposes cumulative discovery/proof work, yield and stop counters; zero bounds disable it. It declines after the startup boundary closes. DefaultPolicy exposes an opt-in profile; random selection uses the same parameters. Production profile/scheduling acceptance is pending.
 
-Lucky instance 21 is an active SAT constructor and partial-candidate producer.
-It is available through public dispatch, typed replay and random selection, but
-its DefaultPolicy row remains disabled pending production-profile acceptance.
+Lucky 21 preserves its monolithic SAT-constructor contract. Appended 26
+(authenticate) and 27 (continue one retained stage) share one Kernel-owned
+session between public C++/C, replay, controller and Default dispatch. Default
+uses 26 at startup and 27 only at explicit root windows; all graph scheduling
+remains opt-in. Same-profile authentication skips recognition; changed-profile
+authentication explicitly clears/rebuilds, while mismatched continuation declines.
+Foreign-Kernel sessions decline, copies start empty, and moved sessions require
+clear/re-authentication. A fresh Default solve clears the retained trajectory.
+Partial stages can only publish phase hints; SAT requires full current-CNF checking.
 `GraphLabelingParameters` and C `TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING`
 expose the same `graph-labeling1` tuple: vertex/storage limits, DFS limits,
 repair/annealing iteration ceilings, seed and eight stage work allowances.

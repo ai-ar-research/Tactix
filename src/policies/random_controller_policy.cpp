@@ -2770,8 +2770,8 @@ bool RandomControllerSelector::choose(
         request.invocation.parameters =
             config.parameters.independent_set_model_reference;
       if (request.invocation.rule == "Lucky" &&
-          request.invocation.instances ==
-              std::vector<uint64_t>{LUCKY_GRAPH_LABELING})
+          (request.invocation.instances.size() == 1 &&
+           lucky_graph_instance(request.invocation.instances[0])))
         request.invocation.parameters = config.parameters.graph_labeling_reference;
       if (request.invocation.rule == "Lucky" &&
           request.invocation.instances == std::vector<uint64_t>{15})

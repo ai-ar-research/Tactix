@@ -2584,9 +2584,15 @@ static void graph_labeling_parameters_round_trip() {
   OnlineStrategyProgram replay;
   assert(deserialize_online_strategy_program(wire, replay, &error));
   assert(serialize_online_strategy_program(replay) == wire);
+  for (uint64_t instance : {LUCKY_GRAPH_AUTHENTICATE, LUCKY_GRAPH_CONTINUE}) {
+    program.sequence[0].instances = {instance};
+    const auto staged_wire = serialize_online_strategy_program(program);
+    assert(deserialize_online_strategy_program(staged_wire, replay, &error));
+    assert(serialize_online_strategy_program(replay) == staged_wire);
+  }
   program.sequence[0].instances = {18};
   assert(!validate_online_strategy_program(program, &error));
-  assert(error == "Lucky graph-labeling parameters require instance 21");
+  assert(error == "Lucky graph-labeling parameters require instance 21, 26 or 27");
   program.sequence[0].instances = {21};
   parameters.work[0] = UINT64_MAX;
   program.sequence[0].parameters = parameters;

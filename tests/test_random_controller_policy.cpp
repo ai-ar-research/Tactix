@@ -1129,7 +1129,7 @@ static void finite_lucky_catalog_is_reachable() {
     else if (instance == 18)
       assert(std::holds_alternative<IndependentSetModelParameters>(
           request.invocation.parameters));
-    else if (instance == LUCKY_GRAPH_LABELING)
+    else if (lucky_graph_instance(instance))
       assert(std::holds_alternative<GraphLabelingParameters>(
           request.invocation.parameters));
     else if (instance == LUCKY_STARTUP_RAMSEY)
