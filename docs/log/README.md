@@ -18,10 +18,9 @@ these archives are superseded by the semantic text and repository Git history.
 | [2026-W28](2026-W28.md) | 07-06 → 07-12 | 2 | phases 0–1, T1 |
 
 **Reading an archive.** An archived entry is a record of what was believed when it was written, and it
-is never edited to match a later correction. Two consequences: the `R<n>` track namespaces resolve in
-`PROGRESS.md`, but an `L<n>` lesson number may not resolve at all — lessons moved to `docs/lessons.md`
-and are freely revised or deleted there, which the archives deliberately do not track (each entry states
-its own reasoning, so a dangling number costs nothing). Measurements quoted inside an entry are the
+is never edited to match a later correction. Historical `R<n>` track names and `L<n>` lesson numbers
+may no longer resolve in living docs; use the archived context and Git for those identities. Lessons in
+`docs/lessons.md` can be revised or deleted; each archived entry preserves its own reasoning. Measurements quoted inside an entry are the
 numbers *as measured then*; on conflict, the current truth is `PROGRESS.md` for status,
 `docs/lessons.md` for a lesson, and `benchmarks/runs/<window>/results.json` for per-instance timings.
 
