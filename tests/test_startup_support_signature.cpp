@@ -76,6 +76,9 @@ static DefaultStrategyConfig profile(unsigned scenario) {
     config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
     config.inprocess.structured_root_before_lucky = true;
   } else if (scenario == 3 || scenario == 4) {
+    // Exercise the optional handoff explicitly; scenario 4 must still retain
+    // the embedding's existing heuristics instead of reseeding them.
+    config.inprocess.structured_root_residual_search_handoff = true;
     OnlineInvocation fixing;
     fixing.id = 1; fixing.rule = "SubstitutionRedundancy";
     fixing.parameters = SubstitutionRedundancyParameters{};
