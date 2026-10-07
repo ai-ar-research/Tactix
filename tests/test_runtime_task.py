@@ -192,10 +192,10 @@ class RuntimeTaskTest(unittest.TestCase):
 
 
 class ExperimentalCheckerProfileTest(unittest.TestCase):
-    def test_fixed44_capacity_profile_is_explicit_and_exclusive(self):
+    def test_fixed44_capacity_profile_uses_bounded_whole_memory_shape(self):
         import experimental_tierd as builder
         arguments = SimpleNamespace(
-            scratch_capacity_profile='fixed44-exclusive-v1',
+            scratch_capacity_profile='fixed44-whole-memory-v2',
             cpus_per_task=4, partition='cpu-q', array_throttle=None,
             certificate='auto', gf2_telemetry=False,
             retain_failed_proof=False, causal_preflight=False)
@@ -206,6 +206,21 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         self.assertEqual(
             selected['maximum_file_bytes'] * selected['maximum_live_handles'] +
             selected['reserve_bytes'], selected['minimum_free_bytes'])
+        self.assertEqual(builder.selected_scratch_resources(
+            arguments.scratch_capacity_profile), {
+                'schema': 'tactix-fixed44-schedulable-memory-isolation-v1',
+                'outer_allocation_cpus': 52,
+                'outer_allocation_memory': 'all',
+                'inner_step_cpus': 4,
+                'inner_step_memory_mib': 32768,
+            })
+        resources = builder.selected_scratch_resources(
+            arguments.scratch_capacity_profile)
+        prefix = builder.scratch_srun_prefix(resources)
+        self.assertEqual(prefix, [
+            'srun', '--exact', '--nodes=1', '--ntasks=1',
+            '--cpus-per-task=4', '--mem=32768M', '--cpu-bind=cores'])
+        self.assertNotIn('--exclusive', prefix)
         for field, value in (
                 ('cpus_per_task', 5), ('partition', 'cpu-dense-hwulab-q'),
                 ('array_throttle', 1), ('certificate', 'dsr'),

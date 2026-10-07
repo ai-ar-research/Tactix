@@ -56,6 +56,13 @@ FIXED44_SELECTION={
     'path':'benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv',
     'sha256':'74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333',
 }
+FIXED44_RESOURCE_PROFILE={
+    'schema':'tactix-fixed44-schedulable-memory-isolation-v1',
+    'outer_allocation_cpus':52,
+    'outer_allocation_memory':'all',
+    'inner_step_cpus':4,
+    'inner_step_memory_mib':32768,
+}
 
 def sha(p):
     h=hashlib.sha256()
@@ -128,7 +135,7 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
 def selected_scratch_capacity(a, selection_authority, rows):
     profile=getattr(a,'scratch_capacity_profile',None)
     if profile is None:return None
-    if profile!='fixed44-exclusive-v1':
+    if profile!='fixed44-whole-memory-v2':
         raise ValueError('unsupported scratch capacity profile')
     if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
             a.cpus_per_task!=4 or a.partition!='cpu-q' or
@@ -137,6 +144,18 @@ def selected_scratch_capacity(a, selection_authority, rows):
     if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
         raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
     return dict(FIXED44_SCRATCH_CAPACITY)
+
+def selected_scratch_resources(profile):
+    if profile is None:return None
+    if profile!='fixed44-whole-memory-v2':
+        raise ValueError('unsupported scratch capacity profile')
+    return dict(FIXED44_RESOURCE_PROFILE)
+
+def scratch_srun_prefix(resources):
+    if resources is None:return []
+    return ['srun','--exact','--nodes=1','--ntasks=1',
+            f'--cpus-per-task={resources["inner_step_cpus"]}',
+            f'--mem={resources["inner_step_memory_mib"]}M','--cpu-bind=cores']
 
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
@@ -202,6 +221,7 @@ def prepare(a):
     assert rows and len({r['instance'] for r in rows})==len(rows)
     scratch_capacity=selected_scratch_capacity(a,selection_authority,rows)
     capacity_profile=getattr(a,'scratch_capacity_profile',None)
+    capacity_resources=selected_scratch_resources(capacity_profile)
     inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
     assert set(inputs)=={r['instance'] for r in rows}
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
@@ -229,26 +249,34 @@ def prepare(a):
     pin_dsr_transport(getattr(a, 'dsr_transport', None), c/'pins')
     with (c/'matrix.tsv').open('x',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
-    common=f'''#!/usr/bin/env bash
+    batch_cpus=(capacity_resources['outer_allocation_cpus']
+                if capacity_resources else a.cpus_per_task)
+    batch_memory=('0' if capacity_resources else '32768M')
+    def slurm_header(cpus, memory):
+        return f'''#!/usr/bin/env bash
 #SBATCH --partition={a.partition}
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task={a.cpus_per_task}
-#SBATCH --mem=32768M
+#SBATCH --cpus-per-task={cpus}
+#SBATCH --mem={memory}
 #SBATCH --no-requeue
 #SBATCH --output={c}/logs/%x-%A_%a.log
 '''
     wall=scheduler_wall_seconds(a.solve_timeout,a.checker_timeout)
-    exclusive_directive='#SBATCH --exclusive\n' if capacity_profile else ''
     capacity_environment=('export TMPDIR=/tmp\nexport PYTHONDONTWRITEBYTECODE=1\n'
                           if capacity_profile else '')
-    (c/'array.sbatch').write_text(common+f'''#SBATCH --job-name=tierd-{commit[:8]}
+    runtime_prefix=' '.join(scratch_srun_prefix(capacity_resources))
+    runtime_command=(
+        f'exec {runtime_prefix} python3 {c}/pins/runtime_task.py {c} '
+        f'"$SLURM_ARRAY_TASK_ID"' if capacity_resources else
+        f'exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"')
+    (c/'array.sbatch').write_text(slurm_header(batch_cpus,batch_memory)+f'''#SBATCH --job-name=tierd-{commit[:8]}
 #SBATCH --time={slurm_time(wall)}
 #SBATCH --array=0-{len(rows)-1}{f'%{a.array_throttle}' if a.array_throttle else ''}
-{exclusive_directive}set -euo pipefail
+set -euo pipefail
 ulimit -c 0
-{capacity_environment}exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"
+{capacity_environment}{runtime_command}
 ''')
-    (c/'validate.sbatch').write_text(common+f'''#SBATCH --job-name=tierd-anonymous-check
+    (c/'validate.sbatch').write_text(slurm_header(a.cpus_per_task,'32768M')+f'''#SBATCH --job-name=tierd-anonymous-check
 #SBATCH --time=00:05:00
 set -euo pipefail
 ulimit -c 0
@@ -270,7 +298,8 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
             array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
             throttle=a.array_throttle,node_constraint=None,
-            **({'exclusive_node':True} if capacity_profile else {})),
+            **({'scratch_isolation':capacity_resources}
+               if capacity_profile else {})),
         proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
@@ -282,7 +311,9 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
     if capacity_profile:
         m['anonymous_scratch_capacity']=scratch_capacity
         m['scratch_capacity_profile']=capacity_profile
-        m['cleanup_contract'] += (' Each array task has an exclusive node, admits only with at least '
+        m['cleanup_contract'] += (' Each array task reserves all schedulable node memory with a '
+            '52-CPU outer allocation, then runs the solver/checker in a four-CPU, 32768-MiB '
+            'Slurm step. It admits only with at least '
             '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
             'and permits at most six simultaneously live anonymous files, preserving a '
             'declared 40000000000-byte reserve for managed scratch.')
@@ -336,8 +367,8 @@ if __name__=='__main__':
     p.add_argument('--dsr-transport',type=Path)
     p.add_argument('--dsr-checker-profile',choices=['frozen','long64'],default='frozen',
                    help='immutable DSR elaborator/compressor pins; long64 selects the audited upstream LONGTYPE build, with unchanged independent Trestle verification')
-    p.add_argument('--scratch-capacity-profile',choices=['fixed44-exclusive-v1'],
-                   help='opt-in fixed-44 exclusive-node admission and anonymous-file bounds')
+    p.add_argument('--scratch-capacity-profile',choices=['fixed44-whole-memory-v2'],
+                   help='opt-in fixed-44 whole-memory allocation, bounded task step, and anonymous-file bounds')
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)

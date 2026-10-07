@@ -128,8 +128,17 @@ def scratch_capacity_contract(manifest):
     if manifest.get("failed_proof_retention") is not None:
         raise RuntimeError("scratch capacity forbids failed-proof retention")
     resource_contract = manifest.get("resource_contract", {})
-    if resource_contract.get("exclusive_node") is not True:
-        raise RuntimeError("scratch capacity requires an exclusive-node job")
+    isolation = resource_contract.get("scratch_isolation")
+    expected_isolation = {
+        "schema": "tactix-fixed44-schedulable-memory-isolation-v1",
+        "outer_allocation_cpus": 52,
+        "outer_allocation_memory": "all",
+        "inner_step_cpus": 4,
+        "inner_step_memory_mib": 32768,
+    }
+    if isolation != expected_isolation:
+        raise RuntimeError(
+            "scratch capacity requires the whole-memory allocation and bounded task step")
     return contract
 
 
@@ -1028,13 +1037,17 @@ def main():
             options = {}
             if capacity_contract is not None:
                 if (os.environ.get("TMPDIR") != capacity_contract["directory"] or
-                        os.environ.get("PYTHONDONTWRITEBYTECODE") != "1"):
+                        os.environ.get("PYTHONDONTWRITEBYTECODE") != "1" or
+                        os.environ.get("SLURM_CPUS_PER_TASK") != "4" or
+                        len(os.sched_getaffinity(0)) != 4):
                     raise ScratchCapacityError(
                         "scratch_admission", stage="environment",
                         expected_tmpdir=capacity_contract["directory"],
                         actual_tmpdir=os.environ.get("TMPDIR"),
                         python_bytecode_disabled=(
-                            os.environ.get("PYTHONDONTWRITEBYTECODE") == "1"))
+                            os.environ.get("PYTHONDONTWRITEBYTECODE") == "1"),
+                        slurm_cpus_per_task=os.environ.get("SLURM_CPUS_PER_TASK"),
+                        cpu_affinity=sorted(os.sched_getaffinity(0)))
                 options = dict(
                     minimum_free_bytes=capacity_contract["minimum_free_bytes"],
                     maximum_file_bytes=capacity_contract["maximum_file_bytes"],
