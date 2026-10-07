@@ -33,8 +33,14 @@ constexpr uint64_t LUCKY_STARTUP_RAMSEY = 22;
 constexpr uint64_t LUCKY_PARITY_PROOF = 23;
 constexpr uint64_t LUCKY_EXACT_ONE_PROOF = 24;
 constexpr uint64_t LUCKY_NOL_HYPERGRAPH = 25;
-constexpr uint32_t LUCKY_INSTANCE_COUNT = 26;
-constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 26;
+constexpr uint64_t LUCKY_GRAPH_AUTHENTICATE = 26;
+constexpr uint64_t LUCKY_GRAPH_CONTINUE = 27;
+constexpr bool lucky_graph_instance(uint64_t instance) {
+  return instance == LUCKY_GRAPH_LABELING || instance == LUCKY_GRAPH_AUTHENTICATE ||
+         instance == LUCKY_GRAPH_CONTINUE;
+}
+constexpr uint32_t LUCKY_INSTANCE_COUNT = 28;
+constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 28;
 
 constexpr bool lucky_retired_constructor_instance(uint64_t instance) {
   return instance != INSTANCE_CANONICAL && instance >= LUCKY_INSTANCE_COUNT;

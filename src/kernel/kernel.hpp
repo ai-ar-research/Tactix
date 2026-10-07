@@ -6,6 +6,7 @@
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
+#include "rules/lucky/graph_labeling_session.hpp"
 #include "strategy/analyze_parameters.hpp"
 #include "strategy/congruence_parameters.hpp"
 #include "strategy/parity_consequence_parameters.hpp"
@@ -2149,6 +2150,8 @@ struct Kernel {
   Gf3GeneralRowActionSession *gf3_general_row_action_session = nullptr;
   TseitinCycleBreakingSession *tseitin_cycle_breaking_session = nullptr;
   AffineMatrixSearchSession *affine_matrix_search_session = nullptr;
+  // One retained graph trajectory shared by public and Default actions.
+  GraphLabelingModelSession graph_labeling_session;
   uint64_t affine_trail_retraction_epoch = 1;
   uint64_t affine_semantic_namespace_epoch = 1;
   // Direct mutation fixtures must invalidate the affected epoch or opt out.

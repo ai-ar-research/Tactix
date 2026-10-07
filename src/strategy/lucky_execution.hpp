@@ -84,6 +84,34 @@ ApplyResult execute_action(Kernel &k, LuckyRequest<Opportunity>) {
   }
 }
 
+enum class GraphLabelingOperation : uint8_t { Authenticate, Continue };
+struct GraphLabelingActionRequest {
+  GraphLabelingOperation operation;
+  strategy::GraphLabelingParameters parameters;
+};
+struct GraphLabelingActionResult {
+  ApplyResult result = ApplyResult::NoOp;
+  GraphLabelingAuthenticationResult authentication;
+  GraphLabelingSliceResult slice;
+};
+inline GraphLabelingActionResult execute_action(
+    Kernel &k, const GraphLabelingActionRequest &request) {
+  GraphLabelingActionResult result;
+  if (!request.parameters.valid() || !graph_labeling_model_guard(k)) return result;
+  strategy::ScopedRuleParameters<strategy::GraphLabelingParameters> parameters(
+      k, request.parameters);
+  if (request.operation == GraphLabelingOperation::Authenticate) {
+    result.authentication = graph_labeling_model_authenticate(k, k.graph_labeling_session);
+    if (result.authentication.status == GraphLabelingAuthenticationStatus::Authenticated &&
+        result.authentication.work)
+      result.result = ApplyResult::Ok;
+  } else if (request.operation == GraphLabelingOperation::Continue) {
+    result.slice = graph_labeling_model_slice(k, k.graph_labeling_session);
+    result.result = result.slice.result;
+  }
+  return result;
+}
+
 struct LuckyProbeRequest {
   uint64_t probe = LUCKY_ALL_TRUE;
 };

@@ -32,6 +32,18 @@ struct GraphLabelingParameters {
   uint64_t stall_anneal_iterations = 0;
   uint64_t seed = 0;
 
+  bool operator==(const GraphLabelingParameters &other) const {
+    return maximum_vertices == other.maximum_vertices &&
+        workspace_bytes == other.workspace_bytes && work == other.work &&
+        maximum_dfs_vertices == other.maximum_dfs_vertices &&
+        maximum_dfs_nodes == other.maximum_dfs_nodes &&
+        maximum_dfs_starts == other.maximum_dfs_starts &&
+        early_dfs_choices == other.early_dfs_choices &&
+        repair_rounds == other.repair_rounds &&
+        anneal_iterations == other.anneal_iterations &&
+        stall_anneal_iterations == other.stall_anneal_iterations &&
+        seed == other.seed;
+  }
   constexpr bool valid() const {
     if (maximum_vertices < 3) return false;
     uint64_t remaining = UINT64_MAX;

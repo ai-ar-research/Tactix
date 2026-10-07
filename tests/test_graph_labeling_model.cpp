@@ -28,6 +28,8 @@ struct StopAfterGraphRoot final : BranchingPolicy {
     assert(diagnostics.phase_installs == 1);
     assert(kernel.stats.graph_labeling_recognized == 1);
     assert(kernel.stats.graph_labeling_calls == 2);
+    assert(kernel.graph_labeling_session.authenticated());
+    assert(kernel.graph_labeling_session.candidate_fingerprint());
     stop = 1;
     for (Var variable = 0; variable < kernel.nvars; ++variable)
       if (!kernel.value(make_lit(variable, false)) &&

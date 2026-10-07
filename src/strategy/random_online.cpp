@@ -1,4 +1,5 @@
 #include "strategy/random_online.hpp"
+#include "rules/lucky/lucky.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -2232,8 +2233,11 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       fixed_lucky_instance = 17;
     else if (std::holds_alternative<IndependentSetModelParameters>(step.parameters))
       fixed_lucky_instance = 18;
-    else if (std::holds_alternative<GraphLabelingParameters>(step.parameters))
-      fixed_lucky_instance = 21;
+    else if (std::holds_alternative<GraphLabelingParameters>(step.parameters)) {
+      constexpr uint64_t graph_instances[] = {
+          LUCKY_GRAPH_LABELING, LUCKY_GRAPH_AUTHENTICATE, LUCKY_GRAPH_CONTINUE};
+      fixed_lucky_instance = graph_instances[bounded(rng, 3)];
+    }
     else if (std::holds_alternative<RamseyStartupParameters>(step.parameters))
       fixed_lucky_instance = 22;
     const bool fixed_lucky = fixed_lucky_instance != INSTANCE_CANONICAL;
