@@ -2,7 +2,7 @@
 #pragma once
 
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -47,11 +47,11 @@ struct NaryCspEqualityActionResult {
 
 RuleEligibility nary_csp_equality_action_guard(const Kernel &);
 
-// The prefix session supplies an exact retained source owner.  The equality
-// session owns only committed equality keys.  All declines preserve both
+// Missing neutral ownership is captured into a detached session and installed
+// only after equality publication commits. All declines preserve both
 // sessions, Kernel, proof, provenance and the structural action sequence.
 NaryCspEqualityActionResult nary_csp_equality_action_apply(
-    Kernel &, const NaryCspPrefixActionSession &, NaryCspEqualitySession &,
+    Kernel &, NaryCspRelationOwnerSession &, NaryCspEqualitySession &,
     const NaryCspEqualityLimits &,
     const NaryCspEqualityActionSelection &);
 
@@ -96,7 +96,7 @@ struct NaryCspEqualityActionOfferResult {
 // Enumerate only canonical equality coordinate choices from exact owners that
 // X17 has already retained.  The offerer is read-only and caller-bounded.
 NaryCspEqualityActionOfferResult nary_csp_equality_action_offer(
-    Kernel &, const NaryCspPrefixActionSession &,
+    Kernel &, const NaryCspRelationOwnerSession &,
     const NaryCspEqualitySession &, const NaryCspEqualityLimits &,
     const NaryCspEqualityActionOfferWindow &);
 

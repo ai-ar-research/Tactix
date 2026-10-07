@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rules/semantic_extension/nary_csp_prefix.hpp"
+#include "rules/semantic_extension/nary_csp_relation.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -8,10 +8,10 @@
 
 namespace tactix::nary_csp_equality {
 
-using Premise = nary_csp_prefix::Premise;
-using Domain = nary_csp_prefix::Domain;
-using ForbiddenTuple = nary_csp_prefix::ForbiddenTuple;
-using Relation = nary_csp_prefix::Relation;
+using Premise = nary_csp_relation::Premise;
+using Domain = nary_csp_relation::Domain;
+using ForbiddenTuple = nary_csp_relation::ForbiddenTuple;
+using Relation = nary_csp_relation::Relation;
 
 // The three coordinates must be a permutation of a ternary relation.  Value
 // index i has the same abstract label in all three domains, authenticated by

@@ -430,6 +430,10 @@ set_tests_properties(nary_csp_root_fixed_proof PROPERTIES SKIP_RETURN_CODE 77)
 add_executable(test_nary_csp_equality test_nary_csp_equality.cpp)
 target_link_libraries(test_nary_csp_equality PRIVATE tactix_lib)
 add_test(NAME nary_csp_equality COMMAND test_nary_csp_equality)
+
+add_executable(test_nary_csp_relation_owner test_nary_csp_relation_owner.cpp)
+target_link_libraries(test_nary_csp_relation_owner PRIVATE tactix_lib)
+add_test(NAME nary_csp_relation_owner COMMAND test_nary_csp_relation_owner)
 add_test(NAME nary_csp_equality_proof
          COMMAND ${CMAKE_SOURCE_DIR}/tests/nary_csp_equality_proof.sh
                  $<TARGET_FILE:test_nary_csp_equality>

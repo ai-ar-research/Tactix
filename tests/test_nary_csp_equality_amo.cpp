@@ -77,16 +77,11 @@ NaryCspEqualityAmoLimits amo_limits() {
 const std::vector<std::vector<int32_t>> domains{
     {1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
 
-void prepare(Kernel &kernel, NaryCspPrefixActionSession &prefix,
+void prepare(Kernel &kernel, NaryCspRelationOwnerSession &relations,
              NaryCspEqualitySession &equality, FILE *records) {
   kernel.structural_provenance = records;
-  kernel.nary_csp_prefix_action_session = &prefix;
+  kernel.nary_csp_relation_owner_session = &relations;
   kernel.nary_csp_equality_session = &equality;
-  const NaryCspPrefixActionSelection prefix_selection{
-      domains, {2, {{0, 0}, {1, 0}}}};
-  const auto retained = nary_csp_prefix_action_apply(
-      kernel, prefix, prefix_limits(), prefix_selection);
-  assert(retained.status == NaryCspPrefixActionStatus::Applied);
   for (uint32_t residual = 0; residual != 3; ++residual) {
     std::array<uint32_t, 2> equal{};
     size_t next = 0;
@@ -95,7 +90,7 @@ void prepare(Kernel &kernel, NaryCspPrefixActionSession &prefix,
     const NaryCspEqualityActionSelection selection{
         domains, {equal[0], equal[1], residual}};
     const auto applied = nary_csp_equality_action_apply(
-        kernel, prefix, equality, equality_limits(), selection);
+        kernel, relations, equality, equality_limits(), selection);
     assert(applied.status == NaryCspEqualityActionStatus::Applied);
   }
   assert(equality.records().size() == 3);
@@ -108,22 +103,22 @@ void exhaustive_model_and_lifecycle() {
   parse_into(kernel);
   FILE *records = std::tmpfile();
   assert(records);
-  NaryCspPrefixActionSession prefix;
+  NaryCspRelationOwnerSession relations;
   NaryCspEqualitySession equality;
   NaryCspEqualityAmoSession session;
-  prepare(kernel, prefix, equality, records);
+  prepare(kernel, relations, equality, records);
   kernel.nary_csp_equality_amo_session = &session;
 
   const auto offered = nary_csp_equality_amo_offer(
-      kernel, prefix, equality, session, amo_limits(), {4, 1, 100, false, {}});
+      kernel, relations, equality, session, amo_limits(), {4, 1, 100, false, {}});
   assert(offered.status == NaryCspEqualityAmoOfferStatus::Ready &&
          offered.complete && offered.offers.size() == 1);
   const auto applied = nary_csp_equality_amo_apply(
-      kernel, prefix, equality, session, amo_limits(), offered.offers.front(),
+      kernel, relations, equality, session, amo_limits(), offered.offers.front(),
       records);
   assert(applied.status == NaryCspEqualityAmoStatus::Applied &&
          applied.emitted_binary_clauses == 3 &&
-         applied.equality_variables == 3 && kernel.nvars == 13 &&
+         applied.equality_variables == 3 && kernel.nvars == 12 &&
          session.keys().size() == 1);
 
   // All 24 source models satisfy the three binary consequences when each
@@ -141,10 +136,10 @@ void exhaustive_model_and_lifecycle() {
   assert(models == 24);
 
   const auto duplicate = nary_csp_equality_amo_apply(
-      kernel, prefix, equality, session, amo_limits(), {domains}, records);
+      kernel, relations, equality, session, amo_limits(), {domains}, records);
   assert(duplicate.status == NaryCspEqualityAmoStatus::Duplicate);
   const auto suppressed = nary_csp_equality_amo_offer(
-      kernel, prefix, equality, session, amo_limits(), {4, 1, 100, false, {}});
+      kernel, relations, equality, session, amo_limits(), {4, 1, 100, false, {}});
   assert(suppressed.status == NaryCspEqualityAmoOfferStatus::Ready &&
          suppressed.complete && suppressed.offers.empty() &&
          suppressed.committed_keys_skipped == 1);
@@ -155,7 +150,7 @@ void exhaustive_model_and_lifecycle() {
   Kernel other;
   parse_into(other);
   const auto wrong_session = nary_csp_equality_amo_apply(
-      other, prefix, equality, session, amo_limits(), {domains}, records);
+      other, relations, equality, session, amo_limits(), {domains}, records);
   assert(wrong_session.status == NaryCspEqualityAmoStatus::Inapplicable);
   kernel.structural_provenance = nullptr;
   std::fclose(records);
@@ -197,10 +192,10 @@ void stale_definition_declines() {
   parse_into(kernel);
   FILE *records = std::tmpfile();
   assert(records);
-  NaryCspPrefixActionSession prefix;
+  NaryCspRelationOwnerSession relations;
   NaryCspEqualitySession equality;
   NaryCspEqualityAmoSession session;
-  prepare(kernel, prefix, equality, records);
+  prepare(kernel, relations, equality, records);
   bool removed = false;
   const auto &target = equality.records().front().definition_clauses.front();
   std::vector<Lit> wanted;
@@ -220,7 +215,7 @@ void stale_definition_declines() {
   }
   assert(removed);
   const auto stale = nary_csp_equality_amo_apply(
-      kernel, prefix, equality, session, amo_limits(), {domains}, records);
+      kernel, relations, equality, session, amo_limits(), {domains}, records);
   assert(stale.status == NaryCspEqualityAmoStatus::Stale &&
          session.keys().empty());
   kernel.structural_provenance = nullptr;
@@ -232,10 +227,10 @@ void native_controller_offer_applies_once() {
   parse_into(kernel);
   FILE *records = std::tmpfile();
   assert(records);
-  NaryCspPrefixActionSession prefix;
+  NaryCspRelationOwnerSession relations;
   NaryCspEqualitySession equality;
   NaryCspEqualityAmoSession session;
-  prepare(kernel, prefix, equality, records);
+  prepare(kernel, relations, equality, records);
   kernel.nary_csp_equality_amo_session = &session;
   RandomControllerConfig config;
   config.parameters.rules = {"NaryCspEqualityAmo"};
@@ -294,10 +289,10 @@ void controller_decline_feedback() {
     parse_into(kernel);
     FILE *records = std::tmpfile();
     assert(records);
-    NaryCspPrefixActionSession prefix;
+    NaryCspRelationOwnerSession relations;
     NaryCspEqualitySession equality;
     NaryCspEqualityAmoSession session;
-    prepare(kernel, prefix, equality, records);
+    prepare(kernel, relations, equality, records);
     kernel.nary_csp_equality_amo_session = &session;
     Proof proof;
     if (cause == Unsupported) {
@@ -552,12 +547,12 @@ void emit_proof(const std::string &stem) {
   parse_into(kernel, true);
   FILE *records = std::fopen((stem + ".records.jsonl").c_str(), "w+");
   assert(records);
-  NaryCspPrefixActionSession prefix;
+  NaryCspRelationOwnerSession relations;
   NaryCspEqualitySession equality;
   NaryCspEqualityAmoSession session;
-  prepare(kernel, prefix, equality, records);
+  prepare(kernel, relations, equality, records);
   const auto applied = nary_csp_equality_amo_apply(
-      kernel, prefix, equality, session, amo_limits(), {domains}, records);
+      kernel, relations, equality, session, amo_limits(), {domains}, records);
   assert(applied.status == NaryCspEqualityAmoStatus::Applied);
   assert(default_solve(kernel) == 20);
   proof.flush();

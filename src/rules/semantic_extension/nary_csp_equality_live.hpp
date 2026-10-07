@@ -2,7 +2,7 @@
 
 #include "rules/registry.hpp"
 #include "rules/semantic_extension/nary_csp_equality.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_live.hpp"
+#include "rules/semantic_extension/nary_csp_relation_live.hpp"
 #include "strategy/semantic_variable.hpp"
 
 #include <cstdint>
@@ -67,7 +67,10 @@ struct NaryCspEqualityLimits {
 };
 
 struct NaryCspEqualityRequest {
-  const NaryCspPrefixOwnerSnapshot *owner = nullptr;
+  const NaryCspRelationOwnerSnapshot *owner = nullptr;
+  // The action wrapper may pass a just-captured staged owner. No Kernel state
+  // can have changed since that capture, so avoid charging a second census.
+  bool owner_freshly_captured = false;
   nary_csp_equality::Selection selection;
   NaryCspEqualityLimits limits;
   uint64_t action_id = 0;
@@ -119,7 +122,8 @@ struct NaryCspEqualityLiveResult {
   bool semantic_candidate_ready = false;
 };
 
-// One atomic internal action.  The caller supplies an authenticated X17 owner;
+// One atomic internal action.  The caller supplies an authenticated neutral
+// relation owner;
 // apply freshly recaptures it, plans and sizes the complete transaction, then
 // publishes the equality definition and transferred diagonal nogoods.  No
 // controller scheduling or public action registry is implied by this surface.

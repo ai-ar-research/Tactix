@@ -38,6 +38,7 @@ class DirectCspSupportActionSession;
 class DirectCspGuardedCoverActionSession;
 class NolHypergraphWalkSession;
 class NaryCspPrefixActionSession;
+class NaryCspRelationOwnerSession;
 class NaryCspEqualitySession;
 class NaryCspEqualityTransitivitySession;
 class NaryCspEqualityAmoSession;
@@ -2172,6 +2173,7 @@ struct Kernel {
   DirectCspGuardedCoverActionSession *direct_csp_guarded_cover_action_session = nullptr;
   NolHypergraphWalkSession *nol_hypergraph_walk_session = nullptr;
   NaryCspPrefixActionSession *nary_csp_prefix_action_session = nullptr;
+  NaryCspRelationOwnerSession *nary_csp_relation_owner_session = nullptr;
   NaryCspEqualitySession *nary_csp_equality_session = nullptr;
   NaryCspEqualityTransitivitySession *nary_csp_equality_transitivity_session = nullptr;
   NaryCspEqualityAmoSession *nary_csp_equality_amo_session = nullptr;

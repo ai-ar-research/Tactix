@@ -1,7 +1,7 @@
 #pragma once
 
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -87,7 +87,7 @@ bool nary_csp_equality_amo_selection_within_limits(
     const NaryCspEqualityAmoSelection &, const NaryCspEqualityAmoLimits &);
 
 NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
-    Kernel &, const NaryCspPrefixActionSession &,
+    Kernel &, const NaryCspRelationOwnerSession &,
     const NaryCspEqualitySession &, NaryCspEqualityAmoSession &,
     const NaryCspEqualityAmoLimits &, const NaryCspEqualityAmoSelection &,
     FILE *records);
@@ -125,7 +125,7 @@ struct NaryCspEqualityAmoOfferResult {
 };
 
 NaryCspEqualityAmoOfferResult nary_csp_equality_amo_offer(
-    Kernel &, const NaryCspPrefixActionSession &,
+    Kernel &, const NaryCspRelationOwnerSession &,
     const NaryCspEqualitySession &, const NaryCspEqualityAmoSession &,
     const NaryCspEqualityAmoLimits &,
     const NaryCspEqualityAmoOfferWindow &);

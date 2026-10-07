@@ -2382,14 +2382,14 @@ InvocationResult OnlineStrategyExecutor::advance(
               ? apply_rule_structured(rule, k, "nary-csp-equality", [&] {
                   const auto &parameters =
                       std::get<NaryCspEqualityParameters>(step.parameters);
-                  if (!k.nary_csp_prefix_action_session ||
+                  if (!k.nary_csp_relation_owner_session ||
                       !k.nary_csp_equality_session)
                     return ApplyResult::NoOp;
                   const size_t keys_before =
                       k.nary_csp_equality_session->keys().size();
                   nary_csp_equality_application.emplace(
                       nary_csp_equality_action_apply(
-                          k, *k.nary_csp_prefix_action_session,
+                          k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           nary_csp_equality_limits(parameters),
                           step.nary_csp_equality_instances[payload]));
@@ -2401,7 +2401,7 @@ InvocationResult OnlineStrategyExecutor::advance(
               ? apply_rule_structured(rule, k, "nary-csp-equality-transitivity", [&] {
                   const auto &parameters =
                       std::get<NaryCspEqualityTransitivityParameters>(step.parameters);
-                  if (!k.nary_csp_prefix_action_session ||
+                  if (!k.nary_csp_relation_owner_session ||
                       !k.nary_csp_equality_session ||
                       !k.nary_csp_equality_transitivity_session ||
                       !k.structural_provenance)
@@ -2410,7 +2410,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.nary_csp_equality_transitivity_session->keys().size();
                   nary_csp_equality_transitivity_application.emplace(
                       nary_csp_equality_transitivity_apply(
-                          k, *k.nary_csp_prefix_action_session,
+                          k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           *k.nary_csp_equality_transitivity_session,
                           nary_csp_equality_transitivity_limits(parameters),
@@ -2424,7 +2424,7 @@ InvocationResult OnlineStrategyExecutor::advance(
               ? apply_rule_structured(rule, k, "nary-csp-equality-amo", [&] {
                   const auto &parameters =
                       std::get<NaryCspEqualityAmoParameters>(step.parameters);
-                  if (!k.nary_csp_prefix_action_session ||
+                  if (!k.nary_csp_relation_owner_session ||
                       !k.nary_csp_equality_session ||
                       !k.nary_csp_equality_amo_session ||
                       !k.structural_provenance)
@@ -2433,7 +2433,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.nary_csp_equality_amo_session->keys().size();
                   nary_csp_equality_amo_application.emplace(
                       nary_csp_equality_amo_apply(
-                          k, *k.nary_csp_prefix_action_session,
+                          k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           *k.nary_csp_equality_amo_session,
                           nary_csp_equality_amo_limits(parameters),

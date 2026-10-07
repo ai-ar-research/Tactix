@@ -1,7 +1,7 @@
 #pragma once
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
-#include "rules/semantic_extension/nary_csp_prefix_action.hpp"
+#include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 #include <array>
 namespace tactix {
 struct NaryCspEqualityTransitivitySelection {
@@ -66,7 +66,7 @@ struct NaryCspEqualityTransitivityResult {
 RuleEligibility nary_csp_equality_transitivity_guard(const Kernel &);
 bool nary_csp_equality_transitivity_selection_valid(const NaryCspEqualityTransitivitySelection &);
 NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
-    Kernel &,const NaryCspPrefixActionSession &,const NaryCspEqualitySession &,
+    Kernel &,const NaryCspRelationOwnerSession &,const NaryCspEqualitySession &,
     NaryCspEqualityTransitivitySession &,const NaryCspEqualityTransitivityLimits &,
     const NaryCspEqualityTransitivitySelection &,FILE *records);
 // Caller-bounded deterministic record triples; no native installation implied.

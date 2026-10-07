@@ -2113,26 +2113,26 @@ bool RandomControllerSelector::choose(
   const auto discover_nary_equality = [&]() -> bool {
     if (!config.nary_csp_equality_action_producer.enabled ||
         has_static_offer("NaryCspEquality") ||
-        !k.nary_csp_prefix_action_session || !k.nary_csp_equality_session)
+        !k.nary_csp_relation_owner_session || !k.nary_csp_equality_session)
       return false;
     if (!config.nary_csp_equality_action_producer.valid()) {
       error = "n-ary CSP equality producer window is invalid";
       return false;
     }
-    const auto &prefix = *k.nary_csp_prefix_action_session;
+    const auto &relations = *k.nary_csp_relation_owner_session;
     const auto &equality = *k.nary_csp_equality_session;
     const auto profile = nary_equality_profile();
     const auto state = state_version(k);
     const bool owner_changed =
         nary_csp_equality_discovery_.owner != &k ||
-        nary_csp_equality_discovery_.prefix_session != &prefix ||
+        nary_csp_equality_discovery_.relation_session != &relations ||
         nary_csp_equality_discovery_.equality_session != &equality;
     const bool profile_changed =
         nary_csp_equality_discovery_.profile != profile;
     const bool relevant_change =
         owner_changed ||
         !same_version(nary_csp_equality_discovery_.state, state) ||
-        nary_csp_equality_discovery_.prefix_owners != prefix.retained_owners() ||
+        nary_csp_equality_discovery_.relation_owners != relations.retained_owners() ||
         nary_csp_equality_discovery_.equality_keys != equality.keys().size();
     if (relevant_change ||
         (profile_changed &&
@@ -2140,16 +2140,16 @@ bool RandomControllerSelector::choose(
           !nary_csp_equality_discovery_.pending))) {
       nary_csp_equality_discovery_ = {};
       nary_csp_equality_discovery_.owner = &k;
-      nary_csp_equality_discovery_.prefix_session = &prefix;
+      nary_csp_equality_discovery_.relation_session = &relations;
       nary_csp_equality_discovery_.equality_session = &equality;
       nary_csp_equality_discovery_.state = state;
-      nary_csp_equality_discovery_.prefix_owners = prefix.retained_owners();
+      nary_csp_equality_discovery_.relation_owners = relations.retained_owners();
       nary_csp_equality_discovery_.equality_keys = equality.keys().size();
       nary_csp_equality_discovery_.profile = profile;
     } else if (nary_csp_equality_discovery_.reconfiguration_required &&
                profile_changed) {
       nary_csp_equality_discovery_.state = state;
-      nary_csp_equality_discovery_.prefix_owners = prefix.retained_owners();
+      nary_csp_equality_discovery_.relation_owners = relations.retained_owners();
       nary_csp_equality_discovery_.equality_keys = equality.keys().size();
       nary_csp_equality_discovery_.profile = profile;
       nary_csp_equality_discovery_.reconfiguration_required = false;
@@ -2173,7 +2173,7 @@ bool RandomControllerSelector::choose(
       return false;
     }
     const auto offered = nary_csp_equality_action_offer(
-        k, prefix, equality, limits, window);
+        k, relations, equality, limits, window);
     producer_effort.push_back(
         {"NaryCspEquality", static_cast<uint8_t>(offered.status),
          offered.complete, 0, offered.effort.enumeration_work,
@@ -2206,26 +2206,26 @@ bool RandomControllerSelector::choose(
   const auto discover_nary_equality_amo = [&]() -> bool {
     if (!config.nary_csp_equality_amo_producer.enabled ||
         has_static_offer("NaryCspEqualityAmo") ||
-        !k.nary_csp_prefix_action_session || !k.nary_csp_equality_session ||
+        !k.nary_csp_relation_owner_session || !k.nary_csp_equality_session ||
         !k.nary_csp_equality_amo_session)
       return false;
     if (!config.nary_csp_equality_amo_producer.valid()) {
       error = "n-ary CSP equality AMO producer window is invalid";
       return false;
     }
-    const auto &prefix = *k.nary_csp_prefix_action_session;
+    const auto &relations = *k.nary_csp_relation_owner_session;
     const auto &equality = *k.nary_csp_equality_session;
     const auto &amo = *k.nary_csp_equality_amo_session;
     const auto profile = nary_equality_amo_profile();
     const auto state = state_version(k);
     const bool relevant_change =
         nary_csp_equality_amo_discovery_.owner != &k ||
-        nary_csp_equality_amo_discovery_.prefix_session != &prefix ||
+        nary_csp_equality_amo_discovery_.relation_session != &relations ||
         nary_csp_equality_amo_discovery_.equality_session != &equality ||
         nary_csp_equality_amo_discovery_.amo_session != &amo ||
         !same_version(nary_csp_equality_amo_discovery_.state, state) ||
-        nary_csp_equality_amo_discovery_.prefix_owners !=
-            prefix.retained_owners() ||
+        nary_csp_equality_amo_discovery_.relation_owners !=
+            relations.retained_owners() ||
         nary_csp_equality_amo_discovery_.equality_keys !=
             equality.keys().size() ||
         nary_csp_equality_amo_discovery_.amo_keys != amo.keys().size() ||
@@ -2233,11 +2233,11 @@ bool RandomControllerSelector::choose(
     if (relevant_change) {
       nary_csp_equality_amo_discovery_ = {};
       nary_csp_equality_amo_discovery_.owner = &k;
-      nary_csp_equality_amo_discovery_.prefix_session = &prefix;
+      nary_csp_equality_amo_discovery_.relation_session = &relations;
       nary_csp_equality_amo_discovery_.equality_session = &equality;
       nary_csp_equality_amo_discovery_.amo_session = &amo;
       nary_csp_equality_amo_discovery_.state = state;
-      nary_csp_equality_amo_discovery_.prefix_owners = prefix.retained_owners();
+      nary_csp_equality_amo_discovery_.relation_owners = relations.retained_owners();
       nary_csp_equality_amo_discovery_.equality_keys = equality.keys().size();
       nary_csp_equality_amo_discovery_.amo_keys = amo.keys().size();
       nary_csp_equality_amo_discovery_.profile = profile;
@@ -2258,7 +2258,7 @@ bool RandomControllerSelector::choose(
       return false;
     }
     const auto offered = nary_csp_equality_amo_offer(
-        k, prefix, equality, amo, limits, window);
+        k, relations, equality, amo, limits, window);
     producer_effort.push_back(
         {"NaryCspEqualityAmo", static_cast<uint8_t>(offered.status),
          offered.complete, 0, offered.enumeration_work,

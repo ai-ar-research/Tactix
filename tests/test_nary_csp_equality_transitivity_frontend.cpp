@@ -28,7 +28,6 @@ std::vector<std::vector<int32_t>> clauses(){
  return out;
 }
 NaryCspEqualityTransitivityParameters profile(){return {1000,10000,1000000,1000000,16,1000,10000,1000,10000,100000,100,100,1000000,1000,1000,1000000};}
-NaryCspPrefixParameters prefix_profile(){return {1000,10000,1000000,8,16,1000,7,16,10000,1000,10000,100000,1,100,100,1000000};}
 NaryCspEqualityParameters equality_profile(){return {1000,10000,1000000,16,1000,10000,1000,10000,100000,1,100,100};}
 OnlineInvocation action(const Selection &selection){
  OnlineInvocation a; a.id=4501;a.rule="NaryCspEqualityTransitivity";a.parameters=profile();
@@ -37,12 +36,11 @@ OnlineInvocation action(const Selection &selection){
 }
 void execute(Kernel &k,OnlineInvocation a){OnlineStrategyProgram p;p.sequence={std::move(a)};OnlineStrategyExecutor e;assert(e.configure(p,1));auto r=e.advance(k);assert(r.status==InvocationStatus::Completed&&r.made_rule_progress);}
 void parse(Kernel &k){FILE *f=std::tmpfile();assert(f);auto cs=clauses();std::fprintf(f,"p cnf 12 %zu\n",cs.size());for(auto &c:cs){for(auto l:c)std::fprintf(f,"%d ",l);std::fputs("0\n",f);}std::rewind(f);assert(!parse_dimacs(f,k));std::fclose(f);}
-Selection prepare(Kernel &k,NaryCspPrefixActionSession &p,NaryCspEqualitySession &e){
- k.nary_csp_prefix_action_session=&p;k.nary_csp_equality_session=&e;
+Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEqualitySession &e){
+ k.nary_csp_relation_owner_session=&relations;k.nary_csp_equality_session=&e;
  Selection selected;for(size_t d=0;d<3;++d)selected.domains[d]={int32_t(2*d+1),int32_t(2*d+2)};
  size_t i=0;for(auto owner:owners){
   std::vector<std::vector<int32_t>> ds;for(auto d:owner)ds.push_back({int32_t(2*d+1),int32_t(2*d+2)});
-  OnlineInvocation prefix;prefix.id=3900+i;prefix.rule="NaryCspPrefix";prefix.parameters=prefix_profile();prefix.granularity=InvocationGranularity::OneInstance;prefix.nary_csp_prefix_instances={{ds,{0,{{1,0},{2,0}}}}};execute(k,prefix);
   OnlineInvocation equality;equality.id=4200+i;equality.rule="NaryCspEquality";equality.parameters=equality_profile();equality.granularity=InvocationGranularity::OneInstance;equality.nary_csp_equality_instances={{ds,{0,1,2}}};execute(k,equality);
   for(const auto &r:e.records())if(r.key.domains==ds){selected.equalities[i]=r.key;selected.equality_variables[i]=r.extension_variable;}
   ++i;
@@ -51,8 +49,8 @@ Selection prepare(Kernel &k,NaryCspPrefixActionSession &p,NaryCspEqualitySession
 void typed_replay_declines_and_consumption(){
  for(unsigned mode=0;mode<4;++mode){
   Kernel k;parse(k);FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
-  NaryCspPrefixActionSession prefix;NaryCspEqualitySession equality;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
-  auto selected=prepare(k,prefix,equality);auto a=action(selected);
+  NaryCspRelationOwnerSession relations;NaryCspEqualitySession equality;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
+  auto selected=prepare(k,relations,equality);auto a=action(selected);
   if(mode==1)std::get<NaryCspEqualityTransitivityParameters>(a.parameters).maximum_recognition_work=1;
   if(mode==2)++a.nary_csp_equality_transitivity_instances[0].equality_variables[2];
   volatile sig_atomic_t stop=1;if(mode==3)k.stop=&stop;
@@ -93,8 +91,8 @@ void typed_replay_declines_and_consumption(){
 }
 void controller_selection(){
  Kernel k;parse(k);FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
- NaryCspPrefixActionSession p;NaryCspEqualitySession e;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
- auto selected=prepare(k,p,e);RandomControllerConfig config;config.parameters.rules={"NaryCspEqualityTransitivity"};config.offered_actions["NaryCspEqualityTransitivity"]={action(selected)};
+ NaryCspRelationOwnerSession relations;NaryCspEqualitySession e;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
+ auto selected=prepare(k,relations,e);RandomControllerConfig config;config.parameters.rules={"NaryCspEqualityTransitivity"};config.offered_actions["NaryCspEqualityTransitivity"]={action(selected)};
  bool used=false;for(uint64_t seed=1;seed<128&&!used;++seed){RandomControllerSelector selector(seed);controller::ActionRequest request;std::string error;assert(selector.choose(k,controller::observe_kernel(k),config,request,error));if(request.type!=controller::ActionType::Rule)continue;
   assert(request.invocation.nary_csp_equality_transitivity_instances==std::vector<Selection>{selected});controller::RestartController executor(k,{});auto result=executor.apply_rule(request,config.allowance("NaryCspEqualityTransitivity"));assert(result.invocation.status==InvocationStatus::Completed&&result.invocation.made_rule_progress);used=true;
  }assert(used);std::fclose(journal);
