@@ -1145,32 +1145,13 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
 
   if (large_domain_generator_fixing) {
     GeneratorFixingStats fixing;
-    // The chain's compound-progress admission, applied to a generator pass: a
-    // lone unit exposes no second consequence and only moves the search's
-    // fundamental domain, so the whole pass is withheld before any mutation.
-    const bool compound_only =
-        configured.nonforcing_cut_admission ==
-        SymmetryNonforcingCutAdmission::RequireCompoundProgress;
-    std::vector<SubstitutionRedundancyInstance> batch;
-    const OrbitopalInstanceVisitor collect =
-        [&](const SubstitutionRedundancyInstance &instance) {
-          batch.push_back(instance);
-          return true;
-        };
+    // Each returned instance is a proof-checked root unit. Cut-admission policy
+    // may still withhold a lone nonforcing binary below, but it never suppresses
+    // a valid unit merely because this pass found no second consequence.
     const bool completed = trace.measure("symmetry_generator_fixing", [&] {
       return generator_fixing_scans(kernel, snapshot, parameters, generators,
-                                    compound_only ? collect : visitor, stop,
-                                    result, fixing);
+                                    visitor, stop, result, fixing);
     });
-    if (batch.size() == 1) {
-      result.singleton_forcing_rows_declined += 1;
-      result.instances -= 1;
-    } else
-      for (const auto &instance : batch)
-        if (!visitor(instance)) {
-          fixing.visitor_stopped = true;
-          break;
-        }
     trace.event("symmetry_generator_fixing_result",
                 "negation_units\t%llu\tbinary_units\t%llu\tvisitor_stopped\t%u",
                 static_cast<unsigned long long>(fixing.negation_units),
@@ -1413,9 +1394,23 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
 
     trace.event("symmetry_chain_validation", "boundary\tend\tvalid\t%u",
                 static_cast<unsigned>(valid_chain));
-    const bool forcing_batch = std::any_of(
-        rows.begin(), rows.end(),
-        [](const CertifiedRow &row) { return row.kind == 1 || row.kind == 3; });
+    const auto root_forcing = [&](const CertifiedRow &row) {
+      // Kinds 1 and 3 materialize as syntactic units.  The backend normally
+      // chooses both endpoints of kinds 0 and 2 from the open root orbit, but
+      // make admission depend on the checked clause's live meaning instead of
+      // that producer invariant: a binary with exactly one root-false literal
+      // is unit and must never be withheld as a nonforcing cut.
+      if (row.kind == 1 || row.kind == 3)
+        return true;
+      const Lit first = row.kind == 0 ? row.representative
+                                      : negate(row.representative);
+      const Lit second = row.kind == 0 ? negate(row.other) : row.other;
+      if (kernel.value(first) > 0 || kernel.value(second) > 0)
+        return false;
+      return (kernel.value(first) < 0) != (kernel.value(second) < 0);
+    };
+    const bool forcing_batch =
+        std::any_of(rows.begin(), rows.end(), root_forcing);
     const bool decline_nonforcing =
         valid_chain && !rows.empty() && !forcing_batch &&
         (configured.nonforcing_cut_admission ==
@@ -1423,25 +1418,18 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
          (configured.nonforcing_cut_admission ==
               SymmetryNonforcingCutAdmission::RequireCompoundProgress &&
           rows.size() == 1));
-    const bool decline_singleton_forcing =
-        valid_chain && forcing_batch && rows.size() == 1 &&
-        configured.nonforcing_cut_admission ==
-            SymmetryNonforcingCutAdmission::RequireCompoundProgress;
     trace.event("symmetry_publish",
                 "boundary\tbegin\tforcing\t%u\tdeclined_nonforcing\t%u"
                 "\tdeclined_singleton\t%u",
                 static_cast<unsigned>(forcing_batch),
                 static_cast<unsigned>(decline_nonforcing),
-                static_cast<unsigned>(decline_singleton_forcing));
+                0u);
     if (!valid_chain) {
       result.complete_group = false;
       if (result.status == SymmetryEnumerationStatus::Complete)
         result.status = SymmetryEnumerationStatus::Failed;
     } else if (decline_nonforcing) {
       result.nonforcing_orbit_cuts_declined += rows.size();
-      stabilizer_instances += rows.size();
-    } else if (decline_singleton_forcing) {
-      result.singleton_forcing_rows_declined += rows.size();
       stabilizer_instances += rows.size();
     } else
       for (auto &row : rows) {

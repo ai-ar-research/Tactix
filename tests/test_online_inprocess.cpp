@@ -24,6 +24,7 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <numeric>
 #include <unistd.h>
 #include <string>
 #include <unordered_set>
@@ -3341,6 +3342,11 @@ static void large_domain_generator_fixing_uses_units_without_a_chain() {
     SubstitutionRedundancyParameters parameters = sst_parameters();
     parameters.graph_symmetry.maximum_generators = images.size();
     parameters.graph_symmetry.schreier_domain_limit = 0;
+    // The former compound-progress policy withheld a valid pass containing
+    // exactly one certified unit. Cut admission now applies only to nonforcing
+    // binaries, so both public and Default-configured compound mode expose it.
+    parameters.graph_symmetry.nonforcing_cut_admission =
+        SymmetryNonforcingCutAdmission::RequireCompoundProgress;
     SymmetryDiscoveryHints hints;
     hints.generators = std::move(images);
     std::vector<SubstitutionRedundancyInstance> instances;
@@ -3355,6 +3361,7 @@ static void large_domain_generator_fixing_uses_units_without_a_chain() {
     assert(enumeration.status == SymmetryEnumerationStatus::LimitReached);
     assert(enumeration.generators_validated == hints.generators.size());
     assert(enumeration.instances == instances.size());
+    assert(!enumeration.singleton_forcing_rows_declined);
     return std::pair{std::move(k), std::move(instances)};
   };
 
@@ -3410,6 +3417,44 @@ static void large_domain_generator_fixing_uses_units_without_a_chain() {
          {internalize(1), internalize(-1), internalize(2), internalize(-2),
           internalize(4), internalize(-4), internalize(3), internalize(-3)}},
         {internalize(1), internalize(4)});
+}
+
+static void compound_admission_publishes_a_singleton_forcing_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(2),
+                           ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2),
+                           ++k.next_clause_id);
+
+  SubstitutionRedundancyParameters parameters = sst_parameters();
+  parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
+  parameters.graph_symmetry.maximum_fixing_instances = 1;
+  parameters.graph_symmetry.negation_fixing_first = true;
+  parameters.graph_symmetry.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireCompoundProgress;
+  SymmetryDiscoveryHints hints;
+  hints.generators = {
+      {internalize(-1), internalize(1), internalize(2), internalize(-2)}};
+
+  std::vector<SubstitutionRedundancyInstance> instances;
+  const auto enumeration = substitution_redundancy_enumerate_symmetry(
+      k, parameters,
+      [&](const SubstitutionRedundancyInstance &instance) {
+        instances.push_back(instance);
+        return true;
+      }, nullptr, &hints);
+  assert(enumeration.status == SymmetryEnumerationStatus::Complete ||
+         enumeration.status == SymmetryEnumerationStatus::LimitReached);
+  assert(instances.size() == 1 && instances.front().clause.size() == 1);
+  assert(enumeration.instances == 1 &&
+         !enumeration.singleton_forcing_rows_declined &&
+         !enumeration.nonforcing_orbit_cuts_declined);
+  const Lit unit = instances.front().clause.front();
+  assert(substitution_redundancy_apply_detailed(k, instances.front(), parameters)
+             .status == SubstitutionRedundancyApplicationStatus::Applied);
+  assert(k.value(unit) > 0);
+  kernel_check_invariants(k);
 }
 
 static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
@@ -4901,6 +4946,59 @@ static int proof_witness(const char *input, const char *output,
   return result;
 }
 
+// A focused independent-checker fixture for the policy boundary exercised by
+// compound_admission_publishes_a_singleton_forcing_unit.  The first component
+// has the exact x1-negation automorphism; the caller supplies an independent
+// UNSAT tail so the emitted witnessed unit and final refutation can both be
+// audited by dsr-trim/Trestle with every-lemma checking.
+static int compound_singleton_proof(const char *input, const char *output) {
+  Kernel k;
+  Proof proof;
+  assert(proof.open(output, ProofFormat::DsrAscii));
+  k.proof = &proof;
+  proof.bind_variable_map(&k.internal_to_external);
+  FILE *cnf = fopen(input, "r");
+  assert(cnf && !parse_dimacs(cnf, k));
+  fclose(cnf);
+  assert(k.nvars >= 2);
+
+  SubstitutionRedundancyParameters parameters = sst_parameters();
+  parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
+  parameters.graph_symmetry.maximum_generators = 1;
+  parameters.graph_symmetry.maximum_fixing_instances = 1;
+  parameters.graph_symmetry.negation_fixing_first = true;
+  parameters.graph_symmetry.nonforcing_cut_admission =
+      SymmetryNonforcingCutAdmission::RequireCompoundProgress;
+  std::vector<Lit> generator(2 * k.nvars);
+  std::iota(generator.begin(), generator.end(), Lit{0});
+  generator[internalize(1)] = internalize(-1);
+  generator[internalize(-1)] = internalize(1);
+  SymmetryDiscoveryHints hints;
+  hints.generators = {std::move(generator)};
+
+  std::vector<SubstitutionRedundancyInstance> instances;
+  const auto enumeration = substitution_redundancy_enumerate_symmetry(
+      k, parameters,
+      [&](const SubstitutionRedundancyInstance &instance) {
+        instances.push_back(instance);
+        return true;
+      }, nullptr, &hints);
+  assert((enumeration.status == SymmetryEnumerationStatus::Complete ||
+          enumeration.status == SymmetryEnumerationStatus::LimitReached) &&
+         instances.size() == 1 && instances.front().clause.size() == 1 &&
+         !enumeration.singleton_forcing_rows_declined);
+  const Lit unit = instances.front().clause.front();
+  assert(substitution_redundancy_apply_detailed(k, instances.front(), parameters)
+             .status == SubstitutionRedundancyApplicationStatus::Applied);
+  assert(k.value(unit) > 0);
+  std::printf("c compound singleton unit %d\n", kernel_externalize(k, unit));
+  const int result = DefaultPolicy{}.solve(k, nullptr);
+  proof.flush();
+  assert(result == 20);
+  std::puts("s UNSATISFIABLE");
+  return result;
+}
+
 static void seeded_walk_reports_exact_failure_status() {
   Kernel k;
   ScopedHeuristics h(k);
@@ -4931,6 +5029,8 @@ static void seeded_walk_reports_exact_failure_status() {
 
 int main(int argc, char **argv) {
   seeded_walk_reports_exact_failure_status();
+  if (argc == 4 && !std::strcmp(argv[1], "--compound-singleton-proof"))
+    return compound_singleton_proof(argv[2], argv[3]);
   std::optional<uint64_t> generator_cap;
   std::optional<bool> root_stabilizer;
   if (argc == 8 || argc == 9) {
@@ -5000,6 +5100,7 @@ int main(int argc, char **argv) {
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);
   stabilizer_chain_adds_all_cuts_before_rup_unit();
   large_domain_generator_fixing_uses_units_without_a_chain();
+  compound_admission_publishes_a_singleton_forcing_unit();
   fix_and_cut_reaches_nonclausal_orbits();
   amo_stabilizer_chain_propagates_complements_online();
   every_root_assignment_constrains_graph_symmetry();
