@@ -190,5 +190,54 @@ class RuntimeTaskTest(unittest.TestCase):
         self.assertFalse(scratch.exists())
 
 
+class ExperimentalCheckerProfileTest(unittest.TestCase):
+    def test_explicit_long_profile_preserves_independent_checker_and_defaults(self):
+        import experimental_tierd as builder
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference, frozen, long = (root / name for name in ('ref', 'frozen', 'long'))
+            for directory in (reference, frozen, long):
+                directory.mkdir()
+            baseline = {'checkers': {}, 'provenance': {}}
+            for name in ('checkmodel', 'modelcheck.py', 'drat-trim', 'cake-lpr',
+                         'veripb', 'cake-pb-cnf'):
+                path = reference / name
+                path.write_text(name)
+                baseline['checkers'][name] = name
+                baseline['provenance'][name] = {'sha256': builder.sha(path)}
+            frozen_hashes, long_hashes = {}, {}
+            for name in ('dsr-trim', 'dsr-compress', 'srcheck'):
+                path = frozen / name
+                path.write_text('frozen-' + name)
+                frozen_hashes[name] = builder.sha(path)
+            for name in ('dsr-trim', 'dsr-compress'):
+                path = long / ('compress' if name == 'dsr-compress' else name)
+                path.write_text('long-' + name)
+                long_hashes[name] = builder.sha(path)
+            with patch.multiple(builder, FROZEN_DSR=frozen, LONG_DSR=long,
+                                FROZEN_DSR_HASHES=frozen_hashes,
+                                LONG_DSR_HASHES=long_hashes):
+                original = builder.checker_sources(reference, baseline, 'auto')
+                selected = builder.checker_sources(reference, baseline, 'auto', 'long64')
+                self.assertEqual(original['dsr-trim'], frozen / 'dsr-trim')
+                self.assertEqual(selected['dsr-trim'], long / 'dsr-trim')
+                self.assertEqual(selected['dsr-compress'], long / 'compress')
+                for name in set(original) - set(long_hashes):
+                    self.assertEqual(selected[name], original[name])
+                for name in ('dsr-trim', 'compress'):
+                    path = long / name
+                    saved = path.read_bytes()
+                    path.write_bytes(b'tampered')
+                    with self.assertRaisesRegex(ValueError, 'pin mismatch'):
+                        builder.checker_sources(reference, baseline, 'auto', 'long64')
+                    path.write_bytes(saved)
+                (long / 'compress').unlink()
+                with self.assertRaisesRegex(ValueError, 'pin mismatch'):
+                    builder.checker_sources(reference, baseline, 'auto', 'long64')
+                self.assertEqual(builder.checker_sources(reference, baseline, 'auto'), original)
+                with self.assertRaisesRegex(ValueError, 'unsupported DSR checker profile'):
+                    builder.checker_sources(reference, baseline, 'auto', 'unqualified')
+
+
 if __name__ == "__main__":
     unittest.main()
