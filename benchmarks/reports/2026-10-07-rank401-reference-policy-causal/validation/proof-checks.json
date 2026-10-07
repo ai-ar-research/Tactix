@@ -1,0 +1,142 @@
+[
+  {
+    "case": "binary-0-0",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-0",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-0",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-0",
+    "stage": 3,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-1",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-1",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-1",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-0-1",
+    "stage": 3,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-0",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-0",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-0",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-0",
+    "stage": 3,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-1",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-1",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-1",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "binary-1-1",
+    "stage": 3,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-0-0",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-0-0",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-0-0",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-0-1",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-0-1",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-0-1",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-1-0",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-1-0",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-1-0",
+    "stage": 2,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-1-1",
+    "stage": 0,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-1-1",
+    "stage": 1,
+    "exit_code": 0
+  },
+  {
+    "case": "ascii-1-1",
+    "stage": 2,
+    "exit_code": 0
+  }
+]

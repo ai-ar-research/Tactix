@@ -1,0 +1,11 @@
+{
+  "source_archive": "benchmarks/runs/20261007-rank401-owner-policy-focused-repair/source.tar",
+  "source_archive_sha256": "ad20da2b75691fc004ed3d0fb76268f3658d5c40cf015b651690554d683c090b",
+  "source_changes": false,
+  "repair": "ASCII LSR goes directly to Trestle; binary LSR is decompressed first",
+  "previous_gate": "1754669",
+  "sha256": {
+    "run.sbatch": "cfa5be7ee98173d8e05fb6455f9738de91d8e7feaf0cd01cfec7059d573cba35",
+    "pins/check-proofs.py": "3eac4b318b593938004302ef34985b0da58df723fa5168549c5b5eaed058f301"
+  }
+}

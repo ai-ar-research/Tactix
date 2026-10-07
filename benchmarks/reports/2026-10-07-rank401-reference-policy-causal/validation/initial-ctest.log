@@ -1,0 +1,27 @@
+Test project /home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-owner-policy-focused/build-1754626
+    Start   8: sr_proof_encoding
+1/8 Test   #8: sr_proof_encoding ................   Passed    0.03 sec
+    Start  19: strategy_config
+2/8 Test  #19: strategy_config ..................Subprocess aborted***Exception:   0.44 sec
+test_strategy_config: /home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-owner-policy-focused/source/tests/test_strategy_config.cpp:1091: int main(): Assertion `php.stats.reductions > 0' failed.
+
+    Start  32: symmetry_backend
+3/8 Test  #32: symmetry_backend .................   Passed  203.30 sec
+    Start 250: heuristic_execution
+4/8 Test #250: heuristic_execution ..............   Passed    0.03 sec
+    Start 251: heuristics_reattach
+5/8 Test #251: heuristics_reattach ..............   Passed    0.01 sec
+    Start 257: inprocess_program
+6/8 Test #257: inprocess_program ................   Passed    0.02 sec
+    Start 273: online_inprocess
+7/8 Test #273: online_inprocess .................   Passed    6.84 sec
+    Start 317: structured_handoff
+8/8 Test #317: structured_handoff ...............   Passed    0.03 sec
+
+88% tests passed, 1 tests failed out of 8
+
+Total Test time (real) = 210.73 sec
+
+The following tests FAILED:
+	 19 - strategy_config (Subprocess aborted)
+Errors while running CTest
