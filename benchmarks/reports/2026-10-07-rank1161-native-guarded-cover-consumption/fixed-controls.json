@@ -1,0 +1,231 @@
+[
+  {
+    "label": "valid-rup-unit",
+    "valid": true,
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-trim",
+          "-f",
+          "-c",
+          "/proc/2/fd/3",
+          "/proc/2/fd/5",
+          "/proc/2/fd/6"
+        ],
+        "exit": 0,
+        "stdout": "c CNF file path: /proc/2/fd/3\nc DSR file path: /proc/2/fd/5\nc LSR file path: /proc/2/fd/6\nc Using a STREAMING parsing strategy.\nc Doing FORWARDS proof checking.\nc The emitted LSR proof will be in binary format (`-c` specified).\nc The CNF formula has 2 clauses and 2 variables.\nc Parsing the CNF took 0.000 secs\nc Detected that the DSR proof is in binary format.\nc Checking proof...\nc Proof checking took 0.000 secs\ns VALID\nc A valid proof, without an empty clause.\nc Total runtime took 0.000 secs\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-compress",
+          "-d",
+          "/proc/2/fd/6",
+          "/proc/2/fd/7"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/srcheck",
+          "/proc/2/fd/3",
+          "/proc/2/fd/6",
+          "c"
+        ],
+        "exit": 0,
+        "stdout": "c Proof is valid, but did not derive the empty clause.\ns VALID\n",
+        "stderr": "Parsing formula with 2 variables, 2 clauses\nParsed formula\n"
+      }
+    ]
+  },
+  {
+    "label": "empty-positive",
+    "valid": true,
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-trim",
+          "-f",
+          "-c",
+          "/proc/2/fd/3",
+          "/proc/2/fd/5",
+          "/proc/2/fd/6"
+        ],
+        "exit": 0,
+        "stdout": "c CNF file path: /proc/2/fd/3\nc DSR file path: /proc/2/fd/5\nc LSR file path: /proc/2/fd/6\nc Using a STREAMING parsing strategy.\nc Doing FORWARDS proof checking.\nc The emitted LSR proof will be in binary format (`-c` specified).\nc The CNF formula has 2 clauses and 2 variables.\nc Parsing the CNF took 0.000 secs\nc Checking proof...\nc Proof checking took 0.000 secs\ns VALID\nc A valid proof, without an empty clause.\nc Total runtime took 0.000 secs\n",
+        "stderr": ""
+      },
+      {
+        "operation": "empty-binary-LSR identity conversion",
+        "input_bytes": 0,
+        "output_bytes": 0,
+        "empty_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "source_cnf_sha256": "c723087c6c5f7c739aa6f938795f888f96ddff55f6ff620953f14fb726660296",
+        "native_dsr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "requires_independent_binary_Trestle": true,
+        "exit": 0
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/srcheck",
+          "/proc/2/fd/3",
+          "/proc/2/fd/6",
+          "c"
+        ],
+        "exit": 0,
+        "stdout": "c Proof is valid, but did not derive the empty clause.\ns VALID\n",
+        "stderr": "Parsing formula with 2 variables, 2 clauses\nParsed formula\n"
+      }
+    ]
+  },
+  {
+    "label": "invalid-empty",
+    "valid": false,
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-trim",
+          "-f",
+          "-c",
+          "/proc/2/fd/3",
+          "/proc/2/fd/5",
+          "/proc/2/fd/6"
+        ],
+        "exit": 1,
+        "stdout": "c CNF file path: /proc/2/fd/3\nc DSR file path: /proc/2/fd/5\nc LSR file path: /proc/2/fd/6\nc Using a STREAMING parsing strategy.\nc Doing FORWARDS proof checking.\nc The emitted LSR proof will be in binary format (`-c` specified).\nc The CNF formula has 2 clauses and 2 variables.\nc Parsing the CNF took 0.000 secs\nc Detected that the DSR proof is in binary format.\nc Checking proof...\n",
+        "stderr": "Fatal error: Didn't UP refute the empty clause.\n"
+      }
+    ]
+  },
+  {
+    "label": "truncated",
+    "valid": false,
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-trim",
+          "-f",
+          "-c",
+          "/proc/2/fd/3",
+          "/proc/2/fd/5",
+          "/proc/2/fd/6"
+        ],
+        "exit": 1,
+        "stdout": "c CNF file path: /proc/2/fd/3\nc DSR file path: /proc/2/fd/5\nc LSR file path: /proc/2/fd/6\nc Using a STREAMING parsing strategy.\nc Doing FORWARDS proof checking.\nc The emitted LSR proof will be in binary format (`-c` specified).\nc The CNF formula has 2 clauses and 2 variables.\nc Parsing the CNF took 0.000 secs\nc Detected that the DSR proof is in binary format.\nc Checking proof...\n",
+        "stderr": "Fatal error: EOF while parsing binary lit.\n"
+      }
+    ]
+  },
+  {
+    "label": "lsr-invalid-rup",
+    "original_lsr_text": "2 0 0\n",
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-compress",
+          "-c",
+          "/proc/2/fd/9",
+          "/proc/2/fd/10"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-compress",
+          "-d",
+          "/proc/2/fd/10",
+          "/proc/2/fd/11"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/srcheck",
+          "/proc/2/fd/8",
+          "/proc/2/fd/10",
+          "c"
+        ],
+        "exit": 0,
+        "stdout": "c Error or invalid proof\ns INVALID\n",
+        "stderr": "Parsing formula with 1 variables, 1 clauses\nParsed formula\n"
+      }
+    ],
+    "completed": true,
+    "lossless_roundtrip": true,
+    "status": "s INVALID",
+    "binary_sha256": "9f07a1d473ac7214c792fbad73557633daf7631c55752d48eaa4b62b2d5583b8",
+    "expected_status": "s INVALID"
+  },
+  {
+    "label": "lsr-valid-unit-repeat",
+    "original_lsr_text": "2 1 0 1 0\n",
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-compress",
+          "-c",
+          "/proc/2/fd/12",
+          "/proc/2/fd/13"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-compress",
+          "-d",
+          "/proc/2/fd/13",
+          "/proc/2/fd/14"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/srcheck",
+          "/proc/2/fd/8",
+          "/proc/2/fd/13",
+          "c"
+        ],
+        "exit": 0,
+        "stdout": "c Proof is valid, but did not derive the empty clause.\ns VALID\n",
+        "stderr": "Parsing formula with 1 variables, 1 clauses\nParsed formula\n"
+      }
+    ],
+    "completed": true,
+    "lossless_roundtrip": true,
+    "status": "s VALID",
+    "binary_sha256": "a00e7a9fda226318d55f4001da167fdc9787e43b05b1710f7ef7eacbb2dbbb60",
+    "expected_status": "s VALID"
+  },
+  {
+    "label": "lsr-truncated",
+    "operation": "remove final byte from authenticated valid-unit-repeat binary LSR",
+    "original_sha256": "a00e7a9fda226318d55f4001da167fdc9787e43b05b1710f7ef7eacbb2dbbb60",
+    "truncated_sha256": "d2ef949bd6bc5a75d4035ee34808dc4dd85618ec02f9f49766ff735b9c256a79",
+    "original_binary_hex": "030402000200",
+    "truncated_binary_hex": "0304020002",
+    "expected_status": "s INVALID",
+    "stages": [
+      {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/srcheck",
+          "/proc/2/fd/8",
+          "/proc/2/fd/15",
+          "c"
+        ],
+        "exit": 0,
+        "stdout": "c Error or invalid proof\ns INVALID\n",
+        "stderr": "Parsing formula with 1 variables, 1 clauses\nParsed formula\n"
+      }
+    ]
+  }
+]
