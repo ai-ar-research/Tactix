@@ -2,7 +2,7 @@
 
 ## Current stage
 
-The frozen regression checkpoint is Release `0e6b95c91`, binary `7d71dc9154e3d2a81c0e2b796b6286ead884908a177d68497cd78508d66bfc53`, with `--auto-proof --default-nol-walk=on`. All-44 `1753421` is running at full width. [All four regressions accept](benchmarks/reports/2026-10-07-0e-four-regressions-terminal/README.md); WV2–89 `1753473` finishes89 dispositions:78 checked, two clean proof censors and nine allowed solver timeouts at4319.743s. [Terminal B28+C5/Rank1–50/WV100](benchmarks/reports/2026-10-07-0e6-three-regressions-terminal/README.md) `1753470`–`1753472` pass: 33/50/100 dispositions, 32/42/98 independently checked, 1/8/2 clean proof censors, and 945.859/7804.489/2646.389 solver seconds. Three historical targets (original ranks147/263/630, campaign indices3/6/24) are independently reverified; no new closure yet. Pre-N1 shared-binary screen1753893 checks rank401 in62.601s and rank991 in12.479s with noL+graph enabled; the user now directs noL retirement and a general Rank401 Boolean-trajectory diagnosis instead. These development results do not qualify the intended candidate; accepted coverage remains4/44. Active milestone remains at least12/44 on one coherent candidate. Later `727266a48` stops clock-driven rediscovery for retained affine owners and passes focused native/proof checks; automatic discovery of new sources after admission still needs an eligible-source epoch. It is outside the frozen candidate.
+The frozen regression checkpoint is Release `0e6b95c91`, binary `7d71dc9154e3d2a81c0e2b796b6286ead884908a177d68497cd78508d66bfc53`, with `--auto-proof --default-nol-walk=on`. All-44 `1753421` is running at full width. [All four regressions accept](benchmarks/reports/2026-10-07-0e-four-regressions-terminal/README.md); WV2–89 `1753473` finishes89 dispositions:78 checked, two clean proof censors and nine allowed solver timeouts at4319.743s. [Terminal B28+C5/Rank1–50/WV100](benchmarks/reports/2026-10-07-0e6-three-regressions-terminal/README.md) `1753470`–`1753472` pass: 33/50/100 dispositions, 32/42/98 independently checked, 1/8/2 clean proof censors, and 945.859/7804.489/2646.389 solver seconds. Three historical targets (original ranks147/263/630, campaign indices3/6/24) are independently reverified. New original rank540 (campaign index19) is independently model-checked SAT at4801.737s on this frozen checkpoint; it needs confirmation on the intended noL-free candidate. Ranks627/1004 emit UNSAT but their DSR checkers exhaust allocation, so neither is closed. Pre-N1 shared-binary screen1753893 checks rank401 in62.601s and rank991 in12.479s with noL+graph enabled; the user now directs noL retirement and a general Rank401 Boolean-trajectory diagnosis instead. These development results do not qualify the intended candidate; accepted coverage remains4/44. Active milestone remains at least12/44 on one coherent candidate. Later `727266a48` stops clock-driven rediscovery for retained affine owners and passes focused native/proof checks; automatic discovery of new sources after admission still needs an eligible-source epoch. It is outside the frozen candidate.
 
 The accepted shared execution/feedback preparation remains `375b621b`; its [acceptance report](benchmarks/reports/2026-10-03-shared-policy-preparation-accepted.md) owns the earlier gates. Current work is the unaccepted organic winner-integration stage in [plan §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration) and the [detailed subplan](docs/winner-integration-plan.md). N1--N4, replay, observation/feedback, fuzz and independent checking remain active; reward/training remain deferred.
 
@@ -16,6 +16,7 @@ Reach the active 12/44 milestone while retaining the longer-term original-36 and
 
 | Scope | Authority | Disposition |
 |---|---|---|
+| Native DSR transport | [focused gate](benchmarks/reports/2026-10-07-native-dsr-transport/README.md),1753984 | Optional explicitly pinned helper passes7 native suites/131 directed cases plus92 protocol tests in Release and ASan/UBSan, zero skips. Identical33.55MB output converts in0.156s versus13.719s Python. Independent checkers still own proof acceptance. Claude owner22266f12 owns the pending native-path harness selftest; no target closure or cumulative acceptance claimed |
 | Restored LymphoSAT SAT constructors | [terminal regression](benchmarks/reports/2026-10-04-restored-lymphosat-sat-regression-terminal.md) | Rejected `156afef6b`: B28+C5 passed, Rank aggregate failed, and seven WV/WV2 solves were lost; no wrong verdict or checker rejection |
 | Affine and guidance focus | [terminal focused report](benchmarks/reports/2026-10-04-affine-guidance-recovery.md) | Six unique direct MDP owners recovered with checked models; `cabp`, Break, and Timetable trajectories not recovered; guidance never offered or consumed |
 | Current scheduler repair | `f6d7453f6` | Lucky/8 restored as structured-root stage 0; combined checkpoint suite passes 10/10 in normal and ASan/UBSan builds; no benchmark result yet |
@@ -196,11 +197,13 @@ learner-visible `DirectCspSupport -> Propagate -> SemanticVariableAdvice`
 scheduling with replay, raw feedback, relevant-change admission and duplicate
 suppression at `066c11f2a`. The one/four-row WV93 short probe confirms repeated
 publication but no root deduction; next obtain useful Boolean deduction or an
-isolated independently checked search benefit before extending target runtime. Rank401/noL already reaches
-three effective X17 actions after certified ULC completion; its next increment
-is a stronger generic relation consequence or conservative definition with exact
-premises, DSR/RAT derivation, mapping/reconstruction and bounded repeated
-inprocessing. Neither lane may promote to DefaultPolicy from a single target.
+isolated independently checked search benefit before extending target runtime. Rank401 now follows
+the user-directed ordinary Boolean-trajectory lane: retire noL local search and
+keep X17 retired. Full symmetry with only residual reseeding disabled independently
+checks SAT in42.767s (1753974). The [matched causal pair](benchmarks/reports/2026-10-07-rank401-residual-seed-causal/README.md)
+1753985 confirms44.528s checked versus reseeded UNKNOWN300.027s. Family controls
+1753993 and activation/import separation1754027 remain pending; retain the default
+until the general change and regression gates are justified.
 
 After these shared increments are integrated, run their focused proof/model, API,
 replay, feedback and sanitizer checks as one cumulative candidate. Then invoke
@@ -209,9 +212,9 @@ Only a behavior-changing DefaultPolicy candidate that survives fuzz proceeds to
 full Debug and the B28+C5, Rank1--50, WV100 and WV2--89 gates under the standing
 1,800-second proof-check and slowdown rules.
 
-The certified structured verticals now include public X17 NaryCspPrefix.
-Direct PHP is append-only ID 36, GF(3) Gaussian ID 37, Tseitin cycle breaking
-ID 38, and NaryCspPrefix ID 39 with disabled StepId 28 and C v8 tag 42.
+Direct PHP is append-only ID36, GF(3) Gaussian ID37 and Tseitin cycle breaking
+ID38. Retired X17 keeps ID39/StepId28/Ctag42 as rejected tombstones; its former
+public capability and historical evidence do not authorize restoring it.
 X16 offers exact connected-component identities without a private component
 choice, publishes one authenticated X7 unit, leaves Propagate separate, and
 then permits a fresh root-aware census. Every constraint still retains Boolean
