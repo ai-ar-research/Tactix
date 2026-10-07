@@ -1,0 +1,83 @@
+[
+  {
+    "command": [
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/pins/kissat-original",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/results/residual.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/results/original.dsr"
+    ],
+    "returncode": 10,
+    "timed_out": false,
+    "seconds": 129.89227709919214,
+    "cpu": 5,
+    "binary_sha256": "52d55631b1e2acb1f3bb65481049ba66ff98568ee60850451104670c6045628a",
+    "proof_sha256": "37e41d882f83928f7f2c202b3c3875588698c3d26be683cb63adc73e235baee7",
+    "proof_bytes": 466008670,
+    "stdout_sha256": "cb498add111119378a95bc617fe0f09def3072629b01452450bac4d22adcccdf",
+    "checks": [
+      {
+        "cnf": "residual.cnf",
+        "exit": 0,
+        "output": "checkmodel: OK \u2014 8333 clauses satisfied, 1419 vars assigned\n"
+      },
+      {
+        "cnf": "original.cnf",
+        "exit": 0,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      }
+    ]
+  },
+  {
+    "command": [
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/pins/kissat-observer",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/results/residual.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/results/observer-off.dsr"
+    ],
+    "returncode": 10,
+    "timed_out": false,
+    "seconds": 125.22512824460864,
+    "cpu": 5,
+    "binary_sha256": "e86af6d0490a4763d22c6cde5bbaea91de56c4d52203cca4c846d47238ff6f31",
+    "proof_sha256": "37e41d882f83928f7f2c202b3c3875588698c3d26be683cb63adc73e235baee7",
+    "proof_bytes": 466008670,
+    "stdout_sha256": "cb498add111119378a95bc617fe0f09def3072629b01452450bac4d22adcccdf",
+    "checks": [
+      {
+        "cnf": "residual.cnf",
+        "exit": 0,
+        "output": "checkmodel: OK \u2014 8333 clauses satisfied, 1419 vars assigned\n"
+      },
+      {
+        "cnf": "original.cnf",
+        "exit": 0,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      }
+    ]
+  },
+  {
+    "command": [
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/pins/kissat-observer",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/results/residual.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3/results/observer-on.dsr"
+    ],
+    "returncode": 10,
+    "timed_out": false,
+    "seconds": 122.13372980803251,
+    "cpu": 5,
+    "binary_sha256": "e86af6d0490a4763d22c6cde5bbaea91de56c4d52203cca4c846d47238ff6f31",
+    "proof_sha256": "37e41d882f83928f7f2c202b3c3875588698c3d26be683cb63adc73e235baee7",
+    "proof_bytes": 466008670,
+    "stdout_sha256": "cb498add111119378a95bc617fe0f09def3072629b01452450bac4d22adcccdf",
+    "checks": [
+      {
+        "cnf": "residual.cnf",
+        "exit": 0,
+        "output": "checkmodel: OK \u2014 8333 clauses satisfied, 1419 vars assigned\n"
+      },
+      {
+        "cnf": "original.cnf",
+        "exit": 0,
+        "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+      }
+    ]
+  }
+]

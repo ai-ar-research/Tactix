@@ -1,0 +1,36 @@
+[
+  {
+    "arm": "kissat",
+    "command": [
+      "taskset",
+      "-c",
+      "17",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-residual-early-trace/pins/kissat",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-residual-early-trace/pins/residual.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-residual-early-trace/results/kissat.proof"
+    ],
+    "code": -15,
+    "timed_out": true,
+    "seconds": 5.0351064801216125,
+    "cpu": 17
+  },
+  {
+    "arm": "tactix",
+    "command": [
+      "taskset",
+      "-c",
+      "17",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-residual-early-trace/pins/tactix",
+      "--default-nol-walk=off",
+      "--default-graph-labeling=off",
+      "--default-structured-symmetry=off",
+      "--auto-proof",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-residual-early-trace/pins/residual.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-actual-residual-early-trace/results/tactix.proof"
+    ],
+    "code": 0,
+    "timed_out": true,
+    "seconds": 5.019036991521716,
+    "cpu": 17
+  }
+]
