@@ -1,0 +1,24 @@
+{
+  "time": "2026-10-07T20:13:49.843262+00:00",
+  "cancel_ids": [
+    "1754322",
+    "1754296",
+    "1754403",
+    "1754404",
+    "1754405",
+    "1754534",
+    "1753421"
+  ],
+  "reason": "User requested job-necessity audit; canceled superseded old-source proof/fuzz, original-seed policy gates, and synthetic-order target. Actual Satsuma+Kissat parity is the current Rank401 direction.",
+  "preserve": "Completed records and all failure evidence; cancellations are incomplete/superseded, never accepted.",
+  "keep": [
+    "1754300 current noL-free Default fuzz",
+    "1754301 current noL-free controller fuzz",
+    "1754556 current targeted fuzz smoke",
+    "1754129 current full Debug",
+    "1754095 remaining noL-free WV2 proof check",
+    "1754535 current Rank569 target",
+    "1754114 focused checker width comparison",
+    "1751450 unrelated interactive allocation"
+  ]
+}

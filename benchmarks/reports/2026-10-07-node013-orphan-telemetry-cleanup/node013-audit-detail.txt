@@ -1,0 +1,11 @@
+Filesystem        1B-blocks         Used  Available Use% Mounted on
+/dev/sda3      462588203008 460226871296 2361331712 100% /
+3850240	/tmp/rank991-window-1754362
+2746441 /tmp/rank991-window-1754362/rank991.cnf
+1098338 /tmp/rank991-window-1754362/proof.auto
+0 /tmp/rank991-window-1754362/time.txt
+443027218432	/tmp/tactix-gf2-telemetry-001-f0kik41g
+443027209094 /tmp/tactix-gf2-telemetry-001-f0kik41g/feedback.jsonl
+118 /tmp/tactix-gf2-telemetry-001-f0kik41g/provenance.jsonl
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NLINK      NODE NAME
+tactix  26550  hwu    4u   REG    8,3        0     0 537685007 /tmp/#537685007 (deleted)

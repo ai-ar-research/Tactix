@@ -1,0 +1,8 @@
+1754301|fuzz-nolret-controller|RUNNING|100|400000M|cpu-dense-hwulab-q|node018
+1754556|nolret-tgt-smoke|RUNNING|48|187.50G|cpu-dense-hwulab-q|node017
+1754300|fuzz-nolret-default|RUNNING|100|400000M|cpu-dense-hwulab-q|node017
+1754129|nol-free-full-debug|RUNNING|8|32G|cpu-dense-hwulab-q|node018
+1754095_51|controller-wv2-89|RUNNING|12|32G|cpu-dense-hwulab-q|node018
+1754535_0|r569-fastel-candidate-r2|RUNNING|4|32G|cpu-q|node013
+1754114|rank1004-checker-width|RUNNING|4|32G|cpu-q|node005
+1751450|bash|RUNNING|4|63G|cpu-q|node008
