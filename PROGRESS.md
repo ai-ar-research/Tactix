@@ -36,11 +36,8 @@ campaigns. Current documentation cleanup changes no solver behavior.
    `InvalidRequest` after root Sweep. It also reproduces on the older noL-free
    source. No wrong model, proof or verdict was observed; the API failure remains
    a required repair, not an accepted decline.
-4. Correct the malformed capacity-patch SHA in
-   `FIXED_LONG_DSR_PROVENANCE['repository_patch_sha256']`, preferably enforce its
-   file binding, and supplement affected frozen manifests without rewriting them.
-   The [independent checker disposition](benchmarks/runs/20261007-long64-fixed-independent-review/DISPOSITION.md)
-   gives the exact value and reproducer; enforced source/binary hashes are sound.
+4. Done: the fixed64 patch hash is corrected and file-bound; frozen manifests
+   are read through the [supplemental correction](benchmarks/reports/2026-10-07-fixed64-provenance-hash-correction/README.md).
 5. Freeze fresh clean Release/full Debug pins from the coherent repaired source.
    Supply its exact binding to the existing Claude fuzz owner, require effective
    Default/random-controller reach, and run B28+C5, Rank1–50, WV100 and WV2–89.
