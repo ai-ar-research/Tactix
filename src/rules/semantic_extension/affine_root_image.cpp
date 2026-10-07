@@ -123,10 +123,11 @@ RootImageStatus prepare_affine_root_image(
   // group's actual clauses; the linear allowance above covers its witnesses.
   const __uint128_t unit_directory = __uint128_t(unit_sources) *
       (sizeof(External) + 4 * sizeof(void *));
-  __uint128_t census_bytes = 0;
+  __uint128_t census_bytes = 0, previous_scope_literals = 0;
   if (previous) {
     for (const auto &record : *previous) {
       if (!meter.take(1 + record.scope.size())) return meter.failure;
+      previous_scope_literals += record.scope.size();
       census_bytes += sizeof(RootScopeRecord) + record.scope.size() * sizeof(External);
       for (const auto &body : record.normalized_bodies) {
         if (!meter.take(1 + body.size())) return meter.failure;
@@ -136,7 +137,18 @@ RootImageStatus prepare_affine_root_image(
     }
   }
   // Previous plus staged census and canonical temporary bodies coexist.
+  // One scope key and an index-vector entry per possible census record.  The
+  // fourfold factor covers map nodes, vector growth, allocator metadata and
+  // the staged key payload while preserving the existing exact byte ceiling.
+  const __uint128_t scope_index_entries = previous || completed ?
+      __uint128_t(sources.size()) + (previous ? previous->size() : 0) : 0;
+  const __uint128_t scope_index_bytes = 4 * scope_index_entries *
+          (sizeof(std::pair<const std::vector<External>, std::vector<size_t>>) +
+           4 * sizeof(void *) + sizeof(size_t)) +
+      (previous || completed ?
+       4 * (__uint128_t(literals) + previous_scope_literals) * sizeof(External) : 0);
   const __uint128_t bytes = source_metadata + literal_storage + root_storage + unit_directory +
+      scope_index_bytes +
       2 * census_bytes + (previous || completed ?
         __uint128_t(sources.size()) * (2 * sizeof(RootScopeRecord) +
             2 * sizeof(std::vector<External>)) +
@@ -229,6 +241,22 @@ RootImageStatus prepare_affine_root_image(
     if (!meter.take(uint64_t(census_bytes))) return meter.failure;
     next_census = *previous;
   }
+  // Keep the durable census in its stable vector representation, but index
+  // records by scope for this planning transaction.  Comparing every new
+  // scope with the whole retained census made first discovery quadratic even
+  // when every scope was unique (the common mixed-CNF case).
+  std::map<std::vector<External>, std::vector<size_t>> census_by_scope;
+  const auto scope_index_work = [](size_t width, size_t entries) {
+    const __uint128_t amount = __uint128_t(1 + width) *
+        (1 + std::bit_width(entries));
+    return amount > UINT64_MAX ? UINT64_MAX : uint64_t(amount);
+  };
+  for (size_t i = 0; i < next_census.size(); ++i) {
+    const auto &scope = next_census[i].scope;
+    if (!meter.take(scope_index_work(scope.size(), census_by_scope.size())))
+      return meter.failure;
+    census_by_scope[scope].push_back(i);
+  }
   for (const auto &[scope, premises] : groups) {
     RootScopeRecord record;
     if (previous || completed) {
@@ -236,8 +264,8 @@ RootImageStatus prepare_affine_root_image(
       record.scope = scope;
       uint64_t payload = 0;
       for (const auto &premise : premises) payload += 1 + premise.literals.size();
-      const __uint128_t canonical_work = __uint128_t(payload) * (2 + premises.size()) +
-          2*(__uint128_t(scope.size()) * next_census.size() + census_bytes);
+      const __uint128_t canonical_work =
+          __uint128_t(payload) * (2 + premises.size());
       if (canonical_work > UINT64_MAX) return RootImageStatus::ResourceExhausted;
       if (!meter.take(uint64_t(canonical_work))) return meter.failure;
       for (const auto &premise : premises) {
@@ -248,21 +276,49 @@ RootImageStatus prepare_affine_root_image(
       std::sort(record.normalized_bodies.begin(), record.normalized_bodies.end());
       // Exact completed populations win over an earlier unresolved record of
       // the same scope; a newly admitted subset must never be re-recognized.
-      auto found = std::find_if(next_census.begin(), next_census.end(),
-          [&](const RootScopeRecord &old) { return old.scope == scope &&
-              old.normalized_bodies == record.normalized_bodies; });
-      if (found == next_census.end())
-        found = std::find_if(next_census.begin(), next_census.end(),
-            [&](const RootScopeRecord &old) { return old.scope == scope && !old.admitted; });
-      if (found != next_census.end()) {
+      if (!meter.take(scope_index_work(scope.size(), census_by_scope.size())))
+        return meter.failure;
+      auto indexed = census_by_scope.find(scope);
+      size_t found_index = next_census.size(), unresolved_index = next_census.size();
+      if (indexed != census_by_scope.end()) {
+        for (size_t index : indexed->second) {
+          const auto &old = next_census[index];
+          __uint128_t compare_work = 1 + old.normalized_bodies.size() +
+                                     record.normalized_bodies.size();
+          for (const auto &body : old.normalized_bodies)
+            compare_work += 1 + body.size();
+          for (const auto &body : record.normalized_bodies)
+            compare_work += 1 + body.size();
+          if (compare_work > UINT64_MAX || !meter.take(uint64_t(compare_work)))
+            return meter.failure;
+          if (old.normalized_bodies == record.normalized_bodies) {
+            found_index = index;
+            break;
+          }
+          if (unresolved_index == next_census.size() && !old.admitted)
+            unresolved_index = index;
+        }
+      }
+      if (found_index == next_census.size()) found_index = unresolved_index;
+      if (found_index != next_census.size()) {
+        auto &found = next_census[found_index];
         if (!meter.take(payload + 1)) return meter.failure;
-        if (found->normalized_bodies == record.normalized_bodies) {
+        if (found.normalized_bodies == record.normalized_bodies) {
           ++measured.skipped_groups;
           continue;
         }
-        if (found->admitted) next_census.push_back(std::move(record));
-        else *found = std::move(record);
-      } else next_census.push_back(std::move(record));
+        if (found.admitted) {
+          const size_t index = next_census.size();
+          next_census.push_back(std::move(record));
+          census_by_scope[scope].push_back(index);
+        } else {
+          found = std::move(record);
+        }
+      } else {
+        const size_t index = next_census.size();
+        next_census.push_back(std::move(record));
+        census_by_scope[scope].push_back(index);
+      }
     }
     Image local;
     ++measured.recognized_groups;

@@ -6,6 +6,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstdio>
+#include <map>
 #include <sstream>
 
 namespace tactix {
@@ -481,8 +482,10 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       // eligible, including opposite parity.
       if(planned==RootImageStatus::Prepared||planned==RootImageStatus::NoStructure) {
         __uint128_t ledger_bytes=0;
+        __uint128_t census_scope_literals=0;
         for(const auto &record:discovered_census) {
           if(!charge(1+record.scope.size())) {root_input_ready=false;break;}
+          census_scope_literals+=record.scope.size();
           ledger_bytes+=4*(sizeof(RootScopeRecord)+__uint128_t(record.scope.size())*sizeof(External));
           for(const auto &body:record.normalized_bodies) {
             if(!charge(1+body.size())) {root_input_ready=false;break;}
@@ -492,31 +495,65 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         // A recognized equation may consume only a subset of a scope's
         // population. Price and remember that exact selected subpopulation;
         // never mark unrelated opposite-parity clauses admitted by scope alone.
+        __uint128_t selected_scope_literals=0;
         for(const auto &eq:root_plan.image.equations) {
           uint64_t payload=1+eq.variables.size();
+          selected_scope_literals+=eq.variables.size();
           ledger_bytes+=4*(sizeof(RootScopeRecord)+__uint128_t(eq.variables.size())*sizeof(External));
           for(const auto &body:eq.premise_clauses) {
             payload+=1+body.size();
             ledger_bytes+=4*(sizeof(std::vector<External>)+__uint128_t(body.size())*sizeof(External));
           }
-          const __uint128_t work=__uint128_t(payload)*(2+eq.premise_clauses.size()+discovered_census.size());
+          const __uint128_t work=__uint128_t(payload)*(2+eq.premise_clauses.size());
           if(work>UINT64_MAX||!charge(uint64_t(work))) {root_input_ready=false;break;}
         }
+        // The durable vector remains the census representation.  This exact
+        // per-scope directory is transaction-local and preserves insertion
+        // order inside every collision bucket.  Price its worst case before
+        // allocating it; one admitted record per new equation can be appended.
+        const __uint128_t scope_index_entries=discovered_census.size()+root_plan.image.equations.size();
+        ledger_bytes+=4*scope_index_entries*
+            (sizeof(std::pair<const std::vector<External>,std::vector<size_t>>)+
+             4*sizeof(void*)+sizeof(size_t));
+        ledger_bytes+=4*(census_scope_literals+selected_scope_literals)*sizeof(External);
         const __uint128_t vectors=4*__uint128_t((incremental_discovery?session.discovery_known_binaries_.size():0)+3*owner.sources.size())*sizeof(uint64_t);
         ledger_bytes+=vectors;
         if(ledger_bytes>UINT64_MAX || __uint128_t(previous_bytes)+root_capture_bytes+root_vector_bytes+
             root_plan.reserved_bytes+ledger_bytes>persistence.maximum_retained_bytes) root_input_ready=false;
         if(root_input_ready) {
           discovery_bytes=uint64_t(ledger_bytes);
+          std::map<std::vector<External>,std::vector<size_t>> census_by_scope;
+          const auto scope_index_work=[](size_t width,size_t entries) {
+            const __uint128_t amount=__uint128_t(1+width)*(1+std::bit_width(entries));
+            return amount>UINT64_MAX?UINT64_MAX:uint64_t(amount);
+          };
+          for(size_t i=0;i<discovered_census.size();++i) {
+            const auto &scope=discovered_census[i].scope;
+            if(!charge(scope_index_work(scope.size(),census_by_scope.size()))) {root_input_ready=false;break;}
+            census_by_scope[scope].push_back(i);
+          }
           for(const auto &eq:root_plan.image.equations) {
+            if(!root_input_ready)break;
             RootScopeRecord selected;selected.scope=eq.variables;selected.normalized_bodies=eq.premise_clauses;selected.admitted=true;
             for(auto &body:selected.normalized_bodies)std::sort(body.begin(),body.end());
             std::sort(selected.normalized_bodies.begin(),selected.normalized_bodies.end());
-            auto found=std::find_if(discovered_census.begin(),discovered_census.end(),[&](const RootScopeRecord &record) {
-              return record.scope==selected.scope&&record.normalized_bodies==selected.normalized_bodies;
-            });
-            if(found==discovered_census.end())discovered_census.push_back(std::move(selected));
-            else found->admitted=true;
+            if(!charge(scope_index_work(selected.scope.size(),census_by_scope.size()))) {root_input_ready=false;break;}
+            auto indexed=census_by_scope.find(selected.scope);
+            size_t found=discovered_census.size();
+            if(indexed!=census_by_scope.end())for(size_t index:indexed->second) {
+              const auto &record=discovered_census[index];
+              __uint128_t compare=1+record.normalized_bodies.size()+selected.normalized_bodies.size();
+              for(const auto &body:record.normalized_bodies)compare+=1+body.size();
+              for(const auto &body:selected.normalized_bodies)compare+=1+body.size();
+              if(compare>UINT64_MAX||!charge(uint64_t(compare))) {root_input_ready=false;break;}
+              if(record.normalized_bodies==selected.normalized_bodies) {found=index;break;}
+            }
+            if(!root_input_ready)break;
+            if(found==discovered_census.size()) {
+              const size_t index=discovered_census.size();
+              discovered_census.push_back(std::move(selected));
+              census_by_scope[eq.variables].push_back(index);
+            } else discovered_census[found].admitted=true;
           }
           if(incremental_discovery) {
             if(!charge(session.discovery_known_binaries_.size()))root_input_ready=false;
@@ -543,9 +580,16 @@ AffineMatrixInitResult affine_matrix_search_initialize(
             const auto selected=std::lower_bound(root_plan.residuals.begin(),root_plan.residuals.end(),source.occurrence,
                 [](const RootResidual &residual,uint64_t occurrence){return residual.physical_source.occurrence<occurrence;});
             bool admitted=selected!=root_plan.residuals.end()&&selected->physical_source.occurrence==source.occurrence;
-            if(!admitted)for(const auto &record:discovered_census) {
-              if(!charge(1+scope.size()+normalized.size()*(1+std::bit_width(record.normalized_bodies.size())))) {root_input_ready=false;break;}
-              if(record.admitted&&record.scope==scope&&std::binary_search(record.normalized_bodies.begin(),record.normalized_bodies.end(),normalized)) {admitted=true;break;}
+            if(!admitted) {
+              if(!charge(scope_index_work(scope.size(),census_by_scope.size()))) {root_input_ready=false;break;}
+              const auto indexed=census_by_scope.find(scope);
+              if(indexed!=census_by_scope.end())for(size_t index:indexed->second) {
+                const auto &record=discovered_census[index];
+                const __uint128_t compare=1+__uint128_t(normalized.size())*
+                    (1+std::bit_width(record.normalized_bodies.size()));
+                if(compare>UINT64_MAX||!charge(uint64_t(compare))) {root_input_ready=false;break;}
+                if(record.admitted&&std::binary_search(record.normalized_bodies.begin(),record.normalized_bodies.end(),normalized)) {admitted=true;break;}
+              }
             }
             if(!root_input_ready)break;
             if(admitted)continue;
@@ -682,6 +726,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     if(result.status==AffineMatrixInitStatus::NoStructure&&persistence.maximum_retained_bytes) {
       if(!context_current()) {result.status=AffineMatrixInitStatus::Stale;record_init(kernel,result);return result;}
       commit_discovery(session);
+      result.unchanged=session.enabled();
     }
     if (result.status == AffineMatrixInitStatus::NoStructure ||
         result.status == AffineMatrixInitStatus::ResourceExhausted)
