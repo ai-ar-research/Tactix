@@ -3,7 +3,7 @@
 import copy
 import unittest
 
-from score_tierd_full import classify
+from score_tierd_full import classify, par2_total
 
 
 class TierDClassification(unittest.TestCase):
@@ -53,17 +53,23 @@ class TierDClassification(unittest.TestCase):
 
     def test_scratch_resource_incomplete_is_never_scored_as_a_verdict(self):
         result = copy.deepcopy(self.unsat)
-        result.update(valid=False, verdict='INFRA_ERROR', solve=None,
-                      completion=dict(status='incomplete',
-                                      reason='scratch_file_limit'))
-        status, seconds, reason = classify(
-            self.row, result, 'satsuma-kissat')
-        self.assertEqual((status, seconds, reason),
-                         ('resource_incomplete', None, 'scratch_file_limit'))
+        result.update(valid=False, verdict='INFRA_ERROR', solve=None)
+        for resource_reason in ('scratch_file_limit', 'scratch_node_busy',
+                                'scratch_enospc'):
+            result['completion'] = dict(status='incomplete',
+                                        reason=resource_reason)
+            status, seconds, reason = classify(
+                self.row, result, 'satsuma-kissat')
+            self.assertEqual((status, seconds, reason),
+                             ('resource_incomplete', None, resource_reason))
         result['completion']['reason'] = 'arbitrary_incomplete'
         with self.assertRaisesRegex(ValueError,
                                     'unsupported incomplete resource reason'):
             classify(self.row, result, 'satsuma-kissat')
+
+    def test_incomplete_resources_censor_par2(self):
+        self.assertEqual(par2_total([1.0, 2.0], 0), 3.0)
+        self.assertIsNone(par2_total([1.0, 10000.0], 1))
 
 
 if __name__ == '__main__':

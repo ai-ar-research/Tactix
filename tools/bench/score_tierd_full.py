@@ -29,6 +29,7 @@ ARM_ORDER = tuple(CAMPAIGNS)
 SCRATCH_INCOMPLETE_REASONS = {
     'scratch_admission', 'scratch_file_limit',
     'scratch_file_limit_unavailable', 'scratch_handle_limit',
+    'scratch_node_busy', 'scratch_enospc',
 }
 
 
@@ -43,6 +44,10 @@ def sha(path):
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def par2_total(times, resource_incomplete):
+    return None if resource_incomplete else round(math.fsum(times), 3)
 
 
 def read_campaign(name):
@@ -162,8 +167,9 @@ def score_arm(arm, archive):
                                 'checker_timeout', 'proof_route_or_stage_failure',
                                 'certificate_rejected', 'missing_checker_result')
         raw_solves += raw_solved
-        raw_times.append(seconds if raw_solved and seconds is not None else 10000)
-        verified_times.append(seconds if status.startswith('checked_') else 10000)
+        if status != 'resource_incomplete':
+            raw_times.append(seconds if raw_solved and seconds is not None else 10000)
+            verified_times.append(seconds if status.startswith('checked_') else 10000)
         if status not in ('checked_SAT', 'checked_UNSAT', 'solver_timeout'):
             unusual.append(dict(rank=rank, task=task, status=status, detail=detail))
     return dict(campaign=str(path.relative_to(ROOT)),
@@ -172,12 +178,15 @@ def score_arm(arm, archive):
                 terminal_complete=counts['missing'] == 0,
                 eligible_for_comparison=not any(counts[key] for key in
                     ('missing', 'harness_failure', 'residue',
-                     'solver_timeout_with_verdict')),
+                     'solver_timeout_with_verdict', 'resource_incomplete')),
                 classes=dict(counts),
                 raw_solver_solved=raw_solves,
                 checked=counts['checked_SAT']+counts['checked_UNSAT'],
-                raw_solver_par2=round(math.fsum(raw_times), 3),
-                verified_par2=round(math.fsum(verified_times), 3),
+                par2_censored_records=counts['resource_incomplete'],
+                raw_solver_par2=par2_total(
+                    raw_times, counts['resource_incomplete']),
+                verified_par2=par2_total(
+                    verified_times, counts['resource_incomplete']),
                 unusual=unusual)
 
 

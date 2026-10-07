@@ -237,6 +237,32 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
             builder.selected_scratch_capacity(
                 arguments, builder.FIXED44_SELECTION, rows[:-1])
 
+    def test_fixed44_cooperative_profile_keeps_ordinary_task_shape(self):
+        import experimental_tierd as builder
+        arguments = SimpleNamespace(
+            scratch_capacity_profile='fixed44-cooperative-v1',
+            cpus_per_task=4, partition='cpu-q', array_throttle=None,
+            certificate='auto', gf2_telemetry=False,
+            retain_failed_proof=False, causal_preflight=False)
+        rows = [dict(task=index) for index in range(44)]
+        selected = builder.selected_scratch_capacity(
+            arguments, builder.FIXED44_SELECTION, rows)
+        self.assertEqual(selected, builder.FIXED44_COOPERATIVE_SCRATCH_CAPACITY)
+        self.assertEqual(selected['schema'],
+                         'tactix-anonymous-scratch-capacity-v2')
+        self.assertEqual(
+            selected['maximum_file_bytes'] * selected['maximum_live_handles'] +
+            selected['reserve_bytes'], selected['minimum_free_bytes'])
+        resources = builder.selected_scratch_resources(
+            arguments.scratch_capacity_profile)
+        self.assertEqual(resources,
+                         builder.FIXED44_COOPERATIVE_RESOURCE_PROFILE)
+        self.assertEqual(resources['task_cpus'], 4)
+        self.assertEqual(resources['task_memory_mib'], 32768)
+        self.assertEqual(builder.scratch_srun_prefix(resources), [
+            'srun', '--exact', '--nodes=1', '--ntasks=1',
+            '--cpus-per-task=4', '--mem=32768M', '--cpu-bind=cores'])
+
     def test_explicit_long_profile_preserves_independent_checker_and_defaults(self):
         import experimental_tierd as builder
         with tempfile.TemporaryDirectory() as temporary:

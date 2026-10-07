@@ -105,12 +105,16 @@ def scratch_capacity_contract(manifest):
     contract = manifest.get("anonymous_scratch_capacity")
     if contract is None:
         return None
-    required = {"schema", "directory", "minimum_free_bytes",
-                "maximum_file_bytes", "maximum_live_handles", "reserve_bytes"}
+    base = {"schema", "directory", "minimum_free_bytes",
+            "maximum_file_bytes", "maximum_live_handles", "reserve_bytes"}
+    schema = contract.get("schema")
+    required = (base if schema == "tactix-anonymous-scratch-capacity-v1" else
+                base | {"cooperative_lock_directory", "cooperative_lock_name"}
+                if schema == "tactix-anonymous-scratch-capacity-v2" else set())
+    if not required:
+        raise RuntimeError("unsupported anonymous scratch capacity schema")
     if set(contract) != required:
         raise RuntimeError("anonymous scratch capacity fields differ from contract")
-    if contract["schema"] != "tactix-anonymous-scratch-capacity-v1":
-        raise RuntimeError("unsupported anonymous scratch capacity schema")
     if contract["directory"] != "/tmp":
         raise RuntimeError("capacity-controlled anonymous scratch requires /tmp")
     for name in ("minimum_free_bytes", "maximum_file_bytes",
@@ -129,21 +133,99 @@ def scratch_capacity_contract(manifest):
         raise RuntimeError("scratch capacity forbids failed-proof retention")
     resource_contract = manifest.get("resource_contract", {})
     isolation = resource_contract.get("scratch_isolation")
-    expected_isolation = {
-        "schema": "tactix-fixed44-schedulable-memory-isolation-v1",
-        "outer_allocation_cpus": 52,
-        "outer_allocation_memory": "all",
-        "inner_step_cpus": 4,
-        "inner_step_memory_mib": 32768,
-    }
+    if schema == "tactix-anonymous-scratch-capacity-v1":
+        expected_isolation = {
+            "schema": "tactix-fixed44-schedulable-memory-isolation-v1",
+            "outer_allocation_cpus": 52,
+            "outer_allocation_memory": "all",
+            "inner_step_cpus": 4,
+            "inner_step_memory_mib": 32768,
+        }
+    else:
+        expected_lock_directory = f"/tmp/tactix-sat-solving-{os.getuid()}"
+        if (contract["cooperative_lock_directory"] != expected_lock_directory or
+                contract["cooperative_lock_name"] !=
+                "fixed44-managed-scratch.lock"):
+            raise RuntimeError("cooperative scratch lock identity differs from contract")
+        expected_isolation = {
+            "schema": "tactix-fixed44-cooperative-isolation-v1",
+            "participant_scope": "same-user-repository-profile",
+            "task_cpus": 4,
+            "task_memory_mib": 32768,
+        }
+        if (resource_contract.get("partition") != "cpu-q" or
+                resource_contract.get("cpus_per_task") != 4 or
+                resource_contract.get("memory_mib") != 32768):
+            raise RuntimeError("cooperative scratch requires ordinary cpu-q 4/32 tasks")
     if isolation != expected_isolation:
-        raise RuntimeError(
-            "scratch capacity requires the whole-memory allocation and bounded task step")
+        raise RuntimeError("scratch capacity isolation differs from contract")
     return contract
 
 
 def scratch_file_limit_signal(_signal, _frame):
     raise ScratchCapacityError("scratch_file_limit", stage="runtime")
+
+
+def scratch_resource_reason(error):
+    reason = getattr(error, "scratch_reason", None)
+    if reason is not None:
+        return reason
+    if isinstance(error, OSError):
+        if error.errno == errno.EFBIG:
+            return "scratch_file_limit"
+        if error.errno == errno.ENOSPC:
+            return "scratch_enospc"
+    if (isinstance(error, subprocess.CalledProcessError) and
+            error.returncode in (-signal.SIGXFSZ, 128 + signal.SIGXFSZ)):
+        return "scratch_file_limit"
+    return None
+
+
+def scratch_incomplete(reason, details=None):
+    completion = {
+        "status": "incomplete", "reason": reason, "details": details or {}}
+    if reason == "scratch_node_busy":
+        completion["retryable"] = True
+    return completion
+
+
+def effective_cgroup_memory_limit(cgroup_file=Path('/proc/self/cgroup'),
+                                  cgroup_root=Path('/sys/fs/cgroup')):
+    """Return the tightest memory limit inherited by this cgroup."""
+    rows = Path(cgroup_file).read_text().splitlines()
+    relative = None
+    controller_root = Path(cgroup_root)
+    filename = 'memory.max'
+    for row in rows:
+        hierarchy, controllers, candidate = row.split(':', 2)
+        if hierarchy == '0' and controllers == '':
+            relative = candidate
+            break
+        if 'memory' in controllers.split(','):
+            relative = candidate
+            controller_root /= 'memory'
+            filename = 'memory.limit_in_bytes'
+            break
+    if relative is None:
+        raise RuntimeError('memory cgroup is unavailable')
+    components = Path(relative.lstrip('/')).parts
+    if '..' in components:
+        raise RuntimeError('invalid memory cgroup path')
+    current = controller_root.joinpath(*components)
+    records = []
+    while True:
+        limit_path = current/filename
+        if limit_path.exists():
+            text = limit_path.read_text().strip()
+            records.append({'path': str(limit_path), 'value': text})
+        if current == controller_root:
+            break
+        if controller_root not in current.parents:
+            raise RuntimeError('memory cgroup escapes its controller root')
+        current = current.parent
+    numeric = [int(record['value']) for record in records
+               if record['value'] != 'max']
+    return (min(numeric) if numeric else None), records
 
 
 def solver_command(binary, arm, cnf, proof, instrumentation=()):
@@ -1036,10 +1118,18 @@ def main():
             # does not support O_TMPFILE; never fall back to named files.
             options = {}
             if capacity_contract is not None:
+                effective_memory_limit = None
+                cgroup_memory_limits = None
+                if (capacity_contract["schema"] ==
+                        "tactix-anonymous-scratch-capacity-v2"):
+                    effective_memory_limit, cgroup_memory_limits = (
+                        effective_cgroup_memory_limit())
                 if (os.environ.get("TMPDIR") != capacity_contract["directory"] or
                         os.environ.get("PYTHONDONTWRITEBYTECODE") != "1" or
                         os.environ.get("SLURM_CPUS_PER_TASK") != "4" or
-                        len(os.sched_getaffinity(0)) != 4):
+                        len(os.sched_getaffinity(0)) != 4 or
+                        (effective_memory_limit is not None and
+                         effective_memory_limit != 32768 * 1024 * 1024)):
                     raise ScratchCapacityError(
                         "scratch_admission", stage="environment",
                         expected_tmpdir=capacity_contract["directory"],
@@ -1047,11 +1137,27 @@ def main():
                         python_bytecode_disabled=(
                             os.environ.get("PYTHONDONTWRITEBYTECODE") == "1"),
                         slurm_cpus_per_task=os.environ.get("SLURM_CPUS_PER_TASK"),
-                        cpu_affinity=sorted(os.sched_getaffinity(0)))
+                        cpu_affinity=sorted(os.sched_getaffinity(0)),
+                        effective_memory_limit_bytes=effective_memory_limit,
+                        cgroup_memory_limits=cgroup_memory_limits)
+                if (capacity_contract["schema"] ==
+                        "tactix-anonymous-scratch-capacity-v2" and
+                        effective_memory_limit is None):
+                    raise ScratchCapacityError(
+                        "scratch_admission", stage="environment",
+                        effective_memory_limit_bytes=None,
+                        cgroup_memory_limits=cgroup_memory_limits)
                 options = dict(
                     minimum_free_bytes=capacity_contract["minimum_free_bytes"],
                     maximum_file_bytes=capacity_contract["maximum_file_bytes"],
                     maximum_live_handles=capacity_contract["maximum_live_handles"])
+                if (capacity_contract["schema"] ==
+                        "tactix-anonymous-scratch-capacity-v2"):
+                    options.update(
+                        cooperative_lock_directory=capacity_contract[
+                            "cooperative_lock_directory"],
+                        cooperative_lock_name=capacity_contract[
+                            "cooperative_lock_name"])
                 previous_xfsz_handler = signal.getsignal(signal.SIGXFSZ)
                 signal.signal(signal.SIGXFSZ, scratch_file_limit_signal)
             scratch = AnonymousScratch(
@@ -1223,10 +1329,7 @@ def main():
                     "maximum_bytes": maximum,
                 }
     except Exception as error:
-        scratch_reason = getattr(error, "scratch_reason", None)
-        if (scratch_reason is None and isinstance(error, OSError) and
-                error.errno == errno.EFBIG):
-            scratch_reason = "scratch_file_limit"
+        scratch_reason = scratch_resource_reason(error)
         if result is None or scratch_reason is None:
             result = {
                 "schema": result_schema,
@@ -1249,11 +1352,8 @@ def main():
             partial = getattr(error, "scratch_details", {}).get("proof_check")
             if partial is not None:
                 result["proof_check"] = partial
-            result["completion"] = {
-                "status": "incomplete",
-                "reason": scratch_reason,
-                "details": getattr(error, "scratch_details", {}),
-            }
+            result["completion"] = scratch_incomplete(
+                scratch_reason, getattr(error, "scratch_details", {}))
     finally:
         if anonymous and scratch is not None:
             resource_status = scratch.resource_status()
