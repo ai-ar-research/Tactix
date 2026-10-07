@@ -498,6 +498,32 @@ def pin_dsr_transport(helper, directory):
     return [target, binding]
 
 
+def _remove_transport_staging(directory):
+    """Reap only this conversion's namespace, including delayed NFS unlinks.
+
+    Use the existing frozen_baseline.remove_tree_nfs_safe retry policy here
+    without importing that campaign runner into standalone pinned oracles.
+    Reaping a child does not synchronously complete the NFS client's close.
+    """
+    import errno
+    import shutil
+    import time
+    delay = 0.05
+    for attempt in range(20):
+        try:
+            shutil.rmtree(directory)
+            return
+        except OSError as error:
+            if error.errno == errno.ENOENT and not Path(directory).exists():
+                return
+            # A .nfs entry may disappear between rmtree's scan and unlink.
+            # ENOENT for that child does not mean its parent was removed.
+            if error.errno not in (errno.EBUSY, errno.ENOTEMPTY, errno.ENOENT) or attempt == 19:
+                raise
+            time.sleep(delay)
+            delay = min(2.0, delay * 2)
+
+
 def _native_dsr_transport(mode, proof, destination=None):
     """Use only the helper bound beside this module; None means Python fallback."""
     import hashlib
@@ -518,10 +544,10 @@ def _native_dsr_transport(mode, proof, destination=None):
     # a deadline's SIGKILL cannot run the helper's C++ cleanup. The unique parent
     # directory survives until subprocess.run has killed/reaped the child, then
     # is removed on every return or BaseException; concurrent calls never share it.
-    from contextlib import nullcontext
     import stat
+    import sys
     import tempfile
-    staging = nullcontext(None)
+    directory = None
     if destination is not None:
         target = Path(destination)
         try:
@@ -530,14 +556,25 @@ def _native_dsr_transport(mode, proof, destination=None):
             info = None
         descriptor = info is not None and info.st_nlink == 0 and stat.S_ISREG(info.st_mode)
         if not descriptor:
-            staging = tempfile.TemporaryDirectory(
+            directory = tempfile.mkdtemp(
                 prefix='.' + target.name + '.dsr-transport-', dir=target.parent)
-    with staging as directory:
+    try:
         if directory is not None:
             command.append(str(Path(directory) / 'output'))
         # subprocess.run kills/reaps on BaseException, including the runner's
         # whole-pipeline deadline. Cleanup happens only after the child is gone.
         result = subprocess.run(command, capture_output=True)
+    finally:
+        if directory is not None:
+            original = sys.exc_info()[1]
+            try:
+                _remove_transport_staging(directory)
+            except OSError as cleanup:
+                # Keep a pipeline deadline or interrupt as the primary error;
+                # a terminal cleanup failure remains visible as its cause.
+                if original is not None:
+                    raise original from cleanup
+                raise
     if result.returncode in (0, 2):
         return result.returncode == 2
     detail = result.stderr.decode(errors='replace').strip()

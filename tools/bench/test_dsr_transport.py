@@ -289,6 +289,73 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(processes[0].pid, 0)
 
+    def test_nfs_staging_cleanup_retries_only_transient_errors(self):
+        import errno
+        import time
+        directory = self.root / 'owned-staging'
+        directory.mkdir()
+        (directory / '.nfs-delayed-close').write_bytes(b'partial')
+        unrelated = self.root / 'other-conversion'
+        unrelated.mkdir()
+        (unrelated / 'output').write_bytes(b'KEEP')
+        remove = shutil.rmtree
+        calls = []
+        def delayed(path):
+            calls.append(Path(path))
+            if len(calls) <= 3:
+                raise OSError((errno.EBUSY, errno.ENOTEMPTY, errno.ENOENT)[len(calls) - 1],
+                              'NFS delayed close', str(path))
+            remove(path)
+        with patch.object(shutil, 'rmtree', side_effect=delayed), \
+                patch.object(time, 'sleep') as sleep:
+            self.oracle._remove_transport_staging(directory)
+        self.assertEqual(calls, [directory] * 4)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [0.05, 0.1, 0.2])
+        self.assertFalse(directory.exists())
+        self.assertEqual((unrelated / 'output').read_bytes(), b'KEEP')
+        with patch.object(shutil, 'rmtree', side_effect=PermissionError(
+                errno.EACCES, 'denied')) as blocked, patch.object(time, 'sleep') as sleep:
+            with self.assertRaises(PermissionError):
+                self.oracle._remove_transport_staging(unrelated)
+            self.assertEqual(blocked.call_count, 1)
+            sleep.assert_not_called()
+
+    def test_terminal_cleanup_preserves_pipeline_deadline(self):
+        import errno
+        self.source.write_bytes(b'\1\2\4\0')
+        self.dest.write_bytes(b'KEEP')
+        deadline = ProofPipelineDeadline('deadline')
+        cleanup = OSError(errno.ENOTEMPTY, 'persistent NFS failure')
+        remove = self.oracle._remove_transport_staging
+        owned = []
+        def fail_cleanup(directory):
+            owned.append(directory)
+            raise cleanup
+        try:
+            with patch.object(subprocess, 'run', side_effect=deadline), \
+                    patch.object(self.oracle, '_remove_transport_staging',
+                                 side_effect=fail_cleanup):
+                with self.assertRaises(ProofPipelineDeadline) as raised:
+                    self.oracle.dsr_proof_as_drat(self.source, self.dest)
+            self.assertIs(raised.exception, deadline)
+            self.assertIs(raised.exception.__cause__, cleanup)
+            self.assertEqual(self.dest.read_bytes(), b'KEEP')
+        finally:
+            for directory in owned:
+                remove(directory)
+
+    def test_nfs_staging_cleanup_has_bounded_retries(self):
+        import errno
+        import time
+        with patch.object(shutil, 'rmtree', side_effect=OSError(
+                errno.ENOTEMPTY, 'persistent NFS failure')) as remove, \
+                patch.object(time, 'sleep') as sleep:
+            with self.assertRaises(OSError):
+                self.oracle._remove_transport_staging(self.root / 'owned-only')
+            self.assertEqual(remove.call_count, 20)
+            self.assertEqual(sleep.call_count, 19)
+            self.assertLessEqual(max(c.args[0] for c in sleep.call_args_list), 2.0)
+
 
 if __name__ == '__main__':
     if HELPER is None or not HELPER.is_file():
