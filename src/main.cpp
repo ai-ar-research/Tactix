@@ -24,6 +24,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
@@ -680,6 +681,7 @@ int main(int argc, char **argv) {
   IndependentSetCoverActionSession independent_set_cover_session;
   Gf3AffineActionSession gf3_affine_action_session;
   DirectCspSupportActionSession direct_csp_support_action_session;
+  DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
   NaryCspPrefixActionSession nary_csp_prefix_action_session;
   NaryCspEqualitySession nary_csp_equality_session;
   NaryCspEqualityAmoSession nary_csp_equality_amo_session;
@@ -696,6 +698,8 @@ int main(int argc, char **argv) {
   kernel.gf3_affine_action_session = &gf3_affine_action_session;
   kernel.direct_csp_support_action_session =
       &direct_csp_support_action_session;
+  kernel.direct_csp_guarded_cover_action_session =
+      &direct_csp_guarded_cover_action_session;
   kernel.nary_csp_prefix_action_session = &nary_csp_prefix_action_session;
   kernel.nary_csp_equality_session = &nary_csp_equality_session;
   kernel.nary_csp_equality_amo_session = &nary_csp_equality_amo_session;

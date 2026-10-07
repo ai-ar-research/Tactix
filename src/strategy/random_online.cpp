@@ -835,6 +835,25 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_proof_literal_occurrences=v[16]; p.maximum_arena_words=v[17];
     p.maximum_journal_bytes=v[18]; U32_AT(19,p.maximum_external_extent);
     p.maximum_session_keys=v[20]; p.maximum_session_work=v[21]; parameters=p;
+  } else if (tuple(text, "direct-csp-guarded-cover2", v) && v.size() == 16) {
+    DirectCspGuardedCoverParameters p;
+    p.maximum_source_clauses=v[0];
+    p.maximum_source_literals=v[1];
+    p.maximum_recognition_work=v[2];
+    U32_AT(3,p.maximum_domains);
+    U32_AT(4,p.maximum_domain_values);
+    U32_AT(5,p.maximum_cover_literals);
+    U32_AT(6,p.maximum_or_definitions);
+    U32_AT(7,p.maximum_or_inputs);
+    U32_AT(8,p.maximum_output_literals);
+    p.maximum_proof_work=v[9];
+    p.maximum_proof_additions=v[10];
+    p.maximum_proof_literal_occurrences=v[11];
+    p.maximum_journal_bytes=v[12];
+    U32_AT(13,p.maximum_external_extent);
+    p.maximum_session_keys=v[14];
+    p.maximum_session_work=v[15];
+    parameters = p;
   } else if (tuple(text, "direct-csp-support1", v) && v.size() == 15) {
     DirectCspSupportParameters p;
     p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
@@ -1758,6 +1777,54 @@ bool parse_affine_basis_row(std::string_view text,
              selection, replay_affine_basis_limits(parameters));
 }
 
+bool parse_guarded_cover(std::string_view text,
+                          DirectCspGuardedCoverActionSelection &out) {
+  std::vector<int64_t> values;
+  while (!text.empty()) {
+    const auto comma = text.find(',');
+    const auto token = text.substr(0, comma);
+    int64_t v;
+    const auto parsed = std::from_chars(token.data(), token.data()+token.size(), v);
+    if (token.empty() || parsed.ec != std::errc{} || parsed.ptr != token.data()+token.size()) return false;
+    values.push_back(v);
+    if (comma == std::string_view::npos) text = {};
+    else { text.remove_prefix(comma+1); if (text.empty()) return false; }
+  }
+  size_t at = 0;
+  const auto number = [&](uint32_t &v) {
+    if (at == values.size() || values[at] < 0 || values[at] > UINT32_MAX) return false;
+    v = static_cast<uint32_t>(values[at++]); return true;
+  };
+  const auto literal = [&](int32_t &v) {
+    if (at == values.size() || !values[at] || values[at] <= INT32_MIN || values[at] > INT32_MAX) return false;
+    v = static_cast<int32_t>(values[at++]); return true;
+  };
+  const auto literals = [&](std::vector<int32_t> &v) {
+    uint32_t count;
+    if (!number(count) || count > values.size()-at) return false;
+    for (uint32_t i=0; i<count; ++i) { int32_t l; if (!literal(l)) return false; v.push_back(l); }
+    return true;
+  };
+  uint32_t count;
+  if (!number(count) || count > values.size()-at) return false;
+  for (uint32_t i=0; i<count; ++i) {
+    out.domains.emplace_back(); uint32_t selected;
+    if (!literals(out.domains.back()) || !number(selected)) return false;
+    out.selected_values.push_back(selected);
+  }
+  if (!literals(out.cover) || !number(count) || count > values.size()-at) return false;
+  for (uint32_t i=0; i<count; ++i) {
+    out.exact_or.emplace_back();
+    if (!literal(out.exact_or.back().output) || !literals(out.exact_or.back().inputs)) return false;
+  }
+  if (!number(count) || count > (values.size()-at)/4) return false;
+  for (uint32_t i=0; i<count; ++i) {
+    out.blockers.emplace_back(); auto &b = out.blockers.back();
+    if (!literal(b.literal) || !number(b.domain) || !number(b.value) || !number(b.or_definition)) return false;
+  }
+  return at == values.size();
+}
+
 bool parse_direct_csp_support(std::string_view text,
                               DirectCspSupportActionSelection &selection) {
   std::vector<int64_t> values;
@@ -2355,6 +2422,9 @@ std::string serialize_online_strategy_program(
           << p->maximum_external_extent << ',' << p->maximum_session_keys
           << ',' << p->maximum_session_work << ')';
     else if (const auto *p =
+                 std::get_if<DirectCspGuardedCoverParameters>(&step.parameters))
+      out << ":direct-csp-guarded-cover2(" << p->maximum_source_clauses << ',' << p->maximum_source_literals << ',' << p->maximum_recognition_work << ',' << p->maximum_domains << ',' << p->maximum_domain_values << ',' << p->maximum_cover_literals << ',' << p->maximum_or_definitions << ',' << p->maximum_or_inputs << ',' << p->maximum_output_literals << ',' << p->maximum_proof_work << ',' << p->maximum_proof_additions << ',' << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ',' << p->maximum_external_extent << ',' << p->maximum_session_keys << ',' << p->maximum_session_work << ')';
+    else if (const auto *p =
                  std::get_if<DirectCspSupportParameters>(&step.parameters))
       out << ":direct-csp-support1(" << p->maximum_source_clauses << ','
           << p->maximum_source_literals << ',' << p->maximum_recognition_work
@@ -2845,6 +2915,29 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.direct_csp_guarded_cover_instances.empty()) {
+      out << ":direct-csp-guarded-cover2[";
+      for (size_t i=0; i<step.direct_csp_guarded_cover_instances.size(); ++i) {
+        if (i) out << ';';
+        const auto &v = step.direct_csp_guarded_cover_instances[i];
+        out << v.domains.size();
+        for (size_t d=0; d<v.domains.size(); ++d) {
+          out << ',' << v.domains[d].size();
+          for (auto l : v.domains[d]) out << ',' << l;
+          out << ',' << v.selected_values[d];
+        }
+        out << ',' << v.cover.size(); for (auto l : v.cover) out << ',' << l;
+        out << ',' << v.exact_or.size();
+        for (const auto &o : v.exact_or) {
+          out << ',' << o.output << ',' << o.inputs.size();
+          for (auto l : o.inputs) out << ',' << l;
+        }
+        out << ',' << v.blockers.size();
+        for (const auto &b : v.blockers)
+          out << ',' << b.literal << ',' << b.domain << ',' << b.value << ',' << b.or_definition;
+      }
+      out << ']';
+    }
     if (!step.direct_csp_support_instances.empty()) {
       out << ":direct-csp-support[";
       for (size_t i = 0; i < step.direct_csp_support_instances.size(); ++i) {
@@ -3155,6 +3248,19 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         else text.remove_prefix(semicolon + 1);
       }
     }
+    constexpr std::string_view guarded_cover_marker = ":direct-csp-guarded-cover2[";
+    if (text.starts_with(guarded_cover_marker) && text.back() == ']') {
+      text.remove_prefix(guarded_cover_marker.size()); text.remove_suffix(1);
+      while (!text.empty()) {
+        const auto semicolon = text.find(';');
+        DirectCspGuardedCoverActionSelection instance;
+        if (!parse_guarded_cover(text.substr(0,semicolon), instance))
+          return reject("online replay GuardedCoverV2 payload is malformed");
+        step.direct_csp_guarded_cover_instances.push_back(std::move(instance));
+        if (semicolon == std::string_view::npos) text = {};
+        else { text.remove_prefix(semicolon+1); if (text.empty()) return reject("empty GuardedCoverV2 selection"); }
+      }
+    }
     constexpr std::string_view direct_csp_marker = ":direct-csp-support[";
     if (text.starts_with(direct_csp_marker) && text.back() == ']') {
       text.remove_prefix(direct_csp_marker.size());
@@ -3280,6 +3386,7 @@ bool deserialize_online_strategy_program(const std::string &encoded,
   if (direct_csp_producer_template && !validated.sequence.empty()) {
     auto &step = validated.sequence.front();
     if (step.rule == "DirectCspSupport" &&
+        std::holds_alternative<DirectCspSupportParameters>(step.parameters) &&
         step.granularity == InvocationGranularity::CanonicalApplication &&
         step.direct_csp_support_instances.empty()) {
       step.granularity = InvocationGranularity::OneInstance;

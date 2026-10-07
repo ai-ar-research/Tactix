@@ -1416,6 +1416,65 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v13;
 
+/* Additive v14: explicit GuardedCoverV2 under DirectCspSupport (ID 35).
+ * Profile 0 preserves the complete v13 step; profile 2 requires V2 selections
+ * and INHERIT base parameters. All nested arrays are copied at configuration.
+ * Domains are complete exact-one value vectors; every selected value remains
+ * in the consequence. Cover is an ordinary disjunction. Each blocker names
+ * a one-sided domain link and a negated output of its complete exact OR. */
+#define TACTIX_DIRECT_CSP_PROFILE_LEGACY 0
+#define TACTIX_DIRECT_CSP_PROFILE_GUARDED_COVER_V2 2
+typedef struct {
+  uint64_t maximum_source_clauses;
+  uint64_t maximum_source_literals;
+  uint64_t maximum_recognition_work;
+  uint32_t maximum_domains;
+  uint32_t maximum_domain_values;
+  uint32_t maximum_cover_literals;
+  uint32_t maximum_or_definitions;
+  uint32_t maximum_or_inputs;
+  uint32_t maximum_output_literals;
+  uint64_t maximum_proof_work;
+  uint64_t maximum_proof_additions;
+  uint64_t maximum_proof_literal_occurrences;
+  uint64_t maximum_journal_bytes;
+  uint32_t maximum_external_extent;
+  uint64_t maximum_session_keys;
+  uint64_t maximum_session_work;
+} tactix_direct_csp_guarded_cover_parameters;
+typedef struct { const int32_t *literals; int count; } tactix_direct_csp_literal_array;
+typedef struct {
+  int32_t output;
+  tactix_direct_csp_literal_array inputs;
+} tactix_direct_csp_exact_or;
+typedef struct {
+  int32_t literal;
+  uint32_t domain, value, or_definition;
+} tactix_direct_csp_blocker;
+typedef struct {
+  const tactix_direct_csp_literal_array *domains;
+  const uint32_t *selected_values;
+  int domain_count;
+  tactix_direct_csp_literal_array cover;
+  const tactix_direct_csp_exact_or *exact_or;
+  int exact_or_count;
+  const tactix_direct_csp_blocker *blockers;
+  int blocker_count;
+} tactix_direct_csp_guarded_cover_selection;
+typedef struct {
+  tactix_online_step_v13 base;
+  uint32_t direct_csp_profile;
+  tactix_direct_csp_guarded_cover_parameters guarded_cover_parameters;
+  const tactix_direct_csp_guarded_cover_selection *guarded_cover_instances;
+  int guarded_cover_instance_count;
+} tactix_online_step_v14;
+typedef struct {
+  const tactix_online_step_v14 *steps;
+  int step_count;
+  int repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v14;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1467,6 +1526,8 @@ int tactix_online_configure_v10(tactix *, const tactix_online_program_v10 *,
 int tactix_online_configure_v11(tactix *, const tactix_online_program_v11 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v12(tactix *, const tactix_online_program_v12 *,
+                                uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v14(tactix *, const tactix_online_program_v14 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v13(tactix *, const tactix_online_program_v13 *,
                                 uint64_t revision, int reconfigure_mode);

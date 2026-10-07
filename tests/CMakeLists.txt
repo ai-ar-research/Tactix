@@ -334,6 +334,22 @@ add_executable(test_random_controller_policy test_random_controller_policy.cpp)
 target_link_libraries(test_random_controller_policy PRIVATE tactix_lib)
 add_test(NAME random_controller_policy COMMAND test_random_controller_policy)
 
+add_executable(test_direct_csp_guarded_cover test_direct_csp_guarded_cover.cpp)
+target_link_libraries(test_direct_csp_guarded_cover PRIVATE tactix_lib)
+add_test(NAME direct_csp_guarded_cover COMMAND test_direct_csp_guarded_cover)
+
+add_executable(test_direct_csp_guarded_cover_live test_direct_csp_guarded_cover_live.cpp)
+target_link_libraries(test_direct_csp_guarded_cover_live PRIVATE tactix_lib)
+add_test(NAME direct_csp_guarded_cover_live COMMAND test_direct_csp_guarded_cover_live)
+add_test(NAME direct_csp_guarded_cover_proof_model
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/direct_csp_guarded_cover_proof_model.sh
+                 $<TARGET_FILE:test_direct_csp_guarded_cover_live> ${CMAKE_SOURCE_DIR})
+set_tests_properties(direct_csp_guarded_cover_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+
+add_executable(test_direct_csp_guarded_cover_frontend test_direct_csp_guarded_cover_frontend.cpp)
+target_link_libraries(test_direct_csp_guarded_cover_frontend PRIVATE tactix_lib)
+add_test(NAME direct_csp_guarded_cover_frontend COMMAND test_direct_csp_guarded_cover_frontend)
+
 add_executable(test_direct_csp_support_action test_direct_csp_support_action.cpp)
 target_link_libraries(test_direct_csp_support_action PRIVATE tactix_lib)
 add_test(NAME direct_csp_support_action COMMAND test_direct_csp_support_action)

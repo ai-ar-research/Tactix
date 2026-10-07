@@ -1,0 +1,178 @@
+[
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/launch-manifest.json",
+    "original_sha256": "26a3a9860149acb5acc6412a4d4c16659a1275bd7ddaa6f5ca7cacefd6f37fff",
+    "original_bytes": 8249,
+    "retained_path": "launch-manifest.json",
+    "retained_sha256": "26a3a9860149acb5acc6412a4d4c16659a1275bd7ddaa6f5ca7cacefd6f37fff",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/submission.json",
+    "original_sha256": "d2a881f9f0931eaed06c6183365aca71f056feb9c8b244c9ece1afbcc06fe086",
+    "original_bytes": 198,
+    "retained_path": "submission.json",
+    "retained_sha256": "d2a881f9f0931eaed06c6183365aca71f056feb9c8b244c9ece1afbcc06fe086",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/fixed-controls.txt",
+    "original_sha256": "b1eddb916fd9601e8990dcc31f9de01fa1f098b172c4539bf5749e1f8de3ee7d",
+    "original_bytes": 447,
+    "retained_path": "fixed-controls.txt",
+    "retained_sha256": "b1eddb916fd9601e8990dcc31f9de01fa1f098b172c4539bf5749e1f8de3ee7d",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/census.sbatch",
+    "original_sha256": "586a7c4d5486cc3dcb52007f7f31b2694e4267cc2d0e16b34a190b6909a4bcb8",
+    "original_bytes": 510,
+    "retained_path": "census.sbatch",
+    "retained_sha256": "586a7c4d5486cc3dcb52007f7f31b2694e4267cc2d0e16b34a190b6909a4bcb8",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/census.cpp",
+    "original_sha256": "6e6f4bbf8973d9e026ff93b37960d16ee32f1ec77f1ac3182f788d0174be9f60",
+    "original_bytes": 23212,
+    "retained_path": "sources/census.cpp",
+    "retained_sha256": "6e6f4bbf8973d9e026ff93b37960d16ee32f1ec77f1ac3182f788d0174be9f60",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/check_original_rup.py",
+    "original_sha256": "81ba62547db6a3c1f67be27c327681646d38916017ff304e0c32fe7340a02e8c",
+    "original_bytes": 11633,
+    "retained_path": "sources/check_original_rup.py",
+    "retained_sha256": "81ba62547db6a3c1f67be27c327681646d38916017ff304e0c32fe7340a02e8c",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/test_controls.py",
+    "original_sha256": "74c06d58e435e6c896bbd3755929a9fed525aaba00fe7aa1d0d46b7aefee8a81",
+    "original_bytes": 7415,
+    "retained_path": "sources/test_controls.py",
+    "retained_sha256": "74c06d58e435e6c896bbd3755929a9fed525aaba00fe7aa1d0d46b7aefee8a81",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/launch.py",
+    "original_sha256": "7c236f4f0952ad0872f0b5278aa0093adcad0f54e088f920c90ef704085de2b4",
+    "original_bytes": 4310,
+    "retained_path": "sources/launch.py",
+    "retained_sha256": "7c236f4f0952ad0872f0b5278aa0093adcad0f54e088f920c90ef704085de2b4",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/prepare.py",
+    "original_sha256": "75297d8de697eda82a48f2cf78fe099dedf608d8d2625b0f93b87f2c0289b4f2",
+    "original_bytes": 5937,
+    "retained_path": "sources/prepare.py",
+    "retained_sha256": "75297d8de697eda82a48f2cf78fe099dedf608d8d2625b0f93b87f2c0289b4f2",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/SHA256SUMS",
+    "original_sha256": "abf7d711c08e20d51c6bd27f7d26164746339240b53835cd8afe278954ce8362",
+    "original_bytes": 1015,
+    "retained_path": "artifacts/SHA256SUMS",
+    "retained_sha256": "abf7d711c08e20d51c6bd27f7d26164746339240b53835cd8afe278954ce8362",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/census-resource.txt",
+    "original_sha256": "b729d41cb21352946575f028a357bfffbd2093241e8211ad8753a9d8ce6376f0",
+    "original_bytes": 37,
+    "retained_path": "artifacts/census-resource.txt",
+    "retained_sha256": "b729d41cb21352946575f028a357bfffbd2093241e8211ad8753a9d8ce6376f0",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/census-stderr.log",
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original_bytes": 0,
+    "retained_path": "artifacts/census-stderr.log",
+    "retained_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/census-stdout.log",
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original_bytes": 0,
+    "retained_path": "artifacts/census-stdout.log",
+    "retained_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/census.json",
+    "original_sha256": "2c7ff2ce7fd3bbe298da97f9ca213dad981c9305cf046de473dcc1a0e2306f5e",
+    "original_bytes": 15715,
+    "retained_path": "artifacts/census.json",
+    "retained_sha256": "2c7ff2ce7fd3bbe298da97f9ca213dad981c9305cf046de473dcc1a0e2306f5e",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/census.json.binary-certificate",
+    "original_sha256": "34358748e39f8bcc4bda4a42f80293e91500955889869a8e7f085e203d995675",
+    "original_bytes": 10664868,
+    "retained_path": "artifacts/census.json.binary-certificate.gz",
+    "retained_sha256": "5078c9b9471b4a891313c39d5825d1f3f195ce7b2dc68259e186895fa4b52946",
+    "gzip": true
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/checker-command.json",
+    "original_sha256": "d71559e69efa3847e3699e33d719ebf97a65b2070de5c3fa33b816db22624a92",
+    "original_bytes": 685,
+    "retained_path": "artifacts/checker-command.json",
+    "retained_sha256": "d71559e69efa3847e3699e33d719ebf97a65b2070de5c3fa33b816db22624a92",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/checker-resource.txt",
+    "original_sha256": "3afb0052d1796ca005fe5d5ee9dfb8e8e0e3731a00d50b3d97142e0cf8b0b257",
+    "original_bytes": 37,
+    "retained_path": "artifacts/checker-resource.txt",
+    "retained_sha256": "3afb0052d1796ca005fe5d5ee9dfb8e8e0e3731a00d50b3d97142e0cf8b0b257",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/checker-stderr.log",
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original_bytes": 0,
+    "retained_path": "artifacts/checker-stderr.log",
+    "retained_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/checker-stdout.log",
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "original_bytes": 0,
+    "retained_path": "artifacts/checker-stdout.log",
+    "retained_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/commands.json",
+    "original_sha256": "ab0ebf5acb1c13e1f97e763328815b6dc1a33ad81bed2fecc468e84a07847423",
+    "original_bytes": 1254,
+    "retained_path": "artifacts/commands.json",
+    "retained_sha256": "ab0ebf5acb1c13e1f97e763328815b6dc1a33ad81bed2fecc468e84a07847423",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/outcome.json",
+    "original_sha256": "31c06c1f6c10f47787d0e453b41519906ba9fb696633f5517acb6b36f4fd811b",
+    "original_bytes": 728,
+    "retained_path": "artifacts/outcome.json",
+    "retained_sha256": "31c06c1f6c10f47787d0e453b41519906ba9fb696633f5517acb6b36f4fd811b",
+    "gzip": false
+  },
+  {
+    "original_path": "benchmarks/probes/20261007-fixed44-blocker-support-admission/result-1751955-0/proof-check.json",
+    "original_sha256": "31ae0734bd7aca70b6f8a666d61b6e2521057a2dc445ba53f2b2aa8e7f833f46",
+    "original_bytes": 2546,
+    "retained_path": "artifacts/proof-check.json",
+    "retained_sha256": "31ae0734bd7aca70b6f8a666d61b6e2521057a2dc445ba53f2b2aa8e7f833f46",
+    "gzip": false
+  }
+]

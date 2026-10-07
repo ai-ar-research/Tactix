@@ -2,6 +2,7 @@
 
 #include "kernel/kernel.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
@@ -33,6 +34,26 @@ bool Gf3AffineConsequenceParameters::valid() const {
       maximum_session_keys,
       maximum_session_work};
   return limits.valid();
+}
+
+bool DirectCspGuardedCoverParameters::valid() const {
+  return DirectCspGuardedCoverActionLimits{
+      maximum_source_clauses,
+      maximum_source_literals,
+      maximum_recognition_work,
+      maximum_domains,
+      maximum_domain_values,
+      maximum_cover_literals,
+      maximum_or_definitions,
+      maximum_or_inputs,
+      maximum_output_literals,
+      maximum_proof_work,
+      maximum_proof_additions,
+      maximum_proof_literal_occurrences,
+      maximum_journal_bytes,
+      maximum_external_extent,
+      maximum_session_keys,
+      maximum_session_work}.valid();
 }
 
 bool DirectCspSupportParameters::valid() const {
