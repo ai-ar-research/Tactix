@@ -1,0 +1,41 @@
+{
+  "schema": "tactix-validation-created-pyc-supplement-v1",
+  "parent_campaign": "benchmarks/runs/20261007-fixed44-10942-cooperative-python",
+  "validation_job_id": "1754975",
+  "python_version": "3.9.24 (main, Apr  9 2026, 03:46:43) \n[GCC 13.1.0]",
+  "records": [
+    {
+      "name": "anonymous_scratch",
+      "source_sha256": "0d4b94363cbb21d26ce12e700e532006866768bcf4920d181c401cc8a97f6dab",
+      "pyc_sha256": "58283dda7a2cb23bb5212809a12ce0103c31aa457d824bdf7e442773d6643652",
+      "source_mtime_header": 1791409072,
+      "source_size_header": 11027,
+      "semantic_compile_match": true
+    },
+    {
+      "name": "proof_oracle",
+      "source_sha256": "bb7df68b5eb83574ba131c4d6cf6da58f82508b0db3dd992ddeecf8f1b0255c1",
+      "pyc_sha256": "e85d1ecfd40f6119c263a70923fa39762670092989c139acf72ef6106baa8545",
+      "source_mtime_header": 1791409072,
+      "source_size_header": 54757,
+      "semantic_compile_match": true
+    },
+    {
+      "name": "runtime_task",
+      "source_sha256": "92dde998e7e5a5cb1694757a0b44dc44b676d23df11b946aa5d2acd801f84eec",
+      "pyc_sha256": "bc4a7f11a692e361f636685046faf94d5d4bf8258563ac1662ca286c5f0e87ec",
+      "source_mtime_header": 1791409072,
+      "source_size_header": 66440,
+      "semantic_compile_match": true
+    },
+    {
+      "name": "modelcheck",
+      "source_sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+      "pyc_sha256": "d17fd387edc537298f7c8d08a08cb6717bc1b32614159eac4e726e90c564d1f3",
+      "source_mtime_header": 1786647162,
+      "source_size_header": 3708,
+      "semantic_compile_match": true
+    }
+  ],
+  "limitation": "Supplementary provenance only: the parent manifest did not bind these pyc hashes before launch."
+}
