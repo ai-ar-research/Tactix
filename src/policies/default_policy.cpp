@@ -4923,10 +4923,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Attach it only after the early opportunity fails. ScopedHeuristics consumes
   // the parser's retained activation order, preserving the exact first-search
   // pose; callers that supplied H keep their existing session-wide object.
-  // Reconstruct the seed a fresh solver would obtain by parsing the live
-  // post-structured residual. This is the integrated equivalent of Satsuma
-  // writing its reduced CNF before Kissat parses it. A structured pass that
-  // adds no root assignments retains the original seed exactly.
+  // Optionally reseed from the live post-structured formula. Its internal
+  // clause presentation need not match an external residual serialization.
+  // The default retains the parser's original activation and import seed.
   if (!k.h &&
       default_should_seed_structured_residual(
           structured_root_grew_trail,

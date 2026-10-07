@@ -152,7 +152,7 @@ int main() {
     }
   assert(!defaults.graph_labeling_model.enabled);
   assert(defaults.inprocess.structured_root_before_lucky);
-  assert(defaults.inprocess.structured_root_residual_search_handoff);
+  assert(!defaults.inprocess.structured_root_residual_search_handoff);
   assert(defaults.inprocess.structured_root_progress_feedback);
   assert(!defaults.inprocess.structured_root_large_domain_progress_feedback);
   assert(defaults.inprocess.structured_root_progress_minimum_ticks ==
@@ -216,7 +216,7 @@ int main() {
              "inprocess.structured_root_bce_after_unique_literal_amo=1") !=
          std::string::npos);
   assert(default_snapshot.find(
-             "inprocess.structured_root_residual_search_handoff=1") !=
+             "inprocess.structured_root_residual_search_handoff=0") !=
          std::string::npos);
   assert(default_snapshot.find(
              "inprocess.structured_root_progress_feedback=1") !=
@@ -1081,6 +1081,9 @@ int main() {
   DefaultStrategyConfig cadence = defaults;
   cadence.reduction.retier_initial_interval = 1ull << 40;
   cadence.inprocess.structured_root_stages.clear();
+  // This fixture must reach search/Reduce; successful startup elimination
+  // would settle the small pigeonhole formula before its cadence is tested.
+  cadence.inprocess.initial_fast_elimination = false;
   Kernel php;
   ScopedHeuristics php_heuristics(php);
   add_php_4_3(php);

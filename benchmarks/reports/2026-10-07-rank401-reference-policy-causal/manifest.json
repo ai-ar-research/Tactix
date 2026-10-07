@@ -1,0 +1,168 @@
+{
+  "scope": "checked causal profiles on401 with16/23guards; samecurrent37226baseline; no productionpromotion",
+  "source_commit": "37226faa78d052fc71c2c3fdd4a02f8ca0108c61",
+  "source_archive": "benchmarks/runs/20261007-cumulative-37226faa7-graph-preparation/source.tar",
+  "source_sha256": "c11109ff8f2358406e48b1f12ba584cfd810bb1c5d48c61257c304f2ce0fd2ea",
+  "profiles": {
+    "baseline": "unchangedcurrent37226",
+    "cut-last-original-fastel0": "activeownerLargestOrbitLast + structuredresidualhandofffalse + initialfastel false",
+    "cut-last-original-fastel1": "activeownerLargestOrbitLast + structuredresidualhandofffalse + initialfastel true"
+  },
+  "cases": [
+    {
+      "arm": "rank401-baseline",
+      "input": 0,
+      "solver": "baseline",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank401-cut-last-original-fastel0",
+      "input": 0,
+      "solver": "cut-last-original-fastel0",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank401-cut-last-original-fastel1",
+      "input": 0,
+      "solver": "cut-last-original-fastel1",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank16-baseline",
+      "input": 1,
+      "solver": "baseline",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank16-cut-last-original-fastel0",
+      "input": 1,
+      "solver": "cut-last-original-fastel0",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank16-cut-last-original-fastel1",
+      "input": 1,
+      "solver": "cut-last-original-fastel1",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank23-baseline",
+      "input": 2,
+      "solver": "baseline",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank23-cut-last-original-fastel0",
+      "input": 2,
+      "solver": "cut-last-original-fastel0",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    },
+    {
+      "arm": "rank23-cut-last-original-fastel1",
+      "input": 2,
+      "solver": "cut-last-original-fastel1",
+      "args": [
+        "--default-graph-labeling=off",
+        "--default-structured-symmetry=on",
+        "--auto-proof"
+      ],
+      "trace": false,
+      "timeout": 300,
+      "env": {}
+    }
+  ],
+  "resource_contract": {
+    "partition": "cpu-q",
+    "cpus": 4,
+    "memory_mib": 32768,
+    "array": "0-2",
+    "order": "eachinstance baseline,fastel0,fastel1 sequentialsameCPU",
+    "solver_seconds": 300,
+    "modelcheck_seconds": 60,
+    "scratch": "ownedsharedminimum32GiBfree",
+    "node_constraint": null,
+    "throttle": null
+  },
+  "binaries": {
+    "baseline": {
+      "sha256": "4fa9b118c831c8faa0c6a01fb370bf991260807f2edb4e1a10b798ec9f589ffb"
+    },
+    "cut-last-original-fastel0": {
+      "sha256": "018c84c2976ca435840be068dea22ae7c961b2afe5a2ac48391523b2ae8efd49"
+    },
+    "cut-last-original-fastel1": {
+      "sha256": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e"
+    }
+  },
+  "files": {
+    "build.sbatch": "6215dfbfa345eada5a12b324bb0be3e630f32f5e207ab40e84c2622228c6c820",
+    "cases.json": "72ca130d2aa5af28701fe3241c7cb7091966428f9c8189e4eb1fde5866bd6e8c",
+    "inputs.json": "ee7198c473ce27d7f82b1d526394c3d8d603a59e6233f30629ec5a4a6b98802f",
+    "array.sbatch": "6ba2af987a08661aa282f038e7f779125c97cd9a1d35a7a3068620d7594f5bff",
+    "pins/baseline": "4fa9b118c831c8faa0c6a01fb370bf991260807f2edb4e1a10b798ec9f589ffb",
+    "pins/runtime_task.py": "d18552d1c6754fb46a6f161a15530a18dfac7054798cb665b5973c5abf85aea2",
+    "pins/modelcheck.py": "023d06f8f4016ced484897a4a6aeadf2fdb45e16dbf929661b1c6e92ec0ea9d4",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/sequence.py": "66148c4c73d420d4f0d4c8f11abd3f018e0351d357b1c218c8bdb359a010dd41",
+    "pins/baseline-PIN.json": "c8c1385b8cb7b166f52b6272dfdfa9e6abe63a2da6baf5d3bbc02dada45f8997",
+    "pins/cut-last-original-fastel0": "018c84c2976ca435840be068dea22ae7c961b2afe5a2ac48391523b2ae8efd49",
+    "pins/cut-last-original-fastel1": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e"
+  },
+  "build_job": "1754612"
+}

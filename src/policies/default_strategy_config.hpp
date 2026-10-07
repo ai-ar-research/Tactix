@@ -402,12 +402,11 @@ struct DefaultStrategyConfig {
     // Diagnostic selection of SR-containing startup programs. Disabling them
     // retains independent stages, including the Lucky-8 affine opportunity.
     bool structured_root_symmetry_enabled = true;
-    // Satsuma hands Kissat a residual CNF, so Kissat derives both activation
-    // and internal import order from the formula after symmetry fixing. When
-    // integrated structured preprocessing adds root assignments, reconstruct
-    // that same residual search seed before attaching guidance. No-progress
-    // passes retain the original seed and therefore cannot perturb search.
-    bool structured_root_residual_search_handoff = true;
+    // Preserve the parser's activation and import seed after structured root
+    // preprocessing. The optional live-formula reseed is deterministic but
+    // does not reproduce Satsuma's residual clause presentation or import
+    // order; callers can still select it explicitly.
+    bool structured_root_residual_search_handoff = false;
     // The root schedule charges every producer against this cumulative hard
     // ceiling. A producer may finish an already admitted atomic certificate
     // batch, and its complete cost remains charged across later stages.
