@@ -4,7 +4,106 @@
 #include "rules/lucky/graph_labeling_repair.hpp"
 #include "strategy/rule_parameters.hpp"
 
+#include <algorithm>
+#include <limits>
+
 namespace tactix {
+
+struct GraphLabelingModelSession::State {
+  enum class Stage : uint8_t {
+    Construction,
+    Window,
+    Repair,
+    Anneal,
+    FinalRepair,
+    Completion,
+    Done,
+  } stage = Stage::Construction;
+  graph_labeling::Shape shape;
+  graph_labeling::Candidate best;
+  graph_labeling::Score published{UINT64_MAX, UINT64_MAX};
+  std::vector<uint8_t> primary_negative;
+  uint64_t cumulative_work = 0;
+};
+
+GraphLabelingModelSession::GraphLabelingModelSession() = default;
+GraphLabelingModelSession::~GraphLabelingModelSession() = default;
+bool GraphLabelingModelSession::authenticated() const { return bool(state_); }
+bool GraphLabelingModelSession::complete() const {
+  return state_ && state_->stage == State::Stage::Done;
+}
+void GraphLabelingModelSession::clear() { state_.reset(); }
+uint64_t GraphLabelingModelSession::candidate_fingerprint() const {
+  if (!state_ || state_->best.labels.empty()) return 0;
+  uint64_t result = 0xcbf29ce484222325ULL;
+  auto mix = [&](uint64_t value) {
+    result ^= value;
+    result *= 0x100000001b3ULL;
+  };
+  mix(state_->best.score.first);
+  mix(state_->best.score.second);
+  for (uint32_t label : state_->best.labels) mix(label);
+  return result;
+}
+
+namespace {
+
+struct GraphMeter {
+  Kernel &kernel;
+  uint64_t ceiling;
+  uint64_t used = 0;
+  bool exhausted = false;
+  bool interrupted = false;
+
+  GraphMeter(Kernel &k, uint64_t allowance) : kernel(k), ceiling(allowance) {
+    if (kernel_has_work_budget(k)) ceiling = std::min(ceiling, k.work_budget);
+  }
+  ~GraphMeter() { kernel.stats.graph_labeling_work += used; }
+  bool charge(uint64_t amount) {
+    if (amount > ceiling - used) {
+      if (!exhausted) ++kernel.stats.graph_labeling_budget;
+      exhausted = true;
+      return false;
+    }
+    used += amount;
+    return true;
+  }
+  bool poll() {
+    if (!interrupted &&
+        kernel_rule_interrupt(kernel, kernel.stats.graph_labeling_interrupted))
+      interrupted = true;
+    return interrupted;
+  }
+};
+
+uint64_t saturated_add(uint64_t a, uint64_t b) {
+  return b > UINT64_MAX - a ? UINT64_MAX : a + b;
+}
+
+std::vector<int8_t> graph_partial_assignment(
+    const Kernel &kernel, const GraphLabelingModelSession::State &state,
+    const graph_labeling::Candidate &candidate) {
+  std::vector<int8_t> partial(kernel.nvars, 0);
+  const uint32_t n = state.shape.vertices;
+  if (candidate.labels.size() != n || state.primary_negative.size() != uint64_t(n) * n)
+    return {};
+  for (uint32_t vertex = 0; vertex < n; ++vertex) {
+    for (uint32_t label = 0; label < n; ++label) {
+      const uint64_t external = uint64_t(vertex) * n + label;
+      if (external >= kernel.external_to_internal.size()) continue;
+      const Var internal = kernel.external_to_internal[external];
+      if (internal == INVALID_VAR || internal >= kernel.nvars ||
+          kernel_var_retired(kernel, internal))
+        continue;
+      const bool positive = (label == candidate.labels[vertex]) !=
+                            bool(state.primary_negative[external]);
+      partial[internal] = positive ? 1 : -1;
+    }
+  }
+  return partial;
+}
+
+} // namespace
 
 RuleEligibility graph_labeling_model_guard(const Kernel &k) {
   RuleEligibility result;
@@ -16,6 +115,229 @@ RuleEligibility graph_labeling_model_guard(const Kernel &k) {
       .fact("sparse-mode", !k.dense)
       .fact("no-probe-transaction", !k.probing.recording)
       .fact("large-watches-connected", k.large_watches_connected);
+}
+
+GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
+    Kernel &k, GraphLabelingModelSession &session) {
+  using namespace graph_labeling;
+  using Stage = strategy::GraphLabelingStage;
+  GraphLabelingAuthenticationResult result;
+  ++k.stats.graph_labeling_calls;
+  const auto p = strategy::GraphLabelingParameters::from_kernel(k);
+  if (session.authenticated()) {
+    result.status = GraphLabelingAuthenticationStatus::Authenticated;
+    return result;
+  }
+  if (!p.valid() || !graph_labeling_model_guard(k)) return result;
+  GraphMeter meter(k, p.work[size_t(Stage::Recognition)]);
+  Shape shape;
+  auto charge = [&](uint64_t amount) {
+    if ((meter.used & ((uint64_t{1} << 20) - 1)) == 0 && meter.poll())
+      return false;
+    return meter.charge(amount);
+  };
+  if (!recognize(k, p.maximum_vertices, p.workspace_bytes, charge, shape)) {
+    result.work = meter.used;
+    result.status = meter.interrupted
+                        ? GraphLabelingAuthenticationStatus::Interrupted
+                        : meter.exhausted
+                              ? GraphLabelingAuthenticationStatus::Exhausted
+                              : GraphLabelingAuthenticationStatus::NoStructure;
+    return result;
+  }
+  const uint64_t n = shape.vertices, square = n * n;
+  const uint64_t graph_bytes = 16 * square + 64 * n;
+  const uint64_t search_bytes = 16 * square + 256 * n;
+  if (graph_bytes > p.workspace_bytes ||
+      search_bytes > p.workspace_bytes - graph_bytes) {
+    ++k.stats.graph_labeling_budget;
+    result.work = meter.used;
+    result.status = GraphLabelingAuthenticationStatus::Exhausted;
+    return result;
+  }
+  auto next = std::make_unique<GraphLabelingModelSession::State>();
+  next->primary_negative.resize(static_cast<size_t>(square));
+  for (uint64_t i = 0; i < square; ++i)
+    next->primary_negative[i] = negated(shape.primary[i]);
+  next->shape = std::move(shape);
+  next->cumulative_work = meter.used;
+  session.state_ = std::move(next);
+  ++k.stats.graph_labeling_recognized;
+  k.stats.graph_labeling_vertices = session.state_->shape.vertices;
+  k.stats.graph_labeling_separation = session.state_->shape.separation;
+  result.work = meter.used;
+  result.status = GraphLabelingAuthenticationStatus::Authenticated;
+  return result;
+}
+
+GraphLabelingSliceResult graph_labeling_model_slice(
+    Kernel &k, GraphLabelingModelSession &session) {
+  using namespace graph_labeling;
+  using ParameterStage = strategy::GraphLabelingStage;
+  using SessionStage = GraphLabelingModelSession::State::Stage;
+  GraphLabelingSliceResult result;
+  ++k.stats.graph_labeling_calls;
+  if (!session.state_ || !graph_labeling_model_guard(k)) return result;
+  auto &state = *session.state_;
+  result.objective_before = state.best.score.first;
+  if (state.stage == SessionStage::Done) {
+    result.status = GraphLabelingSliceStatus::TrajectoryComplete;
+    result.objective_after = state.best.score.first;
+    return result;
+  }
+  const auto p = strategy::GraphLabelingParameters::from_kernel(k);
+  const auto parameter_stage = [&] {
+    switch (state.stage) {
+    case SessionStage::Construction: return ParameterStage::Construction;
+    case SessionStage::Window: return ParameterStage::Window;
+    case SessionStage::Repair: return ParameterStage::Repair;
+    case SessionStage::Anneal: return ParameterStage::Anneal;
+    case SessionStage::FinalRepair: return ParameterStage::FinalRepair;
+    case SessionStage::Completion: return ParameterStage::Completion;
+    case SessionStage::Done: break;
+    }
+    return ParameterStage::Publication;
+  }();
+  const uint64_t stage_allowance = p.work[size_t(parameter_stage)];
+  const uint64_t publication_allowance = p.work[size_t(ParameterStage::Publication)];
+  GraphMeter meter(k, saturated_add(stage_allowance, publication_allowance));
+  const SessionStage stage_before = state.stage;
+  uint64_t stage_remaining = std::min(stage_allowance, meter.ceiling);
+  auto charge = [&](uint64_t amount) {
+    if (!stage_remaining || amount > stage_remaining) {
+      if (!meter.exhausted) ++k.stats.graph_labeling_budget;
+      meter.exhausted = true;
+      return false;
+    }
+    if ((meter.used & ((uint64_t{1} << 20) - 1)) == 0 && meter.poll())
+      return false;
+    if (!meter.charge(amount)) return false;
+    stage_remaining -= amount;
+    return true;
+  };
+  bool attempted_completion = false;
+  std::vector<uint8_t> model;
+  switch (state.stage) {
+  case SessionStage::Construction: {
+    Candidate candidate;
+    uint32_t seeds = 0;
+    (void)order_seeds(state.shape, charge, candidate, seeds);
+    k.stats.graph_labeling_seeds += seeds;
+    if (!candidate.labels.empty() && candidate.score < state.best.score)
+      state.best = std::move(candidate);
+    state.stage = SessionStage::Window;
+    break;
+  }
+  case SessionStage::Window: {
+    uint64_t nodes = 0;
+    if (!state.best.labels.empty() && state.best.score.first &&
+        state.shape.vertices <= p.maximum_dfs_vertices)
+      (void)window_search(state.shape,
+          {p.maximum_dfs_nodes, p.maximum_dfs_starts, p.early_dfs_choices,
+           p.seed ^ 0x51A7EULL ^ (uint64_t(state.shape.vertices) << 20) ^
+               state.shape.separation},
+          charge, state.best, nodes);
+    k.stats.graph_labeling_nodes += nodes;
+    state.stage = SessionStage::Repair;
+    break;
+  }
+  case SessionStage::Repair:
+  case SessionStage::FinalRepair: {
+    uint64_t rounds = 0, attempts = 0;
+    if (!state.best.labels.empty() && state.best.score.first)
+      (void)repair(state.shape, p.repair_rounds, p.stall_anneal_iterations,
+          p.seed ^ 0xC0FFEE1234ULL ^ (uint64_t(state.shape.vertices) << 8) ^
+              state.shape.separation,
+          p.seed ^ 0xA17B00D5ULL ^ (uint64_t(state.shape.vertices) << 16) ^
+              state.shape.separation,
+          {}, {}, charge, state.best, rounds, attempts);
+    k.stats.graph_labeling_repairs += rounds;
+    k.stats.graph_labeling_anneal_attempts += attempts;
+    state.stage = state.stage == SessionStage::Repair
+                      ? SessionStage::Anneal : SessionStage::Completion;
+    break;
+  }
+  case SessionStage::Anneal: {
+    uint64_t attempts = 0;
+    if (!state.best.labels.empty() && state.best.score.first)
+      (void)anneal(state.shape, p.anneal_iterations,
+          p.seed ^ 0xA17B00D5ULL ^ (uint64_t(state.shape.vertices) << 16) ^
+              state.shape.separation,
+          {}, charge, state.best, attempts);
+    k.stats.graph_labeling_anneal_attempts += attempts;
+    state.stage = SessionStage::FinalRepair;
+    break;
+  }
+  case SessionStage::Completion: {
+    attempted_completion = true;
+    if (!state.best.labels.empty() && !state.best.score.first) {
+      Candidate candidate = state.best;
+      if (normalize_reflection(candidate, charge)) {
+        const auto partial = graph_partial_assignment(k, state, candidate);
+        if (!partial.empty()) {
+          const uint64_t n = state.shape.vertices;
+          const uint64_t retained = 16 * n * n + 64 * n + k.nvars;
+          if (retained <= p.workspace_bytes)
+            (void)complete_model(k, partial, p.workspace_bytes - retained,
+                                 charge, model);
+        }
+      }
+    }
+    state.stage = SessionStage::Done;
+    break;
+  }
+  case SessionStage::Done: break;
+  }
+  result.objective_after = state.best.score.first;
+  if (meter.interrupted) {
+    state.stage = stage_before;
+    state.cumulative_work = saturated_add(state.cumulative_work, meter.used);
+    result.work = meter.used;
+    result.status = GraphLabelingSliceStatus::Interrupted;
+    return result;
+  }
+  if (!model.empty()) {
+    const uint64_t publish_cost = k.nvars;
+    if (publish_cost <= publication_allowance && meter.charge(publish_cost)) {
+      lucky_publish_model(k, model);
+      ++k.stats.graph_labeling_sat;
+      result.result = ApplyResult::Sat;
+      result.status = GraphLabelingSliceStatus::Sat;
+      state.cumulative_work = saturated_add(state.cumulative_work, meter.used);
+      result.work = meter.used;
+      return result;
+    }
+  }
+  if (!state.best.labels.empty() && state.best.score < state.published) {
+    Candidate candidate = state.best;
+    uint64_t publication_remaining = publication_allowance;
+    auto publish_charge = [&](uint64_t amount) {
+      if (amount > publication_remaining || !meter.charge(amount)) return false;
+      publication_remaining -= amount;
+      return true;
+    };
+    if (normalize_reflection(candidate, publish_charge)) {
+      const auto partial = graph_partial_assignment(k, state, candidate);
+      const uint64_t before = k.stats.local_search_hints_offered;
+      if (!partial.empty() && publish_charge(uint64_t(k.nvars)))
+        kernel_offer_local_search_partial_hint(
+            k, strategy::LocalSearchKind::GraphLabeling, partial,
+            candidate.score.first, true,
+            {saturated_add(state.cumulative_work, meter.used),
+             strategy::LocalSearchEffortUnit::GraphWork});
+      if (k.stats.local_search_hints_offered != before) {
+        state.published = state.best.score;
+        result.hint_published = result.useful_hint = true;
+        result.result = ApplyResult::Ok;
+      }
+    }
+  }
+  result.status = attempted_completion || state.stage == SessionStage::Done
+                      ? GraphLabelingSliceStatus::TrajectoryComplete
+                      : GraphLabelingSliceStatus::Pending;
+  state.cumulative_work = saturated_add(state.cumulative_work, meter.used);
+  result.work = meter.used;
+  return result;
 }
 
 ApplyResult graph_labeling_model_apply(Kernel &k) {
