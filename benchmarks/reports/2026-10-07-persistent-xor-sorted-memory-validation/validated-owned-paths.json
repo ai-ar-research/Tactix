@@ -1,0 +1,13 @@
+[
+  "src/main.cpp",
+  "src/policies/default_policy.cpp",
+  "src/policies/default_policy.hpp",
+  "src/rules/semantic_extension/affine_matrix.cpp",
+  "src/rules/semantic_extension/affine_matrix.hpp",
+  "src/rules/semantic_extension/affine_matrix_search.cpp",
+  "src/rules/semantic_extension/affine_matrix_search.hpp",
+  "tests/test_affine_matrix_incremental_capture.cpp",
+  "tests/test_affine_matrix_sorted_extension.cpp",
+  "tests/test_affine_matrix_sorted_extension_budget.cpp",
+  "tests/test_affine_matrix_sorted_extension_memory.cpp"
+]

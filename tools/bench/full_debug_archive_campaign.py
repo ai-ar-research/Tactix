@@ -108,6 +108,7 @@ def tree_digest(root: Path, mutable: list[str]) -> str:
 
 def copy_dependencies(source: Path) -> list[str]:
     dependencies = [
+        "benchmarks/reports/2026-09-14-orbitopal-certified-claude-fuzz/terminal-report.md",
         "benchmarks/baselines/sc24-26-32g-5000s/manifest.json",
         "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb",
         "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf",

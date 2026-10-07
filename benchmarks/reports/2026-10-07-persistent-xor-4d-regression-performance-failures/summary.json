@@ -1,0 +1,53 @@
+{
+  "b28c5": {
+    "accepted": false,
+    "solver_seconds": 1169.626,
+    "solver_seconds_ceiling": 999.87615,
+    "failures": [
+      {
+        "errors": [
+          "aggregate solver-time ceiling exceeded"
+        ]
+      }
+    ],
+    "independently_verified": 32,
+    "censored_proofs": 1
+  },
+  "rank1-50": {
+    "accepted": false,
+    "solver_seconds": 11556.994,
+    "solver_seconds_ceiling": 8521.52175,
+    "failures": [
+      {
+        "task": 38,
+        "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+        "errors": [
+          "lost retained solve"
+        ]
+      },
+      {
+        "errors": [
+          "aggregate solver-time ceiling exceeded"
+        ]
+      }
+    ],
+    "independently_verified": 41,
+    "censored_proofs": 8
+  },
+  "wv100": {
+    "accepted": false,
+    "solver_seconds": 2295.225,
+    "solver_seconds_ceiling": null,
+    "failures": [
+      {
+        "task": 94,
+        "instance": "tierD24-26/2563ea83d8508d635cc034d80014cd72-1x1x13_1x3x6_pair_2_1_1_4_2_0.sanitized.cnf.xz",
+        "errors": [
+          "lost retained solve"
+        ]
+      }
+    ],
+    "independently_verified": 97,
+    "censored_proofs": 2
+  }
+}
