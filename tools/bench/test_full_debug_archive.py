@@ -15,6 +15,35 @@ import full_debug_archive_campaign as campaign
 
 
 class FullDebugArchiveTests(unittest.TestCase):
+    def test_reference_bundle_includes_sources_but_excludes_build_products(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            names = ["cadical/src/options.hpp", "cadical/src/probe.cpp",
+                     "kissat/src/options.h", "kissat/src/probe.c"]
+            for name in names + ["cadical/src/probe.o", "kissat/src/kissat"]:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(name + "\n")
+            source = root / "archive"
+            with patch.object(campaign, "ROOT", root):
+                copied = campaign.copy_reference_sources(source)
+            self.assertEqual(sorted(copied), sorted(names))
+            for name in names:
+                self.assertEqual((source / name).read_bytes(), (root / name).read_bytes())
+            self.assertFalse((source / "cadical/src/probe.o").exists())
+            self.assertFalse((source / "kissat/src/kissat").exists())
+
+    def test_reference_bundle_rejects_missing_required_inventory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            header = root / "cadical/src/options.hpp"
+            header.parent.mkdir(parents=True)
+            header.write_text("reference\n")
+            with patch.object(campaign, "ROOT", root):
+                with self.assertRaisesRegex(ArchiveHarnessError, "kissat/src/options.h"):
+                    campaign.copy_reference_sources(root / "archive")
+            self.assertFalse((root / "archive").exists())
+
     def make_pin(self, root):
         archive = root / "source.tar"
         payload = b"committed source\n"

@@ -106,6 +106,22 @@ def tree_digest(root: Path, mutable: list[str]) -> str:
     return value.hexdigest()
 
 
+def copy_reference_sources(source: Path) -> list[str]:
+    """Package option inventories and citation-disambiguation sources together."""
+    for header in ("cadical/src/options.hpp", "kissat/src/options.h"):
+        if not (ROOT / header).is_file():
+            raise ArchiveHarnessError(f"missing reference source dependency: {header}")
+    names = []
+    for directory in ("cadical/src", "kissat/src"):
+        for path in sorted((ROOT / directory).iterdir()):
+            if not path.is_file() or path.suffix not in {".c", ".cpp", ".h", ".hpp", ".cc", ".inc"}:
+                continue
+            name = path.relative_to(ROOT)
+            copy_entry(path, source / name, dereference=True)
+            names.append(name.as_posix())
+    return names
+
+
 def copy_dependencies(source: Path) -> list[str]:
     dependencies = [
         "benchmarks/reports/2026-09-14-orbitopal-certified-claude-fuzz/terminal-report.md",
@@ -123,6 +139,7 @@ def copy_dependencies(source: Path) -> list[str]:
     ]
     for name in dependencies:
         copy_entry(ROOT / name, source / name)
+    dependencies.extend(copy_reference_sources(source))
     for name in CHECKERS:
         relative_path = Path("tools/checkers/bin") / name
         copy_entry(ROOT / relative_path, source / relative_path, dereference=True)
