@@ -336,6 +336,9 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         self.assertEqual(current['qualification_job_id'], '1755133')
         self.assertEqual(
             set(current['files']), set(builder.FIXED_LONG_DSR_PROVENANCE['files']))
+        patch_rel = 'tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch'
+        self.assertEqual(current['files'][patch_rel], current['repository_patch_sha256'])
+        self.assertEqual(builder.sha(builder.ROOT / patch_rel), current['repository_patch_sha256'])
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             artifact = root / 'source.tar'
@@ -353,6 +356,12 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                 self.assertTrue(authority['files'])
                 artifact.write_bytes(b'tampered')
                 with self.assertRaisesRegex(ValueError, 'provenance mismatch'):
+                    builder.dsr_checker_provenance('long64-fixed')
+            unbound = dict(authority, repository_patch_sha256='0' * 64)
+            artifact.write_bytes(b'source')
+            with patch.multiple(builder, ROOT=root,
+                                FIXED_LONG_DSR_PROVENANCE=unbound):
+                with self.assertRaisesRegex(ValueError, 'not file-bound'):
                     builder.dsr_checker_provenance('long64-fixed')
             self.assertIsNone(builder.dsr_checker_provenance('frozen'))
             self.assertIsNone(builder.dsr_checker_provenance('long64'))

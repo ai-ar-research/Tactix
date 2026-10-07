@@ -40,9 +40,11 @@ FIXED_LONG_DSR_PROVENANCE={
     'schema':'tactix-dsr-checker-profile-provenance-v1',
     'profile':'long64-fixed',
     'upstream_commit':'0b8cc0ef4d228c059994923cbc66abeb9a42ea14',
-    'repository_patch_sha256':'edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b923df3afc6',
+    'repository_patch_sha256':'edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b2b923df3afc6',
     'qualification_job_id':'1755133',
     'files':{
+        'tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch':
+            'edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b2b923df3afc6',
         'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/source.tar':
             '397557639afc3a58b7a46979a4bb77e09b664b049b7017d71355435ba08632ad',
         'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fix.patch':
@@ -122,6 +124,9 @@ def verify(c):
 
 def dsr_checker_provenance(dsr_profile):
     if dsr_profile != 'long64-fixed':return None
+    recorded=FIXED_LONG_DSR_PROVENANCE.get('repository_patch_sha256')
+    if recorded is not None and recorded not in FIXED_LONG_DSR_PROVENANCE['files'].values():
+        raise ValueError('DSR checker provenance patch hash is not file-bound (long64-fixed)')
     for rel,expected in FIXED_LONG_DSR_PROVENANCE['files'].items():
         source=ROOT/rel
         if not source.is_file() or sha(source)!=expected:
