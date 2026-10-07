@@ -37,3 +37,4 @@ binaries were reproduced from verified source, so no acceptance result changes.
 | `benchmarks/runs/20261007-fixed44-b26ef-cooperative-python-retry01/manifest.json` | `f24e9ea584b4ff86c93716d9a05ca079f6c38ccbffd383c17a325ca6e42386a5` |
 | `benchmarks/runs/20261007-fixed44-b26ef-cooperative-python-retry02/manifest.json` | `99d508c935838c1a3044a5f8bde98e50d6fa7b0275464bc2610b0762d333f960` |
 | `benchmarks/reports/2026-10-07-rank147-longtype-deleted-clause-fix.md` | `6361fcfbf3ce10adf8dcc4bd9bcadcf220b68ea7c383d9b765a5be5496c2557e` |
+| `benchmarks/runs/20261007-fixed44-b26ef-final-preparation/PREPARED.json` | `ad5eee653568e970ddf41af52e1615d4d6ef41bb473cf265d2599a067c21134a` |
