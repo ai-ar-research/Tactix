@@ -1,0 +1,11 @@
+Test project /home/hwu/SAT-solving/build/persistent-xor-cumulative-20261007/sanitize
+    Start 139: affine_matrix_persistent_lifecycle
+1/3 Test #139: affine_matrix_persistent_lifecycle ...   Passed    0.50 sec
+    Start 140: affine_matrix_projection
+2/3 Test #140: affine_matrix_projection .............   Passed    0.22 sec
+    Start 274: proof_premise_lease_lifecycle
+3/3 Test #274: proof_premise_lease_lifecycle ........   Passed    0.22 sec
+
+100% tests passed out of 3
+
+Total Test time (real) =   0.95 sec

@@ -1,0 +1,13 @@
+{
+  "job": 1752246,
+  "tests": 325,
+  "failed_tests": [
+    "config_wiring",
+    "effort_specs",
+    "feedback_statistics",
+    "comment_hygiene",
+    "doc_size"
+  ],
+  "junit_path": "benchmarks/runs/20261007-transitivity-2bce79528-full-debug/junit.xml",
+  "junit_sha256": "6d6e1f8301dd3825d7a009f7ab76bb0d4ffe9e86d0a9147020567ac58e948c16"
+}

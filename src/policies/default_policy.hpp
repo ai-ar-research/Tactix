@@ -5,6 +5,8 @@
 #include "policies/default_restart.hpp"
 #include "policies/policy.hpp"
 #include "strategy/policy_completion.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
+#include <optional>
 
 namespace tactix {
 
@@ -50,6 +52,27 @@ bool default_fast_elimination_discovery_admissible(
     uint64_t active_variables, uint64_t remaining_ticks);
 bool default_should_run_fast_elimination_after_structured(
     bool structured_root_grew_trail);
+
+// Formula-independent bounded profile for persistent authenticated subimages.
+// No clause census or recognition is performed by this pure policy helper.
+std::optional<strategy::AffineConsequenceParameters>
+default_affine_search_parameters(const Kernel &, const DefaultStrategyConfig &);
+
+struct DefaultAffineSearchDiagnostics {
+  uint64_t initializations = 0, refreshes = 0, unchanged_refreshes = 0;
+  uint64_t root_services = 0, search_services = 0;
+  uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
+  uint64_t reasons_published = 0, implications_consumed = 0, conflicts_consumed = 0;
+  uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
+  uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
+  uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
+  uint64_t proof_additions = 0, proof_deletions = 0;
+  uint64_t root_unit_work = 0, root_unit_additions = 0, premise_maintenance_work = 0;
+  uint64_t alias_work = 0, alias_proof_additions = 0;
+  uint64_t recognized_equations = 0, admitted_sources = 0, active_sources = 0;
+  uint64_t retired_sources = 0, projected_variables = 0;
+  uint64_t conditioned_rows = 0, unchanged_reductions = 0, widest_reason = 0;
+};
 
 class DefaultBranching final : public BranchingPolicy {
 public:
@@ -178,6 +201,10 @@ public:
   strategy::controller::Observation observe(const Kernel &) const;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
+  const DefaultAffineSearchDiagnostics &affine_search_diagnostics() const {
+    return affine_search_diagnostics_;
+  }
+
   void reset_schedule(const Kernel &);
   // White-box seams for Kissat's exact `classify.c` predicates. The count
   // overload pins threshold behavior without constructing 100k clauses.
@@ -239,6 +266,19 @@ public:
   void update_formula_classification(Kernel &) const;
 
 private:
+  DefaultAffineSearchDiagnostics affine_search_diagnostics_;
+  std::vector<uint64_t> affine_reason_ids_;
+  std::vector<std::pair<int32_t,int32_t>> affine_binary_reasons_;
+  uint64_t affine_refresh_ticks_ = 0, affine_refresh_work_ = 0;
+  uint64_t affine_service_allowance_ = 0;
+  uint64_t affine_tracking_limit_ = 0;
+  uint64_t affine_usefulness_calls_ = 0, affine_usefulness_yield_ = 0;
+  uint64_t affine_usefulness_checks_ = 0;
+  bool affine_usefulness_paused_ = false;
+  AffineMatrixInitResult initialize_affine_search(Kernel &, bool refresh = false, bool recognize = true);
+  AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
+  void observe_affine_consumption(const Kernel &, size_t trail_begin);
+
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);
   void observe_glue(const Kernel &, uint32_t);

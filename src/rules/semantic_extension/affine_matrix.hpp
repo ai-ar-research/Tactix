@@ -74,6 +74,12 @@ public:
       const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &charge, MatrixEvent &event);
 
+  // Existentially project unavailable external variables. Derivation indices
+  // still cite the original authenticated equations; no assignment is guessed
+  // for an eliminated identity. Failure leaves the previous matrix unchanged.
+  MatrixStatus project(const std::vector<External> &unavailable,
+                       const std::function<bool(uint64_t)> &charge);
+
   uint64_t owner_identity() const { return owner_identity_; }
   uint64_t work() const { return work_; }
   bool complete_admission() const { return complete_admission_; }

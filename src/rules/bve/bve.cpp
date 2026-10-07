@@ -2228,6 +2228,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_variable_status(k, x, "eliminated");
 #endif
+  kernel_affine_note_namespace_change(k);
   k.var_status[x] = VarStatus::Eliminated;
   k.retired_events.push_back(x); // the policy deactivates its own H from this
 

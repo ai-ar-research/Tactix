@@ -9,6 +9,8 @@
 #include "population/population_observer.hpp"
 
 #include <array>
+#include <functional>
+#include <map>
 #include <cstdio>
 #include <string>
 #include <unordered_map>
@@ -158,6 +160,35 @@ public:
   size_t persistent_external_clauses() const {
     return persistent_external_.size();
   }
+  uint64_t persistent_external_bytes() const;
+
+  // Exact, already authenticated checker premises. These are not duplicate
+  // additions: native deletion may proceed while the original checker copy
+  // remains. Every deletion primitive honors the same literal-body lease.
+  // Registration is transactional and caller-metered. Witnessed SR explicitly
+  // retires groups whose variables it changes before emitting its witness.
+  struct DeferredDeletionLimits {
+    uint64_t maximum_pending_deletions;
+    uint64_t maximum_pending_literal_work;
+    constexpr DeferredDeletionLimits(uint64_t deletions = 0, uint64_t work = 0)
+        : maximum_pending_deletions(deletions), maximum_pending_literal_work(work) {}
+  };
+  using PremiseGroup = std::vector<std::vector<int32_t>>;
+  bool retain_premise_groups(const std::vector<PremiseGroup> &,
+      uint64_t maximum_groups, uint64_t maximum_literals,
+      uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
+      std::vector<uint64_t> &handles, DeferredDeletionLimits limits = {});
+  bool premise_group_active(uint64_t) const;
+  bool premise_group_matches(uint64_t, const PremiseGroup &) const;
+  uint64_t premise_epoch() const { return premise_epoch_; }
+  uint64_t premise_literals() const { return premise_literals_; }
+  uint64_t premise_bytes() const { return premise_bytes_; }
+  // Cumulative serializer overhead, not outstanding occupancy.
+  uint64_t premise_deletions_deferred() const { return premise_deferred_; }
+  uint64_t premise_pending_deletions() const { return premise_pending_deletions_; }
+  uint64_t premise_pending_literal_work() const { return premise_pending_literal_work_; }
+  uint64_t premise_maintenance_work() const { return premise_maintenance_work_; }
+  void release_premise_groups(const std::vector<uint64_t> &, uint64_t line_id);
 
   void flush(); // signal-safe enough: fflush on the buffered stream
 
@@ -232,6 +263,20 @@ private:
   };
   std::vector<PersistentExternalClause> persistent_external_;
   uint64_t persistent_external_epoch_ = 0;
+  struct LeasedPremise {
+    uint64_t users = 0, deferred = 0;
+  };
+  std::map<std::vector<int32_t>, LeasedPremise> leased_premises_;
+  std::map<uint64_t, PremiseGroup> premise_groups_;
+  uint64_t next_premise_group_ = 0, premise_epoch_ = 0;
+  uint64_t premise_literals_ = 0, premise_bytes_ = 0, premise_deferred_ = 0;
+  uint64_t premise_pending_deletions_ = 0, premise_pending_literal_work_ = 0;
+  uint64_t premise_pending_deletion_cap_ = UINT64_MAX, premise_pending_work_cap_ = UINT64_MAX;
+  uint32_t premise_maximum_width_ = 0;
+  uint64_t premise_maintenance_work_ = 0;
+  bool defer_leased_deletion(const int32_t *, uint32_t);
+  void invalidate_premises_for_sr(uint64_t, const Lit *, uint32_t,
+      const Lit *, uint32_t, const DsrLiteralMapping *, uint32_t);
   // Binary deletion blocks are usually only a few bytes. Keep them in a
   // bounded buffer and spill exceptional blocks to a temporary file.
   std::vector<unsigned char> pending_deletion_bytes_;

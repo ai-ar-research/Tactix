@@ -54,8 +54,9 @@ import re
 import subprocess
 import sys
 
-ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                      capture_output=True, text=True, check=True).stdout.strip()
+from source_root import source_root
+
+ROOT = source_root(__file__)
 NOTES = os.path.join(ROOT, "docs", "implementation-notes.md")
 # The parity ledger was section 13 of the notes until it grew to half that
 # file. Its headings, row ids and markers moved verbatim, so only the path

@@ -1517,6 +1517,33 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v15;
 
+/* Append-only persistent affine profile. Old versions retain zero persistence.
+ * Deferred caps bound outstanding physical deletion count and cost(1+width),
+ * not all serializer scans. All positive-profile budgets are explicit. */
+#define TACTIX_AFFINE_MATRIX_PROFILE_LEGACY 0
+#define TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 1
+#define TACTIX_AFFINE_MATRIX_AUTHENTICATED_SUBIMAGE 1
+#define TACTIX_AFFINE_MATRIX_INITIALIZE 1
+#define TACTIX_AFFINE_MATRIX_REFRESH 2
+#define TACTIX_AFFINE_MATRIX_ROOT_MAINTENANCE 3
+#define TACTIX_AFFINE_MATRIX_SEARCH_STEP 4
+typedef struct {
+  tactix_online_affine_consequence_parameters basis;
+  uint32_t admission, operation;
+  uint64_t maximum_retained_bytes;
+  uint64_t maximum_deferred_deletions, maximum_deferred_literal_work;
+} tactix_online_affine_matrix_initialize_parameters;
+typedef struct {
+  tactix_online_step_v15 base;
+  uint32_t affine_matrix_profile;
+  tactix_online_affine_matrix_initialize_parameters affine_matrix;
+} tactix_online_step_v16;
+typedef struct {
+  const tactix_online_step_v16 *steps;
+  int step_count, repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v16;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1574,6 +1601,8 @@ int tactix_online_configure_v14(tactix *, const tactix_online_program_v14 *,
 int tactix_online_configure_v13(tactix *, const tactix_online_program_v13 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v15(tactix *, const tactix_online_program_v15 *,
+                                uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v16(tactix *, const tactix_online_program_v16 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

@@ -27,8 +27,9 @@ import re
 import subprocess
 import sys
 
-ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                      capture_output=True, text=True, check=True).stdout.strip()
+from source_root import source_root
+
+ROOT = source_root(__file__)
 KERNEL_H = os.path.join(ROOT, "src", "kernel", "kernel.hpp")
 POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
           "src/policies/subpolicy.hpp", "src/policies/subpolicy.cpp"]
@@ -87,8 +88,10 @@ POLICY_BINDINGS = {
                     r"\? local_search_guidance_select_next\(k,\s*"
                     r"config_\.rephase\.structural_seed_rotation, structural_seed_cursor_\)\s*:\s*0"),
         (POLICY[0], WALK_REQUEST),
-        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*request\.seed_candidate"),
-        (GUIDANCE_EXECUTION, r"k\.walk_seed_candidate\s*=\s*previous_candidate"),
+        (GUIDANCE_EXECUTION, r"parameters\.seed_candidate\s*=\s*request\.seed_candidate"),
+        (GUIDANCE_EXECUTION, r"strategy::ScopedWalkParameters selected\(k, parameters\)"),
+        ("src/strategy/rule_parameters.cpp", r"k\.walk_seed_candidate\s*=\s*p\.seed_candidate"),
+        ("src/strategy/rule_parameters.cpp", r"kernel_\.walk_seed_candidate\s*=\s*saved_candidate_"),
     ],
     "work_budget_offset": [
         (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),
@@ -231,6 +234,18 @@ POLICY_BINDINGS["no_ext_reason_bump"] = [
     ("src/strategy/analyze_parameters.cpp", r"k\.no_ext_reason_bump\s*=\s*!p\.bump_extension_reasons")]
 POLICY_ADAPTERS["walk_even_break_base_milli"] = [RULE_PARAMETERS]
 POLICY_ADAPTERS["walk_seed_candidate"] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
+for field, member, request_member in [
+    ("walk_preparation_budget", "preparation_budget", "preparation_allowance"),
+    ("walk_objective", "objective", "objective"),
+    ("walk_admission", "admission", "admission"),
+]:
+    POLICY_ADAPTERS[field] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
+    POLICY_BINDINGS[field] = [
+        (POLICY[0], WALK_REQUEST),
+        (GUIDANCE_EXECUTION, r"parameters\." + member + r"\s*=\s*request\." + request_member),
+        (GUIDANCE_EXECUTION, r"strategy::ScopedWalkParameters selected\(k, parameters\)"),
+        (RULE_PARAMETERS, r"k\." + field + r"\s*=\s*(?:static_cast<uint32_t>\()?p\." + member),
+    ]
 POLICY_BINDINGS["walk_even_break_base_milli"] = [
     (POLICY[0], r"execution::WalkGuidanceInstallationRequest\{\s*config_\.rephase\.walk_even_break_base_milli"),
     (PARAMETER_EXECUTION, r"strategy::install_walk_guidance\(k, request\.even_break_base_milli"),
@@ -322,6 +337,9 @@ TABLE = {
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
     "walk_seed_candidate":     ("POLICY", "exact structural publication selected for private Walk seeding"),
+    "walk_preparation_budget": ("POLICY", "typed private preparation allowance, scoped during Walk"),
+    "walk_objective":          ("POLICY", "typed private current-CNF objective, scoped during Walk"),
+    "walk_admission":          ("POLICY", "typed private phase admission, scoped during Walk"),
     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
                                           "Vivify tier ceiling"),
     "work_budget_bounded":     ("POLICY", "distinguishes a zero cumulative Vivify "
@@ -512,6 +530,14 @@ CONFIG_START = "cold_state_deferred"
 # per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
+              # Derived sum-type dispatch state, installed and restored with
+              # the exact affine profile; no independent scalar knob exists.
+              "affine_matrix_initialize_parameters_active",
+              # Mutation-audit trust state; epoch overflow disables capture,
+              # rather than exposing an independently configurable policy knob.
+              "affine_capture_epochs_trusted",
+              "affine_trail_retraction_epoch",
+              "affine_semantic_namespace_epoch",
               # Candidate publication lifetime; deliberately independent of
               # resettable statistics and never set by a policy profile.
               "local_search_publication",

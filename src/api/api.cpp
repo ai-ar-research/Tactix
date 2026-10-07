@@ -2080,7 +2080,7 @@ bool online_program_v14(const tactix_online_program_v14 &source,
 }
 
 bool online_program_v15(const tactix_online_program_v15 &source,
-                        const Kernel &kernel, strategy::OnlineInprocessProgram &target) {
+                        const Kernel &kernel, strategy::OnlineInprocessProgram &target, bool validate = true) {
   if(source.step_count<0 || (source.step_count && !source.steps)) return false;
   std::vector<tactix_online_step_v14> bases;
   for(int i=0;i<source.step_count;++i) bases.push_back(source.steps[i].base);
@@ -2146,8 +2146,57 @@ bool online_program_v15(const tactix_online_program_v15 &source,
     }
     step.parameters=p;
   }
-  return strategy::validate_online_strategy_program(target);
+  return !validate || strategy::validate_online_strategy_program(target);
 }
+
+bool online_program_v16(const tactix_online_program_v16 &source,
+                        const Kernel &kernel, strategy::OnlineInprocessProgram &target,
+                        bool validate = true) {
+  if (source.step_count < 0 || (source.step_count && !source.steps)) return false;
+  std::vector<tactix_online_step_v15> bases;
+  for (int i=0;i<source.step_count;++i) bases.push_back(source.steps[i].base);
+  const tactix_online_program_v15 base{bases.data(),source.step_count,source.repeat_mode,source.repeat_limit};
+  if (!online_program_v15(base,kernel,target,false)) return false;
+  for (int i=0;i<source.step_count;++i) {
+    const auto &input=source.steps[i]; const auto &p=input.affine_matrix;
+    auto &step=target.sequence[i];
+    tactix_online_parameters encoded{};
+    encoded.kind=TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
+    encoded.value.affine_consequence=p.basis;
+    if (input.affine_matrix_profile==TACTIX_AFFINE_MATRIX_PROFILE_LEGACY) {
+      // Require a truly empty extension. Validate fields, not struct padding.
+      if (p.admission || p.operation || p.maximum_retained_bytes ||
+          p.maximum_deferred_deletions || p.maximum_deferred_literal_work) return false;
+      const auto &b=p.basis;
+      if (b.maximum_clauses || b.maximum_snapshot_literals || b.maximum_snapshot_work ||
+          b.maximum_groups || b.maximum_patterns || b.maximum_elimination_work || b.maximum_arity ||
+          b.maximum_intermediate_width || b.maximum_sources || b.maximum_output_width ||
+          b.maximum_proof_additions || b.maximum_proof_deletions || b.maximum_journal_bytes ||
+          b.consequence || b.semantics || b.basis_maximum_work || b.basis_maximum_intermediate_width ||
+          b.basis_maximum_sources || b.basis_maximum_premises || b.basis_maximum_nodes ||
+          b.basis_maximum_direct_width || b.maximum_external_extent || b.maximum_session_keys || b.maximum_session_work)
+        return false;
+      continue;
+    }
+    if (input.affine_matrix_profile!=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 ||
+        step.rule!="AffineMatrixInitialize" || !std::holds_alternative<std::monostate>(step.parameters)) return false;
+    strategy::InprocessParameters converted;
+    if (!online_parameters(encoded,converted)) return false;
+    const auto *basis=std::get_if<strategy::AffineConsequenceParameters>(&converted);
+    if (!basis || p.admission!=1 || p.operation<1 || p.operation>4) return false;
+    strategy::AffineMatrixInitializeParameters out;
+    out.basis=*basis;
+    out.admission=static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p.admission);
+    out.operation=static_cast<strategy::AffineMatrixInitializeParameters::Operation>(p.operation);
+    out.maximum_retained_bytes=p.maximum_retained_bytes;
+    out.maximum_deferred_deletions=p.maximum_deferred_deletions;
+    out.maximum_deferred_literal_work=p.maximum_deferred_literal_work;
+    if (!out.valid()) return false;
+    step.parameters=out;
+  }
+  return !validate || strategy::validate_online_strategy_program(target);
+}
+
 
 void online_result(const strategy::InvocationResult &source,
                    tactix_online_result &target) {
@@ -2990,6 +3039,31 @@ int tactix_online_configure_v15(tactix_solver *s,
     return -1;
   strategy::OnlineInprocessProgram program;
   if (!online_program_v15(*source, s->kernel, program)) return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode)) return -1;
+  if (replacement) s->online = std::move(replacement);
+  input_complete(s);
+  return 0;
+}
+
+int tactix_online_configure_v16(tactix_solver *s,
+                                const tactix_online_program_v16 *source,
+                                uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v16(*source, s->kernel, program)) return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = s->online.get();
   if (!executor) {

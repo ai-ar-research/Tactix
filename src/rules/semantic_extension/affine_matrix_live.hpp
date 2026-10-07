@@ -37,6 +37,10 @@ struct MatrixLiveRequest {
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
   AffineMatrixProofCache *proof_cache = nullptr;
+  // Optional exact per-equation checker-premise ownership. Absence preserves
+  // the legacy live native-source authentication boundary.
+  const std::vector<uint64_t> *premise_leases = nullptr;
+  uint64_t maximum_persistent_bytes = 0;
 };
 
 struct MatrixLiveResult {
@@ -60,6 +64,7 @@ struct MatrixLiveResult {
   bool propagation_pending = false;
   bool proof_cache_hit = false;
   bool proof_cache_insert = false;
+  uint64_t installed_reason_id = 0;
 };
 
 class AffineMatrixLivePrepared {

@@ -1,0 +1,9 @@
+Test project /home/hwu/SAT-solving/build/persistent-xor-public-fixed-20261007/debug
+    Start  75: default_affine_search_proof_model
+1/2 Test  #75: default_affine_search_proof_model ...   Passed    1.71 sec
+    Start 183: default_affine_search
+2/2 Test #183: default_affine_search ...............   Passed    0.09 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =   1.83 sec

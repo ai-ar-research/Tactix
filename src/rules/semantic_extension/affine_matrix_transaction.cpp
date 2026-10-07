@@ -305,6 +305,23 @@ bool authenticate_premises(const Equation &equation,
 
 } // namespace
 
+uint64_t AffineMatrixProofCache::retained_bytes() const {
+  uint64_t bytes = entries_.capacity() * sizeof(MatrixProofCacheEntry);
+  for (const auto &entry : entries_) {
+    bytes += entry.source_equations.capacity() * sizeof(size_t) +
+             entry.support_ids.capacity() * sizeof(uint64_t) +
+             entry.source_identity.capacity() * sizeof(Equation);
+    for (const auto &equation : entry.source_identity) {
+      bytes += equation.variables.capacity() * sizeof(External) +
+               equation.premises.capacity() * sizeof(uint64_t) +
+               equation.premise_clauses.capacity() * sizeof(std::vector<External>);
+      for (const auto &clause : equation.premise_clauses)
+        bytes += clause.capacity() * sizeof(External);
+    }
+  }
+  return bytes;
+}
+
 const MatrixProofCacheEntry *AffineMatrixProofCache::find(
     uint64_t owner_identity, uint64_t proof_epoch,
     const std::vector<size_t> &source_equations,

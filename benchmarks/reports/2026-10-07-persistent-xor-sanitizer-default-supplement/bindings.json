@@ -1,0 +1,6 @@
+{
+  "build/persistent-xor-cumulative-20261007/default-fixture-supplement/fixture": "e8c1305581f4daa84733f07d8a0ef9983091dd022116ffe36bc7c86141c49ae6",
+  "build/persistent-xor-cumulative-20261007/default-fixture-supplement/fixture-sanitize": "88f4285f67dd42e27f1628a7d5b17d0b7b8a71dd9c47c3ee549c8c811f438194",
+  "tests/default_affine_search_proof_model.sh": "a0fd4118995f2847828e6fea35f4eed6edbbf8c6b513b701f1ec116c211834e0",
+  "tests/affine_matrix_persistent_lifecycle_proof_model.sh": "ae7a4c54cfce18b44a9f318aa05105109f490756815b5628a1c09b9ae9189577"
+}

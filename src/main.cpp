@@ -172,6 +172,7 @@ int main(int argc, char **argv) {
   CliProofFamily proof_family = CliProofFamily::Automatic;
   bool binary_proof = true;
   bool quiet = false;
+  std::optional<bool> default_affine_search;
   bool random_policy = false;
   bool controller_policy = false;
   bool controller_effort_set = false;
@@ -221,6 +222,14 @@ int main(int argc, char **argv) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
       proof_family = CliProofFamily::Lrat; // native LRAT compatibility
+    } else if (!strncmp(a, "--default-affine-search=", 24)) {
+      if (!strcmp(a + 24, "on")) default_affine_search = true;
+      else if (!strcmp(a + 24, "off")) default_affine_search = false;
+      else {
+        fprintf(stderr, "tactix: --default-affine-search requires on or off\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
     } else if (!strcmp(a, "--controller-policy") ||
                !strncmp(a, "--controller-policy=", 20)) {
       controller_policy = true;
@@ -455,6 +464,7 @@ int main(int argc, char **argv) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
+             "[--default-affine-search=on|off] "
              "[--random-policy[=SEED]] "
              "[--controller-policy[=SEED] [--controller-effort=N]] "
              "[--controller-trace=FILE | --controller-replay=FILE] "
@@ -526,6 +536,12 @@ int main(int argc, char **argv) {
   // random_policy — the only policy that tolerates a null H and, with replay,
   // the only one expressible as a (rule, instance) sequence (trace.hpp).
   const bool controller_selected = controller_policy || controller_replay_path;
+  if (default_affine_search &&
+      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
+    fprintf(stderr, "tactix: --default-affine-search requires DefaultPolicy\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
   if ((feedback_path && feedback_replay_path) ||
       ((feedback_path || feedback_replay_path) &&
        (random_policy || stress_policy || replay_path || no_heuristics)) ||
@@ -905,6 +921,7 @@ int main(int argc, char **argv) {
   }
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
+  if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   DefaultPolicy default_policy(default_config);
   ControllerTrace controller_transcript;
   ControllerTrace *controller_trace = nullptr;
@@ -974,6 +991,38 @@ int main(int argc, char **argv) {
     // ran, so an A/B arm reading zero was skipped, not tested. Only counters
     // whose reading is non-obvious carry a comment below.
     printf("c tactix 0.1.0\n");
+    if (!controller_selected && !random_policy && !stress_policy && !replay_path) {
+      const auto &affine = default_policy.affine_search_diagnostics();
+      const auto metric = [](const char *name, uint64_t value) {
+        printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
+      };
+      metric("enabled", default_config.affine_search.enabled);
+      metric("initializations", affine.initializations);
+      metric("refreshes", affine.refreshes);
+      metric("unchanged_refreshes", affine.unchanged_refreshes);
+      metric("root_services", affine.root_services);
+      metric("search_services", affine.search_services);
+      metric("reasons_published", affine.reasons_published);
+      metric("implications_consumed", affine.implications_consumed);
+      metric("conflicts_consumed", affine.conflicts_consumed);
+      metric("admitted_sources", affine.admitted_sources);
+      metric("active_sources", affine.active_sources);
+      metric("retired_sources", affine.retired_sources);
+      metric("projected_variables", affine.projected_variables);
+      metric("initialization_work", affine.initialization_work);
+      metric("service_work", affine.service_work);
+      metric("incremental_capture_calls", affine.incremental_capture_calls);
+      metric("unchanged_support_calls", affine.unchanged_support_calls);
+      metric("capture_delta_literals", affine.capture_delta_literals);
+      metric("premise_maintenance_work", affine.premise_maintenance_work);
+      metric("alias_work", affine.alias_work);
+      metric("alias_proof_additions", affine.alias_proof_additions);
+      metric("proof_additions", affine.proof_additions);
+      metric("proof_deletions", affine.proof_deletions);
+      metric("overhead_nanos", affine.overhead_nanos);
+      metric("resource_declines", affine.resource_declines);
+      metric("usefulness_disabled", affine.usefulness_disabled);
+    }
     printf("c count-pb    %llu calls, %llu stars, %llu UNSAT, %llu work, "
            "%llu interrupted, %llu additions\n",
            (unsigned long long)kernel.stats.counting_calls,

@@ -806,6 +806,34 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     U32_AT(19,p.maximum_external_extent);
     p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
     parameters=p;
+  } else if (tuple(text, "affine-matrix-persistent1", v) && v.size() == 27) {
+    AffineConsequenceParameters p;
+    p.maximum_clauses=v[0]; p.maximum_snapshot_literals=v[1];
+    p.maximum_snapshot_work=v[2]; p.maximum_groups=v[3];
+    p.maximum_patterns=v[4]; p.maximum_elimination_work=v[5];
+    U32_AT(6,p.maximum_arity); U32_AT(7,p.maximum_intermediate_width);
+    U32_AT(8,p.maximum_sources); U32_AT(9,p.maximum_output_width);
+    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
+    p.maximum_journal_bytes=v[12];
+    p.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
+    p.basis_maximum_work=v[13];
+    U32_AT(14,p.basis_maximum_intermediate_width);
+    U32_AT(15,p.basis_maximum_sources);
+    U32_AT(16,p.basis_maximum_premises);
+    U32_AT(17,p.basis_maximum_nodes);
+    U32_AT(18,p.basis_maximum_direct_width);
+    U32_AT(19,p.maximum_external_extent);
+    p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
+    AffineMatrixInitializeParameters persistent;
+    persistent.basis=p;
+    if (v[22] != 1 || v[23] < 1 || v[23] > 4) return false;
+    persistent.admission=static_cast<AffineMatrixInitializeParameters::Admission>(v[22]);
+    persistent.operation=static_cast<AffineMatrixInitializeParameters::Operation>(v[23]);
+    persistent.maximum_retained_bytes=v[24];
+    persistent.maximum_deferred_deletions=v[25];
+    persistent.maximum_deferred_literal_work=v[26];
+    if (!persistent.valid()) return false;
+    parameters=persistent;
   } else if (tuple(text, "exact-cover-extension1", v) && v.size() == 12) {
     ExactCoverExtensionParameters p;
     U32_AT(0,p.arity); p.maximum_items=v[1]; p.maximum_source_clauses=v[2];
@@ -2442,6 +2470,27 @@ std::string serialize_online_strategy_program(
             << p->maximum_external_extent << ',' << p->maximum_session_keys
             << ',' << p->maximum_session_work << ')';
     }
+    else if (const auto *profile=std::get_if<AffineMatrixInitializeParameters>(&step.parameters)) {
+      const auto *p=&profile->basis;
+        out << ":affine-matrix-persistent1(" << p->maximum_clauses << ','
+            << p->maximum_snapshot_literals << ','
+            << p->maximum_snapshot_work << ',' << p->maximum_groups << ','
+            << p->maximum_patterns << ',' << p->maximum_elimination_work
+            << ',' << p->maximum_arity << ','
+            << p->maximum_intermediate_width << ',' << p->maximum_sources
+            << ',' << p->maximum_output_width << ','
+            << p->maximum_proof_additions << ','
+            << p->maximum_proof_deletions << ','
+            << p->maximum_journal_bytes << ',' << p->basis_maximum_work
+            << ',' << p->basis_maximum_intermediate_width << ','
+            << p->basis_maximum_sources << ',' << p->basis_maximum_premises
+            << ',' << p->basis_maximum_nodes << ','
+            << p->basis_maximum_direct_width << ','
+            << p->maximum_external_extent << ',' << p->maximum_session_keys
+            << ',' << p->maximum_session_work << ',' << static_cast<unsigned>(profile->admission)
+            << ',' << static_cast<unsigned>(profile->operation) << ',' << profile->maximum_retained_bytes
+            << ',' << profile->maximum_deferred_deletions << ',' << profile->maximum_deferred_literal_work << ')';
+    }
     else if (const auto *p =
                  std::get_if<ExactCoverExtensionParameters>(&step.parameters))
       out << ":exact-cover-extension1(" << p->arity << ',' << p->maximum_items
@@ -3049,7 +3098,8 @@ std::string serialize_online_strategy_program(
         const auto &v=step.nary_csp_equality_transitivity_instances[i];
         bool first=true;
         const auto domain=[&](const auto &d) {
-          if(!first) out << ','; first=false;
+          if(!first) out << ',';
+          first=false;
           out << d.size(); for(auto l:d) out << ',' << l;
         };
         for(const auto &d:v.domains) domain(d);

@@ -65,6 +65,7 @@ class AffineMatrixProofCache {
 public:
   uint64_t generation() const { return generation_; }
   size_t size() const { return entries_.size(); }
+  uint64_t retained_bytes() const;
   const MatrixProofCacheEntry *find(
       uint64_t, uint64_t proof_epoch, const std::vector<size_t> &,
       const std::vector<Equation> &) const;

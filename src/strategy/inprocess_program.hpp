@@ -74,7 +74,7 @@ using ActionParameters =
                  Gf3GaussianConsequenceParameters,
                  Gf3GeneralRowConsequenceParameters,
                  TseitinCycleBreakingParameters,
-                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters, NaryCspEqualityTransitivityParameters>;
+                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters, NaryCspEqualityTransitivityParameters, AffineMatrixInitializeParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
 // the same typed parameter vocabulary for every registered action.
@@ -216,6 +216,9 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
       if ((step.rule != "AffineConsequence" &&
            step.rule != "AffineMatrixInitialize") || !p->valid())
         return reject("AffineConsequence parameters are invalid or misplaced");
+    } else if (const auto *p = std::get_if<AffineMatrixInitializeParameters>(&step.parameters)) {
+      if (step.rule != "AffineMatrixInitialize" || !p->valid())
+        return reject("Persistent affine parameters are invalid or misplaced");
     } else if (const auto *p =
                    std::get_if<ExactCoverExtensionParameters>(&step.parameters)) {
       if (step.rule != "ExactCoverExtension" || !p->valid())

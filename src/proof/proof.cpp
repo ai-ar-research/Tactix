@@ -4,6 +4,7 @@
 #endif
 
 #include <algorithm>
+#include <bit>
 #include <cassert>
 #include <cinttypes>
 #include <cstdlib>
@@ -597,6 +598,10 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
+  if (size && !premise_groups_.empty()) {
+    invalidate_premises_for_sr(id, lits, 1, nullptr, 0, nullptr, 0);
+    flush_persistent_external(id);
+  }
   if (!input_transaction_ && !commit_dsr())
     std::abort();
   flush_pending_dsr_units();
@@ -695,6 +700,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (needs_auxiliary &&
       external_variables >= static_cast<uint32_t>(INT32_MAX))
     return false;
+  invalidate_premises_for_sr(id, lits, size, true_lits, ntrue, mappings, nmappings);
   flush_persistent_external(id);
   flush_pending_dsr_units();
   if (needs_auxiliary) {
@@ -883,6 +889,15 @@ void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
 
 void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
                 uint32_t size) {
+  if (!leased_premises_.empty() && size <= premise_maximum_width_) {
+    std::vector<int32_t> external; external.reserve(size);
+    for (uint32_t i = 0; i < size; ++i) {
+      Lit lit = lits[i];
+      if (variable_map_) lit = make_lit((*variable_map_)[var_of(lit)], negated(lit));
+      external.push_back(externalize(lit));
+    }
+    if (defer_leased_deletion(external.data(), size)) return;
+  }
   if (!input_transaction_ && !commit_dsr())
     std::abort();
   if (!file_)
@@ -1020,6 +1035,14 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
 
 bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                              uint32_t size) {
+  if (size && !premise_groups_.empty()) {
+    const auto *saved = variable_map_; variable_map_ = nullptr;
+    const Lit pivot = internalize(lits[0]);
+    const uint64_t before = premise_epoch_;
+    invalidate_premises_for_sr(id, &pivot, 1, nullptr, 0, nullptr, 0);
+    variable_map_ = saved;
+    if (premise_epoch_ != before) flush_persistent_external(id);
+  }
   // DSR/DRAT infer RAT from the first literal after RUP fails, so their byte
   // stream is identical to an external RUP addition.
   const CheckerClauseRole saved = population_role_;
@@ -1027,6 +1050,188 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   const bool result = add_external_rup(id, lits, size);
   population_role_ = saved;
   return result;
+}
+
+namespace {
+std::vector<int32_t> premise_key(const int32_t *lits, uint32_t size) {
+  std::vector<int32_t> result(lits, lits + size);
+  std::sort(result.begin(), result.end());
+  return result;
+}
+}
+
+bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
+    uint64_t maximum_groups, uint64_t maximum_literals,
+    uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,
+    std::vector<uint64_t> &handles, DeferredDeletionLimits limits) {
+  const bool bounded = limits.maximum_pending_deletions || limits.maximum_pending_literal_work;
+  if (bounded && (!limits.maximum_pending_deletions || !limits.maximum_pending_literal_work ||
+      premise_pending_deletions_ > limits.maximum_pending_deletions ||
+      premise_pending_literal_work_ > limits.maximum_pending_literal_work)) return false;
+  if (!charge || lrat() || pb() || !file_ ||
+      groups.size() > maximum_groups ||
+      premise_groups_.size() > maximum_groups - groups.size() ||
+      groups.size() > UINT64_MAX - next_premise_group_)
+    return false;
+  // Include both old and transactional candidate populations in peak memory.
+  uint64_t literals = premise_literals_, bytes = premise_bytes_;
+  for (const auto &group : groups) {
+    if (group.empty() || !charge(1 + group.size())) return false;
+    for (const auto &clause : group) {
+      const uint64_t storage = (4 * sizeof(PremiseGroup) + 16 * sizeof(void *) + sizeof(LeasedPremise)) + 2 * uint64_t(clause.size()) * sizeof(int32_t);
+      if (!charge(1 + uint64_t(clause.size()) * clause.size() +
+              uint64_t(clause.size()) * (2 * std::bit_width(maximum_literals) + 2)) || clause.empty() ||
+          external_tautological(clause.data(), clause.size()) ||
+          clause.size() > maximum_literals - std::min(literals, maximum_literals) ||
+          storage > maximum_bytes - std::min(bytes, maximum_bytes))
+        return false;
+      literals += clause.size(); bytes += storage;
+    }
+  }
+  if (bytes > maximum_bytes / 2 || literals > maximum_literals ||
+      !charge(1 + premise_literals_ + premise_groups_.size()))
+    return false;
+  auto premises = leased_premises_;
+  auto retained = premise_groups_;
+  std::vector<uint64_t> candidate;
+  uint64_t next = next_premise_group_;
+  for (const auto &group : groups) {
+    PremiseGroup canonical;
+    for (const auto &clause : group) {
+      auto key = premise_key(clause.data(), clause.size());
+      if (++premises[key].users == 0) return false;
+      canonical.push_back(std::move(key));
+    }
+    candidate.push_back(++next);
+    retained.emplace(next, std::move(canonical));
+  }
+  // Durable clausal ownership commits an Automatic route only after every
+  // resource/identity check has passed. No lease can survive a PB transition.
+  if (input_transaction_ || !commit_dsr()) return false;
+  leased_premises_.swap(premises); premise_groups_.swap(retained);
+  next_premise_group_ = next; premise_literals_ = literals; premise_bytes_ = bytes;
+  for (const auto &group : groups)
+    for (const auto &clause : group)
+      premise_maximum_width_ = std::max<uint32_t>(premise_maximum_width_, clause.size());
+  if (bounded) {
+    premise_pending_deletion_cap_ = std::min(premise_pending_deletion_cap_, limits.maximum_pending_deletions);
+    premise_pending_work_cap_ = std::min(premise_pending_work_cap_, limits.maximum_pending_literal_work);
+  }
+  handles.swap(candidate);
+  return true;
+}
+
+bool Proof::premise_group_active(uint64_t handle) const {
+  return handle && premise_groups_.contains(handle);
+}
+bool Proof::premise_group_matches(uint64_t handle, const PremiseGroup &group) const {
+  const auto found = premise_groups_.find(handle);
+  if (found == premise_groups_.end() || found->second.size() != group.size())
+    return false;
+  for (size_t i = 0; i < group.size(); ++i)
+    if (found->second[i] != premise_key(group[i].data(), group[i].size()))
+      return false;
+  return true;
+}
+
+bool Proof::defer_leased_deletion(const int32_t *lits, uint32_t size) {
+  if (leased_premises_.empty() || !size || size > premise_maximum_width_) return false;
+  const uint64_t work = 1 + uint64_t(size) * size +
+                        uint64_t(size) * (2 * std::bit_width(leased_premises_.size()) + 2);
+  premise_maintenance_work_ = work > UINT64_MAX - premise_maintenance_work_ ? UINT64_MAX :
+                              premise_maintenance_work_ + work;
+  const auto found = leased_premises_.find(premise_key(lits, size));
+  if (found == leased_premises_.end()) return false;
+  const uint64_t cost = 1 + uint64_t(size);
+  if (premise_pending_deletions_ >= premise_pending_deletion_cap_ ||
+      cost > premise_pending_work_cap_ - std::min(premise_pending_literal_work_, premise_pending_work_cap_)) {
+    const __uint128_t scan = __uint128_t(1 + premise_groups_.size()) +
+        __uint128_t(1 + size) * (premise_literals_ + premise_groups_.size());
+    premise_maintenance_work_ = scan > UINT64_MAX - premise_maintenance_work_ ? UINT64_MAX :
+                                premise_maintenance_work_ + uint64_t(scan);
+    std::vector<uint64_t> affected;
+    for (const auto &[handle, group] : premise_groups_)
+      if (std::find(group.begin(), group.end(), found->first) != group.end()) affected.push_back(handle);
+    release_premise_groups(affected, 0);
+    return false;
+  }
+  ++premise_pending_deletions_; premise_pending_literal_work_ += cost;
+  if (found->second.deferred == UINT64_MAX || premise_deferred_ == UINT64_MAX)
+    std::abort();
+  ++found->second.deferred; ++premise_deferred_;
+  return true;
+}
+
+void Proof::release_premise_groups(const std::vector<uint64_t> &handles,
+                                  uint64_t line_id) {
+  bool changed = false;
+  for (uint64_t handle : handles) {
+    auto group = premise_groups_.find(handle);
+    if (group == premise_groups_.end()) continue;
+    const uint64_t maintenance = 1 + group->second.size();
+    premise_maintenance_work_ = maintenance > UINT64_MAX - premise_maintenance_work_ ? UINT64_MAX :
+                                premise_maintenance_work_ + maintenance;
+    PremiseGroup clauses = std::move(group->second);
+    premise_groups_.erase(group); changed = true;
+    for (const auto &clause : clauses) {
+      auto found = leased_premises_.find(clause);
+      if (found == leased_premises_.end() || !found->second.users) std::abort();
+      premise_literals_ -= clause.size();
+      premise_bytes_ -= (4 * sizeof(PremiseGroup) + 16 * sizeof(void *) + sizeof(LeasedPremise)) + 2 * uint64_t(clause.size()) * sizeof(int32_t);
+      if (--found->second.users) continue;
+      const uint64_t deferred = found->second.deferred;
+      const uint64_t scan = uint64_t(clause.size()) *
+          (2 * std::bit_width(leased_premises_.size()) + 3);
+      const __uint128_t serialization = __uint128_t(deferred) * (1 + clause.size()) + scan;
+      premise_maintenance_work_ = serialization > UINT64_MAX - premise_maintenance_work_ ? UINT64_MAX :
+                                  premise_maintenance_work_ + uint64_t(serialization);
+      premise_pending_deletions_ -= deferred;
+      premise_pending_literal_work_ -= deferred * (1 + uint64_t(clause.size()));
+      leased_premises_.erase(found);
+      for (uint64_t i = 0; i < deferred; ++i)
+        if (!del_external(line_id, 0, clause.data(), clause.size())) std::abort();
+    }
+  }
+  if (changed && ++premise_epoch_ == 0) std::abort();
+}
+
+void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
+    uint32_t size, const Lit *true_lits, uint32_t ntrue,
+    const DsrLiteralMapping *mappings, uint32_t nmappings) {
+  if (premise_groups_.empty()) return;
+  const uint64_t changed_bound = 1 + uint64_t(ntrue) + nmappings;
+  const uint64_t work = 1 + premise_groups_.size() +
+      changed_bound * (2 * std::bit_width(changed_bound) + 2) +
+      premise_literals_ * (std::bit_width(changed_bound) + 1);
+  premise_maintenance_work_ = work > UINT64_MAX - premise_maintenance_work_ ? UINT64_MAX :
+                              premise_maintenance_work_ + work;
+  std::vector<uint32_t> changed;
+  const auto take = [&](Lit lit) {
+    changed.push_back(variable_map_ ? (*variable_map_)[var_of(lit)] + 1
+                                    : var_of(lit) + 1);
+  };
+  // The implicit pivot image is true even without an explicit mapping.
+  if (size) take(lits[0]);
+  for (uint32_t i = 0; i < ntrue; ++i) take(true_lits[i]);
+  for (uint32_t i = 0; i < nmappings; ++i) take(mappings[i].from);
+  std::sort(changed.begin(), changed.end());
+  std::vector<uint64_t> retire;
+  for (const auto &[handle, clauses] : premise_groups_) {
+    bool touched = false;
+    for (const auto &clause : clauses)
+      for (int32_t literal : clause)
+        touched |= std::binary_search(changed.begin(), changed.end(),
+                 uint32_t(literal < 0 ? -int64_t(literal) : literal));
+    if (touched) retire.push_back(handle);
+  }
+  release_premise_groups(retire, line_id);
+}
+
+uint64_t Proof::persistent_external_bytes() const {
+  uint64_t bytes = persistent_external_.capacity() * sizeof(PersistentExternalClause);
+  for (const auto &clause : persistent_external_)
+    bytes += clause.lits.capacity() * sizeof(int32_t);
+  return bytes;
 }
 
 bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
@@ -1048,7 +1253,7 @@ bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
 void Proof::flush_persistent_external(uint64_t line_id) {
   if (persistent_external_.empty())
     return;
-  if (!dsr() || persistent_external_epoch_ == UINT64_MAX)
+  if (lrat() || pb() || persistent_external_epoch_ == UINT64_MAX)
     std::abort();
   std::vector<PersistentExternalClause> clauses =
       std::move(persistent_external_);
@@ -1062,10 +1267,11 @@ void Proof::flush_persistent_external(uint64_t line_id) {
 
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
+  if (defer_leased_deletion(lits, size)) return true;
   if (!input_transaction_ && !commit_dsr())
     return false;
   (void)line_id;
-  if (lrat())
+  if (lrat() || pb())
     return false;
   assert(!size || lits);
   if (!file_)

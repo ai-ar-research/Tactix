@@ -61,6 +61,30 @@ struct AffineConsequenceParameters {
   static AffineConsequenceParameters from_kernel(const Kernel &);
 };
 
+// Separate positive-persistence profile: old affine encodings retain zero
+// persistence. Deferred limits bound outstanding physical deletion occupancy,
+// not all proof-maintenance scans or total process memory.
+struct AffineMatrixInitializeParameters {
+  enum class Admission : uint8_t { AuthenticatedSubimage = 1 };
+  enum class Operation : uint8_t {
+    Initialize = 1, Refresh = 2, RootMaintenance = 3, SearchStep = 4
+  };
+  AffineConsequenceParameters basis;
+  Admission admission = Admission::AuthenticatedSubimage;
+  Operation operation = Operation::Initialize;
+  uint64_t maximum_retained_bytes = 0;
+  uint64_t maximum_deferred_deletions = 0;
+  uint64_t maximum_deferred_literal_work = 0;
+  bool operator==(const AffineMatrixInitializeParameters &) const = default;
+  bool valid() const {
+    return basis.valid() && basis.semantics == AffineConsequenceSemantics::CertifiedBasisV2 &&
+           !basis.consequence && admission == Admission::AuthenticatedSubimage &&
+           operation >= Operation::Initialize && operation <= Operation::SearchStep &&
+           maximum_retained_bytes && maximum_deferred_deletions && maximum_deferred_literal_work;
+  }
+  static AffineMatrixInitializeParameters from_kernel(const Kernel &);
+};
+
 struct ExactCoverExtensionParameters {
   uint32_t arity = 0;
   uint64_t maximum_items = 0;
@@ -377,6 +401,7 @@ struct SemanticVariableAdviceParameters {
 };
 
 void install_rule_parameters(Kernel &, const AffineConsequenceParameters &);
+void install_rule_parameters(Kernel &, const AffineMatrixInitializeParameters &);
 void install_rule_parameters(Kernel &, const ExactCoverExtensionParameters &);
 void install_rule_parameters(Kernel &, const IndependentSetCoverParameters &);
 void install_rule_parameters(Kernel &, const Gf3AffineConsequenceParameters &);

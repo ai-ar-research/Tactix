@@ -126,6 +126,36 @@ template <class Parameters> struct ParameterScopeFor {
   using type = strategy::ScopedRuleParameters<Parameters>;
 };
 
+// Affine profiles share native basis storage. Restore both profiles and the
+// explicit dispatch bit, so nested legacy calls cannot inherit persistence.
+template<class P> class AffineProfileScope {
+public:
+  AffineProfileScope(Kernel &k,const P &p)
+      : kernel_(k), basis_(k.affine_consequence_parameters),
+        persistent_(k.affine_matrix_initialize_parameters),
+        active_(k.affine_matrix_initialize_parameters_active) {
+    strategy::install_rule_parameters(k,p);
+  }
+  ~AffineProfileScope() {
+    kernel_.affine_consequence_parameters=basis_;
+    kernel_.affine_matrix_initialize_parameters=persistent_;
+    kernel_.affine_matrix_initialize_parameters_active=active_;
+  }
+  AffineProfileScope(const AffineProfileScope &)=delete;
+  AffineProfileScope &operator=(const AffineProfileScope &)=delete;
+private:
+  Kernel &kernel_;
+  strategy::AffineConsequenceParameters basis_;
+  strategy::AffineMatrixInitializeParameters persistent_;
+  bool active_;
+};
+template<> struct ParameterScopeFor<strategy::AffineConsequenceParameters> {
+  using type=AffineProfileScope<strategy::AffineConsequenceParameters>;
+};
+template<> struct ParameterScopeFor<strategy::AffineMatrixInitializeParameters> {
+  using type=AffineProfileScope<strategy::AffineMatrixInitializeParameters>;
+};
+
 template <> struct ParameterScopeFor<strategy::AnalyzeParameters> {
   using type = strategy::ScopedAnalyzeParameters;
 };
