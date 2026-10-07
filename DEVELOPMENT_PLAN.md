@@ -283,7 +283,7 @@ their owning documents.
 | X10 | `ExactCoverExtension` | conservative definitions: add-RAT + model projection | winner integration |
 | X11 | `IndependentSetCover` | certified theory consequence: add-RUP + helper deletion | winner integration |
 | X12 | `Gf3AffineConsequence` | certified GF(3) resultant CNF: add-RUP | winner integration |
-| X13 | `DirectCspSupport` | certified support clause or exact-OR definition: add-RUP/add-RAT | winner integration |
+| X13 | `DirectCspSupport` | certified support or guarded-cover tuple clause; optional exact-OR definition: add-RUP/add-RAT | winner integration |
 | X14 | `Gf3GaussianConsequence` | authenticated Gaussian unit/conflict batch: add-RUP | winner integration |
 | X15 | `DirectPhpRefutation` | terminal direct-PHP certificate: add-RAT/add-RUP/delete | winner integration |
 | X16 | `TseitinCycleBreaking` | authenticated XOR-component cycle unit: direct add-SR/RUP helper route | winner integration |

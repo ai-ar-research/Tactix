@@ -207,6 +207,7 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
       !step.affine_basis_instances.empty() ||
       !step.gf3_gaussian_instances.empty() ||
       !step.tseitin_cycle_instances.empty() ||
+      !step.direct_csp_guarded_cover_instances.empty() ||
       !step.direct_csp_support_instances.empty() ||
       !step.nary_csp_prefix_instances.empty() ||
       !step.nary_csp_equality_instances.empty() ||
@@ -251,6 +252,7 @@ bool RandomControllerConfig::configure_affine_basis_producer_profile(
         !advice->affine_basis_instances.empty() ||
         !advice->gf3_gaussian_instances.empty() ||
         !advice->tseitin_cycle_instances.empty() ||
+        !advice->direct_csp_guarded_cover_instances.empty() ||
         !advice->direct_csp_support_instances.empty() ||
         !advice->nary_csp_prefix_instances.empty() ||
         !advice->nary_csp_equality_instances.empty())
@@ -354,6 +356,7 @@ bool RandomControllerConfig::configure_direct_csp_producer_profile(
            step.affine_basis_instances.empty() &&
            step.gf3_gaussian_instances.empty() &&
            step.tseitin_cycle_instances.empty() &&
+           step.direct_csp_guarded_cover_instances.empty() &&
            step.direct_csp_support_instances.empty() &&
            step.nary_csp_prefix_instances.empty();
   };
@@ -503,6 +506,19 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
   std::vector<ControllerActionAvailability> result;
   for (const auto &rule : tactix_rules()) {
     ControllerActionAvailability entry{rule.name, false, {}};
+    const auto selected_guard = [&] {
+      if (rule.guard(k)) return true;
+      if (std::string_view(rule.name) != "DirectCspSupport") return false;
+      const auto offers = config.offered_actions.find(rule.name);
+      return offers != config.offered_actions.end() &&
+          k.direct_csp_guarded_cover_action_session &&
+          direct_csp_guarded_cover_action_guard(k) &&
+          std::any_of(offers->second.begin(), offers->second.end(),
+              [](const OnlineInvocation &s) {
+                return std::holds_alternative<DirectCspGuardedCoverParameters>(s.parameters) &&
+                       !s.direct_csp_guarded_cover_instances.empty();
+              });
+    };
     if (const auto excluded = root_exclusion(rule); !excluded.empty())
       entry.reason = excluded;
     else if (!config.parameters.rules.empty() &&
@@ -515,7 +531,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
              k.affine_matrix_search_session &&
              k.affine_matrix_search_session->attached_to(k))
       entry.reason = "affine-matrix-session-active";
-    else if (!rule.guard(k))
+    else if (!selected_guard())
       entry.reason = "guard-false";
     else if (std::string_view(rule.name) == "AffineMatrixInitialize" &&
              k.affine_matrix_search_session &&

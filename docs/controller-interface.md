@@ -99,6 +99,8 @@ freshly revalidated canonical offers. Publication, explicit propagation and
 `NaryCspEquality` semantic advice remain separate actions. Versions 1--9 retain
 their layouts and meanings. Version 11 appends registry ID 43, disabled StepId 32 and tag 44 for `Gf3GeneralRowConsequence`; its exact `g3r1:` payload binds a Gaussian row and violating tuple to full source identities, and apply rebuilds and exact-matches it. Version 12 appends registry ID 44, disabled StepId 33 and tag 45 for `NaryCspEqualityAmo`; its exact payload deep-copies the three domains of one retained ternary owner. Native discovery pages only owners with all three complete live equality definitions; application revalidates those definitions and publishes the pairwise binaries. Propagation remains separate.
 
+Version 14 adds profile 2 `GuardedCoverV2` under existing `DirectCspSupport` ID35; profile 0 preserves v13. It requires INHERIT base parameters, positive explicit limits and exact nested domains/selected values, blocker cover, one-sided roles and OR definitions. C configuration deep-copies every array; `direct-csp-guarded-cover2` limits and counted `dgc2` payloads preserve exact replay. This schema accepts only explicit online/static controller selections, binds a separate Kernel-lifetime session, shares DirectCSP raw feedback and leaves propagation/advice explicit. No discovery, V1 fallback or Default scheduling is enabled.
+
 `--controller-actions=FILE` reads the existing serialized OnlineStrategyProgram
 syntax as a collection of offered alternatives, not an ordered sequence. It
 selects those families and supplies their typed payloads and fixed allowances;

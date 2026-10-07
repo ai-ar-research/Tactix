@@ -3,6 +3,7 @@
 #include "rules/factor/factor.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/nary_csp_prefix_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
@@ -99,6 +100,7 @@ struct OnlineInvocation {
   std::vector<NaryCspEqualityActionSelection> nary_csp_equality_instances = {};
   std::vector<NaryCspEqualityAmoSelection> nary_csp_equality_amo_instances = {};
   std::vector<Gf3GeneralRowActionSelection> gf3_general_row_instances = {};
+  std::vector<DirectCspGuardedCoverActionSelection> direct_csp_guarded_cover_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;
   RuleWorkBudget rule_work_budget;

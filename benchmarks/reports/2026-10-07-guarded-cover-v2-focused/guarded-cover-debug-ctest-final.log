@@ -1,0 +1,19 @@
+Test project /home/hwu/SAT-solving/build/agent-walk-split-20261007
+    Start 63: api_n1
+1/7 Test #63: api_n1 .................................   Passed    0.09 sec
+    Start 69: random_controller_policy
+2/7 Test #69: random_controller_policy ...............   Passed    0.41 sec
+    Start 70: direct_csp_guarded_cover
+3/7 Test #70: direct_csp_guarded_cover ...............   Passed    0.01 sec
+    Start 71: direct_csp_guarded_cover_live
+4/7 Test #71: direct_csp_guarded_cover_live ..........   Passed    0.01 sec
+    Start 72: direct_csp_guarded_cover_proof_model
+5/7 Test #72: direct_csp_guarded_cover_proof_model ...   Passed    0.42 sec
+    Start 73: direct_csp_guarded_cover_frontend
+6/7 Test #73: direct_csp_guarded_cover_frontend ......   Passed    0.01 sec
+    Start 74: direct_csp_support_action
+7/7 Test #74: direct_csp_support_action ..............   Passed    0.05 sec
+
+100% tests passed out of 7
+
+Total Test time (real) =   1.01 sec

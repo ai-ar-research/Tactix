@@ -132,6 +132,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "IndependentSetCover";
   if (std::holds_alternative<Gf3AffineConsequenceParameters>(step.parameters))
     return step.rule == "Gf3AffineConsequence";
+  if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
+    return step.rule == "DirectCspSupport";
   if (std::holds_alternative<DirectCspSupportParameters>(step.parameters))
     return step.rule == "DirectCspSupport";
   if (std::holds_alternative<NaryCspPrefixParameters>(step.parameters))
@@ -272,6 +274,11 @@ Gf3AffineActionLimits gf3_affine_limits(
           p.maximum_external_extent,
           p.maximum_session_keys,
           p.maximum_session_work};
+}
+
+DirectCspGuardedCoverActionLimits guarded_cover_limits(
+    const DirectCspGuardedCoverParameters &p) {
+  return {p.maximum_source_clauses, p.maximum_source_literals, p.maximum_recognition_work, p.maximum_domains, p.maximum_domain_values, p.maximum_cover_literals, p.maximum_or_definitions, p.maximum_or_inputs, p.maximum_output_literals, p.maximum_proof_work, p.maximum_proof_additions, p.maximum_proof_literal_occurrences, p.maximum_journal_bytes, p.maximum_external_extent, p.maximum_session_keys, p.maximum_session_work};
 }
 
 DirectCspSupportActionLimits direct_csp_limits(
@@ -807,6 +814,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         p && !p->valid())
       return reject("Gf3AffineConsequence parameters are invalid");
     if (const auto *p =
+            std::get_if<DirectCspGuardedCoverParameters>(&step.parameters);
+        p && !p->valid())
+      return reject("GuardedCoverV2 parameters are invalid");
+    if (const auto *p =
             std::get_if<DirectCspSupportParameters>(&step.parameters);
         p && !p->valid())
       return reject("DirectCspSupport parameters are invalid");
@@ -949,6 +960,32 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.affine_basis_instances.empty() &&
         step.rule != "AffineConsequence")
       return reject("GF2 affine rows are attached to a different rule");
+    if (!step.direct_csp_guarded_cover_instances.empty()) {
+      const auto *p = std::get_if<DirectCspGuardedCoverParameters>(&step.parameters);
+      if (step.rule != "DirectCspSupport" || !p)
+        return reject("GuardedCoverV2 requires its explicit profile");
+      if (step.direct_csp_guarded_cover_instances.size() > p->maximum_session_keys)
+        return reject("GuardedCoverV2 collection exceeds session limits");
+      for (const auto &v : step.direct_csp_guarded_cover_instances) {
+        if (v.domains.empty() || v.domains.size() > p->maximum_domains ||
+            v.selected_values.size() != v.domains.size() ||
+            v.cover.empty() || v.cover.size() > p->maximum_cover_literals ||
+            v.exact_or.empty() || v.exact_or.size() > p->maximum_or_definitions ||
+            v.blockers.size() != v.cover.size())
+          return reject("GuardedCoverV2 shape exceeds limits");
+        for (size_t d = 0; d < v.domains.size(); ++d)
+          if (v.domains[d].size() < 2 || v.domains[d].size() > p->maximum_domain_values ||
+              v.selected_values[d] >= v.domains[d].size())
+            return reject("GuardedCoverV2 domain is invalid");
+        for (const auto &o : v.exact_or)
+          if (o.inputs.empty() || o.inputs.size() > p->maximum_or_inputs)
+            return reject("GuardedCoverV2 OR inputs exceed limits");
+      }
+    }
+    if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters) &&
+        (step.direct_csp_guarded_cover_instances.empty() ||
+         step.granularity == InvocationGranularity::NativeProducerOffer))
+      return reject("GuardedCoverV2 requires explicit selections; discovery is unavailable");
     if (!step.direct_csp_support_instances.empty() &&
         step.rule != "DirectCspSupport")
       return reject("DirectCSP supports are attached to a different rule");
@@ -987,7 +1024,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     }
     if (step.rule == "DirectCspSupport" &&
         step.granularity != InvocationGranularity::NativeProducerOffer &&
-        (step.direct_csp_support_instances.empty() || !step.instances.empty()))
+        ((step.direct_csp_support_instances.empty() &&
+          step.direct_csp_guarded_cover_instances.empty()) || !step.instances.empty()))
       return reject("DirectCSP action requires typed support payloads");
     if (step.rule == "NaryCspPrefix" &&
         step.granularity != InvocationGranularity::NativeProducerOffer &&
@@ -1165,6 +1203,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.independent_set_cover_instances.empty() +
         !step.affine_basis_instances.empty() +
         !step.gf3_affine_instances.empty() +
+        !step.direct_csp_guarded_cover_instances.empty() +
         !step.direct_csp_support_instances.empty() +
         !step.nary_csp_prefix_instances.empty() +
         !step.nary_csp_equality_instances.empty() +
@@ -1192,7 +1231,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                ? step.affine_basis_instances.size()
                                                          : !step.gf3_affine_instances.empty()
                                                                ? step.gf3_affine_instances.size()
-                                                               : !step.direct_csp_support_instances.empty()
+                                                               : !step.direct_csp_guarded_cover_instances.empty()
+                          ? step.direct_csp_guarded_cover_instances.size()
+                          : !step.direct_csp_support_instances.empty()
                                                                      ? step.direct_csp_support_instances.size()
                                                                      : !step.nary_csp_prefix_instances.empty()
                                                                            ? step.nary_csp_prefix_instances.size()
@@ -1453,7 +1494,12 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   runtime.sr_general_mode = general_sr;
   if (!general_sr)
     runtime.sr_general_cursor = {};
-  const RuleVTable &rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
+  RuleVTable rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
+  if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
+    rule.guard = [](const Kernel &owner) {
+      return direct_csp_guarded_cover_action_guard(owner).fact(
+          "session-bound", owner.direct_csp_guarded_cover_action_session != nullptr);
+    };
   if (!rule.guard(k) && !explicit_fixpoint_propagation_service(step, k)) {
     out.status = InvocationStatus::Inapplicable;
     return false;
@@ -1467,6 +1513,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.independent_set_cover_instances.empty() &&
         step.affine_basis_instances.empty() &&
         step.gf3_affine_instances.empty() &&
+        step.direct_csp_guarded_cover_instances.empty() &&
         step.direct_csp_support_instances.empty() &&
         step.nary_csp_prefix_instances.empty() &&
         step.nary_csp_equality_instances.empty() &&
@@ -1488,7 +1535,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                       ? step.affine_basis_instances.size()
                                                 : !step.gf3_affine_instances.empty()
                                                       ? step.gf3_affine_instances.size()
-                                                      : !step.direct_csp_support_instances.empty()
+                                                      : !step.direct_csp_guarded_cover_instances.empty()
+                          ? step.direct_csp_guarded_cover_instances.size()
+                          : !step.direct_csp_support_instances.empty()
                                                             ? step.direct_csp_support_instances.size()
                                                             : !step.nary_csp_prefix_instances.empty()
                                                                   ? step.nary_csp_prefix_instances.size()
@@ -2003,7 +2052,12 @@ InvocationResult OnlineStrategyExecutor::advance(
       return out;
     }
 
-    const RuleVTable &rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
+    RuleVTable rule = tactix_rules()[tactix_rule_id(step.rule.c_str())];
+    if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
+      rule.guard = [](const Kernel &owner) {
+        return direct_csp_guarded_cover_action_guard(owner).fact(
+            "session-bound", owner.direct_csp_guarded_cover_action_session != nullptr);
+      };
     // Eligibility can change between advances even when arena offsets remain
     // valid. A declined guard does not consume an application or certify scope.
     const bool explicit_fixpoint_propagation =
@@ -2171,6 +2225,17 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_gf3_affine_feedback(k, *gf3_affine_application,
                                              keys_before);
                   return gf3_affine_application->result;
+                })
+          : !step.direct_csp_guarded_cover_instances.empty()
+              ? apply_rule_structured(rule, k, "direct-csp-guarded-cover2", [&] {
+                  const auto &parameters = std::get<DirectCspGuardedCoverParameters>(step.parameters);
+                  const auto keys_before = k.direct_csp_guarded_cover_action_session->committed_keys();
+                  const auto owners_before = k.direct_csp_guarded_cover_action_session->retained_owners();
+                  direct_csp_application.emplace(direct_csp_guarded_cover_action_apply(
+                      k, *k.direct_csp_guarded_cover_action_session,
+                      guarded_cover_limits(parameters), step.direct_csp_guarded_cover_instances[payload]));
+                  record_direct_csp_feedback(k, *direct_csp_application, keys_before, owners_before);
+                  return direct_csp_application->result;
                 })
           : !step.direct_csp_support_instances.empty()
               ? apply_rule_structured(rule, k, "direct-csp-support", [&] {
@@ -2987,6 +3052,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         !step.independent_set_cover_instances.empty() ||
         !step.affine_basis_instances.empty() ||
         !step.gf3_affine_instances.empty() ||
+        !step.direct_csp_guarded_cover_instances.empty() ||
         !step.direct_csp_support_instances.empty() ||
         !step.nary_csp_prefix_instances.empty() ||
         !step.nary_csp_equality_instances.empty() ||

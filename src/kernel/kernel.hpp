@@ -35,6 +35,7 @@ struct ExactCoverExtensionActionSession;
 struct IndependentSetCoverActionSession;
 class Gf3AffineActionSession;
 class DirectCspSupportActionSession;
+class DirectCspGuardedCoverActionSession;
 class NaryCspPrefixActionSession;
 class NaryCspEqualitySession;
 class NaryCspEqualityAmoSession;
@@ -2117,6 +2118,7 @@ struct Kernel {
       nullptr;
   Gf3AffineActionSession *gf3_affine_action_session = nullptr;
   DirectCspSupportActionSession *direct_csp_support_action_session = nullptr;
+  DirectCspGuardedCoverActionSession *direct_csp_guarded_cover_action_session = nullptr;
   NaryCspPrefixActionSession *nary_csp_prefix_action_session = nullptr;
   NaryCspEqualitySession *nary_csp_equality_session = nullptr;
   NaryCspEqualityAmoSession *nary_csp_equality_amo_session = nullptr;

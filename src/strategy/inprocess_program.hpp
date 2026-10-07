@@ -74,7 +74,7 @@ using ActionParameters =
                  Gf3GaussianConsequenceParameters,
                  Gf3GeneralRowConsequenceParameters,
                  TseitinCycleBreakingParameters,
-                 SemanticVariableAdviceParameters>;
+                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
 // the same typed parameter vocabulary for every registered action.
@@ -227,6 +227,10 @@ inline bool validate_inprocess_program(std::span<const InprocessStep> program,
                    std::get_if<Gf3AffineConsequenceParameters>(&step.parameters)) {
       if (step.rule != "Gf3AffineConsequence" || !p->valid())
         return reject("Gf3AffineConsequence parameters are invalid or misplaced");
+    } else if (const auto *p =
+                   std::get_if<DirectCspGuardedCoverParameters>(&step.parameters)) {
+      (void)p;
+      return reject("GuardedCoverV2 requires online typed selections");
     } else if (const auto *p =
                    std::get_if<DirectCspSupportParameters>(&step.parameters)) {
       if (step.rule != "DirectCspSupport" || !p->valid())
