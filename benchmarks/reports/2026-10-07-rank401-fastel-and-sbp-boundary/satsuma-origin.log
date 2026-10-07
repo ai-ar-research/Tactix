@@ -1,0 +1,36 @@
+c SATSUMA_STRUCTURE_TRACE	0	39	graph_model	iteration	0	units_total	0	binaries_total	0	variables	1419	clauses	8318	support	23705	binary	1249	removed_clauses	0	removed_support	0	hyperedges	0	hyperedge_support	0	inner_edges	0	binary_graph	0	variable_vertices	1419	graph_vertices	11156	graph_edges	25124
+c SATSUMA_STRUCTURE_TRACE	1	2891	row_column_begin	iteration	0	units_total	0	binaries_total	0	domain	2838	root_orbits	706	base	2	limit	64
+c SATSUMA_STRUCTURE_TRACE	2	3120	row_begin	iteration	0	units_total	0	binaries_total	0	domain	2838	root_orbits	706	base	2	limit	64
+c SATSUMA_STRUCTURE_TRACE	3	3322	row_root_candidate	iteration	0	units_total	0	binaries_total	0	index	0	anchor	1	orbit	2
+c SATSUMA_STRUCTURE_TRACE	4	3425	row_candidate_begin	iteration	0	units_total	0	binaries_total	0	entire_orbit	2	base_depth	0	recursive	0	individualized	0
+c SATSUMA_STRUCTURE_TRACE	5	3832	row_candidate_reduced	iteration	0	units_total	0	binaries_total	0	entire_orbit	2	orbit	2	reduced	0
+c SATSUMA_STRUCTURE_TRACE	6	4230	row_first_partition	iteration	0	units_total	0	binaries_total	0	row_index	0	orbit	2	width	1408	blocks	2	ok	1
+c SATSUMA_STRUCTURE_TRACE	7	4638	row_first_partition	iteration	0	units_total	0	binaries_total	0	row_index	1	orbit	2	width	0	blocks	2	ok	0
+c SATSUMA_STRUCTURE_TRACE	8	4786	row_candidate_rejected_partition	iteration	0	units_total	0	binaries_total	0	orbit	2
+c SATSUMA_STRUCTURE_TRACE	9	9140	generic_generator	iteration	0	units_total	0	binaries_total	0	index	0	domain	2838	support	12	fnv1a64_le_u32	10261561134089478416	moved_prefix16	1446>2832,1447>2833,1448>2834,1449>2835,1450>2836,1451>2837,2832>1446,2833>1447,2834>1448,2835>1449,2836>1450,2837>1451	moved_prefix_complete	1
+c SATSUMA_STRUCTURE_TRACE	10	10243	generic_generator	iteration	0	units_total	0	binaries_total	0	index	1	domain	2838	support	1412	fnv1a64_le_u32	1257971179583109768	moved_prefix16	0>4,1>5,4>0,5>1,6>10,7>11,10>6,11>7,12>16,13>17,16>12,17>13,18>22,19>23,22>18,23>19	moved_prefix_complete	0
+c SATSUMA_STRUCTURE_TRACE	11	10557	generic_end	iteration	0	units_total	0	binaries_total	0	generators	2	reached_limit	0	group_mantissa	4	group_exponent	0
+c SATSUMA_STRUCTURE_TRACE	12	10708	schreier_generator_load	iteration	0	units_total	0	binaries_total	0	index	0	support	12	support_prefix16	1451,2837,1450,2836,2835,1449,2834,1448,2833,1447,2832,1446	support_prefix_complete	1
+c SATSUMA_STRUCTURE_TRACE	13	10835	schreier_generator_load	iteration	0	units_total	0	binaries_total	0	index	1	support	1412	support_prefix16	0,1,4,5,6,7,10,11,12,13,16,17,18,19,22,23	support_prefix_complete	0
+c SATSUMA_STRUCTURE_TRACE	14	10978	schreier_begin	iteration	0	units_total	0	binaries_total	0	generators	2	variables	1419	clauses	8318	cost_limit	20000000000	go_to_stabilizer	1
+c SATSUMA_STRUCTURE_TRACE	15	11181	schreier_clause	iteration	0	units_total	0	binaries_total	0	depth	0	id	59	size	2	fnv1a64_le_i32	17608705229687683131	prefix16	190,192
+c SATSUMA_STRUCTURE_TRACE	16	11314	schreier_select	iteration	0	units_total	0	binaries_total	0	depth	0	stabilizer_generators	2	literal	190	orbit	2	clause	59	clause_size	2	amo	1	score	1
+c SATSUMA_STRUCTURE_TRACE	17	11946	schreier_stage	iteration	0	units_total	0	binaries_total	0	depth	0	operation	fix	literal	190	clause	59	amo	1
+c SATSUMA_STRUCTURE_TRACE	18	12146	schreier_select	iteration	0	units_total	2	binaries_total	0	depth	1	stabilizer_generators	29	literal	1419	orbit	2	clause	-1	clause_size	0	amo	0	score	0
+c SATSUMA_STRUCTURE_TRACE	19	12944	schreier_stage	iteration	0	units_total	2	binaries_total	0	depth	1	operation	cut	literal	1419
+c SATSUMA_STRUCTURE_TRACE	20	13046	schreier_stop	iteration	0	units_total	2	binaries_total	0	reason	stabilizer_exhausted	depth	2
+c SATSUMA_STRUCTURE_TRACE	21	13135	schreier_extend_begin	iteration	0	units_total	2	binaries_total	0	levels	2	cost	1197274
+c SATSUMA_STRUCTURE_TRACE	22	13222	schreier_extend_end	iteration	0	units_total	2	binaries_total	0	levels	2	cost	1197670
+c SATSUMA_STRUCTURE_TRACE	23	13306	schreier_publish_begin	iteration	0	units_total	2	binaries_total	0	depth	0	operation	fix
+c SATSUMA_STRUCTURE_TRACE	24	13418	schreier_fix_binary	iteration	0	units_total	2	binaries_total	0	depth	0	representative	190	orbit_literal	192	transversal_support	1412
+c SATSUMA_STRUCTURE_TRACE	25	13541	schreier_unit	iteration	0	units_total	2	binaries_total	0	depth	0	literal	190	kind	representative	clause	59	amo	1
+c SATSUMA_STRUCTURE_TRACE	26	13673	schreier_unit	iteration	0	units_total	2	binaries_total	0	depth	0	literal	-192	kind	amo_complement	clause	59	amo	1
+c SATSUMA_STRUCTURE_TRACE	27	13804	schreier_publish	iteration	0	units_total	2	binaries_total	0	depth	0	operation	fix	literal	190	clause	59	amo	1	emitted	2
+c SATSUMA_STRUCTURE_TRACE	28	13951	schreier_publish_begin	iteration	0	units_total	2	binaries_total	0	depth	1	operation	cut
+c SATSUMA_STRUCTURE_TRACE	29	14041	schreier_cut_binary	iteration	0	units_total	2	binaries_total	0	depth	1	representative	1419	orbit_literal	726	transversal_support	12
+c SATSUMA_STRUCTURE_TRACE	30	14166	schreier_publish	iteration	0	units_total	2	binaries_total	1	depth	1	operation	cut	literal	1419	emitted	1
+c SATSUMA_STRUCTURE_TRACE	31	14390	schreier_end	iteration	0	units_total	2	binaries_total	1	levels	2	retained_generators	0	reached_limits	0	cost	1200520	local_cost	2846
+c SATSUMA_STRUCTURE_TRACE	0	34	graph_model	iteration	1	units_total	2	binaries_total	1	variables	1419	clauses	8295	support	23615	binary	1270	removed_clauses	0	removed_support	0	hyperedges	0	hyperedge_support	0	inner_edges	0	binary_graph	0	variable_vertices	1419	graph_vertices	11133	graph_edges	25034
+c SATSUMA_STRUCTURE_TRACE	1	2170	row_column_begin	iteration	1	units_total	2	binaries_total	1	domain	2838	root_orbits	0	base	0	limit	64
+c SATSUMA_STRUCTURE_TRACE	2	2373	row_begin	iteration	1	units_total	2	binaries_total	1	domain	2838	root_orbits	0	base	0	limit	64
+c SATSUMA_STRUCTURE_TRACE	3	3144	generic_end	iteration	1	units_total	2	binaries_total	1	generators	0	reached_limit	0	group_mantissa	1	group_exponent	0
