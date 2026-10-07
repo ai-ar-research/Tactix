@@ -11,10 +11,8 @@ N1–N4 verification remain pending. Scope and contracts belong to
 
 The latest solver checkpoint is `d576abaeb` (certified symmetry-unit admission).
 It removes singleton-unit suppression from FixAndCut and large-domain generator
-fixing, including checked binaries that become unit at root. It is **not yet
-validated**: two positive tests ran before an invalid synthetic truncation
-control failed; the corrected r4 focused array is prepared but unsubmitted.
-Standalone DSR/Trestle and sanitizer gates remain pending. No new Release exists.
+fixing, including checked binaries that become unit at root. Its r4 focused Debug, ASan/UBSan and DSR/Trestle gate passes (job 1755545);
+full Debug, fuzz and regression gates remain pending. No new Release exists.
 See the [repair checkpoint](benchmarks/reports/2026-10-07-symmetry-singleton-unit-admission/README.md).
 
 The [session handoff](benchmarks/reports/2026-10-07-session-wrap-up-handoff/README.md)
@@ -28,9 +26,8 @@ campaigns. Current documentation cleanup changes no solver behavior.
 1. Inspect submitted results and the existing Claude owner reports listed below.
    Record terminal states and failures without inferring acceptance from queue
    disappearance. Keep working independently while useful jobs remain active.
-2. Validate the immutable r4 source from the repair checkpoint. All three changed
-   code/test files match `d576abaeb`; its focused Debug, ASan/UBSan, forward
-   every-lemma DSR/Trestle and invalid-witness negative controls must pass.
+2. Done: the r4 focused gate [passes](benchmarks/reports/2026-10-07-symmetry-unit-r4-focused-pass/README.md)
+   (job 1755545). Debug and ASan/UBSan pass, every-lemma DSR/Trestle verifies, and the invalid control is rejected.
 3. Reproduce and repair the deterministic [affine root-maintenance API failure](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/handoff/am-rel-23/README.md):
    a well-formed persistent `AffineMatrixInitialize` request returns
    `InvalidRequest` after root Sweep. It also reproduces on the older noL-free
