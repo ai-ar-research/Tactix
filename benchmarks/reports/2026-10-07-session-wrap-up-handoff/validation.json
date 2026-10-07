@@ -1,0 +1,41 @@
+{
+  "check-doc-size.py": {
+    "exit_code": 0
+  },
+  "check-section-refs.py": {
+    "exit_code": 0
+  },
+  "check-proof-rule-sync.py": {
+    "exit_code": 0
+  },
+  "check-citations.py": {
+    "exit_code": 0
+  },
+  "check-option-coverage.py": {
+    "exit_code": 0
+  },
+  "check-inventory.py": {
+    "exit_code": 0
+  },
+  "check-default-strategy-config.py": {
+    "exit_code": 0
+  },
+  "check-rule-policy-boundary.py": {
+    "exit_code": 0
+  },
+  "check-progress.py": {
+    "exit_code": 0,
+    "log": "progress-check.log"
+  },
+  "andrew_report": {
+    "directory": "report-to-andrew/20261007T224148Z-session-handoff",
+    "compile_passes": 2,
+    "pages": 2,
+    "tex_sha256": "494d70c8c949459db82a150f66e538f76b44a7e259fdbbe8c869bb54224b8039",
+    "pdf_sha256": "17975c4787b51835221ee2cc015844f12011662e5cfbe26a044e484ee8629f84"
+  },
+  "diff_check": {
+    "owned_changes": "pass",
+    "preserved_frozen_artifact_exception": "Owner-published long64-fixed-independent-review/DISPOSITION.md line119 has trailing whitespace; retained verbatim rather than editing frozen evidence."
+  }
+}
