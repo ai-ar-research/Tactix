@@ -125,6 +125,7 @@ def prepare(prefix, release, solver_arguments=(), dsr_transport=None):
 #SBATCH --output={campaign}/logs/%A_%a.log
 set -euo pipefail
 ulimit -c 0
+export PYTHONDONTWRITEBYTECODE=1
 exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(str(campaign))} "$SLURM_ARRAY_TASK_ID"
 '''
         (campaign / 'array.sbatch').write_text(batch)
