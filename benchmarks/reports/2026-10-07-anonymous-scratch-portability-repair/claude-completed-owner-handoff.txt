@@ -1,0 +1,44 @@
+The ab7ad3012 verification is prepared and queued, but no repair is verified yet: none of its rows has run, and every live ab7ad job is still pending.
+
+**ab7ad3012 setup**
+- My `git archive` is byte-identical to root's `source.tar`, and the fuzz harness is unchanged since 4d (frozen copy `28ae90a2…` still applies).
+- I built my own pins from the frozen archive:
+  - ASan, proof shadow on: `fffff001…`.
+  - Release: `2bb5059e…`, identical to root's binding.
+- Full source verification passes.
+- Six driver binaries are linked against the ASan pin. Two changed for this checkpoint:
+  - **amdrv** (C v16 driver) is now strict: an exhausted or interrupted request must report ResourceExhausted or Interrupted publicly, not NoChange.
+  - **aliasdrv** is new. It covers alias cap 1 decline, cap 2 success, a shared tighter cap, the outstanding-deletion budget left by a first alias, and randomized caps. Every decline must leave the state byte-identical, and every acceptance must pass dsr-trim+srcheck or drat-trim.
+- The verification profile has 8,085 tasks, against the deferred 40,050-task matrix. It has two parts:
+  - The three exact handoff reproductions plus fresh rows for each repair:
+    - the controller command must reach a checked verdict;
+    - C16 public statuses must match the native outcome;
+    - Default-on must admit 28–100-equation systems, SAT and UNSAT.
+  - The persistent-XOR families at one-third scale, plus Walk equal/worse and proposal pair-move rows.
+
+**ab7ad3012 jobs**
+
+| Job | Role | State |
+|---|---|---|
+| 1752755 | pin build | completed |
+| 1753010 | XB1 broad, Default with `--default-affine-search=on` | pending |
+| 1753011 | XB2 broad, controller with the C16 persistent profile | pending |
+| 1753013 | calibration smoke, 1,174 rows (labelled, not acceptance) | pending |
+
+The full 8,085-task run goes in only after a clean smoke.
+
+**4d7069a4c grading**
+- **L1 1752726** (DefaultPolicy as shipped): passes with the recurring exception. 100,010 cases, 0 failures; exit 1 came only from corpus entry 026 hitting its 60 s ASan budget. Rerun 1752736 at 3,000 s was UNSAT and verified.
+- **XB1 1752727** (Default-on): passes. Corpus 51/0, 100,010 cases, 0 failures. Default's affine schedule changed in ab7ad3012, so this counts for 4d only.
+- Census 1752731 is complete.
+- Still live:
+  - L3 1752728: running.
+  - XB2 1752729: running.
+  - XB3 1752730: pending.
+  - smoke2 1752733: pending.
+
+No new source failure; quota is 539 GiB.
+
+Files are in `benchmarks/runs/`:
+- `20261007-coherent-repairs-ab7ad3012-fuzz-owner/IN_FLIGHT.md` (verification criteria H1–H5, XB1 and XB2)
+- `20261007-persistent-xor-4d7069a4c-fuzz-owner/IN_FLIGHT.md`

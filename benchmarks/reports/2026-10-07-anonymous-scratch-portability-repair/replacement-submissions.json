@@ -1,0 +1,30 @@
+[
+  {
+    "set": "b28c5",
+    "job_id": 1753016,
+    "submitted_at": "2026-10-07T12:31:42.450467+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-portable-on-b28c5",
+    "manifest_sha256": "48631763445885d6755cbadc5a6a3850184cc97b5cfe953815b67a8697b1ef89"
+  },
+  {
+    "set": "rank1-50",
+    "job_id": 1753017,
+    "submitted_at": "2026-10-07T12:31:43.702277+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-portable-on-rank1-50",
+    "manifest_sha256": "90f67af2d435a80a5b2f9d72c66809980f82c3eee6489f733fb6c7d7d69751b3"
+  },
+  {
+    "set": "wv100",
+    "job_id": 1753018,
+    "submitted_at": "2026-10-07T12:31:44.918460+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-portable-on-wv100",
+    "manifest_sha256": "37408e047c18c48ee58d4c96b57deec1012352cadba101e6220c9d88f505fb28"
+  },
+  {
+    "set": "wv2-89",
+    "job_id": 1753019,
+    "submitted_at": "2026-10-07T12:31:46.135407+00:00",
+    "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-regression-portable-on-wv2-89",
+    "manifest_sha256": "6ed85756447cfe9001b4445b5181123bd4826bd2738a74ecda55d637994f3fc5"
+  }
+]

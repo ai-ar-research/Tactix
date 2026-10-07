@@ -6,9 +6,26 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+import anonymous_scratch
 from anonymous_scratch import AnonymousScratch
 
 class ScratchTests(unittest.TestCase):
+    def test_missing_python_constant_keeps_anonymous_storage(self):
+        original = getattr(os, 'O_TMPFILE', 0o20000000 | os.O_DIRECTORY)
+        with mock.patch.dict(os.__dict__):
+            os.__dict__.pop('O_TMPFILE', None)
+            with mock.patch.object(anonymous_scratch.sys, 'platform', 'linux'), mock.patch.object(anonymous_scratch.platform, 'machine', return_value='x86_64'):
+                self.assertEqual(anonymous_scratch.anonymous_open_flag(), original)
+                self.test_reopen_and_close()
+
+    def test_missing_constant_unknown_abi_fails_closed(self):
+        with mock.patch.dict(os.__dict__):
+            os.__dict__.pop('O_TMPFILE', None)
+            with mock.patch.object(anonymous_scratch.platform, 'machine', return_value='unknown'):
+                with self.assertRaises(OSError):
+                    AnonymousScratch('/tmp') / 'proof'
+
     def test_reopen_and_close(self):
         with tempfile.TemporaryDirectory() as tmp:
             s=AnonymousScratch(tmp)

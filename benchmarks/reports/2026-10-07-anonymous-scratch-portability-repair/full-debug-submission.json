@@ -1,0 +1,8 @@
+{
+  "job_id": 1753015,
+  "campaign": "benchmarks/runs/20261007-persistent-xor-ab7ad3012-full-debug",
+  "source_commit": "ab7ad3012b325b90b2a3008a89b02681a6022108",
+  "expected_tests": 346,
+  "state_at_observation": "RUNNING",
+  "acceptance": "pending"
+}
