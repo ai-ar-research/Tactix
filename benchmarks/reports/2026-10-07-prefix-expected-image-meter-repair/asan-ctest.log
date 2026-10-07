@@ -1,0 +1,29 @@
+Test project /home/hwu/SAT-solving/build/resume-affine-repair-asan
+      Start  75: nary_csp_root_fixed_proof
+ 1/12 Test  #75: nary_csp_root_fixed_proof .........   Passed    1.67 sec
+      Start  76: nary_csp_equality
+ 2/12 Test  #76: nary_csp_equality .................   Passed    0.60 sec
+      Start  77: nary_csp_equality_proof
+ 3/12 Test  #77: nary_csp_equality_proof ...........   Passed    0.65 sec
+      Start  78: nary_csp_equality_live
+ 4/12 Test  #78: nary_csp_equality_live ............   Passed    0.55 sec
+      Start  79: nary_csp_equality_live_proof
+ 5/12 Test  #79: nary_csp_equality_live_proof ......   Passed    0.65 sec
+      Start  80: nary_csp_equality_public
+ 6/12 Test  #80: nary_csp_equality_public ..........   Passed    0.47 sec
+      Start  81: nary_csp_equality_public_oracle
+ 7/12 Test  #81: nary_csp_equality_public_oracle ...   Passed    1.10 sec
+      Start  82: nary_csp_equality_amo
+ 8/12 Test  #82: nary_csp_equality_amo .............   Passed    0.69 sec
+      Start  83: nary_csp_equality_amo_proof
+ 9/12 Test  #83: nary_csp_equality_amo_proof .......   Passed    0.48 sec
+      Start 235: nary_csp_prefix_action
+10/12 Test #235: nary_csp_prefix_action ............   Passed  256.91 sec
+      Start 236: nary_csp_prefix_live
+11/12 Test #236: nary_csp_prefix_live ..............   Passed    0.26 sec
+      Start 267: restart_controller
+12/12 Test #267: restart_controller ................   Passed    0.41 sec
+
+100% tests passed out of 12
+
+Total Test time (real) = 264.45 sec

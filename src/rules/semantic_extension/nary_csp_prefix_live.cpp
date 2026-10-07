@@ -101,7 +101,7 @@ struct ExpectedImage {
 
 bool build_expected(const std::vector<std::vector<int32_t>> &domains,
                     const NaryCspPrefixLiveRequest &request,
-                    ExpectedImage &output) {
+                    ExpectedImage &output, Meter &meter) {
   output = {};
   if (domains.size() < 3 || domains.size() > request.maximum_domains)
     return false;
@@ -113,7 +113,11 @@ bool build_expected(const std::vector<std::vector<int32_t>> &domains,
     for (size_t value = 0; value < values.size(); ++value) {
       const int32_t literal = values[value];
       if (!literal || literal == INT32_MIN ||
-          (value && !literal_less(values[value - 1], literal)) ||
+          (value && !literal_less(values[value - 1], literal)))
+        return false;
+      // Charge before allocating the expected literal and clause maps. This
+      // quadratic image is part of recognition, including on a failed capture.
+      if (!meter.charge(1) ||
           !variables.insert(variable(literal)).second ||
           !output.tuple_literals
                .emplace(-literal,
@@ -122,7 +126,9 @@ bool build_expected(const std::vector<std::vector<int32_t>> &domains,
                .second)
         return false;
     }
-    if (!output.domain_clauses
+    // Clause construction uses the same one-plus-literals charge as scanning.
+    if (!meter.charge(uint64_t{1} + values.size()) ||
+        !output.domain_clauses
              .emplace(normalized(values),
                       DomainDescriptor{DomainClauseKind::Alo,
                                        static_cast<uint32_t>(domain), 0, 0})
@@ -130,7 +136,8 @@ bool build_expected(const std::vector<std::vector<int32_t>> &domains,
       return false;
     for (size_t first = 0; first < values.size(); ++first)
       for (size_t second = first + 1; second < values.size(); ++second)
-        if (!output.domain_clauses
+        if (!meter.charge(3) ||
+            !output.domain_clauses
                  .emplace(normalized({-values[first], -values[second]}),
                           DomainDescriptor{
                               DomainClauseKind::Amo,
@@ -186,8 +193,8 @@ CaptureStatus capture_slice(
     const NaryCspPrefixLiveRequest &request, Meter &meter,
     NaryCspPrefixOwnerSnapshot &output) {
   ExpectedImage expected;
-  if (!build_expected(domains, request, expected))
-    return CaptureStatus::Invalid;
+  if (!build_expected(domains, request, expected, meter))
+    return stopped_capture(meter);
   for (const auto &domain : domains)
     for (int32_t external : domain) {
       if (!meter.charge(1)) return stopped_capture(meter);
