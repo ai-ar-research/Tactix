@@ -344,6 +344,122 @@ class TransportTests(unittest.TestCase):
             for directory in owned:
                 remove(directory)
 
+    def test_cleanup_defers_deadline_until_staging_is_removed(self):
+        import errno
+        import time
+        directory = self.root / 'deadline-staging'
+        directory.mkdir()
+        (directory / '.nfs-delayed-close').write_bytes(b'partial')
+        deadline = ProofPipelineDeadline('deadline during cleanup')
+        remove = shutil.rmtree
+        calls = 0
+
+        def delayed(path):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OSError(errno.ENOTEMPTY, 'NFS delayed close', str(path))
+            remove(path)
+
+        with patch.object(shutil, 'rmtree', side_effect=delayed), \
+                patch.object(time, 'sleep', side_effect=deadline):
+            with self.assertRaises(ProofPipelineDeadline) as raised:
+                self.oracle._remove_transport_staging(directory)
+        self.assertIs(raised.exception, deadline)
+        self.assertEqual(calls, 2)
+        self.assertFalse(directory.exists())
+
+    def test_transport_deadline_during_cleanup_leaves_no_staging(self):
+        import errno
+        import signal
+        import time
+        self.source.write_bytes(b'\1\0')
+        self.dest.write_bytes(b'KEEP')
+        deadline = ProofPipelineDeadline('deadline during cleanup')
+        remove = shutil.rmtree
+        injected = False
+
+        def delayed(path):
+            nonlocal injected
+            if not injected and '.dsr-transport-' in str(path):
+                injected = True
+                raise OSError(errno.ENOTEMPTY, 'NFS delayed close', str(path))
+            remove(path)
+
+        killed = subprocess.CompletedProcess(
+            ['dsr-transport'], -signal.SIGKILL, b'', b'')
+        with patch.object(subprocess, 'run', return_value=killed), \
+                patch.object(shutil, 'rmtree', side_effect=delayed), \
+                patch.object(time, 'sleep', side_effect=deadline):
+            with self.assertRaises(ProofPipelineDeadline) as raised:
+                self.oracle.dsr_proof_as_drat(self.source, self.dest)
+        self.assertIs(raised.exception, deadline)
+        self.assertTrue(injected)
+        self.assertEqual(self.dest.read_bytes(), b'KEEP')
+        self.assertFalse(any('dsr-transport-' in p.name
+                             for p in self.root.iterdir()))
+
+    def test_cleanup_defers_deadline_during_enoent_stat(self):
+        import errno
+        directory = self.root / 'enoent-stat-staging'
+        directory.mkdir()
+        (directory / '.nfs-delayed-close').write_bytes(b'partial')
+        deadline = ProofPipelineDeadline('deadline during ENOENT stat')
+        remove = shutil.rmtree
+        calls = 0
+
+        def missing_child(path):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OSError(errno.ENOENT, 'NFS child disappeared', str(path))
+            remove(path)
+
+        with patch.object(shutil, 'rmtree', side_effect=missing_child), \
+                patch.object(Path, 'exists', side_effect=deadline):
+            with self.assertRaises(ProofPipelineDeadline) as raised:
+                self.oracle._remove_transport_staging(directory)
+        self.assertIs(raised.exception, deadline)
+        self.assertEqual(calls, 2)
+        self.assertFalse(directory.exists())
+
+    def test_deadline_remains_primary_after_bounded_cleanup_failure(self):
+        import errno
+        import time
+        directory = self.root / 'persistent-staging'
+        directory.mkdir()
+        deadline = ProofPipelineDeadline('deadline during cleanup')
+        sleeps = 0
+
+        def interrupted_once(_delay):
+            nonlocal sleeps
+            sleeps += 1
+            if sleeps == 1:
+                raise deadline
+
+        cleanup = OSError(errno.ENOTEMPTY, 'persistent NFS failure')
+        with patch.object(shutil, 'rmtree', side_effect=cleanup) as remove, \
+                patch.object(time, 'sleep', side_effect=interrupted_once):
+            with self.assertRaises(ProofPipelineDeadline) as raised:
+                self.oracle._remove_transport_staging(directory)
+        self.assertIs(raised.exception, deadline)
+        self.assertIs(raised.exception.__cause__, cleanup)
+        self.assertEqual(remove.call_count, 20)
+        self.assertEqual(sleeps, 19)
+
+    def test_repeated_cleanup_interrupts_are_bounded(self):
+        directory = self.root / 'repeated-interrupt-staging'
+        directory.mkdir()
+        first = KeyboardInterrupt('first cleanup interrupt')
+        interrupts = [first] + [KeyboardInterrupt('later cleanup interrupt')
+                                for _ in range(19)]
+        with patch.object(shutil, 'rmtree', side_effect=interrupts) as remove:
+            with self.assertRaises(KeyboardInterrupt) as raised:
+                self.oracle._remove_transport_staging(directory)
+        self.assertIs(raised.exception, first)
+        self.assertIsInstance(raised.exception.__cause__, OSError)
+        self.assertEqual(remove.call_count, 20)
+
     def test_nfs_staging_cleanup_has_bounded_retries(self):
         import errno
         import time
