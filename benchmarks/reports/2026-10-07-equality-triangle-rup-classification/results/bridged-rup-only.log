@@ -1,0 +1,13 @@
+c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-equality-triangle-classification-1752026-v2/results/live-prefix.cnf
+c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-equality-triangle-classification-1752026-v2/results/bridged-suffix.dsr
+c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-equality-triangle-classification-1752026-v2/results/bridged.binary.lsr
+c Using a STREAMING parsing strategy.
+c Doing FORWARDS proof checking.
+c The emitted LSR proof will be in binary format (`-c` specified).
+c The CNF formula has 8984 clauses and 1427 variables.
+c Parsing the CNF took 0.003 secs
+c Checking proof...
+c Proof checking took 0.001 secs
+s VALID
+c A valid proof, without an empty clause.
+c Total runtime took 0.004 secs
