@@ -1,0 +1,24 @@
+{
+  "status": "PREPARED_UNSUBMITTED",
+  "original": "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8",
+  "original_job": 1752026,
+  "trim": "/home/hwu/SAT-solving/build/pin-dsr-checker-controller-clean-patch/dsr-trim",
+  "sr": "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck",
+  "bindings": {
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/checker.cnf": "61fc24ce538074e3e1d3a02f8e5286708b0e769d43e866b5d7f0eff7b2787665",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/direct.binary.lsr": "7957575b0a92f565353e863bdbd8aefe36335cf3829eb2baaa24f72e1107db02",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/proof.dsr": "a7f29d26439b01a8aa5a39c9de7e7f5d9297cfecf1487a137658d40a168e3e15",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/transcript": "12bf1869bc1f0727831c1c4c31984e69c5640bf4f4b88468c6e3c2a562b08ef1",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/forward.binary.lsr": "9c583b35d8496a896c6283afacfcb8d80ec71baa32fd790efde4ccab161e6aa7",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/forward.log": "b2f393516ee82aa12b5c3a604d4fe678326bee160d7e7f380d698eb274aa22eb",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/independent.log": "411188a96fe1447d97832c131c4ffccd1e9d42944bc088ff2da621dbf0d7ddd4",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/negative.log": "0a24f71a919f599712bf167ba0d2cbeafcb2dfb9e7629ea4938bb5c3ec642550",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/on/results/direct.log": "d8c95b5db6f62316557f447385ce48099dd0a60089e13f7060b6bb1ec8ce0047",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/slurm-1752026_1.log": "b28db05425488a0611cdd70115c16f1c1ffa13da3a7cb819610b0e42534c7f82",
+    "benchmarks/probes/scratch/r401-equality-triangle-admission-76e1f68b8/manifest.json": "a96f77d854983b4079670ff2894536a0966581f3ebf0fd11101d1d492f2d1321",
+    "benchmarks/probes/scratch/r401-equality-triangle-classification-1752026-v2/classify.py": "1c2736a17c048ba741a52d297b17353dc10da900ad8cd4d9ab2a0f8f21ef60fe",
+    "benchmarks/probes/scratch/r401-equality-triangle-classification-1752026-v2/pair.sbatch": "97e8e392ab747e06e49d2fa5b704d6b91567825f587c3213778f95be3bcb242a",
+    "tools/checkers/bin/dsr-trim": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+    "tools/checkers/bin/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945"
+  }
+}
