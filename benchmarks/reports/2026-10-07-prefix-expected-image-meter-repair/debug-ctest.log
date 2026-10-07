@@ -1,0 +1,31 @@
+Test project /home/hwu/SAT-solving/build/resume-affine-repair-debug
+      Start  75: nary_csp_root_fixed_proof
+ 1/13 Test  #75: nary_csp_root_fixed_proof .........   Passed    0.67 sec
+      Start  76: nary_csp_equality
+ 2/13 Test  #76: nary_csp_equality .................   Passed    0.03 sec
+      Start  77: nary_csp_equality_proof
+ 3/13 Test  #77: nary_csp_equality_proof ...........   Passed    0.63 sec
+      Start  78: nary_csp_equality_live
+ 4/13 Test  #78: nary_csp_equality_live ............   Passed    0.04 sec
+      Start  79: nary_csp_equality_live_proof
+ 5/13 Test  #79: nary_csp_equality_live_proof ......   Passed    0.52 sec
+      Start  80: nary_csp_equality_public
+ 6/13 Test  #80: nary_csp_equality_public ..........   Passed    0.04 sec
+      Start  81: nary_csp_equality_public_oracle
+ 7/13 Test  #81: nary_csp_equality_public_oracle ...   Passed    0.46 sec
+      Start  82: nary_csp_equality_amo
+ 8/13 Test  #82: nary_csp_equality_amo .............   Passed    0.05 sec
+      Start  83: nary_csp_equality_amo_proof
+ 9/13 Test  #83: nary_csp_equality_amo_proof .......   Passed    0.35 sec
+      Start 235: nary_csp_prefix_action
+10/13 Test #235: nary_csp_prefix_action ............   Passed   38.43 sec
+      Start 236: nary_csp_prefix_live
+11/13 Test #236: nary_csp_prefix_live ..............   Passed    0.03 sec
+      Start 237: nary_csp_prefix_public
+12/13 Test #237: nary_csp_prefix_public ............   Passed    0.08 sec
+      Start 267: restart_controller
+13/13 Test #267: restart_controller ................   Passed    0.03 sec
+
+100% tests passed out of 13
+
+Total Test time (real) =  41.39 sec

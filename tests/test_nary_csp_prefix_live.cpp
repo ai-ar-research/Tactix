@@ -313,6 +313,90 @@ void interruption_preserves_capture_output() {
   std::fclose(records);
 }
 
+void expected_image_obeys_capture_budget_and_stop() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  auto candidate = request(records);
+  // With enough work this assigned owner declines as NoStructure. Small
+  // allowances must instead stop during expected-image construction, before
+  // checking the assigned first value or allocating the complete AMO image.
+  kernel_assign_unit(kernel, kernel_internalize(kernel, 1));
+  assert(!kernel_propagate(kernel));
+  const Image before = image(kernel);
+  NaryCspPrefixOwnerSnapshot output;
+  output.external_extent = 99;
+  const auto sentinel = output;
+  for (uint64_t limit : {uint64_t{4}, uint64_t{10}}) {
+    candidate.maximum_recognition_work = limit;
+    const auto captured =
+        nary_csp_prefix_live_capture_owner(kernel, candidate, output);
+    assert(captured.status == NaryCspPrefixLiveStatus::ResourceExhausted &&
+           captured.recognition_limit_exhausted &&
+           captured.recognition_work <= limit &&
+           captured.recognition_work > 0 && output == sentinel &&
+           image(kernel) == before && !std::ftell(records));
+    const auto applied = decline_unchanged(kernel, candidate);
+    assert(applied.status == NaryCspPrefixLiveStatus::ResourceExhausted &&
+           applied.recognition_limit_exhausted &&
+           applied.recognition_work <= limit);
+  }
+  auto large = candidate;
+  large.domains.assign(3, {});
+  for (uint32_t domain = 0; domain != 3; ++domain)
+    for (uint32_t value = 0; value != 128; ++value)
+      large.domains[domain].push_back(1 + domain * 128 + value);
+  large.maximum_domain_values = 128;
+  large.maximum_external_extent = 1000;
+  large.maximum_recognition_work = 260;
+  const auto large_exhausted =
+      nary_csp_prefix_live_capture_owner(kernel, large, output);
+  assert(large_exhausted.status == NaryCspPrefixLiveStatus::ResourceExhausted &&
+         large_exhausted.recognition_limit_exhausted &&
+         large_exhausted.recognition_work <= large.maximum_recognition_work &&
+         output == sentinel && image(kernel) == before && !std::ftell(records));
+  candidate.maximum_recognition_work = 100000;
+  // Fixed seed: the first charge succeeds and the second interrupts while
+  // constructing the expected image; no generated inputs or seed search.
+  kernel.stop_fuzz = 2;
+  kernel.stop_fuzz_state = 0;
+  const auto interrupted =
+      nary_csp_prefix_live_capture_owner(kernel, candidate, output);
+  assert(interrupted.status == NaryCspPrefixLiveStatus::Interrupted &&
+         !interrupted.recognition_limit_exhausted &&
+         interrupted.recognition_work == 1 &&
+         kernel.stats.stop_fuzz_fires == 1 && output == sentinel &&
+         image(kernel) == before);
+  kernel.stop_fuzz = 0;
+  assert(nary_csp_prefix_live_capture_owner(kernel, candidate, output).status ==
+         NaryCspPrefixLiveStatus::NoStructure);
+  for (bool empty : {false, true}) {
+    auto malformed = candidate;
+    if (empty) malformed.domains.clear();
+    else malformed.domains.front().front() = 0;
+    const auto invalid =
+        nary_csp_prefix_live_capture_owner(kernel, malformed, output);
+    assert(invalid.status == NaryCspPrefixLiveStatus::Invalid &&
+           !invalid.recognition_limit_exhausted && output == sentinel &&
+           image(kernel) == before && !std::ftell(records));
+  }
+  // A healthy owner can retry the same exact request with a fresh allowance.
+  Kernel fresh = parse();
+  candidate.maximum_recognition_work = 10;
+  assert(nary_csp_prefix_live_capture_owner(fresh, candidate, output).status ==
+         NaryCspPrefixLiveStatus::ResourceExhausted);
+  assert(output == sentinel);
+  candidate.maximum_recognition_work = 100000;
+  const auto ready =
+      nary_csp_prefix_live_capture_owner(fresh, candidate, output);
+  assert(ready.status == NaryCspPrefixLiveStatus::Applied &&
+         output.source.size() == clauses().size() &&
+         output.capture_work == ready.recognition_work &&
+         ready.recognition_work <= candidate.maximum_recognition_work &&
+         !std::ftell(records));
+  std::fclose(records);
+}
+
 void unsupported_proofs_decline_before_mutation() {
   for (const auto &[format, path] :
        {std::pair{ProofFormat::Lrat, "/tmp/nary-csp-prefix-decline.lrat"},
@@ -476,6 +560,7 @@ int main(int argc, char **argv) {
   complete_row_publishes_unit_and_pending_propagation();
   clean_declines_and_stale_owner();
   interruption_preserves_capture_output();
+  expected_image_obeys_capture_budget_and_stop();
   unsupported_proofs_decline_before_mutation();
   proof_modes_emit();
   std::puts("test_nary_csp_prefix_live: passed");

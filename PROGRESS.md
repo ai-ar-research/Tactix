@@ -133,9 +133,12 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 The [native equality repair](benchmarks/reports/2026-10-07-nary-equality-stale-owner-repair/README.md)
 passes focused Debug and sanitizer/proof/model checks 9/9 each. Freeze the repaired
-commit and resume Claude for affected targeted coverage and three minimized
-reproducers; cumulative acceptance remains pending. NOTHING IN FLIGHT in SLURM
-at this checkpoint. Storage is 452.94 GB, below the 700-GB gate.
+commit `938a6ae6b` is now supplied to the existing Claude owner for affected
+targeted coverage and three minimized reproducers; cumulative acceptance remains
+pending. Full Debug archive `20261007-equality-repair-938a6ae6b-full-debug` is building.
+Claude reports smoke reproducers 36/36 checked; targeted `1751516` and native
+controller broad `1751515` are live. A reviewed expected-image metering follow-up
+passes [Debug 13/13 and sanitizer 12/12](benchmarks/reports/2026-10-07-prefix-expected-image-meter-repair/README.md); freeze for Claude acceptance. Storage 452.94 GB; regressions follow Debug.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
@@ -147,8 +150,7 @@ adds failed-nonmatching predecessor atomicity and independently reexecuted publi
 controller extension/restore/deeper-rebuild transcripts; affected Debug and
 sanitizer checks pass with identical proof/provenance and a checked SAT model.
 The [WV93 short probe](benchmarks/reports/2026-10-06-directcsp-repeated-native/README.md) reaches one/four support publications but yields no root deduction or solve; no longer target is justified.
-The coherent source pin is `4096d41b3`; its Claude-owned cumulative fuzz
-request is [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d41b3-fuzz-owner/request.txt).
+The preceding source pin `4096d41b3` has a Claude-owned cumulative fuzz request, [prepared and invoked](benchmarks/reports/2026-10-06-integrated-4096d41b3-fuzz-owner/request.txt).
 Claude's [owner leg verdict](benchmarks/reports/2026-10-06-integrated-default-fuzz-owner-verdict/README.md)
 closes DefaultPolicy fuzz job `1751467` as passed after same-pin
 graded corpus rerun `1751474` clears entry 026's 60-second sanitizer timeout.
