@@ -131,6 +131,12 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
+The [native equality repair](benchmarks/reports/2026-10-07-nary-equality-stale-owner-repair/README.md)
+passes focused Debug and sanitizer/proof/model checks 9/9 each. Freeze the repaired
+commit and resume Claude for affected targeted coverage and three minimized
+reproducers; cumulative acceptance remains pending. NOTHING IN FLIGHT in SLURM
+at this checkpoint. Storage is 452.94 GB, below the 700-GB gate.
+
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.
 Claude accepted its [fresh fuzz campaign](benchmarks/reports/2026-10-06-affine-repair-fuzz-owner-verdict/README.md): both broad legs and 12,998 targeted tasks pass. A disclosed width-one conflict publication decline remains a nonfatal follow-up; service-time interruption was not reached. This does not accept the later cumulative pin.
@@ -152,18 +158,25 @@ closes `1751468` as passed: 100,010 generated cases and 51 corpus entries,
 zero failures and zero UNKNOWN; effective affine initialization and controller
 transitions are covered. Calibration `1751473` completed without a source
 failure, exposing two private harness expectations that Claude repaired.
-Both broad legs pass; the 13,155-task full targeted matrix `1751475` is running
-with a fresh frozen harness and fixtures-v3. Combined acceptance still requires
-its effective coverage and Claude's terminal report.
+Both broad legs pass, but Claude rejects cumulative acceptance after the
+13,155-task targeted matrix `1751475` found a native X18 stale-owner decline
+misclassified as InvalidRequest, terminating search with UNKNOWN. The
+[owner failure handoff](benchmarks/reports/2026-10-06-integrated-targeted-failure-handoff/README.md)
+owns the disposition and bounded reproducer. Repair equality recapture/admission,
+then rerun affected targeted kinds and reproducers through Claude. The
+[terminal owner verdict](benchmarks/reports/2026-10-06-integrated-terminal-fuzz-owner-verdict/README.md)
+closes restore coverage at 100 restores in 69 checked CLI runs. No cumulative
+fuzz jobs remain live; the sole source blocker is the native equality defect.
 Claude reports default census `1751469` has
 zero UNKNOWN but zero admitted affine startup actions, so targeted reach is
 mandatory. Claude reports
 the completed controller census `1751470` has zero UNKNOWN exits across
 100,000 seeds (timeouts lack oracle coverage). Both matrix differential
-runs passed, but Claude has not issued terminal acceptance. Resume its existing
+runs passed, but terminal cumulative acceptance is rejected. Resume its existing
 session `4109784f-d61a-4bd4-8f29-8f842447ddc7` with `claude --resume ID -p`
 after job transitions; Claude alone inspects campaign output and owns the final
-report. The initial repair's targeted job `1751463` and owner remain live.
+report. The initial repair campaign is terminal accepted; its evidence does
+not accept the cumulative X18 failure.
 [Storage verification](benchmarks/reports/2026-10-06-final-storage-verification/README.md) records 219.93 GB after reclaiming about 528 GB.
 The later [live-pin scan](benchmarks/reports/2026-10-06-live-pin-storage-recheck/README.md)
 completed without errors at 220.95 GB, still below the storage gate.

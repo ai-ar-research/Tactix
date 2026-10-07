@@ -234,6 +234,69 @@ NaryCspEqualityActionOfferResult nary_csp_equality_action_offer(
       continue;
     }
     result.effort.enumeration_work = validation_work;
+    if (owner.relation.domains.front().values.size() >
+        limits.maximum_domain_values)
+      continue;
+    // Retention alone does not authenticate the current root: search may
+    // assign a domain value or remove a premise. Revalidate before offering
+    // coordinates, and charge the census to this caller's page allowance.
+    NaryCspPrefixLiveRequest capture_request;
+    for (const auto &domain : owner.relation.domains)
+      capture_request.domains.push_back(domain.values);
+    capture_request.selection = {2, {{0, 0}, {1, 0}}};
+    capture_request.maximum_source_clauses = limits.maximum_source_clauses;
+    capture_request.maximum_source_literals = limits.maximum_source_literals;
+    capture_request.maximum_recognition_work = std::min(
+        limits.maximum_recognition_work,
+        window.maximum_enumeration_work - result.effort.enumeration_work);
+    if (!capture_request.maximum_recognition_work) {
+      result.status = NaryCspEqualityActionOfferStatus::ResourceExhausted;
+      result.offers.clear();
+      return result;
+    }
+    capture_request.maximum_domains = 3;
+    capture_request.maximum_domain_values = limits.maximum_domain_values;
+    capture_request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
+    capture_request.maximum_prefix_arity = 2;
+    capture_request.maximum_definition_clause_literals = 3;
+    capture_request.maximum_proof_additions = limits.maximum_proof_additions;
+    capture_request.maximum_proof_literal_occurrences =
+        limits.maximum_proof_literal_occurrences;
+    capture_request.maximum_external_extent = limits.maximum_external_extent;
+    NaryCspPrefixOwnerSnapshot current;
+    const auto captured = nary_csp_prefix_live_capture_owner(
+        kernel, capture_request, current);
+    if (!charge(captured.recognition_work)) {
+      result.status = kernel_terminating(kernel)
+                          ? NaryCspEqualityActionOfferStatus::Interrupted
+                          : NaryCspEqualityActionOfferStatus::ResourceExhausted;
+      result.offers.clear();
+      return result;
+    }
+    if (captured.status != NaryCspPrefixLiveStatus::Applied) {
+      switch (captured.status) {
+      case NaryCspPrefixLiveStatus::Interrupted:
+        result.status = NaryCspEqualityActionOfferStatus::Interrupted; break;
+      case NaryCspPrefixLiveStatus::ResourceExhausted:
+        result.status = NaryCspEqualityActionOfferStatus::ResourceExhausted; break;
+      case NaryCspPrefixLiveStatus::Inapplicable:
+        result.status = NaryCspEqualityActionOfferStatus::Inapplicable; break;
+      case NaryCspPrefixLiveStatus::NoStructure:
+      case NaryCspPrefixLiveStatus::Stale:
+        result.status = NaryCspEqualityActionOfferStatus::Stale; break;
+      default:
+        result.status = NaryCspEqualityActionOfferStatus::Invalid; break;
+      }
+      result.offers.clear();
+      return result;
+    }
+    current.capture_work = owner.capture_work;
+    current.external_extent = owner.external_extent;
+    if (current != owner) {
+      result.status = NaryCspEqualityActionOfferStatus::Stale;
+      result.offers.clear();
+      return result;
+    }
     std::vector<std::vector<int32_t>> domains;
     for (const auto &domain : owner.relation.domains)
       domains.push_back(domain.values);

@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -261,6 +262,80 @@ void native_offer_paginates_and_suppresses_committed_key() {
   std::fclose(records);
 }
 
+void native_offer_revalidates_changed_owners_with_bounded_work() {
+  for (bool assigned : {false, true}) {
+    Kernel kernel = parse();
+    FILE *records = std::tmpfile();
+    assert(records);
+    kernel.structural_provenance = records;
+    NaryCspPrefixActionSession prefix;
+    NaryCspEqualitySession equality;
+    retain_owner(kernel, prefix);
+    const NaryCspEqualityActionOfferWindow window{8, 8, 8, 200000, false, {}};
+    const auto parameters = equality_parameters();
+    const NaryCspEqualityLimits limits{
+        parameters.maximum_source_clauses, parameters.maximum_source_literals,
+        parameters.maximum_recognition_work, parameters.maximum_domain_values,
+        parameters.maximum_forbidden_tuples, parameters.maximum_proof_work,
+        parameters.maximum_proof_additions,
+        parameters.maximum_proof_literal_occurrences,
+        parameters.maximum_journal_bytes, parameters.maximum_extent_growth,
+        parameters.maximum_external_extent, parameters.maximum_session_keys};
+    const auto ready = nary_csp_equality_action_offer(
+        kernel, prefix, equality, limits, window);
+    assert(ready.status == NaryCspEqualityActionOfferStatus::Ready &&
+           ready.offers.size() == 3 && ready.complete);
+    auto smaller_domains = limits;
+    smaller_domains.maximum_domain_values = 2;
+    const auto skipped = nary_csp_equality_action_offer(
+        kernel, prefix, equality, smaller_domains, window);
+    assert(skipped.status == NaryCspEqualityActionOfferStatus::Ready &&
+           skipped.complete && skipped.offers.empty());
+    auto small = window;
+    // One unit stops before recapture; twelve stop inside its domain census.
+    for (uint64_t allowance : {uint64_t{1}, uint64_t{12}}) {
+      small.maximum_enumeration_work = allowance;
+      const auto exhausted = nary_csp_equality_action_offer(
+          kernel, prefix, equality, limits, small);
+      assert(exhausted.status == NaryCspEqualityActionOfferStatus::ResourceExhausted &&
+             exhausted.offers.empty() &&
+             exhausted.effort.enumeration_work <= allowance);
+    }
+    {
+      volatile sig_atomic_t stop = 1;
+      KernelStopPublisher publisher(kernel, &stop);
+      const auto interrupted = nary_csp_equality_action_offer(
+          kernel, prefix, equality, limits, window);
+      assert(interrupted.status == NaryCspEqualityActionOfferStatus::Interrupted &&
+             interrupted.offers.empty() &&
+             interrupted.effort.enumeration_work <= window.maximum_enumeration_work);
+    }
+    if (assigned) {
+      kernel_assign_unit(kernel, kernel_internalize(kernel, 1));
+      assert(!kernel_propagate(kernel));
+    } else {
+      assert(kernel_delete_binary_all_copies(
+          kernel, kernel_internalize(kernel, -1),
+          kernel_internalize(kernel, -2)));
+    }
+    const std::vector<Lit> trail = kernel.trail;
+    const auto arena = kernel.arena.size();
+    const auto sequence = kernel.structural_action_sequence;
+    const auto journal = std::ftell(records);
+    const auto stale = nary_csp_equality_action_offer(
+        kernel, prefix, equality, limits, window);
+    assert(stale.status == NaryCspEqualityActionOfferStatus::Stale &&
+           stale.offers.empty() && stale.effort.coordinate_candidates == 0 &&
+           stale.effort.enumeration_work <= window.maximum_enumeration_work &&
+           kernel.trail == trail && kernel.arena.size() == arena &&
+           kernel.structural_action_sequence == sequence &&
+           std::ftell(records) == journal && prefix.retained_owners() == 1 &&
+           prefix.committed_keys() == 1 && equality.keys().empty());
+    kernel.structural_provenance = nullptr;
+    std::fclose(records);
+  }
+}
+
 void add_formula(tactix_c_handle *solver) {
   for (const auto &clause : clauses()) {
     for (const int32_t literal : clause) tactix_add(solver, literal);
@@ -418,6 +493,7 @@ int main(int argc, char **argv) {
   registry_replay_and_exact_payload();
   executor_feedback_and_candidate_followup();
   native_offer_paginates_and_suppresses_committed_key();
+  native_offer_revalidates_changed_owners_with_bounded_work();
   c_v10_deep_copies_and_executes_exact_payload();
   std::puts("test_nary_csp_equality_public: passed");
 }

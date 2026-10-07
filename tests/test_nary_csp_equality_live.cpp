@@ -190,6 +190,48 @@ void clean_declines() {
   std::fclose(records);
 }
 
+void changed_owner_declines_without_publication() {
+  for (bool assigned : {false, true}) {
+    Kernel kernel = parse();
+    NaryCspPrefixOwnerSnapshot owner;
+    assert(nary_csp_prefix_live_capture_owner(kernel, capture_request(), owner)
+               .status == NaryCspPrefixLiveStatus::Applied);
+    FILE *records = std::tmpfile();
+    assert(records);
+    NaryCspEqualitySession session;
+    if (assigned) {
+      kernel_assign_unit(kernel, kernel_internalize(kernel, 1));
+      assert(!kernel_propagate(kernel));
+    } else {
+      assert(kernel_delete_binary_all_copies(
+          kernel, kernel_internalize(kernel, -1),
+          kernel_internalize(kernel, -2)));
+    }
+    assert(kernel_propagation_fixpoint(kernel));
+    const std::vector<Lit> trail = kernel.trail;
+    const auto arena = kernel.arena.size();
+    const auto variables = kernel.nvars;
+    auto action = request(owner, records);
+    const auto stale = nary_csp_equality_live_apply(kernel, session, action);
+    assert(stale.status == NaryCspEqualityLiveStatus::Stale &&
+           stale.result == ApplyResult::NoOp && !session.retained() &&
+           session.keys().empty() && kernel.nvars == variables &&
+           kernel.arena.size() == arena && kernel.trail == trail &&
+           !std::ftell(records) && !kernel.structural_action_sequence);
+    // Malformed coordinates remain Invalid even when the exact owner is stale.
+    action.selection = {0, 0, 2};
+    assert(nary_csp_equality_live_apply(kernel, session, action).status ==
+           NaryCspEqualityLiveStatus::Invalid);
+    auto malformed = owner;
+    malformed.relation.domains.front().values.front() = 0;
+    action = request(malformed, records);
+    assert(nary_csp_equality_live_apply(kernel, session, action).status ==
+           NaryCspEqualityLiveStatus::Invalid);
+    assert(!session.retained() && !std::ftell(records));
+    std::fclose(records);
+  }
+}
+
 void emit_live_proof(const std::string &stem) {
   const std::string cnf = dimacs(true);
   std::ofstream formula(stem + ".cnf");
@@ -242,5 +284,6 @@ int main(int argc, char **argv) {
   assert(argc == 1);
   publish_duplicate_and_records();
   clean_declines();
+  changed_owner_declines_without_publication();
   std::puts("test_nary_csp_equality_live: passed");
 }

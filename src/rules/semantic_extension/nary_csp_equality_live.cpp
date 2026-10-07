@@ -3,6 +3,7 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cstdlib>
 #include <string>
@@ -93,6 +94,10 @@ NaryCspEqualityLiveStatus capture_status(NaryCspPrefixLiveStatus status) {
     return NaryCspEqualityLiveStatus::ResourceExhausted;
   case NaryCspPrefixLiveStatus::Inapplicable:
     return NaryCspEqualityLiveStatus::Inapplicable;
+  case NaryCspPrefixLiveStatus::NoStructure:
+  case NaryCspPrefixLiveStatus::Stale:
+    // A previously retained owner has lost its exact live source image.
+    return NaryCspEqualityLiveStatus::Stale;
   default:
     return NaryCspEqualityLiveStatus::Invalid;
   }
@@ -185,6 +190,11 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
       !request.semantic_id || !request.records ||
       (session.retained() && !session.belongs_to(kernel)))
     return result;
+  std::array<uint32_t, 3> coordinates{
+      request.selection.left_domain, request.selection.right_domain,
+      request.selection.residual_domain};
+  std::sort(coordinates.begin(), coordinates.end());
+  if (coordinates != std::array<uint32_t, 3>{0, 1, 2}) return result;
   if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
     result.status = NaryCspEqualityLiveStatus::UnsupportedProof;
     return result;
