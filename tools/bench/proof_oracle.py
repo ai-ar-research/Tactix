@@ -383,7 +383,13 @@ def dsr_proof_is_binary(proof) -> bool:
     try:
         with open(proof, 'rb') as source:
             head = source.read(4096)
-    except OSError:
+    except OSError as error:
+        # The runtime proof deadline subclasses TimeoutError/OSError but is
+        # not a file-system failure.  Only decline routing on an actual I/O
+        # error; otherwise a deadline in this short probe can be discarded and
+        # the raw binary stream subsequently treated as ASCII DRAT.
+        if error.errno is None:
+            raise
         return False
     return any(byte not in b'0123456789- \t\n\r\v\fd' for byte in head)
 
@@ -575,6 +581,7 @@ def _native_dsr_transport(mode, proof, destination=None):
     """Use only the helper bound beside this module; None means Python fallback."""
     import hashlib
     import os
+    import signal
     import subprocess
     helper = Path(__file__).resolve().with_name('dsr-transport')
     binding = helper.with_name('dsr-transport.sha256')
@@ -587,42 +594,124 @@ def _native_dsr_transport(mode, proof, destination=None):
     command = [str(helper), mode, str(proof)]
     if destination is not None:
         command.append(str(destination))
-    # Own the staging namespace outside the killable converter. In particular,
-    # a deadline's SIGKILL cannot run the helper's C++ cleanup. The unique parent
-    # directory survives until subprocess.run has killed/reaped the child, then
-    # is removed on every return or BaseException; concurrent calls never share it.
+    # Own the staging namespace outside the killable converter.  Block the two
+    # Python-delivered interrupts used by this runner before acquiring that
+    # namespace and until it has been removed.  Merely wrapping increasingly
+    # large try/finally regions cannot close the bytecode boundaries around
+    # mkdtemp and finally entry.  A short communicate loop observes a pending
+    # signal, kills and reaps the converter, and cleanup completes before the
+    # old mask is restored and the original handler raises.
     import stat
-    import sys
     import tempfile
+    handlers = {sig: signal.getsignal(sig)
+                for sig in (signal.SIGALRM, signal.SIGINT)
+                if callable(signal.getsignal(sig))}
+    handled = set(handlers)
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, handled)
     directory = None
-    if destination is not None:
-        target = Path(destination)
-        try:
-            info = target.stat()
-        except FileNotFoundError:
-            info = None
-        descriptor = info is not None and info.st_nlink == 0 and stat.S_ISREG(info.st_mode)
-        if not descriptor:
-            directory = tempfile.mkdtemp(
-                prefix='.' + target.name + '.dsr-transport-', dir=target.parent)
+    result = None
+    primary = primary_traceback = cleanup_failure = None
     try:
-        if directory is not None:
-            command.append(str(Path(directory) / 'output'))
-        # subprocess.run kills/reaps on BaseException, including the runner's
-        # whole-pipeline deadline. Cleanup happens only after the child is gone.
-        result = subprocess.run(command, capture_output=True)
+        if destination is not None:
+            target = Path(destination)
+            try:
+                info = target.stat()
+            except FileNotFoundError:
+                info = None
+            descriptor = (info is not None and info.st_nlink == 0 and
+                          stat.S_ISREG(info.st_mode))
+            if not descriptor:
+                directory = tempfile.mkdtemp(
+                    prefix='.' + target.name + '.dsr-transport-', dir=target.parent)
+                command.append(str(Path(directory) / 'output'))
+
+        process = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   start_new_session=True)
+
+        def kill_and_reap():
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                return process.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                # Retry the whole group once, then keep the caller bounded.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=10)
+                return b'', b''
+
+        try:
+            while True:
+                try:
+                    stdout, stderr = process.communicate(timeout=0.05)
+                    result = subprocess.CompletedProcess(
+                        command, process.returncode, stdout, stderr)
+                    break
+                except subprocess.TimeoutExpired:
+                    if handled.intersection(signal.sigpending()):
+                        stdout, stderr = kill_and_reap()
+                        result = subprocess.CompletedProcess(
+                            command, process.returncode, stdout, stderr)
+                        break
+        except BaseException:
+            kill_and_reap()
+            raise
+        finally:
+            # Drop both the closure and the reaped Popen while handled signals
+            # are still blocked.  Otherwise a later conversion's deadline can
+            # interrupt this object's deferred __del__ bookkeeping.
+            kill_and_reap = None
+            process = None
+    except BaseException as error:
+        primary = error
+        primary_traceback = error.__traceback__
     finally:
         if directory is not None:
-            original = sys.exc_info()[1]
             try:
                 _remove_transport_staging(directory)
             except BaseException as cleanup:
-                # Keep the exception that first left the converter as primary.
-                # Cleanup itself defers a deadline or interrupt until its
-                # bounded retry sequence has completed.
-                if original is not None:
-                    raise original from cleanup
-                raise
+                cleanup_failure = cleanup
+        # Consume pending handled signals while they are still blocked, then
+        # invoke their original Python handlers at this controlled boundary.
+        # Letting pthread_sigmask deliver one later can interrupt Popen.__del__
+        # and Python will discard the resulting deadline as an ignored
+        # destructor exception. Standard signals coalesce; the finite loop also
+        # prevents repeated interactive interrupts from delaying restoration.
+        deferred_signals = []
+        for _ in range(16):
+            pending = handled.intersection(signal.sigpending())
+            if not pending:
+                break
+            chosen = min(pending, key=int)
+            signal.sigwait({chosen})
+            deferred_signals.append(chosen)
+        for deferred_signal in deferred_signals:
+            try:
+                handlers[deferred_signal](deferred_signal, None)
+            except BaseException as deferred:
+                if primary is None:
+                    primary = deferred
+                    primary_traceback = deferred.__traceback__
+        try:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        except BaseException as deferred:
+            # A new signal can race the bounded drain. Resources are already
+            # gone, and an exception delivered by mask restoration is still
+            # captured as the operation's primary outcome.
+            if primary is None:
+                primary = deferred
+                primary_traceback = deferred.__traceback__
+    if primary is not None:
+        if cleanup_failure is not None:
+            raise primary.with_traceback(primary_traceback) from cleanup_failure
+        raise primary.with_traceback(primary_traceback)
+    if cleanup_failure is not None:
+        raise cleanup_failure
     if result.returncode in (0, 2):
         return result.returncode == 2
     detail = result.stderr.decode(errors='replace').strip()
