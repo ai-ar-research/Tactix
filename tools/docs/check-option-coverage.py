@@ -69,17 +69,28 @@ AUDIT = os.path.join(ROOT, "docs", "design",
 DIAGNOSIS = os.path.join(ROOT, "docs", "design",
                          "2026-08-04-scheduling-sophistication-diagnosis.md")
 
-# The reference clones are untracked (CLAUDE.md) and live at the top of the
-# SHARED checkout, so a git worktree must look one level out: `--git-common-dir`
-# points into the shared `.git`, whose parent is that checkout.
+# Archived source pins carry the reference headers inside their own source
+# root, without Git metadata.  Prefer that self-contained layout.  A live Git
+# worktree may instead share the untracked reference clones with its common
+# checkout, so retain that location only as an optional fallback.
 def reference_root():
+    headers = (("kissat", "src", "options.h"),
+               ("cadical", "src", "options.hpp"))
+
+    def complete(candidate):
+        return all(os.path.isfile(os.path.join(candidate, *header))
+                   for header in headers)
+
+    if complete(ROOT):
+        return ROOT
     common = subprocess.run(["git", "rev-parse", "--git-common-dir"],
-                            capture_output=True, text=True,
-                            check=True).stdout.strip()
-    shared = os.path.dirname(os.path.abspath(common))
-    for cand in (ROOT, shared):
-        if os.path.exists(os.path.join(cand, "kissat", "src", "options.h")):
-            return cand
+                            cwd=ROOT, capture_output=True, text=True,
+                            check=False)
+    if common.returncode == 0:
+        shared = os.path.dirname(os.path.abspath(
+            os.path.join(ROOT, common.stdout.strip())))
+        if complete(shared):
+            return shared
     return ROOT
 
 
