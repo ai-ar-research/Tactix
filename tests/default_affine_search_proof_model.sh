@@ -50,4 +50,4 @@ if "$drat" "$temporary/sat-drat.cnf" "$temporary/bad.dsr" -f -U > "$temporary/ba
   exit 1
 fi
 grep -Eq 'NOT VERIFIED|INVALID|failed|ERROR' "$temporary/bad-drat.log"
-echo 'default_affine_search_proof_model OK' 
+echo 'default_affine_search_proof_model OK'
