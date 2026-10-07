@@ -14,19 +14,16 @@ and the affine empty-reason repair `9ed61994c` ([report](benchmarks/reports/2026
 The fixed64 patch hash is [corrected](benchmarks/reports/2026-10-07-fixed64-provenance-hash-correction/README.md).
 c1 may still change if regression attribution finds a defective specialized pass.
 
-**Blocking finding.** Terminal b26 grading ([report](benchmarks/reports/2026-10-07-b26-reference-terminal/README.md))
-fails WV2–89: noL-11-8 is lost, 38.0 s on `1e8295106` and UNKNOWN at 600 s on b26. b26 is also
-slower on Rank1–50 (+871 s, 3.1% under ceiling) and WV100 (+567 s). The loss
-concentrates in a few rows: three oski, three noL, Break_triple, Circuit. b26 also
-enabled `--default-graph-labeling=on`, while `1e8295106` ran without it. The user's triage rule:
-an accepted faithful port such as BVE needs no fix. A specialized pass that spends time
-without consumed output is a defect to fix generally.
+**Regression attribution** ([report](benchmarks/reports/2026-10-07-wv289-nol118-regression/README.md)):
+b26's losses come from the faithful Satsuma→Kissat residual seed (noL ×3, oski ×3) and the
+FastEliminate port (Break_triple, Circuit). Graph labeling leaves those proofs byte-identical.
+The user kept the faithful seed and accepted noL-11-8 as the plan §8.4 faithful-port retention exception.
+Graph-labeling recognition still spends up to its unbacked 100M budget recognizing nothing; it is
+an open efficiency item.
 
 ## Next action
 
-1. Finish regression attribution: per-pass time and consumed output on the regressed
-   rows, plus the same-window graph-labeling on/off suites listed below. Fix any
-   specialized-pass scheduling defect generally, then refreeze c1 if source changes.
+1. Grade c1's four gates and full44 when terminal. Apply the §8.4 exception only to noL-11-8.
 2. Qualify the final candidate: Release/full Debug pins, the fuzz owner's final binding,
    and all four gates. Do not rerun the d170 baseline or b26 campaigns.
 3. Launch full44 on the final candidate only after the scratch-admission repair.
@@ -38,15 +35,12 @@ without consumed output is a defect to fix generally.
 
 | Work | Jobs / owner | Status |
 |---|---|---|
-| c1 Release / full Debug | 1755757 / 1755758; source `95d87cfe…`, `benchmarks/runs/20261007-candidate-c1-*` | submitted |
-| d576 regressions, graph labeling on | 1755593/95/97/99, `benchmarks/runs/20261007-d576-regression-gl-*` | reference evaluation |
-| d576 regressions, graph labeling off | 1755594/96/98/1755600, `…-nogl-*` | reference evaluation |
+| c1 Release / full Debug | Release `c85bf484…` (1755757, done) / Debug 1755758; source `95d87cfe…` | Debug running |
+| c1 regression gates | 1755859 B28, 1755860 Rank1–50, 1755861 WV100, 1755862 WV2–89; `benchmarks/runs/20261007-c1-regression-*` | submitted |
+| c1 full44 | 1755927, `benchmarks/runs/20261007-fixed44-c1` (shared-floor scratch, long64-fixed) | submitted |
 | Fuzz owner | Claude `385a3588` (resumed); staging binding `benchmarks/runs/20261007-candidate-d576-source/pins/staging-binding.json` | harness preparation and uncounted calibration; counted legs await final binding |
 | Rank899 certified-unit gate | sub-agent; `benchmarks/runs/20261007-rank899-d576-*` | boundary checks, then 300 s causal pair |
-| Regression attribution | sub-agent; `benchmarks/runs/20261007-wv289-nol118-*` | 2×2 on regressed rows |
-| full44 scratch admission | sub-agent; `benchmarks/reports/2026-10-07-fixed44-scratch-admission/` | repair and launch recipe |
 | Proof-route cost | sub-agent; `benchmarks/runs/20261007-proofroute-*` | stage timings |
-| b26 full44 remnants | 1755331 tasks 0,1,3,18,29; 1755422_6; 1755462_4 | reference only; no retries |
 
 ## Verification authorities
 
