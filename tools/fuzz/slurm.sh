@@ -5,7 +5,7 @@
 # reserve one physical core.  Results are identical at any worker count — only
 # wall-clock changes.
 #
-#   slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] [--wait] -- <run.sh args...>
+#   slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] [--wait] -- <run.sh args...>
 #
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
@@ -38,6 +38,7 @@ NAME=fuzz
 PARTITION=cpu-dense-hwulab-q
 WAIT=0
 CHECKERS=""
+DSR_TRANSPORT=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --physical-cores) PHYSICAL_CORES="$2"; shift 2 ;;
@@ -45,9 +46,10 @@ while [ $# -gt 0 ]; do
         --name) NAME="$2"; shift 2 ;;
         --partition) PARTITION="$2"; shift 2 ;;
         --checkers) CHECKERS="$2"; shift 2 ;;
+        --dsr-transport) DSR_TRANSPORT="$2"; shift 2 ;;
         --wait) WAIT=1; shift ;;
         --) shift; break ;;
-        *) echo "usage: slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] -- <run.sh args>" >&2; exit 2 ;;
+        *) echo "usage: slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
     esac
 done
 [ $# -gt 0 ] || { echo "error: no run.sh args after --" >&2; exit 2; }
@@ -91,6 +93,14 @@ mkdir -p "$PIN_FUZZ/controls"
 cp -a "$HERE/controls/controller-v5" "$PIN_FUZZ/controls/"
 cp -a "$HERE/controls/forced-ttf" "$PIN_FUZZ/controls/"
 cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
+if [ -n "$DSR_TRANSPORT" ]; then
+    python3 - "$ROOT/tools/bench" "$DSR_TRANSPORT" "$PIN_FUZZ" <<'PYTRANSPORT'
+import sys
+sys.path.insert(0, sys.argv[1])
+from proof_oracle import pin_dsr_transport
+pin_dsr_transport(sys.argv[2], sys.argv[3])
+PYTRANSPORT
+fi
 mkdir -p "$PIN_FUZZ/checkers"
 cp -a "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb" \
       "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf" \

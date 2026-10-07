@@ -13,6 +13,7 @@ import datetime as dt
 import hashlib
 import json
 from pathlib import Path
+from proof_oracle import pin_dsr_transport
 import shutil
 import subprocess
 import sys
@@ -187,6 +188,7 @@ def prepare(a):
         runner_pins.extend(['gf2_target_score.py','inspect_policy_feedback.py'])
     for name in runner_pins:
         shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
+    pin_dsr_transport(getattr(a, 'dsr_transport', None), c/'pins')
     with (c/'matrix.tsv').open('x',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
     common=f'''#!/usr/bin/env bash
@@ -279,6 +281,7 @@ if __name__=='__main__':
     p.add_argument('--campaign',type=Path,required=True)
     p.add_argument('--source',type=Path)
     p.add_argument('--binary',type=Path)
+    p.add_argument('--dsr-transport',type=Path)
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)

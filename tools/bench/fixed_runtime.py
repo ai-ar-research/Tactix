@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from proof_oracle import pin_dsr_transport
 import shlex
 import shutil
 import subprocess
@@ -86,7 +87,7 @@ def reference_identity(ref):
 
 def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
             include_drat=False, runtime_target_seconds=None,
-            checker_pins=None):
+            checker_pins=None, dsr_transport=None):
     campaign = campaign.resolve()
     require(campaign.parent == ROOT / 'benchmarks/runs', 'campaign must be directly under benchmarks/runs')
     require(not campaign.exists(), 'campaign already exists')
@@ -111,6 +112,7 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
         (campaign / name).mkdir()
     for name in ('runtime_task.py', 'proof_oracle.py', 'anonymous_scratch.py'):
         shutil.copy2(ROOT / 'tools/bench' / name, campaign / 'pins' / name)
+    pin_dsr_transport(dsr_transport, campaign / 'pins')
     for name in ('checkmodel', 'modelcheck.py'):
         shutil.copy2(MODEL_CHECKER_PINS / name, campaign / 'pins' / name)
     for name in CANONICAL_CHECKERS:
@@ -434,6 +436,7 @@ def main():
     p.add_argument('campaign', type=Path)
     for arg in ('authority','release','bc'):
         p.add_argument('--' + arg, type=Path, required=True)
+    p.add_argument('--dsr-transport', type=Path)
     p.add_argument('--reference', type=Path, default=REFERENCE)
     p.add_argument('--same-source-drat', action='store_true')
     p.add_argument('--runtime-target-seconds', type=float)
@@ -450,7 +453,7 @@ def main():
         prepare(args.campaign.resolve(), args.authority.resolve(),
                 args.release.resolve(), args.bc.resolve(),
                 args.reference.resolve(), args.same_source_drat,
-                args.runtime_target_seconds, args.checker_pins.resolve())
+                args.runtime_target_seconds, args.checker_pins.resolve(), args.dsr_transport)
         print(args.campaign)
     elif args.command == 'score':
         print(json.dumps(score(

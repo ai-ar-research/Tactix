@@ -17,6 +17,7 @@ import json
 import math
 import os
 from pathlib import Path
+from proof_oracle import pin_dsr_transport
 import re
 import shutil
 import signal
@@ -500,6 +501,10 @@ def prepare(args):
     for name in sorted(checker_names):
         rel = pin(baseline / "pins" / name, name)
         checkers[name] = rel
+    pin(Path(__file__).with_name("proof_oracle.py"), "proof_oracle.py")
+    for transport_pin in pin_dsr_transport(getattr(args, "dsr_transport", None), campaign / "pins"):
+        readonly(transport_pin)
+        pin_digests[str(transport_pin.relative_to(campaign))] = sha256(transport_pin)
     runner = pin(Path(__file__), "portfolio_rerun.py")
     anonymous = pin(
         Path(__file__).with_name("anonymous_scratch.py"), "anonymous_scratch.py"
@@ -608,6 +613,10 @@ def required_pins(manifest, arm_name=None):
     }
     if arm_name is None:
         return set(manifest["pin_digests"])
+    for name in ("proof_oracle.py", "dsr-transport", "dsr-transport.sha256"):
+        relative = "pins/" + name
+        if relative in manifest["pin_digests"]:
+            required.add(relative)
     arm = manifest["arms"][arm_name]
     required.add(arm["path"])
     if arm.get("transport_shim"):
@@ -1607,6 +1616,7 @@ def main():
     prepare_parser = commands.add_parser("prepare")
     prepare_parser.add_argument("--campaign", type=Path, required=True)
     prepare_parser.add_argument("--selection", type=Path, required=True)
+    prepare_parser.add_argument("--dsr-transport", type=Path)
     prepare_parser.add_argument("--baseline", type=Path, required=True)
     prepare_parser.add_argument("--tactix-campaign", type=Path, required=True)
     submit_parser = commands.add_parser("submit")

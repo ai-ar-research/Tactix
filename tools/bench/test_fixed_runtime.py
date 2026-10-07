@@ -70,6 +70,9 @@ class FixedRuntimeTests(unittest.TestCase):
                                      input_sha256=f.sha(input_file), expected='SAT')])
             reference_path = root / 'reference.json'
             reference_path.write_text('{}')
+            transport = root / 'transport-helper'
+            transport.write_bytes(b'pinned transport fixture')
+            transport.chmod(0o750)
             campaign = root / 'benchmarks/runs/canonical-checkers'
             with patch.object(f, 'ROOT', root), \
                  patch.object(f, 'MODEL_CHECKER_PINS', root / 'baseline/pins'), \
@@ -77,7 +80,9 @@ class FixedRuntimeTests(unittest.TestCase):
                  patch.object(f, 'reference', return_value=ref):
                 manifest = f.prepare(campaign, root / 'authority', release, bc,
                                      reference_path=reference_path,
-                                     checker_pins=root / 'checker-pins')
+                                     checker_pins=root / 'checker-pins', dsr_transport=transport)
+                self.assertEqual(manifest['pin_sha256']['pins/dsr-transport'], f.sha(transport))
+                self.assertIn('pins/dsr-transport.sha256', manifest['pin_sha256'])
                 rt.validate_runtime_pin_contract(campaign, manifest)
                 self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v6')
                 self.assertEqual(manifest['arms']['tactix-auto']['certificate'], 'auto')

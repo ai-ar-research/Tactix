@@ -11,6 +11,7 @@ import datetime as dt
 import json
 import math
 from pathlib import Path
+from proof_oracle import pin_dsr_transport
 import shlex
 import shutil
 import subprocess
@@ -67,7 +68,7 @@ def candidate_arguments(arguments=()):
     return ['--auto-proof', *values]
 
 
-def prepare(prefix, release, solver_arguments=()):
+def prepare(prefix, release, solver_arguments=(), dsr_transport=None):
     arguments = candidate_arguments(solver_arguments)
     require(release.is_relative_to(ROOT), 'candidate must be in repository')
     pin = json.loads((release.parent / 'PIN.json').read_text())
@@ -93,6 +94,7 @@ def prepare(prefix, release, solver_arguments=()):
             (campaign / directory).mkdir()
         for filename in ('runtime_task.py', 'proof_oracle.py', 'anonymous_scratch.py'):
             shutil.copy2(ROOT / 'tools/bench' / filename, campaign / 'pins' / filename)
+        pin_dsr_transport(dsr_transport, campaign / 'pins')
         for filename in ('checkmodel', 'modelcheck.py', *CANONICAL_CHECKERS):
             original = source.parent / 'pins' / filename
             expected = accepted['pin_sha256']['pins/' + filename]
@@ -279,6 +281,7 @@ def main():
     p = commands.add_parser('prepare')
     p.add_argument('--prefix', required=True)
     p.add_argument('--release', type=Path, required=True)
+    p.add_argument('--dsr-transport', type=Path)
     p.add_argument('--solver-argument', action='append', default=[],
                    help='append a qualified Default affine-search or noL-Walk setting')
     s = commands.add_parser('score')
@@ -286,7 +289,7 @@ def main():
     args = parser.parse_args()
     if args.command == 'prepare':
         require('/' not in args.prefix and args.prefix not in ('', '.', '..'), 'invalid prefix')
-        print(json.dumps(prepare(args.prefix, args.release.resolve(), args.solver_argument), indent=2))
+        print(json.dumps(prepare(args.prefix, args.release.resolve(), args.solver_argument, args.dsr_transport), indent=2))
     else:
         result = score(args.campaign.resolve())
         print(json.dumps(result, indent=2))

@@ -36,7 +36,7 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   records that path and manifest in the snapshot (so failure `repro.sh` files
   use the same checkers); the job re-verifies it. For a live checkout,
   `TACTIX_FUZZ_CHECKERS=DIR` selects the same kind of collection, and
-  `fuzz.py checkers` prints and verifies whichever is in effect.
+  `fuzz.py checkers` prints and verifies whichever is in effect. Optional `--dsr-transport FILE` pins the CMake `dsr-transport` helper and its hash beside the oracle; missing helper pins retain Python parsing, never weaker checking.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
   NO oracle, and the non-terminating population is printed on its own line,

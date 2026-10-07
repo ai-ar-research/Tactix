@@ -25,6 +25,9 @@ add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a
 # narrow, noexcept boundary; the solver core retains its C-style build flags.
+# Bounded certificate transport; the independent checkers still decide validity.
+add_executable(dsr-transport tools/bench/dsr_transport.cpp)
+
 add_library(tactix_symmetry_backend STATIC
   src/symmetry_backend/dejavu_backend.cpp)
 target_include_directories(tactix_symmetry_backend PRIVATE src)
@@ -93,5 +96,7 @@ add_executable(tactix src/main.cpp)
 target_link_libraries(tactix PRIVATE tactix_lib)
 
 enable_testing()
+add_test(NAME dsr_transport COMMAND python3
+  ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
 add_subdirectory(tests)
 add_subdirectory(examples)
