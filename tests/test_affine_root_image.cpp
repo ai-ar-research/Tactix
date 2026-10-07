@@ -213,6 +213,40 @@ static void census_controls() {
   assert(repeated.size()==saved);
 }
 
+static bool same_census(const RootScopeCensus &left,const RootScopeCensus &right) {
+  if(left.size()!=right.size())return false;
+  for(size_t i=0;i<left.size();++i)
+    if(left[i].scope!=right[i].scope||
+       left[i].normalized_bodies!=right[i].normalized_bodies||
+       left[i].admitted!=right[i].admitted)return false;
+  return true;
+}
+
+static void census_scale_controls() {
+  constexpr int groups=2048;
+  std::vector<AffineLiveSource> sources;sources.reserve(groups);
+  for(int i=0;i<groups;++i) {
+    AffineLiveSource source;source.occurrence=i+1;source.clause_id=10000+i;
+    source.clause={3*i+1,-(3*i+2),3*i+3};sources.push_back(std::move(source));
+  }
+  auto l=limits();l.image.maximum_clauses=4096;l.image.maximum_groups=4096;
+  l.image.maximum_patterns=4096;l.image.maximum_elimination_work=10000000;
+  l.maximum_sources=4096;l.maximum_literals=10000;l.maximum_work=2000000;
+  l.maximum_bytes=100000000;
+  RootImagePlan untouched;RootScopeCensus first;RootScopeEffort first_effort;
+  uint64_t first_charged=0;
+  assert(prepare_affine_root_image(sources,{},l,[&](uint64_t amount){first_charged+=amount;return true;},
+      untouched,nullptr,&first,&first_effort)==RootImageStatus::NoStructure);
+  assert(first.size()==groups&&first_effort.recognized_groups==groups&&
+      first_effort.skipped_groups==0&&first_charged<=l.maximum_work);
+  RootScopeCensus repeated;RootScopeEffort repeated_effort;uint64_t repeated_charged=0;
+  assert(prepare_affine_root_image(sources,{},l,[&](uint64_t amount){repeated_charged+=amount;return true;},
+      untouched,&first,&repeated,&repeated_effort)==RootImageStatus::NoStructure);
+  assert(same_census(first,repeated)&&repeated_effort.recognized_groups==0&&
+      repeated_effort.skipped_groups==groups&&repeated_effort.recognition_work==0&&
+      repeated_charged<=l.maximum_work);
+}
+
 static void oracle_only_controls() {
   auto sources=fixture(2,{3,4,5});
   sources.back().kind=AffineSourceKind::RootUnit;
@@ -237,6 +271,7 @@ int main(int argc,char **argv){
   forty_equations();
   identity_controls();
   census_controls();
+  census_scale_controls();
   oracle_only_controls();
   if(argc==2){
     const auto sources=fixture(4,{1,2,3});RootImagePlan p;
