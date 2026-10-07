@@ -1,0 +1,77 @@
+{
+  "address_space_limit": null,
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "binary_sha256": "b26efc0fb133787a797820d40c759ae552e2cf4eaabde4bee990f27947890bcf",
+  "certificate_bytes": 111950602,
+  "certificate_sha256": "61380448cc09471cc0c58a5fbcd65d91118512aaa479936f3a9a65bbb4a44c9e",
+  "cleanup_pending": false,
+  "command": [
+    "taskset",
+    "-c",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-scratch-dry-b26/pins/tactix",
+    "--auto-proof",
+    "--default-graph-labeling=on",
+    "/proc/25033/fd/3",
+    "/proc/25033/fd/5"
+  ],
+  "completion": {
+    "status": "complete"
+  },
+  "cpu_affinity": [
+    1,
+    3,
+    4,
+    7
+  ],
+  "derived_artifacts_deleted": true,
+  "expected": "SAT",
+  "expected_match": false,
+  "finished_at": "2026-10-07T23:26:31.095193+00:00",
+  "instance": "tierD24-26/25390e9d1fa1926485db7eb2d5a20ea8-ITC2021_Late_10.xml.cnf.xz",
+  "memory_enforcement": "slurm_task_cgroup",
+  "model_check": null,
+  "node": "node015",
+  "proof_check": null,
+  "rank": 4,
+  "runtime_context": null,
+  "schema": "tactix-matched-slurm-memory-regression-result-v2",
+  "scratch_resources": {
+    "active_handles": 0,
+    "available_bytes": 441214316544,
+    "directory": "/tmp",
+    "file_size_limit_bytes": 60000000000,
+    "high_water_handles": 6,
+    "maximum_file_bytes": 60000000000,
+    "maximum_live_handles": 6,
+    "minimum_free_bytes": 100000000000,
+    "shared_floor": {
+      "admission": {
+        "attempts": 1,
+        "ledger_slot": 8,
+        "waited_seconds": 0.0
+      },
+      "monitor": {
+        "maximum_accounted_bytes": 144375808,
+        "maximum_participants_below_reserve": 0,
+        "minimum_available_bytes": 437808144384,
+        "polls": 60,
+        "triggered": null
+      }
+    }
+  },
+  "solve": {
+    "exit_code": null,
+    "peak_rss_kb": null,
+    "sampled_process_vm_peak_kb": null,
+    "timed_out": true,
+    "wall_seconds": 60.005
+  },
+  "solver_statistics": [],
+  "solver_stderr_tail": [],
+  "task": 3,
+  "tier": "selection",
+  "valid": false,
+  "verdict": "UNKNOWN"
+}

@@ -1,0 +1,52 @@
+{
+  "campaign": "benchmarks/runs/20261007-fixed44-scratch-recipe-check-b26",
+  "submitted": false,
+  "validation_submitted": false,
+  "manifest_sha256": "9aa99718415bcd89fdc6ab9db9a865f5330c9cf07f4dffcbfafb5db268eb63cb",
+  "matrix_sha256": "10aff9085ba5fe2d58f15770411043035a2d0c04344934d4f7b4575571154c25",
+  "array_sha256": "7bf2a8afa18d866739670e98a34e066350a18e7b52263f4b4575cae5ae4660c0",
+  "validation_script_sha256": "63d4ca60e49259e05f893066af00060c1bd2c34f83c1f9829d3deaa6ad1b77f5",
+  "solver_sha256": "b26efc0fb133787a797820d40c759ae552e2cf4eaabde4bee990f27947890bcf",
+  "solver_source_commit": "0a15ecaf1ad3cb04477e49b9c121864b1d477090",
+  "requested_source_commit": "0a15ecaf1",
+  "recipe": "benchmarks/runs/20261007-fixed44-scratch-launch-recipe",
+  "recipe_hashes_sha256": "4e18eea3dd83c0b42039b17e6e2b15811a6c89be4214cbe90cdcb181a5f8a844",
+  "scratch_capacity_profile": "fixed44-shared-floor-v1",
+  "scratch_capacity": {
+    "schema": "tactix-anonymous-scratch-capacity-v3",
+    "directory": "/tmp",
+    "admission_free_bytes": 100000000000,
+    "maximum_file_bytes": 60000000000,
+    "maximum_live_handles": 6,
+    "reserve_bytes": 40000000000,
+    "hard_floor_bytes": 20000000000,
+    "admission_wait_seconds": 300,
+    "admission_poll_seconds": 15,
+    "floor_poll_seconds": 1,
+    "ledger_directory": "/tmp/tactix-sat-solving-1180",
+    "ledger_slot_prefix": "fixed44-scratch-ledger-slot-",
+    "ledger_slots": 64
+  },
+  "resource_contract": {
+    "partition": "cpu-q",
+    "cpus_per_task": 4,
+    "memory_mib": 32768,
+    "solve_timeout": 5000,
+    "checker_timeout": 14400,
+    "scheduler_wall_seconds": 20700,
+    "array": "0-43",
+    "throttle": null,
+    "node_constraint": null,
+    "scratch_isolation": {
+      "schema": "tactix-fixed44-shared-floor-isolation-v1",
+      "participant_scope": "same-user-repository-profile",
+      "task_cpus": 4,
+      "task_memory_mib": 32768
+    }
+  },
+  "dsr_checker_profile": "long64-fixed",
+  "solver_arguments": [
+    "--auto-proof",
+    "--default-graph-labeling=on"
+  ]
+}

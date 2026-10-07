@@ -1,0 +1,279 @@
+{
+  "job": "1755641",
+  "node": "node002",
+  "start_free_bytes": 408850571264,
+  "colocated": {
+    "label": "colocated",
+    "reserve_bytes": 10000000000,
+    "hard_floor_bytes": 5000000000,
+    "admission_free_bytes": 50000000000,
+    "participants": [
+      {
+        "exit_code": 0,
+        "name": "a",
+        "admission": {
+          "attempts": 1,
+          "waited_seconds": 0.0,
+          "ledger_slot": 0
+        },
+        "target_bytes": 268435456,
+        "outcome": "complete",
+        "measured": {
+          "exit_code": 0,
+          "wall_seconds": 6.181,
+          "peak_rss_kb": 77264,
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false
+        },
+        "accounted_bytes": 519770112,
+        "monitor": {
+          "polls": 6,
+          "minimum_available_bytes": 407223803904,
+          "maximum_accounted_bytes": 519766016,
+          "maximum_participants_below_reserve": 0,
+          "triggered": null
+        },
+        "free_after_close": 407223840768
+      },
+      {
+        "exit_code": 0,
+        "name": "b",
+        "admission": {
+          "attempts": 1,
+          "waited_seconds": 0.0,
+          "ledger_slot": 1
+        },
+        "target_bytes": 268435456,
+        "outcome": "complete",
+        "measured": {
+          "exit_code": 0,
+          "wall_seconds": 6.131,
+          "peak_rss_kb": 77264,
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false
+        },
+        "accounted_bytes": 519770112,
+        "monitor": {
+          "polls": 6,
+          "minimum_available_bytes": 407223803904,
+          "maximum_accounted_bytes": 519766016,
+          "maximum_participants_below_reserve": 0,
+          "triggered": null
+        },
+        "free_after_close": 407743582208
+      },
+      {
+        "exit_code": 0,
+        "name": "c",
+        "admission": {
+          "attempts": 1,
+          "waited_seconds": 0.0,
+          "ledger_slot": 2
+        },
+        "target_bytes": 268435456,
+        "outcome": "complete",
+        "measured": {
+          "exit_code": 0,
+          "wall_seconds": 5.977,
+          "peak_rss_kb": 77264,
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false
+        },
+        "accounted_bytes": 519770112,
+        "monitor": {
+          "polls": 5,
+          "minimum_available_bytes": 407223803904,
+          "maximum_accounted_bytes": 519766016,
+          "maximum_participants_below_reserve": 0,
+          "triggered": null
+        },
+        "free_after_close": 408263372800
+      }
+    ]
+  },
+  "floor_base_free_bytes": 408783163392,
+  "floor": {
+    "label": "floor",
+    "reserve_bytes": 405283163392,
+    "hard_floor_bytes": 402283163392,
+    "admission_free_bytes": 50000000000,
+    "participants": [
+      {
+        "exit_code": 0,
+        "name": "a",
+        "admission": {
+          "attempts": 1,
+          "waited_seconds": 0.001,
+          "ledger_slot": 0
+        },
+        "target_bytes": 500000000,
+        "outcome": "complete",
+        "measured": {
+          "exit_code": 0,
+          "wall_seconds": 24.502,
+          "peak_rss_kb": 106292,
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false
+        },
+        "accounted_bytes": 519770112,
+        "monitor": {
+          "polls": 24,
+          "minimum_available_bytes": 405055401984,
+          "maximum_accounted_bytes": 519766016,
+          "maximum_participants_below_reserve": 3,
+          "triggered": null
+        },
+        "free_after_close": 407104774144
+      },
+      {
+        "exit_code": 0,
+        "name": "b",
+        "admission": {
+          "attempts": 1,
+          "waited_seconds": 0.001,
+          "ledger_slot": 1
+        },
+        "target_bytes": 1000000000,
+        "outcome": "complete",
+        "measured": {
+          "exit_code": 0,
+          "wall_seconds": 26.404,
+          "peak_rss_kb": 135820,
+          "sampled_process_vm_peak_kb": null,
+          "timed_out": false
+        },
+        "accounted_bytes": 1060769792,
+        "monitor": {
+          "polls": 26,
+          "minimum_available_bytes": 405055463424,
+          "maximum_accounted_bytes": 1060765696,
+          "maximum_participants_below_reserve": 3,
+          "triggered": null
+        },
+        "free_after_close": 407624560640
+      },
+      {
+        "exit_code": 0,
+        "name": "c",
+        "admission": {
+          "attempts": 1,
+          "waited_seconds": 0.0,
+          "ledger_slot": 2
+        },
+        "target_bytes": 2500000000,
+        "outcome": "stopped",
+        "reason": "scratch_enospc",
+        "details": {
+          "stage": "runtime",
+          "trigger": "node_floor",
+          "available_bytes": 405055463424,
+          "reserve_bytes": 405283163392,
+          "hard_floor_bytes": 402283163392,
+          "accounted_bytes": 2138636288,
+          "ledger_slot": 2,
+          "participants": [
+            {
+              "slot": 0,
+              "used_bytes": 519766016,
+              "state": "running",
+              "identity": "a"
+            },
+            {
+              "slot": 1,
+              "used_bytes": 1060765696,
+              "state": "running",
+              "identity": "b"
+            },
+            {
+              "slot": 2,
+              "used_bytes": 2138636288,
+              "state": "running",
+              "identity": "c"
+            }
+          ],
+          "retryable": true
+        },
+        "completion": {
+          "status": "incomplete",
+          "reason": "scratch_enospc",
+          "details": {
+            "stage": "runtime",
+            "trigger": "node_floor",
+            "available_bytes": 405055463424,
+            "reserve_bytes": 405283163392,
+            "hard_floor_bytes": 402283163392,
+            "accounted_bytes": 2138636288,
+            "ledger_slot": 2,
+            "participants": [
+              {
+                "slot": 0,
+                "used_bytes": 519766016,
+                "state": "running",
+                "identity": "a"
+              },
+              {
+                "slot": 1,
+                "used_bytes": 1060765696,
+                "state": "running",
+                "identity": "b"
+              },
+              {
+                "slot": 2,
+                "used_bytes": 2138636288,
+                "state": "running",
+                "identity": "c"
+              }
+            ],
+            "retryable": true
+          },
+          "retryable": true
+        },
+        "monitor": {
+          "polls": 2,
+          "minimum_available_bytes": 405055463424,
+          "maximum_accounted_bytes": 2138636288,
+          "maximum_participants_below_reserve": 3,
+          "triggered": {
+            "trigger": "node_floor",
+            "available_bytes": 405055463424,
+            "reserve_bytes": 405283163392,
+            "hard_floor_bytes": 402283163392,
+            "accounted_bytes": 2138636288,
+            "ledger_slot": 2,
+            "participants": [
+              {
+                "slot": 0,
+                "used_bytes": 519766016,
+                "state": "running",
+                "identity": "a"
+              },
+              {
+                "slot": 1,
+                "used_bytes": 1060765696,
+                "state": "running",
+                "identity": "b"
+              },
+              {
+                "slot": 2,
+                "used_bytes": 2138636288,
+                "state": "running",
+                "identity": "c"
+              }
+            ],
+            "retryable": true
+          }
+        },
+        "free_after_close": 405055463424
+      }
+    ]
+  },
+  "end_free_bytes": 408685350912,
+  "checks": {
+    "colocated_all_admitted": true,
+    "colocated_distinct_slots": true,
+    "largest_stopped": true,
+    "others_complete": true,
+    "storage_returned": true
+  },
+  "passed": true
+}
