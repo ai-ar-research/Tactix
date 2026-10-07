@@ -164,11 +164,13 @@ class TransportTests(unittest.TestCase):
         (campaign / 'pins').mkdir(parents=True)
         for name in ('drat-trim', 'cake_lpr'):
             shutil.copy2(checkers / name, campaign / 'pins' / name)
-        scratch = AnonymousScratch(self.root)
-        self.addCleanup(scratch.close)
-        cnf, proof = scratch / 'original.cnf', scratch / 'proof.dsr'
-        proof.write_bytes(b'\1\0')
         for good in (True, False):
+            # Released anonymous names are deliberately tombstoned for one
+            # task.  Each runtime invocation owns a fresh scratch namespace.
+            scratch = AnonymousScratch(self.root)
+            self.addCleanup(scratch.close)
+            cnf, proof = scratch / 'original.cnf', scratch / 'proof.dsr'
+            proof.write_bytes(b'\1\0')
             cnf.write_text('p cnf 1 2\n1 0\n-1 0\n' if good else 'p cnf 1 1\n1 0\n')
             with patch.object(runtime_task, 'certificate_route', self.oracle.certificate_route), \
                  patch.object(runtime_task, 'dsr_proof_as_drat', self.oracle.dsr_proof_as_drat):
@@ -289,6 +291,56 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(processes[0].pid, 0)
 
+    def test_deadline_after_staging_acquisition_is_deferred_through_cleanup(self):
+        import signal
+        self.source.write_bytes(b'\1\4\6\0' * 4096)
+        self.oracle.dsr_proof_as_drat(self.source, self.dest)
+        full = self.dest.read_bytes()
+        self.dest.write_bytes(b'KEEP')
+        original = tempfile.mkdtemp
+
+        def interrupt_after_create(*args, **kwargs):
+            directory = original(*args, **kwargs)
+            os.kill(os.getpid(), signal.SIGALRM)
+            return directory
+
+        with patch.object(tempfile, 'mkdtemp', side_effect=interrupt_after_create):
+            with self.assertRaises(ProofPipelineDeadline):
+                with proof_pipeline_deadline(30):
+                    self.oracle.dsr_proof_as_drat(self.source, self.dest)
+        self.assertFalse(any('dsr-transport-' in path.name
+                             for path in self.root.iterdir()))
+        self.assertIn(self.dest.read_bytes(), (b'KEEP', full))
+
+    def test_deadline_at_cleanup_entry_is_deferred_until_namespace_removed(self):
+        import signal
+        self.source.write_bytes(b'\1\4\6\0' * 4096)
+        self.dest.write_bytes(b'KEEP')
+        original = self.oracle._remove_transport_staging
+
+        def interrupt_then_remove(directory):
+            os.kill(os.getpid(), signal.SIGALRM)
+            return original(directory)
+
+        with patch.object(self.oracle, '_remove_transport_staging',
+                          side_effect=interrupt_then_remove):
+            with self.assertRaises(ProofPipelineDeadline):
+                with proof_pipeline_deadline(30):
+                    self.oracle.dsr_proof_as_drat(self.source, self.dest)
+        self.assertFalse(any('dsr-transport-' in path.name
+                             for path in self.root.iterdir()))
+
+    def test_binary_probe_does_not_swallow_pipeline_deadline(self):
+        deadline = ProofPipelineDeadline('deadline during binary probe')
+        with patch('builtins.open', side_effect=deadline):
+            with self.assertRaises(ProofPipelineDeadline) as raised:
+                self.oracle.dsr_proof_is_binary(self.source)
+        self.assertIs(raised.exception, deadline)
+
+    def test_binary_probe_declines_actual_filesystem_error(self):
+        self.assertFalse(self.oracle.dsr_proof_is_binary(
+            self.root / 'missing-proof.dsr'))
+
     def test_nfs_staging_cleanup_retries_only_transient_errors(self):
         import errno
         import time
@@ -332,7 +384,7 @@ class TransportTests(unittest.TestCase):
             owned.append(directory)
             raise cleanup
         try:
-            with patch.object(subprocess, 'run', side_effect=deadline), \
+            with patch.object(subprocess, 'Popen', side_effect=deadline), \
                     patch.object(self.oracle, '_remove_transport_staging',
                                  side_effect=fail_cleanup):
                 with self.assertRaises(ProofPipelineDeadline) as raised:
@@ -386,16 +438,13 @@ class TransportTests(unittest.TestCase):
                 raise OSError(errno.ENOTEMPTY, 'NFS delayed close', str(path))
             remove(path)
 
-        killed = subprocess.CompletedProcess(
-            ['dsr-transport'], -signal.SIGKILL, b'', b'')
-        with patch.object(subprocess, 'run', return_value=killed), \
-                patch.object(shutil, 'rmtree', side_effect=delayed), \
+        with patch.object(shutil, 'rmtree', side_effect=delayed), \
                 patch.object(time, 'sleep', side_effect=deadline):
             with self.assertRaises(ProofPipelineDeadline) as raised:
                 self.oracle.dsr_proof_as_drat(self.source, self.dest)
         self.assertIs(raised.exception, deadline)
         self.assertTrue(injected)
-        self.assertEqual(self.dest.read_bytes(), b'KEEP')
+        self.assertIn(self.dest.read_bytes(), (b'KEEP', b'a\0'))
         self.assertFalse(any('dsr-transport-' in p.name
                              for p in self.root.iterdir()))
 
