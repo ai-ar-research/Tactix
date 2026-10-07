@@ -1,0 +1,9 @@
+# Bounded residual-order prototype focused gate
+
+Slurm1754450 passed both immutable Release builds and deterministic non-solver probes. The legacy control reproduces two binary-orientation mismatches and the native DSR/DRAT binary-ID sentinel ordering mismatch. The exact diagnostic matches fresh parsing in all four orientation fixtures and all three proof modes. An out-of-envelope5000-variable fixture preserves original activation on unsupported capture. Native DSR/DRAT still return binary proof-ID sentinel1: the prototype does not restore LRAT ID storage.
+
+The adjacent patch is diagnostic only, against49582550c89708ef650d40ac61c20164eba4a24c, activated by `TACTIX_EXACT_RESIDUAL_DIAGNOSTIC`. It was applied only to frozen source archives, never the production checkout. The complete source/overlay hashes and binary identities are retained beside this report.
+
+The declared serializer orders live clauses by captured creation ordinal, uses current large-clause body order and retained oriented external binary endpoints, then appends fixed roots in external order. Capture is bounded to the existing4096-variable/262144-input-clause admission envelope and262144retained records. Missing/incomplete metadata declines the whole handoff and retains original activation/import. Metadata is released on handoff or first heuristic attachment. This is not general Satsuma process parity, and permanent first-import ranks still remain original wherever the solver uses them.
+
+Paired causal measurement1754489 is separately frozen in `benchmarks/runs/20261007-residual-exact-order-causal/`: Rank401/16/23, legacy control then exact arm on the same allocated CPU,600seconds per arm, graph off/noL absent, full-CNF independent SAT model checking. Its results were pending when this focused report was frozen. No production promotion or accepted instance closure follows from this report.
