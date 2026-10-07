@@ -1,0 +1,16 @@
+{
+  "scope": "early diagnostic only; same actual Satsuma residual, proof path present, no runtime acceptance claim",
+  "reference": "benchmarks/runs/20261007-rank401-satsuma-reference-handoff-r3",
+  "tactix_source": "existing pinned16518a844 diagnostic build5afc87; noL/graph/SR disabled; follow with current source diagnostic if divergence meaningful",
+  "pins": {
+    "pins/kissat": "e86af6d0490a4763d22c6cde5bbaea91de56c4d52203cca4c846d47238ff6f31",
+    "pins/prefix.dsr": "9b9d0809ef556944e001bddab1d9971db7e44f5dfb8cb895a95b84f5445e1a01",
+    "pins/residual.cnf": "0441005e039e60c8f34a908869f86249b444f4a6b34ececec737e64835b43b21",
+    "pins/tactix": "5afc87ef065bb4dc63c9a763c4f561d368ebe4c772a5d9fd28272dc943e3137f"
+  },
+  "wrappers": {
+    "run.py": "a760382ef13c684251e95c0e42b321bb483f33f41758729cea0f034234fcfc3f",
+    "run.sbatch": "37321df9c6d788b7f93299da0370191264f43caaf28a2867aa346ecd89293554"
+  },
+  "limits": "5seconds each,4CPU8GiB,shared owned outputs"
+}
