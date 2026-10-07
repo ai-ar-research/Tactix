@@ -1863,6 +1863,24 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
   // round-owned literal image for resolvent deduplication and tautology tests.
   std::vector<uint8_t> &seen = literal_marks;
 
+  // The feasibility pass mutates its connected clause population.  Any
+  // tentative resolvent using a replaced or deleted parent belongs to the
+  // pre-mutation image and must not survive into the final publication pass.
+  // Keep this source identity independent of proof hints: DRAT/DSR and
+  // proofless runs do not populate `chain`.
+  const auto prune_parent_resolvents = [&](Ref first, Ref second) {
+    resolvents.erase(
+        std::remove_if(
+            resolvents.begin(), resolvents.end(),
+            [&](const BveResolvent &r) {
+              return (first != INVALID_REF &&
+                      (r.first_parent == first || r.second_parent == first)) ||
+                     (second != INVALID_REF &&
+                      (r.first_parent == second || r.second_parent == second));
+            }),
+        resolvents.end());
+  };
+
   // Resolution can learn roots before the candidate's growth decision is
   // known.  Kissat installs those units immediately and never puts them in the
   // tentative resolvent stack, so they survive a later bound failure.  The
@@ -1975,6 +1993,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         const uint32_t ordinal = pair_ordinal++;
         const size_t lits_begin = def->resolvent_lits.size();
         bool satisfied_or_tautological = false;
+        bool mixed_shared_literal = false;
         // Ordinary Kissat resolve.c copies the second antecedent then the
         // first. SC2024 fastel keeps positive before negative for large/large
         // pairs and puts the binary literal first for mixed pairs. Build the
@@ -1991,8 +2010,11 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             satisfied_or_tautological = true;
             break;
           }
-          if (seen[l]) // duplicate with c
+          if (seen[l]) { // duplicate with c
+            mixed_shared_literal |=
+                (c.ref == INVALID_REF) != (d.ref == INVALID_REF);
             continue;
+          }
           if (seen[negate(l)]) { // l and ¬l both present → tautology
             satisfied_or_tautological = true;
             break;
@@ -2044,11 +2066,37 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             append_resolution_chain(c, first_pivot, d, second_pivot);
         const uint32_t chain_size = static_cast<uint32_t>(
             def->resolvent_chains.size() - chain_begin);
+
+        // SC2024's binary x large feasibility path treats a shared binary
+        // partner as self-subsuming resolution even when the result collapses
+        // to a unit (or, defensively, empty): publish the checked consequence
+        // first, then delete the large source and count the strengthening.
+        // Its large x large collapsed path deliberately keeps both parents and
+        // has no strengthening count, so select a victim only for the mixed
+        // physical shape and exact shared literal.
+        const auto collapsed_fastel_victim = [&]() -> Ref {
+          if (!fastel_feasibility || lits_size > 1)
+            return INVALID_REF;
+          if (!mixed_shared_literal)
+            return INVALID_REF;
+          return c.ref == INVALID_REF ? d.ref : c.ref;
+        };
+        const Ref collapsed_victim = collapsed_fastel_victim();
+        const auto finish_collapsed_strengthening = [&]() {
+          if (collapsed_victim == INVALID_REF)
+            return;
+          prune_parent_resolvents(collapsed_victim, INVALID_REF);
+          Clause *const victim = clause_at(k.arena, collapsed_victim);
+          if (!victim->garbage())
+            kernel_delete_clause(k, victim);
+          k.stats.strengthened++;
+        };
         if (!lits_size) {
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                c.ref, c.id, d.active.data(), d.active.size(),
                                d.ref, d.id, "empty-immediate");
           learn_empty(def->resolvent_chains.data() + chain_begin, chain_size);
+          finish_collapsed_strengthening();
           immediate_unsat = true;
           break;
         }
@@ -2059,6 +2107,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                                d.ref, d.id, "unit-immediate");
           learn_unit(unit, def->resolvent_chains.data() + chain_begin,
                      chain_size);
+          finish_collapsed_strengthening();
           def->resolvent_lits.resize(lits_begin);
           def->resolvent_chains.resize(chain_begin);
           if (seen[unit]) {
@@ -2112,16 +2161,8 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             // image.  Remove it by its retained two-parent identity (the same
             // pair is the LRAT chain tail when present) while retaining the
             // append-only pools backing every surviving slice.
-            const auto uses_replaced_parent = [&](const BveResolvent &r) {
-              return (c_subsumed &&
-                      (r.first_parent == c.ref || r.second_parent == c.ref)) ||
-                     (d_subsumed &&
-                      (r.first_parent == d.ref || r.second_parent == d.ref));
-            };
-            resolvents.erase(
-                std::remove_if(resolvents.begin(), resolvents.end(),
-                               uses_replaced_parent),
-                resolvents.end());
+            prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
+                                     d_subsumed ? d.ref : INVALID_REF);
 
             const MClause &victim = c_subsumed ? c : d;
             Ref replacement = INVALID_REF;

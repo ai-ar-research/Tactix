@@ -1,0 +1,46 @@
+{
+  "schema": "rank569-fastel-causal-gate-v1",
+  "job_id": "1754435",
+  "node": "node002",
+  "cpu": 60,
+  "arm_order": ["baseline", "patched"],
+  "seconds_per_arm": 300,
+  "source_commit": "1e8295106b34616eefe5f434b4fc72a4654a3527",
+  "patch_commit": "efdced45a",
+  "input_sha256": "dbadc0aa9040c4394a12709e838d677c584934186a9154284e70051e2ed69446",
+  "baseline_binary_sha256": "27cf0cab924c52479d6c11885d284ae461d6c4911ef2e557847f58bad87e9469",
+  "patched_binary_sha256": "3a403b2038649a0ec82515a32b9b221aea0727a7f5369fef88f773841acb3cba",
+  "baseline": {
+    "status": 124,
+    "elapsed_seconds": 300.01,
+    "user_seconds": 296.84,
+    "max_rss_kb": 83944,
+    "conflicts": 5454975,
+    "decisions": 8418022,
+    "propagations": 589084850,
+    "fastel_eliminated": 2236,
+    "bve_eliminated": 2487,
+    "proof_bytes": 550533210,
+    "proof_sha256": "2e41b25725567ef61acb1cf87804725a2fa566556d8fc3041a4fafba6e4165a9"
+  },
+  "patched": {
+    "status": 124,
+    "elapsed_seconds": 300.00,
+    "user_seconds": 296.61,
+    "max_rss_kb": 77484,
+    "conflicts": 5350504,
+    "decisions": 7978064,
+    "propagations": 623943363,
+    "fastel_eliminated": 2246,
+    "bve_eliminated": 2472,
+    "proof_bytes": 593288945,
+    "proof_sha256": "5ba1bba7f7424908e0d40e3f3a547c988c2217252c5e8adbf25141853c5737c8"
+  },
+  "patched_relative_percent": {
+    "conflicts": -1.9151508485,
+    "decisions": -5.2263821596,
+    "propagations": 5.9174010331,
+    "proof_bytes": 7.7662408413
+  },
+  "verdict": "no_demonstrated_runtime_or_closure_benefit"
+}
