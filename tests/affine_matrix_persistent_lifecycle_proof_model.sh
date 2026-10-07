@@ -45,7 +45,7 @@ for cnf in "$temporary"/lifecycle-*.cnf; do
 done
 [[ "$count" -eq 16 ]]
 # Root maintenance after a root Sweep refutes the XOR system (am-rel-23).
-# ProofFormat values: 0 DSR binary, 1 DSR ASCII, 3 DRAT ASCII.
+# ProofFormat values: 0 binary DSR, 1 text DSR, 3 text DRAT.
 compress=${DSR_COMPRESS:-$root/tools/checkers/bin/dsr-compress}
 cake=${CAKE_LPR:-$root/tools/checkers/bin/cake_lpr}
 [[ -x "$compress" && -x "$cake" ]] || exit 77
