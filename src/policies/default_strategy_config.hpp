@@ -386,6 +386,9 @@ struct DefaultStrategyConfig {
     // propagation, repetition, budgets and stop behavior explicit.
     // False retains the reference ordering after early Lucky at Probe entry.
     bool structured_root_before_lucky = true;
+    // Diagnostic selection of SR-containing startup programs. Disabling them
+    // retains independent stages, including the Lucky-8 affine opportunity.
+    bool structured_root_symmetry_enabled = true;
     // Satsuma hands Kissat a residual CNF, so Kissat derives both activation
     // and internal import order from the formula after symmetry fixing. When
     // integrated structured preprocessing adds root assignments, reconstruct

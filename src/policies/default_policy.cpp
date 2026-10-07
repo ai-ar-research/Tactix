@@ -300,6 +300,13 @@ void pose_affine_structured_stage(DefaultStrategyConfig &config) {
   const auto pose = [&](std::vector<strategy::OnlineStrategyStage> &stages) {
     for (auto stage = stages.begin(); stage != stages.end();) {
       auto &sequence = stage->program.sequence;
+      if (!config.inprocess.structured_root_symmetry_enabled &&
+          std::any_of(sequence.begin(), sequence.end(), [](const auto &step) {
+            return step.rule == "SubstitutionRedundancy";
+          })) {
+        stage = stages.erase(stage);
+        continue;
+      }
       bool removed = false;
       if (!config.affine_model.enabled) {
         const size_t before = sequence.size();
@@ -1515,6 +1522,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.likely_kept_redundant
       << " inprocess.structured_root_before_lucky="
       << inprocess.structured_root_before_lucky
+      << " inprocess.structured_root_symmetry_enabled="
+      << inprocess.structured_root_symmetry_enabled
       << " inprocess.structured_root_residual_search_handoff="
       << inprocess.structured_root_residual_search_handoff
       << " inprocess.structured_root_sr_discovery_unlimited="
