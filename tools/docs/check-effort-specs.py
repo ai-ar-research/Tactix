@@ -172,15 +172,6 @@ TABLE = {
                            r'typed_replay_random_reach_and_separate_propagation\('),
                           ("tests/test_tseitin_cycle_action.cpp",
                            r'c_v7_is_backward_compatible_and_deep_copies_identity\(')]),
-    "NaryCspPrefix":
-                        (EXPLICIT, "typed authenticated n-ary CSP prefix action; default schedule pending",
-                         [r'std::strcmp\(rules\[i\]\.name, "NaryCspPrefix"\)'],
-                         [("src/rules/semantic_extension/nary_csp_prefix_action.cpp",
-                           r'nary_csp_prefix_action_apply\('),
-                          ("tests/test_nary_csp_prefix_public.cpp",
-                           r'native_random_offer_is_exact_and_applies_with_raw_feedback\('),
-                          ("tests/test_nary_csp_prefix_public.cpp",
-                           r'c_v8_deep_copies_and_validates_the_exact_selection\(')]),
     "NaryCspEquality":
                         (EXPLICIT, "typed authenticated n-ary equality action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "NaryCspEquality"\)'],
