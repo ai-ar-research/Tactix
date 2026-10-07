@@ -1,0 +1,147 @@
+{
+  "records": [
+    {
+      "arm": "off",
+      "stages": [
+        {
+          "command": [
+            "/home/hwu/SAT-solving/build/pin-dsr-checker-controller-clean-patch/dsr-trim",
+            "-f",
+            "-c",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/checker.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/proof.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/off/forward.binary.lsr"
+          ],
+          "exit": 0,
+          "log_sha256": "50d3c3cc9cf5a7deb8ade3a3d2f1b1f00797f840c621a9f996c1a9726e212683",
+          "tokens": [
+            "s VALID"
+          ]
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/dsr-trim-sr/bin/compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/off/forward.binary.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/off/roundtrip.lsr"
+          ],
+          "exit": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "tokens": []
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/checker.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/off/forward.binary.lsr",
+            "c"
+          ],
+          "exit": 0,
+          "log_sha256": "411188a96fe1447d97832c131c4ffccd1e9d42944bc088ff2da621dbf0d7ddd4",
+          "tokens": [
+            "s VALID"
+          ]
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/checker.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/off/truncated.binary.lsr",
+            "c"
+          ],
+          "exit": 0,
+          "log_sha256": "0a24f71a919f599712bf167ba0d2cbeafcb2dfb9e7629ea4938bb5c3ec642550",
+          "tokens": [
+            "s INVALID"
+          ]
+        }
+      ],
+      "original_proof_sha256": "6553a28ecb479eb8b65b6e32b44be07aa6055721938ad8a908c88beac4088368",
+      "binary_lsr_sha256": "e0da1e12efd7579f635852f0ad170c3f808b9143b2476cdb9259977ccb9af707",
+      "whole_prefix_valid": true,
+      "verdict": 0,
+      "model": null,
+      "end": "END first-restart-boundary 1579 1025 41341 0 0 5226",
+      "installed": [],
+      "direct_bcp": 0,
+      "direct_conflicts": 0
+    },
+    {
+      "arm": "on",
+      "stages": [
+        {
+          "command": [
+            "/home/hwu/SAT-solving/build/pin-dsr-checker-controller-clean-patch/dsr-trim",
+            "-f",
+            "-c",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/checker.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/proof.dsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/on/forward.binary.lsr"
+          ],
+          "exit": 0,
+          "log_sha256": "f69bc6159e8150c30acb9f30f5d4f5eeeb77232698b2bca65263e4f55d383c93",
+          "tokens": [
+            "s VALID"
+          ]
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/dsr-trim-sr/bin/compress",
+            "-d",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/on/forward.binary.lsr",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/on/roundtrip.lsr"
+          ],
+          "exit": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "tokens": []
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/checker.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/on/forward.binary.lsr",
+            "c"
+          ],
+          "exit": 0,
+          "log_sha256": "411188a96fe1447d97832c131c4ffccd1e9d42944bc088ff2da621dbf0d7ddd4",
+          "tokens": [
+            "s VALID"
+          ]
+        },
+        {
+          "command": [
+            "/home/hwu/SAT-solving/trestle/.lake/build/bin/srcheck",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/on/results/checker.cnf",
+            "/home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-prefix-checker-diagnostic-20261007/successor-results/on/truncated.binary.lsr",
+            "c"
+          ],
+          "exit": 0,
+          "log_sha256": "0a24f71a919f599712bf167ba0d2cbeafcb2dfb9e7629ea4938bb5c3ec642550",
+          "tokens": [
+            "s INVALID"
+          ]
+        }
+      ],
+      "original_proof_sha256": "4919d7d5ce050886461da74528488e94b1472080d6decd203f6918d1ae35f141",
+      "binary_lsr_sha256": "18fac9886973c75fa1ca9a7d9e60e5355783a16190a3ac65e54486963b0e6257",
+      "whole_prefix_valid": true,
+      "verdict": 0,
+      "model": null,
+      "end": "END first-restart-boundary 1622 1027 41673 2 0 5314",
+      "installed": [
+        "X20-installed 0 1 -1421 -1422",
+        "X20-installed 1 1 -1421 -1423",
+        "X20-installed 2 1 -1422 -1423"
+      ],
+      "direct_bcp": 2,
+      "direct_conflicts": 0
+    }
+  ],
+  "common_prefix_identical": true,
+  "source": "76e1f68b801bedfb9e674ac06a081980b990edd7",
+  "UNKNOWN_prefix_verdict_credit": false,
+  "original_jobs_remain_failed": true,
+  "long_run_authorized": false,
+  "scope": "Independent full-prefix checker successor only; no new solver evidence",
+  "binary_id_limitation": "Recorded ID1 is DSR presence sentinel, not unique proof ID; exact pair and immediate non-jumped reason support narrow direct use only"
+}

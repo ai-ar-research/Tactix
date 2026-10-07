@@ -954,6 +954,120 @@ static void random_guidance_uses_observed_identities() {
   assert(plain && seeded_first && seeded_second && target);
 }
 
+static void random_split_walk_selects_a_legal_observed_candidate() {
+  // Seed 2 selects Walk, skips semantic-instance enumeration, then chooses
+  // legacy's extra zero branch. Exercise that same public policy schedule
+  // under walk3, where zero would invalidate the action and terminate UNKNOWN.
+  constexpr uint64_t seed = 2;
+  const auto initialize = [](Kernel &k) {
+    kernel_reserve_vars(k, 3);
+    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    kernel_add_binary_clause(k, internalize(-1), internalize(-3));
+    kernel_add_binary_clause(k, internalize(-2), internalize(-3));
+    const Lit cover[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, cover, 3, false, 0);
+    k.h->saved = {1, 1, 1};
+    kernel_offer_local_search_partial_hint(k, LocalSearchKind::DirectCsp,
+                                          {1, -1, -1});
+  };
+  char path[] = "/tmp/tactix-split-walk-controller-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  for (unsigned mode = 0; mode != 3; ++mode) {
+    const bool split = mode != 0;
+    const bool stale = mode == 2;
+    Kernel k;
+    ScopedHeuristics embedding(k);
+    initialize(k);
+    const uint64_t candidate = k.local_search_hints.front().id;
+    if (stale) k.local_search_hints = {};
+    RandomControllerConfig config;
+    config.parameters.rules = {"Walk"};
+    auto &reference = config.parameters.walk_reference;
+    reference.seed_candidate = candidate;
+    reference.step_budget = 0;
+    if (split) {
+      reference.objective = WalkParameters::Objective::FullCurrentCnf;
+      reference.admission = WalkParameters::Admission::StrictlyBetter;
+      reference.preparation_budget = 10000;
+    }
+    assert(reference.valid());
+    std::string error;
+    assert(config.configure_search_configurations(
+        {{Branching::Vmtf, Restart::Reluctant, Phase::Saved}}, &error));
+    DirectCspFeedback feedback;
+    ControllerTrace trace;
+    if (split && !stale)
+      assert(trace.write(path, seed, controller_configuration(config)));
+    RandomControllerPolicy policy(seed, config,
+                                  split && !stale ? &trace : nullptr,
+                                  nullptr, &feedback);
+    assert(policy.solve(k) == 10); // Neither invalid-action nor UNKNOWN exit.
+    assert(!feedback.actions.empty() && feedback.actions.front().request);
+    const auto &first = feedback.actions.front();
+    assert(first.request->type == ActionType::Rule &&
+           first.request->invocation.rule == "Walk");
+    const auto &chosen =
+        std::get<WalkParameters>(first.request->invocation.parameters);
+    assert(chosen.valid() && chosen.seed_candidate == (split ? candidate : 0));
+    assert(chosen.objective == reference.objective &&
+           chosen.admission == reference.admission &&
+           chosen.preparation_budget == reference.preparation_budget);
+    assert(first.outcome.invocation.status != InvocationStatus::InvalidRequest);
+    OnlineInvocation exact = first.request->invocation;
+    exact.id = 1; // Standalone serialization requires a public positive step ID.
+    const OnlineStrategyProgram program{{exact}, {}};
+    const auto encoded = serialize_online_strategy_program(program);
+    OnlineStrategyProgram decoded;
+    assert(deserialize_online_strategy_program(encoded, decoded, &error));
+    assert(serialize_online_strategy_program(decoded) == encoded);
+    if (split) {
+      assert(encoded.find(":walk3(") != std::string::npos);
+      if (stale) {
+        // No observed candidate preserves the configured identity, so the
+        // Walk implementation explicitly declines it without an ordinary run.
+        assert(first.before.local_search_candidates.empty() &&
+               k.stats.local_search_hints_stale == 1 &&
+               !k.stats.walk_seed_admitted && !k.stats.walk_seed_exported &&
+               !k.stats.walk_preparation_steps && !k.stats.walk_search_steps &&
+               !k.stats.rephased && !first.outcome.invocation.made_rule_progress);
+      } else {
+        assert(k.stats.walk_seed_admitted == 1 &&
+               k.stats.walk_seed_exported == 1 && !k.stats.walk_search_steps);
+        assert(first.outcome.invocation.made_rule_progress);
+        ControllerTrace replay;
+        assert(replay.replay(path, controller_configuration(config)));
+        Kernel repeated;
+        ScopedHeuristics repeated_embedding(repeated);
+        initialize(repeated);
+        assert(repeated.local_search_hints.front().id == candidate);
+        DirectCspFeedback replay_feedback;
+        // The exact public transcript owns the seed, overriding this caller.
+        RandomControllerPolicy reader(99, config, &replay, nullptr,
+                                      &replay_feedback);
+        assert(reader.solve(repeated) == 10 && replay.error().empty());
+        assert(!replay_feedback.actions.empty() &&
+               replay_feedback.actions.front().request);
+        auto replay_exact = replay_feedback.actions.front().request->invocation;
+        replay_exact.id = 1;
+        assert(serialize_online_strategy_program({{replay_exact}, {}}) == encoded);
+        assert(repeated.stats.walk_seed_admitted == 1 &&
+               repeated.stats.walk_seed_exported == 1);
+        kernel_check_invariants(repeated);
+      }
+    }
+    kernel_extend_model(k);
+    // Check all original clauses independently of the Walk proposal.
+    const bool a = k.value(internalize(1)) > 0;
+    const bool b = k.value(internalize(2)) > 0;
+    const bool c = k.value(internalize(3)) > 0;
+    assert((a || b || c) && (!a || !b) && (!a || !c) && (!b || !c));
+    kernel_check_invariants(k);
+  }
+  unlink(path);
+}
+
 static void guidance_requires_an_observed_candidate() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1337,6 +1451,7 @@ int main() {
   required_startup_native_offer_fails_closed_with_effort();
   guidance_requires_an_observed_candidate();
   random_guidance_uses_observed_identities();
+  random_split_walk_selects_a_legal_observed_candidate();
   Kernel a = fixture(false), b = fixture(false);
   RestartController ca(a), cb(b);
   RandomControllerSelector sa(17), sb(17);
