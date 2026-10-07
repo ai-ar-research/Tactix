@@ -1,0 +1,2478 @@
+{
+ "schema": "tactix-b26-reference-terminal-v1",
+ "scope": "Reference evidence for superseded intermediate b26 only; accepts no later source.",
+ "candidate": {
+  "source": "0a15ecaf1",
+  "release_sha256": "b26efc0fb133787a797820d40c759ae552e2cf4eaabde4bee990f27947890bcf",
+  "arguments": [
+   "--auto-proof",
+   "--default-graph-labeling=on"
+  ]
+ },
+ "regression_scorer": {
+  "path": "tools/bench/controller_regression.py",
+  "sha256": "e76ad6a26d1b800e5d30b43969ffec61089e67a64ea325d1fc32171bf5b872c9"
+ },
+ "regression": {
+  "b28c5": {
+   "job": 1755134,
+   "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5",
+   "manifest_sha256": "164dccfba2957eb813377618758e3b9b4b74aba6b1728099dd56521a78d3d82e",
+   "score_file": "benchmarks/reports/2026-10-07-b26-reference-terminal/b28c5-score.json",
+   "scorer_accepted": true,
+   "expected_rows": 33,
+   "records": 33,
+   "dispositions": {
+    "model-verified": 17,
+    "verified": 15,
+    "censored": 1
+   },
+   "independently_verified": 32,
+   "proof_timeouts": 1,
+   "solver_timeouts_unknown": 0,
+   "scorer_failures": [],
+   "missing": [],
+   "solver_seconds": 980.673,
+   "solver_seconds_ceiling": 999.87615,
+   "noL_free_1e8295106_solver_seconds": 937.794,
+   "slurm_failed_tasks": [
+    {
+     "task": 32,
+     "reason": "proof-check-1800s-deadline-censor"
+    }
+   ],
+   "rows": [
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/000.json",
+     "sha256": "70e7f0ff0e88b1c0be9d668fe2c6b76da509c0e96e50b642bc285892f4de6095",
+     "task": 0,
+     "verdict": "SAT",
+     "solver_seconds": 2.121,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/001.json",
+     "sha256": "baad4944d24359c6fa3a8c950706a3a3805fc27d69d1ce50df61f5c9c1a59d91",
+     "task": 1,
+     "verdict": "SAT",
+     "solver_seconds": 12.586,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/002.json",
+     "sha256": "f25a0835e7698492483baa12121e4d49e2e4b05a3c3f34f567fd1d517f41f7e8",
+     "task": 2,
+     "verdict": "SAT",
+     "solver_seconds": 14.09,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/003.json",
+     "sha256": "86d17b7f61c10abac134161eee70ff2a3313ac02b0cf302b524e87b6f87d45a1",
+     "task": 3,
+     "verdict": "SAT",
+     "solver_seconds": 16.392,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/004.json",
+     "sha256": "25ac2e3fa3ea719bc372c406c1b929389e261a38eaa2205e21bd998720352f1a",
+     "task": 4,
+     "verdict": "SAT",
+     "solver_seconds": 9.032,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/005.json",
+     "sha256": "d2509973b6175e4d763e71d16fc3b59ff499887af1a5498278b5438fe55dcedb",
+     "task": 5,
+     "verdict": "SAT",
+     "solver_seconds": 11.234,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/006.json",
+     "sha256": "4b3bc817b674167cbdded6b1c8e878a0c8fc6a9388156aaf292ef1b3fc6ce0b3",
+     "task": 6,
+     "verdict": "SAT",
+     "solver_seconds": 3.422,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/007.json",
+     "sha256": "4f0fcb403e25ee729cf3267bcf783533bd56f2c3288ffaa201468d98cfb386df",
+     "task": 7,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.972,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/008.json",
+     "sha256": "cea8f2c0e0d05dda401dfd8747dbca00c1a3845fce804d4bce705553a6572435",
+     "task": 8,
+     "verdict": "UNSAT",
+     "solver_seconds": 5.477,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/009.json",
+     "sha256": "045465ec080dd5fcd24c3f9dc342f9504462e7be6845a8a9166e44d42f833d1d",
+     "task": 9,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/010.json",
+     "sha256": "f9e83bb9111df234a456dd93602594bd5c7f5549132324a0deb9650898dc67e0",
+     "task": 10,
+     "verdict": "UNSAT",
+     "solver_seconds": 10.583,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/011.json",
+     "sha256": "d76892bc131defeac4616b2d370a5fcfdbb0e0fba7bd173e2ce1398bd0059325",
+     "task": 11,
+     "verdict": "UNSAT",
+     "solver_seconds": 6.977,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/012.json",
+     "sha256": "77d174efc62eaeb40cb03776d4193dcc4cc72086448f206bbc63027791aadb18",
+     "task": 12,
+     "verdict": "UNSAT",
+     "solver_seconds": 10.786,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/013.json",
+     "sha256": "28efacf6e465b1bd69fe5234f7a76db7e17dcbaf234298ad3124c7a5f8914475",
+     "task": 13,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.568,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/014.json",
+     "sha256": "b1c95b08e694f8a451a222d5e6b30202f81e836d1c43a56bc39d0aa779c20a18",
+     "task": 14,
+     "verdict": "SAT",
+     "solver_seconds": 4.524,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/015.json",
+     "sha256": "ecb7cb52ebdea21c32f7fbb97417b6b52a7b2136bc166f17f2df8bec9c422a0f",
+     "task": 15,
+     "verdict": "SAT",
+     "solver_seconds": 27.759,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/016.json",
+     "sha256": "0600971621bdd454f90ef60cec350d834e759736640ad60bfd7c43263c3e264e",
+     "task": 16,
+     "verdict": "SAT",
+     "solver_seconds": 121.305,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/017.json",
+     "sha256": "0c6285a05bcbf1a2d1e20c0a6945a75b748ea5455aaf11b798cc80a445e356d3",
+     "task": 17,
+     "verdict": "SAT",
+     "solver_seconds": 46.841,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/018.json",
+     "sha256": "b947366a48b22eee0d0ba18dca3c5bc9642be2cb985fb0af30753ea13fd102e7",
+     "task": 18,
+     "verdict": "SAT",
+     "solver_seconds": 44.636,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/019.json",
+     "sha256": "990a1ee96532984c536a4d1dd0f32caf9d38d3ae0f659124aa6c591b917bcee0",
+     "task": 19,
+     "verdict": "SAT",
+     "solver_seconds": 17.793,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/020.json",
+     "sha256": "bece34f73885cafed57b0c2558fd078565473cd838017ada0e931ebcecb7fd94",
+     "task": 20,
+     "verdict": "SAT",
+     "solver_seconds": 27.612,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/021.json",
+     "sha256": "71b50704e1e048b412c083a26dbf941530cd837d71a78ea7317ad54fd5a0f70c",
+     "task": 21,
+     "verdict": "UNSAT",
+     "solver_seconds": 8.279,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/022.json",
+     "sha256": "5aed3c70cbeec2a285aa8561d45546408ff22b3d5ca265b4f10c61d9770cef44",
+     "task": 22,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/023.json",
+     "sha256": "5d9e351dfc28ee17cc7575c6113702ed3f93ea9b906fee0aa558911ae4ba2701",
+     "task": 23,
+     "verdict": "UNSAT",
+     "solver_seconds": 13.037,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/024.json",
+     "sha256": "c56ed4e41be934e6e2832542e7e6cd07e89ec89976bbabea8c242f2c5d534583",
+     "task": 24,
+     "verdict": "UNSAT",
+     "solver_seconds": 9.48,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/025.json",
+     "sha256": "747ea2da61244ef2382eca95f611395544a554882a69ce3f79788e65af47e14c",
+     "task": 25,
+     "verdict": "UNSAT",
+     "solver_seconds": 13.236,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/026.json",
+     "sha256": "c24eae2b88a024f1c54871efbf292511373116e542d61cf5994049611329aa7d",
+     "task": 26,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/027.json",
+     "sha256": "485f8d7921c5ec03c6576542ecb2cde0beae967452f4c8420513d75686750d2d",
+     "task": 27,
+     "verdict": "UNSAT",
+     "solver_seconds": 19.997,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/028.json",
+     "sha256": "2dc12fa288c7226963750428d32d4a03e18599fa1027e3d3e3bec7f7f1e9c153",
+     "task": 28,
+     "verdict": "SAT",
+     "solver_seconds": 72.135,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/029.json",
+     "sha256": "022490a9f6917a7198e1031f31fdb5a8c7cbae48e8cefe0616250a1f3e456e09",
+     "task": 29,
+     "verdict": "UNSAT",
+     "solver_seconds": 109.746,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/030.json",
+     "sha256": "eac5931fd3b8135cbb5e7f0a27f0759f8e554194641efe61148772eb8f9abbd4",
+     "task": 30,
+     "verdict": "SAT",
+     "solver_seconds": 0.868,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/031.json",
+     "sha256": "3c4d413a32cc2bb53cc850e1b4acfcdf60e4dc933306520ab23af649812e0521",
+     "task": 31,
+     "verdict": "SAT",
+     "solver_seconds": 26.762,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-b28c5/results/032.json",
+     "sha256": "27bc24d41886c99429ff369ec83b827320a44a54115425db73d02df1d658b14e",
+     "task": 32,
+     "verdict": "UNSAT",
+     "solver_seconds": 309.172,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    }
+   ]
+  },
+  "rank1-50": {
+   "job": 1755135,
+   "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50",
+   "manifest_sha256": "a2cba9f201a8855cf99d3c940949b5f180e36f4853c7e71119bf8e75fb8c4975",
+   "score_file": "benchmarks/reports/2026-10-07-b26-reference-terminal/rank1-50-score.json",
+   "scorer_accepted": true,
+   "expected_rows": 50,
+   "records": 50,
+   "dispositions": {
+    "verified": 17,
+    "model-verified": 25,
+    "censored": 8
+   },
+   "independently_verified": 42,
+   "proof_timeouts": 8,
+   "solver_timeouts_unknown": 0,
+   "scorer_failures": [],
+   "missing": [],
+   "solver_seconds": 8254.957,
+   "solver_seconds_ceiling": 8521.52175,
+   "noL_free_1e8295106_solver_seconds": 7384.444,
+   "slurm_failed_tasks": [
+    {
+     "task": 17,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 21,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 26,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 30,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 31,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 32,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 34,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 36,
+     "reason": "proof-check-1800s-deadline-censor"
+    }
+   ],
+   "rows": [
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/000.json",
+     "sha256": "251b26a9e2cd510c26832d5dd35a9e2b479353e7113985f2432e72ef228dcbb5",
+     "task": 0,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.768,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/001.json",
+     "sha256": "ef1f374bdde6e581f78402cb4eb212afc518181ab70be3b10b5be75ae76cff6d",
+     "task": 1,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.768,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/002.json",
+     "sha256": "b382695611bcc8ec6aa49750ef7c67656658c5d7d484e6cfb9d8ff3e197d50e4",
+     "task": 2,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.019,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/003.json",
+     "sha256": "68d6c29a9370cc5ff152c5385c220fbfa9c1d4e5664a31cb95db338f4a0a8968",
+     "task": 3,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.168,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/004.json",
+     "sha256": "6194e7f2de072ffb4621ef7f2cff3e579b8f2a828b9c811c6dc8bdcb36789e33",
+     "task": 4,
+     "verdict": "SAT",
+     "solver_seconds": 70.028,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/005.json",
+     "sha256": "e813f4b638492df891b94ec1be419fa41f1488f1843060531513b1739c495c53",
+     "task": 5,
+     "verdict": "SAT",
+     "solver_seconds": 54.257,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/006.json",
+     "sha256": "768fbba6e304356f6441df9e3bceb6de1208920edb4a38e18d70eae0d6d1a375",
+     "task": 6,
+     "verdict": "SAT",
+     "solver_seconds": 67.303,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/007.json",
+     "sha256": "a00c84ab97838300507593c280ef1c424cc6b84e20fb0e764f2d1dcd2a4df910",
+     "task": 7,
+     "verdict": "SAT",
+     "solver_seconds": 89.552,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/008.json",
+     "sha256": "9479ce1f8081eb6969cbc94fe6a398caccd72ee67a47e7e6508555aefb9c2662",
+     "task": 8,
+     "verdict": "SAT",
+     "solver_seconds": 130.521,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/009.json",
+     "sha256": "e78c49cd9b6d86f2d8c01ffcb62fb8406462a89423ac13f41fc96c747f354d0b",
+     "task": 9,
+     "verdict": "SAT",
+     "solver_seconds": 121.866,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/010.json",
+     "sha256": "fdc7b52b36e2016a6ed4ab4dfb3e6645119de846935fec6ee32a433b0b846ffc",
+     "task": 10,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.768,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/011.json",
+     "sha256": "57b5f4d05b078dd02721c3db75f771bd0df8d3b5b7ad2c5c225bae7a2ad3c58b",
+     "task": 11,
+     "verdict": "UNSAT",
+     "solver_seconds": 12.186,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/012.json",
+     "sha256": "f91441262673133f094ba0c557f7b9375cecbbb023f63b5a69842ad218a484f6",
+     "task": 12,
+     "verdict": "SAT",
+     "solver_seconds": 99.28,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/013.json",
+     "sha256": "b34e3fe9765783fe0308da02589b193cc3a7eb9c891ee0283812696e01c422ec",
+     "task": 13,
+     "verdict": "SAT",
+     "solver_seconds": 90.375,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/014.json",
+     "sha256": "b1e6a96be941f3d8ab994c0a1b11cc762d59130199ca3a8d1af4b5ff88aace86",
+     "task": 14,
+     "verdict": "SAT",
+     "solver_seconds": 0.116,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/015.json",
+     "sha256": "8aa5ff3346c9ba92ecb9de2c87f9b174a735666fcd4da01f2602eb9291a3ec15",
+     "task": 15,
+     "verdict": "SAT",
+     "solver_seconds": 266.278,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/016.json",
+     "sha256": "5660d90afd8f0d6f30225dbeb0355d76acca120510972afa28268ff08703c8ed",
+     "task": 16,
+     "verdict": "SAT",
+     "solver_seconds": 75.233,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/017.json",
+     "sha256": "08c9ae6a127fdd768a290e028913ed6742f3519eba4d5fd2b184167a71a7a270",
+     "task": 17,
+     "verdict": "UNSAT",
+     "solver_seconds": 59.825,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/018.json",
+     "sha256": "e19ccc63bf2b4175cfbc900b74e19e0fd08581a345c33290beee1f889f9e60c3",
+     "task": 18,
+     "verdict": "SAT",
+     "solver_seconds": 148.763,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/019.json",
+     "sha256": "d2d8675b21060f67810fa3ee048951a6dff5252192eac9e6845d718d45ce81fd",
+     "task": 19,
+     "verdict": "SAT",
+     "solver_seconds": 124.297,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/020.json",
+     "sha256": "8897603bd540cd54a0083945e493f26643709abc709fa810abe5d6dc3fe71d20",
+     "task": 20,
+     "verdict": "SAT",
+     "solver_seconds": 144.695,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/021.json",
+     "sha256": "03f1e2fcadacc2a4ebcb278b7cf837f628d77a5452bf0b7cd936fc43427ee2d0",
+     "task": 21,
+     "verdict": "UNSAT",
+     "solver_seconds": 244.656,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/022.json",
+     "sha256": "514904d278b4166075d1b0d647fae88145e935d945e9e3b6aae11131909f2436",
+     "task": 22,
+     "verdict": "SAT",
+     "solver_seconds": 304.122,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/023.json",
+     "sha256": "aef5e553ebbbef6b3130e9da306d7c236f5eb3191d4021248395c64eef861595",
+     "task": 23,
+     "verdict": "UNSAT",
+     "solver_seconds": 213.319,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/024.json",
+     "sha256": "fc776f9d5453570f9987b71b9a1caf45cd31ffee13a1f6e8df9ced7c5ed364f8",
+     "task": 24,
+     "verdict": "SAT",
+     "solver_seconds": 25.759,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/025.json",
+     "sha256": "e9f7619d66572d1edecd95cd4c89766d64d2576fa8f1b0ca8c0ba6f25e7c055d",
+     "task": 25,
+     "verdict": "SAT",
+     "solver_seconds": 278.626,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/026.json",
+     "sha256": "feaa27cf935034cd54f070df7034813da3958ea2f34ced5fcbe4cd729c5ebea3",
+     "task": 26,
+     "verdict": "UNSAT",
+     "solver_seconds": 652.405,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/027.json",
+     "sha256": "7e65451c7be8f6bda90e6b19b2b13f93b5158458ed49f0a145e30f7b74c80112",
+     "task": 27,
+     "verdict": "SAT",
+     "solver_seconds": 224.823,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/028.json",
+     "sha256": "68719a74d818194173e5ff5628ebfb97625573d5ba28cd6774081e1ce9c1c21e",
+     "task": 28,
+     "verdict": "SAT",
+     "solver_seconds": 316.869,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/029.json",
+     "sha256": "8f561bca0c597cbf224cdac16fa4185c08b0f6394e1f145ca39ec8c578768aeb",
+     "task": 29,
+     "verdict": "SAT",
+     "solver_seconds": 267.827,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/030.json",
+     "sha256": "130c4180a85985ee5aa808e13b1974ce39b4bd55fff48c2da88a994fe5811611",
+     "task": 30,
+     "verdict": "UNSAT",
+     "solver_seconds": 438.506,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/031.json",
+     "sha256": "fcdee4bb3e9ed0125c59f39ae77cf0c1dd2e7500950b5b6c912327a222cedd98",
+     "task": 31,
+     "verdict": "UNSAT",
+     "solver_seconds": 327.817,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/032.json",
+     "sha256": "9c69696833f154185fd2e84edeefddfddd02bcf63d59e786fba4536fe5b2cb17",
+     "task": 32,
+     "verdict": "UNSAT",
+     "solver_seconds": 457.894,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/033.json",
+     "sha256": "08333ce07ec50f330d4bd64eb793238b59d66a827ddb1ed36bee284369c52d0b",
+     "task": 33,
+     "verdict": "SAT",
+     "solver_seconds": 555.491,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/034.json",
+     "sha256": "44e7033ffb7184f509edda5350b9b054e7b4af951b2019db3d5ec667e27f46f7",
+     "task": 34,
+     "verdict": "UNSAT",
+     "solver_seconds": 554.298,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/035.json",
+     "sha256": "90f8e66bde80a2e31d1309318e6884bac3847a03aab03657768a46f34f0c5cd8",
+     "task": 35,
+     "verdict": "SAT",
+     "solver_seconds": 33.772,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/036.json",
+     "sha256": "db82adac8a24039a56fe2290a474d16ab62f61293895fc392926af8decb023e0",
+     "task": 36,
+     "verdict": "UNSAT",
+     "solver_seconds": 352.117,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/037.json",
+     "sha256": "46a210c2dc2559b170ae65d8786a94d75b6b57e62b7e32eafc7eb27db78d997c",
+     "task": 37,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.317,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/038.json",
+     "sha256": "94933d8d50ee2e618791054fd28df633613ea799e8a9dfeb3a1a5d85c00ab0cd",
+     "task": 38,
+     "verdict": "UNSAT",
+     "solver_seconds": 493.116,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/039.json",
+     "sha256": "3b5d197a7a53246f6fca3e655ab842aa1163bc393a0c11a01949a17731dee348",
+     "task": 39,
+     "verdict": "UNSAT",
+     "solver_seconds": 354.878,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/040.json",
+     "sha256": "85ac4965756ce5388451f09ec13705d38a2b25dfaa270f4f46fd8a4f484c131e",
+     "task": 40,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.567,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/041.json",
+     "sha256": "8a41469de5e9a8ed2a873f412eb0de25e0ea6544c9e502368a845e2a14a4faee",
+     "task": 41,
+     "verdict": "UNSAT",
+     "solver_seconds": 56.957,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/042.json",
+     "sha256": "7c7cff8570a8c8315edd121e580c3d6855260871a28fce2e025d68ba2e6f288b",
+     "task": 42,
+     "verdict": "UNSAT",
+     "solver_seconds": 79.755,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/043.json",
+     "sha256": "fb7f88b3423b7177fd5b248d9f50554ca046efd21de8b0b30220f8bfcbac3aca",
+     "task": 43,
+     "verdict": "UNSAT",
+     "solver_seconds": 42.383,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/044.json",
+     "sha256": "bd9f5ebc50a556aca36cacdd8e0fef478f383f5cd4f6bd854f980e5a064f2ac6",
+     "task": 44,
+     "verdict": "UNSAT",
+     "solver_seconds": 25.608,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/045.json",
+     "sha256": "45ad227b9bf6bbde888cd812af5addb2b7d14334900be406d8aa484953559fd5",
+     "task": 45,
+     "verdict": "UNSAT",
+     "solver_seconds": 182.237,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/046.json",
+     "sha256": "a1cc7d73a36edb4710bcc9da23a80bb7a8dd95a051d90367df0a26ed7a5e0db5",
+     "task": 46,
+     "verdict": "UNSAT",
+     "solver_seconds": 142.912,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/047.json",
+     "sha256": "18c7ac5673395ed3134c55465575dd1bb4d3a771b89da8d252c62030a5ebbb8d",
+     "task": 47,
+     "verdict": "SAT",
+     "solver_seconds": 17.144,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/048.json",
+     "sha256": "78883a9fd1add2858656c343e67d703c989433dcf1e2f7ec1b8f6fe36ceb0582",
+     "task": 48,
+     "verdict": "SAT",
+     "solver_seconds": 51.649,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-rank1-50/results/049.json",
+     "sha256": "af7adf923d37d4e37c13fdaf2b4fd8818e5ad4c96e6dbf1623835686eefe5648",
+     "task": 49,
+     "verdict": "SAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    }
+   ]
+  },
+  "wv100": {
+   "job": 1755136,
+   "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100",
+   "manifest_sha256": "9bc8042991ad4d3867a7c61f53a49ba8d6d3594d3c7d6c8a0c28447065ab4ebe",
+   "score_file": "benchmarks/reports/2026-10-07-b26-reference-terminal/wv100-score.json",
+   "scorer_accepted": true,
+   "expected_rows": 100,
+   "records": 100,
+   "dispositions": {
+    "verified": 65,
+    "model-verified": 33,
+    "censored": 2
+   },
+   "independently_verified": 98,
+   "proof_timeouts": 2,
+   "solver_timeouts_unknown": 0,
+   "scorer_failures": [],
+   "missing": [],
+   "solver_seconds": 3212.094,
+   "solver_seconds_ceiling": null,
+   "noL_free_1e8295106_solver_seconds": 2645.524,
+   "slurm_failed_tasks": [
+    {
+     "task": 59,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 89,
+     "reason": "proof-check-1800s-deadline-censor"
+    }
+   ],
+   "rows": [
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/000.json",
+     "sha256": "8ef83511e352433564d7c37856a85187bc3cb6341dbb704351d7322f43b41f3f",
+     "task": 0,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/001.json",
+     "sha256": "0a552946f94362b00548c4d6c60f81e03760e11556e03b64bb6eda8ab8dfe352",
+     "task": 1,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/002.json",
+     "sha256": "dd51b3f298e592765d132a73313d0cdcbb96e2291ca625ac46083fb50268ce31",
+     "task": 2,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/003.json",
+     "sha256": "2c261f9926166d2912bd6fe0a7f7dce6dad9c310cd0557c6b8e18a6deb791ee3",
+     "task": 3,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/004.json",
+     "sha256": "60deba1df68c318f6eebeab33c565f5a22a65b9cabd210d2b5c59a4a2688dded",
+     "task": 4,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/005.json",
+     "sha256": "825ec47432526a98f10c4b1f2e60327ce7636c579de63de6dd88dc27e70a500a",
+     "task": 5,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/006.json",
+     "sha256": "d706de65b2cc9a97141a4b4090be793b35406a2fbb05335d8f0ae0e4cab294d0",
+     "task": 6,
+     "verdict": "SAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/007.json",
+     "sha256": "74ff04db5ec41285904b377b4bd1f8e9e47c870a39c5f55330eb26ecf4221204",
+     "task": 7,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/008.json",
+     "sha256": "bbb3c892c5f129718a3c8a1f1f922d25480880b035f9d7ee9d8a6a78ff2d0057",
+     "task": 8,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/009.json",
+     "sha256": "d750f17db0df49df184bcc9a9bfb9e9d75220a45848bfe26575139c2bb0f17b8",
+     "task": 9,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/010.json",
+     "sha256": "1a7df39c481fc3b24a0f64cc3d0f7c6dcca58b3d5c0a057eaa70d4bdcea218af",
+     "task": 10,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/011.json",
+     "sha256": "00b04f68096a46fd5c8fd685cba725e896475a3e6754af4f47cdeca202909857",
+     "task": 11,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/012.json",
+     "sha256": "1c00cbae9fcef32176b84190f0fde2fadacd764d5580a0eb05fc84d33f035ba7",
+     "task": 12,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/013.json",
+     "sha256": "e8c7836cfd046f3615b351ee8525b8b2bfcd04765959a990d79a96a68388c2fa",
+     "task": 13,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/014.json",
+     "sha256": "2caacfa5c0b0d4eb5c9749953a7d43b8cfaf94f9a2a35539f45d92738c159232",
+     "task": 14,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/015.json",
+     "sha256": "c803107485a68ab533f623743692778628c3483008644992d952fa38cf58fb65",
+     "task": 15,
+     "verdict": "SAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/016.json",
+     "sha256": "6f2e70ac00b9886c79de9628b2a14c08e7525daafc2589bf504d363f675da847",
+     "task": 16,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/017.json",
+     "sha256": "2aa87fecece984bded076ce149a73068c35e832ad699ad232c79d896e09b0e5f",
+     "task": 17,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/018.json",
+     "sha256": "1e10ba8ece61b7b3a99f97d2f9d4ca6144e68bcfc8cbcaba214a7ac26bdb0c2c",
+     "task": 18,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/019.json",
+     "sha256": "46e4dc0c97a994c9e2a23bb9f8559a3c5f0a95783660c96fd0f3951adc2c181f",
+     "task": 19,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/020.json",
+     "sha256": "f72a940589b3f20e6f84d268ea97bee05b58ba9499cae3f6696cdf578823f2d3",
+     "task": 20,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/021.json",
+     "sha256": "b44a70d0f739e7e85a6dadcd81baa9af3cdbcfe63622bed27fcf2ac0b9689157",
+     "task": 21,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/022.json",
+     "sha256": "556851eb840c0e53578480a932c48f02fe8a9aab1d05a605e72dab4c24b0d68e",
+     "task": 22,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/023.json",
+     "sha256": "a4c019c84b007602ecc11ea3c319e87d128653b860e8a139d47a401cb1b4266d",
+     "task": 23,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.417,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/024.json",
+     "sha256": "14bda97fe914ff437bf5d1dc2914cf3f6d4d5c2393aa1e24d645f61786e8fc8e",
+     "task": 24,
+     "verdict": "UNSAT",
+     "solver_seconds": 12.387,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/025.json",
+     "sha256": "1e33a64a5e34510a918f9775da59e2f3b1ab44ded625bc2ae95a1a9965445b47",
+     "task": 25,
+     "verdict": "UNSAT",
+     "solver_seconds": 17.744,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/026.json",
+     "sha256": "316bf8557b06a1f1148d389406f58335d3fcf01e3b1e91ade055ef67174ecdc7",
+     "task": 26,
+     "verdict": "SAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/027.json",
+     "sha256": "032bcaeeee5604ee25939128e2e569e55c61a0e4d7106cc08a3081d8e7c49207",
+     "task": 27,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.167,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/028.json",
+     "sha256": "119cb4ca27a1b4914bffa66c333e3b0080e60216653ff4d1a5cdb44eed358a3a",
+     "task": 28,
+     "verdict": "SAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/029.json",
+     "sha256": "2236dd4d59f18748817d2c4b44808d627684b59c52aeb9384e747f076cea3391",
+     "task": 29,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.417,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/030.json",
+     "sha256": "9a383ca139203bdf80a539dc4fa7802241538782762b562ce2d4053457dd031d",
+     "task": 30,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.018,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/031.json",
+     "sha256": "a2c41a7660a26ffc2ec0f3e567da35c23726c831a63259be5be87d838a2c91c3",
+     "task": 31,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.467,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/032.json",
+     "sha256": "3161fab1d6d32a474faae31f0081982ecd7f6438be60d0b8ed562072f557526c",
+     "task": 32,
+     "verdict": "SAT",
+     "solver_seconds": 0.167,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/033.json",
+     "sha256": "85741c57d29f47464350d8a6676e82634c4c4dd9870532bc5e48643e7a47389d",
+     "task": 33,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.667,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/034.json",
+     "sha256": "1d5d65ecfe0217dd653794ef449c7e188889ac8144ffde8aff5944bd801aeb31",
+     "task": 34,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.572,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/035.json",
+     "sha256": "423075ce950c6a6f96918a5c4919ea30655b58fdfa5730bf3cdecee4e14eeb14",
+     "task": 35,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.019,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/036.json",
+     "sha256": "9477596b029333a1538a3c429004d9078792392b012189e0cb23d22522726dc0",
+     "task": 36,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.417,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/037.json",
+     "sha256": "c42b76619ec2223de0722f47925c412cb2bba7e5d12214b6ecb885c7e12056c2",
+     "task": 37,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.868,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/038.json",
+     "sha256": "dac6f6c087a71bbdef93a3143f81dd0c62664a3700ce4627b5a88ae9498642e2",
+     "task": 38,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.667,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/039.json",
+     "sha256": "edfb89e227c1daf4b17bd24661f121bb9ffdae1558dff9327482303312d0c29f",
+     "task": 39,
+     "verdict": "SAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/040.json",
+     "sha256": "ef91f4ea148eb9a494de94b389609f3441cf96939adecdea8faf8d2532d5c6c6",
+     "task": 40,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/041.json",
+     "sha256": "fd489d20e77bcaf71927b49ded30a722fe9857fd7591231bbe154c1c34508adb",
+     "task": 41,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.467,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/042.json",
+     "sha256": "7b98f1f7356a45cafa54a7e70e85016db623e625dfae57541049a8195ea28ccd",
+     "task": 42,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.82,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/043.json",
+     "sha256": "cb365d433f60eac18de2172e83acb31273e5bb22b04de61bafe12e17dcb01251",
+     "task": 43,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.968,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/044.json",
+     "sha256": "6430c777902c19ddfa79e9012ab94a4627b7c37487047345155b91fa295c7581",
+     "task": 44,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.567,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/045.json",
+     "sha256": "3b36829f92c0255b0684c24fab54f288a3679359ab66781dd5260315b539ddcb",
+     "task": 45,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.267,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/046.json",
+     "sha256": "096561a3409a4ce95015d8fbe9156f58ed280fd400056ffa75ce956423f065d4",
+     "task": 46,
+     "verdict": "UNSAT",
+     "solver_seconds": 2.32,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/047.json",
+     "sha256": "89fd22e5184147ab510110a63d71d0f0c4abdf2a44f82fd64c4300a6745cabc3",
+     "task": 47,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.467,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/048.json",
+     "sha256": "58d5d30044b2d5da8754cf0717a5be9a4f91026015aa922ba457dbcbaadcd2ae",
+     "task": 48,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.717,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/049.json",
+     "sha256": "a8d46f00bf5d7e4fc9a0e82ebfadec49d6362d918d7428c14a87ee9586552ba0",
+     "task": 49,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/050.json",
+     "sha256": "f4981af8e07a331470d788540d11303877025dfb0970ddd9d457689060dbee1b",
+     "task": 50,
+     "verdict": "SAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/051.json",
+     "sha256": "d6a4be3a141c8b16d94137b79a8ee5ea42a86e4c44e4d6d771bcefb8639aebe4",
+     "task": 51,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.769,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/052.json",
+     "sha256": "618a316c5305113ff62ab7536b7abe676935c5aeaa683d2deb389fed4344cb10",
+     "task": 52,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/053.json",
+     "sha256": "416a4f4b7449c87bcd13bc7061251a142703768f6ffc579d36a724ab128e53e7",
+     "task": 53,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.818,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/054.json",
+     "sha256": "0a0aa139486a913b4095187ae931d828d82bbc075aeec66982858bab51032603",
+     "task": 54,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/055.json",
+     "sha256": "123c7675b496ccd69c39a4492d78450b4ab648ce83ab125e4e3dac2430f75d2f",
+     "task": 55,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.868,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/056.json",
+     "sha256": "bdccc83805dee9639a4d35ad6500f5f0454169ec19e142dc85936780f6b81648",
+     "task": 56,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.018,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/057.json",
+     "sha256": "2e030d5e3c9855264a775529ac43075e35ade8317081473bf760ddc159ea0cba",
+     "task": 57,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/058.json",
+     "sha256": "9d9910f6f872e1848603c510875849ca3583f3b6e014120b39cb8454af196aaa",
+     "task": 58,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/059.json",
+     "sha256": "78acf0ad21eb327f8a44e36dc66fc7a724d15c350ab2b583fd8ab4f2eb8a8395",
+     "task": 59,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.974,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/060.json",
+     "sha256": "ee6ee1d867ee86c8bf5942eb1cb77c9394732e41d1bac3edbf1f4feb03bd7b26",
+     "task": 60,
+     "verdict": "UNSAT",
+     "solver_seconds": 6.527,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/061.json",
+     "sha256": "91fff0228b0213bcb359955f918604831471022817736edaad2c8df3552541f0",
+     "task": 61,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.668,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/062.json",
+     "sha256": "95dc3b8d8f4c32b8d863c5fd04ed9b890052bd348535cd41b884050a3da2f7e3",
+     "task": 62,
+     "verdict": "SAT",
+     "solver_seconds": 0.317,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/063.json",
+     "sha256": "5c57b377aed5dea2e2849a792ca54cb78163f18a554a1dce92fe63234db72aa3",
+     "task": 63,
+     "verdict": "SAT",
+     "solver_seconds": 0.467,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/064.json",
+     "sha256": "be065578b3bcd963d27c038a9dd8bf1dff8a44930881f82d366511c0773bcb81",
+     "task": 64,
+     "verdict": "SAT",
+     "solver_seconds": 0.467,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/065.json",
+     "sha256": "1d1faf99176f846186f316ee5e97e245ca9946046715539067afed05e82ed089",
+     "task": 65,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.77,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/066.json",
+     "sha256": "c4a6754ba8c23fe3c2e56da0fac48ab4b64e95e78e58b8cf92add1d30328f426",
+     "task": 66,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.567,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/067.json",
+     "sha256": "d883939d329a766d3a5b6fc1cff1a38be33e0fc6da24a3b699f3d25e98163b94",
+     "task": 67,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.417,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/068.json",
+     "sha256": "f6ce842f4133a39f6c9cc600256729795b923994be4e0b7757a9cbd502440a5b",
+     "task": 68,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.169,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/069.json",
+     "sha256": "d346ce76c2745313ae60b5fcead699d5da76ffebb5bba11767ffa28be9d6d36f",
+     "task": 69,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.77,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/070.json",
+     "sha256": "9daa42679de194d6b2dcd11b8b502c11838f8a699cf4b8001915be0eba243d74",
+     "task": 70,
+     "verdict": "UNSAT",
+     "solver_seconds": 2.671,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/071.json",
+     "sha256": "d14c182601556e813c0c83f20cb10e7b626e31f8f2e85c9c5d83efda93947425",
+     "task": 71,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.569,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/072.json",
+     "sha256": "b94b213c54b96346f91a4e2fdb1cc06cab8f287bf7f1a121d2c7ba17d06134db",
+     "task": 72,
+     "verdict": "SAT",
+     "solver_seconds": 1.369,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/073.json",
+     "sha256": "41b9dfbcb820743f9d7fe489ef0b7edfd308fbe6a651d7d1c765356cdfef1b12",
+     "task": 73,
+     "verdict": "UNSAT",
+     "solver_seconds": 1.469,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/074.json",
+     "sha256": "80594568ad474022d28476e0f7b371b07177fd8425a6c29e8423f3cde6503673",
+     "task": 74,
+     "verdict": "UNSAT",
+     "solver_seconds": 5.727,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/075.json",
+     "sha256": "df92a0e36f4f89ef2b3f69c492f249e6c7f4e14fdcdecc64f41a87c07374d992",
+     "task": 75,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.818,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/076.json",
+     "sha256": "64b8650b21f959ffa13d7eefa17644477dfba89bab1b2b59bc9705ccf179a651",
+     "task": 76,
+     "verdict": "UNSAT",
+     "solver_seconds": 6.279,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/077.json",
+     "sha256": "396854feaa867cb0b3ae40a75bd88cd36773be030d4c26d9c2fa76f36bdfb0f4",
+     "task": 77,
+     "verdict": "UNSAT",
+     "solver_seconds": 2.921,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/078.json",
+     "sha256": "b8b5aed99233be0c75f7d1c4ad1af11f9f97815c2cd5ca2fb2e1d1ac6742d383",
+     "task": 78,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.723,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/079.json",
+     "sha256": "8baa25ad6ee5a8ac5ac34503d1b145a6c75d352d4ec5ee7fea1fd53e8207c31f",
+     "task": 79,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.868,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/080.json",
+     "sha256": "dd67c817a10f64ac5e901f0cd8a97767af2e366637c59d95c10e222c1bd41879",
+     "task": 80,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.322,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/081.json",
+     "sha256": "95521b2fe580d85024a10f058fe57a7d9c8b41b29dd769e6825136b698d1cf78",
+     "task": 81,
+     "verdict": "UNSAT",
+     "solver_seconds": 8.079,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/082.json",
+     "sha256": "01797b28b58ad516fbd7c353cc80f449df6d72fb3f97e1548220d674a1c27010",
+     "task": 82,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.617,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/083.json",
+     "sha256": "55e19ea33f835fb0010876ffea07258318fa2b1ac399d4be42eb8eba1dcdb5a4",
+     "task": 83,
+     "verdict": "UNSAT",
+     "solver_seconds": 9.131,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/084.json",
+     "sha256": "256d62611d3b8406a970fb0ac5495f507fea332d677d24378c08971a3a4a0837",
+     "task": 84,
+     "verdict": "SAT",
+     "solver_seconds": 28.077,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/085.json",
+     "sha256": "459878dea882e3a6f30b078b825d939eed6bfc1bad1b234b43cd657cffc95ace",
+     "task": 85,
+     "verdict": "UNSAT",
+     "solver_seconds": 2.12,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/086.json",
+     "sha256": "826be7774a850deef7a58d6767389b4c376f1a3b59f6279d3f58c90847867d47",
+     "task": 86,
+     "verdict": "SAT",
+     "solver_seconds": 1.72,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/087.json",
+     "sha256": "187fefef8d4b2a1f3e1d4f582b03f4bc720328b9e78feca12e9136d20cae28d8",
+     "task": 87,
+     "verdict": "UNSAT",
+     "solver_seconds": 80.665,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/088.json",
+     "sha256": "09bcde31dc5a15f81f07d8e6b7ccf0079a985ab15a495f4e8a60ce4ba4269e9e",
+     "task": 88,
+     "verdict": "SAT",
+     "solver_seconds": 5.525,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/089.json",
+     "sha256": "3cadc42dfecb9fad65ebe05d5530f0622a4183ad8d77651760573576ca2fe558",
+     "task": 89,
+     "verdict": "UNSAT",
+     "solver_seconds": 165.583,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/090.json",
+     "sha256": "7ddc4b52584167b1dce306e0d2d7ab7531e5da93cf7ff57c87af8e5be3729b5b",
+     "task": 90,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.768,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/091.json",
+     "sha256": "eff85fbfc60f2562d2e9b90ac11e70f942557b31cd6254f16ae6809640304ad8",
+     "task": 91,
+     "verdict": "SAT",
+     "solver_seconds": 6.327,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/092.json",
+     "sha256": "bfffa76930b35634195792c8e69fed671b01a4b0b7bc3891b95a9947fcbb3fa1",
+     "task": 92,
+     "verdict": "SAT",
+     "solver_seconds": 102.636,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/093.json",
+     "sha256": "e02f6f0bdc7069d0ecc3475a64d4f83f9e849af95cb70732d4d2645a2249da57",
+     "task": 93,
+     "verdict": "SAT",
+     "solver_seconds": 9.632,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/094.json",
+     "sha256": "d88a37a5d19485cb21493ac580d1ca916f6859fc021a548609d08c817ecb0820",
+     "task": 94,
+     "verdict": "SAT",
+     "solver_seconds": 773.123,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/095.json",
+     "sha256": "c38244615bab2dbe29717559713ff07b2c4357dabb2eaadaf236da18d3447298",
+     "task": 95,
+     "verdict": "SAT",
+     "solver_seconds": 965.096,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/096.json",
+     "sha256": "467242f776594d246bb2ab23265b7771fb00e075b75d4a399f1d63f425f94722",
+     "task": 96,
+     "verdict": "SAT",
+     "solver_seconds": 646.658,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/097.json",
+     "sha256": "c2b40021d0783856c3527968d75bf8b05d72fea98dcddf4a58f1ba6865f1f76c",
+     "task": 97,
+     "verdict": "SAT",
+     "solver_seconds": 202.124,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/098.json",
+     "sha256": "71210ccf8224232fb4a69b7a9506950051aeecfff05761247d85215f42e3eb10",
+     "task": 98,
+     "verdict": "SAT",
+     "solver_seconds": 86.958,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv100/results/099.json",
+     "sha256": "86e581749bb45fd066b2461c33249a56f526a8af3569dd2af7ce440ecc66f52d",
+     "task": 99,
+     "verdict": "SAT",
+     "solver_seconds": 11.937,
+     "slurm_failed_reason": null
+    }
+   ]
+  },
+  "wv2-89": {
+   "job": 1755160,
+   "campaign": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89",
+   "manifest_sha256": "e8977bdb9d5db9db94ca12a5d10cea3d4527c8bf0cdbacacb94f6b76ac2664d8",
+   "score_file": "benchmarks/reports/2026-10-07-b26-reference-terminal/wv2-89-score.json",
+   "scorer_accepted": false,
+   "expected_rows": 89,
+   "records": 89,
+   "dispositions": {
+    "verified": 30,
+    "censored": 2,
+    "model-verified": 50,
+    "solver-timeout": 7
+   },
+   "independently_verified": 80,
+   "proof_timeouts": 2,
+   "solver_timeouts_unknown": 7,
+   "scorer_failures": [
+    {
+     "task": 60,
+     "instance": "tierD24-26/47e1ada0070708c2953d322c06aea00d-noL-11-8.sanitized.cnf.xz",
+     "errors": [
+      "lost retained solve"
+     ]
+    }
+   ],
+   "missing": [],
+   "solver_seconds": 4892.007,
+   "solver_seconds_ceiling": null,
+   "noL_free_1e8295106_solver_seconds": 3794.924,
+   "slurm_failed_tasks": [
+    {
+     "task": 14,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 18,
+     "reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "task": 31,
+     "reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "task": 35,
+     "reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "task": 51,
+     "reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "task": 53,
+     "reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "task": 59,
+     "reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "task": 60,
+     "reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "task": 62,
+     "reason": "solver-timeout-UNKNOWN"
+    }
+   ],
+   "rows": [
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/000.json",
+     "sha256": "ec35ffa5289e3bf9bbc70aae00f5943c12d4a9286e30149e30272ed8556b3c10",
+     "task": 0,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/001.json",
+     "sha256": "926b7ff34f18fdca61d7a5adfb7937ede86bee5e12f0a0707c3e97dee74f2b93",
+     "task": 1,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/002.json",
+     "sha256": "ece9d0ef4fb98bb128ad4187e2b0dbdf64ab4e95de7a4f3a77f671902ad3436a",
+     "task": 2,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/003.json",
+     "sha256": "5262ea8552b8f87902d2df33a831431775c13b2397fdd6534866e744ccac442a",
+     "task": 3,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/004.json",
+     "sha256": "1a2beaa634698ab09f24a9554ae858fa6db2ca0f9009197f56304f4f8feb351f",
+     "task": 4,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/005.json",
+     "sha256": "9ee2e27725b147212845954aec03f50dd136cb8f7aeeda181e7ba2fd42492125",
+     "task": 5,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.317,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/006.json",
+     "sha256": "33d322d4a192444a902a6e77058a4461cf683950c8a489892ef50cb968c9d93a",
+     "task": 6,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.116,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/007.json",
+     "sha256": "f467d52028594e3bd0a4f91cfa4dba9b26b4d08104513a216605ec79b6fd9632",
+     "task": 7,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.116,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/008.json",
+     "sha256": "60fe64fbd34cd225341d4f2e3020b6f16b6a5da0c8dff2a8a7fc3da7fc8ccf9c",
+     "task": 8,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/009.json",
+     "sha256": "56f611f566b47dd07caecf6db11602ddce0a8198ff1ea83991f561f48759d9f0",
+     "task": 9,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/010.json",
+     "sha256": "a99569c0d889125344f6ce407c89f28a4d731211b8be20f53517c6d19ca735eb",
+     "task": 10,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/011.json",
+     "sha256": "549b7aef0505c3fd2700af3c851049b8e5698f3bb0b8105e094ff7c249c49082",
+     "task": 11,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/012.json",
+     "sha256": "39076103b821e07cfba630aac56351ce4c66ec27a0351a17202a5a309b4d9413",
+     "task": 12,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/013.json",
+     "sha256": "bd756f4cbe569b378bd5e2b53d5d256232095e786668bb44f0fe3606f3c9bf66",
+     "task": 13,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/014.json",
+     "sha256": "9f43f7e217b85fd90e952e1d28d328d5f0d3708730883da9c76d5a8846690e37",
+     "task": 14,
+     "verdict": "UNSAT",
+     "solver_seconds": 544.15,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/015.json",
+     "sha256": "e614c677dbb7dda22acebdba1300b681a5d00d6f045b302021e8b9a43ea02056",
+     "task": 15,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.034,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/016.json",
+     "sha256": "7aa894e45246447ae4851eb48da2f75653b0571c6ca1086dbfa241e6abb4f255",
+     "task": 16,
+     "verdict": "SAT",
+     "solver_seconds": 0.066,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/017.json",
+     "sha256": "4a117292deaa04236b82ebd1142b0d4d85bc43e940870cfc137f9395dbe389b2",
+     "task": 17,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.167,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/018.json",
+     "sha256": "cf6f49129797c99a16c4ae92bf19cd3b30847fc7019f2bdc9f98c576d0c7fd5a",
+     "task": 18,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.005,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/019.json",
+     "sha256": "c853e779e66fd116309de2ac7d30f0a4ec1d486a0fc8aa0b1ee0117c00d1e6d8",
+     "task": 19,
+     "verdict": "UNSAT",
+     "solver_seconds": 7.478,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/020.json",
+     "sha256": "24cd2d664f3ed06906523c6fd4e3abdc69b8b3132352b1307faf0eb8e12c364e",
+     "task": 20,
+     "verdict": "SAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/021.json",
+     "sha256": "78ae7a348d8904c60e2841e1530d6881ba7cc9ac99fb66e9052f3496a2600915",
+     "task": 21,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.217,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/022.json",
+     "sha256": "41a147b2c3203f5af382d8e51a3942584423f83eb3db1cb0050c10d10e816350",
+     "task": 22,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.022,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/023.json",
+     "sha256": "b8363a2a5446d40842884766cf3f45744f72afbb8fac5cb966101521f55a4b8f",
+     "task": 23,
+     "verdict": "UNSAT",
+     "solver_seconds": 118.883,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/024.json",
+     "sha256": "6c038e3f04a52608c372e0ee24bd95ff137426c460d66940abc2b61036c78fdb",
+     "task": 24,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.167,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/025.json",
+     "sha256": "ec00bd6142e07977a010c1cc309369c88e866d730f3ee3d72dc0461db1ea8260",
+     "task": 25,
+     "verdict": "UNSAT",
+     "solver_seconds": 26.568,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/026.json",
+     "sha256": "b8017b23487924c209bc1bc7bbcc2389fb5a731862ddd1da28fd3e35ced16a46",
+     "task": 26,
+     "verdict": "UNSAT",
+     "solver_seconds": 34.074,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/027.json",
+     "sha256": "63e2758f0edf97715aa811c174f809e8b32782f5d67e42a823b83b4a8ff07810",
+     "task": 27,
+     "verdict": "UNSAT",
+     "solver_seconds": 30.212,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/028.json",
+     "sha256": "c55ae78b99ef7ee7a14d2f324b1b29e3fdac1fc0f08a5871079bda7f11502262",
+     "task": 28,
+     "verdict": "SAT",
+     "solver_seconds": 0.518,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/029.json",
+     "sha256": "1926b440541a4f4e09cd7c87e7d23c3942bf674252479425fa0187f928d55c11",
+     "task": 29,
+     "verdict": "UNSAT",
+     "solver_seconds": 132.831,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/030.json",
+     "sha256": "94b5d9987dbd483f33366ab0b22572c629e9b6ac2bbc18e3e3b41ad76e38e667",
+     "task": 30,
+     "verdict": "UNSAT",
+     "solver_seconds": 3.122,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/031.json",
+     "sha256": "aa88beefed8dc73dba7f57b17418811b76f07667d34ece1e76d9d256d2f3b789",
+     "task": 31,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.005,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/032.json",
+     "sha256": "1f99cd68b6373d1cc896292d53481f29e81e376de3aa6a6ee83107355611ca6a",
+     "task": 32,
+     "verdict": "SAT",
+     "solver_seconds": 6.077,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/033.json",
+     "sha256": "b9ffb50abc6e2431056904a4df53ac0d94878329f7d2200a42230c32662bc16f",
+     "task": 33,
+     "verdict": "SAT",
+     "solver_seconds": 5.326,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/034.json",
+     "sha256": "e6f73e347fc20eec4d665cfce08ea41739827c0d0bf94069b0f58ce31d010e54",
+     "task": 34,
+     "verdict": "UNSAT",
+     "solver_seconds": 29.515,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/035.json",
+     "sha256": "4bb383b4722a228e1cbfa27e064a69654bcd0bde5c7bb23d0a62b4280155160c",
+     "task": 35,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.005,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/036.json",
+     "sha256": "c66b89860ba4f2be932ce9eb5a6c18e3fbc15f16ca693a951e88133cbf64a83b",
+     "task": 36,
+     "verdict": "SAT",
+     "solver_seconds": 5.726,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/037.json",
+     "sha256": "eef2a0d4d33b058d205d846ca0b10b276aca839f91d6b41fd2c4e1707e21373a",
+     "task": 37,
+     "verdict": "SAT",
+     "solver_seconds": 438.98,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/038.json",
+     "sha256": "c78221ea94392db14c7c003c82c245000dec8ed922d5d7a7cf1956379d827c0c",
+     "task": 38,
+     "verdict": "SAT",
+     "solver_seconds": 284.849,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/039.json",
+     "sha256": "51165893ea698de179125d05f2e6ebf794012341808ebc33404916acc2d3ba34",
+     "task": 39,
+     "verdict": "UNSAT",
+     "solver_seconds": 12.536,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/040.json",
+     "sha256": "25a676db241e1bbb969a6900e4912f50bdd018928dee4cc6b125bf4a22b0bc9a",
+     "task": 40,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/041.json",
+     "sha256": "b6cdfcdd2e2c3196c041ec2a7174b45349876500080c5e59814c7f25e6cc7bd2",
+     "task": 41,
+     "verdict": "SAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/042.json",
+     "sha256": "fd098857a523347d2e366ded4b060615c155071bf39c7b95dc9138146834f9da",
+     "task": 42,
+     "verdict": "SAT",
+     "solver_seconds": 0.117,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/043.json",
+     "sha256": "7c791f21865f9c35d18998305a0817140265e77f2120ae3136fe96d0657c5064",
+     "task": 43,
+     "verdict": "SAT",
+     "solver_seconds": 370.296,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/044.json",
+     "sha256": "41cc3840924d4c42f93394bdbb9c49a0fd1f227d4b767a078af30df025a913bf",
+     "task": 44,
+     "verdict": "SAT",
+     "solver_seconds": 48.135,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/045.json",
+     "sha256": "0a180ee7e8daa1bc12482b8a7c2b099b5745be9efc233604517bb1630e9c1b3d",
+     "task": 45,
+     "verdict": "SAT",
+     "solver_seconds": 8.679,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/046.json",
+     "sha256": "b682b3452ccfefa566b623980b800e1a51e49c226841b6eb0c0f485039a7c407",
+     "task": 46,
+     "verdict": "SAT",
+     "solver_seconds": 194.832,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/047.json",
+     "sha256": "f952c8e9bd84d4dbd28e9d58fb206aa7bdb0fab64cf95bebe047cb94f5ca9d07",
+     "task": 47,
+     "verdict": "SAT",
+     "solver_seconds": 6.177,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/048.json",
+     "sha256": "3eb23165437ba93f89a7b37555de69c01983530ff1fde357c918333dcf11b15d",
+     "task": 48,
+     "verdict": "SAT",
+     "solver_seconds": 9.631,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/049.json",
+     "sha256": "ba7525caf4ea5cafcbfab303763a79b45ff046a69e4f855b89f137a4579ccabb",
+     "task": 49,
+     "verdict": "SAT",
+     "solver_seconds": 464.999,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/050.json",
+     "sha256": "bf80cdf3a4e0c077389a298fac7a54de698af210f5be8c4342966ee35d81e7d4",
+     "task": 50,
+     "verdict": "SAT",
+     "solver_seconds": 265.128,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/051.json",
+     "sha256": "314a76d2270adf93fb60ae5de5ef377ae437406ce256e82271f0f09b789e8658",
+     "task": 51,
+     "verdict": "UNSAT",
+     "solver_seconds": 83.975,
+     "slurm_failed_reason": "proof-check-1800s-deadline-censor"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/052.json",
+     "sha256": "1ae772ecc19a0e0b6fdf8dbeb7e18d09c07e798c88ea5a523e360ac0efae8fe6",
+     "task": 52,
+     "verdict": "SAT",
+     "solver_seconds": 581.61,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/053.json",
+     "sha256": "3e03082452086340e69041cd9ddb1dd3f4c29726644d91f5e0740d11fbf30f7a",
+     "task": 53,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.005,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/054.json",
+     "sha256": "8f4fad3e7e22fbdeff1ba98c93a0b637e47cdd5cbbc07d2fdb77272feded9d7a",
+     "task": 54,
+     "verdict": "SAT",
+     "solver_seconds": 97.545,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/055.json",
+     "sha256": "aaebe6c261d413398cedfdd1452337f0af6ac239f730667a1f80adeaf371f892",
+     "task": 55,
+     "verdict": "SAT",
+     "solver_seconds": 467.57,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/056.json",
+     "sha256": "24b9ecf92ba295fb2810306b04b0f3b8b64b85754f035d48e3256f30a702642a",
+     "task": 56,
+     "verdict": "SAT",
+     "solver_seconds": 21.772,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/057.json",
+     "sha256": "ae5e277136cd8eec4b6f01372ce2f56d0114d80746856fb8d3781d38ec6b4f7c",
+     "task": 57,
+     "verdict": "SAT",
+     "solver_seconds": 211.497,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/058.json",
+     "sha256": "b58e52578359401c466b0b4a9d2abb746afb0ab61422570aa472b35da778f3f1",
+     "task": 58,
+     "verdict": "SAT",
+     "solver_seconds": 0.317,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/059.json",
+     "sha256": "8bc12dc4aba7c38049cea76469b0ca64c546dc779cbaea040814c917baf46049",
+     "task": 59,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.005,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/060.json",
+     "sha256": "677bbc7ce66f4e0fd5a9a6ea20f73f91434d42263589864ad2b254a6583f38d7",
+     "task": 60,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.005,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/061.json",
+     "sha256": "83b73e86b08e94d0db88dde8dba06ef6ab59526a52ed8be297474d6da9c42e47",
+     "task": 61,
+     "verdict": "SAT",
+     "solver_seconds": 28.77,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/062.json",
+     "sha256": "de7cd7345d0d5ce48b188672c8b083e0c7033e21b4d0d308ce99c1b3da423aba",
+     "task": 62,
+     "verdict": "UNKNOWN",
+     "solver_seconds": 600.006,
+     "slurm_failed_reason": "solver-timeout-UNKNOWN"
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/063.json",
+     "sha256": "7f1900a4e75353dc0290a45e3730e1cba19294ca6692ce2e9af3ca73737d60ba",
+     "task": 63,
+     "verdict": "UNSAT",
+     "solver_seconds": 0.067,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/064.json",
+     "sha256": "da7c85d189dda1e6dac45520fd23942885d92f7f457e0ed69b05056560b9a28c",
+     "task": 64,
+     "verdict": "SAT",
+     "solver_seconds": 0.167,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/065.json",
+     "sha256": "679b4830c406b7783ae832f40a990ab26e26ba50754e0eb46df81cc009edca06",
+     "task": 65,
+     "verdict": "SAT",
+     "solver_seconds": 3.322,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/066.json",
+     "sha256": "b5ebdf63f3fd2e5e22a543dbfac1cb3fdd2071baba46fecf1ae8b8e0b2833a5d",
+     "task": 66,
+     "verdict": "SAT",
+     "solver_seconds": 6.078,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/067.json",
+     "sha256": "1115e4840e2aebba2badf55a4c730eebb95bb28811f79586d3c22ce7e98935a7",
+     "task": 67,
+     "verdict": "SAT",
+     "solver_seconds": 6.979,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/068.json",
+     "sha256": "930a2b3ff15047b9d09c411b20665d7a9d37c8ca2905e60dbc3775dc9738d89b",
+     "task": 68,
+     "verdict": "SAT",
+     "solver_seconds": 4.274,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/069.json",
+     "sha256": "0bdc691353c9acce0746bb3ad7649c1da42d04a363194a867c42537565d2a0dd",
+     "task": 69,
+     "verdict": "SAT",
+     "solver_seconds": 5.377,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/070.json",
+     "sha256": "43ed86621da2e9baf658a6b49ba2405035a1f8cf044ccd35a7f86ffbde6eb6c3",
+     "task": 70,
+     "verdict": "SAT",
+     "solver_seconds": 5.425,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/071.json",
+     "sha256": "1422e84cd7b1301bb8ea5d4803684669687acabcfb30bddd4f21641f0eb0417c",
+     "task": 71,
+     "verdict": "SAT",
+     "solver_seconds": 5.774,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/072.json",
+     "sha256": "2a7c61308e85a6a11177aca4c7aa204beb768647ab724658d3428b2914db6b0a",
+     "task": 72,
+     "verdict": "SAT",
+     "solver_seconds": 7.679,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/073.json",
+     "sha256": "03118aa659b8cd2263558a74386e834b31201c9316b7a792df9f6726725f848c",
+     "task": 73,
+     "verdict": "SAT",
+     "solver_seconds": 0.517,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/074.json",
+     "sha256": "4513c3e374ec0059dc7f99f1639fab92cd77b7a6be8bea1220e2a7f7b77448d2",
+     "task": 74,
+     "verdict": "SAT",
+     "solver_seconds": 9.031,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/075.json",
+     "sha256": "53fbb70ed7a49690f6b3b2539fb4c60e80da7b4bfc8c9449f11295afb569fc90",
+     "task": 75,
+     "verdict": "SAT",
+     "solver_seconds": 10.133,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/076.json",
+     "sha256": "6fd86b48889465fdd6dfb4bd053dbd3d0c2fa35401668ee2b6143b434e34a0aa",
+     "task": 76,
+     "verdict": "SAT",
+     "solver_seconds": 11.184,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/077.json",
+     "sha256": "5bf5460c61355f55dacce4a1f9146d075998f4e21eb5f234e02ae140a28d2205",
+     "task": 77,
+     "verdict": "SAT",
+     "solver_seconds": 14.084,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/078.json",
+     "sha256": "3fe41cdb4430bf2e1e823a41b3ac49e29b35a6cec0cbe4eed03f11d187ddd81f",
+     "task": 78,
+     "verdict": "SAT",
+     "solver_seconds": 13.433,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/079.json",
+     "sha256": "2d0f036ba2d0695d7b908175c52f0910725e5f73f25548278208dbb7ea369e45",
+     "task": 79,
+     "verdict": "SAT",
+     "solver_seconds": 12.279,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/080.json",
+     "sha256": "5d6e6628da3e61032cfd5621a24ec643d41f93d7c42c7c2b28cc2bb95d31b2be",
+     "task": 80,
+     "verdict": "SAT",
+     "solver_seconds": 12.379,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/081.json",
+     "sha256": "9f6553daf160377cb35493a237495180b9aaebd00142687837a804b64bb5c971",
+     "task": 81,
+     "verdict": "SAT",
+     "solver_seconds": 14.532,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/082.json",
+     "sha256": "1c9cc7df91d2e927e6f3022e10b52fc356dc5fdd28002abc4ff37765c4b7b7a8",
+     "task": 82,
+     "verdict": "SAT",
+     "solver_seconds": 23.451,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/083.json",
+     "sha256": "a00f7165c2ac622ecae5e7d795a23181453af5079f486d98a2957204e797ab14",
+     "task": 83,
+     "verdict": "SAT",
+     "solver_seconds": 29.608,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/084.json",
+     "sha256": "34618f4309290a2d4ce9b90e83ec3196dc759585d85533b96e2f9ecb2302dc8f",
+     "task": 84,
+     "verdict": "SAT",
+     "solver_seconds": 17.148,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/085.json",
+     "sha256": "de0c06a4aaa321c051c6c8ab2826e7601c4ea1f80adfb4de929b5ed33217ee29",
+     "task": 85,
+     "verdict": "SAT",
+     "solver_seconds": 36.018,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/086.json",
+     "sha256": "af1645a6952d721f2e1a88b6a43aa0920132a1957f79e08d0cc4e238432a664d",
+     "task": 86,
+     "verdict": "SAT",
+     "solver_seconds": 75.276,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/087.json",
+     "sha256": "b0cbc7ab050df31a1b483c28084997b3ce6491fd4b0df44ab2a724c1993acb7a",
+     "task": 87,
+     "verdict": "SAT",
+     "solver_seconds": 18.686,
+     "slurm_failed_reason": null
+    },
+    {
+     "path": "benchmarks/runs/20261007-firstopen-b26ef-regression-wv2-89/results/088.json",
+     "sha256": "488cd0441b063dbec28f86bda92248f2b3e425df2c8bfe2fae8298a5801ccafa",
+     "task": 88,
+     "verdict": "SAT",
+     "solver_seconds": 1.919,
+     "slurm_failed_reason": null
+    }
+   ]
+  }
+ },
+ "full44": {
+  "scorer": {
+   "path": "tools/bench/score_fixed44.py",
+   "sha256": "0678fca60ee82729b5018aecb30010b9d8d3f76dc25419488a4bbc9712fee2a0"
+  },
+  "merged_coverage": {
+   "path": "benchmarks/reports/2026-10-07-symmetry-units-clean-build-handoff/reference-coverage.json",
+   "sha256": "a5f285ffd89910c066437bce086cf22d13ec9478e57b70522ac05274d90e2570",
+   "rescored_identical": true
+  },
+  "dispositions": {
+   "missing": 5,
+   "checked_UNSAT": 1,
+   "resource_incomplete": 37,
+   "checked_SAT": 1
+  },
+  "independently_verified": 2,
+  "verified": [
+   {
+    "rank": 147,
+    "instance": "tierD24-26/1b84df53843ecd90ec8c3c7a01cada6c-ramsey_4_4_18.normalised.cnf.xz",
+    "status": "checked_UNSAT",
+    "solver_seconds": 0.168
+   },
+   {
+    "rank": 401,
+    "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
+    "status": "checked_SAT",
+    "solver_seconds": 42.273
+   }
+  ],
+  "missing_retention_ranks": [
+   263,
+   630,
+   744
+  ],
+  "pending_snapshot": {
+   "captured_at": "2026-10-07T23:08:08Z",
+   "tasks": [
+    {
+     "job_task": "1755462_4",
+     "state": "RUNNING",
+     "elapsed": "43:54",
+     "node": "node013",
+     "original_rank": 226
+    },
+    {
+     "job_task": "1755422_6",
+     "state": "RUNNING",
+     "elapsed": "44:47",
+     "node": "node015",
+     "original_rank": 291
+    },
+    {
+     "job_task": "1755331_3",
+     "state": "RUNNING",
+     "elapsed": "49:45",
+     "node": "node016",
+     "original_rank": 190
+    },
+    {
+     "job_task": "1755331_18",
+     "state": "RUNNING",
+     "elapsed": "49:45",
+     "node": "node002",
+     "original_rank": 540
+    },
+    {
+     "job_task": "1755331_29",
+     "state": "RUNNING",
+     "elapsed": "49:45",
+     "node": "node001",
+     "original_rank": 887
+    },
+    {
+     "job_task": "1755331_0",
+     "state": "RUNNING",
+     "elapsed": "49:46",
+     "node": "node006",
+     "original_rank": 82
+    },
+    {
+     "job_task": "1755331_1",
+     "state": "RUNNING",
+     "elapsed": "49:46",
+     "node": "node005",
+     "original_rank": 97
+    }
+   ]
+  }
+ }
+}
