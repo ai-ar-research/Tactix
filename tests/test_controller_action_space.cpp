@@ -26,9 +26,15 @@ int main() {
   assert(name({Branching::Vmtf, static_cast<Restart>(255), Phase::Saved}).empty());
   assert(!valid({Branching::Vmtf, Restart::AdaptiveGlue, static_cast<Phase>(5)}));
 
-  unsigned excluded = 0;
+  unsigned excluded = 0, retired = 0;
   for (const auto &rule : tactix_rules()) {
     const auto reason = root_exclusion(rule);
+    if (rule.retired) {
+      ++retired;
+      assert(std::string_view(rule.name) == "Retired39");
+      assert(reason == "retired-action");
+      continue;
+    }
     if (!reason.empty()) {
       ++excluded;
       assert(std::string_view(rule.name) == "Decide" ||
@@ -38,6 +44,7 @@ int main() {
     }
   }
   assert(excluded == 4);
+  assert(retired == 1);
   assert(root_exclusion(tactix_rules()[tactix_rule_id("BVE")]).empty());
   assert(root_exclusion(tactix_rules()[tactix_rule_id("SubstitutionRedundancy")]).empty());
   assert(root_exclusion(tactix_rules()[tactix_rule_id("Rephase")]).empty());
