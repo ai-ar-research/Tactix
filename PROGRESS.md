@@ -133,10 +133,10 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 Final runtime source `76e1f68b8` passes focused Debug and sanitizer/proof/model
 checks 13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-07-final-parallel-acceptance-handoff/README.md)
-owns all active pin/job bindings and provisional dispositions. Final Debug
-`1751523` is running; [preceding equality Debug](benchmarks/reports/2026-10-07-equality-full-debug-terminal/README.md)
-passes313/315, with NFS recheck passing and doc-size debt remaining. Claude smoke `1751519` and
-native broad `1751520` are queued; intermediate `1751515`/`1751516` remain live.
+owns all active pin/job bindings and provisional dispositions. [Final Debug](benchmarks/reports/2026-10-07-prefix-meter-full-debug-terminal/README.md)
+`1751523` finishes314/315; only doc-size debt fails, and post-run pin verification passes.
+[Claude smoke](benchmarks/reports/2026-10-07-final-fuzz-resource-priority-handoff/README.md) `1751519` has zero owner-reported failures; native broad `1751520` runs
+and full target `1751604` is queued. Owner marks cancelled `1751515`/`1751516` superseded, with no verdict.
 B28+C5 `1751524`, Rank1–50 `1751525`, WV100 `1751526`, WV2–89 `1751527`
 are submitted concurrently. Grade each gate; pending checks never promote.
 
