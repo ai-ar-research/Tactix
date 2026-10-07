@@ -553,6 +553,17 @@ def validate_runtime_pin_contract(campaign, manifest):
         raise RuntimeError(f"runtime pin files missing {absent}")
 
 
+def release_scratch(scratch, *names):
+    """Release completed anonymous artifacts; named scratch remains unchanged."""
+    release = getattr(scratch, "release", None)
+    if release is None:
+        return
+    for name in names:
+        if not isinstance(name, str):
+            raise TypeError("scratch release requires logical names")
+        release(name)
+
+
 def proof_stage(scratch, name, command, timeout, produced=None,
                 *, input_has_empty_clause=None, trivial_lrat_spelling=None):
     """Run one proof stage and require its exact oracle/output contract."""
@@ -583,18 +594,24 @@ def proof_stage(scratch, name, command, timeout, produced=None,
         result["produced_bytes"] = (
             produced.stat().st_size if produced.is_file() else None
         )
+    release_scratch(scratch, f"{name}.stdout", f"{name}.stderr", f"{name}.time")
     return result
 
 
 def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
-                      reported_route=None):
+                      reported_route=None, *, release_intermediates=False,
+                      retain_original_proof=False, cnf_scratch_name=None,
+                      proof_scratch_name=None):
+    if release_intermediates and (not cnf_scratch_name or not proof_scratch_name):
+        raise ValueError("anonymous early release requires logical CNF and proof names")
     started = time.monotonic()
     stages = []
     try:
         with proof_pipeline_deadline(timeout):
             return check_unsat_proof_until_deadline(
                 campaign, certificate, cnf, proof, scratch, timeout,
-                reported_route, started, stages)
+                reported_route, started, stages, release_intermediates,
+                retain_original_proof, cnf_scratch_name, proof_scratch_name)
     except ProofPipelineDeadline:
         # Conversion is also inside the allowance. Keep completed stage
         # evidence and never hide an already-recorded rejection behind a TO.
@@ -615,10 +632,22 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
                     exit_code=None, timed_out=not prior_failure,
                     deadline_expired=True, timeout_seconds=timeout,
                     output_tail=stages[-1]['output_tail'], stages=stages)
+    finally:
+        if release_intermediates:
+            release_scratch(
+                scratch, cnf_scratch_name, 'checker.cnf', 'proof.binary.lsr', 'proof.lsr',
+                'proof.drat', 'proof.lrat', 'proof.original-input.lrat',
+                'proof.kernel.pbp')
+            if not retain_original_proof:
+                release_scratch(scratch, proof_scratch_name)
 
 
 def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
-                                    timeout, reported_route, started, stages):
+                                    timeout, reported_route, started, stages,
+                                    release_intermediates=False,
+                                    retain_original_proof=False,
+                                    cnf_scratch_name=None,
+                                    proof_scratch_name=None):
     """Check one certificate, stopping at the first failed pipeline stage."""
     checker_cnf = scratch / 'checker.cnf'
     spelling = canonical_checker_cnf(cnf, checker_cnf)
@@ -633,17 +662,26 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
         # Witnessed SR requires no-option DSR elaboration and Trestle.
         binary_lsr = scratch / 'proof.binary.lsr'
         text_lsr = scratch / 'proof.lsr'
-        for name, command in routed_dsr_stages(
+        commands = list(routed_dsr_stages(
                 campaign / 'pins/dsr-trim', campaign / 'pins/dsr-compress',
                 campaign / 'pins/srcheck', cnf, proof, binary_lsr, text_lsr,
-                checker_cnf=checker_cnf, witness_free=False):
+                checker_cnf=checker_cnf, witness_free=False))
+        if release_intermediates:
+            release_scratch(scratch, cnf_scratch_name)
+        for name, command in commands:
             made = command[-1] if name in ('dsr-trim', 'dsr-compress') else None
             stages.append(proof_stage(scratch, name, command, remaining(), made))
             if stages[-1]['result'] != 'verified':
                 break
             if name == 'dsr-trim':
                 (bridge_trivial_input_binary_lsr if made == binary_lsr
-                 else bridge_trivial_input_lsr)(cnf, made)
+                 else bridge_trivial_input_lsr)(checker_cnf, made)
+                if release_intermediates and not retain_original_proof:
+                    release_scratch(scratch, proof_scratch_name)
+            elif name == 'dsr-compress' and release_intermediates:
+                release_scratch(scratch, 'proof.binary.lsr')
+            elif name == 'srcheck' and release_intermediates:
+                release_scratch(scratch, 'proof.lsr')
 
     def append_witness_free_drat():
         # The audited, witness-free DSR stream has a lossless DRAT spelling.
@@ -655,10 +693,16 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
                                exit_code=None, timed_out=False,
                                output_tail='DSR proof contains an SR witness'))
             return
-        for name, command in drat_stages(
+        if release_intermediates and not retain_original_proof:
+            release_scratch(scratch, proof_scratch_name)
+        commands = list(drat_stages(
                 campaign / 'pins/drat-trim', campaign / 'pins/cake_lpr',
-                cnf, drat, lrat, checker_cnf=checker_cnf):
+                cnf, drat, lrat, checker_cnf=checker_cnf))
+        if release_intermediates:
+            release_scratch(scratch, cnf_scratch_name)
+        for name, command in commands:
             if name == 'cake_lpr':
+                checked_lrat_name = 'proof.lrat'
                 try:
                     checked_lrat, restatements = restate_duplicate_input_lrat(
                         checker_cnf, spelling, lrat,
@@ -669,12 +713,20 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
                                        output_tail=str(error)))
                     break
                 command = [*command[:-1], checked_lrat]
+                if checked_lrat != lrat:
+                    checked_lrat_name = 'proof.original-input.lrat'
                 stages[-1]['input_restatements'] = restatements
+                if release_intermediates and checked_lrat != lrat:
+                    release_scratch(scratch, 'proof.lrat')
             stages.append(proof_stage(
                 scratch, name, command, remaining(),
                 lrat if name == 'drat-trim' else None,
                 input_has_empty_clause=spelling['first_empty_clause'] is not None,
                 trivial_lrat_spelling=spelling if name == 'drat-trim' else None))
+            if release_intermediates and name == 'drat-trim':
+                release_scratch(scratch, 'proof.drat')
+            elif release_intermediates and name == 'cake_lpr':
+                release_scratch(scratch, checked_lrat_name)
             if stages[-1]['result'] != 'verified':
                 break
 
@@ -703,9 +755,11 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
     if certificate == "dsr" and route == "pbp":
         raise RuntimeError("explicit DSR arm emitted a PBP certificate")
     if certificate == "drat":
+        command = [campaign / "pins/drat-trim", checker_cnf, proof]
+        if release_intermediates:
+            release_scratch(scratch, cnf_scratch_name)
         stages.append(proof_stage(
-            scratch, "drat-trim",
-            [campaign / "pins/drat-trim", checker_cnf, proof], remaining(),
+            scratch, "drat-trim", command, remaining(),
             input_has_empty_clause=spelling['first_empty_clause'] is not None))
         pipeline = "drat-trim"
     elif certificate == "auto" and route == "pbp":
@@ -716,11 +770,18 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
             # Clear stale elaboration in both scratch implementations.
             with kernel.open("wb"):
                 pass
-        for name, command in pb_stages(
+        commands = list(pb_stages(
                 campaign / "pins/veripb", campaign / "pins/cake-pb-cnf",
-                cnf, proof, kernel, checker_cnf=checker_cnf):
+                cnf, proof, kernel, checker_cnf=checker_cnf))
+        if release_intermediates:
+            release_scratch(scratch, cnf_scratch_name)
+        for name, command in commands:
             made = kernel if name == "veripb" else None
             stages.append(proof_stage(scratch, name, command, remaining(), made))
+            if release_intermediates and name == 'veripb' and not retain_original_proof:
+                release_scratch(scratch, proof_scratch_name)
+            elif release_intermediates and name == 'cake-pb-cnf':
+                release_scratch(scratch, 'proof.kernel.pbp')
             if stages[-1]["result"] != "verified":
                 break
         pipeline = "veripb-cake-pb"
@@ -823,9 +884,11 @@ def main():
     else:
         scratch = Path(tempfile.mkdtemp(prefix=f"tactix-runtime-{task:03d}-",
                                        dir=scratch_root))
-    cnf = scratch / "input.cnf"
-    proof = scratch / ("proof.out" if certificate == "auto" else
-                       "proof.dsr" if certificate == "dsr" else "proof.drat")
+    cnf_name = "input.cnf"
+    proof_name = ("proof.out" if certificate == "auto" else
+                  "proof.dsr" if certificate == "dsr" else "proof.drat")
+    cnf = scratch / cnf_name
+    proof = scratch / proof_name
     stdout = scratch / "solver.stdout"
     stderr = scratch / "solver.stderr"
     result = None
@@ -931,13 +994,19 @@ def main():
         # result and never satisfies the cumulative correctness gate.
         atomic_json(provisional_path, provisional_result(
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
+        release_scratch(scratch, 'solver.stderr', 'solve.time', 'solver.perf')
         if verdict == "UNSAT" and proof.is_file():
+            reported_route = solver_reported_route(stdout)
+            release_scratch(scratch, 'solver.stdout')
             checked = check_unsat_proof(
                 CAMPAIGN, certificate, cnf, proof, scratch, check_timeout,
-                reported_route=solver_reported_route(stdout))
+                reported_route=reported_route, release_intermediates=True,
+                retain_original_proof=retention_contract is not None,
+                cnf_scratch_name=cnf_name, proof_scratch_name=proof_name)
             result["proof_check"] = checked
             result["valid"] = checked["result"] == "verified"
         elif verdict == "SAT":
+            release_scratch(scratch, proof_name)
             checker_out = scratch / "model.stdout"
             checker_err = scratch / "model.stderr"
             checked = measured([CAMPAIGN / "pins/checkmodel", cnf, stdout],
@@ -949,6 +1018,10 @@ def main():
             checked["stderr_tail"] = tail(checker_err)
             result["model_check"] = checked
             result["valid"] = checked["result"] == "verified"
+            release_scratch(scratch, cnf_name, 'solver.stdout', 'model.stdout',
+                            'model.stderr', 'model.time')
+        else:
+            release_scratch(scratch, cnf_name, proof_name, 'solver.stdout')
         result["valid"] = checked_verdict_valid(
             row["expected"], verdict, solve, result["valid"])
         retention = retention_contract

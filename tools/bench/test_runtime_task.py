@@ -193,7 +193,13 @@ class RuntimeTaskTests(unittest.TestCase):
             self.assertTrue(pid.exists(), 'helper must actually reach its hanging body')
             status = Path('/proc') / pid.read_text() / 'stat'
             until = time.monotonic() + 0.2
-            while status.exists() and status.read_text().split()[2] != 'Z':
+            while status.exists():
+                try:
+                    state = status.read_text().split()[2]
+                except OSError:
+                    break
+                if state == 'Z':
+                    break
                 self.assertLess(time.monotonic(), until, 'checker survived pipeline deadline')
                 time.sleep(0.01)
 
@@ -267,6 +273,32 @@ class RuntimeTaskTests(unittest.TestCase):
             self.assertEqual(result['command'], expected)
             self.assertEqual(result['timeout_seconds'], 57600)
             self.assertEqual(result['result'], 'verified')
+
+    def test_anonymous_stage_release_preserves_diagnostics_and_output_size(self):
+        from anonymous_scratch import AnonymousScratch
+        from runtime_task import proof_stage
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = AnonymousScratch(directory)
+            self.addCleanup(scratch.close)
+            produced = scratch/'proof.lrat'
+            def measured(_command, stdout, stderr, metrics, _timeout, environment=None):
+                stdout.write_text('s VERIFIED\nkept tail\n')
+                stderr.write_text('diagnostic\n')
+                metrics.write_text('max_rss_kb=7\n')
+                produced.write_bytes(b'1234567')
+                return dict(exit_code=0, wall_seconds=0.1, timed_out=False,
+                            peak_rss_kb=7)
+            with patch('runtime_task.measured', measured):
+                result = proof_stage(
+                    scratch, 'drat-trim', ['checker', 'cnf', 'proof', '-L', produced],
+                    10, produced)
+            self.assertEqual(result['produced_bytes'], 7)
+            self.assertIn('kept tail', result['output_tail'])
+            self.assertEqual(result['peak_rss_kb'], 7)
+            self.assertFalse(scratch.contains('drat-trim.stdout'))
+            self.assertFalse(scratch.contains('drat-trim.stderr'))
+            self.assertFalse(scratch.contains('drat-trim.time'))
+            self.assertEqual(produced.read_bytes(), b'1234567')
 
     def test_atomic_json_creates_missing_output_directory(self):
         with tempfile.TemporaryDirectory() as root:
@@ -384,6 +416,136 @@ class RuntimeTaskTests(unittest.TestCase):
             self.assertEqual((work/'checker.cnf').read_text(), 'p cnf 1 2\n1 0\n-1 0\n')
             with self.assertRaisesRegex(RuntimeError, 'explicit DSR'):
                 check_unsat_proof(work, 'dsr', cnf, proof, work, 10, 'pbp')
+
+    def test_anonymous_witness_free_route_releases_at_checked_handoffs(self):
+        from anonymous_scratch import AnonymousScratch
+        from runtime_task import check_unsat_proof
+        for retain in (False, True):
+            with self.subTest(retain=retain), tempfile.TemporaryDirectory() as directory:
+                scratch = AnonymousScratch(directory)
+                self.addCleanup(scratch.close)
+                cnf, proof = scratch/'input.cnf', scratch/'proof.out'
+                cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+                proof.write_bytes(b'original-certificate')
+                checker = None
+                def canonical(source, destination):
+                    nonlocal checker
+                    self.assertTrue(source.exists())
+                    destination.write_bytes(source.read_bytes())
+                    checker = destination
+                    return dict(first_empty_clause=None, duplicate_literal_clauses=0,
+                                clauses=2)
+                def convert(source, destination):
+                    self.assertTrue(source.exists())
+                    destination.write_bytes(source.read_bytes())
+                    return True
+                def stage(_scratch, name, command, _timeout, produced=None, **_kwargs):
+                    if name == 'drat-trim':
+                        self.assertFalse(scratch.contains('input.cnf'))
+                        self.assertEqual(scratch.contains('proof.out'), retain)
+                        self.assertTrue(Path(command[2]).exists())
+                        produced.write_bytes(b'elaborated-lrat')
+                    else:
+                        self.assertEqual(name, 'cake_lpr')
+                        self.assertFalse(scratch.contains('proof.drat'))
+                        self.assertEqual(Path(command[-1]).read_bytes(), b'elaborated-lrat')
+                    return dict(name=name, result='verified', exit_code=0,
+                                timed_out=False, output_tail='verified')
+                with patch('runtime_task.canonical_checker_cnf', canonical), \
+                     patch('runtime_task.certificate_route', return_value='drat'), \
+                     patch('runtime_task.dsr_proof_as_drat', convert), \
+                     patch('runtime_task.proof_stage', side_effect=stage):
+                    result = check_unsat_proof(
+                        Path(directory), 'auto', cnf, proof, scratch, 10,
+                        'dsr-cake_lpr', release_intermediates=True,
+                        retain_original_proof=retain,
+                        cnf_scratch_name='input.cnf', proof_scratch_name='proof.out')
+                self.assertEqual(result['result'], 'verified')
+                self.assertFalse(scratch.contains('input.cnf'))
+                self.assertFalse(scratch.contains('checker.cnf'))
+                self.assertEqual(scratch.contains('proof.out'), retain)
+                if retain:
+                    self.assertEqual(proof.read_bytes(), b'original-certificate')
+                    scratch.release('proof.out')
+                self.assertFalse(scratch.exists())
+
+    def test_anonymous_witnessed_route_releases_each_finished_generation(self):
+        from anonymous_scratch import AnonymousScratch
+        from runtime_task import check_unsat_proof
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = AnonymousScratch(directory)
+            self.addCleanup(scratch.close)
+            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            proof.write_bytes(b'witnessed')
+            def routes(_trim, _compress, _checker, _cnf, _proof,
+                       binary_lsr, text_lsr, **_kwargs):
+                # Deliberately return a generator whose body observes the
+                # original inputs. The caller must materialize it before the
+                # CNF is released, then use only the checker spelling.
+                self.assertTrue(_cnf.exists())
+                checker = _kwargs['checker_cnf']
+                yield ('dsr-trim', ['trim', checker, _proof, binary_lsr])
+                yield ('dsr-compress', ['compress', '-d', binary_lsr, text_lsr])
+                yield ('srcheck', ['check', checker, text_lsr])
+            def stage(_scratch, name, _command, _timeout, produced=None, **_kwargs):
+                if name == 'dsr-trim':
+                    self.assertTrue(scratch.contains('proof.out'))
+                    self.assertFalse(scratch.contains('input.cnf'))
+                    produced.write_bytes(b'binary-lsr')
+                elif name == 'dsr-compress':
+                    self.assertFalse(scratch.contains('proof.out'))
+                    self.assertTrue(scratch.contains('proof.binary.lsr'))
+                    produced.write_bytes(b'text-lsr')
+                else:
+                    self.assertEqual(name, 'srcheck')
+                    self.assertFalse(scratch.contains('proof.binary.lsr'))
+                    self.assertEqual((scratch/'proof.lsr').read_bytes(), b'text-lsr')
+                return dict(name=name, result='verified', exit_code=0,
+                            timed_out=False, output_tail='verified')
+            def canonical(source, destination):
+                destination.write_bytes(source.read_bytes())
+                return dict(first_empty_clause=None, duplicate_literal_clauses=0,
+                            clauses=2)
+            with patch('runtime_task.canonical_checker_cnf', side_effect=canonical), \
+                 patch('runtime_task.certificate_route', return_value='dsr'), \
+                 patch('runtime_task.routed_dsr_stages', side_effect=routes), \
+                 patch('runtime_task.bridge_trivial_input_binary_lsr', return_value=False), \
+                 patch('runtime_task.proof_stage', side_effect=stage):
+                result = check_unsat_proof(
+                    Path(directory), 'auto', cnf, proof, scratch, 10,
+                    'dsr-trestle', release_intermediates=True,
+                    cnf_scratch_name='input.cnf', proof_scratch_name='proof.out')
+            self.assertEqual(result['result'], 'verified')
+            self.assertFalse(scratch.exists())
+
+    def test_anonymous_pbp_releases_proof_only_after_veripb_handoff(self):
+        from anonymous_scratch import AnonymousScratch
+        from runtime_task import check_unsat_proof
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = AnonymousScratch(directory)
+            self.addCleanup(scratch.close)
+            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
+            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+            proof.write_text('pseudo-Boolean proof version 3.0\n')
+            def stage(_scratch, name, _command, _timeout, produced=None, **_kwargs):
+                if name == 'veripb':
+                    self.assertTrue(scratch.contains('proof.out'))
+                    produced.write_bytes(b'kernel')
+                else:
+                    self.assertEqual(name, 'cake-pb-cnf')
+                    self.assertFalse(scratch.contains('proof.out'))
+                    self.assertEqual((scratch/'proof.kernel.pbp').read_bytes(), b'kernel')
+                return dict(name=name, result='verified', exit_code=0,
+                            timed_out=False, output_tail='verified')
+            with patch('runtime_task.certificate_route', return_value='pbp'), \
+                 patch('runtime_task.proof_stage', side_effect=stage):
+                result = check_unsat_proof(
+                    Path(directory), 'auto', cnf, proof, scratch, 10, 'pbp',
+                    release_intermediates=True,
+                    cnf_scratch_name='input.cnf', proof_scratch_name='proof.out')
+            self.assertEqual(result['result'], 'verified')
+            self.assertFalse(scratch.exists())
 
     def test_manifest_timeouts_are_enforced(self):
         manifest = {'resource_contract': {'solve_timeout': 300,

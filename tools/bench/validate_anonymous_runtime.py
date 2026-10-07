@@ -19,20 +19,33 @@ checks=[]
 for verdict,formula in [('SAT','p cnf 2 1\n1 2 0\n'),('UNSAT','p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n')]:
     s=AnonymousScratch()
     try:
-        cnf=s/'input.cnf';proof=s/('proof.out' if certificate=='auto' else 'proof.dsr' if certificate=='dsr' else 'proof.drat');out=s/'solver.stdout';err=s/'solver.stderr'
+        proof_name=('proof.out' if certificate=='auto' else 'proof.dsr' if certificate=='dsr' else 'proof.drat')
+        cnf=s/'input.cnf';proof=s/proof_name;out=s/'solver.stdout';err=s/'solver.stderr'
         cnf.write_text(formula)
         result=runtime.measured([c/arm['path'],*arm['arguments'],cnf,proof],out,err,s/'time',30)
         assert result['exit_code']=={'SAT':10,'UNSAT':20}[verdict],result
         assert runtime.solver_summary(out)[0]==verdict
         if verdict=='SAT':
+            certificate_bytes=proof.stat().st_size
+            certificate_sha256=runtime.sha256(proof)
+            assert s.release(proof_name)
+            assert s.contains('input.cnf') and s.contains('solver.stdout')
             checked=runtime.measured([c/'pins/checkmodel',cnf,out],s/'checker.out',s/'checker.err',s/'check.time',30)
             assert checked['exit_code']==0,(checked,runtime.tail(s/'checker.out'))
+            assert certificate_bytes >= 0 and len(certificate_sha256)==64
+            for name in ('input.cnf','solver.stdout','checker.out','checker.err','check.time'):
+                s.release(name)
         else:
+            reported_route=runtime.solver_reported_route(out)
+            s.release('solver.stdout')
             checked=runtime.check_unsat_proof(
                 c,certificate,cnf,proof,s,30,
-                reported_route=runtime.solver_reported_route(out))
+                reported_route=reported_route,release_intermediates=True,
+                cnf_scratch_name='input.cnf',proof_scratch_name=proof_name)
             assert checked['result']=='verified',checked
-        assert all(os.fstat(fd).st_nlink==0 for fd in s.handles.values())
+        for name in ('solver.stderr','time'):
+            s.release(name)
+        assert not s.exists()
         checks.append(dict(verdict=verdict,solve=result,check=checked))
     finally:s.close()
     assert not s.exists() and not cnf.exists() and not proof.exists()

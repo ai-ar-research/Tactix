@@ -38,6 +38,44 @@ class ScratchTests(unittest.TestCase):
             self.assertFalse(p.exists())
             s.close()
 
+    def test_release_returns_blocks_and_preserves_other_handles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = AnonymousScratch(tmp)
+            first, second = s/'first', s/'second'
+            first.write_bytes(b'a' * (1 << 20))
+            second.write_bytes(b'keep')
+            self.assertTrue(s.release('first'))
+            self.assertFalse(first.exists())
+            self.assertEqual(second.read_bytes(), b'keep')
+            self.assertFalse(s.release('first'))
+            with self.assertRaises(TypeError):
+                s.release(first)
+            with self.assertRaisesRegex(RuntimeError, 'cannot be reopened'):
+                s/'first'
+            replacement = s/'replacement'
+            replacement.write_bytes(b'new')
+            # Linux normally reuses the just-closed descriptor. A stale proc
+            # path may therefore name the replacement, but it is never an
+            # accepted release identity and duplicate logical cleanup is safe.
+            self.assertEqual(replacement.read_bytes(), b'new')
+            self.assertFalse(s.release('first'))
+            self.assertEqual(replacement.read_bytes(), b'new')
+            s.close()
+
+    def test_release_closes_and_tombstones_after_truncate_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = AnonymousScratch(tmp)
+            artifact = s/'artifact'
+            artifact.write_bytes(b'content')
+            with mock.patch.object(os, 'ftruncate', side_effect=OSError('injected truncate failure')):
+                with self.assertRaisesRegex(OSError, 'injected truncate failure'):
+                    s.release('artifact')
+            self.assertFalse(artifact.exists())
+            self.assertFalse(s.contains('artifact'))
+            with self.assertRaisesRegex(RuntimeError, 'cannot be reopened'):
+                s/'artifact'
+            s.close()
+
     def test_abnormal_exit(self):
         for mode in ['crash','timeout','term','kill']:
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
