@@ -295,6 +295,207 @@ time.sleep(60)
                     if p.poll() is None:p.kill();p.wait()
                     p.stdout.close()
 
+    def _ledger(self, root, slots=4, identity=None):
+        return anonymous_scratch.NodeScratchLedger(
+            root, Path(root)/'private-ledger', 'slot-', slots, identity)
+
+    def test_shared_ledger_lists_live_slots_and_refuses_when_full(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = self._ledger(tmp, 2, 'job-a')
+            second = self._ledger(tmp, 2, 'job-b')
+            try:
+                self.assertEqual((first.slot, second.slot), (0, 1))
+                first.publish(5 << 20)
+                live = {p['slot']: p for p in second.participants()}
+                self.assertEqual(live[0]['used_bytes'], 5 << 20)
+                self.assertEqual(live[0]['identity'], 'job-a')
+                self.assertEqual(live[1]['state'], 'running')
+                with self.assertRaisesRegex(RuntimeError, 'scratch_admission') as caught:
+                    self._ledger(tmp, 2)
+                self.assertTrue(caught.exception.scratch_details['ledger_full'])
+                first.close()
+                # The stale record remains on disk but its lock is gone.
+                self.assertEqual([p['slot'] for p in second.participants()], [1])
+                reused = self._ledger(tmp, 2, 'job-c')
+                self.assertEqual(reused.slot, 0)
+                reused.close()
+            finally:
+                first.close()
+                second.close()
+            self.assertEqual(sorted(x.name for x in (Path(tmp)/'private-ledger').iterdir()),
+                             ['slot-000', 'slot-001'])
+
+    def test_shared_ledger_rejects_nonprivate_directory_and_symlinked_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            public = root/'public'
+            public.mkdir(mode=0o755)
+            with self.assertRaisesRegex(OSError, 'not private'):
+                anonymous_scratch.NodeScratchLedger(root, public, 'slot-', 2)
+            private = root/'private'
+            private.mkdir(mode=0o700)
+            (root/'target').write_text('unsafe')
+            (private/'slot-000').symlink_to(root/'target')
+            with self.assertRaises(OSError):
+                anonymous_scratch.NodeScratchLedger(root, private, 'slot-', 2)
+            with self.assertRaisesRegex(ValueError, 'private scratch child'):
+                anonymous_scratch.NodeScratchLedger(root, root/'a'/'b', 'slot-', 2)
+
+    def test_shared_ledger_slot_is_released_by_sigkill(self):
+        script = ("import sys,time\n"
+                  "from anonymous_scratch import NodeScratchLedger\n"
+                  "from pathlib import Path\n"
+                  "l=NodeScratchLedger(sys.argv[1],Path(sys.argv[1])/'private-ledger','slot-',4,'holder')\n"
+                  "l.publish(1234);print(l.slot,flush=True);time.sleep(60)\n")
+        environment = dict(os.environ, PYTHONPATH=str(Path(__file__).parent))
+        with tempfile.TemporaryDirectory() as tmp:
+            holder = subprocess.Popen([sys.executable, '-c', script, tmp],
+                                      env=environment, stdout=subprocess.PIPE, text=True)
+            try:
+                self.assertEqual(holder.stdout.readline().strip(), '0')
+                observer = self._ledger(tmp, 4, 'observer')
+                self.assertEqual(observer.slot, 1)
+                self.assertEqual({p['slot']: p['used_bytes'] for p in observer.participants()},
+                                 {0: 1234, 1: 0})
+                holder.kill()
+                holder.wait(timeout=5)
+                self.assertEqual([p['slot'] for p in observer.participants()], [1])
+                observer.close()
+            finally:
+                if holder.poll() is None:
+                    holder.kill()
+                    holder.wait()
+                holder.stdout.close()
+
+    def _admit(self, tmp, statvfs_values, wait=60, poll=15):
+        import resource
+        clock = [0.0]
+        sleeps = []
+        def sleep(seconds):
+            sleeps.append(seconds)
+            clock[0] += seconds
+        limit = [resource.RLIM_INFINITY, resource.RLIM_INFINITY]
+        values = iter(statvfs_values)
+        def set_limit(_kind, value):
+            limit[:] = value
+        with mock.patch.object(os, 'statvfs', side_effect=lambda _p: SimpleNamespace(
+                 f_bavail=next(values), f_frsize=1)), \
+             mock.patch.object(resource, 'getrlimit', side_effect=lambda _k: tuple(limit)), \
+             mock.patch.object(resource, 'setrlimit', side_effect=set_limit):
+            result = anonymous_scratch.admit_shared_scratch(
+                tmp, admission_free_bytes=100, maximum_file_bytes=60,
+                maximum_live_handles=6, ledger_directory=Path(tmp)/'private-ledger',
+                ledger_slot_prefix='slot-', ledger_slots=4,
+                admission_wait_seconds=wait, admission_poll_seconds=poll,
+                clock=lambda: clock[0], sleep=sleep)
+        return result, sleeps
+
+    def test_shared_admission_colocates_without_a_mutex(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (a, la, first), _ = self._admit(tmp, [100])
+            (b, lb, second), _ = self._admit(tmp, [100])
+            try:
+                self.assertEqual((first['ledger_slot'], second['ledger_slot']), (0, 1))
+                self.assertEqual(first['attempts'], 1)
+                self.assertEqual(len(lb.participants()), 2)
+            finally:
+                for owner in (a, b, la, lb):
+                    owner.close()
+
+    def test_shared_admission_waits_then_admits_and_times_out_retryably(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (scratch, ledger, admission), sleeps = self._admit(tmp, [99, 99, 100])
+            self.assertEqual(admission['attempts'], 3)
+            self.assertEqual(sleeps, [15, 15])
+            self.assertEqual(admission['waited_seconds'], 30)
+            scratch.close(); ledger.close()
+            with mock.patch.object(anonymous_scratch, 'anonymous_open_flag',
+                                   side_effect=AssertionError('anonymous open')):
+                with self.assertRaisesRegex(RuntimeError, 'scratch_admission') as caught:
+                    self._admit(tmp, [99] * 10, wait=60, poll=15)
+            details = caught.exception.scratch_details
+            self.assertEqual(details['admission_attempts'], 5)
+            self.assertEqual(details['admission_waited_seconds'], 60)
+            self.assertTrue(details['retryable'])
+            # The refused attempt released its ledger slot.
+            probe = self._ledger(tmp, 4)
+            self.assertEqual(probe.slot, 0)
+            probe.close()
+
+    def _monitor(self, scratch, ledger, available, triggers):
+        return anonymous_scratch.ScratchFloorMonitor(
+            scratch, ledger, directory='/unused', reserve_bytes=40,
+            hard_floor_bytes=20, poll_seconds=0.01,
+            on_trigger=triggers.append,
+            statvfs=lambda _p: SimpleNamespace(f_bavail=available[0], f_frsize=1))
+
+    def test_floor_monitor_stops_only_the_largest_participant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            small, large = AnonymousScratch(tmp), AnonymousScratch(tmp)
+            (small/'proof').write_bytes(b'x' * (1 << 16))
+            (large/'proof').write_bytes(b'x' * (1 << 20))
+            small_ledger, large_ledger = self._ledger(tmp), self._ledger(tmp)
+            available = [100]
+            triggers = []
+            small_monitor = self._monitor(small, small_ledger, available, triggers)
+            large_monitor = self._monitor(large, large_ledger, available, triggers)
+            try:
+                self.assertIsNone(small_monitor.evaluate())
+                self.assertIsNone(large_monitor.evaluate())
+                available[0] = 39
+                self.assertIsNone(small_monitor.evaluate())
+                details = large_monitor.evaluate()
+                self.assertEqual(details['trigger'], 'node_floor')
+                self.assertEqual(details['ledger_slot'], large_ledger.slot)
+                self.assertTrue(details['retryable'])
+                self.assertGreaterEqual(details['accounted_bytes'], 1 << 20)
+                self.assertIsNone(large_monitor.evaluate())  # at most once
+                # While the victim is terminating, the other participant waits.
+                self.assertIsNone(small_monitor.evaluate())
+                large.close(); large_ledger.close()
+                # After the victim's release, the floor still binds the next one.
+                self.assertEqual(small_monitor.evaluate()['trigger'], 'node_floor')
+                self.assertEqual(small_monitor.status()['minimum_available_bytes'], 39)
+            finally:
+                for owner in (small, large, small_ledger, large_ledger):
+                    owner.close()
+
+    def test_floor_monitor_hard_floor_stops_every_participant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratches = [AnonymousScratch(tmp), AnonymousScratch(tmp)]
+            (scratches[1]/'proof').write_bytes(b'x' * (1 << 20))
+            ledgers = [self._ledger(tmp), self._ledger(tmp)]
+            available = [19]
+            triggers = []
+            try:
+                monitors = [self._monitor(s, l, available, triggers)
+                            for s, l in zip(scratches, ledgers)]
+                self.assertEqual([m.evaluate()['trigger'] for m in monitors],
+                                 ['hard_floor', 'hard_floor'])
+            finally:
+                for owner in (*scratches, *ledgers):
+                    owner.close()
+
+    def test_floor_monitor_thread_triggers_once_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch, ledger = AnonymousScratch(tmp), self._ledger(tmp)
+            available = [10]
+            triggers = []
+            monitor = self._monitor(scratch, ledger, available, triggers)
+            monitor.start()
+            monitor.thread.join(timeout=5)
+            monitor.stop()
+            self.assertEqual([t['trigger'] for t in triggers], ['hard_floor'])
+            broken = anonymous_scratch.ScratchFloorMonitor(
+                scratch, ledger, directory='/unused', reserve_bytes=40,
+                hard_floor_bytes=20, poll_seconds=0.01, on_trigger=triggers.append,
+                statvfs=mock.Mock(side_effect=OSError('statvfs failed')))
+            broken.start()
+            broken.thread.join(timeout=5)
+            broken.stop()
+            self.assertEqual(triggers[-1]['trigger'], 'monitor_failure')
+            scratch.close(); ledger.close()
+
     def test_unsupported_fails_closed(self):
         with self.assertRaises(OSError):
             AnonymousScratch('/proc')/'proof'

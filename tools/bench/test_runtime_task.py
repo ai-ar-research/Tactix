@@ -111,6 +111,95 @@ class RuntimeTaskTests(unittest.TestCase):
             'details': {}, 'retryable': True})
         self.assertNotIn('retryable', scratch_incomplete('scratch_enospc'))
 
+    def _shared_floor_manifest(self):
+        import experimental_tierd
+        contract = dict(experimental_tierd.FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY)
+        wall = experimental_tierd.scheduler_wall_seconds(
+            5000, 14400 + contract['admission_wait_seconds'])
+        return contract, {
+            'scratch_policy': 'anonymous-local-files-v1',
+            'resource_contract': {
+                'partition': 'cpu-q', 'cpus_per_task': 4, 'memory_mib': 32768,
+                'solve_timeout': 5000, 'checker_timeout': 14400,
+                'scheduler_wall_seconds': wall,
+                'scratch_isolation': dict(
+                    experimental_tierd.FIXED44_SHARED_FLOOR_RESOURCE_PROFILE)},
+            'anonymous_scratch_capacity': contract,
+        }
+
+    def test_shared_floor_contract_is_exact(self):
+        from runtime_task import scratch_capacity_contract
+        contract, manifest = self._shared_floor_manifest()
+        self.assertEqual(scratch_capacity_contract(manifest), contract)
+        # The profile keeps the historical 5:45 wall: the wait fits its slack.
+        self.assertEqual(manifest['resource_contract']['scheduler_wall_seconds'], 20700)
+        resource = manifest['resource_contract']
+        for changed, message in (
+                ({**contract, 'ledger_directory': '/tmp/public'}, 'ledger identity'),
+                ({**contract, 'hard_floor_bytes': contract['reserve_bytes']}, 'hard floor'),
+                ({**contract, 'admission_free_bytes': 99_999_999_999}, 'maximal file'),
+                ({**contract, 'ledger_slots': 0}, 'positive integers'),
+                ({**contract, 'extra': 1}, 'fields differ')):
+            with self.subTest(message=message), self.assertRaisesRegex(
+                    RuntimeError, message):
+                scratch_capacity_contract({**manifest, 'anonymous_scratch_capacity': changed})
+        for changed_resource, message in (
+                ({**resource, 'scheduler_wall_seconds': 19500}, 'admission wait'),
+                ({**resource, 'cpus_per_task': 8}, 'ordinary cpu-q'),
+                ({**resource, 'scratch_isolation': {
+                    **resource['scratch_isolation'], 'task_cpus': 52}}, 'isolation')):
+            with self.subTest(message=message), self.assertRaisesRegex(
+                    RuntimeError, message):
+                scratch_capacity_contract({**manifest, 'resource_contract': changed_resource})
+
+    def test_shared_floor_outcomes_are_retryable_incomplete(self):
+        self.assertTrue(scratch_incomplete(
+            'scratch_enospc', {'trigger': 'node_floor', 'retryable': True})['retryable'])
+        self.assertTrue(scratch_incomplete(
+            'scratch_admission', {'retryable': True})['retryable'])
+        self.assertNotIn('retryable', scratch_incomplete('scratch_admission', {}))
+
+    def test_floor_stop_interrupts_measured_and_reaps_process_group(self):
+        import runtime_task
+        import threading
+        from runtime_task import (ScratchCapacityError, measured,
+                                  request_scratch_floor_stop, scratch_floor_signal,
+                                  scratch_resource_reason)
+        previous = signal.signal(signal.SIGUSR1, scratch_floor_signal)
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                pid_file = root/'grandchild.pid'
+                script = ('import os,subprocess,sys,time;'
+                          'p=subprocess.Popen([sys.executable,"-c","import time;time.sleep(60)"]);'
+                          f'open({str(pid_file)!r},"w").write(str(p.pid));time.sleep(60)')
+                timer = threading.Timer(1.0, request_scratch_floor_stop,
+                                        args=({'trigger': 'node_floor', 'retryable': True},))
+                timer.start()
+                started = time.monotonic()
+                with self.assertRaises(ScratchCapacityError) as caught:
+                    measured([sys.executable, '-c', script], root/'out', root/'err',
+                             root/'time', 30)
+                timer.join()
+                self.assertLess(time.monotonic() - started, 10)
+                self.assertEqual(scratch_resource_reason(caught.exception), 'scratch_enospc')
+                self.assertEqual(caught.exception.scratch_details['trigger'], 'node_floor')
+                grandchild = int(pid_file.read_text())
+                for _ in range(50):
+                    try:
+                        os.kill(grandchild, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.1)
+                else:
+                    self.fail('floor stop left the process group running')
+                # Disarmed: a late request after cleanup is ignored.
+                runtime_task.SCRATCH_FLOOR_TRIGGER.clear()
+                os.kill(os.getpid(), signal.SIGUSR1)
+                time.sleep(0.05)
+        finally:
+            signal.signal(signal.SIGUSR1, previous)
+
     def test_effective_cgroup_memory_limit_uses_tightest_ancestor(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
