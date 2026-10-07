@@ -28,11 +28,9 @@ campaigns. Current documentation cleanup changes no solver behavior.
    disappearance. Keep working independently while useful jobs remain active.
 2. Done: the r4 focused gate [passes](benchmarks/reports/2026-10-07-symmetry-unit-r4-focused-pass/README.md)
    (job 1755545). Debug and ASan/UBSan pass, every-lemma DSR/Trestle verifies, and the invalid control is rejected.
-3. Reproduce and repair the deterministic [affine root-maintenance API failure](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/handoff/am-rel-23/README.md):
-   a well-formed persistent `AffineMatrixInitialize` request returns
-   `InvalidRequest` after root Sweep. It also reproduces on the older noL-free
-   source. No wrong model, proof or verdict was observed; the API failure remains
-   a required repair, not an accepted decline.
+3. Done: `9ed61994c` gives unconditional affine `0 = 1` conflicts the empty reason, so
+   persistent root maintenance after Sweep publishes the refutation instead of returning `InvalidRequest`.
+   Focused Debug/ASan and DSR/DRAT checks pass ([repair report](benchmarks/reports/2026-10-07-affine-rootmaint-sweep-repair/README.md)).
 4. Done: the fixed64 patch hash is corrected and file-bound; frozen manifests
    are read through the [supplemental correction](benchmarks/reports/2026-10-07-fixed64-provenance-hash-correction/README.md).
 5. Freeze fresh clean Release/full Debug pins from the coherent repaired source.
