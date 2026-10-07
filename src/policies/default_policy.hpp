@@ -115,6 +115,8 @@ struct DefaultNolWalkDiagnostics {
   uint64_t pending_slices = 0;
   uint64_t completed_trajectories = 0;
   uint64_t useful_hints = 0;
+  uint64_t phase_install_attempts = 0;
+  uint64_t phase_installs = 0;
   uint64_t wakeups = 0;
 };
 
@@ -340,6 +342,8 @@ private:
   std::array<uint64_t,5> nol_walk_wake_stamp_{};
   NolHypergraphAuthenticationResult authenticate_nol_walk(Kernel &);
   NolHypergraphSliceResult service_nol_walk(Kernel &);
+  ApplyResult install_nol_walk_hint(Kernel &,
+                                    const NolHypergraphSliceResult &);
   bool nol_walk_due(const Kernel &);
   void schedule_nol_walk(const Kernel &,const NolHypergraphSliceResult &);
   void reset_nol_walk_schedule(const Kernel &);
