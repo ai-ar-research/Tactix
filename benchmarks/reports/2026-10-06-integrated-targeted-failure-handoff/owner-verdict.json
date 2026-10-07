@@ -1,0 +1,98 @@
+{
+  "duration_api_ms": 1908006,
+  "stop_reason": "end_turn",
+  "session_id": "4109784f-d61a-4bd4-8f29-8f842447ddc7",
+  "total_cost_usd": 25.0114584,
+  "usage": {
+    "input_tokens": 32,
+    "cache_creation_input_tokens": 441086,
+    "cache_read_input_tokens": 6530026,
+    "output_tokens": 21589,
+    "output_tokens_details": {
+      "thinking_tokens": 5676
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 441086,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1723,
+        "cache_read_input_tokens": 450406,
+        "cache_creation_input_tokens": 909,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 909
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 330,
+      "outputTokens": 165305,
+      "thinkingTokens": 55229,
+      "cacheReadInputTokens": 45239072,
+      "cacheCreationInputTokens": 1582028,
+      "webSearchRequests": 0,
+      "costUSD": 25.0114584,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 18,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "**Cumulative verdict: FAILED (not accepted).** Everything owned by the three changed surfaces passed. Separately, the full targeted matrix found one deterministic source defect in a different action (X18 `NaryCspEquality`), and I've prepared a bounded handoff for it.\n\n**The defect.** The random controller dispatches a native `NaryCspEquality` offer after search has changed the root formula. The action returns `InvalidRequest` (status 9, one application spent), and the controller treats that as terminal: `c ERROR: controller execution status=9 action=NaryCspEquality`, then `s UNKNOWN`. It reproduces in about 0.01 s on both pins and still fails with the X20 producer disabled, so X20 is not the cause. DefaultPolicy solves the same formula (SAT). Expected behaviour is a stale/inapplicable decline, or no such offer, with search continuing.\n\n- **Reproducer:** `handoff/x20rand-s24.min.cnf` (12 vars, 34 clauses), plus two more in the same directory.\n- **Command:** `tactix --dsr --controller-policy=2100643024 --controller-families=NaryCspPrefix,NaryCspEquality,NaryCspEqualityAmo,Propagate --controller-native-producers=nary-csp,nary-csp-equality --controller-restart-period=1 --controller-trail-retention=full x20rand-s24.min.cnf proof.dsr`\n- **Details:** `handoff/HANDOFF.md` has the transcript, feedback, binary bindings and file hashes.\n- **Reach:** it needs X17/X18 native producers explicitly enabled. DefaultPolicy keeps those rows disabled, and the broad random-controller leg runs with producers off, so neither reached it.\n\n**What passed:**\n\n- **Broad legs:**\n  - L1 DefaultPolicy: 100,010 cases, 0 failures. Corpus entry 026 only exceeded the 60 s ASan budget; its graded rerun at 3,000 s was UNSAT and verified.\n  - L2 random controller: 100,010 cases, 0 failures, and all 7,221 non-terminating cases are true 5 s timeouts (0 UNKNOWN).\n- **Matrix differential:** 1.14 million matrix synchronizations, 134,289 exact restores to the saved earlier matrix state, 0 failures.\n- **Full targeted matrix (job 1751475, 13,155 tasks, all 5 pins verified after the run):**\n  - 26,650 graded SAT runs and 16,203 graded UNSAT runs.\n  - Every known-bad control was rejected: falsified model, tampered transcript, tampered feedback, tampered affine event and truncated proof. No truncation control was vacuous.\n- **Affine A/B/C repairs and predecessor counters:**\n  - Root-unit publication (DefaultPolicy 315, controller 387) and empty-reason root conflicts (DefaultPolicy 318, controller 139) are now checked results.\n  - Stale/Inapplicable sessions continue to a checked verdict, and service `Invalid` never occurred.\n  - In 240 gdb-witnessed runs, the rebuild counters matched the witness exactly.\n- **X20:**\n  - Applications came back with checked SAT and UNSAT in binary and ASCII DSR, through native producers, `all`, and random selection.\n  - Each decline status (ResourceExhausted, Interrupted, StaleRequest, InvalidRequest, Inapplicable under LRAT) came back exact.\n  - Retries with a fresh allowance succeeded, including two-owner selections, which committed the retained first owner and then gave checked results.\n  - Duplicate and missing-definition requests returned NoChange with no mutation.\n\n**Limitations to be aware of:**\n\n- Only 21 runs (25 restores) witnessed a restore at the CLI against 50 declared. A continuation of 600 fresh witness tasks (job 1751480) is running and will be added to the count.\n- Some rows are excluded from the counts:\n  - 706 X20 startup-prefix rows where the generated formula didn't offer the required native step are counted as unreached.\n  - 162 driver rows with fixtures the actions won't admit are counted as skipped.\n  - 12 `drv-missing` failures are my driver's wrong expectation for two-owner batches, not source failures; single-owner missing cases are covered.\n- 118 rows timed out with no oracle, and 54 random-stop rows ended UNKNOWN with a deliberate stop source.\n- A rebuild from a previous partial reduction was never reached at the CLI; it is covered only in the matrix differential (11,220 calls).\n- The 76 differences in event kind from a fresh reduction are representation-only: the bases are equivalent and every reason is entailed.\n\n**Next:** when 1751480 finishes I'll fold its counts in and write `FINAL_REPORT.md` with the FAILED disposition. After Codex repairs the defect, rerun the `x20-*`/`drv` kinds and the three reproducers, plus L2 if controller settlement changes.",
+  "ttft_ms": 15687,
+  "type": "result",
+  "duration_ms": 979446,
+  "uuid": "3498db19-a6ec-4c79-ad7a-3f12ba27891f",
+  "ttft_stream_ms": 11080,
+  "time_to_request_ms": 524,
+  "first_content_frame_ms": 11081,
+  "queued_turn_count": 0,
+  "result_index": 1
+}
