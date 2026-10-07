@@ -44,4 +44,29 @@ for cnf in "$temporary"/lifecycle-*.cnf; do
   count=$((count + 1))
 done
 [[ "$count" -eq 16 ]]
-echo 'affine_matrix_persistent_lifecycle_proof_model OK: 16 original models and proof prefixes'
+# Root maintenance after a root Sweep refutes the XOR system (am-rel-23).
+# ProofFormat values: 0 DSR binary, 1 DSR ASCII, 3 DRAT ASCII.
+compress=${DSR_COMPRESS:-$root/tools/checkers/bin/dsr-compress}
+cake=${CAKE_LPR:-$root/tools/checkers/bin/cake_lpr}
+[[ -x "$compress" && -x "$cake" ]] || exit 77
+oracle=(python3 "$root/tools/bench/proof_oracle.py")
+refutations=0
+for cnf in "$temporary"/lifecycle.rootmaint-*.cnf; do
+  base=${cnf%.cnf}
+  format=${base##*-}
+  case "$format" in
+    0|1)
+      "${oracle[@]}" check-dsr "$cnf" "$base.proof" --dsr-trim "$trim" \
+        --dsr-compress "$compress" --srcheck "$trestle" --every-lemma > "$base.oracle.log" 2>&1
+      ;;
+    3)
+      "${oracle[@]}" check "$cnf" "$base.proof" --dsr-trim "$trim" --dsr-compress "$compress" \
+        --srcheck "$trestle" --drat-trim "$drat" --cake-lpr "$cake" > "$base.oracle.log" 2>&1
+      ;;
+    *) exit 1 ;;
+  esac
+  grep -q '^s VERIFIED UNSAT$' "$base.oracle.log"
+  refutations=$((refutations + 1))
+done
+[[ "$refutations" -eq 3 ]]
+echo 'affine_matrix_persistent_lifecycle_proof_model OK: 16 original models and proof prefixes, 3 root-maintenance refutations'

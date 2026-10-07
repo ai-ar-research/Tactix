@@ -217,10 +217,19 @@ void make_reason(const std::vector<Equation> &sources,
                  const std::vector<MatrixAssignment> &trail,
                  MatrixEvent &event) {
   if (event.kind == MatrixEventKind::None) return;
-  std::set<External> support;
+  // Support variables with their parity in the source sum. A conflict whose
+  // sources cancel every variable is the unconditional 0 = 1: the certificate
+  // refutes it outright, so it consumed no assignment and its reason is the
+  // empty clause even when support variables are assigned.
+  std::map<External, bool> support;
+  size_t residue = 0;
   for (size_t source : event.row.source_equations)
-    for (External variable : sources[source].variables)
-      support.insert(variable);
+    for (External variable : sources[source].variables) {
+      const auto [entry, inserted] = support.emplace(variable, true);
+      if (!inserted) entry->second = !entry->second;
+      if (entry->second) ++residue; else --residue;
+    }
+  if (event.kind == MatrixEventKind::Conflict && !residue) return;
   for (const MatrixAssignment assignment : trail)
     if (support.contains(assignment.variable))
       event.reason.push_back(false_literal(assignment));
@@ -801,9 +810,16 @@ MatrixStatus AffineMatrix::synchronize_sliced(
         if (id>=sources_.size()) {continuation_={};return MatrixStatus::Invalid;}
         const auto &source=sources_[id];
         if (!step(1+__uint128_t(source.variables.size())*comparisons)) return pending();
-        state.support.insert(source.variables.begin(),source.variables.end());
+        for (External variable : source.variables) {
+          const auto [entry,inserted]=state.support.emplace(variable,true);
+          if (!inserted) entry->second=!entry->second;
+          if (entry->second) ++state.residue; else --state.residue;
+        }
         ++state.reason_source;continue;
       }
+      // An unconditional contradiction keeps the empty reason (make_reason).
+      if (state.event.kind==MatrixEventKind::Conflict && !state.residue)
+        state.reason_trail=state.trail.size();
       state.phase=6;
     }
     if (state.phase==6) {
