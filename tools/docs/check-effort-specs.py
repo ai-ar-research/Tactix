@@ -172,6 +172,15 @@ TABLE = {
                            r'typed_replay_random_reach_and_separate_propagation\('),
                           ("tests/test_tseitin_cycle_action.cpp",
                            r'c_v7_is_backward_compatible_and_deep_copies_identity\(')]),
+    "NaryCspPrefix":
+                        (EXPLICIT, "opt-in legacy action excluded from automatic default scheduling; retirement pending",
+                         [r'rules\[i\]\.default_inprocess && !placed\[i\]'],
+                         [("src/rules/registry.cpp",
+                           r'TACTIX_REGISTER_OPT_IN_RULE\(NaryCspPrefix,'),
+                          ("src/rules/registry.hpp",
+                           r'rule\.default_inprocess = false;'),
+                          ("tests/test_nary_csp_prefix_public.cpp",
+                           r'native_random_offer_is_exact_and_applies_with_raw_feedback\(')]),
     "NaryCspEquality":
                         (EXPLICIT, "typed authenticated n-ary equality action; default slot disabled",
                          [r'std::strcmp\(rules\[i\]\.name, "NaryCspEquality"\)'],
@@ -252,7 +261,7 @@ def strip_comments(s):
 def registered_rules():
     """name -> (tier, 'relpath:line') for every registry line in the tree."""
     out = {}
-    pat = re.compile(r"TACTIX_REGISTER_(?:RULE|POLICY_OP)\(\s*(\w+)\s*,\s*"
+    pat = re.compile(r"TACTIX_REGISTER_(?:RULE|OPT_IN_RULE|POLICY_OP)\(\s*(\w+)\s*,\s*"
                      r"RuleTier::(\w+)", re.S)
     for d in RULE_DIRS:
         for dirpath, _, names in os.walk(d):
