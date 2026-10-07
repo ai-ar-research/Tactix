@@ -251,8 +251,11 @@ class TransportTests(unittest.TestCase):
                                 with proof_pipeline_deadline(30):
                                     self.oracle.dsr_proof_as_drat(self.source, self.dest)
                         else:
-                            with self.assertRaises(OSError):
+                            with self.assertRaises(OSError) as raised:
                                 self.oracle.dsr_proof_as_drat(self.source, self.dest)
+                            if cause == 'xfsz':
+                                import errno
+                                self.assertEqual(raised.exception.errno, errno.EFBIG)
                     else:
                         subprocess.run([str(HELPER), 'convert', str(self.source), str(self.dest)],
                                        capture_output=True, timeout=30)
@@ -271,11 +274,22 @@ class TransportTests(unittest.TestCase):
                 self.assertFalse(any('dsr-transport-' in p.name for p in self.root.iterdir()))
 
     def test_shared_deadline_reaps_converter(self):
+        import signal
+        import threading
+        import time
         helper = self.root / 'dsr-transport'
         helper.chmod(0o750)
         helper.write_text('#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n')
         (self.root / 'dsr-transport.sha256').write_text(hashlib.sha256(helper.read_bytes()).hexdigest())
         self.source.write_bytes(b'\1\0')
+        stop = threading.Event()
+        idle = threading.Thread(target=stop.wait)
+        idle.start()
+        self.addCleanup(idle.join)
+        self.addCleanup(stop.set)
+        mask = signal.pthread_sigmask(signal.SIG_BLOCK, [])
+        handlers = {sig: signal.getsignal(sig)
+                    for sig in (signal.SIGALRM, signal.SIGINT)}
         processes = []
         original = subprocess.Popen
         def tracked(*args, **kwargs):
@@ -290,6 +304,109 @@ class TransportTests(unittest.TestCase):
         self.assertIsNotNone(processes[0].poll())
         with self.assertRaises(ProcessLookupError):
             os.kill(processes[0].pid, 0)
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, []), mask)
+        self.assertEqual({sig: signal.getsignal(sig) for sig in handlers}, handlers)
+        started = time.monotonic()
+        with self.assertRaises(ProofPipelineDeadline):
+            with proof_pipeline_deadline(0.05):
+                time.sleep(2)
+        self.assertLess(time.monotonic() - started, 1)
+
+    def test_successful_transport_preserves_active_outer_deadline(self):
+        import time
+        self.source.write_bytes(b'\1\0')
+        started = time.monotonic()
+        with self.assertRaises(ProofPipelineDeadline):
+            with proof_pipeline_deadline(0.2):
+                self.assertFalse(self.oracle.dsr_proof_has_witness(self.source))
+                time.sleep(2)
+        self.assertLess(time.monotonic() - started, 1)
+
+    def test_sigint_after_staging_is_deferred_through_cleanup(self):
+        import signal
+        self.source.write_bytes(b'\1\4\6\0' * 4096)
+        self.dest.write_bytes(b'KEEP')
+        original = tempfile.mkdtemp
+        def raise_keyboard_interrupt(_signum, _frame):
+            raise KeyboardInterrupt
+        previous_sigint = signal.signal(signal.SIGINT, raise_keyboard_interrupt)
+        self.addCleanup(signal.signal, signal.SIGINT, previous_sigint)
+        mask = signal.pthread_sigmask(signal.SIG_BLOCK, [])
+        handlers = {sig: signal.getsignal(sig)
+                    for sig in (signal.SIGALRM, signal.SIGINT)}
+
+        def interrupt_after_create(*args, **kwargs):
+            directory = original(*args, **kwargs)
+            os.kill(os.getpid(), signal.SIGINT)
+            return directory
+
+        with patch.object(tempfile, 'mkdtemp', side_effect=interrupt_after_create):
+            with self.assertRaises(KeyboardInterrupt):
+                self.oracle.dsr_proof_as_drat(self.source, self.dest)
+        self.assertFalse(any('dsr-transport-' in path.name
+                             for path in self.root.iterdir()))
+        self.assertEqual(self.dest.read_bytes(), b'KEEP')
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, []), mask)
+        self.assertEqual({sig: signal.getsignal(sig) for sig in handlers}, handlers)
+
+    def test_partial_handler_install_is_rolled_back(self):
+        import signal
+        self.source.write_bytes(b'\1\0')
+        original = signal.signal
+        previous_alarm = original(signal.SIGALRM, lambda _signum, _frame: None)
+        self.addCleanup(original, signal.SIGALRM, previous_alarm)
+        previous = {sig: signal.getsignal(sig)
+                    for sig in (signal.SIGALRM, signal.SIGINT)}
+        calls = 0
+
+        def fail_second(signum, handler):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise ProofPipelineDeadline('interrupt during handler install')
+            result = original(signum, handler)
+            if calls == 3:
+                raise KeyboardInterrupt
+            return result
+
+        with patch.object(signal, 'signal', side_effect=fail_second):
+            with self.assertRaises(ProofPipelineDeadline):
+                self.oracle.dsr_proof_has_witness(self.source)
+        self.assertGreaterEqual(calls, 3)
+        self.assertEqual({sig: signal.getsignal(sig) for sig in previous}, previous)
+
+    def test_repeated_exceptions_after_each_handler_restore_leave_no_deferrer(self):
+        import signal
+        self.source.write_bytes(b'\1\0')
+        original = signal.signal
+
+        def deadline(_signum, _frame):
+            raise ProofPipelineDeadline('deadline during restoration')
+
+        def interrupt(_signum, _frame):
+            raise KeyboardInterrupt
+
+        old_alarm = original(signal.SIGALRM, deadline)
+        old_int = original(signal.SIGINT, interrupt)
+        self.addCleanup(original, signal.SIGINT, old_int)
+        self.addCleanup(original, signal.SIGALRM, old_alarm)
+        expected = {signal.SIGALRM: deadline, signal.SIGINT: interrupt}
+        restored = []
+
+        def interrupt_after_apply(signum, handler):
+            result = original(signum, handler)
+            if handler is expected.get(signum):
+                restored.append(signum)
+                if signum == signal.SIGALRM:
+                    raise ProofPipelineDeadline('after SIGALRM restore')
+                raise KeyboardInterrupt
+            return result
+
+        with patch.object(signal, 'signal', side_effect=interrupt_after_apply):
+            with self.assertRaises(ProofPipelineDeadline):
+                self.oracle.dsr_proof_has_witness(self.source)
+        self.assertEqual(restored, [signal.SIGALRM, signal.SIGINT])
+        self.assertEqual({sig: signal.getsignal(sig) for sig in expected}, expected)
 
     def test_deadline_after_staging_acquisition_is_deferred_through_cleanup(self):
         import signal
