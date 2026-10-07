@@ -1,6 +1,11 @@
 """Acceptance boundaries for the user-defined bounded regression protocol."""
 import unittest
-from controller_regression import proof_disposition, proof_cost_comparison, score_row
+import json
+from pathlib import Path
+import tempfile
+from unittest.mock import patch
+import controller_regression as regression
+from controller_regression import proof_disposition, proof_cost_comparison, score_row, candidate_arguments
 
 
 def proof(elapsed, timeout=False):
@@ -9,6 +14,76 @@ def proof(elapsed, timeout=False):
         wall_seconds=elapsed, stages=[dict(name='drat-trim', result='verified'),
             dict(name='pipeline-deadline' if timeout else 'cake_lpr',
                  result='timeout' if timeout else 'verified', timed_out=timeout)])
+
+
+class CandidateArgumentTests(unittest.TestCase):
+    def test_legacy_command_unchanged_and_profile_exact(self):
+        self.assertEqual(candidate_arguments(), ['--auto-proof'])
+        for mode in ('on', 'off'):
+            argument = '--default-affine-search=' + mode
+            self.assertEqual(candidate_arguments([argument]), ['--auto-proof', argument])
+
+    def test_rejects_empty_proof_policy_and_conflicting_overrides(self):
+        for arguments in ([''], ['--drat'], ['--auto-proof'], ['--lrat'],
+                          ['--random-policy'], ['--default-affine-search=maybe'],
+                          [' --default-affine-search=on'],
+                          ['--default-affine-search=on --drat'],
+                          ['--default-affine-search=on', '--default-affine-search=off'],
+                          ['--default-affine-search=on', '--default-affine-search=on']):
+            with self.subTest(arguments=arguments), self.assertRaises(ValueError):
+                candidate_arguments(arguments)
+        # Reject before any authority/pin read or campaign mutation.
+        with self.assertRaises(ValueError):
+            regression.prepare('invalid', Path('/nonexistent'), ['--lrat'])
+
+    def test_preparation_binds_exact_arguments_without_changing_baseline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            historical = root / 'benchmarks/runs/historical'
+            pins = historical / 'pins'
+            pins.mkdir(parents=True)
+            tools = root / 'tools/bench'; tools.mkdir(parents=True)
+            for name in ('runtime_task.py', 'proof_oracle.py', 'anonymous_scratch.py'):
+                (tools / name).write_text('# fixed non-executed protocol fixture\n')
+            checkers = {'checker': None}
+            for name in ('checkmodel', 'modelcheck.py', *checkers):
+                (pins / name).write_text('fixed protocol artifact ' + name)
+            checkers['checker'] = regression.sha(pins / 'checker')
+            old = {'arms': {'tactix': {'arguments': ['--auto-proof']}}}
+            source = historical / 'manifest.json'; source.write_text(json.dumps(old))
+            matrix = historical / 'matrix.tsv'; matrix.write_text('instance\nfixture.cnf\n')
+            cache = root / 'benchmarks/cache'; cache.mkdir()
+            (cache / 'fixture.cnf').write_text('p cnf 1 1\n1 0\n')
+            accepted = dict(source_manifest=str(source.relative_to(root)),
+                source_manifest_sha256=regression.sha(source),
+                input_sha256={'fixture.cnf': regression.sha(cache / 'fixture.cnf')},
+                pin_sha256={'pins/' + name: regression.sha(pins / name)
+                            for name in ('checkmodel', 'modelcheck.py', *checkers)},
+                matrix_sha256=regression.sha(matrix), expected_rows=1,
+                resource_contract=dict(partition='fixture', cpus_per_task=2,
+                                       memory_mib=8192, solve_timeout=10,
+                                       one_solver_per_task=True))
+            baseline = root / 'baseline.json'; baseline.write_text(json.dumps({'sets': {'wv100': accepted}}))
+            release = root / 'build/pin-fixture/tactix'; release.parent.mkdir(parents=True)
+            release.write_text('fixed non-executed solver fixture')
+            (release.parent / 'PIN.json').write_text(json.dumps(dict(build_type='Release',
+                source_commit='fixed-fixture', binaries={'tactix': regression.sha(release)})))
+            baseline_before = baseline.read_bytes()
+            with patch.object(regression, 'ROOT', root), patch.object(regression, 'BASELINE', baseline), \
+                 patch.object(regression, 'CANONICAL_CHECKERS', checkers), \
+                 patch.object(regression.subprocess, 'run') as verified:
+                for prefix, arguments in (('legacy', []), ('enabled', ['--default-affine-search=on'])):
+                    campaigns = regression.prepare(prefix, release, arguments)
+                    manifest = json.loads((Path(campaigns[0]) / 'manifest.json').read_text())
+                    self.assertEqual(manifest['arms']['tactix']['arguments'],
+                                     ['--auto-proof', *arguments])
+                    self.assertEqual(manifest['resource_contract']['throttle'], None)
+                    self.assertEqual(manifest['baseline']['sha256'], regression.sha(baseline))
+                self.assertEqual(verified.call_count, 2)
+                for call in verified.call_args_list:
+                    self.assertEqual(call.args[0][-1], '--verify')
+            self.assertEqual(baseline.read_bytes(), baseline_before)
+            self.assertEqual(json.loads(source.read_text()), old)
 
 
 class RegressionGateTests(unittest.TestCase):

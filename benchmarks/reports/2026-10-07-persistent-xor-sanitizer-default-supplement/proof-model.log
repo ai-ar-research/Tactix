@@ -1,0 +1,8 @@
+c route drat
+s VERIFIED UNSAT
+s VERIFIED UNSAT
+checkmodel: OK — 63 clauses satisfied, 26 vars assigned
+c route drat
+s VERIFIED UNSAT
+checkmodel: OK — 63 clauses satisfied, 26 vars assigned
+default_affine_search_proof_model OK

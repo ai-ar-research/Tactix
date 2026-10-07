@@ -80,10 +80,12 @@ uint64_t saturated_sum(uint64_t first, uint64_t second) {
 }
 
 uint64_t affine_init_work(const Kernel &kernel) {
-  return saturated_sum(
-      saturated_sum(kernel.stats.affine_matrix_init_snapshot_work,
-                    kernel.stats.affine_matrix_init_recognition_work),
-      kernel.stats.affine_matrix_init_matrix_work);
+  uint64_t result = 0;
+  for (uint64_t value : {kernel.stats.affine_matrix_init_snapshot_work,
+       kernel.stats.affine_matrix_init_recognition_work,kernel.stats.affine_matrix_init_matrix_work,
+       kernel.stats.affine_matrix_init_premise_retention_work,kernel.stats.affine_matrix_init_root_unit_work})
+    result = saturated_sum(result,value);
+  return result;
 }
 
 uint64_t affine_service_work(const Kernel &kernel) {
@@ -92,7 +94,8 @@ uint64_t affine_service_work(const Kernel &kernel) {
            kernel.stats.affine_matrix_service_sync_work,
            kernel.stats.affine_matrix_service_session_work,
            kernel.stats.affine_matrix_service_planner_work,
-           kernel.stats.affine_matrix_service_revalidation_work})
+           kernel.stats.affine_matrix_service_revalidation_work,
+           kernel.stats.affine_matrix_service_lifecycle_work})
     result = saturated_sum(result, value);
   return result;
 }
@@ -271,6 +274,56 @@ void pose_affine_structured_stage(DefaultStrategyConfig &config) {
 }
 
 } // namespace
+
+std::optional<strategy::AffineConsequenceParameters>
+default_affine_search_parameters(const Kernel &kernel,
+                                 const DefaultStrategyConfig &config) {
+  const auto &search = config.affine_search;
+  if (!search.enabled || kernel.nvars < 2 ||
+      kernel.external_to_internal.size() >= uint64_t{INT32_MAX})
+    return std::nullopt;
+  const uint64_t bytes = search.maximum_retained_bytes
+      ? search.maximum_retained_bytes : config.affine_root_closure.maximum_journal_bytes;
+  const uint64_t initialization = search.maximum_initialization_work
+      ? search.maximum_initialization_work : config.inprocess.preprocess_initial_ticks;
+  const uint64_t service = search.maximum_service_work
+      ? search.maximum_service_work : config.inprocess.minimum_effort_ticks;
+  // Count caps are derived from requested source metadata/literal storage.
+  // The persistence API separately checks the complete retained population.
+  const uint64_t source_entry_bytes = sizeof(AffineLiveSource) +
+      sizeof(affine_semantic_extension::Premise) + 2 * sizeof(int32_t);
+  const uint64_t clauses = std::min<uint64_t>(UINT32_MAX, bytes / source_entry_bytes);
+  const uint32_t rows = static_cast<uint32_t>(std::min<uint64_t>(search.maximum_rows, clauses));
+  const uint32_t width = std::min(search.maximum_row_width, kernel.nvars);
+  if (!clauses || !rows || width < 2 || !initialization || !service)
+    return std::nullopt;
+  strategy::AffineConsequenceParameters result;
+  result.maximum_clauses = clauses;
+  result.maximum_snapshot_literals = bytes / sizeof(int32_t);
+  result.maximum_snapshot_work = initialization;
+  result.maximum_groups = clauses;
+  result.maximum_patterns = clauses;
+  result.maximum_elimination_work = initialization;
+  result.maximum_arity = std::min(search.maximum_arity, width);
+  result.maximum_intermediate_width = width;
+  result.maximum_sources = rows;
+  result.maximum_output_width = 4; // Existing V2 typed compatibility field.
+  result.maximum_proof_additions = config.affine_root_closure.maximum_proof_additions;
+  result.maximum_proof_deletions = config.affine_root_closure.maximum_proof_deletions;
+  result.maximum_journal_bytes = config.affine_root_closure.maximum_journal_bytes;
+  result.semantics = strategy::AffineConsequenceSemantics::CertifiedBasisV2;
+  result.basis_maximum_work = service;
+  result.basis_maximum_intermediate_width = width;
+  result.basis_maximum_sources = rows;
+  result.basis_maximum_premises = static_cast<uint32_t>(clauses);
+  result.basis_maximum_nodes = rows;
+  result.basis_maximum_direct_width = result.maximum_arity;
+  result.maximum_external_extent = static_cast<uint32_t>(std::min<uint64_t>(
+      INT32_MAX, saturated_sum(kernel.external_to_internal.size(),result.maximum_proof_additions)));
+  result.maximum_session_keys = clauses;
+  result.maximum_session_work = service;
+  return result.valid() ? std::optional{result} : std::nullopt;
+}
 
 using execution::LuckyOpportunity;
 using execution::PolicyCompletion;
@@ -843,6 +896,13 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !affine_root_closure.maximum_journal_bytes ||
       !affine_root_closure.maximum_session_work)
     return reject("affine-root-closure settings are invalid");
+  if (!affine_search.maximum_rows || !affine_search.maximum_row_width ||
+      affine_search.maximum_arity < 2 || affine_search.maximum_arity > 8 ||
+      affine_search.maximum_row_width < affine_search.maximum_arity ||
+      !std::isfinite(affine_search.minimum_usefulness) ||
+      affine_search.minimum_usefulness < 0 || affine_search.minimum_usefulness > 1 ||
+      !affine_search.autodisable_minimum_calls || !affine_search.autodisable_check_every)
+    return reject("affine-search settings are invalid");
   if (!graph_labeling_model.parameters.valid())
     return reject("graph-labeling settings are invalid");
   if (!independent_set_model.parameters.valid())
@@ -1150,6 +1210,17 @@ std::string DefaultStrategyConfig::serialize() const {
       << onehot_model.parameters.maximum_free_domains
       << " onehot_model.candidate_budget="
       << onehot_model.parameters.candidate_budget
+      << " affine_search.enabled=" << affine_search.enabled
+      << " affine_search.maximum_rows=" << affine_search.maximum_rows
+      << " affine_search.maximum_row_width=" << affine_search.maximum_row_width
+      << " affine_search.maximum_arity=" << affine_search.maximum_arity
+      << " affine_search.autodisable=" << affine_search.autodisable
+      << " affine_search.minimum_usefulness=" << affine_search.minimum_usefulness
+      << " affine_search.autodisable_minimum_calls=" << affine_search.autodisable_minimum_calls
+      << " affine_search.autodisable_check_every=" << affine_search.autodisable_check_every
+      << " affine_search.maximum_initialization_work=" << affine_search.maximum_initialization_work
+      << " affine_search.maximum_service_work=" << affine_search.maximum_service_work
+      << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
       << " affine_model.enabled=" << affine_model.enabled;
   {
     strategy::OnlineStrategyProgram affine;
@@ -3739,6 +3810,213 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
   return result;
 }
 
+AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bool refresh,bool recognize) {
+  AffineMatrixInitResult result;
+  if (!kernel.affine_matrix_search_session) return result;
+  auto parameters = default_affine_search_parameters(kernel,config_);
+  const bool retained_maintenance=refresh && !recognize &&
+      kernel.affine_matrix_search_session->enabled() && kernel.affine_matrix_search_session->persistent();
+  if (retained_maintenance) parameters=kernel.affine_matrix_search_session->parameters();
+  if (!parameters) return result;
+  const uint64_t bytes = config_.affine_search.maximum_retained_bytes
+      ? config_.affine_search.maximum_retained_bytes
+      : config_.affine_root_closure.maximum_journal_bytes;
+  AffineMatrixPersistenceLimits persistence{bytes};
+  if (retained_maintenance) persistence=kernel.affine_matrix_search_session->persistence_limits();
+  const uint64_t started = now_nanos();
+  if(refresh)++affine_search_diagnostics_.refreshes;
+  else ++affine_search_diagnostics_.initializations;
+  affine_tracking_limit_=parameters->maximum_session_keys;
+  // Each phase owns an independent cap: lifecycle, trail, synchronization,
+  // planner, source revalidation, and durable-session bookkeeping.
+  affine_service_allowance_=parameters->maximum_snapshot_work;
+  for (uint64_t cap : {parameters->basis_maximum_work,parameters->basis_maximum_work,
+       parameters->basis_maximum_work,parameters->basis_maximum_work,
+       parameters->maximum_session_work})
+    affine_service_allowance_=saturated_sum(affine_service_allowance_,cap);
+  execution::execute_action(kernel, execution::ParameterInstallationRequest{*parameters},
+                            completion_, "AffineMatrixInitialize");
+  result = execution::complete_action(
+      completion_, FeedbackKind::Rule, "AffineMatrixInitialize", INSTANCE_CANONICAL,
+      [&] {
+        return execution::native_rule_feedback(
+            kernel,"AffineMatrixInitialize",INSTANCE_CANONICAL,
+            "default-persistent-authenticated-subimage;retained-bytes=" + std::to_string(persistence.maximum_retained_bytes),
+            affine_init_work,"affine-initialization-work",
+            strategy::WorkLimit::bounded(saturated_sum(
+                saturated_sum(parameters->maximum_snapshot_work,parameters->maximum_elimination_work),
+                saturated_sum(parameters->basis_maximum_work,
+                    saturated_sum(parameters->maximum_session_work,parameters->basis_maximum_work)))));
+      },
+      [&] {
+        auto initialized = refresh
+            ? affine_matrix_search_refresh(kernel,*kernel.affine_matrix_search_session,
+                *parameters,persistence,recognize)
+            : affine_matrix_search_initialize(kernel,*kernel.affine_matrix_search_session,
+                *parameters,AffineMatrixAdmission::AuthenticatedSubimage,persistence);
+        uint64_t work = 0;
+        for (uint64_t amount : {initialized.snapshot_work,initialized.recognition_work,
+             initialized.matrix_work,initialized.premise_retention_work,initialized.root_unit_work})
+          work = saturated_sum(work,amount);
+        affine_search_diagnostics_.initialization_work = saturated_sum(
+            affine_search_diagnostics_.initialization_work,work);
+        return initialized;
+      },affine_init_outcome);
+  affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
+  if(result.unchanged)++affine_search_diagnostics_.unchanged_refreshes;
+  affine_search_diagnostics_.root_unit_work+=result.root_unit_work;
+  affine_search_diagnostics_.root_unit_additions+=result.root_unit_additions;
+  if (!refresh || recognize) {
+    affine_refresh_ticks_=search_ticks(kernel);
+    affine_refresh_work_=0;
+    for (uint64_t amount : {result.snapshot_work,result.recognition_work,result.matrix_work,
+                           result.premise_retention_work,result.root_unit_work})
+      affine_refresh_work_=saturated_sum(affine_refresh_work_,amount);
+  }
+  // Root maintenance reports the current owner image, not newly recognized
+  // equations. Only an initialization/recognition dose earns census counters.
+  if (!refresh || recognize) {
+    affine_search_diagnostics_.recognized_equations += result.equations;
+    affine_search_diagnostics_.admitted_sources += result.admitted_sources;
+  }
+  affine_search_diagnostics_.active_sources = kernel.affine_matrix_search_session->active_sources();
+  if(result.status==AffineMatrixInitStatus::Applied || result.status==AffineMatrixInitStatus::AppliedPartial)
+  {
+    affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
+    affine_usefulness_paused_=false;
+  }
+  return result;
+}
+
+AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bool root) {
+  AffineMatrixServiceResult result;
+  if(!config_.affine_search.enabled || affine_usefulness_paused_ || !kernel.affine_matrix_search_session ||
+      !kernel.affine_matrix_search_session->enabled())return result;
+  const uint64_t started=now_nanos();
+  // Prepare observational storage before publication. Metadata insertion after
+  // Applied then cannot allocate or invalidate the certified formula commit.
+  auto reserve_next=[&](auto &values) {
+    if(values.size()==values.capacity() && values.size()<affine_tracking_limit_) {
+      const uint64_t capacity=values.capacity()>UINT64_MAX/2 ? UINT64_MAX :
+          std::max<uint64_t>(1,2*values.capacity());
+      values.reserve(static_cast<size_t>(std::min(capacity,affine_tracking_limit_)));
+    }
+  };
+  reserve_next(affine_reason_ids_);
+  reserve_next(affine_binary_reasons_);
+  if(root)++affine_search_diagnostics_.root_services;
+  else ++affine_search_diagnostics_.search_services;
+  result=execution::complete_action(
+      completion_,FeedbackKind::SearchService,"AffineMatrixSearch",INSTANCE_CANONICAL,
+      [&] {
+        execution::NativeFeedbackSpec spec;
+        spec.meter=affine_service_work;
+        spec.description.version=2;
+        spec.description.description=root ? "default-persistent-root-fixpoint" : "default-persistent-search-fixpoint";
+        spec.description.effort_currency="affine-matrix-work";
+        spec.description.effort_allowance=strategy::WorkLimit::bounded(
+            affine_service_allowance_);
+        spec.description.have_affine_matrix_event=true;
+        return spec;
+      },[&] {
+        auto serviced=affine_matrix_search_step(kernel,*kernel.affine_matrix_search_session);
+        uint64_t work=0;
+        for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
+             serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
+             serviced.lifecycle_work}) work=saturated_sum(work,amount);
+        affine_search_diagnostics_.service_work=saturated_sum(
+            affine_search_diagnostics_.service_work,work);
+        return serviced;
+      },
+      affine_service_outcome);
+  affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
+  affine_search_diagnostics_.incremental_capture_calls+=result.incremental_capture;
+  affine_search_diagnostics_.unchanged_support_calls+=result.unchanged_support;
+  affine_search_diagnostics_.capture_delta_literals=saturated_sum(
+      affine_search_diagnostics_.capture_delta_literals,result.capture_delta_literals);
+  affine_search_diagnostics_.lifecycle_work+=result.lifecycle_work;
+  affine_search_diagnostics_.trail_capture_work+=result.trail_capture_work;
+  affine_search_diagnostics_.synchronization_work+=result.synchronization_work;
+  affine_search_diagnostics_.conditioned_rows+=result.synchronization_conditioned;
+  affine_search_diagnostics_.retired_sources+=result.retired_source_groups;
+  affine_search_diagnostics_.projected_variables+=result.projected_variables;
+  if(result.synchronized && result.unchanged_support)++affine_search_diagnostics_.unchanged_reductions;
+  if(result.status==AffineMatrixServiceStatus::NoEvent)++affine_search_diagnostics_.no_event;
+  if(result.status==AffineMatrixServiceStatus::Duplicate)++affine_search_diagnostics_.duplicates;
+  if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
+  if(result.status==AffineMatrixServiceStatus::Applied) {
+    ++affine_search_diagnostics_.reasons_published;
+    affine_search_diagnostics_.widest_reason=std::max<uint64_t>(
+        affine_search_diagnostics_.widest_reason,result.installed_reason.size());
+    affine_search_diagnostics_.proof_additions+=result.live.additions;
+    affine_search_diagnostics_.proof_deletions+=result.live.deletions;
+    // Actual native IDs, rather than arena offsets, survive collection. Binary
+    // watches without ID storage are observed by the exact published body.
+    if(result.live.installed_reason_id && affine_reason_ids_.size()<affine_tracking_limit_)
+      affine_reason_ids_.push_back(result.live.installed_reason_id);
+    if(result.installed_reason.size()==2 && affine_binary_reasons_.size()<affine_tracking_limit_) {
+      auto pair=std::minmax(result.installed_reason[0],result.installed_reason[1]);
+      std::pair<int32_t,int32_t> key{pair.first,pair.second};
+      auto it=std::lower_bound(affine_binary_reasons_.begin(),affine_binary_reasons_.end(),key);
+      if(it==affine_binary_reasons_.end() || *it!=key)affine_binary_reasons_.insert(it,key);
+    }
+  }
+  // Reference-style usefulness sampling counts charged reductions with
+  // changed admitted assignment support, excluding charged cache copies.
+  // A later work-earned root refresh may
+  // admit a changed theory and begins a new sample round.
+  if(result.synchronized && result.synchronization_work && !result.unchanged_support) {
+    ++affine_usefulness_calls_;
+    if(result.status==AffineMatrixServiceStatus::Applied)++affine_usefulness_yield_;
+    if(++affine_usefulness_checks_>=config_.affine_search.autodisable_check_every) {
+      affine_usefulness_checks_=0;
+      const long double required=std::floor(static_cast<long double>(affine_usefulness_calls_)*
+          config_.affine_search.minimum_usefulness);
+      if(config_.affine_search.autodisable &&
+          affine_usefulness_calls_>config_.affine_search.autodisable_minimum_calls &&
+          affine_usefulness_yield_<required) {
+        ++affine_search_diagnostics_.usefulness_disabled;
+        affine_usefulness_paused_=true;
+        kernel.affine_matrix_search_session->disable(kernel);
+      }
+    }
+  }
+  // Ordinary CDCL continues after a finite optional-service decline. Repeated
+  // resource failures do not spend the same allowance at every decision.
+  if(result.terminal_failure() && result.status!=AffineMatrixServiceStatus::Interrupted)
+    kernel.affine_matrix_search_session->disable(kernel);
+  affine_search_diagnostics_.active_sources=kernel.affine_matrix_search_session->active_sources();
+  return result;
+}
+
+void DefaultPolicy::observe_affine_consumption(const Kernel &kernel,size_t begin) {
+  if(!config_.affine_search.enabled)return;
+  auto published=[&](uint64_t id) {
+    return id && std::binary_search(affine_reason_ids_.begin(),affine_reason_ids_.end(),id);
+  };
+  auto binary=[&](Lit first,Lit second) {
+    int32_t a=kernel_externalize(kernel,first),b=kernel_externalize(kernel,second);
+    if(a>b)std::swap(a,b);
+    return std::binary_search(affine_binary_reasons_.begin(),affine_binary_reasons_.end(),std::pair{a,b});
+  };
+  for(size_t i=begin;i<kernel.trail.size();++i) {
+    Lit lit=kernel.trail[i];const auto &assigned=kernel.assigned[var_of(lit)];
+    bool used=false;
+    if(assigned.reason==UNIT_REASON)used=published(kernel.unit_ids[var_of(lit)]);
+    else if(assigned.reason!=DECISION_REASON) {
+      if(assigned.binary)used=binary(lit,assigned.reason);
+      else used=published(clause_at(kernel.arena,assigned.reason)->id());
+    }
+    if(used)++affine_search_diagnostics_.implications_consumed;
+  }
+  if(kernel.conflict_valid) {
+    bool used=kernel.conflict_ref==INVALID_REF
+        ? binary(kernel.conflict_bin[0],kernel.conflict_bin[1])
+        : published(clause_at(kernel.arena,kernel.conflict_ref)->id());
+    if(used)++affine_search_diagnostics_.conflicts_consumed;
+  }
+}
+
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
@@ -3793,6 +4071,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       { feedback.finish(20, StopReason::Unsat); return 20; }
   }
   solves++;
+  affine_search_diagnostics_={};
+  const uint64_t alias_work_begin=k.stats.affine_matrix_alias_work;
+  const uint64_t alias_additions_begin=k.stats.affine_matrix_alias_proof_additions;
+  const uint64_t premise_maintenance_begin=k.proof ? k.proof->premise_maintenance_work() : 0;
+  affine_reason_ids_.clear();
+  affine_binary_reasons_.clear();
+  affine_refresh_ticks_=search_ticks(k);
+  affine_refresh_work_=0;
+  affine_tracking_limit_=0;
+  affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
+  affine_usefulness_paused_=false;
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
   analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
@@ -3873,6 +4162,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 #endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
+    // These source/proof hook costs overlap ordinary structural actions and
+    // are diagnostics, not another charge of the whole Substitute invocation.
+    affine_search_diagnostics_.alias_work=k.stats.affine_matrix_alias_work-alias_work_begin;
+    affine_search_diagnostics_.alias_proof_additions=
+        k.stats.affine_matrix_alias_proof_additions-alias_additions_begin;
+    if(k.proof) {
+      const uint64_t work=k.proof->premise_maintenance_work();
+      affine_search_diagnostics_.premise_maintenance_work=work>=premise_maintenance_begin ? work-premise_maintenance_begin : work;
+    }
     char payload[16];
     std::snprintf(payload, sizeof payload, "%d", verdict);
     event_trace.macro(k, "terminate", payload);
@@ -3923,6 +4221,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (affine_root == ApplyResult::Unsat ||
       affine_root == ApplyResult::Conflict)
     return finish(20);
+  if(config_.affine_search.enabled) {
+    (void)initialize_affine_search(k);
+    for(;;) {
+      const size_t trail_begin=k.trail.size();
+      const auto service=service_affine_search(k,true);
+      observe_affine_consumption(k,trail_begin);
+      if(service.result==ApplyResult::Unsat)return finish(20);
+      if(service.status!=AffineMatrixServiceStatus::Applied)break;
+      if(!service.bcp_pending)std::abort();
+      const size_t propagation_begin=k.trail.size();
+      const auto propagated=default_propagate(k,"affine-persistent-root",completion_);
+      observe_affine_consumption(k,propagation_begin);
+      if(propagated!=ApplyResult::Ok)return finish(20);
+    }
+  }
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
@@ -4406,6 +4719,30 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const size_t trace_trail_begin = k.trail.size();
     const ApplyResult r = default_propagate(k, "search", completion_);
     event_trace.implications(k, trace_trail_begin);
+    observe_affine_consumption(k,trace_trail_begin);
+    if(r==ApplyResult::Ok && config_.affine_search.enabled) {
+      // New recognition earns its work from ordinary search, only at root.
+      // The core refresh additionally skips an exact unchanged formula/profile
+      // and merges authenticated new rows with surviving leased old sources.
+      const uint64_t quantum=config_.affine_search.maximum_initialization_work
+          ? config_.affine_search.maximum_initialization_work
+          : config_.inprocess.preprocess_initial_ticks;
+      const uint64_t ticks=search_ticks(k);
+      if(!k.level) {
+        const bool recognize=ticks>=affine_refresh_ticks_ &&
+            ticks-affine_refresh_ticks_>=std::max(quantum,affine_refresh_work_);
+        const auto refreshed=initialize_affine_search(k,true,recognize);
+        if(refreshed.root_unit_additions) continue;
+      }
+      const size_t service_trail_begin=k.trail.size();
+      const auto service=service_affine_search(k,false);
+      observe_affine_consumption(k,service_trail_begin);
+      if(service.result==ApplyResult::Unsat)return finish(20);
+      if(service.status==AffineMatrixServiceStatus::Applied) {
+        if(!service.bcp_pending)std::abort();
+        continue; // The exact conditional clause is consumed by ordinary BCP.
+      }
+    }
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {

@@ -139,6 +139,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (nvars <= k.nvars)
     return;
   const uint32_t old = k.nvars;
+  kernel_affine_note_namespace_change(k);
   k.nvars = nvars;
   // Parsing normally grows once to the declared header. Variable-adding rules
   // instead append one extension at a time; exact reserve(nvars) on every call
@@ -335,6 +336,7 @@ bool kernel_reserve_proof_variables(Kernel &k, uint32_t count, Var &first) {
   // Freeze the original-model boundary before adding namespace-only holes.
   if (k.original_external_vars == UINT32_MAX)
     k.original_external_vars = static_cast<uint32_t>(begin);
+  kernel_affine_note_namespace_change(k);
   k.external_to_internal.resize(static_cast<size_t>(begin + count), INVALID_VAR);
   k.external_import_rank.resize(k.external_to_internal.size(), UINT32_MAX);
   return true;
@@ -1080,6 +1082,7 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
   // position. Scan the suffix above the target frame and KEEP every literal
   // whose true level <= target, unassigning only those above it. Inert while
   // chrono is off, where nothing is kept and this is plain truncation.
+  kernel_affine_note_trail_retraction(k);
   const uint32_t boundary = k.frames[target + 1];
   const uint32_t end = static_cast<uint32_t>(k.trail.size());
   uint32_t j = boundary; // write cursor for kept (out-of-order) literals
@@ -1128,6 +1131,7 @@ static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
   // Every level above the root must live entirely inside the discarded
   // suffix, or landing at level zero would strand one of its literals.
   assert(!k.level || k.frames[1] >= position);
+  if (k.trail.size() > position) kernel_affine_note_trail_retraction(k);
   while (k.trail.size() > position) {
     const Lit lit = k.trail.back();
     k.trail.pop_back();
@@ -3594,6 +3598,8 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
       kernel_sort_refs_by_logical_clause_position(kernel, refs);
     }
   } compaction_order;
+  kernel_affine_note_namespace_change(k);
+  kernel_affine_note_trail_retraction(k);
   ArenaOrdering *const saved_arena_ordering = k.arena_ordering;
   k.arena_ordering = &compaction_order;
   kernel_collect_garbage(k);

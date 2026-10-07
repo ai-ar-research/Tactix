@@ -42,8 +42,9 @@ import re
 import subprocess
 import sys
 
-ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                      capture_output=True, text=True, check=True).stdout.strip()
+from source_root import source_root
+
+ROOT = source_root(__file__)
 HEADER_REL = "include/tactix.h"
 API_REL = "src/api/api.cpp"
 POLICY_REL = "src/policies/default_policy.cpp"

@@ -285,8 +285,17 @@ SemanticVariableAdviceParameters::from_kernel(const Kernel &k) {
   return k.semantic_variable_advice_parameters;
 }
 
+AffineMatrixInitializeParameters AffineMatrixInitializeParameters::from_kernel(const Kernel &k) {
+  return k.affine_matrix_initialize_parameters;
+}
+void install_rule_parameters(Kernel &k, const AffineMatrixInitializeParameters &parameters) {
+  k.affine_matrix_initialize_parameters = parameters;
+  k.affine_matrix_initialize_parameters_active = true;
+  k.affine_consequence_parameters = parameters.basis;
+}
 void install_rule_parameters(Kernel &k,
                              const AffineConsequenceParameters &parameters) {
+  k.affine_matrix_initialize_parameters_active = false;
   k.affine_consequence_parameters = parameters;
 }
 void install_rule_parameters(

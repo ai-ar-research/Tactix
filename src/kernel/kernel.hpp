@@ -989,7 +989,12 @@ struct Stats {
   uint64_t affine_matrix_init_snapshot_work = 0;
   uint64_t affine_matrix_init_recognition_work = 0;
   uint64_t affine_matrix_init_matrix_work = 0;
+  uint64_t affine_matrix_init_premise_retention_work = 0;
+  uint64_t affine_matrix_init_root_unit_work = 0;
+  uint64_t affine_matrix_alias_work = 0;
+  uint64_t affine_matrix_alias_proof_additions = 0;
   uint64_t affine_matrix_service_calls = 0;
+  uint64_t affine_matrix_service_lifecycle_work = 0;
   uint64_t affine_matrix_service_applied = 0;
   uint64_t affine_matrix_service_no_event = 0;
   uint64_t affine_matrix_service_duplicate = 0;
@@ -2117,6 +2122,8 @@ struct Kernel {
   strategy::CongruenceParameters congruence_parameters;
   strategy::ParityConsequenceParameters parity_consequence_parameters;
   strategy::AffineConsequenceParameters affine_consequence_parameters;
+  strategy::AffineMatrixInitializeParameters affine_matrix_initialize_parameters;
+  bool affine_matrix_initialize_parameters_active = false;
   strategy::ExactCoverExtensionParameters exact_cover_extension_parameters;
   strategy::IndependentSetCoverParameters independent_set_cover_parameters;
   strategy::Gf3AffineConsequenceParameters gf3_affine_consequence_parameters;
@@ -2155,6 +2162,10 @@ struct Kernel {
   Gf3GeneralRowActionSession *gf3_general_row_action_session = nullptr;
   TseitinCycleBreakingSession *tseitin_cycle_breaking_session = nullptr;
   AffineMatrixSearchSession *affine_matrix_search_session = nullptr;
+  uint64_t affine_trail_retraction_epoch = 1;
+  uint64_t affine_semantic_namespace_epoch = 1;
+  // Direct mutation fixtures must invalidate the affected epoch or opt out.
+  bool affine_capture_epochs_trusted = true;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
 
@@ -2170,6 +2181,20 @@ struct Kernel {
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
+
+inline void kernel_affine_note_trail_retraction(Kernel &k) {
+  if (k.affine_trail_retraction_epoch == UINT64_MAX)
+    k.affine_capture_epochs_trusted = false;
+  else
+    ++k.affine_trail_retraction_epoch;
+}
+
+inline void kernel_affine_note_namespace_change(Kernel &k) {
+  if (k.affine_semantic_namespace_epoch == UINT64_MAX)
+    k.affine_capture_epochs_trusted = false;
+  else
+    ++k.affine_semantic_namespace_epoch;
+}
 
 inline void kernel_mark_subsume_material(Kernel &k, Var v) {
   assert(v < k.nvars);

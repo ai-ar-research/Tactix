@@ -296,6 +296,50 @@ MatrixStatus build_affine_matrix(
   return status;
 }
 
+MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
+    const std::function<bool(uint64_t)> &charge) {
+  if (!charge || !std::is_sorted(unavailable.begin(), unavailable.end()) ||
+      std::adjacent_find(unavailable.begin(), unavailable.end()) != unavailable.end() ||
+      std::any_of(unavailable.begin(), unavailable.end(), [](External v){return v <= 0;}))
+    return MatrixStatus::Invalid;
+  if (unavailable.empty()) return MatrixStatus::Complete;
+  Work work{0, limits_.maximum_work, charge};
+  for (const auto &row : admitted_rows_)
+    if (!work.consume(1 + row.variables.size() + row.source_equations.size()))
+      return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
+  auto rows = admitted_rows_;
+  for (External variable : unavailable) {
+    size_t pivot = rows.size();
+    for (size_t i = 0; i < rows.size(); ++i) {
+      if (!work.consume(1 + rows[i].variables.size()))
+        return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
+      if (std::binary_search(rows[i].variables.begin(), rows[i].variables.end(), variable)) {
+        pivot = i; break;
+      }
+    }
+    if (pivot == rows.size()) continue;
+    for (size_t i = 0; i < rows.size(); ++i) {
+      if (!work.consume(1 + rows[i].variables.size()))
+        return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
+      if (i == pivot || !std::binary_search(rows[i].variables.begin(), rows[i].variables.end(), variable)) continue;
+      const auto status = combine(rows[i], rows[pivot], limits_, work);
+      if (status != CombineStatus::Complete)
+        return status == CombineStatus::Interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
+    }
+    rows.erase(rows.begin() + pivot);
+  }
+  std::vector<MatrixRow> reduced;
+  const auto status = reduce(rows, {}, limits_, work, reduced);
+  if (status != MatrixStatus::Complete) return status;
+  admitted_rows_ = std::move(reduced);
+  admitted_sources_ = source_union(admitted_rows_);
+  admitted_variables_ = variable_union(admitted_rows_);
+  rows_ = admitted_rows_; trail_.clear(); incremental_ready_ = false;
+  predecessor_rows_.clear(); predecessor_trail_.clear(); predecessor_ready_ = false;
+  work_ = work.used;
+  return MatrixStatus::Complete;
+}
+
 MatrixStatus AffineMatrix::synchronize(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge, MatrixEvent &event) {

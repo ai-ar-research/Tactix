@@ -12,6 +12,7 @@
 
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -1357,6 +1358,30 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         if (substitutable(l))
           fn(l);
   };
+
+  // A persistent affine owner needs certified aliases before the original
+  // endpoint bodies disappear. Sweep prepares its aliases before its earlier
+  // ledger rewrite; the ordinary SCC path still has the intact binary graph.
+  if (!session && k.affine_matrix_search_session &&
+      k.affine_matrix_search_session->persistent() &&
+      k.affine_matrix_search_session->attached_to(k)) {
+    if (kernel_terminating(k)) return ApplyResult::NoOp;
+    std::vector<std::pair<Lit, Lit>> aliases;
+    for_each_substitutable([&](Lit l) {
+      if (!negated(l)) aliases.emplace_back(l, representative(l));
+    });
+    k.stats.substitute_ticks += std::min<uint64_t>(uint64_t(nlits) + aliases.size(),
+        UINT64_MAX - k.stats.substitute_ticks);
+    const auto preserved = affine_matrix_search_preserve_aliases(
+        k, *k.affine_matrix_search_session, aliases);
+    // Expose preservation work to the existing Substitute action meter.
+    k.stats.substitute_ticks += std::min(preserved.work,
+        UINT64_MAX - k.stats.substitute_ticks);
+    if (preserved.status != AffineMatrixServiceStatus::Applied &&
+        preserved.status != AffineMatrixServiceStatus::NoEvent &&
+        preserved.status != AffineMatrixServiceStatus::Disabled)
+      return ApplyResult::NoOp;
+  }
 
   // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
   // derived before any binary mutation so big_path_chain reads the intact
@@ -2954,6 +2979,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
     rule_journal_note_variable_status(k, v, "substituted");
 #endif
+    kernel_affine_note_namespace_change(k);
     k.var_status[v] = VarStatus::Substituted;
     k.retired_events.push_back(v);
     k.substituted_events.push_back(v);
@@ -3303,6 +3329,28 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
   }
 
+  // The Sweep ledger predicts/retires binary source occurrences below, so
+  // preserve affine aliases while the physical graph still certifies both
+  // directions. A bounded decline leaves that ledger transaction unopened.
+  if (k.affine_matrix_search_session &&
+      k.affine_matrix_search_session->persistent() &&
+      k.affine_matrix_search_session->attached_to(k)) {
+    if (kernel_terminating(k)) return ApplyResult::NoOp;
+    std::vector<std::pair<Lit, Lit>> aliases;
+    for (const auto &[source, target] : sparse_map)
+      if (!negated(source)) aliases.emplace_back(source, target);
+    k.stats.substitute_ticks += std::min<uint64_t>(sparse_map.size() + aliases.size(),
+        UINT64_MAX - k.stats.substitute_ticks);
+    const auto preserved = affine_matrix_search_preserve_aliases(
+        k, *k.affine_matrix_search_session, aliases);
+    // Expose preservation work to the existing Substitute action meter.
+    k.stats.substitute_ticks += std::min(preserved.work,
+        UINT64_MAX - k.stats.substitute_ticks);
+    if (preserved.status != AffineMatrixServiceStatus::Applied &&
+        preserved.status != AffineMatrixServiceStatus::NoEvent &&
+        preserved.status != AffineMatrixServiceStatus::Disabled)
+      return ApplyResult::NoOp;
+  }
   session.rewrite_binary_occurrences(k, sparse_map, sources, bridges);
   const ApplyResult result = do_substitution(k, r, {}, &session);
   // flush_moves closes the transaction and clears its sparse mapping. A

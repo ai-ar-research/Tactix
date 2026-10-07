@@ -1,0 +1,87 @@
+  ok    POLICY bve_bound                  <- src/policies/default_policy.cpp:5346, src/policies/default_policy.cpp:5468
+  ok    POLICY bve_occurrence_limit       <- src/policies/default_policy.cpp:1546, src/strategy/bve_invocation.hpp:255
+  ok    POLICY bve_clause_size_limit      <- src/policies/default_policy.cpp:1548, src/strategy/bve_invocation.hpp:256
+  ok    POLICY bve_xor_arity_limit        <- src/policies/default_policy.cpp:1550, src/strategy/bve_invocation.hpp:258
+  ok    POLICY bve_resolvent_size_limit   <- src/policies/default_policy.cpp:1552, src/strategy/bve_invocation.hpp:259
+  ok    POLICY bve_resolvent_count_limit  <- src/strategy/bve_invocation.hpp:257
+  ok    POLICY bve_fastel_traversal       <- src/strategy/bve_invocation.hpp:265
+  ok    POLICY bve_backward_occurrence_limit <- src/policies/default_policy.cpp:1554, src/strategy/bve_invocation.hpp:260
+  ok    POLICY bve_definition_session     <- src/strategy/parameter_execution.hpp:17
+  ok    POLICY factor_composite           <- src/policies/default_policy.cpp:1439, src/policies/default_policy.cpp:5732, src/policies/default_policy.cpp:5952
+  ok    POLICY work_budget                <- src/strategy/work_execution.hpp:19, src/strategy/work_execution.hpp:40
+  ok    POLICY walk_seed_candidate        <- src/strategy/rule_parameters.cpp:226, src/strategy/rule_parameters.cpp:257
+  ok    POLICY walk_preparation_budget    <- src/strategy/rule_parameters.cpp:229, src/strategy/rule_parameters.cpp:258
+  ok    POLICY walk_objective             <- src/strategy/rule_parameters.cpp:227, src/strategy/rule_parameters.cpp:259
+  ok    POLICY walk_admission             <- src/strategy/rule_parameters.cpp:228, src/strategy/rule_parameters.cpp:260
+  ok    POLICY work_budget_offset         <- src/strategy/work_execution.hpp:20, src/strategy/work_execution.hpp:41
+  ok    POLICY work_budget_bounded        <- src/strategy/work_execution.hpp:21, src/strategy/work_execution.hpp:42
+  ok    POLICY vivify_scope               <- src/policies/default_policy.cpp:1421, src/strategy/vivify_parameters.cpp:23
+  ok    POLICY vivify_irredundant_sort_ratio <- src/policies/default_policy.cpp:1425, src/strategy/vivify_parameters.cpp:26
+  ok    POLICY bump_reason_limit          <- src/policies/default_policy.cpp:1066, src/policies/default_policy.cpp:3215, src/policies/default_policy.cpp:3217
+  ok    POLICY bump_reason_depth          <- src/policies/default_policy.cpp:4750, src/policies/default_policy.cpp:4768
+  ok    POLICY inprocessing               <- src/strategy/root_execution.hpp:26, src/strategy/root_execution.hpp:27, src/strategy/root_execution.hpp:29
+  ok    POLICY jump_reasons_bigbig        <- src/policies/default_policy.cpp:3094
+  ok    POLICY conflict_reuse_chrono_levels <- src/strategy/analyze_parameters.cpp:23
+  ok    POLICY bve_backward               <- src/policies/default_policy.cpp:1562, src/policies/default_policy.cpp:3278, src/strategy/bve_invocation.hpp:264
+  ok    POLICY bce_occ_limit              <- src/strategy/rule_parameters.cpp:185
+  ok    POLICY midround_budget            <- src/strategy/work_execution.hpp:22, src/strategy/work_execution.hpp:43
+  ok    POLICY factor_size                <- src/strategy/rule_parameters.cpp:194
+  ok    POLICY transitive_early_exit      <- src/policies/default_policy.cpp:1443, src/strategy/rule_parameters.cpp:203
+  ok    POLICY transitive_live_meter      <- src/policies/default_policy.cpp:1445, src/strategy/rule_parameters.cpp:204
+  ok    POLICY transitive_budget_checked  <- src/strategy/rule_parameters.cpp:205
+  ok    POLICY bve_definition_budget      <- src/policies/default_policy.cpp:1556, src/policies/default_policy.cpp:3270, src/strategy/bve_invocation.hpp:261
+  ok    POLICY bve_definition_cores       <- src/policies/default_policy.cpp:1558, src/policies/default_policy.cpp:3272, src/strategy/bve_invocation.hpp:262
+  ok    POLICY bve_definition_core_budget_multiplier <- src/policies/default_policy.cpp:1560, src/policies/default_policy.cpp:3275, src/strategy/bve_invocation.hpp:263
+  ok    POLICY ternary_occ_limit          <- src/strategy/rule_parameters.cpp:189
+  ok    POLICY ternary_max_add_percent    <- src/strategy/rule_parameters.cpp:190
+  ok    POLICY touch_filter               <- src/policies/default_policy.cpp:1451, src/policies/default_policy.cpp:2222, src/policies/default_policy.cpp:3321
+  ok    POLICY touch_redundant            <- src/strategy/work_execution.hpp:63, src/strategy/work_execution.hpp:128
+  ok    POLICY vivify_reuse               <- src/policies/default_policy.cpp:1423, src/strategy/vivify_parameters.cpp:24
+  ok    POLICY vivify_flush               <- src/policies/default_policy.cpp:1424, src/strategy/vivify_parameters.cpp:25
+  ok    POLICY factor_demote_fresh        <- src/policies/default_policy.cpp:1441, src/strategy/rule_parameters.cpp:198
+  ok    POLICY factor_cand_rounds         <- src/strategy/rule_parameters.cpp:196
+  ok    POLICY no_ext_reason_bump         <- src/strategy/analyze_parameters.cpp:30
+  ok    POLICY subst_demote               <- src/strategy/rule_parameters.cpp:209
+  ok    POLICY eager_subsume              <- src/policies/default_policy.cpp:1077, src/policies/default_policy.cpp:3259, src/policies/default_policy.cpp:4077
+  ok    POLICY conflict_reuse             <- src/policies/default_policy.cpp:1072, src/policies/default_policy.cpp:3251, src/policies/default_policy.cpp:4073
+  ok    POLICY jump_reasons               <- src/policies/default_policy.cpp:1073, src/policies/default_policy.cpp:3253, src/policies/default_policy.cpp:4074
+  ok    POLICY shrink_glue_promote        <- src/policies/default_policy.cpp:1074, src/policies/default_policy.cpp:3255, src/policies/default_policy.cpp:4075
+  ok    POLICY factor_bound               <- src/strategy/rule_parameters.cpp:195
+  ok    POLICY walk_even_break_base_milli <- src/policies/default_policy.cpp:1132, src/strategy/rule_parameters.cpp:236, src/strategy/rule_parameters.cpp:261
+  ok    POLICY reorder_maximum_clause_size <- src/strategy/rule_parameters.cpp:267
+  ok    POLICY reorder_clause_decay_milli <- src/strategy/rule_parameters.cpp:268
+  ok    POLICY reorder_binary_weight_milli <- src/strategy/rule_parameters.cpp:269
+  ok    POLICY reorder_balanced_polarity_milli <- src/strategy/rule_parameters.cpp:270
+  ok    POLICY parity_model_maximum_variables <- src/strategy/rule_parameters.cpp:274
+  ok    POLICY parity_model_maximum_groups <- src/strategy/rule_parameters.cpp:275
+  ok    POLICY parity_model_maximum_constraints <- src/strategy/rule_parameters.cpp:276
+  ok    POLICY parity_model_minimum_group_clauses <- src/strategy/rule_parameters.cpp:277
+  ok    POLICY parity_model_minimum_equations <- src/strategy/rule_parameters.cpp:278
+  ok    POLICY parity_model_maximum_free_variables <- src/strategy/rule_parameters.cpp:279
+  ok    POLICY parity_model_candidate_budget <- src/strategy/rule_parameters.cpp:280
+  ok    POLICY parity_refutation_maximum_variables <- src/strategy/rule_parameters.cpp:281
+  ok    POLICY parity_refutation_maximum_groups <- src/strategy/rule_parameters.cpp:282
+  ok    POLICY parity_refutation_maximum_constraints <- src/strategy/rule_parameters.cpp:283
+  ok    POLICY parity_refutation_maximum_arity <- src/strategy/rule_parameters.cpp:284
+  ok    POLICY parity_refutation_probe_constraints <- src/strategy/rule_parameters.cpp:285
+  ok    POLICY parity_refutation_minimum_probe_repeats <- src/strategy/rule_parameters.cpp:286
+  ok    POLICY parity_refutation_maximum_proof_additions <- src/strategy/rule_parameters.cpp:288
+  ok    POLICY onehot_model_maximum_variables <- src/strategy/rule_parameters.cpp:293
+  ok    POLICY onehot_model_maximum_domains <- src/strategy/rule_parameters.cpp:294
+  ok    POLICY onehot_model_maximum_constraints <- src/strategy/rule_parameters.cpp:295
+  ok    POLICY onehot_model_maximum_equation_arity <- src/strategy/rule_parameters.cpp:296
+  ok    POLICY onehot_model_minimum_domains <- src/strategy/rule_parameters.cpp:297
+  ok    POLICY onehot_model_minimum_equations <- src/strategy/rule_parameters.cpp:298
+  ok    POLICY onehot_model_maximum_free_domains <- src/strategy/rule_parameters.cpp:299
+  ok    POLICY onehot_model_candidate_budget <- src/strategy/rule_parameters.cpp:300
+  ok    POLICY exact_one_refutation_maximum_variables <- src/strategy/rule_parameters.cpp:301
+  ok    POLICY exact_one_refutation_maximum_groups <- src/strategy/rule_parameters.cpp:302
+  ok    POLICY exact_one_refutation_maximum_constraints <- src/strategy/rule_parameters.cpp:303
+  ok    POLICY exact_one_refutation_maximum_arity <- src/strategy/rule_parameters.cpp:305
+  ok    POLICY exact_one_refutation_maximum_proof_additions <- src/strategy/rule_parameters.cpp:306
+  ok    POLICY reduce_victim_numerator    <- src/strategy/rule_parameters.cpp:215
+  ok    POLICY reduce_victim_denominator  <- src/strategy/rule_parameters.cpp:216
+  ok    POLICY reduce_protect_tiers       <- src/strategy/rule_parameters.cpp:217
+  ok    POLICY reduce_compact_collection  <- src/strategy/rule_parameters.cpp:218
+  ok    POLICY reduce_bookkeeping         <- src/strategy/rule_parameters.cpp:219
+check-config-wiring: 105 config fields, 86 POLICY-tagged, 0 failure(s)

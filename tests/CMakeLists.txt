@@ -351,6 +351,16 @@ add_test(NAME direct_csp_guarded_cover_owner_refresh_proof_model
                  $<TARGET_FILE:test_direct_csp_guarded_cover_owner_refresh> ${CMAKE_SOURCE_DIR})
 set_tests_properties(direct_csp_guarded_cover_owner_refresh_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
+add_test(NAME affine_matrix_persistent_lifecycle_proof_model
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/affine_matrix_persistent_lifecycle_proof_model.sh
+                 $<TARGET_FILE:test_affine_matrix_persistent_lifecycle> ${CMAKE_SOURCE_DIR})
+set_tests_properties(affine_matrix_persistent_lifecycle_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME default_affine_search_proof_model
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/default_affine_search_proof_model.sh
+                 $<TARGET_FILE:test_default_affine_search> ${CMAKE_SOURCE_DIR})
+set_tests_properties(default_affine_search_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(test_direct_csp_guarded_cover_frontend test_direct_csp_guarded_cover_frontend.cpp)
 target_link_libraries(test_direct_csp_guarded_cover_frontend PRIVATE tactix_lib)
 add_test(NAME direct_csp_guarded_cover_frontend COMMAND test_direct_csp_guarded_cover_frontend)

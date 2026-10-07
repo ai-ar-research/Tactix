@@ -50,7 +50,22 @@ def proof_cost_comparison(candidate, baseline):
                 candidate_censored=bool(candidate and candidate.get('timed_out')))
 
 
-def prepare(prefix, release):
+def candidate_arguments(arguments=()):
+    """Keep this Default-policy gate on its original certificate contract.
+
+    Extensions are deliberately enumerated: arbitrary CLI policy/proof flags
+    would silently change what the four historical comparisons qualify.
+    """
+    values = list(arguments)
+    allowed = {'--default-affine-search=on', '--default-affine-search=off'}
+    require(all(isinstance(value, str) and value in allowed for value in values),
+            'unsupported solver argument; only --default-affine-search=on|off is allowed')
+    require(len(values) <= 1, 'duplicate or conflicting default-affine-search argument')
+    return ['--auto-proof', *values]
+
+
+def prepare(prefix, release, solver_arguments=()):
+    arguments = candidate_arguments(solver_arguments)
     require(release.is_relative_to(ROOT), 'candidate must be in repository')
     pin = json.loads((release.parent / 'PIN.json').read_text())
     require(pin['build_type'] == 'Release', 'production Release required')
@@ -112,7 +127,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
             baseline_manifest=dict(path=str(source.relative_to(ROOT)), sha256=sha(source)),
             arms={arm_name: dict(path='pins/tactix', sha256=sha(release),
                 source_commit=pin['source_commit'], source_build=str(release.parent.relative_to(ROOT)),
-                arguments=['--auto-proof'], certificate='auto')},
+                arguments=arguments, certificate='auto')},
             resource_contract=contract, input_sha256=accepted['input_sha256'],
             collect_runtime_context=old.get('collect_runtime_context', False),
             scratch_policy='anonymous-local-files-v1',
@@ -195,6 +210,12 @@ def score_row(row, accepted, contract):
 def score(campaign):
     manifest = json.loads((campaign / 'manifest.json').read_text())
     require(manifest['schema'] == 'tactix-controller-regression-v1', 'wrong manifest')
+    require(len(manifest['arms']) == 1, 'candidate arm ambiguity')
+    arm = next(iter(manifest['arms'].values()))
+    wire = arm.get('arguments')
+    require(isinstance(wire, list) and wire and wire[0] == '--auto-proof' and
+            wire == candidate_arguments(wire[1:]) and arm.get('certificate') == 'auto',
+            'candidate certificate/argument contract changed')
     for relative, digest in manifest['pin_sha256'].items():
         require(sha(campaign / relative) == digest, 'campaign pin changed: ' + relative)
     require(sha(BASELINE) == manifest['baseline']['sha256'], 'baseline changed')
@@ -255,12 +276,14 @@ def main():
     p = commands.add_parser('prepare')
     p.add_argument('--prefix', required=True)
     p.add_argument('--release', type=Path, required=True)
+    p.add_argument('--solver-argument', action='append', default=[],
+                   help='append a qualified Default setting; use --solver-argument=--default-affine-search=on|off')
     s = commands.add_parser('score')
     s.add_argument('campaign', type=Path)
     args = parser.parse_args()
     if args.command == 'prepare':
         require('/' not in args.prefix and args.prefix not in ('', '.', '..'), 'invalid prefix')
-        print(json.dumps(prepare(args.prefix, args.release.resolve()), indent=2))
+        print(json.dumps(prepare(args.prefix, args.release.resolve(), args.solver_argument), indent=2))
     else:
         result = score(args.campaign.resolve())
         print(json.dumps(result, indent=2))

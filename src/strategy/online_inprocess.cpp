@@ -41,6 +41,18 @@ namespace tactix::strategy {
 
 namespace {
 
+bool selected_affine_guard(const RuleVTable &rule, Kernel &kernel,
+                           const OnlineInvocation &step) {
+  if (step.rule == "AffineMatrixInitialize") {
+    // Selection and pre-apply guards must inspect the exact requested profile,
+    // including above-root service mode, rather than the inherited profile.
+    execution::ParameterExecutionScope<AffineConsequenceParameters,
+        AffineMatrixInitializeParameters> scope(kernel,step.parameters);
+    return static_cast<bool>(rule.guard(kernel));
+  }
+  return static_cast<bool>(rule.guard(kernel));
+}
+
 } // namespace
 
 uint64_t repeat_round_limit(const Kernel &k, const RepeatSpec &repeat) {
@@ -123,6 +135,8 @@ bool parameter_matches(const OnlineInvocation &step) {
     return step.rule == "Strengthen";
   if (std::holds_alternative<ParityConsequenceParameters>(step.parameters))
     return step.rule == "ParityConsequence";
+  if (std::holds_alternative<AffineMatrixInitializeParameters>(step.parameters))
+    return step.rule == "AffineMatrixInitialize";
   if (std::holds_alternative<AffineConsequenceParameters>(step.parameters))
     return step.rule == "AffineConsequence" ||
            step.rule == "AffineMatrixInitialize";
@@ -855,6 +869,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (const auto *p = std::get_if<AffineConsequenceParameters>(&step.parameters);
         p && !p->valid())
       return reject("AffineConsequence parameters are invalid");
+    if (const auto *p = std::get_if<AffineMatrixInitializeParameters>(&step.parameters);
+        p && !p->valid()) return reject("Persistent affine parameters are invalid");
     if (const auto *p =
             std::get_if<ExactCoverExtensionParameters>(&step.parameters);
         p && !p->valid())
@@ -1586,7 +1602,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       return direct_csp_guarded_cover_action_guard(owner).fact(
           "session-bound", owner.direct_csp_guarded_cover_action_session != nullptr);
     };
-  if (!rule.guard(k) && !explicit_fixpoint_propagation_service(step, k)) {
+  if (!selected_affine_guard(rule,k,step) && !explicit_fixpoint_propagation_service(step, k)) {
     out.status = InvocationStatus::Inapplicable;
     return false;
   }
@@ -2151,7 +2167,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     // valid. A declined guard does not consume an application or certify scope.
     const bool explicit_fixpoint_propagation =
         explicit_fixpoint_propagation_service(step, k);
-    if (!rule.guard(k) && !explicit_fixpoint_propagation) {
+    if (!selected_affine_guard(rule,k,step) && !explicit_fixpoint_propagation) {
       out.status = InvocationStatus::Inapplicable;
       out.step_id = step.id;
       out.rule_id = rule.id;
@@ -2261,7 +2277,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           SignedCardinalityProofParameters, ExactCoverModelParameters,
           IndependentSetModelParameters, AffineModelParameters, GraphLabelingParameters,
           RamseyStartupParameters,
-          ParityConsequenceParameters, AffineConsequenceParameters,
+          ParityConsequenceParameters, AffineConsequenceParameters, AffineMatrixInitializeParameters,
           ExactCoverExtensionParameters, IndependentSetCoverParameters,
           Gf3AffineConsequenceParameters, DirectCspSupportParameters,
           NaryCspPrefixParameters, NaryCspEqualityParameters,

@@ -45,8 +45,9 @@ import re
 import subprocess
 import sys
 
-ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                      capture_output=True, text=True, check=True).stdout.strip()
+from source_root import source_root
+
+ROOT = source_root(__file__)
 TREES = ["src", "include", "tests"]
 EXTS = (".cpp", ".hpp", ".h", ".c", ".sh", ".txt", ".cmake")
 

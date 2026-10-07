@@ -1,0 +1,15 @@
+[  4%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_flat_payload_replay.dir/test_flat_payload_replay.cpp.o
+[100%] Linking CXX executable test_flat_payload_replay
+[100%] Built target test_flat_payload_replay
+[  4%] Built target tactix_symmetry_backend
+[100%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_restart_controller.dir/test_restart_controller.cpp.o
+[100%] Linking CXX executable test_restart_controller
+[100%] Built target test_restart_controller
+[  4%] Built target tactix_symmetry_backend
+[ 95%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_restart_reduce.dir/test_restart_reduce.cpp.o
+[100%] Linking CXX executable test_restart_reduce
+[100%] Built target test_restart_reduce

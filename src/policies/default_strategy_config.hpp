@@ -311,6 +311,28 @@ struct DefaultStrategyConfig {
     uint64_t maximum_session_work = 100'000'000;
   } affine_root_closure;
 
+  struct AffineSearch {
+    // Qualification switch; ordinary Default enablement follows the independent
+    // lifecycle/proof, fuzz and regression gates. This is not a rule guard.
+    bool enabled = false;
+    // CryptoMiniSat src/solverconf.h GaussConf source defaults (its README
+    // advertises older smaller dimensions), pinned at 2bf89cfb3e126e559d472388486327813f735f7e.
+    // Tactix additionally caps retained
+    // bytes/work and presently owns one matrix; component partitioning is open.
+    uint32_t maximum_rows = 100000;
+    uint32_t maximum_row_width = 100000;
+    uint32_t maximum_arity = 8; // Existing authenticated CNF recognizer capacity.
+    bool autodisable = true;
+    double minimum_usefulness = 0.2;
+    uint64_t autodisable_minimum_calls = 200;
+    uint64_t autodisable_check_every = 1024;
+    // Zero inherits the explicit existing policy profile: preprocessing/search
+    // effort quantum, and affine_root_closure's accepted certificate byte cap.
+    uint64_t maximum_initialization_work = 0;
+    uint64_t maximum_service_work = 0;
+    uint64_t maximum_retained_bytes = 0;
+  } affine_search;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.

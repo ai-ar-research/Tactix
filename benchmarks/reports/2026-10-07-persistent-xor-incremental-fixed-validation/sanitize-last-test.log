@@ -1,0 +1,148 @@
+Start testing: Oct 07 05:12 EDT
+----------------------------------------------------------
+74/338 Testing: affine_matrix_persistent_lifecycle_proof_model
+74/338 Test: affine_matrix_persistent_lifecycle_proof_model
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/source/tests/affine_matrix_persistent_lifecycle_proof_model.sh" "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_affine_matrix_persistent_lifecycle" "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/source"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"affine_matrix_persistent_lifecycle_proof_model" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+checkmodel: OK — 13 clauses satisfied, 10 vars assigned
+affine_matrix_persistent_lifecycle_proof_model OK: 16 original models and proof prefixes
+<end of output>
+Test time =   2.14 sec
+----------------------------------------------------------
+Test Passed.
+"affine_matrix_persistent_lifecycle_proof_model" end time: Oct 07 05:12 EDT
+"affine_matrix_persistent_lifecycle_proof_model" time elapsed: 00:00:02
+----------------------------------------------------------
+
+75/338 Testing: default_affine_search_proof_model
+75/338 Test: default_affine_search_proof_model
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/source/tests/default_affine_search_proof_model.sh" "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_default_affine_search" "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/source"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"default_affine_search_proof_model" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+c route drat
+s VERIFIED UNSAT
+s VERIFIED UNSAT
+checkmodel: OK — 63 clauses satisfied, 26 vars assigned
+c route drat
+s VERIFIED UNSAT
+checkmodel: OK — 63 clauses satisfied, 26 vars assigned
+default_affine_search_proof_model OK
+<end of output>
+Test time =   1.07 sec
+----------------------------------------------------------
+Test Passed.
+"default_affine_search_proof_model" end time: Oct 07 05:12 EDT
+"default_affine_search_proof_model" time elapsed: 00:00:01
+----------------------------------------------------------
+
+138/338 Testing: affine_matrix_incremental_capture
+138/338 Test: affine_matrix_incremental_capture
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_affine_matrix_incremental_capture"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"affine_matrix_incremental_capture" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.12 sec
+----------------------------------------------------------
+Test Passed.
+"affine_matrix_incremental_capture" end time: Oct 07 05:12 EDT
+"affine_matrix_incremental_capture" time elapsed: 00:00:00
+----------------------------------------------------------
+
+140/338 Testing: affine_matrix_persistent_frontend
+140/338 Test: affine_matrix_persistent_frontend
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_affine_matrix_persistent_frontend"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"affine_matrix_persistent_frontend" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.29 sec
+----------------------------------------------------------
+Test Passed.
+"affine_matrix_persistent_frontend" end time: Oct 07 05:12 EDT
+"affine_matrix_persistent_frontend" time elapsed: 00:00:00
+----------------------------------------------------------
+
+141/338 Testing: affine_matrix_persistent_lifecycle
+141/338 Test: affine_matrix_persistent_lifecycle
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_affine_matrix_persistent_lifecycle"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"affine_matrix_persistent_lifecycle" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.38 sec
+----------------------------------------------------------
+Test Passed.
+"affine_matrix_persistent_lifecycle" end time: Oct 07 05:12 EDT
+"affine_matrix_persistent_lifecycle" time elapsed: 00:00:00
+----------------------------------------------------------
+
+142/338 Testing: affine_matrix_projection
+142/338 Test: affine_matrix_projection
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_affine_matrix_projection"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"affine_matrix_projection" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.22 sec
+----------------------------------------------------------
+Test Passed.
+"affine_matrix_projection" end time: Oct 07 05:12 EDT
+"affine_matrix_projection" time elapsed: 00:00:00
+----------------------------------------------------------
+
+184/338 Testing: default_affine_search
+184/338 Test: default_affine_search
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_default_affine_search"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"default_affine_search" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.24 sec
+----------------------------------------------------------
+Test Passed.
+"default_affine_search" end time: Oct 07 05:12 EDT
+"default_affine_search" time elapsed: 00:00:00
+----------------------------------------------------------
+
+276/338 Testing: proof_premise_lease_lifecycle
+276/338 Test: proof_premise_lease_lifecycle
+Command: "/home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests/test_proof_premise_lease_lifecycle"
+Directory: /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize/tests
+"proof_premise_lease_lifecycle" start time: Oct 07 05:12 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.23 sec
+----------------------------------------------------------
+Test Passed.
+"proof_premise_lease_lifecycle" end time: Oct 07 05:12 EDT
+"proof_premise_lease_lifecycle" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 07 05:12 EDT

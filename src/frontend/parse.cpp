@@ -569,6 +569,7 @@ void finish_input(Kernel &k) {
         assert(k.values[make_lit(v, false)] == 0);
         assert(k.unassigned_active > 0);
         k.unassigned_active--;
+        kernel_affine_note_namespace_change(k);
         k.var_status[v] = VarStatus::Eliminated;
         if (k.h)
           heuristics_deactivate_var(k, v);

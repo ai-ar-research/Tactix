@@ -9,7 +9,7 @@
 
 namespace tactix {
 
-enum class AffineSourceKind : uint8_t { Large, Binary };
+enum class AffineSourceKind : uint8_t { Large, Binary, CheckerPremise };
 
 struct AffineLiveSource {
   uint64_t occurrence = 0;
