@@ -1,0 +1,77 @@
+{
+  "address_space_limit": null,
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "binary_sha256": "b26efc0fb133787a797820d40c759ae552e2cf4eaabde4bee990f27947890bcf",
+  "certificate_bytes": 143503360,
+  "certificate_sha256": "8d3a33aa398e4a7cfde4fb3eee17cb07beee6ddf9fc5312b8c55bda9bcba4126",
+  "cleanup_pending": false,
+  "command": [
+    "taskset",
+    "-c",
+    "27",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-scratch-dry-b26/pins/tactix",
+    "--auto-proof",
+    "--default-graph-labeling=on",
+    "/proc/29016/fd/3",
+    "/proc/29016/fd/5"
+  ],
+  "completion": {
+    "status": "complete"
+  },
+  "cpu_affinity": [
+    27,
+    28,
+    29,
+    31
+  ],
+  "derived_artifacts_deleted": true,
+  "expected": "UNSAT",
+  "expected_match": false,
+  "finished_at": "2026-10-07T23:27:33.368063+00:00",
+  "instance": "tierD24-26/778e0fd8f034b7cfd539b1b523ed4c4a-lec_mult_CvW_12x12.sanitized.cnf.xz",
+  "memory_enforcement": "slurm_task_cgroup",
+  "model_check": null,
+  "node": "node015",
+  "proof_check": null,
+  "rank": 22,
+  "runtime_context": null,
+  "schema": "tactix-matched-slurm-memory-regression-result-v2",
+  "scratch_resources": {
+    "active_handles": 0,
+    "available_bytes": 439812792320,
+    "directory": "/tmp",
+    "file_size_limit_bytes": 60000000000,
+    "high_water_handles": 6,
+    "maximum_file_bytes": 60000000000,
+    "maximum_live_handles": 6,
+    "minimum_free_bytes": 100000000000,
+    "shared_floor": {
+      "admission": {
+        "attempts": 1,
+        "ledger_slot": 4,
+        "waited_seconds": 0.0
+      },
+      "monitor": {
+        "maximum_accounted_bytes": 267321344,
+        "maximum_participants_below_reserve": 0,
+        "minimum_available_bytes": 437685309440,
+        "polls": 60,
+        "triggered": null
+      }
+    }
+  },
+  "solve": {
+    "exit_code": null,
+    "peak_rss_kb": null,
+    "sampled_process_vm_peak_kb": null,
+    "timed_out": true,
+    "wall_seconds": 60.005
+  },
+  "solver_statistics": [],
+  "solver_stderr_tail": [],
+  "task": 21,
+  "tier": "selection",
+  "valid": false,
+  "verdict": "UNKNOWN"
+}

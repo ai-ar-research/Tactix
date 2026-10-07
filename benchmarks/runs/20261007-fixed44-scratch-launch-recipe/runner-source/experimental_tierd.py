@@ -1,0 +1,576 @@
+#!/usr/bin/env python3
+"""Pinned experimental Tier D with anonymous local certificates and formulas.
+
+``--causal-preflight`` is the cheap 60-second-or-shorter discovery lane.  It
+records only terminal controller counters and forbids full controller traces,
+feedback, and structural provenance.  A later gated target run omits the flag
+and may retain the full telemetry needed for causal scoring.  SAT and UNSAT
+preflight verdicts still take the normal independent checker route.
+"""
+import argparse
+import csv
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+from proof_oracle import pin_dsr_transport
+import shutil
+import subprocess
+import sys
+
+ROOT=Path(__file__).resolve().parents[2]
+FROZEN_DSR=ROOT/'benchmarks/runs/20260924-am369-condition-explicit-claude-fuzz/pins'
+FROZEN_DSR_HASHES={
+    'dsr-trim':'3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee',
+    'dsr-compress':'a44102ce11162a4687450a4c3a640d27a49703072dd29802bd259676eb668d55',
+    'srcheck':'19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945',
+}
+LONG_DSR=ROOT/'benchmarks/runs/20261007-dsr-capacity-long-audit-r3/long-pin'
+LONG_DSR_HASHES={
+    'dsr-trim':'94f5fc0c122b7996207fb38f9010180f2d1e6b61b3008a3ef515ab5d971bc614',
+    'dsr-compress':'3adb3fd6f98ff743550eea0a7f7096b2dcc8ef0637e9dec382c582b553e64ff9',
+}
+FIXED_LONG_DSR=ROOT/'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins'
+FIXED_LONG_DSR_HASHES={
+    'dsr-trim':'30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564',
+    'dsr-compress':'8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531',
+}
+FIXED_LONG_DSR_PROVENANCE={
+    'schema':'tactix-dsr-checker-profile-provenance-v1',
+    'profile':'long64-fixed',
+    'upstream_commit':'0b8cc0ef4d228c059994923cbc66abeb9a42ea14',
+    'repository_patch_sha256':'edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b2b923df3afc6',
+    'qualification_job_id':'1755133',
+    'files':{
+        'tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch':
+            'edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b2b923df3afc6',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/source.tar':
+            '397557639afc3a58b7a46979a4bb77e09b664b049b7017d71355435ba08632ad',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fix.patch':
+            '52592ba37c46b422d77021dd2bf9c46a72f3cc476eddf90239dc114ab253deb8',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/result.json':
+            '7740cd3ff366c7b6bda7396edf239ad93667e165c0b74b0cb7fb82e57afc3709',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-trim':
+            FIXED_LONG_DSR_HASHES['dsr-trim'],
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-compress':
+            FIXED_LONG_DSR_HASHES['dsr-compress'],
+    },
+}
+PROOF_ARGUMENTS={'--auto-proof','--dsr','--drat','--lrat'}
+GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
+                         '--controller-gf2-affine-profile')
+CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',
+                                    '--structural-provenance',
+                                    '--controller-trace')
+DEFAULT_GF2_FEEDBACK_MAX_BYTES=512 << 20
+DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES=8 << 30
+DEFAULT_GF2_FEEDBACK_MAX_RECORDS=20_000_000
+DEFAULT_GF2_PROVENANCE_MAX_BYTES=256 << 20
+MAX_GF2_FEEDBACK_BYTES=512 << 20
+MAX_GF2_FEEDBACK_DECODED_BYTES=8 << 30
+MAX_GF2_FEEDBACK_RECORDS=20_000_000
+MAX_GF2_PROVENANCE_BYTES=256 << 20
+FIXED44_SCRATCH_CAPACITY={
+    'schema':'tactix-anonymous-scratch-capacity-v1',
+    'directory':'/tmp',
+    'minimum_free_bytes':400_000_000_000,
+    'maximum_file_bytes':60_000_000_000,
+    'maximum_live_handles':6,
+    'reserve_bytes':40_000_000_000,
+}
+FIXED44_COOPERATIVE_SCRATCH_CAPACITY={
+    'schema':'tactix-anonymous-scratch-capacity-v2',
+    'directory':'/tmp',
+    'minimum_free_bytes':400_000_000_000,
+    'maximum_file_bytes':60_000_000_000,
+    'maximum_live_handles':6,
+    'reserve_bytes':40_000_000_000,
+    'cooperative_lock_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
+    'cooperative_lock_name':'fixed44-managed-scratch.lock',
+}
+# Shared-floor profile: /tmp is the node root filesystem and Slurm advertises
+# TmpDisk=0, so scratch cannot be scheduled. Instead of charging every task the
+# 360 GB worst case (one task per node), co-located tasks share /tmp: each
+# admits with one maximal file above the reserve, keeps the per-file and
+# handle bounds, and a floor monitor stops the largest participant before free
+# space falls below the reserve (all participants below the hard floor).
+FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY={
+    'schema':'tactix-anonymous-scratch-capacity-v3',
+    'directory':'/tmp',
+    'admission_free_bytes':100_000_000_000,
+    'maximum_file_bytes':60_000_000_000,
+    'maximum_live_handles':6,
+    'reserve_bytes':40_000_000_000,
+    'hard_floor_bytes':20_000_000_000,
+    'admission_wait_seconds':300,
+    'admission_poll_seconds':15,
+    'floor_poll_seconds':1,
+    'ledger_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
+    'ledger_slot_prefix':'fixed44-scratch-ledger-slot-',
+    'ledger_slots':64,
+}
+FIXED44_SHARED_FLOOR_RESOURCE_PROFILE={
+    'schema':'tactix-fixed44-shared-floor-isolation-v1',
+    'participant_scope':'same-user-repository-profile',
+    'task_cpus':4,
+    'task_memory_mib':32768,
+}
+SCRATCH_CAPACITY_PROFILES=('fixed44-whole-memory-v2','fixed44-cooperative-v1',
+                           'fixed44-shared-floor-v1')
+FIXED44_SELECTION={
+    'path':'benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv',
+    'sha256':'74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333',
+}
+FIXED44_RESOURCE_PROFILE={
+    'schema':'tactix-fixed44-schedulable-memory-isolation-v1',
+    'outer_allocation_cpus':52,
+    'outer_allocation_memory':'all',
+    'inner_step_cpus':4,
+    'inner_step_memory_mib':32768,
+}
+FIXED44_COOPERATIVE_RESOURCE_PROFILE={
+    'schema':'tactix-fixed44-cooperative-isolation-v1',
+    'participant_scope':'same-user-repository-profile',
+    'task_cpus':4,
+    'task_memory_mib':32768,
+}
+
+def sha(p):
+    h=hashlib.sha256()
+    with p.open('rb') as f:
+        for b in iter(lambda:f.read(1<<20),b''):h.update(b)
+    return h.hexdigest()
+
+def save(p,data):
+    with p.open('x') as f:json.dump(data,f,indent=2);f.write('\n')
+
+def verify(c):
+    m=json.loads((c/'manifest.json').read_text())
+    for rel,digest in m['pin_sha256'].items():
+        if sha(c/rel)!=digest:raise ValueError('pin mismatch: '+rel)
+    return m
+
+def dsr_checker_provenance(dsr_profile):
+    if dsr_profile != 'long64-fixed':return None
+    recorded=FIXED_LONG_DSR_PROVENANCE.get('repository_patch_sha256')
+    if recorded is not None and recorded not in FIXED_LONG_DSR_PROVENANCE['files'].values():
+        raise ValueError('DSR checker provenance patch hash is not file-bound (long64-fixed)')
+    for rel,expected in FIXED_LONG_DSR_PROVENANCE['files'].items():
+        source=ROOT/rel
+        if not source.is_file() or sha(source)!=expected:
+            raise ValueError('DSR checker provenance mismatch (long64-fixed): '+rel)
+    # Return a detached JSON value so callers cannot mutate the authority.
+    return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
+
+def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
+    if certificate not in ('dsr','auto'):
+        raise ValueError('unsupported certificate mode: '+certificate)
+    if dsr_profile not in ('frozen','long64','long64-fixed'):
+        raise ValueError('unsupported DSR checker profile: '+dsr_profile)
+    names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py',
+           'drat-trim':'drat-trim','cake_lpr':'cake-lpr'}
+    if certificate=='auto':
+        names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
+    sources={}
+    for target,name in names.items():
+        source=reference/baseline['checkers'][name]
+        expected=baseline['provenance'][name]['sha256']
+        if not source.is_file() or sha(source)!=expected:
+            raise ValueError('frozen winner checker pin mismatch: '+name)
+        sources[target]=source
+    for name,expected in FROZEN_DSR_HASHES.items():
+        source=FROZEN_DSR/name
+        if dsr_profile=='long64' and name in LONG_DSR_HASHES:
+            source=LONG_DSR/('compress' if name=='dsr-compress' else name)
+            expected=LONG_DSR_HASHES[name]
+        elif dsr_profile=='long64-fixed' and name in FIXED_LONG_DSR_HASHES:
+            source=FIXED_LONG_DSR/name
+            expected=FIXED_LONG_DSR_HASHES[name]
+        if not source.is_file() or sha(source)!=expected:
+            raise ValueError('DSR checker pin mismatch ('+dsr_profile+'): '+name)
+        sources[name]=source
+    return sources
+
+def scheduler_wall_seconds(solve_timeout,checker_timeout):
+    # Preserve the whole solve + checker allowance and one cleanup margin.
+    seconds=solve_timeout+checker_timeout+900
+    return ((seconds+899)//900)*900
+
+def slurm_time(seconds):
+    return f'{seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}'
+
+def solver_arguments(certificate, extra, gf2_telemetry=False,
+                     causal_preflight=False):
+    if certificate not in ('dsr','auto'):
+        raise ValueError('unsupported certificate mode: '+certificate)
+    proof='--auto-proof' if certificate=='auto' else '--dsr'
+    if any(not value or value in PROOF_ARGUMENTS for value in extra):
+        raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
+    if gf2_telemetry and any(
+            value == reserved or value.startswith(reserved+'=')
+            for value in extra for reserved in GF2_TELEMETRY_ARGUMENTS):
+        raise ValueError('GF2 telemetry paths are task-local and may not be overridden by solver arguments')
+    if gf2_telemetry and causal_preflight:
+        raise ValueError('causal preflight and full GF2 telemetry are mutually exclusive')
+    if causal_preflight and any(
+            value == reserved or value.startswith(reserved+'=')
+            for value in extra for reserved in CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS):
+        raise ValueError('causal preflight forbids full trace, feedback, and provenance artifacts')
+    return [proof,*extra]
+
+def selected_scratch_capacity(a, selection_authority, rows):
+    profile=getattr(a,'scratch_capacity_profile',None)
+    if profile is None:return None
+    if profile not in SCRATCH_CAPACITY_PROFILES:
+        raise ValueError('unsupported scratch capacity profile')
+    if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
+            a.cpus_per_task!=4 or a.partition!='cpu-q' or
+            a.array_throttle is not None or a.certificate!='auto'):
+        raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and automatic proof')
+    if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
+        raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
+    if profile=='fixed44-shared-floor-v1':
+        return dict(FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY)
+    return dict(FIXED44_COOPERATIVE_SCRATCH_CAPACITY
+                if profile=='fixed44-cooperative-v1'
+                else FIXED44_SCRATCH_CAPACITY)
+
+def selected_scratch_resources(profile):
+    if profile is None:return None
+    if profile=='fixed44-cooperative-v1':
+        return dict(FIXED44_COOPERATIVE_RESOURCE_PROFILE)
+    if profile=='fixed44-shared-floor-v1':
+        return dict(FIXED44_SHARED_FLOOR_RESOURCE_PROFILE)
+    if profile!='fixed44-whole-memory-v2':
+        raise ValueError('unsupported scratch capacity profile')
+    return dict(FIXED44_RESOURCE_PROFILE)
+
+def scratch_srun_prefix(resources):
+    if resources is None:return []
+    cpus=resources.get('inner_step_cpus',resources.get('task_cpus'))
+    memory=resources.get('inner_step_memory_mib',resources.get('task_memory_mib'))
+    return ['srun','--exact','--nodes=1','--ntasks=1',
+            f'--cpus-per-task={cpus}',f'--mem={memory}M','--cpu-bind=cores']
+
+def prepare(a):
+    c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
+    revision=a.binary_source_commit or 'HEAD'
+    commit=subprocess.check_output(['git','rev-parse',revision],cwd=ROOT,text=True).strip()
+    # Every archived source/build input must be exactly the committed blob.
+    source=a.source.resolve()
+    listing=subprocess.check_output(['git','ls-tree','-rz',commit,'--','src','include','CMakeLists.txt'],cwd=ROOT)
+    sources={}
+    for entry in listing.split(b'\0'):
+        if not entry:continue
+        metadata,name=entry.split(b'\t',1);mode,kind,oid=metadata.split();name=name.decode()
+        p=source/name
+        if kind!=b'blob' or not p.is_file():continue
+        actual=subprocess.check_output(['git','hash-object',str(p)],cwd=ROOT).strip()
+        if actual!=oid:raise ValueError('source differs from HEAD: '+name)
+        sources[name]=sha(p)
+    if not all(str(p.relative_to(source)) in sources for p in (source/'src').rglob('*') if p.is_file()):
+        raise ValueError('uncommitted source in build tree')
+    manifest=json.loads((ref/'manifest.json').read_text())
+    assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
+    dsr_profile=getattr(a,'dsr_checker_profile','frozen')
+    checkers=checker_sources(ref,manifest,a.certificate,dsr_profile)
+    checker_provenance=dsr_checker_provenance(dsr_profile)
+    assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
+    inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
+    source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
+    assert len(source_rows)==1166 and len({r['instance'] for r in source_rows})==1166
+    selection_authority=None
+    selected_from_table={}
+    if a.selection_table:
+        table=a.selection_table.resolve()
+        if not table.is_relative_to(ROOT):raise ValueError('selection table must be under repository root')
+        with table.open(newline='') as f:
+            lines=(line for line in f if line.strip() and not line.startswith('#'))
+            reader=csv.DictReader(lines,delimiter='\t')
+            required={'coverage_rank','original_tierd_rank','instance','verdict'}
+            if not reader.fieldnames or not required.issubset(reader.fieldnames):
+                raise ValueError('selection table schema mismatch')
+            for row in reader:
+                instance=row['instance']
+                if instance in selected_from_table:raise ValueError('duplicate selection-table instance: '+instance)
+                selected_from_table[instance]=row
+        selection_authority=dict(path=str(table.relative_to(ROOT)),sha256=sha(table))
+    if a.instance or selected_from_table:
+        selected=set(a.instance) if a.instance else set(selected_from_table)
+        if a.instance and len(selected)!=len(a.instance):raise ValueError('duplicate --instance')
+        known={r['instance'] for r in source_rows}
+        missing=selected-known
+        if missing:raise ValueError('unknown Tier-D instance: '+sorted(missing)[0])
+        source_rows=[r for r in source_rows if r['instance'] in selected]
+    if selected_from_table:
+        missing={r['instance'] for r in source_rows}-set(selected_from_table)
+        if missing:raise ValueError('selected instance missing from selection table: '+sorted(missing)[0])
+        for row in source_rows:
+            selected=selected_from_table[row['instance']]
+            if int(selected['original_tierd_rank'])!=row['rank']:
+                raise ValueError('selection-table Tier-D rank mismatch: '+row['instance'])
+            row['rank']=int(selected['coverage_rank'])
+            row['tier']=a.selection_table.stem
+            row['expected']=selected['verdict']
+        source_rows.sort(key=lambda row:row['rank'])
+    rows=[dict(task=i,**r) for i,r in enumerate(source_rows)]
+    assert rows and len({r['instance'] for r in rows})==len(rows)
+    scratch_capacity=selected_scratch_capacity(a,selection_authority,rows)
+    capacity_profile=getattr(a,'scratch_capacity_profile',None)
+    capacity_resources=selected_scratch_resources(capacity_profile)
+    inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
+    assert set(inputs)=={r['instance'] for r in rows}
+    assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
+    arm_arguments=solver_arguments(a.certificate,a.solver_argument,
+                                   a.gf2_telemetry,a.causal_preflight)
+    if a.gf2_telemetry:
+        profile=a.gf2_affine_profile.resolve()
+        if not profile.is_file():raise ValueError('GF2 affine profile is not a file')
+        arm_arguments.append(f'--controller-gf2-affine-profile={c}/pins/gf2-affine.profile')
+    c.mkdir()
+    directories=['pins','logs','claims','provisional','results']
+    if a.retain_failed_proof:directories.append('retained-proofs')
+    if a.gf2_telemetry:directories.append('telemetry')
+    for name in directories:(c/name).mkdir()
+    shutil.copy2(a.binary,c/'pins/tactix')
+    if a.gf2_telemetry:shutil.copy2(profile,c/'pins/gf2-affine.profile')
+    for name,checker_source in checkers.items():
+        shutil.copy2(checker_source,c/'pins'/name)
+    runner_pins=['runtime_task.py','proof_oracle.py','anonymous_scratch.py',
+                 'test_anonymous_scratch.py','validate_anonymous_runtime.py']
+    if a.gf2_telemetry:
+        runner_pins.extend(['gf2_target_score.py','inspect_policy_feedback.py'])
+    for name in runner_pins:
+        shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
+    pin_dsr_transport(getattr(a, 'dsr_transport', None), c/'pins')
+    with (c/'matrix.tsv').open('x',newline='') as f:
+        w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
+    batch_cpus=(capacity_resources.get('outer_allocation_cpus',
+                                       capacity_resources.get('task_cpus'))
+                if capacity_resources else a.cpus_per_task)
+    batch_memory=(
+        ('0' if capacity_resources.get('outer_allocation_memory')=='all'
+         else f'{capacity_resources["task_memory_mib"]}M')
+        if capacity_resources else '32768M')
+    def slurm_header(cpus, memory):
+        return f'''#!/usr/bin/env bash
+#SBATCH --partition={a.partition}
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task={cpus}
+#SBATCH --mem={memory}
+#SBATCH --no-requeue
+#SBATCH --output={c}/logs/%x-%A_%a.log
+'''
+    # A bounded in-task admission wait is outside the solve and proof allowances.
+    wall=scheduler_wall_seconds(
+        a.solve_timeout,a.checker_timeout+((scratch_capacity or {}).get('admission_wait_seconds') or 0))
+    capacity_environment=('export TMPDIR=/tmp\nexport PYTHONDONTWRITEBYTECODE=1\n'
+                          if capacity_profile else '')
+    runtime_prefix=' '.join(scratch_srun_prefix(capacity_resources))
+    runtime_command=(
+        f'exec {runtime_prefix} python3 {c}/pins/runtime_task.py {c} '
+        f'"$SLURM_ARRAY_TASK_ID"' if runtime_prefix else
+        f'exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"')
+    (c/'array.sbatch').write_text(slurm_header(batch_cpus,batch_memory)+f'''#SBATCH --job-name=tierd-{commit[:8]}
+#SBATCH --time={slurm_time(wall)}
+#SBATCH --array=0-{len(rows)-1}{f'%{a.array_throttle}' if a.array_throttle else ''}
+set -euo pipefail
+ulimit -c 0
+{capacity_environment}{runtime_command}
+''')
+    (c/'validate.sbatch').write_text(slurm_header(a.cpus_per_task,'32768M')+f'''#SBATCH --job-name=tierd-anonymous-check
+#SBATCH --time=00:05:00
+set -euo pipefail
+ulimit -c 0
+python3 {c}/pins/test_anonymous_scratch.py
+exec python3 {c}/pins/validate_anonymous_runtime.py {c}
+''')
+    m=dict(schema=('tactix-experimental-single-tierd-v4-gf2-telemetry'
+                   if a.gf2_telemetry else 'tactix-experimental-single-tierd-v3'),
+        created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+        source_commit=commit,source_tree=str(source),source_files=sources,
+        arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),
+                           arguments=arm_arguments,
+                           certificate=a.certificate)},
+        input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
+        dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
+        selection_authority=selection_authority,
+        dsr_checker_profile=dsr_profile,
+        resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
+            checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
+            array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
+            throttle=a.array_throttle,node_constraint=None,
+            **({'scratch_isolation':capacity_resources}
+               if capacity_profile else {})),
+        proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
+                        if a.certificate=='auto' else
+                        'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
+        cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
+        caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission, contention, ENOSPC, or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
+                if capacity_profile else
+                'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.'),
+        pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
+    if checker_provenance is not None:
+        m['dsr_checker_provenance']=checker_provenance
+    if capacity_profile:
+        m['anonymous_scratch_capacity']=scratch_capacity
+        m['scratch_capacity_profile']=capacity_profile
+        if capacity_profile=='fixed44-whole-memory-v2':
+            m['cleanup_contract'] += (' Each array task reserves all schedulable node memory with a '
+                '52-CPU outer allocation, then runs the solver/checker in a four-CPU, 32768-MiB '
+                'Slurm step. It admits only with at least '
+                '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
+                'and permits at most six simultaneously live anonymous files, preserving a '
+                'declared 40000000000-byte reserve for managed scratch.')
+        elif capacity_profile=='fixed44-shared-floor-v1':
+            m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
+                'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step. Co-located '
+                'tasks share node /tmp: each holds one locked slot of a fixed private node ledger '
+                '(bounded metadata only), waits at most 300 seconds for 100000000000 available '
+                'bytes, inherits a 60000000000-byte per-file limit, and permits at most six '
+                'simultaneously live anonymous files. A one-second floor monitor stops the '
+                'participant with the most accounted anonymous bytes when available space falls '
+                'below 40000000000 bytes, and every participant below 20000000000 bytes. Such a '
+                'stop, an admission timeout, or ENOSPC is retryable incomplete infrastructure '
+                'evidence.')
+        else:
+            m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
+                'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step and takes the '
+                'stable repository-wide node lock without waiting before scratch admission and '
+                'holds it through cleanup. Contention is retryable incomplete evidence. The lock '
+                'coordinates only jobs using this same profile; older or foreign jobs remain '
+                'external interference. It admits only with at least 400000000000 available bytes, '
+                'inherits a 60000000000-byte per-file limit, and permits at most six simultaneously '
+                'live anonymous files, preserving a declared 40000000000-byte reserve for managed '
+                'scratch. ENOSPC is incomplete infrastructure evidence.')
+    if a.retain_failed_proof:
+        m['failed_proof_retention']=dict(
+            schema='tactix-failed-proof-retention-v1',
+            directory='retained-proofs',
+            maximum_bytes=a.retain_failed_proof_max_bytes,
+            purpose='checker-only recovery; retain only after an unsuccessful UNSAT proof check')
+        m['cleanup_contract'] += (' An unsuccessfully checked UNSAT certificate may be copied '
+            'after checking into the bounded retained-proofs directory for checker-only recovery; '
+            'the result records its exact SHA-256 and remains cleanup-pending.')
+        m['caveat'] += (' Failed certificates are retained only when their size is within the declared '
+            'per-task cap; solver or job death before the copy still leaves no artifact.')
+    if a.gf2_telemetry:
+        m['gf2_telemetry']=dict(
+            schema='tactix-experimental-gf2-telemetry-v2',directory='telemetry',
+            feedback_compression='gzip',feedback_wire_version=2,
+            feedback_stored_max_bytes=a.gf2_feedback_max_bytes,
+            feedback_decoded_max_bytes=a.gf2_feedback_decoded_max_bytes,
+            feedback_max_records=a.gf2_feedback_max_records,
+            structural_provenance_max_bytes=a.gf2_provenance_max_bytes)
+    if a.causal_preflight:
+        m['causal_preflight']=dict(
+            schema='tactix-causal-preflight-v1',
+            maximum_solve_seconds=60,
+            output='terminal-controller-counters',
+            retain_full_telemetry=False)
+    save(c/'manifest.json',m)
+    for p in [*(c/'pins').iterdir(),c/'manifest.json',c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']:p.chmod(p.stat().st_mode&~0o222)
+    verify(c); print(c)
+
+def submit(a):
+    c=a.campaign.resolve();verify(c)
+    name='validation-launch.json' if a.validate else 'launch.json'
+    assert not (c/name).exists()
+    if not a.validate:assert json.loads((c/'validation.json').read_text())['passed']
+    script=c/('validate.sbatch' if a.validate else 'array.sbatch')
+    command=['sbatch','--parsable']
+    if a.afterany is not None:command.append(f'--dependency=afterany:{a.afterany}')
+    job=subprocess.check_output([*command,str(script)],text=True).strip().split(';')[0]
+    save(c/name,dict(job_id=job,manifest_sha256=sha(c/'manifest.json'),submitted_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+                     dependency_afterany=a.afterany))
+    print(job)
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--campaign',type=Path,required=True)
+    p.add_argument('--source',type=Path)
+    p.add_argument('--binary',type=Path)
+    p.add_argument('--dsr-transport',type=Path)
+    p.add_argument('--dsr-checker-profile',choices=['frozen','long64','long64-fixed'],default='frozen',
+                   help='immutable DSR elaborator/compressor pins; long64 is the historical audited LONGTYPE build, while long64-fixed selects its source-backed deleted-clause correction; both retain independent Trestle verification')
+    p.add_argument('--scratch-capacity-profile',choices=list(SCRATCH_CAPACITY_PROFILES),
+                   help='opt-in fixed-44 whole-memory allocation, bounded task step, and anonymous-file bounds')
+    p.add_argument('--binary-source-commit')
+    p.add_argument('--partition',default='cpu-q')
+    p.add_argument('--cpus-per-task',type=int,default=4)
+    p.add_argument('--solve-timeout',type=int,default=1200)
+    p.add_argument('--checker-timeout',type=int,default=16000)
+    p.add_argument('--array-throttle',type=int)
+    p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
+    p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
+    p.add_argument('--solver-argument',action='append',default=[],
+                   help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
+    p.add_argument('--gf2-telemetry',action='store_true',
+                   help='retain and score bounded GF(2) feedback/provenance sidecars')
+    p.add_argument('--causal-preflight',action='store_true',
+                   help='for <=60s gate probes, retain terminal controller counters only; full telemetry belongs to the gated target run')
+    p.add_argument('--gf2-affine-profile',type=Path,
+                   help='GF(2) producer profile frozen into an opt-in campaign')
+    p.add_argument('--gf2-feedback-stored-max-bytes','--gf2-feedback-max-bytes',
+                   dest='gf2_feedback_max_bytes',type=int,
+                   default=DEFAULT_GF2_FEEDBACK_MAX_BYTES)
+    p.add_argument('--gf2-feedback-decoded-max-bytes',type=int,
+                   default=DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES)
+    p.add_argument('--gf2-feedback-max-records',type=int,
+                   default=DEFAULT_GF2_FEEDBACK_MAX_RECORDS)
+    p.add_argument('--gf2-provenance-max-bytes',type=int,
+                   default=DEFAULT_GF2_PROVENANCE_MAX_BYTES)
+    p.add_argument('--retain-failed-proof',action='store_true',
+                   help='retain a bounded copy of an UNSAT certificate after checker failure')
+    p.add_argument('--retain-failed-proof-max-bytes',type=int,default=1 << 30,
+                   help='maximum failed certificate bytes retained per task')
+    p.add_argument('--instance',action='append',default=[])
+    p.add_argument('--selection-table',type=Path)
+    g=p.add_mutually_exclusive_group(required=True)
+    g.add_argument('--prepare',action='store_true');g.add_argument('--validate',action='store_true');g.add_argument('--submit',action='store_true')
+    a=p.parse_args()
+    if a.cpus_per_task < 1:p.error('--cpus-per-task must be positive')
+    if a.solve_timeout < 1:p.error('--solve-timeout must be positive')
+    if a.checker_timeout < 1:p.error('--checker-timeout must be positive')
+    if a.array_throttle is not None and a.array_throttle < 1:
+        p.error('--array-throttle must be positive')
+    if a.afterany is not None and (a.afterany < 1 or a.prepare):
+        p.error('--afterany requires a positive job id and --submit or --validate')
+    if a.solver_argument and not a.prepare:
+        p.error('--solver-argument is valid only with --prepare')
+    if a.dsr_checker_profile!='frozen' and not a.prepare:
+        p.error('--dsr-checker-profile is valid only with --prepare')
+    if a.scratch_capacity_profile is not None and not a.prepare:
+        p.error('--scratch-capacity-profile is valid only with --prepare')
+    if not 1 <= a.gf2_feedback_max_bytes <= MAX_GF2_FEEDBACK_BYTES:
+        p.error(f'--gf2-feedback-stored-max-bytes must be in 1..{MAX_GF2_FEEDBACK_BYTES}')
+    if not 1 <= a.gf2_feedback_decoded_max_bytes <= MAX_GF2_FEEDBACK_DECODED_BYTES:
+        p.error(f'--gf2-feedback-decoded-max-bytes must be in 1..{MAX_GF2_FEEDBACK_DECODED_BYTES}')
+    if not 1 <= a.gf2_feedback_max_records <= MAX_GF2_FEEDBACK_RECORDS:
+        p.error(f'--gf2-feedback-max-records must be in 1..{MAX_GF2_FEEDBACK_RECORDS}')
+    if not 1 <= a.gf2_provenance_max_bytes <= MAX_GF2_PROVENANCE_BYTES:
+        p.error(f'--gf2-provenance-max-bytes must be in 1..{MAX_GF2_PROVENANCE_BYTES}')
+    if (not a.gf2_telemetry and
+            (a.gf2_feedback_max_bytes != DEFAULT_GF2_FEEDBACK_MAX_BYTES or
+             a.gf2_feedback_decoded_max_bytes != DEFAULT_GF2_FEEDBACK_DECODED_MAX_BYTES or
+             a.gf2_feedback_max_records != DEFAULT_GF2_FEEDBACK_MAX_RECORDS or
+             a.gf2_provenance_max_bytes != DEFAULT_GF2_PROVENANCE_MAX_BYTES)):
+        p.error('GF2 telemetry byte caps require --gf2-telemetry')
+    if a.gf2_telemetry and not a.prepare:
+        p.error('--gf2-telemetry is valid only with --prepare')
+    if a.causal_preflight and not a.prepare:
+        p.error('--causal-preflight is valid only with --prepare')
+    if a.causal_preflight and a.solve_timeout > 60:
+        p.error('--causal-preflight requires --solve-timeout <= 60')
+    if a.causal_preflight and a.gf2_telemetry:
+        p.error('--causal-preflight and --gf2-telemetry are mutually exclusive')
+    if a.retain_failed_proof and not a.prepare:
+        p.error('--retain-failed-proof is valid only with --prepare')
+    if a.retain_failed_proof and a.certificate != 'dsr':
+        p.error('--retain-failed-proof requires explicit --certificate dsr')
+    if a.retain_failed_proof_max_bytes < 1:
+        p.error('--retain-failed-proof-max-bytes must be positive')
+    if a.gf2_telemetry != bool(a.gf2_affine_profile):
+        p.error('--gf2-affine-profile is required exactly when --gf2-telemetry is selected')
+    prepare(a) if a.prepare else submit(a)
