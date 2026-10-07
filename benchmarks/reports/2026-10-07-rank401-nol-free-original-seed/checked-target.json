@@ -1,0 +1,38 @@
+{
+  "binary_sha256": "c0e03cc632eb264d2a5d99b33c5a944c738f05fb74d34d5322cf853fb6f613c6",
+  "input_xz_sha256": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+  "verdict": "SAT",
+  "wall_seconds": 43.021,
+  "validator": {
+    "exit_code": 0,
+    "kind": "model",
+    "ok": true,
+    "output": "checkmodel: OK \u2014 7831 clauses satisfied, 1419 vars assigned\n"
+  },
+  "command": [
+    "taskset",
+    "-c",
+    "17",
+    "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-nol-free-original-seed/pins/tactix",
+    "--auto-proof",
+    "/tmp/rank401-search-trace-1754297-0/input.cnf",
+    "/tmp/rank401-search-trace-1754297-0/proof.auto"
+  ],
+  "effective_environment": {
+    "TACTIX_SLOT_STATS": "1",
+    "TACTIX_STRATEGY_CONFIG": "1"
+  },
+  "slurm": {
+    "SLURMD_NODENAME": "node006",
+    "SLURM_ARRAY_TASK_ID": "0",
+    "SLURM_CPUS_PER_TASK": "4",
+    "SLURM_JOB_ID": "1754297",
+    "SLURM_MEM_PER_NODE": "32768"
+  },
+  "proof_bytes": 201611298,
+  "result_path": "benchmarks/runs/20261007-rank401-nol-free-original-seed/results/000-nol-free-original-seed.json",
+  "result_sha256": "e70b06b15537a0b576a2c63c2dd9bbdff98585a6fc30547eebfcc4ce952140c5",
+  "conflicts": 1434581,
+  "diagnostic_only": true,
+  "production_default_changed": false
+}

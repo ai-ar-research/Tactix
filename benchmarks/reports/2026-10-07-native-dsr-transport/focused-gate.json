@@ -1,0 +1,32 @@
+{
+  "source_archive": "benchmarks/runs/20261007-dsr-native-transport-integration-r3/source.tar",
+  "source_sha256": "fa15f59ac1e87c8332f643de576439f25857ebc8accb64b0f99309472b5e4f60",
+  "job": "1753984",
+  "helper_sha256": "38a6c9e4fcce54fc752f659eb99e604ebd3bbc73734c6508da718f38bb8e4e0a",
+  "release": {
+    "native_suites": 7,
+    "directed_cases": 131,
+    "protocol_tests": 92,
+    "skipped": 0,
+    "exit_status": 0
+  },
+  "asan_ubsan": {
+    "native_suites": 7,
+    "directed_cases": 131,
+    "protocol_tests": 92,
+    "skipped": 0,
+    "exit_status": 0
+  },
+  "throughput": {
+    "scope": "transport only; no solver closure",
+    "input_bytes": 33554340,
+    "seconds": {
+      "python": 13.719292011111975,
+      "native": 0.1560378037393093
+    },
+    "output_sha256": "e59cd96a1888ebbea456b6f995220e668144c6fae2ec195c577a1ac345c790c3"
+  },
+  "scope": "transport only; independent checker routes unchanged; no instance closure",
+  "claude_selftest_owner": "benchmarks/runs/20261007-native-transport-claude-oracle-owner/request.md",
+  "claude_status": "pending"
+}
