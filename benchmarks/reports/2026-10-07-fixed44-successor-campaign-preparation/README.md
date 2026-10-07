@@ -2,9 +2,11 @@
 
 This is a launch plan, not a result.  The successor candidate must contain the
 archive-portability fix `55776b30c`, the effort-parser correction, the pending
-affine assertion repairs, and the pending public noL selector/counters.  Its
-full SHA, source tree, Release binary, and effective option vector are not yet
-frozen.  No job described here has been submitted.
+affine assertion repairs, and the public noL selector/counters.  Its full SHA,
+source tree, and Release binary are not yet frozen.  The qualification option
+vector is now fixed to `--default-nol-walk=on` with persistent affine search at
+its off default; startup affine root closure remains enabled.  No job described
+here has been submitted.
 
 ## Acceptance denominator
 
@@ -24,7 +26,7 @@ claim that eight particular rows are likely closures.  Read these rows first:
 
 | Priority | Rank(s) | Verdict | Saved Tactix boundary | Successor evidence or question |
 |---:|---|:---:|---|---|
-| 1 | 401 | SAT | 5,000.005 s timeout | Final source consumes retained noL Walk phases at root.  The pre-fix off arm checked SAT in 148.426 s while the on arm timed out at 180 s with zero installations.  The pending public selector must settle the corrected on/off pair before choosing the global option vector. |
+| 1 | 401 | SAT | 5,000.005 s timeout | The corrected clean pair independently verifies both models: noL-on solves in 124.112 s versus off in 141.276 s, uses 14.7% fewer search ticks, installs 21 phases, and records 1,326 guided decisions.  This selects noL-on for the successor configuration. |
 | 2 | 569 | UNSAT | solved in 3,034.193 s; `dsr-trim` route failed after 7,633.506 s | Primary persistent-GF(2) target.  Earlier retained-matrix run was about 3,018.531 s with zero exported XOR reasons; indexed on/off repeats and assertion repairs must settle admission before qualification. |
 | 3 | 1004 | UNSAT | solved in 4,106.474 s; `dsr-trim` failed after 99.692 s | Second multiplier and the closest same-family test of whether persistent GF(2) or proof-shape changes generalize. |
 | 4 | 627 | UNSAT | solved in 2,062.818 s; `dsr-trim` failed after 93.444 s | Fast proof-route recovery sentinel with no claimed theory mechanism. |
@@ -65,8 +67,8 @@ rely on `55776b30c` to find packaged Kissat/CaDiCaL headers without fake Git
 metadata.  Cleanup may make only the job-local extraction writable; it records
 chmod/removal status while preserving the original build or CTest exit code.
 
-With `FINAL_SHA`, `FINAL_SHORT`, and `EFFECTIVE_OPTIONS` frozen, prepare and
-validate the target as follows (repeat `--solver-argument=...` once per option):
+With `FINAL_SHA` and `FINAL_SHORT` frozen, prepare and validate the target as
+follows:
 
 ```bash
 python3 tools/bench/experimental_tierd.py \
@@ -77,8 +79,9 @@ python3 tools/bench/experimental_tierd.py \
   --partition cpu-q --cpus-per-task 4 \
   --solve-timeout 5000 --checker-timeout 14400 \
   --certificate auto \
+  --solver-argument=--default-nol-walk=on \
   --selection-table benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv \
-  ${EFFECTIVE_OPTIONS} --prepare
+  --prepare
 
 python3 tools/bench/experimental_tierd.py \
   --campaign "benchmarks/runs/20261007-final-${FINAL_SHORT}-fixed44" \
@@ -86,12 +89,12 @@ python3 tools/bench/experimental_tierd.py \
 ```
 
 Submit the validation job first.  Submit the array only after validation passes,
-the Rank401 and Rank569 causal pairs are terminal, and the Release build job has
-left the cluster.  Omit `--array-throttle`; do not submit the uncorrected 7e
-campaigns.  The same exact effective options must appear in B28+C5, Rank1--50
-WV, WV100, and WV2--89 manifests.  If either opt-in target does not demonstrate
-admission or benefit, omit it everywhere rather than mixing target and
-regression configurations.
+the Rank569 causal pair is terminal, and the Release build job has left the
+cluster.  Omit `--array-throttle`; do not submit the uncorrected 7e campaigns.
+The same `--default-nol-walk=on` option and default-off persistent affine search
+must appear in B28+C5, Rank1--50 WV, WV100, and WV2--89 manifests.  A later
+affine-search candidate requires a new coherent target and regression pin after
+admission evidence; it must not be mixed into this qualification.
 
 ## Symmetry follow-up
 
