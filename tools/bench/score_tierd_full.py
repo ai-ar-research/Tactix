@@ -26,6 +26,10 @@ ROUTES = {
                ('dsr-trim', 'dsr-compress', 'srcheck')},
 }
 ARM_ORDER = tuple(CAMPAIGNS)
+SCRATCH_INCOMPLETE_REASONS = {
+    'scratch_admission', 'scratch_file_limit',
+    'scratch_file_limit_unavailable', 'scratch_handle_limit',
+}
 
 
 def sha(path):
@@ -73,6 +77,11 @@ def classify(row, result, arm):
         require(result[field] == row[field], arm + ': result identity ' + field)
     require(int(result['rank']) == int(row['rank']) and
             int(result['task']) == int(row['task']), arm + ': rank/task identity')
+    completion = result.get('completion')
+    if isinstance(completion, dict) and completion.get('status') == 'incomplete':
+        require(completion.get('reason') in SCRATCH_INCOMPLETE_REASONS,
+                arm + ': unsupported incomplete resource reason')
+        return 'resource_incomplete', None, completion.get('reason')
     clean = (result.get('artifact_deleted') is True and
              result.get('derived_artifacts_deleted') is True and
              result.get('cleanup_pending') is False)

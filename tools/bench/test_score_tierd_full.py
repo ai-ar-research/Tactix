@@ -51,6 +51,20 @@ class TierDClassification(unittest.TestCase):
         self.assertEqual(classify(self.row, result, 'satsuma-kissat')[0],
                          'solver_timeout')
 
+    def test_scratch_resource_incomplete_is_never_scored_as_a_verdict(self):
+        result = copy.deepcopy(self.unsat)
+        result.update(valid=False, verdict='INFRA_ERROR', solve=None,
+                      completion=dict(status='incomplete',
+                                      reason='scratch_file_limit'))
+        status, seconds, reason = classify(
+            self.row, result, 'satsuma-kissat')
+        self.assertEqual((status, seconds, reason),
+                         ('resource_incomplete', None, 'scratch_file_limit'))
+        result['completion']['reason'] = 'arbitrary_incomplete'
+        with self.assertRaisesRegex(ValueError,
+                                    'unsupported incomplete resource reason'):
+            classify(self.row, result, 'satsuma-kissat')
+
 
 if __name__ == '__main__':
     unittest.main()

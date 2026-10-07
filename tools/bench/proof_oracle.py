@@ -932,13 +932,34 @@ def reference_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
     the text LSR directly, so there is nothing to expand. Both CNF readers use
     the validated clause-preserving spelling when supplied."""
     if not dsr_proof_is_binary(proof):
-        return [('dsr-trim', [dsr_trim, checker_cnf or cnf, proof, text_lsr]),
-                ('srcheck', [srcheck, checker_cnf or cnf, text_lsr])]
+        return [routed_dsr_trim_stage(
+                    dsr_trim, cnf, proof, text_lsr,
+                    checker_cnf=checker_cnf),
+                routed_dsr_check_stage(
+                    srcheck, cnf, text_lsr, checker_cnf=checker_cnf)]
     return [
-        ('dsr-trim', [dsr_trim, checker_cnf or cnf, proof, binary_lsr]),
-        ('dsr-compress', [dsr_compress, '-d', binary_lsr, text_lsr]),
-        ('srcheck', [srcheck, checker_cnf or cnf, text_lsr]),
+        routed_dsr_trim_stage(
+            dsr_trim, cnf, proof, binary_lsr, checker_cnf=checker_cnf),
+        routed_dsr_compress_stage(dsr_compress, binary_lsr, text_lsr),
+        routed_dsr_check_stage(
+            srcheck, cnf, text_lsr, checker_cnf=checker_cnf),
     ]
+
+
+def routed_dsr_trim_stage(dsr_trim, cnf, proof, output_lsr, *,
+                          checker_cnf=None):
+    """Build the first witnessed-DSR command without allocating later output."""
+    return ('dsr-trim', [dsr_trim, checker_cnf or cnf, proof, output_lsr])
+
+
+def routed_dsr_compress_stage(dsr_compress, binary_lsr, text_lsr):
+    """Build the binary-to-text LSR handoff after trim has completed."""
+    return ('dsr-compress', [dsr_compress, '-d', binary_lsr, text_lsr])
+
+
+def routed_dsr_check_stage(final_checker, cnf, text_lsr, *, checker_cnf=None):
+    """Build the final checked-LSR command after its input exists."""
+    return ('srcheck', [final_checker, checker_cnf or cnf, text_lsr])
 
 
 def routed_dsr_stages(dsr_trim, dsr_compress, final_checker, cnf, proof,
