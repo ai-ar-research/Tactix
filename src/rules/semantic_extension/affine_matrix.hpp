@@ -170,7 +170,9 @@ private:
     MatrixRow row;
     MatrixEvent event;
     size_t assignment = 0, seed = 0, scan = 0, reason_source = 0, reason_trail = 0;
-    std::set<External> support;
+    // Source support with odd-parity flags; `residue` counts odd entries.
+    std::map<External, bool> support;
+    size_t residue = 0;
     uint8_t phase = 0;
     bool row_loaded = false;
   };

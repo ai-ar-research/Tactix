@@ -5,6 +5,7 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/bve/bve.hpp"
+#include "rules/sweep/sweep.hpp"
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -271,9 +272,72 @@ void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix
   std::fclose(journal);k.structural_provenance=nullptr;
   if(!prefix){std::remove(cnf_path.c_str());std::remove(proof_path.c_str());std::remove((base+".model").c_str());}
 }
+// Handoff am-rel-23. The three sources sum to the unconditional 0 = 1 while
+// the shared columns w=5 and v=7 cancel. Root Sweeps prove w and v as
+// backbones; the next persistent root maintenance must publish the global
+// refutation, not a reason weakened by the root-true columns that the
+// certificate cannot export.
+void root_maintenance_after_sweep_refutes(ProofFormat format,const char *prefix) {
+  const std::string suffix=std::to_string(unsigned(format));
+  const std::string base=prefix?std::string(prefix)+".rootmaint-"+suffix:
+      "/tmp/tactix-persistent-rootmaint-"+std::to_string(getpid())+"-"+suffix;
+  const std::string proof_path=base+".proof",cnf_path=base+".cnf";
+  std::vector<std::vector<int32_t>> original=clausal_form({1,2,5,7},true);
+  for(const auto &c:clausal_form({3,4,5,7},false))original.push_back(c);
+  for(const auto &c:clausal_form({1,2,3,4},false))original.push_back(c);
+  original.push_back({5,6});original.push_back({5,-6});
+  original.push_back({7,8});original.push_back({7,-8});
+  write_original(cnf_path,original);
+  Kernel k;kernel_reserve_vars(k,10);
+  for(const auto &c:original)add(k,c);
+  FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
+  Proof proof;assert(proof.open(proof_path.c_str(),format));
+  proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
+  for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
+  proof.arm_population_shadow();k.proof=&proof;
+  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
+  const auto p=parameters();const AffineMatrixPersistenceLimits limits{64*1024*1024,1000,100000};
+  const auto initialized=affine_matrix_search_initialize(k,session,p,
+      AffineMatrixAdmission::AuthenticatedSubimage,limits);
+  assert((initialized.status==AffineMatrixInitStatus::Applied ||
+          initialized.status==AffineMatrixInitStatus::AppliedPartial) && initialized.equations>=3);
+  assert(session.persistent() && !k.inconsistent && k.trail.empty());
+  // The theory service declines above the restart root without mutation.
+  kernel_assign_decision(k,kernel_internalize(k,-6));
+  assert(propagate_apply(k)!=ApplyResult::Unsat && k.value(kernel_internalize(k,5))>0);
+  const auto above=affine_matrix_search_step(k,session);
+  assert(above.status==AffineMatrixServiceStatus::Inapplicable && session.enabled());
+  kernel_backtrack(k,0);assert(propagate_apply(k)!=ApplyResult::Unsat && k.trail.empty());
+  // Depth one keeps each environment to the seed's own clauses: satisfiable,
+  // with the seed forced.
+  strategy::SweepParameters sweep;sweep.max_depth=1;sweep.max_depth_ceiling=1;
+  for(int32_t seed:{5,7}){
+    const auto swept=sweep_try_with_limits(k,var_of(kernel_internalize(k,seed)),sweep);
+    assert(swept==ApplyResult::Ok && !k.inconsistent);
+    assert(propagate_apply(k)!=ApplyResult::Unsat && kernel_propagation_fixpoint(k));
+    assert(kernel_root_value(k,kernel_internalize(k,seed))>0);
+  }
+  assert(session.enabled() && session.persistent());
+  // A root-unit absorption round may precede the service round; neither may
+  // reject this well-formed request.
+  AffineMatrixInitResult maintained;
+  for(unsigned round=0;round<2 && !k.inconsistent;++round){
+    maintained=affine_matrix_search_refresh(k,session,p,limits,false);
+    assert(maintained.status!=AffineMatrixInitStatus::Invalid);
+    if(!k.inconsistent)assert(propagate_apply(k)!=ApplyResult::Unsat);
+  }
+  assert(maintained.status==AffineMatrixInitStatus::AppliedPartial);
+  assert(maintained.result==ApplyResult::Unsat && k.inconsistent);
+  assert(maintained.root_service && maintained.root_service->installed_reason.empty());
+  session.disable(k);assert(!proof.premise_bytes() && !proof.unbacked_deletions());
+  proof.flush();k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(journal);
+  if(!prefix){std::remove(cnf_path.c_str());std::remove(proof_path.c_str());}
+}
 }
 int main(int argc,char **argv){
  alias_failure_atomicity();refresh_root_assignment_stamp();
+ for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii})
+  root_maintenance_after_sweep_refutes(format,argc>1?argv[1]:nullptr);
  for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii,ProofFormat::DratBinary})
   for(bool signed_alias:{false,true})for(bool sweep:{false,true})
     exercise(signed_alias,sweep,format,argc>1?argv[1]:nullptr);
