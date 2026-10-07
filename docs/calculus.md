@@ -643,10 +643,10 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
   this changes producer priority, not the X7 condition or selectable explicit instances.
   After a complete chain has passed all of these checks, strategy may withhold
   the whole batch when it contains only nonforcing binary orbit cuts. Strategy
-  may also require compound progress and withhold a forcing batch containing
-  only one certified row: that row chooses a fundamental-domain representative
-  but exposes no second consequence in the same group pass. These are
-  batch-admission choices. They neither change the X7 precondition nor prevent
+  may require compound progress for a singleton nonforcing binary batch, but
+  never suppresses a certified forcing unit, including a checked binary made
+  unit by live root assignments. These batch-admission choices neither change
+  the X7 precondition nor prevent
   a caller from selecting the same explicit tuples or requesting unconditional
   publication.
   A producer may factor the supplied generator subgroup by whole generator supports. Each factor acts identically outside
