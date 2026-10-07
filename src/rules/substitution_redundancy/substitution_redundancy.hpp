@@ -148,14 +148,14 @@ enum class SymmetryStructuredScope : uint8_t {
   AxisAnchors,
 };
 
-// A kind-2-only FixAndCut batch is legal X7, but cannot simplify the root
-// formula; its immediate effect is solely to choose a CDCL fundamental domain.
+// A kind-2-only FixAndCut batch normally contains open binary cuts and only
+// chooses a CDCL fundamental domain.  Admission nevertheless inspects the live
+// root values: a checked cut that has become unit is a forcing consequence.
 enum class SymmetryNonforcingCutAdmission : uint8_t {
   Publish,
   RequireForcingMember,
-  // Withhold any one-row batch, forcing or not. A lone representative choice
-  // changes the CDCL trajectory without exposing a second certified group
-  // consequence; multi-row prefixes demonstrate within-pass progress.
+  // Withhold a lone nonforcing cut. Certified forcing units always publish;
+  // multiple nonforcing rows demonstrate within-pass progress.
   RequireCompoundProgress,
 };
 
@@ -433,8 +433,8 @@ struct SymmetryEnumerationResult {
   uint64_t instances = 0;
   // Complete validated kind-2-only batches withheld by strategy admission.
   uint64_t nonforcing_orbit_cuts_declined = 0;
-  // Complete singleton forcing batches withheld because they did not expose
-  // a second certified consequence in the same group pass.
+  // Reserved historical diagnostic. Certified forcing units are never
+  // withheld by cut-admission policy, so current producers leave this zero.
   uint64_t singleton_forcing_rows_declined = 0;
   uint64_t ticks = 0;
   // True only when discovery establishes the full unrestricted clause-set group.
