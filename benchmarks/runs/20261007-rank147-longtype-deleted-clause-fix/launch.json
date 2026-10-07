@@ -1,0 +1,25 @@
+{
+  "command": [
+    "sbatch",
+    "benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/job.sbatch"
+  ],
+  "frozen_inputs": {
+    "SHA256SUMS": "34509fbcaa06ae89f09aef48985d4fa6d7c459115100be373c34b21c10481cab",
+    "fix.patch": "52592ba37c46b422d77021dd2bf9c46a72f3cc476eddf90239dc114ab253deb8",
+    "job.sbatch": "c844dc35695af61486afce300078f4689db93ca9dc2a7490d935bfef83a256f5",
+    "manifest.json": "8d10c587fe3f7350797ed06ad9fbaae4e52ca5cf9dbb3f4d8067cf49e7e35a85",
+    "mask_reproducer.c": "2d692a22f336593482200ae12e9fefacd3607cdb2fdac1528ec61128a44c0931",
+    "run.py": "61f74b109c50029b59df0d04d2ea607336e8f6dc4a5b729a2d7e1f0c6590a242",
+    "source.tar": "397557639afc3a58b7a46979a4bb77e09b664b049b7017d71355435ba08632ad"
+  },
+  "job_id": "1755133",
+  "resources": {
+    "cpus": 4,
+    "memory_mb": 32768,
+    "node_constraint": null,
+    "partition": "cpu-q",
+    "time_limit": "00:10:00"
+  },
+  "schema": "tactix-rank147-longtype-fix-launch-v1",
+  "submitted_at": "2026-10-07T22:05:00.432644+00:00"
+}

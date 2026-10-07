@@ -1,0 +1,6 @@
+{
+  "schema": "tactix-frozen-validation-source-archive-v1",
+  "path": "frozen-root.tar.xz",
+  "sha256": "61fa99db28e28f3fe7a1cc0364dbc75bf4facbce4398ccad882d3440e5fe638b",
+  "content_authority": "manifest.json files map; archived after terminal completion and removal of generated __pycache__ only"
+}
