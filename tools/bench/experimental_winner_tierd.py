@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import json
 from pathlib import Path
+from proof_oracle import pin_dsr_transport
 import shutil
 import subprocess
 import sys
@@ -47,7 +48,7 @@ def write_json(path, value):
         target.write('\n')
 
 
-def prepare(campaign, selected_arms=None):
+def prepare(campaign, selected_arms=None, dsr_transport=None):
     campaign = campaign.resolve()
     if campaign.exists():
         raise SystemExit(f'campaign already exists: {campaign}')
@@ -76,6 +77,7 @@ def prepare(campaign, selected_arms=None):
                  'experimental_winner_task.py', 'procfd_realpath.c',
                  'proof_oracle.py'):
         shutil.copy2(ROOT / 'tools/bench' / name, campaign / 'pins' / name)
+    pin_dsr_transport(dsr_transport, campaign / 'pins')
     shim = campaign / 'pins/procfd_realpath.so'
     subprocess.run(['cc', '-shared', '-fPIC', '-O2', '-Wall', '-Wextra', '-Werror',
                     '-o', str(shim), str(campaign / 'pins/procfd_realpath.c'), '-ldl'],
@@ -208,6 +210,7 @@ def submit(campaign, validate, afterany=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--campaign', required=True, type=Path)
+    parser.add_argument('--dsr-transport', type=Path)
     parser.add_argument('--arm', action='append', choices=[arm[0] for arm in ARMS],
                         help='limit a new campaign to the named arm')
     parser.add_argument('--afterany', type=int,
@@ -220,7 +223,7 @@ def main():
     if args.afterany is not None and (args.afterany < 1 or args.prepare or args.validate):
         parser.error('--afterany requires a positive job id and --submit')
     if args.prepare:
-        prepare(args.campaign, args.arm)
+        prepare(args.campaign, args.arm, args.dsr_transport)
     else:
         submit(args.campaign, args.validate, args.afterany)
 

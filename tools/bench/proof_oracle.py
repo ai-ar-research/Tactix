@@ -474,12 +474,66 @@ def _dsr_lines(proof, binary):
             yield kind, tokens
 
 
+def pin_dsr_transport(helper, directory):
+    """Copy an explicitly selected helper into a future immutable runner pin.
+
+    No compiler, PATH search or mutable global helper is consulted at runtime.
+    The caller's campaign manifest must also hash these two new pin files.
+    """
+    import hashlib
+    import os
+    import shutil
+    if helper is None:
+        return []
+    helper, directory = Path(helper), Path(directory)
+    if not helper.is_file() or not os.access(helper, os.X_OK):
+        raise ValueError('DSR transport must be an executable file')
+    target = directory / 'dsr-transport'
+    binding = directory / 'dsr-transport.sha256'
+    if target.exists() or binding.exists():
+        raise FileExistsError('DSR transport pin already exists')
+    shutil.copyfile(helper, target)
+    target.chmod(0o550)
+    binding.write_text(hashlib.sha256(target.read_bytes()).hexdigest() + '\n')
+    return [target, binding]
+
+
+def _native_dsr_transport(mode, proof, destination=None):
+    """Use only the helper bound beside this module; None means Python fallback."""
+    import hashlib
+    import os
+    import subprocess
+    helper = Path(__file__).resolve().with_name('dsr-transport')
+    binding = helper.with_name('dsr-transport.sha256')
+    if not helper.exists() and not binding.exists():
+        return None
+    if (not helper.is_file() or not binding.is_file() or
+            not os.access(helper, os.X_OK) or
+            hashlib.sha256(helper.read_bytes()).hexdigest() != binding.read_text().strip()):
+        raise RuntimeError('missing or changed pinned DSR transport')
+    command = [str(helper), mode, str(proof)]
+    if destination is not None:
+        command.append(str(destination))
+    # subprocess.run kills/reaps the child on BaseException, including the
+    # runner's whole-pipeline deadline signal; no converter survives that timer.
+    result = subprocess.run(command, capture_output=True)
+    if result.returncode in (0, 2):
+        return result.returncode == 2
+    detail = result.stderr.decode(errors='replace').strip()
+    if result.returncode == 3:
+        raise DSRFormatError(detail or 'malformed binary DSR')
+    raise OSError(f'DSR transport failed ({result.returncode}): {detail}')
+
+
 def dsr_proof_has_witness(proof) -> bool:
     """True when any addition carries a substitution witness, i.e. its first
     literal (the pivot) reappears later in the line. A witnessed line is an SR
     step and is never a DRAT line; drat-trim would silently drop the repeated
     pivot as a duplicate literal, so routing must decide before drat-trim."""
     if dsr_proof_is_binary(proof):
+        witnessed = _native_dsr_transport('scan', proof)
+        if witnessed is not None:
+            return witnessed
         kind = first = None
         for event, item in _dsr_binary_events(proof):
             if event == 'start':
@@ -504,6 +558,10 @@ def dsr_proof_as_drat(proof, drat):
     the literal varints are identical, so the tags are rewritten in place and
     every other byte is copied. Returns False on a witnessed line."""
     binary = dsr_proof_is_binary(proof)
+    if binary:
+        witnessed = _native_dsr_transport('convert', proof, drat)
+        if witnessed is not None:
+            return not witnessed
     # Validate the entire stream before opening the destination. A witnessed
     # or malformed proof must not leave a success-looking partial DRAT file.
     if dsr_proof_has_witness(proof):
