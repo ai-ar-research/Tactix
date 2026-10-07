@@ -1,0 +1,1192 @@
+{
+  "expected_instances": 44,
+  "final_records": 40,
+  "dispositions": {
+    "resource_incomplete": 39,
+    "missing": 4,
+    "proof_route_or_stage_failure": 1
+  },
+  "independently_verified": 0,
+  "verified_original_ranks": [],
+  "twelve_verified_results": false,
+  "retained_original_ranks": [],
+  "missing_retention_ranks": [
+    147,
+    263,
+    630,
+    744
+  ],
+  "all_rows_comparable": false,
+  "par2_seconds": null,
+  "rows": [
+    {
+      "task": 0,
+      "original_rank": 82,
+      "instance": "tierD24-26/0ed8c06438673f179985a79b9d6a9fe4-cfi-rigid-s2-0064-04-or_2_shuffle_all.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node016",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 1,
+      "original_rank": 97,
+      "instance": "tierD24-26/11cc532ecddfb10a47e0a869b4867c1b-Break_triple_20_36.xml.cnf.xz",
+      "status": "missing",
+      "solver_seconds": null,
+      "detail": null,
+      "record_node": null,
+      "retryable": false,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 2,
+      "original_rank": 147,
+      "instance": "tierD24-26/1b84df53843ecd90ec8c3c7a01cada6c-ramsey_4_4_18.normalised.cnf.xz",
+      "status": "proof_route_or_stage_failure",
+      "solver_seconds": 0.168,
+      "detail": [
+        "dsr-trim"
+      ],
+      "record_node": "node013",
+      "retryable": false,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python-retry01"
+    },
+    {
+      "task": 3,
+      "original_rank": 190,
+      "instance": "tierD24-26/25390e9d1fa1926485db7eb2d5a20ea8-ITC2021_Late_10.xml.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 4,
+      "original_rank": 226,
+      "instance": "tierD24-26/2b8a711debc3a6edd01e7b4e305342d9-REGRandom-K4-L2-Seed35.sanitized.cnf.xz",
+      "status": "missing",
+      "solver_seconds": null,
+      "detail": null,
+      "record_node": null,
+      "retryable": false,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 5,
+      "original_rank": 263,
+      "instance": "tierD24-26/32e344a5ab3af245f982678d2b751c6d-lightsout_sat_24_unbounded_totalizer_corner_0_unsat.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 6,
+      "original_rank": 291,
+      "instance": "tierD24-26/39277cab188349aee0f229cb7341b5c5-crafted_n12_d6_c4_num23.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 7,
+      "original_rank": 323,
+      "instance": "tierD24-26/4106867bc76b8794330a205cf8a303ad-bvsub_19952.smt2.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 8,
+      "original_rank": 343,
+      "instance": "tierD24-26/44b7d2c8d08574002ac959e6d1ef30ae-1x1x14_1x2x9_pair_4_2_0_2_3_0.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 9,
+      "original_rank": 367,
+      "instance": "tierD24-26/49644428681a87666a68fc9380dce072-cabp-X-can__715.mtx.rnd-k116.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 10,
+      "original_rank": 401,
+      "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 11,
+      "original_rank": 410,
+      "instance": "tierD24-26/5432e4dd44480fadbd66647db1750c80-pcmax-scheduling-m24-24102-255206-SAT.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 12,
+      "original_rank": 453,
+      "instance": "tierD24-26/5d62e4d7ab116c477c8d4f5bd36907de-lockchart-group2-rnd0.3-L19-K38-P8D4J1_2.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node015",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 13,
+      "original_rank": 479,
+      "instance": "tierD24-26/61fee64c8fc7f05b97a2bc14c0c2bf41-par32-4-c.shuffled.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 14,
+      "original_rank": 489,
+      "instance": "tierD24-26/6543793076c30fc7cdfa5a3c819cedc7-oisc-subrv-sll-nested-11.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 15,
+      "original_rank": 497,
+      "instance": "tierD24-26/67133027ab55906e3b757148ca7011dd-snw_16_9_Encpre.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 16,
+      "original_rank": 499,
+      "instance": "tierD24-26/6793abe982f9d5f9646f6657e13ecc39-55-140792.cnf.xz",
+      "status": "missing",
+      "solver_seconds": null,
+      "detail": null,
+      "record_node": null,
+      "retryable": false,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 17,
+      "original_rank": 511,
+      "instance": "tierD24-26/69e34d0f49c71a7e145d8104ebe0273f-sokoban-p16.sas.ex.15-sc2016.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 18,
+      "original_rank": 540,
+      "instance": "tierD24-26/6fc528fc3d0fd5a2c50992feb8bf0357-pcmax-scheduling-m24-17855-226744-SAT.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 19,
+      "original_rank": 541,
+      "instance": "tierD24-26/6ff70a3aaf261b35b0b072f454a756be-crafted_n10_d6_c4_num9.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 20,
+      "original_rank": 557,
+      "instance": "tierD24-26/74f145bb935650f5c982d7eec6967945-pcmax-scheduling-m43-38782-385402-SAT.sanitized.cnf.xz",
+      "status": "missing",
+      "solver_seconds": null,
+      "detail": null,
+      "record_node": null,
+      "retryable": false,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 21,
+      "original_rank": 569,
+      "instance": "tierD24-26/778e0fd8f034b7cfd539b1b523ed4c4a-lec_mult_CvW_12x12.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 22,
+      "original_rank": 627,
+      "instance": "tierD24-26/83dc8f675657b3e6d148ef5cf897fb82-openstacks-sequencedstrips-nonadl-nonnegated-os-sequencedstrips-p30_3.025-NOTKNOWN.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 23,
+      "original_rank": 630,
+      "instance": "tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 24,
+      "original_rank": 654,
+      "instance": "tierD24-26/8aa9ffb211d1cba850be2ee9d173b7e1-adv_gc_n300_k12_UNSAT_s42.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 25,
+      "original_rank": 744,
+      "instance": "tierD24-26/9d7caee59e9d362d132f1cd785de8a0b-ncc_none_21015_5_3_3_0_0_11.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 26,
+      "original_rank": 754,
+      "instance": "tierD24-26/9f1cb42232335f84435126b5ae0fb701-SC25_Timetable_C_495_E_48_Cl_33_D_7_T_50.normalised.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 27,
+      "original_rank": 762,
+      "instance": "tierD24-26/a110c13186ef5785df8da4bfa2ce9a6d-xorshift_r14_7.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 28,
+      "original_rank": 781,
+      "instance": "tierD24-26/a5dc08b83ff806ac2c2c8cc23053fb07-SDP_118_16_5515.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 29,
+      "original_rank": 887,
+      "instance": "tierD24-26/bd12a2b66110451b050bd5d2943b1854-ITC2021_Early_10.xml.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 30,
+      "original_rank": 896,
+      "instance": "tierD24-26/bfadd34e71516e95d0ba2a3a8fb2ba03-pcmax-scheduling-m19-10199-62102-UNSAT.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 31,
+      "original_rank": 899,
+      "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node016",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 32,
+      "original_rank": 941,
+      "instance": "tierD24-26/ca18feb7d2bb6bee7a8ab28673fe1d62-as-p75-l27-o6-rot-4568.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 33,
+      "original_rank": 991,
+      "instance": "tierD24-26/d8225a58e2ca7c2fb93c533f406c02d5-abw-K-dwt__234.mtx-w50.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 34,
+      "original_rank": 1004,
+      "instance": "tierD24-26/dacb03ea801d459ef08db23a8b1d104f-lec_mult_DvW_12x12.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 35,
+      "original_rank": 1009,
+      "instance": "tierD24-26/dbbcaa7797145dfddfa4fe73ce91fdec-cabp-M-bcsstk06.mtx.rnd-k39.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 36,
+      "original_rank": 1040,
+      "instance": "tierD24-26/e2b819680a045a8af67f82fa2f3d945a-59-134241.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 37,
+      "original_rank": 1075,
+      "instance": "tierD24-26/ebbda8d90dfd9b6500bf932f952907a6-2018D_VexRiscv-regch0-20-p1_step.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 38,
+      "original_rank": 1085,
+      "instance": "tierD24-26/ee57608ea4b74f25aebca809d59711c9-oisc-subrv-sll-nested-13.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 39,
+      "original_rank": 1118,
+      "instance": "tierD24-26/f4ca5fca83e870d2ed56f2b00b074ed4-TT7F-33-24B.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 40,
+      "original_rank": 1129,
+      "instance": "tierD24-26/f6a085f3c728e53f57542e62df20e56b-crafted_n10_d6_c4_num8.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 41,
+      "original_rank": 1144,
+      "instance": "tierD24-26/fae6cf26f3da1e7d8fc4926a9ca86b61-SC25_Timetable_C_495_E_50_Cl_33_D_7_T_50.normalised.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node001",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 42,
+      "original_rank": 1161,
+      "instance": "tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    },
+    {
+      "task": 43,
+      "original_rank": 1163,
+      "instance": "tierD24-26/fed1f1b55b33c7e0f8356832d571b0bf-ntil-90d-41.sanitized.cnf.xz",
+      "status": "resource_incomplete",
+      "solver_seconds": null,
+      "detail": "scratch_node_busy",
+      "record_node": "node002",
+      "retryable": true,
+      "source_campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python"
+    }
+  ],
+  "qualification_accepted": false,
+  "limitation": "Coverage only. All 44 rows remain in the denominator. Missing, resource-censored, rejected, unclean, and checker-censored results do not close instances and suppress complete-arm PAR-2. Twelve verified results do not establish N1-N4, fuzz, Debug, or regression acceptance.",
+  "schema": "tactix-fixed44-merged-coverage-v1",
+  "scorer_sha256": "0678fca60ee82729b5018aecb30010b9d8d3f76dc25419488a4bbc9712fee2a0",
+  "candidate": {
+    "path": "pins/tactix",
+    "sha256": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e",
+    "arguments": [
+      "--auto-proof",
+      "--default-graph-labeling=on"
+    ],
+    "certificate": "auto"
+  },
+  "selection_sha256": "74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333",
+  "attempts": [
+    {
+      "campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python",
+      "manifest_sha256": "6f63d7eefd12783532d4b0c2e65851680f37042f1ff576d9c8c3d7b1f87fa0be",
+      "record_sha256": {
+        "results/000.json": "8824855b41866f13a4dcb93e8500863ca2b812b5e2982cf529fa862f86255f8c",
+        "results/002.json": "a85967ba7e8fdcffdcbf93a972c88e7544300105cc754b01550635bdb57f454d",
+        "results/003.json": "bee00bc7f4776dad074f99c9828249c681f2cf04e7be420973d405d2da14b642",
+        "results/005.json": "3e5edd5284a91b22709024365a5df0591714b25ee31fac925532f98a52a4adfb",
+        "results/006.json": "76ce3942440840bd290b8bcb6ed4ddbfcae6327cb768acb1c5192a8cfd1ce6cb",
+        "results/007.json": "9403146375415029006294d2cec888789d93ef5029a085e921823405a61df88a",
+        "results/008.json": "4963d1d5ca83d812dfbaeab2712ea551468919e10bdad0743bb1afbe298332e1",
+        "results/009.json": "23ad5eaf9b91596558ef6cc95bbd99705195424a7d89b6418da4e1582594a24d",
+        "results/010.json": "7a8434ac217ba7af2f2ec6b453aba7f9564454aba4f1e72f8f06f4e15d78d6b9",
+        "results/011.json": "f22a59b23ac5de749b0fb8fe607371b755a6a42a22e57a26d637dbe501796ea5",
+        "results/012.json": "f5e91945b6270431be803d47abc7a38a48ba407202ce7c686e7c5300fc2d1cf4",
+        "results/013.json": "a1b5883f8a5a57c0c558fd0a588f8a72f3fe1fdca9c13c522abd8eabb1db90d9",
+        "results/014.json": "62aa36af15bbce2fd06e9b0392a7e02a64c765d4c8907e79acb896039868de76",
+        "results/015.json": "428e14039c380ca13c0ec446a236ce76c6ed3be4974ce7ab8befe990bb18f85f",
+        "results/017.json": "da700559eb8fd9310cd433bd4d948623c11ec607182b0ec10b7e94abd2514d7d",
+        "results/018.json": "3133350d21091a71fa2fb6f4c7b97e70ad2e1b06700f9eb7185bd9d2d1d98b0b",
+        "results/019.json": "d9680931d29505bec0f1a09a60b45f919beb865c0e9c61b66a597041f866a574",
+        "results/021.json": "c1f20693207b9464506bcf6623d9f9570876e6ef1c06d3c8f22a1eb29b63c3b4",
+        "results/022.json": "450434bbf76af9f89ac18df09f1d8c41aecc1498ae1f051d552339f3ab10c333",
+        "results/023.json": "4ff7e4b2f0ae9d2abffebb2b58c3098827cf6c6bc0a4cf6b0584c29a5ea6a446",
+        "results/024.json": "f115374cc8f56f0174360d44e604b7659c9f5da2b4c5132875949b58a9cfe125",
+        "results/025.json": "574d685a1504b10f8fb22a24f3167f3a2b092765a18ea1f6d5ecf38762001aed",
+        "results/026.json": "ee6611c525702c70d3eedb3ca947e03778724ac0212e9afde6156e5b34f76b1e",
+        "results/027.json": "a93c38799c081686163cd9230db073db7e118ffe3face5fb941e923c5cf56c07",
+        "results/028.json": "698bb5b0e01f181a59758ac68acca9238cc25668751298aacd9d126705a61a7e",
+        "results/029.json": "bd7a8a33c5e6c8cda9ad7fbae456133d907100dffc56669c0edfff9e5f67d81b",
+        "results/030.json": "bdd579f52a1947149f2a6b98052780fcdc0045bd182d11ba14a6bbcd96ed1d50",
+        "results/031.json": "7da4271de7f8b9c4345f289b359d7378ef8656e74dce9702e7056fa87df00d44",
+        "results/032.json": "d2d20b691303150b32efa3d1adfb26deabf45ac6678754916b83d4ce56c0dd47",
+        "results/033.json": "4ddabdd2f63b791f8a4a75e6a72f950668582926899123f73f6f18c3c58a324a",
+        "results/034.json": "fcade1a2ec10b7d93442f36fc5ce8ec4a9d71f93a23724311295525417b0ad36",
+        "results/035.json": "e321eee85f8572f725249407d46a8c4de950dfe7028ede321ec4717eb04841f7",
+        "results/036.json": "020ff0aad3e557803321914ba0c5114237669c7feaa438e50ece34645ab625c7",
+        "results/037.json": "73eba51f31dac113735b8a3bc3dae7e2931db200262c85e33be0df03b3fe56f3",
+        "results/038.json": "de92a994c71789c64a96a3f5c37b7f7a6e8375895cd2f2ee0c915b02b4617895",
+        "results/039.json": "e541e2eb7f55b204f5e4a6d41df993605ea55b95387ff7a3640abe6b18c16794",
+        "results/040.json": "ef1b85d8a6fd602b5f406953c12af2cce5a221cf16c14a43de2de4a97d230752",
+        "results/041.json": "d5033b2ad04a53a72f07c5f783979054564cf242b6ce2648133c6603c37b9fa1",
+        "results/042.json": "e1263045500b2f210779c89f101a2279bd8b6faca4f2a58edc6306cb8255b419",
+        "results/043.json": "3fc1fe7d90d8e291d5625315eb36960a17bf9e53329e8bdfc7bfdb5f830be961"
+      },
+      "retry_attempt": null,
+      "launch": {
+        "job_id": "1754978",
+        "sha256": "367132e1d6d3f47c881c9610baaeeb24b9288b2b82c608abd57e49b166743620",
+        "validation_job_id": "1754975",
+        "validation_launch_sha256": "cd499c964cd004e261367da61eb7ea5057f193653ee005ef5bcb0ce3b78b2943",
+        "validation_sha256": "b0a782e8f91d5b1cc0391a69295d4f06e42262cbac8dc5c2ac4686609691c2d0"
+      },
+      "pyc_supplement": {
+        "path": "/home/hwu/SAT-solving/benchmarks/reports/2026-10-07-fixed44-retry-accounting-followup/current-parent-pyc-supplement.json",
+        "sha256": "2ada4a61e3d4eab99106df507334ed97433b671b54003f3ab77a9184922dc37e",
+        "schema": "tactix-validation-created-pyc-supplement-v1",
+        "records": [
+          {
+            "name": "anonymous_scratch",
+            "source_sha256": "0d4b94363cbb21d26ce12e700e532006866768bcf4920d181c401cc8a97f6dab",
+            "pyc_sha256": "58283dda7a2cb23bb5212809a12ce0103c31aa457d824bdf7e442773d6643652",
+            "source_mtime_header": 1791409072,
+            "source_size_header": 11027,
+            "semantic_compile_match": true
+          },
+          {
+            "name": "proof_oracle",
+            "source_sha256": "bb7df68b5eb83574ba131c4d6cf6da58f82508b0db3dd992ddeecf8f1b0255c1",
+            "pyc_sha256": "e85d1ecfd40f6119c263a70923fa39762670092989c139acf72ef6106baa8545",
+            "source_mtime_header": 1791409072,
+            "source_size_header": 54757,
+            "semantic_compile_match": true
+          },
+          {
+            "name": "runtime_task",
+            "source_sha256": "92dde998e7e5a5cb1694757a0b44dc44b676d23df11b946aa5d2acd801f84eec",
+            "pyc_sha256": "bc4a7f11a692e361f636685046faf94d5d4bf8258563ac1662ca286c5f0e87ec",
+            "source_mtime_header": 1791409072,
+            "source_size_header": 66440,
+            "semantic_compile_match": true
+          },
+          {
+            "name": "modelcheck",
+            "source_sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+            "pyc_sha256": "d17fd387edc537298f7c8d08a08cb6717bc1b32614159eac4e726e90c564d1f3",
+            "source_mtime_header": 1786647162,
+            "source_size_header": 3708,
+            "semantic_compile_match": true
+          }
+        ],
+        "validation_job_id": "1754975",
+        "python_version": "3.9.24 (main, Apr  9 2026, 03:46:43) \n[GCC 13.1.0]"
+      }
+    },
+    {
+      "campaign": "/home/hwu/SAT-solving/benchmarks/runs/20261007-fixed44-10942-cooperative-python-retry01",
+      "manifest_sha256": "e64f61ac8051a84f68175e883534c25ce683cee6cf48a5aa45356970dc4fdf69",
+      "record_sha256": {
+        "results/002.json": "389414fc9db0ebd0c43f92f03c319f00478d1237f2a380e5c5e383143a4b6620"
+      },
+      "retry_attempt": {
+        "schema": "tactix-fixed44-retry-attempt-v1",
+        "attempt": 1,
+        "prepared_at": "2026-10-07T21:42:34.049288+00:00",
+        "parent": {
+          "campaign": "benchmarks/runs/20261007-fixed44-10942-cooperative-python",
+          "manifest_sha256": "6f63d7eefd12783532d4b0c2e65851680f37042f1ff576d9c8c3d7b1f87fa0be",
+          "launch_job_id": "1754978",
+          "launch_sha256": "367132e1d6d3f47c881c9610baaeeb24b9288b2b82c608abd57e49b166743620"
+        },
+        "selection_scope": "Full 44-row matrix and selection authority retained; only allowed_tasks may execute in this attempt.",
+        "allowed_tasks": [
+          0,
+          2,
+          3,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          17,
+          18,
+          19,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43
+        ],
+        "predecessors": [
+          {
+            "task": 0,
+            "coverage_rank": 1,
+            "instance": "tierD24-26/0ed8c06438673f179985a79b9d6a9fe4-cfi-rigid-s2-0064-04-or_2_shuffle_all.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/000.json",
+            "result_sha256": "8824855b41866f13a4dcb93e8500863ca2b812b5e2982cf529fa862f86255f8c",
+            "node": "node016",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 2,
+            "coverage_rank": 3,
+            "instance": "tierD24-26/1b84df53843ecd90ec8c3c7a01cada6c-ramsey_4_4_18.normalised.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/002.json",
+            "result_sha256": "a85967ba7e8fdcffdcbf93a972c88e7544300105cc754b01550635bdb57f454d",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 3,
+            "coverage_rank": 4,
+            "instance": "tierD24-26/25390e9d1fa1926485db7eb2d5a20ea8-ITC2021_Late_10.xml.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/003.json",
+            "result_sha256": "bee00bc7f4776dad074f99c9828249c681f2cf04e7be420973d405d2da14b642",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 5,
+            "coverage_rank": 6,
+            "instance": "tierD24-26/32e344a5ab3af245f982678d2b751c6d-lightsout_sat_24_unbounded_totalizer_corner_0_unsat.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/005.json",
+            "result_sha256": "3e5edd5284a91b22709024365a5df0591714b25ee31fac925532f98a52a4adfb",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 6,
+            "coverage_rank": 7,
+            "instance": "tierD24-26/39277cab188349aee0f229cb7341b5c5-crafted_n12_d6_c4_num23.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/006.json",
+            "result_sha256": "76ce3942440840bd290b8bcb6ed4ddbfcae6327cb768acb1c5192a8cfd1ce6cb",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 7,
+            "coverage_rank": 8,
+            "instance": "tierD24-26/4106867bc76b8794330a205cf8a303ad-bvsub_19952.smt2.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/007.json",
+            "result_sha256": "9403146375415029006294d2cec888789d93ef5029a085e921823405a61df88a",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 8,
+            "coverage_rank": 9,
+            "instance": "tierD24-26/44b7d2c8d08574002ac959e6d1ef30ae-1x1x14_1x2x9_pair_4_2_0_2_3_0.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/008.json",
+            "result_sha256": "4963d1d5ca83d812dfbaeab2712ea551468919e10bdad0743bb1afbe298332e1",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 9,
+            "coverage_rank": 10,
+            "instance": "tierD24-26/49644428681a87666a68fc9380dce072-cabp-X-can__715.mtx.rnd-k116.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/009.json",
+            "result_sha256": "23ad5eaf9b91596558ef6cc95bbd99705195424a7d89b6418da4e1582594a24d",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 10,
+            "coverage_rank": 11,
+            "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/010.json",
+            "result_sha256": "7a8434ac217ba7af2f2ec6b453aba7f9564454aba4f1e72f8f06f4e15d78d6b9",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 11,
+            "coverage_rank": 12,
+            "instance": "tierD24-26/5432e4dd44480fadbd66647db1750c80-pcmax-scheduling-m24-24102-255206-SAT.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/011.json",
+            "result_sha256": "f22a59b23ac5de749b0fb8fe607371b755a6a42a22e57a26d637dbe501796ea5",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 12,
+            "coverage_rank": 13,
+            "instance": "tierD24-26/5d62e4d7ab116c477c8d4f5bd36907de-lockchart-group2-rnd0.3-L19-K38-P8D4J1_2.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/012.json",
+            "result_sha256": "f5e91945b6270431be803d47abc7a38a48ba407202ce7c686e7c5300fc2d1cf4",
+            "node": "node015",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 13,
+            "coverage_rank": 14,
+            "instance": "tierD24-26/61fee64c8fc7f05b97a2bc14c0c2bf41-par32-4-c.shuffled.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/013.json",
+            "result_sha256": "a1b5883f8a5a57c0c558fd0a588f8a72f3fe1fdca9c13c522abd8eabb1db90d9",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 14,
+            "coverage_rank": 15,
+            "instance": "tierD24-26/6543793076c30fc7cdfa5a3c819cedc7-oisc-subrv-sll-nested-11.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/014.json",
+            "result_sha256": "62aa36af15bbce2fd06e9b0392a7e02a64c765d4c8907e79acb896039868de76",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 15,
+            "coverage_rank": 16,
+            "instance": "tierD24-26/67133027ab55906e3b757148ca7011dd-snw_16_9_Encpre.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/015.json",
+            "result_sha256": "428e14039c380ca13c0ec446a236ce76c6ed3be4974ce7ab8befe990bb18f85f",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 17,
+            "coverage_rank": 18,
+            "instance": "tierD24-26/69e34d0f49c71a7e145d8104ebe0273f-sokoban-p16.sas.ex.15-sc2016.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/017.json",
+            "result_sha256": "da700559eb8fd9310cd433bd4d948623c11ec607182b0ec10b7e94abd2514d7d",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 18,
+            "coverage_rank": 19,
+            "instance": "tierD24-26/6fc528fc3d0fd5a2c50992feb8bf0357-pcmax-scheduling-m24-17855-226744-SAT.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/018.json",
+            "result_sha256": "3133350d21091a71fa2fb6f4c7b97e70ad2e1b06700f9eb7185bd9d2d1d98b0b",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 19,
+            "coverage_rank": 20,
+            "instance": "tierD24-26/6ff70a3aaf261b35b0b072f454a756be-crafted_n10_d6_c4_num9.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/019.json",
+            "result_sha256": "d9680931d29505bec0f1a09a60b45f919beb865c0e9c61b66a597041f866a574",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 21,
+            "coverage_rank": 22,
+            "instance": "tierD24-26/778e0fd8f034b7cfd539b1b523ed4c4a-lec_mult_CvW_12x12.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/021.json",
+            "result_sha256": "c1f20693207b9464506bcf6623d9f9570876e6ef1c06d3c8f22a1eb29b63c3b4",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 22,
+            "coverage_rank": 23,
+            "instance": "tierD24-26/83dc8f675657b3e6d148ef5cf897fb82-openstacks-sequencedstrips-nonadl-nonnegated-os-sequencedstrips-p30_3.025-NOTKNOWN.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/022.json",
+            "result_sha256": "450434bbf76af9f89ac18df09f1d8c41aecc1498ae1f051d552339f3ab10c333",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 23,
+            "coverage_rank": 24,
+            "instance": "tierD24-26/847c8843ee292b9b31f0c346574af260-ramsey_4_4_19.normalised.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/023.json",
+            "result_sha256": "4ff7e4b2f0ae9d2abffebb2b58c3098827cf6c6bc0a4cf6b0584c29a5ea6a446",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 24,
+            "coverage_rank": 25,
+            "instance": "tierD24-26/8aa9ffb211d1cba850be2ee9d173b7e1-adv_gc_n300_k12_UNSAT_s42.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/024.json",
+            "result_sha256": "f115374cc8f56f0174360d44e604b7659c9f5da2b4c5132875949b58a9cfe125",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 25,
+            "coverage_rank": 26,
+            "instance": "tierD24-26/9d7caee59e9d362d132f1cd785de8a0b-ncc_none_21015_5_3_3_0_0_11.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/025.json",
+            "result_sha256": "574d685a1504b10f8fb22a24f3167f3a2b092765a18ea1f6d5ecf38762001aed",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 26,
+            "coverage_rank": 27,
+            "instance": "tierD24-26/9f1cb42232335f84435126b5ae0fb701-SC25_Timetable_C_495_E_48_Cl_33_D_7_T_50.normalised.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/026.json",
+            "result_sha256": "ee6611c525702c70d3eedb3ca947e03778724ac0212e9afde6156e5b34f76b1e",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 27,
+            "coverage_rank": 28,
+            "instance": "tierD24-26/a110c13186ef5785df8da4bfa2ce9a6d-xorshift_r14_7.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/027.json",
+            "result_sha256": "a93c38799c081686163cd9230db073db7e118ffe3face5fb941e923c5cf56c07",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 28,
+            "coverage_rank": 29,
+            "instance": "tierD24-26/a5dc08b83ff806ac2c2c8cc23053fb07-SDP_118_16_5515.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/028.json",
+            "result_sha256": "698bb5b0e01f181a59758ac68acca9238cc25668751298aacd9d126705a61a7e",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 29,
+            "coverage_rank": 30,
+            "instance": "tierD24-26/bd12a2b66110451b050bd5d2943b1854-ITC2021_Early_10.xml.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/029.json",
+            "result_sha256": "bd7a8a33c5e6c8cda9ad7fbae456133d907100dffc56669c0edfff9e5f67d81b",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 30,
+            "coverage_rank": 31,
+            "instance": "tierD24-26/bfadd34e71516e95d0ba2a3a8fb2ba03-pcmax-scheduling-m19-10199-62102-UNSAT.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/030.json",
+            "result_sha256": "bdd579f52a1947149f2a6b98052780fcdc0045bd182d11ba14a6bbcd96ed1d50",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 31,
+            "coverage_rank": 32,
+            "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/031.json",
+            "result_sha256": "7da4271de7f8b9c4345f289b359d7378ef8656e74dce9702e7056fa87df00d44",
+            "node": "node016",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 32,
+            "coverage_rank": 33,
+            "instance": "tierD24-26/ca18feb7d2bb6bee7a8ab28673fe1d62-as-p75-l27-o6-rot-4568.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/032.json",
+            "result_sha256": "d2d20b691303150b32efa3d1adfb26deabf45ac6678754916b83d4ce56c0dd47",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 33,
+            "coverage_rank": 34,
+            "instance": "tierD24-26/d8225a58e2ca7c2fb93c533f406c02d5-abw-K-dwt__234.mtx-w50.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/033.json",
+            "result_sha256": "4ddabdd2f63b791f8a4a75e6a72f950668582926899123f73f6f18c3c58a324a",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 34,
+            "coverage_rank": 35,
+            "instance": "tierD24-26/dacb03ea801d459ef08db23a8b1d104f-lec_mult_DvW_12x12.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/034.json",
+            "result_sha256": "fcade1a2ec10b7d93442f36fc5ce8ec4a9d71f93a23724311295525417b0ad36",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 35,
+            "coverage_rank": 36,
+            "instance": "tierD24-26/dbbcaa7797145dfddfa4fe73ce91fdec-cabp-M-bcsstk06.mtx.rnd-k39.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/035.json",
+            "result_sha256": "e321eee85f8572f725249407d46a8c4de950dfe7028ede321ec4717eb04841f7",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 36,
+            "coverage_rank": 37,
+            "instance": "tierD24-26/e2b819680a045a8af67f82fa2f3d945a-59-134241.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/036.json",
+            "result_sha256": "020ff0aad3e557803321914ba0c5114237669c7feaa438e50ece34645ab625c7",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 37,
+            "coverage_rank": 38,
+            "instance": "tierD24-26/ebbda8d90dfd9b6500bf932f952907a6-2018D_VexRiscv-regch0-20-p1_step.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/037.json",
+            "result_sha256": "73eba51f31dac113735b8a3bc3dae7e2931db200262c85e33be0df03b3fe56f3",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 38,
+            "coverage_rank": 39,
+            "instance": "tierD24-26/ee57608ea4b74f25aebca809d59711c9-oisc-subrv-sll-nested-13.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/038.json",
+            "result_sha256": "de92a994c71789c64a96a3f5c37b7f7a6e8375895cd2f2ee0c915b02b4617895",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 39,
+            "coverage_rank": 40,
+            "instance": "tierD24-26/f4ca5fca83e870d2ed56f2b00b074ed4-TT7F-33-24B.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/039.json",
+            "result_sha256": "e541e2eb7f55b204f5e4a6d41df993605ea55b95387ff7a3640abe6b18c16794",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 40,
+            "coverage_rank": 41,
+            "instance": "tierD24-26/f6a085f3c728e53f57542e62df20e56b-crafted_n10_d6_c4_num8.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/040.json",
+            "result_sha256": "ef1b85d8a6fd602b5f406953c12af2cce5a221cf16c14a43de2de4a97d230752",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 41,
+            "coverage_rank": 42,
+            "instance": "tierD24-26/fae6cf26f3da1e7d8fc4926a9ca86b61-SC25_Timetable_C_495_E_50_Cl_33_D_7_T_50.normalised.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/041.json",
+            "result_sha256": "d5033b2ad04a53a72f07c5f783979054564cf242b6ce2648133c6603c37b9fa1",
+            "node": "node001",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 42,
+            "coverage_rank": 43,
+            "instance": "tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/042.json",
+            "result_sha256": "e1263045500b2f210779c89f101a2279bd8b6faca4f2a58edc6306cb8255b419",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          },
+          {
+            "task": 43,
+            "coverage_rank": 44,
+            "instance": "tierD24-26/fed1f1b55b33c7e0f8356832d571b0bf-ntil-90d-41.sanitized.cnf.xz",
+            "result": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/results/043.json",
+            "result_sha256": "3fc1fe7d90d8e291d5625315eb36960a17bf9e53329e8bdfc7bfdb5f830be961",
+            "node": "node002",
+            "completion_status": "incomplete",
+            "completion_reason": "scratch_node_busy",
+            "retryable": true
+          }
+        ],
+        "resource_exclusion": {
+          "schema": "live-cooperative-scratch-holder-exclusion-v1",
+          "snapshot": "benchmarks/runs/20261007-fixed44-10942-cooperative-python-retry01-preparation/holder-snapshot.txt",
+          "snapshot_sha256": "34146ed6c90a6a30d63e590345908a719eba9a223f98e42fe7731c4fd45b82bf",
+          "excluded_nodes": [
+            "node001",
+            "node002",
+            "node015",
+            "node016"
+          ],
+          "holders": [
+            {
+              "task": 1,
+              "job_id": "1754978_1",
+              "node": "node016",
+              "elapsed_at_snapshot": "2:24",
+              "claim": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/claims/001.json",
+              "claim_sha256": "caf3a3d05b07d9117a77b491527b726234130ae8bf75ea8e5ccd1aeb5e8f7ad2"
+            },
+            {
+              "task": 4,
+              "job_id": "1754978_4",
+              "node": "node015",
+              "elapsed_at_snapshot": "2:24",
+              "claim": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/claims/004.json",
+              "claim_sha256": "fc236798fe1b17b1427c2433a5741025166424bbadd9dc352eb464093997d773"
+            },
+            {
+              "task": 16,
+              "job_id": "1754978_16",
+              "node": "node002",
+              "elapsed_at_snapshot": "2:24",
+              "claim": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/claims/016.json",
+              "claim_sha256": "1761896b70f49391a2a154f2ab83311c703c253dfcb255198b4b1d0b6db1b7aa"
+            },
+            {
+              "task": 20,
+              "job_id": "1754978_20",
+              "node": "node001",
+              "elapsed_at_snapshot": "2:24",
+              "claim": "benchmarks/runs/20261007-fixed44-10942-cooperative-python/claims/020.json",
+              "claim_sha256": "7ae8a2e1476c76befc876541018f4a0311be980ce65c6f88a38058b26d75b47f"
+            }
+          ],
+          "reason": "Active tasks from the parent campaign hold the same stable node-local cooperative scratch lock."
+        },
+        "candidate_identity": {
+          "source_commit": "3ecfa8dfedb6d0dc4aaeeebaddb1a674d390f12e",
+          "solver_sha256": "10942fbedbb8a66712ffb439c93601d6a74639f4f2548e43c05a0f477598299e",
+          "arguments": [
+            "--auto-proof",
+            "--default-graph-labeling=on"
+          ],
+          "certificate": "auto",
+          "dsr_checker_profile": "long64",
+          "selection_authority": {
+            "path": "benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv",
+            "sha256": "74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333"
+          }
+        }
+      },
+      "launch": {
+        "job_id": "1755053",
+        "sha256": "7c9dfd2ec422d84390ee230d7eb4efb3018c7506ea57c94d3396dc7d0b0272ee",
+        "validation_job_id": "1755048",
+        "validation_launch_sha256": "1a532000cece1e22f730293e77e611587f67308e21061434b72b9e7cd98df74a",
+        "validation_sha256": "b52db9c36fbacd6e7580ac349d4f97d78c4174038e84fcd895e5e2ea6b4f8423"
+      },
+      "pyc_supplement": null
+    }
+  ],
+  "trusted_runner_boundary": "Checker command identity is verified when the pinned runtime recorded a command. Legacy records without checker commands rely on the hash-bound runtime and checker pins."
+}
