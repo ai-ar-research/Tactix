@@ -32,6 +32,8 @@ constexpr uint64_t LUCKY_STARTUP_RAMSEY = 22;
 // acquire UNSAT semantics. Never reuse or redirect a stable identity.
 constexpr uint64_t LUCKY_PARITY_PROOF = 23;
 constexpr uint64_t LUCKY_EXACT_ONE_PROOF = 24;
+// Retired noL constructor identity. Keep the numeric payload reserved so old
+// programs are rejected instead of being redirected to a different action.
 constexpr uint64_t LUCKY_NOL_HYPERGRAPH = 25;
 constexpr uint64_t LUCKY_GRAPH_AUTHENTICATE = 26;
 constexpr uint64_t LUCKY_GRAPH_CONTINUE = 27;
@@ -40,10 +42,11 @@ constexpr bool lucky_graph_instance(uint64_t instance) {
          instance == LUCKY_GRAPH_CONTINUE;
 }
 constexpr uint32_t LUCKY_INSTANCE_COUNT = 28;
-constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 28;
+constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 27;
 
 constexpr bool lucky_retired_constructor_instance(uint64_t instance) {
-  return instance != INSTANCE_CANONICAL && instance >= LUCKY_INSTANCE_COUNT;
+  return instance != INSTANCE_CANONICAL &&
+         (instance == LUCKY_NOL_HYPERGRAPH || instance >= LUCKY_INSTANCE_COUNT);
 }
 
 RuleEligibility lucky_guard(const Kernel &);

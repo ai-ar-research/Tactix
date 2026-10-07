@@ -962,10 +962,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       affine_search.minimum_usefulness < 0 || affine_search.minimum_usefulness > 1 ||
       !affine_search.autodisable_minimum_calls || !affine_search.autodisable_check_every)
     return reject("affine-search settings are invalid");
-  if (!nol_walk.work_quantum || !nol_walk.initial_tick_interval ||
-      nol_walk.maximum_delay_ticks < nol_walk.initial_tick_interval ||
-      !nol_walk.fruitlessness_threshold)
-    return reject("noL-walk schedule is invalid");
   if (!graph_labeling_model.parameters.valid())
     return reject("graph-labeling settings are invalid");
   if (!graph_labeling_model.initial_tick_interval ||
@@ -1289,12 +1285,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_search.maximum_initialization_work=" << affine_search.maximum_initialization_work
       << " affine_search.maximum_service_work=" << affine_search.maximum_service_work
       << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
-      << " nol_walk.enabled=" << nol_walk.enabled
-      << " nol_walk.maximum_authentication_work=" << nol_walk.maximum_authentication_work
-      << " nol_walk.work_quantum=" << nol_walk.work_quantum
-      << " nol_walk.initial_tick_interval=" << nol_walk.initial_tick_interval
-      << " nol_walk.maximum_delay_ticks=" << nol_walk.maximum_delay_ticks
-      << " nol_walk.fruitlessness_threshold=" << nol_walk.fruitlessness_threshold
       << " affine_model.enabled=" << affine_model.enabled;
   {
     strategy::OnlineStrategyProgram affine;
@@ -2032,7 +2022,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
     retier_.next_conflicts = conflicts + retier_.interval;
   default_branching_.reset(conflicts);
   inprocess_.reset(k);
-  reset_nol_walk_schedule(k);
 }
 
 static uint64_t active_variables(const Kernel &k) {
@@ -4236,145 +4225,6 @@ void DefaultPolicy::schedule_affine_service(const Kernel &kernel,
   affine_search_diagnostics_.service_delay_current=affine_service_slot_.delay_current;
 }
 
-void DefaultPolicy::reset_nol_walk_schedule(const Kernel &kernel) {
-  nol_walk_diagnostics_={};
-  nol_walk_schedule_initialized_=true;
-  nol_walk_diagnostics_.delay_ticks=config_.nol_walk.initial_tick_interval;
-  nol_walk_diagnostics_.next_ticks=saturated_sum(
-      search_ticks(kernel),config_.nol_walk.initial_tick_interval);
-  nol_walk_wake_stamp_={kernel.stats.root_assignments,kernel.nvars,
-      kernel.external_to_internal.size(),kernel.affine_semantic_namespace_epoch,
-      kernel.affine_capture_epochs_trusted?1u:0u};
-}
-
-bool DefaultPolicy::nol_walk_due(const Kernel &kernel) {
-  if(!config_.nol_walk.enabled || !kernel.nol_hypergraph_walk_session ||
-      !kernel.nol_hypergraph_walk_session->authenticated(kernel))return false;
-  const std::array<uint64_t,5> current{kernel.stats.root_assignments,kernel.nvars,
-      kernel.external_to_internal.size(),kernel.affine_semantic_namespace_epoch,
-      kernel.affine_capture_epochs_trusted?1u:0u};
-  if(current!=nol_walk_wake_stamp_) {
-    nol_walk_wake_stamp_=current;
-    nol_walk_diagnostics_.delay_ticks=config_.nol_walk.initial_tick_interval;
-    nol_walk_diagnostics_.fruitless_completions=0;
-    nol_walk_diagnostics_.next_ticks=search_ticks(kernel);
-    ++nol_walk_diagnostics_.wakeups;
-  }
-  return search_ticks(kernel)>=nol_walk_diagnostics_.next_ticks;
-}
-
-void DefaultPolicy::schedule_nol_walk(
-    const Kernel &kernel,const NolHypergraphSliceResult &result) {
-  ++nol_walk_diagnostics_.slices;
-  const auto &settings=config_.nol_walk;
-  if(result.useful_hint || result.status==NolHypergraphSliceStatus::Sat) {
-    ++nol_walk_diagnostics_.useful_hints;
-    nol_walk_diagnostics_.fruitless_completions=0;
-    nol_walk_diagnostics_.delay_ticks=std::max(
-        settings.initial_tick_interval,nol_walk_diagnostics_.delay_ticks/2);
-  }
-  const bool pending=result.status==NolHypergraphSliceStatus::Pending ||
-      result.status==NolHypergraphSliceStatus::Interrupted;
-  if(pending) {
-    ++nol_walk_diagnostics_.pending_slices;
-    nol_walk_diagnostics_.next_ticks=saturated_sum(
-        search_ticks(kernel),settings.work_quantum);
-  } else if(result.status!=NolHypergraphSliceStatus::Sat) {
-    if(result.status==NolHypergraphSliceStatus::TrajectoryComplete)
-      ++nol_walk_diagnostics_.completed_trajectories;
-    if(!result.useful_hint &&
-        ++nol_walk_diagnostics_.fruitless_completions>=
-            settings.fruitlessness_threshold) {
-      nol_walk_diagnostics_.fruitless_completions=0;
-      const uint64_t delay=nol_walk_diagnostics_.delay_ticks;
-      nol_walk_diagnostics_.delay_ticks=delay>settings.maximum_delay_ticks/2
-          ? settings.maximum_delay_ticks
-          : std::min(settings.maximum_delay_ticks,delay*2);
-    }
-    nol_walk_diagnostics_.next_ticks=saturated_sum(
-        search_ticks(kernel),nol_walk_diagnostics_.delay_ticks);
-  }
-  nol_walk_wake_stamp_={kernel.stats.root_assignments,kernel.nvars,
-      kernel.external_to_internal.size(),kernel.affine_semantic_namespace_epoch,
-      kernel.affine_capture_epochs_trusted?1u:0u};
-}
-
-NolHypergraphAuthenticationResult
-DefaultPolicy::authenticate_nol_walk(Kernel &kernel) {
-  NolHypergraphAuthenticationResult result;
-  if (!config_.nol_walk.enabled || !kernel.nol_hypergraph_walk_session ||
-      kernel.level || !nol_hypergraph_model_guard(kernel))
-    return result;
-  const uint64_t allowance = config_.nol_walk.maximum_authentication_work
-      ? config_.nol_walk.maximum_authentication_work
-      : config_.inprocess.preprocess_initial_ticks;
-  strategy::ScopedRuleWorkBudget budget(
-      kernel, {strategy::RuleWorkBudgetMode::Bounded, allowance});
-  ++nol_walk_diagnostics_.authentication_attempts;
-  result = nol_hypergraph_model_authenticate(kernel);
-  nol_walk_diagnostics_.authentication_work = saturated_sum(
-      nol_walk_diagnostics_.authentication_work, result.work);
-  switch (result.status) {
-  case NolHypergraphAuthenticationStatus::Authenticated:
-    ++nol_walk_diagnostics_.authentication_successes;
-    break;
-  case NolHypergraphAuthenticationStatus::Exhausted:
-    ++nol_walk_diagnostics_.authentication_exhausted;
-    break;
-  case NolHypergraphAuthenticationStatus::NoStructure:
-    ++nol_walk_diagnostics_.authentication_no_structure;
-    break;
-  case NolHypergraphAuthenticationStatus::Interrupted:
-    ++nol_walk_diagnostics_.authentication_interrupted;
-    break;
-  }
-  return result;
-}
-
-NolHypergraphSliceResult DefaultPolicy::service_nol_walk(Kernel &kernel) {
-  NolHypergraphSliceResult result;
-  if(!config_.nol_walk.enabled || !kernel.nol_hypergraph_walk_session ||
-      !kernel.nol_hypergraph_walk_session->authenticated(kernel) ||
-      kernel.level || !nol_hypergraph_model_guard(kernel))
-    return result;
-  strategy::ScopedRuleWorkBudget budget(kernel,
-      {strategy::RuleWorkBudgetMode::Bounded,config_.nol_walk.work_quantum});
-  result=nol_hypergraph_model_slice(kernel);
-  schedule_nol_walk(kernel,result);
-  return result;
-}
-
-ApplyResult DefaultPolicy::install_nol_walk_hint(
-    Kernel &kernel, const NolHypergraphSliceResult &result) {
-  // A noL slice is SAT-only search.  Its only nonterminal output is phase
-  // guidance, and only the producer's strictly improved authenticated best is
-  // admitted.  This helper is called immediately after the root-only slice,
-  // so an exact publication identity cannot be confused with a later offer.
-  if (!result.useful_hint || !result.hint_published || kernel.level ||
-      !kernel.nol_hypergraph_walk_session ||
-      !kernel.nol_hypergraph_walk_session->authenticated(kernel) ||
-      !local_search_guidance_guard(kernel))
-    return ApplyResult::NoOp;
-  const auto &hint = kernel.local_search_hints[static_cast<size_t>(
-      strategy::LocalSearchKind::HypergraphColoring)];
-  if (!hint.available() || !hint.objective_exact ||
-      hint.objective != result.objective_after)
-    return ApplyResult::NoOp;
-  ++nol_walk_diagnostics_.phase_install_attempts;
-  const ApplyResult installed = execution::complete_action(
-      completion_, FeedbackKind::Rule, "LocalSearchGuidance", hint.id,
-      [&] {
-        return execution::native_rule_feedback(
-            kernel, "LocalSearchGuidance", hint.id,
-            "authenticated-nol-improvement;objective=" +
-                std::to_string(hint.objective));
-      },
-      [&] { return local_search_guidance_apply_candidate(kernel, hint.id); });
-  if (installed == ApplyResult::Ok)
-    ++nol_walk_diagnostics_.phase_installs;
-  return installed;
-}
-
 void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
   graph_labeling_diagnostics_ = {};
   graph_labeling_schedule_initialized_ = true;
@@ -4694,8 +4544,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     pose_vivify_tiers(k, config_.inprocess);
     reset_schedule(k);
   }
-  if (!nol_walk_schedule_initialized_)
-    reset_nol_walk_schedule(k);
   inprocess_.build(k, completion_);
   EventTrace event_trace;
   event_trace.open_from_env(k);
@@ -4770,13 +4618,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ApplyResult startup = default_propagate(k, "startup", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
-  // Capture the exact source language before affine or preprocessing can add,
-  // retire or rewrite clauses. This bounded pass only retains authenticated
-  // structure: it does not initialize a coloring, run Walk or publish phases.
-  const auto nol_authentication = authenticate_nol_walk(k);
-  if (nol_authentication.status ==
-      NolHypergraphAuthenticationStatus::Interrupted)
-    return finish(0);
   const auto graph_authentication = authenticate_graph_labeling(k);
   if (graph_authentication.status ==
       GraphLabelingAuthenticationStatus::Interrupted)
@@ -5209,17 +5050,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
-  // Authentication captured the original noL source before any rewriting.
-  // Run the first trajectory slice only after structured-root, its root
-  // propagation/residual handoff, and startup preprocessing have finalized
-  // the phases search will consume. Affine has already reached its initial
-  // root fixpoint; later noL doses remain full-restart-only.
-  if (config_.nol_walk.enabled) {
-    const auto nol = service_nol_walk(k);
-    if (nol.status == NolHypergraphSliceStatus::Sat)
-      return finish(10);
-    (void)install_nol_walk_hint(k, nol);
-  }
   if (config_.graph_labeling_model.enabled &&
       k.graph_labeling_session.authenticated()) {
     const auto graph = service_graph_labeling(k);
@@ -5521,11 +5351,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           k.affine_matrix_search_session &&
           k.affine_matrix_search_session->enabled() &&
           affine_service_due(k, false);
-      const bool nol_restart=nol_walk_due(k);
       const bool graph_restart=graph_labeling_due(k);
       // A due retained service owns an explicit full-root window even when
       // the ordinary conflict restart clock has not fired.
-      if ((ordinary_restart || affine_restart || nol_restart || graph_restart) &&
+      if ((ordinary_restart || affine_restart || graph_restart) &&
           k.level > 0 && restart_guard(k)) {
         event_trace.macro(k, "restart_begin");
       // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
@@ -5536,7 +5365,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // theory slice instead owns a full root restart and does not consume a
       // speculative reuse draw.
       uint32_t keep = 0;
-      if (!affine_restart && !nol_restart && !graph_restart) {
+      if (!affine_restart && !graph_restart) {
         BranchingPolicy &bp = branching ? *branching : default_branching_;
         const Lit next = bp.pick_for_restart_reuse(k);
         keep = heuristics_restart_reuse_level_for(k, var_of(next));
@@ -5545,7 +5374,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           completion_, FeedbackKind::SearchService,
           "Restart", keep, [&] { return execution::native_rule_feedback(
               k, "Restart", keep, "retained-level=" + std::to_string(keep) +
-                  ((affine_restart||nol_restart||graph_restart)
+                  ((affine_restart||graph_restart)
                        ? ";purpose=retained-root" : ";purpose=scheduled")); }, [&] {
         if (keep < k.level)
           heuristics_update_target_phases(k);
@@ -5563,7 +5392,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       feedback.end_interval(StopReason::Restart);
       if (restart_result == ApplyResult::Unsat)
         return finish(20);
-      if (affine_restart || nol_restart || graph_restart) {
+      if (affine_restart || graph_restart) {
         if (k.level) std::abort();
         const ApplyResult rooted = default_propagate(
             k, "retained-service-restart-root", completion_);
@@ -5596,16 +5425,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (propagated != ApplyResult::Ok)
             return finish(20);
         }
-      }
-      // Affine publication and its BCP may change the root image. Recheck the
-      // noL wake stamp after affine, then consume at most one bounded slice in
-      // this window. Scheduling records the final stamp to prevent a second
-      // recognition of the same root before search resumes.
-      const bool run_nol=nol_restart || nol_walk_due(k);
-      if(run_nol) {
-        const auto nol=service_nol_walk(k);
-        if(nol.status==NolHypergraphSliceStatus::Sat)return finish(10);
-        (void)install_nol_walk_hint(k,nol);
       }
       const bool run_graph = graph_restart || graph_labeling_due(k);
       if (run_graph) {

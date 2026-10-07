@@ -6,7 +6,6 @@
 #include "policies/policy.hpp"
 #include "strategy/policy_completion.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
-#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include <optional>
 #include <array>
@@ -100,25 +99,6 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t last_survival_action = 0, last_disable_cause = 0;
 
   uint64_t conditioned_rows = 0, unchanged_reductions = 0, widest_reason = 0;
-};
-
-struct DefaultNolWalkDiagnostics {
-  uint64_t authentication_attempts = 0;
-  uint64_t authentication_successes = 0;
-  uint64_t authentication_exhausted = 0;
-  uint64_t authentication_no_structure = 0;
-  uint64_t authentication_interrupted = 0;
-  uint64_t authentication_work = 0;
-  uint64_t next_ticks = 0;
-  uint64_t delay_ticks = 0;
-  uint32_t fruitless_completions = 0;
-  uint64_t slices = 0;
-  uint64_t pending_slices = 0;
-  uint64_t completed_trajectories = 0;
-  uint64_t useful_hints = 0;
-  uint64_t phase_install_attempts = 0;
-  uint64_t phase_installs = 0;
-  uint64_t wakeups = 0;
 };
 
 struct DefaultGraphLabelingDiagnostics {
@@ -270,9 +250,6 @@ public:
   const DefaultAffineSearchDiagnostics &affine_search_diagnostics() const {
     return affine_search_diagnostics_;
   }
-  const DefaultNolWalkDiagnostics &nol_walk_diagnostics() const {
-    return nol_walk_diagnostics_;
-  }
   const DefaultGraphLabelingDiagnostics &graph_labeling_diagnostics() const {
     return graph_labeling_diagnostics_;
   }
@@ -339,7 +316,6 @@ public:
 
 private:
   friend struct DefaultAffineSearchTestAccess;
-  friend struct DefaultNolWalkTestAccess;
   DefaultAffineSearchDiagnostics affine_search_diagnostics_;
   std::optional<std::array<uint64_t, 13>> affine_completed_census_;
   std::vector<uint64_t> affine_reason_ids_;
@@ -360,17 +336,6 @@ private:
   bool affine_service_due(const Kernel &,bool root);
   void schedule_affine_service(const Kernel &,const AffineMatrixServiceResult &);
   void observe_affine_consumption(const Kernel &, size_t trail_begin);
-
-  DefaultNolWalkDiagnostics nol_walk_diagnostics_;
-  bool nol_walk_schedule_initialized_ = false;
-  std::array<uint64_t,5> nol_walk_wake_stamp_{};
-  NolHypergraphAuthenticationResult authenticate_nol_walk(Kernel &);
-  NolHypergraphSliceResult service_nol_walk(Kernel &);
-  ApplyResult install_nol_walk_hint(Kernel &,
-                                    const NolHypergraphSliceResult &);
-  bool nol_walk_due(const Kernel &);
-  void schedule_nol_walk(const Kernel &,const NolHypergraphSliceResult &);
-  void reset_nol_walk_schedule(const Kernel &);
 
   DefaultGraphLabelingDiagnostics graph_labeling_diagnostics_;
   bool graph_labeling_schedule_initialized_ = false;

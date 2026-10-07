@@ -2616,6 +2616,10 @@ static void lucky_typed_parameters_require_compatible_instances() {
     std::string error;
     for (uint64_t instance = 0; instance < LUCKY_INSTANCE_COUNT; ++instance) {
       program.sequence[0].instances = {instance};
+      if (lucky_retired_constructor_instance(instance)) {
+        assert(!validate_online_strategy_program(program, &error));
+        continue;
+      }
       const bool expected =
           std::find(allowed.begin(), allowed.end(), instance) != allowed.end();
       assert(validate_online_strategy_program(program, &error) == expected);

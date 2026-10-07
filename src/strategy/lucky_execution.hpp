@@ -11,7 +11,6 @@
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/lookup_circuit_model.hpp"
 #include "rules/lucky/lucky.hpp"
-#include "rules/lucky/nol_hypergraph_model.hpp"
 #include "rules/lucky/onehot_model.hpp"
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/parity_refutation.hpp"
@@ -29,7 +28,7 @@ enum class LuckyOpportunity : uint8_t {
   Cascade, Parity, Onehot, Affine, DirectCsp, BalancedSignature, Fermat, Cerny,
   LookupCircuit, Simon, Stconn, SignedCardinality, ExactCover, IndependentSet,
   StartupParity, StartupCount, GraphLabeling, StartupRamsey,
-  ParityProof, ExactOneProof, NolHypergraph,
+  ParityProof, ExactOneProof,
 };
 
 template <LuckyOpportunity Opportunity> struct LuckyRequest {};
@@ -76,8 +75,6 @@ ApplyResult execute_action(Kernel &k, LuckyRequest<Opportunity>) {
   else if constexpr (Opportunity == LuckyOpportunity::ExactOneProof)
     return exact_one_refutation_apply(
         k, strategy::OnehotModelParameters::from_kernel(k));
-  else if constexpr (Opportunity == LuckyOpportunity::NolHypergraph)
-    return nol_hypergraph_model_apply(k);
   else {
     static_assert(Opportunity == LuckyOpportunity::StartupCount);
     return count_preservation_apply(k);

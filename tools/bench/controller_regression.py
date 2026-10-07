@@ -58,8 +58,7 @@ def candidate_arguments(arguments=()):
     would silently change what the four historical comparisons qualify.
     """
     values = list(arguments)
-    allowed = {'--default-affine-search=on', '--default-affine-search=off',
-               '--default-nol-walk=on', '--default-nol-walk=off'}
+    allowed = {'--default-affine-search=on', '--default-affine-search=off'}
     require(all(isinstance(value, str) and value in allowed for value in values),
             'unsupported qualified Default solver argument')
     families = [value.split('=', 1)[0] for value in values]
@@ -283,7 +282,7 @@ def main():
     p.add_argument('--release', type=Path, required=True)
     p.add_argument('--dsr-transport', type=Path)
     p.add_argument('--solver-argument', action='append', default=[],
-                   help='append a qualified Default affine-search or noL-Walk setting')
+                   help='append a qualified Default affine-search setting')
     s = commands.add_parser('score')
     s.add_argument('campaign', type=Path)
     args = parser.parse_args()

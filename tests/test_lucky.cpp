@@ -368,10 +368,12 @@ static void test_registry_surface() {
   const uint32_t count = r.instances(k, insts, LUCKY_INSTANCE_COUNT);
   assert(count == LUCKY_ACTIVE_INSTANCE_COUNT);
   assert(insts[0] == LUCKY_ALL_TRUE);
-  for (uint64_t instance = 0; instance < LUCKY_INSTANCE_COUNT; ++instance) {
-    assert(insts[instance] == instance);
-    assert(!lucky_retired_constructor_instance(instance));
+  for (uint64_t index = 0; index < count; ++index) {
+    const uint64_t expected = index < LUCKY_NOL_HYPERGRAPH ? index : index + 1;
+    assert(insts[index] == expected);
+    assert(!lucky_retired_constructor_instance(insts[index]));
   }
+  assert(lucky_retired_constructor_instance(LUCKY_NOL_HYPERGRAPH));
   assert(!lucky_retired_constructor_instance(INSTANCE_CANONICAL));
   assert(lucky_retired_constructor_instance(99));
   for (uint64_t instance = 11; instance <= 14; ++instance)
@@ -382,6 +384,7 @@ static void test_registry_surface() {
   assert(k.stats.independent_set_model_calls == 1);
   assert(r.apply_instance(k, LUCKY_GRAPH_LABELING) == ApplyResult::NoOp);
   assert(k.stats.graph_labeling_calls == 1);
+  assert(r.apply_instance(k, LUCKY_NOL_HYPERGRAPH) == ApplyResult::NoOp);
   assert(r.apply_instance(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Sat);
   // the guard reads state shape only; SAT comes from the status predicate
