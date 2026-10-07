@@ -1064,6 +1064,29 @@ std::vector<int32_t> premise_key(const int32_t *lits, uint32_t size) {
 }
 }
 
+bool Proof::can_defer_premise_group_deletions(
+    const std::vector<PremiseGroup> &groups, DeferredDeletionLimits incoming,
+    const std::function<bool(uint64_t)> &charge) const {
+  if (!charge || lrat() || pb() || !file_) return false;
+  const bool bounded = incoming.maximum_pending_deletions || incoming.maximum_pending_literal_work;
+  if (bounded && (!incoming.maximum_pending_deletions || !incoming.maximum_pending_literal_work)) return false;
+  const uint64_t count_cap = std::min(premise_pending_deletion_cap_,
+      bounded ? incoming.maximum_pending_deletions : UINT64_MAX);
+  const uint64_t work_cap = std::min(premise_pending_work_cap_,
+      bounded ? incoming.maximum_pending_literal_work : UINT64_MAX);
+  uint64_t count = premise_pending_deletions_, work = premise_pending_literal_work_;
+  if (count > count_cap || work > work_cap) return false;
+  for (const auto &group : groups) {
+    if (!charge(1)) return false;
+    for (const auto &clause : group) {
+      const uint64_t cost = 1 + uint64_t(clause.size());
+      if (!charge(cost) || count == count_cap || cost > work_cap - work) return false;
+      ++count; work += cost;
+    }
+  }
+  return true;
+}
+
 bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
     uint64_t maximum_groups, uint64_t maximum_literals,
     uint64_t maximum_bytes, const std::function<bool(uint64_t)> &charge,

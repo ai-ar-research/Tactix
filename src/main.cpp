@@ -1000,6 +1000,10 @@ int main(int argc, char **argv) {
       metric("initializations", affine.initializations);
       metric("refreshes", affine.refreshes);
       metric("unchanged_refreshes", affine.unchanged_refreshes);
+      metric("empty_maintenance_skips", affine.empty_maintenance_skips);
+      metric("unchanged_census_skips", affine.unchanged_census_skips);
+      metric("usefulness_resumptions", affine.usefulness_resumptions);
+      metric("paused_search_skips", affine.paused_search_skips);
       metric("root_services", affine.root_services);
       metric("search_services", affine.search_services);
       metric("reasons_published", affine.reasons_published);
@@ -1007,12 +1011,36 @@ int main(int argc, char **argv) {
       metric("conflicts_consumed", affine.conflicts_consumed);
       metric("admitted_sources", affine.admitted_sources);
       metric("active_sources", affine.active_sources);
+      printf("c affine-survival gauges=last-native-boundary rank=unconditioned-coefficient-rank "
+             "sources=retained-equations pause=last-pause "
+             "action-codes=1:recognition,2:maintenance,3:root-service,4:search-service "
+             "disable-codes=1:native-clear,2:optional-terminal-failure\n");
+      metric("retained_basis_rank", affine.retained_basis_rank);
+      metric("retained_support_variables", affine.retained_support_variables);
+      metric("rank_before_last_action", affine.rank_before_last_action);
+      metric("rank_after_last_action", affine.rank_after_last_action);
+      metric("support_before_last_action", affine.support_before_last_action);
+      metric("support_after_last_action", affine.support_after_last_action);
+      metric("recognition_rank_gains", affine.recognition_rank_gains);
+      metric("recognition_rank_losses", affine.recognition_rank_losses);
+      metric("maintenance_rank_gains", affine.maintenance_rank_gains);
+      metric("maintenance_rank_losses", affine.maintenance_rank_losses);
+      metric("service_rank_losses", affine.service_rank_losses);
+      metric("isolated_projection_rank_losses", affine.isolated_projection_rank_losses);
+      metric("native_session_disables", affine.native_session_disables);
+      metric("optional_failure_disables", affine.optional_failure_disables);
+      metric("paused_basis_rank", affine.paused_basis_rank);
+      metric("paused_support_variables", affine.paused_support_variables);
+      metric("last_survival_action", affine.last_survival_action);
+      metric("last_disable_cause", affine.last_disable_cause);
+      metric("retained_bytes", affine_matrix_search_session.retained_bytes());
       metric("retired_sources", affine.retired_sources);
       metric("projected_variables", affine.projected_variables);
       metric("initialization_work", affine.initialization_work);
       metric("service_work", affine.service_work);
       metric("incremental_capture_calls", affine.incremental_capture_calls);
       metric("unchanged_support_calls", affine.unchanged_support_calls);
+      metric("cached_event_calls", affine.cached_event_calls);
       metric("capture_delta_literals", affine.capture_delta_literals);
       metric("premise_maintenance_work", affine.premise_maintenance_work);
       metric("alias_work", affine.alias_work);

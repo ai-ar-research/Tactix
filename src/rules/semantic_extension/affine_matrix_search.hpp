@@ -98,8 +98,10 @@ struct AffineMatrixServiceResult {
   std::vector<int32_t> installed_reason;
   affine_semantic_extension::MatrixLiveResult live;
   bool bcp_pending = false;
-  bool incremental_capture = false, unchanged_support = false;
+  bool incremental_capture = false, unchanged_support = false, cached_event = false;
   uint64_t capture_delta_literals = 0;
+  bool dirty_row_update = false;
+  uint64_t dirty_rows = 0;
 
   bool terminal_failure() const {
     return status == AffineMatrixServiceStatus::ResourceExhausted ||
@@ -137,6 +139,8 @@ public:
   const strategy::AffineConsequenceParameters &parameters() const { return parameters_; }
   const AffineMatrixPersistenceLimits &persistence_limits() const { return persistence_; }
   size_t active_sources() const { return image_.equations.size(); }
+  size_t basis_rank() const noexcept { return matrix_.basis_rank(); }
+  size_t support_variables() const noexcept { return matrix_.admitted_variables().size(); }
   uint64_t retained_bytes() const { return retained_bytes_; }
   bool matches_profile(const strategy::AffineConsequenceParameters &basis,
       const AffineMatrixPersistenceLimits &limits) const {
@@ -195,12 +199,13 @@ private:
   uint64_t capture_cursor_ = 0, capture_bytes_ = 0;
   bool capture_valid_ = false;
   AffineMatrixPersistenceLimits persistence_;
-  uint64_t retained_bytes_ = 0;
+  uint64_t retained_bytes_ = 0, matrix_index_bytes_ = 0, matrix_row_bytes_ = 0;
   uint64_t premise_epoch_ = 0;
   std::vector<uint64_t> premise_leases_;
   std::vector<affine_semantic_extension::External> projected_variables_;
   uint64_t refresh_arena_generation_ = 0, refresh_touch_epoch_ = 0;
   uint64_t refresh_fixed_head_ = 0, refresh_clause_id_ = 0, refresh_namespace_epoch_ = 0;
+  uint64_t refresh_root_assignments_ = 0, refresh_retraction_epoch_ = 0;
   const Kernel *failed_owner_ = nullptr;
   uint64_t failed_arena_generation_ = 0;
   uint64_t failed_touch_epoch_ = 0;

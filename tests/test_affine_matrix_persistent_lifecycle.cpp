@@ -105,6 +105,57 @@ void alias_failure_atomicity() {
   session.disable(k);assert(!proof.premise_bytes() && !proof.unbacked_deletions());
   proof.flush();k.proof=nullptr;std::fclose(journal);std::remove(path.c_str());
 }
+void refresh_root_assignment_stamp(){
+ Kernel k;kernel_reserve_vars(k,6);
+ const std::vector<std::vector<int32_t>> parity=clausal_form({1,2,4},false);
+ const auto input_unit_id=++k.next_clause_id;
+ const auto certified_four_id=++k.next_clause_id;
+ for(const auto &c:parity)add(k,c);
+ add(k,{-3,4});
+ FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
+ const std::string path="/tmp/tactix-root-refresh-stamp-"+std::to_string(getpid());
+ Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));
+ proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
+ const Lit unit=kernel_internalize(k,3);proof.seed_population(input_unit_id,&unit,1);
+ const Lit certified_four=kernel_internalize(k,4);
+ proof.seed_population(certified_four_id,&certified_four,1);
+ k.unit_ids[var_of(certified_four)]=certified_four_id;
+ uint64_t id=certified_four_id;
+ for(const auto &c:parity){const auto body=physical(k,c);proof.seed_population(++id,body.data(),body.size());}
+ const auto bridge=physical(k,{-3,4});proof.seed_population(++id,bridge.data(),bridge.size());proof.arm_population_shadow();
+ k.proof=&proof;AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
+ const auto p=parameters();const AffineMatrixPersistenceLimits limits{64*1024*1024,1000,100000};
+ assert(affine_matrix_search_initialize(k,session,p,AffineMatrixAdmission::AuthenticatedSubimage,limits).status==AffineMatrixInitStatus::Applied);
+ const auto census=affine_matrix_search_refresh(k,session,p,limits,true);
+ assert(census.status==AffineMatrixInitStatus::Applied || census.status==AffineMatrixInitStatus::NoStructure);
+ assert(affine_matrix_search_refresh(k,session,p,limits,false).unchanged);
+ const auto unchanged_id=k.next_clause_id,old_root_assignments=k.stats.root_assignments;
+ // Publish an already-authenticated original unit without allocating a new
+ // source ID. Ordinary BCP derives admitted x4 from the original binary;
+ // its separately authenticated input-unit certificate avoids minting a new
+ // proof-only unit ID, isolating root assignment stamps from clause-ID stamps.
+ k.unit_ids[var_of(unit)]=input_unit_id;kernel_assign_unit(k,unit);
+ assert(propagate_apply(k)==ApplyResult::Ok && kernel_propagation_fixpoint(k));
+ assert(k.next_clause_id==unchanged_id && k.stats.root_assignments>old_root_assignments);
+ assert(kernel_root_value(k,kernel_internalize(k,4))>0);
+ const auto maintained=affine_matrix_search_refresh(k,session,p,limits,false);
+ // Active mapped root columns remain conditioned support. Only unavailable
+ // root columns are absorbed as leased units; this refresh must revisit the
+ // lifecycle without inventing an extra unconditional source equation.
+ assert(!maintained.unchanged && maintained.status==AffineMatrixInitStatus::NoStructure);
+ assert(!maintained.root_unit_additions && maintained.root_unit_work>0);
+ // A fresh complete census may skip exactly unchanged maintenance; a real
+ // decision/backtrack invalidates it even when the root prefix is identical.
+ const auto completed=affine_matrix_search_refresh(k,session,p,limits,true);
+ assert(completed.status==AffineMatrixInitStatus::Applied || completed.status==AffineMatrixInitStatus::NoStructure);
+ assert(affine_matrix_search_refresh(k,session,p,limits,false).unchanged);
+ kernel_assign_decision(k,kernel_internalize(k,6));assert(propagate_apply(k)==ApplyResult::Ok);kernel_backtrack(k,0);
+ assert(propagate_apply(k)==ApplyResult::Ok);
+ const auto retracted=affine_matrix_search_refresh(k,session,p,limits,false);
+ assert(!retracted.unchanged && retracted.root_unit_work>0);
+ session.disable(k);assert(!proof.premise_bytes() && !proof.unbacked_deletions());
+ proof.flush();k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(journal);std::remove(path.c_str());
+}
 void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix) {
   const auto suffix=std::string(signed_alias?"signed":"positive")+(sweep?"-sweep":"-scc")+"-"+std::to_string(unsigned(format));
   const std::string base=prefix?std::string(prefix)+"-"+suffix:
@@ -217,7 +268,7 @@ void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix
 }
 }
 int main(int argc,char **argv){
- alias_failure_atomicity();
+ alias_failure_atomicity();refresh_root_assignment_stamp();
  for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii,ProofFormat::DratBinary})
   for(bool signed_alias:{false,true})for(bool sweep:{false,true})
     exercise(signed_alias,sweep,format,argc>1?argv[1]:nullptr);

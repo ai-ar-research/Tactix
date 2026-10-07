@@ -3210,7 +3210,11 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           return -1;
         if (matrix.status == AffineMatrixServiceStatus::Applied)
           continue;
-        if (matrix.terminal_failure())
+        if (matrix.status == AffineMatrixServiceStatus::ResourceExhausted) {
+          // A finite optional service allowance is local to its session. The
+          // recorded resource result remains exact; ordinary CDCL continues.
+          k.affine_matrix_search_session->disable(k);
+        } else if (matrix.terminal_failure() || matrix.status == AffineMatrixServiceStatus::Stale)
           return finish(0, matrix.status == AffineMatrixServiceStatus::Interrupted
                                ? StopReason::Interrupted
                            : matrix.status ==

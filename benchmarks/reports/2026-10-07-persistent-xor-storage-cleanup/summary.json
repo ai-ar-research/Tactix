@@ -1,0 +1,8 @@
+{
+  "removed_count": 2177,
+  "removed_apparent_bytes": 19202388664,
+  "removed_allocated_bytes": 3984900608,
+  "top_allocated_sum_before_removal": 338941198336,
+  "apparent_repository_before_removal": 746019287694,
+  "measurement_caveat": "Top-level allocated scan covers build,benchmarks,.git,.claude,report-to-andrew,tools; not a fresh post-removal full repository measurement."
+}

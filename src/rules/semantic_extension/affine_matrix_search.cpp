@@ -463,7 +463,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         }
         return true;
       },
-      matrix);
+      matrix, persistence.maximum_retained_bytes != 0);
   result.matrix_work = matrix_work;
   if (built != MatrixStatus::Complete && built != MatrixStatus::Partial) {
     result.status = kernel_terminating(kernel)
@@ -506,11 +506,15 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     for (const auto &clause : equation.premise_clauses)
       fits &= retain(4 * (sizeof(std::vector<int32_t>) + clause.size() * sizeof(int32_t)));
   }
-  for (size_t row = 0; row < matrix.admitted_rows().size(); ++row)
-    fits &= retain(4 * (sizeof(MatrixRow) +
-                       parameters.basis_maximum_intermediate_width * sizeof(int32_t) +
-                       parameters.basis_maximum_sources * sizeof(size_t)));
+  // Symmetric difference reserves both input sizes, so each vector capacity
+  // may reach twice its exact logical coordinate/provenance union bound.
+  const __uint128_t row_reserve_wide = __uint128_t(4) * matrix.admitted_rows().size() *
+      (sizeof(MatrixRow) + __uint128_t(2) * matrix.row_width_bound() * sizeof(int32_t) +
+       __uint128_t(2) * matrix.row_source_bound() * sizeof(size_t));
+  const uint64_t row_reserve = row_reserve_wide > UINT64_MAX ? UINT64_MAX : uint64_t(row_reserve_wide);
+  fits &= row_reserve_wide <= UINT64_MAX && retain(row_reserve);
   fits &= retain(4 * uint64_t(matrix.admitted_variables().size()) * sizeof(MatrixAssignment));
+  if (session.enabled() && session.attached_to(kernel)) fits &= retain(session.matrix_index_bytes_);
   if (kernel.proof) fits &= retain(kernel.proof->persistent_external_bytes());
   if (!fits) {
     result.status = AffineMatrixInitStatus::ResourceExhausted;
@@ -598,6 +602,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
   AffineMatrixSearchSession candidate;
   candidate.persistence_ = persistence;
+  candidate.matrix_row_bytes_ = row_reserve;
   candidate.retained_bytes_ = retained_bytes + (kernel.proof ? kernel.proof->premise_bytes() : 0);
   retained_leases.insert(retained_leases.end(), leases.begin(), leases.end());
   candidate.premise_leases_ = std::move(retained_leases);
@@ -685,6 +690,8 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
       session.refresh_arena_generation_ == kernel.arena_generation &&
       session.refresh_touch_epoch_ == kernel.touch_epoch &&
       session.refresh_fixed_head_ == kernel.touch_fixed_head &&
+      session.refresh_root_assignments_ == kernel.stats.root_assignments &&
+      session.refresh_retraction_epoch_ == kernel.affine_trail_retraction_epoch &&
       session.refresh_clause_id_ == kernel.next_clause_id &&
       session.premise_epoch_ == kernel.proof->premise_epoch()) {
     AffineMatrixInitResult result; result.status = AffineMatrixInitStatus::NoStructure;
@@ -752,6 +759,8 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     session.refresh_arena_generation_ = kernel.arena_generation;
     session.refresh_touch_epoch_ = kernel.touch_epoch;
     session.refresh_fixed_head_ = kernel.touch_fixed_head;
+    session.refresh_root_assignments_ = kernel.stats.root_assignments;
+    session.refresh_retraction_epoch_ = kernel.affine_trail_retraction_epoch;
     session.refresh_clause_id_ = kernel.next_clause_id;
   }
   return result;
@@ -899,10 +908,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     image.equations.push_back(std::move(equation));
     const uint64_t bytes = 4 * (sizeof(Equation) + 2 * sizeof(External) +
           2 * sizeof(uint64_t) + 2 * sizeof(std::vector<External>) + 4 * sizeof(External)) +
-        4 * (sizeof(MatrixRow) + session.parameters_.basis_maximum_intermediate_width * sizeof(External) +
-             session.parameters_.basis_maximum_sources * sizeof(size_t)) +
         2 * (sizeof(AffineLiveSource) + sizeof(Premise) + 4 * sizeof(External)) +
-        4 * sizeof(MatrixAssignment);
+        8 * sizeof(MatrixAssignment);
     if (bytes > session.persistence_.maximum_retained_bytes -
                     std::min(retained_bytes, session.persistence_.maximum_retained_bytes))
       return exhausted();
@@ -932,8 +939,6 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     groups.push_back(equation.premise_clauses); image.equations.push_back(std::move(equation));
     const uint64_t bytes = 4 * (sizeof(Equation) + sizeof(External) + sizeof(uint64_t) +
         sizeof(std::vector<External>) + sizeof(External)) +
-        4 * (sizeof(MatrixRow) + session.parameters_.basis_maximum_intermediate_width * sizeof(External) +
-             session.parameters_.basis_maximum_sources * sizeof(size_t)) +
         2 * (sizeof(AffineLiveSource) + sizeof(Premise) + 2 * sizeof(External)) +
         4 * sizeof(MatrixAssignment);
     if (bytes > session.persistence_.maximum_retained_bytes -
@@ -945,14 +950,37 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   if (session.owner_version_ == UINT64_MAX) return exhausted();
   AffineMatrix matrix;
   const auto built = build_affine_matrix(image.equations, session.owner_version_ + 1,
-                                          matrix_limits(session.parameters_), charge, matrix);
+                                          matrix_limits(session.parameters_), charge, matrix, true);
   // Losing rows here would erase obligations just before variable retirement.
   if (built != MatrixStatus::Complete) return exhausted();
+  // Reprice every retained row, since each new authenticated alias/root source
+  // can enlarge provenance cardinality and coordinate geometry of old rows.
+  // Four new populations cover the old basis plus staged replacement/scratch;
+  // retain any larger old reservation across rank/projection reductions.
+  const __uint128_t new_row_wide = __uint128_t(4) * matrix.admitted_rows().size() *
+      (sizeof(MatrixRow) + __uint128_t(2) * matrix.row_width_bound() * sizeof(External) +
+       __uint128_t(2) * matrix.row_source_bound() * sizeof(size_t));
+  if (new_row_wide > UINT64_MAX) return exhausted();
+  const uint64_t row_reserve = std::max(session.matrix_row_bytes_, uint64_t(new_row_wide));
+  const uint64_t row_growth = row_reserve - session.matrix_row_bytes_;
+  if (row_growth > session.persistence_.maximum_retained_bytes -
+      std::min(retained_bytes, session.persistence_.maximum_retained_bytes)) return exhausted();
+  retained_bytes += row_growth;
   journal << "]}\n";const auto record = journal.str();
   if (!charge(record.size()) || record.size() > session.parameters_.maximum_journal_bytes ||
       std::ftell(session.records_) < 0) return exhausted();
   auto retained_handles = session.premise_leases_;
   retained_handles.reserve(retained_handles.size() + groups.size());
+  if (session.matrix_index_bytes_ > session.persistence_.maximum_retained_bytes -
+          std::min(retained_bytes, session.persistence_.maximum_retained_bytes)) return exhausted();
+  // The old index remains live until the atomically staged matrix replacement.
+  retained_bytes += session.matrix_index_bytes_;
+  // Both proof-only alias clauses must remain leased after their own physical
+  // deletion requests. Otherwise the second request can retire the just-staged
+  // source and falsely advertise preservation before Substitute rewrites it.
+  if (!kernel.proof->can_defer_premise_group_deletions(groups,
+      {session.persistence_.maximum_deferred_deletions,
+       session.persistence_.maximum_deferred_literal_work}, charge)) return exhausted();
   const uint64_t registry_bytes_before = kernel.proof->premise_bytes();
   std::vector<uint64_t> handles;
   if (!kernel.proof->retain_premise_groups(groups, session.parameters_.maximum_groups,
@@ -960,6 +988,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       session.persistence_.maximum_retained_bytes - retained_bytes,
       charge, handles, {session.persistence_.maximum_deferred_deletions,
                        session.persistence_.maximum_deferred_literal_work})) return exhausted();
+  const uint64_t committed_premise_epoch = kernel.proof->premise_epoch();
   // No fallible operation or interruption boundary remains after lease commit.
   const size_t start = session.image_.equations.size();
   for (size_t i = start; i < image.equations.size(); ++i)
@@ -973,20 +1002,36 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       if (!kernel.proof->del_external(kernel.next_clause_id, premise.clause_id,
               premise.clause.data(), premise.clause.size())) std::abort();
     }
+  // The read-only reservoir reservation rules out retirement during helper
+  // serialization; an unexpected serializer lifecycle change is fatal rather
+  // than installing inactive certified sources after an irreversible commit.
+  if (kernel.proof->premise_epoch() != committed_premise_epoch) std::abort();
+  for (uint64_t handle : handles)
+    if (!kernel.proof->premise_group_active(handle)) std::abort();
   if (std::fwrite(record.data(), 1, record.size(), session.records_) != record.size() ||
       std::fflush(session.records_)) std::abort();
+  session.matrix_row_bytes_ = row_reserve;
   session.image_ = std::move(image); session.source_owner_ = std::move(owner);
   session.matrix_ = std::move(matrix); ++session.owner_version_;
   retained_handles.insert(retained_handles.end(), handles.begin(), handles.end());
   session.premise_leases_ = std::move(retained_handles);
   session.premise_epoch_ = kernel.proof->premise_epoch();
-  session.retained_bytes_ = retained_bytes +
-      (kernel.proof->premise_bytes() - registry_bytes_before);
+  const uint64_t registry_bytes_after = kernel.proof->premise_bytes();
+  if (registry_bytes_after >= registry_bytes_before) {
+    const uint64_t growth = registry_bytes_after - registry_bytes_before;
+    if (growth > UINT64_MAX - retained_bytes) std::abort();
+    session.retained_bytes_ = retained_bytes + growth;
+  } else {
+    const uint64_t shrink = registry_bytes_before - registry_bytes_after;
+    if (shrink > retained_bytes) std::abort();
+    session.retained_bytes_ = retained_bytes - shrink;
+  }
   session.projected_variables_.clear();
   session.cached_event_ = {}; session.cached_event_bytes_ = 0; session.cached_event_valid_ = false;
   std::vector<std::pair<Var, uint32_t>>{}.swap(session.capture_index_);
   std::vector<MatrixAssignment>{}.swap(session.capture_trail_);
   session.capture_bytes_ = 0; session.capture_valid_ = false;
+  session.matrix_index_bytes_ = 0;
   result.proof_additions = 0; for (const auto &group : groups) result.proof_additions += group.size();
   result.retained_aliases = groups.size();
   result.journal_bytes = record.size(); result.result = ApplyResult::Ok;
@@ -1048,7 +1093,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
       }
       AffineMatrix replacement;
       const auto status = build_affine_matrix(surviving.equations,
-          session.owner_version_ + 1, matrix_limits(session.parameters_), charge, replacement);
+          session.owner_version_ + 1, matrix_limits(session.parameters_), charge, replacement, true);
       if (status != MatrixStatus::Complete && status != MatrixStatus::Partial) {
         result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
                                                      AffineMatrixServiceStatus::ResourceExhausted;
@@ -1227,27 +1272,15 @@ AffineMatrixServiceResult affine_matrix_search_step(
       // A partial/declined reduction may still advance the matrix trail; the
       // previous event must never become associated with that new snapshot.
       session.cached_event_valid_ = false;
-      // Reserve the shared legacy helper's event scan, row copy, ordered support
-      // construction and reason visits before synchronization performs them.
-      const auto &p = session.parameters_;
-      const uint64_t comparisons = 2 * std::bit_width(uint64_t(p.maximum_external_extent)) + 3;
-      bool fits = synchronization_charge(2 * uint64_t(p.basis_maximum_nodes) +
-          uint64_t(p.basis_maximum_intermediate_width) + p.basis_maximum_sources + 1);
-      for (const auto &source : session.image_.equations) {
-        if (!fits || !synchronization_charge(1)) { fits = false; break; }
-        const __uint128_t work = __uint128_t(source.variables.size()) * comparisons;
-        if (work > UINT64_MAX || !synchronization_charge(uint64_t(work))) { fits = false; break; }
-      }
-      const __uint128_t visits = __uint128_t(trail.size()) * comparisons;
-      if (!fits || visits > UINT64_MAX || !synchronization_charge(uint64_t(visits))) {
-        result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                                   AffineMatrixServiceStatus::ResourceExhausted;
-        record_service(kernel, result); return result;
-      }
+      // The persistent indexed matrix meters touched rows and selected-event
+      // reconstruction itself; it does not scan all source equations here.
     }
   }
+  const uint64_t index_base = session.retained_bytes_ - session.matrix_index_bytes_;
+  const MatrixIncrementalLimits index_limits{session.persistence_.maximum_retained_bytes -
+      std::min(index_base, session.persistence_.maximum_retained_bytes)};
   const MatrixStatus synchronized = cached ? MatrixStatus::Complete : session.matrix_.synchronize(
-      trail, synchronization_charge, event);
+      trail, synchronization_charge, event, session.persistent(), session.persistent() ? &index_limits : nullptr);
   if (synchronized != MatrixStatus::Complete &&
       synchronized != MatrixStatus::Partial) {
     result.status = kernel_terminating(kernel)
@@ -1258,6 +1291,12 @@ AffineMatrixServiceResult affine_matrix_search_step(
     record_service(kernel, result);
     return result;
   }
+  if (session.persistent() && !cached && synchronized == MatrixStatus::Complete) {
+    session.matrix_index_bytes_ = session.matrix_.incremental_index_bytes();
+    session.retained_bytes_ = index_base + session.matrix_index_bytes_;
+  }
+  result.dirty_row_update = !cached && session.matrix_.last_dirty_update();
+  result.dirty_rows = result.dirty_row_update ? session.matrix_.last_dirty_rows() : 0;
   if (session.persistent() && !cached && synchronized == MatrixStatus::Complete) {
     // Reserve both the cached representation and replacement/copy peak.
     const uint64_t bytes = std::max(session.cached_event_bytes_, 2 * (sizeof(MatrixEvent) +
@@ -1278,6 +1317,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
     }
   }
   result.synchronized = true;
+  result.cached_event = cached;
   result.synchronization_incremental =
       session.matrix_.last_synchronization_incremental();
   result.synchronization_restored_predecessor =

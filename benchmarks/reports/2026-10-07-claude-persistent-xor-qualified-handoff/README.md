@@ -1,0 +1,7 @@
+# Claude completed persistent-XOR qualification handoff — 2026-10-07
+
+This freezes only the completed owner response and bounded reproducer handoffs. Codex did not grade or inspect live fuzz campaigns. Owner session `4109784f-d61a-4bd4-8f29-8f842447ddc7` qualifies immutable runtime `4d7069a4c`; the owner Release hash matches the root pin and the owner builds bind all compiled source.
+
+No acceptance is established. The completed smoke handoff reports one source failure (optional persistent service ResourceExhausted ends random-controller solving as UNKNOWN), one Default effectiveness defect (declared geometry over-reservation refuses roughly 32+ equations within the 100MB cap), and one C16 status-fidelity gap (interruption/resource decline reported NoChange). Each has a bounded reproducer and exact observed failure class in `handoff/`. They are assigned for source repair and independent regression; subsequent candidate code cannot inherit full acceptance from these old jobs.
+
+Owner broad jobs `1752726`–`1752731` and second labelled smoke `1752733` were pending/running when the owner response was delivered. Coverage repairs and earlier-family calibration are described by the owner, not promoted to acceptance. Codex has resumed the same owner to grade already submitted work and preserve further bounded failures; the expensive new full matrix is deferred until a repaired immutable pin is supplied. Do not reinterpret partial case counts or queued coverage as terminal success.

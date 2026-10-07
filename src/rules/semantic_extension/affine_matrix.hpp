@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
+#include <set>
 #include <vector>
 
 namespace tactix::affine_semantic_extension {
@@ -49,6 +51,8 @@ struct MatrixEvent {
   std::vector<External> reason;
 };
 
+struct MatrixIncrementalLimits { uint64_t maximum_index_bytes = 0; };
+
 enum class MatrixStatus : uint8_t {
   Complete,
   Partial,
@@ -69,10 +73,14 @@ class AffineMatrix {
 public:
   // Recondition the immutable authenticated source equations on an exact
   // trail snapshot. This deliberately supports both extension and backtrack.
-  // The matrix and event remain unchanged on failure.
+  // The matrix and event remain unchanged on failure. The opt-in sorted-set
+  // mode accepts new coordinates anywhere in canonical order and atomically
+  // declines a bounded partial reduction; legacy callers retain prefix mode.
   MatrixStatus synchronize(
       const std::vector<MatrixAssignment> &,
-      const std::function<bool(uint64_t)> &charge, MatrixEvent &event);
+      const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
+      bool sorted_set_extension = false,
+      const MatrixIncrementalLimits *incremental = nullptr);
 
   // Existentially project unavailable external variables. Derivation indices
   // still cite the original authenticated equations; no assignment is guessed
@@ -81,7 +89,13 @@ public:
                        const std::function<bool(uint64_t)> &charge);
 
   uint64_t owner_identity() const { return owner_identity_; }
+  uint64_t incremental_index_bytes() const { return index_reservation_; }
+  size_t last_dirty_rows() const { return last_dirty_rows_; }
+  bool last_dirty_update() const { return last_dirty_update_; }
+  size_t basis_rank() const noexcept { return basis_rank_; }
   uint64_t work() const { return work_; }
+  uint64_t row_width_bound() const { return limits_.maximum_row_width; }
+  uint64_t row_source_bound() const { return limits_.maximum_sources; }
   bool complete_admission() const { return complete_admission_; }
   const std::vector<MatrixAssignment> &trail() const { return trail_; }
   const std::vector<MatrixRow> &rows() const { return rows_; }
@@ -121,10 +135,27 @@ public:
                      const std::function<bool(uint64_t)> &charge) const;
 
 private:
+  struct RowIndex {
+    std::map<External, std::vector<size_t>> occurrences;
+    std::map<External, size_t> pivots, singletons;
+    std::set<size_t> conflicts;
+    uint64_t bytes = 0;
+  };
+  MatrixStatus build_row_index(const std::vector<MatrixRow> &,
+      const std::function<bool(uint64_t)> &, uint64_t, RowIndex &);
+  MatrixStatus synchronize_dirty(const std::vector<MatrixAssignment> &,
+      const std::vector<MatrixAssignment> &, const std::function<bool(uint64_t)> &,
+      uint64_t, uint64_t, uint64_t &, MatrixEvent &);
+  MatrixEvent indexed_event() const;
+  RowIndex index_;
+  uint64_t index_reservation_ = 0;
+  bool index_ready_ = false, last_dirty_update_ = false;
+  size_t last_dirty_rows_ = 0;
   friend MatrixStatus build_affine_matrix(
       const std::vector<Equation> &, uint64_t, const MatrixLimits &,
-      const std::function<bool(uint64_t)> &, AffineMatrix &);
+      const std::function<bool(uint64_t)> &, AffineMatrix &, bool);
 
+  size_t basis_rank_ = 0;
   uint64_t owner_identity_ = 0;
   uint64_t work_ = 0;
   bool complete_admission_ = false;
@@ -168,6 +199,6 @@ private:
 MatrixStatus build_affine_matrix(
     const std::vector<Equation> &, uint64_t owner_identity,
     const MatrixLimits &, const std::function<bool(uint64_t)> &charge,
-    AffineMatrix &output);
+    AffineMatrix &output, bool bounded_geometry = false);
 
 } // namespace tactix::affine_semantic_extension
