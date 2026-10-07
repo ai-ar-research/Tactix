@@ -2,69 +2,60 @@
 
 ## Current stage
 
-Development is paused at the user's requested handoff. The active milestone is
-**at least 12 independently verified closures from the fixed 44-instance gap on
-one coherent candidate**, with effective Claude-owned fuzz, full Debug and all
-four regression gates. It is not achieved; formal T4-K/T4-VBS and universal
-N1–N4 verification remain pending. Scope and contracts belong to
-[DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
+Active development (2026-10-07 session). The user's session goal is **at least 10
+independently verified fixed44 closures on one coherent candidate** (plan §9.5
+states 12), preserving N1–N4, with effective Claude-owned fuzz, full Debug and
+B28+C5, Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.**
+Scope and contracts belong to [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
 
-The latest solver checkpoint is `d576abaeb` (certified symmetry-unit admission).
-It removes singleton-unit suppression from FixAndCut and large-domain generator
-fixing, including checked binaries that become unit at root. Its r4 focused Debug, ASan/UBSan and DSR/Trestle gate passes (job 1755545);
-full Debug, fuzz and regression gates remain pending. No new Release exists.
-See the [repair checkpoint](benchmarks/reports/2026-10-07-symmetry-singleton-unit-admission/README.md).
+Leading candidate **c1 = `e509d1d08`**: b26 source plus certified symmetry-unit
+admission `d576abaeb` (r4 focused gate [passes](benchmarks/reports/2026-10-07-symmetry-unit-r4-focused-pass/README.md))
+and the affine empty-reason repair `9ed61994c` ([report](benchmarks/reports/2026-10-07-affine-rootmaint-sweep-repair/README.md)).
+The fixed64 patch hash is [corrected](benchmarks/reports/2026-10-07-fixed64-provenance-hash-correction/README.md).
+c1 may still change if regression attribution finds a defective specialized pass.
 
-The [session handoff](benchmarks/reports/2026-10-07-session-wrap-up-handoff/README.md)
-owns exact source hashes, launch commands, owner sessions, job snapshots,
-reproducers and preserved evidence. Its snapshot is not a live queue. Check
-submitted results when resuming; do not wait for long jobs or restart superseded
-campaigns. Current documentation cleanup changes no solver behavior.
+**Blocking finding.** Terminal b26 grading ([report](benchmarks/reports/2026-10-07-b26-reference-terminal/README.md))
+fails WV2–89: noL-11-8 is lost, 38.0 s on `1e8295106` and UNKNOWN at 600 s on b26. b26 is also
+slower on Rank1–50 (+871 s, 3.1% under ceiling) and WV100 (+567 s). The loss
+concentrates in a few rows: three oski, three noL, Break_triple, Circuit. b26 also
+enabled `--default-graph-labeling=on`, while `1e8295106` ran without it. The user's triage rule:
+an accepted faithful port such as BVE needs no fix. A specialized pass that spends time
+without consumed output is a defect to fix generally.
 
 ## Next action
 
-1. Inspect submitted results and the existing Claude owner reports listed below.
-   Record terminal states and failures without inferring acceptance from queue
-   disappearance. Keep working independently while useful jobs remain active.
-2. Done: the r4 focused gate [passes](benchmarks/reports/2026-10-07-symmetry-unit-r4-focused-pass/README.md)
-   (job 1755545). Debug and ASan/UBSan pass, every-lemma DSR/Trestle verifies, and the invalid control is rejected.
-3. Done: `9ed61994c` gives unconditional affine `0 = 1` conflicts the empty reason, so
-   persistent root maintenance after Sweep publishes the refutation instead of returning `InvalidRequest`.
-   Focused Debug/ASan and DSR/DRAT checks pass ([repair report](benchmarks/reports/2026-10-07-affine-rootmaint-sweep-repair/README.md)).
-4. Done: the fixed64 patch hash is corrected and file-bound; frozen manifests
-   are read through the [supplemental correction](benchmarks/reports/2026-10-07-fixed64-provenance-hash-correction/README.md).
-5. Freeze fresh clean Release/full Debug pins from the coherent repaired source.
-   Supply its exact binding to the existing Claude fuzz owner, require effective
-   Default/random-controller reach, and run B28+C5, Rank1–50, WV100 and WV2–89.
-   New target measurements do not waive pending correctness or regression gates.
+1. Finish regression attribution: per-pass time and consumed output on the regressed
+   rows, plus the same-window graph-labeling on/off suites listed below. Fix any
+   specialized-pass scheduling defect generally, then refreeze c1 if source changes.
+2. Qualify the final candidate: Release/full Debug pins, the fuzz owner's final binding,
+   and all four gates. Do not rerun the d170 baseline or b26 campaigns.
+3. Launch full44 on the final candidate only after the scratch-admission repair.
+   b26 full44 measured 7/44 rows; 37 failed instantly on `scratch_node_busy`.
+4. Proof-route diagnosis for fast UNSAT rows 541/1129/291/1075, which solve in under 250 s
+   but never verify within 14,400 s, then fixed64 rechecks of 627/1004/654/569 on regeneration.
 
-## Candidate and verification authorities
+## Live work (2026-10-07 evening; check terminal state, never infer from the queue)
 
-| Scope | Current authority and disposition |
-|---|---|
-| Unit-admission repair | `d576abaeb`; prepared r4 archive `1249dc7f…`; focused validation pending. Dependent r3 Release1755536/fullDebug1755537 were canceled before start and produced no pins. [Binding and cancellation](benchmarks/reports/2026-10-07-symmetry-units-clean-build-handoff/README.md) |
-| Intermediate b26 | Release `b26efc0fb133787a797820d40c759ae552e2cf4eaabde4bee990f27947890bcf`; superseded as final candidate by the unit repair. [Clean Debug1755126](benchmarks/reports/2026-10-07-b26ef-clean-debug-terminal/README.md) passes353/353, zero skips. This does not qualify changed source |
-| Current fuzz owner | Claude `385a3588-c5ba-4eef-b07a-a5a237bd1182`; [handoff](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/HANDOFF.md) records the affine failure, untested harness repairs and unmet coverage. b26 is SUPERSEDED/INCOMPLETE; broad1755222/23/24 never started. Resume the same owner with a new binding |
-| Prior cumulative fuzz | Claude4d8f46d8 [terminal report](benchmarks/runs/20261007-owner-policy-cumulative-fuzz/FINAL_REPORT.md):44,000 seeded broad cases, zero reported failures, required targeted reach incomplete. No current-source acceptance |
-| Explicit long64-fixed checker | Claude49c00a94 [ACCEPTED](benchmarks/runs/20261007-long64-fixed-independent-review/DISPOSITION.md) for bounded explicit-profile use;587 corpus/mutant cases agree with canonical32. Preserve the disclosed OOM/unchecked case and untested large-capacity limits. Metadata correction remains open; final Trestle verification is mandatory |
-| Native proof transport | [Independent r9 rejection](benchmarks/runs/20261007-native-transport-claude-oracle-owner/requalification-deferral-r9/DISPOSITION.md): interrupted handler restoration can swallow Ctrl-C. Omit the helper; use pure Python. No further speculative signal patch is planned |
-
-## Submitted reference work to inspect
-
-These jobs belong to **intermediate b26**, not the unit-admission candidate.
-The [frozen result snapshot](benchmarks/reports/2026-10-07-session-wrap-up-handoff/regression-snapshot.json)
-records partial counts, not final acceptance. Use the owning graders and the
-standing censor/timeout rules after reading terminal records.
-
-| Campaign | Submitted job(s) | Next-session handling |
+| Work | Jobs / owner | Status |
 |---|---|---|
-| B28+C5 / Rank1–50 | 1755134 / 1755135 | Inspect terminal solver/proof results and exact aggregate/row bounds |
-| WV100 / WV2–89 | 1755136 / 1755160 | Inspect terminal checking, timeouts and retained/recovery rows |
-| Full44 reference | 1755331; busy-only retries1755422/1755462 | At handoff, seven tasks remained active and ranks147/401 were independently checked. Thirty-five pending retry02 tasks were canceled. No further b26 retries; retain all incomplete rows |
+| c1 Release / full Debug | 1755757 / 1755758; source `95d87cfe…`, `benchmarks/runs/20261007-candidate-c1-*` | submitted |
+| d576 regressions, graph labeling on | 1755593/95/97/99, `benchmarks/runs/20261007-d576-regression-gl-*` | reference evaluation |
+| d576 regressions, graph labeling off | 1755594/96/98/1755600, `…-nogl-*` | reference evaluation |
+| Fuzz owner | Claude `385a3588` (resumed); staging binding `benchmarks/runs/20261007-candidate-d576-source/pins/staging-binding.json` | harness preparation and uncounted calibration; counted legs await final binding |
+| Rank899 certified-unit gate | sub-agent; `benchmarks/runs/20261007-rank899-d576-*` | boundary checks, then 300 s causal pair |
+| Regression attribution | sub-agent; `benchmarks/runs/20261007-wv289-nol118-*` | 2×2 on regressed rows |
+| full44 scratch admission | sub-agent; `benchmarks/reports/2026-10-07-fixed44-scratch-admission/` | repair and launch recipe |
+| Proof-route cost | sub-agent; `benchmarks/runs/20261007-proofroute-*` | stage timings |
+| b26 full44 remnants | 1755331 tasks 0,1,3,18,29; 1755422_6; 1755462_4 | reference only; no retries |
 
-The clean-build handoff owns the exact seven task IDs, source bindings and
-cancellation evidence. Unrelated allocation1751450 is outside this workstream.
-No solver, build, fuzz or benchmark job is launched by this documentation pass.
+## Verification authorities
+
+| Scope | Disposition |
+|---|---|
+| Intermediate b26 | Release `b26efc0f…`; Debug 353/353; fails WV2–89; full44 2/44 verified (147, 401). Reference only |
+| Prior cumulative fuzz | Claude 4d8f46d8 [terminal report](benchmarks/runs/20261007-owner-policy-cumulative-fuzz/FINAL_REPORT.md): 44,000 broad cases, zero failures, targeted reach incomplete. No current-source acceptance |
+| Explicit long64-fixed checker | Claude 49c00a94 [ACCEPTED](benchmarks/runs/20261007-long64-fixed-independent-review/DISPOSITION.md) for bounded explicit-profile use; final Trestle verification is mandatory |
+| Native proof transport | [Rejected r9](benchmarks/runs/20261007-native-transport-claude-oracle-owner/requalification-deferral-r9/DISPOSITION.md); use pure Python |
 
 ## Target investigations and decisions
 
