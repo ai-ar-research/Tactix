@@ -1,0 +1,81 @@
+{
+  "arm": "on",
+  "process": {
+    "command": [
+      "timeout",
+      "--signal=TERM",
+      "--kill-after=1",
+      "30",
+      "/home/hwu/SAT-solving/benchmarks/probes/scratch/rank1161-guarded-cover-ef0e00e9d/driver",
+      "/proc/2320195/fd/16",
+      "on",
+      "/proc/2320195/fd/21",
+      "/proc/2320195/fd/22"
+    ],
+    "exit": 3,
+    "stdout": "",
+    "stderr": "pilot hard stop: startup propagation rejected\n"
+  },
+  "terminal": {
+    "record": "terminal",
+    "arm": "on",
+    "context": "startup propagation rejected",
+    "failure_stage": "startup",
+    "driver_exit": 3,
+    "mechanism_complete": false
+  },
+  "records": [
+    {
+      "record": "terminal",
+      "arm": "on",
+      "context": "startup propagation rejected",
+      "failure_stage": "startup",
+      "driver_exit": 3,
+      "mechanism_complete": false
+    }
+  ],
+  "common_startup_matches": false,
+  "verdict": "UNKNOWN",
+  "original_cnf_sha256": "96f88a6578978a7087a16f0a84ea10c2d58b8da7620e547885b8274b2c0fbdd2",
+  "proof_prefix_checked": true,
+  "checker_stages": [
+    {
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/dsr-trim",
+        "-f",
+        "-c",
+        "/proc/2320195/fd/16",
+        "/proc/2320195/fd/21",
+        "/proc/2320195/fd/6"
+      ],
+      "exit": 0,
+      "stdout": "c CNF file path: /proc/2320195/fd/16\nc DSR file path: /proc/2320195/fd/21\nc LSR file path: /proc/2320195/fd/6\nc Using a STREAMING parsing strategy.\nc Doing FORWARDS proof checking.\nc The emitted LSR proof will be in binary format (`-c` specified).\nc The CNF formula has 4534906 clauses and 2248832 variables.\nc Parsing the CNF took 1.159 secs\nc Checking proof...\nc Proof checking took 0.372 secs\ns VALID\nc A valid proof, without an empty clause.\nc Total runtime took 2.426 secs\n",
+      "stderr": ""
+    },
+    {
+      "operation": "empty-binary-LSR identity conversion",
+      "input_bytes": 0,
+      "output_bytes": 0,
+      "empty_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_cnf_sha256": "96f88a6578978a7087a16f0a84ea10c2d58b8da7620e547885b8274b2c0fbdd2",
+      "native_dsr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requires_independent_binary_Trestle": true,
+      "exit": 0
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v4/checkers/srcheck",
+        "/proc/2320195/fd/16",
+        "/proc/2320195/fd/6",
+        "c"
+      ],
+      "exit": 0,
+      "stdout": "c Proof is valid, but did not derive the empty clause.\ns VALID\n",
+      "stderr": "Parsing formula with 2248832 variables, 4534906 clauses\nParsed formula\n"
+    }
+  ],
+  "original_model_check": null,
+  "classification": "common-startup-mismatch",
+  "native_consumption": false,
+  "solved": false
+}
