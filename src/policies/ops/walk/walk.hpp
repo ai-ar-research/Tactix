@@ -26,6 +26,10 @@ namespace tactix {
 // current Walk CNF; export requires improvement over ordinary starting phases,
 // even when the candidate itself required zero flips. An incomplete import,
 // stale identity or zero seed allowance leaves all phase memories untouched.
+// FullCurrentCnf + StrictlyBetter is an opt-in profile with independent
+// preparation/search doses and one immutable full live-CNF objective. It skips
+// legacy dense normalization; rejection/exhaustion/interruption publishes no
+// phases. Search reserves complete flip quanta before their occurrence scans.
 
 RuleEligibility walk_guard(const Kernel &);
 ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round

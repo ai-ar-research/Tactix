@@ -131,14 +131,14 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
-Final runtime source `76e1f68b8` passes focused Debug and sanitizer/proof/model
+Pinned checkpoint source `76e1f68b8` passes focused Debug and sanitizer/proof/model
 checks 13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-07-final-parallel-acceptance-handoff/README.md)
 owns all active pin/job bindings and provisional dispositions. [Final Debug](benchmarks/reports/2026-10-07-prefix-meter-full-debug-terminal/README.md)
 `1751523` finishes314/315; only doc-size debt fails, and post-run pin verification passes.
 [Claude smoke](benchmarks/reports/2026-10-07-final-fuzz-resource-priority-handoff/README.md) `1751519` has zero owner-reported failures; native broad `1751520` runs
 and full target `1751604` is queued. Owner marks cancelled `1751515`/`1751516` superseded, with no verdict.
-B28+C5 `1751524`, Rank1–50 `1751525`, WV100 `1751526`, WV2–89 `1751527`
-are submitted concurrently. Grade each gate; pending checks never promote.
+[B28+C5](benchmarks/reports/2026-10-07-final-b28c5-76e1f68b8-accepted/README.md) accepts33/33 (32 checked/one censor); Rank `1751525`, WV100 `1751526`, WV2 `1751527`
+run independently of [Walk split](benchmarks/reports/2026-10-07-walk-split-admission/README.md) (Debug9/9, sanitizers/fuzz pending); X20 `1751752` requires successor grading; rank1161 is no-yield.
 
 Crash recovery committed the affine publication/session repair at `95b0fad13`;
 its [focused checkpoint](benchmarks/reports/2026-10-06-resume-affine-repair-cleanup/README.md) passes Debug and ASan/UBSan 6/6 with every-lemma proofs.

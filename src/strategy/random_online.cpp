@@ -1023,14 +1023,21 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       if (v.size() == 7 && !boolean(v[6], p.reduction_bookkeeping)) return false;
     }
     parameters = p;
-  } else if ((tuple(text, "walk", v) || tuple(text, "walk2", v)) &&
+  } else if ((tuple(text, "walk", v) || tuple(text, "walk2", v) || tuple(text, "walk3", v)) &&
              v.size() >= 2) {
     WalkParameters p;
     p.step_budget = v[0];
     p.random_seed = v[1];
-    const size_t offset = text.starts_with("walk2(") ? 1 : 0;
+    const bool split = text.starts_with("walk3(");
+    const size_t offset = split ? 4 : text.starts_with("walk2(") ? 1 : 0;
     if (offset && v.size() < 5) return false;
     if (offset) p.seed_candidate = v[2];
+    if (split) {
+      if (v.size() < 8 || v[4] > UINT32_MAX || v[5] > UINT32_MAX) return false;
+      p.preparation_budget = v[3];
+      p.objective = static_cast<WalkParameters::Objective>(v[4]);
+      p.admission = static_cast<WalkParameters::Admission>(v[5]);
+    }
     if (offset || v.size() != 2) {
       const size_t head = 4 + offset;
       if (v.size() < head || v[2 + offset] > UINT32_MAX ||
@@ -2526,9 +2533,12 @@ std::string serialize_online_strategy_program(
           << p->protect_tiers << ',' << p->compact_collection << ','
           << p->reduction_bookkeeping << ')';
     else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
-      out << (p->seed_candidate ? ":walk2(" : ":walk(")
+      const bool split = p->objective == WalkParameters::Objective::FullCurrentCnf;
+      out << (split ? ":walk3(" : p->seed_candidate ? ":walk2(" : ":walk(")
           << p->step_budget << ',' << p->random_seed << ',';
       if (p->seed_candidate) out << p->seed_candidate << ',';
+      if (split) out << p->preparation_budget << ',' << uint32_t(p->objective)
+                     << ',' << uint32_t(p->admission) << ',';
       out << p->even_break_base_milli << ',' << p->score_curve.size();
       for (const WalkParameters::ScorePoint point : p->score_curve)
         out << ',' << point.average_clause_size_milli << ','

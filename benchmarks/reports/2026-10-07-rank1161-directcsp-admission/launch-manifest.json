@@ -1,0 +1,73 @@
+{
+  "schema": "tactix-r1161-directcsp-bounded-admission-v1",
+  "source_snapshot_commit": "5a3db0f39069fe59b47fdc2ebc18cb34409dd3f0",
+  "input": {
+    "rank": 1161,
+    "path": "benchmarks/cache/tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz",
+    "sha256": "0f1c5f7b89b52a0b2b1d2421793e5502302b2e05c95c7bb5ee381e8a02264915",
+    "hash_kind": "complete_compressed_input",
+    "authority_path": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/manifest.json",
+    "authority_field": "input_sha256",
+    "authority_key": "tierD24-26/fe9b9a35531e13dab41307e569386dab-lockchart-group1-L220-K317-p8d4j1.normalised.cnf.xz"
+  },
+  "resources": {
+    "partition": "cpu-q",
+    "array": "0-0",
+    "throttle": null,
+    "cpus_per_task": 1,
+    "memory": "4G",
+    "slurm_time": "00:01:00",
+    "census_seconds": 10,
+    "process_timeout_seconds": 15
+  },
+  "census_arguments": [
+    "--seconds",
+    "10",
+    "--maximum-work",
+    "10000000",
+    "--maximum-source-clauses",
+    "100000",
+    "--maximum-domain-candidates",
+    "64",
+    "--maximum-domain-values",
+    "64",
+    "--maximum-offers",
+    "16"
+  ],
+  "bindings": [
+    {
+      "path": "benchmarks/runs/20260928-am540-four-winner-tierd-cpuq/manifest.json",
+      "sha256": "c5112af8380a8fd76c2b231960c6a9470ea1f54578e105cfbe855628f7e824d3"
+    },
+    {
+      "path": "report-to-andrew/20261003T164617Z-tierd-portfolio-misses/portfolio-misses.csv",
+      "sha256": "b2444220c04a4e1a05bbe3d21c4bc73d2e119bad625fb31a9a3ac7d773c0b4f6"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-admission/pins/census.py",
+      "sha256": "36a8ab3e34fb3edbe6163ed6c19b27f52ba4569b3097caf0fe413ee0d9d7db8c"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-admission/pins/test_census.py",
+      "sha256": "695a7f4f8ebe9e911738ddba0a686317132a8e519eb02b74bead744d3de4b5b0"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-admission/launch.py",
+      "sha256": "fbfc996b9facedf0b948462671a6f559ca445e49394b8e7fc0776f98f01d510d"
+    },
+    {
+      "path": "benchmarks/probes/20261007-fixed44-directcsp-admission/census.sbatch",
+      "sha256": "ff4146a1b6de0d1e15cb632ffc81fc9688d8e28ac137ef656e430eed9742ad56"
+    },
+    {
+      "path": "tools/solvers/variants/lymphosat-modlog/tree/solver/solvers/mechanical-master-key/solver/solver.cpp",
+      "sha256": "95393215e7d01e8fbc133bcbc159f0586d836ae771eb35fed61c7b191daccb82"
+    }
+  ],
+  "source_binding": "Standalone tool pins are exact content snapshots; no solver binary, source build, or campaign pin is modified. Repository commit records review context, not an assertion that uncommitted probe files belong to that commit.",
+  "negative_result_interpretation": "Incomplete: reference input has 4,534,906 clauses, source prefix cap 100,000. Clause ordering, 64-domain candidate page, selected-domain definition inputs, and width64 can omit relevant owners/definitions. Absence never rejects target semantics or authorizes a longer solver run.",
+  "admission_gate": "Require an absent final binary nogood with complete explicit original occurrence witnesses, disjoint exact domains, >=2 supports on both sides, and no original binary reachability explanation; independently validate RUP prefix before any native implementation or solver benefit probe. Recognition or lifted binary-shortcut helpers alone do not pass.",
+  "solver_run": false,
+  "proof_check": "not_requested_in_census",
+  "submission": "not_submitted"
+}

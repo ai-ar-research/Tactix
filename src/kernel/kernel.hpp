@@ -725,6 +725,10 @@ struct Stats {
   uint64_t walk_seed_candidate_unsat = UINT64_MAX;
   uint64_t walk_seed_improved = 0;
   uint64_t walk_seed_exported = 0;
+  uint64_t walk_preparation_steps = 0, walk_search_steps = 0;
+  uint64_t walk_preparation_budget_exhausted = 0;
+  uint64_t walk_search_budget_exhausted = 0;
+  uint64_t walk_seed_admitted = 0, walk_seed_rejected = 0;
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
   uint64_t walk_steps = 0;    // native occurrence visits plus explicit seed work
@@ -1930,6 +1934,8 @@ struct Kernel {
   // Publication identity is solver state, independent of resettable telemetry.
   uint64_t local_search_publication = 0;
   uint64_t walk_seed_candidate = 0;
+  uint64_t walk_preparation_budget = 0;
+  uint32_t walk_objective = 0, walk_admission = 0;
   // Proof-rule declarations are staged until registry dispatch advances the
   // action epoch. Only current post-action candidates are observable/applicable.
   std::array<strategy::SemanticVariableCandidate,
