@@ -1,0 +1,77 @@
+{
+  "schema": "rank899-trajectory-attribution-evidence-v1",
+  "input": {
+    "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+    "sha256": "fa316d083ef8735356f6976e7c442249f0e625b4e664803fb22ae809623929ef",
+    "expected": "SAT",
+    "variables": 52731,
+    "clauses": 208936
+  },
+  "historical": {
+    "pin_sha256": "1f86ff9d6b199e4d0f01c1811f08abc6375b43fee6d9d30de0565881773f8b29",
+    "successor_pin_sha256": "2d7294ed3e5dfb47c30f88bba083510f3bd9c38edabbf5c085f95fcdd10765c3",
+    "rows": [
+      {"arm": "A0", "verdict": "UNKNOWN", "seconds": 1200.0, "conflicts": 17897083, "sr": "1/1"},
+      {"arm": "L", "verdict": "UNKNOWN", "seconds": 1200.0, "conflicts": 17848206, "sr": "1/1"},
+      {"arm": "G", "verdict": "SATISFIABLE", "seconds": 174.5, "conflicts": 2150089, "sr": "0/0"},
+      {"arm": "LG", "verdict": "SATISFIABLE", "seconds": 173.3, "conflicts": 2150089, "sr": "0/0"},
+      {"arm": "LG2", "verdict": "SATISFIABLE", "seconds": 174.4, "conflicts": 2150089, "sr": "0/0"}
+    ],
+    "model_retained": false,
+    "exact_source_retained": false
+  },
+  "checked_mab": {
+    "path": "benchmarks/runs/20260928-am521-immediate-mab-wv2-89/results/035.json",
+    "sha256": "f580d0e8f0ea8de04dd54da7510a751e35dea14ba007da55a59319ea73f4f01c",
+    "solver_sha256": "6643ecb4409f086bffe94288ca4ab0126f013ce3e2727c06b98889a7129eb717",
+    "seconds": 66.579,
+    "conflicts": 683909,
+    "decisions": 17032142,
+    "model_check": "verified",
+    "disposition": "historical only; MAB retired after four-tranche gate failure"
+  },
+  "saved_no_mab": {
+    "path": "benchmarks/runs/20260928-am549-no-mab-hybrid-wv2-89/results/035.json",
+    "sha256": "92bd667dce0a0961e3ff5fe05a636ff7f9483124164261f3961c80315ec07a3b",
+    "seconds": 600.005,
+    "verdict": "UNKNOWN"
+  },
+  "reference": {
+    "path": "benchmarks/runs/20260928-am547-satsuma-hybrid-tierd-cpuq/results/00898.json",
+    "sha256": "3102e6fea5f56f7c61718dddd70b8ae63249cb31f278153581b792a3b76373f4",
+    "seconds": 107.102,
+    "verdict": "SAT",
+    "model_check": "verified"
+  },
+  "bounded_trace": {
+    "predecessor": {
+      "job": "1755320",
+      "campaign": "benchmarks/runs/20261007-rank899-fastel0-reference-trace",
+      "status": "INCOMPLETE",
+      "reason": "both traces capped at 200000 rows during conflict 0; Tactix had no preprocess_end; Kissat proof hit 64 MiB"
+    },
+    "successor": {
+      "job": "1755460",
+      "campaign": "benchmarks/runs/20261007-rank899-fastel0-reference-trace-r2",
+      "status": "COMPLETED",
+      "node": "node015",
+      "cpu": 23,
+      "diagnostic_solver_sha256": "00bfe4175bca47cefae7cc0a55e95c24f5bdf64bd11380fb312bdc2c5dd79ee6",
+      "run_sha256": "f053a43bd80ded77028bc0544cfeb2fa997c85d10f80fffef15afb05fefb982c",
+      "portable_comparison_sha256": "a07f433365d6bdd573f7b16a8271336f59a98e57a77512dfab1d2b43f451efec",
+      "tactix_trace_sha256": "0dbe23f679138eb8fd93c8f47da73d05a7d65369d05dc01309a7563b21386ce0",
+      "kissat_trace_sha256": "5f16cfd871c037ec7747e4cc7e8212881f8fa49a7206a5383e10ed2e95dc7533",
+      "tactix_seconds": 5.8293201345950365,
+      "kissat_seconds": 60.01994653977454,
+      "kissat_timed_out_after_recorded_window": true,
+      "streams": {
+        "decision": {"tactix": 12723, "kissat": 12723, "equal": true},
+        "analysis_begin": {"tactix": 50, "kissat": 50, "equal": true},
+        "learned": {"tactix": 50, "kissat": 50, "equal": true}
+      },
+      "preprocess_end_compared": false,
+      "implications_compared": false,
+      "disposition": "exact selected-stream match through conflict 50; no search-policy change or runtime claim"
+    }
+  }
+}
