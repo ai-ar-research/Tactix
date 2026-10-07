@@ -188,6 +188,7 @@ int main(int argc, char **argv) {
   bool quiet = false;
   std::optional<bool> default_affine_search;
   std::optional<bool> default_nol_walk;
+  std::optional<bool> default_graph_labeling;
   std::optional<bool> default_structured_symmetry;
   bool random_policy = false;
   bool controller_policy = false;
@@ -250,6 +251,14 @@ int main(int argc, char **argv) {
       else if (!strcmp(a + 19, "off")) default_nol_walk = false;
       else {
         fprintf(stderr, "tactix: --default-nol-walk requires on or off\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
+    } else if (!strncmp(a, "--default-graph-labeling=", 25)) {
+      if (!strcmp(a + 25, "on")) default_graph_labeling = true;
+      else if (!strcmp(a + 25, "off")) default_graph_labeling = false;
+      else {
+        fprintf(stderr, "tactix: --default-graph-labeling requires on or off\n");
         printf("s UNKNOWN\n");
         return 1;
       }
@@ -490,6 +499,7 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
              "[--default-affine-search=on|off] [--default-nol-walk=on|off] "
+             "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
              "[--random-policy[=SEED]] "
              "[--controller-policy[=SEED] [--controller-effort=N]] "
@@ -570,6 +580,12 @@ int main(int argc, char **argv) {
   if (default_nol_walk &&
       (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
     fprintf(stderr, "tactix: --default-nol-walk requires DefaultPolicy\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (default_graph_labeling &&
+      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
+    fprintf(stderr, "tactix: --default-graph-labeling requires DefaultPolicy\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -954,6 +970,8 @@ int main(int argc, char **argv) {
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   if (default_nol_walk) default_config.nol_walk.enabled = *default_nol_walk;
+  if (default_graph_labeling)
+    default_config.graph_labeling_model.enabled = *default_graph_labeling;
   if (default_structured_symmetry)
     default_config.inprocess.structured_root_symmetry_enabled =
         *default_structured_symmetry;
@@ -1078,6 +1096,34 @@ int main(int argc, char **argv) {
       nol_metric("trajectory_steps", nol_hypergraph_walk_session.steps());
       nol_metric("trajectories", nol_hypergraph_walk_session.trajectories());
       nol_metric("search_ticks", kernel.stats.search_ticks);
+      const auto &graph = default_policy.graph_labeling_diagnostics();
+      const auto graph_metric = [](const char *name, uint64_t value) {
+        printf("c graph-schedule %s=%llu\n", name,
+               (unsigned long long)value);
+      };
+      graph_metric("enabled", default_config.graph_labeling_model.enabled);
+      graph_metric("authentication_attempts", graph.authentication_attempts);
+      graph_metric("authentication_successes", graph.authentication_successes);
+      graph_metric("authentication_exhausted", graph.authentication_exhausted);
+      graph_metric("authentication_no_structure", graph.authentication_no_structure);
+      graph_metric("authentication_interrupted", graph.authentication_interrupted);
+      graph_metric("authentication_work", graph.authentication_work);
+      graph_metric("slices", graph.slices);
+      graph_metric("pending_slices", graph.pending_slices);
+      graph_metric("completed_trajectories", graph.completed_trajectories);
+      graph_metric("useful_hints", graph.useful_hints);
+      graph_metric("phase_install_attempts", graph.phase_install_attempts);
+      graph_metric("phase_installs", graph.phase_installs);
+      graph_metric("wakeups", graph.wakeups);
+      graph_metric("recognized", kernel.stats.graph_labeling_recognized);
+      graph_metric("vertices", kernel.stats.graph_labeling_vertices);
+      graph_metric("separation", kernel.stats.graph_labeling_separation);
+      graph_metric("work", kernel.stats.graph_labeling_work);
+      graph_metric("nodes", kernel.stats.graph_labeling_nodes);
+      graph_metric("repairs", kernel.stats.graph_labeling_repairs);
+      graph_metric("anneal_attempts", kernel.stats.graph_labeling_anneal_attempts);
+      graph_metric("sat", kernel.stats.graph_labeling_sat);
+      graph_metric("search_ticks", kernel.stats.search_ticks);
       printf("c affine-survival gauges=last-native-boundary rank=unconditioned-coefficient-rank "
              "sources=retained-equations pause=last-pause "
              "action-codes=1:recognition,2:maintenance,3:root-service,4:search-service "
@@ -2054,6 +2100,14 @@ int main(int argc, char **argv) {
                (unsigned long long)kernel.stats.rule_calls[e.second]);
       printf("c timing        %-16s %9.0f ms (%5.1f%%)\n", "(unattributed)",
              slot_ms - charged_ms, pct(slot_ms - charged_ms));
+    }
+    if (!controller_selected && !random_policy && !stress_policy &&
+        !replay_path) {
+      if (std::getenv("TACTIX_STRATEGY_CONFIG"))
+        printf("c strategy-config %s\n",
+               default_policy.strategy_config_snapshot().c_str());
+      if (std::getenv("TACTIX_SLOT_STATS"))
+        default_policy.inprocess().report(kernel);
     }
   }
   if (res == 10) {
