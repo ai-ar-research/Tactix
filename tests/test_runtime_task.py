@@ -263,12 +263,13 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
             'srun', '--exact', '--nodes=1', '--ntasks=1',
             '--cpus-per-task=4', '--mem=32768M', '--cpu-bind=cores'])
 
-    def test_explicit_long_profile_preserves_independent_checker_and_defaults(self):
+    def test_explicit_long_profiles_preserve_independent_checker_and_defaults(self):
         import experimental_tierd as builder
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            reference, frozen, long = (root / name for name in ('ref', 'frozen', 'long'))
-            for directory in (reference, frozen, long):
+            reference, frozen, long, fixed = (
+                root / name for name in ('ref', 'frozen', 'long', 'fixed'))
+            for directory in (reference, frozen, long, fixed):
                 directory.mkdir()
             baseline = {'checkers': {}, 'provenance': {}}
             for name in ('checkmodel', 'modelcheck.py', 'drat-trim', 'cake-lpr',
@@ -277,7 +278,7 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                 path.write_text(name)
                 baseline['checkers'][name] = name
                 baseline['provenance'][name] = {'sha256': builder.sha(path)}
-            frozen_hashes, long_hashes = {}, {}
+            frozen_hashes, long_hashes, fixed_hashes = {}, {}, {}
             for name in ('dsr-trim', 'dsr-compress', 'srcheck'):
                 path = frozen / name
                 path.write_text('frozen-' + name)
@@ -286,16 +287,26 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                 path = long / ('compress' if name == 'dsr-compress' else name)
                 path.write_text('long-' + name)
                 long_hashes[name] = builder.sha(path)
+                path = fixed / name
+                path.write_text('fixed-' + name)
+                fixed_hashes[name] = builder.sha(path)
             with patch.multiple(builder, FROZEN_DSR=frozen, LONG_DSR=long,
+                                FIXED_LONG_DSR=fixed,
                                 FROZEN_DSR_HASHES=frozen_hashes,
-                                LONG_DSR_HASHES=long_hashes):
+                                LONG_DSR_HASHES=long_hashes,
+                                FIXED_LONG_DSR_HASHES=fixed_hashes):
                 original = builder.checker_sources(reference, baseline, 'auto')
                 selected = builder.checker_sources(reference, baseline, 'auto', 'long64')
+                repaired = builder.checker_sources(
+                    reference, baseline, 'auto', 'long64-fixed')
                 self.assertEqual(original['dsr-trim'], frozen / 'dsr-trim')
                 self.assertEqual(selected['dsr-trim'], long / 'dsr-trim')
                 self.assertEqual(selected['dsr-compress'], long / 'compress')
+                self.assertEqual(repaired['dsr-trim'], fixed / 'dsr-trim')
+                self.assertEqual(repaired['dsr-compress'], fixed / 'dsr-compress')
                 for name in set(original) - set(long_hashes):
                     self.assertEqual(selected[name], original[name])
+                    self.assertEqual(repaired[name], original[name])
                 for name in ('dsr-trim', 'compress'):
                     path = long / name
                     saved = path.read_bytes()
@@ -306,9 +317,45 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                 (long / 'compress').unlink()
                 with self.assertRaisesRegex(ValueError, 'pin mismatch'):
                     builder.checker_sources(reference, baseline, 'auto', 'long64')
+                for name in ('dsr-trim', 'dsr-compress'):
+                    path = fixed / name
+                    saved = path.read_bytes()
+                    path.write_bytes(b'tampered')
+                    with self.assertRaisesRegex(ValueError, 'pin mismatch'):
+                        builder.checker_sources(
+                            reference, baseline, 'auto', 'long64-fixed')
+                    path.write_bytes(saved)
                 self.assertEqual(builder.checker_sources(reference, baseline, 'auto'), original)
                 with self.assertRaisesRegex(ValueError, 'unsupported DSR checker profile'):
                     builder.checker_sources(reference, baseline, 'auto', 'unqualified')
+
+    def test_fixed_long_profile_provenance_is_hash_bound(self):
+        import experimental_tierd as builder
+        current = builder.dsr_checker_provenance('long64-fixed')
+        self.assertEqual(current['profile'], 'long64-fixed')
+        self.assertEqual(current['qualification_job_id'], '1755133')
+        self.assertEqual(
+            set(current['files']), set(builder.FIXED_LONG_DSR_PROVENANCE['files']))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = root / 'source.tar'
+            artifact.write_bytes(b'source')
+            authority = {
+                'schema': 'test-profile',
+                'profile': 'long64-fixed',
+                'files': {'source.tar': builder.sha(artifact)},
+            }
+            with patch.multiple(builder, ROOT=root,
+                                FIXED_LONG_DSR_PROVENANCE=authority):
+                selected = builder.dsr_checker_provenance('long64-fixed')
+                self.assertEqual(selected, authority)
+                selected['files'].clear()
+                self.assertTrue(authority['files'])
+                artifact.write_bytes(b'tampered')
+                with self.assertRaisesRegex(ValueError, 'provenance mismatch'):
+                    builder.dsr_checker_provenance('long64-fixed')
+            self.assertIsNone(builder.dsr_checker_provenance('frozen'))
+            self.assertIsNone(builder.dsr_checker_provenance('long64'))
 
 
 if __name__ == "__main__":

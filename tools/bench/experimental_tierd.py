@@ -31,6 +31,30 @@ LONG_DSR_HASHES={
     'dsr-trim':'94f5fc0c122b7996207fb38f9010180f2d1e6b61b3008a3ef515ab5d971bc614',
     'dsr-compress':'3adb3fd6f98ff743550eea0a7f7096b2dcc8ef0637e9dec382c582b553e64ff9',
 }
+FIXED_LONG_DSR=ROOT/'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins'
+FIXED_LONG_DSR_HASHES={
+    'dsr-trim':'30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564',
+    'dsr-compress':'8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531',
+}
+FIXED_LONG_DSR_PROVENANCE={
+    'schema':'tactix-dsr-checker-profile-provenance-v1',
+    'profile':'long64-fixed',
+    'upstream_commit':'0b8cc0ef4d228c059994923cbc66abeb9a42ea14',
+    'repository_patch_sha256':'edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b923df3afc6',
+    'qualification_job_id':'1755133',
+    'files':{
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/source.tar':
+            '397557639afc3a58b7a46979a4bb77e09b664b049b7017d71355435ba08632ad',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fix.patch':
+            '52592ba37c46b422d77021dd2bf9c46a72f3cc476eddf90239dc114ab253deb8',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/result.json':
+            '7740cd3ff366c7b6bda7396edf239ad93667e165c0b74b0cb7fb82e57afc3709',
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-trim':
+            FIXED_LONG_DSR_HASHES['dsr-trim'],
+        'benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-compress':
+            FIXED_LONG_DSR_HASHES['dsr-compress'],
+    },
+}
 PROOF_ARGUMENTS={'--auto-proof','--dsr','--drat','--lrat'}
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
@@ -96,10 +120,19 @@ def verify(c):
         if sha(c/rel)!=digest:raise ValueError('pin mismatch: '+rel)
     return m
 
+def dsr_checker_provenance(dsr_profile):
+    if dsr_profile != 'long64-fixed':return None
+    for rel,expected in FIXED_LONG_DSR_PROVENANCE['files'].items():
+        source=ROOT/rel
+        if not source.is_file() or sha(source)!=expected:
+            raise ValueError('DSR checker provenance mismatch (long64-fixed): '+rel)
+    # Return a detached JSON value so callers cannot mutate the authority.
+    return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
+
 def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
     if certificate not in ('dsr','auto'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    if dsr_profile not in ('frozen','long64'):
+    if dsr_profile not in ('frozen','long64','long64-fixed'):
         raise ValueError('unsupported DSR checker profile: '+dsr_profile)
     names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py',
            'drat-trim':'drat-trim','cake_lpr':'cake-lpr'}
@@ -117,6 +150,9 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
         if dsr_profile=='long64' and name in LONG_DSR_HASHES:
             source=LONG_DSR/('compress' if name=='dsr-compress' else name)
             expected=LONG_DSR_HASHES[name]
+        elif dsr_profile=='long64-fixed' and name in FIXED_LONG_DSR_HASHES:
+            source=FIXED_LONG_DSR/name
+            expected=FIXED_LONG_DSR_HASHES[name]
         if not source.is_file() or sha(source)!=expected:
             raise ValueError('DSR checker pin mismatch ('+dsr_profile+'): '+name)
         sources[name]=source
@@ -201,6 +237,7 @@ def prepare(a):
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
     dsr_profile=getattr(a,'dsr_checker_profile','frozen')
     checkers=checker_sources(ref,manifest,a.certificate,dsr_profile)
+    checker_provenance=dsr_checker_provenance(dsr_profile)
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
     source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
@@ -334,6 +371,8 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                 if capacity_profile else
                 'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.'),
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
+    if checker_provenance is not None:
+        m['dsr_checker_provenance']=checker_provenance
     if capacity_profile:
         m['anonymous_scratch_capacity']=scratch_capacity
         m['scratch_capacity_profile']=capacity_profile
@@ -402,8 +441,8 @@ if __name__=='__main__':
     p.add_argument('--source',type=Path)
     p.add_argument('--binary',type=Path)
     p.add_argument('--dsr-transport',type=Path)
-    p.add_argument('--dsr-checker-profile',choices=['frozen','long64'],default='frozen',
-                   help='immutable DSR elaborator/compressor pins; long64 selects the audited upstream LONGTYPE build, with unchanged independent Trestle verification')
+    p.add_argument('--dsr-checker-profile',choices=['frozen','long64','long64-fixed'],default='frozen',
+                   help='immutable DSR elaborator/compressor pins; long64 is the historical audited LONGTYPE build, while long64-fixed selects its source-backed deleted-clause correction; both retain independent Trestle verification')
     p.add_argument('--scratch-capacity-profile',choices=[
         'fixed44-whole-memory-v2','fixed44-cooperative-v1'],
                    help='opt-in fixed-44 whole-memory allocation, bounded task step, and anonymous-file bounds')
