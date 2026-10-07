@@ -333,6 +333,7 @@ private:
   AffineMatrixInitResult initialize_affine_search(Kernel &, bool refresh = false, bool recognize = true);
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
   bool record_affine_service_result(Kernel &,const AffineMatrixServiceResult &,bool root);
+  bool affine_additional_recognition_due(const Kernel &) const;
   bool affine_service_due(const Kernel &,bool root);
   void schedule_affine_service(const Kernel &,const AffineMatrixServiceResult &);
   void observe_affine_consumption(const Kernel &, size_t trail_begin);

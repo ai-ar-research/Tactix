@@ -4074,6 +4074,26 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   return result;
 }
 
+bool DefaultPolicy::affine_additional_recognition_due(
+    const Kernel &kernel) const {
+  // Once Default owns an authenticated persistent image, elapsed search work
+  // only earns root maintenance/GE. It is not evidence that the source
+  // population changed, and rescanning on that clock repeatedly revisits every
+  // declined scope. Explicit recognition refreshes remain available to admit
+  // newly installed authenticated sources until the kernel exposes a cheap
+  // eligible-source addition epoch.
+  if (kernel.affine_matrix_search_session &&
+      kernel.affine_matrix_search_session->enabled() &&
+      kernel.affine_matrix_search_session->persistent())
+    return false;
+  const uint64_t quantum = config_.affine_search.maximum_initialization_work
+      ? config_.affine_search.maximum_initialization_work
+      : config_.inprocess.preprocess_initial_ticks;
+  const uint64_t ticks = search_ticks(kernel);
+  return ticks >= affine_refresh_ticks_ &&
+      ticks - affine_refresh_ticks_ >= std::max(quantum, affine_refresh_work_);
+}
+
 bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
     const AffineMatrixServiceResult &result,bool root) {
   schedule_affine_service(kernel,result);
@@ -5375,12 +5395,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           return finish(20);
       }
       if (affine_restart) {
-        const uint64_t quantum = config_.affine_search.maximum_initialization_work
-            ? config_.affine_search.maximum_initialization_work
-            : config_.inprocess.preprocess_initial_ticks;
-        const uint64_t ticks = search_ticks(k);
-        const bool recognize = ticks >= affine_refresh_ticks_ &&
-            ticks - affine_refresh_ticks_ >= std::max(quantum, affine_refresh_work_);
+        const bool recognize = affine_additional_recognition_due(k);
         const size_t maintenance_begin = k.trail.size();
         const auto refreshed = initialize_affine_search(k, true, recognize);
         observe_affine_consumption(k, maintenance_begin);

@@ -22,6 +22,10 @@ struct DefaultAffineSearchTestAccess {
   }
   static bool paused(const DefaultPolicy &policy) { return policy.affine_usefulness_paused_; }
   static uint64_t calls(const DefaultPolicy &policy) { return policy.affine_usefulness_calls_; }
+  static bool additional_recognition_due(const DefaultPolicy &policy,
+                                         const Kernel &kernel) {
+    return policy.affine_additional_recognition_due(kernel);
+  }
 };
 }
 
@@ -232,6 +236,9 @@ void paused_owner_retry(const std::string &stem = "",
   assert(policy.affine_search_diagnostics().recognition_rank_gains == 2);
   assert(policy.affine_search_diagnostics().rank_before_last_action == 0);
   assert(policy.affine_search_diagnostics().rank_after_last_action == 2);
+  kernel.stats.search_ticks = UINT64_MAX;
+  assert(!DefaultAffineSearchTestAccess::additional_recognition_due(policy,
+                                                                    kernel));
   auto pause = [&] {
     for (int32_t literal : {2,-2}) {
       kernel_assign_decision(kernel, kernel_internalize(kernel, literal));
@@ -303,6 +310,11 @@ void paused_owner_retry(const std::string &stem = "",
     proof.seed_population(id, body.data(), body.size());
     f.clauses.push_back(clause);
   }
+  // Search ticks and a changed generic clause population do not prove that a
+  // new eligible XOR source exists. Default therefore keeps maintaining the
+  // retained owner; an explicit paid recognition refresh admits this extension.
+  assert(!DefaultAffineSearchTestAccess::additional_recognition_due(policy,
+                                                                    kernel));
   const auto changed = DefaultAffineSearchTestAccess::refresh(policy, kernel, false, true);
   assert(changed.status == AffineMatrixInitStatus::Applied);
   assert(session.active_sources() == 3 && session.owner_version() != owner);
