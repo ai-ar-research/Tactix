@@ -322,21 +322,29 @@ void paused_owner_retry(const std::string &stem = "",
   assert(policy.affine_search_diagnostics().usefulness_resumptions == 2);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   assert(kernel.values[kernel_internalize(kernel, 4)] > 0);
-  // A native guard decline clears its owner independently of the zero-yield
-  // pause. Record rank loss at that boundary, rather than interpreting the
-  // final zero-source gauge as proof that projection lost every equation.
-  const auto rank_before_disable = session.basis_rank();
+  // A transient native guard decline at a restart root retains the bounded,
+  // authenticated owner and its proof leases for a later root window.
+  const auto rank_before_decline = session.basis_rank();
+  const auto support_before_decline = session.support_variables();
+  const auto sources_before_decline = session.active_sources();
+  const auto losses_before_decline =
+      policy.affine_search_diagnostics().service_rank_losses;
+  const auto disables_before_decline =
+      policy.affine_search_diagnostics().native_session_disables;
   kernel.large_watches_connected = false;
   const auto guard_declined = DefaultAffineSearchTestAccess::service(policy, kernel);
   kernel.large_watches_connected = true;
   assert(guard_declined.status == AffineMatrixServiceStatus::Inapplicable);
   const auto &survival = policy.affine_search_diagnostics();
-  assert(!session.enabled() && survival.active_sources == 0);
-  assert(survival.retained_basis_rank == 0 && survival.retained_support_variables == 0);
-  assert(survival.rank_before_last_action == rank_before_disable && survival.rank_after_last_action == 0);
-  assert(survival.service_rank_losses == rank_before_disable);
-  assert(survival.native_session_disables == 1 && survival.optional_failure_disables == 0);
-  assert(survival.last_survival_action == 3 && survival.last_disable_cause == 1);
+  assert(session.enabled() && survival.active_sources == sources_before_decline);
+  assert(survival.retained_basis_rank == rank_before_decline &&
+         survival.retained_support_variables == support_before_decline);
+  assert(survival.rank_before_last_action == rank_before_decline &&
+         survival.rank_after_last_action == rank_before_decline);
+  assert(survival.service_rank_losses == losses_before_decline);
+  assert(survival.native_session_disables == disables_before_decline &&
+         survival.optional_failure_disables == 0);
+  assert(survival.last_survival_action == 3 && survival.last_disable_cause == 0);
   assert(survival.isolated_projection_rank_losses == 0);
   session.disable(kernel);
   kernel.proof = nullptr;

@@ -93,8 +93,12 @@ void alias_failure_atomicity() {
   const auto interrupted=affine_matrix_search_refresh(k,session,bounded,{64*1024*1024});
   assert(interrupted.status==AffineMatrixInitStatus::Interrupted && !interrupted.unchanged);
   k.stop=nullptr;
+  // Force the retry to decline on an explicit capture bound.  The indexed
+  // incremental census legitimately made the old 10k work assumption cheap,
+  // so transaction atomicity must not depend on that implementation cost.
+  auto limited=bounded;limited.maximum_clauses=1;
   for(unsigned retry=0;retry<2;++retry){
-    const auto declined=affine_matrix_search_refresh(k,session,bounded,{64*1024*1024});
+    const auto declined=affine_matrix_search_refresh(k,session,limited,{64*1024*1024});
     assert(declined.status==AffineMatrixInitStatus::ResourceExhausted && !declined.unchanged);
     assert(session.owner_version()==prior_version && proof.premise_bytes()==prior_bytes);
   }
