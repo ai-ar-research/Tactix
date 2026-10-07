@@ -187,6 +187,87 @@ class TransportTests(unittest.TestCase):
                     'drat-trim', stage['exit_code'], stage['output_tail'], ''), 'rejected')
         self.assertEqual(list(campaign.glob('*.dsr-transport-*')), [])
 
+    def test_real_signal_kills_leave_no_named_partial_output(self):
+        # Bounded form of the independent owner's SIGXFSZ/SIGKILL reproducer.
+        # Kill after output bytes exist, not merely during the validation pass.
+        import resource
+        import signal
+        import threading
+        import time
+        block = b'\1\2\4\0' * (1 << 18)
+        with self.source.open('wb') as stream:
+            for _ in range(128):
+                stream.write(block)
+        original = subprocess.Popen
+        for managed, cause in ((False, 'xfsz'), (False, 'kill'),
+                               (True, 'xfsz'), (True, 'kill'), (True, 'deadline')):
+            with self.subTest(managed=managed, cause=cause):
+                self.dest.write_bytes(b'KEEP')
+                processes, workers, observed, failures = [], [], [], []
+                def stop_during_write(process):
+                    try:
+                        until = time.monotonic() + 20
+                        while time.monotonic() < until and process.poll() is None:
+                            paths = (list(self.root.glob('.output.drat.dsr-transport-*/output'))
+                                     if managed else list(Path(f'/proc/{process.pid}/fd').glob('*')))
+                            for path in paths:
+                                try:
+                                    info = path.stat()
+                                except FileNotFoundError:
+                                    continue
+                                if info.st_size < 65536 or (not managed and info.st_nlink != 0):
+                                    continue
+                                observed.append(True)
+                                if cause == 'deadline':
+                                    os.kill(os.getpid(), signal.SIGALRM)
+                                else:
+                                    process.kill()
+                                return
+                            time.sleep(0.001)
+                        failures.append('did not observe the conversion write phase')
+                        if process.poll() is None:
+                            process.kill()
+                    except BaseException as error:
+                        failures.append(repr(error))
+                        if process.poll() is None:
+                            process.kill()
+                def tracked(*args, **kwargs):
+                    if cause == 'xfsz':
+                        kwargs['preexec_fn'] = lambda: resource.setrlimit(
+                            resource.RLIMIT_FSIZE, (65536, resource.RLIM_INFINITY))
+                    process = original(*args, **kwargs)
+                    processes.append(process)
+                    if cause != 'xfsz':
+                        worker = threading.Thread(target=stop_during_write, args=(process,))
+                        workers.append(worker)
+                        worker.start()
+                    return process
+                with patch.object(subprocess, 'Popen', side_effect=tracked):
+                    if managed:
+                        if cause == 'deadline':
+                            with self.assertRaises(ProofPipelineDeadline):
+                                with proof_pipeline_deadline(30):
+                                    self.oracle.dsr_proof_as_drat(self.source, self.dest)
+                        else:
+                            with self.assertRaises(OSError):
+                                self.oracle.dsr_proof_as_drat(self.source, self.dest)
+                    else:
+                        subprocess.run([str(HELPER), 'convert', str(self.source), str(self.dest)],
+                                       capture_output=True, timeout=30)
+                for worker in workers:
+                    worker.join(timeout=5)
+                    self.assertFalse(worker.is_alive())
+                self.assertEqual(failures, [])
+                self.assertEqual(len(processes), 1)
+                expected = -signal.SIGXFSZ if cause == 'xfsz' else -signal.SIGKILL
+                self.assertEqual(processes[0].returncode, expected)
+                if cause != 'xfsz':
+                    self.assertTrue(observed)
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(processes[0].pid, 0)
+                self.assertEqual(self.dest.read_bytes(), b'KEEP')
+                self.assertFalse(any('dsr-transport-' in p.name for p in self.root.iterdir()))
+
     def test_shared_deadline_reaps_converter(self):
         helper = self.root / 'dsr-transport'
         helper.chmod(0o750)

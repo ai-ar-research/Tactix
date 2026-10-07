@@ -514,9 +514,30 @@ def _native_dsr_transport(mode, proof, destination=None):
     command = [str(helper), mode, str(proof)]
     if destination is not None:
         command.append(str(destination))
-    # subprocess.run kills/reaps the child on BaseException, including the
-    # runner's whole-pipeline deadline signal; no converter survives that timer.
-    result = subprocess.run(command, capture_output=True)
+    # Own the staging namespace outside the killable converter. In particular,
+    # a deadline's SIGKILL cannot run the helper's C++ cleanup. The unique parent
+    # directory survives until subprocess.run has killed/reaped the child, then
+    # is removed on every return or BaseException; concurrent calls never share it.
+    from contextlib import nullcontext
+    import stat
+    import tempfile
+    staging = nullcontext(None)
+    if destination is not None:
+        target = Path(destination)
+        try:
+            info = target.stat()
+        except FileNotFoundError:
+            info = None
+        descriptor = info is not None and info.st_nlink == 0 and stat.S_ISREG(info.st_mode)
+        if not descriptor:
+            staging = tempfile.TemporaryDirectory(
+                prefix='.' + target.name + '.dsr-transport-', dir=target.parent)
+    with staging as directory:
+        if directory is not None:
+            command.append(str(Path(directory) / 'output'))
+        # subprocess.run kills/reaps on BaseException, including the runner's
+        # whole-pipeline deadline. Cleanup happens only after the child is gone.
+        result = subprocess.run(command, capture_output=True)
     if result.returncode in (0, 2):
         return result.returncode == 2
     detail = result.stderr.decode(errors='replace').strip()
