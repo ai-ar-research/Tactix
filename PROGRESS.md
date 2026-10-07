@@ -131,7 +131,7 @@ recovered but remains much slower than saved `d170b4a5` at 942.814 seconds.
 
 ## Next action
 
-Next: Release pin ef0e00e9d completes with completed-manifest.json; [native pilot1752052](benchmarks/reports/2026-10-07-rank1161-native-guarded-cover-consumption/README.md) passes3 publications+1 actual unit reason, bothUNKNOWN; poll transitivity build88893; [focused evidence](benchmarks/reports/2026-10-07-guarded-cover-v2-focused/README.md) passes7/7 each; [Claude15664](benchmarks/reports/2026-10-07-walk-effective-gaps-owner-handoff/README.md) owns ef0e00e9d qualification and existing Walk gaps. Pinned76e1f68b8 passes
+Next: Release pin ef0e00e9d completes with completed-manifest.json; [native pilot1752052](benchmarks/reports/2026-10-07-rank1161-native-guarded-cover-consumption/README.md) passes3 publications+1 actual unit reason, bothUNKNOWN; finish cumulative transitivity frontend build; binary-source ID0 liveness fix pending live recheck; [focused evidence](benchmarks/reports/2026-10-07-guarded-cover-v2-focused/README.md) passes7/7 each; [Claude in-flight report](benchmarks/reports/2026-10-07-guarded-cover-fuzz-owner-in-flight/README.md)15664 terminal; smokes1752047/1752053+broad1752054/1752055 pending; preserve pins. Pinned76e1f68b8 passes
 focused Debug and sanitizer/proof/model checks13/13 each. The [parallel acceptance handoff](benchmarks/reports/2026-10-07-final-parallel-acceptance-handoff/README.md)
 owns all active pin/job bindings and provisional dispositions. [Final Debug](benchmarks/reports/2026-10-07-prefix-meter-full-debug-terminal/README.md)
 `1751523` finishes314/315; only doc-size debt fails, and post-run pin verification passes.
