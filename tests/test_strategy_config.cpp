@@ -174,6 +174,41 @@ int main() {
                SymmetryNonforcingCutAdmission::RequireCompoundProgress);
       }
   assert(saw_default_graph);
+  assert(defaults.inprocess.structured_root_symmetry_enabled);
+  for (unsigned domain = 0; domain != 3; ++domain) {
+    DefaultStrategyConfig diagnostic = defaults;
+    diagnostic.inprocess.structured_root_symmetry_enabled = false;
+    if (domain) {
+      diagnostic.inprocess.structured_root_backtracking_domain_limit = 1;
+      diagnostic.inprocess.structured_root_large_domain_limit =
+          domain == 1 ? 100 : 2;
+    }
+    DefaultPolicy policy(diagnostic);
+    assert(policy.strategy_config().serialize().find(
+               "inprocess.structured_root_symmetry_enabled=0") !=
+           std::string::npos);
+    for (const auto *stages : {
+             &policy.strategy_config().inprocess.structured_root_stages,
+             &policy.strategy_config().inprocess.structured_root_bounded_backtracking_stages,
+             &policy.strategy_config().inprocess.structured_root_large_domain_stages}) {
+      assert(stages->size() == 1);
+      assert(schedules_lucky_instance(stages->front().program, 8));
+    }
+    Kernel kernel;
+    add_php_4_3(kernel);
+    assert(policy.inprocess().run_structured_root(kernel, nullptr) == 0);
+    assert(kernel.stats.affine_model_calls == 1);
+    assert(kernel.stats.sr_applications == 0);
+    assert(policy.inprocess().structured_root.stages.size() == 1);
+    assert(policy.inprocess().structured_root.stages.front().runs == 1);
+    assert(!kernel.inprocessing && !kernel.phase_saving_suppressed);
+    kernel_check_invariants(kernel);
+    diagnostic.affine_model.enabled = false;
+    DefaultPolicy neither(diagnostic);
+    assert(neither.strategy_config().inprocess.structured_root_stages.empty());
+    assert(neither.strategy_config().inprocess.structured_root_bounded_backtracking_stages.empty());
+    assert(neither.strategy_config().inprocess.structured_root_large_domain_stages.empty());
+  }
   assert(default_snapshot.find(
              "inprocess.structured_root_sr_discovery_ticks=20000000000") !=
          std::string::npos);

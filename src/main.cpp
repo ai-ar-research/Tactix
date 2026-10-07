@@ -189,6 +189,7 @@ int main(int argc, char **argv) {
   bool quiet = false;
   std::optional<bool> default_affine_search;
   std::optional<bool> default_nol_walk;
+  std::optional<bool> default_structured_symmetry;
   bool random_policy = false;
   bool controller_policy = false;
   bool controller_effort_set = false;
@@ -251,6 +252,14 @@ int main(int argc, char **argv) {
       else if (!strcmp(a + 19, "off")) default_nol_walk = false;
       else {
         fprintf(stderr, "tactix: --default-nol-walk requires on or off\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
+    } else if (!strncmp(a, "--default-structured-symmetry=", 30)) {
+      if (!strcmp(a + 30, "on")) default_structured_symmetry = true;
+      else if (!strcmp(a + 30, "off")) default_structured_symmetry = false;
+      else {
+        fprintf(stderr, "tactix: --default-structured-symmetry requires on or off\n");
         printf("s UNKNOWN\n");
         return 1;
       }
@@ -489,6 +498,7 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
              "[--default-affine-search=on|off] [--default-nol-walk=on|off] "
+             "[--default-structured-symmetry=on|off] "
              "[--random-policy[=SEED]] "
              "[--controller-policy[=SEED] [--controller-effort=N]] "
              "[--controller-trace=FILE | --controller-replay=FILE] "
@@ -569,6 +579,12 @@ int main(int argc, char **argv) {
   if (default_nol_walk &&
       (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
     fprintf(stderr, "tactix: --default-nol-walk requires DefaultPolicy\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (default_structured_symmetry &&
+      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
+    fprintf(stderr, "tactix: --default-structured-symmetry requires DefaultPolicy\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -957,6 +973,9 @@ int main(int argc, char **argv) {
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   if (default_nol_walk) default_config.nol_walk.enabled = *default_nol_walk;
+  if (default_structured_symmetry)
+    default_config.inprocess.structured_root_symmetry_enabled =
+        *default_structured_symmetry;
   DefaultPolicy default_policy(default_config);
   ControllerTrace controller_transcript;
   ControllerTrace *controller_trace = nullptr;
