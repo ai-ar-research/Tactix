@@ -102,7 +102,8 @@ Fixture mixed(uint32_t pigeons,uint32_t holes) {
   for(uint32_t h=0;h<holes;++h)for(uint32_t p=0;p<pigeons;++p)
     for(uint32_t q=p+1;q<pigeons;++q)f.clauses.push_back({-cell(p,h),-cell(q,h)});
   // Shared original variables, no fresh-variable constructor: elimination of
-  // 7/13 derives x1 xor x19 xor x20 = 1; the guard literals remain in reasons.
+  // 7/13 derives x1 xor x19 xor x20 = 1. None of its support is root-fixed,
+  // so restart-root theory must not manufacture an assumption-dependent reason.
   for(const auto &variables:{std::vector<int32_t>{1,7,13},std::vector<int32_t>{7,13,19,20}})
     for(auto &clause:affine_semantic_extension::clausal_form(variables,variables.front()==7))f.clauses.push_back(clause);
   f.clauses.push_back({-1,19}); // One-sided CNF link, not another XOR equation.
@@ -172,11 +173,15 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
     // maintenance must not count the same two source equations as new census.
     assert(stats.refreshes>0 && stats.recognized_equations==2);
     assert(kernel.stats.decisions>0 && stats.root_services>0 && !stats.search_services);
-    assert(stats.reasons_published>0 && stats.widest_reason>=2);
-    assert(stats.implications_consumed+stats.conflicts_consumed>0);
-    if(f.variables==26)assert(stats.conflicts_consumed>0);
-    if(f.variables==36)assert(stats.implications_consumed>0);
-    assert(stats.proof_additions>0 && stats.initialization_work>0);
+    // These fixtures authenticate retained equations, but have no initial
+    // root-relevant consequence. CDCL may finish before any later root fact
+    // makes one useful. If a restart does publish, it remains proof-backed;
+    // paused_owner_retry below supplies the deterministic nonvacuous case.
+    if(stats.reasons_published) {
+      assert(stats.widest_reason>=2);
+      assert(stats.proof_additions>0);
+    }
+    assert(stats.initialization_work>0);
   }
   if(!with_proof)assert(!session.persistent() && stats.reasons_published==0);
   if(!enabled)assert(stats.initializations==0 && stats.search_services==0);
@@ -331,6 +336,10 @@ void paused_owner_retry(const std::string &stem = "",
       policy.affine_search_diagnostics().service_rank_losses;
   const auto disables_before_decline =
       policy.affine_search_diagnostics().native_session_disables;
+  const auto reasons_before_decline =
+      policy.affine_search_diagnostics().reasons_published;
+  const auto owner_before_decline = session.owner_version();
+  const auto premise_bytes_before_decline = proof.premise_bytes();
   kernel.large_watches_connected = false;
   const auto guard_declined = DefaultAffineSearchTestAccess::service(policy, kernel);
   kernel.large_watches_connected = true;
@@ -346,6 +355,15 @@ void paused_owner_retry(const std::string &stem = "",
          survival.optional_failure_disables == 0);
   assert(survival.last_survival_action == 3 && survival.last_disable_cause == 0);
   assert(survival.isolated_projection_rank_losses == 0);
+  // The next valid root window resumes the same owner.  With no new root fact,
+  // it neither reacquires premises nor republishes the already consumed reason.
+  const auto resumed = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(resumed.status == AffineMatrixServiceStatus::NoEvent);
+  assert(session.enabled() && session.owner_version() == owner_before_decline);
+  assert(session.active_sources() == sources_before_decline);
+  assert(proof.premise_bytes() == premise_bytes_before_decline);
+  assert(policy.affine_search_diagnostics().reasons_published ==
+         reasons_before_decline);
   session.disable(kernel);
   kernel.proof = nullptr;
   kernel.structural_provenance = nullptr;
