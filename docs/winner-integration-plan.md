@@ -168,7 +168,7 @@ matrices.
 An opaque native-XOR propagation or an XOR-aware FRAT-only certificate does
 not satisfy N2.  Compare each adopted mechanism by useful propagation,
 conflict, installed consequence and later search consumption per charged work.
-X17 and noL-specific local search are excluded from the intended candidate. Rank401 needs a general Boolean/search-scheduling diagnosis against pinned Kissat; retain shared authenticated owners only for other consumers. Effective both-policy fuzz, independent target recovery and every preservation gate remain required.
+X17 and noL-specific local search are excluded from the intended candidate. Rank401 should approach Satsuma+Kissat branching order through a general Boolean/search-scheduling repair: trace the actual Satsuma residual clause/literal presentation and Kissat import/activation/first decisions, map variable identities, align options and explain deviations. Original-seed ablations and alternative serializers remain controls; retain shared authenticated owners only for other consumers. Effective both-policy fuzz, independent target recovery and every preservation gate remain required.
 
 Record every added constraint/auxiliary definition: stable identity, Boolean formula
 and theory meaning, source clauses/structural premises, generating action and
