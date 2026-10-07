@@ -108,6 +108,8 @@ def scratch_capacity_contract(manifest):
     base = {"schema", "directory", "minimum_free_bytes",
             "maximum_file_bytes", "maximum_live_handles", "reserve_bytes"}
     schema = contract.get("schema")
+    if schema == SHARED_FLOOR_CAPACITY_SCHEMA:
+        return shared_floor_capacity_contract(manifest, contract)
     required = (base if schema == "tactix-anonymous-scratch-capacity-v1" else
                 base | {"cooperative_lock_directory", "cooperative_lock_name"}
                 if schema == "tactix-anonymous-scratch-capacity-v2" else set())
@@ -162,6 +164,88 @@ def scratch_capacity_contract(manifest):
     return contract
 
 
+SHARED_FLOOR_CAPACITY_SCHEMA = "tactix-anonymous-scratch-capacity-v3"
+SHARED_FLOOR_ISOLATION = {
+    "schema": "tactix-fixed44-shared-floor-isolation-v1",
+    "participant_scope": "same-user-repository-profile",
+    "task_cpus": 4,
+    "task_memory_mib": 32768,
+}
+
+
+def shared_floor_capacity_contract(manifest, contract):
+    """Shared-floor profile: co-located admission plus a fail-closed floor.
+
+    The node-root /tmp is not a Slurm resource (TmpDisk=0), so tasks are not
+    charged a worst-case private reservation. Every participant joins the
+    node ledger, waits a bounded time for admission headroom, keeps the
+    per-file and live-handle bounds, and a floor monitor stops the largest
+    participant before free space falls below the reserve.
+    """
+    required = {"schema", "directory", "admission_free_bytes",
+                "maximum_file_bytes", "maximum_live_handles", "reserve_bytes",
+                "hard_floor_bytes", "admission_wait_seconds",
+                "admission_poll_seconds", "floor_poll_seconds",
+                "ledger_directory", "ledger_slot_prefix", "ledger_slots"}
+    if set(contract) != required:
+        raise RuntimeError("anonymous scratch capacity fields differ from contract")
+    if contract["directory"] != "/tmp":
+        raise RuntimeError("capacity-controlled anonymous scratch requires /tmp")
+    for name in required - {"schema", "directory", "ledger_directory",
+                            "ledger_slot_prefix"}:
+        value = contract[name]
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise RuntimeError("anonymous scratch capacity values must be positive integers")
+    if (contract["admission_free_bytes"] <
+            contract["reserve_bytes"] + contract["maximum_file_bytes"]):
+        raise RuntimeError("shared-floor admission does not cover one maximal file above the reserve")
+    if contract["hard_floor_bytes"] >= contract["reserve_bytes"]:
+        raise RuntimeError("shared-floor hard floor must lie below the reserve")
+    if (contract["admission_poll_seconds"] > contract["admission_wait_seconds"] or
+            contract["ledger_slots"] > 256):
+        raise RuntimeError("shared-floor admission or ledger bounds are invalid")
+    if (contract["ledger_directory"] != f"/tmp/tactix-sat-solving-{os.getuid()}" or
+            contract["ledger_slot_prefix"] != "fixed44-scratch-ledger-slot-"):
+        raise RuntimeError("shared-floor ledger identity differs from contract")
+    if manifest.get("scratch_policy") != "anonymous-local-files-v1":
+        raise RuntimeError("scratch capacity requires anonymous local files")
+    if manifest.get("gf2_telemetry") is not None:
+        raise RuntimeError("scratch capacity forbids retained telemetry")
+    if manifest.get("failed_proof_retention") is not None:
+        raise RuntimeError("scratch capacity forbids failed-proof retention")
+    resource_contract = manifest.get("resource_contract", {})
+    if resource_contract.get("scratch_isolation") != SHARED_FLOOR_ISOLATION:
+        raise RuntimeError("scratch capacity isolation differs from contract")
+    if (resource_contract.get("partition") != "cpu-q" or
+            resource_contract.get("cpus_per_task") != 4 or
+            resource_contract.get("memory_mib") != 32768):
+        raise RuntimeError("shared-floor scratch requires ordinary cpu-q 4/32 tasks")
+    wall = resource_contract.get("scheduler_wall_seconds")
+    if (wall is not None and
+            wall < resource_contract.get("solve_timeout", 0) +
+            resource_contract.get("checker_timeout", 0) +
+            contract["admission_wait_seconds"]):
+        raise RuntimeError("scheduler wall does not cover the admission wait")
+    return contract
+
+
+SCRATCH_FLOOR_TRIGGER = {}
+
+
+def scratch_floor_signal(_signal, _frame):
+    # Armed only between monitor start and cleanup; a late delivery is ignored.
+    details = SCRATCH_FLOOR_TRIGGER.pop("details", None)
+    if details is not None:
+        raise ScratchCapacityError("scratch_enospc", stage="runtime", **details)
+
+
+def request_scratch_floor_stop(details):
+    """Monitor-thread callback: interrupt the main thread exactly once."""
+    SCRATCH_FLOOR_TRIGGER["details"] = details
+    # Thread-directed, so measured() can keep it pending around Popen.
+    signal.pthread_kill(threading.main_thread().ident, signal.SIGUSR1)
+
+
 def scratch_file_limit_signal(_signal, _frame):
     raise ScratchCapacityError("scratch_file_limit", stage="runtime")
 
@@ -184,7 +268,7 @@ def scratch_resource_reason(error):
 def scratch_incomplete(reason, details=None):
     completion = {
         "status": "incomplete", "reason": reason, "details": details or {}}
-    if reason == "scratch_node_busy":
+    if reason == "scratch_node_busy" or (details or {}).get("retryable") is True:
         completion["retryable"] = True
     return completion
 
@@ -315,7 +399,8 @@ def measured(command, stdout, stderr, metrics, timeout, environment=None):
             # Keep the process handle available before a pending wall alarm
             # can raise. Children restore the original mask, so checker-native
             # signals retain their normal behavior.
-            mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+            mask = signal.pthread_sigmask(signal.SIG_BLOCK,
+                                            {signal.SIGALRM, signal.SIGUSR1})
             try:
                 process = subprocess.Popen(
                     wrapped, stdout=out, stderr=err,
@@ -1104,6 +1189,10 @@ def main():
                   "proof.dsr" if certificate == "dsr" else "proof.drat")
     scratch = None
     previous_xfsz_handler = None
+    previous_floor_handler = None
+    scratch_ledger = None
+    floor_monitor = None
+    shared_admission = None
     result = None
     preflight_payload = None
     retained_proof = None
@@ -1117,11 +1206,14 @@ def main():
             # User-authorized node-local scratch. The repository filesystem
             # does not support O_TMPFILE; never fall back to named files.
             options = {}
+            shared_floor = (capacity_contract is not None and
+                            capacity_contract["schema"] ==
+                            SHARED_FLOOR_CAPACITY_SCHEMA)
             if capacity_contract is not None:
                 effective_memory_limit = None
                 cgroup_memory_limits = None
                 if (capacity_contract["schema"] ==
-                        "tactix-anonymous-scratch-capacity-v2"):
+                        "tactix-anonymous-scratch-capacity-v2" or shared_floor):
                     effective_memory_limit, cgroup_memory_limits = (
                         effective_cgroup_memory_limit())
                 if (os.environ.get("TMPDIR") != capacity_contract["directory"] or
@@ -1140,14 +1232,14 @@ def main():
                         cpu_affinity=sorted(os.sched_getaffinity(0)),
                         effective_memory_limit_bytes=effective_memory_limit,
                         cgroup_memory_limits=cgroup_memory_limits)
-                if (capacity_contract["schema"] ==
-                        "tactix-anonymous-scratch-capacity-v2" and
+                if ((capacity_contract["schema"] ==
+                        "tactix-anonymous-scratch-capacity-v2" or shared_floor) and
                         effective_memory_limit is None):
                     raise ScratchCapacityError(
                         "scratch_admission", stage="environment",
                         effective_memory_limit_bytes=None,
                         cgroup_memory_limits=cgroup_memory_limits)
-                options = dict(
+                options = {} if shared_floor else dict(
                     minimum_free_bytes=capacity_contract["minimum_free_bytes"],
                     maximum_file_bytes=capacity_contract["maximum_file_bytes"],
                     maximum_live_handles=capacity_contract["maximum_live_handles"])
@@ -1160,9 +1252,35 @@ def main():
                             "cooperative_lock_name"])
                 previous_xfsz_handler = signal.getsignal(signal.SIGXFSZ)
                 signal.signal(signal.SIGXFSZ, scratch_file_limit_signal)
-            scratch = AnonymousScratch(
-                capacity_contract["directory"] if capacity_contract else "/tmp",
-                **options)
+            if shared_floor:
+                from anonymous_scratch import (ScratchFloorMonitor,
+                                               admit_shared_scratch)
+                SCRATCH_FLOOR_TRIGGER.clear()
+                previous_floor_handler = signal.getsignal(signal.SIGUSR1)
+                signal.signal(signal.SIGUSR1, scratch_floor_signal)
+                scratch, scratch_ledger, shared_admission = admit_shared_scratch(
+                    capacity_contract["directory"],
+                    admission_free_bytes=capacity_contract["admission_free_bytes"],
+                    maximum_file_bytes=capacity_contract["maximum_file_bytes"],
+                    maximum_live_handles=capacity_contract["maximum_live_handles"],
+                    ledger_directory=capacity_contract["ledger_directory"],
+                    ledger_slot_prefix=capacity_contract["ledger_slot_prefix"],
+                    ledger_slots=capacity_contract["ledger_slots"],
+                    admission_wait_seconds=capacity_contract["admission_wait_seconds"],
+                    admission_poll_seconds=capacity_contract["admission_poll_seconds"],
+                    identity=f'{os.environ.get("SLURM_JOB_ID")}/{task}')
+                floor_monitor = ScratchFloorMonitor(
+                    scratch, scratch_ledger,
+                    directory=capacity_contract["directory"],
+                    reserve_bytes=capacity_contract["reserve_bytes"],
+                    hard_floor_bytes=capacity_contract["hard_floor_bytes"],
+                    poll_seconds=capacity_contract["floor_poll_seconds"],
+                    on_trigger=request_scratch_floor_stop)
+                floor_monitor.start()
+            else:
+                scratch = AnonymousScratch(
+                    capacity_contract["directory"] if capacity_contract else "/tmp",
+                    **options)
         else:
             scratch = Path(tempfile.mkdtemp(
                 prefix=f"tactix-runtime-{task:03d}-", dir=scratch_root))
@@ -1355,11 +1473,21 @@ def main():
             result["completion"] = scratch_incomplete(
                 scratch_reason, getattr(error, "scratch_details", {}))
     finally:
+        if floor_monitor is not None:
+            floor_monitor.stop()
+        SCRATCH_FLOOR_TRIGGER.clear()
         if anonymous and scratch is not None:
             resource_status = scratch.resource_status()
             scratch.close()
+            if resource_status is not None and floor_monitor is not None:
+                resource_status["shared_floor"] = dict(
+                    admission=shared_admission, monitor=floor_monitor.status())
             if resource_status is not None and result is not None:
                 result["scratch_resources"] = resource_status
+        if scratch_ledger is not None:
+            scratch_ledger.close()
+        if previous_floor_handler is not None:
+            signal.signal(signal.SIGUSR1, previous_floor_handler)
         elif scratch is not None:
             shutil.rmtree(scratch, ignore_errors=True)
         if previous_xfsz_handler is not None:

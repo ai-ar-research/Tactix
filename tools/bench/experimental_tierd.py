@@ -89,6 +89,35 @@ FIXED44_COOPERATIVE_SCRATCH_CAPACITY={
     'cooperative_lock_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
     'cooperative_lock_name':'fixed44-managed-scratch.lock',
 }
+# Shared-floor profile: /tmp is the node root filesystem and Slurm advertises
+# TmpDisk=0, so scratch cannot be scheduled. Instead of charging every task the
+# 360 GB worst case (one task per node), co-located tasks share /tmp: each
+# admits with one maximal file above the reserve, keeps the per-file and
+# handle bounds, and a floor monitor stops the largest participant before free
+# space falls below the reserve (all participants below the hard floor).
+FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY={
+    'schema':'tactix-anonymous-scratch-capacity-v3',
+    'directory':'/tmp',
+    'admission_free_bytes':100_000_000_000,
+    'maximum_file_bytes':60_000_000_000,
+    'maximum_live_handles':6,
+    'reserve_bytes':40_000_000_000,
+    'hard_floor_bytes':20_000_000_000,
+    'admission_wait_seconds':300,
+    'admission_poll_seconds':15,
+    'floor_poll_seconds':1,
+    'ledger_directory':f'/tmp/tactix-sat-solving-{os.getuid()}',
+    'ledger_slot_prefix':'fixed44-scratch-ledger-slot-',
+    'ledger_slots':64,
+}
+FIXED44_SHARED_FLOOR_RESOURCE_PROFILE={
+    'schema':'tactix-fixed44-shared-floor-isolation-v1',
+    'participant_scope':'same-user-repository-profile',
+    'task_cpus':4,
+    'task_memory_mib':32768,
+}
+SCRATCH_CAPACITY_PROFILES=('fixed44-whole-memory-v2','fixed44-cooperative-v1',
+                           'fixed44-shared-floor-v1')
 FIXED44_SELECTION={
     'path':'benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv',
     'sha256':'74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333',
@@ -193,7 +222,7 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
 def selected_scratch_capacity(a, selection_authority, rows):
     profile=getattr(a,'scratch_capacity_profile',None)
     if profile is None:return None
-    if profile not in ('fixed44-whole-memory-v2', 'fixed44-cooperative-v1'):
+    if profile not in SCRATCH_CAPACITY_PROFILES:
         raise ValueError('unsupported scratch capacity profile')
     if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
             a.cpus_per_task!=4 or a.partition!='cpu-q' or
@@ -201,6 +230,8 @@ def selected_scratch_capacity(a, selection_authority, rows):
         raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and automatic proof')
     if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
         raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
+    if profile=='fixed44-shared-floor-v1':
+        return dict(FIXED44_SHARED_FLOOR_SCRATCH_CAPACITY)
     return dict(FIXED44_COOPERATIVE_SCRATCH_CAPACITY
                 if profile=='fixed44-cooperative-v1'
                 else FIXED44_SCRATCH_CAPACITY)
@@ -209,6 +240,8 @@ def selected_scratch_resources(profile):
     if profile is None:return None
     if profile=='fixed44-cooperative-v1':
         return dict(FIXED44_COOPERATIVE_RESOURCE_PROFILE)
+    if profile=='fixed44-shared-floor-v1':
+        return dict(FIXED44_SHARED_FLOOR_RESOURCE_PROFILE)
     if profile!='fixed44-whole-memory-v2':
         raise ValueError('unsupported scratch capacity profile')
     return dict(FIXED44_RESOURCE_PROFILE)
@@ -329,7 +362,9 @@ def prepare(a):
 #SBATCH --no-requeue
 #SBATCH --output={c}/logs/%x-%A_%a.log
 '''
-    wall=scheduler_wall_seconds(a.solve_timeout,a.checker_timeout)
+    # A bounded in-task admission wait is outside the solve and proof allowances.
+    wall=scheduler_wall_seconds(
+        a.solve_timeout,a.checker_timeout+((scratch_capacity or {}).get('admission_wait_seconds') or 0))
     capacity_environment=('export TMPDIR=/tmp\nexport PYTHONDONTWRITEBYTECODE=1\n'
                           if capacity_profile else '')
     runtime_prefix=' '.join(scratch_srun_prefix(capacity_resources))
@@ -388,6 +423,17 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                 '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
                 'and permits at most six simultaneously live anonymous files, preserving a '
                 'declared 40000000000-byte reserve for managed scratch.')
+        elif capacity_profile=='fixed44-shared-floor-v1':
+            m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
+                'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step. Co-located '
+                'tasks share node /tmp: each holds one locked slot of a fixed private node ledger '
+                '(bounded metadata only), waits at most 300 seconds for 100000000000 available '
+                'bytes, inherits a 60000000000-byte per-file limit, and permits at most six '
+                'simultaneously live anonymous files. A one-second floor monitor stops the '
+                'participant with the most accounted anonymous bytes when available space falls '
+                'below 40000000000 bytes, and every participant below 20000000000 bytes. Such a '
+                'stop, an admission timeout, or ENOSPC is retryable incomplete infrastructure '
+                'evidence.')
         else:
             m['cleanup_contract'] += (' Each ordinary four-CPU, 32768-MiB cpu-q allocation runs '
                 'the solver/checker in an exact four-CPU, 32768-MiB Slurm task step and takes the '
@@ -448,8 +494,7 @@ if __name__=='__main__':
     p.add_argument('--dsr-transport',type=Path)
     p.add_argument('--dsr-checker-profile',choices=['frozen','long64','long64-fixed'],default='frozen',
                    help='immutable DSR elaborator/compressor pins; long64 is the historical audited LONGTYPE build, while long64-fixed selects its source-backed deleted-clause correction; both retain independent Trestle verification')
-    p.add_argument('--scratch-capacity-profile',choices=[
-        'fixed44-whole-memory-v2','fixed44-cooperative-v1'],
+    p.add_argument('--scratch-capacity-profile',choices=list(SCRATCH_CAPACITY_PROFILES),
                    help='opt-in fixed-44 whole-memory allocation, bounded task step, and anonymous-file bounds')
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
