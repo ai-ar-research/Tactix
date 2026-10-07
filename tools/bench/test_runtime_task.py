@@ -42,12 +42,18 @@ class RuntimeTaskTests(unittest.TestCase):
             'maximum_live_handles': 6, 'reserve_bytes': 40_000_000_000,
         }
         manifest = {'scratch_policy': 'anonymous-local-files-v1',
-                    'resource_contract': {'exclusive_node': True},
+                    'resource_contract': {'scratch_isolation': {
+                        'schema': 'tactix-fixed44-schedulable-memory-isolation-v1',
+                        'outer_allocation_cpus': 52,
+                        'outer_allocation_memory': 'all',
+                        'inner_step_cpus': 4,
+                        'inner_step_memory_mib': 32768,
+                    }},
                     'anonymous_scratch_capacity': contract}
         self.assertEqual(scratch_capacity_contract(manifest), contract)
         self.assertIsNone(scratch_capacity_contract({}))
         for changed, message in (
-                ({**manifest, 'resource_contract': {}}, 'exclusive-node'),
+                ({**manifest, 'resource_contract': {}}, 'whole-memory'),
                 ({**manifest, 'gf2_telemetry': {}}, 'telemetry'),
                 ({**manifest, 'failed_proof_retention': {}}, 'retention'),
                 ({**manifest, 'anonymous_scratch_capacity': {
@@ -161,17 +167,25 @@ with tempfile.TemporaryDirectory() as tmp:
                     },
                     'resource_contract': {'solve_timeout': 10,
                                           'checker_timeout': 10,
-                                          'exclusive_node': True},
+                                          'scratch_isolation': {
+                        'schema': 'tactix-fixed44-schedulable-memory-isolation-v1',
+                        'outer_allocation_cpus': 52,
+                        'outer_allocation_memory': 'all',
+                        'inner_step_cpus': 4,
+                        'inner_step_memory_mib': 32768}},
                 }
                 (campaign/'manifest.json').write_text(json.dumps(manifest))
                 (campaign/'matrix.tsv').write_text(
                     'task\trank\tarm\ttier\tinstance\texpected\n'
                     f'0\t1\ttactix\tD\t{instance}\tUNKNOWN\n')
-                environment = dict(os.environ, SLURM_JOB_ID='unit', TMPDIR='/tmp',
+                environment = dict(os.environ, SLURM_JOB_ID='unit',
+                                   SLURM_CPUS_PER_TASK='4', TMPDIR='/tmp',
                                    PYTHONDONTWRITEBYTECODE='1',
                                    PYTHONPATH=str(Path(__file__).parent))
+                affinity = sorted(os.sched_getaffinity(0))[:4]
                 completed = subprocess.run(
-                    [sys.executable, runtime, campaign, '0'], env=environment,
+                    ['taskset', '-c', ','.join(map(str, affinity)),
+                     sys.executable, runtime, campaign, '0'], env=environment,
                     capture_output=True, text=True, timeout=15)
                 self.assertEqual(completed.returncode, 1, completed.stderr)
                 result = json.loads((campaign/'results/000.json').read_text())
