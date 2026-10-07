@@ -41,25 +41,17 @@ struct RootImagePlan {
 };
 enum class RootImageStatus { Prepared, NoStructure, Invalid, ResourceExhausted,
                              Interrupted, UncertifiedRoot };
-// Sources are an immutable authenticated checker-premise view, including any
-// existing unit premises. A zero native ID is accepted only for an authenticated
-// non-exact binary presence or a one-literal RootUnit presence; RootUnit stream
-// binding and actual physical-source liveness are the live caller's obligation.
-// No sentinel is promoted to an exact proof ID. Prospective units or assignment values must never
-// be inserted into this view as if already authenticated. Each requested
-// root fact must independently be RUP
-// against this full view; native assignment values alone are never evidence.
-// Every shortened residual is separately RUP checked before recognition.
-// Recognition is scope-local: image contains authenticated equations; global
-// elimination/consequences belong to the consuming AffineMatrix service.
-// This prepares a certificate only: it does not publish, lease or mutate a
-// Kernel. Live integration must revalidate physical identities and commit
-// certified units/residuals with fresh proof IDs in one shared transaction.
-// On every outcome other than Prepared, output remains unchanged. Optional
-// completed census commits on Prepared or fully completed NoStructure only.
-// Admitted exact populations are excluded; unresolved scopes retry only when
-// their exact normalized body multiset changes. Census is nomination metadata,
-// never proof authority. Both input and output census memory share maximum_bytes.
+// Immutable checker premises only; prospective assignments are never premises.
+// Zero IDs represent authenticated non-exact binaries or RootUnits only; the
+// caller checks stream/physical identity and never promotes a sentinel ID.
+// Each root fact and shortened residual must be RUP against the complete view.
+// Recognition is scope-local; this helper never publishes or mutates a Kernel.
+// Live integration atomically revalidates/leases premises and uses fresh IDs.
+// Non-Prepared outcomes leave output unchanged; completed census commits only
+// on Prepared or completed NoStructure. Census is nomination, not proof.
+// Admitted populations are excluded; unresolved scopes retry on exact body
+// changes. Input/output census memory shares maximum_bytes. Lifecycle and
+// certification obligations: docs/calculus.md, docs/implementation-notes.md.
 RootImageStatus prepare_affine_root_image(
     const std::vector<AffineLiveSource> &sources,
     const std::vector<External> &requested_root_facts,
