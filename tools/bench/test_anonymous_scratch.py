@@ -5,6 +5,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 import anonymous_scratch
@@ -75,6 +76,98 @@ class ScratchTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'cannot be reopened'):
                 s/'artifact'
             s.close()
+
+    def test_capacity_admission_fails_before_opening_an_artifact(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(os, 'statvfs', return_value=SimpleNamespace(
+                 f_bavail=399, f_frsize=1)), \
+             mock.patch.object(os, 'open') as opened:
+            with self.assertRaisesRegex(RuntimeError, 'scratch_admission') as caught:
+                AnonymousScratch(
+                    tmp, minimum_free_bytes=400, maximum_file_bytes=60,
+                    maximum_live_handles=6)
+            self.assertEqual(caught.exception.scratch_reason,
+                             'scratch_admission')
+            opened.assert_not_called()
+
+    def test_capacity_admission_accepts_exact_available_boundary(self):
+        import resource
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(os, 'statvfs', return_value=SimpleNamespace(
+                 f_bavail=400, f_frsize=1)), \
+             mock.patch.object(resource, 'getrlimit', side_effect=[
+                 (resource.RLIM_INFINITY, resource.RLIM_INFINITY),
+                 (60, 60), (60, 60)]), \
+             mock.patch.object(resource, 'setrlimit'):
+            scratch = AnonymousScratch(
+                tmp, minimum_free_bytes=400, maximum_file_bytes=60,
+                maximum_live_handles=6)
+            self.assertEqual(scratch.resource_status()['available_bytes'], 400)
+            scratch.close()
+
+    def test_handle_cap_is_atomic_and_release_preserves_high_water(self):
+        import resource
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(resource, 'getrlimit', side_effect=[
+                 (resource.RLIM_INFINITY, resource.RLIM_INFINITY),
+                 (1024, 1024), (1024, 1024)]), \
+             mock.patch.object(resource, 'setrlimit'):
+            s = AnonymousScratch(
+                tmp, minimum_free_bytes=1, maximum_file_bytes=1024,
+                maximum_live_handles=2)
+            first, second = s/'first', s/'second'
+            with self.assertRaisesRegex(RuntimeError, 'scratch_handle_limit'):
+                s/'third'
+            self.assertEqual(set(s.handles), {'first', 'second'})
+            self.assertTrue(s.release('first'))
+            third = s/'third'
+            self.assertTrue(second.exists() and third.exists())
+            status = s.resource_status()
+            self.assertEqual(status['high_water_handles'], 2)
+            self.assertEqual(status['active_handles'], 2)
+            with self.assertRaisesRegex(RuntimeError, 'cannot be reopened'):
+                s/'first'
+            s.close()
+
+    def test_repeated_stage_names_use_distinct_tombstoned_generations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = AnonymousScratch(tmp)
+            first_name = s.fresh_name('stage.stdout')
+            first = s/first_name
+            first.write_bytes(b'old')
+            self.assertTrue(s.release(first_name))
+            second_name = s.fresh_name('stage.stdout')
+            second = s/second_name
+            second.write_bytes(b'new')
+            self.assertNotEqual(first_name, second_name)
+            # The kernel may reuse the descriptor, so the stale proc path can
+            # alias this generation. Only its distinct logical name is valid.
+            self.assertFalse(s.release(first_name))
+            self.assertEqual(second.read_bytes(), b'new')
+            s.close()
+
+    def test_file_limit_is_exact_and_inherited_by_children(self):
+        script = r'''import os, resource, signal, subprocess, sys, tempfile
+from anonymous_scratch import AnonymousScratch
+with tempfile.TemporaryDirectory() as tmp:
+ s=AnonymousScratch(tmp,minimum_free_bytes=1,maximum_file_bytes=4096,maximum_live_handles=2)
+ assert resource.getrlimit(resource.RLIMIT_FSIZE)==(4096,4096)
+ p=s/'parent-bounded';p.write_bytes(b'x'*4096);assert p.stat().st_size==4096;s.release('parent-bounded')
+ p=s/'bounded'
+ writer='import os,resource,sys;assert resource.getrlimit(resource.RLIMIT_FSIZE)==(4096,4096);n=int(sys.argv[2]);fd=os.open(sys.argv[1],os.O_WRONLY);os.write(fd,b"x"*min(n,4096));n>4096 and os.write(fd,b"x"*(n-4096));os.close(fd)'
+ assert subprocess.run([sys.executable,'-c',writer,str(p),'4096']).returncode==0
+ assert p.stat().st_size==4096
+ s.release('bounded')
+ q=s/'over'
+ failed=subprocess.run([sys.executable,'-c',writer,str(q),'4097'])
+ assert failed.returncode!=0,failed.returncode
+ s.close()
+'''
+        environment = dict(os.environ, PYTHONPATH=str(Path(__file__).parent))
+        completed = subprocess.run(
+            [sys.executable, '-c', script], env=environment,
+            capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_abnormal_exit(self):
         for mode in ['crash','timeout','term','kill']:

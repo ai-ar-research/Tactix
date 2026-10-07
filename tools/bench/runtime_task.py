@@ -4,6 +4,7 @@
 from collections import deque
 import csv
 import datetime as dt
+import errno
 import hashlib
 import json
 import os
@@ -20,7 +21,9 @@ from contextlib import contextmanager
 
 from proof_oracle import (bridge_trivial_input_binary_lsr,
                           bridge_trivial_input_lsr, dsr_compress_status,
-                          proof_check_status, routed_dsr_stages,
+                          proof_check_status, dsr_proof_is_binary,
+                          routed_dsr_trim_stage, routed_dsr_compress_stage,
+                          routed_dsr_check_stage,
                           certificate_route, dsr_proof_as_drat, drat_stages,
                           pb_stages, stage_environment,
                           canonical_checker_cnf, bridge_trivial_input_lrat,
@@ -35,6 +38,15 @@ ROOT = None
 
 class ProofPipelineDeadline(TimeoutError):
     """The one whole-pipeline wall allowance expired."""
+
+
+class ScratchCapacityError(RuntimeError):
+    """A declared scratch limit stopped a task before checked completion."""
+
+    def __init__(self, reason, **details):
+        super().__init__(reason)
+        self.scratch_reason = reason
+        self.scratch_details = details
 
 
 def proof_deadline_signal(_signal, _frame):
@@ -89,6 +101,42 @@ def checker_timeout_for(manifest, instance):
     return min(timeout, value)
 
 
+def scratch_capacity_contract(manifest):
+    contract = manifest.get("anonymous_scratch_capacity")
+    if contract is None:
+        return None
+    required = {"schema", "directory", "minimum_free_bytes",
+                "maximum_file_bytes", "maximum_live_handles", "reserve_bytes"}
+    if set(contract) != required:
+        raise RuntimeError("anonymous scratch capacity fields differ from contract")
+    if contract["schema"] != "tactix-anonymous-scratch-capacity-v1":
+        raise RuntimeError("unsupported anonymous scratch capacity schema")
+    if contract["directory"] != "/tmp":
+        raise RuntimeError("capacity-controlled anonymous scratch requires /tmp")
+    for name in ("minimum_free_bytes", "maximum_file_bytes",
+                 "maximum_live_handles", "reserve_bytes"):
+        value = contract[name]
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise RuntimeError("anonymous scratch capacity values must be positive integers")
+    managed = contract["maximum_file_bytes"] * contract["maximum_live_handles"]
+    if managed + contract["reserve_bytes"] > contract["minimum_free_bytes"]:
+        raise RuntimeError("anonymous scratch capacity does not preserve its reserve")
+    if manifest.get("scratch_policy") != "anonymous-local-files-v1":
+        raise RuntimeError("scratch capacity requires anonymous local files")
+    if manifest.get("gf2_telemetry") is not None:
+        raise RuntimeError("scratch capacity forbids retained telemetry")
+    if manifest.get("failed_proof_retention") is not None:
+        raise RuntimeError("scratch capacity forbids failed-proof retention")
+    resource_contract = manifest.get("resource_contract", {})
+    if resource_contract.get("exclusive_node") is not True:
+        raise RuntimeError("scratch capacity requires an exclusive-node job")
+    return contract
+
+
+def scratch_file_limit_signal(_signal, _frame):
+    raise ScratchCapacityError("scratch_file_limit", stage="runtime")
+
+
 def solver_command(binary, arm, cnf, proof, instrumentation=()):
     before = arm.get("arguments", [])
     after = arm.get("trailing_arguments", [])
@@ -110,6 +158,9 @@ def sha256(path):
 def process_group(signal_mask=None):
     if signal_mask is not None:
         signal.pthread_sigmask(signal.SIG_SETMASK, signal_mask)
+    # Python ignores SIGXFSZ by default. External solver/checker processes
+    # must instead receive the inherited RLIMIT_FSIZE as its normal signal.
+    signal.signal(signal.SIGXFSZ, signal.SIG_DFL)
     os.setsid()
 
 
@@ -215,13 +266,32 @@ def measured(command, stdout, stderr, metrics, timeout, environment=None):
         peak_rss_kb = int(match.group(1)) if match else None
     except OSError:
         pass
-    return {
+    result = {
         "exit_code": exit_code,
         "wall_seconds": round(time.monotonic() - started, 3),
         "peak_rss_kb": peak_rss_kb,
         "sampled_process_vm_peak_kb": vm_peak[0] or None,
         "timed_out": timed_out,
     }
+    try:
+        with open(stderr, "rb") as source:
+            source.seek(0, os.SEEK_END)
+            size = source.tell()
+            source.seek(max(0, size - 4096), os.SEEK_SET)
+            resource_stderr = source.read(4096).decode(errors="replace")
+    except OSError:
+        resource_stderr = ""
+    file_limit = (exit_code in (-signal.SIGXFSZ, 128 + signal.SIGXFSZ) or
+                  "File too large" in resource_stderr or
+                  "File size limit exceeded" in resource_stderr or
+                  "Command terminated by signal 25" in resource_stderr)
+    if file_limit:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        result["resource_limit"] = "file_size"
+    return result
 
 
 def tail(path, count=40):
@@ -564,14 +634,29 @@ def release_scratch(scratch, *names):
         release(name)
 
 
+def fresh_scratch_name(scratch, name):
+    """Use generation-safe names when an anonymous stage runs more than once."""
+    fresh = getattr(scratch, "fresh_name", None)
+    return fresh(name) if fresh is not None else name
+
+
 def proof_stage(scratch, name, command, timeout, produced=None,
                 *, input_has_empty_clause=None, trivial_lrat_spelling=None):
     """Run one proof stage and require its exact oracle/output contract."""
-    stdout = scratch / f"{name}.stdout"
-    stderr = scratch / f"{name}.stderr"
+    try:
+        stdout_name = fresh_scratch_name(scratch, f"{name}.stdout")
+        stderr_name = fresh_scratch_name(scratch, f"{name}.stderr")
+        metrics_name = fresh_scratch_name(scratch, f"{name}.time")
+        stdout = scratch / stdout_name
+        stderr = scratch / stderr_name
+        metrics = scratch / metrics_name
+    except Exception as error:
+        if getattr(error, "scratch_reason", None) is not None:
+            error.scratch_details.setdefault("stage", name)
+        raise
     if name == 'drat-trim':
         command = drat_command_with_timeout(command, timeout)
-    result = measured(command, stdout, stderr, scratch / f"{name}.time", timeout,
+    result = measured(command, stdout, stderr, metrics, timeout,
                       environment=stage_environment(name))
     output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
     if name not in ("drat-trim", "dsr-trim", "dsr-compress", "srcheck",
@@ -594,7 +679,10 @@ def proof_stage(scratch, name, command, timeout, produced=None,
         result["produced_bytes"] = (
             produced.stat().st_size if produced.is_file() else None
         )
-    release_scratch(scratch, f"{name}.stdout", f"{name}.stderr", f"{name}.time")
+    release_scratch(scratch, stdout_name, stderr_name, metrics_name)
+    if result.get("resource_limit") == "file_size":
+        raise ScratchCapacityError(
+            "scratch_file_limit", stage=name, measurement=result)
     return result
 
 
@@ -632,6 +720,34 @@ def check_unsat_proof(campaign, certificate, cnf, proof, scratch, timeout,
                     exit_code=None, timed_out=not prior_failure,
                     deadline_expired=True, timeout_seconds=timeout,
                     output_tail=stages[-1]['output_tail'], stages=stages)
+    except Exception as error:
+        if getattr(error, 'scratch_reason', None) is None:
+            raise
+        # Keep every completed checker stage and the interrupted stage's
+        # measurement. The outer result remains invalid and explicitly
+        # incomplete, but the already-finished solver/checker evidence is not
+        # replaced by a generic infrastructure record.
+        completed = [dict(stage) for stage in stages]
+        interrupted = error.scratch_details.get('measurement')
+        if interrupted is not None:
+            interrupted = dict(interrupted, result='incomplete')
+            completed.append(interrupted)
+        elif error.scratch_details.get('stage') is not None:
+            completed.append({
+                'name': error.scratch_details['stage'],
+                'result': 'incomplete',
+                'exit_code': None,
+                'timed_out': False,
+                'output_tail': str(error),
+            })
+        error.scratch_details['proof_check'] = {
+            'pipeline': 'resource-interrupted',
+            'solver_reported_route': reported_route,
+            'result': 'incomplete',
+            'wall_seconds': round(time.monotonic() - started, 3),
+            'stages': completed,
+        }
+        raise
     finally:
         if release_intermediates:
             release_scratch(
@@ -660,28 +776,43 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
 
     def append_canonical_dsr():
         # Witnessed SR requires no-option DSR elaboration and Trestle.
-        binary_lsr = scratch / 'proof.binary.lsr'
-        text_lsr = scratch / 'proof.lsr'
-        commands = list(routed_dsr_stages(
-                campaign / 'pins/dsr-trim', campaign / 'pins/dsr-compress',
-                campaign / 'pins/srcheck', cnf, proof, binary_lsr, text_lsr,
-                checker_cnf=checker_cnf, witness_free=False))
+        binary = dsr_proof_is_binary(proof)
+        trim_output_name = 'proof.binary.lsr' if binary else 'proof.lsr'
+        trim_output = scratch / trim_output_name
+        name, command = routed_dsr_trim_stage(
+            campaign / 'pins/dsr-trim', cnf, proof, trim_output,
+            checker_cnf=checker_cnf)
         if release_intermediates:
             release_scratch(scratch, cnf_scratch_name)
-        for name, command in commands:
-            made = command[-1] if name in ('dsr-trim', 'dsr-compress') else None
-            stages.append(proof_stage(scratch, name, command, remaining(), made))
+        stages.append(proof_stage(
+            scratch, name, command, remaining(), trim_output))
+        if stages[-1]['result'] != 'verified':
+            return
+        (bridge_trivial_input_binary_lsr if binary
+         else bridge_trivial_input_lsr)(checker_cnf, trim_output)
+        if release_intermediates and not retain_original_proof:
+            release_scratch(scratch, proof_scratch_name)
+
+        text_lsr = trim_output
+        if binary:
+            # Allocate text LSR only after trim and original-proof release.
+            # This keeps the witnessed route within the six-handle contract.
+            text_lsr = scratch / 'proof.lsr'
+            name, command = routed_dsr_compress_stage(
+                campaign / 'pins/dsr-compress', trim_output, text_lsr)
+            stages.append(proof_stage(
+                scratch, name, command, remaining(), text_lsr))
             if stages[-1]['result'] != 'verified':
-                break
-            if name == 'dsr-trim':
-                (bridge_trivial_input_binary_lsr if made == binary_lsr
-                 else bridge_trivial_input_lsr)(checker_cnf, made)
-                if release_intermediates and not retain_original_proof:
-                    release_scratch(scratch, proof_scratch_name)
-            elif name == 'dsr-compress' and release_intermediates:
-                release_scratch(scratch, 'proof.binary.lsr')
-            elif name == 'srcheck' and release_intermediates:
-                release_scratch(scratch, 'proof.lsr')
+                return
+            if release_intermediates:
+                release_scratch(scratch, trim_output_name)
+
+        name, command = routed_dsr_check_stage(
+            campaign / 'pins/srcheck', cnf, text_lsr,
+            checker_cnf=checker_cnf)
+        stages.append(proof_stage(scratch, name, command, remaining()))
+        if stages[-1]['result'] == 'verified' and release_intermediates:
+            release_scratch(scratch, 'proof.lsr')
 
     def append_witness_free_drat():
         # The audited, witness-free DSR stream has a lossless DRAT spelling.
@@ -861,6 +992,7 @@ def main():
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
     telemetry_contract = gf2_telemetry_contract(manifest)
     preflight_contract = causal_preflight_contract(manifest)
+    capacity_contract = scratch_capacity_contract(manifest)
     result_schema = ("tactix-experimental-gf2-runtime-result-v1"
                      if telemetry_contract is not None else
                      "tactix-matched-slurm-memory-regression-result-v2")
@@ -876,21 +1008,11 @@ def main():
             "structural_provenance": telemetry_local / "provenance.jsonl",
         }
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
-    if anonymous:
-        from anonymous_scratch import AnonymousScratch
-        # User-authorized node-local scratch. The repository filesystem does
-        # not support O_TMPFILE; never fall back to named certificate files.
-        scratch = AnonymousScratch("/tmp")
-    else:
-        scratch = Path(tempfile.mkdtemp(prefix=f"tactix-runtime-{task:03d}-",
-                                       dir=scratch_root))
     cnf_name = "input.cnf"
     proof_name = ("proof.out" if certificate == "auto" else
                   "proof.dsr" if certificate == "dsr" else "proof.drat")
-    cnf = scratch / cnf_name
-    proof = scratch / proof_name
-    stdout = scratch / "solver.stdout"
-    stderr = scratch / "solver.stderr"
+    scratch = None
+    previous_xfsz_handler = None
     result = None
     preflight_payload = None
     retained_proof = None
@@ -899,6 +1021,36 @@ def main():
         retention_contract = failed_proof_retention_contract(manifest)
         if retention_contract is not None and certificate != "dsr":
             raise RuntimeError("failed-proof retention requires explicit DSR")
+        if anonymous:
+            from anonymous_scratch import AnonymousScratch
+            # User-authorized node-local scratch. The repository filesystem
+            # does not support O_TMPFILE; never fall back to named files.
+            options = {}
+            if capacity_contract is not None:
+                if (os.environ.get("TMPDIR") != capacity_contract["directory"] or
+                        os.environ.get("PYTHONDONTWRITEBYTECODE") != "1"):
+                    raise ScratchCapacityError(
+                        "scratch_admission", stage="environment",
+                        expected_tmpdir=capacity_contract["directory"],
+                        actual_tmpdir=os.environ.get("TMPDIR"),
+                        python_bytecode_disabled=(
+                            os.environ.get("PYTHONDONTWRITEBYTECODE") == "1"))
+                options = dict(
+                    minimum_free_bytes=capacity_contract["minimum_free_bytes"],
+                    maximum_file_bytes=capacity_contract["maximum_file_bytes"],
+                    maximum_live_handles=capacity_contract["maximum_live_handles"])
+                previous_xfsz_handler = signal.getsignal(signal.SIGXFSZ)
+                signal.signal(signal.SIGXFSZ, scratch_file_limit_signal)
+            scratch = AnonymousScratch(
+                capacity_contract["directory"] if capacity_contract else "/tmp",
+                **options)
+        else:
+            scratch = Path(tempfile.mkdtemp(
+                prefix=f"tactix-runtime-{task:03d}-", dir=scratch_root))
+        cnf = scratch / cnf_name
+        proof = scratch / proof_name
+        stdout = scratch / "solver.stdout"
+        stderr = scratch / "solver.stderr"
         if sha256(compressed) != manifest["input_sha256"][row["instance"]]:
             raise RuntimeError("compressed input hash mismatch")
         with open(cnf, "wb") as target:
@@ -936,6 +1088,9 @@ def main():
                 context["perf_probe"] = {"error": repr(error)}
         solve = measured(command, stdout, stderr,
                          scratch / "solve.time", solve_timeout)
+        if solve.get("resource_limit") == "file_size":
+            raise ScratchCapacityError(
+                "scratch_file_limit", stage="solver", measurement=solve)
         if context is not None:
             context["perf_statistics"] = tail(perf_path, 50)
             context["end"] = runtime_context(affinity)
@@ -1012,6 +1167,10 @@ def main():
             checked = measured([CAMPAIGN / "pins/checkmodel", cnf, stdout],
                                checker_out, checker_err,
                                scratch / "model.time", 600)
+            if checked.get("resource_limit") == "file_size":
+                raise ScratchCapacityError(
+                    "scratch_file_limit", stage="checkmodel",
+                    measurement=checked)
             checked["result"] = (
                 "verified" if checked["exit_code"] == 0 else "not-verified")
             checked["stdout_tail"] = tail(checker_out)
@@ -1051,27 +1210,47 @@ def main():
                     "maximum_bytes": maximum,
                 }
     except Exception as error:
-        result = {
-            "schema": result_schema,
-            "task": task,
-            "rank": int(row["rank"]),
-            "arm": row["arm"],
-            "tier": row["tier"],
-            "instance": row["instance"],
-            "expected": row["expected"],
-            "verdict": "INFRA_ERROR",
-            "valid": False,
-            "error": repr(error),
-            "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
-            "memory_enforcement": "slurm_task_cgroup",
-            "address_space_limit": None,
-            "cleanup_pending": True,
-        }
+        scratch_reason = getattr(error, "scratch_reason", None)
+        if (scratch_reason is None and isinstance(error, OSError) and
+                error.errno == errno.EFBIG):
+            scratch_reason = "scratch_file_limit"
+        if result is None or scratch_reason is None:
+            result = {
+                "schema": result_schema,
+                "task": task,
+                "rank": int(row["rank"]),
+                "arm": row["arm"],
+                "tier": row["tier"],
+                "instance": row["instance"],
+                "expected": row["expected"],
+                "verdict": "INFRA_ERROR",
+                "node": os.environ.get(
+                    "SLURMD_NODENAME", os.uname().nodename),
+                "memory_enforcement": "slurm_task_cgroup",
+                "address_space_limit": None,
+            }
+        result["valid"] = False
+        result["error"] = repr(error)
+        result["cleanup_pending"] = True
+        if scratch_reason is not None:
+            partial = getattr(error, "scratch_details", {}).get("proof_check")
+            if partial is not None:
+                result["proof_check"] = partial
+            result["completion"] = {
+                "status": "incomplete",
+                "reason": scratch_reason,
+                "details": getattr(error, "scratch_details", {}),
+            }
     finally:
-        if anonymous:
+        if anonymous and scratch is not None:
+            resource_status = scratch.resource_status()
             scratch.close()
-        else:
+            if resource_status is not None and result is not None:
+                result["scratch_resources"] = resource_status
+        elif scratch is not None:
             shutil.rmtree(scratch, ignore_errors=True)
+        if previous_xfsz_handler is not None:
+            signal.signal(signal.SIGXFSZ, previous_xfsz_handler)
         if telemetry_local is not None:
             shutil.rmtree(telemetry_local, ignore_errors=True)
     if telemetry_contract is not None and "gf2_telemetry" not in result:
@@ -1092,11 +1271,15 @@ def main():
             "full_telemetry_retained": False,
             "integrity_error": "runtime ended before terminal counters",
         }
-    result["artifact_deleted"] = not scratch.exists() and retained_proof is None
-    result["derived_artifacts_deleted"] = not scratch.exists()
-    result["cleanup_pending"] = (scratch.exists() or retained_proof is not None or
+    scratch_exists = scratch is not None and scratch.exists()
+    result["artifact_deleted"] = not scratch_exists and retained_proof is None
+    result["derived_artifacts_deleted"] = not scratch_exists
+    result["cleanup_pending"] = (scratch_exists or retained_proof is not None or
                                  (telemetry_local is not None and
                                   telemetry_local.exists()))
+    if (capacity_contract is not None and "completion" not in result and
+            "error" not in result):
+        result["completion"] = {"status": "complete"}
     result["finished_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     atomic_json(result_path, result)
     return 0 if result["valid"] and result["artifact_deleted"] else 1

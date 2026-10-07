@@ -44,6 +44,18 @@ MAX_GF2_FEEDBACK_BYTES=512 << 20
 MAX_GF2_FEEDBACK_DECODED_BYTES=8 << 30
 MAX_GF2_FEEDBACK_RECORDS=20_000_000
 MAX_GF2_PROVENANCE_BYTES=256 << 20
+FIXED44_SCRATCH_CAPACITY={
+    'schema':'tactix-anonymous-scratch-capacity-v1',
+    'directory':'/tmp',
+    'minimum_free_bytes':400_000_000_000,
+    'maximum_file_bytes':60_000_000_000,
+    'maximum_live_handles':6,
+    'reserve_bytes':40_000_000_000,
+}
+FIXED44_SELECTION={
+    'path':'benchmarks/reports/2026-10-07-fixed44-successor-campaign-preparation/selection.tsv',
+    'sha256':'74939b00a3395aa21d108d4ab20eb0925f569c1ac2bb501939e01432551a3333',
+}
 
 def sha(p):
     h=hashlib.sha256()
@@ -113,6 +125,19 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
         raise ValueError('causal preflight forbids full trace, feedback, and provenance artifacts')
     return [proof,*extra]
 
+def selected_scratch_capacity(a, selection_authority, rows):
+    profile=getattr(a,'scratch_capacity_profile',None)
+    if profile is None:return None
+    if profile!='fixed44-exclusive-v1':
+        raise ValueError('unsupported scratch capacity profile')
+    if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
+            a.cpus_per_task!=4 or a.partition!='cpu-q' or
+            a.array_throttle is not None or a.certificate!='auto'):
+        raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and automatic proof')
+    if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
+        raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
+    return dict(FIXED44_SCRATCH_CAPACITY)
+
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
     revision=a.binary_source_commit or 'HEAD'
@@ -175,6 +200,8 @@ def prepare(a):
         source_rows.sort(key=lambda row:row['rank'])
     rows=[dict(task=i,**r) for i,r in enumerate(source_rows)]
     assert rows and len({r['instance'] for r in rows})==len(rows)
+    scratch_capacity=selected_scratch_capacity(a,selection_authority,rows)
+    capacity_profile=getattr(a,'scratch_capacity_profile',None)
     inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
     assert set(inputs)=={r['instance'] for r in rows}
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
@@ -211,12 +238,15 @@ def prepare(a):
 #SBATCH --output={c}/logs/%x-%A_%a.log
 '''
     wall=scheduler_wall_seconds(a.solve_timeout,a.checker_timeout)
+    exclusive_directive='#SBATCH --exclusive\n' if capacity_profile else ''
+    capacity_environment=('export TMPDIR=/tmp\nexport PYTHONDONTWRITEBYTECODE=1\n'
+                          if capacity_profile else '')
     (c/'array.sbatch').write_text(common+f'''#SBATCH --job-name=tierd-{commit[:8]}
 #SBATCH --time={slurm_time(wall)}
 #SBATCH --array=0-{len(rows)-1}{f'%{a.array_throttle}' if a.array_throttle else ''}
-set -euo pipefail
+{exclusive_directive}set -euo pipefail
 ulimit -c 0
-exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"
+{capacity_environment}exec python3 {c}/pins/runtime_task.py {c} "$SLURM_ARRAY_TASK_ID"
 ''')
     (c/'validate.sbatch').write_text(common+f'''#SBATCH --job-name=tierd-anonymous-check
 #SBATCH --time=00:05:00
@@ -239,13 +269,23 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
             checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
             array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
-            throttle=a.array_throttle,node_constraint=None),
+            throttle=a.array_throttle,node_constraint=None,
+            **({'exclusive_node':True} if capacity_profile else {})),
         proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
-        caveat='If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.',
+        caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
+                if capacity_profile else
+                'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.'),
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
+    if capacity_profile:
+        m['anonymous_scratch_capacity']=scratch_capacity
+        m['scratch_capacity_profile']=capacity_profile
+        m['cleanup_contract'] += (' Each array task has an exclusive node, admits only with at least '
+            '400000000000 available bytes, inherits a 60000000000-byte per-file limit, '
+            'and permits at most six simultaneously live anonymous files, preserving a '
+            'declared 40000000000-byte reserve for managed scratch.')
     if a.retain_failed_proof:
         m['failed_proof_retention']=dict(
             schema='tactix-failed-proof-retention-v1',
@@ -296,6 +336,8 @@ if __name__=='__main__':
     p.add_argument('--dsr-transport',type=Path)
     p.add_argument('--dsr-checker-profile',choices=['frozen','long64'],default='frozen',
                    help='immutable DSR elaborator/compressor pins; long64 selects the audited upstream LONGTYPE build, with unchanged independent Trestle verification')
+    p.add_argument('--scratch-capacity-profile',choices=['fixed44-exclusive-v1'],
+                   help='opt-in fixed-44 exclusive-node admission and anonymous-file bounds')
     p.add_argument('--binary-source-commit')
     p.add_argument('--partition',default='cpu-q')
     p.add_argument('--cpus-per-task',type=int,default=4)
@@ -341,6 +383,8 @@ if __name__=='__main__':
         p.error('--solver-argument is valid only with --prepare')
     if a.dsr_checker_profile!='frozen' and not a.prepare:
         p.error('--dsr-checker-profile is valid only with --prepare')
+    if a.scratch_capacity_profile is not None and not a.prepare:
+        p.error('--scratch-capacity-profile is valid only with --prepare')
     if not 1 <= a.gf2_feedback_max_bytes <= MAX_GF2_FEEDBACK_BYTES:
         p.error(f'--gf2-feedback-stored-max-bytes must be in 1..{MAX_GF2_FEEDBACK_BYTES}')
     if not 1 <= a.gf2_feedback_decoded_max_bytes <= MAX_GF2_FEEDBACK_DECODED_BYTES:

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -191,6 +192,36 @@ class RuntimeTaskTest(unittest.TestCase):
 
 
 class ExperimentalCheckerProfileTest(unittest.TestCase):
+    def test_fixed44_capacity_profile_is_explicit_and_exclusive(self):
+        import experimental_tierd as builder
+        arguments = SimpleNamespace(
+            scratch_capacity_profile='fixed44-exclusive-v1',
+            cpus_per_task=4, partition='cpu-q', array_throttle=None,
+            certificate='auto', gf2_telemetry=False,
+            retain_failed_proof=False, causal_preflight=False)
+        rows = [dict(task=index) for index in range(44)]
+        selected = builder.selected_scratch_capacity(
+            arguments, builder.FIXED44_SELECTION, rows)
+        self.assertEqual(selected, builder.FIXED44_SCRATCH_CAPACITY)
+        self.assertEqual(
+            selected['maximum_file_bytes'] * selected['maximum_live_handles'] +
+            selected['reserve_bytes'], selected['minimum_free_bytes'])
+        for field, value in (
+                ('cpus_per_task', 5), ('partition', 'cpu-dense-hwulab-q'),
+                ('array_throttle', 1), ('certificate', 'dsr'),
+                ('gf2_telemetry', True), ('retain_failed_proof', True),
+                ('causal_preflight', True)):
+            changed = SimpleNamespace(**vars(arguments))
+            setattr(changed, field, value)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                builder.selected_scratch_capacity(
+                    changed, builder.FIXED44_SELECTION, rows)
+        with self.assertRaises(ValueError):
+            builder.selected_scratch_capacity(arguments, None, rows)
+        with self.assertRaises(ValueError):
+            builder.selected_scratch_capacity(
+                arguments, builder.FIXED44_SELECTION, rows[:-1])
+
     def test_explicit_long_profile_preserves_independent_checker_and_defaults(self):
         import experimental_tierd as builder
         with tempfile.TemporaryDirectory() as temporary:
