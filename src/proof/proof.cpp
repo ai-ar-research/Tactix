@@ -700,7 +700,10 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   if (needs_auxiliary &&
       external_variables >= static_cast<uint32_t>(INT32_MAX))
     return false;
-  invalidate_premises_for_sr(id, lits, size, true_lits, ntrue, mappings, nmappings);
+  // The authenticated Rup plan emits no witness. Its metadata does not
+  // transform checker clauses, and retained constraints only strengthen RUP.
+  if (plan.form != DsrWitnessForm::Rup)
+    invalidate_premises_for_sr(id, lits, size, true_lits, ntrue, mappings, nmappings);
   flush_persistent_external(id);
   flush_pending_dsr_units();
   if (needs_auxiliary) {
@@ -836,8 +839,9 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
   }
   end_line();
   observe_checker(CheckerPopulationEventKind::Add,
-                  CheckerClauseRole::SubstitutionRedundancy, id, id,
-                  emitted_clause);
+                  plan.form == DsrWitnessForm::Rup ? CheckerClauseRole::Rup :
+                                                   CheckerClauseRole::SubstitutionRedundancy,
+                  id, id, emitted_clause);
   if (plan.form != DsrWitnessForm::Rup)
     has_sr_witness_ = true;
   if (plan.form == DsrWitnessForm::Lemma) {

@@ -1,0 +1,34 @@
+{
+  "native": [
+    {
+      "test": "test_default_affine_search",
+      "exit_code": 0
+    },
+    {
+      "test": "test_affine_matrix_persistent_frontend",
+      "exit_code": 0
+    },
+    {
+      "test": "test_proof_premise_lease_lifecycle",
+      "exit_code": 0
+    },
+    {
+      "test": "test_affine_matrix_persistent_lifecycle",
+      "exit_code": 0
+    },
+    {
+      "test": "test_sr_proof_encoding",
+      "exit_code": 0
+    },
+    {
+      "test": "test_population_observer",
+      "exit_code": 0
+    }
+  ],
+  "leak_detection": true,
+  "independent_prefixes": 20,
+  "models": 16,
+  "negative_controls": 20,
+  "default_proof_model_wrapper_exit": 0,
+  "all_passed": true
+}

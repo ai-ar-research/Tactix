@@ -1,0 +1,14 @@
+c CNF file path: /home/hwu/SAT-solving/build/persistent-xor-rup-retention-20261007/sanitize-checks/artifacts/lease-rup-0.cnf
+c DSR file path: /home/hwu/SAT-solving/build/persistent-xor-rup-retention-20261007/sanitize-checks/artifacts/lease-rup-0.proof
+c LSR file path: /home/hwu/SAT-solving/build/persistent-xor-rup-retention-20261007/sanitize-checks/artifacts/lease-rup-0.lsr
+c Using a STREAMING parsing strategy.
+c Doing FORWARDS proof checking.
+c The emitted LSR proof will be in binary format (`-c` specified).
+c The CNF formula has 2 clauses and 4 variables.
+c Parsing the CNF took 0.000 secs
+c Detected that the DSR proof is in binary format.
+c Checking proof...
+c Proof checking took 0.000 secs
+s VALID
+c A valid proof, without an empty clause.
+c Total runtime took 0.000 secs
