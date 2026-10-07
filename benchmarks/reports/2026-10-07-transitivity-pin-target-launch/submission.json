@@ -1,0 +1,9 @@
+{
+  "job": 1752156,
+  "manifest_sha256": "a6c993712b9d469b980e7b604d54575edd21c739a7524697c05bbea8441b5993",
+  "source_commit": "ef0e00e9d",
+  "full_width_array": "0-1",
+  "solve_seconds": 5000,
+  "memory_gib": 32,
+  "checker_seconds": 14400
+}
