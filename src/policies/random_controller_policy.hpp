@@ -378,10 +378,10 @@ private:
   };
   struct NaryCspEqualityDiscoveryState {
     const Kernel *owner = nullptr;
-    const NaryCspPrefixActionSession *prefix_session = nullptr;
+    const NaryCspRelationOwnerSession *relation_session = nullptr;
     const NaryCspEqualitySession *equality_session = nullptr;
     strategy::StateVersion state;
-    size_t prefix_owners = 0;
+    size_t relation_owners = 0;
     size_t equality_keys = 0;
     bool terminal = false;
     bool reconfiguration_required = false;
@@ -410,11 +410,11 @@ private:
   };
   struct NaryCspEqualityAmoDiscoveryState {
     const Kernel *owner = nullptr;
-    const NaryCspPrefixActionSession *prefix_session = nullptr;
+    const NaryCspRelationOwnerSession *relation_session = nullptr;
     const NaryCspEqualitySession *equality_session = nullptr;
     const NaryCspEqualityAmoSession *amo_session = nullptr;
     strategy::StateVersion state;
-    size_t prefix_owners = 0;
+    size_t relation_owners = 0;
     size_t equality_keys = 0;
     size_t amo_keys = 0;
     bool terminal = false;

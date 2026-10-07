@@ -72,18 +72,6 @@ NaryCspPrefixParameters prefix_parameters() {
   return result;
 }
 
-NaryCspPrefixActionLimits prefix_limits() {
-  const auto p = prefix_parameters();
-  return {p.maximum_source_clauses, p.maximum_source_literals,
-          p.maximum_recognition_work, p.maximum_domains,
-          p.maximum_domain_values, p.maximum_forbidden_tuples,
-          p.maximum_prefix_arity, p.maximum_definition_clause_literals,
-          p.maximum_proof_work, p.maximum_proof_additions,
-          p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-          p.maximum_extent_growth, p.maximum_external_extent,
-          p.maximum_session_keys, p.maximum_session_work};
-}
-
 NaryCspEqualityParameters equality_parameters() {
   NaryCspEqualityParameters result{
       100, 1000, 200000, 16, 100, 10000, 100, 1000,
@@ -96,16 +84,22 @@ NaryCspEqualityActionSelection equality_selection() {
   return {{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, {0, 1, 2}};
 }
 
-NaryCspPrefixActionSelection prefix_selection() {
-  return {{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
-          {2, {{0, 0}, {1, 0}}}};
-}
-
-void retain_owner(Kernel &kernel, NaryCspPrefixActionSession &session) {
-  const auto applied = nary_csp_prefix_action_apply(
-      kernel, session, prefix_limits(), prefix_selection());
-  assert(applied.status == NaryCspPrefixActionStatus::Applied &&
-         applied.owner_retained && session.retained_owners() == 1);
+void retain_owner(Kernel &kernel, NaryCspRelationOwnerSession &session) {
+  NaryCspRelationCaptureRequest request;
+  request.domains = equality_selection().domains;
+  request.maximum_source_clauses = 100;
+  request.maximum_source_literals = 1000;
+  request.maximum_recognition_work = 200000;
+  request.maximum_domains = 3;
+  request.maximum_domain_values = 16;
+  request.maximum_forbidden_tuples = 100;
+  request.maximum_external_extent = 100;
+  NaryCspRelationOwnerSession staged;
+  const auto captured = nary_csp_relation_prepare_owner(
+      kernel, session, request, {100, 200000}, staged);
+  assert(captured.status == NaryCspRelationCaptureStatus::Applied &&
+         captured.owner_retained && staged.retained_owners() == 1);
+  session = std::move(staged);
 }
 
 OnlineInvocation equality_invocation() {
@@ -155,14 +149,10 @@ void executor_feedback_and_candidate_followup() {
   FILE *records = std::tmpfile();
   assert(records);
   kernel.structural_provenance = records;
-  NaryCspPrefixActionSession prefix_session;
+  NaryCspRelationOwnerSession relation_session;
   NaryCspEqualitySession equality_session;
-  kernel.nary_csp_prefix_action_session = &prefix_session;
+  kernel.nary_csp_relation_owner_session = &relation_session;
   kernel.nary_csp_equality_session = &equality_session;
-  retain_owner(kernel, prefix_session);
-
-  const uint64_t prefix_candidate_count =
-      semantic_variable_candidates(kernel).size();
   OnlineInprocessProgram program;
   program.sequence = {equality_invocation()};
   OnlineInprocessExecutor executor;
@@ -170,7 +160,8 @@ void executor_feedback_and_candidate_followup() {
   const auto applied = executor.advance(kernel);
   assert(applied.status == InvocationStatus::Completed &&
          applied.made_rule_progress && applied.applications == 1 &&
-         applied.rule_id == 42 && equality_session.keys().size() == 1);
+         applied.rule_id == 42 && equality_session.keys().size() == 1 &&
+         relation_session.retained_owners() == 1);
   assert(kernel.stats.nary_csp_equality_attempts == 1 &&
          kernel.stats.nary_csp_equality_applied == 1 &&
          kernel.stats.nary_csp_equality_source_clauses == 15 &&
@@ -190,7 +181,7 @@ void executor_feedback_and_candidate_followup() {
          raw.find("\"nary_csp_equality_emitted_additions\":9") !=
              std::string::npos);
   const auto candidates = semantic_variable_candidates(kernel);
-  assert(candidates.size() == prefix_candidate_count + 1);
+  assert(candidates.size() == 1);
   const auto candidate_info = std::find_if(
       candidates.begin(), candidates.end(), [](const auto &candidate) {
         return candidate.producer == SemanticVariableProducer::NaryCspEquality;
@@ -201,7 +192,7 @@ void executor_feedback_and_candidate_followup() {
   assert(candidate);
   assert(candidate->producer == SemanticVariableProducer::NaryCspEquality &&
          candidate->variables.size() == 1 &&
-         candidate->variables.front().external == 11 &&
+         candidate->variables.front().external == 10 &&
          candidate->variables.front().role ==
              SemanticVariableRole::IntroducedTheory);
   assert(kernel_propagation_fixpoint(kernel));
@@ -214,11 +205,10 @@ void native_offer_paginates_and_suppresses_committed_key() {
   FILE *records = std::tmpfile();
   assert(records);
   kernel.structural_provenance = records;
-  NaryCspPrefixActionSession prefix_session;
+  NaryCspRelationOwnerSession relation_session;
   NaryCspEqualitySession equality_session;
-  kernel.nary_csp_prefix_action_session = &prefix_session;
+  kernel.nary_csp_relation_owner_session = &relation_session;
   kernel.nary_csp_equality_session = &equality_session;
-  retain_owner(kernel, prefix_session);
 
   RandomControllerConfig config;
   config.parameters.rules = {"NaryCspEquality"};
@@ -240,13 +230,15 @@ void native_offer_paginates_and_suppresses_committed_key() {
          request.producer_effort.size() == 1 &&
          request.producer_effort.front().family == "NaryCspEquality" &&
          request.producer_effort.front().offers == 1);
+  assert(!relation_session.retained());
   const auto exact = request.invocation.nary_csp_equality_instances.front();
   assert(exact.coordinates.left_domain < exact.coordinates.right_domain);
   request.invocation.post_application = PostApplication::Propagate;
   const auto result =
       controller.apply_rule(request, config.allowance("NaryCspEquality"));
   assert(result.invocation.status == InvocationStatus::Completed &&
-         result.invocation.made_rule_progress && equality_session.keys().size() == 1);
+         result.invocation.made_rule_progress && equality_session.keys().size() == 1 &&
+         relation_session.retained_owners() == 1);
 
   // The committed exact key is never offered again. Pagination advances to a
   // different canonical coordinate choice from the same retained owner.
@@ -262,15 +254,44 @@ void native_offer_paginates_and_suppresses_committed_key() {
   std::fclose(records);
 }
 
+void owner_acquisition_is_transactional() {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  NaryCspRelationOwnerSession relations;
+  NaryCspEqualitySession equality;
+  auto bounded = equality_parameters();
+  bounded.maximum_proof_additions = 8;
+  const auto before_arena = kernel.arena;
+  const auto before_id = kernel.next_clause_id;
+  const auto declined = nary_csp_equality_action_apply(
+      kernel, relations, equality,
+      {bounded.maximum_source_clauses, bounded.maximum_source_literals,
+       bounded.maximum_recognition_work, bounded.maximum_domain_values,
+       bounded.maximum_forbidden_tuples, bounded.maximum_proof_work,
+       bounded.maximum_proof_additions,
+       bounded.maximum_proof_literal_occurrences,
+       bounded.maximum_journal_bytes, bounded.maximum_extent_growth,
+       bounded.maximum_external_extent, bounded.maximum_session_keys},
+      equality_selection());
+  assert(declined.status == NaryCspEqualityActionStatus::ResourceExhausted &&
+         !relations.retained() && !equality.retained() &&
+         kernel.arena == before_arena && kernel.next_clause_id == before_id &&
+         kernel.structural_action_sequence == 0 && std::ftell(records) == 0);
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+}
+
 void native_offer_revalidates_changed_owners_with_bounded_work() {
   for (bool assigned : {false, true}) {
     Kernel kernel = parse();
     FILE *records = std::tmpfile();
     assert(records);
     kernel.structural_provenance = records;
-    NaryCspPrefixActionSession prefix;
+    NaryCspRelationOwnerSession relations;
     NaryCspEqualitySession equality;
-    retain_owner(kernel, prefix);
+    retain_owner(kernel, relations);
     const NaryCspEqualityActionOfferWindow window{8, 8, 8, 200000, false, {}};
     const auto parameters = equality_parameters();
     const NaryCspEqualityLimits limits{
@@ -282,13 +303,13 @@ void native_offer_revalidates_changed_owners_with_bounded_work() {
         parameters.maximum_journal_bytes, parameters.maximum_extent_growth,
         parameters.maximum_external_extent, parameters.maximum_session_keys};
     const auto ready = nary_csp_equality_action_offer(
-        kernel, prefix, equality, limits, window);
+        kernel, relations, equality, limits, window);
     assert(ready.status == NaryCspEqualityActionOfferStatus::Ready &&
            ready.offers.size() == 3 && ready.complete);
     auto smaller_domains = limits;
     smaller_domains.maximum_domain_values = 2;
     const auto skipped = nary_csp_equality_action_offer(
-        kernel, prefix, equality, smaller_domains, window);
+        kernel, relations, equality, smaller_domains, window);
     assert(skipped.status == NaryCspEqualityActionOfferStatus::Ready &&
            skipped.complete && skipped.offers.empty());
     auto small = window;
@@ -296,7 +317,7 @@ void native_offer_revalidates_changed_owners_with_bounded_work() {
     for (uint64_t allowance : {uint64_t{1}, uint64_t{12}}) {
       small.maximum_enumeration_work = allowance;
       const auto exhausted = nary_csp_equality_action_offer(
-          kernel, prefix, equality, limits, small);
+          kernel, relations, equality, limits, small);
       assert(exhausted.status == NaryCspEqualityActionOfferStatus::ResourceExhausted &&
              exhausted.offers.empty() &&
              exhausted.effort.enumeration_work <= allowance);
@@ -305,7 +326,7 @@ void native_offer_revalidates_changed_owners_with_bounded_work() {
       volatile sig_atomic_t stop = 1;
       KernelStopPublisher publisher(kernel, &stop);
       const auto interrupted = nary_csp_equality_action_offer(
-          kernel, prefix, equality, limits, window);
+          kernel, relations, equality, limits, window);
       assert(interrupted.status == NaryCspEqualityActionOfferStatus::Interrupted &&
              interrupted.offers.empty() &&
              interrupted.effort.enumeration_work <= window.maximum_enumeration_work);
@@ -323,14 +344,14 @@ void native_offer_revalidates_changed_owners_with_bounded_work() {
     const auto sequence = kernel.structural_action_sequence;
     const auto journal = std::ftell(records);
     const auto stale = nary_csp_equality_action_offer(
-        kernel, prefix, equality, limits, window);
+        kernel, relations, equality, limits, window);
     assert(stale.status == NaryCspEqualityActionOfferStatus::Stale &&
            stale.offers.empty() && stale.effort.coordinate_candidates == 0 &&
            stale.effort.enumeration_work <= window.maximum_enumeration_work &&
            kernel.trail == trail && kernel.arena.size() == arena &&
            kernel.structural_action_sequence == sequence &&
-           std::ftell(records) == journal && prefix.retained_owners() == 1 &&
-           prefix.committed_keys() == 1 && equality.keys().empty());
+           std::ftell(records) == journal && relations.retained_owners() == 1 &&
+           equality.keys().empty());
     kernel.structural_provenance = nullptr;
     std::fclose(records);
   }
@@ -421,11 +442,10 @@ void c_v10_deep_copies_and_executes_exact_payload() {
   std::fclose(records);
 }
 
-void apply_public_pair(Kernel &kernel, NaryCspPrefixActionSession &prefix,
+void apply_public_pair(Kernel &kernel, NaryCspRelationOwnerSession &relations,
                        NaryCspEqualitySession &equality) {
-  kernel.nary_csp_prefix_action_session = &prefix;
+  kernel.nary_csp_relation_owner_session = &relations;
   kernel.nary_csp_equality_session = &equality;
-  retain_owner(kernel, prefix);
   OnlineInprocessProgram program;
   program.sequence = {equality_invocation()};
   OnlineInprocessExecutor executor;
@@ -451,9 +471,9 @@ void emit_oracles(const std::string &stem) {
   FILE *records = std::fopen((stem + ".records.jsonl").c_str(), "w+");
   assert(records);
   kernel.structural_provenance = records;
-  NaryCspPrefixActionSession prefix;
+  NaryCspRelationOwnerSession relations;
   NaryCspEqualitySession equality;
-  apply_public_pair(kernel, prefix, equality);
+  apply_public_pair(kernel, relations, equality);
   assert(default_solve(kernel) == 20);
   proof.flush();
   kernel.proof = nullptr;
@@ -464,9 +484,9 @@ void emit_oracles(const std::string &stem) {
   FILE *sat_records = std::tmpfile();
   assert(sat_records);
   sat.structural_provenance = sat_records;
-  NaryCspPrefixActionSession sat_prefix;
+  NaryCspRelationOwnerSession sat_relations;
   NaryCspEqualitySession sat_equality;
-  apply_public_pair(sat, sat_prefix, sat_equality);
+  apply_public_pair(sat, sat_relations, sat_equality);
   assert(default_solve(sat) == 10);
   kernel_extend_model(sat, false);
   std::ofstream(stem + ".sat.cnf") << dimacs();
@@ -492,6 +512,7 @@ int main(int argc, char **argv) {
   assert(argc == 1);
   registry_replay_and_exact_payload();
   executor_feedback_and_candidate_followup();
+  owner_acquisition_is_transactional();
   native_offer_paginates_and_suppresses_committed_key();
   native_offer_revalidates_changed_owners_with_bounded_work();
   c_v10_deep_copies_and_executes_exact_payload();

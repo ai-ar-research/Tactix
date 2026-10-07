@@ -44,7 +44,7 @@ const NaryCspEqualityRecord *record(const NaryCspEqualitySession &session,
    if(candidate.key==key)return &candidate;
  }return nullptr;
 }
-const NaryCspPrefixOwnerSnapshot *owner(const NaryCspPrefixActionSession &session,
+const NaryCspRelationOwnerSnapshot *owner(const NaryCspRelationOwnerSession &session,
  const NaryCspEqualityKey &key,Meter &meter){
  for(const auto &snapshot:session.snapshots()){
    bool equal=snapshot.relation.domains.size()==key.domains.size();
@@ -88,15 +88,12 @@ uint64_t live_id(const Kernel &k,const ExternalClause &clause,Meter &m,bool &exa
    }ref+=words;
  }return 0;
 }
-NaryCspPrefixLiveRequest capture_request(const NaryCspEqualityKey &key,
+NaryCspRelationCaptureRequest capture_request(const NaryCspEqualityKey &key,
  const NaryCspEqualityTransitivityLimits &l,uint64_t work,uint64_t clauses,uint64_t literals){
- NaryCspPrefixLiveRequest r;r.domains=key.domains;r.selection={0,{{1,0},{2,0}}};
+ NaryCspRelationCaptureRequest r;r.domains=key.domains;
  r.maximum_source_clauses=clauses;r.maximum_source_literals=literals;
  r.maximum_recognition_work=work;r.maximum_domains=3;r.maximum_domain_values=l.maximum_domain_values;
- r.maximum_forbidden_tuples=l.maximum_forbidden_tuples;r.maximum_prefix_arity=2;
- r.maximum_definition_clause_literals=3;r.maximum_proof_work=l.maximum_proof_work;
- r.maximum_proof_additions=l.maximum_proof_additions;
- r.maximum_proof_literal_occurrences=l.maximum_proof_literal_occurrences;
+ r.maximum_forbidden_tuples=l.maximum_forbidden_tuples;
  r.maximum_external_extent=l.maximum_external_extent;return r;
 }
 std::string clause_json(const ExternalClause &c){std::string s="[";for(auto l:c){if(s.size()>1)s+=',';s+=std::to_string(l);}return s+"]";}
@@ -107,7 +104,14 @@ bool NaryCspEqualityTransitivityLimits::valid()const{
  maximum_proof_literal_occurrences&&maximum_journal_bytes&&maximum_external_extent&&maximum_session_keys&&
  maximum_session_bytes&&maximum_arena_words&&maximum_watch_words&&maximum_preparation_bytes;
 }
-RuleEligibility nary_csp_equality_transitivity_guard(const Kernel &k){return nary_csp_prefix_action_guard(k);}
+RuleEligibility nary_csp_equality_transitivity_guard(const Kernel &k){
+ return nary_csp_relation_owner_guard(k)
+   .fact("provenance-bound",k.structural_provenance!=nullptr)
+   .fact("action-id-available",k.structural_action_sequence!=UINT64_MAX)
+   .fact("candidate-slot-empty",!k.semantic_variable_candidate_pending)
+   .fact("candidate-id-available",k.semantic_variable_publication!=(UINT64_MAX>>8))
+   .fact("clausal-certificate",!k.proof||(!k.proof->lrat()&&!k.proof->pb()));
+}
 bool nary_csp_equality_transitivity_selection_valid(const Selection &s){
  if(!equality_transitivity::domains_valid(s.domains))return false;
  for(size_t i=0;i<3;++i){const auto &key=s.equalities[i];
@@ -123,7 +127,7 @@ bool nary_csp_equality_transitivity_selection_valid(const Selection &s){
  return true;
 }
 NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
- Kernel &k,const NaryCspPrefixActionSession &prefix,const NaryCspEqualitySession &equalities,
+ Kernel &k,const NaryCspRelationOwnerSession &relations,const NaryCspEqualitySession &equalities,
  NaryCspEqualityTransitivitySession &session,const NaryCspEqualityTransitivityLimits &limits,
  const Selection &selected,FILE *records){
  NaryCspEqualityTransitivityResult out;
@@ -137,7 +141,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  if(values && values>(UINT64_MAX-selection_bytes)/(18*values)){out.status=Status::ResourceExhausted;return finish();}
  if(selection_bytes>limits.maximum_preparation_bytes||!meter.charge(selection_bytes+18*values*values)){out.status=meter.failure();return finish();}
  if(!nary_csp_equality_transitivity_selection_valid(selected))return finish();
- if(!prefix.belongs_to(k)||!equalities.belongs_to(k)||(session.retained()&&!session.belongs_to(k))){out.status=Status::Inapplicable;return finish();}
+ if(!relations.belongs_to(k)||!equalities.belongs_to(k)||(session.retained()&&!session.belongs_to(k))){out.status=Status::Inapplicable;return finish();}
  if(k.proof&&(k.proof->lrat()||k.proof->pb())){out.status=Status::UnsupportedProof;return finish();}
  for(const auto &key:session.keys()){
    if(!meter.charge(key_bytes(key)+selection_bytes)){out.status=meter.failure();return finish();}
@@ -168,22 +172,22 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
    const auto *r=record(equalities,selected.equalities[i],meter);
    if(meter.exhausted||meter.interrupted){out.status=meter.failure();return finish();}
    if(!r||r->extension_variable!=selected.equality_variables[i]){out.status=Status::MissingEquality;return finish();}
-   const auto *saved=owner(prefix,r->key,meter);
+   const auto *saved=owner(relations,r->key,meter);
    if(meter.exhausted||meter.interrupted){out.status=meter.failure();return finish();}
    if(!saved){out.status=Status::Stale;return finish();}
    if(saved->source.size()>limits.maximum_source_clauses-out.source_clauses||saved->source_literals>limits.maximum_source_literals-out.source_literals){out.status=Status::ResourceExhausted;return finish();}
    // Bound the simultaneous retained-source copy plus captured relation tables.
-   uint64_t snapshot_bytes=sizeof(*saved)+saved->source.size()*sizeof(nary_csp_prefix::Premise)+saved->source_literals*sizeof(int32_t);
+   uint64_t snapshot_bytes=sizeof(*saved)+saved->source.size()*sizeof(nary_csp_relation::Premise)+saved->source_literals*sizeof(int32_t);
    for(const auto &d:saved->relation.domains)snapshot_bytes+=sizeof(d)+d.values.size()*sizeof(int32_t)+d.at_most_one.size()*sizeof(uint64_t);
    for(const auto &t:saved->relation.forbidden)snapshot_bytes+=sizeof(t)+t.value_indices.size()*sizeof(uint32_t);
    if(snapshot_bytes>limits.maximum_preparation_bytes/3||3*snapshot_bytes>limits.maximum_preparation_bytes-std::min(preparation,limits.maximum_preparation_bytes)){out.status=Status::ResourceExhausted;return finish();}
    preparation+=3*snapshot_bytes;
-   NaryCspPrefixOwnerSnapshot fresh;
-   const auto captured=nary_csp_prefix_live_capture_owner(k,capture_request(r->key,limits,meter.bound-meter.work,
+   NaryCspRelationOwnerSnapshot fresh;
+   const auto captured=nary_csp_relation_capture_owner(k,capture_request(r->key,limits,meter.bound-meter.work,
      limits.maximum_source_clauses-out.source_clauses,limits.maximum_source_literals-out.source_literals),fresh);
    if(!meter.charge(captured.recognition_work)){out.status=meter.failure();return finish();}
-   if(captured.status!=NaryCspPrefixLiveStatus::Applied){out.status=captured.status==NaryCspPrefixLiveStatus::Interrupted?Status::Interrupted:
-     captured.status==NaryCspPrefixLiveStatus::ResourceExhausted?Status::ResourceExhausted:Status::Stale;out.recognition_work=meter.work;return finish();}
+   if(captured.status!=NaryCspRelationCaptureStatus::Applied){out.status=captured.status==NaryCspRelationCaptureStatus::Interrupted?Status::Interrupted:
+     captured.status==NaryCspRelationCaptureStatus::ResourceExhausted?Status::ResourceExhausted:Status::Stale;out.recognition_work=meter.work;return finish();}
    fresh.capture_work=saved->capture_work;fresh.external_extent=saved->external_extent;
    if(fresh!=*saved){out.status=Status::Stale;return finish();}
    for(const auto &p:fresh.source)if(!source(p.literals,p.native_proof_id,true)){out.status=meter.exhausted||meter.interrupted?meter.failure():

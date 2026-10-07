@@ -42,14 +42,14 @@ struct Journal {
 };
 
 std::vector<std::vector<int32_t>> owner_domains(
-    const NaryCspPrefixOwnerSnapshot &owner) {
+    const NaryCspRelationOwnerSnapshot &owner) {
   std::vector<std::vector<int32_t>> result;
   for (const auto &domain : owner.relation.domains)
     result.push_back(domain.values);
   return result;
 }
 
-NaryCspEqualityKey make_key(const NaryCspPrefixOwnerSnapshot &owner,
+NaryCspEqualityKey make_key(const NaryCspRelationOwnerSnapshot &owner,
                             const equality::Selection &selection) {
   NaryCspEqualityKey key;
   key.domains = owner_domains(owner);
@@ -61,41 +61,33 @@ NaryCspEqualityKey make_key(const NaryCspPrefixOwnerSnapshot &owner,
   return key;
 }
 
-NaryCspPrefixLiveRequest capture_request(
-    const NaryCspPrefixOwnerSnapshot &owner,
+NaryCspRelationCaptureRequest capture_request(
+    const NaryCspRelationOwnerSnapshot &owner,
     const equality::Selection &selection,
     const NaryCspEqualityLimits &limits) {
-  NaryCspPrefixLiveRequest request;
+  NaryCspRelationCaptureRequest request;
   request.domains = owner_domains(owner);
-  request.selection.residual_domain = selection.residual_domain;
-  for (uint32_t domain = 0; domain < 3; ++domain)
-    if (domain != selection.residual_domain)
-      request.selection.prefix.push_back({domain, 0});
+  (void)selection;
   request.maximum_source_clauses = limits.maximum_source_clauses;
   request.maximum_source_literals = limits.maximum_source_literals;
   request.maximum_recognition_work = limits.maximum_recognition_work;
   request.maximum_domains = 3;
   request.maximum_domain_values = limits.maximum_domain_values;
   request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
-  request.maximum_prefix_arity = 2;
-  request.maximum_definition_clause_literals = 3;
-  request.maximum_proof_additions = limits.maximum_proof_additions;
-  request.maximum_proof_literal_occurrences =
-      limits.maximum_proof_literal_occurrences;
   request.maximum_external_extent = limits.maximum_external_extent;
   return request;
 }
 
-NaryCspEqualityLiveStatus capture_status(NaryCspPrefixLiveStatus status) {
+NaryCspEqualityLiveStatus capture_status(NaryCspRelationCaptureStatus status) {
   switch (status) {
-  case NaryCspPrefixLiveStatus::Interrupted:
+  case NaryCspRelationCaptureStatus::Interrupted:
     return NaryCspEqualityLiveStatus::Interrupted;
-  case NaryCspPrefixLiveStatus::ResourceExhausted:
+  case NaryCspRelationCaptureStatus::ResourceExhausted:
     return NaryCspEqualityLiveStatus::ResourceExhausted;
-  case NaryCspPrefixLiveStatus::Inapplicable:
+  case NaryCspRelationCaptureStatus::Inapplicable:
     return NaryCspEqualityLiveStatus::Inapplicable;
-  case NaryCspPrefixLiveStatus::NoStructure:
-  case NaryCspPrefixLiveStatus::Stale:
+  case NaryCspRelationCaptureStatus::NoStructure:
+  case NaryCspRelationCaptureStatus::Stale:
     // A previously retained owner has lost its exact live source image.
     return NaryCspEqualityLiveStatus::Stale;
   default:
@@ -116,7 +108,7 @@ NaryCspEqualityLiveStatus plan_status(equality::Status status) {
 }
 
 bool render_journal(const NaryCspEqualityRequest &request,
-                    const NaryCspPrefixOwnerSnapshot &owner,
+                    const NaryCspRelationOwnerSnapshot &owner,
                     const equality::Plan &plan, uint64_t first_id,
                     Journal &journal) {
   if (!journal.append("{\"kind\":\"nary-csp-equality-begin\",\"action\":" +
@@ -210,22 +202,29 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
     return result;
   }
 
-  NaryCspPrefixOwnerSnapshot current;
-  const auto captured = nary_csp_prefix_live_capture_owner(
-      kernel, capture_request(*request.owner, request.selection, request.limits),
-      current);
-  result.recognition_work = captured.recognition_work;
-  result.source_clauses = captured.source_clauses;
-  result.source_literals = captured.source_literals;
-  if (captured.status != NaryCspPrefixLiveStatus::Applied) {
-    result.status = capture_status(captured.status);
-    return result;
-  }
-  current.capture_work = request.owner->capture_work;
-  current.external_extent = request.owner->external_extent;
-  if (current != *request.owner) {
-    result.status = NaryCspEqualityLiveStatus::Stale;
-    return result;
+  NaryCspRelationOwnerSnapshot current;
+  if (request.owner_freshly_captured) {
+    current = *request.owner;
+    result.source_clauses = current.source.size();
+    result.source_literals = current.source_literals;
+  } else {
+    const auto captured = nary_csp_relation_capture_owner(
+        kernel,
+        capture_request(*request.owner, request.selection, request.limits),
+        current);
+    result.recognition_work = captured.recognition_work;
+    result.source_clauses = captured.source_clauses;
+    result.source_literals = captured.source_literals;
+    if (captured.status != NaryCspRelationCaptureStatus::Applied) {
+      result.status = capture_status(captured.status);
+      return result;
+    }
+    current.capture_work = request.owner->capture_work;
+    current.external_extent = request.owner->external_extent;
+    if (current != *request.owner) {
+      result.status = NaryCspEqualityLiveStatus::Stale;
+      return result;
+    }
   }
   const uint64_t extent = kernel.external_to_internal.size();
   if (extent >= INT32_MAX || extent + 1 > request.limits.maximum_external_extent) {

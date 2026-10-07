@@ -108,8 +108,8 @@ RuleEligibility nary_csp_prefix_registry_guard(const Kernel &kernel) {
 RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
   RuleEligibility result = nary_csp_equality_action_guard(kernel);
   return result
-      .fact("prefix-session-bound",
-            kernel.nary_csp_prefix_action_session != nullptr)
+      .fact("relation-session-bound",
+            kernel.nary_csp_relation_owner_session != nullptr)
       .fact("equality-session-bound",
             kernel.nary_csp_equality_session != nullptr);
 }
@@ -117,8 +117,8 @@ RuleEligibility nary_csp_equality_registry_guard(const Kernel &kernel) {
 RuleEligibility nary_csp_equality_amo_registry_guard(const Kernel &kernel) {
   RuleEligibility result = nary_csp_equality_amo_guard(kernel);
   return result
-      .fact("prefix-session-bound",
-            kernel.nary_csp_prefix_action_session != nullptr)
+      .fact("relation-session-bound",
+            kernel.nary_csp_relation_owner_session != nullptr)
       .fact("equality-session-bound",
             kernel.nary_csp_equality_session != nullptr)
       .fact("amo-session-bound",
@@ -127,7 +127,7 @@ RuleEligibility nary_csp_equality_amo_registry_guard(const Kernel &kernel) {
 
 ApplyResult nary_csp_equality_transitivity_canonical_noop(Kernel &) { return ApplyResult::NoOp; }
 RuleEligibility nary_csp_equality_transitivity_registry_guard(const Kernel &k) {
- return nary_csp_equality_transitivity_guard(k).fact("prefix-session-bound", k.nary_csp_prefix_action_session != nullptr).fact("equality-session-bound", k.nary_csp_equality_session != nullptr).fact("transitivity-session-bound", k.nary_csp_equality_transitivity_session != nullptr);
+ return nary_csp_equality_transitivity_guard(k).fact("relation-session-bound", k.nary_csp_relation_owner_session != nullptr).fact("equality-session-bound", k.nary_csp_equality_session != nullptr).fact("transitivity-session-bound", k.nary_csp_equality_transitivity_session != nullptr);
 }
 
 ApplyResult gf3_general_row_canonical_noop(Kernel &) {

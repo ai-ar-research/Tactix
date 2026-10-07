@@ -84,24 +84,17 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &external) {
   return false;
 }
 
-NaryCspPrefixLiveRequest capture_request(
+NaryCspRelationCaptureRequest capture_request(
     const NaryCspEqualityAmoSelection &selection,
     const NaryCspEqualityAmoLimits &limits) {
-  NaryCspPrefixLiveRequest request;
+  NaryCspRelationCaptureRequest request;
   request.domains = selection.domains;
-  request.selection.residual_domain = 0;
-  request.selection.prefix = {{1, 0}, {2, 0}};
   request.maximum_source_clauses = limits.maximum_source_clauses;
   request.maximum_source_literals = limits.maximum_source_literals;
   request.maximum_recognition_work = limits.maximum_recognition_work;
   request.maximum_domains = 3;
   request.maximum_domain_values = limits.maximum_domain_values;
   request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
-  request.maximum_prefix_arity = 2;
-  request.maximum_definition_clause_literals = 3;
-  request.maximum_proof_additions = limits.maximum_proof_additions;
-  request.maximum_proof_literal_occurrences =
-      limits.maximum_proof_literal_occurrences;
   request.maximum_external_extent = limits.maximum_external_extent;
   return request;
 }
@@ -153,7 +146,16 @@ bool NaryCspEqualityAmoLimits::valid() const {
 }
 
 RuleEligibility nary_csp_equality_amo_guard(const Kernel &kernel) {
-  return nary_csp_prefix_action_guard(kernel);
+  return nary_csp_relation_owner_guard(kernel)
+      .fact("provenance-bound", kernel.structural_provenance != nullptr)
+      .fact("action-id-available",
+            kernel.structural_action_sequence != UINT64_MAX)
+      .fact("candidate-slot-empty",
+            !kernel.semantic_variable_candidate_pending)
+      .fact("candidate-id-available",
+            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
+      .fact("clausal-certificate",
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
 }
 
 bool nary_csp_equality_amo_selection_valid(
@@ -188,7 +190,7 @@ bool nary_csp_equality_amo_selection_within_limits(
 }
 
 NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
-    Kernel &kernel, const NaryCspPrefixActionSession &prefix_session,
+    Kernel &kernel, const NaryCspRelationOwnerSession &relation_session,
     const NaryCspEqualitySession &equality_session,
     NaryCspEqualityAmoSession &session,
     const NaryCspEqualityAmoLimits &limits,
@@ -201,7 +203,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
   if (!nary_csp_equality_amo_selection_within_limits(selection, limits) ||
       !records || kernel.structural_action_sequence == UINT64_MAX)
     return result;
-  if (!prefix_session.belongs_to(kernel) ||
+  if (!relation_session.belongs_to(kernel) ||
       !equality_session.belongs_to(kernel) ||
       (session.retained() && !session.belongs_to(kernel))) {
     result.status = NaryCspEqualityAmoStatus::Inapplicable;
@@ -211,8 +213,8 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     result.status = NaryCspEqualityAmoStatus::UnsupportedProof;
     return result;
   }
-  const NaryCspPrefixOwnerSnapshot *owner =
-      prefix_session.snapshot(selection.domains);
+  const NaryCspRelationOwnerSnapshot *owner =
+      relation_session.snapshot(selection.domains);
   if (!owner) {
     result.status = NaryCspEqualityAmoStatus::NoStructure;
     return result;
@@ -248,15 +250,15 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
         return result;
       }
   }
-  NaryCspPrefixOwnerSnapshot current;
-  const auto captured = nary_csp_prefix_live_capture_owner(
+  NaryCspRelationOwnerSnapshot current;
+  const auto captured = nary_csp_relation_capture_owner(
       kernel, capture_request(selection, limits), current);
   result.recognition_work = captured.recognition_work;
-  if (captured.status != NaryCspPrefixLiveStatus::Applied) {
-    result.status = captured.status == NaryCspPrefixLiveStatus::Interrupted
+  if (captured.status != NaryCspRelationCaptureStatus::Applied) {
+    result.status = captured.status == NaryCspRelationCaptureStatus::Interrupted
                         ? NaryCspEqualityAmoStatus::Interrupted
                     : captured.status ==
-                              NaryCspPrefixLiveStatus::ResourceExhausted
+                              NaryCspRelationCaptureStatus::ResourceExhausted
                         ? NaryCspEqualityAmoStatus::ResourceExhausted
                         : NaryCspEqualityAmoStatus::Stale;
     return result;
@@ -371,7 +373,7 @@ bool NaryCspEqualityAmoOfferWindow::valid() const {
 }
 
 NaryCspEqualityAmoOfferResult nary_csp_equality_amo_offer(
-    Kernel &kernel, const NaryCspPrefixActionSession &prefix_session,
+    Kernel &kernel, const NaryCspRelationOwnerSession &relation_session,
     const NaryCspEqualitySession &equality_session,
     const NaryCspEqualityAmoSession &session,
     const NaryCspEqualityAmoLimits &limits,
@@ -382,14 +384,14 @@ NaryCspEqualityAmoOfferResult nary_csp_equality_amo_offer(
     return result;
   }
   if (!limits.valid() || !window.valid()) return result;
-  if (!prefix_session.belongs_to(kernel) ||
+  if (!relation_session.belongs_to(kernel) ||
       !equality_session.belongs_to(kernel) ||
       (session.retained() && !session.belongs_to(kernel))) {
     result.status = NaryCspEqualityAmoOfferStatus::Stale;
     return result;
   }
-  result.retained_owners = prefix_session.retained_owners();
-  for (const auto &owner : prefix_session.snapshots()) {
+  result.retained_owners = relation_session.retained_owners();
+  for (const auto &owner : relation_session.snapshots()) {
     if (result.owner_candidates == window.maximum_owner_candidates ||
         result.enumeration_work == window.maximum_enumeration_work) {
       result.status = NaryCspEqualityAmoOfferStatus::ResourceExhausted;

@@ -63,20 +63,15 @@ Kernel parse(bool unsat_core = false) {
   return kernel;
 }
 
-NaryCspPrefixLiveRequest capture_request() {
-  NaryCspPrefixLiveRequest request;
+NaryCspRelationCaptureRequest capture_request() {
+  NaryCspRelationCaptureRequest request;
   request.domains = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
-  request.selection = {2, {{0, 0}, {1, 0}}};
   request.maximum_source_clauses = 100;
   request.maximum_source_literals = 1000;
   request.maximum_recognition_work = 100000;
   request.maximum_domains = 3;
   request.maximum_domain_values = 16;
   request.maximum_forbidden_tuples = 100;
-  request.maximum_prefix_arity = 2;
-  request.maximum_definition_clause_literals = 3;
-  request.maximum_proof_additions = 100;
-  request.maximum_proof_literal_occurrences = 1000;
   request.maximum_external_extent = 100;
   return request;
 }
@@ -86,9 +81,16 @@ NaryCspEqualityLimits limits() {
           100000, 1, 100, 100};
 }
 
-NaryCspEqualityRequest request(const NaryCspPrefixOwnerSnapshot &owner,
+NaryCspEqualityRequest request(const NaryCspRelationOwnerSnapshot &owner,
                                FILE *records) {
-  return {&owner, {}, limits(), 71, 81, records};
+  NaryCspEqualityRequest result;
+  result.owner = &owner;
+  result.selection = {};
+  result.limits = limits();
+  result.action_id = 71;
+  result.semantic_id = 81;
+  result.records = records;
+  return result;
 }
 
 bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
@@ -108,9 +110,9 @@ bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
 
 void publish_duplicate_and_records() {
   Kernel kernel = parse();
-  NaryCspPrefixOwnerSnapshot owner;
-  assert(nary_csp_prefix_live_capture_owner(kernel, capture_request(), owner)
-             .status == NaryCspPrefixLiveStatus::Applied);
+  NaryCspRelationOwnerSnapshot owner;
+  assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
+             .status == NaryCspRelationCaptureStatus::Applied);
   FILE *records = std::tmpfile();
   assert(records);
   NaryCspEqualitySession session;
@@ -163,9 +165,9 @@ void publish_duplicate_and_records() {
 
 void clean_declines() {
   Kernel kernel = parse();
-  NaryCspPrefixOwnerSnapshot owner;
-  assert(nary_csp_prefix_live_capture_owner(kernel, capture_request(), owner)
-             .status == NaryCspPrefixLiveStatus::Applied);
+  NaryCspRelationOwnerSnapshot owner;
+  assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
+             .status == NaryCspRelationCaptureStatus::Applied);
   FILE *records = std::tmpfile();
   assert(records);
   NaryCspEqualitySession session;
@@ -193,9 +195,9 @@ void clean_declines() {
 void changed_owner_declines_without_publication() {
   for (bool assigned : {false, true}) {
     Kernel kernel = parse();
-    NaryCspPrefixOwnerSnapshot owner;
-    assert(nary_csp_prefix_live_capture_owner(kernel, capture_request(), owner)
-               .status == NaryCspPrefixLiveStatus::Applied);
+    NaryCspRelationOwnerSnapshot owner;
+    assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
+               .status == NaryCspRelationCaptureStatus::Applied);
     FILE *records = std::tmpfile();
     assert(records);
     NaryCspEqualitySession session;
@@ -253,9 +255,9 @@ void emit_live_proof(const std::string &stem) {
   std::fclose(input);
   assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
 
-  NaryCspPrefixOwnerSnapshot owner;
-  assert(nary_csp_prefix_live_capture_owner(kernel, capture_request(), owner)
-             .status == NaryCspPrefixLiveStatus::Applied);
+  NaryCspRelationOwnerSnapshot owner;
+  assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
+             .status == NaryCspRelationCaptureStatus::Applied);
   FILE *records = std::fopen((stem + ".records.jsonl").c_str(), "w+");
   assert(records);
   NaryCspEqualitySession session;
