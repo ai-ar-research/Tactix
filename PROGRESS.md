@@ -39,7 +39,6 @@ an open efficiency item.
 | c1 regression gates | 1755859 B28, 1755860 Rank1–50, 1755861 WV100, 1755862 WV2–89; `benchmarks/runs/20261007-c1-regression-*` | submitted |
 | c1 full44 | 1755927, `benchmarks/runs/20261007-fixed44-c1` (shared-floor scratch, long64-fixed) | submitted |
 | Fuzz owner | Claude `385a3588` (resumed); staging binding `benchmarks/runs/20261007-candidate-d576-source/pins/staging-binding.json` | harness preparation and uncounted calibration; counted legs await final binding |
-| Rank899 certified-unit gate | sub-agent; `benchmarks/runs/20261007-rank899-d576-*` | boundary checks, then 300 s causal pair |
 | Proof-route cost | sub-agent; `benchmarks/runs/20261007-proofroute-*` | stage timings |
 
 ## Verification authorities
@@ -57,11 +56,10 @@ an open efficiency item.
   exact b26 checks SAT42.273s. This is target evidence, not cumulative acceptance
   of the new unit candidate. Keep X17 and noL-specific local search retired;
   investigate ordinary Boolean search against actual Satsuma+Kissat order.
-- **Rank899 (`mp1-Nb7T42`):** the [handoff](benchmarks/reports/2026-10-07-rank899-unit-admission-handoff/README.md)
-  requires certified `+40310`, root growth, existing FastEl suppression and
-  residual/activation-order checks before a bounded300s causal pair. The matched
-  residual trace agrees for12,723 decisions and50 conflicts; it establishes
-  neither preprocessing equivalence nor a runtime improvement. Do not revive MAB.
+- **Rank899 (`mp1-Nb7T42`):** the [certified-unit gate](benchmarks/reports/2026-10-07-rank899-certified-unit-gate/README.md)
+  passes. The large-domain producer publishes `+40310`, the proof prefix verifies, the boundary equals
+  the Satsuma residual, and startup FastEliminate is suppressed. In a same-CPU pair, d576 is SAT in 55.921 s with a checked model; b26 is UNKNOWN at 300 s.
+  This is a causal single-row result. Closure requires c1's full44 row.
 - **Rank569:** [affine audit](benchmarks/reports/2026-10-07-rank569-affine-admission-lifecycle-audit/README.md)
   confirms24 recognized, disjoint XOR rows. The [conditional-clause experiment](benchmarks/reports/2026-10-07-rank569-conditional-clause-causal60/README.md)
   is retired for no measured benefit. The3627.980s/4.116GB run remains unverified
