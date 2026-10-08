@@ -176,9 +176,160 @@ static void decorated_dispatch_preserves_sequence() {
   kernel_check_invariants(decorated);
 }
 
+static OnlineInvocation graph_detection(StepId id, uint64_t vertices,
+                                        uint64_t generators) {
+  OnlineInvocation step;
+  step.id = id;
+  step.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters p;
+  p.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+  p.graph_symmetry.maximum_graph_vertices = vertices;
+  p.graph_symmetry.maximum_generators = generators;
+  step.parameters = p;
+  step.granularity = InvocationGranularity::CompleteCurrentPass;
+  return step;
+}
+
+// satsuma.h:809: only symmetry-breaking output earns another pass. Formula
+// progress of another kind (here a compaction) does not.
+static void repeat_trigger_requires_symmetry_output() {
+  for (const auto trigger : {RepeatTrigger::AnyProgress,
+                             RepeatTrigger::SymmetryBreakingOutput}) {
+    OnlineStrategyStage stage;
+    stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+    stage.program.sequence = {cleanup(2)};
+    stage.program.repeat = {RepeatMode::UntilScopedFixpoint, 2};
+    stage.repeat_trigger = trigger;
+    Kernel k = fixture(true);
+    OnlineStrategySequence sequence;
+    assert(sequence.configure(stage));
+    unsigned calls = 0;
+    while (!sequence.complete()) {
+      assert(++calls < 100);
+      sequence.advance(k);
+    }
+    kernel_check_invariants(k);
+    assert(k.arena.empty());
+    assert(sequence.rounds() ==
+           (trigger == RepeatTrigger::AnyProgress ? 2u : 1u));
+  }
+  // A committed SR unit is symmetry-breaking output and earns a round.
+  OnlineStrategyStage stage;
+  stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+  stage.program.sequence = {producer()};
+  stage.program.repeat = {RepeatMode::UntilScopedFixpoint, 0};
+  stage.repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+  Kernel k = fixture(false);
+  OnlineStrategySequence sequence;
+  assert(sequence.configure(stage));
+  finish(sequence, k);
+  assert(k.stats.sr_applied == 1 && symmetry_breaking_outputs(k) == 1);
+  assert(sequence.rounds() == 2);
+}
+
+// satsuma.h:194, 267, 810: a pass that reached a detection limit is the last,
+// even when it also produced symmetry-breaking output.
+static void detection_limit_stops_repetition() {
+  for (const bool stop_at_limit : {false, true}) {
+    OnlineStrategyStage stage;
+    stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+    // Two literal vertices per variable exceed a one-vertex graph limit.
+    stage.program.sequence = {graph_detection(3, 1, UINT64_MAX), producer()};
+    stage.program.repeat = {RepeatMode::UntilScopedFixpoint, 0};
+    stage.repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+    stage.stop_repeat_at_detection_limit = stop_at_limit;
+    Kernel k = fixture(false);
+    OnlineStrategySequence sequence;
+    assert(sequence.configure(stage));
+    unsigned calls = 0;
+    InvocationResult last;
+    while (!sequence.complete()) {
+      assert(++calls < 100);
+      last = sequence.advance(k);
+    }
+    assert(sequence.detection_limit_reached());
+    assert(k.stats.sr_applied == 1);
+    assert(sequence.rounds() == (stop_at_limit ? 1u : 2u));
+    assert(last.status == InvocationStatus::BudgetExhausted);
+    kernel_check_invariants(k);
+  }
+  // A caller-disabled producer completes without reaching a limit.
+  OnlineStrategyStage stage;
+  stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+  stage.program.sequence = {graph_detection(3, UINT64_MAX, 0), producer()};
+  stage.program.repeat = {RepeatMode::UntilScopedFixpoint, 0};
+  stage.repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+  stage.stop_repeat_at_detection_limit = true;
+  Kernel k = fixture(false);
+  OnlineStrategySequence sequence;
+  assert(sequence.configure(stage));
+  finish(sequence, k);
+  assert(!sequence.detection_limit_reached() && sequence.rounds() == 2);
+}
+
+// An identical generated detection is not paid again on an unchanged
+// formula; any effective transition makes it current work again.
+static void unchanged_detection_is_not_repeated() {
+  UnchangedDetections record;
+  OnlineStrategyStage stage;
+  stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+  stage.program.sequence = {graph_detection(4, UINT64_MAX, 0),
+                            graph_detection(5, UINT64_MAX, 0)};
+  Kernel k = fixture(true);
+  OnlineStrategySequence first;
+  assert(first.configure(stage));
+  first.share_unchanged_detections(&record);
+  finish(first, k);
+  assert(first.dispatches(0) == 1 && first.dispatches(1) == 0 &&
+         first.unchanged_detection_skips() == 1);
+  // Another sequence sharing the record inherits the completed detection.
+  OnlineStrategySequence second;
+  assert(second.configure(stage));
+  second.share_unchanged_detections(&record);
+  finish(second, k);
+  assert(second.dispatches(0) == 0 && second.unchanged_detection_skips() == 2);
+  // Effective output between identical detections makes the later one run.
+  stage.program.sequence = {graph_detection(4, UINT64_MAX, 0), producer(),
+                            graph_detection(5, UINT64_MAX, 0)};
+  k = fixture(false);
+  record.transition();
+  OnlineStrategySequence third;
+  assert(third.configure(stage));
+  third.share_unchanged_detections(&record);
+  finish(third, k);
+  assert(third.dispatches(0) == 1 && third.dispatches(2) == 1 &&
+         third.unchanged_detection_skips() == 0);
+  // A detection that stopped at a limit is not repeated either: the same
+  // formula and a no larger allowance stop it again.
+  stage.program.sequence = {graph_detection(6, 1, UINT64_MAX),
+                            graph_detection(7, 1, UINT64_MAX)};
+  record.transition();
+  OnlineStrategySequence fourth;
+  assert(fourth.configure(stage));
+  fourth.share_unchanged_detections(&record);
+  unsigned calls = 0;
+  while (!fourth.complete()) {
+    assert(++calls < 100);
+    fourth.advance(k);
+  }
+  assert(fourth.dispatches(0) == 1 && fourth.dispatches(1) == 0 &&
+         fourth.unchanged_detection_skips() == 1 &&
+         fourth.detection_limit_reached());
+  // Without a shared record the ordinary N1 schedule runs every step.
+  stage.program.sequence = {graph_detection(4, UINT64_MAX, 0),
+                            graph_detection(5, UINT64_MAX, 0)};
+  OnlineStrategySequence plain;
+  assert(plain.configure(stage));
+  finish(plain, k);
+  assert(plain.dispatches(0) == 1 && plain.dispatches(1) == 1);
+}
+
 int main() {
   decorated_dispatch_preserves_sequence();
   before_progress_admission();
+  repeat_trigger_requires_symmetry_output();
+  detection_limit_stops_repetition();
+  unchanged_detection_is_not_repeated();
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
   stage.program.sequence = {cleanup(2)};

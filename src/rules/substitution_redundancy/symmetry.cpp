@@ -100,6 +100,7 @@ bool charge(const Kernel &kernel, const SubstitutionRedundancyParameters &p,
       amount > p.maximum_detection_ticks - result.ticks) {
     result.ticks = p.maximum_detection_ticks;
     result.status = SymmetryEnumerationStatus::LimitReached;
+    result.detection_limit_reached = true;
     return false;
   }
   result.ticks += amount;
@@ -114,6 +115,7 @@ bool snapshot_formula(const Kernel &kernel,
   const uint64_t literal_vertices = 2ull * kernel.nvars;
   if (literal_vertices > static_cast<uint64_t>(std::numeric_limits<int>::max())) {
     result.status = SymmetryEnumerationStatus::LimitReached;
+    result.detection_limit_reached = true;
     return false;
   }
   std::vector<std::vector<Lit>> clauses;
@@ -223,6 +225,7 @@ bool build_symmetry_graph(const Kernel &kernel,
         2ull * kernel.nvars + binaries + nonbinary_support;
     if (over_size_limits(minimum_vertices, minimum_edges)) {
       result.status = SymmetryEnumerationStatus::LimitReached;
+      result.detection_limit_reached = true;
       return false;
     }
     if (!charge(kernel, parameters, stop, result, binaries))
@@ -275,6 +278,8 @@ bool build_symmetry_graph(const Kernel &kernel,
       !charge(kernel, parameters, stop, result, edge_count)) {
     if (result.status == SymmetryEnumerationStatus::Complete)
       result.status = SymmetryEnumerationStatus::LimitReached;
+    result.detection_limit_reached =
+        result.status == SymmetryEnumerationStatus::LimitReached;
     return false;
   }
 
@@ -760,6 +765,30 @@ SymmetryEnumerationStatus convert(symmetry_backend::Status status) {
 
 } // namespace
 
+uint64_t substitution_redundancy_symmetry_graph_vertices(
+    const Kernel &kernel, const GraphSymmetryParameters &settings,
+    uint64_t &work) {
+  const uint64_t binaries = kernel.watches.binary_clauses();
+  uint64_t large = 0;
+  work = 0;
+  for (Ref ref = 0; ref < kernel.arena.size();) {
+    const Clause *clause = clause_at(kernel.arena, ref);
+    ++work;
+    large += !clause->garbage();
+    ref += clause_actual_words(clause);
+  }
+  bool direct = settings.binary_graph_mode == SymmetryBinaryGraphMode::DirectEdges;
+  if (settings.binary_graph_mode == SymmetryBinaryGraphMode::Automatic) {
+    const uint64_t threshold = static_cast<uint64_t>(kernel.nvars) *
+                               settings.binary_graph_density_permille;
+    direct = binaries >= threshold / 1000 + (threshold % 1000 != 0);
+  }
+  // Matches build_symmetry_graph: direct mode adds one negation vertex per
+  // variable and represents first copies of binaries as edges.
+  return (direct ? 3ull : 2ull) * kernel.nvars + large +
+         (direct ? 0 : binaries);
+}
+
 SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     const Kernel &kernel,
     const SubstitutionRedundancyParameters &requested_parameters,
@@ -789,7 +818,9 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   // The same invocation would fail graph admission later; this is not an X7
   // guard or a restriction on separate structured/explicit applications.
   if (2ull * kernel.nvars > parameters.graph_symmetry.maximum_graph_vertices) {
+    // The owner's graph component limit (satsuma.h:168-176).
     result.status = SymmetryEnumerationStatus::LimitReached;
+    result.detection_limit_reached = true;
     return result;
   }
 
@@ -856,6 +887,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     }
     structured_incomplete =
         discovery.status == OrbitopalEnumerationStatus::LimitReached;
+    result.detection_limit_reached |= discovery.detection_limit_reached;
     if (!configured.use_structured_generators)
       structured.generators.clear();
     if (!configured.stabilize_structured_variables)
@@ -869,6 +901,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     // involved yet.
     if (result.ticks >= parameters.maximum_detection_ticks) {
       result.status = SymmetryEnumerationStatus::LimitReached;
+      result.detection_limit_reached = true;
       return result;
     }
   }
@@ -1019,6 +1052,10 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
               static_cast<unsigned>(detection));
   const bool detection_incomplete =
       detection == symmetry_backend::Status::Incomplete || structured_incomplete;
+  // DejaVu's own limits (symmetries.h:579) or the allowance-derived generator
+  // cap; both make the detector stop before completing its group.
+  if (detection == symmetry_backend::Status::Incomplete)
+    result.detection_limit_reached = true;
   result.status = convert(detection);
   // Completeness of the remaining subgroup says nothing about completeness
   // of the combined basis in the unrestricted original automorphism group.
@@ -1237,6 +1274,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     if (scheduling.finish_admitted_group &&
         result.ticks >= parameters.maximum_detection_ticks) {
       result.status = SymmetryEnumerationStatus::LimitReached;
+      result.detection_limit_reached = true;
       return result;
     }
     const uint64_t planning_allowance =
@@ -1288,8 +1326,11 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       symmetry_backend::release(fixings);
       return result;
     }
-    if (fixing_status == SymmetryEnumerationStatus::LimitReached)
+    if (fixing_status == SymmetryEnumerationStatus::LimitReached) {
+      // The owner's Schreier cost limit (symmetries.h:1468, 3099).
       result.status = fixing_status;
+      result.detection_limit_reached = true;
+    }
     group_ticks = fixings.ticks;
     if (scheduling.finish_admitted_group) {
       if (!charge(kernel, group_parameters, stop, result, group_ticks)) {

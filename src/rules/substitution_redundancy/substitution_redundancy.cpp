@@ -150,6 +150,32 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
   return false;
 }
 
+void refresh_unique_literal_cache(const Kernel &k,
+                                  UniqueLiteralOccurrenceCache &cache) {
+  if (cache.owner == &k && cache.arena_generation == k.arena_generation &&
+      cache.arena_size == k.arena.size() &&
+      cache.live_irredundant_large == k.live_irredundant_large &&
+      cache.count.size() == 2ull * k.nvars)
+    return;
+  cache.owner = &k;
+  cache.arena_generation = k.arena_generation;
+  cache.arena_size = k.arena.size();
+  cache.live_irredundant_large = k.live_irredundant_large;
+  cache.count.assign(2ull * k.nvars, 0);
+  cache.last.assign(2ull * k.nvars, INVALID_REF);
+  for (Ref reference = 0; reference < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, reference);
+    const Ref at = reference;
+    reference += clause_actual_words(clause);
+    if (clause->garbage())
+      continue;
+    for (const Lit literal : *clause) {
+      ++cache.count[literal];
+      cache.last[literal] = at;
+    }
+  }
+}
+
 // Re-authenticate the private unique-literal completion against the proof
 // population which exists at publication time. For (~a | ~b), (~a) is a RAT
 // pivot exactly when the only live clause containing a also contains b: its
@@ -159,8 +185,11 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
 // unique source to be irredundant so a learned clause cannot masquerade as the
 // at-least-one premise.
 bool authenticate_unique_literal_amo(const Kernel &k,
-                                     std::vector<Lit> &candidate) {
+                                     std::vector<Lit> &candidate,
+                                     UniqueLiteralOccurrenceCache *cache) {
   if (candidate.size() != 2) return false;
+  if (cache)
+    refresh_unique_literal_cache(k, *cache);
 
   const auto endpoint_is_rat = [&](size_t pivot_index) {
     if (k.value(candidate[pivot_index])) return false;
@@ -169,15 +198,17 @@ bool authenticate_unique_literal_amo(const Kernel &k,
     uint64_t occurrences = 0;
     bool sole_source = false;
 
-    for (Var var = 0; var < k.nvars; ++var) {
-      Lit unit = INVALID_LIT;
-      if (k.unit_ids[var])
-        unit = k.value(make_lit(var, false)) > 0 ? make_lit(var, false)
-                                                 : make_lit(var, true);
-      else if (var < k.dsr_root_values.size() && k.dsr_root_values[var])
-        unit = make_lit(var, k.dsr_root_values[var] < 0);
-      if (unit == positive) ++occurrences;
-    }
+    // Only the pivot's own variable can carry the unit clause (positive).
+    const Var pivot_var = var_of(positive);
+    Lit unit = INVALID_LIT;
+    if (k.unit_ids[pivot_var])
+      unit = k.value(make_lit(pivot_var, false)) > 0
+                 ? make_lit(pivot_var, false)
+                 : make_lit(pivot_var, true);
+    else if (pivot_var < k.dsr_root_values.size() &&
+             k.dsr_root_values[pivot_var])
+      unit = make_lit(pivot_var, k.dsr_root_values[pivot_var] < 0);
+    if (unit == positive) ++occurrences;
 
     std::unordered_set<uint64_t> binaries;
     for (const WatchEntry watch : k.watches.entries(positive)) {
@@ -188,6 +219,20 @@ bool authenticate_unique_literal_amo(const Kernel &k,
       ++occurrences;
     }
 
+    const auto source = [&](const Clause *clause) {
+      return !clause->redundant() &&
+             std::find(clause->begin(), clause->end(), partner) != clause->end();
+    };
+    if (cache) {
+      occurrences += cache->count[positive];
+      if (occurrences != 1 || cache->last[positive] == INVALID_REF)
+        return false;
+      const Clause *clause = clause_at(k.arena, cache->last[positive]);
+      return !clause->garbage() &&
+             std::find(clause->begin(), clause->end(), positive) !=
+                 clause->end() &&
+             source(clause);
+    }
     for (Ref reference = 0; reference < k.arena.size();) {
       const Clause *clause = clause_at(k.arena, reference);
       reference += clause_actual_words(clause);
@@ -195,9 +240,7 @@ bool authenticate_unique_literal_amo(const Kernel &k,
           std::find(clause->begin(), clause->end(), positive) == clause->end())
         continue;
       ++occurrences;
-      sole_source = !clause->redundant() &&
-                    std::find(clause->begin(), clause->end(), partner) !=
-                        clause->end();
+      sole_source = source(clause);
     }
     return occurrences == 1 && sole_source;
   };
@@ -206,6 +249,22 @@ bool authenticate_unique_literal_amo(const Kernel &k,
   if (!endpoint_is_rat(1)) return false;
   std::swap(candidate[0], candidate[1]);
   return true;
+}
+
+bool authenticate_unique_literal_amo_checked(const Kernel &k,
+                                             std::vector<Lit> &candidate,
+                                             UniqueLiteralOccurrenceCache *cache) {
+#ifndef NDEBUG
+  // The cached image must reproduce the formula scan exactly.
+  if (cache) {
+    std::vector<Lit> scanned = candidate;
+    const bool expected = authenticate_unique_literal_amo(k, scanned, nullptr);
+    const bool cached = authenticate_unique_literal_amo(k, candidate, cache);
+    assert(cached == expected && (!cached || scanned == candidate));
+    return cached;
+  }
+#endif
+  return authenticate_unique_literal_amo(k, candidate, cache);
 }
 
 class ValidationFormula {
@@ -582,7 +641,8 @@ static SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_detailed_impl(
     Kernel &k, const SubstitutionRedundancyInstance &instance,
     const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, bool accept_generated_certificate) {
+    volatile sig_atomic_t *stop, bool accept_generated_certificate,
+    UniqueLiteralOccurrenceCache *unique_literal_cache) {
   SubstitutionRedundancyApplicationResult outcome;
   if (!substitution_redundancy_guard(k) || !parameters.valid())
     return outcome;
@@ -605,7 +665,8 @@ substitution_redundancy_apply_detailed_impl(
     if (candidate.size() != 2 || !instance.witness.empty() ||
         !instance.substitution.empty())
       return outcome;
-    if (!authenticate_unique_literal_amo(k, candidate)) {
+    if (!authenticate_unique_literal_amo_checked(k, candidate,
+                                                 unique_literal_cache)) {
       outcome.status = SubstitutionRedundancyApplicationStatus::Inapplicable;
       return outcome;
     }
@@ -796,16 +857,16 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
     const SubstitutionRedundancyParameters &parameters,
     volatile sig_atomic_t *stop) {
   return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
-                                                      stop, false);
+                                                      stop, false, nullptr);
 }
 
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &k, const SubstitutionRedundancyInstance &instance,
     const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop) {
+    volatile sig_atomic_t *stop, UniqueLiteralOccurrenceCache *cache) {
   return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
-                                                      stop, true);
+                                                      stop, true, cache);
 }
 
 ApplyResult substitution_redundancy_apply(
@@ -831,11 +892,12 @@ ApplyResult substitution_redundancy_apply_orbitopal(
   if (enumeration.status == OrbitopalEnumerationStatus::Interrupted)
     return ApplyResult::NoOp;
   bool progress = false;
+  UniqueLiteralOccurrenceCache cache;
   for (const SubstitutionRedundancyInstance &instance : instances) {
     if ((stop && *stop) || (kernel.stop && *kernel.stop))
       break;
     const ApplyResult applied = substitution_redundancy_apply_orbitopal_prefix(
-                                    kernel, instance, parameters, stop)
+                                    kernel, instance, parameters, stop, &cache)
                                     .rule_result;
     if (applied == ApplyResult::Unsat)
       return applied;

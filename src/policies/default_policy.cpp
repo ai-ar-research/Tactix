@@ -1048,6 +1048,9 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
         stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::Continue &&
         stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::FinishRoundThenStop)
       return reject("structured root budget disposition is invalid");
+    if (stage.repeat_trigger != strategy::RepeatTrigger::AnyProgress &&
+        stage.repeat_trigger != strategy::RepeatTrigger::SymmetryBreakingOutput)
+      return reject("structured root repeat trigger is invalid");
     if (!strategy::validate_online_strategy_program(stage.program, error))
       return false;
     if (stage.structured_handoff_after_prior_progress &&
@@ -1557,6 +1560,11 @@ std::string DefaultStrategyConfig::serialize() const {
     out << " inprocess.structured_root_stage" << i
         << ".structured_handoff_after_prior_progress="
         << stage.structured_handoff_after_prior_progress;
+    out << " inprocess.structured_root_stage" << i << ".repeat_trigger="
+        << static_cast<unsigned>(stage.repeat_trigger)
+        << " inprocess.structured_root_stage" << i
+        << ".stop_repeat_at_detection_limit="
+        << stage.stop_repeat_at_detection_limit;
   }
   for (size_t i = 0;
        i < inprocess.structured_root_bounded_backtracking_stages.size(); ++i) {
@@ -1580,6 +1588,11 @@ std::string DefaultStrategyConfig::serialize() const {
     out << " inprocess.structured_root_bounded_backtracking_stage" << i
         << ".structured_handoff_after_prior_progress="
         << stage.structured_handoff_after_prior_progress;
+    out << " inprocess.structured_root_bounded_backtracking_stage" << i << ".repeat_trigger="
+        << static_cast<unsigned>(stage.repeat_trigger)
+        << " inprocess.structured_root_bounded_backtracking_stage" << i
+        << ".stop_repeat_at_detection_limit="
+        << stage.stop_repeat_at_detection_limit;
   }
   for (size_t i = 0; i < inprocess.structured_root_large_domain_stages.size();
        ++i) {
@@ -1602,6 +1615,11 @@ std::string DefaultStrategyConfig::serialize() const {
     out << " inprocess.structured_root_large_stage" << i
         << ".structured_handoff_after_prior_progress="
         << stage.structured_handoff_after_prior_progress;
+    out << " inprocess.structured_root_large_stage" << i << ".repeat_trigger="
+        << static_cast<unsigned>(stage.repeat_trigger)
+        << " inprocess.structured_root_large_stage" << i
+        << ".stop_repeat_at_detection_limit="
+        << stage.stop_repeat_at_detection_limit;
   }
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
@@ -6680,17 +6698,25 @@ int DefaultInprocessScheduler::run_structured_root(
   structured_root.sr_discovery_progress_window = progress_window;
   structured_root.stages.resize(stages.size());
   bool prior_stage_progress = false;
+  // Satsuma's reached_limits, sticky for the whole startup lifecycle.
+  bool detection_limit_reached = false;
+  // Detections already completed without effect on the current formula.
+  strategy::UnchangedDetections unchanged_detections;
   const uint64_t unique_literal_amo_before =
       k.stats.sr_unique_literal_amo_binaries;
   const uint64_t nonforcing_cuts_before =
       k.stats.sr_nonforcing_cuts_declined;
   for (size_t index = 0; index < stages.size(); ++index) {
+    bool graph_component_limit = false;
     const auto stage = DefaultStrategyConfig::structured_root_stage_after_feedback(
         stages[index], prior_stage_progress,
         k.stats.sr_unique_literal_amo_binaries > unique_literal_amo_before,
-        k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before);
+        k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before,
+        detection_limit_reached, &k, &graph_component_limit);
+    detection_limit_reached |= graph_component_limit;
     auto &telem = structured_root.stages[index];
     ++telem.runs;
+    telem.detection_limit_reached |= graph_component_limit;
     strategy::OnlineStrategySequence executor;
     std::string error;
     if (!executor.configure(stage, 1,
@@ -6698,9 +6724,19 @@ int DefaultInprocessScheduler::run_structured_root(
       telem.terminal = structured_root.terminal = InvocationStatus::InvalidRequest;
       return 0;
     }
+    executor.share_unchanged_detections(&unchanged_detections);
     const uint64_t started = now_nanos();
+    const uint64_t discovery_started = sr_discovery_allowance.consumed();
+    const uint64_t outputs_started = strategy::symmetry_breaking_outputs(k);
     const auto finish = [&] {
       telem.sequence_passes = executor.rounds();
+      telem.discovery_ticks +=
+          sr_discovery_allowance.consumed() - discovery_started;
+      telem.symmetry_breaking_outputs +=
+          strategy::symmetry_breaking_outputs(k) - outputs_started;
+      telem.unchanged_detection_skips += executor.unchanged_detection_skips();
+      telem.detection_limit_reached |= executor.detection_limit_reached();
+      detection_limit_reached |= executor.detection_limit_reached();
       telem.nanos += now_nanos() - started;
       structured_root.sequence_passes += telem.sequence_passes;
       structured_root.nanos += telem.nanos;
@@ -7367,13 +7403,19 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
   for (size_t i = 0; i < structured_root.stages.size(); ++i) {
     const auto &stage = structured_root.stages[i];
     std::printf("c structured-stage %zu runs %llu advances %llu applications %llu "
-                "effective %llu passes %llu seconds %.6f terminal %u\n", i,
+                "effective %llu passes %llu seconds %.6f terminal %u "
+                "discovery-ticks %llu sbp %llu detection-limit %u "
+                "unchanged-skips %llu\n", i,
                 (unsigned long long)stage.runs,
                 (unsigned long long)stage.advances,
                 (unsigned long long)stage.applications,
                 (unsigned long long)stage.effective,
                 (unsigned long long)stage.sequence_passes, stage.nanos / 1e9,
-                static_cast<unsigned>(stage.terminal));
+                static_cast<unsigned>(stage.terminal),
+                (unsigned long long)stage.discovery_ticks,
+                (unsigned long long)stage.symmetry_breaking_outputs,
+                static_cast<unsigned>(stage.detection_limit_reached),
+                (unsigned long long)stage.unchanged_detection_skips);
   }
 
   std::printf("c meters      probe %llu backbone %llu vivify %llu "

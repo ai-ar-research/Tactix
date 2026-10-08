@@ -105,6 +105,8 @@ public:
         result.ticks - checkpoint_ < allowance_)
       return false;
     ++result.unproductive_refinement_stops;
+    // The owner's split limit (symmetries.h:2042, 2951) sets reached_limits.
+    result.detection_limit_reached = true;
     SymmetryTrace{}.event(
         "orbitopal_progress_stop",
         "producer\t%s\twork\t%llu\tallowance\t%llu\tmatrices\t%llu",
@@ -1147,6 +1149,7 @@ bool prepare_formula_refinement(
         storage.vertex_count > limits.maximum_graph_vertices ||
         storage.edge_count > limits.maximum_graph_edges) {
       result.status = traced_orbitopal_limit(__func__, __LINE__);
+      result.detection_limit_reached = true;
       return false;
     }
     if (!charge(kernel, stop, parameters, result,
@@ -1306,6 +1309,7 @@ bool prepare_formula_automorphisms(
       storage.vertex_count > settings.maximum_graph_vertices ||
       storage.edge_count > settings.maximum_graph_edges) {
     result.status = traced_orbitopal_limit(__func__, __LINE__);
+    result.detection_limit_reached = true;
     return false;
   }
   if (!charge(kernel, stop, parameters, result,
@@ -2736,6 +2740,7 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
         3ull * kernel.nvars > static_cast<uint64_t>(std::numeric_limits<int>::max()) ||
         2ull * kernel.nvars > parameters.graph_symmetry.maximum_graph_edges) {
       result.status = traced_orbitopal_limit(__func__, __LINE__);
+      result.detection_limit_reached = true;
       return false;
     }
     if (!formula) {
@@ -3028,10 +3033,26 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
   return result;
 }
 
+namespace {
+
+// Exhausting the shared discovery allowance is the composed equivalent of the
+// owner's cost limits; every local tick check stops at or beyond the limit.
+OrbitopalEnumerationResult with_allowance_limit(
+    const SubstitutionRedundancyParameters &parameters,
+    OrbitopalEnumerationResult result) {
+  if (result.status == OrbitopalEnumerationStatus::LimitReached &&
+      result.ticks >= parameters.maximum_detection_ticks)
+    result.detection_limit_reached = true;
+  return result;
+}
+
+} // namespace
+
 OrbitopalEnumerationResult substitution_redundancy_enumerate_orbitopal(
     const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
     const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop) {
-  return enumerate_orbitopal(kernel, parameters, visitor, stop, nullptr);
+  return with_allowance_limit(
+      parameters, enumerate_orbitopal(kernel, parameters, visitor, stop, nullptr));
 }
 
 OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators(
@@ -3042,7 +3063,8 @@ OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators
       parameters.graph_symmetry.structured_scope > SymmetryStructuredScope::AxisAnchors) {
     return {};
   }
-  auto result = enumerate_orbitopal(kernel, parameters, {}, stop, &hints);
+  auto result = with_allowance_limit(
+      parameters, enumerate_orbitopal(kernel, parameters, {}, stop, &hints));
   std::sort(hints.fixed_variables.begin(), hints.fixed_variables.end());
   hints.fixed_variables.erase(
       std::unique(hints.fixed_variables.begin(), hints.fixed_variables.end()),

@@ -22,6 +22,57 @@ enum class BudgetExhaustionPolicy : uint8_t {
   FinishRoundThenStop,   // Complete later steps once, then prohibit repetition.
 };
 
+// What earns another round of a fixpoint program. SymmetryBreakingOutput is
+// Satsuma's iteration condition `sbp.n_clauses() >= 1` (satsuma.h:809): a
+// committed SR consequence other than a unique-literal AMO completion binary,
+// which the owner adds to its clause database, not to the predicate.
+enum class RepeatTrigger : uint8_t {
+  AnyProgress,
+  SymmetryBreakingOutput,
+};
+
+inline uint64_t symmetry_breaking_outputs(const Kernel &k) {
+  return k.stats.sr_applied - k.stats.sr_unique_literal_amo_binaries;
+}
+
+// A generated Orbitopal/GraphSymmetry pass that ended without effect, complete
+// or at a limit, sees the same formula while no effective transition
+// intervenes; its shared allowance can only have shrunk. A scheduler can share
+// one record across the sequences of a root lifecycle so that such a
+// detection is not paid again.
+class UnchangedDetections {
+  std::vector<OnlineInvocation> completed_;
+
+public:
+  static bool eligible(const OnlineInvocation &step) {
+    const auto *parameters =
+        std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+    return step.rule == "SubstitutionRedundancy" && parameters &&
+           step.granularity == InvocationGranularity::CompleteCurrentPass &&
+           (parameters->producer == SubstitutionRedundancyProducer::Orbitopal ||
+            parameters->producer ==
+                SubstitutionRedundancyProducer::GraphSymmetry);
+  }
+  bool current(const OnlineInvocation &step) const {
+    return eligible(step) &&
+           std::any_of(completed_.begin(), completed_.end(),
+                       [&](const OnlineInvocation &done) {
+                         return done.granularity == step.granularity &&
+                                done.post_application ==
+                                    step.post_application &&
+                                std::get<SubstitutionRedundancyParameters>(
+                                    done.parameters) ==
+                                    std::get<SubstitutionRedundancyParameters>(
+                                        step.parameters);
+                       });
+  }
+  void record(const OnlineInvocation &step) {
+    if (eligible(step) && !current(step))
+      completed_.push_back(step);
+  }
+  void transition() { completed_.clear(); }
+};
+
 struct OnlineStrategyStage {
   OnlineStrategyProgram program;
   BudgetExhaustionPolicy on_budget_exhaustion = BudgetExhaustionPolicy::Stop;
@@ -39,6 +90,10 @@ struct OnlineStrategyStage {
   // set, that internal handoff is admitted only after an earlier stage made an
   // effective formula transition.  Generic graph discovery remains enabled.
   bool structured_handoff_after_prior_progress = false;
+  RepeatTrigger repeat_trigger = RepeatTrigger::AnyProgress;
+  // Satsuma's sticky `reached_limits` (satsuma.h:49, 194, 267, 810): no
+  // further round once any generated discovery reached a detection limit.
+  bool stop_repeat_at_detection_limit = false;
 };
 
 // Typed sequence controller with an explicit disposition for a bounded
@@ -69,6 +124,14 @@ class OnlineStrategySequence {
   bool any_incomplete_ = false;
   bool complete_ = false;
   bool finish_round_ = false;
+  RepeatTrigger repeat_trigger_ = RepeatTrigger::AnyProgress;
+  bool stop_repeat_at_detection_limit_ = false;
+  bool detection_limit_reached_ = false;
+  bool round_open_ = false;
+  uint64_t round_outputs_ = 0;
+  bool entered_ = false;
+  UnchangedDetections *unchanged_ = nullptr;
+  uint64_t unchanged_skips_ = 0;
   InvocationResult terminal_;
 
   void configure_round(ReconfigureMode mode) {
@@ -85,6 +148,16 @@ class OnlineStrategySequence {
     before_progress_admitted_ = false;
     progress_ = false;
     incomplete_ = false;
+    round_open_ = false;
+    entered_ = false;
+  }
+
+  void leave_step() {
+    ++current_;
+    step_progress_ = false;
+    followup_admitted_ = false;
+    before_progress_admitted_ = false;
+    entered_ = false;
   }
 
 public:
@@ -159,6 +232,10 @@ public:
     followup_credit_ = followup_admitted_ = false;
     finish_round_ = false;
     complete_ = any_incomplete_ = step_progress_ = progress_ = incomplete_ = false;
+    repeat_trigger_ = RepeatTrigger::AnyProgress;
+    stop_repeat_at_detection_limit_ = detection_limit_reached_ = false;
+    round_open_ = entered_ = false;
+    unchanged_skips_ = 0;
     configured_ = true;
     owner_ = nullptr;
     terminal_ = {};
@@ -169,12 +246,24 @@ public:
   bool configure(const OnlineStrategyStage &stage, uint64_t revision = 1,
                  ReconfigureMode mode = ReconfigureMode::ResetRuntime,
                  std::string *error = nullptr) {
-    return configure(stage.program, revision, mode, stage.on_budget_exhaustion,
-                     error, stage.progress_followups, stage.before_progress);
+    if (!configure(stage.program, revision, mode, stage.on_budget_exhaustion,
+                   error, stage.progress_followups, stage.before_progress))
+      return false;
+    repeat_trigger_ = stage.repeat_trigger;
+    stop_repeat_at_detection_limit_ = stage.stop_repeat_at_detection_limit;
+    return true;
+  }
+
+  // Optional caller-owned record shared with other sequences; null disables
+  // unchanged-detection skipping. The record must outlive every advance.
+  void share_unchanged_detections(UnchangedDetections *record) {
+    unchanged_ = record;
   }
 
   bool complete() const { return complete_; }
   uint64_t rounds() const { return rounds_; }
+  bool detection_limit_reached() const { return detection_limit_reached_; }
+  uint64_t unchanged_detection_skips() const { return unchanged_skips_; }
   uint64_t dispatches(size_t step) const { return dispatches_[step]; }
   uint64_t consumed(size_t step) const {
     return executors_[step].step_consumed(program_.sequence[step].id);
@@ -223,6 +312,10 @@ public:
       }
       if (complete_)
         return terminal_;
+      if (!round_open_) {
+        round_open_ = true;
+        round_outputs_ = symmetry_breaking_outputs(k);
+      }
       if (current_ < executors_.size()) {
         auto &executor = executors_[current_];
         if (before_progress_[current_] && !before_progress_admitted_) {
@@ -255,6 +348,18 @@ public:
           }
           followup_admitted_ = true;
         }
+        if (unchanged_ && !entered_ &&
+            unchanged_->current(program_.sequence[current_])) {
+          InvocationResult skipped;
+          skipped.configuration_revision = revision_;
+          skipped.before = skipped.after = state_version(k);
+          skipped.step_id = program_.sequence[current_].id;
+          skipped.status = InvocationStatus::NoChange;
+          skipped.selection_complete = true;
+          ++unchanged_skips_;
+          leave_step();
+          return skipped;
+        }
         if (exhaustion_ == BudgetExhaustionPolicy::Continue &&
             stopped_generation_[current_] == effective_generation_) {
           InvocationResult skipped;
@@ -271,10 +376,15 @@ public:
           return skipped;
         }
         ++dispatches_[current_];
+        entered_ = true;
         InvocationResult out = dispatch(program_.sequence[current_], [&] {
           return executor.advance(k, stop, sr_discovery_allowance, discovery_feedback);
         });
         expected_ = out.after;
+        if (out.made_rule_progress && unchanged_)
+          unchanged_->transition();
+        const bool step_limit = executor.detection_limit_reached();
+        detection_limit_reached_ |= step_limit;
         // A producer can prove that its affordable deterministic prefix is
         // still growing without publishing an arbitrary subgroup. Keep the
         // same step pending while the enclosing scheduler decides whether to
@@ -299,23 +409,28 @@ public:
           // Without effective mutation, do not retry an identical exhausted job.
           stopped_generation_[current_] = step_progress_
               ? std::nullopt : std::optional<uint64_t>(effective_generation_);
-          ++current_;
-          step_progress_ = false;
-          followup_admitted_ = false;
-          before_progress_admitted_ = false;
+          if (unchanged_ && !step_progress_)
+            unchanged_->record(program_.sequence[current_]);
+          leave_step();
         } else if (executor.complete()) {
           if (followup)
             followup_credit_ = false;
-          ++current_;
-          step_progress_ = false;
-          followup_admitted_ = false;
-          before_progress_admitted_ = false;
+          if (unchanged_ && !step_progress_)
+            unchanged_->record(program_.sequence[current_]);
+          leave_step();
         }
         // Resource failures and terminal/conflict statuses are returned to the
         // caller unchanged. In particular an interrupt never skips a producer.
         return out;
       }
       ++rounds_;
+      // A round earns repetition by its trigger; a reached detection limit
+      // ends repetition for the rest of this sequence.
+      const bool earned =
+          (repeat_trigger_ == RepeatTrigger::AnyProgress
+               ? progress_
+               : symmetry_breaking_outputs(k) > round_outputs_) &&
+          !(stop_repeat_at_detection_limit_ && detection_limit_reached_);
       bool repeat = false;
       switch (program_.repeat.mode) {
       case RepeatMode::Once:
@@ -326,7 +441,7 @@ public:
       case RepeatMode::UntilScopedFixpoint:
       case RepeatMode::UntilSizeScaledFixpoint: {
         const uint64_t limit = repeat_round_limit(k, program_.repeat);
-        repeat = progress_ && (!limit || rounds_ < limit);
+        repeat = earned && (!limit || rounds_ < limit);
         break;
       }
       }
@@ -344,8 +459,9 @@ public:
       const bool fixpoint = fixpoint_repeat(program_.repeat.mode);
       const bool incomplete = fixpoint ? incomplete_ : any_incomplete_;
       terminal_.selection_complete = !incomplete;
-      if (incomplete ||
-          (fixpoint && progress_)) {
+      if (incomplete || (fixpoint && progress_ && earned) ||
+          (fixpoint && stop_repeat_at_detection_limit_ &&
+           detection_limit_reached_)) {
         terminal_.status = InvocationStatus::BudgetExhausted;
         terminal_.budget_status = BudgetStatus::Exhausted;
       } else {

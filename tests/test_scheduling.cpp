@@ -1283,6 +1283,58 @@ static void test_structured_root_exhaustion_finishes_selected_scope() {
   }
 }
 
+// Satsuma's reached_limits is sticky across its iterations (satsuma.h:49,
+// 194, 267, 810): once one stage reached a detection limit, a later stage
+// completes its pass but does not repeat even after symmetry output.
+static void test_structured_root_detection_limit_is_sticky() {
+  using namespace strategy;
+  for (const bool stop_at_limit : {false, true}) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
+    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    OnlineInvocation limited;
+    limited.id = 1181;
+    limited.rule = "SubstitutionRedundancy";
+    SubstitutionRedundancyParameters parameters;
+    parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+    parameters.graph_symmetry.maximum_graph_vertices = 1;
+    limited.parameters = parameters;
+    OnlineInvocation unit;
+    unit.id = 1182;
+    unit.rule = "SubstitutionRedundancy";
+    unit.parameters = SubstitutionRedundancyParameters{};
+    unit.granularity = InvocationGranularity::OneInstance;
+    // Literal -2 occurs nowhere, so the unit 2 is blocked.
+    unit.substitution_redundancy_instances = {
+        SubstitutionRedundancyInstance{{internalize(2)}, {}, {}}};
+    OnlineStrategyStage first, second;
+    first.program.sequence = {limited};
+    first.program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 4};
+    first.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+    second.program.sequence = {unit};
+    second.program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 4};
+    second.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+    for (auto *stage : {&first, &second}) {
+      stage->repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+      stage->stop_repeat_at_detection_limit = stop_at_limit;
+    }
+    DefaultStrategyConfig config;
+    config.inprocess.structured_root_stages = {first, second};
+    DefaultPolicy policy(config);
+    assert(policy.inprocess().run_structured_root(k, nullptr) == 0);
+    const auto &stages = policy.inprocess().structured_root.stages;
+    assert(stages.size() == 2);
+    assert(stages[0].detection_limit_reached &&
+           stages[0].sequence_passes == 1);
+    assert(stages[1].effective == 1 && stages[1].symmetry_breaking_outputs == 1);
+    assert(stages[1].sequence_passes == (stop_at_limit ? 1u : 2u));
+    assert(!k.inprocessing && !k.phase_saving_suppressed);
+    kernel_check_invariants(k);
+  }
+}
+
 static void test_structured_root_publishes_before_probe_slots() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -2204,6 +2256,7 @@ int main() {
   test_default_slot_membership_matches_kissat();
   test_default_structured_root_sequence_is_effective();
   test_structured_root_exhaustion_finishes_selected_scope();
+  test_structured_root_detection_limit_is_sticky();
   test_structured_root_publishes_before_probe_slots();
   test_two_slot_clocks_diverge();
   test_initial_elimination_deadline_matches_kissat();

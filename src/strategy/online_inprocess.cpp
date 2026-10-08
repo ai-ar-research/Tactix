@@ -35,7 +35,8 @@ namespace tactix {
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &, const SubstitutionRedundancyInstance &,
-    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *);
+    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *,
+    UniqueLiteralOccurrenceCache *);
 }
 
 namespace tactix::strategy {
@@ -1422,6 +1423,7 @@ bool OnlineStrategyExecutor::configure(const OnlineStrategyProgram &program,
   step_index_ = 0;
   sequence_passes_ = 0;
   sequence_progress_ = false;
+  detection_limit_reached_ = false;
   complete_ = program_.sequence.empty();
   configured_ = true;
   if (error)
@@ -1434,6 +1436,7 @@ void OnlineStrategyExecutor::reset_runtime() {
   step_index_ = 0;
   sequence_passes_ = 0;
   sequence_progress_ = false;
+  detection_limit_reached_ = false;
   complete_ = program_.sequence.empty();
 }
 
@@ -1497,6 +1500,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   runtime.selection.clear();
   runtime.structured_selection.clear();
   runtime.sr_selection.clear();
+  // The authentication image is valid only for the batch it serves, whose
+  // state the executor's epoch checks protect from external mutation.
+  runtime.unique_literal_cache = {};
   runtime.cursor = 0;
   if (!continuing_general_sr)
     runtime.pass_progress = false;
@@ -1643,6 +1649,8 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
             graph_entry_reaches_detector()) {
           runtime.graph_entry_requested = true;
           out.discovery_entry_required = true;
+        } else {
+          detection_limit_reached_ = true;
         }
         return false;
       }
@@ -1699,6 +1707,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       }
       runtime.selection_truncated =
           enumeration.status == OrbitopalEnumerationStatus::LimitReached;
+      detection_limit_reached_ |= enumeration.detection_limit_reached;
       // Orbitopal sub-strategies share one structured detector family.  A
       // bounded empty prefix is not evidence that paying another complete
       // snapshot for the next orientation is useful.  Formula progress still
@@ -1804,6 +1813,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         out.step_id = step.id;
         return false;
       }
+      detection_limit_reached_ |= enumeration.detection_limit_reached;
     }
     runtime.selection.resize(runtime.sr_selection.size());
     for (size_t i = 0; i < runtime.selection.size(); ++i)
@@ -1843,6 +1853,7 @@ bool OnlineStrategyExecutor::finish_step_pass(const Kernel &k,
   runtime.selection.clear();
   runtime.structured_selection.clear();
   runtime.sr_selection.clear();
+  runtime.unique_literal_cache = {};
   runtime.sr_general_cursor = {};
   runtime.sr_general_mode = false;
   runtime.selection_truncated = false;
@@ -2506,7 +2517,8 @@ InvocationResult OnlineStrategyExecutor::advance(
                                instance->symmetry_chain_certificate ||
                                instance->unique_literal_amo_certificate)
                           ? substitution_redundancy_apply_orbitopal_prefix(
-                                k, *instance, parameters, stop)
+                                k, *instance, parameters, stop,
+                                &runtime.unique_literal_cache)
                           : substitution_redundancy_apply_detailed(
                                 k, *instance, parameters, stop);
                   return sr_application->rule_result;
