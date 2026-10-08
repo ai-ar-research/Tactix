@@ -1553,13 +1553,12 @@ private:
   size_t used_ = 0;
 };
 
-// Observation-only provenance of symmetry-breaking output (plan §9.5, per-run
-// provenance tags): which published clauses search actually consumed. No
-// solver decision reads any of it. A run tag names one symmetry pass (the
-// startup program is run 0). Large clauses are identified by proof id, which
-// survives arena collection and is retired exactly by kernel_delete_clause;
-// binaries and units live only in watch lists and on the trail, so they keep
-// a stable external identity and an internal filter that compaction rebuilds.
+// Provenance of symmetry-breaking output (plan §9.5, per-run tags): which
+// published clauses search actually consumed; no decision reads symmetry runs.
+// The AFFINE class (per affine run epoch) feeds DefaultPolicy's affine delay
+// (docs/implementation-notes.md). Large clauses are identified by proof id,
+// retired exactly by kernel_delete_clause; binaries and units keep a stable
+// external identity and an internal filter that compaction rebuilds.
 // `Kernel::symuse_active` stays false until the first tag. Propagation is
 // observed by rescanning the trail segment a propagation call assigned, after
 // the call returns, so the propagation loop itself carries no bookkeeping;
@@ -1570,6 +1569,8 @@ struct SymmetryUseRun {
   // propagation (propagate_service), probing, warm-up, binary-only
   // propagation or a conflict-reuse assertion: helper share, and the share
   // made outside inprocessing, warm-up and probing.
+  // For AFFINE runs, search_propagations counts only assignments above the
+  // root: a root-published affine clause's own root propagation is not use.
   uint64_t propagations = 0, helper_propagations = 0, search_propagations = 0;
   // Conflict clauses and reasons resolved by ConflictAnalysis (1UIP and the
   // failed-level-one walk; not minimization or shrinking).
@@ -1577,13 +1578,19 @@ struct SymmetryUseRun {
   // Root implications whose reason contains the negation of a tagged unit
   // (one level: the unit's own consequences, not their descendants). When the
   // run tagged no binary and no tagged large clause is live, only propagation
-  // at the root is inspected for this.
+  // at the root is inspected for this. A reason that is itself an AFFINE
+  // clause is not attributed: Gaussian output consumed by Gaussian output.
   uint64_t root_forced = 0;
   uint64_t large_deleted = 0; // retired by any path, in-place shrink included
 };
 
 struct SymmetryUse {
   static constexpr uint64_t HELPER = 1u << 8; // tag value: (run + 1) | HELPER
+  // Affine tag value: AFFINE | (epoch << AFFINE_SHIFT), epoch saturating at
+  // AFFINE_EPOCHS - 1; counted in `affine_runs[epoch]`, never in `runs`.
+  static constexpr uint64_t AFFINE = 1u << 9;
+  static constexpr uint32_t AFFINE_SHIFT = 10;
+  static constexpr uint32_t AFFINE_EPOCHS = 1u << (32 - AFFINE_SHIFT);
   static constexpr uint8_t BINARY_MARK = 1;   // lit occurs in a tagged binary
   static constexpr uint8_t UNIT_MARK = 2;     // lit is a tagged unit's negation
   struct StableBinary {
@@ -1596,6 +1603,7 @@ struct SymmetryUse {
   };
   uint8_t run = 0; // tag for new publications
   std::vector<SymmetryUseRun> runs;
+  std::vector<SymmetryUseRun> affine_runs; // indexed by affine run epoch
   std::vector<StableBinary> binaries;
   std::vector<StableUnit> units;
   // Internal-space filters, rebuilt by kernel_compact_variables.
@@ -2222,6 +2230,12 @@ struct Kernel {
 // behind `k.symuse_active` and filter by literal mark or id range first.
 void kernel_symuse_tag(Kernel &, const Lit *lits, uint32_t size, uint64_t id,
                        bool helper);
+// Tag persistent Gaussian output under affine run `epoch` (AFFINE class).
+void kernel_symuse_tag_affine(Kernel &, const Lit *lits, uint32_t size,
+                              uint64_t id, uint64_t epoch);
+// Search use of affine run `epoch`'s output: root-forced assignments,
+// analysis antecedents and above-root propagations.
+uint64_t kernel_symuse_affine_uses(const Kernel &, uint64_t epoch);
 // Attribute the assignments trail[from..] by their recorded reasons.
 [[gnu::noinline]] void kernel_symuse_note_trail(Kernel &, size_t from);
 [[gnu::noinline]] void kernel_symuse_note_binary_use(Kernel &, Lit a, Lit b);

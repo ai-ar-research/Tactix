@@ -55,19 +55,19 @@ static uint32_t symuse_large_tag(const Kernel &k, uint64_t id) {
 }
 
 static SymmetryUseRun &symuse_run(Kernel &k, uint32_t tag) {
+  if (tag & SymmetryUse::AFFINE) {
+    assert((tag >> SymmetryUse::AFFINE_SHIFT) < k.symuse.affine_runs.size());
+    return k.symuse.affine_runs[tag >> SymmetryUse::AFFINE_SHIFT];
+  }
   assert((tag & 0xffu) && (tag & 0xffu) <= k.symuse.runs.size());
   return k.symuse.runs[(tag & 0xffu) - 1];
 }
 
-void kernel_symuse_tag(Kernel &k, const Lit *lits, uint32_t size, uint64_t id,
-                       bool helper) {
+static void symuse_tag_with(Kernel &k, const Lit *lits, uint32_t size,
+                            uint64_t id, uint32_t tag, bool helper) {
   assert(size > 0);
   SymmetryUse &u = k.symuse;
-  if (u.runs.size() <= u.run)
-    u.runs.resize(size_t{u.run} + 1);
-  SymmetryUseRun &run = u.runs[u.run];
-  const uint32_t tag = (uint32_t{u.run} + 1) |
-                       (helper ? static_cast<uint32_t>(SymmetryUse::HELPER) : 0);
+  SymmetryUseRun &run = symuse_run(k, tag);
   run.clauses++;
   run.helpers += helper;
   if (size == 1) {
@@ -88,6 +88,36 @@ void kernel_symuse_tag(Kernel &k, const Lit *lits, uint32_t size, uint64_t id,
     u.large_max = std::max(u.large_max, id);
   }
   k.symuse_active = true;
+}
+
+void kernel_symuse_tag(Kernel &k, const Lit *lits, uint32_t size, uint64_t id,
+                       bool helper) {
+  SymmetryUse &u = k.symuse;
+  if (u.runs.size() <= u.run)
+    u.runs.resize(size_t{u.run} + 1);
+  const uint32_t tag = (uint32_t{u.run} + 1) |
+                       (helper ? static_cast<uint32_t>(SymmetryUse::HELPER) : 0);
+  symuse_tag_with(k, lits, size, id, tag, helper);
+}
+
+void kernel_symuse_tag_affine(Kernel &k, const Lit *lits, uint32_t size,
+                              uint64_t id, uint64_t epoch) {
+  const uint32_t e = static_cast<uint32_t>(
+      std::min<uint64_t>(epoch, SymmetryUse::AFFINE_EPOCHS - 1));
+  if (k.symuse.affine_runs.size() <= e)
+    k.symuse.affine_runs.resize(size_t{e} + 1);
+  symuse_tag_with(k, lits, size, id,
+                  static_cast<uint32_t>(SymmetryUse::AFFINE) |
+                      (e << SymmetryUse::AFFINE_SHIFT),
+                  false);
+}
+
+uint64_t kernel_symuse_affine_uses(const Kernel &k, uint64_t epoch) {
+  const uint64_t e = std::min<uint64_t>(epoch, SymmetryUse::AFFINE_EPOCHS - 1);
+  if (e >= k.symuse.affine_runs.size())
+    return 0;
+  const SymmetryUseRun &r = k.symuse.affine_runs[e];
+  return r.root_forced + r.analysis_uses + r.search_propagations;
 }
 
 static void symuse_note_assign(Kernel &k, Lit lit, uint32_t level,
@@ -125,7 +155,10 @@ static void symuse_note_assign(Kernel &k, Lit lit, uint32_t level,
     run.propagations++;
     run.helper_propagations += (tag & SymmetryUse::HELPER) != 0;
     run.search_propagations +=
-        !k.inprocessing && !k.warming && !k.probing.recording;
+        !k.inprocessing && !k.warming && !k.probing.recording &&
+        (level || !(tag & SymmetryUse::AFFINE));
+    if (tag & SymmetryUse::AFFINE)
+      return; // affine reasons never credit the units they mention
   }
   if (unit_tag)
     symuse_run(k, unit_tag).root_forced++;

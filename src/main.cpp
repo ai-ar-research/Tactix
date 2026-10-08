@@ -1047,8 +1047,6 @@ int main(int argc, char **argv) {
       metric("root_services", affine.root_services);
       metric("search_services", affine.search_services);
       metric("reasons_published", affine.reasons_published);
-      metric("implications_consumed", affine.implications_consumed);
-      metric("conflicts_consumed", affine.conflicts_consumed);
       metric("admitted_sources", affine.admitted_sources);
       metric("active_sources", affine.active_sources);
       const auto &graph = default_policy.graph_labeling_diagnostics();
@@ -1109,18 +1107,26 @@ int main(int argc, char **argv) {
       metric("incremental_capture_calls", affine.incremental_capture_calls);
       metric("unchanged_support_calls", affine.unchanged_support_calls);
       metric("cached_event_calls", affine.cached_event_calls);
-      metric("service_due_ticks", affine.service_due_ticks);
-      metric("service_delay_current", affine.service_delay_current);
-      metric("service_tick_skips", affine.service_tick_skips);
+      metric("runs", affine.runs);
+      metric("delayed_runs", affine.delayed_runs);
+      metric("unchanged_waits", affine.unchanged_waits);
+      metric("fruitful_runs", affine.fruitful_runs);
+      metric("fruitless_runs", affine.fruitless_runs);
+      metric("run_conflict_limit", affine.run_conflict_limit);
+      metric("delay_current", affine.delay_current);
+      metric("run_effort_last", affine.run_effort_last);
+      metric("run_effort_total", affine.run_effort_total);
+      metric("run_work", affine.run_work);
+      metric("run_steps", affine.run_steps);
+      metric("output_tags", affine.output_tags);
+      metric("output_uses", affine.output_uses);
+      metric("trigger_work", affine.trigger_work);
       metric("pending_slices", affine.pending_slices);
       metric("resumed_slices", affine.resumed_slices);
       metric("completed_slice_steps", affine.completed_slice_steps);
       metric("slice_work", affine.slice_work);
       metric("slice_cumulative_work", affine.slice_cumulative_work);
       metric("minimum_slice_work", affine.minimum_slice_work);
-      metric("no_yield_delays", affine.no_yield_delays);
-      metric("productive_delay_decays", affine.productive_delay_decays);
-      metric("service_wakeups", affine.service_wakeups);
 
       metric("capture_delta_literals", affine.capture_delta_literals);
       metric("premise_maintenance_work", affine.premise_maintenance_work);
@@ -1525,6 +1531,31 @@ int main(int argc, char **argv) {
              (unsigned long long)use.root_forced,
              (unsigned long long)(use.clauses - alive),
              (unsigned long long)alive);
+    }
+    if (!kernel.symuse.affine_runs.empty()) {
+      SymmetryUseRun total;
+      uint64_t used = 0;
+      for (const SymmetryUseRun &use : kernel.symuse.affine_runs) {
+        total.clauses += use.clauses;
+        total.units += use.units;
+        total.propagations += use.propagations;
+        total.search_propagations += use.search_propagations;
+        total.analysis_uses += use.analysis_uses;
+        total.root_forced += use.root_forced;
+        total.large_deleted += use.large_deleted;
+        used += use.root_forced + use.analysis_uses + use.search_propagations != 0;
+      }
+      printf("c symuse affine: %llu tagged runs (%llu used), %llu clauses (%llu units), "
+             "%llu propagations (%llu above root), %llu analysis uses, "
+             "%llu root forced, %llu deleted\n",
+             (unsigned long long)kernel.symuse.affine_runs.size(),
+             (unsigned long long)used, (unsigned long long)total.clauses,
+             (unsigned long long)total.units,
+             (unsigned long long)total.propagations,
+             (unsigned long long)total.search_propagations,
+             (unsigned long long)total.analysis_uses,
+             (unsigned long long)total.root_forced,
+             (unsigned long long)total.large_deleted);
     }
     printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
            (unsigned long long)kernel.stats.residual_handoff_calls,

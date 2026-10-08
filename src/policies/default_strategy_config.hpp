@@ -362,9 +362,17 @@ struct DefaultStrategyConfig {
     uint64_t autodisable_check_every = 1024;
     // Zero inherits the explicit existing policy profile: preprocessing/search
     // effort quantum, and affine_root_closure's accepted certificate byte cap.
+    // The service quantum is one atomic step's allowance, not a schedule.
     uint64_t maximum_initialization_work = 0;
     uint64_t maximum_service_work = 0;
     uint64_t maximum_retained_bytes = 0;
+    // Run schedule (docs/implementation-notes.md, affine search schedule):
+    // Kissat's Eliminate interval (NLOG2N, scaled delta) and a probe-class
+    // SET_EFFORT_LIMIT share. Zero inherits inprocess.sweep_permille.
+    uint32_t effort_permille = 0;
+    // Fruitful = search used the run's output (SymmetryUse AFFINE class);
+    // false falls back to "the run published output" and tags nothing.
+    bool output_use_fruitfulness = true;
   } affine_search;
 
   struct Inprocess {
