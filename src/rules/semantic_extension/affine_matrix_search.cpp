@@ -2067,4 +2067,44 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                           },
                           affine_matrix_initialize_apply);
 
+bool affine_matrix_search_inputs_changed(const Kernel &kernel,
+    const AffineMatrixSearchSession &session, AffineMatrixInputCursor &cursor,
+    uint64_t &work) {
+  if (!session.enabled()) return false;
+  const uint64_t premises = kernel.proof ? kernel.proof->premise_epoch() : 0;
+  if (!cursor.valid || !kernel.affine_capture_epochs_trusted ||
+      session.slice_pending() || cursor.owner_version != session.owner_version() ||
+      cursor.premise_epoch != premises)
+    return true;
+  const auto &support = session.support();
+  if (cursor.namespace_epoch != kernel.affine_semantic_namespace_epoch) {
+    for (External external : support) {
+      ++work;
+      const Lit internal = kernel_internalize(kernel, external);
+      if (internal == INVALID_LIT || kernel_var_retired(kernel, var_of(internal)) ||
+          kernel_externalize(kernel, internal) != external)
+        return true;
+    }
+    cursor.namespace_epoch = kernel.affine_semantic_namespace_epoch;
+  }
+  const uint64_t root = kernel_root_fixed(kernel);
+  if (cursor.root_scanned > root) return true;
+  for (; cursor.root_scanned < root; ++cursor.root_scanned) {
+    ++work;
+    const Var variable = var_of(kernel.trail[cursor.root_scanned]);
+    const int32_t external = kernel_externalize(kernel, make_lit(variable, false));
+    if (std::binary_search(support.begin(), support.end(), external)) return true;
+  }
+  return false;
+}
+
+void affine_matrix_search_consume_inputs(const Kernel &kernel,
+    const AffineMatrixSearchSession &session, AffineMatrixInputCursor &cursor) {
+  cursor.root_scanned = kernel_root_fixed(kernel);
+  cursor.namespace_epoch = kernel.affine_semantic_namespace_epoch;
+  cursor.owner_version = session.owner_version();
+  cursor.premise_epoch = kernel.proof ? kernel.proof->premise_epoch() : 0;
+  cursor.valid = true;
+}
+
 } // namespace tactix
