@@ -2,48 +2,58 @@
 
 ## Current stage
 
-Active development (2026-10-07 session). The user's session goal is **at least 10
-independently verified fixed44 closures on one coherent candidate** (plan §9.5
-states 12), preserving N1–N4, with effective Claude-owned fuzz, full Debug and
-B28+C5, Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.**
-Scope and contracts belong to [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
+Session goal (user): **at least 10 independently verified fixed44 closures on one coherent
+candidate**, preserving N1–N4, with effective Claude-owned fuzz, full Debug and B28+C5,
+Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
+[DEVELOPMENT_PLAN.md §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
 
-Candidate **c2 = `76e161b24`** (branch `candidate-c2`) is c1.1 (`bfaf65491`) plus `524b7b48b`.
-c1.1 holds the b26 source, the certified symmetry units `d576abaeb` and the affine empty-reason repair `9ed61994c`.
-`524b7b48b` makes startup FastEliminate never suppressed after structured progress
-([report](benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md)); the user decided this
-after c1 lost WV100 snw_16_9_CCSpre. c1 evidence is superseded
-([cancellation](benchmarks/runs/20261007-superseded-cancel-c2/README.md)). c2 excludes the unvalidated
-graph-labeling commit `8e953218f`.
-
-**Regression attribution** ([report](benchmarks/reports/2026-10-07-wv289-nol118-regression/README.md)):
-b26's losses come from the faithful Satsuma→Kissat residual seed (noL ×3, oski ×3) and the
-FastEliminate port (Break_triple, Circuit). Graph labeling leaves those proofs byte-identical.
-The user kept the faithful seed and accepted noL-11-8 as the plan §8.4 faithful-port retention exception.
-Graph-labeling recognition still spends up to its unbacked 100M budget recognizing nothing; it is
-an open efficiency item.
+- **c2 = `76e161b24`** (branch `candidate-c2`): fuzz PASS
+  ([owner report](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/FINAL_REPORT.md)),
+  B28+C5 accepted, full Debug 352/353 (test assertion only, fixed `0b7d2bc55`). full44
+  `benchmarks/runs/20261007-fixed44-c2`: 8 verified (147, 263, 497, 627, 630, 899, 991, 1075).
+  Gate rows at 5,000 s on the gate file (§8.4 rule): noL-11-0 SAT 2,513 s and noL-11-8 SAT
+  1,138 s (retained); snw_16_9_CCSpre UNKNOWN (faithful-port exception candidate: Satsuma emits
+  the same single unit and Satsuma+Kissat is UNKNOWN). Rank401 lost on c2 (SAT 7,271 s).
+  Long-check rerun (45,000 s): 569 and 654 exceed 32 GB in the checker; others running.
+- **Rank569** ([report](benchmarks/reports/2026-10-08-rank569-proof-memory/README.md)): one
+  witnessed SR line routes the stream to backward dsr-trim, which needs ~42 GB even for
+  Kissat's proof; verified at 128 GB. Fix options (solver witness-free expansion, or a
+  split-width checker) await the user.
+- **c3 = `b5ae7373f`** (c2 + graph-labeling region fix + Satsuma A–D + one-round pure literals
+  `fa6859f1d` + affine run schedule (affine off) + symmetry-use bookkeeping off `8525f7032`):
+  full Debug 355/355, zero skips; **all four gates fail**. A–D (`8a5b00658`) is a port defect on
+  clique colouring: clqcl_50_6_5 759 → 203 SR applications, 3 s → timeout (Satsuma+Kissat 0.17 s;
+  bisection `benchmarks/runs/20261008-bisect-clqcl*`). Also WV100 proof-cost regressions
+  (MVRoundRobin, cliquecolouring), B28+C5 ceiling (EDP3 startup +6.9 s with no output,
+  Timetable_392 AMO completion). Pure-round shuffle probe: luck, not mechanism
+  ([report](benchmarks/reports/2026-10-08-pure-round-shuffle-probe/README.md)).
+- **Affine search:** schedule on Kissat functions, no measured benefit; stays off
+  ([report](benchmarks/reports/2026-10-08-affine-search-scheduling/README.md)).
 
 ## Next action
 
-1. Grade c2's full Debug, four gates (apply the §8.4 exception only to noL-11-8) and full44
-   when terminal. Closures need verification within the 45,000 s checker window
-   ([winner plan](docs/winner-integration-plan.md)); proof routes are unchanged.
-2. Integrate Satsuma practice A–D (plan §9.5) with the validated graph-labeling recognition fix
-   `8e953218f` as candidate c3. Attribute any regression as noise (shuffled copies) or mechanism.
-3. Use the Satsuma-boundary first divergences (896, 754, 453, 1144) to target remaining owner gaps.
-4. After A–D, prototype restart symmetry inprocessing under the plan's Kissat-derived
-   effort/interval/delay functions and search-use bookkeeping.
+1. Finish the A–D port repair (clique colouring first divergence against Satsuma's own log),
+   plus EDP3/Timetable_392/MVRoundRobin attribution; same-CPU pairs vs c2.
+2. Freeze c4 = repaired main; full Debug, four gates (§8.4 5,000 s retention rule;
+   faithful-port exceptions only with shuffle/noise evidence), full44 with the 45,000 s
+   checker, then send the c4 release binding to the fuzz owner (`firstopen-fuzz-owner`,
+   holding with c3 preparation reusable).
+3. Pending user decisions: baseline rerun storage plan (60 GB proof cap, ~50 concurrent
+   Satsuma, (B) memout rows only, under `tools/slurm/quota_governor.py`); keep startup
+   FastEliminate never suppressed (recommended); final documentation run -c 16 vs -c 6;
+   Rank569 fix option.
+4. After qualification: push, then the full Tactix Tier D run (cpu-q, -c 4, 32 GB, 5,000 s,
+   8 h checker, 125 cap, governor; rerun failed checks at 64 GB).
 
-## Live work (2026-10-07 night; check terminal state, never infer from the queue)
+## Live work (2026-10-08; check terminal state, never infer from the queue)
 
 | Work | Jobs / owner | Status |
 |---|---|---|
-| c2 Release / full Debug | Release `bec9eede…` (1756229, done) / Debug 1756230; archive `4cdf01d9…` | Debug submitted |
-| c2 regression gates | 1756232 B28, 1756233 Rank1–50, 1756234 WV100, 1756235 WV2–89; `benchmarks/runs/20261007-c2-regression-*` | submitted |
-| c2 full44 | 1756297, `benchmarks/runs/20261007-fixed44-c2` (shared-floor scratch, long64-fixed) | submitted |
-| Fuzz owner | Claude `385a3588`; binding `benchmarks/runs/20261007-candidate-c2-source/pins/release-binding.json` | c1 legs stopped (25k cases, 0 product failures); c2 relaunch pending |
-| Sub-agents | proof-route cost (541/1129/291/1075, plus 82/489/1085); graph-labeling recognition budget (`8e953218f`, unvalidated); Satsuma-boundary parity (896, 754, 453, 1144) | running |
-| Diagnostic pairs | 1756222 snw, 1756223 Rank899: c1 vs guard-removed variant | informational |
+| c2 long checks | 1756907, `benchmarks/runs/20261008-fixed44-c2-longcheck` | running (569, 654 OOM) |
+| c3 full44 | 1757164, `benchmarks/runs/20261008-fixed44-c3` (45,000 s checker) | running; informational for A–D |
+| A–D repair | sub-agent (clique colouring regression) | running |
+| Fuzz owner | `firstopen-fuzz-owner`; c3 held, nothing launched | waiting for c4 binding |
+| Baseline reruns | `tools/bench/baseline_rerun.py`, [prep report](benchmarks/reports/2026-10-08-tierd-baseline-rerun-fixed64/README.md) | not submitted (user storage decision) |
 
 ## Verification authorities
 
