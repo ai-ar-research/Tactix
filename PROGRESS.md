@@ -50,7 +50,7 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
 3. User decisions 2026-10-08: startup FastEliminate is never suppressed; the final
    documentation run uses -c 6; Rank569 gets solver-side witness-free expansion of
    permutation-witness SR lines (after c4 qualifies). Baseline reruns: 125 concurrent under
-   the governor; per-file proof cap pending user confirmation.
+   the governor (no proof-size cap); submitted, see Live work.
 4. After qualification: push, then the full Tactix Tier D run (cpu-q, -c 4, 32 GB, 5,000 s,
    8 h checker, 125 cap, governor; rerun failed checks at 64 GB).
 
@@ -62,8 +62,10 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
 | c3 full44 | 1757164, `benchmarks/runs/20261008-fixed44-c3` (45,000 s checker) | running; informational |
 | c4 Debug / gates | 1757469; 1757470–73 (`benchmarks/runs/20261008-c4-regression-*`) | running |
 | c4 full44 | 1757529, `benchmarks/runs/20261008-fixed44-c4` (45,000 s checker) | running |
-| Fuzz owner | `firstopen-fuzz-owner` | c4 binding sent |
-| Baseline reruns | `tools/bench/baseline_rerun.py`, [prep report](benchmarks/reports/2026-10-08-tierd-baseline-rerun-fixed64/README.md) | not submitted (user storage decision) |
+| Fuzz owner | `firstopen-fuzz-owner`, FINAL_REPORT.md c4 section | c4 **FAIL**: no soundness failure; 2 deterministic affine findings also in c2 (am-refresh-after-elim N1 contract; afB-consequence-not-derived unclassified) |
+| Repair agent | B28+C5 startup cost `2b1544cbb` (veer 43→24 s; mp1 = Satsuma's exact clauses, noise; battleship cut-point gap open) | now on the two affine findings, then battleship |
+| c4 retention 5,000 s | 1757795–800 (`benchmarks/runs/20261008-r5000-c4-*`) | running |
+| Baseline reruns | (A) 1757931 `benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h` %100; (B) 1757933 `sc24-26-recheck-64g-8h` %25; governor 1757996 (600 s, hold >750 G, release <700 G) | running; (C) after (A) |
 
 ## Verification authorities
 
