@@ -333,11 +333,65 @@ void root_maintenance_after_sweep_refutes(ProofFormat format,const char *prefix)
   proof.flush();k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(journal);
   if(!prefix){std::remove(cnf_path.c_str());std::remove(proof_path.c_str());}
 }
+// Handoffs am-rel-548/am-rel-206. A root Substitute round turns the failed
+// root 6 (6 -> 7 and 6 -> -7) into the unit -6. Its PendingUnits batch carries
+// no LRAT id under DSR or DRAT, so the unit is known to proof-visible consumers
+// only through the root-unit table. BVE on 7 then removes the binaries that
+// implied it (before the table recorded such units this refresh returned
+// Invalid in every format); the Substitute variant keeps them and covers the
+// second-round path. A persistent refresh (op 2) and root maintenance (op 3)
+// certify every root fact against the proof-visible view and must not reject
+// the well-formed request.
+void refresh_after_root_unit_premises_removed(ProofFormat format,bool eliminate) {
+  const std::string base="/tmp/tactix-persistent-refresh-"+std::to_string(getpid())+"-"+
+      std::to_string(unsigned(format))+(eliminate?"-bve":"-subst");
+  const std::string proof_path=base+".proof";
+  std::vector<std::vector<int32_t>> original=clausal_form({1,2,3},true);
+  original.push_back({-6,7});original.push_back({-6,-7});original.push_back({6,7,8});
+  // An equivalence 9 = 10 keeps the second Substitute round productive.
+  original.push_back({-9,10});original.push_back({9,-10});original.push_back({8,9,-10,4});
+  Kernel k;kernel_reserve_vars(k,10);
+  for(const auto &c:original)add(k,c);
+  FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
+  Proof proof;assert(proof.open(proof_path.c_str(),format));
+  proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
+  for(size_t i=0;i<original.size();++i){const auto body=physical(k,original[i]);proof.seed_population(i+1,body.data(),body.size());}
+  proof.arm_population_shadow();k.proof=&proof;
+  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
+  const auto p=parameters();const AffineMatrixPersistenceLimits limits{64*1024*1024,1000,100000};
+  const auto initialized=affine_matrix_search_initialize(k,session,p,
+      AffineMatrixAdmission::AuthenticatedSubimage,limits);
+  assert((initialized.status==AffineMatrixInitStatus::Applied ||
+          initialized.status==AffineMatrixInitStatus::AppliedPartial) && session.persistent());
+  assert(substitute_apply_round(k,true)!=ApplyResult::Unsat && !k.inconsistent);
+  assert(propagate_apply(k)!=ApplyResult::Unsat);
+  const Lit unit=kernel_internalize(k,-6);
+  assert(kernel_root_value(k,unit)>0 && k.assigned[var_of(unit)].reason==UNIT_REASON);
+  // DSR and DRAT name the asserted unit only through the root-unit table.
+  assert(!k.unit_ids[var_of(unit)] && var_of(unit)<k.dsr_root_values.size() &&
+         k.dsr_root_values[var_of(unit)]==-1);
+  if(eliminate){
+    k.bve_gate_mask=0;
+    const auto &bve=tactix_rules()[tactix_rule_id("BVE")];
+    (void)bve.apply_instance(k,lit_instance(kernel_internalize(k,7)));
+  } else assert(substitute_apply_round(k,true)!=ApplyResult::Unsat);
+  kernel_collect_garbage(k);
+  assert(propagate_apply(k)!=ApplyResult::Unsat && kernel_propagation_fixpoint(k));
+  const auto refreshed=affine_matrix_search_refresh(k,session,p,limits,true);
+  assert(refreshed.status!=AffineMatrixInitStatus::Invalid);
+  const auto maintained=affine_matrix_search_refresh(k,session,p,limits,false);
+  assert(maintained.status!=AffineMatrixInitStatus::Invalid);
+  session.disable(k);assert(!proof.premise_bytes() && !proof.unbacked_deletions());
+  proof.flush();k.proof=nullptr;k.structural_provenance=nullptr;std::fclose(journal);
+  std::remove(proof_path.c_str());
+}
 }
 int main(int argc,char **argv){
  alias_failure_atomicity();refresh_root_assignment_stamp();
  for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii})
   root_maintenance_after_sweep_refutes(format,argc>1?argv[1]:nullptr);
+ for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii})
+  for(bool eliminate:{false,true})refresh_after_root_unit_premises_removed(format,eliminate);
  for(auto format:{ProofFormat::DsrAscii,ProofFormat::DsrBinary,ProofFormat::DratAscii,ProofFormat::DratBinary})
   for(bool signed_alias:{false,true})for(bool sweep:{false,true})
     exercise(signed_alias,sweep,format,argc>1?argv[1]:nullptr);

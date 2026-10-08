@@ -3963,13 +3963,8 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   kernel_build_lrat_chain(k.lrat_entries, closing_id, k.lrat_chain);
 }
 
-void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
-  if (!k.proof || !k.proof->dsr())
-    return;
-  const Var v = var_of(lit);
-  assert(v < k.nvars);
-  assert(k.values[lit] > 0);
-  assert(k.assigned[v].level == 0);
+// The proof-only table belongs to one DSR stream; a new stream starts empty.
+static void bind_dsr_root_table(Kernel &k) {
   if (!k.proof->stream_identity() || k.dsr_root_proof!=k.proof ||
       k.dsr_root_stream_identity!=k.proof->stream_identity()) {
     k.dsr_root_values.assign(k.nvars,0);
@@ -3978,6 +3973,32 @@ void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
   }
   if (k.dsr_root_values.empty())
     k.dsr_root_values.resize(k.nvars, 0);
+}
+
+bool kernel_root_unit_table_stream(const Kernel &k) {
+  return k.proof && !k.proof->lrat() && !k.proof->pb() &&
+         k.proof->stream_identity();
+}
+
+void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
+  if (!kernel_root_unit_table_stream(k))
+    return;
+  const Var v = var_of(lit);
+  assert(v < k.nvars);
+  assert(k.values[lit] > 0);
+  assert(k.assigned[v].level == 0);
+  bind_dsr_root_table(k);
+  k.dsr_root_values[v] = negated(lit) ? -1 : 1;
+}
+
+void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
+  if (!k.proof || !k.proof->dsr())
+    return;
+  const Var v = var_of(lit);
+  assert(v < k.nvars);
+  assert(k.values[lit] > 0);
+  assert(k.assigned[v].level == 0);
+  bind_dsr_root_table(k);
   const int8_t polarity = negated(lit) ? -1 : 1;
   if (k.dsr_root_values[v] == polarity)
     return;

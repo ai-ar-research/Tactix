@@ -435,7 +435,7 @@ CaptureStatus capture_snapshot(Kernel &k, const AffineLiveRequest &request,
       if (kernel_var_retired(k,v) || !k.values[positive] || k.assigned[v].level) continue;
       const Lit literal = k.values[positive] > 0 ? positive : negate(positive);
       const uint64_t unit_id = k.unit_ids[v];
-      const bool recorded = k.proof && k.proof->dsr() && k.proof->stream_identity() &&
+      const bool recorded = kernel_root_unit_table_stream(k) &&
           k.dsr_root_proof==k.proof && k.dsr_root_stream_identity==k.proof->stream_identity() &&
           v < k.dsr_root_values.size() &&
           k.dsr_root_values[v] == (negated(literal) ? -1 : 1);
@@ -519,7 +519,7 @@ bool affine_live_sources_valid(const Kernel &k,
           !same_clause(k, &literal, 1, source.clause)) return false;
       if (source.proof_id_exact) {
         if (!source.clause_id || k.unit_ids[var_of(literal)] != source.clause_id) return false;
-      } else if (!k.proof || !k.proof->dsr() || !k.proof->stream_identity() ||
+      } else if (!kernel_root_unit_table_stream(k) ||
           k.dsr_root_proof!=k.proof || k.dsr_root_stream_identity!=k.proof->stream_identity() ||
           var_of(literal) >= k.dsr_root_values.size() ||
           k.dsr_root_values[var_of(literal)] != (negated(literal) ? -1 : 1)) return false;

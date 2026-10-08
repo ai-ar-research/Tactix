@@ -1204,6 +1204,24 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     AffineMatrixSearchSession &session,
     const strategy::AffineConsequenceParameters &parameters,
     const AffineMatrixPersistenceLimits &persistence, bool allow_additional_recognition) {
+#ifndef NDEBUG
+  // A refresh certifies every root fact against the proof-visible view. An
+  // asserted root unit without an LRAT id must therefore be in the DSR root
+  // table, even after Substitute or BVE removed the clauses that implied it;
+  // other root facts keep a propagation reason until retirement publishes them.
+  if (kernel_root_unit_table_stream(kernel) &&
+      kernel.dsr_root_proof == kernel.proof &&
+      kernel.dsr_root_stream_identity == kernel.proof->stream_identity())
+    for (Lit literal : kernel.trail) {
+      const Var v = var_of(literal);
+      if (kernel.assigned[v].level || kernel_var_retired(kernel, v) ||
+          kernel.unit_ids[v] || kernel.assigned[v].reason != UNIT_REASON)
+        continue;
+      assert(v < kernel.dsr_root_values.size() &&
+             kernel.dsr_root_values[v] == (negated(literal) ? -1 : 1) &&
+             "asserted DSR root unit missing from the root table");
+    }
+#endif
   if (!affine_matrix_initialize_guard(kernel) || !parameters.valid()) {
     AffineMatrixInitResult result; result.status = AffineMatrixInitStatus::Inapplicable;
     return result;

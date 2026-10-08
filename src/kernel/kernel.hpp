@@ -2711,6 +2711,12 @@ void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
 // checkers must see this unit while the reason clause is still available for
 // RUP; the proof-only polarity table makes repeated publication idempotent.
 void kernel_materialize_dsr_root_unit(Kernel &, Lit);
+// Record that an asserted root unit is already a clause of the proof stream
+// (a rule's own unit line or an input unit) without emitting it. The table
+// serves every clausal stream whose checker keeps written units without LRAT
+// ids: native DSR and DRAT. LRAT names its units in `unit_ids`.
+void kernel_note_dsr_root_unit(Kernel &, Lit);
+bool kernel_root_unit_table_stream(const Kernel &);
 
 // Retire any trail reason naming this clause, so a delete never leaves a
 // literal whose reason is a dropped clause. In DSR mode the reason is also the
@@ -2948,6 +2954,11 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
 [[gnu::always_inline]] inline void kernel_assign_unit(Kernel &k,
                                                        Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
+  // Every asserted root unit is a DSR clause (the asserting rule wrote it, or
+  // it is an input unit). Without an LRAT id it is known to proof-visible
+  // consumers only through the DSR root table, which must therefore hold it.
+  if (k.proof && !k.unit_ids[var_of(lit)])
+    kernel_note_dsr_root_unit(k, lit);
   kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
                                SolverClauseKind::Unit,
                                k.unit_ids[var_of(lit)], &lit, 1);
