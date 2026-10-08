@@ -1,0 +1,2 @@
+c witness-line addition=1 deletions_before=0 byte=14 lits: -1809 1810 -1809 -1809 1810 1809
+c proofstats bytes=4115525606 additions=45106395 deletions=45087862 added_lits=1221303700 deleted_lits=1221117338 avg_add_len=27.076 max_add_len=139 unit_adds=298 empty_adds=1 unit_dels=0 witness_lines=1 witness_lits=4 peak_live_proof_clauses=134822 peak_live_proof_lits=2593779 final_live_proof_clauses=18533
