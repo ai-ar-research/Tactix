@@ -132,8 +132,8 @@ static void symuse_note_assign(Kernel &k, Lit lit, uint32_t level,
 }
 
 void kernel_symuse_note_trail(Kernel &k, size_t from) {
-  // Once no tagged binary or large clause can be a reason, only root-forced
-  // attribution remains, and it is observed for propagation at the root.
+  // With no tagged binary and no live tagged large clause, nothing can be a
+  // tagged reason; only root-forced attribution remains, observed at the root.
   const SymmetryUse &u = k.symuse;
   if (u.binaries.empty() && !u.live_large && (k.level || !u.has_units))
     return;
