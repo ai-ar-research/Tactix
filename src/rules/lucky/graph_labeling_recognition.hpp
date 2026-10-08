@@ -21,10 +21,42 @@ struct Shape {
   std::vector<std::vector<uint32_t>> adjacency;
 };
 
+// Every clause the indexed rectangle can use consists only of primary
+// variables, whose external identities lie below n*n. A plausible dimension
+// satisfies n <= maximum_vertices and n*n <= external variables, so the
+// recognizer reads only the watch lists of the region below
+// min(maximum_vertices, isqrt(external variables))^2 (then below n*n), never the
+// whole arena. Each large clause is read once, from the watch of lits[0]; the
+// guarded state keeps every large clause watched by lits[0] and lits[1]. Work
+// is therefore linear in the region's watch occupancy and clause literals plus
+// O(n*n), independent of the rest of the formula.
+//
 // Charge includes clause/watch inspection, mapping/element initialization and
 // graph materialization. maximum_bytes bounds logical workspace payload,
 // excluding allocator overhead and the caller's already-owned Kernel/output.
 // Failure publishes no partial shape and never changes Kernel or proof state.
+template<class Charge, class Visit>
+bool visit_region_clauses(const Kernel &k, uint64_t region, Charge &charge,
+                          Visit &&visit) {
+  region = std::min<uint64_t>(region, k.external_to_internal.size());
+  for (uint64_t external = 0; external < region; ++external) {
+    if (!charge(1)) return false;
+    const Var internal = k.external_to_internal[external];
+    if (internal == INVALID_VAR || internal >= k.nvars) continue;
+    for (const Lit lit : {make_lit(internal, false), make_lit(internal, true)}) {
+      for (WatchEntry watch : k.watches.entries(lit)) {
+        if (!charge(1)) return false;
+        if (watch.binary()) continue;
+        const Clause *clause = clause_at(k.arena, watch.ref());
+        if (clause->lits[0] != lit || clause->garbage() || clause->redundant())
+          continue;
+        if (!visit(*clause)) return false;
+      }
+    }
+  }
+  return true;
+}
+
 template<class Charge>
 bool recognize(const Kernel &k, uint32_t maximum_vertices,
                uint64_t maximum_bytes, Charge &&charge, Shape &out) {
@@ -32,31 +64,28 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
   Shape shape;
   uint32_t n = 0;
   const uint64_t external_variables = k.external_to_internal.size();
+  if (!k.large_watches_connected) return false;
+  uint64_t side = std::min<uint64_t>(maximum_vertices, UINT32_MAX);
+  while (side && side * side > external_variables) --side;
   // A cheap first pass selects a possible dimension from an indexed column.
   // Full coverage and distinct rows are checked before the result is exposed.
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!charge(1)) return false;
-    const uint32_t width = clause->size;
-    if (!clause->garbage() && !clause->redundant() && width >= 3 &&
-        width > n && width <= maximum_vertices &&
-        uint64_t(width) * width <= external_variables) {
-      uint32_t column = UINT32_MAX;
-      bool plausible = true;
-      for (Lit lit : *clause) {
-        if (!charge(1)) return false;
-        const Var external = k.internal_to_external[var_of(lit)];
-        if (uint64_t(external) >= uint64_t(width) * width ||
-            (column != UINT32_MAX && external % width != column)) {
-          plausible = false;
-          break;
+  if (side >= 3 &&
+      !visit_region_clauses(k, side * side, charge, [&](const Clause &clause) {
+        const uint32_t width = clause.size;
+        if (width < 3 || width <= n || width > side) return true;
+        uint32_t column = UINT32_MAX;
+        for (Lit lit : clause) {
+          if (!charge(1)) return false;
+          const Var external = k.internal_to_external[var_of(lit)];
+          if (uint64_t(external) >= uint64_t(width) * width ||
+              (column != UINT32_MAX && external % width != column))
+            return true;
+          column = external % width;
         }
-        column = external % width;
-      }
-      if (plausible) n = width;
-    }
-    ref += clause_actual_words(clause);
-  }
+        n = width;
+        return true;
+      }))
+    return false;
   if (!n) return false;
   const uint64_t square = uint64_t(n) * n;
   // Primary literals, edge bitmap, fully reserved edge/adjacency vectors,
@@ -68,69 +97,75 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
   shape.primary.assign(static_cast<size_t>(square), INVALID_LIT);
   std::vector<uint8_t> columns(n, 0), rows(n, 0);
   std::vector<Lit> recovered(n);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!charge(1)) return false;
-    if (!clause->garbage() && !clause->redundant() &&
-        clause->size >= 3 && clause->size <= n) {
-      if (!charge(n)) return false;
-      std::fill(rows.begin(), rows.end(), 0);
-      uint32_t column = UINT32_MAX;
-      bool indexed = true;
-      for (Lit lit : *clause) {
-        if (!charge(1)) return false;
-        const Var external = k.internal_to_external[var_of(lit)];
-        if (external >= square || rows[external / n] ||
-            (column != UINT32_MAX && external % n != column)) {
+  std::vector<uint32_t> touched;
+  touched.reserve(n);
+  // Rows are restored from the touched list, so a clause costs its literals
+  // (plus n only when it is an in-column candidate), never a full row reset.
+  const auto index = [&](const Clause &clause) {
+    if (clause.size < 3 || clause.size > n) return true;
+    uint32_t column = UINT32_MAX;
+    bool indexed = true;
+    for (Lit lit : clause) {
+      if (!charge(1)) return false;
+      const Var external = k.internal_to_external[var_of(lit)];
+      if (external >= square || rows[external / n] ||
+          (column != UINT32_MAX && external % n != column)) {
+        indexed = false;
+        break;
+      }
+      rows[external / n] = 1;
+      touched.push_back(external / n);
+      recovered[external / n] = lit;
+      column = external % n;
+    }
+    bool charged = true;
+    if (indexed) {
+      // Parsing may remove root-false entries before storing a column.
+      // Reconstruct only such entries; an unassigned missing row is not
+      // evidence of a cover. Fixed entries cannot be selected by a validated
+      // completion, regardless of their historical sign convention.
+      for (uint32_t row = 0; row < n; ++row) {
+        if (!charge(1)) {
+          charged = false;
+          break;
+        }
+        if (rows[row]) continue;
+        const Var internal = k.external_to_internal[uint64_t(row) * n + column];
+        if (internal == INVALID_VAR || internal >= k.nvars ||
+            !k.value(make_lit(internal, false))) {
           indexed = false;
           break;
         }
-        rows[external / n] = 1;
-        recovered[external / n] = lit;
-        column = external % n;
-      }
-      if (indexed) {
-        // Parsing may remove root-false entries before storing a column.
-        // Reconstruct only such entries; an unassigned missing row is not
-        // evidence of a cover. Fixed entries cannot be selected by a validated
-        // completion, regardless of their historical sign convention.
-        for (uint32_t row = 0; row < n; ++row) {
-          if (!charge(1)) return false;
-          if (rows[row]) continue;
-          const Var internal = k.external_to_internal[uint64_t(row) * n + column];
-          if (internal == INVALID_VAR || internal >= k.nvars ||
-              !k.value(make_lit(internal, false))) {
-            indexed = false;
-            break;
-          }
-          recovered[row] = make_lit(internal, k.value(make_lit(internal, false)) > 0);
-        }
-      }
-      if (indexed) {
-        for (Lit lit : recovered) {
-          if (!charge(1)) return false;
-          const Var external = k.internal_to_external[var_of(lit)];
-          Lit &entry = shape.primary[external];
-          if (kernel_var_retired(k, var_of(lit)) ||
-              (entry != INVALID_LIT && entry != lit))
-            return false;
-          entry = lit;
-        }
-        columns[column] = 1;
+        recovered[row] = make_lit(internal, k.value(make_lit(internal, false)) > 0);
       }
     }
-    ref += clause_actual_words(clause);
-  }
+    for (uint32_t row : touched) rows[row] = 0;
+    touched.clear();
+    if (!charged) return false;
+    if (indexed) {
+      for (Lit lit : recovered) {
+        if (!charge(1)) return false;
+        const Var external = k.internal_to_external[var_of(lit)];
+        Lit &entry = shape.primary[external];
+        if (kernel_var_retired(k, var_of(lit)) ||
+            (entry != INVALID_LIT && entry != lit))
+          return false;
+        entry = lit;
+      }
+      columns[column] = 1;
+    }
+    return true;
+  };
+  if (!visit_region_clauses(k, square, charge, index)) return false;
   for (uint8_t present : columns) {
     if (!charge(1) || !present) return false;
   }
   if (!charge(square)) return false;
   std::vector<uint8_t> connected(static_cast<size_t>(square), 0);
   uint32_t separation = n + 1;
-  for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+  for (uint64_t first = 0; first < square; ++first) {
     if (!charge(1)) return false;
-    const Var first = k.internal_to_external[var_of(lit)];
-    if (first >= square || lit != negate(shape.primary[first])) continue;
+    const Lit lit = negate(shape.primary[first]);
     for (WatchEntry watch : k.watches.entries(lit)) {
       if (!charge(1)) return false;
       if (!watch.binary() || lit >= watch.other()) continue;
@@ -139,10 +174,10 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
           watch.other() != negate(shape.primary[second]) ||
           first % n != second % n || first / n == second / n)
         continue;
-      const uint32_t a = std::min(first / n, second / n);
-      const uint32_t b = std::max(first / n, second / n);
+      const uint32_t a = uint32_t(std::min<uint64_t>(first / n, second / n));
+      const uint32_t b = uint32_t(std::max<uint64_t>(first / n, second / n));
       connected[uint64_t(a) * n + b] = 1;
-      separation = std::min(separation, first % n + 1);
+      separation = std::min(separation, uint32_t(first % n) + 1);
     }
   }
   if (separation > n || !charge(square + n)) return false;
