@@ -42,6 +42,14 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
   2026-10-08: fix the two c4 fuzz findings, fix admission (xor_op census ResourceExhausted at
   zero work; lec_mult basis decays to rank 0), then turn it **on** in c5 (implemented rules ship on).
 
+- **Trajectory finding (2026-10-08, `benchmarks/probes/scratch/traj-advgc/`):** on Satsuma's actual
+  residual of adv_gc (input + 19,800 AMO binaries, no other SB output) Tactix c2 symmetry-off needs
+  155.0M conflicts (identical to c2 symmetry-on on the original) vs Kissat 4.0.4 14.3M (fastel=0) /
+  21.0M (fastel=1, same BVE/factor counts as Tactix). On the original without the binaries Tactix
+  matches Kissat (7.0M vs 7.7M). Kissat-port search defect on binary-rich formulas, not symmetry;
+  symmetry-off Tactix also solves noL-11-10 (107 s) and Timetable_E48 (1,522 s) that c2 misses.
+  Queued as agent item 3c (first-divergence trace vs Kissat --fastel=1).
+
 ## Next action
 
 1. Score c4: full Debug 1757469, gates 1757470–73 (§8.4 5,000 s retention rule; faithful-port
