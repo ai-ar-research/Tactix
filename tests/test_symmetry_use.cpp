@@ -4,6 +4,7 @@
 // root implication, and a tagged large clause is retired.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/default_strategy_config.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
@@ -34,7 +35,8 @@ publish_cut(Kernel &k, SubstitutionRedundancyProducer producer) {
       .status;
 }
 
-static void fixture(Kernel &k) {
+static void fixture(Kernel &k, bool record = true) {
+  k.symuse.record_symmetry = record;
   kernel_reserve_vars(k, 6); // 6 is a free variable for an outer decision
   add_binary(k, -1, 3);
   add_binary(k, -2, -3);
@@ -97,6 +99,18 @@ static void test_explicit_sr_is_untagged() {
   assert(!k.symuse_active && k.symuse.runs.empty());
 }
 
+// The report is diagnostic and off by default: a symmetry cut is then not
+// tagged and no SymmetryUse hook is armed.
+static void test_default_off() {
+  assert(!DefaultStrategyConfig{}.symmetry_use_observation);
+  assert(!Kernel{}.symuse.record_symmetry);
+  Kernel k;
+  fixture(k, false);
+  assert(publish_cut(k, SubstitutionRedundancyProducer::GraphSymmetry) ==
+         SubstitutionRedundancyApplicationStatus::Applied);
+  assert(!k.symuse_active && k.symuse.runs.empty());
+}
+
 static void test_large_retirement_and_compaction() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -130,6 +144,7 @@ int main() {
   test_search_uses_breaking_binary(true);
   test_search_uses_breaking_binary(false);
   test_explicit_sr_is_untagged();
+  test_default_off();
   test_large_retirement_and_compaction();
   std::puts("symmetry use: tagged cut propagates, enters analysis, forces "
             "root units, survives compaction and retires");

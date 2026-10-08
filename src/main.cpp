@@ -186,6 +186,7 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
+  std::optional<bool> symmetry_use_report;
   std::optional<bool> default_graph_labeling;
   std::optional<bool> default_structured_symmetry;
   bool random_policy = false;
@@ -236,6 +237,14 @@ int main(int argc, char **argv) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
       proof_family = CliProofFamily::Lrat; // native LRAT compatibility
+    } else if (!strncmp(a, "--symmetry-use-report=", 22)) {
+      if (!strcmp(a + 22, "on")) symmetry_use_report = true;
+      else if (!strcmp(a + 22, "off")) symmetry_use_report = false;
+      else {
+        fprintf(stderr, "tactix: --symmetry-use-report requires on or off\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
     } else if (!strncmp(a, "--default-affine-search=", 24)) {
       if (!strcmp(a + 24, "on")) default_affine_search = true;
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
@@ -488,7 +497,7 @@ int main(int argc, char **argv) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
-             "[--default-affine-search=on|off] "
+             "[--default-affine-search=on|off] [--symmetry-use-report=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
              "[--random-policy[=SEED]] "
@@ -951,6 +960,10 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
+  if (symmetry_use_report) {
+    default_config.symmetry_use_observation = *symmetry_use_report;
+    kernel.symuse.record_symmetry = *symmetry_use_report; // non-Default policies
+  }
   if (default_graph_labeling)
     default_config.graph_labeling_model.enabled = *default_graph_labeling;
   if (default_structured_symmetry)

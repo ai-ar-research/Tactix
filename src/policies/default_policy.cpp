@@ -1283,6 +1283,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
       << " affine_search.effort_permille=" << affine_search.effort_permille
       << " affine_search.output_use_fruitfulness=" << affine_search.output_use_fruitfulness
+      << " symmetry_use_observation=" << symmetry_use_observation
       << " affine_model.enabled=" << affine_model.enabled;
   {
     strategy::OnlineStrategyProgram affine;
@@ -4513,6 +4514,7 @@ ApplyResult DefaultPolicy::install_graph_labeling_hint(
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
+  k.symuse.record_symmetry = config_.symmetry_use_observation;
   // Completion ends while owned heuristic state is still attached, including
   // solve-entry and startup terminal paths. No mutable Kernel hook is installed.
   std::optional<ScopedHeuristics> owned_h;
