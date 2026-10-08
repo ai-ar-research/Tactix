@@ -668,6 +668,7 @@ DefaultPolicy follows Satsuma's own symmetry practice, not benchmark-chosen subs
 - **(C)** at-most-one completion and row/product refinement also run above the 50,000-variable domain boundary;
 - **(D)** FixAndCut uses the owner's cut point (`find_non_trivial_orbit`).
 The search seed stays the owner-faithful original order minus fixed variables, which is what Satsuma→Kissat reparsing yields. Tactix's live-arena reseed is not the owner's handoff. A regression from adopting these is accepted when shown to be noise, such as luck across shuffled copies. Otherwise attribute it to a defective port or a missing coupled mechanism, never revert to a subset.
+After (A)–(D) land, try symmetry breaking as restart inprocessing, beyond the owner's one-shot preprocessing. Run it only at full-restart roots on the current irredundant formula, under effort scheduling and (A)'s output-earned repetition. Its DSR obligations must cover learned clauses, by repairing or deleting those whose images are absent. Promote it only on causal benefit under the same noise rule.
 
 **Reasoning and guidance.** Attribute an UNSAT owner's complete analysis before
 integrating it with structural authentication and terminal independently checked
