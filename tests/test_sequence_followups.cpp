@@ -267,6 +267,38 @@ static void detection_limit_stops_repetition() {
   assert(!sequence.detection_limit_reached() && sequence.rounds() == 2);
 }
 
+// The root scheduler's renewable progress window is not an owner limit: a
+// generic detection that runs out of a window still below the cumulative hard
+// ceiling must not end repetition (satsuma.h:810 reads only owner limits).
+// The same stop at the hard ceiling is Satsuma's cost limit and does.
+static void progress_window_is_not_a_detection_limit() {
+  for (const bool window_below_hard : {true, false}) {
+    OnlineStrategyStage stage;
+    stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+    stage.program.sequence = {graph_detection(8, UINT64_MAX, UINT64_MAX),
+                              producer()};
+    stage.program.repeat = {RepeatMode::UntilScopedFixpoint, 0};
+    stage.repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+    stage.stop_repeat_at_detection_limit = true;
+    Kernel k = fixture(false);
+    // Five ticks cannot pay the formula snapshot; a one-tick feedback quantum
+    // cannot pay it either, so no graph-entry renewal is requested.
+    Allowance window(WorkUnit::SrDiscoveryTicks, WorkLimit::bounded(5));
+    const DiscoveryFeedbackPolicy feedback{1, window_below_hard ? UINT64_MAX : 5};
+    OnlineStrategySequence sequence;
+    assert(sequence.configure(stage));
+    unsigned calls = 0;
+    while (!sequence.complete()) {
+      assert(++calls < 100);
+      sequence.advance(k, nullptr, &window, feedback);
+    }
+    assert(k.stats.sr_applied == 1);
+    assert(sequence.detection_limit_reached() == !window_below_hard);
+    assert(sequence.rounds() == (window_below_hard ? 2u : 1u));
+    kernel_check_invariants(k);
+  }
+}
+
 // An identical generated detection is not paid again on an unchanged
 // formula; any effective transition makes it current work again.
 static void unchanged_detection_is_not_repeated() {
@@ -329,6 +361,7 @@ int main() {
   before_progress_admission();
   repeat_trigger_requires_symmetry_output();
   detection_limit_stops_repetition();
+  progress_window_is_not_a_detection_limit();
   unchanged_detection_is_not_repeated();
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;

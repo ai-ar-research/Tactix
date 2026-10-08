@@ -129,6 +129,9 @@ struct IndividualizedPartition {
   uint32_t domain_size = 0;
   uint32_t cell_count = 0;
   uint64_t ticks = 0;
+  // Color splits of the individualizations and refinement, counted as
+  // DejaVu's ir::controller counts them (one per split-hook call).
+  uint64_t splits = 0;
   uint32_t *cells = nullptr;
   uint32_t *sizes = nullptr;
 };
@@ -142,6 +145,8 @@ struct RefinementOrbit {
   Status status = Status::Failed;
   uint32_t count = 0;
   uint64_t ticks = 0;
+  // Color splits of the anchor individualization and its refinement.
+  uint64_t splits = 0;
   uint32_t *vertices = nullptr;
 };
 

@@ -411,11 +411,18 @@ struct OrbitopalEnumerationResult {
   uint64_t largest_product_columns = 0;
   uint64_t product_exact_actions = 0;
   uint64_t product_ulc_actions = 0;
+  // Color splits of anchor individualizations in row-column (product) and row
+  // detection, the measure of Satsuma's split limit (symmetries.h:2041, 2950).
+  uint64_t refinement_splits = 0;
   // Discovery stopped at a limit the owning preprocessor reports as
-  // `reached_limits` (Satsuma symmetries.h: split limit 2042/2951, graph size
-  // satsuma.h:168-176) or at the shared discovery allowance. Caller-selected
-  // orbit, clique, product-state and matrix caps do not set it.
+  // `reached_limits` (Satsuma symmetries.h: split limit 2041/2950, graph size
+  // satsuma.h:168-176). Caller-selected orbit, clique, product-state and
+  // matrix caps and the zero-progress work window do not set it.
   bool detection_limit_reached = false;
+  // Discovery stopped because `maximum_detection_ticks` ran out. Only the
+  // caller knows whether that allowance is an owner limit (the cumulative
+  // cost ceiling) or a renewable scheduling window.
+  bool allowance_limit_reached = false;
 };
 
 enum class SymmetryEnumerationStatus : uint8_t {
@@ -446,9 +453,12 @@ struct SymmetryEnumerationResult {
   bool complete_group = false;
   // Discovery stopped at a limit the owning preprocessor reports as
   // `reached_limits` (Satsuma symmetries.h:579 DejaVu limits, 1468/3099
-  // Schreier cost, satsuma.h:168-176 graph size) or at the shared discovery
-  // allowance. A structured sub-discovery contributes only its own such flag.
+  // Schreier cost at the configured planning limit, satsuma.h:168-176 graph
+  // size). A structured sub-discovery contributes its own flags.
   bool detection_limit_reached = false;
+  // Discovery or group planning stopped because `maximum_detection_ticks`
+  // ran out; the caller classifies that allowance (see the orbitopal field).
+  bool allowance_limit_reached = false;
 };
 
 // Composition-only resource policy for graph-symmetry discovery. Once group

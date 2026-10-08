@@ -2888,6 +2888,57 @@ static void orbitopal_refinement_completes_hidden_columns() {
          bounded.stats.sr_applications == 0 && !bounded.inconsistent);
 }
 
+// Satsuma skips special detection for a shallow group (symmetries.h:2939):
+// more than 10,000 non-trivial equitable literal cells and a probed base
+// shorter than 4*log2(cells). Here one involution swaps every pair x_i/y_i at
+// once while a directed z-path separates the pairs: 2 * 5,100 cells, base 1.
+static void orbitopal_shallow_group_skips_special_detection() {
+  constexpr int pairs = 5100;
+  const auto z = [](int i) { return 1 + i; };
+  const auto x = [&](int i) { return 1 + pairs + i; };
+  const auto y = [&](int i) { return 1 + 2 * pairs + i; };
+  const auto fixture = [&] {
+    Kernel k;
+    kernel_reserve_vars(k, 3 * pairs);
+    for (int i = 0; i < pairs; ++i) {
+      const Lit link[] = {internalize(-z(i)), internalize(x(i)), internalize(y(i))};
+      kernel_add_large_clause(k, link, 3, false, 0, ++k.next_clause_id);
+      if (i + 1 == pairs)
+        continue;
+      kernel_add_binary_clause(k, internalize(z(i)), internalize(-z(i + 1)),
+                               ++k.next_clause_id);
+      kernel_add_binary_clause(k, internalize(x(i)), internalize(-x(i + 1)),
+                               ++k.next_clause_id);
+      kernel_add_binary_clause(k, internalize(y(i)), internalize(-y(i + 1)),
+                               ++k.next_clause_id);
+    }
+    return k;
+  };
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
+  parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
+  parameters.orbitopal_discovery_order = OrbitopalDiscoveryOrder::RefinementOnly;
+  parameters.orbitopal_completion = OrbitopalCompletion::IndividualizedGraphCompletion;
+  parameters.orbitopal_generator_fallback = false;
+  parameters.graph_symmetry.maximum_generators = 0;
+  parameters.orbitopal_row_orbit_source = OrbitopalRowOrbitSource::RefinementCells;
+  parameters.maximum_orbitopal_refinement_orbits = 1;
+  Kernel shallow = fixture();
+  OrbitopalEnumerationResult skipped;
+  assert(!apply_all_orbitopal(shallow, parameters, &skipped));
+  assert(skipped.status == OrbitopalEnumerationStatus::Complete &&
+         !skipped.refinement_orbits && !skipped.detection_limit_reached &&
+         !shallow.stats.sr_applied);
+  // The skip belongs to the owner's base-probe filter; without it the same
+  // refinement cells are row candidates.
+  parameters.orbitopal_base_probe_filter = false;
+  Kernel probed = fixture();
+  OrbitopalEnumerationResult examined;
+  apply_all_orbitopal(probed, parameters, &examined);
+  assert(examined.refinement_orbits == 1);
+  kernel_check_invariants(probed);
+}
+
 static void orbitopal_refinement_cells_need_no_generic_generators() {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
@@ -3186,6 +3237,31 @@ static void orbitopal_clique_order_matches_exhaustive_connected_graphs() {
     }
   }
   assert(connected_graphs == 728 && noncanonical_incumbents > 0);
+}
+
+// Satsuma colors each literal of an unused variable apart (symmetries.h
+// compute_from_hypergraph), so such a variable is never moved: the group of
+// (1 | 2) with unused 3 is the single swap, not swap x complement-flip of 3.
+static void graph_symmetry_never_moves_unused_variables() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
+  parameters.graph_symmetry.fixing_mode = SymmetryFixingMode::GeneratorsOnly;
+  std::vector<SubstitutionRedundancyInstance> instances;
+  const auto enumeration = substitution_redundancy_enumerate_symmetry(
+      k, parameters,
+      [&](const SubstitutionRedundancyInstance &instance) {
+        instances.push_back(instance);
+        return true;
+      });
+  assert(enumeration.status == SymmetryEnumerationStatus::Complete);
+  assert(enumeration.generators_proposed == 1 &&
+         enumeration.generators_validated == 1);
+  for (const auto &instance : instances)
+    for (const Lit literal : instance.clause)
+      assert(var_of(literal) != var_of(internalize(3)));
 }
 
 static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
@@ -5097,6 +5173,8 @@ int main(int argc, char **argv) {
   orbitopal_refinement_starts_from_one_unique_column();
   orbitopal_discovery_scopes_are_independent();
   orbitopal_refinement_cells_need_no_generic_generators();
+  orbitopal_shallow_group_skips_special_detection();
+  graph_symmetry_never_moves_unused_variables();
   for (bool preserve : {false, true})
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);
   stabilizer_chain_adds_all_cuts_before_rup_unit();

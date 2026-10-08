@@ -100,7 +100,7 @@ bool charge(const Kernel &kernel, const SubstitutionRedundancyParameters &p,
       amount > p.maximum_detection_ticks - result.ticks) {
     result.ticks = p.maximum_detection_ticks;
     result.status = SymmetryEnumerationStatus::LimitReached;
-    result.detection_limit_reached = true;
+    result.allowance_limit_reached = true;
     return false;
   }
   result.ticks += amount;
@@ -274,22 +274,29 @@ bool build_symmetry_graph(const Kernel &kernel,
     return false;
   }
   const uint64_t edge_count = negation_edges + clause_edges;
-  if (over_size_limits(vertex_count, edge_count) ||
-      !charge(kernel, parameters, stop, result, edge_count)) {
-    if (result.status == SymmetryEnumerationStatus::Complete)
-      result.status = SymmetryEnumerationStatus::LimitReached;
-    result.detection_limit_reached =
-        result.status == SymmetryEnumerationStatus::LimitReached;
+  if (over_size_limits(vertex_count, edge_count)) {
+    result.status = SymmetryEnumerationStatus::LimitReached;
+    result.detection_limit_reached = true;
     return false;
   }
+  if (!charge(kernel, parameters, stop, result, edge_count))
+    return false;
 
   storage.vertices = static_cast<uint32_t>(vertex_count);
   storage.edge_count = edge_count;
   storage.colors.assign(storage.vertices, 1);
   storage.degrees.assign(storage.vertices, 0);
   storage.edges.reserve(static_cast<size_t>(2 * edge_count));
+  // Satsuma gives each literal of an unused variable its own color
+  // (symmetries.h compute_from_hypergraph, unused_color): a variable without
+  // any clause is never moved, so it yields no generator and no unit.
+  const auto unused = [&](Lit literal) {
+    return !snapshot.occurrences[literal] &&
+           !snapshot.occurrences[negate(literal)];
+  };
   for (Lit literal = 0; literal < literal_vertices; ++literal)
     storage.colors[literal] = (kernel_var_retired(kernel, var_of(literal)) ||
+                              unused(literal) ||
                               (settings.pointwise_root_stabilizer &&
                                kernel.value(literal)))
                                   ? 3 + literal
@@ -888,6 +895,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     structured_incomplete =
         discovery.status == OrbitopalEnumerationStatus::LimitReached;
     result.detection_limit_reached |= discovery.detection_limit_reached;
+    result.allowance_limit_reached |= discovery.allowance_limit_reached;
     if (!configured.use_structured_generators)
       structured.generators.clear();
     if (!configured.stabilize_structured_variables)
@@ -901,7 +909,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     // involved yet.
     if (result.ticks >= parameters.maximum_detection_ticks) {
       result.status = SymmetryEnumerationStatus::LimitReached;
-      result.detection_limit_reached = true;
+      result.allowance_limit_reached = true;
       return result;
     }
   }
@@ -1052,10 +1060,16 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
               static_cast<unsigned>(detection));
   const bool detection_incomplete =
       detection == symmetry_backend::Status::Incomplete || structured_incomplete;
-  // DejaVu's own limits (symmetries.h:579) or the allowance-derived generator
-  // cap; both make the detector stop before completing its group.
-  if (detection == symmetry_backend::Status::Incomplete)
-    result.detection_limit_reached = true;
+  // DejaVu's own limits (symmetries.h:579) stop the detector before it
+  // completes its group. A stop at the generator cap derived from the tick
+  // allowance (or no affordable generator at all) is an allowance stop.
+  if (detection == symmetry_backend::Status::Incomplete) {
+    if (!settings.initial_generators ||
+        (detector_work_capped && proposed.count >= settings.maximum_generators))
+      result.allowance_limit_reached = true;
+    else
+      result.detection_limit_reached = true;
+  }
   result.status = convert(detection);
   // Completeness of the remaining subgroup says nothing about completeness
   // of the combined basis in the unrestricted original automorphism group.
@@ -1274,7 +1288,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     if (scheduling.finish_admitted_group &&
         result.ticks >= parameters.maximum_detection_ticks) {
       result.status = SymmetryEnumerationStatus::LimitReached;
-      result.detection_limit_reached = true;
+      result.allowance_limit_reached = true;
       return result;
     }
     const uint64_t planning_allowance =
@@ -1327,9 +1341,20 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       return result;
     }
     if (fixing_status == SymmetryEnumerationStatus::LimitReached) {
-      // The owner's Schreier cost limit (symmetries.h:1468, 3099).
       result.status = fixing_status;
-      result.detection_limit_reached = true;
+      // The owner's Schreier cost limit (symmetries.h:1468, 3099) is the
+      // configured planning limit. Planning cut short by a smaller remaining
+      // tick allowance stopped at that allowance instead.
+      const uint64_t configured_planning =
+          configured.chain_planning_tick_limit
+              ? configured.chain_planning_tick_limit
+              : UINT64_MAX;
+      if (scheduling.finish_admitted_group &&
+          planning_allowance < configured_planning &&
+          fixings.ticks >= planning_allowance)
+        result.allowance_limit_reached = true;
+      else
+        result.detection_limit_reached = true;
     }
     group_ticks = fixings.ticks;
     if (scheduling.finish_admitted_group) {
