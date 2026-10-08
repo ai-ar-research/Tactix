@@ -1334,6 +1334,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
           kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
         else
           kernel_assign(k, forced, jump2, cref, /*binary=*/false);
+        if (k.symuse_active) [[unlikely]]
+          kernel_symuse_note_trail(k, k.trail.size() - 1);
         k.conflict_valid = false;
         k.conflict_ref = INVALID_REF;
         k.pending.valid = false; // nothing to assert: no clause was learned
@@ -1614,6 +1616,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
       kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
     else
       kernel_assign(k, forced, jump, cref, /*binary=*/false);
+    if (k.symuse_active) [[unlikely]]
+      kernel_symuse_note_trail(k, k.trail.size() - 1);
     k.conflict_valid = false;
     k.conflict_ref = INVALID_REF;
     k.pending.valid = false;
