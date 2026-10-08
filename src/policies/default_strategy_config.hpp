@@ -289,7 +289,6 @@ struct DefaultStrategyConfig {
       strategy::GraphLabelingParameters p;
       p.maximum_vertices = 140;
       p.workspace_bytes = 512ull << 20;
-      p.work[size_t(strategy::GraphLabelingStage::Recognition)] = 100'000'000;
       p.work[size_t(strategy::GraphLabelingStage::Construction)] = 100'000'000;
       p.work[size_t(strategy::GraphLabelingStage::Window)] = 5'000'000'000;
       p.work[size_t(strategy::GraphLabelingStage::Repair)] = 1'000'000'000;
@@ -305,6 +304,16 @@ struct DefaultStrategyConfig {
       p.anneal_iterations = UINT64_MAX;
       p.stall_anneal_iterations = 100'000;
       p.seed = 0;
+      // Recognition has no separate dose: graph_labeling::recognize reads only
+      // the primary region's watch lists (externals below
+      // min(maximum_vertices, isqrt(variables))^2), so its cost is bounded by
+      // that region, not by a constant. It receives the remainder of the
+      // representable profile ceiling; the kernel work budget and interrupts
+      // still apply.
+      uint64_t other_stages = 0;
+      for (uint64_t allowance : p.work) other_stages += allowance;
+      p.work[size_t(strategy::GraphLabelingStage::Recognition)] =
+          UINT64_MAX - other_stages;
       return p;
     }();
     // Source capture and all trajectory work occur only in initial or full
