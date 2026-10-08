@@ -1,0 +1,5 @@
+noL-11-0.sanitized.cnf.xz    prefix-conflicts on=91 off=80 LCP=0 first(on,off)=1416,1419 off-arm decisions on FE-eliminated vars=18/512 LCP-after-filter=28 var-overlap(first100)=47 same-sign-of-shared=44
+noL-11-10.sanitized.cnf.xz   prefix-conflicts on=54 off=73 LCP=0 first(on,off)=1416,1419 off-arm decisions on FE-eliminated vars=5/512 LCP-after-filter=10 var-overlap(first100)=42 same-sign-of-shared=41
+noL-11-6.sanitized.cnf.xz    prefix-conflicts on=196 off=107 LCP=0 first(on,off)=1416,1419 off-arm decisions on FE-eliminated vars=12/512 LCP-after-filter=10 var-overlap(first100)=46 same-sign-of-shared=45
+mp1-Nb7T42.cnf.xz            prefix-conflicts on=0 off=0 LCP=512 first(on,off)=-,- off-arm decisions on FE-eliminated vars=0/512 LCP-after-filter=512 var-overlap(first100)=100 same-sign-of-shared=100
+6g_6color_366_050_04.cnf.xz  prefix-conflicts on=69 off=69 LCP=512 first(on,off)=-,- off-arm decisions on FE-eliminated vars=0/512 LCP-after-filter=512 var-overlap(first100)=100 same-sign-of-shared=100
