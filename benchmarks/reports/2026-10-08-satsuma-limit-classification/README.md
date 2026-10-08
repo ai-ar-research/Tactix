@@ -212,12 +212,13 @@ program applies (C).
 | bphp_p23_h22 (600) | UNSAT 536.7, check window expired | **UNSAT 2.4, ✓** | 38.6M / 239,889 | 233 / 233 | 142 / 141 |
 | Break_20_72 (1,200) | SAT 656.3, ✓ | timeout | 20.0M / 38.4M | 0 / 5 (1) | 340 / 763 |
 | ntil-90d-40 (1,200) | SAT 90.6, ✓ | timeout | 2.0M / 23.5M | 1 / 1 | 2,841 / 2,652 |
-| Rank754 Timetable_C_495 (5,000) | pending (job 1757456) | pending | | | |
+| Rank754 Timetable_C_495 (5,000) | timeout | **SAT 3,736.0, ✓** | 44.2M / 35.0M | 5 / 505 (501) | 966 / 4,834 |
 
 ✓ means the model or proof was checked by the runner. Each row is one draw per
 arm.
 
-- **bphp_p23_h22.** The A–D gain is kept.
+- **bphp_p23_h22 and Rank754.** The A–D gains are kept: bphp 2.4 s, and
+  Rank754 SAT 3,736 s with the model verified (bcd3 3,916 s).
 - **Break_20_72 and ntil-90d-40.** These are not affected by the repair:
   - Their fix startup equals c3's (Break: 5 SR, 1 applied, 1 ULC; ntil: 1 SR).
   - c3 already timed out on both in its WV100 gate (37.0M and 22.8M
