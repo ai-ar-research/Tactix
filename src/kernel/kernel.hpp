@@ -1575,9 +1575,9 @@ struct SymmetryUseRun {
   // failed-level-one walk; not minimization or shrinking).
   uint64_t analysis_uses = 0, helper_analysis_uses = 0;
   // Root implications whose reason contains the negation of a tagged unit
-  // (one level: the unit's own consequences, not their descendants). Once no
-  // tagged binary or large clause is live, only propagation at the root is
-  // inspected for this.
+  // (one level: the unit's own consequences, not their descendants). When the
+  // run tagged no binary and no tagged large clause is live, only propagation
+  // at the root is inspected for this.
   uint64_t root_forced = 0;
   uint64_t large_deleted = 0; // retired by any path, in-place shrink included
 };
