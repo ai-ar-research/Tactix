@@ -1,0 +1,15 @@
+    49.69%  [.] perform_up_for_backwards_checking  -      -            
+    13.18%  [.] peval_lit_under_alpha              -      -            
+     9.47%  [.] mark_dependencies                  -      -            
+     7.71%  [.] mark_and_store_up_refutation       -      -            
+     6.64%  [.] set_unit_clause                    -      -            
+     3.55%  [.] get_clause_start_unsafe            -      -            
+     3.29%  [.] get_clause_size                    -      -            
+     1.73%  [.] main                               -      -            
+     1.49%  [.] add_wp_for_lit                     -      -            
+     1.24%  [.] set_lit_for_alpha                  -      -            
+     0.62%  [.] __memset_avx2_unaligned_erms       -      -            
+     0.10%  [.] lit_occ_delete_clause              -      -            
+     0.07%  [.] store_clause_mapping.part.0        -      -            
+     0.07%  [k] 0xffffffffbb5f0b65                 -      -            
+     0.07%  [.] remove_wp_for_lit                  -      -            

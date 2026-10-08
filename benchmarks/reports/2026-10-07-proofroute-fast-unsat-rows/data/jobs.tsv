@@ -1,0 +1,15 @@
+r541	drat	1755616
+r541	dsr-fixed64	1755617
+r541	dsr-3b5c	1755618
+r1129	drat	1755619
+r1129	dsr-fixed64	1755620
+r1129	dsr-3b5c	1755621
+r1075	dsr-fixed64	1755622
+all	gen	1755558
+r541	kissat-4.0.4-proofstats	1755624
+r291	dsr-fixed64	1755643
+note	jobs 1755616-1755622,1755624 were submitted to cpu-dense-hwulab-q and moved (pending, own jobs) to cpu-q with scontrol because other agents' gate arrays filled the lab queue
+r541	e2e-dsrtrim-cakelpr+controls	1755824
+r1129	e2e-dsrtrim-cakelpr+controls	1755825
+r1129	e2e cancelled while PENDING (1755825) after coordinator relayed the new runner-only rule; r1129 dsr-trim->CakeLPR evidence comes from 1755620
+cancel	1755616 1755617 1755619 1755620 1755643 cancelled 2026-10-07T20:54:19-04:00 on coordinator wrap-up instruction (user decided against route changes); 1755622 had already completed

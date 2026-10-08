@@ -1,0 +1,15 @@
+    96.41%  [.] checkRAT               -      -            
+                       0x40c480
+                       0xbf6fafce0e84c939
+     0.92%  [.] analyze                -      -            
+     0.53%  [.] propagate              -      -            
+     0.10%  [k] 0xffffffff84e809fb     -      -            
+     0.09%  [k] 0xffffffff84f804b8     -      -            
+     0.07%  [.] verify                 -      -            
+     0.07%  [k] 0xffffffff84f7e80b     -      -            
+     0.07%  [k] 0xffffffff85d0410b     -      -            
+     0.06%  [.] 0x0000000000000871     -      -            
+     0.05%  [k] 0xffffffff850052de     -      -            
+     0.04%  [k] 0xffffffff84ff1dfe     -      -            
+     0.04%  [k] 0xffffffff84fefff5     -      -            
+     0.04%  [k] 0xffffffff84f63fa4     -      -            
