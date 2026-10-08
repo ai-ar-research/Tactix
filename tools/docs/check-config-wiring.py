@@ -554,6 +554,9 @@ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               # the arena's own relocation counter: whoever holds a Ref across
               # a possible collection compares it. Nothing configures it.
               "arena_generation",
+              # in-place rewrite counter read by the SR expansion occurrence
+              # index; nothing configures it.
+              "large_clause_rewrites",
               # Sweep's resumable-pass latch is written and cleared by the
               # rule's completion state machine, never configured by policy.
               "sweep_incomplete",

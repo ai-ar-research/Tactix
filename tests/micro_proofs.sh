@@ -1036,4 +1036,153 @@ corpus="$ROOT/tools/fuzz/corpus/regressions/035-bve-round-stale-schedule-fixed-p
 "$ROOT/tools/fuzz/checkmodel" "$corpus" "$T/bve-round-stale-schedule.out" \
   || { echo "FAIL: BVE round stale-schedule model rejected"; exit 1; }
 
+# Witness-free expansion of permutation-witness SR (docs/calculus.md, SR
+# witness-free expansion). Every SR fixture runs with native witnessed lines
+# (TACTIX_SR_NATIVE_WITNESS=1) and with expansion. Solver output must match
+# apart from the expansion counter; each stream must pass the routed reference
+# pipeline, and an expanded stream must also pass forward drat-trim, which
+# checks every line. Asymmetric satisfiable padding on fresh variables puts
+# the symmetric fixtures within the expansion budget; those copies must
+# expand. Two corrupted expansions are the negative controls.
+if [ -n "$ONLINE_INPROCESS_TEST" ] && [ -x "$DRAT_TRIM" ] && [ -x "$CAKE_LPR" ]; then
+  pad() {
+    python3 - "$1" "$2" <<'PADEOF'
+import random
+import sys
+source, target = sys.argv[1], sys.argv[2]
+header, clauses = None, []
+for line in open(source):
+    if line.startswith('p cnf'):
+        header = [int(x) for x in line.split()[2:]]
+    elif line.strip() and not line.startswith('c'):
+        clauses.append(line.strip())
+base = header[0]
+rng = random.Random(20261008)
+padding = []
+for _ in range(120):
+    variables = rng.sample(range(base + 1, base + 61), 3)
+    padding.append(' '.join(str(v if rng.random() < 0.5 else -v)
+                            for v in variables) + ' 0')
+with open(target, 'w') as out:
+    out.write(f'p cnf {base + 60} {len(clauses) + len(padding)}\n')
+    out.write('\n'.join(clauses + padding) + '\n')
+PADEOF
+  }
+  routed() {
+    python3 "${TACTIX_PROOF_ORACLE_DIR:-$ROOT/tools/bench}/proof_oracle.py" \
+      check "$1" "$2" --dsr-trim "$DSR_TRIM" --dsr-compress "$DSR_COMPRESS" \
+      --srcheck "$SR_CHECK" --drat-trim "$DRAT_TRIM" --cake-lpr "$CAKE_LPR" \
+      > "$T/routed.out" 2>&1 \
+      || { echo "FAIL: routed pipeline rejected $2"; cat "$T/routed.out"; \
+           return 1; }
+    sed -n 's/^c route //p' "$T/routed.out"
+  }
+  forward() {
+    "$DRAT_TRIM" "$1" "$2" -f > "$T/forward.out" 2>&1 || true
+    grep -q 's VERIFIED' "$T/forward.out"
+  }
+  pad "$T/sst-chain.cnf" "$T/sst-chain-padded.cnf"
+  pad "$T/fix-and-cut.cnf" "$T/fix-and-cut-padded.cnf"
+  pad "$T/direct-sr.cnf" "$T/direct-sr-padded.cnf"
+  expanded_streams=0
+  pair() {
+    # pair <name> <cnf> <must-expand> <command...>; the proof path is $proof.
+    local name="$1" cnf="$2" must="$3"
+    shift 3
+    local native="$T/$name.native.dsr" expanded="$T/$name.expanded.dsr"
+    proof="$native"
+    TACTIX_SR_NATIVE_WITNESS=1 "$@" > "$T/$name.native.out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] || { echo "FAIL: $name native not UNSAT (rc=$rc)"; exit 1; }
+    proof="$expanded"
+    "$@" > "$T/$name.expanded.out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] || { echo "FAIL: $name expanded not UNSAT (rc=$rc)"; exit 1; }
+    # Wall-clock fields are masked; every counter must match.
+    diff <(grep -v '^c sr-expand' "$T/$name.native.out" | sed -E -e 's/seconds [0-9.e+-]+/seconds T/g' -e 's/[0-9.]+ (seconds|ms)/T \1/g') \
+         <(grep -v '^c sr-expand' "$T/$name.expanded.out" | sed -E -e 's/seconds [0-9.e+-]+/seconds T/g' -e 's/[0-9.]+ (seconds|ms)/T \1/g') > /dev/null \
+      || { echo "FAIL: $name solver output differs under expansion"; \
+           diff "$T/$name.native.out" "$T/$name.expanded.out"; exit 1; }
+    local native_route expanded_route
+    native_route="$(routed "$cnf" "$native")" || exit 1
+    expanded_route="$(routed "$cnf" "$expanded")" || exit 1
+    if [ "$expanded_route" = drat ]; then
+      forward "$cnf" "$expanded" \
+        || { echo "FAIL: forward drat-trim rejected $name expansion"; \
+             cat "$T/forward.out"; exit 1; }
+      if [ "$native_route" = dsr ]; then
+        expanded_streams=$((expanded_streams + 1))
+        last_expanded_cnf="$cnf"
+        last_expanded_proof="$expanded"
+      fi
+    fi
+    echo "c expansion pair $name: native $native_route, expanded $expanded_route"
+    if [ "$must" = 1 ] && { [ "$native_route" != dsr ] || [ "$expanded_route" != drat ]; }; then
+      echo "FAIL: $name did not expand (native $native_route, expanded $expanded_route)"
+      exit 1
+    fi
+  }
+  run_driver() { "$ONLINE_INPROCESS_TEST" "$1" "$proof" dsr "${@:2}"; }
+  pair orbitopal "$T/direct-sr.cnf" 0 run_driver "$T/direct-sr.cnf" OrbitopalSR
+  pair orbitopal-padded "$T/direct-sr-padded.cnf" 0 \
+    run_driver "$T/direct-sr-padded.cnf" OrbitopalSR
+  pair sst "$T/sst-chain.cnf" 0 run_driver "$T/sst-chain.cnf" SstSR
+  pair sst-padded "$T/sst-chain-padded.cnf" 0 \
+    run_driver "$T/sst-chain-padded.cnf" SstSR
+  pair fix-and-cut "$T/fix-and-cut.cnf" 0 \
+    run_driver "$T/fix-and-cut.cnf" FixAndCutSR all
+  pair fix-and-cut-padded "$T/fix-and-cut-padded.cnf" 1 \
+    run_driver "$T/fix-and-cut-padded.cnf" FixAndCutSR all
+  pair fix-and-cut-clause-padded "$T/fix-and-cut-padded.cnf" 0 \
+    run_driver "$T/fix-and-cut-padded.cnf" FixAndCutClauseSR all
+  run_binary() { "$TACTIX" -q --dsr --no-binary "$1" "$proof"; }
+  pair default-fix-and-cut-padded "$T/fix-and-cut-padded.cnf" 0 \
+    run_binary "$T/fix-and-cut-padded.cnf"
+  for cnf in "$T"/sr-input-*.cnf; do
+    name="$(basename "$cnf" .cnf)"
+    pair "$name" "$cnf" 0 run_binary "$cnf"
+  done
+  [ "$expanded_streams" -ge 2 ] \
+    || { echo "FAIL: only $expanded_streams SR fixtures expanded"; exit 1; }
+
+  # Negative controls on the last expanded stream. Removing the definition
+  # p | C leaves the C' helper without its !p case. Negating the image in the
+  # first x' definition keeps every definition RAT but encodes a wrong
+  # witness, so a renamed copy fails. Forward drat-trim checks every line and
+  # must reject both.
+  python3 - "$last_expanded_cnf" "$last_expanded_proof" \
+    "$T/expansion-no-definition.dsr" "$T/expansion-wrong-image.dsr" <<'NEGEOF'
+import sys
+cnf, proof, no_definition, wrong_image = sys.argv[1:]
+nvars = next(int(l.split()[2]) for l in open(cnf) if l.startswith('p cnf'))
+lines = open(proof).read().splitlines()
+for start, line in enumerate(lines):
+    tokens = line.split()
+    if tokens and tokens[0] != 'd' and int(tokens[0]) > nvars:
+        nxt = lines[start + 1].split()
+        if nxt and nxt[0] == str(-int(tokens[0])):
+            break
+else:
+    sys.exit('no expansion found')
+p = tokens[0]
+first = next(i for i in range(start + 1, len(lines))
+             if lines[i].split()[0].lstrip('-') != p)
+group = [lines[first + k].split() for k in range(4)]
+assert group[0][1] == '-' + p and group[2][1] == '-' + p, group
+image = group[0][2]
+flipped = image[1:] if image.startswith('-') else '-' + image
+group[0][2] = flipped
+group[2][2] = str(-int(flipped))
+wrong = list(lines)
+wrong[first] = ' '.join(group[0])
+wrong[first + 2] = ' '.join(group[2])
+open(no_definition, 'w').write('\n'.join(lines[:start] + lines[start + 1:]) + '\n')
+open(wrong_image, 'w').write('\n'.join(wrong) + '\n')
+NEGEOF
+  for control in expansion-no-definition expansion-wrong-image; do
+    if forward "$last_expanded_cnf" "$T/$control.dsr"; then
+      echo "FAIL: forward drat-trim accepted the $control control"
+      exit 1
+    fi
+  done
+fi
+
 echo "micro_proofs OK"

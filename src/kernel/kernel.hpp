@@ -519,6 +519,12 @@ struct Stats {
   uint64_t residual_handoff_nanos = 0;
   uint64_t sr_validation_ticks = 0;
   uint64_t sr_witness_literals = 0;
+  // Witness-free SR expansion (docs/calculus.md): expanded lines, lines kept
+  // native because the stream was witnessed or the expansion was out of scope
+  // or over budget, and the clause additions the expansions wrote.
+  uint64_t sr_expanded = 0;
+  uint64_t sr_expansion_native = 0;
+  uint64_t sr_expansion_additions = 0;
   uint64_t switched = 0; // mode switches (S4)
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots
@@ -1886,6 +1892,18 @@ struct Kernel {
   // names the pre-collection arena, so anything holding one across a possible
   // collection compares this instead of reasoning about the call graph.
   uint64_t arena_generation = 1;
+  // Bumped by every in-place rewrite of a large record's literal set.
+  uint64_t large_clause_rewrites = 0;
+  // Large-record references of the variables witness-free SR expansion has
+  // asked for, valid for one arena generation and rewrite count; the arena
+  // prefix [0, covered) is indexed. Records are filtered when read.
+  struct SrExpansionOccurrences {
+    uint64_t arena_generation = 0;
+    uint64_t rewrites = 0;
+    size_t covered = 0;
+    std::vector<uint8_t> interest;
+    std::vector<std::vector<Ref>> refs;
+  } sr_expansion_occurrences;
 
   // Cold shared-strategy boundary epoch. Registry dispatch and public API
   // mutations advance it; DefaultPolicy's static hot path never reads or
