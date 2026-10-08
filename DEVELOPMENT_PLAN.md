@@ -409,7 +409,7 @@ repair alone does not close its fuzz gate.
   configuration qualifies, including LymphoSAT.
 - **T5:** exceed the frozen VBS or ship the best verified effort.
 
-**Targeted timing measurement.** Use the cluster early for quick prototypes and parallel diagnostics. Use `cpu-q` for one-off correctness, profiling, ablations and coarse solved-quickly/timeout screens; reserve matched allocations for close relative-performance decisions and final aggregate gates. WV100 checked coverage may close on `cpu-q`;
+**Profile every slowdown.** Before attributing any observed slowdown to search trajectory, noise or a faithful port, profile both arms of a same-CPU pair (perf on a .text-identical pin plus per-pass timing). Attribute the extra time to passes and functions, and rule out an inprocessing pass that runs long while producing nothing used. Such a pass is a scheduling defect to fix generally. **Targeted timing measurement.** Use the cluster early for quick prototypes and parallel diagnostics. Use `cpu-q` for one-off correctness, profiling, ablations and coarse solved-quickly/timeout screens; reserve matched allocations for close relative-performance decisions and final aggregate gates. WV100 checked coverage may close on `cpu-q`;
 regressions and close unit-cost comparisons use hwu allocations from §8.1. Close
 comparisons use three independent paired waves with candidate and exact-state
 baseline as concurrent separate jobs. Record placement, memory, service-rate
