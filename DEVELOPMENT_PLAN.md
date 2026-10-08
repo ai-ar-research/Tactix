@@ -663,6 +663,7 @@ Always admit a valid, fully proof-checked symmetry-breaking unit when its action
 commits. Singleton/compound-progress heuristics or benchmark timing cannot veto
 it; discovery budgets and invalid/stale/uncertified-candidate guards still apply.
 DefaultPolicy follows Satsuma's own symmetry practice, not benchmark-chosen subsets of it:
+- **(A)** a structured pass repeats only after the previous pass produced symmetry-breaking output. Each repetition is earned through the existing owner-scale tick, zero-yield and size feedback, and unchanged detection state is never re-paid, so useless symmetry analysis adds no material overhead;
 - **(B)** structured repetition stops once any pass reaches a detection limit (`reached_limits`);
 - **(C)** at-most-one completion and row/product refinement also run above the 50,000-variable domain boundary;
 - **(D)** FixAndCut uses the owner's cut point (`find_non_trivial_orbit`).
