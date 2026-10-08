@@ -1,0 +1,2548 @@
+{
+ "campaigns": {
+  "20261008-fesym-diag": {
+   "arms": {
+    "on": "ddd1fc4f32ae1f37e458e78696405b6ca309c59707d8fadf30c8cea90fb0facd",
+    "off": "23d3456d436fdbc09fad619a6804bbb12827d97fc6b4024c080ac6a818f7062a",
+    "frz": "59e5a961eef8e3dc2dce02734538dd1f8fa4f2c0ac2949bdc1fd1c3d0f5b636c"
+   },
+   "input_sha256": {
+    "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz": "960f0bd90daf7eac3dc1da0bfec80b3edc591183bff6bd0df88ba3b8901cbc7a",
+    "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz": "aef24fcc89e6335ba9138b3c9870bb294cfe24afdb72dffba022a6c263611671",
+    "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz": "d9d0a31a3e8efa334e8f1d3140e38e908aca019d03b2fb5922f0f71618e892b5",
+    "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz": "fa316d083ef8735356f6976e7c442249f0e625b4e664803fb22ae809623929ef",
+    "tierD24-26/cdd131110acc861a5a01fae6c4936c91-6g_6color_366_050_04.cnf.xz": "49222f4c156ffb0e5bfaac0b01028bde8996e0e67af72fca787bd44d811c9b1f"
+   },
+   "solve_timeout": 600,
+   "runs": [
+    {
+     "task": 0,
+     "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+     "arm": "on",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "ddd1fc4f32ae1f37e458e78696405b6ca309c59707d8fadf30c8cea90fb0facd",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1089 eliminated=26 eliminated_in_tagged=26 eliminated_in_helper=26 frozen_skipped=0 tagged_alive_before=4 tagged_alive_after=3 helpers_alive_before=0 helpers_alive_after=0 conflicts=0",
+      "c decisions   52870962 (0 via API)",
+      "c conflicts   19627378",
+      "c bce         1 rounds, 1084 deleted, 73022 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1093 clauses (1089 helpers, 3 units), 2 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 1 root forced, 1090 deleted, 3 alive",
+      "c bve         0 rounds, 375 eliminated, 417842 resolutions",
+      "c fastel      2 checks, 1085 candidates / 2144 active, 2144 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26 eliminated, 9706 resolutions, 0.006 seconds"
+     ]
+    },
+    {
+     "task": 1,
+     "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+     "arm": "off",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 288.155,
+     "node": "node018",
+     "binary_sha256": "23d3456d436fdbc09fad619a6804bbb12827d97fc6b4024c080ac6a818f7062a",
+     "counters": [
+      "c fesym fastel skipped: tagged_vars=1089 tagged_alive=4 helpers_alive=0",
+      "c fesym eliminate-phase conflicts=15272 tagged_alive=3 helpers_alive=0 bve_eliminated=374",
+      "c decisions   28908009 (0 via API)",
+      "c conflicts   10249868",
+      "c bce         1 rounds, 1084 deleted, 73022 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1093 clauses (1089 helpers, 3 units), 25 propagations (0 helper, 15 search), 0 analysis uses (0 helper), 1 root forced, 1090 deleted, 3 alive",
+      "c bve         0 rounds, 376 eliminated, 302640 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 2,
+     "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+     "arm": "frz",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 285.638,
+     "node": "node017",
+     "binary_sha256": "59e5a961eef8e3dc2dce02734538dd1f8fa4f2c0ac2949bdc1fd1c3d0f5b636c",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1089 eliminated=0 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=1085 tagged_alive_before=4 tagged_alive_after=4 helpers_alive_before=0 helpers_alive_after=0 conflicts=0",
+      "c fesym eliminate-phase conflicts=15272 tagged_alive=3 helpers_alive=0 bve_eliminated=374",
+      "c decisions   28908009 (0 via API)",
+      "c conflicts   10249868",
+      "c bce         1 rounds, 1084 deleted, 73022 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1093 clauses (1089 helpers, 3 units), 25 propagations (0 helper, 15 search), 0 analysis uses (0 helper), 1 root forced, 1090 deleted, 3 alive",
+      "c bve         0 rounds, 376 eliminated, 302640 resolutions",
+      "c fastel      1 checks, 0 candidates / 1085 active, 1085 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 3,
+     "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
+     "arm": "on",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "ddd1fc4f32ae1f37e458e78696405b6ca309c59707d8fadf30c8cea90fb0facd",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1073 eliminated=27 eliminated_in_tagged=27 eliminated_in_helper=27 frozen_skipped=0 tagged_alive_before=1063 tagged_alive_after=1016 helpers_alive_before=1041 helpers_alive_after=995 conflicts=0",
+      "c fesym eliminate-phase conflicts=15148 tagged_alive=362 helpers_alive=341 bve_eliminated=359",
+      "c fesym eliminate-phase conflicts=295818 tagged_alive=361 helpers_alive=340 bve_eliminated=360",
+      "c decisions   36210171 (0 via API)",
+      "c conflicts   16214338",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c symuse run 0: 1070 clauses (1067 helpers, 21 units), 22986397 propagations (22986395 helper, 19269764 search), 1042138 analysis uses (1042138 helper), 1 root forced, 709 deleted, 361 alive",
+      "c bve         0 rounds, 360 eliminated, 238430 resolutions",
+      "c fastel      2 checks, 1046 candidates / 2065 active, 2065 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11436 resolutions, 0.006 seconds"
+     ]
+    },
+    {
+     "task": 4,
+     "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
+     "arm": "off",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 40.088,
+     "node": "node017",
+     "binary_sha256": "23d3456d436fdbc09fad619a6804bbb12827d97fc6b4024c080ac6a818f7062a",
+     "counters": [
+      "c fesym fastel skipped: tagged_vars=1073 tagged_alive=1063 helpers_alive=1041",
+      "c fesym eliminate-phase conflicts=15129 tagged_alive=362 helpers_alive=341 bve_eliminated=359",
+      "c fesym eliminate-phase conflicts=295795 tagged_alive=360 helpers_alive=339 bve_eliminated=361",
+      "c decisions   4249699 (0 via API)",
+      "c conflicts   1434581",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c symuse run 0: 1070 clauses (1067 helpers, 21 units), 2143348 propagations (2143325 helper, 1757278 search), 74888 analysis uses (74888 helper), 1 root forced, 710 deleted, 360 alive",
+      "c bve         0 rounds, 361 eliminated, 223995 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 5,
+     "instance": "tierD24-26/52aaf653a79ca14fa1127cda32aa94ce-noL-11-10.sanitized.cnf.xz",
+     "arm": "frz",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 39.594,
+     "node": "node018",
+     "binary_sha256": "59e5a961eef8e3dc2dce02734538dd1f8fa4f2c0ac2949bdc1fd1c3d0f5b636c",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1073 eliminated=0 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=1046 tagged_alive_before=1063 tagged_alive_after=1063 helpers_alive_before=1041 helpers_alive_after=1041 conflicts=0",
+      "c fesym eliminate-phase conflicts=15129 tagged_alive=362 helpers_alive=341 bve_eliminated=359",
+      "c fesym eliminate-phase conflicts=295795 tagged_alive=360 helpers_alive=339 bve_eliminated=361",
+      "c decisions   4249699 (0 via API)",
+      "c conflicts   1434581",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1104 applications, 1070 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c symuse run 0: 1070 clauses (1067 helpers, 21 units), 2143348 propagations (2143325 helper, 1757278 search), 74888 analysis uses (74888 helper), 1 root forced, 710 deleted, 360 alive",
+      "c bve         0 rounds, 361 eliminated, 223995 resolutions",
+      "c fastel      1 checks, 0 candidates / 1046 active, 1046 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 6,
+     "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+     "arm": "on",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 41.936,
+     "node": "node017",
+     "binary_sha256": "ddd1fc4f32ae1f37e458e78696405b6ca309c59707d8fadf30c8cea90fb0facd",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1081 eliminated=26 eliminated_in_tagged=26 eliminated_in_helper=26 frozen_skipped=0 tagged_alive_before=1079 tagged_alive_after=1034 helpers_alive_before=1065 helpers_alive_after=1021 conflicts=0",
+      "c fesym eliminate-phase conflicts=15085 tagged_alive=362 helpers_alive=349 bve_eliminated=367",
+      "c fesym eliminate-phase conflicts=294505 tagged_alive=361 helpers_alive=348 bve_eliminated=368",
+      "c decisions   4898736 (0 via API)",
+      "c conflicts   1645016",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1096 applications, 1082 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c symuse run 0: 1082 clauses (1079 helpers, 13 units), 2433023 propagations (2433021 helper, 2082578 search), 100226 analysis uses (100226 helper), 1 root forced, 721 deleted, 361 alive",
+      "c bve         0 rounds, 368 eliminated, 555281 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2106 active, 2106 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26 eliminated, 11664 resolutions, 0.006 seconds"
+     ]
+    },
+    {
+     "task": 7,
+     "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+     "arm": "off",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 319.591,
+     "node": "node018",
+     "binary_sha256": "23d3456d436fdbc09fad619a6804bbb12827d97fc6b4024c080ac6a818f7062a",
+     "counters": [
+      "c fesym fastel skipped: tagged_vars=1081 tagged_alive=1079 helpers_alive=1065",
+      "c fesym eliminate-phase conflicts=15067 tagged_alive=362 helpers_alive=349 bve_eliminated=367",
+      "c fesym eliminate-phase conflicts=294494 tagged_alive=361 helpers_alive=348 bve_eliminated=368",
+      "c decisions   24254737 (0 via API)",
+      "c conflicts   10127657",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1096 applications, 1082 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c symuse run 0: 1082 clauses (1079 helpers, 13 units), 14007823 propagations (14007794 helper, 12131551 search), 828359 analysis uses (828359 helper), 1 root forced, 721 deleted, 361 alive",
+      "c bve         0 rounds, 368 eliminated, 546588 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 8,
+     "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+     "arm": "frz",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 318.33,
+     "node": "node017",
+     "binary_sha256": "59e5a961eef8e3dc2dce02734538dd1f8fa4f2c0ac2949bdc1fd1c3d0f5b636c",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1081 eliminated=0 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=1066 tagged_alive_before=1079 tagged_alive_after=1079 helpers_alive_before=1065 helpers_alive_after=1065 conflicts=0",
+      "c fesym eliminate-phase conflicts=15067 tagged_alive=362 helpers_alive=349 bve_eliminated=367",
+      "c fesym eliminate-phase conflicts=294494 tagged_alive=361 helpers_alive=348 bve_eliminated=368",
+      "c decisions   24254737 (0 via API)",
+      "c conflicts   10127657",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1096 applications, 1082 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c symuse run 0: 1082 clauses (1079 helpers, 13 units), 14007823 propagations (14007794 helper, 12131551 search), 828359 analysis uses (828359 helper), 1 root forced, 721 deleted, 361 alive",
+      "c bve         0 rounds, 368 eliminated, 546588 resolutions",
+      "c fastel      1 checks, 0 candidates / 1066 active, 1066 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 9,
+     "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+     "arm": "on",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "ddd1fc4f32ae1f37e458e78696405b6ca309c59707d8fadf30c8cea90fb0facd",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1 eliminated=28740 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=0 tagged_alive_before=1 tagged_alive_after=1 helpers_alive_before=0 helpers_alive_after=0 conflicts=0",
+      "c decisions   142147293 (0 via API)",
+      "c conflicts   8804049",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1 clauses (0 helpers, 1 units), 0 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 0 root forced, 0 deleted, 1 alive",
+      "c bve         0 rounds, 44903 eliminated, 20695088 resolutions",
+      "c fastel      2 checks, 57280 candidates / 85820 active, 85820 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28740 eliminated, 822897 resolutions, 0.227 seconds"
+     ]
+    },
+    {
+     "task": 10,
+     "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+     "arm": "off",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 58.324,
+     "node": "node017",
+     "binary_sha256": "23d3456d436fdbc09fad619a6804bbb12827d97fc6b4024c080ac6a818f7062a",
+     "counters": [
+      "c fesym fastel skipped: tagged_vars=1 tagged_alive=1 helpers_alive=0",
+      "c decisions   15456796 (0 via API)",
+      "c conflicts   638214",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1 clauses (0 helpers, 1 units), 0 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 0 root forced, 0 deleted, 1 alive",
+      "c bve         0 rounds, 41144 eliminated, 15516387 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 11,
+     "instance": "tierD24-26/c0293283432a9b15cd743702163f5184-mp1-Nb7T42.cnf.xz",
+     "arm": "frz",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "59e5a961eef8e3dc2dce02734538dd1f8fa4f2c0ac2949bdc1fd1c3d0f5b636c",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1 eliminated=28740 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=0 tagged_alive_before=1 tagged_alive_after=1 helpers_alive_before=0 helpers_alive_after=0 conflicts=0",
+      "c decisions   142035495 (0 via API)",
+      "c conflicts   8732708",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1 clauses (0 helpers, 1 units), 0 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 0 root forced, 0 deleted, 1 alive",
+      "c bve         0 rounds, 44903 eliminated, 20695088 resolutions",
+      "c fastel      2 checks, 57280 candidates / 85820 active, 85820 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28740 eliminated, 822897 resolutions, 0.223 seconds"
+     ]
+    },
+    {
+     "task": 12,
+     "instance": "tierD24-26/cdd131110acc861a5a01fae6c4936c91-6g_6color_366_050_04.cnf.xz",
+     "arm": "on",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 284.512,
+     "node": "node017",
+     "binary_sha256": "ddd1fc4f32ae1f37e458e78696405b6ca309c59707d8fadf30c8cea90fb0facd",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1 eliminated=14 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=0 tagged_alive_before=1 tagged_alive_after=1 helpers_alive_before=0 helpers_alive_after=0 conflicts=0",
+      "c decisions   5317199 (0 via API)",
+      "c conflicts   526238",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 154511 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1 clauses (0 helpers, 1 units), 0 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 0 root forced, 0 deleted, 1 alive",
+      "c bve         0 rounds, 206206 eliminated, 53200077 resolutions",
+      "c fastel      1 checks, 309862 candidates / 309862 active, 309862 discovery ticks, 1 budget stops, 0 minority declines, 0 root-suppressed, 14 eliminated, 690139 resolutions, 0.290 seconds"
+     ]
+    },
+    {
+     "task": 13,
+     "instance": "tierD24-26/cdd131110acc861a5a01fae6c4936c91-6g_6color_366_050_04.cnf.xz",
+     "arm": "off",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "23d3456d436fdbc09fad619a6804bbb12827d97fc6b4024c080ac6a818f7062a",
+     "counters": [
+      "c fesym fastel skipped: tagged_vars=1 tagged_alive=1 helpers_alive=0",
+      "c decisions   10753421 (0 via API)",
+      "c conflicts   1193657",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 154511 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1 clauses (0 helpers, 1 units), 0 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 0 root forced, 0 deleted, 1 alive",
+      "c bve         0 rounds, 207092 eliminated, 52233498 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 14,
+     "instance": "tierD24-26/cdd131110acc861a5a01fae6c4936c91-6g_6color_366_050_04.cnf.xz",
+     "arm": "frz",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 279.841,
+     "node": "node017",
+     "binary_sha256": "59e5a961eef8e3dc2dce02734538dd1f8fa4f2c0ac2949bdc1fd1c3d0f5b636c",
+     "counters": [
+      "c fesym fastel ran: tagged_vars=1 eliminated=14 eliminated_in_tagged=0 eliminated_in_helper=0 frozen_skipped=0 tagged_alive_before=1 tagged_alive_after=1 helpers_alive_before=0 helpers_alive_after=0 conflicts=0",
+      "c decisions   5317199 (0 via API)",
+      "c conflicts   526238",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 154511 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c symuse run 0: 1 clauses (0 helpers, 1 units), 0 propagations (0 helper, 0 search), 0 analysis uses (0 helper), 0 root forced, 0 deleted, 1 alive",
+      "c bve         0 rounds, 206206 eliminated, 53200077 resolutions",
+      "c fastel      1 checks, 309862 candidates / 309862 active, 309862 discovery ticks, 1 budget stops, 0 minority declines, 0 root-suppressed, 14 eliminated, 690139 resolutions, 0.291 seconds"
+     ]
+    }
+   ]
+  },
+  "20261008-fesym-shuffle": {
+   "arms": {
+    "c1": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+    "c2": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585"
+   },
+   "input_sha256": {
+    "../runs/20261008-fesym-shuffle/inputs/nol0-s1.cnf.xz": "7966932a2df228838498748729bc7caf60984e5d5221b7525cffbf646e3b8a86",
+    "../runs/20261008-fesym-shuffle/inputs/nol0-s2.cnf.xz": "ebc9883ddb83ab7845379dfa47e8570c148d07e79691ea0a46a1300359c80194",
+    "../runs/20261008-fesym-shuffle/inputs/nol0-s3.cnf.xz": "c990acfeb74f0daf1d8ba02ec3a090e06a5ab2ada1a8608c95207cb95acf28df",
+    "../runs/20261008-fesym-shuffle/inputs/nol0-s4.cnf.xz": "6c58b6936a07b08b9c3526a288fb12e163546bb91407c57962ba06c79d7d4f3f",
+    "../runs/20261008-fesym-shuffle/inputs/nol0-s5.cnf.xz": "c6512eb0e8259508cfc214bcacdf68897f04535b45cf43789734cab6290ecc87",
+    "../runs/20261008-fesym-shuffle/inputs/nol10-s1.cnf.xz": "00fabe139e3a65fe30501b7accfe02b3ee687ad4d0493f34645f47ab67008a56",
+    "../runs/20261008-fesym-shuffle/inputs/nol10-s2.cnf.xz": "03b2110ea75658907b32649e5e5e2ef47d221e3e03b92c2af867ad73c1837ee4",
+    "../runs/20261008-fesym-shuffle/inputs/nol10-s3.cnf.xz": "947360e56bc00f97a3c6023b4576f82ab6c4a2144b7ef021fd1199d22bc84a1b",
+    "../runs/20261008-fesym-shuffle/inputs/nol10-s4.cnf.xz": "511a84b4455ce10c6d83afb9dd6e0f021153686ba049e91df60104e1ed2729ba",
+    "../runs/20261008-fesym-shuffle/inputs/nol10-s5.cnf.xz": "2127f7111f3e61291900c806e5ecdce95726821c0ce14812994bda5b91854261",
+    "../runs/20261008-fesym-shuffle/inputs/nol6-s1.cnf.xz": "6337f7be29fd327fd6e29d633949fd0026f0e3bbe77d471d89579f8de9c69ae9",
+    "../runs/20261008-fesym-shuffle/inputs/nol6-s2.cnf.xz": "44a001c2b66662a5fa25143994eb7a12cdd8d32992c1b6570092df72d1ef37be",
+    "../runs/20261008-fesym-shuffle/inputs/nol6-s3.cnf.xz": "3afc56e5298991fb04b7c8751577c98f94c2a6b77fd6d371c9acedf45ef93fc9",
+    "../runs/20261008-fesym-shuffle/inputs/nol6-s4.cnf.xz": "0f231b4e10da6cd7bcf013458b3c73b74e6e07d2909c1d8f410b5baaebafe671",
+    "../runs/20261008-fesym-shuffle/inputs/nol6-s5.cnf.xz": "d1401b7eb7ed737e644a2dc988ca5caad59db53ccc5252deb3f80436476c8217",
+    "../runs/20261008-fesym-shuffle/inputs/mp1-s1.cnf.xz": "e1ed13a8db9d1116aa632057370a97e82ddeb6aedec31d47cd16e68ee89e3c9d",
+    "../runs/20261008-fesym-shuffle/inputs/mp1-s2.cnf.xz": "93c59575f02c2d8e6c27eddfcab6eec68b67d58d62363922756ed8c3050018ba",
+    "../runs/20261008-fesym-shuffle/inputs/mp1-s3.cnf.xz": "d40583cda3a222126be128cf46d7a9befd1a72032871b67d4b59705153ee4d17",
+    "../runs/20261008-fesym-shuffle/inputs/mp1-s4.cnf.xz": "8986370bfba55ded8f886d4c921f616db9e23e090af27cfdb33d2b5f287331c2",
+    "../runs/20261008-fesym-shuffle/inputs/mp1-s5.cnf.xz": "2bd5a05016a591cfc83e3f21790c61c956e18e6d91e6b663a8b5ce5d6282e289"
+   },
+   "solve_timeout": 600,
+   "runs": [
+    {
+     "task": 0,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s1.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   48557885 (0 via API)",
+      "c conflicts   19639478",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1095 applied, 0 validation ticks, 5104 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     6 post-AMO nonhelper consequences, 2 graph root units",
+      "c bve         0 rounds, 375 eliminated, 565190 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 1,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s1.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   47969858 (0 via API)",
+      "c conflicts   19518339",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1095 applied, 0 validation ticks, 5104 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     6 post-AMO nonhelper consequences, 2 graph root units",
+      "c bve         0 rounds, 375 eliminated, 596948 resolutions",
+      "c fastel      2 checks, 1084 candidates / 2139 active, 2139 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11988 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 2,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s2.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   51947822 (0 via API)",
+      "c conflicts   19818781",
+      "c bce         1 rounds, 1084 deleted, 72506 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 376 eliminated, 487537 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 3,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s2.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   52382956 (0 via API)",
+      "c conflicts   19647412",
+      "c bce         1 rounds, 1084 deleted, 72506 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 376 eliminated, 539419 resolutions",
+      "c fastel      2 checks, 1085 candidates / 2140 active, 2140 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 9747 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 4,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s3.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   48922318 (0 via API)",
+      "c conflicts   20180925",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1095 applied, 0 validation ticks, 5830 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     6 post-AMO nonhelper consequences, 2 graph root units",
+      "c bve         0 rounds, 376 eliminated, 581580 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 5,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s3.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   48185520 (0 via API)",
+      "c conflicts   19794463",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1095 applied, 0 validation ticks, 5830 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     6 post-AMO nonhelper consequences, 2 graph root units",
+      "c bve         0 rounds, 376 eliminated, 608588 resolutions",
+      "c fastel      2 checks, 1084 candidates / 2134 active, 2134 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 34 eliminated, 11858 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 6,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s4.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   51127008 (0 via API)",
+      "c conflicts   20185147",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1095 applied, 0 validation ticks, 4378 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     6 post-AMO nonhelper consequences, 2 graph root units",
+      "c bve         0 rounds, 375 eliminated, 573433 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 7,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s4.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 233.417,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   23068035 (0 via API)",
+      "c conflicts   8694726",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1095 applied, 0 validation ticks, 4378 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     6 post-AMO nonhelper consequences, 2 graph root units",
+      "c bve         0 rounds, 375 eliminated, 654774 resolutions",
+      "c fastel      2 checks, 1084 candidates / 2141 active, 2141 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11975 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 8,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s5.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 143.643,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   15530410 (0 via API)",
+      "c conflicts   5441063",
+      "c bce         1 rounds, 1084 deleted, 72476 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 376 eliminated, 297245 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 9,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol0-s5.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   49827557 (0 via API)",
+      "c conflicts   19582712",
+      "c bce         1 rounds, 1084 deleted, 72476 ticks",
+      "c sr          1093 applications, 1093 applied, 0 validation ticks, 4363 witness literals, 1089 unique-literal AMO binaries",
+      "c sr-life     4 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 376 eliminated, 517291 resolutions",
+      "c fastel      2 checks, 1085 candidates / 2140 active, 2140 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 9732 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 10,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s1.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 263.86,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   19366092 (0 via API)",
+      "c conflicts   8469041",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 228986 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 11,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s1.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   36904155 (0 via API)",
+      "c conflicts   17091230",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 238605 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2067 active, 2067 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11558 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 12,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s2.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 84.771,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   7797978 (0 via API)",
+      "c conflicts   3087821",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1077 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1044 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 230419 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 13,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s2.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 60.977,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   5942013 (0 via API)",
+      "c conflicts   2308385",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1077 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1044 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 238153 resolutions",
+      "c fastel      2 checks, 1049 candidates / 2071 active, 2071 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11569 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 14,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s3.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 86.955,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   7985876 (0 via API)",
+      "c conflicts   3240064",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 230098 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 15,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s3.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 27.52,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   3201989 (0 via API)",
+      "c conflicts   1156416",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 237278 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2067 active, 2067 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11554 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 16,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s4.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 20.703,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   2696036 (0 via API)",
+      "c conflicts   893717",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1092 applications, 1062 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 369 eliminated, 230458 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 17,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s4.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   39726255 (0 via API)",
+      "c conflicts   17858902",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1092 applications, 1062 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 369 eliminated, 246562 resolutions",
+      "c fastel      2 checks, 1046 candidates / 2065 active, 2065 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11555 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 18,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s5.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   38847807 (0 via API)",
+      "c conflicts   17563852",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1072 applications, 1051 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 380 eliminated, 511263 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 19,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol10-s5.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   38874761 (0 via API)",
+      "c conflicts   17463229",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1072 applications, 1051 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 380 eliminated, 235259 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2065 active, 2065 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11571 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 20,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s1.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 576.021,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   41642429 (0 via API)",
+      "c conflicts   18579909",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1087 applications, 1076 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 596682 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 21,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s1.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 79.556,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   8378293 (0 via API)",
+      "c conflicts   3191172",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1087 applications, 1076 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 540662 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2106 active, 2106 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26 eliminated, 11766 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 22,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s2.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 71.532,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   7358604 (0 via API)",
+      "c conflicts   2873056",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1090 applications, 1078 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 601450 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 23,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s2.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 82.12,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   8160719 (0 via API)",
+      "c conflicts   3205448",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1090 applications, 1078 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 628466 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2102 active, 2102 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 11785 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 24,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s3.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 123.088,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   11911391 (0 via API)",
+      "c conflicts   4692003",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1088 applications, 1079 applied, 0 validation ticks, 1443 witness literals, 1066 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 600253 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 25,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s3.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 148.397,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   13662084 (0 via API)",
+      "c conflicts   5502397",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1088 applications, 1079 applied, 0 validation ticks, 1443 witness literals, 1066 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 531851 resolutions",
+      "c fastel      2 checks, 1067 candidates / 2105 active, 2105 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11806 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 26,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s4.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 386.316,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   29202934 (0 via API)",
+      "c conflicts   12984199",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1088 applications, 1079 applied, 0 validation ticks, 1443 witness literals, 1066 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 528142 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 27,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s4.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 79.624,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   8210324 (0 via API)",
+      "c conflicts   3140809",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1088 applications, 1079 applied, 0 validation ticks, 1443 witness literals, 1066 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 521749 resolutions",
+      "c fastel      2 checks, 1067 candidates / 2108 active, 2108 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26 eliminated, 11782 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 28,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s5.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 550.579,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   40332835 (0 via API)",
+      "c conflicts   17747887",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1087 applications, 1076 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 506863 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 29,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/nol6-s5.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 62.183,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   6838174 (0 via API)",
+      "c conflicts   2491042",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1087 applications, 1076 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 591656 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2105 active, 2105 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11794 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 30,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s1.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   123032199 (0 via API)",
+      "c conflicts   7541882",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105293 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 41143 eliminated, 16109005 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 31,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s1.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": []
+    },
+    {
+     "task": 32,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s2.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   124349154 (0 via API)",
+      "c conflicts   7788737",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105293 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 40888 eliminated, 15214250 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 33,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s2.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   124763098 (0 via API)",
+      "c conflicts   7302581",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105293 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 41732 eliminated, 16335231 resolutions",
+      "c fastel      2 checks, 57001 candidates / 88086 active, 88086 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26480 eliminated, 772637 resolutions, 0.361 seconds"
+     ]
+    },
+    {
+     "task": 34,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s3.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   123294415 (0 via API)",
+      "c conflicts   7370034",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 41063 eliminated, 16232852 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 35,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s3.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   122305726 (0 via API)",
+      "c conflicts   7185833",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 41434 eliminated, 16987182 resolutions",
+      "c fastel      2 checks, 56959 candidates / 88028 active, 88028 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26474 eliminated, 771483 resolutions, 0.391 seconds"
+     ]
+    },
+    {
+     "task": 36,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s4.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   115984167 (0 via API)",
+      "c conflicts   7391773",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 41145 eliminated, 15271499 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 37,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s4.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   124607135 (0 via API)",
+      "c conflicts   7259198",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 42047 eliminated, 17663611 resolutions",
+      "c fastel      2 checks, 57028 candidates / 87998 active, 87998 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26604 eliminated, 773582 resolutions, 0.388 seconds"
+     ]
+    },
+    {
+     "task": 38,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s5.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   121184472 (0 via API)",
+      "c conflicts   7421783",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 41150 eliminated, 17263335 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 39,
+     "instance": "../runs/20261008-fesym-shuffle/inputs/mp1-s5.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   125848687 (0 via API)",
+      "c conflicts   7443036",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries",
+      "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 42031 eliminated, 16457326 resolutions",
+      "c fastel      2 checks, 56979 candidates / 88064 active, 88064 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26490 eliminated, 772864 resolutions, 0.372 seconds"
+     ]
+    }
+   ]
+  },
+  "20261008-fesym-shuffle-ext": {
+   "arms": {
+    "c1": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+    "c2": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585"
+   },
+   "input_sha256": {
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s6.cnf.xz": "22e350ea1c4601abb54a552d6d1aa69de4ddb0a69445c099e0816294720d9519",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s7.cnf.xz": "95524b0734a73b10e534d56b5dfacf22747025bcef56c958fe02119d8711bce4",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s8.cnf.xz": "716e9a241436027dee489dad994271030f38cc211f7173509eb94b4aad583229",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s9.cnf.xz": "56e63811c2a620d4bebf9b644f543244485254af9a4aca12b9bd1c95b72b4d37",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s10.cnf.xz": "3986dbe7a988440ce7e7694c919c4cb02e3e270461de4fbcc5a1b31e8b9ad1e9",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s11.cnf.xz": "f8a37bfe735832c2e0c9313e7b60ad294867f7c570e8600de2e5fd2de18424b8",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s12.cnf.xz": "83f19a364c3676cc0e8ea3ec1996ae6b338e3c36dab22be7d59f22c444dbc98e",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s13.cnf.xz": "ea153ff4990dcad9fe9ceef5ee138e1e315528eabc5c8444c3e65e3701716a78",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s14.cnf.xz": "9878a2c41df454dde6dffd26c4d5fcaeefb327b713644b55c14b2f07565ef487",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s15.cnf.xz": "16c51568e183f0c55dc776498b73ff7eed71ca630331812778510fd9cdb5e762",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s6.cnf.xz": "306bf80815a70994e8e1a05ecc48912f64e8d3dc15995c5643f2c1ff0f03b26b",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s7.cnf.xz": "7baa342d2ad6d654c295ec6f27a79afc3d06f59731b45f05e796f1b57fe57e04",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s8.cnf.xz": "6a3137d5a30182a70024091dd8abb9f8d4f0a2f8ba9697339724e3589197db38",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s9.cnf.xz": "76967e1d5341d76ef0cd8a2ea25fabf2d72c3f0c08d6dc32b98e972724753500",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s10.cnf.xz": "ba413f153e80d05e3d2dd7b83eaf8e7a8c269aa345e9a0b2d9da62685ae8eb30",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s11.cnf.xz": "a9dca8342d640ea9ac9e37dc9f0140950131b5aa3ad8651fad05bc4d65b32635",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s12.cnf.xz": "5b2713cd4f7bee5cbe8efb00c1823899197baaaddd9a49dd197d63ac1c92b81f",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s13.cnf.xz": "9e9cadfee2686a267c329623f70ebaeb313962dccd5b8219919d546aece6c362",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s14.cnf.xz": "1c4e0dac45d35b0ae3da7e3e131f397397700a044592232d849d70fef31df25f",
+    "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s15.cnf.xz": "2768f38a27eee51b1c0b8c7eb41e40808bba7d9ce2f324e9e98b1338964a7c9a"
+   },
+   "solve_timeout": 600,
+   "runs": [
+    {
+     "task": 0,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s6.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 89.748,
+     "node": "node017",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8082859 (0 via API)",
+      "c conflicts   3248403",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1073 applications, 1054 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 513189 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 1,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s6.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   38305467 (0 via API)",
+      "c conflicts   17227876",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1073 applications, 1054 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 237518 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2068 active, 2068 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11562 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 2,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s7.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   38220269 (0 via API)",
+      "c conflicts   16655730",
+      "c bce         1 rounds, 1046 deleted, 67191 ticks",
+      "c sr          1086 applications, 1060 applied, 0 validation ticks, 1423 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     2 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 374 eliminated, 363436 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 3,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s7.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   39105079 (0 via API)",
+      "c conflicts   16979880",
+      "c bce         1 rounds, 1046 deleted, 67191 ticks",
+      "c sr          1086 applications, 1060 applied, 0 validation ticks, 1423 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     2 post-AMO nonhelper consequences, 0 graph root units",
+      "c bve         0 rounds, 374 eliminated, 403949 resolutions",
+      "c fastel      2 checks, 1051 candidates / 2074 active, 2074 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 9417 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 4,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s8.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 90.903,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8267753 (0 via API)",
+      "c conflicts   3302032",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 229432 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 5,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s8.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   38333484 (0 via API)",
+      "c conflicts   17066234",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 526997 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2064 active, 2064 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 11568 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 6,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s9.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 48.046,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   4919462 (0 via API)",
+      "c conflicts   1911217",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1078 applications, 1055 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 376 eliminated, 232783 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 7,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s9.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 362.884,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   25232757 (0 via API)",
+      "c conflicts   11454626",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1078 applications, 1055 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 376 eliminated, 237642 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2064 active, 2064 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 11550 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 8,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s10.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 52.549,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   5501655 (0 via API)",
+      "c conflicts   2066162",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 491040 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 9,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s10.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   40021099 (0 via API)",
+      "c conflicts   18226851",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 245067 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2067 active, 2067 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11550 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 10,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s11.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 28.611,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   3509462 (0 via API)",
+      "c conflicts   1214598",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1073 applications, 1054 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 229332 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 11,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s11.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 134.64,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   11512668 (0 via API)",
+      "c conflicts   4670749",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1073 applications, 1054 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 241990 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2069 active, 2069 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11546 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 12,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s12.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 94.211,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8584132 (0 via API)",
+      "c conflicts   3510458",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 228742 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 13,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s12.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 130.932,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   11480237 (0 via API)",
+      "c conflicts   4686160",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 241159 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2065 active, 2065 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11533 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 14,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s13.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 53.964,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   5450004 (0 via API)",
+      "c conflicts   2101017",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 230489 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 15,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s13.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 88.908,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   8118412 (0 via API)",
+      "c conflicts   3249515",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 236470 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2069 active, 2069 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11539 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 16,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s14.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 147.099,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   12632499 (0 via API)",
+      "c conflicts   5256272",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1058 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 229697 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 17,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s14.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 53.905,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   5427415 (0 via API)",
+      "c conflicts   2081775",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1058 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 242865 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2067 active, 2067 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11600 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 18,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s15.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   38024617 (0 via API)",
+      "c conflicts   17132973",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1098 applications, 1066 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 365 eliminated, 228908 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 19,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol10-s15.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": []
+    },
+    {
+     "task": 20,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s6.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 81.851,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8362452 (0 via API)",
+      "c conflicts   3232023",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1074 applications, 1072 applied, 0 validation ticks, 1443 witness literals, 1065 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 588276 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 21,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s6.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 337.924,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   26085440 (0 via API)",
+      "c conflicts   11390036",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1074 applications, 1072 applied, 0 validation ticks, 1443 witness literals, 1065 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 552641 resolutions",
+      "c fastel      2 checks, 1067 candidates / 2104 active, 2104 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 11712 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 22,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s7.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 569.942,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   40764809 (0 via API)",
+      "c conflicts   18247239",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1087 applications, 1076 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 527717 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 23,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s7.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   44439423 (0 via API)",
+      "c conflicts   19375585",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1087 applications, 1076 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 633483 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2103 active, 2103 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11785 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 24,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s8.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 82.599,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8362846 (0 via API)",
+      "c conflicts   3252439",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1074 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 605856 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 25,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s8.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 35.472,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   4308413 (0 via API)",
+      "c conflicts   1522108",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1084 applications, 1074 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 377 eliminated, 539204 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2104 active, 2104 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11779 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 26,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s9.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   43385999 (0 via API)",
+      "c conflicts   19456101",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1090 applications, 1078 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 575317 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 27,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s9.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 427.002,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   31949134 (0 via API)",
+      "c conflicts   14149511",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1090 applications, 1078 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 528771 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2105 active, 2105 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11749 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 28,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s10.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   42257967 (0 via API)",
+      "c conflicts   19110792",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1072 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 378 eliminated, 520198 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 29,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s10.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   42972512 (0 via API)",
+      "c conflicts   19324369",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1072 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 379 eliminated, 552915 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2106 active, 2106 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 26 eliminated, 11761 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 30,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s11.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 81.248,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8276758 (0 via API)",
+      "c conflicts   3145646",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1090 applications, 1078 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 597166 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 31,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s11.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 386.646,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   29336116 (0 via API)",
+      "c conflicts   12876510",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1090 applications, 1078 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 557450 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2103 active, 2103 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11761 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 32,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s12.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 329.684,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   26193902 (0 via API)",
+      "c conflicts   11526446",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1073 applied, 0 validation ticks, 1443 witness literals, 1066 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 378 eliminated, 565639 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 33,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s12.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 47.345,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   5564574 (0 via API)",
+      "c conflicts   1975278",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1073 applied, 0 validation ticks, 1443 witness literals, 1066 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 378 eliminated, 548577 resolutions",
+      "c fastel      2 checks, 1067 candidates / 2105 active, 2105 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11762 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 34,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s13.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 83.046,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8593092 (0 via API)",
+      "c conflicts   3286909",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1093 applications, 1080 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 371 eliminated, 595727 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 35,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s13.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 182.264,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   16308613 (0 via API)",
+      "c conflicts   6713826",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1093 applications, 1080 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 371 eliminated, 682388 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2100 active, 2100 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 32 eliminated, 11709 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 36,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s14.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 81.351,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8371506 (0 via API)",
+      "c conflicts   3223733",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1074 applications, 1072 applied, 0 validation ticks, 1443 witness literals, 1065 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 378 eliminated, 525756 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 37,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s14.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 573.637,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   40917032 (0 via API)",
+      "c conflicts   17909393",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1074 applications, 1072 applied, 0 validation ticks, 1443 witness literals, 1065 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 378 eliminated, 550033 resolutions",
+      "c fastel      2 checks, 1067 candidates / 2105 active, 2105 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11763 resolutions, 0.012 seconds"
+     ]
+    },
+    {
+     "task": 38,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s15.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 254.521,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   21354746 (0 via API)",
+      "c conflicts   8949075",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1093 applications, 1080 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 371 eliminated, 504699 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 39,
+     "instance": "../runs/20261008-fesym-shuffle-ext/inputs/nol6-s15.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 337.956,
+     "node": "node018",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   26224594 (0 via API)",
+      "c conflicts   11562985",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1093 applications, 1080 applied, 0 validation ticks, 1443 witness literals, 1067 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 371 eliminated, 503632 resolutions",
+      "c fastel      2 checks, 1066 candidates / 2104 active, 2104 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11810 resolutions, 0.012 seconds"
+     ]
+    }
+   ]
+  },
+  "20261008-fesym-shuffle-ext2": {
+   "arms": {
+    "c1": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+    "c2": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585"
+   },
+   "input_sha256": {
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s16.cnf.xz": "d21799ab3785aeb9641b69bca98d64d9d83755521e2f8f440ee824408346d592",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s17.cnf.xz": "a1e6320583485cab486da8d3ed1714d878653a3a40b7dac5eae9e1e0b66dfc93",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s18.cnf.xz": "a9568f5ee3e82964148a9c3dbf94e739cf4164dccf43144368c72eba0be68473",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s19.cnf.xz": "2c2ec42e3be17573c2eee26605440e1f1760ac0a9262b160ff8f9bdfb8f18596",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s20.cnf.xz": "c19203a02224d9f04a237b378ce1bdeb8af23c0936dc6edc6503f83c70c495b2",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s21.cnf.xz": "c016d0b938f0b160aac3dca9e6c1000ba421e708b130051eef141c76b7fdde19",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s22.cnf.xz": "ab21064a3ed50262699b85e5b6f8c7f0bbf200d636cb9354c8e40566678e1c05",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s23.cnf.xz": "750c0a1a4c228ef173db95bd583fbb031198f16bfaf92f645cc49bb2c18b7f28",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s24.cnf.xz": "980bf1fe93c06c624673b7d2303bb9f60928d528a2bc9c356cf53afb2e78484b",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s25.cnf.xz": "8a77d0117eda976f7c21beae6e50c4fbfff6ff267567ef73b90885562a08ec5e",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s26.cnf.xz": "f174ec56d395aec81df9ce6dc949ae834a0ac5ee418c325b40b5b472280edda0",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s27.cnf.xz": "7a2dc7fd1b102396714f1ce2904991cf0818d7f4fb21d4023b67227ff3790244",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s28.cnf.xz": "5824504a8994e984881e9068b7c02b40bf5035fad25e7e0b74417088030e48bd",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s29.cnf.xz": "4d2de9367afa8276b0f92ce6ab9d8f345b9d7e5dde3109a14d1fcd24c3649dc3",
+    "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s30.cnf.xz": "9e5ad7bd0ab9e53ecd9cc9cf0acc75e29c0a3511464892683c0231e36c506507"
+   },
+   "solve_timeout": 600,
+   "runs": [
+    {
+     "task": 0,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s16.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 58.3,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   6103146 (0 via API)",
+      "c conflicts   2291016",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 231835 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 1,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s16.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 39.778,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   4333009 (0 via API)",
+      "c conflicts   1570563",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 535142 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2064 active, 2064 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 32 eliminated, 11534 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 2,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s17.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   39918631 (0 via API)",
+      "c conflicts   18052256",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1099 applications, 1069 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 362 eliminated, 512732 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 3,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s17.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 158.994,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   13396851 (0 via API)",
+      "c conflicts   5533801",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1099 applications, 1069 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 362 eliminated, 245314 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2066 active, 2066 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11538 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 4,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s18.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 26.909,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   3354355 (0 via API)",
+      "c conflicts   1135410",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1058 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 230062 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 5,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s18.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 65.281,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   6539579 (0 via API)",
+      "c conflicts   2513153",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1058 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 241155 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2069 active, 2069 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11569 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 6,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s19.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   38066458 (0 via API)",
+      "c conflicts   17538320",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1077 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1044 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 231365 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 7,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s19.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   37634681 (0 via API)",
+      "c conflicts   17126720",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1077 applications, 1059 applied, 0 validation ticks, 1427 witness literals, 1044 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 372 eliminated, 240765 resolutions",
+      "c fastel      2 checks, 1049 candidates / 2068 active, 2068 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 30 eliminated, 11602 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 8,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s20.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 148.43,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   12510733 (0 via API)",
+      "c conflicts   5092151",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 231171 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 9,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s20.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 128.561,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   10774122 (0 via API)",
+      "c conflicts   4472711",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 239261 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2063 active, 2063 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 31 eliminated, 11570 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 10,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s21.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   39647086 (0 via API)",
+      "c conflicts   17975475",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1098 applications, 1066 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 365 eliminated, 229500 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 11,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s21.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 83.413,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   8046477 (0 via API)",
+      "c conflicts   3143228",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1098 applications, 1066 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 365 eliminated, 243262 resolutions",
+      "c fastel      2 checks, 1046 candidates / 2064 active, 2064 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11571 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 12,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s22.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 60.449,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   6113919 (0 via API)",
+      "c conflicts   2402927",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 228878 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 13,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s22.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 131.24,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   11337626 (0 via API)",
+      "c conflicts   4622178",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1076 applications, 1056 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 375 eliminated, 239093 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2063 active, 2063 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 33 eliminated, 11503 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 14,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s23.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   38347336 (0 via API)",
+      "c conflicts   17402437",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1064 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 367 eliminated, 228595 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 15,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s23.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 346.238,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   23893167 (0 via API)",
+      "c conflicts   10450483",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1095 applications, 1064 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 367 eliminated, 234155 resolutions",
+      "c fastel      2 checks, 1046 candidates / 2060 active, 2060 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 32 eliminated, 11533 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 16,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s24.cnf.xz",
+     "arm": "c1",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.006,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   37198749 (0 via API)",
+      "c conflicts   16913532",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 229585 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 17,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s24.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 54.909,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   5584090 (0 via API)",
+      "c conflicts   2088948",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 242616 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2066 active, 2066 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11562 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 18,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s25.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 85.741,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   8051492 (0 via API)",
+      "c conflicts   3151863",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 230082 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 19,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s25.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 34.777,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   3625797 (0 via API)",
+      "c conflicts   1385430",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1081 applications, 1057 applied, 0 validation ticks, 1427 witness literals, 1046 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 374 eliminated, 234801 resolutions",
+      "c fastel      2 checks, 1047 candidates / 2065 active, 2065 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11549 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 20,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s26.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 81.737,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   7935864 (0 via API)",
+      "c conflicts   3090780",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1089 applications, 1060 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 371 eliminated, 231278 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 21,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s26.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 38.787,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   4341986 (0 via API)",
+      "c conflicts   1610024",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1089 applications, 1060 applied, 0 validation ticks, 1427 witness literals, 1047 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 371 eliminated, 238252 resolutions",
+      "c fastel      2 checks, 1046 candidates / 2063 active, 2063 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 29 eliminated, 11567 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 22,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s27.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 28.363,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   3474843 (0 via API)",
+      "c conflicts   1178073",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1058 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 230431 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 23,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s27.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 171.067,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   13748234 (0 via API)",
+      "c conflicts   5701957",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1079 applications, 1058 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 373 eliminated, 235665 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2068 active, 2068 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11568 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 24,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s28.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 66.468,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   6548033 (0 via API)",
+      "c conflicts   2538400",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1060 applications, 1050 applied, 0 validation ticks, 1427 witness literals, 1043 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 381 eliminated, 230723 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 25,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s28.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 121.822,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   10608995 (0 via API)",
+      "c conflicts   4342262",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1060 applications, 1050 applied, 0 validation ticks, 1427 witness literals, 1043 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 380 eliminated, 245986 resolutions",
+      "c fastel      2 checks, 1050 candidates / 2072 active, 2072 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28 eliminated, 11558 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 26,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s29.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 173.578,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   13840215 (0 via API)",
+      "c conflicts   5769996",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1065 applications, 1051 applied, 0 validation ticks, 1427 witness literals, 1044 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 380 eliminated, 229930 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 27,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s29.cnf.xz",
+     "arm": "c2",
+     "verdict": "UNKNOWN",
+     "valid": false,
+     "wall_seconds": 600.005,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   38543820 (0 via API)",
+      "c conflicts   17357469",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1065 applications, 1051 applied, 0 validation ticks, 1427 witness literals, 1044 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 380 eliminated, 535653 resolutions",
+      "c fastel      2 checks, 1049 candidates / 2071 active, 2071 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 27 eliminated, 11569 resolutions, 0.011 seconds"
+     ]
+    },
+    {
+     "task": 28,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s30.cnf.xz",
+     "arm": "c1",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 59.507,
+     "node": "node018",
+     "binary_sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+     "counters": [
+      "c decisions   6034730 (0 via API)",
+      "c conflicts   2327306",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1088 applications, 1064 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 367 eliminated, 228180 resolutions",
+      "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds"
+     ]
+    },
+    {
+     "task": 29,
+     "instance": "../runs/20261008-fesym-shuffle-ext2/inputs/nol10-s30.cnf.xz",
+     "arm": "c2",
+     "verdict": "SAT",
+     "valid": true,
+     "wall_seconds": 45.247,
+     "node": "node017",
+     "binary_sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+     "counters": [
+      "c decisions   4968768 (0 via API)",
+      "c conflicts   1780533",
+      "c bce         0 rounds, 0 deleted, 0 ticks",
+      "c sr          1088 applications, 1064 applied, 0 validation ticks, 1427 witness literals, 1045 unique-literal AMO binaries",
+      "c sr-life     3 post-AMO nonhelper consequences, 1 graph root units",
+      "c bve         0 rounds, 367 eliminated, 235403 resolutions",
+      "c fastel      2 checks, 1048 candidates / 2065 active, 2065 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 31 eliminated, 11552 resolutions, 0.011 seconds"
+     ]
+    }
+   ]
+  }
+ },
+ "profiles": {
+  "20261008-fesym-mp1-perf": {
+   "c1": {
+    "sha256": "c85bf48442b90ec42aeaac5af6efff76851eb69fd1da976fa5020ee625c3d45e",
+    "counters": [
+     "c decisions   15456796 (0 via API)\n",
+     "c conflicts   638214\n",
+     "c bce         0 rounds, 0 deleted, 0 ticks\n",
+     "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries\n",
+     "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units\n",
+     "c bve         0 rounds, 41144 eliminated, 15516387 resolutions\n",
+     "c fastel      0 checks, 0 candidates / 0 active, 0 discovery ticks, 0 budget stops, 0 minority declines, 1 root-suppressed, 0 eliminated, 0 resolutions, 0.000 seconds\n",
+     "s SATISFIABLE\n"
+    ],
+    "top": [
+     "    35.09%  [.] tactix::kernel_propagate(tactix::Kernel&, unsigned int)                                                                                                                                 "
+    ]
+   },
+   "c2": {
+    "sha256": "bec9eede633775bc2d827097cd0cb55a7af19a5e22b7adaf6da985e543c12585",
+    "counters": [
+     "c decisions   142021297 (0 via API)\n",
+     "c conflicts   8720437\n",
+     "c bce         0 rounds, 0 deleted, 0 ticks\n",
+     "c sr          1 applications, 1 applied, 0 validation ticks, 105461 witness literals, 0 unique-literal AMO binaries\n",
+     "c sr-life     0 post-AMO nonhelper consequences, 0 graph root units\n",
+     "c bve         0 rounds, 44903 eliminated, 20695088 resolutions\n",
+     "c fastel      2 checks, 57280 candidates / 85820 active, 85820 discovery ticks, 0 budget stops, 1 minority declines, 0 root-suppressed, 28740 eliminated, 822897 resolutions, 0.224 seconds\n",
+     "s UNKNOWN\n"
+    ],
+    "top": [
+     "    43.62%  [.] tactix::kernel_propagate(tactix::Kernel&, unsigned int)                                                                                                                                 "
+    ]
+   }
+  }
+ }
+}

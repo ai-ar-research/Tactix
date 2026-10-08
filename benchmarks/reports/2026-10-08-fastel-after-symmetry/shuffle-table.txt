@@ -1,0 +1,12 @@
+mp1    c1 n=5 solved= 0 median= 1200.0 PAR2= 1200.0  TO TO TO TO TO
+mp1    c2 n=5 solved= 0 median= 1200.0 PAR2= 1200.0  TO TO TO TO TO
+mp1    per-copy c1 faster 0, c2 faster 0, both TO 5
+nol0   c1 n=5 solved= 1 median= 1200.0 PAR2=  988.7  TO TO TO TO 144
+nol0   c2 n=5 solved= 1 median= 1200.0 PAR2= 1006.7  TO TO TO 233 TO
+nol0   per-copy c1 faster 1, c2 faster 1, both TO 3
+nol10  c1 n=30 solved=22 median=   88.4 PAR2=  381.7  264 85 87 21 TO 90 TO 91 48 53 29 94 54 147 TO 58 TO 27 TO 148 TO 60 TO TO 86 82 28 66 174 60
+nol10  c2 n=30 solved=20 median=  132.9 PAR2=  476.0  TO 61 28 TO TO TO TO TO 363 TO 135 131 89 54 TO 40 159 65 TO 129 83 131 346 55 35 39 171 122 TO 45
+nol10  per-copy c1 faster 14, c2 faster 12, both TO 4
+nol6   c1 n=15 solved=13 median=  254.5 PAR2=  378.1  576 72 123 386 551 82 570 83 TO TO 81 330 83 81 255
+nol6   c2 n=15 solved=13 median=  182.3 PAR2=  345.3  80 82 148 80 62 338 TO 35 427 TO 387 47 182 574 338
+nol6   per-copy c1 faster 8, c2 faster 6, both TO 1
