@@ -1614,6 +1614,10 @@ struct SymmetryUse {
   uint64_t large_min = UINT64_MAX, large_max = 0; // empty range: no large tag
   uint64_t live_large = 0; // tagged large clauses not yet retired
   bool has_units = false;
+  // SR symmetry output is tagged only when set (diagnostic `c symuse` report;
+  // DefaultStrategyConfig::symmetry_use_observation). Off, no symmetry tag
+  // arms `symuse_active`, so the trail/analysis/delete hooks cost nothing.
+  bool record_symmetry = false;
 };
 
 struct Kernel {

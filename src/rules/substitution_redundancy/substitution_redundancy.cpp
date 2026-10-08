@@ -826,9 +826,11 @@ substitution_redundancy_apply_detailed_impl(
   } else {
     kernel_add_large_clause(k, kept.data(), kept.size(), true, 0, committed_id);
   }
-  // Observation-only provenance of symmetry-breaking output (SymmetryUse).
-  if (parameters.producer == SubstitutionRedundancyProducer::Orbitopal ||
-      parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry)
+  // Observation-only provenance of symmetry-breaking output (SymmetryUse),
+  // recorded only when the diagnostic report is requested.
+  if (k.symuse.record_symmetry &&
+      (parameters.producer == SubstitutionRedundancyProducer::Orbitopal ||
+       parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry))
     kernel_symuse_tag(k, kept.data(), static_cast<uint32_t>(kept.size()),
                       committed_id, unique_literal_amo);
   outcome.status = SubstitutionRedundancyApplicationStatus::Applied;

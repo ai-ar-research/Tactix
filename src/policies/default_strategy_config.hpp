@@ -375,6 +375,11 @@ struct DefaultStrategyConfig {
     bool output_use_fruitfulness = true;
   } affine_search;
 
+  // Diagnostic only: record which symmetry-breaking SR output search used
+  // (the `c symuse` report). No decision reads it; off by default so that
+  // its trail/analysis bookkeeping costs nothing.
+  bool symmetry_use_observation = false;
+
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
     // remain explicit diagnostic arms and are never selected by classification.
