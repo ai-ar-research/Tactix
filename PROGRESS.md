@@ -9,10 +9,10 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
 
 - **c2 = `76e161b24`** (branch `candidate-c2`): fuzz PASS
   ([owner report](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/FINAL_REPORT.md)),
-  B28+C5 accepted, full Debug 352/353 (test assertion only, fixed `0b7d2bc55`). **10 verified
+  B28+C5 accepted, full Debug 352/353 (test assertion only, fixed `0b7d2bc55`). **11 verified
   closures:** full44 `benchmarks/runs/20261007-fixed44-c2` (147, 263, 497, 627, 630, 899, 991,
   1075) plus the 45,000 s long-check rerun `benchmarks/runs/20261008-fixed44-c2-longcheck`
-  (511 sokoban-p16, 541 crafted_n10_d6_c4_num9; drat-trim→CakeLPR in 20,802 s / 23,680 s).
+  (511 sokoban-p16, 541 crafted_n10_d6_c4_num9, 1129 crafted_n10_d6_c4_num8; drat-trim→CakeLPR).
   569 and 654 exceed 32 GB in the checker. Gate rows at 5,000 s on the gate file (§8.4 rule):
   noL-11-0 and noL-11-8 retained; snw_16_9_CCSpre UNKNOWN (faithful-port exception candidate:
   Satsuma emits the same single unit and Satsuma+Kissat is UNKNOWN). Rank401 lost (SAT 7,271 s).
@@ -47,10 +47,10 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
    checker). If c4 qualifies with ≥10 closures it is the session candidate; c2 (10 closures)
    needs the snw_16_9_CCSpre exception and a Debug rerun with `0b7d2bc55`.
 2. Fuzz owner `firstopen-fuzz-owner` runs the c4 binding (sent 2026-10-08).
-3. Pending user decisions: baseline rerun storage plan (60 GB proof cap, ~50 concurrent
-   Satsuma, (B) memout rows only, under `tools/slurm/quota_governor.py`); keep startup
-   FastEliminate never suppressed (recommended); final documentation run -c 16 vs -c 6;
-   Rank569 fix option.
+3. User decisions 2026-10-08: startup FastEliminate is never suppressed; the final
+   documentation run uses -c 6; Rank569 gets solver-side witness-free expansion of
+   permutation-witness SR lines (after c4 qualifies). Baseline reruns: 125 concurrent under
+   the governor; per-file proof cap pending user confirmation.
 4. After qualification: push, then the full Tactix Tier D run (cpu-q, -c 4, 32 GB, 5,000 s,
    8 h checker, 125 cap, governor; rerun failed checks at 64 GB).
 
