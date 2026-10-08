@@ -1,0 +1,15 @@
+test_graph_labeling_recognition	0	0.0
+test_graph_labeling_model	0	56.1
+test_graph_labeling_actions	0	24.7
+test_graph_labeling_completion	0	0.0
+test_graph_labeling_search	0	0.0
+test_graph_labeling_window_cursor	0	0.0
+test_graph_labeling_repair	0	0.1
+test_graph_interval_equivalence	0	0.0
+test_strategy_config	0	0.4
+test_native_policy_feedback	0	3.9
+test_random_online	0	2.5
+test_random_controller_policy	0	0.4
+test_lucky	0	840.1
+test_online_api	0	0.0
+test_online_inprocess	0	6.6

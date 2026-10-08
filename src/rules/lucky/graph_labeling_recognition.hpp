@@ -21,17 +21,12 @@ struct Shape {
   std::vector<std::vector<uint32_t>> adjacency;
 };
 
-// Every clause the indexed rectangle can use consists only of primary
-// variables, whose external identities lie below n*n. A plausible dimension
-// satisfies n <= maximum_vertices and n*n <= external variables, so the
-// recognizer reads only the watch lists of the region below
-// min(maximum_vertices, isqrt(external variables))^2 (then below n*n), never the
-// whole arena. Each large clause is read once, from the watch of lits[0]; the
-// guarded state keeps every large clause watched by lits[0] and lits[1]. Work
-// is therefore linear in the region's watch occupancy and clause literals plus
-// O(n*n), independent of the rest of the formula.
-//
-// Charge includes clause/watch inspection, mapping/element initialization and
+// Every usable clause holds only primary variables (externals below n*n, with
+// n <= maximum_vertices and n*n <= variables), so only that region's watch
+// lists are read; each large clause once, from the watch of lits[0]. Cost is
+// independent of the rest of the formula; derivation and measurements:
+// benchmarks/reports/2026-10-07-graph-labeling-recognition-budget/README.md.
+// Charge covers clause/watch inspection, mapping/element initialization and
 // graph materialization. maximum_bytes bounds logical workspace payload,
 // excluding allocator overhead and the caller's already-owned Kernel/output.
 // Failure publishes no partial shape and never changes Kernel or proof state.

@@ -304,11 +304,9 @@ struct DefaultStrategyConfig {
       p.anneal_iterations = UINT64_MAX;
       p.stall_anneal_iterations = 100'000;
       p.seed = 0;
-      // Recognition has no separate dose: graph_labeling::recognize reads only
-      // the primary region's watch lists (externals below
-      // min(maximum_vertices, isqrt(variables))^2), so its cost is bounded by
-      // that region, not by a constant. It receives the remainder of the
-      // representable profile ceiling; the kernel work budget and interrupts
+      // Recognition has no separate dose: its cost is bounded by the primary
+      // region it reads (graph_labeling::recognize), so it takes the remainder
+      // of the representable profile ceiling. Kernel budgets and interrupts
       // still apply.
       uint64_t other_stages = 0;
       for (uint64_t allowance : p.work) other_stages += allowance;
