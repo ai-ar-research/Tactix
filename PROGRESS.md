@@ -9,12 +9,13 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
 
 - **c2 = `76e161b24`** (branch `candidate-c2`): fuzz PASS
   ([owner report](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/FINAL_REPORT.md)),
-  B28+C5 accepted, full Debug 352/353 (test assertion only, fixed `0b7d2bc55`). full44
-  `benchmarks/runs/20261007-fixed44-c2`: 8 verified (147, 263, 497, 627, 630, 899, 991, 1075).
-  Gate rows at 5,000 s on the gate file (§8.4 rule): noL-11-0 SAT 2,513 s and noL-11-8 SAT
-  1,138 s (retained); snw_16_9_CCSpre UNKNOWN (faithful-port exception candidate: Satsuma emits
-  the same single unit and Satsuma+Kissat is UNKNOWN). Rank401 lost on c2 (SAT 7,271 s).
-  Long-check rerun (45,000 s): 569 and 654 exceed 32 GB in the checker; others running.
+  B28+C5 accepted, full Debug 352/353 (test assertion only, fixed `0b7d2bc55`). **10 verified
+  closures:** full44 `benchmarks/runs/20261007-fixed44-c2` (147, 263, 497, 627, 630, 899, 991,
+  1075) plus the 45,000 s long-check rerun `benchmarks/runs/20261008-fixed44-c2-longcheck`
+  (511 sokoban-p16, 541 crafted_n10_d6_c4_num9; drat-trim→CakeLPR in 20,802 s / 23,680 s).
+  569 and 654 exceed 32 GB in the checker. Gate rows at 5,000 s on the gate file (§8.4 rule):
+  noL-11-0 and noL-11-8 retained; snw_16_9_CCSpre UNKNOWN (faithful-port exception candidate:
+  Satsuma emits the same single unit and Satsuma+Kissat is UNKNOWN). Rank401 lost (SAT 7,271 s).
 - **Rank569** ([report](benchmarks/reports/2026-10-08-rank569-proof-memory/README.md)): one
   witnessed SR line routes the stream to backward dsr-trim, which needs ~42 GB even for
   Kissat's proof; verified at 128 GB. Fix options (solver witness-free expansion, or a
@@ -26,18 +27,26 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
   bisection `benchmarks/runs/20261008-bisect-clqcl*`). Also WV100 proof-cost regressions
   (MVRoundRobin, cliquecolouring), B28+C5 ceiling (EDP3 startup +6.9 s with no output,
   Timetable_392 AMO completion). Pure-round shuffle probe: luck, not mechanism
-  ([report](benchmarks/reports/2026-10-08-pure-round-shuffle-probe/README.md)).
+  ([report](benchmarks/reports/2026-10-08-pure-round-shuffle-probe/README.md)). c3 full44 adds
+  SAT closures Timetable_C_495 (2,144 s) and lockchart (3,541 s); its 627 proof passes dsr-trim
+  (31.3 GB) but Trestle exceeds 32 GB.
+- **c4 = `11a26fb64`** (c3 + [Satsuma limit classification repair](benchmarks/reports/2026-10-08-satsuma-limit-classification/README.md)
+  `6a2e08215`): renewable Tactix windows no longer count as Satsuma's `reached_limits`; DejaVu
+  split limit, shallow-group skip and unused-variable colouring ported. Same-CPU pairs restore
+  c2 on clqcl/MVRoundRobin/EDP3/Timetable_392 and keep bphp (2.4 s) and Rank754 (SAT 3,736 s).
+  Release `b125ba45…`, archive `8360abd9…`,
+  [binding](benchmarks/runs/20261007-candidate-c4-source/pins/release-binding.json).
+  Open owner gaps: Johnson detector, one refinement per pass, per-pass split counter.
 - **Affine search:** schedule on Kissat functions, no measured benefit; stays off
   ([report](benchmarks/reports/2026-10-08-affine-search-scheduling/README.md)).
 
 ## Next action
 
-1. Finish the A–D port repair (clique colouring first divergence against Satsuma's own log),
-   plus EDP3/Timetable_392/MVRoundRobin attribution; same-CPU pairs vs c2.
-2. Freeze c4 = repaired main; full Debug, four gates (§8.4 5,000 s retention rule;
-   faithful-port exceptions only with shuffle/noise evidence), full44 with the 45,000 s
-   checker, then send the c4 release binding to the fuzz owner (`firstopen-fuzz-owner`,
-   holding with c3 preparation reusable).
+1. Score c4: full Debug 1757469, gates 1757470–73 (§8.4 5,000 s retention rule; faithful-port
+   exceptions only with shuffle/noise evidence and user consent), full44 1757529 (45,000 s
+   checker). If c4 qualifies with ≥10 closures it is the session candidate; c2 (10 closures)
+   needs the snw_16_9_CCSpre exception and a Debug rerun with `0b7d2bc55`.
+2. Fuzz owner `firstopen-fuzz-owner` runs the c4 binding (sent 2026-10-08).
 3. Pending user decisions: baseline rerun storage plan (60 GB proof cap, ~50 concurrent
    Satsuma, (B) memout rows only, under `tools/slurm/quota_governor.py`); keep startup
    FastEliminate never suppressed (recommended); final documentation run -c 16 vs -c 6;
@@ -49,10 +58,11 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
 
 | Work | Jobs / owner | Status |
 |---|---|---|
-| c2 long checks | 1756907, `benchmarks/runs/20261008-fixed44-c2-longcheck` | running (569, 654 OOM) |
-| c3 full44 | 1757164, `benchmarks/runs/20261008-fixed44-c3` (45,000 s checker) | running; informational for A–D |
-| A–D repair | sub-agent (clique colouring regression) | running |
-| Fuzz owner | `firstopen-fuzz-owner`; c3 held, nothing launched | waiting for c4 binding |
+| c2 long checks | 1756907, `benchmarks/runs/20261008-fixed44-c2-longcheck` | 511, 541 verified; 569, 654 OOM; rest running |
+| c3 full44 | 1757164, `benchmarks/runs/20261008-fixed44-c3` (45,000 s checker) | running; informational |
+| c4 Debug / gates | 1757469; 1757470–73 (`benchmarks/runs/20261008-c4-regression-*`) | running |
+| c4 full44 | 1757529, `benchmarks/runs/20261008-fixed44-c4` (45,000 s checker) | running |
+| Fuzz owner | `firstopen-fuzz-owner` | c4 binding sent |
 | Baseline reruns | `tools/bench/baseline_rerun.py`, [prep report](benchmarks/reports/2026-10-08-tierd-baseline-rerun-fixed64/README.md) | not submitted (user storage decision) |
 
 ## Verification authorities
