@@ -6742,6 +6742,11 @@ int DefaultInprocessScheduler::run_structured_root(
   bool detection_limit_reached = false;
   // Detections already completed without effect on the current formula.
   strategy::UnchangedDetections unchanged_detections;
+  // One orbitopal snapshot and refinement per unchanged formula, shared by
+  // every stage's orbitopal detections (Satsuma: one graph per pass).
+  OrbitopalFormulaCache orbitopal_formula_cache;
+  // Satsuma's iteration counter: one repetition budget for all stages.
+  uint64_t owner_iterations = 0;
   const uint64_t unique_literal_amo_before =
       k.stats.sr_unique_literal_amo_binaries;
   const uint64_t nonforcing_cuts_before =
@@ -6765,6 +6770,8 @@ int DefaultInprocessScheduler::run_structured_root(
       return 0;
     }
     executor.share_unchanged_detections(&unchanged_detections);
+    executor.share_orbitopal_formula_cache(&orbitopal_formula_cache);
+    executor.share_repetition_budget(&owner_iterations);
     const uint64_t started = now_nanos();
     const uint64_t discovery_started = sr_discovery_allowance.consumed();
     const uint64_t outputs_started = strategy::symmetry_breaking_outputs(k);

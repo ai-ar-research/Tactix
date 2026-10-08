@@ -6,6 +6,7 @@
 #include <functional>
 #include <limits>
 #include <utility>
+#include <memory>
 #include <vector>
 
 namespace tactix {
@@ -512,9 +513,25 @@ struct SymmetryDiscoveryHints {
 
 using OrbitopalInstanceVisitor =
     std::function<bool(const SubstitutionRedundancyInstance &)>;
+// Formula snapshot and equitable refinement that consecutive generated
+// orbitopal detections reuse while the formula is unchanged. Satsuma builds one
+// symmetry graph and one refinement per pass and runs all its special
+// detectors on it (satsuma.h generate_symmetry_predicate). Any formula, root
+// assignment or arena change, a different kernel or different graph limits
+// rebuild it. The owner must outlive every enumeration that uses it.
+class OrbitopalFormulaCache {
+public:
+  OrbitopalFormulaCache();
+  ~OrbitopalFormulaCache();
+  OrbitopalFormulaCache(const OrbitopalFormulaCache &) = delete;
+  OrbitopalFormulaCache &operator=(const OrbitopalFormulaCache &) = delete;
+  struct State;
+  std::unique_ptr<State> state;
+};
 OrbitopalEnumerationResult substitution_redundancy_enumerate_orbitopal(
     const Kernel &, const SubstitutionRedundancyParameters &,
-    const OrbitopalInstanceVisitor &, volatile sig_atomic_t *stop = nullptr);
+    const OrbitopalInstanceVisitor &, volatile sig_atomic_t *stop = nullptr,
+    OrbitopalFormulaCache *cache = nullptr);
 OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators(
     const Kernel &, const SubstitutionRedundancyParameters &,
     SymmetryDiscoveryHints &, volatile sig_atomic_t *stop = nullptr);

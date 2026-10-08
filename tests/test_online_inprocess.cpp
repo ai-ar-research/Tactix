@@ -2939,6 +2939,41 @@ static void orbitopal_shallow_group_skips_special_detection() {
   kernel_check_invariants(probed);
 }
 
+// One snapshot and refinement serve consecutive detections on an unchanged
+// formula (Satsuma: one graph per pass); a formula change rebuilds them. The
+// cached and private paths enumerate the same instances.
+static void orbitopal_formula_cache_matches_private_snapshots() {
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
+  parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
+  parameters.orbitopal_completion = OrbitopalCompletion::IndividualizedGraphCompletion;
+  parameters.orbitopal_discovery_order = OrbitopalDiscoveryOrder::RefinementOnly;
+  parameters.orbitopal_generator_fallback = false;
+  parameters.graph_symmetry.maximum_generators = 0;
+  parameters.orbitopal_row_orbit_source = OrbitopalRowOrbitSource::RefinementCells;
+  const auto clauses = [&](Kernel &k, OrbitopalFormulaCache *cache) {
+    std::vector<std::vector<Lit>> out;
+    substitution_redundancy_enumerate_orbitopal(
+        k, parameters,
+        [&](const SubstitutionRedundancyInstance &instance) {
+          out.push_back(instance.clause);
+          return true;
+        },
+        nullptr, cache);
+    return out;
+  };
+  Kernel k = orbitopal_refinement_fixture();
+  const auto expected = clauses(k, nullptr);
+  assert(!expected.empty());
+  OrbitopalFormulaCache cache;
+  assert(clauses(k, &cache) == expected);
+  assert(clauses(k, &cache) == expected);
+  // A new clause changes the formula; the cache must not serve the old one.
+  kernel_add_binary_clause(k, internalize(-7), internalize(-8),
+                           ++k.next_clause_id);
+  assert(clauses(k, &cache) == clauses(k, nullptr));
+}
+
 static void orbitopal_refinement_cells_need_no_generic_generators() {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
@@ -5174,6 +5209,7 @@ int main(int argc, char **argv) {
   orbitopal_discovery_scopes_are_independent();
   orbitopal_refinement_cells_need_no_generic_generators();
   orbitopal_shallow_group_skips_special_detection();
+  orbitopal_formula_cache_matches_private_snapshots();
   graph_symmetry_never_moves_unused_variables();
   for (bool preserve : {false, true})
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);

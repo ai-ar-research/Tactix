@@ -417,6 +417,10 @@ void release(RefinementSession *&session) noexcept {
   session = nullptr;
 }
 
+void forget_first_refinement(RefinementSession &session) noexcept {
+  session.first_refinement.reset();
+}
+
 void release(RefinementBranch *&branch) noexcept {
   delete branch;
   branch = nullptr;
@@ -483,11 +487,65 @@ Status root_partition(RefinementSession &session,
   return result.status;
 }
 
+// Cell representative and size of every prefix vertex, or, with a query
+// list, of the queried vertices only (entry i describes query[i]): a caller
+// that reads a few candidate vertices then pays nothing linear in the graph.
+static Status fill_partition(const dejavu::ds::coloring &coloring,
+                      uint32_t vertex_count, uint32_t returned_prefix_size,
+                      const uint32_t *query, uint32_t query_count,
+                      IndividualizedPartition &result) {
+  const uint32_t entries = query ? query_count : returned_prefix_size;
+  if (entries > SIZE_MAX / sizeof(uint32_t)) {
+    result.status = Status::ResourceExhausted;
+    return result.status;
+  }
+  result.cells = static_cast<uint32_t *>(
+      std::malloc(static_cast<size_t>(entries) * sizeof(uint32_t)));
+  result.sizes = static_cast<uint32_t *>(
+      std::malloc(static_cast<size_t>(entries) * sizeof(uint32_t)));
+  if (entries && (!result.cells || !result.sizes)) {
+    release(result);
+    result.status = Status::ResourceExhausted;
+    return result.status;
+  }
+  std::vector<uint8_t> seen(query ? 0 : vertex_count, 0);
+  for (uint32_t at = 0; at < entries; ++at) {
+    const uint32_t vertex = query ? query[at] : at;
+    if (vertex >= returned_prefix_size) {
+      release(result);
+      result.status = Status::Invalid;
+      return result.status;
+    }
+    const int color = coloring.vertex_to_col[vertex];
+    const int size = color >= 0 && color < static_cast<int>(vertex_count)
+                         ? coloring.ptn[color] + 1
+                         : 0;
+    const int representative = size > 0 ? coloring.lab[color] : -1;
+    if (representative < 0 ||
+        representative >= static_cast<int>(vertex_count)) {
+      release(result);
+      result.status = Status::Failed;
+      return result.status;
+    }
+    result.cells[at] = static_cast<uint32_t>(representative);
+    result.sizes[at] = static_cast<uint32_t>(size);
+    if (!query && !seen[color]) {
+      seen[color] = 1;
+      ++result.cell_count;
+    }
+  }
+  result.domain_size = entries;
+  result.status = Status::Complete;
+  return result.status;
+}
+
 Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback stop,
                                 void *stop_context,
-                                IndividualizedPartition &result) noexcept {
+                                IndividualizedPartition &result,
+                                const uint32_t *query,
+                                uint32_t query_count) noexcept {
   release(result);
   if (anchor >= returned_prefix_size ||
       returned_prefix_size > branch.vertex_count) {
@@ -554,45 +612,8 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
       result.status = Status::Incomplete;
       return result.status;
     }
-    if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    result.cells = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    result.sizes = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    if (returned_prefix_size && (!result.cells || !result.sizes)) {
-      release(result);
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    std::vector<uint8_t> seen(branch.vertex_count, 0);
-    for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
-      const int vertex_color = branch.coloring.vertex_to_col[vertex];
-      const int size =
-          vertex_color >= 0 &&
-                  vertex_color < static_cast<int>(branch.vertex_count)
-              ? branch.coloring.ptn[vertex_color] + 1
-              : 0;
-      const int representative =
-          size > 0 ? branch.coloring.lab[vertex_color] : -1;
-      if (representative < 0 ||
-          representative >= static_cast<int>(branch.vertex_count)) {
-        release(result);
-        result.status = Status::Failed;
-        return result.status;
-      }
-      result.cells[vertex] = static_cast<uint32_t>(representative);
-      result.sizes[vertex] = static_cast<uint32_t>(size);
-      if (!seen[vertex_color]) {
-        seen[vertex_color] = 1;
-        ++result.cell_count;
-      }
-    }
-    result.domain_size = returned_prefix_size;
-    result.status = Status::Complete;
-    return result.status;
+    return fill_partition(branch.coloring, branch.vertex_count,
+                          returned_prefix_size, query, query_count, result);
   } catch (const std::bad_alloc &) {
     release(result);
     result.status = Status::ResourceExhausted;
@@ -610,7 +631,9 @@ Status individualized_partition(RefinementSession &session,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback stop,
                                 void *stop_context,
-                                IndividualizedPartition &result) noexcept {
+                                IndividualizedPartition &result,
+                                const uint32_t *query,
+                                uint32_t query_count) noexcept {
   release(result);
   if (!anchors || !anchor_count ||
       returned_prefix_size > session.vertex_count) {
@@ -692,43 +715,8 @@ Status individualized_partition(RefinementSession &session,
       return result.status;
     }
 
-    if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    result.cells = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    result.sizes = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    if (returned_prefix_size && (!result.cells || !result.sizes)) {
-      release(result);
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    std::vector<uint8_t> seen(session.vertex_count, 0);
-    for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
-      const int color = child.vertex_to_col[vertex];
-      const int size = color >= 0 && color < static_cast<int>(session.vertex_count)
-                           ? child.ptn[color] + 1
-                           : 0;
-      const int representative =
-          size > 0 ? child.lab[color] : -1;
-      if (representative < 0 ||
-          representative >= static_cast<int>(session.vertex_count)) {
-        release(result);
-        result.status = Status::Failed;
-        return result.status;
-      }
-      result.cells[vertex] = static_cast<uint32_t>(representative);
-      result.sizes[vertex] = static_cast<uint32_t>(size);
-      if (!seen[color]) {
-        seen[color] = 1;
-        ++result.cell_count;
-      }
-    }
-    result.domain_size = returned_prefix_size;
-    result.status = Status::Complete;
-    return result.status;
+    return fill_partition(child, session.vertex_count, returned_prefix_size,
+                          query, query_count, result);
   } catch (const std::bad_alloc &) {
     release(result);
     result.status = Status::ResourceExhausted;

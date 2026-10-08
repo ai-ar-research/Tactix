@@ -1710,7 +1710,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                 runtime.sr_selection.push_back(instance);
                 return true;
               },
-              stop);
+              stop, orbitopal_cache_);
       out.budget_status = discovery_budget.charge(
           WorkUnit::SrDiscoveryTicks, enumeration.ticks);
       if (out.budget_status == BudgetStatus::AccountingOverflow) {
