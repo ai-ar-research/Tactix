@@ -1509,6 +1509,23 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_nonforcing_cuts_declined,
            (unsigned long long)kernel.stats.sr_singleton_forcing_batches_declined,
            (unsigned long long)kernel.stats.sr_singleton_forcing_rows_declined);
+    for (uint32_t run = 0; run < kernel.symuse.runs.size(); run++) {
+      const SymmetryUseRun &use = kernel.symuse.runs[run];
+      const uint64_t alive = kernel_symuse_alive(kernel, run);
+      printf("c symuse run %u: %llu clauses (%llu helpers, %llu units), "
+             "%llu propagations (%llu helper, %llu search), %llu analysis "
+             "uses (%llu helper), %llu root forced, %llu deleted, %llu alive\n",
+             run, (unsigned long long)use.clauses,
+             (unsigned long long)use.helpers, (unsigned long long)use.units,
+             (unsigned long long)use.propagations,
+             (unsigned long long)use.helper_propagations,
+             (unsigned long long)use.search_propagations,
+             (unsigned long long)use.analysis_uses,
+             (unsigned long long)use.helper_analysis_uses,
+             (unsigned long long)use.root_forced,
+             (unsigned long long)(use.clauses - alive),
+             (unsigned long long)alive);
+    }
     printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
            (unsigned long long)kernel.stats.residual_handoff_calls,
            (unsigned long long)kernel.stats.residual_handoff_variables,

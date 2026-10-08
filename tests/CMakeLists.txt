@@ -34,6 +34,10 @@ add_executable(test_ulc_rat test_ulc_rat.cpp)
 target_link_libraries(test_ulc_rat PRIVATE tactix_lib)
 add_test(NAME ulc_rat COMMAND test_ulc_rat)
 
+add_executable(test_symmetry_use test_symmetry_use.cpp)
+target_link_libraries(test_symmetry_use PRIVATE tactix_lib)
+add_test(NAME symmetry_use COMMAND test_symmetry_use)
+
 add_executable(test_analyze test_analyze.cpp)
 target_link_libraries(test_analyze PRIVATE tactix_lib)
 add_test(NAME analyze COMMAND test_analyze)
