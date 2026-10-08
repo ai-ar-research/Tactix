@@ -44,6 +44,7 @@ public:
   Allowance &operator=(const Allowance &) = delete;
   WorkUnit unit() const { return unit_; }
   uint64_t consumed() const { return consumed_; }
+  WorkLimit limit() const { return limit_; }
   bool accounting_overflow() const { return overflow_; }
   WorkLimit remaining() const {
     if (overflow_)

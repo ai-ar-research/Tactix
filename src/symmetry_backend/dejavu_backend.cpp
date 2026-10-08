@@ -524,8 +524,10 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
           charged += work;
           return true;
         };
+    uint64_t splits = 0;
     const std::function<dejavu::ir::type_split_color_hook> split_hook =
         [&](int, int, int) {
+          ++splits;
           if (stopped(stop, stop_context)) {
             interrupted = true;
             return false;
@@ -537,11 +539,13 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
       const int individualized =
           dejavu::ir::refinement::individualize_vertex(
               &branch.coloring, static_cast<int>(anchor));
+      ++splits;
       branch.refinement.refine_coloring(branch.internal, &branch.coloring,
                                         individualized, -1, &split_hook,
                                         &worklist_hook);
     }
     result.ticks = charged;
+    result.splits = splits;
     if (interrupted) {
       result.status = Status::Interrupted;
       return result.status;
@@ -652,8 +656,10 @@ Status individualized_partition(RefinementSession &session,
           charged += work;
           return true;
         };
+    uint64_t splits = 0;
     const std::function<dejavu::ir::type_split_color_hook> split_hook =
         [&](int, int, int) {
+          ++splits;
           if (stopped(stop, stop_context)) {
             interrupted = true;
             return false;
@@ -671,10 +677,12 @@ Status individualized_partition(RefinementSession &session,
       const int individualized =
           dejavu::ir::refinement::individualize_vertex(
               &child, static_cast<int>(anchors[i]));
+      ++splits;
       refinement.refine_coloring(session.internal, &child, individualized, -1,
                                  &split_hook, &worklist_hook);
     }
     result.ticks = charged;
+    result.splits = splits;
     if (interrupted) {
       result.status = Status::Interrupted;
       return result.status;
@@ -769,7 +777,9 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
     std::unique_ptr<dejavu::ds::coloring> child_owner(new dejavu::ds::coloring);
     auto &child = *child_owner;
     child.copy_any(&session.root);
+    uint64_t splits = 0;
     const auto capture_split = [&](int, int color, int size) {
+      ++splits;
       if (captured) {
         const int vertex = child.lab[color];
         captured->events.push_back({0, session.root.vertex_to_col[vertex],
@@ -820,6 +830,7 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
     refinement.refine_coloring(session.internal, &child, individualized, -1,
                                &split_hook, &worklist_hook);
     result.ticks = charged;
+    result.splits = splits;
     if (interrupted) {
       result.status = Status::Interrupted;
       return result.status;

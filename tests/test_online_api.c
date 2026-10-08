@@ -155,9 +155,12 @@ static void condition_cube_v3_is_atomic_and_copied(void) {
   assert(tactix_decide(solver, -1) == 0);
   assert(tactix_decide(solver, -2) == 0);
   assert(tactix_solve(solver) == 10);
-  assert(tactix_value(solver, 1) == 1);
-  assert(tactix_value(solver, 3) == 3);
-  assert(tactix_value(solver, 4) == 4);
+  /* Startup may eliminate every variable; which model reconstruction
+   * returns is the solver's choice, but it must satisfy the input,
+   * including the clause Condition removed. */
+  const int v1 = tactix_value(solver, 1) > 0, v2 = tactix_value(solver, 2) > 0;
+  const int v3 = tactix_value(solver, 3) > 0, v4 = tactix_value(solver, 4) > 0;
+  assert((v1 || v2) && (!v1 || v3) && (!v3 || v4));
   tactix_release(solver);
 }
 
