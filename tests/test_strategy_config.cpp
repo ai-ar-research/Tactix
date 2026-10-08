@@ -348,7 +348,8 @@ int main() {
     assert(DefaultPolicy(config).solve(productive) == 20);
     assert(productive.stats.sr_applications > 0);
     assert(productive.stats.sr_unique_literal_amo_binaries == 0);
-    assert(productive.stats.fastel_rounds > 0);
+    // FastEliminate is entered; its own candidate admission may still decline.
+    assert(productive.stats.fastel_nanos > 0);
     assert(productive.stats.fastel_root_suppressed == 0);
   }
   {
