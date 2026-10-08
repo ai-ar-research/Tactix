@@ -1,0 +1,11 @@
+{
+  "aggregate_job_id": "1757027",
+  "array_job_id": "1757026",
+  "array_sbatch_sha256": "dbfb80411eaea4dd3f9753cfa21c9c1318f31354eb35c7a58e09d1c2b30d9054",
+  "array_throttle": null,
+  "array_throttle_reason": null,
+  "dependency": null,
+  "manifest_sha256": "03aadd4f734218f81b506cce4473a742bee932af5fcc4eff16b58d8c87ddeba7",
+  "submitted_utc": "2026-10-08T07:29:52.099863+00:00",
+  "tasks": 6
+}

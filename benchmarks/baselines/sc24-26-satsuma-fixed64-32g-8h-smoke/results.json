@@ -1,0 +1,488 @@
+{
+  "complete": true,
+  "interrupted_claims": [],
+  "invalid": 0,
+  "manifest_sha256": "d17348ad2a7f99cc5ee03cc249de8672544fb64da330218ba14b3337c3f7fa8f",
+  "missing_tasks": [],
+  "pending_cleanup_tasks": [],
+  "result_count": 4,
+  "results": [
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 216652921,
+      "certificate_format": "dsr",
+      "certificate_sha256": "745bf201a3bd542413ef35e59f4c20543b0a6e3060c5193b59f46b439e3b80dd",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "SAT",
+      "expected_match": true,
+      "instance": "tierD24-26/00fd8ac9acd186a7a78a2c4d92f90de1-2.normalised.cnf.xz",
+      "model_check": {
+        "exit_code": 0,
+        "group_rss_peak_kb_sampled": 36472,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 35448,
+        "result": "verified",
+        "stderr_tail": "",
+        "stdout_tail": "checkmodel: OK \u2014 63048517 clauses satisfied, 23436630 vars assigned",
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 72.063
+      },
+      "model_ok": true,
+      "model_protocol_ok": true,
+      "node": "node015",
+      "proof_check": null,
+      "proof_ok": null,
+      "scratch_deleted": true,
+      "slurm_job": "1757023",
+      "solve": {
+        "exit_code": 10,
+        "group_rss_peak_kb_sampled": 7360560,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 7353392,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 31.252
+      },
+      "solver": "satsuma-kissat",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "v 23436573 23436574 23436575 23436576 23436577 23436578 23436579 23436580\nv 23436581 23436582 23436583 23436584 23436585 23436586 23436587 23436588\nv 23436589 23436590 23436591 23436592 23436593 23436594 23436595 23436596\nv 23436597 23436598 23436599 23436600 23436601 23436602 23436603 23436604\nv 23436605 23436606 23436607 23436608 23436609 23436610 23436611 23436612\nv 23436613 23436614 23436615 23436616 23436617 23436618 23436619 23436620\nv 23436621 23436622 23436623 23436624 23436625 23436626 23436627 23436628\nv 23436629 -23436630 0",
+      "source_class": "all",
+      "source_task": 13,
+      "task": 0,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "SAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 18774664,
+      "certificate_format": "dsr",
+      "certificate_sha256": "b0dd1b27a70ac674e1fc50dcf8b39ab369c0060e8700eb5ca56f296f1a99893f",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNSAT",
+      "expected_match": true,
+      "instance": "tierD24-26/02066c116dbacc40ec5cca2067db26c0-mrpp_4x4#12_12.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node015",
+      "proof_check": {
+        "checker_cnf": {
+          "checker_sha256": "506d2496b260896d510a9fbbb4cd2f332478a49cd7efb9548db6b7830b10c2f8",
+          "checker_variables": 2672,
+          "clauses": 16408,
+          "declared_variables": 2672,
+          "duplicate_literal_clauses": 0,
+          "first_empty_clause": null,
+          "original_sha256": "506d2496b260896d510a9fbbb4cd2f332478a49cd7efb9548db6b7830b10c2f8",
+          "transformation": "clause-sequence-preserving DIMACS spelling"
+        },
+        "derived_artifacts": [
+          {
+            "bytes": 17631258,
+            "deleted": true,
+            "path": "proof.binary.lsr"
+          },
+          {
+            "bytes": 36589906,
+            "deleted": true,
+            "path": "proof.lsr"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 160500,
+        "pipeline": "dsr-trim(long64-fixed) -> dsr-compress -d -> srcheck",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-trim",
+              "checker.cnf",
+              "proof-dir/proof.out",
+              "proof.binary.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 128948,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "dsr-trim",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 127924,
+            "pin_sha256": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "c Parsed the empty clause after 549092 proof lines (279693 additions).\nc Empty clause detected on proof line 549092.\nc The empty clause was derived after clause 296057 (add'n line 279649).\nc Checking proof...\nc Proof checking took 7.771 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.117 secs\nc Total runtime took 8.313 secs",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 8.38
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-compress",
+              "-d",
+              "proof.binary.lsr",
+              "proof.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "dsr-compress",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 1024,
+            "pin_sha256": "8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.417
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/srcheck",
+              "checker.cnf",
+              "proof.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 132340,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "srcheck",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 160500,
+            "pin_sha256": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+            "result": "verified",
+            "stderr_tail": "Parsing formula with 2672 variables, 16408 clauses\nParsed formula",
+            "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 2.871
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 11.668
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757024",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 17972,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 11900,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 7.086
+      },
+      "solver": "satsuma-kissat",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "c Running satsuma on /home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/scratch/00001/instance.cnf\ns UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 33,
+      "task": 1,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "UNSAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 782383,
+      "certificate_format": "dsr",
+      "certificate_sha256": "7c6e132bd244ee1159372ffe08a3ae1e55cc7b03166a6d24d048f89c67b434e9",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNSAT",
+      "expected_match": true,
+      "instance": "tierD24-26/03e852aa864cfe6eb49c264b462b8157-gm24sparrc.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node015",
+      "proof_check": {
+        "checker_cnf": {
+          "checker_sha256": "0981c92590473e1e688842b0adff3627f9b08889327034182f1a2601c7668158",
+          "checker_variables": 50777,
+          "clauses": 304370,
+          "declared_variables": 50777,
+          "duplicate_literal_clauses": 1,
+          "first_empty_clause": null,
+          "original_sha256": "0981c92590473e1e688842b0adff3627f9b08889327034182f1a2601c7668158",
+          "transformation": "clause-sequence-preserving DIMACS spelling"
+        },
+        "derived_artifacts": [
+          {
+            "bytes": 3233145,
+            "deleted": true,
+            "path": "proof.binary.lsr"
+          },
+          {
+            "bytes": 7227664,
+            "deleted": true,
+            "path": "proof.lsr"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 115160,
+        "pipeline": "dsr-trim(long64-fixed) -> dsr-compress -d -> srcheck",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-trim",
+              "checker.cnf",
+              "proof-dir/proof.out",
+              "proof.binary.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "dsr-trim",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 54640,
+            "pin_sha256": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "c Parsed the empty clause after 94355 proof lines (63460 additions).\nc Empty clause detected on proof line 94355.\nc The empty clause was derived after clause 318290 (add'n line 13920).\nc Checking proof...\nc Proof checking took 0.279 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.009 secs\nc Total runtime took 0.445 secs",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.468
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-compress",
+              "-d",
+              "proof.binary.lsr",
+              "proof.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "dsr-compress",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 1024,
+            "pin_sha256": "8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.117
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/srcheck",
+              "checker.cnf",
+              "proof.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "srcheck",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 115160,
+            "pin_sha256": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+            "result": "verified",
+            "stderr_tail": "Parsing formula with 50777 variables, 304370 clauses\nParsed formula",
+            "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.417
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 1.002
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757025",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 60492,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 171284,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 8.24
+      },
+      "solver": "satsuma-kissat",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "c Running satsuma on /home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/scratch/00002/instance.cnf\ns UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 73,
+      "task": 2,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "UNSAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 2079291,
+      "certificate_format": "dsr",
+      "certificate_sha256": "8fb1edbaa8dc60ced231134a783b4d8907a5d9901dff7af7fc5d5e0c70ed2366",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNKNOWN",
+      "expected_match": true,
+      "instance": "tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node015",
+      "proof_check": {
+        "checker_cnf": {
+          "checker_sha256": "92d69a56836e0abbc2381d8ad1f00d5b409e4627685080e869c4432b8de36188",
+          "checker_variables": 6050,
+          "clauses": 205556,
+          "declared_variables": 6050,
+          "duplicate_literal_clauses": 0,
+          "first_empty_clause": null,
+          "original_sha256": "92d69a56836e0abbc2381d8ad1f00d5b409e4627685080e869c4432b8de36188",
+          "transformation": "clause-sequence-preserving DIMACS spelling"
+        },
+        "derived_artifacts": [
+          {
+            "bytes": 8938272,
+            "deleted": true,
+            "path": "proof.binary.lsr"
+          },
+          {
+            "bytes": 21329661,
+            "deleted": true,
+            "path": "proof.lsr"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 136412,
+        "pipeline": "dsr-trim(long64-fixed) -> dsr-compress -d -> srcheck",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-trim",
+              "checker.cnf",
+              "proof-dir/proof.out",
+              "proof.binary.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "dsr-trim",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 53596,
+            "pin_sha256": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "c Parsed the empty clause after 205703 proof lines (667 additions).\nc Empty clause detected on proof line 205703.\nc The empty clause was derived after clause 206221 (add'n line 665).\nc Checking proof...\nc Proof checking took 1.314 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.024 secs\nc Total runtime took 1.436 secs",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 1.468
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-compress",
+              "-d",
+              "proof.binary.lsr",
+              "proof.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "dsr-compress",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 1024,
+            "pin_sha256": "8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.217
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/srcheck",
+              "checker.cnf",
+              "proof.lsr"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 127196,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "srcheck",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 136412,
+            "pin_sha256": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+            "result": "verified",
+            "stderr_tail": "Parsing formula with 6050 variables, 205556 clauses\nParsed formula",
+            "stdout_tail": "c Proof derived the empty clause\ns VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 2.821
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 4.506
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757021",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 0,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 77216,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 0.767
+      },
+      "solver": "satsuma-kissat",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "c Running satsuma on /home/hwu/SAT-solving/benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/scratch/00003/instance.cnf\ns UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 133,
+      "task": 3,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "UNSAT"
+    }
+  ],
+  "schema": "tactix-baseline-rerun-v1",
+  "scratch_leftovers": [],
+  "source_class_transitions": {
+    "satsuma-kissat": {
+      "all -> SAT-valid": 1,
+      "all -> UNSAT-verified": 3
+    }
+  },
+  "summary": {
+    "satsuma-kissat": {
+      "SAT-valid": 1,
+      "UNSAT-verified": 3
+    }
+  },
+  "task_count": 4
+}
