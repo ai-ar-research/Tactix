@@ -25,13 +25,14 @@ an open efficiency item.
 
 ## Next action
 
-1. Grade c1's four gates and full44 when terminal. Apply the §8.4 exception only to noL-11-8.
-2. Qualify the final candidate: Release/full Debug pins, the fuzz owner's final binding,
-   and all four gates. Do not rerun the d170 baseline or b26 campaigns.
-3. Launch full44 on the final candidate only after the scratch-admission repair.
-   b26 full44 measured 7/44 rows; 37 failed instantly on `scratch_node_busy`.
-4. Proof-route diagnosis for fast UNSAT rows 541/1129/291/1075, which solve in under 250 s
-   but never verify within 14,400 s, then fixed64 rechecks of 627/1004/654/569 on regeneration.
+1. Grade c2's full Debug, four gates (apply the §8.4 exception only to noL-11-8) and full44
+   when terminal. Closures need verification within the 45,000 s checker window
+   ([winner plan](docs/winner-integration-plan.md)); proof routes are unchanged.
+2. Integrate Satsuma practice A–D (plan §9.5) with the validated graph-labeling recognition fix
+   `8e953218f` as candidate c3. Attribute any regression as noise (shuffled copies) or mechanism.
+3. Use the Satsuma-boundary first divergences (896, 754, 453, 1144) to target remaining owner gaps.
+4. After A–D, prototype restart symmetry inprocessing under the plan's Kissat-derived
+   effort/interval/delay functions and search-use bookkeeping.
 
 ## Live work (2026-10-07 night; check terminal state, never infer from the queue)
 
