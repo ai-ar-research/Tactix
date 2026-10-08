@@ -311,12 +311,9 @@ int main() {
   assert(!default_fast_elimination_discovery_admissible(0, 10));
   assert(default_fast_elimination_discovery_admissible(4, 8));
   assert(!default_fast_elimination_discovery_admissible(5, 8));
-  assert(default_should_run_fast_elimination_after_structured(0));
-  assert(!default_should_run_fast_elimination_after_structured(1));
   {
-    // Exercise the policy call site, not only the predicate.  A disconnected
-    // checked SR unit fixes a root before the hard residual reaches FastEl.
-    // The old ULC-only counter would run FastEl here.
+    // A checked SR unit that fixes a root still composes with startup
+    // FastEl: structured root progress never suppresses elimination.
     DefaultStrategyConfig config = defaults;
     strategy::OnlineInvocation fixing;
     fixing.id = 112;
@@ -351,8 +348,8 @@ int main() {
     assert(DefaultPolicy(config).solve(productive) == 20);
     assert(productive.stats.sr_applications > 0);
     assert(productive.stats.sr_unique_literal_amo_binaries == 0);
-    assert(productive.stats.fastel_rounds == 0);
-    assert(productive.stats.fastel_root_suppressed == 1);
+    assert(productive.stats.fastel_rounds > 0);
+    assert(productive.stats.fastel_root_suppressed == 0);
   }
   {
     // A checked SR clause that does not grow the root trail must still compose

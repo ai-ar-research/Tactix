@@ -327,7 +327,7 @@ DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
 AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
 it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
 suppressed admission was rejected, so the working policy has no MAB branch.
-Structured SR suppresses the later startup FastEliminate pass only when it grows the root trail and rebuilds the residual search seed; clause-only SR retains that opportunity.
+Startup FastEliminate runs whenever it is enabled; structured-root progress, including root units from certified symmetry breaking, never suppresses it ([snw attribution](../benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md)). `fastel_root_suppressed` remains as a producer-zero compatibility counter.
 ## 10. Reorder
 
 Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). Its target, maximum clause size, clause-decay, binary weight, and
