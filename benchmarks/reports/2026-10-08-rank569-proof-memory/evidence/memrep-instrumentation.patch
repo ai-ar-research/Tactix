@@ -1,0 +1,78 @@
+--- /tmp/claude-1180/-home-hwu-SAT-solving/6a313936-41b6-4573-b1a9-916f585045c3/scratchpad/dsr-trim.orig.c	2026-10-01 16:38:00.876477700 -0400
++++ /home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/src-instrumented/src/dsr-trim.c	2026-10-08 03:10:32.840608378 -0400
+@@ -3925,12 +3925,57 @@
+   discard_bcu_deletions_after_empty_clause(current_line);
+ }
+ 
++
++/* r569 memory instrumentation (print-only; no checker state is modified) */
++#include <unistd.h>
++static unsigned long long memrep_iter = 0;
++static unsigned long long ra_bytes(range_array_t *ra) {
++  if (ra->data == NULL) return 0;
++  return ra->data_alloc_size * ra->elts_size + ra->indexes_alloc_size * sizeof(srid_t);
++}
++static unsigned long long ra_used(range_array_t *ra) {
++  if (ra->data == NULL) return 0;
++  return ra->data_size * ra->elts_size + (ra->indexes_size + 1) * sizeof(srid_t);
++}
++static long memrep_status_kb(const char *key) {
++  FILE *f = fopen("/proc/self/status", "r"); if (!f) return -1;
++  char line[256]; long v = -1; size_t n = strlen(key);
++  while (fgets(line, sizeof line, f)) if (!strncmp(line, key, n)) { v = atol(line + n); break; }
++  fclose(f); return v;
++}
++static void mem_report(const char *tag) {
++  unsigned long long wp_alloc = 0, wp_used = 0, lc_alloc = 0, lc_used = 0, ht_alloc = 0;
++  for (int i = 0; i < wps_alloc_size; i++) { wp_alloc += (unsigned long long) wp_alloc_sizes[i] * sizeof(srid_t); wp_used += (unsigned long long) wp_sizes[i] * sizeof(srid_t); }
++  if (lit_occ.lits_clauses != NULL) for (int i = 0; i < lit_occ.alloc_size; i++) { lc_alloc += (unsigned long long) lit_occ.lits_clauses[i].alloc_size * sizeof(srid_t); lc_used += (unsigned long long) lit_occ.lits_clauses[i].size * sizeof(srid_t); }
++  ht_t *hts[2] = { &clause_id_ht, &clause_mults_ht };
++  for (int h = 0; h < 2; h++) if (hts[h]->buckets != NULL) { ht_alloc += (unsigned long long) hts[h]->num_buckets * sizeof(ht_bucket_t); for (int b = 0; b < hts[h]->num_buckets; b++) ht_alloc += (unsigned long long) hts[h]->buckets[b].alloc_size * (sizeof(ht_entry_t) + hts[h]->entry_data_size); }
++  fprintf(stderr, "c memrep tag=%s line=%lld adds=%lld dels=%lld srid=%zu rss_kb=%ld hwm_kb=%ld"
++    " lits_db_alloc=%llu lits_db_used=%llu formula_alloc=%llu witnesses_alloc=%llu witnesses_used=%llu"
++    " hints_alloc=%llu hints_used=%llu hints_elts=%llu hints_ranges=%llu deletions_alloc=%llu deletions_used=%llu bcu_alloc=%llu bcu_used=%llu"
++    " wps_alloc=%llu wps_used=%llu clauses_lui=%llu rat_info=%llu fl_check=%llu clause_id_map=%llu"
++    " litocc_base=%llu litocc_lc_alloc=%llu litocc_lc_used=%llu ht_alloc=%llu\n",
++    tag, (long long) current_line, (long long) num_parsed_add_lines, (long long) num_parsed_del_lines, sizeof(srid_t),
++    memrep_status_kb("VmRSS:"), memrep_status_kb("VmHWM:"),
++    (unsigned long long) lits_db_alloc_size * sizeof(int), (unsigned long long) lits_db_size * sizeof(int),
++    (unsigned long long) formula_alloc_size * sizeof(srid_t), ra_bytes(&witnesses), ra_used(&witnesses),
++    ra_bytes(&hints), ra_used(&hints), (unsigned long long) hints.data_size, (unsigned long long) hints.indexes_size,
++    ra_bytes(&deletions), ra_used(&deletions), ra_bytes(&bcu_deletions), ra_used(&bcu_deletions),
++    wp_alloc, wp_used, (unsigned long long) clauses_lui_alloc_size * sizeof(srid_t),
++    (unsigned long long) lines_RAT_hint_info_alloc_size * sizeof(line_RAT_info_t),
++    (unsigned long long) (lines_fl_clauses_to_check ? num_parsed_add_lines : 0) * sizeof(fl_clause_t),
++    (unsigned long long) (clause_id_map ? formula_size : 0) * sizeof(srid_t),
++    (unsigned long long) lit_occ.alloc_size * (sizeof(srid_t) + sizeof(fl_clause_t) + sizeof(lc_map_t)), lc_alloc, lc_used, ht_alloc);
++  fflush(stderr);
++}
++
+ static void check_proof(void) {
+   up_state = GLOBAL_UP;
+   alpha_generation = GEN_INC;
+   timer_record(&timer, TIMER_LOCAL);
+ 
++  mem_report("post-parse");
+   add_wps_and_up_initial_clauses();
++  mem_report("post-forward");
+ 
+   logc("Checking proof...");
+ 
+@@ -3953,7 +3998,9 @@
+     if (line_type == ADDITION_LINE) {
+       check_dsr_line(); 
+     }
++    if ((++memrep_iter & ((1ULL << 20) - 1)) == 0) mem_report("loop");
+   }
++  mem_report("post-check");
+ 
+   if (p_strategy == PS_STREAMING) {
+     close_and_unlink_proof_file(dsr_file, cli.dsr_file_path);
+@@ -3963,6 +4010,7 @@
+   print_proof_checking_result();
+ 
+   print_stored_lsr_proof();
++  mem_report("post-lsr");
+   print_valid_formula_if_requested();
+   print_unsat_core_if_requested();
+   timer_print_elapsed(&timer, TIMER_GLOBAL, "Total runtime");

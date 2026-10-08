@@ -1,0 +1,75 @@
+{
+ "schema": "r569-checker-memory-v1",
+ "node": "node010",
+ "job": "1756958",
+ "cnf": "/home/hwu/SAT-solving/benchmarks/cache/tierD24-26/1b84df53843ecd90ec8c3c7a01cada6c-ramsey_4_4_18.normalised.cnf.xz",
+ "proof": "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank147-checker-profile-diagnostic/rank147-proof.dsr",
+ "proof_bytes": 709553,
+ "checkers": {
+  "pinned32": {
+   "path": "/home/hwu/SAT-solving/tools/checkers/bin/dsr-trim",
+   "binary_sha256": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+   "exit": 0,
+   "wall_seconds": 2.0,
+   "peak_rss_kb": 14336,
+   "memrep": [],
+   "stdout_tail": "c CNF file path: /tmp/r569-smoke-1756958/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261007-rank147-checker-profile-diagnostic/rank147-proof.dsr\nc LSR file path: /tmp/r569-smoke-1756958/pinned32.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 6120 clauses and 153 variables.\nc Parsing the CNF took 0.003 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 80797 proof lines (74760 additions).\nc Empty clause detected on proof line 80797.\nc The empty clause was derived after clause 80833 (add'n line 74713).\nc Checking proof...\nc Proof checking took 1.355 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.016 secs\nc Total runtime took 1.390 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 2079705,
+   "lsr_sha256": "e9d97cd144d2ed657555935945158c2507b290d7f9f19b7064ffb23b7a729363"
+  },
+  "pinned64fixed": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-trim",
+   "binary_sha256": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+   "exit": 0,
+   "wall_seconds": 2.0,
+   "peak_rss_kb": 21504,
+   "memrep": [],
+   "stdout_tail": "c CNF file path: /tmp/r569-smoke-1756958/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261007-rank147-checker-profile-diagnostic/rank147-proof.dsr\nc LSR file path: /tmp/r569-smoke-1756958/pinned64fixed.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 6120 clauses and 153 variables.\nc Parsing the CNF took 0.003 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 80797 proof lines (74760 additions).\nc Empty clause detected on proof line 80797.\nc The empty clause was derived after clause 80833 (add'n line 74713).\nc Checking proof...\nc Proof checking took 1.532 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.019 secs\nc Total runtime took 1.571 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 2079705,
+   "lsr_sha256": "e9d97cd144d2ed657555935945158c2507b290d7f9f19b7064ffb23b7a729363"
+  },
+  "memrep32": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/dsr-trim32-memrep",
+   "binary_sha256": "b349d469747a4412bc349d35ad107686b564c2783ac661cc677ccda102bc955f",
+   "exit": 0,
+   "wall_seconds": 2.0,
+   "peak_rss_kb": 14336,
+   "memrep": [
+    "c memrep tag=post-parse line=0 adds=74760 dels=5996 srid=4 rss_kb=6132 hwm_kb=6144 lits_db_alloc=1673052 lits_db_used=1286728 formula_alloc=371788 witnesses_alloc=784888 witnesses_used=613448 hints_alloc=98532 hints_used=4 hints_elts=0 hints_ranges=0 deletions_alloc=1836 deletions_used=4 bcu_alloc=424332 bcu_used=323028 wps_alloc=4896 wps_used=0 clauses_lui=48960 rat_info=97920 fl_check=0 clause_id_map=0 litocc_base=0 litocc_lc_alloc=0 litocc_lc_used=0 ht_alloc=0",
+    "c memrep tag=post-forward line=74713 adds=74714 dels=5996 srid=4 rss_kb=9448 hwm_kb=9448 lits_db_alloc=1673052 lits_db_used=1286268 formula_alloc=371788 witnesses_alloc=784888 witnesses_used=613448 hints_alloc=98532 hints_used=1040 hints_elts=257 hints_ranges=2 deletions_alloc=1836 deletions_used=1032 bcu_alloc=424332 bcu_used=322840 wps_alloc=874544 wps_used=584528 clauses_lui=485280 rat_info=97920 fl_check=597712 clause_id_map=0 litocc_base=672912 litocc_lc_alloc=1542904 litocc_lc_used=1286268 ht_alloc=0",
+    "c memrep tag=post-check line=0 adds=74714 dels=5996 srid=4 rss_kb=14628 hwm_kb=14628 lits_db_alloc=1673052 lits_db_used=1286268 formula_alloc=371788 witnesses_alloc=784888 witnesses_used=613448 hints_alloc=2273752 hints_used=2010444 hints_elts=353182 hints_ranges=149428 deletions_alloc=756868 deletions_used=592796 bcu_alloc=424332 bcu_used=322840 wps_alloc=693128 wps_used=48960 clauses_lui=485280 rat_info=646680 fl_check=597712 clause_id_map=0 litocc_base=672912 litocc_lc_alloc=1591384 litocc_lc_used=1286268 ht_alloc=0",
+    "c memrep tag=post-lsr line=0 adds=74714 dels=5996 srid=4 rss_kb=14628 hwm_kb=14628 lits_db_alloc=1673052 lits_db_used=1286268 formula_alloc=371788 witnesses_alloc=784888 witnesses_used=613448 hints_alloc=2273752 hints_used=2010444 hints_elts=353182 hints_ranges=149428 deletions_alloc=756868 deletions_used=592796 bcu_alloc=424332 bcu_used=322840 wps_alloc=693128 wps_used=48960 clauses_lui=485280 rat_info=646680 fl_check=597712 clause_id_map=323336 litocc_base=672912 litocc_lc_alloc=1591384 litocc_lc_used=1286268 ht_alloc=0"
+   ],
+   "stdout_tail": "c CNF file path: /tmp/r569-smoke-1756958/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261007-rank147-checker-profile-diagnostic/rank147-proof.dsr\nc LSR file path: /tmp/r569-smoke-1756958/memrep32.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 6120 clauses and 153 variables.\nc Parsing the CNF took 0.003 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 80797 proof lines (74760 additions).\nc Empty clause detected on proof line 80797.\nc The empty clause was derived after clause 80833 (add'n line 74713).\nc Checking proof...\nc Proof checking took 1.434 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.018 secs\nc Total runtime took 1.471 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 2079705,
+   "lsr_sha256": "e9d97cd144d2ed657555935945158c2507b290d7f9f19b7064ffb23b7a729363"
+  },
+  "memrep64": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/dsr-trim64-memrep",
+   "binary_sha256": "78b90edb11e5a2f91a0e39d59544038411b41de79b814f27fcad8773e7fcf71e",
+   "exit": 0,
+   "wall_seconds": 2.0,
+   "peak_rss_kb": 21504,
+   "memrep": [
+    "c memrep tag=post-parse line=0 adds=74760 dels=5996 srid=8 rss_kb=7668 hwm_kb=7680 lits_db_alloc=1673052 lits_db_used=1286728 formula_alloc=743576 witnesses_alloc=1156676 witnesses_used=912492 hints_alloc=197064 hints_used=8 hints_elts=0 hints_ranges=0 deletions_alloc=3672 deletions_used=8 bcu_alloc=848664 bcu_used=646056 wps_alloc=9792 wps_used=0 clauses_lui=97920 rat_info=195840 fl_check=0 clause_id_map=0 litocc_base=0 litocc_lc_alloc=0 litocc_lc_used=0 ht_alloc=0",
+    "c memrep tag=post-forward line=74713 adds=74714 dels=5996 srid=8 rss_kb=13728 hwm_kb=13728 lits_db_alloc=1673052 lits_db_used=1286268 formula_alloc=743576 witnesses_alloc=1156676 witnesses_used=912492 hints_alloc=197064 hints_used=2080 hints_elts=257 hints_ranges=2 deletions_alloc=3672 deletions_used=2064 bcu_alloc=848664 bcu_used=645680 wps_alloc=1749088 wps_used=1169056 clauses_lui=970560 rat_info=195840 fl_check=1195424 clause_id_map=0 litocc_base=1196288 litocc_lc_alloc=3085808 litocc_lc_used=2572536 ht_alloc=0",
+    "c memrep tag=post-check line=0 adds=74714 dels=5996 srid=8 rss_kb=21452 hwm_kb=21452 lits_db_alloc=1673052 lits_db_used=1286268 formula_alloc=743576 witnesses_alloc=1156676 witnesses_used=912492 hints_alloc=4547504 hints_used=4020888 hints_elts=353182 hints_ranges=149428 deletions_alloc=1513736 deletions_used=1185592 bcu_alloc=848664 bcu_used=645680 wps_alloc=1386256 wps_used=97920 clauses_lui=970560 rat_info=1293360 fl_check=1195424 clause_id_map=0 litocc_base=1196288 litocc_lc_alloc=3182768 litocc_lc_used=2572536 ht_alloc=0",
+    "c memrep tag=post-lsr line=0 adds=74714 dels=5996 srid=8 rss_kb=21896 hwm_kb=21896 lits_db_alloc=1673052 lits_db_used=1286268 formula_alloc=743576 witnesses_alloc=1156676 witnesses_used=912492 hints_alloc=4547504 hints_used=4020888 hints_elts=353182 hints_ranges=149428 deletions_alloc=1513736 deletions_used=1185592 bcu_alloc=848664 bcu_used=645680 wps_alloc=1386256 wps_used=97920 clauses_lui=970560 rat_info=1293360 fl_check=1195424 clause_id_map=646672 litocc_base=1196288 litocc_lc_alloc=3182768 litocc_lc_used=2572536 ht_alloc=0"
+   ],
+   "stdout_tail": "c CNF file path: /tmp/r569-smoke-1756958/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261007-rank147-checker-profile-diagnostic/rank147-proof.dsr\nc LSR file path: /tmp/r569-smoke-1756958/memrep64.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 6120 clauses and 153 variables.\nc Parsing the CNF took 0.003 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 80797 proof lines (74760 additions).\nc Empty clause detected on proof line 80797.\nc The empty clause was derived after clause 80833 (add'n line 74713).\nc Checking proof...\nc Proof checking took 1.549 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 0.014 secs\nc Total runtime took 1.584 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 2079705,
+   "lsr_sha256": "e9d97cd144d2ed657555935945158c2507b290d7f9f19b7064ffb23b7a729363"
+  }
+ },
+ "cnf_sha256": "d4a999db60e61564eebc46338d1cc9b1ad94b9ade22913049f87338cab731af3",
+ "proofstats": {
+  "exit": 3,
+  "out": "",
+  "err": "bad tag 0x1 at 1\n",
+  "seconds": 0.1
+ }
+}

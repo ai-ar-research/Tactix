@@ -1,0 +1,77 @@
+{
+ "schema": "r569-checker-memory-v1",
+ "node": "node001",
+ "job": "1757037",
+ "cnf": "/home/hwu/SAT-solving/benchmarks/cache/tierD24-26/39277cab188349aee0f229cb7341b5c5-crafted_n12_d6_c4_num23.cnf.xz",
+ "proof": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-retained-proofs/retained-proofs/000.dsr",
+ "proof_bytes": 464896136,
+ "checkers": {
+  "pinned32": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/pins/dsr-trim-canonical32",
+   "binary_sha256": "3b5c773706dc4695f08115ce862e991bfa2e44e3388df80f40ae8b0823dfbdee",
+   "exit": 0,
+   "wall_seconds": 1013.0,
+   "peak_rss_kb": 2292792,
+   "memrep": [],
+   "stdout_tail": "c CNF file path: /tmp/r569-mem-1757037/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261008-r569-retained-proofs/retained-proofs/000.dsr\nc LSR file path: /tmp/r569-mem-1757037/pinned32.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 15834432 clauses and 56064 variables.\nc Parsing the CNF took 3.229 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 22719263 proof lines (3493370 additions).\nc Empty clause detected on proof line 22719263.\nc The empty clause was derived after clause 19326361 (add'n line 3491929).\nc Checking proof...\nc Proof checking took 985.955 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 3.479 secs\nc Total runtime took 1011.738 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 875839585,
+   "lsr_sha256": "6f9e30e2b213865bf92ae6e8183485d78bee84d0d3523e876e86447b941daad3"
+  },
+  "memrep32": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/dsr-trim32-memrep",
+   "binary_sha256": "b349d469747a4412bc349d35ad107686b564c2783ac661cc677ccda102bc955f",
+   "exit": 0,
+   "wall_seconds": 1029.7,
+   "peak_rss_kb": 2292808,
+   "memrep": [
+    "c memrep tag=post-parse line=0 adds=3493370 dels=19214021 srid=4 rss_kb=1005192 hwm_kb=1129376 lits_db_alloc=380026368 lits_db_used=367153668 formula_alloc=126675456 witnesses_alloc=443364096 witnesses_used=33989408 hints_alloc=253575168 hints_used=4 hints_elts=0 hints_ranges=0 deletions_alloc=672768 deletions_used=4 bcu_alloc=114404184 bcu_used=90829568 wps_alloc=1794048 wps_used=0 clauses_lui=126675456 rat_info=253350912 fl_check=0 clause_id_map=0 litocc_base=0 litocc_lc_alloc=0 litocc_lc_used=0 ht_alloc=0",
+    "c memrep tag=post-forward line=3491929 adds=3491930 dels=19214021 srid=4 rss_kb=1323520 hwm_kb=1323520 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=126675456 witnesses_alloc=443364096 witnesses_used=33989408 hints_alloc=253575168 hints_used=400 hints_elts=97 hints_ranges=2 deletions_alloc=672768 deletions_used=392 bcu_alloc=114404184 bcu_used=90823804 wps_alloc=9214564 wps_used=466376 clauses_lui=126675456 rat_info=253350912 fl_check=27935440 clause_id_map=0 litocc_base=6085440 litocc_lc_alloc=474466440 litocc_lc_used=367147908 ht_alloc=0",
+    "c memrep tag=loop line=1811705 adds=3491930 dels=19214021 srid=4 rss_kb=1896836 hwm_kb=1896836 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=126675456 witnesses_alloc=443364096 witnesses_used=33989408 hints_alloc=589443412 hints_used=571033340 hints_elts=139397884 hints_ranges=3360450 deletions_alloc=13729984 deletions_used=11321904 bcu_alloc=114404184 bcu_used=90823804 wps_alloc=10669292 wps_used=2194792 clauses_lui=126675456 rat_info=253350912 fl_check=27935440 clause_id_map=0 litocc_base=6085440 litocc_lc_alloc=474782660 litocc_lc_used=367147908 ht_alloc=0",
+    "c memrep tag=post-check line=0 adds=3491930 dels=19214021 srid=4 rss_kb=2279100 hwm_kb=2279100 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=126675456 witnesses_alloc=443364096 witnesses_used=33989408 hints_alloc=884167204 hints_used=752436496 hints_elts=181125263 hints_ranges=6983860 deletions_alloc=77590372 deletions_used=54976676 bcu_alloc=114404184 bcu_used=90823804 wps_alloc=160979124 wps_used=126675456 clauses_lui=126675456 rat_info=253350912 fl_check=27935440 clause_id_map=0 litocc_base=6085440 litocc_lc_alloc=475011708 litocc_lc_used=367147908 ht_alloc=0",
+    "c memrep tag=post-lsr line=0 adds=3491930 dels=19214021 srid=4 rss_kb=2293272 hwm_kb=2293272 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=126675456 witnesses_alloc=443364096 witnesses_used=33989408 hints_alloc=884167204 hints_used=752436496 hints_elts=181125263 hints_ranges=6983860 deletions_alloc=77590372 deletions_used=54976676 bcu_alloc=114404184 bcu_used=90823804 wps_alloc=160979124 wps_used=126675456 clauses_lui=126675456 rat_info=253350912 fl_check=27935440 clause_id_map=77305448 litocc_base=6085440 litocc_lc_alloc=475011708 litocc_lc_used=367147908 ht_alloc=0"
+   ],
+   "stdout_tail": "c CNF file path: /tmp/r569-mem-1757037/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261008-r569-retained-proofs/retained-proofs/000.dsr\nc LSR file path: /tmp/r569-mem-1757037/memrep32.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 15834432 clauses and 56064 variables.\nc Parsing the CNF took 3.090 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 22719263 proof lines (3493370 additions).\nc Empty clause detected on proof line 22719263.\nc The empty clause was derived after clause 19326361 (add'n line 3491929).\nc Checking proof...\nc Proof checking took 1002.698 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 3.495 secs\nc Total runtime took 1028.414 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 875839585,
+   "lsr_sha256": "6f9e30e2b213865bf92ae6e8183485d78bee84d0d3523e876e86447b941daad3"
+  },
+  "memrep64": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/dsr-trim64-memrep",
+   "binary_sha256": "78b90edb11e5a2f91a0e39d59544038411b41de79b814f27fcad8773e7fcf71e",
+   "exit": 0,
+   "wall_seconds": 1036.4,
+   "peak_rss_kb": 4116144,
+   "memrep": [
+    "c memrep tag=post-parse line=0 adds=3493370 dels=19214021 srid=8 rss_kb=1424232 hwm_kb=1548548 lits_db_alloc=380026368 lits_db_used=367153668 formula_alloc=253350912 witnesses_alloc=570039552 witnesses_used=47962892 hints_alloc=507150336 hints_used=8 hints_elts=0 hints_ranges=0 deletions_alloc=1345536 deletions_used=8 bcu_alloc=228808368 bcu_used=181659136 wps_alloc=3588096 wps_used=0 clauses_lui=253350912 rat_info=506701824 fl_check=0 clause_id_map=0 litocc_base=0 litocc_lc_alloc=0 litocc_lc_used=0 ht_alloc=0",
+    "c memrep tag=post-forward line=3491929 adds=3491930 dels=19214021 srid=8 rss_kb=2223844 hwm_kb=2223844 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=253350912 witnesses_alloc=570039552 witnesses_used=47962892 hints_alloc=507150336 hints_used=800 hints_elts=97 hints_ranges=2 deletions_alloc=1345536 deletions_used=784 bcu_alloc=228808368 bcu_used=181647608 wps_alloc=18429128 wps_used=932752 clauses_lui=253350912 rat_info=506701824 fl_check=55870880 clause_id_map=0 litocc_base=10818560 litocc_lc_alloc=948932880 litocc_lc_used=734295816 ht_alloc=0",
+    "c memrep tag=loop line=1811705 adds=3491930 dels=19214021 srid=8 rss_kb=3367100 hwm_kb=3367100 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=253350912 witnesses_alloc=570039552 witnesses_used=47962892 hints_alloc=1178886824 hints_used=1142066680 hints_elts=139397884 hints_ranges=3360450 deletions_alloc=27459968 deletions_used=22643808 bcu_alloc=228808368 bcu_used=181647608 wps_alloc=21338584 wps_used=4389584 clauses_lui=253350912 rat_info=506701824 fl_check=55870880 clause_id_map=0 litocc_base=10818560 litocc_lc_alloc=949565320 litocc_lc_used=734295816 ht_alloc=0",
+    "c memrep tag=post-check line=0 adds=3491930 dels=19214021 srid=8 rss_kb=4088100 hwm_kb=4088100 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=253350912 witnesses_alloc=570039552 witnesses_used=47962892 hints_alloc=1768334408 hints_used=1504872992 hints_elts=181125263 hints_ranges=6983860 deletions_alloc=155180744 deletions_used=109953352 bcu_alloc=228808368 bcu_used=181647608 wps_alloc=321958248 wps_used=253350912 clauses_lui=253350912 rat_info=506701824 fl_check=55870880 clause_id_map=0 litocc_base=10818560 litocc_lc_alloc=950023416 litocc_lc_used=734295816 ht_alloc=0",
+    "c memrep tag=post-lsr line=0 adds=3491930 dels=19214021 srid=8 rss_kb=4116460 hwm_kb=4116460 lits_db_alloc=380026368 lits_db_used=367147908 formula_alloc=253350912 witnesses_alloc=570039552 witnesses_used=47962892 hints_alloc=1768334408 hints_used=1504872992 hints_elts=181125263 hints_ranges=6983860 deletions_alloc=155180744 deletions_used=109953352 bcu_alloc=228808368 bcu_used=181647608 wps_alloc=321958248 wps_used=253350912 clauses_lui=253350912 rat_info=506701824 fl_check=55870880 clause_id_map=154610896 litocc_base=10818560 litocc_lc_alloc=950023416 litocc_lc_used=734295816 ht_alloc=0"
+   ],
+   "stdout_tail": "c CNF file path: /tmp/r569-mem-1757037/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261008-r569-retained-proofs/retained-proofs/000.dsr\nc LSR file path: /tmp/r569-mem-1757037/memrep64.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 15834432 clauses and 56064 variables.\nc Parsing the CNF took 3.188 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 22719263 proof lines (3493370 additions).\nc Empty clause detected on proof line 22719263.\nc The empty clause was derived after clause 19326361 (add'n line 3491929).\nc Checking proof...\nc Proof checking took 1009.472 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 3.546 secs\nc Total runtime took 1035.814 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 875839585,
+   "lsr_sha256": "6f9e30e2b213865bf92ae6e8183485d78bee84d0d3523e876e86447b941daad3"
+  },
+  "pinned64fixed": {
+   "path": "/home/hwu/SAT-solving/benchmarks/runs/20261008-r569-checker-memory/pins/dsr-trim-long64fixed",
+   "binary_sha256": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+   "exit": 0,
+   "wall_seconds": 1059.0,
+   "peak_rss_kb": 4115556,
+   "memrep": [],
+   "stdout_tail": "c CNF file path: /tmp/r569-mem-1757037/input.cnf\nc DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261008-r569-retained-proofs/retained-proofs/000.dsr\nc LSR file path: /tmp/r569-mem-1757037/pinned64fixed.lsr\nc Using an EAGER parsing strategy.\nc Doing BACKWARDS proof checking.\nc The CNF formula has 15834432 clauses and 56064 variables.\nc Parsing the CNF took 3.104 secs\nc Detected that the DSR proof is in binary format.\nc The emitted LSR proof will also be in binary format.\nc Parsed the empty clause after 22719263 proof lines (3493370 additions).\nc Empty clause detected on proof line 22719263.\nc The empty clause was derived after clause 19326361 (add'n line 3491929).\nc Checking proof...\nc Proof checking took 1032.600 secs\ns VERIFIED UNSAT\nc Printing the LSR proof took 3.540 secs\nc Total runtime took 1058.797 secs\n",
+   "stderr_tail": "",
+   "lsr_bytes": 875839585,
+   "lsr_sha256": "6f9e30e2b213865bf92ae6e8183485d78bee84d0d3523e876e86447b941daad3"
+  }
+ },
+ "cnf_sha256": "47464ea2d17935dcb60d9cee96f37784d074d2905132ab7b7eefe28302175edb",
+ "proofstats": {
+  "exit": 0,
+  "out": "c proofstats bytes=464896136 additions=3499489 deletions=19219774 added_lits=60154644 deleted_lits=91495084 avg_add_len=17.190 max_add_len=10092 unit_adds=55483 empty_adds=1 unit_dels=0 witness_lines=20 witness_lits=1510612 peak_live_proof_clauses=16 peak_live_proof_lits=18 final_live_proof_clauses=-15720285",
+  "err": "",
+  "seconds": 2.6
+ }
+}
