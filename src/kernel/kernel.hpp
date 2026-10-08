@@ -1566,9 +1566,10 @@ private:
 // analysis pays one predictable branch per resolved antecedent.
 struct SymmetryUseRun {
   uint64_t clauses = 0, helpers = 0, units = 0, binaries = 0, large = 0;
-  // Propagation-made assignments (and conflict-reuse assertions) whose reason
-  // is a tagged binary/large clause: helper share, and the share made outside
-  // inprocessing, warm-up and probing.
+  // Assignments whose reason is a tagged binary/large clause, made by search
+  // propagation (propagate_service), probing, warm-up, binary-only
+  // propagation or a conflict-reuse assertion: helper share, and the share
+  // made outside inprocessing, warm-up and probing.
   uint64_t propagations = 0, helper_propagations = 0, search_propagations = 0;
   // Conflict clauses and reasons resolved by ConflictAnalysis (1UIP and the
   // failed-level-one walk; not minimization or shrinking).

@@ -2046,8 +2046,6 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // the per-literal test.
   if (k.proof && (k.proof->lrat() || k.proof->dsr()))
     kernel_emit_root_units(k, assigned_before);
-  if (k.symuse_active) [[unlikely]]
-    kernel_symuse_note_trail(k, assigned_before);
   return conflict;
 }
 
@@ -2255,6 +2253,8 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
     conflict = kernel_propagate(k, ignore); // no open scope: nothing to record
+    if (k.symuse_active) [[unlikely]]
+      kernel_symuse_note_trail(k, assigned_before);
   } else {
     const uint32_t saved_propagate = k.propagate_head;
     uint64_t ticks = 0;
