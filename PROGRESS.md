@@ -8,11 +8,13 @@ states 12), preserving N1–N4, with effective Claude-owned fuzz, full Debug and
 B28+C5, Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.**
 Scope and contracts belong to [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
 
-Leading candidate **c1 = `e509d1d08`**: b26 source plus certified symmetry-unit
-admission `d576abaeb` (r4 focused gate [passes](benchmarks/reports/2026-10-07-symmetry-unit-r4-focused-pass/README.md))
-and the affine empty-reason repair `9ed61994c` ([report](benchmarks/reports/2026-10-07-affine-rootmaint-sweep-repair/README.md)).
-The fixed64 patch hash is [corrected](benchmarks/reports/2026-10-07-fixed64-provenance-hash-correction/README.md).
-c1 may still change if regression attribution finds a defective specialized pass.
+Candidate **c2 = `76e161b24`** (branch `candidate-c2`) is c1.1 (`bfaf65491`) plus `524b7b48b`.
+c1.1 holds the b26 source, the certified symmetry units `d576abaeb` and the affine empty-reason repair `9ed61994c`.
+`524b7b48b` makes startup FastEliminate never suppressed after structured progress
+([report](benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md)); the user decided this
+after c1 lost WV100 snw_16_9_CCSpre. c1 evidence is superseded
+([cancellation](benchmarks/runs/20261007-superseded-cancel-c2/README.md)). c2 excludes the unvalidated
+graph-labeling commit `8e953218f`.
 
 **Regression attribution** ([report](benchmarks/reports/2026-10-07-wv289-nol118-regression/README.md)):
 b26's losses come from the faithful Satsuma→Kissat residual seed (noL ×3, oski ×3) and the
@@ -31,15 +33,16 @@ an open efficiency item.
 4. Proof-route diagnosis for fast UNSAT rows 541/1129/291/1075, which solve in under 250 s
    but never verify within 14,400 s, then fixed64 rechecks of 627/1004/654/569 on regeneration.
 
-## Live work (2026-10-07 evening; check terminal state, never infer from the queue)
+## Live work (2026-10-07 night; check terminal state, never infer from the queue)
 
 | Work | Jobs / owner | Status |
 |---|---|---|
-| c1.1 Release / full Debug | c1 full Debug 1755758 passed 352/353 and failed only the `comment_hygiene` lint on a test-script comment. c1.1 = `bfaf65491` (archive `3dfcbdac…`) fixes the comment. Its Release 1756119 reproduces tactix `c85bf484…` byte-for-byte, so the gates, full44 and fuzz on that binary apply. Fresh full Debug 1756120 | Debug running |
-| c1 regression gates | 1755859 B28, 1755860 Rank1–50, 1755861 WV100, 1755862 WV2–89; `benchmarks/runs/20261007-c1-regression-*` | submitted |
-| c1 full44 | 1755927, `benchmarks/runs/20261007-fixed44-c1` (shared-floor scratch, long64-fixed) | submitted |
-| Fuzz owner | Claude `385a3588` (resumed); final binding `benchmarks/runs/20261007-candidate-c1-source/pins/release-binding.json`; COVERAGE declared for c1 | counted broad legs 1756099/100/101 submitted; am-rel-23 passes on c1 |
-| Proof-route cost | sub-agent; `benchmarks/runs/20261007-proofroute-*` | stage timings |
+| c2 Release / full Debug | Release `bec9eede…` (1756229, done) / Debug 1756230; archive `4cdf01d9…` | Debug submitted |
+| c2 regression gates | 1756232 B28, 1756233 Rank1–50, 1756234 WV100, 1756235 WV2–89; `benchmarks/runs/20261007-c2-regression-*` | submitted |
+| c2 full44 | 1756297, `benchmarks/runs/20261007-fixed44-c2` (shared-floor scratch, long64-fixed) | submitted |
+| Fuzz owner | Claude `385a3588`; binding `benchmarks/runs/20261007-candidate-c2-source/pins/release-binding.json` | c1 legs stopped (25k cases, 0 product failures); c2 relaunch pending |
+| Sub-agents | proof-route cost (541/1129/291/1075, plus 82/489/1085); graph-labeling recognition budget (`8e953218f`, unvalidated); Satsuma-boundary parity (896, 754, 453, 1144) | running |
+| Diagnostic pairs | 1756222 snw, 1756223 Rank899: c1 vs guard-removed variant | informational |
 
 ## Verification authorities
 
