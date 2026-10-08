@@ -1027,9 +1027,9 @@ void analyze_eager_subsume(Kernel &k) {
 // SymmetryUse observation: the conflict clause as an analysis antecedent.
 static void symuse_note_conflict(Kernel &k) {
   if (k.conflict_ref != INVALID_REF)
-    kernel_symuse_observe_large_use(k, clause_at(k.arena, k.conflict_ref)->id());
+    kernel_symuse_note_large_use(k, clause_at(k.arena, k.conflict_ref)->id());
   else
-    kernel_symuse_observe_binary_use(k, k.conflict_bin[0], k.conflict_bin[1]);
+    kernel_symuse_note_binary_use(k, k.conflict_bin[0], k.conflict_bin[1]);
 }
 
 // Kissat analyze.c:390-520 handles a conflict at decision level one as a
@@ -1127,10 +1127,10 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
 
       if (k.symuse_active) [[unlikely]] {
         if (a.binary)
-          kernel_symuse_observe_binary_use(
+          kernel_symuse_note_binary_use(
               k, lit, a.jumped ? k.jumped_over[v] : a.reason);
         else
-          kernel_symuse_observe_large_use(k, clause_at(k.arena, a.reason)->id());
+          kernel_symuse_note_large_use(k, clause_at(k.arena, a.reason)->id());
       }
       if (a.binary) {
         const Lit other = a.reason;
@@ -1432,14 +1432,14 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
         mark(a.reason); // the other literal of the binary reason clause
         resolvent_size--;
         if (k.symuse_active) [[unlikely]]
-          kernel_symuse_observe_binary_use(
+          kernel_symuse_note_binary_use(
               k, t, a.jumped ? k.jumped_over[var_of(t)] : a.reason);
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
         Clause *reason = clause_at(k.arena, a.reason);
         mark_used(k, reason);
         if (k.symuse_active) [[unlikely]]
-          kernel_symuse_observe_large_use(k, reason->id());
+          kernel_symuse_note_large_use(k, reason->id());
         event_trace_detail(k, "analysis_reason_ref", a.reason);
         event_trace_detail(k, "analysis_reason_id", reason->id());
         event_trace_detail(k, "analysis_reason_order",

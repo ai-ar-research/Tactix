@@ -4640,8 +4640,11 @@ void kernel_symuse_note_assign(Kernel &k, Lit lit, uint32_t level,
   uint32_t tag = 0, unit_tag = 0;
   if (binary) {
     // A jumped assignment's own clause is (lit, jumped_over); its reason field
-    // names the jumped-over literal's antecedent instead.
+    // names the jumped-over literal's antecedent instead. Both a binary tag
+    // and a root-forced attribution need `other` marked.
     const Lit other = jumped ? k.jumped_over[var_of(lit)] : reason;
+    if (other >= marks.size() || !marks[other])
+      return;
     tag = symuse_binary_tag(k, lit, other);
     if (!level && other < marks.size() &&
         (marks[other] & SymmetryUse::UNIT_MARK))
@@ -4649,9 +4652,11 @@ void kernel_symuse_note_assign(Kernel &k, Lit lit, uint32_t level,
   } else {
     if (reason == DECISION_REASON || reason == UNIT_REASON)
       return;
+    if (level && !k.symuse.large_max)
+      return;
     const Clause *c = clause_at(k.arena, reason);
     tag = symuse_large_tag(k, c->id());
-    if (!level && !k.symuse.units.empty())
+    if (!level && k.symuse.has_units)
       for (const Lit m : *c)
         if (m != lit && m < marks.size() &&
             (marks[m] & SymmetryUse::UNIT_MARK)) {
