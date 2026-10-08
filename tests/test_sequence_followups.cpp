@@ -299,6 +299,33 @@ static void progress_window_is_not_a_detection_limit() {
   }
 }
 
+// satsuma.h:809: one iteration counter spans the whole preprocessing loop,
+// so stages sharing the budget cannot repeat once it is spent.
+static void shared_repetition_budget_spans_stages() {
+  for (const uint64_t spent : {uint64_t{0}, uint64_t{1}}) {
+    OnlineStrategyStage stage;
+    stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
+    stage.program.sequence = {producer()};
+    // A tiny formula takes the cap: one pass plus one repetition.
+    stage.program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 1};
+    stage.repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+    Kernel k = fixture(false);
+    uint64_t repetitions = spent;
+    OnlineStrategySequence sequence;
+    assert(sequence.configure(stage));
+    sequence.share_repetition_budget(&repetitions);
+    unsigned calls = 0;
+    while (!sequence.complete()) {
+      assert(++calls < 100);
+      sequence.advance(k);
+    }
+    kernel_check_invariants(k);
+    assert(k.stats.sr_applied == 1);
+    assert(sequence.rounds() == (spent ? 1u : 2u));
+    assert(repetitions == 1);
+  }
+}
+
 // An identical generated detection is not paid again on an unchanged
 // formula; any effective transition makes it current work again.
 static void unchanged_detection_is_not_repeated() {
@@ -362,6 +389,7 @@ int main() {
   repeat_trigger_requires_symmetry_output();
   detection_limit_stops_repetition();
   progress_window_is_not_a_detection_limit();
+  shared_repetition_budget_spans_stages();
   unchanged_detection_is_not_repeated();
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;

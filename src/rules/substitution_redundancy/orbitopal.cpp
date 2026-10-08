@@ -1047,9 +1047,41 @@ struct FormulaRefinement {
   bool base_probed = false;
   uint32_t base_length = 0;
   int8_t shallow = -1;
+  // Equitable root cell of every literal vertex and each cell's literal
+  // count, read once per refinement graph.
+  std::vector<uint32_t> root_cells;
+  std::vector<uint32_t> root_cell_sizes;
 
   ~FormulaRefinement() { symmetry_backend::release(session); }
 };
+
+// The root partition restricted to literal vertices. Every detector reads the
+// same equitable coloring (Satsuma: one refinement per pass).
+bool refinement_root_cells(FormulaRefinement &refinement,
+                           OrbitopalEnumerationResult &result) {
+  if (!refinement.root_cells.empty() || !refinement.literal_count)
+    return true;
+  symmetry_backend::RefinementPartition partition;
+  const symmetry_backend::Status status = symmetry_backend::root_partition(
+      *refinement.session, refinement.literal_count, partition);
+  if (status != symmetry_backend::Status::Complete) {
+    result.status = status == symmetry_backend::Status::Interrupted
+                        ? OrbitopalEnumerationStatus::Interrupted
+                        : traced_orbitopal_limit(__func__, __LINE__);
+    symmetry_backend::release(partition);
+    return false;
+  }
+  refinement.root_cells.assign(partition.cells,
+                               partition.cells + partition.domain_size);
+  symmetry_backend::release(partition);
+  uint32_t largest = 0;
+  for (const uint32_t cell : refinement.root_cells)
+    largest = std::max(largest, cell);
+  refinement.root_cell_sizes.assign(static_cast<size_t>(largest) + 1, 0);
+  for (const uint32_t cell : refinement.root_cells)
+    ++refinement.root_cell_sizes[cell];
+  return true;
+}
 
 struct DirectBinaryGraph {
   uint32_t vertex_count = 0;
@@ -1163,6 +1195,18 @@ bool prepare_formula_refinement(
     return false;
   }
   if (!cached.initialized) {
+    // A failed preparation leaves the cache unprepared, so a later detection
+    // with more allowance retries instead of inheriting the failure.
+    struct Failure {
+      FormulaRefinement &cached;
+      bool armed = true;
+      ~Failure() {
+        if (armed) {
+          symmetry_backend::release(cached.session);
+          cached.initialized = false;
+        }
+      }
+    } failure{cached};
     cached.initialized = true;
     DirectBinaryGraph storage;
     const GraphSymmetryParameters &limits = parameters.graph_symmetry;
@@ -1197,6 +1241,7 @@ bool prepare_formula_refinement(
       return false;
     }
     cached.literal_count = static_cast<uint32_t>(literal_count);
+    failure.armed = false;
   }
   if (!cached.session || cached.literal_count != literal_count) {
     result.status = traced_orbitopal_limit(__func__, __LINE__);
@@ -1253,27 +1298,12 @@ bool shallow_refinement_group(const Kernel &kernel,
   if (!parameters.orbitopal_base_probe_filter)
     return true;
   if (refinement.shallow < 0) {
-    if (!charge(kernel, stop, parameters, result, refinement.literal_count))
+    if (!charge(kernel, stop, parameters, result, refinement.literal_count) ||
+        !refinement_root_cells(refinement, result))
       return false;
-    symmetry_backend::RefinementPartition partition;
-    const symmetry_backend::Status status = symmetry_backend::root_partition(
-        *refinement.session, refinement.literal_count, partition);
-    if (status != symmetry_backend::Status::Complete) {
-      result.status = status == symmetry_backend::Status::Interrupted
-                          ? OrbitopalEnumerationStatus::Interrupted
-                          : traced_orbitopal_limit(__func__, __LINE__);
-      symmetry_backend::release(partition);
-      return false;
-    }
-    std::unordered_map<uint32_t, uint32_t> cell_sizes;
-    for (Lit literal = 0; literal < partition.domain_size; ++literal)
-      ++cell_sizes[partition.cells[literal]];
-    symmetry_backend::release(partition);
     uint64_t nontrivial = 0;
-    for (const auto &[cell, size] : cell_sizes) {
-      (void)cell;
+    for (const uint32_t size : refinement.root_cell_sizes)
       nontrivial += size > 1;
-    }
     bool verdict = false;
     uint32_t base = 0;
     if (nontrivial > 10000) {
@@ -1955,7 +1985,8 @@ bool product_child_partition(
   const symmetry_backend::Status status =
       symmetry_backend::individualized_partition(
           branch, anchor, literal_count, remaining,
-          refinement_stopped, &context, partition);
+          refinement_stopped, &context, partition, orbit.data(),
+          static_cast<uint32_t>(orbit.size()));
   result.ticks = partition.ticks > UINT64_MAX - result.ticks
                      ? UINT64_MAX
                      : result.ticks + partition.ticks;
@@ -1970,8 +2001,7 @@ bool product_child_partition(
   child.cells.resize(orbit.size());
   child.sizes.clear();
   for (size_t at = 0; at < orbit.size(); ++at) {
-    const Lit literal = orbit[at];
-    const uint32_t cell = partition.cells[literal];
+    const uint32_t cell = partition.cells[at];
     child.cells[at] = cell;
     ++child.sizes[cell];
   }
@@ -1992,7 +2022,8 @@ bool product_child_partition(
       symmetry_backend::individualized_partition(
           *refinement.session, anchors.data(),
           static_cast<uint32_t>(anchors.size()), refinement.literal_count,
-          remaining, refinement_stopped, &context, partition);
+          remaining, refinement_stopped, &context, partition, orbit.data(),
+          static_cast<uint32_t>(orbit.size()));
   result.ticks = partition.ticks > UINT64_MAX - result.ticks
                      ? UINT64_MAX
                      : result.ticks + partition.ticks;
@@ -2007,8 +2038,7 @@ bool product_child_partition(
   child.cells.resize(orbit.size());
   child.sizes.clear();
   for (size_t at = 0; at < orbit.size(); ++at) {
-    const Lit literal = orbit[at];
-    const uint32_t cell = partition.cells[literal];
+    const uint32_t cell = partition.cells[at];
     child.cells[at] = cell;
     ++child.sizes[cell];
   }
@@ -2194,21 +2224,15 @@ bool emit_refined_product_orbits(
     return false;
   if (shallow)
     return true;
-  symmetry_backend::RefinementPartition root;
-  const symmetry_backend::Status root_status =
-      symmetry_backend::root_partition(*refinement.session,
-                                       refinement.literal_count, root);
-  if (root_status != symmetry_backend::Status::Complete) {
-    result.status = root_status == symmetry_backend::Status::Interrupted
-                        ? OrbitopalEnumerationStatus::Interrupted
-                        : traced_orbitopal_limit(__func__, __LINE__);
-    symmetry_backend::release(root);
+  if (!refinement_root_cells(refinement, result))
     return false;
-  }
+  // Singleton cells can never hold a product candidate.
   std::map<uint32_t, std::vector<Lit>> root_cells;
-  for (Lit literal = 0; literal < root.domain_size; ++literal)
-    root_cells[root.cells[literal]].push_back(literal);
-  symmetry_backend::release(root);
+  for (Lit literal = 0; literal < refinement.root_cells.size(); ++literal) {
+    const uint32_t cell = refinement.root_cells[literal];
+    if (refinement.root_cell_sizes[cell] > 1)
+      root_cells[cell].push_back(literal);
+  }
 
   std::vector<uint8_t> tested(refinement.literal_count, 0);
   RefinementProgressFeedback progress(kernel, parameters, result);
@@ -2480,26 +2504,18 @@ bool emit_refined_row_candidates(
     // Satsuma tries structured actions from equitable cells before generic
     // automorphism search. A cell may contain several true orbits; it only
     // proposes candidates for the later exact whole-formula action checks.
-    if (!charge(kernel, stop, parameters, result, literal_count))
+    if (!charge(kernel, stop, parameters, result, literal_count) ||
+        !refinement_root_cells(refinement, result))
       return false;
-    struct PartitionOwner {
-      symmetry_backend::RefinementPartition value;
-      ~PartitionOwner() { symmetry_backend::release(value); }
-    } owned_partition;
-    auto &partition = owned_partition.value;
-    const auto status = symmetry_backend::root_partition(
-        *refinement.session, literal_count, partition);
-    if (status != symmetry_backend::Status::Complete) {
-      result.status = status == symmetry_backend::Status::Interrupted
-                          ? OrbitopalEnumerationStatus::Interrupted
-                          : traced_orbitopal_limit(__func__, __LINE__);
-      return false;
+    // Singleton cells are never row candidates (minimum_orbitopal_rows >= 2).
+    for (Lit literal = 0; literal < literal_count; ++literal) {
+      const uint32_t cell = refinement.root_cells[literal];
+      if (refinement.root_cell_sizes[cell] > 1)
+        orbit_map[cell].push_back(literal);
     }
-    for (Lit literal = 0; literal < literal_count; ++literal)
-      orbit_map[partition.cells[literal]].push_back(literal);
     if (!charge(kernel, stop, parameters, result, 0))
       return false;
-    trace.event("row_refinement_cells", "cells\t%zu", orbit_map.size());
+    trace.event("row_refinement_cells", "nontrivial_cells\t%zu", orbit_map.size());
   } else {
     // Generator-subgroup orbits remain a selectable alternative when a broad
     // equitable cell makes structured discovery unproductive or expensive.
@@ -2733,10 +2749,58 @@ bool emit_refined_row_candidates(
 
 } // namespace
 
+struct OrbitopalFormulaCache::State {
+  const Kernel *owner = nullptr;
+  uint32_t nvars = 0;
+  uint64_t arena_generation = 0;
+  uint64_t touch_epoch = 0;
+  uint64_t root_assignments = 0;
+  size_t trail = 0;
+  bool pointwise_root_stabilizer = false;
+  uint64_t maximum_graph_vertices = 0;
+  uint64_t maximum_graph_edges = 0;
+  std::optional<LogicalFormula> formula;
+  std::unique_ptr<FormulaRefinement> refinement =
+      std::make_unique<FormulaRefinement>();
+
+  void bind(const Kernel &kernel,
+            const SubstitutionRedundancyParameters &parameters) {
+    const auto &graph = parameters.graph_symmetry;
+    if (owner == &kernel && nvars == kernel.nvars &&
+        arena_generation == kernel.arena_generation &&
+        touch_epoch == kernel.touch_epoch &&
+        root_assignments == kernel.stats.root_assignments &&
+        trail == kernel.trail.size() &&
+        pointwise_root_stabilizer == graph.pointwise_root_stabilizer &&
+        maximum_graph_vertices == graph.maximum_graph_vertices &&
+        maximum_graph_edges == graph.maximum_graph_edges) {
+      // A memoized anchor refinement belongs to the earlier detection.
+      if (refinement->session)
+        symmetry_backend::forget_first_refinement(*refinement->session);
+      return;
+    }
+    owner = &kernel;
+    nvars = kernel.nvars;
+    arena_generation = kernel.arena_generation;
+    touch_epoch = kernel.touch_epoch;
+    root_assignments = kernel.stats.root_assignments;
+    trail = kernel.trail.size();
+    pointwise_root_stabilizer = graph.pointwise_root_stabilizer;
+    maximum_graph_vertices = graph.maximum_graph_vertices;
+    maximum_graph_edges = graph.maximum_graph_edges;
+    formula.reset();
+    refinement = std::make_unique<FormulaRefinement>();
+  }
+};
+
+OrbitopalFormulaCache::OrbitopalFormulaCache()
+    : state(std::make_unique<State>()) {}
+OrbitopalFormulaCache::~OrbitopalFormulaCache() = default;
+
 static OrbitopalEnumerationResult enumerate_orbitopal(
     const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
     const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
-    SymmetryDiscoveryHints *hints) {
+    SymmetryDiscoveryHints *hints, OrbitopalFormulaCache *cache = nullptr) {
   OrbitopalEnumerationResult result;
   const SymmetryTrace trace;
   trace.event("orbitopal_begin",
@@ -2829,9 +2893,29 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
   if (!parameters.maximum_orbitopal_matrices)
     return result;
 
-  std::optional<LogicalFormula> formula;
+  std::optional<LogicalFormula> local_formula;
   FormulaAutomorphisms formula_automorphisms;
-  FormulaRefinement formula_refinement;
+  FormulaRefinement local_refinement;
+  if (cache)
+    cache->state->bind(kernel, parameters);
+  std::optional<LogicalFormula> &formula =
+      cache ? cache->state->formula : local_formula;
+  FormulaRefinement &formula_refinement =
+      cache ? *cache->state->refinement : local_refinement;
+#ifndef NDEBUG
+  // A reused snapshot must equal the one this formula state would produce.
+  if (cache && formula) {
+    LogicalFormula fresh;
+    OrbitopalEnumerationResult scratch;
+    SubstitutionRedundancyParameters unlimited = parameters;
+    unlimited.maximum_detection_ticks = UINT64_MAX;
+    const bool built = full_snapshot(kernel, unlimited, nullptr, scratch, fresh);
+    auto expected = fresh.clauses, reused = formula->clauses;
+    std::sort(expected.begin(), expected.end());
+    std::sort(reused.begin(), reused.end());
+    assert(!built || expected == reused);
+  }
+#endif
   std::vector<Lit> orbitopal_prefix_units;
   const bool complete_action =
       parameters.orbitopal_completion != OrbitopalCompletion::MatrixOnly;
@@ -2855,8 +2939,10 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
       formula.emplace();
       if (!trace.measure("orbitopal_snapshot", [&] {
             return full_snapshot(kernel, parameters, stop, result, *formula);
-          }))
+          })) {
+        formula.reset();
         return false;
+      }
     }
     bool product_emitted = false;
     if (!trace.measure("orbitopal_product", [&] {
@@ -2968,8 +3054,10 @@ static OrbitopalEnumerationResult enumerate_orbitopal(
         formula.emplace();
         if (!trace.measure("orbitopal_snapshot", [&] {
               return full_snapshot(kernel, parameters, stop, result, *formula);
-            }))
+            })) {
+          formula.reset();
           return result;
+        }
       }
 
       std::vector<std::vector<Lit>> matrix(row_count);
@@ -3158,9 +3246,11 @@ OrbitopalEnumerationResult with_allowance_limit(
 
 OrbitopalEnumerationResult substitution_redundancy_enumerate_orbitopal(
     const Kernel &kernel, const SubstitutionRedundancyParameters &parameters,
-    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop) {
+    const OrbitopalInstanceVisitor &visitor, volatile sig_atomic_t *stop,
+    OrbitopalFormulaCache *cache) {
   return with_allowance_limit(
-      parameters, enumerate_orbitopal(kernel, parameters, visitor, stop, nullptr));
+      parameters,
+      enumerate_orbitopal(kernel, parameters, visitor, stop, nullptr, cache));
 }
 
 OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators(

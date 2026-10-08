@@ -131,6 +131,8 @@ class OnlineStrategySequence {
   uint64_t round_outputs_ = 0;
   bool entered_ = false;
   UnchangedDetections *unchanged_ = nullptr;
+  OrbitopalFormulaCache *orbitopal_cache_ = nullptr;
+  uint64_t *shared_repetitions_ = nullptr;
   uint64_t unchanged_skips_ = 0;
   InvocationResult terminal_;
 
@@ -259,6 +261,18 @@ public:
   void share_unchanged_detections(UnchangedDetections *record) {
     unchanged_ = record;
   }
+  // Optional caller-owned orbitopal snapshot/refinement shared by every step
+  // of this and other sequences (Satsuma: one graph per pass).
+  void share_orbitopal_formula_cache(OrbitopalFormulaCache *cache) {
+    orbitopal_cache_ = cache;
+  }
+  // Optional caller-owned count of size-scaled repetitions shared with other
+  // sequences: Satsuma's iteration counter spans its whole preprocessing loop
+  // (satsuma.h:809, `iteration < iteration_max`), so stages draw on one
+  // budget. Null counts this sequence's own repetitions.
+  void share_repetition_budget(uint64_t *repetitions) {
+    shared_repetitions_ = repetitions;
+  }
 
   bool complete() const { return complete_; }
   uint64_t rounds() const { return rounds_; }
@@ -377,6 +391,7 @@ public:
         }
         ++dispatches_[current_];
         entered_ = true;
+        executor.share_orbitopal_formula_cache(orbitopal_cache_);
         InvocationResult out = dispatch(program_.sequence[current_], [&] {
           return executor.advance(k, stop, sr_discovery_allowance, discovery_feedback);
         });
@@ -438,14 +453,24 @@ public:
       case RepeatMode::Count:
         repeat = rounds_ < program_.repeat.limit;
         break;
-      case RepeatMode::UntilScopedFixpoint:
-      case RepeatMode::UntilSizeScaledFixpoint: {
+      case RepeatMode::UntilScopedFixpoint: {
         const uint64_t limit = repeat_round_limit(k, program_.repeat);
         repeat = earned && (!limit || rounds_ < limit);
         break;
       }
+      case RepeatMode::UntilSizeScaledFixpoint: {
+        // The limit counts passes, one initial pass plus the repetitions.
+        const uint64_t limit = repeat_round_limit(k, program_.repeat);
+        const uint64_t repeated =
+            shared_repetitions_ ? *shared_repetitions_ : rounds_ - 1;
+        repeat = earned && (!limit || repeated + 1 < limit);
+        break;
+      }
       }
       if (repeat && !finish_round_) {
+        if (shared_repetitions_ &&
+            program_.repeat.mode == RepeatMode::UntilSizeScaledFixpoint)
+          ++*shared_repetitions_;
         // A changed formula may make previously bounded discovery productive.
         // Reconfiguration drops stale payloads but never replenishes an action
         // budget. A no-progress fixpoint round is never retried.

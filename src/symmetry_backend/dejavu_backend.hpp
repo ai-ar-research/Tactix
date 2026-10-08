@@ -326,17 +326,23 @@ Status root_partition(RefinementSession &, uint32_t returned_prefix_size,
                       RefinementPartition &) noexcept;
 Status prepare_refinement_branch(RefinementSession &,
                                  RefinementBranch *&) noexcept;
+// With a query list the result describes only those vertices, in query
+// order (cells[i] and sizes[i] belong to query[i]; cell_count stays zero).
 Status individualized_partition(RefinementBranch &, uint32_t anchor,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback,
                                 void *stop_context,
-                                IndividualizedPartition &) noexcept;
+                                IndividualizedPartition &,
+                                const uint32_t *query = nullptr,
+                                uint32_t query_count = 0) noexcept;
 Status individualized_partition(RefinementSession &, const uint32_t *anchors,
                                 uint32_t anchor_count,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback,
                                 void *stop_context,
-                                IndividualizedPartition &) noexcept;
+                                IndividualizedPartition &,
+                                const uint32_t *query = nullptr,
+                                uint32_t query_count = 0) noexcept;
 Status individualized_partition(RefinementSession &, uint32_t anchor,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback,
@@ -350,6 +356,8 @@ Status probe_base_length(RefinementSession &, uint64_t maximum_ticks,
                          StopCallback, void *stop_context, uint32_t &length,
                          uint64_t &ticks) noexcept;
 void release(RefinementSession *&) noexcept;
+// Drop the session's memoized first refinement of the last reduced anchor.
+void forget_first_refinement(RefinementSession &) noexcept;
 void release(RefinementBranch *&) noexcept;
 void release(RefinementRows &) noexcept;
 void release(RefinementPartition &) noexcept;

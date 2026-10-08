@@ -185,6 +185,11 @@ public:
   // Since configuration, a generated SR discovery stopped at an owner-
   // equivalent detection limit or found its shared allowance exhausted.
   bool detection_limit_reached() const { return detection_limit_reached_; }
+  // Optional caller-owned snapshot/refinement shared with sibling orbitopal
+  // detections; null builds a private one per detection.
+  void share_orbitopal_formula_cache(OrbitopalFormulaCache *cache) {
+    orbitopal_cache_ = cache;
+  }
   // Restart-controller atomic doses can renew composition allowance while
   // retaining an unfinished native selection/discovery cursor. This never
   // changes the bound solver state or silently refreshes a stale selection.
@@ -229,6 +234,7 @@ private:
   uint64_t sequence_passes_ = 0;
   bool sequence_progress_ = false;
   bool detection_limit_reached_ = false;
+  OrbitopalFormulaCache *orbitopal_cache_ = nullptr;
   bool configured_ = false;
   bool complete_ = false;
   uint64_t revision_ = 0;
