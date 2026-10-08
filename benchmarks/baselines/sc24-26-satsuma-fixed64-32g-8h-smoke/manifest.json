@@ -1,0 +1,158 @@
+{
+  "campaign": "sc24-26-satsuma-fixed64-32g-8h-smoke",
+  "certificate_policy": {
+    "child_tmpdir": "task scratch directory",
+    "partial_unknown_proofs": "size recorded, not hashed",
+    "result_publication": "pending-journal-then-atomic-promotion",
+    "retention": "none",
+    "scratch": {
+      "kind": "directory",
+      "root": "{campaign}/scratch"
+    },
+    "stage_cleanup": "delete-input-after-consuming-checker-stage",
+    "terminal_cleanup": "bounded-nfs-retry-before-result-publication"
+  },
+  "checker_pins_from": "repository-relative",
+  "checkers": {
+    "cake-lpr": "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-lpr",
+    "cake-pb-cnf": "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf",
+    "checkmodel": "benchmarks/baselines/sc24-26-32g-5000s/pins/checkmodel",
+    "drat-trim": "benchmarks/baselines/sc24-26-32g-5000s/pins/drat-trim",
+    "dsr-compress": "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-compress",
+    "dsr-trim": "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-trim",
+    "modelcheck.py": "benchmarks/baselines/sc24-26-32g-5000s/pins/modelcheck.py",
+    "srcheck": "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/srcheck",
+    "veripb": "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb"
+  },
+  "created_utc": "2026-10-08T07:29:47.094150+00:00",
+  "dsr_route": {
+    "checker_cnf": "proof_oracle.canonical_checker_cnf for dsr-trim and srcheck",
+    "pipeline": "dsr-trim(long64-fixed) -> dsr-compress -d -> srcheck text",
+    "profile": "long64-fixed",
+    "provenance": {
+      "files": {
+        "benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fix.patch": "52592ba37c46b422d77021dd2bf9c46a72f3cc476eddf90239dc114ab253deb8",
+        "benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-compress": "8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531",
+        "benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/fixed-pins/dsr-trim": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+        "benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/result.json": "7740cd3ff366c7b6bda7396edf239ad93667e165c0b74b0cb7fb82e57afc3709",
+        "benchmarks/runs/20261007-rank147-longtype-deleted-clause-fix/source.tar": "397557639afc3a58b7a46979a4bb77e09b664b049b7017d71355435ba08632ad",
+        "tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch": "edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b2b923df3afc6"
+      },
+      "profile": "long64-fixed",
+      "qualification_job_id": "1755133",
+      "repository_patch_sha256": "edd70e504e573fbf9801a1c9f80a05fae04e2bcadd763a1e2a1b2b923df3afc6",
+      "schema": "tactix-dsr-checker-profile-provenance-v1",
+      "upstream_commit": "0b8cc0ef4d228c059994923cbc66abeb9a42ea14"
+    },
+    "reason": "frozen amendment-1 used Satsuma's bundled 32-bit dsr-trim, whose capacity growth overflows on multi-GB proofs; see benchmarks/reports/2026-10-08-dsr-checker-width-and-trust-boundary.md"
+  },
+  "limits": {
+    "cake_heap_mib": 24576,
+    "checker_memory_gib": 32,
+    "checker_pipeline_wall_seconds": 28800,
+    "memory_enforcement": "slurm_task_cgroup",
+    "model_check_wall_seconds": 600,
+    "scheduler_memory_gib": 32,
+    "solve_wall_seconds": 5000,
+    "solver_memory_enforcement": "slurm_task_cgroup",
+    "solver_memory_gib": 32
+  },
+  "once_only": true,
+  "pin_sha256": {
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/satsuma-kissat/run_satsuma_kissat.sh": "a90f66bc27f4f2b8ab08d4d0c06768bf79991b7b4ee4ddd56c1482507149d30e",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674",
+    "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-compress": "8ddab8302509ff6c3ebe1b6534698d64ff072b202b5b5f903dc4898bf73dd531",
+    "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/dsr-trim": "30207e6f0a6e3b5374976e6ef06528cea21c429383223ba46ae1020b8d7ff564",
+    "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/pins/srcheck": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945",
+    "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/runner/baseline_rerun.py": "82027a9cc11b0ca497c6281e4f9a5ca04c1a46304091908f701898f509b35f25",
+    "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/runner/frozen_baseline.py": "a15dacd9de2f0eeda86ebe14024ba4aa2445246a9f968e16f68ff7a54bcae1c4",
+    "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/runner/proof_oracle.py": "ab09d4c98f3a08eb1366877bac70a8730c1006cb630ccd816046b51f07800ede"
+  },
+  "reason": "smoke: long64-fixed DSR route and home campaign scratch cleanup before campaign A",
+  "requeue": false,
+  "runner": {
+    "path": "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h-smoke/runner",
+    "repository_commit": "ad8434f1d2d312f76d37a9be8f9253fba3075781"
+  },
+  "schema": "tactix-baseline-rerun-v1",
+  "selection": {
+    "classes": [
+      "all"
+    ],
+    "counts": {
+      "satsuma-kissat": {
+        "all": 4
+      }
+    },
+    "limit_tasks": [
+      33,
+      73,
+      133,
+      13
+    ],
+    "rule": "every source task of the named solvers",
+    "solvers": [
+      "satsuma-kissat"
+    ]
+  },
+  "slurm": {
+    "array_throttle": null,
+    "array_throttle_reason": null,
+    "cpus_per_task": 4,
+    "memory_gib": 32,
+    "partition": "cpu-q",
+    "time": "10:15:00"
+  },
+  "solvers": [
+    {
+      "certificate": "dsr",
+      "checker_pipeline": "dsr-sr2drat-cake-lpr",
+      "executable": "benchmarks/baselines/sc24-26-32g-5000s/pins/satsuma-kissat/run_satsuma_kissat.sh",
+      "kind": "output-directory",
+      "name": "satsuma-kissat",
+      "sha256": "a90f66bc27f4f2b8ab08d4d0c06768bf79991b7b4ee4ddd56c1482507149d30e",
+      "vbs_eligible": "SAT+UNSAT"
+    }
+  ],
+  "source": {
+    "campaign": "benchmarks/baselines/sc24-26-32g-5000s",
+    "manifest_sha256": "b865472054bb6661d4b1472a3a8cbbbf53947004f61cdf35711da7ad3146a25b",
+    "results_sha256": null
+  },
+  "tasks": [
+    {
+      "expected": "SAT",
+      "rel": "tierD24-26/00fd8ac9acd186a7a78a2c4d92f90de1-2.normalised.cnf.xz",
+      "solver": "satsuma-kissat",
+      "source_class": "all",
+      "source_task": 13
+    },
+    {
+      "expected": "UNSAT",
+      "rel": "tierD24-26/02066c116dbacc40ec5cca2067db26c0-mrpp_4x4#12_12.cnf.xz",
+      "solver": "satsuma-kissat",
+      "source_class": "all",
+      "source_task": 33
+    },
+    {
+      "expected": "UNSAT",
+      "rel": "tierD24-26/03e852aa864cfe6eb49c264b462b8157-gm24sparrc.cnf.xz",
+      "solver": "satsuma-kissat",
+      "source_class": "all",
+      "source_task": 73
+    },
+    {
+      "expected": "UNKNOWN",
+      "rel": "tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz",
+      "solver": "satsuma-kissat",
+      "source_class": "all",
+      "source_task": 133
+    }
+  ],
+  "user_instruction": "user 2026-10-08: rerun Satsuma+Kissat Tier D with the changed DSR checker, -c 4, 32 GB, 5000 s solve, 8 h check"
+}

@@ -1,0 +1,162 @@
+{
+  "campaign": "sc24-26-recheck-64g-8h-smoke",
+  "certificate_policy": {
+    "child_tmpdir": "task scratch directory",
+    "partial_unknown_proofs": "size recorded, not hashed",
+    "result_publication": "pending-journal-then-atomic-promotion",
+    "retention": "none",
+    "scratch": {
+      "kind": "directory",
+      "root": "{campaign}/scratch"
+    },
+    "stage_cleanup": "delete-input-after-consuming-checker-stage",
+    "terminal_cleanup": "bounded-nfs-retry-before-result-publication"
+  },
+  "checker_pins_from": "repository-relative",
+  "checkers": {
+    "cake-lpr": "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-lpr",
+    "cake-pb-cnf": "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf",
+    "checkmodel": "benchmarks/baselines/sc24-26-32g-5000s/pins/checkmodel",
+    "drat-trim": "benchmarks/baselines/sc24-26-32g-5000s/pins/drat-trim",
+    "modelcheck.py": "benchmarks/baselines/sc24-26-32g-5000s/pins/modelcheck.py",
+    "veripb": "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb"
+  },
+  "created_utc": "2026-10-08T07:29:47.233652+00:00",
+  "dsr_route": null,
+  "limits": {
+    "cake_heap_mib": 57344,
+    "checker_memory_gib": 64,
+    "checker_pipeline_wall_seconds": 28800,
+    "memory_enforcement": "slurm_task_cgroup",
+    "model_check_wall_seconds": 600,
+    "scheduler_memory_gib": 64,
+    "solve_wall_seconds": 5000,
+    "solver_memory_enforcement": "process_group_rss_watchdog (2 s samples of summed /proc RSS; SIGTERM then SIGKILL above the cap); no RLIMIT_AS",
+    "solver_memory_gib": 32
+  },
+  "once_only": true,
+  "pin_sha256": {
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-lpr": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/kissat-sc2024": "8a1a5b7a53a1ac10244034a00c7debcf95731ac57aa0110d20c29d41788063e0",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/lymphosat/run.sh": "e37422aecaa77b6fdb764cb63f719461203521bf6305522945332728c47d8f6c",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674",
+    "benchmarks/baselines/sc24-26-recheck-64g-8h-smoke/runner/baseline_rerun.py": "82027a9cc11b0ca497c6281e4f9a5ca04c1a46304091908f701898f509b35f25",
+    "benchmarks/baselines/sc24-26-recheck-64g-8h-smoke/runner/frozen_baseline.py": "a15dacd9de2f0eeda86ebe14024ba4aa2445246a9f968e16f68ff7a54bcae1c4",
+    "benchmarks/baselines/sc24-26-recheck-64g-8h-smoke/runner/proof_oracle.py": "ab09d4c98f3a08eb1366877bac70a8730c1006cb630ccd816046b51f07800ede"
+  },
+  "reason": "smoke: DRAT and PBP routes with 64 GiB checker / 32 GiB solver watchdog before campaign B",
+  "requeue": false,
+  "runner": {
+    "path": "benchmarks/baselines/sc24-26-recheck-64g-8h-smoke/runner",
+    "repository_commit": "ad8434f1d2d312f76d37a9be8f9253fba3075781"
+  },
+  "schema": "tactix-baseline-rerun-v1",
+  "selection": {
+    "classes": [
+      "all"
+    ],
+    "counts": {
+      "kissat-sc2024": {
+        "all": 3
+      },
+      "lymphosat": {
+        "all": 3
+      }
+    },
+    "limit_tasks": [
+      31,
+      71,
+      11,
+      134,
+      144,
+      99
+    ],
+    "rule": "every source task of the named solvers",
+    "solvers": [
+      "kissat-sc2024",
+      "lymphosat"
+    ]
+  },
+  "slurm": {
+    "array_throttle": null,
+    "array_throttle_reason": null,
+    "cpus_per_task": 4,
+    "memory_gib": 64,
+    "partition": "cpu-q",
+    "time": "10:15:00"
+  },
+  "solvers": [
+    {
+      "certificate": "drat",
+      "checker_pipeline": "drat-cake-lpr",
+      "executable": "benchmarks/baselines/sc24-26-32g-5000s/pins/kissat-sc2024",
+      "kind": "positional",
+      "name": "kissat-sc2024",
+      "sha256": "8a1a5b7a53a1ac10244034a00c7debcf95731ac57aa0110d20c29d41788063e0",
+      "vbs_eligible": "SAT+UNSAT"
+    },
+    {
+      "certificate": "pbp",
+      "checker_pipeline": "veripb-cake-pb",
+      "executable": "benchmarks/baselines/sc24-26-32g-5000s/pins/lymphosat/run.sh",
+      "kind": "output-directory",
+      "name": "lymphosat",
+      "sha256": "e37422aecaa77b6fdb764cb63f719461203521bf6305522945332728c47d8f6c",
+      "vbs_eligible": "SAT-only"
+    }
+  ],
+  "source": {
+    "campaign": "benchmarks/baselines/sc24-26-32g-5000s",
+    "manifest_sha256": "b865472054bb6661d4b1472a3a8cbbbf53947004f61cdf35711da7ad3146a25b",
+    "results_sha256": null
+  },
+  "tasks": [
+    {
+      "expected": "SAT",
+      "rel": "tierD24-26/00fd8ac9acd186a7a78a2c4d92f90de1-2.normalised.cnf.xz",
+      "solver": "kissat-sc2024",
+      "source_class": "all",
+      "source_task": 11
+    },
+    {
+      "expected": "UNSAT",
+      "rel": "tierD24-26/02066c116dbacc40ec5cca2067db26c0-mrpp_4x4#12_12.cnf.xz",
+      "solver": "kissat-sc2024",
+      "source_class": "all",
+      "source_task": 31
+    },
+    {
+      "expected": "UNSAT",
+      "rel": "tierD24-26/03e852aa864cfe6eb49c264b462b8157-gm24sparrc.cnf.xz",
+      "solver": "kissat-sc2024",
+      "source_class": "all",
+      "source_task": 71
+    },
+    {
+      "expected": "SAT",
+      "rel": "tierD24-26/04ded94454830d4ea960327e8b91f5a3-mdp-28-14-sat.cnf.xz",
+      "solver": "lymphosat",
+      "source_class": "all",
+      "source_task": 99
+    },
+    {
+      "expected": "UNKNOWN",
+      "rel": "tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz",
+      "solver": "lymphosat",
+      "source_class": "all",
+      "source_task": 134
+    },
+    {
+      "expected": "UNSAT",
+      "rel": "tierD24-26/07b476c83150d3cb7e08f5d045e255ab-marg5x5.shuffled-as.sat03-1455.cnf.xz",
+      "solver": "lymphosat",
+      "source_class": "all",
+      "source_task": 144
+    }
+  ],
+  "user_instruction": "user 2026-10-08: rerun checker timeouts/memouts of the other baselines with 8 h checking and 64 GB"
+}

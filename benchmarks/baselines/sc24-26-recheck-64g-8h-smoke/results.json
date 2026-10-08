@@ -1,0 +1,552 @@
+{
+  "complete": true,
+  "interrupted_claims": [],
+  "invalid": 0,
+  "manifest_sha256": "03aadd4f734218f81b506cce4473a742bee932af5fcc4eff16b58d8c87ddeba7",
+  "missing_tasks": [],
+  "pending_cleanup_tasks": [],
+  "result_count": 6,
+  "results": [
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 216652793,
+      "certificate_format": "drat",
+      "certificate_sha256": "d3802424ffbc6a22d6c4f5dbd5b281c8cb2a16be3070ba15ffd0ba13ce4c1f88",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "SAT",
+      "expected_match": true,
+      "instance": "tierD24-26/00fd8ac9acd186a7a78a2c4d92f90de1-2.normalised.cnf.xz",
+      "model_check": {
+        "exit_code": 0,
+        "group_rss_peak_kb_sampled": 36464,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 35440,
+        "result": "verified",
+        "stderr_tail": "",
+        "stdout_tail": "checkmodel: OK \u2014 63048517 clauses satisfied, 23436630 vars assigned",
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 72.211
+      },
+      "model_ok": true,
+      "model_protocol_ok": true,
+      "node": "node015",
+      "proof_check": null,
+      "proof_ok": null,
+      "scratch_deleted": true,
+      "slurm_job": "1757028",
+      "solve": {
+        "exit_code": 10,
+        "group_rss_peak_kb_sampled": 4163624,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 4162600,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 13.126
+      },
+      "solver": "kissat-sc2024",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "v 23436573 23436574 23436575 23436576 23436577 23436578 23436579 23436580\nv 23436581 23436582 23436583 23436584 23436585 23436586 23436587 23436588\nv 23436589 23436590 23436591 23436592 23436593 23436594 23436595 23436596\nv 23436597 23436598 23436599 23436600 23436601 23436602 23436603 23436604\nv 23436605 23436606 23436607 23436608 23436609 23436610 23436611 23436612\nv 23436613 23436614 23436615 23436616 23436617 23436618 23436619 23436620\nv 23436621 23436622 23436623 23436624 23436625 23436626 23436627 23436628\nv 23436629 -23436630 0",
+      "source_class": "all",
+      "source_task": 11,
+      "task": 0,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "SAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 18236164,
+      "certificate_format": "drat",
+      "certificate_sha256": "7340d24ce0fc2857c59f1bcfe9cd16ad19799344759649da1a33b6d2347abefe",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNSAT",
+      "expected_match": true,
+      "instance": "tierD24-26/02066c116dbacc40ec5cca2067db26c0-mrpp_4x4#12_12.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node015",
+      "proof_check": {
+        "checker_cnf": null,
+        "derived_artifacts": [
+          {
+            "bytes": 46230266,
+            "deleted": true,
+            "path": "proof.lrat"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 1463924,
+        "pipeline": "drat-cake-lpr",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/drat-trim",
+              "instance.cnf",
+              "proof-dir/proof.out",
+              "-L",
+              "proof.lrat"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 107016,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "drat-trim",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 105992,
+            "pin_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "\nc 141567 of 275692 lemmas in core using 5180209 resolution steps\n\nc 3796 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 6.489 seconds",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 6.513
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-lpr",
+              "instance.cnf",
+              "proof.lrat"
+            ],
+            "environment": {
+              "CML_HEAP_SIZE_MIB": 57344
+            },
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "cake-lpr",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 1463924,
+            "pin_sha256": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "s VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 1.719
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 8.232
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757029",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 12564,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 12052,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 7.063
+      },
+      "solver": "kissat-sc2024",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "s UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 31,
+      "task": 1,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "UNSAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 726043,
+      "certificate_format": "drat",
+      "certificate_sha256": "e7840cb7538dbd44da5f2db12ee94d159c8a0153e7fc82a0aafec93470e350e4",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNSAT",
+      "expected_match": true,
+      "instance": "tierD24-26/03e852aa864cfe6eb49c264b462b8157-gm24sparrc.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node002",
+      "proof_check": {
+        "checker_cnf": null,
+        "derived_artifacts": [
+          {
+            "bytes": 6087210,
+            "deleted": true,
+            "path": "proof.lrat"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 945780,
+        "pipeline": "drat-cake-lpr",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/drat-trim",
+              "instance.cnf",
+              "proof-dir/proof.out",
+              "-L",
+              "proof.lrat"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "drat-trim",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 79032,
+            "pin_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "\nc 8812 of 69566 lemmas in core using 602307 resolution steps\n\nc 16 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.317 seconds",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.367
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-lpr",
+              "instance.cnf",
+              "proof.lrat"
+            ],
+            "environment": {
+              "CML_HEAP_SIZE_MIB": 57344
+            },
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "cake-lpr",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 945780,
+            "pin_sha256": "ab9dc6c43ad0f55bbaf336c5d898919ddb03d0bdb75e88dff48237fb06ba1f57",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "s VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.567
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 0.934
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757030",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 0,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 53512,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 0.818
+      },
+      "solver": "kissat-sc2024",
+      "solver_stderr_tail": "",
+      "solver_stdout_tail": "s UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 71,
+      "task": 2,
+      "valid": true,
+      "vbs_eligible": "SAT+UNSAT",
+      "verdict": "UNSAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 3529,
+      "certificate_format": "pbp",
+      "certificate_sha256": "1c4249485e14df155f0b1b507b96a65db988cde79e994a608a0be540c3575efb",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "SAT",
+      "expected_match": true,
+      "instance": "tierD24-26/04ded94454830d4ea960327e8b91f5a3-mdp-28-14-sat.cnf.xz",
+      "model_check": {
+        "exit_code": 0,
+        "group_rss_peak_kb_sampled": 0,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 12800,
+        "result": "verified",
+        "stderr_tail": "",
+        "stdout_tail": "checkmodel: OK \u2014 4386 clauses satisfied, 792 vars assigned",
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 0.067
+      },
+      "model_ok": true,
+      "model_protocol_ok": true,
+      "node": "node001",
+      "proof_check": null,
+      "proof_ok": null,
+      "scratch_deleted": true,
+      "slurm_job": "1757031",
+      "solve": {
+        "exit_code": 10,
+        "group_rss_peak_kb_sampled": 0,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 21000,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 0.116
+      },
+      "solver": "lymphosat",
+      "solver_stderr_tail": "c composite: matcher minimum-disagreement-parity accepted formula",
+      "solver_stdout_tail": "v -641 -642 -643 -644 -645 646 647 648 649 650 651 652 653 654 655 656 657 658 659 660\nv 661 662 663 664 665 666 667 668 669 670 671 672 673 674 675 676 677 678 679 680\nv 681 682 683 684 685 686 -687 -688 -689 -690 -691 -692 -693 -694 695 696 697 698 699 700\nv 701 702 703 704 705 706 707 708 709 710 711 712 713 714 715 716 717 718 719 720\nv 721 722 723 724 725 726 727 728 729 730 731 732 733 734 735 736 737 738 739 740\nv -741 -742 -743 744 745 746 747 748 749 750 751 752 753 754 755 756 757 758 759 760\nv 761 762 763 764 765 766 767 768 769 770 771 772 773 774 775 776 777 778 779 780\nv 781 782 783 784 785 786 787 788 789 790 791 792 0",
+      "source_class": "all",
+      "source_task": 99,
+      "task": 3,
+      "valid": true,
+      "vbs_eligible": "SAT-only",
+      "verdict": "SAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 34350825,
+      "certificate_format": "pbp",
+      "certificate_sha256": "12abacbe85a53ec3687e76accb6f5f71c7aa70f40da97974f0eef0f6c35b183f",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNKNOWN",
+      "expected_match": true,
+      "instance": "tierD24-26/06d2ca2ee0b47f00d93090495f7fd4f4-clqcl_100_6_5.normalised.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node001",
+      "proof_check": {
+        "checker_cnf": null,
+        "derived_artifacts": [
+          {
+            "bytes": 82895992,
+            "deleted": true,
+            "path": "proof.kernel.pbp"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 12013172,
+        "pipeline": "veripb-cake-pb",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb",
+              "-u",
+              "--cnf",
+              "--elaborate",
+              "proof.kernel.pbp",
+              "instance.cnf",
+              "proof-dir/proof.out"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 577672,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "veripb",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 596584,
+            "pin_sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "Running VeriPB version 3.0.2\ns VERIFIED UNSATISFIABLE",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 15.203
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf",
+              "instance.cnf",
+              "proof.kernel.pbp"
+            ],
+            "environment": {
+              "CML_HEAP_SIZE_MIB": 57344
+            },
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 8491636,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "cake-pb-cnf",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 12013172,
+            "pin_sha256": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "s VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 5.916
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 21.119
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757032",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 0,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 40600,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 0.567
+      },
+      "solver": "lymphosat",
+      "solver_stderr_tail": "c composite: matcher clique-coloring accepted formula",
+      "solver_stdout_tail": "s UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 134,
+      "task": 4,
+      "valid": true,
+      "vbs_eligible": "SAT-only",
+      "verdict": "UNSAT"
+    },
+    {
+      "artifact_deleted": true,
+      "certificate_bytes": 109073,
+      "certificate_format": "pbp",
+      "certificate_sha256": "f03003d316cb3e58e4466c7b4098fcc4a03941cb932667f255df573ea334ba9c",
+      "cleanup_pending": false,
+      "cleanup_retries": 0,
+      "derived_artifacts_deleted": true,
+      "expected": "UNSAT",
+      "expected_match": true,
+      "instance": "tierD24-26/07b476c83150d3cb7e08f5d045e255ab-marg5x5.shuffled-as.sat03-1455.cnf.xz",
+      "model_check": null,
+      "model_ok": null,
+      "node": "node001",
+      "proof_check": {
+        "checker_cnf": null,
+        "derived_artifacts": [
+          {
+            "bytes": 114828,
+            "deleted": true,
+            "path": "proof.kernel.pbp"
+          }
+        ],
+        "failure_class": "verified",
+        "peak_rss_kb": 28788,
+        "pipeline": "veripb-cake-pb",
+        "result": "verified",
+        "stages": [
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb",
+              "-u",
+              "--cnf",
+              "--elaborate",
+              "proof.kernel.pbp",
+              "instance.cnf",
+              "proof-dir/proof.out"
+            ],
+            "environment": {},
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "veripb",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 8896,
+            "pin_sha256": "2e5fa5ef07c655640e6fff0d3f41561eab1502ec2e48766cca60287625935674",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "Running VeriPB version 3.0.2\ns VERIFIED UNSATISFIABLE",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.018
+          },
+          {
+            "command": [
+              "/home/hwu/SAT-solving/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf",
+              "instance.cnf",
+              "proof.kernel.pbp"
+            ],
+            "environment": {
+              "CML_HEAP_SIZE_MIB": 57344
+            },
+            "exit_code": 0,
+            "group_rss_peak_kb_sampled": 0,
+            "input_artifact_deleted": true,
+            "killed_by_runner": null,
+            "name": "cake-pb-cnf",
+            "oom_kill_delta": 0,
+            "peak_rss_kb": 28788,
+            "pin_sha256": "c859a9c926ca8c63dac3317930ea8dbe3732a6fc24faa6e28ed740fadd67dc47",
+            "result": "verified",
+            "stderr_tail": "",
+            "stdout_tail": "s VERIFIED UNSAT",
+            "term_signal": null,
+            "timed_out": false,
+            "wall_seconds": 0.018
+          }
+        ],
+        "timed_out": false,
+        "wall_seconds": 0.036
+      },
+      "proof_ok": true,
+      "scratch_deleted": true,
+      "slurm_job": "1757026",
+      "solve": {
+        "exit_code": 20,
+        "group_rss_peak_kb_sampled": 0,
+        "killed_by_runner": null,
+        "oom_kill_delta": 0,
+        "peak_rss_kb": 3584,
+        "term_signal": null,
+        "timed_out": false,
+        "wall_seconds": 0.116
+      },
+      "solver": "lymphosat",
+      "solver_stderr_tail": "c Parsed: 105 vars, 512 clauses\nc Detected 50 XOR constraints, 0 remaining clauses\nc Pure XOR formula, parity sum: 1\nc Parity sum: 1 (0=SAT candidate, 1=UNSAT)\nc Tseitin UNSAT detected by parity sum\nc Generating UNSAT proof...\nc Parity proof: 50 XORs -> 98 expanded (max_deg=5)\nc Parity proof complete: 4569 constraints",
+      "solver_stdout_tail": "s UNSATISFIABLE",
+      "source_class": "all",
+      "source_task": 144,
+      "task": 5,
+      "valid": true,
+      "vbs_eligible": "SAT-only",
+      "verdict": "UNSAT"
+    }
+  ],
+  "schema": "tactix-baseline-rerun-v1",
+  "scratch_leftovers": [],
+  "source_class_transitions": {
+    "kissat-sc2024": {
+      "all -> SAT-valid": 1,
+      "all -> UNSAT-verified": 2
+    },
+    "lymphosat": {
+      "all -> SAT-valid": 1,
+      "all -> UNSAT-verified": 2
+    }
+  },
+  "summary": {
+    "kissat-sc2024": {
+      "SAT-valid": 1,
+      "UNSAT-verified": 2
+    },
+    "lymphosat": {
+      "SAT-valid": 1,
+      "UNSAT-verified": 2
+    }
+  },
+  "task_count": 6
+}
