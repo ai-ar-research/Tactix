@@ -19,11 +19,9 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   };
   auto pure = find("BVE");
   pure.id = 94;
-  // Removing a pure pivot can expose another. The reference step's PureClosure
-  // scope selects that whole finite closure in one pass, from one occurrence
-  // image, before another full symmetry-discovery scan is paid for. Each
-  // successful application retires a variable; the shared budget and stop
-  // checks still bound the work.
+  // One owner round of currently pure literals per pass (the reference
+  // step's PureOnly scope). Literals exposed by that round are taken only by a
+  // pass that symmetry-breaking output has earned.
   auto product = find("SubstitutionRedundancy");
   product.id = 82;
   product.repeat = {RepeatMode::Once, 1};

@@ -63,7 +63,7 @@ int main() {
       std::get<BveParameters>(root.sequence[0].parameters);
   assert(root.sequence[0].rule == "BVE" &&
          root.sequence[0].work_unit == WorkUnit::BveTicks &&
-         pure.candidate_scope == BveCandidateScope::PureClosure);
+         pure.candidate_scope == BveCandidateScope::PureOnly);
   const auto &orbitopal = std::get<tactix::SubstitutionRedundancyParameters>(
       root.sequence[1].parameters);
   assert(root.sequence[1].rule == "SubstitutionRedundancy");
