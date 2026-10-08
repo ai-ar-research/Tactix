@@ -1560,19 +1560,23 @@ private:
 // survives arena collection and is retired exactly by kernel_delete_clause;
 // binaries and units live only in watch lists and on the trail, so they keep
 // a stable external identity and an internal filter that compaction rebuilds.
-// `Kernel::symuse_active` stays false until the first tag, so untagged runs pay
-// one predictable branch per assignment and per resolved antecedent. Each hook
-// stays one out-of-line call, filtering inside it, so the inlined propagation
-// and analysis loops carry no bookkeeping code beyond that branch.
+// `Kernel::symuse_active` stays false until the first tag. Propagation is
+// observed by rescanning the trail segment a propagation call assigned, after
+// the call returns, so the propagation loop itself carries no bookkeeping;
+// analysis pays one predictable branch per resolved antecedent.
 struct SymmetryUseRun {
   uint64_t clauses = 0, helpers = 0, units = 0, binaries = 0, large = 0;
-  // Assignments whose reason is a tagged binary/large clause (helper share,
-  // and the share made outside inprocessing, warm-up and probing).
+  // Propagation-made assignments (and conflict-reuse assertions) whose reason
+  // is a tagged binary/large clause: helper share, and the share made outside
+  // inprocessing, warm-up and probing.
   uint64_t propagations = 0, helper_propagations = 0, search_propagations = 0;
   // Conflict clauses and reasons resolved by ConflictAnalysis (1UIP and the
   // failed-level-one walk; not minimization or shrinking).
   uint64_t analysis_uses = 0, helper_analysis_uses = 0;
-  // Root implications whose reason contains the negation of a tagged unit.
+  // Root implications whose reason contains the negation of a tagged unit
+  // (one level: the unit's own consequences, not their descendants). Once no
+  // tagged binary or large clause is live, only propagation at the root is
+  // inspected for this.
   uint64_t root_forced = 0;
   uint64_t large_deleted = 0; // retired by any path, in-place shrink included
 };
@@ -1599,6 +1603,7 @@ struct SymmetryUse {
   BinaryIdMap unit_tags;   // internal unit literal -> tag
   BinaryIdMap large_tags;  // proof id -> tag, zero once retired
   uint64_t large_min = UINT64_MAX, large_max = 0; // empty range: no large tag
+  uint64_t live_large = 0; // tagged large clauses not yet retired
   bool has_units = false;
 };
 
@@ -2216,9 +2221,8 @@ struct Kernel {
 // behind `k.symuse_active` and filter by literal mark or id range first.
 void kernel_symuse_tag(Kernel &, const Lit *lits, uint32_t size, uint64_t id,
                        bool helper);
-[[gnu::noinline]] void
-kernel_symuse_note_assign(Kernel &, Lit lit, uint32_t level, uint32_t reason,
-                          bool binary, bool jumped);
+// Attribute the assignments trail[from..] by their recorded reasons.
+[[gnu::noinline]] void kernel_symuse_note_trail(Kernel &, size_t from);
 [[gnu::noinline]] void kernel_symuse_note_binary_use(Kernel &, Lit a, Lit b);
 [[gnu::noinline]] void kernel_symuse_note_large_use(Kernel &, uint64_t id);
 [[gnu::noinline, gnu::cold]] void kernel_symuse_note_delete(Kernel &,
@@ -2916,8 +2920,6 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
     assert(k.unassigned_active > 0);
     k.unassigned_active--;
   }
-  if (k.symuse_active) [[unlikely]]
-    kernel_symuse_note_assign(k, lit, level, reason, binary, jumped);
 }
 inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
   k.level++;
