@@ -89,12 +89,16 @@ not a rejection).
 | ntil-90d-40 (1,200) | SAT 97.3 | timeout | 3,187 / 3,035 | 1 / 1 |
 | noL-11-0 (600) | timeout | timeout | 101 / 75 | 1,093 / 1,093 |
 | noL-11-8 (600) | timeout | timeout | – / 195 | – / 1,082 |
-| Rank754 (5,000) | PENDING | PENDING | | |
-| Rank896 (5,000) | PENDING | PENDING | | |
+| Rank754 Timetable C_495 (5,000) | timeout | **SAT 3,915.6, model verified** | – / 3,595 | – / 728 (723) |
+| Rank896 pcmax m19 (5,000) | timeout | timeout | 244 / 169 | 0 / 0 |
 | b18 (1,200, overhead row) | UNSAT 219.0 | UNSAT 248.3 | 290 / 1,516 | 0 / 12,060 (12,060) |
 | oski15a01b06s (1,200, overhead row) | UNSAT 360.8 (window) | UNSAT 439.5 (window) | 4,615 / 9,124 | 1,517 / 1,503 |
 | b19_1 (1,200, overhead row) | UNSAT 507.9 | UNSAT 488.2 | 621 / 2,600 | 0 / 24,064 (24,064) |
 | pj2009_k80 (1,200, overhead row) | SAT 131.5 | SAT 87.9 | 470 / 1,594 | 0 / 115,488 (115,488) |
+
+Summary: bcd3 gains bphp_p23_h22 (544 s -> 2.5 s) and Rank754 (timeout -> 3,916 s), is faster
+on pj2009_k80 and b19_1, and loses the original-file orderings of Break_20_72, SC25_Timetable_C_496,
+ntil-90d-37 and ntil-90d-40; the shuffle probe below shows those four losses are luck.
 
 The earlier `bcd` pin's pairs (`20261007-satsuma-bcd-pair-*`) agree on every row the two repairs
 do not touch (ntil, noL, tt496, Break_20_72, b18) and show the two defects on pj2009/cabp.
@@ -134,7 +138,7 @@ overhead is 0.25-2.0 s on 100-1,200 s runs.
 
 Profiles first (plan §8.3): `results/perf2/*.{flat,children,stats}.txt`, same CPU, .text-identical `-g`
 pins (`pin-satsuma-bcd-c2g` = c2 `.text` `221def52…`; `pin-satsuma-bcd-relg3` = rel3 `.text` `9df1d9b3…`),
-`cycles:u`. For tt496, ntil37, ntil40, Break_20_72 and b18 the symbol distributions of both arms
+`cycles:u`. For tt496, ntil37, ntil40, Break_20_72, b18 and oski06 the symbol distributions of both arms
 match within a few points (`kernel_propagate` 33–57%, then analysis/minimization); per-pass
 timing (`c timing`) scales with run length; no inprocessing pass spends extra time without output.
 The only pass that grows is structured startup (+0.2 to +3 s), and all of its extra work is
@@ -150,6 +154,7 @@ clause-shuffled copies x both binaries, suite timeouts, 8 CPUs/32 GiB):
 | ntil-90d-40 (1,200 s) | 0/5, 1,200 | 3/5, 1,110 | luck; bcd3 better on shuffles |
 | Break_20_72 (1,200 s) | 1/5, 1,200 | 4/5, 924 | luck; bcd3 better on shuffles |
 | b18 (1,200 s, UNSAT) | 5/5, 276 | 5/5, 258 | noise |
+| oski15a01b06s (1,200 s, UNSAT) | 5/5, 590 | 5/5, 537 | noise; its profile also matches, startup +4.5 s (see open items) |
 
 The first copies' `mc-FAIL` marks are a harness gap (the checker's `modelcheck.py` module was
 missing from the probe pins until it was copied in); later copies verify `OK`. Model validity is
@@ -157,8 +162,8 @@ established by the runner pairs.
 
 ## Open items
 
-- Rank754/Rank896 5,000 s pairs and the oski15a01b06s profile/shuffle probe were still running at
-  the first commit; results are appended here when complete.
+- Rank896 still finds no symmetry in either arm (0 SR applications; the owner's Satsuma solves it
+  through symmetry): that gap belongs to the Satsuma-boundary parity work, not to A-D.
 - Structured startup above the graph limit is cheap, but below it the C pass costs up to +4.5 s
   without output (oski06) because each sibling orbitopal step (product, ULC matrices, rows)
   builds its own formula snapshot and refinement graph; the owner builds one graph per pass.
