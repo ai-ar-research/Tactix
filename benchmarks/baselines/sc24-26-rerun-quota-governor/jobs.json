@@ -1,0 +1,6 @@
+{
+  "jobs": [],
+  "expect_more": true,
+  "policy": "user 2026-10-08: every 600 s read home usage; above 750G scontrol hold PENDING tasks of these arrays; release only below 700G; never touch running jobs",
+  "cap": "user-requested cap of 125 concurrent jobs across campaigns A, B, C"
+}
