@@ -43,7 +43,8 @@ struct DefaultStrategyConfig {
   static strategy::OnlineStrategyStage structured_root_stage_after_feedback(
       const strategy::OnlineStrategyStage &, bool prior_stage_progress,
       bool prior_unique_literal_amo_progress,
-      bool prior_nonforcing_cut_progress);
+      bool prior_nonforcing_cut_progress, bool prior_detection_limit = false,
+      const Kernel *root = nullptr, bool *graph_component_limit = nullptr);
   // Named compatibility constants are kept beside the typed fields so tests
   // and design probes can cite a default without duplicating its literal.
   static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
@@ -426,8 +427,10 @@ struct DefaultStrategyConfig {
     // hard budget above.
     // This is deterministic work feedback, not time.
     bool structured_root_progress_feedback = true;
-    // The owner's >50k-variable program is one generic generator-fixing scan,
-    // rather than the orbitopal chain governed by the window above.
+    // Above the domain limit the owner's generic detection and negation/binary
+    // fixing are bounded only by DejaVu's own limits (satsuma.h:217, 227), so
+    // they keep the cumulative hard allowance alone. Structured detectors keep
+    // their own split-scale feedback (orbitopal_progress_feedback).
     bool structured_root_large_domain_progress_feedback = false;
     uint64_t structured_root_progress_minimum_ticks = 16ull << 20;
     uint64_t structured_root_progress_ticks_per_variable = 16;
@@ -446,9 +449,9 @@ struct DefaultStrategyConfig {
         structured_root_bounded_backtracking_stages =
             DefaultStrategyConfig::
                 bounded_backtracking_structured_root_preprocessing_stages();
-    // Satsuma changes the complete symmetry schedule above this domain: one
-    // generic exact-generator pass uses negation/binary fixing and repeats
-    // only after output. UINT64_MAX disables the alternate typed program.
+    // Above this domain Satsuma switches only its fixing pass to negation/
+    // binary fixing (satsuma.h:217, 227); its structured detection and
+    // repetition are unchanged. UINT64_MAX disables the alternate program.
     uint64_t structured_root_large_domain_limit = 50'000;
     std::vector<strategy::OnlineStrategyStage>
         structured_root_large_domain_stages =

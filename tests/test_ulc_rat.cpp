@@ -12,7 +12,8 @@ namespace tactix {
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &, const SubstitutionRedundancyInstance &,
-    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *);
+    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *,
+    UniqueLiteralOccurrenceCache * = nullptr);
 }
 
 namespace {

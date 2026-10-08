@@ -214,6 +214,10 @@ public:
     uint64_t effective = 0;
     uint64_t sequence_passes = 0;
     uint64_t nanos = 0;
+    uint64_t discovery_ticks = 0;
+    uint64_t symmetry_breaking_outputs = 0;
+    uint64_t unchanged_detection_skips = 0;
+    bool detection_limit_reached = false;
     strategy::InvocationStatus terminal =
         strategy::InvocationStatus::Completed;
   };

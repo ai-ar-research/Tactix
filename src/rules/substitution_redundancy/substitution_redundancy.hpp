@@ -411,6 +411,11 @@ struct OrbitopalEnumerationResult {
   uint64_t largest_product_columns = 0;
   uint64_t product_exact_actions = 0;
   uint64_t product_ulc_actions = 0;
+  // Discovery stopped at a limit the owning preprocessor reports as
+  // `reached_limits` (Satsuma symmetries.h: split limit 2042/2951, graph size
+  // satsuma.h:168-176) or at the shared discovery allowance. Caller-selected
+  // orbit, clique, product-state and matrix caps do not set it.
+  bool detection_limit_reached = false;
 };
 
 enum class SymmetryEnumerationStatus : uint8_t {
@@ -439,6 +444,11 @@ struct SymmetryEnumerationResult {
   uint64_t ticks = 0;
   // True only when discovery establishes the full unrestricted clause-set group.
   bool complete_group = false;
+  // Discovery stopped at a limit the owning preprocessor reports as
+  // `reached_limits` (Satsuma symmetries.h:579 DejaVu limits, 1468/3099
+  // Schreier cost, satsuma.h:168-176 graph size) or at the shared discovery
+  // allowance. A structured sub-discovery contributes only its own such flag.
+  bool detection_limit_reached = false;
 };
 
 // Composition-only resource policy for graph-symmetry discovery. Once group
@@ -498,6 +508,12 @@ OrbitopalEnumerationResult substitution_redundancy_enumerate_orbitopal(
 OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators(
     const Kernel &, const SubstitutionRedundancyParameters &,
     SymmetryDiscoveryHints &, volatile sig_atomic_t *stop = nullptr);
+// Lower bound on the vertices of the graph the GraphSymmetry producer builds
+// for the live formula (literal, negation-gadget and clause vertices before
+// duplicate-binary and root-unit adjustments). `work` receives the clause
+// headers visited.
+uint64_t substitution_redundancy_symmetry_graph_vertices(
+    const Kernel &, const GraphSymmetryParameters &, uint64_t &work);
 SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     const Kernel &, const SubstitutionRedundancyParameters &,
     const OrbitopalInstanceVisitor &, volatile sig_atomic_t *stop = nullptr,
@@ -514,6 +530,21 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
     Kernel &, const SubstitutionRedundancyInstance &,
     const SubstitutionRedundancyParameters & = {},
     volatile sig_atomic_t *stop = nullptr);
+
+// Per-literal occurrences in live large clauses, reused to authenticate one
+// freshly enumerated batch of unique-literal AMO binaries. The batch adds only
+// binaries and root units; any arena change (generation, size, live
+// irredundant count) rebuilds it, and a retired clause can only make an entry
+// overcount, which declines the certificate. Callers discard it between
+// batches, because in-place rewrites outside a batch are not keyed.
+struct UniqueLiteralOccurrenceCache {
+  const Kernel *owner = nullptr;
+  uint64_t arena_generation = 0;
+  size_t arena_size = 0;
+  uint64_t live_irredundant_large = 0;
+  std::vector<uint32_t> count;
+  std::vector<Ref> last;
+};
 ApplyResult substitution_redundancy_apply(
     Kernel &, const SubstitutionRedundancyInstance &,
     const SubstitutionRedundancyParameters & = {},

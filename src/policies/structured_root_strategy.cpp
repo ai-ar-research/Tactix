@@ -101,9 +101,9 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.stabilize_structured_variables = true;
   group.structured_scope = SymmetryStructuredScope::WholeMatrix;
   group.base_selection = SymmetryBaseSelection::FirstAmoThenForwardRemainder;
-  // Keep the accepted FirstOpen startup policy after negation fixing.
-  // LargestOrbitLast remains available through the typed parameter.
-  group.cut_point = SymmetryCutPoint::FirstOpen;
+  // The owner's cut point (symmetries.h find_non_trivial_orbit): the largest
+  // stabilizer orbit's highest variable.
+  group.cut_point = SymmetryCutPoint::LargestOrbitLast;
   group.negation_fixing_first = true;
   // Root-forcing chains earn their complete atomic prefix. A kind-2-only batch
   // merely perturbs the initial search trajectory, so the startup policy waits
@@ -165,8 +165,13 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
     for (const auto &step : program.sequence)
       if (step.rule == "Reduce")
         followups.push_back(step.id);
-    stages.push_back({std::move(program), BudgetExhaustionPolicy::Continue,
-                      std::move(followups)});
+    OnlineStrategyStage stage{std::move(program), BudgetExhaustionPolicy::Continue,
+                              std::move(followups)};
+    // satsuma.h:809-810: another pass only after symmetry-breaking output and
+    // while no pass has reached a detection limit.
+    stage.repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
+    stage.stop_repeat_at_detection_limit = true;
+    stages.push_back(std::move(stage));
   }
   // The preceding program has already run the same refinement/ULC producers
   // to a scoped no-progress boundary. Repeating that discovery inside the
@@ -180,8 +185,39 @@ strategy::OnlineStrategyStage
 DefaultStrategyConfig::structured_root_stage_after_feedback(
     const strategy::OnlineStrategyStage &configured,
     bool prior_stage_progress, bool prior_unique_literal_amo_progress,
-    bool prior_nonforcing_cut_progress) {
+    bool prior_nonforcing_cut_progress, bool prior_detection_limit,
+    const Kernel *root, bool *graph_component_limit) {
   auto scheduled = configured;
+  // Satsuma runs its structured detectors only while its symmetry graph is
+  // below the component limit and otherwise records reached_limits
+  // (satsuma.h:168-176). AMO completion belongs to its clause database
+  // (cnf.h ulc_add_amo) and still runs. The graph is the one the generic
+  // producer builds for the live root formula.
+  bool over_component_limit = false;
+  if (root)
+    for (auto &step : scheduled.program.sequence) {
+      auto *parameters =
+          std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+      if (!parameters ||
+          parameters->producer != SubstitutionRedundancyProducer::Orbitopal ||
+          !parameters->maximum_orbitopal_matrices)
+        continue;
+      uint64_t work = 0;
+      if (substitution_redundancy_symmetry_graph_vertices(
+              *root, parameters->graph_symmetry, work) >
+          parameters->graph_symmetry.maximum_graph_vertices) {
+        parameters->maximum_orbitopal_matrices = 0;
+        over_component_limit = true;
+      }
+    }
+  if (graph_component_limit)
+    *graph_component_limit = over_component_limit;
+  // The owner's reached_limits is sticky across iterations (satsuma.h:49,
+  // 810): a later stage still completes the current pass, but never repeats.
+  if ((prior_detection_limit || over_component_limit) &&
+      scheduled.stop_repeat_at_detection_limit &&
+      strategy::fixpoint_repeat(scheduled.program.repeat.mode))
+    scheduled.program.repeat = {strategy::RepeatMode::Once, 1};
   for (auto &step : scheduled.program.sequence) {
     auto *parameters =
         std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
@@ -224,47 +260,25 @@ bounded_backtracking_structured_root_preprocessing_stages() {
 std::vector<strategy::OnlineStrategyStage>
 DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages() {
   using namespace strategy;
-  auto regular = structured_root_preprocessing_stages();
-  assert(regular.size() >= 3);
-  OnlineInvocation graph;
-  for (const auto &step : regular[2].program.sequence)
-    if (step.id == 84) {
-      graph = step;
-      break;
+  // Above the domain limit the owner runs its whole pass, including AMO
+  // completion and row/row-column detection (satsuma.h:163-176), and changes
+  // only the fixing pass to negation/binary fixing (satsuma.h:217, 227).
+  // The graph step selects that fixing through schreier_domain_limit, which
+  // skips the structured handoff there; there is no handoff to gate.
+  auto stages = bounded_backtracking_structured_root_preprocessing_stages();
+  for (auto &stage : stages) {
+    for (auto &step : stage.program.sequence) {
+      auto *parameters =
+          std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
+      if (!parameters ||
+          parameters->producer != SubstitutionRedundancyProducer::GraphSymmetry)
+        continue;
+      parameters->graph_symmetry.use_structured_generators = false;
+      parameters->graph_symmetry.stabilize_structured_variables = false;
     }
-  assert(graph.id == 84);
-  auto &parameters =
-      std::get<SubstitutionRedundancyParameters>(graph.parameters);
-  // Satsuma lowers DejaVu's non-symmetry backtracking budget to one on large
-  // formulas.  Generator fixing only needs a useful exact prefix, and a fresh
-  // detection follows every emitted unit, so deeper speculative backtracking
-  // delays feedback without improving the current pass.
-  parameters.graph_symmetry.backend_search_budget = 1;
-  parameters.graph_symmetry.use_structured_generators = false;
-  parameters.graph_symmetry.stabilize_structured_variables = false;
-  // The owner repeats its whole pass for every formula size and changes only
-  // the fixing pass above the domain limit. This program repeats the part of
-  // the regular sequence that large formulas are measured to need: pure
-  // closure, this graph step and compaction. At-most-one completion and row or
-  // product refinement stay out (parity ledger); there is no structured
-  // handoff to gate.
-  auto stage = regular[2];
-  auto &sequence = stage.program.sequence;
-  sequence.erase(std::remove_if(sequence.begin(), sequence.end(),
-                                [](const OnlineInvocation &step) {
-                                  return step.id != 94 && step.id != 84 &&
-                                         step.id != 85;
-                                }),
-                 sequence.end());
-  for (auto &step : sequence)
-    if (step.id == 84)
-      step = graph;
-  auto &followups = stage.progress_followups;
-  followups.erase(std::remove_if(followups.begin(), followups.end(),
-                                 [](StepId id) { return id != 85; }),
-                  followups.end());
-  stage.structured_handoff_after_prior_progress = false;
-  return {regular.front(), std::move(stage)};
+    stage.structured_handoff_after_prior_progress = false;
+  }
+  return stages;
 }
 
 } // namespace tactix
