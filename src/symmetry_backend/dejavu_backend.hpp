@@ -201,6 +201,7 @@ struct GroupSettings {
   // scoring and smaller-orbit ties without an early first-AMO exit.
   // Six uses that ranking for the initial level, then a forward caller-order
   // frontier for subsequent levels, starting the remainder at clause zero.
+  // Seven is Satsuma's fix_and_cut scan (implementation-notes, FixAndCut).
   uint8_t base_selection = 0;
   // Optional threshold between completed FixAndCut planning levels. Zero
   // disables it; maximum_ticks independently bounds planning and finalization.

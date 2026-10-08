@@ -853,6 +853,31 @@ static void configurable_parameters_round_trip() {
     }
   }
 
+  // sr31 admits Satsuma's fix_and_cut scan; older schemas reject it and an
+  // out-of-range base selection is rejected under sr31 too.
+  {
+    auto selected = program;
+    auto &g = std::get<SubstitutionRedundancyParameters>(selected.sequence[5].parameters).graph_symmetry;
+    g.base_selection = SymmetryBaseSelection::SatsumaFixAndCut;
+    const auto wire = serialize_online_strategy_program(selected);
+    const auto tag = wire.find(":sr31(");
+    assert(tag != std::string::npos);
+    OnlineStrategyProgram restored;
+    assert(deserialize_online_strategy_program(wire, restored, &error));
+    assert(std::get<SubstitutionRedundancyParameters>(restored.sequence[5].parameters)
+               .graph_symmetry.base_selection == SymmetryBaseSelection::SatsumaFixAndCut);
+    assert(serialize_online_strategy_program(restored) == wire);
+    auto legacy = wire;
+    legacy.replace(tag + 1, 4, "sr30");
+    assert(!deserialize_online_strategy_program(legacy, restored, &error));
+    size_t field = tag + std::strlen(":sr31(");
+    for (unsigned index = 0; index < 46; ++index)
+      field = wire.find(',', field) + 1;
+    auto invalid = wire;
+    invalid.replace(field, wire.find(',', field) - field, "8");
+    assert(!deserialize_online_strategy_program(invalid, restored, &error));
+  }
+
   // sr12 predates fix-and-cut and base selection and resumes with the legacy
   // clausal-fixing schedule.
   for (const uint64_t limit : {uint64_t{0}, uint64_t{1}, UINT64_MAX}) {

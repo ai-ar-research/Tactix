@@ -749,7 +749,7 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   step.parameters.value.substitution_redundancy
       .orbitopal_progress_feedback_mode = TACTIX_ONLINE_SETTING_ENABLE;
   for (int mode = TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_COMMON_CLAUSE;
-       mode <= TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER; ++mode) {
+       mode <= TACTIX_ONLINE_SYMMETRY_BASE_SATSUMA_FIX_AND_CUT; ++mode) {
     step.parameters.value.substitution_redundancy.symmetry_base_selection = mode;
     assert(tactix_online_configure(solver, &program, 23312 + mode,
                                    TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
@@ -758,8 +758,8 @@ static void invalid_graph_sr_settings_are_transactional(void) {
   assert(tactix_online_configure(solver, &program, 23317,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   step.parameters.value.substitution_redundancy.symmetry_base_selection =
-      TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER + 1;
-  assert(tactix_online_configure(solver, &program, 23318,
+      TACTIX_ONLINE_SYMMETRY_BASE_SATSUMA_FIX_AND_CUT + 1;
+  assert(tactix_online_configure(solver, &program, 23319,
                                  TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   step.parameters.value.substitution_redundancy.symmetry_base_selection =
       TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_ORDERED_REMAINDER;

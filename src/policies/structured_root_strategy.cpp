@@ -98,7 +98,10 @@ DefaultStrategyConfig::structured_root_preprocessing_stages() {
   group.use_structured_generators = true;
   group.stabilize_structured_variables = true;
   group.structured_scope = SymmetryStructuredScope::WholeMatrix;
-  group.base_selection = SymmetryBaseSelection::FirstAmoThenForwardRemainder;
+  // Satsuma's fix_and_cut scan (symmetries.h): source clause order, the
+  // first applicable clause anchored at its first literal.
+  group.base_selection = SymmetryBaseSelection::SatsumaFixAndCut;
+  group.first_literal_fix_anchor = true;
   // The owner's cut point (symmetries.h find_non_trivial_orbit): the largest
   // stabilizer orbit's highest variable.
   group.cut_point = SymmetryCutPoint::LargestOrbitLast;

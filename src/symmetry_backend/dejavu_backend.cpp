@@ -1434,7 +1434,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       input.domain_size > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
       !settings.error_bound ||
       settings.error_bound > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
-      settings.chain_mode > 2 || settings.base_selection > 6 ||
+      settings.chain_mode > 2 || settings.base_selection > 7 ||
       settings.cut_point > 1 ||
       (settings.chain_mode && (input.domain_size & 1u)) ||
       (input.generator_count && !input.generator_images && !input.generator_offsets) ||
@@ -1788,6 +1788,10 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       const bool first_amo = settings.base_selection >= 2 && settings.base_selection <= 4;
       const bool ordered_remainder = settings.base_selection == 3 || settings.base_selection == 4;
       bool amo_exhausted = false;
+      // Satsuma's fix_and_cut (base_selection 7): `there_is_no_amo` turns
+      // true once any scan reaches the last clause and stays true.
+      const bool owner_scan = settings.base_selection == 7;
+      bool owner_no_amo = false;
       bool negation_fixing = settings.negation_fixing_first;
       uint64_t clause_frontier = 0;
       const uint32_t variable_count = (input.domain_size + 1u) / 2u;
@@ -1858,7 +1862,11 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
             !(ordered_remainder && amo_exhausted) &&
             !(first_shortest && !base.empty());
         const bool forward_scan = settings.base_selection == 4 ||
+                                  owner_scan ||
                                   (first_shortest && !base.empty());
+        // The owner's per-level score_v: 0 until a clause is taken, then
+        // the taken clause's (common >= score_v) truth value.
+        uint32_t owner_score = 0;
         std::vector<uint32_t> common_score(variable_count, 0);
         if (rank_common) {
           for (uint32_t variable = 0; variable < variable_count; ++variable)
@@ -1884,6 +1892,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                                     : forward_scan ? clause_frontier : 0;
         bool frontier_found = false;
         for (uint64_t clause = scan_begin; clause < input.clause_count; ++clause) {
+          if (owner_scan && clause + 1 == input.clause_count)
+            owner_no_amo = true;
           std::vector<uint32_t> candidate;
           bool satisfied = false;
           for (uint64_t at = input.clause_offsets[clause];
@@ -1918,6 +1928,31 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           if (forward_scan && !frontier_found) {
             clause_frontier = clause;
             frontier_found = true;
+          }
+          if (owner_scan) {
+            // symmetries.h fix_and_cut: the anchor is the clause's first
+            // literal; `score_i = common >= score_v` is a truth value.
+            const uint32_t front = candidate.front();
+            const bool owner_amo = !owner_no_amo && input.clause_is_amo &&
+                                   input.clause_is_amo[clause];
+            const uint32_t owner_score_i =
+                common_score[front >> 1] >= owner_score ? 1u : 0u;
+            const int front_orbit =
+                orbits.orbit_size(static_cast<int>(front));
+            if (!(owner_score_i || owner_amo))
+              continue;
+            if (selected_clause != UINT64_MAX && !owner_amo &&
+                front_orbit >= selected_orbit_size)
+              continue;
+            selected_clause = clause;
+            representative = front;
+            selected_active = std::move(candidate);
+            selected_amo = owner_amo;
+            selected_orbit_size = front_orbit;
+            owner_score = owner_score_i;
+            if (owner_amo || owner_no_amo)
+              break;
+            continue;
           }
           uint32_t candidate_representative = candidate.front();
           if (rank_common)
