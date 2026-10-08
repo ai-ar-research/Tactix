@@ -37,8 +37,10 @@ Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
   Release `b125ba45…`, archive `8360abd9…`,
   [binding](benchmarks/runs/20261007-candidate-c4-source/pins/release-binding.json).
   Open owner gaps: Johnson detector, one refinement per pass, per-pass split counter.
-- **Affine search:** schedule on Kissat functions, no measured benefit; stays off
-  ([report](benchmarks/reports/2026-10-08-affine-search-scheduling/README.md)).
+- **Affine search:** schedule on Kissat functions, neutral, no measured benefit
+  ([report](benchmarks/reports/2026-10-08-affine-search-scheduling/README.md)). User
+  2026-10-08: fix the two c4 fuzz findings, fix admission (xor_op census ResourceExhausted at
+  zero work; lec_mult basis decays to rank 0), then turn it **on** in c5 (implemented rules ship on).
 
 ## Next action
 
