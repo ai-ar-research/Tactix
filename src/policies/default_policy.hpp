@@ -52,8 +52,6 @@ bool default_should_run_initial_fast_elimination(uint64_t candidates,
                                                  uint64_t active_variables);
 bool default_fast_elimination_discovery_admissible(
     uint64_t active_variables, uint64_t remaining_ticks);
-bool default_should_run_fast_elimination_after_structured(
-    bool structured_root_grew_trail);
 
 // Formula-independent bounded profile for persistent authenticated subimages.
 // No clause census or recognition is performed by this pure policy helper.

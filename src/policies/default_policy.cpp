@@ -637,15 +637,6 @@ bool default_fast_elimination_discovery_admissible(uint64_t active,
   return active && active <= remaining / 2;
 }
 
-bool default_should_run_fast_elimination_after_structured(
-    bool structured_root_grew_trail) {
-  // A new root assignment rebuilds the residual search seed, so another
-  // startup formula transformation would stack two independent trajectory
-  // changes.  Clause-only structured progress composes with FastEliminate and
-  // retains the owner's opportunity.
-  return !structured_root_grew_trail;
-}
-
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
@@ -5028,17 +5019,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
-  if (config_.inprocess.initial_fast_elimination &&
-      default_should_run_fast_elimination_after_structured(
-          structured_root_grew_trail)) {
+  if (config_.inprocess.initial_fast_elimination) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
         inprocess_.run_initial_fast_elimination(k, stop, completion_);
     event_trace.macro(k, "initial_fast_eliminate_end");
     if (phase_result == 10 || phase_result == 20)
       return finish(phase_result);
-  } else if (config_.inprocess.initial_fast_elimination) {
-    ++k.stats.fastel_root_suppressed;
   }
   event_trace.macro(k, "preprocess_end");
   startup = default_propagate(k, "post-preprocess", completion_);

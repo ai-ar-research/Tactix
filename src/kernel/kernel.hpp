@@ -1306,7 +1306,7 @@ struct Stats {
   uint64_t fastel_discovery_ticks = 0; // live variables inspected by admission
   uint64_t fastel_budget_stops = 0; // domains exceeding the shared effort dose
   uint64_t fastel_declined = 0;    // domains where the owner pass was minority
-  uint64_t fastel_root_suppressed = 0; // structured roots rebuilt the residual
+  uint64_t fastel_root_suppressed = 0; // producer-zero: startup FastEliminate is never suppressed
   uint64_t fastel_eliminated = 0;  // eliminations committed by startup fastel
   uint64_t fastel_resolutions = 0; // BVE work committed by startup fastel
   uint64_t fastel_nanos = 0;       // complete startup fastel phase time
