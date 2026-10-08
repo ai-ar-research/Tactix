@@ -20,6 +20,8 @@ namespace {
 struct FormulaSnapshot {
   SymmetryClauseMultiset clause_index;
   std::vector<uint32_t> occurrences;
+  // Clause ID of each snapshot clause (0 for root units): source order.
+  std::vector<uint64_t> clause_ids;
 };
 
 struct SymmetryGraphStorage {
@@ -124,8 +126,11 @@ bool snapshot_formula(const Kernel &kernel,
     for (const WatchEntry watch : kernel.watches.entries(literal)) {
       if (!charge(kernel, parameters, stop, result, 1))
         return false;
-      if (watch.binary() && literal < watch.other())
+      if (watch.binary() && literal < watch.other()) {
         clauses.push_back({literal, watch.other()});
+        snapshot.clause_ids.push_back(
+            kernel_binary_id(kernel, literal, watch.other()));
+      }
     }
   for (Ref ref = 0; ref < kernel.arena.size();) {
     const Clause *clause = clause_at(kernel.arena, ref);
@@ -134,6 +139,7 @@ bool snapshot_formula(const Kernel &kernel,
       if (!charge(kernel, parameters, stop, result, clause->size))
         return false;
       clauses.emplace_back(clause->begin(), clause->end());
+      snapshot.clause_ids.push_back(clause->id());
     }
     ref += words;
   }
@@ -144,6 +150,7 @@ bool snapshot_formula(const Kernel &kernel,
     if (kernel.value(positive)) {
       clauses.push_back(
           {kernel.value(positive) > 0 ? positive : negate(positive)});
+      snapshot.clause_ids.push_back(0);
     }
   }
   for (const auto &clause : clauses) {
@@ -457,6 +464,7 @@ bool exact_sparse_automorphism(const Kernel &kernel, const FormulaSnapshot &snap
 struct EligibleClause {
   std::vector<Lit> literals;
   bool amo = false;
+  uint64_t id = 0;
 };
 
 bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
@@ -470,7 +478,9 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
   for (const auto &clause : snapshot.clause_index.clauses())
     if (clause.size() == 2)
       binaries.insert(kernel_binary_key(clause[0], clause[1]));
-  for (auto clause : snapshot.clause_index.clauses()) {
+  const auto &snapshot_clauses = snapshot.clause_index.clauses();
+  for (size_t index = 0; index < snapshot_clauses.size(); ++index) {
+    auto clause = snapshot_clauses[index];
     if (clause.size() < 2)
       continue;
     if (settings.clause_scope == SymmetryClauseScope::UniqueLiteralsOnly &&
@@ -489,11 +499,20 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
           break;
         }
       }
-    result.push_back({std::move(clause), amo});
+    result.push_back({std::move(clause), amo,
+                      index < snapshot.clause_ids.size()
+                          ? snapshot.clause_ids[index] : 0});
   }
   apply_order(result, settings.clause_order,
               static_cast<uint64_t>(settings.seed) ^ 0x434c41555345534full);
-  if (settings.clause_selection != SymmetryClauseSelection::InputOrder)
+  // Satsuma scans its clause database in source order: input clauses in file
+  // order, then later additions (cnf.h read_from_cnf2wl keep_original_order).
+  if (settings.base_selection == SymmetryBaseSelection::SatsumaFixAndCut)
+    std::stable_sort(result.begin(), result.end(),
+                     [](const auto &first, const auto &second) {
+                       return first.id < second.id;
+                     });
+  else if (settings.clause_selection != SymmetryClauseSelection::InputOrder)
     std::stable_sort(
         result.begin(), result.end(), [&](const auto &first, const auto &second) {
           if (settings.clause_selection ==

@@ -3569,6 +3569,41 @@ static void compound_admission_publishes_a_singleton_forcing_unit() {
   kernel_check_invariants(k);
 }
 
+// Satsuma's fix_and_cut (symmetries.h) takes the first applicable clause in
+// source order and fixes through its first literal; a later clause replaces
+// it only as an AMO or with a marked shared clause and a smaller orbit. Here
+// the triangle (-1 -2), (-1 -3), (-2 -3) precedes the edge (-4 -5): the owner
+// scan fixes through -1 (orbit 3), while the smaller-orbit ranking fixes
+// through the edge (orbit 2) first.
+static void satsuma_fix_and_cut_takes_first_applicable_clause() {
+  const auto first_fixed_variable = [](SymmetryBaseSelection selection) {
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    for (const auto &edge : {std::pair{-1, -2}, {-1, -3}, {-2, -3}, {-4, -5}})
+      kernel_add_binary_clause(k, internalize(edge.first),
+                               internalize(edge.second), ++k.next_clause_id);
+    SubstitutionRedundancyParameters parameters = sst_parameters();
+    parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
+    parameters.graph_symmetry.clause_selection = SymmetryClauseSelection::InputOrder;
+    parameters.graph_symmetry.base_selection = selection;
+    std::vector<SubstitutionRedundancyInstance> instances;
+    const auto enumeration = substitution_redundancy_enumerate_symmetry(
+        k, parameters,
+        [&](const SubstitutionRedundancyInstance &instance) {
+          instances.push_back(instance);
+          return true;
+        });
+    assert(enumeration.status == SymmetryEnumerationStatus::Complete);
+    assert(!instances.empty());
+    return var_of(instances.front().clause.front());
+  };
+  assert(first_fixed_variable(SymmetryBaseSelection::SatsumaFixAndCut) ==
+         var_of(internalize(1)));
+  const Var ranked =
+      first_fixed_variable(SymmetryBaseSelection::FirstAmoThenForwardRemainder);
+  assert(ranked == var_of(internalize(4)) || ranked == var_of(internalize(5)));
+}
+
 static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
   Kernel k = sst_clause_fixture(false);
   SubstitutionRedundancyParameters parameters = sst_parameters();
@@ -5214,6 +5249,7 @@ int main(int argc, char **argv) {
   for (bool preserve : {false, true})
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);
   stabilizer_chain_adds_all_cuts_before_rup_unit();
+  satsuma_fix_and_cut_takes_first_applicable_clause();
   large_domain_generator_fixing_uses_units_without_a_chain();
   compound_admission_publishes_a_singleton_forcing_unit();
   fix_and_cut_reaches_nonclausal_orbits();

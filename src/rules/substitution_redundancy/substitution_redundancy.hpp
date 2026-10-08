@@ -133,6 +133,14 @@ enum class SymmetryBaseSelection : uint8_t {
   ShortestClause,
   // Rank the initial level by length, then retain a forward clause frontier.
   FirstShortestThenForwardRemainder,
+  // Satsuma's fix_and_cut scan exactly (symmetries.h): clauses in source
+  // order from a forward frontier; the first applicable clause is taken and
+  // its first literal is the base point; a later clause replaces it only if
+  // it is an AMO (break), or if its first variable shares a clause with an
+  // earlier base point and its orbit is smaller. Once a scan has reached the
+  // last clause, AMO preference ends and every level takes its first
+  // applicable clause.
+  SatsumaFixAndCut,
 };
 
 // Where a FixAndCut cut level takes its base point once no clause is fixable.
@@ -249,7 +257,7 @@ struct GraphSymmetryParameters {
            chain_mode >= SymmetryChainMode::ClausalFixing &&
            chain_mode <= SymmetryChainMode::FixAndCutResift &&
            base_selection >= SymmetryBaseSelection::ClauseOrder &&
-           base_selection <= SymmetryBaseSelection::FirstShortestThenForwardRemainder &&
+           base_selection <= SymmetryBaseSelection::SatsumaFixAndCut &&
            cut_point >= SymmetryCutPoint::FirstOpen &&
            cut_point <= SymmetryCutPoint::LargestOrbitLast &&
            structured_scope >= SymmetryStructuredScope::WholeMatrix &&

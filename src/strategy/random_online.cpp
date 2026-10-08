@@ -1310,8 +1310,11 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
              (tuple(text, "sr27", v) && v.size() == 57) ||
              (tuple(text, "sr28", v) && v.size() == 58) ||
              (tuple(text, "sr29", v) && v.size() == 60) ||
-             (tuple(text, "sr30", v) && v.size() == 61)) {
-    const bool has_fix_anchor = text.starts_with("sr30(");
+             (tuple(text, "sr30", v) && v.size() == 61) ||
+             (tuple(text, "sr31", v) && v.size() == 61)) {
+    // sr31 admits Satsuma's fix_and_cut base selection; the tuple is sr30's.
+    const bool has_satsuma_scan = text.starts_with("sr31(");
+    const bool has_fix_anchor = text.starts_with("sr30(") || has_satsuma_scan;
     const bool has_chain_order = text.starts_with("sr29(") || has_fix_anchor;
     const bool has_cut_admission = text.starts_with("sr28(") || has_chain_order;
     const bool has_progress_feedback = text.starts_with("sr27(") ||
@@ -1460,7 +1463,9 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
                         ? SymmetryChainMode::FixAndCutResift
                         : SymmetryChainMode::FixAndCut) ||
             v[46] >
-                static_cast<uint64_t>(has_first_shortest
+                static_cast<uint64_t>(has_satsuma_scan
+                    ? SymmetryBaseSelection::SatsumaFixAndCut
+                    : has_first_shortest
                     ? SymmetryBaseSelection::FirstShortestThenForwardRemainder
                     : has_shortest_base ? SymmetryBaseSelection::ShortestClause
                     : has_forward_scan
@@ -2756,7 +2761,11 @@ std::string serialize_online_strategy_program(
       const bool nonforcing_cut_admission =
           p->graph_symmetry.nonforcing_cut_admission !=
           SymmetryNonforcingCutAdmission::Publish;
-      const bool fix_anchor = p->graph_symmetry.first_literal_fix_anchor;
+      const bool satsuma_scan = p->graph_symmetry.base_selection ==
+          SymmetryBaseSelection::SatsumaFixAndCut;
+      // sr31 carries the complete sr30 tuple.
+      const bool fix_anchor =
+          p->graph_symmetry.first_literal_fix_anchor || satsuma_scan;
       const bool chain_order =
           p->graph_symmetry.cut_point != SymmetryCutPoint::FirstOpen ||
           p->graph_symmetry.negation_fixing_first || fix_anchor;
@@ -2764,7 +2773,7 @@ std::string serialize_online_strategy_program(
           SymmetryBaseSelection::FirstShortestThenForwardRemainder;
       const bool shortest_base = first_shortest ||
           p->graph_symmetry.base_selection == SymmetryBaseSelection::ShortestClause;
-      out << (fix_anchor ? ":sr30(" : chain_order ? ":sr29(" : nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
+      out << (satsuma_scan ? ":sr31(" : fix_anchor ? ":sr30(" : chain_order ? ":sr29(" : nonforcing_cut_admission ? ":sr28(" : p->orbitopal_progress_feedback ? ":sr27(" : bounded_schreier ? ":sr26(" : first_shortest ? ":sr25(" : shortest_base ? ":sr24("
                   : p->graph_symmetry.structured_scope == SymmetryStructuredScope::WholeMatrix
                   ? ":sr22(" : ":sr23(") << p->maximum_validation_ticks << ','
           << static_cast<unsigned>(p->producer) << ','

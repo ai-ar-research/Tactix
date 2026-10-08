@@ -497,6 +497,8 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_AMO_THEN_FORWARD_REMAINDER 5
 #define TACTIX_ONLINE_SYMMETRY_BASE_SHORTEST_CLAUSE 6
 #define TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER 7
+/* Satsuma's fix_and_cut scan (source clause order, first applicable clause). */
+#define TACTIX_ONLINE_SYMMETRY_BASE_SATSUMA_FIX_AND_CUT 8
 /* Base point of a FIX_AND_CUT cut level once no clause is fixable. */
 #define TACTIX_ONLINE_SYMMETRY_CUT_POINT_INHERIT 0
 #define TACTIX_ONLINE_SYMMETRY_CUT_POINT_FIRST_OPEN 1
