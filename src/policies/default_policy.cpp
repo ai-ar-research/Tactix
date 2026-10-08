@@ -689,8 +689,10 @@ DefaultStrategyConfig::reference_structured_root_program() {
   pure.id = 1000;
   pure.rule = "BVE";
   strategy::BveParameters pure_parameters;
-  // The owner closes pure literals inside its simplification (satsuma.h).
-  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureClosure;
+  // The owner assigns one round of the literals that are pure now, then
+  // propagates once (satsuma.h "propagate one round of pure literals"). A
+  // literal made pure by that round waits for the next earned pass.
+  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureOnly;
   pure.parameters = pure_parameters;
   pure.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
   pure.work_unit = strategy::WorkUnit::BveTicks;
