@@ -35,10 +35,10 @@ an open efficiency item.
 
 | Work | Jobs / owner | Status |
 |---|---|---|
-| c1 Release / full Debug | Release `c85bf484…` (1755757, done) / Debug 1755758; source `95d87cfe…` | Debug running |
+| c1.1 Release / full Debug | c1 full Debug 1755758 passed 352/353 and failed only the `comment_hygiene` lint on a test-script comment. c1.1 = `bfaf65491` (archive `3dfcbdac…`) fixes the comment. Its Release 1756119 reproduces tactix `c85bf484…` byte-for-byte, so the gates, full44 and fuzz on that binary apply. Fresh full Debug 1756120 | Debug running |
 | c1 regression gates | 1755859 B28, 1755860 Rank1–50, 1755861 WV100, 1755862 WV2–89; `benchmarks/runs/20261007-c1-regression-*` | submitted |
 | c1 full44 | 1755927, `benchmarks/runs/20261007-fixed44-c1` (shared-floor scratch, long64-fixed) | submitted |
-| Fuzz owner | Claude `385a3588` (resumed); staging binding `benchmarks/runs/20261007-candidate-d576-source/pins/staging-binding.json` | harness preparation and uncounted calibration; counted legs await final binding |
+| Fuzz owner | Claude `385a3588` (resumed); final binding `benchmarks/runs/20261007-candidate-c1-source/pins/release-binding.json`; COVERAGE declared for c1 | counted broad legs 1756099/100/101 submitted; am-rel-23 passes on c1 |
 | Proof-route cost | sub-agent; `benchmarks/runs/20261007-proofroute-*` | stage timings |
 
 ## Verification authorities
