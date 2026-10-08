@@ -1553,6 +1553,54 @@ private:
   size_t used_ = 0;
 };
 
+// Observation-only provenance of symmetry-breaking output (plan §9.5, per-run
+// provenance tags): which published clauses search actually consumed. No
+// solver decision reads any of it. A run tag names one symmetry pass (the
+// startup program is run 0). Large clauses are identified by proof id, which
+// survives arena collection and is retired exactly by kernel_delete_clause;
+// binaries and units live only in watch lists and on the trail, so they keep
+// a stable external identity and an internal filter that compaction rebuilds.
+// `Kernel::symuse_active` stays false until the first tag, so untagged runs pay
+// one predictable branch per assignment and per resolved antecedent; tagged
+// runs pay an inline literal-mark or id-range test before any table lookup.
+struct SymmetryUseRun {
+  uint64_t clauses = 0, helpers = 0, units = 0, binaries = 0, large = 0;
+  // Assignments whose reason is a tagged binary/large clause (helper share,
+  // and the share made outside inprocessing, warm-up and probing).
+  uint64_t propagations = 0, helper_propagations = 0, search_propagations = 0;
+  // Conflict clauses and reasons resolved by ConflictAnalysis (1UIP and the
+  // failed-level-one walk; not minimization or shrinking).
+  uint64_t analysis_uses = 0, helper_analysis_uses = 0;
+  // Root implications whose reason contains the negation of a tagged unit.
+  uint64_t root_forced = 0;
+  uint64_t large_deleted = 0; // retired by any path, in-place shrink included
+};
+
+struct SymmetryUse {
+  static constexpr uint64_t HELPER = 1u << 8; // tag value: (run + 1) | HELPER
+  static constexpr uint8_t BINARY_MARK = 1;   // lit occurs in a tagged binary
+  static constexpr uint8_t UNIT_MARK = 2;     // lit is a tagged unit's negation
+  struct StableBinary {
+    Lit a, b; // external literals
+    uint32_t tag;
+  };
+  struct StableUnit {
+    Lit lit; // external literal
+    uint32_t tag;
+  };
+  uint8_t run = 0; // tag for new publications
+  std::vector<SymmetryUseRun> runs;
+  std::vector<StableBinary> binaries;
+  std::vector<StableUnit> units;
+  // Internal-space filters, rebuilt by kernel_compact_variables.
+  std::vector<uint8_t> lit_marks;
+  BinaryIdMap binary_tags; // internal binary key -> tag
+  BinaryIdMap unit_tags;   // internal unit literal -> tag
+  BinaryIdMap large_tags;  // proof id -> tag, zero once retired
+  uint64_t large_min = UINT64_MAX, large_max = 0; // empty range: no large tag
+  bool has_units = false;
+};
+
 struct Kernel {
   uint32_t nvars = 0;
   // Keep the Kernel ABI identical when the standalone event-trace test links
@@ -1599,6 +1647,7 @@ struct Kernel {
   uint32_t unassigned = 0;
   uint32_t unassigned_active = 0;
   bool warming = false; // Kissat walk warm-up: suppress random branching.
+  bool symuse_active = false; // some clause carries a SymmetryUse tag
   uint64_t walk_random_seed = 0; // policy RNG snapshot for a faithful Walk
 
   Arena arena;
@@ -2146,6 +2195,7 @@ struct Kernel {
   bool affine_capture_epochs_trusted = true;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
+  SymmetryUse symuse; // observation only; see SymmetryUse
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   // Keep diagnostic-only storage at the final object boundary. The dedicated
@@ -2159,6 +2209,57 @@ struct Kernel {
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
+
+// SymmetryUse bookkeeping (observation only). `tag` publishes a just-added
+// clause/unit under the current run tag. The observe_* prefilters run only
+// behind `k.symuse_active`; the out-of-line note_* functions decide exactly.
+void kernel_symuse_tag(Kernel &, const Lit *lits, uint32_t size, uint64_t id,
+                       bool helper);
+[[gnu::noinline, gnu::cold]] void
+kernel_symuse_note_assign(Kernel &, Lit lit, uint32_t level, uint32_t reason,
+                          bool binary, bool jumped);
+[[gnu::noinline, gnu::cold]] void kernel_symuse_note_binary_use(Kernel &, Lit a,
+                                                                Lit b);
+[[gnu::noinline, gnu::cold]] void kernel_symuse_note_large_use(Kernel &,
+                                                               uint64_t id);
+[[gnu::noinline, gnu::cold]] void kernel_symuse_note_delete(Kernel &,
+                                                            uint64_t id);
+void kernel_symuse_rebuild_filters(Kernel &);
+// Tagged clauses of `run` still present at the end: units, binaries found in
+// the watch lists, large clauses never retired.
+uint64_t kernel_symuse_alive(const Kernel &, uint32_t run);
+
+inline bool kernel_symuse_lit_marked(const Kernel &k, Lit l) {
+  return l < k.symuse.lit_marks.size() && k.symuse.lit_marks[l];
+}
+inline bool kernel_symuse_large_candidate(const Kernel &k, uint64_t id) {
+  return id >= k.symuse.large_min && id <= k.symuse.large_max;
+}
+// A binary's tag needs both literals marked and a root-forced attribution
+// needs the false literal marked, so `other` alone filters both.
+[[gnu::always_inline]] inline void
+kernel_symuse_observe_assign(Kernel &k, Lit lit, uint32_t level,
+                             uint32_t reason, bool binary, bool jumped) {
+  if (binary) {
+    const Lit other = jumped ? k.jumped_over[var_of(lit)] : reason;
+    if (kernel_symuse_lit_marked(k, other))
+      kernel_symuse_note_assign(k, lit, level, reason, binary, jumped);
+  } else if (reason != DECISION_REASON && reason != UNIT_REASON &&
+             ((!level && k.symuse.has_units) ||
+              (k.symuse.large_max &&
+               kernel_symuse_large_candidate(
+                   k, clause_at(k.arena, reason)->id())))) {
+    kernel_symuse_note_assign(k, lit, level, reason, binary, jumped);
+  }
+}
+inline void kernel_symuse_observe_binary_use(Kernel &k, Lit a, Lit b) {
+  if (kernel_symuse_lit_marked(k, a) && kernel_symuse_lit_marked(k, b))
+    kernel_symuse_note_binary_use(k, a, b);
+}
+inline void kernel_symuse_observe_large_use(Kernel &k, uint64_t id) {
+  if (kernel_symuse_large_candidate(k, id))
+    kernel_symuse_note_large_use(k, id);
+}
 
 inline void kernel_affine_note_trail_retraction(Kernel &k) {
   if (k.affine_trail_retraction_epoch == UINT64_MAX)
@@ -2723,6 +2824,9 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   // already idempotent; this makes the whole retirement idempotent.
   if (c->garbage())
     return; // already retired
+  if (k.symuse_active) [[unlikely]]
+    if (kernel_symuse_large_candidate(k, c->id()))
+      kernel_symuse_note_delete(k, c->id());
   const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
                                    k.arena.data());
   kernel_retire_root_reason(k, c, ref);
@@ -2846,6 +2950,8 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
     assert(k.unassigned_active > 0);
     k.unassigned_active--;
   }
+  if (k.symuse_active) [[unlikely]]
+    kernel_symuse_observe_assign(k, lit, level, reason, binary, jumped);
 }
 inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
   k.level++;
