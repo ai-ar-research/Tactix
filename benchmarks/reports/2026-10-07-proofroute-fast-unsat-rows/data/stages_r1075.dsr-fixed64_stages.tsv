@@ -1,0 +1,3 @@
+dsr-trim	rc=0	wall=4749.8
+dsr-compress	rc=0	wall=9.9
+srcheck	rc=0	wall=263.1
