@@ -662,6 +662,11 @@ techniques even if named targets remain unsolved; 12/44 permits no exception.
 Always admit a valid, fully proof-checked symmetry-breaking unit when its action
 commits. Singleton/compound-progress heuristics or benchmark timing cannot veto
 it; discovery budgets and invalid/stale/uncertified-candidate guards still apply.
+DefaultPolicy follows Satsuma's own symmetry practice, not benchmark-chosen subsets of it:
+- **(B)** structured repetition stops once any pass reaches a detection limit (`reached_limits`);
+- **(C)** at-most-one completion and row/product refinement also run above the 50,000-variable domain boundary;
+- **(D)** FixAndCut uses the owner's cut point (`find_non_trivial_orbit`).
+The search seed stays the owner-faithful original order minus fixed variables, which is what Satsuma→Kissat reparsing yields. Tactix's live-arena reseed is not the owner's handoff. A regression from adopting these is accepted when shown to be noise, such as luck across shuffled copies. Otherwise attribute it to a defective port or a missing coupled mechanism, never revert to a subset.
 
 **Reasoning and guidance.** Attribute an UNSAT owner's complete analysis before
 integrating it with structural authentication and terminal independently checked
