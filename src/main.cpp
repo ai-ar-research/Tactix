@@ -229,6 +229,9 @@ int main(int argc, char **argv) {
       quiet = true;
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
+    } else if (!strcmp(a, "--sr-native-witness")) {
+      // A/B diagnostic: keep every SR line native (no witness-free expansion).
+      setenv("TACTIX_SR_NATIVE_WITNESS", "1", 1);
     } else if (!strcmp(a, "--dsr")) {
       proof_family = CliProofFamily::Dsr;
     } else if (!strcmp(a, "--auto-proof")) {
@@ -1519,6 +1522,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_validation_ticks,
            (unsigned long long)kernel.stats.sr_witness_literals,
            (unsigned long long)kernel.stats.sr_unique_literal_amo_binaries);
+    printf("c sr-expand   %llu witness-free expansions, %llu native lines, "
+           "%llu expansion additions\n",
+           (unsigned long long)kernel.stats.sr_expanded,
+           (unsigned long long)kernel.stats.sr_expansion_native,
+           (unsigned long long)kernel.stats.sr_expansion_additions);
     printf("c sr-life     %llu post-AMO nonhelper consequences, %llu graph root units\n",
            (unsigned long long)kernel.stats.sr_post_amo_nonhelper_applied,
            (unsigned long long)kernel.stats.sr_post_amo_graph_root_units);

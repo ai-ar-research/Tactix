@@ -1304,6 +1304,7 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   assert(!c->garbage());
   assert(id == k.next_clause_id);
   assert(size >= 3 && size <= c->size);
+  ++k.large_clause_rewrites;
   const bool retain = retained_watch != INVALID_LIT;
   assert(!retain || (lits[0] == retained_watch &&
                      (c->lits[0] == retained_watch ||
