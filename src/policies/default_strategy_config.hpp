@@ -198,18 +198,6 @@ struct DefaultStrategyConfig {
     bool walk_warmup = true;
     bool walk_use_branch_seed = true;
     uint64_t walk_random_seed = 0;
-    // A failed structural model search can seed a later generic Walk. Keep it
-    // opt-in until DefaultPolicy owns an admission rule and a preparation
-    // allowance separate from Walk search work. Random/learned controllers
-    // may already request the exact seeded action directly.
-    bool structural_walk_seed = false;
-    std::vector<strategy::LocalSearchKind> structural_seed_rotation{
-        strategy::LocalSearchKind::DirectCsp,
-        strategy::LocalSearchKind::Affine,
-        strategy::LocalSearchKind::Parity,
-        strategy::LocalSearchKind::Onehot,
-        strategy::LocalSearchKind::BalancedSignature,
-        strategy::LocalSearchKind::GraphLabeling};
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;

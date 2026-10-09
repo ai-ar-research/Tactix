@@ -56,7 +56,7 @@ VIVIFY_BAND = (r"execution::VivifyBandRequest\{\s*band_scope,\s*cumulative,\s*"
                r"spent,\s*e\.tick_counter,\s*e\.meter\}")
 WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
                   r"reference, config_\.rephase\.walk_permille\)")
-WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, candidate\}"
+WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, 0\}"
 MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
                     r"config\(\)\.touch_filter,\s*"
                     r"config\(\)\.likely_kept_redundant")
@@ -84,9 +84,7 @@ POLICY_BINDINGS = {
         (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
     ],
     "walk_seed_candidate": [
-        (POLICY[0], r"const uint64_t candidate = config_\.rephase\.structural_walk_seed\s*"
-                    r"\? local_search_guidance_select_next\(k,\s*"
-                    r"config_\.rephase\.structural_seed_rotation, structural_seed_cursor_\)\s*:\s*0"),
+        (POLICY[0], r"parameters\.seed_candidate = 0;"),
         (POLICY[0], WALK_REQUEST),
         (GUIDANCE_EXECUTION, r"parameters\.seed_candidate\s*=\s*request\.seed_candidate"),
         (GUIDANCE_EXECUTION, r"strategy::ScopedWalkParameters selected\(k, parameters\)"),
@@ -336,7 +334,7 @@ TABLE = {
                                            "advanced once per ordinary Eliminate phase"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
-    "walk_seed_candidate":     ("POLICY", "exact structural publication selected for private Walk seeding"),
+    "walk_seed_candidate":     ("POLICY", "exact publication for private Walk seeding; DefaultPolicy passes zero"),
     "walk_preparation_budget": ("POLICY", "typed private preparation allowance, scoped during Walk"),
     "walk_objective":          ("POLICY", "typed private current-CNF objective, scoped during Walk"),
     "walk_admission":          ("POLICY", "typed private phase admission, scoped during Walk"),

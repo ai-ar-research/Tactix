@@ -31,8 +31,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 0. **Candidate c2.2 = `8ce068dbf`** (c2.1 + startup FastEliminate guard) is the committed candidate:
    [record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md). Full Debug job 1761569 pending.
-   Next: codebase cleanup (default graph labeling on, statistics output, stale branches/links/features,
-   doc compaction), identity check against c2.2, then full Tier D on the cleaned candidate.
+   Cleanup done: graph labeling on by default, trimmed statistics, DefaultPolicy structural Walk seeding
+   and the X17 census tool removed; byte-identical to c2.2 on 9 identity rows. Persistent affine search
+   stays (plan §9.5 Persistent XOR) pending a user decision. Next: stale branches/links, doc compaction,
+   then full Tier D on the cleaned candidate.
 1. Baseline reruns (A) 1757931 and (B) 1757933 run under governor 1757996 (600 s; hold
    >750 GB, release <700 GB); (C) follows (A).
 2. Then the full Tactix Tier D run on c2.1: cpu-q, 4 CPUs, 32 GB, 5,000 s solve, 8 h
@@ -75,6 +77,7 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Remove DefaultPolicy's off-by-default structural Walk seeding and the X17-only census tool.
 - Per-run statistics print the persistent affine-search block and `c handoff` only when enabled or
   nonzero (typical run 227 -> 157 `c` lines; parsed lines unchanged).
 - Graph labeling (Lucky 26/27 schedule) is on by default; plain `--auto-proof` equals c2.2's qualified
