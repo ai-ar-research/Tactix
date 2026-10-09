@@ -100,7 +100,46 @@ fixtures; two have empty streams).
 
 ## Byte identity and full Debug
 
-Pending at commit time; recorded in a follow-up to this report.
+Both campaigns use a `git archive` of the Step 4a commit `2c221ef9a`
+(`benchmarks/runs/20261009-apigap-s4-source/pins/source-pin.json`). A first Release pin built from
+the root checkout was discarded unused: another agent's edit was briefly applied to the shared tree
+while it compiled (its binary hash differs from the archive build).
+
+**Full Debug.** `tools/bench/full_debug_archive_campaign.py` with that source pin, as
+`benchmarks/runs/20261009-apigap-s4-full-debug`, job 1763234: **357/357 passed, 0 skipped**
+(Step 3's 356 plus `api_support`); the harness verifies the archive after the run. The Debug
+build tree was deleted afterwards.
+
+**DefaultPolicy.** The Step 3 three-arm campaign cloned as
+`benchmarks/runs/20261009-apigap-s4-identity`, job 1763155 (`cpu-dense-hwulab-q`, 8 CPUs,
+32 GiB, 600 s solve limit, `runtime_task.py`; c2.3 `--auto-proof`, Step 4a `--auto-proof`, Step 4a
+with `--default-graph-labeling=on`, sequential in one allocation; Release `7b32db48…` built from
+the archive, campaign copy `pins/tactix-new`). All 12 tasks completed with exit 0; all 12 rows are
+identical in verdict, conflicts, decisions and certificate SHA-256; every certificate or model is
+valid and certificates were deleted after checking.
+
+| Row | Verdict | Conflicts | Decisions | Certificate | Wall (s) |
+|---|---|---|---|---|---|
+| ramsey_4_4_19 | UNSAT | 0 | 0 | `d169d9686c94` | 0.1 / 0.1 / 0.1 |
+| lightsout_24 | UNSAT | 1 | 0 | `6fbc0514e27a` | 0.6 / 0.6 / 0.6 |
+| mp1-Nb7T42 | SAT | 638,214 | 15,456,796 | `3b6b38a3bfa0` | 56.9 / 56.5 / 56.9 |
+| battleship-14-26 | SAT | 665,487 | 1,681,225 | `fbedb083879e` | 15.0 / 14.9 / 14.9 |
+| oddball_53_5_tto | SAT | 0 | 0 | `ba97acaa4dc6` | 5.6 / 5.6 / 5.5 |
+| abw-K-dwt__234 | SAT | 8,935 | 44,009 | `97eed2dcb01a` | 21.0 / 23.8 / 23.1 |
+| cliquecolouring_n13_k8_c7 | UNSAT | 1 | 0 | `ed71148e8802` | 0.1 / 0.1 / 0.1 |
+| 9vliw_bp_mc | UNSAT | 198,066 | 2,279,994 | `438781f64b25` | 10.8 / 10.6 / 10.6 |
+| combined-crypto1 | SAT | 75,764 | 172,719 | `134984e88e13` | 2.2 / 2.2 / 2.2 |
+| sted5_0x24204-50 | SAT | 2,333,179 | 5,655,352 | `83c48a7431f7` | 127.8 / 128.5 / 128.1 |
+| noL-11-16 | SAT | 1,180,890 | 3,131,471 | `190aa7fb722c` | 30.7 / 30.8 / 30.4 |
+| b18 | UNSAT | 3,331,178 | 49,260,596 | `df61ef101a9d` | 216.5 / 216.2 / 216.2 |
+
+Every value equals the Steps 1–3 tables; wall times are c2.3 / Step 4a / Step 4a with graph
+labeling. abw-K-dwt keeps the 2–3 s layout offset Steps 0–3 attribute to code layout; the other
+rows are within ±1%.
+
+**Controller.** See Tests: identical to c2.3 apart from elapsed nanoseconds.
+
+**Doc checks.** All `tools/docs/check-*.py` pass.
 
 ## What blocks next
 

@@ -58,8 +58,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    `tactix_support` exposes every support transaction DefaultPolicy composes except the
    inprocessing phase bracket, the per-solve resets and execution contexts become recorded supports,
    and the public replay runs the structured-root online steps through `tactix_online_*` with H equal
-   after all 198 of them (the default-profile streams replay to the end). Its identity and full-Debug
-   validation is recorded in the report. Pending before push: §8.4 default gates and the §8.2 fuzz
+   after all 198 of them (the default-profile streams replay to the end). DefaultPolicy and the
+   controller are byte-identical to c2.3 (12 identity rows) and full Debug passes 357/357. Pending before push: §8.4 default gates and the §8.2 fuzz
    legs for Steps 1–4a. Next: Step 4b (public phase entry/exit, which unblocks the search profiles
    up to their first `ConflictAnalysis`), then Step 6.
 
