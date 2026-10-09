@@ -2,80 +2,61 @@
 
 ## Current stage
 
-Session goal (user): **at least 10 independently verified fixed44 closures on one coherent
-candidate**, preserving N1–N4, with effective Claude-owned fuzz, full Debug and B28+C5,
-Rank1–50, WV100 and WV2–89 acceptance. **Nothing is accepted yet.** Scope:
-[DEVELOPMENT_PLAN.md §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration).
+Session goal (user): at least 10 independently verified fixed44 closures on one coherent
+candidate, preserving N1–N4, with effective Claude-owned fuzz, full Debug and all four
+regression gates ([DEVELOPMENT_PLAN.md §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration)).
+**Met by c2.1.**
 
-- **c2 = `76e161b24`** (branch `candidate-c2`): fuzz PASS
-  ([owner report](benchmarks/runs/20261007-firstopen-original-seed-fuzz-owner/FINAL_REPORT.md)),
-  B28+C5 accepted, full Debug 352/353 (test assertion only, fixed `0b7d2bc55`). **11 verified
-  closures:** full44 `benchmarks/runs/20261007-fixed44-c2` (147, 263, 497, 627, 630, 899, 991,
-  1075) plus the 45,000 s long-check rerun `benchmarks/runs/20261008-fixed44-c2-longcheck`
-  (511 sokoban-p16, 541 crafted_n10_d6_c4_num9, 1129 crafted_n10_d6_c4_num8; drat-trim→CakeLPR).
-  569 and 654 exceed 32 GB in the checker. Gate rows at 5,000 s on the gate file (§8.4 rule):
-  noL-11-0 and noL-11-8 retained; snw_16_9_CCSpre UNKNOWN (faithful-port exception candidate:
-  Satsuma emits the same single unit and Satsuma+Kissat is UNKNOWN). Rank401 lost (SAT 7,271 s).
-- **Rank569** ([report](benchmarks/reports/2026-10-08-rank569-proof-memory/README.md)): one
-  witnessed SR line routes the stream to backward dsr-trim, which needs ~42 GB even for
-  Kissat's proof; verified at 128 GB. Fix options (solver witness-free expansion, or a
-  split-width checker) await the user.
-- **c3 = `b5ae7373f`** (c2 + graph-labeling region fix + Satsuma A–D + one-round pure literals
-  `fa6859f1d` + affine run schedule (affine off) + symmetry-use bookkeeping off `8525f7032`):
-  full Debug 355/355, zero skips; **all four gates fail**. A–D (`8a5b00658`) is a port defect on
-  clique colouring: clqcl_50_6_5 759 → 203 SR applications, 3 s → timeout (Satsuma+Kissat 0.17 s;
-  bisection `benchmarks/runs/20261008-bisect-clqcl*`). Also WV100 proof-cost regressions
-  (MVRoundRobin, cliquecolouring), B28+C5 ceiling (EDP3 startup +6.9 s with no output,
-  Timetable_392 AMO completion). Pure-round shuffle probe: luck, not mechanism
-  ([report](benchmarks/reports/2026-10-08-pure-round-shuffle-probe/README.md)). c3 full44 adds
-  SAT closures Timetable_C_495 (2,144 s) and lockchart (3,541 s); its 627 proof passes dsr-trim
-  (31.3 GB) but Trestle exceeds 32 GB.
-- **c4 = `11a26fb64`** (c3 + [Satsuma limit classification repair](benchmarks/reports/2026-10-08-satsuma-limit-classification/README.md)
-  `6a2e08215`): renewable Tactix windows no longer count as Satsuma's `reached_limits`; DejaVu
-  split limit, shallow-group skip and unused-variable colouring ported. Same-CPU pairs restore
-  c2 on clqcl/MVRoundRobin/EDP3/Timetable_392 and keep bphp (2.4 s) and Rank754 (SAT 3,736 s).
-  Release `b125ba45…`, archive `8360abd9…`,
-  [binding](benchmarks/runs/20261007-candidate-c4-source/pins/release-binding.json).
-  Open owner gaps: Johnson detector, one refinement per pass, per-pass split counter.
-- **Affine search:** schedule on Kissat functions, neutral, no measured benefit
-  ([report](benchmarks/reports/2026-10-08-affine-search-scheduling/README.md)). User
-  2026-10-08: fix the two c4 fuzz findings, fix admission (xor_op census ResourceExhausted at
-  zero work; lec_mult basis decays to rank 0), then turn it **on** in c5 (implemented rules ship on).
-
-- **Trajectory finding (2026-10-08, `benchmarks/probes/scratch/traj-advgc/`):** on Satsuma's actual
-  residual of adv_gc (input + 19,800 AMO binaries, no other SB output) Tactix c2 symmetry-off needs
-  155.0M conflicts (identical to c2 symmetry-on on the original) vs Kissat 4.0.4 14.3M (fastel=0) /
-  21.0M (fastel=1, same BVE/factor counts as Tactix). On the original without the binaries Tactix
-  matches Kissat (7.0M vs 7.7M). Kissat-port search defect on binary-rich formulas, not symmetry;
-  symmetry-off Tactix also solves noL-11-10 (107 s) and Timetable_E48 (1,522 s) that c2 misses.
-  Queued as agent item 3c (first-divergence trace vs Kissat --fastel=1).
+- **Qualified candidate: c2.1 = `1aad09b07`** (branch `candidate-c2.1`; c2 + test fix +
+  affine refresh root-unit fix; search byte-identical to c2). Release `28995e13…`.
+  - full Debug 353/353;
+  - fuzz PASS, 0 product failures;
+  - B28+C5 accepted;
+  - Rank1–50, WV100 and WV2–89 pass under §8.4 (5,000 s retention for noL-11-0,
+    noL-11-8 and Circuit_multiplier24; accepted exception snw_16_9_CCSpre);
+  - **13 verified fixed44 closures**: ranks 147, 226, 263, 489, 497, 511, 541, 627, 630, 899,
+    991, 1075, 1129.
+  - [Qualification report](benchmarks/reports/2026-10-08-candidate-c2.1-qualification/README.md).
+- **c3/c4 (main lineage, not qualified).** Satsuma A–D, one-round pure literals, limit
+  repair, per-pass refinement (`2b1544cbb`), fix_and_cut scan (`e0e09d678`, held) and
+  witness-free SR expansion (`163429b44`). They fail B28+C5 and lose Break_20_72 and
+  ntil-90d-40.
+- **Trajectory finding** (`benchmarks/probes/scratch/traj-advgc/`):
+  - On Satsuma's adv_gc residual (input + 19,800 AMO binaries), Tactix needs 155M conflicts
+    against Kissat fastel=1's 21M. Preprocessing is identical, so this is a Kissat-port
+    search gap.
+  - Symmetry-off c2 solves noL-11-10 (110 s), adv_gc (170 s), SDP_118 (1,235 s),
+    ITC2021_Early_10 (1,348 s) and Timetable_E48 (1,522 s), all of which c2 misses.
+  - mp1-Nb5T15's gap is startup FastEliminate (Kissat 4.0.4 fastel=0); battleship's is
+    clause-order chaos.
+  - snw16's unit witness is 70,132/70,855 sign flips; the phase test (job 1758755) is
+    pending.
+- **Affine search**: the refresh fix is in c2.1. Admission + Gauss-Jordan are in progress,
+  then it becomes default-on.
 
 ## Next action
 
-1. Score c4: full Debug 1757469, gates 1757470–73 (§8.4 5,000 s retention rule; faithful-port
-   exceptions only with shuffle/noise evidence and user consent), full44 1757529 (45,000 s
-   checker). If c4 qualifies with ≥10 closures it is the session candidate; c2 (10 closures)
-   needs the snw_16_9_CCSpre exception and a Debug rerun with `0b7d2bc55`.
-2. Fuzz owner `firstopen-fuzz-owner` runs the c4 binding (sent 2026-10-08).
-3. User decisions 2026-10-08: startup FastEliminate is never suppressed; the final
-   documentation run uses -c 6; Rank569 gets solver-side witness-free expansion of
-   permutation-witness SR lines (after c4 qualifies). Baseline reruns: 125 concurrent under
-   the governor (no proof-size cap); submitted, see Live work.
-4. After qualification: push, then the full Tactix Tier D run (cpu-q, -c 4, 32 GB, 5,000 s,
-   8 h checker, 125 cap, governor; rerun failed checks at 64 GB).
+1. Next candidate (c5), gated by counter identity on the gate rows first, then the four gates:
+   the search-divergence fix (trace agent), the phase transform for symmetry units if the
+   snw16 test confirms it, `163429b44`, affine-on. The target is more fixed44 solves with
+   no gate loss.
+2. Resume the symmetry-off screen of the remaining 27 gap rows (cancelled for gate
+   capacity; rows 401, 654, 781 and 887 are done).
+3. Baseline reruns (A)/(B) are running under the governor; (C) follows (A). Then the full
+   Tactix Tier D run on c2.1 (cpu-q, -c 4, 32 GB, 5,000 s, 8 h check, 125 cap, governor).
+4. Open: Rank291 needs a checker-side route (DRAT expansion exceeds 32 GB). Constant-image
+   witness expansion is deferred.
 
-## Live work (2026-10-08; check terminal state, never infer from the queue)
+## Live work
 
 | Work | Jobs / owner | Status |
 |---|---|---|
-| c2 long checks | 1756907, `benchmarks/runs/20261008-fixed44-c2-longcheck` | 511, 541 verified; 569, 654 OOM; rest running |
-| c3 full44 | 1757164, `benchmarks/runs/20261008-fixed44-c3` (45,000 s checker) | running; informational |
-| c4 Debug / gates | 1757469; 1757470–73 (`benchmarks/runs/20261008-c4-regression-*`) | running |
-| c4 full44 | 1757529, `benchmarks/runs/20261008-fixed44-c4` (45,000 s checker) | running |
-| Fuzz owner | `firstopen-fuzz-owner`, FINAL_REPORT.md c4 section | c4 **FAIL**: no soundness failure; 2 deterministic affine findings also in c2 (am-refresh-after-elim N1 contract; afB-consequence-not-derived unclassified) |
-| Repair agent | B28+C5 startup cost `2b1544cbb` (veer 43→24 s; mp1 = Satsuma's exact clauses, noise; battleship cut-point gap open) | now on the two affine findings, then battleship |
-| c4 retention 5,000 s | 1757795–800 (`benchmarks/runs/20261008-r5000-c4-*`) | running |
-| Baseline reruns | (A) 1757931 `benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h` %100; (B) 1757933 `sc24-26-recheck-64g-8h` %25; governor 1757996 (600 s, hold >750 G, release <700 G) | running; (C) after (A) |
+| Search divergence (adv_gc residual) | trace agent | running |
+| Affine admission + Gauss-Jordan | repair agent | running |
+| snw16 phase test / Kissat model | 1758755, 1758743 (`benchmarks/probes/scratch/snw16-unit/`) | running |
+| Rank569 witness-free full check | 1758604 (`benchmarks/runs/20261008-srexp-r569-fullcheck`) | running |
+| c4 / c3 full44 | 1757529, 1757164 | finishing; informational |
+| Baseline reruns | (A) 1757931, (B) 1757933; governor 1757996 (600 s; hold >750 G, release <700 G) | running |
 
 ## Verification authorities
 
