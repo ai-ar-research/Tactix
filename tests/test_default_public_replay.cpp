@@ -1,13 +1,12 @@
 // Public-API replay reporter (gap plan Step 0; report-only until step 7).
-// A reference DefaultPolicy stream on a C-API-loaded solver is replayed on a
-// second one through tactix.h (tactix_apply_instance, tactix_decide,
-// tactix_install_parameters, tactix_install_material_settings). The replay
-// stops at the first record without a public request (default_action_map.hpp)
-// or at the first divergence; a census lists every blocking entry of the whole
-// stream. Per guidance-publication mode it reports the first H divergence
-// (saved, score, candidates, active set, target, mode), the H fields differing
-// at the stop and the first installed-profile divergence; each public install
-// must reproduce the reference's profile of its family (asserted). A lookahead
+// A reference DefaultPolicy stream on a C-API solver is replayed on a second
+// one through tactix.h only: registry instances, decisions, installs, supports
+// and the structured-root online steps (public_online_encoding.hpp; each must
+// convert back to the native request). The replay stops at the first record
+// without a public request or at the first divergence; a census lists every
+// blocking entry. Per guidance-publication mode it reports the first H and
+// installed-profile divergences and H after each online step; each public
+// install must reproduce the reference's profile (asserted). A lookahead
 // pass assumes support transactions without a public request yet.
 #undef NDEBUG
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
@@ -16,7 +15,7 @@
 #include "tactix.h"
 #undef tactix
 #include "default_action_map.hpp"
-#include "public_parameter_encoding.hpp"
+#include "public_online_encoding.hpp"
 
 #include "api/api_internal.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -233,6 +232,11 @@ struct GuidanceCapture final : FeedbackReceiver {
 
 struct Report {
   uint64_t records = 0, installed = 0, assumed = 0, replayed = 0;
+  uint64_t supports = 0, online_steps = 0, online_h_equal = 0;
+  // Online steps that made rule progress, and that grew the root trail.
+  uint64_t online_progress = 0, online_roots = 0;
+  std::string first_online_h_divergence = "none";
+  std::vector<std::string> round_trip_mismatches; // online C form differs
   std::string stop = "end-of-stream";
   std::string first_guidance_divergence = "none"; // record and fields
   std::string guidance_at_stop = "unmeasured";   // differing fields, or empty
@@ -251,6 +255,9 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
   report.records = records.size();
   tactix_c_handle *s = load(fixture, publication);
   Kernel &observed = api_detail::kernel_for_fixed_testing(s);
+  // The structured-root step configured as a one-step public program, as the
+  // native sequence runs each step with its own executor.
+  std::string online_key;
   // Compare the replayed prefix ending after record `last` with the reference.
   const auto compare = [&](size_t last) {
     if (lookahead) return;
@@ -292,6 +299,84 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
         !drift.empty()) {
       report.stop = where + ": diverged before the record " + drift;
       break;
+    }
+    if (entry->replay == Replay::Support) {
+      const int code = tactix_support(s, entry->support, support_argument(*entry, record));
+      const bool vacuous = code == -1 && mismatch(record.before, record.after).empty();
+      if (code == -1 && !vacuous) {
+        report.stop = where + ": tactix_support rejected";
+        break;
+      }
+      if (const std::string differs =
+              mismatch(record.after, strategy::controller::observe_kernel(observed));
+          !differs.empty()) {
+        report.stop = where + ": diverged state " + differs;
+        break;
+      }
+      ++report.supports;
+      ++report.replayed;
+      continue;
+    }
+    if (entry->replay == Replay::Online) {
+      const auto &invocation = *record.native_request->invocation;
+      const std::string_view text = description(record);
+      const std::string key = std::string(text.substr(0, text.find(';'))) + ";step=" +
+                              std::to_string(invocation.id);
+      if (key != online_key || tactix_online_complete(s) == 1) {
+        public_encoding::EncodedStep encoded;
+        if (!public_encoding::encode_step(observed, invocation, rule_id(invocation.rule),
+                                          encoded)) {
+          report.stop = where + ": step has no tactix_online_step_v2 form";
+          break;
+        }
+        const tactix_online_program_v2 program{&encoded.step, 1,
+                                               TACTIX_ONLINE_REPEAT_ONCE, 1};
+        if (tactix_online_configure_v2(s, &program, 1, TACTIX_ONLINE_RECONFIGURE_RESET)) {
+          report.stop = where + ": tactix_online_configure_v2 rejected";
+          break;
+        }
+        strategy::OnlineStrategyProgram native;
+        native.sequence.push_back(invocation);
+        const auto *configured = api_detail::online_program_for_fixed_testing(s);
+        if (!lookahead && strategy::serialize_online_strategy_program(*configured) !=
+                              strategy::serialize_online_strategy_program(native))
+          report.round_trip_mismatches.push_back(where + " step=" +
+                                                 std::to_string(invocation.id));
+        online_key = key;
+      }
+      tactix_online_result result{};
+      if (tactix_online_advance(s, &result)) {
+        report.stop = where + ": tactix_online_advance rejected";
+        break;
+      }
+      const auto &expected_invocation = record.outcome.invocation;
+      if (result.status != static_cast<int>(expected_invocation.status) ||
+          result.applications != expected_invocation.applications) {
+        report.stop = where + ": diverged: status " + std::to_string(result.status) +
+                      " expected " +
+                      std::to_string(static_cast<int>(expected_invocation.status)) +
+                      ", applications " + std::to_string(result.applications) +
+                      " expected " + std::to_string(expected_invocation.applications);
+        break;
+      }
+      if (const std::string differs =
+              mismatch(record.after, strategy::controller::observe_kernel(observed));
+          !differs.empty()) {
+        report.stop = where + ": diverged state " + differs;
+        break;
+      }
+      ++report.online_steps;
+      report.online_progress += expected_invocation.made_rule_progress;
+      report.online_roots += record.after.root_population > record.before.root_population;
+      ++report.replayed;
+      if (!lookahead) {
+        const std::string differs = guidance_mismatch(reference.after[i], guidance(observed));
+        report.online_h_equal += differs.empty();
+        if (!differs.empty() && report.first_online_h_divergence == "none")
+          report.first_online_h_divergence = "#" + std::to_string(i) + " " +
+              invocation.rule + " step=" + std::to_string(invocation.id) + " " + differs;
+      }
+      continue;
     }
     if (entry->replay == Replay::Install) {
       if (const std::string failed = install(s, record); !failed.empty()) {
@@ -346,6 +431,10 @@ int main() {
   std::map<int, uint64_t> guidance_matches;
   uint64_t guidance_compared = 0, candidates_compared = 0;
   uint64_t replayed_fixtures = 0;
+  uint64_t supports = 0;
+  std::map<int, uint64_t> online_steps, online_h_equal;
+  uint64_t online_progress = 0, online_roots = 0;
+  std::vector<std::string> round_trips;
   for (const Fixture &fixture : fixtures()) {
     if (fixture.dimacs.empty()) continue;
     ++replayed_fixtures;
@@ -376,10 +465,22 @@ int main() {
         install_mismatches.push_back(fixture.name + " " + name + " " + where);
       guidance_line += std::string(" profile-") + name + "-first=" +
                        mode.first_profile_divergence;
+      online_steps[publication] += mode.online_steps;
+      online_h_equal[publication] += mode.online_h_equal;
+      if (mode.online_steps)
+        guidance_line += std::string(" online-h-") + name + "=" +
+                         std::to_string(mode.online_h_equal) + "/" +
+                         std::to_string(mode.online_steps) + " online-h-" + name +
+                         "-first=" + mode.first_online_h_divergence;
+      for (const auto &where : mode.round_trip_mismatches)
+        round_trips.push_back(fixture.name + " " + name + " " + where);
     }
     const Report ahead = replay(fixture, reference, TACTIX_GUIDANCE_DISCARD, true);
     replayed += report.replayed;
     installed += report.installed;
+    supports += report.supports;
+    online_progress += report.online_progress;
+    online_roots += report.online_roots;
     records_total += report.records;
     lookahead_replayed += ahead.replayed;
     lookahead_assumed += ahead.assumed;
@@ -392,22 +493,35 @@ int main() {
               << ahead.assumed << " lookahead-stop=" << ahead.stop << '\n';
   }
   std::cout << "replayed " << replayed << " of " << records_total << " records ("
-            << installed << " permanent installs); blocking entries over all streams:";
+            << installed << " permanent installs, " << supports << " supports, "
+            << online_steps[TACTIX_GUIDANCE_DISCARD]
+            << " online steps); blocking entries over all streams:";
   for (const auto &[id, count] : blockers) std::cout << ' ' << id << '=' << count;
   std::cout << "\nlookahead (support transactions assumed): replayed "
             << lookahead_replayed << ", assumed " << lookahead_assumed << "; stops:";
   for (const auto &[where, count] : lookahead_stops) std::cout << " [" << where << "]=" << count;
   for (const auto &where : install_mismatches)
     std::cout << "\ninstalled profile differs from the reference: " << where;
+  for (const auto &where : round_trips)
+    std::cout << "\nonline step C form differs from the native request: " << where;
+  std::cout << "\nH equal after structured-root online steps: discard "
+            << online_h_equal[TACTIX_GUIDANCE_DISCARD] << '/'
+            << online_steps[TACTIX_GUIDANCE_DISCARD] << ", native "
+            << online_h_equal[TACTIX_GUIDANCE_NATIVE] << '/'
+            << online_steps[TACTIX_GUIDANCE_NATIVE] << " (" << online_progress
+            << " steps with rule progress, " << online_roots << " growing the root)";
   std::cout << "\nH equal at the replay stop point: discard "
             << guidance_matches[TACTIX_GUIDANCE_DISCARD] << '/' << replayed_fixtures
             << ", native " << guidance_matches[TACTIX_GUIDANCE_NATIVE] << '/'
             << replayed_fixtures << " (" << guidance_compared << " comparisons over "
             << candidates_compared << " candidate literals)\n";
   // Report-only, except that the replay machinery itself must have executed
-  // public calls, the H comparison must have observed nonempty guidance, and
-  // every public install must reproduce the reference's installed profile.
+  // public calls (installs, supports and online steps), the H comparison must
+  // have observed nonempty guidance, every public install must reproduce the
+  // reference's installed profile, and every encoded online step must convert
+  // back to exactly the native request.
   assert(replayed > 0 && installed > 0 && candidates_compared > 0);
-  assert(install_mismatches.empty());
+  assert(supports > 0 && online_steps[TACTIX_GUIDANCE_DISCARD] > 0);
+  assert(install_mismatches.empty() && round_trips.empty());
   return 0;
 }

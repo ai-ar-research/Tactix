@@ -12,6 +12,14 @@ struct RootPreparationRequest {
   bool clear_unflushed_root = false;
 };
 
+// The public support argument (TACTIX_ROOT_PREPARATION_* flags) of a root
+// preparation whose pre-restart callback captures target phases or not.
+constexpr uint64_t root_preparation_argument(const RootPreparationRequest &request,
+                                          bool capture_target) {
+  return (request.probing ? 1u : 0u) | (capture_target ? 2u : 0u) |
+         (request.clear_unflushed_root ? 4u : 0u);
+}
+
 struct SparseResumeRequest {
   uint32_t trail_begin = 0;
   bool charge_search_ticks = false;

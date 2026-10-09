@@ -575,6 +575,29 @@ proof-rule applications or formula progress. Preparation reports its native
 activation-variable count; attachment/import retain native ticks, including
 zero work. Existing borrowed H and early terminals still bypass unused setup.
 
+A client requests each support transaction DefaultPolicy composes through
+the additive `tactix_support(s, TACTIX_SUPPORT_*, argument)`, which runs the
+same shared request: startup-certificate closure, preparation restart
+(keep level), root preparation (probing, target-capture and root-prefix
+flags), sparse collection, random-order and variable compaction, Reduce
+preparation, garbage collection, retired-redundant flush, a new BVE
+definition session, warm-up (H's decision order with a heuristic or forced
+polarity), residual H reseeding, graph-labeling session reset, input-order
+release, root-prefix consumption, and entering/leaving an execution context
+(startup, inprocessing, speculation). Roots it derives reach H through the
+session's guidance-publication profile. DefaultPolicy's support records
+carry the public argument as their instance and add `ResetGraphLabelingSession`,
+`ReleaseInputBinaryOrder`, `ConsumeRootPrefix` and the presearch and
+structured-root `Enter/LeaveExecutionContext` records; a context left
+implicitly after the session has ended is unrecorded. `MaterializeColdState`
+(predicate-equivalent initial state, never deferred in a C session) and
+`AttachHeuristics` (a C session owns H from `tactix_init`) are declared
+non-actions. Phase entry/exit, the Strengthen forward closure and a warm-up
+picked by a caller-installed branching policy have no public form yet. An SR
+online profile with `complete_profile_mode` ENABLE converts every orbitopal,
+general and graph field whatever the producer, so a GraphSymmetry step's
+structured-generator handoff carries its orbitopal settings.
+
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
 Native continuation also links intervals after ordinary full restarts, root

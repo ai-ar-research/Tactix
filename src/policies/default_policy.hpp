@@ -128,6 +128,10 @@ public:
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
   Lit pick_for_restart_reuse(Kernel &) override;
+  // The forced polarity decide_lit applies at the current mode and switch
+  // count: +1 positive, -1 negative, 0 H's phase. Warm-up takes no random
+  // decision, so its picks are H's next variable with this polarity.
+  int8_t forced_phase(const Kernel &) const;
   static constexpr uint64_t RANDEC_INIT =
       DefaultStrategyConfig::RANDOM_INITIAL_INTERVAL_DEFAULT;
   static constexpr uint64_t RANDEC_LENGTH =

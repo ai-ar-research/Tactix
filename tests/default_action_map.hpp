@@ -1,14 +1,20 @@
 #pragma once
 
-// DefaultPolicy action-route map (gap plan Step 0,
+// DefaultPolicy action-route map (gap plan,
 // benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md §1).
 // Route: how DefaultPolicy executes a feedback record now.
-//   Public - registry dispatch (apply_rule*, RegisteredRuleRequest) or an
-//            online invocation;
-//   Shared - a typed request or registered function without dispatch, whose
-//            transition a declared public request (id + instance) expresses;
-//   Kernel - no public request expresses it yet.
+//   Public - registry dispatch, an online invocation or a public support;
+//   Shared - a typed request without dispatch whose transition a declared
+//            public request (id + instance) expresses;
+//   Kernel - no public request expresses it yet;
+//   Declared - a declared non-action: no state a client observes or holds.
 // test_default_action_map ratchets the internal (Shared/Kernel) entries.
+
+// Rename the public alias as api.cpp does: its `tactix` typedef would collide
+// with the internal namespace.
+#define tactix tactix_c_handle
+#include "tactix.h"
+#undef tactix
 
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -38,7 +44,7 @@ using strategy::controller::Observation;
 using strategy::controller::SearchIntervalFeedback;
 using strategy::controller::StopReason;
 
-enum class Route { Public, Shared, Kernel };
+enum class Route { Public, Shared, Kernel, Declared };
 // Interval: a step legitimately inside the native search interval (plan §2);
 // Crossing: an action at or across a declared action boundary.
 enum class Boundary { Interval, Crossing };
@@ -48,12 +54,18 @@ enum class Replay {
   Decide,           // tactix_decide(record instance as DIMACS literal)
   Marker,           // no state transition of its own
   Install,          // tactix_install_parameters / tactix_install_material_settings
+  Support,          // tactix_support(entry support, record argument)
+  Online,           // tactix_online_configure_v2 + tactix_online_advance
   None              // no public request yet: the replay stops here
 };
 
 inline const char *route_name(Route r) {
-  return r == Route::Public ? "P" : r == Route::Shared ? "S" : "K";
+  return r == Route::Public   ? "P"
+         : r == Route::Shared ? "S"
+         : r == Route::Kernel ? "K"
+                              : "D";
 }
+inline bool internal(Route r) { return r == Route::Shared || r == Route::Kernel; }
 
 inline std::string_view description(const ActionFeedback &r) {
   return r.native_request ? std::string_view(r.native_request->description)
@@ -88,7 +100,17 @@ struct Entry {
   bool check_dispatch;
   const char *public_route;
   const char *plan;
+  int support = 0; // TACTIX_SUPPORT_* for Replay::Support
 };
+
+// The tactix_support argument a support record carries: its instance, or
+// zero for a canonical record and for a context leave (whose instance names
+// the context it leaves).
+inline uint64_t support_argument(const Entry &entry, const ActionFeedback &r) {
+  if (entry.support == TACTIX_SUPPORT_LEAVE_CONTEXT || r.instance == INSTANCE_CANONICAL)
+    return 0;
+  return r.instance;
+}
 
 // Inprocessing slot records whose rule goes through RegisteredRuleRequest or
 // apply_rule_instance. The exceptions below have their own entries.
@@ -124,8 +146,9 @@ inline const std::vector<Entry> &entries() {
        Boundary::Interval, Replay::Marker, false,
        "interval marker (ResumeSearch native configuration: step 7)", "D1"},
       // --- macro actions at interval boundaries ---
-      {"reduce", K::Rule, "Reduce", nullptr, Route::Public, Boundary::Crossing,
-       Replay::RegistryInstance, true,
+      {"reduce", K::Rule, "Reduce",
+       [](const ActionFeedback &r) { return !structured_stage(r); },
+       Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,
        "Reduce canonical under scoped ReduceParameters", "A12"},
       {"switch-mode", K::Rule, "SwitchMode", nullptr, Route::Public,
        Boundary::Crossing, Replay::RegistryInstance, true, "SwitchMode canonical",
@@ -177,7 +200,7 @@ inline const std::vector<Entry> &entries() {
        "(the policy's heap/score hook is C4, outside the record)", "A10,C4"},
       {"structured-root-online", K::Rule, nullptr,
        [](const ActionFeedback &r) { return structured_stage(r); },
-       Route::Public, Boundary::Crossing, Replay::None, true,
+       Route::Public, Boundary::Crossing, Replay::Online, true,
        "online invocation of the structured-root program", "A10"},
       {"slot-sweep-batch", K::Rule, "Sweep",
        [](const ActionFeedback &r) {
@@ -215,13 +238,97 @@ inline const std::vector<Entry> &entries() {
       {"install-material-settings", K::Support, "InstallMaterialSettings",
        nullptr, Route::Public, Boundary::Crossing, Replay::Install, false,
        "tactix_install_material_settings", "C6"},
+      // --- support transactions (A5, A11): tactix_support ---
       {"close-startup-certificate", K::Support, "CloseStartupCertificate",
+       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE", "A11",
+       TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE},
+      {"support-preparation-restart", K::Support, "Restart", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_PREPARATION_RESTART(keep level)", "A5",
+       TACTIX_SUPPORT_PREPARATION_RESTART},
+      {"support-root-preparation", K::Support, "RootPreparation", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_ROOT_PREPARATION(flags)", "A5,A11",
+       TACTIX_SUPPORT_ROOT_PREPARATION},
+      {"support-sparse-collect", K::Support, "SparseCollect", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_SPARSE_COLLECT", "A11", TACTIX_SUPPORT_SPARSE_COLLECT},
+      {"support-compact-random-order", K::Support, "CompactRandomOrder", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_COMPACT_RANDOM_ORDER (H)", "A11",
+       TACTIX_SUPPORT_COMPACT_RANDOM_ORDER},
+      {"support-compact-variables", K::Support, "CompactVariables", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_COMPACT_VARIABLES(flags)", "A11,A12",
+       TACTIX_SUPPORT_COMPACT_VARIABLES},
+      {"support-reduction-preparation", K::Support, "ReductionPreparation",
+       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_REDUCTION_PREPARATION", "A11,A12",
+       TACTIX_SUPPORT_REDUCTION_PREPARATION},
+      {"support-collect-garbage", K::Support, "CollectGarbage", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_COLLECT_GARBAGE(flags)", "A11",
+       TACTIX_SUPPORT_COLLECT_GARBAGE},
+      {"support-bve-definition-session", K::Support, "BeginBveDefinitionSession",
+       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION", "A11",
+       TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION},
+      {"support-warmup", K::Support, "Warmup",
+       [](const ActionFeedback &r) { return r.instance != INSTANCE_CANONICAL; },
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_WARMUP(phase): H's decision order (H)", "A11",
+       TACTIX_SUPPORT_WARMUP},
+      {"support-warmup-installed-branching", K::Support, "Warmup", nullptr,
+       Route::Kernel, Boundary::Crossing, Replay::None, false,
+       "none: a caller-installed BranchingPolicy picks (native profile: "
+       "step 7)", "A11"},
+      {"support-residual-guidance", K::Support, "PrepareResidualGuidance",
+       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_RESEED_GUIDANCE (with the attach and import-order "
+       "records that follow; H)", "A11", TACTIX_SUPPORT_RESEED_GUIDANCE},
+      {"support-residual-import-order", K::Support, "SeedResidualImportOrder",
        nullptr, Route::Public, Boundary::Crossing, Replay::Marker, false,
-       "implied by the next non-startup registry dispatch", "A11"},
-      {"support-transaction", K::Support, nullptr, nullptr, Route::Kernel,
-       Boundary::Crossing, Replay::None, false,
-       "none: support vocabulary (RootPreparation, preparation Restart, "
-       "SparseCollect, CompactVariables, Warmup, ...) is step 4", "A5,A11"},
+       "part of TACTIX_SUPPORT_RESEED_GUIDANCE", "A11"},
+      {"support-reset-graph-labeling", K::Support, "ResetGraphLabelingSession",
+       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION", "C5",
+       TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION},
+      {"support-release-input-order", K::Support, "ReleaseInputBinaryOrder",
+       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_RELEASE_INPUT_ORDER", "C5",
+       TACTIX_SUPPORT_RELEASE_INPUT_ORDER},
+      {"support-consume-root-prefix", K::Support, "ConsumeRootPrefix", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_CONSUME_ROOT_PREFIX", "C5",
+       TACTIX_SUPPORT_CONSUME_ROOT_PREFIX},
+      {"support-enter-context", K::Support, "EnterExecutionContext", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_ENTER_CONTEXT(context)", "A11",
+       TACTIX_SUPPORT_ENTER_CONTEXT},
+      {"support-leave-context", K::Support, "LeaveExecutionContext", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_LEAVE_CONTEXT", "A11", TACTIX_SUPPORT_LEAVE_CONTEXT},
+      {"materialize-cold-state", K::Support, "MaterializeColdState", nullptr,
+       Route::Declared, Boundary::Crossing, Replay::Marker, false,
+       "declared non-action: allocates per-variable state in its initial "
+       "value; predicate-equivalent, and a C session never defers it", "A11"},
+      {"attach-heuristics", K::Support, "AttachHeuristics", nullptr,
+       Route::Declared, Boundary::Crossing, Replay::Marker, false,
+       "declared non-action: a C session owns H from tactix_init "
+       "(reseeding is TACTIX_SUPPORT_RESEED_GUIDANCE)", "A11"},
+      {"support-phase-bracket", K::Support, nullptr,
+       [](const ActionFeedback &r) {
+         return r.identity == "InprocessPhaseEntry" ||
+                r.identity == "InprocessPhaseExit";
+       },
+       Route::Kernel, Boundary::Crossing, Replay::None, false,
+       "none: phase entry/exit (inprocessing context, watch disconnect/"
+       "reconnect, occurrence session, Factor selection, sparse resume) is "
+       "step 4b", "A11,C4"},
+      {"support-forward-closure", K::Support, "ForwardClosure", nullptr,
+       Route::Kernel, Boundary::Crossing, Replay::None, false,
+       "none: Strengthen forward-closure post-application is step 5", "A10"},
   };
   return table;
 }

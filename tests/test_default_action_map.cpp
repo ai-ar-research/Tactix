@@ -13,14 +13,14 @@
 
 using namespace action_map;
 
-// Internal entries after Step 3 (permanent installs through
-// tactix_install_parameters). Each later step removes the entries it routes
-// publicly.
+// Internal entries after Step 4a (support transactions through
+// tactix_support). Each later step removes the entries it routes publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
     "propagate-search", "decide", "conflict-analysis", "propagate-root",
     "affine-matrix-initialize", "affine-matrix-search", "slot-sweep-batch",
     "slot-substitute-rounds", "slot-vivify-band", "slot-fastel-occurrence",
-    "install-affine-matrix-parameters", "support-transaction"};
+    "install-affine-matrix-parameters", "support-warmup-installed-branching",
+    "support-phase-bracket", "support-forward-closure"};
 
 // Entries whose route a refactor step changes must be reached by the fixtures,
 // or their dispatch check would be vacuous.
@@ -31,7 +31,12 @@ static const std::set<std::string> REQUIRED_OBSERVED = {
     "bce-post-structured", "propagate-root", "slot-registered",
     "slot-bve-candidate", "structured-root-online",
     "install-parameters", "install-walk-guidance", "install-material-settings",
-    "close-startup-certificate", "support-transaction"};
+    "close-startup-certificate", "support-root-preparation",
+    "support-sparse-collect", "support-compact-random-order",
+    "support-compact-variables", "support-reduction-preparation",
+    "support-warmup", "support-reset-graph-labeling",
+    "support-consume-root-prefix", "support-enter-context",
+    "support-leave-context", "materialize-cold-state", "support-phase-bracket"};
 
 int main(int argc, char **argv) {
   const bool dump = argc > 1 && !std::strcmp(argv[1], "--dump");
@@ -85,16 +90,21 @@ int main(int argc, char **argv) {
       std::cout << "fixture " << fixture.name << " records=" << records.size() << '\n';
   }
 
-  std::set<std::string> internal, all;
+  std::set<std::string> internal_ids, declared, all;
   for (const Entry &entry : entries()) {
     assert(all.insert(entry.id).second); // entry ids are unique
-    if (entry.route != Route::Public) internal.insert(entry.id);
+    if (internal(entry.route)) internal_ids.insert(entry.id);
+    if (entry.route == Route::Declared) declared.insert(entry.id);
+    // A Support replay names its tactix_support transaction.
+    assert((entry.replay == Replay::Support) == (entry.support != 0));
   }
-  uint64_t public_records = 0, internal_records = 0;
+  uint64_t public_records = 0, internal_records = 0, declared_records = 0;
   for (const Entry &entry : entries()) {
     const auto found = tally.find(entry.id);
     const Tally t = found == tally.end() ? Tally{} : found->second;
-    (entry.route == Route::Public ? public_records : internal_records) += t.records;
+    (internal(entry.route) ? internal_records
+     : entry.route == Route::Declared ? declared_records
+                                      : public_records) += t.records;
     std::cout << route_name(entry.route) << ' '
               << (entry.boundary == Boundary::Interval ? "in" : "x ") << ' '
               << entry.id << " records=" << t.records << " dispatched="
@@ -103,20 +113,21 @@ int main(int argc, char **argv) {
       for (const auto &identity : t.identities) std::cout << ' ' << identity;
     std::cout << '\n';
   }
-  std::cout << "entries: public=" << all.size() - internal.size()
-            << " internal=" << internal.size() << "; records: public="
-            << public_records << " internal=" << internal_records << '\n';
+  std::cout << "entries: public=" << all.size() - internal_ids.size() - declared.size()
+            << " internal=" << internal_ids.size() << " declared=" << declared.size()
+            << "; records: public=" << public_records << " internal="
+            << internal_records << " declared=" << declared_records << '\n';
   if (dump) return ok ? 0 : 1;
   for (const auto &id : REQUIRED_OBSERVED)
     if (!tally.count(id)) {
       std::cerr << "fixtures do not reach entry " << id << '\n';
       ok = false;
     }
-  if (internal != EXPECTED_INTERNAL) {
-    for (const auto &id : internal)
+  if (internal_ids != EXPECTED_INTERNAL) {
+    for (const auto &id : internal_ids)
       if (!EXPECTED_INTERNAL.count(id)) std::cerr << "newly internal: " << id << '\n';
     for (const auto &id : EXPECTED_INTERNAL)
-      if (!internal.count(id)) std::cerr << "now public (shrink the list): " << id << '\n';
+      if (!internal_ids.count(id)) std::cerr << "now public (shrink the list): " << id << '\n';
     ok = false;
   }
   assert(ok);

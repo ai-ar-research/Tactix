@@ -18,6 +18,34 @@ inline void execute_action(Kernel &k, CloseStartupCertificateRequest) {
     k.proof->commit_dsr();
 }
 
+// Per-solve lifecycle releases. None changes the formula or the assignment;
+// each returns whether it had state to release.
+// The graph-labeling session restarts authentication for a new solve.
+struct ResetGraphLabelingSessionRequest {};
+// The parser's retained input-binary order serves only the original-input
+// DirectCsp opportunity (onehot_model.cpp); later opportunities read watches.
+struct ReleaseInputBinaryOrderRequest {};
+// Preprocessing consumed the propagated root prefix (Kissat clears it
+// physically); Reduce preparation then flushes only roots derived later.
+struct ConsumeRootPrefixRequest {};
+
+inline bool execute_action(Kernel &k, ResetGraphLabelingSessionRequest) {
+  k.graph_labeling_session.clear();
+  return true;
+}
+inline bool execute_action(Kernel &k, ReleaseInputBinaryOrderRequest) {
+  if (!k.input_binary_order_captured) return false;
+  k.input_binary_order.clear();
+  k.input_binary_order.shrink_to_fit();
+  k.input_binary_order_captured = false;
+  return true;
+}
+inline bool execute_action(Kernel &k, ConsumeRootPrefixRequest) {
+  const bool pending = k.unflushed_root != 0;
+  k.unflushed_root = 0;
+  return pending;
+}
+
 enum class RestartPurpose : uint8_t { Scheduled, Preparation };
 
 struct RestartRequest {

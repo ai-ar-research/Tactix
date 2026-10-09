@@ -1055,6 +1055,14 @@ typedef struct {
    * already false is left to a cut level. INHERIT retains the disabled
    * default. */
   int symmetry_first_literal_fix_anchor_mode;
+  /* Appended. TACTIX_ONLINE_SETTING_*; ENABLE reads every orbitopal, general
+   * and graph field above whatever the producer, so a profile is exact when
+   * its producer delegates discovery to another one (a GraphSymmetry step's
+   * structured-generator handoff runs the orbitopal producer with these
+   * orbitopal fields; orbitopal refinement reads the graph limits). INHERIT
+   * and DISABLE read only the selected producer's fields; the rest keep the
+   * typed C++ defaults. */
+  int complete_profile_mode;
 } tactix_online_sr_parameters;
 
 /* One exact Factor remainder column and grid. Literals use permanent DIMACS
@@ -1651,6 +1659,84 @@ int tactix_install_parameters(tactix *, int rule_id,
                               const tactix_online_parameters *parameters);
 int tactix_install_material_settings(tactix *, int touch_filter_mode,
                                      int likely_kept_redundant_mode);
+
+/* Support transactions (additive). The lifecycle, representation and
+ * guidance transitions a native policy composes around rule applications,
+ * each executed by the same shared code. None is a proof rule: an assignment
+ * one derives is an M1 Propagate consequence published like any root unit,
+ * and the rest change representation, guidance (H) or lifecycle state only.
+ * Root units and retirements reach H through the session's guidance
+ * publication profile. `argument` is zero unless the support names flags or a
+ * value below. Returns -1 (nothing changes) for an unknown support, an invalid
+ * argument or an unmet precondition; otherwise 0 when the transition changed
+ * state, 1 when it found nothing to do, 2 when SPARSE_COLLECT left root units
+ * for a following Propagate, and 20 when the root is refuted.
+ *   CLOSE_STARTUP_CERTIFICATE  end the original-input certificate window.
+ *   PREPARATION_RESTART        argument = keep level: backtrack without
+ *                              consuming a scheduled-restart occasion, and
+ *                              retire a recorded conflict that no longer holds.
+ *   ROOT_PREPARATION           ROOT_PREPARATION_* flags: optional target-phase
+ *                              capture, preparation restart to level zero, root
+ *                              Propagate (in the probing context if PROBING),
+ *                              optional root-prefix consumption.
+ *   SPARSE_COLLECT             collect root-satisfied/false-literal clause
+ *                              state at a propagated root.
+ *   COMPACT_RANDOM_ORDER       fold root-fixed variables of the random
+ *                              branching order onto one representative (H).
+ *   COMPACT_VARIABLES          COMPACT_* flags: compact variable storage,
+ *                              optionally folding fixed variables and
+ *                              republishing the random order.
+ *   REDUCTION_PREPARATION      Reduce's root preparation (flush pending root
+ *                              units before collection).
+ *   COLLECT_GARBAGE            COLLECT_* flags: arena collection at the root.
+ *   FLUSH_RETIRED_REDUNDANT    delete redundant clauses on retired variables.
+ *   BEGIN_BVE_DEFINITION_SESSION  start a new BVE definition-discovery
+ *                              generator session.
+ *   WARMUP                     argument = WARMUP_PHASE_*: complete a temporary
+ *                              assignment in H's decision order, propagating
+ *                              beyond conflicts, then return to the root;
+ *                              assignment-time phase saving is the output (H).
+ *   RESEED_GUIDANCE            replace H by a fresh one seeded from the live
+ *                              formula's residual activation and import order.
+ *   RESET_GRAPH_LABELING_SESSION  clear the graph-labeling session.
+ *   RELEASE_INPUT_ORDER        release the parser's retained binary order.
+ *   CONSUME_ROOT_PREFIX        mark the propagated root prefix consumed.
+ *   ENTER_CONTEXT              argument = CONTEXT_*: enter an execution
+ *                              context (tick attribution, phase saving);
+ *   LEAVE_CONTEXT              leave the innermost one. */
+#define TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE 1
+#define TACTIX_SUPPORT_PREPARATION_RESTART 2
+#define TACTIX_SUPPORT_ROOT_PREPARATION 3
+#define TACTIX_SUPPORT_SPARSE_COLLECT 4
+#define TACTIX_SUPPORT_COMPACT_RANDOM_ORDER 5
+#define TACTIX_SUPPORT_COMPACT_VARIABLES 6
+#define TACTIX_SUPPORT_REDUCTION_PREPARATION 7
+#define TACTIX_SUPPORT_COLLECT_GARBAGE 8
+#define TACTIX_SUPPORT_FLUSH_RETIRED_REDUNDANT 9
+#define TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION 10
+#define TACTIX_SUPPORT_WARMUP 11
+#define TACTIX_SUPPORT_RESEED_GUIDANCE 12
+#define TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION 13
+#define TACTIX_SUPPORT_RELEASE_INPUT_ORDER 14
+#define TACTIX_SUPPORT_CONSUME_ROOT_PREFIX 15
+#define TACTIX_SUPPORT_ENTER_CONTEXT 16
+#define TACTIX_SUPPORT_LEAVE_CONTEXT 17
+#define TACTIX_ROOT_PREPARATION_PROBING 1
+#define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
+#define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4
+#define TACTIX_COMPACT_FOLD_FIXED 1
+#define TACTIX_COMPACT_PUBLISH_RANDOM_ORDER 2
+#define TACTIX_COLLECT_SPARSE 1
+#define TACTIX_COLLECT_PRESERVE_EAGER 2
+#define TACTIX_WARMUP_PHASE_HEURISTIC 0
+#define TACTIX_WARMUP_PHASE_POSITIVE 1
+#define TACTIX_WARMUP_PHASE_NEGATIVE 2
+/* Startup: work is not search work. Inprocessing: also suppresses
+ * assignment-time phase saving. Speculation: suppresses phase saving only. */
+#define TACTIX_CONTEXT_STARTUP 1
+#define TACTIX_CONTEXT_INPROCESSING 2
+#define TACTIX_CONTEXT_SPECULATION 3
+int tactix_support(tactix *, int support, uint64_t argument);
 
 /* branching surface (N1): candidates ranked by the active heuristic
  * (saved/target-phase literals, DIMACS convention); tactix_decide branches

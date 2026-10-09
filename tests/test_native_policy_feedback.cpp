@@ -3,6 +3,7 @@
 #include "strategy/feedback_trace.hpp"
 #include "strategy/native_feedback.hpp"
 #include "strategy/action_execution.hpp"
+#include "strategy/execution_scope.hpp"
 
 #include <cassert>
 #include <cstring>
@@ -632,8 +633,16 @@ static void test_structured_root_feedback() {
       unsigned applications = 0;
       unsigned affine_records = 0;
       bool affine_called = false, witness = false, cleanup_called = false;
+      std::vector<std::string> contexts;
       for (const auto &record : capture.actions) {
         const auto &request = *record.native_request;
+        // The program runs inside one recorded inprocessing context.
+        if (record.kind == FeedbackKind::Support) {
+          assert(record.instance == execution::execution_context_argument(
+                                        execution::ExecutionContext::Inprocessing));
+          contexts.push_back(record.identity);
+          continue;
+        }
         assert(request.invocation && request.invocation->id != 3);
         assert(request.invocation->rule == record.identity);
         assert(request.work == record.outcome.invocation.work);
@@ -663,6 +672,10 @@ static void test_structured_root_feedback() {
         } else cleanup_called = true;
       }
       assert(affine_records == 2 && affine_called && witness && cleanup_called);
+      assert((contexts == std::vector<std::string>{"EnterExecutionContext",
+                                                    "LeaveExecutionContext"}));
+      assert(capture.actions.front().identity == "EnterExecutionContext" &&
+             capture.actions.back().identity == "LeaveExecutionContext");
       assert(applications == policy.inprocess().structured_root.applications);
     }
   }

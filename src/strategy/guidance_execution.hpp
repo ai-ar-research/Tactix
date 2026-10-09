@@ -81,6 +81,17 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
 }
 
 struct WarmupRequest {};
+// The phase a warm-up decision takes: H's (target in stable mode, then saved)
+// or a forced polarity, as DefaultBranching's focused-phase pattern selects.
+enum class WarmupPhase : uint8_t { Heuristic, Positive, Negative };
+
+// Warm-up never takes random decisions, so the installed default branching is
+// H's next active variable with the selected phase.
+inline Lit warmup_decision(Kernel &k, WarmupPhase phase) {
+  const Var v = heuristics_next_active_decision_var(k);
+  return phase == WarmupPhase::Heuristic ? heuristics_decide_lit(k, v)
+                                         : make_lit(v, phase == WarmupPhase::Negative);
+}
 struct WarmupResult {
   bool interrupted = false;
   uint64_t decisions = 0;
