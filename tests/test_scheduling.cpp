@@ -1449,6 +1449,66 @@ static void test_initial_elimination_deadline_matches_kissat(void) {
               (unsigned long long)delta);
 }
 
+// kimits.c:kissat_init_limits also sets the first search-time Probe deadline
+// (INIT_CONFLICT_LIMIT(probe, true)) at start_search.  The startup Probe
+// round ends before initial fast elimination changes BINIRR_CLAUSES, so the
+// deadline that round left behind must be re-derived from the final
+// population.
+static void test_initial_probe_deadline_uses_search_population(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 12);
+  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, a, 3, false, 0);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  // The completed startup Probe round set its deadline from this population.
+  p.inprocess().probe_clock.rounds = 1;
+  p.inprocess().update_limit(k, SlotGroup::Probe);
+  const uint64_t stale = p.inprocess().probe_clock.next_conflicts;
+
+  // Startup elimination then changes the population before search starts.
+  for (int v = 4; v <= 12; v += 3) {
+    const Lit c[3] = {internalize(v), internalize(v + 1), internalize(v + 2)};
+    kernel_add_large_clause(k, c, 3, false, 0);
+  }
+  p.inprocess().initialize_search_limits(k);
+  const double f =
+      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 10) - 5;
+  const uint64_t delta = static_cast<uint64_t>(
+      (4.5 * f * f + 25) *
+      static_cast<double>(DefaultInprocessScheduler::PROBE_INTERVAL));
+  assert(delta != stale && "fixture must change the scaled deadline");
+  assert(p.inprocess().probe_clock.next_conflicts == delta &&
+         "first search-time probe must use post-preprocessing scaling");
+  assert(p.inprocess().probe_clock.rounds == 1);
+  std::printf("  initial probe: stale %llu -> post-preprocess %llu\n",
+              (unsigned long long)stale, (unsigned long long)delta);
+}
+
+// fastel.c:kissat_fast_variable_elimination ends by setting the eliminate
+// flag of every variable, so the first search-time Eliminate schedules all
+// active variables, including candidates fast elimination tried and kept.
+static void test_initial_fast_elimination_rearms_every_variable(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit b[3] = {internalize(-1), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, a, 3, false, 0);
+  kernel_add_large_clause(k, b, 3, false, 0);
+  ScopedHeuristics heuristics(k);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
+  const int result = p.inprocess().run_initial_fast_elimination(k, nullptr,
+                                                                nullptr);
+  assert(result != 20);
+  assert(std::all_of(k.bve_retry.begin(), k.bve_retry.end(),
+                     [](uint8_t retry) { return retry == 1; }) &&
+         "fast elimination must leave every variable scheduled for BVE");
+  std::printf("  initial fastel: all %zu retry bits re-armed\n",
+              k.bve_retry.size());
+}
+
 static void test_bve_default_order_adds_search_relevancy() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -2260,6 +2320,8 @@ int main() {
   test_structured_root_publishes_before_probe_slots();
   test_two_slot_clocks_diverge();
   test_initial_elimination_deadline_matches_kissat();
+  test_initial_probe_deadline_uses_search_population();
+  test_initial_fast_elimination_rearms_every_variable();
   test_bve_default_order_adds_search_relevancy();
   test_bve_score_preserves_kissat_binary64_pose();
   test_inprocess_scale_keeps_kissat_logn_offset();
