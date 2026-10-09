@@ -2,9 +2,13 @@
 
 ## Current stage
 
-**Committed candidate: c2.1 = `1aad09b07`** (user decision 2026-10-09). Branch
-`candidate-c2.1`; Release `28995e13…`. It meets the session goal (at least 10 verified
-fixed44 closures on one coherent candidate; [plan §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration)):
+**Committed candidate: c2.2 = `8ce068dbf`** (user decision 2026-10-09): c2.1 plus the startup
+FastEliminate guard ([record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md)); adds the
+verified noL-11-10 closure and solves noL-11-0 within the gate; c2.1's snw_16_9_Encpre,
+openstacks and VexRiscv closures were not rerun on c2.2. Its predecessor c2.1 =
+`1aad09b07` (branch `candidate-c2.1`; Release `28995e13…`) met the session goal
+(at least 10 verified fixed44 closures on one coherent candidate;
+[plan §9.5](DEVELOPMENT_PLAN.md#95-organic-winner-technique-integration)):
 
 - full Debug 353/353; Claude-owned fuzz PASS, 0 product failures;
 - B28+C5 accepted (964.3 s ≤ 999.9 s); Rank1–50, WV100 and WV2–89 pass under §8.4
@@ -14,7 +18,7 @@ fixed44 closures on one coherent candidate; [plan §9.5](DEVELOPMENT_PLAN.md#95-
   899, 991, 1075, 1129;
 - [qualification report](benchmarks/reports/2026-10-08-candidate-c2.1-qualification/README.md).
 
-Main's source, tests and rule documentation equal c2.1. Development after c2.1 was
+Main's source equals c2.2. Development after c2.1 was
 purged from the tree at the user's request and survives only in Git history (last
 pre-purge main: `d3a6a6527`). That includes the c3/c4 Satsuma symmetry practice, the
 witness-free SR rewrite (`163429b44`), the Kissat start-of-search repair (`5ea5c5df1`;
@@ -25,11 +29,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Next action
 
-0. **Candidate c2.2 = c2.1 + the startup FastEliminate guard** (skip it when structured
-   symmetry breaking fixes a root; user decision 2026-10-09, accepted deviation in the
-   implementation notes). Validate: Release + full Debug, the four gates, and noL-11-10 /
-   mp1-Nb7T42 from the fixed44 set (c1, which had the guard, solved them in 42.7 s / 55 s).
-
+0. **Candidate c2.2 = `8ce068dbf`** (c2.1 + startup FastEliminate guard) is the committed candidate:
+   [record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md). Full Debug job 1761569 pending.
+   Next: codebase cleanup (default graph labeling on, statistics output, stale branches/links/features,
+   doc compaction), identity check against c2.2, then full Tier D on the cleaned candidate.
 1. Baseline reruns (A) 1757931 and (B) 1757933 run under governor 1757996 (600 s; hold
    >750 GB, release <700 GB); (C) follows (A).
 2. Then the full Tactix Tier D run on c2.1: cpu-q, 4 CPUs, 32 GB, 5,000 s solve, 8 h
