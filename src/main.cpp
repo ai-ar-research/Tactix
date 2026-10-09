@@ -1080,6 +1080,15 @@ int main(int argc, char **argv) {
         {"restart_runs", affine.restart_runs},
         {"unchanged_skips", affine.unchanged_skips},
         {"trigger_work", affine.trigger_work},
+        {"delayed_runs", affine.delayed_runs},
+        {"fruitful_runs", affine.fruitful_runs},
+        {"fruitless_runs", affine.fruitless_runs},
+        {"run_conflict_limit", affine.run_conflict_limit},
+        {"delay_current", affine.delay_current},
+        {"run_effort_last", affine.run_effort_last},
+        {"run_effort_total", affine.run_effort_total},
+        {"run_work", affine.run_work},
+        {"run_steps", affine.run_steps},
         {"pending_slices", affine.pending_slices},
         {"resumed_slices", affine.resumed_slices},
         {"completed_slice_steps", affine.completed_slice_steps},
@@ -1120,7 +1129,13 @@ int main(int argc, char **argv) {
       graph_metric("useful_hints", graph.useful_hints);
       graph_metric("phase_install_attempts", graph.phase_install_attempts);
       graph_metric("phase_installs", graph.phase_installs);
-      graph_metric("wakeups", graph.wakeups);
+      graph_metric("delayed_runs", graph.delayed_runs);
+      graph_metric("fruitful_runs", graph.fruitful_runs);
+      graph_metric("fruitless_runs", graph.fruitless_runs);
+      graph_metric("run_conflict_limit", graph.run_conflict_limit);
+      graph_metric("delay_current", graph.delay_current);
+      graph_metric("run_effort_last", graph.run_effort_last);
+      graph_metric("run_effort_total", graph.run_effort_total);
       graph_metric("recognized", kernel.stats.graph_labeling_recognized);
       graph_metric("vertices", kernel.stats.graph_labeling_vertices);
       graph_metric("separation", kernel.stats.graph_labeling_separation);

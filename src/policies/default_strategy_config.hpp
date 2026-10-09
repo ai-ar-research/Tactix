@@ -297,10 +297,8 @@ struct DefaultStrategyConfig {
     }();
     // Source capture and all trajectory work occur only at the initial root
     // and in natural full-restart root windows; the service never requests a
-    // restart. The interval is measured in ordinary search ticks.
-    uint64_t initial_tick_interval = 1'000'000;
-    uint64_t maximum_delay_ticks = 64'000'000;
-    uint32_t fruitlessness_threshold = 4;
+    // restart. Interval and effort follow the shared Kissat-derived root
+    // service schedule (docs/implementation-notes.md, S5 Lucky).
   } graph_labeling_model;
   struct RamseyStartup {
     bool enabled = true;
