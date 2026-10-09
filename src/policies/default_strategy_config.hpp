@@ -295,8 +295,9 @@ struct DefaultStrategyConfig {
       p.seed = 0;
       return p;
     }();
-    // Source capture and all trajectory work occur only in initial or full
-    // restart root windows. The interval is measured in ordinary search ticks.
+    // Source capture and all trajectory work occur only at the initial root
+    // and in natural full-restart root windows; the service never requests a
+    // restart. The interval is measured in ordinary search ticks.
     uint64_t initial_tick_interval = 1'000'000;
     uint64_t maximum_delay_ticks = 64'000'000;
     uint32_t fruitlessness_threshold = 4;
