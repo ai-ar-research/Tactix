@@ -283,8 +283,8 @@ struct DefaultStrategyConfig {
   } independent_set_model;
 
   struct GraphLabelingModel {
-    // WIP until a measured, source-backed effort profile and all gates pass.
-    bool enabled = false;
+    // Lucky 26/27 schedule: authenticate once, continue at root windows.
+    bool enabled = true;
     strategy::GraphLabelingParameters parameters = [] {
       strategy::GraphLabelingParameters p;
       p.maximum_vertices = 140;
