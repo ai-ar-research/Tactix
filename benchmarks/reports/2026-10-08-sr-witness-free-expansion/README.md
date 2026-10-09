@@ -64,12 +64,22 @@ clauses (`touched.py` on the c2 proof). Expanding them would add about 3 x 12M
 clauses per line, about 720M in all, which drat-trim cannot hold in 32 GB. The
 line therefore stays native and the row keeps the dsr-trim -> Trestle route.
 
-## 4. Rank569 full check (pending)
+## 4. Rank569 full check
 
 `benchmarks/runs/20261008-srexp-r569-fullcheck` (job 1758604, cpu-q -c 4,
-32 GiB, 45,000 s checker, fix arm first, then c2, in one allocation). Earlier
-c2 evidence: dsr-trim killed at 33.4 GB after 7,855 s. drat-trim and CakeLPR
-time and memory for the fix arm are to be added from `results/001.json`.
+32 GiB, 45,000 s checker window, the fix arm first and then c2 in one
+allocation).
+
+| Arm | Solve | Certificate | Route | drat-trim | CakeLPR | Result |
+|---|---|---|---|---|---|---|
+| fix (`pin-srexp2-rel`) | 3,608 s, UNSAT | 4,115,526,266 B | witness-free DSR -> DRAT | 7,708 s, 22.09 GB peak | 970 s, 25.17 GB peak | **VERIFIED** (pipeline 11,139 s) |
+| c2 | see `results/000.json` | 4,115,525,606 B | witnessed (dsr-trim -> Trestle) | — | — | earlier c2 run: dsr-trim killed at 33.4 GB after 7,855 s |
+
+drat-trim reports 29,001,302 of 45,106,443 lemmas in the core and 23 RAT
+lemmas in the core; these are the expansion's definitions. The certificate is
+660 bytes longer than c2's. The measured drat-trim and CakeLPR peaks match the
+rank569 proof-memory report's prediction for Kissat's shape (21.6 GB and
+25.2 GB).
 
 ## 5. Not done
 
