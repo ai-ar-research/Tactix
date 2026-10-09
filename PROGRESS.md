@@ -106,6 +106,11 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
   delay that halves after a fruitful run and doubles after a fruitless one, and run within a
   `SET_EFFORT_LIMIT` share of search ticks (affine: sweep share; graph labeling: walk share). The
   tick timers and graph labeling's 1M/64M/4 constants are removed.
+- Gauss–Jordan is scoped to persistent affine sessions; the default startup root closure keeps
+  c2.3's forward-echelon basis (lightsout regression in the first commit). Restart-only services
+  [report](benchmarks/reports/2026-10-09-restart-only-services/README.md): identical to c2.3 on 11 of
+  12 identity rows and on 9 fixed44 closures; abw-K-dwt now needs 4,827 s (graph labeling at the 50‰
+  walk share); full Debug 358/358.
 - Persistent affine search and graph labeling never force a restart: both run only in natural
   full-restart root windows; affine runs only after a root fact on its retained support (or another
   retained-input change). Affine basis is Gauss–Jordan on every sync path, the startup census runs
