@@ -1306,12 +1306,14 @@ struct Stats {
   uint64_t bve_rounds = 0;         // BVE canonical-apply calls (a policy that
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
   uint64_t bve_resolutions = 0;    // resolvents attempted — BVE's unit of work
-  uint64_t fastel_rounds = 0;      // startup owner-pass admission checks
-  uint64_t fastel_candidates = 0;  // candidates in those checked domains
-  uint64_t fastel_active = 0;      // active variables at those checks
-  uint64_t fastel_discovery_ticks = 0; // live variables inspected by admission
-  uint64_t fastel_budget_stops = 0; // domains exceeding the shared effort dose
-  uint64_t fastel_declined = 0;    // domains where the owner pass was minority
+  uint64_t fastel_rounds = 0;      // startup fastel candidate gathers
+  uint64_t fastel_candidates = 0;  // candidates in those gathers
+  uint64_t fastel_active = 0;      // active variables at those gathers
+  // Producer-zero: startup fastel has no effort dose or majority admission
+  // (fastel.c); the counters keep the `c fastel` line layout.
+  uint64_t fastel_discovery_ticks = 0;
+  uint64_t fastel_budget_stops = 0;
+  uint64_t fastel_declined = 0;
   uint64_t fastel_root_suppressed = 0; // producer-zero: startup FastEliminate is never suppressed
   uint64_t fastel_eliminated = 0;  // eliminations committed by startup fastel
   uint64_t fastel_resolutions = 0; // BVE work committed by startup fastel

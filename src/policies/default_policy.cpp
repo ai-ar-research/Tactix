@@ -633,20 +633,6 @@ bool default_should_seed_structured_residual(
          (!unique_literal_amo_binaries || generic_graph_root_progress);
 }
 
-bool default_should_run_initial_fast_elimination(uint64_t candidates,
-                                                 uint64_t active) {
-  return candidates && candidates > active - std::min(candidates, active);
-}
-
-bool default_fast_elimination_discovery_admissible(uint64_t active,
-                                                   uint64_t remaining) {
-  // Discovery has to inspect every live variable before the owner order is
-  // known. Reserve an equal amount of the shared dose for the transformation;
-  // otherwise startup would pay mostly to construct a domain that can only be
-  // mutated by a short, incomplete prefix.
-  return active && active <= remaining / 2;
-}
-
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
@@ -3599,9 +3585,6 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   bve_level_ = 0;
   bve_level_idx_ = 0;
   initial_fast_elimination_active_ = false;
-  initial_fast_elimination_discovery_ticks_ = 0;
-  initial_fast_elimination_budget_exhausted_ = false;
-  initial_fast_elimination_attempted_.clear();
   structured_root_consumed_ = false;
   structured_root = {};
   default_candidate_order_.reset(config().candidate_order_seed);
@@ -5845,7 +5828,6 @@ uint64_t DefaultInprocessScheduler::ledger_remaining(SlotEntry &e, const Kernel 
 DefaultInprocessScheduler::SlotStep
 DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
                                SlotPhaseCtx &ctx) {
-  uint64_t limit = e.limit;
   ctx.last_result = ApplyResult::NoOp;
   if (!r.guard(k)) {
     e.tm.dec_guard++;
@@ -5854,6 +5836,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   const bool bve_entry = !std::strcmp(r.name, "BVE");
   const bool initial_fast_bve =
       bve_entry && initial_fast_elimination_active_;
+  // fastel.c kissat_fast_variable_elimination has no effort limit: rounds,
+  // occurrence, clause-size and resolvent caps are its only bounds
+  // (ledger ORDER-ELIM-INIT-1).
+  const uint64_t limit = initial_fast_bve ? UINT64_MAX : e.limit;
   BveBoundPolicy *ramp = nullptr;
   if (bve_entry && !initial_fast_bve)
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
@@ -5888,32 +5874,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           r, k, parameters, *bve_invocation_budget);
     }
     if (initial_fast_bve) {
-      // Candidate discovery must inspect every live variable before the
-      // owner's radix order is known. Charge that mandatory lower bound to
-      // the same typed startup dose as resolution. If it cannot fit, decline
-      // before allocating or mutating a partial owner domain.
-      const uint64_t active = active_variables(k);
       ++k.stats.fastel_rounds;
-      k.stats.fastel_active += active;
-      const uint64_t resolution_remaining = ledger_remaining(e, k, e.limit);
-      const bool overflow =
-          initial_fast_elimination_discovery_ticks_ > resolution_remaining;
-      const uint64_t discovery_remaining =
-          overflow ? 0
-                   : resolution_remaining -
-                         initial_fast_elimination_discovery_ticks_;
-      if (!default_fast_elimination_discovery_admissible(
-              active, discovery_remaining)) {
-        ++k.stats.fastel_budget_stops;
-        initial_fast_elimination_budget_exhausted_ = true;
-        ctx.eliminate_limit_reached = true;
-        ++e.tm.dec_budget;
-        return SlotStep::Next;
-      }
-      initial_fast_elimination_discovery_ticks_ += active;
-      k.stats.fastel_discovery_ticks += active;
-      assert(initial_fast_elimination_discovery_ticks_ <= e.limit);
-      limit = e.limit - initial_fast_elimination_discovery_ticks_;
+      k.stats.fastel_active += active_variables(k);
     }
     payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
     uint32_t n =
@@ -5938,8 +5900,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (!lit_of_instance(k, payloads_[j], &candidate))
           continue;
         const Var variable = var_of(candidate);
-        if (variable >= initial_fast_elimination_attempted_.size() ||
-            initial_fast_elimination_attempted_[variable] ||
+        // fastel.c gathers only active variables whose `eliminate` flag is
+        // set; `bve_retry` is that flag's kernel image.
+        if (variable >= k.bve_retry.size() || !k.bve_retry[variable] ||
             k.value(candidate) || kernel_var_retired(k, variable))
           continue;
         const Lit positive = make_lit(variable, false);
@@ -5966,11 +5929,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         candidates.push_back({payloads_[j], pos + neg, tie});
       }
       k.stats.fastel_candidates += candidates.size();
-      if (!default_should_run_initial_fast_elimination(candidates.size(),
-                                                       active_variables(k))) {
-        ++k.stats.fastel_declined;
-        candidates.clear();
-      }
       std::stable_sort(candidates.begin(), candidates.end(),
                        [](const Candidate &a, const Candidate &b) {
                          return std::tie(a.score, a.tie) <
@@ -6027,10 +5985,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (!lit_of_instance(k, payload, &candidate))
           continue;
         const Var variable = var_of(candidate);
-        if (variable >= initial_fast_elimination_attempted_.size() ||
-            initial_fast_elimination_attempted_[variable])
+        if (variable >= k.bve_retry.size() || !k.bve_retry[variable])
           continue;
-        initial_fast_elimination_attempted_[variable] = 1;
         const int subsume_id = tactix_rule_id("SubsumeForward");
         assert(subsume_id >= 0);
         const RuleVTable &subsume =
@@ -6047,18 +6003,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             parameters.occurrence_limit, parameters.clause_size_limit, ctx.completion);
         if (pos > parameters.occurrence_limit ||
             neg > parameters.occurrence_limit ||
-            pos + neg > parameters.occurrence_limit)
+            pos + neg > parameters.occurrence_limit) {
+          // fastel.c clears a tried pivot's flag whether or not it was
+          // eliminated; removing a clause re-arms its other variables.
+          k.bve_retry[variable] = 0;
           continue;
-      }
-      if (e.meter(k) > limit) {
-        if (initial_fast_bve &&
-            !initial_fast_elimination_budget_exhausted_) {
-          ++k.stats.fastel_budget_stops;
-          initial_fast_elimination_budget_exhausted_ = true;
-          ctx.eliminate_limit_reached = true;
         }
-        break; // dose spent
       }
+      if (e.meter(k) > limit)
+        break; // dose spent
       if (!r.guard(k)) {
         break;
       }
@@ -6101,8 +6054,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           r.name, payload, [&] {
             const uint64_t spent = e.meter ? e.meter(k) : 0;
             return slot_feedback(k, e, r, payload,
-                e.meter ? strategy::WorkLimit::bounded(limit >= spent ? limit - spent : 0)
-                        : strategy::WorkLimit::unlimited(), "native-dosed-candidate");
+                e.meter && !initial_fast_bve
+                    ? strategy::WorkLimit::bounded(limit >= spent ? limit - spent : 0)
+                    : strategy::WorkLimit::unlimited(), "native-dosed-candidate");
           }, [&] {
         auto published = execution::execute_action(
           k, execution::RuleApplicationRequest{
@@ -6150,6 +6104,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
         break;
+      }
+      if (initial_fast_bve) {
+        // fastel.c clears the pivot's `eliminate` flag after the attempt and
+        // before flushing its units, so only later clause removals re-arm it.
+        Lit tried;
+        if (lit_of_instance(k, payload, &tried) && var_of(tried) < k.nvars)
+          k.bve_retry[var_of(tried)] = 0;
       }
       if (ar != ApplyResult::Ok)
         continue; // this candidate changed nothing; try the next
@@ -6934,9 +6895,6 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
   initial_fast_elimination_active_ = true;
-  initial_fast_elimination_discovery_ticks_ = 0;
-  initial_fast_elimination_budget_exhausted_ = false;
-  initial_fast_elimination_attempted_.assign(k.nvars, 0);
   initial_fast_elimination_marks_.assign(2 * static_cast<size_t>(k.nvars), 0);
   const uint64_t eliminated_before = k.stats.bve_eliminated;
   const uint64_t resolutions_before = k.stats.bve_resolutions;
@@ -6945,7 +6903,6 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   k.stats.fastel_nanos += now_nanos() - started;
   k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
   k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
-  initial_fast_elimination_attempted_.clear();
   initial_fast_elimination_marks_.clear();
   initial_fast_elimination_active_ = false;
   // fastel.c:kissat_fast_variable_elimination ends by setting the eliminate
@@ -7109,6 +7066,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     ctx.round_changed = false;
     k.subsume_complete = true;
     k.strengthen_complete = true;
+    const uint64_t round_eliminated_before = k.stats.bve_eliminated;
     for (size_t slot = 0; slot < entries.size(); slot++) {
       SlotEntry &e = entries[slot];
       if (e.group != group)
@@ -7298,6 +7256,13 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     }
     if (ctx.eliminate_limit_reached)
       break;
+    // fastel.c ends its round loop as soon as a round eliminates nothing;
+    // units learned by declined candidates do not start another round.
+    if (initial_fast_elimination_active_) {
+      if (k.stats.bve_eliminated == round_eliminated_before)
+        break;
+      continue;
+    }
     const bool subsume_pending =
         group == SlotGroup::Eliminate &&
         config().hold_subsume_until_eliminate &&

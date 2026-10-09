@@ -45,14 +45,6 @@ bool default_should_seed_structured_residual(
     bool grew_root_trail, uint64_t unique_literal_amo_binaries,
     bool generic_graph_root_progress);
 
-// The SC2024 pass owns startup only when its bounded candidate domain covers
-// more live variables than it excludes. Otherwise the ordinary Kissat BVE
-// schedule retains the formula without an up-front search-state perturbation.
-bool default_should_run_initial_fast_elimination(uint64_t candidates,
-                                                 uint64_t active_variables);
-bool default_fast_elimination_discovery_admissible(
-    uint64_t active_variables, uint64_t remaining_ticks);
-
 // Formula-independent bounded profile for persistent authenticated subimages.
 // No clause census or recognition is performed by this pure policy helper.
 std::optional<strategy::AffineConsequenceParameters>
