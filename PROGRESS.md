@@ -25,6 +25,11 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Next action
 
+0. **Candidate c2.2 = c2.1 + the startup FastEliminate guard** (skip it when structured
+   symmetry breaking fixes a root; user decision 2026-10-09, accepted deviation in the
+   implementation notes). Validate: Release + full Debug, the four gates, and noL-11-10 /
+   mp1-Nb7T42 from the fixed44 set (c1, which had the guard, solved them in 42.7 s / 55 s).
+
 1. Baseline reruns (A) 1757931 and (B) 1757933 run under governor 1757996 (600 s; hold
    >750 GB, release <700 GB); (C) follows (A).
 2. Then the full Tactix Tier D run on c2.1: cpu-q, 4 CPUs, 32 GB, 5,000 s solve, 8 h
@@ -67,6 +72,7 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Restore the startup FastEliminate guard after root-fixing structured symmetry (c2.2).
 - Purge: main's code returns to c2.1; post-c2.1 development removed from the tree.
 - `0268acb59`: qualify c2.1 (13 verified fixed44 closures, all gates and fuzz).
 - `4a22518c8`: accept WV100 snw_16_9_CCSpre as a faithful-port retention exception.
