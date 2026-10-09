@@ -144,6 +144,18 @@ enum class ReconfigureMode : uint8_t {
 bool validate_online_strategy_program(const OnlineStrategyProgram &,
                                       std::string *error = nullptr,
                                       bool allow_native_offer = false);
+// Permanent rule-profile installation (tactix_install_parameters). The
+// rule/family match and value checks are an online step's; instance
+// restrictions belong to an application. Walk's permanent profile is its
+// scoring guidance, so its budget, seed and objective must keep the
+// per-application defaults. Installation uses the family's native setter,
+// the one ParameterInstallationRequest and scoped execution use, and
+// changes no formula, assignment or guidance state. It returns false for a
+// family without a permanent setter.
+bool validate_parameter_installation(const std::string &rule,
+                                     const InprocessParameters &,
+                                     std::string *error = nullptr);
+bool install_permanent_parameters(Kernel &, const InprocessParameters &);
 std::string serialize_online_strategy_program(const OnlineStrategyProgram &);
 bool deserialize_online_strategy_program(const std::string &,
                                          OnlineStrategyProgram &,

@@ -1328,6 +1328,61 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
   return true;
 }
 
+bool validate_parameter_installation(const std::string &rule,
+                                     const InprocessParameters &parameters,
+                                     std::string *error) {
+  const auto reject = [error](const char *message) {
+    if (error)
+      *error = message;
+    return false;
+  };
+  if (std::holds_alternative<std::monostate>(parameters))
+    return reject("an installation names a parameter family");
+  OnlineInvocation step;
+  step.rule = rule;
+  step.parameters = parameters;
+  if (!parameter_matches(step))
+    return reject("parameters do not match rule");
+  const bool valid = std::visit([](const auto &p) {
+    if constexpr (requires { p.valid(); })
+      return static_cast<bool>(p.valid());
+    else
+      return true;
+  }, parameters);
+  if (!valid)
+    return reject("parameters are invalid");
+  if (const auto *walk = std::get_if<WalkParameters>(&parameters);
+      walk && (walk->step_budget || walk->random_seed ||
+               walk->seed_candidate || walk->preparation_budget ||
+               walk->objective != WalkParameters::Objective::LegacyWalk ||
+               walk->admission != WalkParameters::Admission::Legacy))
+    return reject("Walk's budget, seed and objective belong to an application");
+  if (error)
+    error->clear();
+  return true;
+}
+
+bool install_permanent_parameters(Kernel &k,
+                                  const InprocessParameters &parameters) {
+  if (const auto *walk = std::get_if<WalkParameters>(&parameters)) {
+    execution::execute_action(k, execution::WalkGuidanceInstallationRequest{
+                                     walk->even_break_base_milli,
+                                     walk->score_curve});
+    return true;
+  }
+  return std::visit([&](const auto &p) {
+    using P = std::decay_t<decltype(p)>;
+    if constexpr (std::is_same_v<P, std::monostate>) {
+      return false;
+    } else if constexpr (requires { install_rule_parameters(k, p); }) {
+      execution::execute_action(k, execution::ParameterInstallationRequest{p});
+      return true;
+    } else {
+      return false;
+    }
+  }, parameters);
+}
+
 InvocationStatus enumerate_complete_instances(Kernel &k,
                                               const RuleVTable &rule,
                                               std::vector<uint64_t> &out,

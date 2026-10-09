@@ -542,8 +542,16 @@ session bootstrap boundary.
 Permanent rule-profile installation uses the same typed setters as scoped
 execution and optionally records `InstallRuleParameters` with the selected
 typed profile. `InstallWalkGuidance` changes only the curve and fixed base;
-the record retains inherited seed/budget values. These are support completions,
-with native ticks and zero proof-rule applications/formula-progress claims.
+its record carries that guidance with zero per-application budget, seed and
+candidate. These are support completions, with native ticks and zero
+proof-rule applications/formula-progress claims. A client issues the same
+installs through `tactix_install_parameters` (rule id plus
+`tactix_online_parameters`, validated as an online step's profile) and
+`tactix_install_material_settings`; DefaultPolicy's boundary writes of
+analysis classification (`jump_reasons_bigbig`), posed Reduce/Vivify tiers,
+the per-pass BVE bound and composite Factor matching are such installs. The
+persistent AffineMatrixInitialize profile has no `tactix_online_parameters`
+form.
 The original scheduler `build(kernel)` keeps its receiver-free entry point;
 an explicit completion overload exposes its profile installations. Temporary
 overrides retain their existing native save/restore lifetime inside the atomic

@@ -33,6 +33,7 @@
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "strategy/publication_execution.hpp"
+#include "strategy/work_execution.hpp"
 #include "policies/rule_publication.hpp"
 
 #include <algorithm>
@@ -40,6 +41,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -3287,6 +3289,10 @@ uint64_t tactix_config(tactix_solver *s, int cfg_id) {
     return k.instantiate_parameters.new_material_threshold;
   case 27: // TACTIX_CFG_GUIDANCE_PUBLICATION
     return static_cast<uint64_t>(s->guidance_publication);
+  case 28: // TACTIX_CFG_TOUCH_FILTER
+    return k.touch_filter ? 1 : 0;
+  case 29: // TACTIX_CFG_LIKELY_KEPT_REDUNDANT
+    return k.touch_redundant ? 1 : 0;
   default:
     return UINT64_MAX;
   }
@@ -3296,6 +3302,36 @@ int tactix_set_guidance_publication(tactix_solver *s, int mode) {
   if (!s || (mode != TACTIX_GUIDANCE_DISCARD && mode != TACTIX_GUIDANCE_NATIVE))
     return -1;
   s->guidance_publication = mode;
+  return 0;
+}
+
+int tactix_install_parameters(tactix_solver *s, int rule_id,
+                              const tactix_online_parameters *parameters) {
+  const auto &rules = tactix_rules();
+  if (!s || !parameters || rule_id < 0 ||
+      rule_id >= static_cast<int>(rules.size()) ||
+      rules[static_cast<size_t>(rule_id)].retired)
+    return -1;
+  strategy::InprocessParameters converted;
+  if (!online_parameters(*parameters, converted) ||
+      !strategy::validate_parameter_installation(
+          rules[static_cast<size_t>(rule_id)].name, converted))
+    return -1;
+  return strategy::install_permanent_parameters(s->kernel, converted) ? 0 : -1;
+}
+
+int tactix_install_material_settings(tactix_solver *s, int touch_filter_mode,
+                                     int likely_kept_redundant_mode) {
+  strategy::SettingOverride touch, kept;
+  if (!s || !online_setting_override(touch_filter_mode, touch) ||
+      !online_setting_override(likely_kept_redundant_mode, kept))
+    return -1;
+  const auto selected = [](strategy::SettingOverride value) -> std::optional<bool> {
+    if (value == strategy::SettingOverride::Inherit) return std::nullopt;
+    return value == strategy::SettingOverride::Enable;
+  };
+  execution::execute_action(s->kernel, execution::MaterialSettingsRequest{
+                                           selected(touch), selected(kept)});
   return 0;
 }
 

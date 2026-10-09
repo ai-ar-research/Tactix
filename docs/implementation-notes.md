@@ -388,6 +388,14 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   DISCARD profile, which drops the events; `tactix_set_guidance_publication(NATIVE)` applies DefaultPolicy's dosed-candidate
   profile (`tests/test_api_guidance_publication.c`). DefaultPolicy's per-slot publication (Substitute rounds, Factor advice,
   forward closure) still calls the publisher's consumers directly until gap-plan step 5.
+- DefaultPolicy's boundary kernel-field writes of rule profiles are permanent typed installs (`InstallRuleParameters`):
+  formula classification installs ConflictAnalysis `jump_reasons_bigbig`; Reduce/Vivify tier poses install ReduceParameters
+  tiers (the shared boundaries Reduce, Vivify bands and the likely-kept filter read); each BVE pass installs its growth bound;
+  a Factor dose installs composite matching and the dose's end clears it. Clients issue them through
+  `tactix_install_parameters`/`tactix_install_material_settings`. Rule-state resets are not profiles and stay native: the
+  BVE retry refill (gap-plan step 5, BVE ordering profile), the per-round SubsumeForward/Strengthen completeness reset (step 5,
+  slot invocations), and the per-solve graph-labeling session clear, `unflushed_root` and input-binary-order release (step 4
+  support vocabulary). The OTFS retier pose stays inside ConflictAnalysis until step 6.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime
 review](../benchmarks/reports/2026-09-07-runtime-review.md); the pre-compaction text is recoverable from Git commit `96e894c`.

@@ -47,7 +47,7 @@ enum class Replay {
   RegistryInstance, // tactix_apply_instance(rule id of identity, record instance)
   Decide,           // tactix_decide(record instance as DIMACS literal)
   Marker,           // no state transition of its own
-  LoadProfile,      // a permanent parameter install; replayable only at load
+  Install,          // tactix_install_parameters / tactix_install_material_settings
   None              // no public request yet: the replay stops here
 };
 
@@ -61,6 +61,14 @@ inline std::string_view description(const ActionFeedback &r) {
 }
 inline bool starts(std::string_view text, std::string_view prefix) {
   return text.substr(0, prefix.size()) == prefix;
+}
+// A step of the structured-root online program, whatever its rule.
+inline bool structured_stage(const ActionFeedback &r) {
+  return starts(description(r), "structured-stage=");
+}
+inline bool installs_rule(const ActionFeedback &r, std::string_view rule) {
+  return r.native_request && r.native_request->invocation &&
+         r.native_request->invocation->rule == rule;
 }
 inline bool lucky_graph_session(uint64_t instance) {
   return instance == LUCKY_GRAPH_AUTHENTICATE || instance == LUCKY_GRAPH_CONTINUE;
@@ -131,7 +139,9 @@ inline const std::vector<Entry> &entries() {
        "Walk canonical under scoped WalkParameters (online Walk parameters)",
        "A13"},
       {"lucky-opportunity", K::Rule, "Lucky",
-       [](const ActionFeedback &r) { return !lucky_graph_session(r.instance); },
+       [](const ActionFeedback &r) {
+         return !lucky_graph_session(r.instance) && !structured_stage(r);
+       },
        Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,
        "Lucky instance (canonical = cascade, 6-24 opportunities)", "A6"},
       {"lucky-graph-session", K::Rule, "Lucky",
@@ -166,9 +176,7 @@ inline const std::vector<Entry> &entries() {
        "BVE instance dispatched by the shared typed BVE invocation session "
        "(the policy's heap/score hook is C4, outside the record)", "A10,C4"},
       {"structured-root-online", K::Rule, nullptr,
-       [](const ActionFeedback &r) {
-         return starts(description(r), "structured-stage=");
-       },
+       [](const ActionFeedback &r) { return structured_stage(r); },
        Route::Public, Boundary::Crossing, Replay::None, true,
        "online invocation of the structured-root program", "A10"},
       {"slot-sweep-batch", K::Rule, "Sweep",
@@ -192,16 +200,21 @@ inline const std::vector<Entry> &entries() {
        },
        Route::Kernel, Boundary::Crossing, Replay::None, false,
        "none: fastel occurrence traversal calls rule internals", "A10"},
-      // --- support transactions (A5, A11, C6) ---
+      // --- permanent installs (C2, C3, C5, C6) and support (A5, A11) ---
+      {"install-affine-matrix-parameters", K::Support, "InstallRuleParameters",
+       [](const ActionFeedback &r) { return installs_rule(r, "AffineMatrixInitialize"); },
+       Route::Kernel, Boundary::Crossing, Replay::None, false,
+       "none: the persistent affine profile has no tactix_online_parameters "
+       "form", "A8"},
       {"install-parameters", K::Support, "InstallRuleParameters", nullptr,
-       Route::Kernel, Boundary::Crossing, Replay::LoadProfile, false,
-       "partial: legacy tactix_set_*; online parameters are step-scoped", "C6"},
+       Route::Public, Boundary::Crossing, Replay::Install, false,
+       "tactix_install_parameters(rule, typed profile)", "C2,C3,C5,C6"},
       {"install-walk-guidance", K::Support, "InstallWalkGuidance", nullptr,
-       Route::Kernel, Boundary::Crossing, Replay::LoadProfile, false,
-       "none: permanent Walk guidance install", "C6"},
+       Route::Public, Boundary::Crossing, Replay::Install, false,
+       "tactix_install_parameters(Walk, guidance profile)", "C6"},
       {"install-material-settings", K::Support, "InstallMaterialSettings",
-       nullptr, Route::Kernel, Boundary::Crossing, Replay::LoadProfile, false,
-       "none: permanent material settings", "C6"},
+       nullptr, Route::Public, Boundary::Crossing, Replay::Install, false,
+       "tactix_install_material_settings", "C6"},
       {"close-startup-certificate", K::Support, "CloseStartupCertificate",
        nullptr, Route::Public, Boundary::Crossing, Replay::Marker, false,
        "implied by the next non-startup registry dispatch", "A11"},

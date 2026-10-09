@@ -1,12 +1,14 @@
 // Public-API replay reporter (gap plan Step 0; report-only until step 7).
 // A reference DefaultPolicy stream on a C-API-loaded solver is replayed on a
-// second one through tactix.h (tactix_apply_instance, tactix_decide), with the
-// leading permanent installs applied at load. The replay stops at the first
-// record without a public request (default_action_map.hpp) or at the first
-// divergence; a census lists every blocking entry of the whole stream.
-// Per public guidance-publication mode it also reports the first record after
-// which H (saved, score, candidates, active set, target, mode) differs from
-// the reference, and the differing fields at the stop point.
+// second one through tactix.h (tactix_apply_instance, tactix_decide,
+// tactix_install_parameters, tactix_install_material_settings). The replay
+// stops at the first record without a public request (default_action_map.hpp)
+// or at the first divergence; a census lists every blocking entry of the whole
+// stream. Per guidance-publication mode it reports the first H divergence
+// (saved, score, candidates, active set, target, mode), the H fields differing
+// at the stop and the first installed-profile divergence; each public install
+// must reproduce the reference's profile of its family (asserted). A lookahead
+// pass assumes support transactions without a public request yet.
 #undef NDEBUG
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
 // with the internal namespace.
@@ -14,8 +16,10 @@
 #include "tactix.h"
 #undef tactix
 #include "default_action_map.hpp"
+#include "public_parameter_encoding.hpp"
 
 #include "api/api_internal.hpp"
+#include "strategy/online_inprocess.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/controller_observation.hpp"
 
@@ -57,21 +61,104 @@ int result_code(ApplyResult result) {
   return -2;
 }
 
-// Apply a recorded permanent profile while loading the replay solver.
-// Guidance-only and material installs are assumed: their typed description
-// is wider than what they write (InstallWalkGuidance inherits the budget).
-bool install_at_load(Kernel &k, const ActionFeedback &record) {
-  if (record.identity != "InstallRuleParameters" || !record.native_request ||
-      !record.native_request->invocation)
-    return false;
-  bool installed = false;
-  std::visit([&](const auto &parameters) {
-    if constexpr (requires { strategy::install_rule_parameters(k, parameters); }) {
-      strategy::install_rule_parameters(k, parameters);
-      installed = true;
-    }
-  }, record.native_request->invocation->parameters);
-  return installed;
+// Installed profiles a client can observe, one serialized entry per family:
+// every family DefaultPolicy installs, Walk's guidance and the material
+// settings. Index = the family's InprocessParameters alternative.
+using Profile = std::vector<std::string>;
+constexpr size_t MATERIAL_SETTINGS = std::variant_size_v<strategy::InprocessParameters>;
+
+template <class P> void image(Profile &out, const char *rule, const P &parameters) {
+  strategy::OnlineInvocation step;
+  step.id = 1;
+  step.rule = rule;
+  step.parameters = parameters;
+  strategy::OnlineStrategyProgram program;
+  program.sequence.push_back(std::move(step));
+  out[strategy::InprocessParameters(parameters).index()] =
+      strategy::serialize_online_strategy_program(program);
+}
+
+Profile profile(const Kernel &k) {
+  using namespace strategy;
+  Profile out(MATERIAL_SETTINGS + 1);
+  image(out, "ConflictAnalysis", AnalyzeParameters::from_kernel(k));
+  image(out, "Reorder", ReorderParameters::from_kernel(k));
+  image(out, "Reduce", ReduceParameters::from_kernel(k));
+  WalkParameters walk;
+  walk.step_budget = 0;
+  walk.even_break_base_milli = k.walk_even_break_base_milli;
+  walk.score_curve = k.walk_score_curve;
+  image(out, "Walk", walk);
+  image(out, "Lucky", ParityModelParameters::from_kernel(k));
+  image(out, "Lucky", OnehotModelParameters::from_kernel(k));
+  image(out, "Lucky", AffineModelParameters::from_kernel(k));
+  image(out, "Lucky", BalancedSignatureModelParameters::from_kernel(k));
+  image(out, "Lucky", FermatModelParameters::from_kernel(k));
+  image(out, "Lucky", LookupCircuitModelParameters::from_kernel(k));
+  image(out, "Lucky", SimonModelParameters::from_kernel(k));
+  image(out, "Lucky", StconnProofParameters::from_kernel(k));
+  image(out, "Lucky", SignedCardinalityProofParameters::from_kernel(k));
+  image(out, "Lucky", ExactCoverModelParameters::from_kernel(k));
+  image(out, "Lucky", IndependentSetModelParameters::from_kernel(k));
+  image(out, "Lucky", GraphLabelingParameters::from_kernel(k));
+  image(out, "Lucky", RamseyStartupParameters::from_kernel(k));
+  image(out, "Congruence", k.congruence_parameters);
+  image(out, "Instantiate", k.instantiate_parameters);
+  image(out, "Backbone", k.backbone_parameters);
+  image(out, "BCE", BceParameters::from_kernel(k));
+  image(out, "HyperTernaryRes", TernaryParameters::from_kernel(k));
+  image(out, "Factor", FactorParameters::from_kernel(k));
+  image(out, "TransitiveReduce", TransitiveReduceParameters::from_kernel(k));
+  image(out, "Substitute", SubstituteParameters::from_kernel(k));
+  image(out, "Vivify", VivifyParameters::from_kernel(k));
+  image(out, "BVE", BveParameters::from_kernel(k));
+  out[MATERIAL_SETTINGS] = std::string("touch-filter=") +
+      (k.touch_filter ? "1" : "0") + ";likely-kept-redundant=" +
+      (k.touch_redundant ? "1" : "0");
+  return out;
+}
+
+// The family an install record writes, as a Profile index.
+size_t installed_family(const ActionFeedback &record) {
+  if (record.identity == "InstallMaterialSettings") return MATERIAL_SETTINGS;
+  return record.native_request->invocation->parameters.index();
+}
+
+std::string profile_mismatch(const Profile &expected, const Profile &actual) {
+  std::string out;
+  for (size_t family = 0; family < expected.size(); ++family)
+    if (expected[family] != actual[family])
+      out += std::string(out.empty() ? "" : ",") + "family" + std::to_string(family);
+  return out;
+}
+
+int setting_mode(std::string_view value) {
+  return value == "inherit" ? TACTIX_ONLINE_SETTING_INHERIT
+         : value == "1"     ? TACTIX_ONLINE_SETTING_ENABLE
+                            : TACTIX_ONLINE_SETTING_DISABLE;
+}
+
+// Replay one permanent install through tactix.h; empty on success.
+std::string install(tactix_c_handle *s, const ActionFeedback &record) {
+  if (record.identity == "InstallMaterialSettings") {
+    const std::string_view text = description(record);
+    const size_t touch = text.find("touch-filter="), kept = text.find(";likely-kept-redundant=");
+    if (touch != 0 || kept == std::string_view::npos) return "unparsed material settings";
+    const auto touch_value = text.substr(13, kept - 13);
+    const auto kept_value = text.substr(kept + 23);
+    return tactix_install_material_settings(s, setting_mode(touch_value),
+                                            setting_mode(kept_value))
+               ? "tactix_install_material_settings rejected" : "";
+  }
+  if (!record.native_request || !record.native_request->invocation) return "no typed profile";
+  const auto &invocation = *record.native_request->invocation;
+  public_encoding::Encoded encoded;
+  if (!public_encoding::encode(invocation.parameters, encoded))
+    return "profile has no tactix_online_parameters form";
+  const int id = rule_id(invocation.rule);
+  if (id < 0) return "unknown rule " + invocation.rule;
+  return tactix_install_parameters(s, id, &encoded.parameters)
+             ? "tactix_install_parameters rejected " + invocation.rule : "";
 }
 
 std::string mismatch(const Observation &expected, const Observation &actual) {
@@ -128,29 +215,37 @@ std::string guidance_mismatch(const Guidance &expected, const Guidance &actual) 
   return out;
 }
 
-// The reference stream with H captured after every record.
+// The reference stream with H and the installed profile captured after
+// every record.
 struct GuidanceCapture final : FeedbackReceiver {
   const Kernel &kernel;
   std::vector<ActionFeedback> actions;
   std::vector<Guidance> after;
+  std::vector<Profile> profile_after;
   explicit GuidanceCapture(const Kernel &k) : kernel(k) {}
   void after_action(const ActionFeedback &value) override {
     actions.push_back(value);
     after.push_back(guidance(kernel));
+    profile_after.push_back(profile(kernel));
   }
   void search_interval(const SearchIntervalFeedback &) override {}
 };
 
 struct Report {
-  uint64_t records = 0, loaded = 0, assumed = 0, replayed = 0;
+  uint64_t records = 0, installed = 0, assumed = 0, replayed = 0;
   std::string stop = "end-of-stream";
   std::string first_guidance_divergence = "none"; // record and fields
   std::string guidance_at_stop = "unmeasured";   // differing fields, or empty
+  std::string first_profile_divergence = "none";
+  std::vector<std::string> install_mismatches; // installed family differs
   uint64_t guidance_compared = 0, candidates_compared = 0;
 };
 
+// Replay the stream publicly. With `lookahead`, support transactions without
+// a public request are assumed instead of stopping the replay, and no H or
+// profile comparison is made.
 Report replay(const Fixture &fixture, const GuidanceCapture &reference,
-              int publication) {
+              int publication, bool lookahead = false) {
   const std::vector<ActionFeedback> &records = reference.actions;
   Report report;
   report.records = records.size();
@@ -158,6 +253,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
   Kernel &observed = api_detail::kernel_for_fixed_testing(s);
   // Compare the replayed prefix ending after record `last` with the reference.
   const auto compare = [&](size_t last) {
+    if (lookahead) return;
     const Guidance actual = guidance(observed);
     ++report.guidance_compared;
     report.candidates_compared += actual.candidates.size();
@@ -165,14 +261,14 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
     if (!report.guidance_at_stop.empty() && report.first_guidance_divergence == "none")
       report.first_guidance_divergence = "#" + std::to_string(last) + " " +
           records[last].identity + " " + report.guidance_at_stop;
+    if (report.first_profile_divergence == "none")
+      if (const std::string differs =
+              profile_mismatch(reference.profile_after[last], profile(observed));
+          !differs.empty())
+        report.first_profile_divergence = "#" + std::to_string(last) + " " +
+            records[last].identity + " " + differs;
   };
   size_t i = 0;
-  for (; i < records.size(); ++i) { // load-time profile
-    const Entry *entry = classify(records[i]);
-    if (!entry || entry->replay != Replay::LoadProfile) break;
-    if (install_at_load(observed, records[i])) ++report.loaded;
-    else ++report.assumed;
-  }
   for (; i < records.size(); ++i) {
     if (i) compare(i - 1);
     const ActionFeedback &record = records[i];
@@ -180,7 +276,11 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
     const std::string where = "#" + std::to_string(i) + " " +
                               (entry ? entry->id : "unclassified") + " (" +
                               record.identity + ")";
-    if (!entry || entry->replay == Replay::None || entry->replay == Replay::LoadProfile) {
+    if (!entry || entry->replay == Replay::None) {
+      if (lookahead && entry && record.kind == FeedbackKind::Support) {
+        ++report.assumed;
+        continue;
+      }
       report.stop = where + ": no public request: " +
                     (entry ? entry->public_route : "unmapped");
       break;
@@ -192,6 +292,18 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
         !drift.empty()) {
       report.stop = where + ": diverged before the record " + drift;
       break;
+    }
+    if (entry->replay == Replay::Install) {
+      if (const std::string failed = install(s, record); !failed.empty()) {
+        report.stop = where + ": " + failed;
+        break;
+      }
+      const size_t family = installed_family(record);
+      if (!lookahead && profile(observed)[family] != reference.profile_after[i][family])
+        report.install_mismatches.push_back(where);
+      ++report.installed;
+      ++report.replayed;
+      continue;
     }
     int code;
     int expected = result_code(record.outcome.invocation.rule_result);
@@ -227,8 +339,10 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
 } // namespace
 
 int main() {
-  std::map<std::string, uint64_t> blockers;
-  uint64_t replayed = 0, records_total = 0;
+  std::map<std::string, uint64_t> blockers, lookahead_stops;
+  uint64_t replayed = 0, installed = 0, records_total = 0;
+  uint64_t lookahead_replayed = 0, lookahead_assumed = 0;
+  std::vector<std::string> install_mismatches;
   std::map<int, uint64_t> guidance_matches;
   uint64_t guidance_compared = 0, candidates_compared = 0;
   uint64_t replayed_fixtures = 0;
@@ -258,24 +372,42 @@ int main() {
       guidance_matches[publication] += mode.guidance_at_stop.empty();
       guidance_compared += mode.guidance_compared;
       candidates_compared += mode.candidates_compared;
+      for (const auto &where : mode.install_mismatches)
+        install_mismatches.push_back(fixture.name + " " + name + " " + where);
+      guidance_line += std::string(" profile-") + name + "-first=" +
+                       mode.first_profile_divergence;
     }
+    const Report ahead = replay(fixture, reference, TACTIX_GUIDANCE_DISCARD, true);
     replayed += report.replayed;
+    installed += report.installed;
     records_total += report.records;
+    lookahead_replayed += ahead.replayed;
+    lookahead_assumed += ahead.assumed;
+    if (ahead.stop != "end-of-stream")
+      ++lookahead_stops[ahead.stop.substr(ahead.stop.find(' ') + 1)];
     std::cout << "fixture=" << fixture.name << " records=" << report.records
-              << " load-installed=" << report.loaded << " load-assumed="
-              << report.assumed << " replayed=" << report.replayed
-              << " stop=" << report.stop << guidance_line << '\n';
+              << " replayed=" << report.replayed << " installs=" << report.installed
+              << " stop=" << report.stop << guidance_line
+              << " lookahead-replayed=" << ahead.replayed << " lookahead-assumed="
+              << ahead.assumed << " lookahead-stop=" << ahead.stop << '\n';
   }
-  std::cout << "replayed " << replayed << " of " << records_total
-            << " records; blocking entries over all streams:";
+  std::cout << "replayed " << replayed << " of " << records_total << " records ("
+            << installed << " permanent installs); blocking entries over all streams:";
   for (const auto &[id, count] : blockers) std::cout << ' ' << id << '=' << count;
+  std::cout << "\nlookahead (support transactions assumed): replayed "
+            << lookahead_replayed << ", assumed " << lookahead_assumed << "; stops:";
+  for (const auto &[where, count] : lookahead_stops) std::cout << " [" << where << "]=" << count;
+  for (const auto &where : install_mismatches)
+    std::cout << "\ninstalled profile differs from the reference: " << where;
   std::cout << "\nH equal at the replay stop point: discard "
             << guidance_matches[TACTIX_GUIDANCE_DISCARD] << '/' << replayed_fixtures
             << ", native " << guidance_matches[TACTIX_GUIDANCE_NATIVE] << '/'
             << replayed_fixtures << " (" << guidance_compared << " comparisons over "
             << candidates_compared << " candidate literals)\n";
-  // Report-only: the replay machinery itself must have executed public calls,
-  // and the H comparison must have observed nonempty guidance.
-  assert(replayed > 0 && candidates_compared > 0);
+  // Report-only, except that the replay machinery itself must have executed
+  // public calls, the H comparison must have observed nonempty guidance, and
+  // every public install must reproduce the reference's installed profile.
+  assert(replayed > 0 && installed > 0 && candidates_compared > 0);
+  assert(install_mismatches.empty());
   return 0;
 }

@@ -264,6 +264,8 @@ void tactix_set_backbone_round_limits(tactix *, uint32_t initial_rounds,
 #define TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD 25
 #define TACTIX_CFG_CONGRUENCE_WATCH_ORDER 26
 #define TACTIX_CFG_GUIDANCE_PUBLICATION 27
+#define TACTIX_CFG_TOUCH_FILTER 28
+#define TACTIX_CFG_LIKELY_KEPT_REDUNDANT 29
 uint64_t tactix_config(tactix *, int cfg_id);
 
 /* Guidance publication (additive). Rule applications publish events that
@@ -1628,6 +1630,27 @@ int tactix_online_configure_v16(tactix *, const tactix_online_program_v16 *,
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);
 int tactix_online_complete(tactix *);
+
+/* Permanent rule-profile installation (additive). Online-step parameters are
+ * scoped to their step; these calls install a profile that later
+ * applications, online steps with INHERIT parameters and tactix_solve read.
+ * tactix_install_parameters converts `parameters` exactly as an online step
+ * does and requires the same rule/family match and value validity (Lucky
+ * profiles name rule Lucky); instance restrictions belong to applications.
+ * A Walk profile is its scoring guidance (even-break base and score curve):
+ * step_budget, random_seed and seed_candidate must be zero. Installation
+ * changes no formula, assignment or guidance state, finalizes no input and is
+ * legal at any decision level. Returns 0, or -1 (nothing changes) for an
+ * unknown rule, a mismatched or invalid profile, or a family without a
+ * permanent profile.
+ * tactix_install_material_settings sets the touched-variable filter and the
+ * likely-kept redundant marking with TACTIX_ONLINE_SETTING_*: INHERIT keeps
+ * the current value, DISABLE/ENABLE set it. Returns 0, or -1 for an unknown
+ * mode. Readback: TACTIX_CFG_TOUCH_FILTER, TACTIX_CFG_LIKELY_KEPT_REDUNDANT. */
+int tactix_install_parameters(tactix *, int rule_id,
+                              const tactix_online_parameters *parameters);
+int tactix_install_material_settings(tactix *, int touch_filter_mode,
+                                     int likely_kept_redundant_mode);
 
 /* branching surface (N1): candidates ranked by the active heuristic
  * (saved/target-phase literals, DIMACS convention); tactix_decide branches

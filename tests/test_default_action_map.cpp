@@ -13,14 +13,14 @@
 
 using namespace action_map;
 
-// Internal entries after Step 1 (macro actions through registry dispatch).
-// Each later step removes the entries it routes publicly.
+// Internal entries after Step 3 (permanent installs through
+// tactix_install_parameters). Each later step removes the entries it routes
+// publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
     "propagate-search", "decide", "conflict-analysis", "propagate-root",
     "affine-matrix-initialize", "affine-matrix-search", "slot-sweep-batch",
     "slot-substitute-rounds", "slot-vivify-band", "slot-fastel-occurrence",
-    "install-parameters", "install-walk-guidance", "install-material-settings",
-    "support-transaction"};
+    "install-affine-matrix-parameters", "support-transaction"};
 
 // Entries whose route a refactor step changes must be reached by the fixtures,
 // or their dispatch check would be vacuous.
@@ -30,7 +30,8 @@ static const std::set<std::string> REQUIRED_OBSERVED = {
     "lucky-opportunity", "lucky-graph-session", "local-search-guidance",
     "bce-post-structured", "propagate-root", "slot-registered",
     "slot-bve-candidate", "structured-root-online",
-    "install-parameters", "close-startup-certificate", "support-transaction"};
+    "install-parameters", "install-walk-guidance", "install-material-settings",
+    "close-startup-certificate", "support-transaction"};
 
 int main(int argc, char **argv) {
   const bool dump = argc > 1 && !std::strcmp(argv[1], "--dump");
