@@ -16,7 +16,7 @@ using namespace tactix;
 namespace tactix {
 struct DefaultGraphLabelingTestAccess {
   static GraphLabelingSliceResult service(DefaultPolicy &policy, Kernel &kernel) {
-    return policy.service_graph_labeling(kernel);
+    return policy.service_graph_labeling(kernel, UINT64_MAX);
   }
 };
 } // namespace tactix
@@ -252,8 +252,8 @@ int main() {
     assert(whole.stats.graph_labeling_nodes == split.stats.graph_labeling_nodes);
     assert(whole.stats.graph_labeling_work == split.stats.graph_labeling_work);
 
-    // Default uses the same retained action and its serialized construction
-    // dose as the Window invocation ceiling; no separate hidden profile exists.
+    // Default uses the same retained action; its serialized construction
+    // dose caps a Window invocation even under an unbounded run effort.
     Kernel policy_kernel;
     ScopedHeuristics policy_h(policy_kernel);
     permutation(policy_kernel, true);

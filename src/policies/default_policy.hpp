@@ -72,8 +72,13 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
   uint64_t cached_event_calls = 0;
   // Natural full-restart root windows: runs whose retained inputs changed,
-  // windows skipped because they had not, and the input-change scan.
+  // expired-limit windows that waited for an input change, the input-change
+  // scan, Kissat-delayed occurrences, fruitfulness verdicts, the current
+  // conflict limit and delay, run effort limits/charged work and steps.
   uint64_t restart_runs = 0, unchanged_skips = 0, trigger_work = 0;
+  uint64_t delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
+  uint64_t run_conflict_limit = 0, delay_current = 0;
+  uint64_t run_effort_last = 0, run_effort_total = 0, run_work = 0, run_steps = 0;
   uint64_t pending_slices=0, resumed_slices=0, completed_slice_steps=0;
   uint64_t slice_work=0, slice_cumulative_work=0, minimum_slice_work=0;
   uint64_t proof_additions = 0, proof_deletions = 0;
@@ -109,16 +114,26 @@ struct DefaultGraphLabelingDiagnostics {
   uint64_t authentication_no_structure = 0;
   uint64_t authentication_interrupted = 0;
   uint64_t authentication_work = 0;
-  uint64_t next_ticks = 0;
-  uint64_t delay_ticks = 0;
-  uint32_t fruitless_completions = 0;
   uint64_t slices = 0;
   uint64_t pending_slices = 0;
   uint64_t completed_trajectories = 0;
   uint64_t useful_hints = 0;
   uint64_t phase_install_attempts = 0;
   uint64_t phase_installs = 0;
-  uint64_t wakeups = 0;
+  // Kissat-derived schedule: delayed occurrences, fruitfulness verdicts,
+  // the current conflict limit and delay, and the last/total effort limits.
+  uint64_t delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
+  uint64_t run_conflict_limit = 0, delay_current = 0;
+  uint64_t run_effort_last = 0, run_effort_total = 0;
+};
+
+// Root-service run schedule (kissat kimits.h/kimits.c): occurrences drive the
+// NLOG2N conflict interval with kissat_scale_delta, `last_ticks` anchors
+// SET_EFFORT_LIMIT, and the delay doubles after a fruitless run and halves
+// after a fruitful one (plan §9.5).
+struct DefaultRootServiceSchedule {
+  uint64_t occurrences = 0, next_conflicts = 0, last_ticks = 0;
+  uint32_t delay_current = 0, delay_count = 0;
 };
 
 class DefaultBranching final : public BranchingPolicy {
@@ -327,6 +342,7 @@ private:
   uint64_t affine_refresh_ticks_ = 0, affine_refresh_work_ = 0;
   uint64_t affine_service_allowance_ = 0;
   AffineMatrixInputCursor affine_inputs_;
+  DefaultRootServiceSchedule affine_schedule_;
   uint64_t affine_usefulness_calls_ = 0, affine_usefulness_yield_ = 0;
   uint64_t affine_usefulness_checks_ = 0;
   bool affine_usefulness_paused_ = false;
@@ -336,17 +352,20 @@ private:
   bool affine_additional_recognition_due(const Kernel &) const;
   ApplyResult run_affine_search(Kernel &, bool startup);
   ApplyResult affine_restart_service(Kernel &);
+  void schedule_root_service_occurrence(const Kernel &, DefaultRootServiceSchedule &) const;
+  bool root_service_delaying(const Kernel &, DefaultRootServiceSchedule &) const;
+  uint64_t root_service_effort(const Kernel &, const DefaultRootServiceSchedule &,
+                               uint64_t permille) const;
 
   DefaultGraphLabelingDiagnostics graph_labeling_diagnostics_;
-  bool graph_labeling_schedule_initialized_ = false;
-  std::array<uint64_t, 3> graph_labeling_wake_stamp_{};
+  DefaultRootServiceSchedule graph_labeling_schedule_;
   GraphLabelingAuthenticationResult authenticate_graph_labeling(Kernel &);
-  GraphLabelingSliceResult service_graph_labeling(Kernel &);
+  GraphLabelingSliceResult service_graph_labeling(Kernel &, uint64_t effort);
   ApplyResult install_graph_labeling_hint(Kernel &,
                                           const GraphLabelingSliceResult &);
   bool graph_labeling_due(const Kernel &);
   void schedule_graph_labeling(const Kernel &,
-                               const GraphLabelingSliceResult &);
+                               const GraphLabelingSliceResult &, uint64_t effort);
   void reset_graph_labeling_schedule(const Kernel &);
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }

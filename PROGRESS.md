@@ -102,6 +102,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Both retained root services use Kissat's split: due at the Eliminate NLOG2N conflict limit with a
+  delay that halves after a fruitful run and doubles after a fruitless one, and run within a
+  `SET_EFFORT_LIMIT` share of search ticks (affine: sweep share; graph labeling: walk share). The
+  tick timers and graph labeling's 1M/64M/4 constants are removed.
 - Persistent affine search and graph labeling never force a restart: both run only in natural
   full-restart root windows; affine runs only after a root fact on its retained support (or another
   retained-input change). Affine basis is Gauss–Jordan on every sync path, the startup census runs

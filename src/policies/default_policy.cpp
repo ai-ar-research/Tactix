@@ -988,11 +988,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("affine-search settings are invalid");
   if (!graph_labeling_model.parameters.valid())
     return reject("graph-labeling settings are invalid");
-  if (!graph_labeling_model.initial_tick_interval ||
-      graph_labeling_model.maximum_delay_ticks <
-          graph_labeling_model.initial_tick_interval ||
-      !graph_labeling_model.fruitlessness_threshold)
-    return reject("graph-labeling schedule is invalid");
   if (!independent_set_model.parameters.valid())
     return reject("independent-set-model settings are invalid");
 
@@ -1428,13 +1423,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << affine_root_closure.maximum_journal_bytes
       << " affine_root_closure.maximum_session_work="
       << affine_root_closure.maximum_session_work;
-  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled
-      << " graph_labeling_model.initial_tick_interval="
-      << graph_labeling_model.initial_tick_interval
-      << " graph_labeling_model.maximum_delay_ticks="
-      << graph_labeling_model.maximum_delay_ticks
-      << " graph_labeling_model.fruitlessness_threshold="
-      << graph_labeling_model.fruitlessness_threshold;
+  out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
   {
     strategy::OnlineStrategyProgram graph;
     strategy::OnlineInvocation invocation;
@@ -4232,126 +4221,203 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   return optional_disable;
 }
 
+void DefaultPolicy::schedule_root_service_occurrence(
+    const Kernel &k, DefaultRootServiceSchedule &s) const {
+  // kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N, true):
+  // eliminateint * n * log10(n + 9)^2, then kissat_scale_delta.
+  ++s.occurrences;
+  const auto &config = config_.inprocess;
+  const double n = static_cast<double>(s.occurrences);
+  const double lg = std::log10(n + config.logarithm_offset);
+  const uint64_t delta = scale_inprocessing_delta(
+      k, static_cast<uint64_t>(static_cast<double>(config.eliminate_interval) * n * lg * lg),
+      config);
+  s.next_conflicts = saturated_sum(k.stats.conflicts, delta);
+}
+
+bool DefaultPolicy::root_service_delaying(const Kernel &k,
+                                          DefaultRootServiceSchedule &s) const {
+  // kimits.c kissat_delaying: a delayed occurrence still advances the
+  // interval count, as Kissat's probe round does while congruence delays.
+  if (!s.delay_count) return false;
+  --s.delay_count;
+  schedule_root_service_occurrence(k, s);
+  return true;
+}
+
+static void judge_root_service_run(DefaultRootServiceSchedule &s, bool fruitful) {
+  if (fruitful) {
+    s.delay_current /= 2; // kimits.c kissat_reduce_delay
+  } else {
+    // Plan §9.5: doubling, more aggressive than kissat_bump_delay's +1.
+    s.delay_current = !s.delay_current ? 1
+        : s.delay_current > UINT32_MAX / 2 ? UINT32_MAX : 2 * s.delay_current;
+  }
+  s.delay_count = s.delay_current;
+}
+
+uint64_t DefaultPolicy::root_service_effort(const Kernel &k,
+    const DefaultRootServiceSchedule &s, uint64_t permille) const {
+  // kimits.h SET_EFFORT_LIMIT: per-mille share of the search ticks since the
+  // last run, floored at mineffort; the initial preprocessing reference
+  // matches DefaultInprocessScheduler::set_entry_limit at zero conflicts.
+  uint64_t reference;
+  if (!k.stats.conflicts) {
+    reference = config_.inprocess.preprocess_initial_ticks;
+  } else {
+    const uint64_t now = search_ticks(k);
+    reference = now >= s.last_ticks ? now - s.last_ticks : 0;
+    if (reference < config_.inprocess.minimum_effort_ticks)
+      reference = config_.inprocess.minimum_effort_ticks;
+  }
+  return scale_permille(reference, static_cast<uint32_t>(permille));
+}
+
 ApplyResult DefaultPolicy::run_affine_search(Kernel &k, bool startup) {
-  // Startup: atomic Gaussian steps at the root, each published consequence
-  // followed by ordinary root BCP, until a step publishes nothing. Full
-  // restart root: retained maintenance, then at most one atomic step.
+  // One run at the startup root or a natural full-restart root: retained
+  // maintenance (restart only), then atomic Gaussian steps, each published
+  // consequence followed by ordinary root BCP, until a fixpoint, an
+  // unfinished slice or the run's effort limit. Step allowances are the
+  // session's own; the limit is checked between steps, so a run overshoots
+  // by at most one step allowance.
   if (k.level) std::abort();
-  if (startup) {
-    for (;;) {
-      const auto service = service_affine_search(k, true);
-      if (service.result == ApplyResult::Unsat) return ApplyResult::Unsat;
-      if (service.status != AffineMatrixServiceStatus::Applied) break;
-      if (!service.bcp_pending) std::abort();
-      if (default_propagate(k, "affine-persistent-root", completion_) != ApplyResult::Ok)
-        return ApplyResult::Unsat;
-    }
-    return ApplyResult::Ok;
+  auto &d = affine_search_diagnostics_;
+  const uint64_t effort = root_service_effort(k, affine_schedule_,
+                                              config_.inprocess.sweep_permille);
+  uint64_t spent = 0, published = 0;
+  bool more = true;
+  if (!startup) {
+    const bool recognize = affine_additional_recognition_due(k);
+    const uint64_t before = d.initialization_work;
+    const auto refreshed = initialize_affine_search(k, true, recognize);
+    spent = saturated_sum(spent, d.initialization_work - before);
+    published += refreshed.root_unit_additions || refreshed.root_reason_additions;
+    if ((refreshed.root_unit_additions || refreshed.root_reason_additions) &&
+        default_propagate(k, "affine-restart-publication", completion_) != ApplyResult::Ok)
+      return ApplyResult::Unsat;
+    if (refreshed.root_service)
+      more = refreshed.root_service->status == AffineMatrixServiceStatus::Applied ||
+             refreshed.root_service->status == AffineMatrixServiceStatus::Pending;
   }
-  const bool recognize = affine_additional_recognition_due(k);
-  const auto refreshed = initialize_affine_search(k, true, recognize);
-  bool published = refreshed.root_unit_additions || refreshed.root_reason_additions;
-  if (!published && !refreshed.root_service && k.affine_matrix_search_session &&
-      k.affine_matrix_search_session->enabled()) {
+  while (more && k.affine_matrix_search_session &&
+         k.affine_matrix_search_session->enabled() && spent < effort) {
+    const uint64_t before = d.service_work;
     const auto service = service_affine_search(k, true);
+    spent = saturated_sum(spent, d.service_work - before);
+    ++d.run_steps;
     if (service.result == ApplyResult::Unsat) return ApplyResult::Unsat;
-    published = service.status == AffineMatrixServiceStatus::Applied;
-    if (published && !service.bcp_pending) std::abort();
+    if (service.status == AffineMatrixServiceStatus::Applied) {
+      if (!service.bcp_pending) std::abort();
+      ++published;
+      if (default_propagate(k, startup ? "affine-persistent-root"
+                                       : "affine-restart-publication",
+                            completion_) != ApplyResult::Ok)
+        return ApplyResult::Unsat;
+      continue;
+    }
+    more = service.status == AffineMatrixServiceStatus::Pending;
   }
-  if (published &&
-      default_propagate(k, "affine-restart-publication", completion_) != ApplyResult::Ok)
-    return ApplyResult::Unsat;
+  d.run_work = saturated_sum(d.run_work, spent);
+  d.run_effort_last = effort;
+  d.run_effort_total = saturated_sum(d.run_effort_total, effort);
+  // Fruitful = the run published output. A run cut by its effort limit or an
+  // unfinished slice without output defers the verdict.
+  if (published || !more) {
+    judge_root_service_run(affine_schedule_, published != 0);
+    ++(published ? d.fruitful_runs : d.fruitless_runs);
+  }
+  schedule_root_service_occurrence(k, affine_schedule_);
+  affine_schedule_.last_ticks = search_ticks(k);
+  d.run_conflict_limit = affine_schedule_.next_conflicts;
+  d.delay_current = affine_schedule_.delay_current;
+  // A run that reached its fixpoint has consumed its own support facts.
+  if (!more && k.affine_matrix_search_session &&
+      k.affine_matrix_search_session->enabled())
+    affine_matrix_search_consume_inputs(k, *k.affine_matrix_search_session, affine_inputs_);
   return ApplyResult::Ok;
 }
 
 ApplyResult DefaultPolicy::affine_restart_service(Kernel &k) {
-  // Natural full-restart root window: run only when a root fact landed on the
-  // retained support (or another retained input changed) since the last run.
+  // Natural full-restart root window, due at Kissat's Eliminate conflict
+  // limit, which at expiry waits (eliminate.c) until the retained inputs
+  // changed: a root fact on the support, a retired support variable, an
+  // owner or premise-lease change, or an unfinished slice.
   auto *session = k.affine_matrix_search_session;
-  if (k.level || !session || !session->enabled()) return ApplyResult::NoOp;
+  if (k.level || !session || !session->enabled() ||
+      k.stats.conflicts < affine_schedule_.next_conflicts)
+    return ApplyResult::NoOp;
+  auto &d = affine_search_diagnostics_;
   uint64_t scan = 0;
   const bool changed =
       affine_matrix_search_inputs_changed(k, *session, affine_inputs_, scan);
-  affine_search_diagnostics_.trigger_work =
-      saturated_sum(affine_search_diagnostics_.trigger_work, scan);
+  d.trigger_work = saturated_sum(d.trigger_work, scan);
   if (!changed) {
-    ++affine_search_diagnostics_.unchanged_skips;
+    ++d.unchanged_skips;
     return ApplyResult::NoOp;
   }
-  // Inputs are consumed before the run: root facts that the run itself
-  // publishes on the support wake the next natural full restart.
+  if (root_service_delaying(k, affine_schedule_)) {
+    ++d.delayed_runs;
+    d.run_conflict_limit = affine_schedule_.next_conflicts;
+    return ApplyResult::NoOp;
+  }
+  // The cursor keeps the run's own support facts visible unless the run
+  // reaches a fixpoint.
   affine_matrix_search_consume_inputs(k, *session, affine_inputs_);
-  const uint64_t scanned = affine_inputs_.root_scanned;
-  ++affine_search_diagnostics_.restart_runs;
+  ++d.restart_runs;
   if (run_affine_search(k, false) == ApplyResult::Unsat) return ApplyResult::Unsat;
   if (k.affine_matrix_search_session && k.affine_matrix_search_session->enabled()) {
+    const uint64_t consumed = affine_inputs_.root_scanned;
     affine_matrix_search_consume_inputs(k, *k.affine_matrix_search_session, affine_inputs_);
-    affine_inputs_.root_scanned = std::min(affine_inputs_.root_scanned, scanned);
+    affine_inputs_.root_scanned = std::min(affine_inputs_.root_scanned, consumed);
   }
   return ApplyResult::Ok;
 }
 
 void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
+  (void)kernel;
   graph_labeling_diagnostics_ = {};
-  graph_labeling_schedule_initialized_ = true;
-  graph_labeling_diagnostics_.delay_ticks =
-      config_.graph_labeling_model.initial_tick_interval;
-  graph_labeling_diagnostics_.next_ticks = saturated_sum(
-      search_ticks(kernel), config_.graph_labeling_model.initial_tick_interval);
-  graph_labeling_wake_stamp_ = {kernel.stats.root_assignments, kernel.nvars,
-                                kernel.external_to_internal.size()};
+  graph_labeling_schedule_ = {};
 }
 
 bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
+  // Due at Kissat's Eliminate conflict limit, after the fruitlessness delay.
   if (!config_.graph_labeling_model.enabled ||
       !kernel.graph_labeling_session.authenticated() ||
-      kernel.graph_labeling_session.complete())
+      kernel.graph_labeling_session.complete() ||
+      kernel.stats.conflicts < graph_labeling_schedule_.next_conflicts)
     return false;
-  const std::array<uint64_t, 3> current{
-      kernel.stats.root_assignments, kernel.nvars,
-      kernel.external_to_internal.size()};
-  if (current != graph_labeling_wake_stamp_) {
-    graph_labeling_wake_stamp_ = current;
-    graph_labeling_diagnostics_.delay_ticks =
-        config_.graph_labeling_model.initial_tick_interval;
-    graph_labeling_diagnostics_.fruitless_completions = 0;
-    graph_labeling_diagnostics_.next_ticks = search_ticks(kernel);
-    ++graph_labeling_diagnostics_.wakeups;
+  if (root_service_delaying(kernel, graph_labeling_schedule_)) {
+    ++graph_labeling_diagnostics_.delayed_runs;
+    graph_labeling_diagnostics_.run_conflict_limit =
+        graph_labeling_schedule_.next_conflicts;
+    return false;
   }
-  return search_ticks(kernel) >= graph_labeling_diagnostics_.next_ticks;
+  return true;
 }
 
 void DefaultPolicy::schedule_graph_labeling(
-    const Kernel &kernel, const GraphLabelingSliceResult &result) {
-  ++graph_labeling_diagnostics_.slices;
-  const auto &settings = config_.graph_labeling_model;
-  if (result.useful_hint || result.status == GraphLabelingSliceStatus::Sat) {
-    ++graph_labeling_diagnostics_.useful_hints;
-    graph_labeling_diagnostics_.fruitless_completions = 0;
-    graph_labeling_diagnostics_.delay_ticks = std::max(
-        settings.initial_tick_interval,
-        graph_labeling_diagnostics_.delay_ticks / 2);
-  } else if (result.status != GraphLabelingSliceStatus::Pending &&
-             result.status != GraphLabelingSliceStatus::Interrupted &&
-             result.status != GraphLabelingSliceStatus::Sat &&
-             ++graph_labeling_diagnostics_.fruitless_completions >=
-                 settings.fruitlessness_threshold) {
-    graph_labeling_diagnostics_.fruitless_completions = 0;
-    const uint64_t delay = graph_labeling_diagnostics_.delay_ticks;
-    graph_labeling_diagnostics_.delay_ticks =
-        delay > settings.maximum_delay_ticks / 2
-            ? settings.maximum_delay_ticks
-            : std::min(settings.maximum_delay_ticks, delay * 2);
-  }
-  if (result.status == GraphLabelingSliceStatus::Pending ||
-      result.status == GraphLabelingSliceStatus::Interrupted)
-    ++graph_labeling_diagnostics_.pending_slices;
+    const Kernel &kernel, const GraphLabelingSliceResult &result, uint64_t effort) {
+  auto &d = graph_labeling_diagnostics_;
+  ++d.slices;
+  const bool fruitful =
+      result.useful_hint || result.status == GraphLabelingSliceStatus::Sat;
+  const bool unfinished = result.status == GraphLabelingSliceStatus::Pending ||
+                          result.status == GraphLabelingSliceStatus::Interrupted;
+  if (fruitful) ++d.useful_hints;
+  if (unfinished) ++d.pending_slices;
   if (result.status == GraphLabelingSliceStatus::TrajectoryComplete)
-    ++graph_labeling_diagnostics_.completed_trajectories;
-  graph_labeling_diagnostics_.next_ticks = saturated_sum(
-      search_ticks(kernel), graph_labeling_diagnostics_.delay_ticks);
-  graph_labeling_wake_stamp_ = {kernel.stats.root_assignments, kernel.nvars,
-                                kernel.external_to_internal.size()};
+    ++d.completed_trajectories;
+  // A slice cut by its effort limit without output defers the verdict.
+  if (fruitful || !unfinished) {
+    judge_root_service_run(graph_labeling_schedule_, fruitful);
+    ++(fruitful ? d.fruitful_runs : d.fruitless_runs);
+  }
+  schedule_root_service_occurrence(kernel, graph_labeling_schedule_);
+  graph_labeling_schedule_.last_ticks = search_ticks(kernel);
+  d.run_conflict_limit = graph_labeling_schedule_.next_conflicts;
+  d.delay_current = graph_labeling_schedule_.delay_current;
+  d.run_effort_last = effort;
+  d.run_effort_total = saturated_sum(d.run_effort_total, effort);
 }
 
 GraphLabelingAuthenticationResult
@@ -4399,22 +4465,22 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
   return result;
 }
 
-GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
+GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel,
+                                                              uint64_t effort) {
   GraphLabelingSliceResult result;
   if (!config_.graph_labeling_model.enabled ||
       !kernel.graph_labeling_session.authenticated() || kernel.level ||
       !graph_labeling_model_guard(kernel))
     return result;
+  // Run effort: the SET_EFFORT_LIMIT share, within the profile's
+  // serialized Window continuation dose and any caller budget.
   const uint64_t suggested =
       kernel.graph_labeling_session.recommended_continuation_work();
-  const uint64_t allowance = kernel_has_work_budget(kernel)
-      ? std::min(kernel.work_budget, suggested ? suggested : kernel.work_budget)
-      : suggested;
+  uint64_t allowance = suggested ? std::min(effort, suggested) : effort;
+  if (kernel_has_work_budget(kernel))
+    allowance = std::min(allowance, kernel.work_budget);
   strategy::ScopedRuleWorkBudget work_budget(
-      kernel, suggested
-                  ? strategy::RuleWorkBudget{
-                        strategy::RuleWorkBudgetMode::Bounded, allowance}
-                  : strategy::RuleWorkBudget{});
+      kernel, strategy::RuleWorkBudget{strategy::RuleWorkBudgetMode::Bounded, allowance});
   const strategy::GuidanceOutcomeSnapshot before(kernel);
   result = execution::complete_action(
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,
@@ -4437,7 +4503,7 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
         feedback.invocation.status = before.refine(kernel, out.result, feedback.invocation.status);
         return feedback;
       }).slice;
-  schedule_graph_labeling(kernel, result);
+  schedule_graph_labeling(kernel, result, allowance);
   return result;
 }
 
@@ -4532,6 +4598,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_refresh_ticks_=search_ticks(k);
   affine_refresh_work_=0;
   affine_inputs_={};
+  affine_schedule_={};
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
   (void)execution::complete_action(completion_, FeedbackKind::Support,
@@ -5088,12 +5155,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // elimination ("occ-bve,occ-xor", solverconf.cpp simplify_schedule_startup).
   if(config_.affine_search.enabled) {
     (void)initialize_affine_search(k);
-    if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled()) {
-      if(run_affine_search(k,true)==ApplyResult::Unsat)
-        return finish(20);
-      if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled())
-        affine_matrix_search_consume_inputs(k,*k.affine_matrix_search_session,affine_inputs_);
-    }
+    if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled() &&
+       run_affine_search(k,true)==ApplyResult::Unsat)
+      return finish(20);
   }
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
@@ -5112,7 +5176,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.graph_labeling_model.enabled &&
       k.graph_labeling_session.authenticated()) {
-    const auto graph = service_graph_labeling(k);
+    const auto graph = service_graph_labeling(k, root_service_effort(
+        k, graph_labeling_schedule_, config_.rephase.walk_permille));
     if (graph.status == GraphLabelingSliceStatus::Sat)
       return finish(10);
     (void)install_graph_labeling_hint(k, graph);
@@ -5490,7 +5555,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (affine_candidate && affine_restart_service(k) == ApplyResult::Unsat)
           return finish(20);
         if (graph_labeling_due(k)) {
-          const auto graph = service_graph_labeling(k);
+          const auto graph = service_graph_labeling(k, root_service_effort(
+              k, graph_labeling_schedule_, config_.rephase.walk_permille));
           if (graph.status == GraphLabelingSliceStatus::Sat)
             return finish(10);
           (void)install_graph_labeling_hint(k, graph);
