@@ -8,7 +8,8 @@ baseline is c2.3 = `555ecb4b0` (Release `ae4a26e4…`, `build/pin-candidate-c2.3
 |---|---|---|
 | `d453dfbb6` | No forced restarts; affine trigger narrowed to its retained support; Gauss–Jordan (from `f39f59246`); consumption observer removed | `a4e46b78…` (`build/pin-restart-c1-rel`) |
 | `d5ea15100` | Kissat conflict-limit + effort schedule for both services | `72f1bede…` (`build/pin-restart-c2-rel`) |
-| `b2ff44d6f` | Gauss–Jordan scoped to persistent sessions (fixes a `d453dfbb6` regression, below) | `670bc766…` (`build/pin-restart-c3-rel`) |
+| `b2ff44d6f` | Gauss–Jordan scoped to persistent sessions (fixes a `d453dfbb6` regression, below) | `670bc766…` (pin deleted; campaign copies in `pins/`) |
+| `3361d3b51` | Graph labeling's run dose follows its owner, LymphoSAT (main-session N4 decision), not the walk share | `57bdd51c…` = `build/pin-restart-c4-rel` (**c2.4 gate pin**) |
 
 The root-unit visibility fix `3149de667` was already in the tree (c2.1 cherry-picked it; its
 patch reverse-applies cleanly), so nothing was ported for it.
@@ -109,9 +110,45 @@ it decay to 0). But every run is fruitless: there are no published reasons, and 
 refresh maintenance only one Gaussian step runs in the whole solve. The affine-on speedups therefore come from admission side effects (census placement,
 BVE skipping the support), not from Gaussian output.
 
+## Owner-dosed graph labeling (`3361d3b51`)
+
+The main session decided (N4) that graph labeling's run dose must follow its owner. LymphoSAT's
+dispatcher runs the matched antibandwidth solver to completion before its CDCL fallback
+(`winners/lymphosat-sc2026/green/lymphosat/src/solver/core/main.cpp`,
+`solvers/antibandwidth/solver/meta.json`).
+- The first run is in the initial root window.
+- Each run continues the trajectory slice by slice within the serialized stage doses until it
+  completes, finds a model or is interrupted.
+- Later runs stay at natural full restarts under the Eliminate conflict limit, with the delay
+  doubling after a fruitless run (no model) and halving after a fruitful one.
+- The 50‰ walk share is removed. Affine search keeps the Kissat sweep share.
+
+**Validation (Release `57bdd51c…`):**
+- **Full Debug:** 358/358 (job 1763339).
+- **Identity (12 rows × 3 arms):** the 10 rows without graph labeling plus lightsout are identical
+  to c2.3 in both new arms (verdict, conflicts, decisions, certificate SHA), with graph runs = 0.
+- **abw-K-dwt:** SAT in **21.3 s** (affine-on arm 21.6 s; c2.3 21.1 s), model verified.
+  - One graph-labeling run of 56 slices before search does about 5.064e9 work and finds the
+    model with 0 conflicts. c2.3 needed 8,935 conflicts, because its slices sat between forced
+    restarts.
+  - The certificate differs from c2.3 (`1026936d…`) because the model is now found before search.
+- **Closures:** not rerun. Graph labeling authenticates only abw among the fixed44 closure rows
+  (`authentication_successes=0` on every other row in the earlier campaigns), so the change cannot
+  reach them.
+
+## lec_mult 64 GiB proof rechecks
+
+These use `tools/bench/experimental_tierd.py`, the Tier-D home-certificate route: hwulab, 8 CPUs,
+64 GiB, 5,000 s solve, 28,800 s check, long64-fixed dsr-trim, then Trestle. Certificates are kept
+on the home quota under the governor. Campaigns are `benchmarks/runs/20261009-restart-rework-lec64-*`.
+
+| Arm | 569 | 1004 |
+|---|---|---|
+| c2.3 | UNSAT 3,575 s, cert `9dd8775c…` (same as before): CHECK_PENDING | (unsolved by c2.3) |
+| `3361d3b51` default | UNSAT 3,573 s, cert `9dd8775c…` (identical to c2.3): CHECK_PENDING | UNKNOWN at 5,000 s this time (4,971 s before); a re-solve with a 7,200 s limit is running (`…-lec64-new1004`): CHECK_PENDING |
+| `3361d3b51` affine on | UNSAT 2,732 s, cert `f7689d01…` (identical to the `b2ff44d6f` run): CHECK_PENDING | UNSAT 4,102 s, cert `a827670c…` (identical to the `b2ff44d6f` run): CHECK_PENDING |
+
 ## Open for the main session
 
-- **abw closure margin.** abw stays inside 5,000 s, but only with about 170 s to spare. The
-  user-specified effort share starves graph labeling relative to its own work unit. Choosing a share or
-  unit conversion is a policy decision; this commit does not change it.
-- **Gates.** The four §8.4 gates (candidate c2.4) have not been run.
+- **Gates.** The four §8.4 gates (candidate c2.4, pin `build/pin-restart-c4-rel`, commit
+  `3361d3b51`) have not been run.
