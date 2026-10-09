@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full Tier D Tactix campaign with certificates on the home quota.
 #
-#   tierd_home_campaign.sh prepare CAMPAIGN BINARY BINARY_SHA256 SOURCE_TREE SOURCE_COMMIT [--solver-argument=ARG]... [--instance=REL]...
+#   tierd_home_campaign.sh prepare <CAMPAIGN> <BINARY> <BINARY_SHA256> <SOURCE_TREE> <SOURCE_COMMIT> [--solver-argument=ARG]... [--instance=REL]...
 #   tierd_home_campaign.sh recheck CAMPAIGN SOURCE_CAMPAIGN [CLASSES]   (default CLASSES=memout; 64 GiB)
 #   tierd_home_campaign.sh validate CAMPAIGN
 #   tierd_home_campaign.sh submit CAMPAIGN [GOVERNOR_JOBS_JSON]
