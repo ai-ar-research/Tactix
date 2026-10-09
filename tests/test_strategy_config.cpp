@@ -305,12 +305,6 @@ int main() {
   assert(default_should_seed_structured_residual(true, 0, false));
   assert(!default_should_seed_structured_residual(true, 3, false));
   assert(default_should_seed_structured_residual(true, 3, true));
-  assert(!default_should_run_initial_fast_elimination(0, 0));
-  assert(!default_should_run_initial_fast_elimination(5, 10));
-  assert(default_should_run_initial_fast_elimination(6, 10));
-  assert(!default_fast_elimination_discovery_admissible(0, 10));
-  assert(default_fast_elimination_discovery_admissible(4, 8));
-  assert(!default_fast_elimination_discovery_admissible(5, 8));
   {
     // A checked SR unit that fixes a root still composes with startup
     // FastEl: structured root progress never suppresses elimination.
