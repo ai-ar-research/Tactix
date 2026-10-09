@@ -1027,30 +1027,86 @@ int main(int argc, char **argv) {
     printf("c tactix 0.1.0\n");
     if (!controller_selected && !random_policy && !stress_policy && !replay_path) {
       const auto &affine = default_policy.affine_search_diagnostics();
-      const auto metric = [](const char *name, uint64_t value) {
-        printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
+      // The persistent affine search block prints only when the service is
+      // enabled or one of its counters moved; each line keeps its format.
+      const std::pair<const char *, uint64_t> affine_head[] = {
+        {"enabled", default_config.affine_search.enabled},
+        {"initializations", affine.initializations},
+        {"normalization_rup_checks", kernel.stats.affine_matrix_init_normalization_rup_checks},
+        {"shortening_additions", kernel.stats.affine_matrix_init_shortening_additions},
+        {"maintenance_service_work", kernel.stats.affine_matrix_init_maintenance_service_work},
+        {"discovery_recognized_groups", kernel.stats.affine_matrix_init_discovery_recognized_groups},
+        {"discovery_skipped_groups", kernel.stats.affine_matrix_init_discovery_skipped_groups},
+        {"discovery_recognizer_work", kernel.stats.affine_matrix_init_discovery_recognizer_work},
+        {"refreshes", affine.refreshes},
+        {"unchanged_refreshes", affine.unchanged_refreshes},
+        {"empty_maintenance_skips", affine.empty_maintenance_skips},
+        {"unchanged_census_skips", affine.unchanged_census_skips},
+        {"usefulness_resumptions", affine.usefulness_resumptions},
+        {"paused_search_skips", affine.paused_search_skips},
+        {"root_services", affine.root_services},
+        {"search_services", affine.search_services},
+        {"reasons_published", affine.reasons_published},
+        {"implications_consumed", affine.implications_consumed},
+        {"conflicts_consumed", affine.conflicts_consumed},
+        {"admitted_sources", affine.admitted_sources},
+        {"active_sources", affine.active_sources},
       };
-      metric("enabled", default_config.affine_search.enabled);
-      metric("initializations", affine.initializations);
-      metric("normalization_rup_checks", kernel.stats.affine_matrix_init_normalization_rup_checks);
-      metric("shortening_additions", kernel.stats.affine_matrix_init_shortening_additions);
-      metric("maintenance_service_work", kernel.stats.affine_matrix_init_maintenance_service_work);
-      metric("discovery_recognized_groups", kernel.stats.affine_matrix_init_discovery_recognized_groups);
-      metric("discovery_skipped_groups", kernel.stats.affine_matrix_init_discovery_skipped_groups);
-      metric("discovery_recognizer_work", kernel.stats.affine_matrix_init_discovery_recognizer_work);
-      metric("refreshes", affine.refreshes);
-      metric("unchanged_refreshes", affine.unchanged_refreshes);
-      metric("empty_maintenance_skips", affine.empty_maintenance_skips);
-      metric("unchanged_census_skips", affine.unchanged_census_skips);
-      metric("usefulness_resumptions", affine.usefulness_resumptions);
-      metric("paused_search_skips", affine.paused_search_skips);
-      metric("root_services", affine.root_services);
-      metric("search_services", affine.search_services);
-      metric("reasons_published", affine.reasons_published);
-      metric("implications_consumed", affine.implications_consumed);
-      metric("conflicts_consumed", affine.conflicts_consumed);
-      metric("admitted_sources", affine.admitted_sources);
-      metric("active_sources", affine.active_sources);
+      const std::pair<const char *, uint64_t> affine_tail[] = {
+        {"retained_basis_rank", affine.retained_basis_rank},
+        {"retained_support_variables", affine.retained_support_variables},
+        {"rank_before_last_action", affine.rank_before_last_action},
+        {"rank_after_last_action", affine.rank_after_last_action},
+        {"support_before_last_action", affine.support_before_last_action},
+        {"support_after_last_action", affine.support_after_last_action},
+        {"recognition_rank_gains", affine.recognition_rank_gains},
+        {"recognition_rank_losses", affine.recognition_rank_losses},
+        {"maintenance_rank_gains", affine.maintenance_rank_gains},
+        {"maintenance_rank_losses", affine.maintenance_rank_losses},
+        {"service_rank_losses", affine.service_rank_losses},
+        {"isolated_projection_rank_losses", affine.isolated_projection_rank_losses},
+        {"native_session_disables", affine.native_session_disables},
+        {"optional_failure_disables", affine.optional_failure_disables},
+        {"paused_basis_rank", affine.paused_basis_rank},
+        {"paused_support_variables", affine.paused_support_variables},
+        {"last_survival_action", affine.last_survival_action},
+        {"last_disable_cause", affine.last_disable_cause},
+        {"retained_bytes", affine_matrix_search_session.retained_bytes()},
+        {"retired_sources", affine.retired_sources},
+        {"projected_variables", affine.projected_variables},
+        {"initialization_work", affine.initialization_work},
+        {"service_work", affine.service_work},
+        {"incremental_capture_calls", affine.incremental_capture_calls},
+        {"unchanged_support_calls", affine.unchanged_support_calls},
+        {"cached_event_calls", affine.cached_event_calls},
+        {"service_due_ticks", affine.service_due_ticks},
+        {"service_delay_current", affine.service_delay_current},
+        {"service_tick_skips", affine.service_tick_skips},
+        {"pending_slices", affine.pending_slices},
+        {"resumed_slices", affine.resumed_slices},
+        {"completed_slice_steps", affine.completed_slice_steps},
+        {"slice_work", affine.slice_work},
+        {"slice_cumulative_work", affine.slice_cumulative_work},
+        {"minimum_slice_work", affine.minimum_slice_work},
+        {"no_yield_delays", affine.no_yield_delays},
+        {"productive_delay_decays", affine.productive_delay_decays},
+        {"service_wakeups", affine.service_wakeups},
+        {"capture_delta_literals", affine.capture_delta_literals},
+        {"premise_maintenance_work", affine.premise_maintenance_work},
+        {"alias_work", affine.alias_work},
+        {"alias_proof_additions", affine.alias_proof_additions},
+        {"proof_additions", affine.proof_additions},
+        {"proof_deletions", affine.proof_deletions},
+        {"overhead_nanos", affine.overhead_nanos},
+        {"resource_declines", affine.resource_declines},
+        {"usefulness_disabled", affine.usefulness_disabled},
+      };
+      bool affine_active = false;
+      for (const auto &metric : affine_head) affine_active |= metric.second != 0;
+      for (const auto &metric : affine_tail) affine_active |= metric.second != 0;
+      if (affine_active)
+        for (const auto &[name, value] : affine_head)
+          printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
       const auto &graph = default_policy.graph_labeling_diagnostics();
       const auto graph_metric = [](const char *name, uint64_t value) {
         printf("c graph-schedule %s=%llu\n", name,
@@ -1079,58 +1135,14 @@ int main(int argc, char **argv) {
       graph_metric("anneal_attempts", kernel.stats.graph_labeling_anneal_attempts);
       graph_metric("sat", kernel.stats.graph_labeling_sat);
       graph_metric("search_ticks", kernel.stats.search_ticks);
-      printf("c affine-survival gauges=last-native-boundary rank=unconditioned-coefficient-rank "
-             "sources=retained-equations pause=last-pause "
-             "action-codes=1:recognition,2:maintenance,3:root-service,4:search-service "
-             "disable-codes=1:native-clear,2:optional-terminal-failure\n");
-      metric("retained_basis_rank", affine.retained_basis_rank);
-      metric("retained_support_variables", affine.retained_support_variables);
-      metric("rank_before_last_action", affine.rank_before_last_action);
-      metric("rank_after_last_action", affine.rank_after_last_action);
-      metric("support_before_last_action", affine.support_before_last_action);
-      metric("support_after_last_action", affine.support_after_last_action);
-      metric("recognition_rank_gains", affine.recognition_rank_gains);
-      metric("recognition_rank_losses", affine.recognition_rank_losses);
-      metric("maintenance_rank_gains", affine.maintenance_rank_gains);
-      metric("maintenance_rank_losses", affine.maintenance_rank_losses);
-      metric("service_rank_losses", affine.service_rank_losses);
-      metric("isolated_projection_rank_losses", affine.isolated_projection_rank_losses);
-      metric("native_session_disables", affine.native_session_disables);
-      metric("optional_failure_disables", affine.optional_failure_disables);
-      metric("paused_basis_rank", affine.paused_basis_rank);
-      metric("paused_support_variables", affine.paused_support_variables);
-      metric("last_survival_action", affine.last_survival_action);
-      metric("last_disable_cause", affine.last_disable_cause);
-      metric("retained_bytes", affine_matrix_search_session.retained_bytes());
-      metric("retired_sources", affine.retired_sources);
-      metric("projected_variables", affine.projected_variables);
-      metric("initialization_work", affine.initialization_work);
-      metric("service_work", affine.service_work);
-      metric("incremental_capture_calls", affine.incremental_capture_calls);
-      metric("unchanged_support_calls", affine.unchanged_support_calls);
-      metric("cached_event_calls", affine.cached_event_calls);
-      metric("service_due_ticks", affine.service_due_ticks);
-      metric("service_delay_current", affine.service_delay_current);
-      metric("service_tick_skips", affine.service_tick_skips);
-      metric("pending_slices", affine.pending_slices);
-      metric("resumed_slices", affine.resumed_slices);
-      metric("completed_slice_steps", affine.completed_slice_steps);
-      metric("slice_work", affine.slice_work);
-      metric("slice_cumulative_work", affine.slice_cumulative_work);
-      metric("minimum_slice_work", affine.minimum_slice_work);
-      metric("no_yield_delays", affine.no_yield_delays);
-      metric("productive_delay_decays", affine.productive_delay_decays);
-      metric("service_wakeups", affine.service_wakeups);
-
-      metric("capture_delta_literals", affine.capture_delta_literals);
-      metric("premise_maintenance_work", affine.premise_maintenance_work);
-      metric("alias_work", affine.alias_work);
-      metric("alias_proof_additions", affine.alias_proof_additions);
-      metric("proof_additions", affine.proof_additions);
-      metric("proof_deletions", affine.proof_deletions);
-      metric("overhead_nanos", affine.overhead_nanos);
-      metric("resource_declines", affine.resource_declines);
-      metric("usefulness_disabled", affine.usefulness_disabled);
+      if (affine_active) {
+        printf("c affine-survival gauges=last-native-boundary rank=unconditioned-coefficient-rank "
+               "sources=retained-equations pause=last-pause "
+               "action-codes=1:recognition,2:maintenance,3:root-service,4:search-service "
+               "disable-codes=1:native-clear,2:optional-terminal-failure\n");
+        for (const auto &[name, value] : affine_tail)
+          printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
+      }
     }
     printf("c count-pb    %llu calls, %llu stars, %llu UNSAT, %llu work, "
            "%llu interrupted, %llu additions\n",
@@ -1509,10 +1521,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_nonforcing_cuts_declined,
            (unsigned long long)kernel.stats.sr_singleton_forcing_batches_declined,
            (unsigned long long)kernel.stats.sr_singleton_forcing_rows_declined);
-    printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
-           (unsigned long long)kernel.stats.residual_handoff_calls,
-           (unsigned long long)kernel.stats.residual_handoff_variables,
-           kernel.stats.residual_handoff_nanos / 1e9);
+    // Residual search handoff is off by default; print it only when enabled
+    // or when it ran.
+    const bool default_selected =
+        !controller_selected && !random_policy && !stress_policy && !replay_path;
+    if ((default_selected &&
+         default_config.inprocess.structured_root_residual_search_handoff) ||
+        kernel.stats.residual_handoff_calls ||
+        kernel.stats.residual_handoff_variables ||
+        kernel.stats.residual_handoff_nanos)
+      printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
+             (unsigned long long)kernel.stats.residual_handoff_calls,
+             (unsigned long long)kernel.stats.residual_handoff_variables,
+             kernel.stats.residual_handoff_nanos / 1e9);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
