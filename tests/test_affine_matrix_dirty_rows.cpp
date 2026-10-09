@@ -4,7 +4,7 @@
 #include <set>
 using namespace tactix::affine_semantic_extension;
 namespace {
-MatrixLimits limits(){return {1000000,256,1024,64,64,1024};}
+MatrixLimits limits(){return {1000000,256,1024,64,64,1024,true};}
 AffineMatrix build(const std::vector<Equation>&s){AffineMatrix m;assert(build_affine_matrix(s,73,limits(),[](auto){return true;},m)==MatrixStatus::Complete);return m;}
 const MatrixIncrementalLimits bytes{16*1024*1024};
 void independent_rows(){
