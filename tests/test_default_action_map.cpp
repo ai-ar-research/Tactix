@@ -13,14 +13,11 @@
 
 using namespace action_map;
 
-// Internal entries at Step 0 (no DefaultPolicy route change yet). Each later
-// step removes the entries it routes publicly.
+// Internal entries after Step 1 (macro actions through registry dispatch).
+// Each later step removes the entries it routes publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
-    "propagate-search", "decide", "conflict-analysis", "restart-scheduled",
-    "reduce", "switch-mode", "reorder", "rephase", "walk",
-    "lucky-opportunity", "lucky-graph-session", "local-search-guidance",
-    "bce-post-structured", "propagate-root", "affine-matrix-initialize",
-    "affine-matrix-search", "slot-sweep-batch",
+    "propagate-search", "decide", "conflict-analysis", "propagate-root",
+    "affine-matrix-initialize", "affine-matrix-search", "slot-sweep-batch",
     "slot-substitute-rounds", "slot-vivify-band", "slot-fastel-occurrence",
     "install-parameters", "install-walk-guidance", "install-material-settings",
     "support-transaction"};

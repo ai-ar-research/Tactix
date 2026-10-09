@@ -443,6 +443,14 @@ ApplyResult default_direct_rule_lazy(
 #endif
 }
 
+// Macro actions leave the native search interval as public registry requests
+// (gap plan Step 1): the same dispatch, timing and strategy_epoch as any client.
+const RuleVTable &registered_rule(const char *name) {
+  const int id = tactix_rule_id(name);
+  assert(id >= 0);
+  return tactix_rules()[static_cast<size_t>(id)];
+}
+
 ApplyResult default_propagate(Kernel &k, const char *candidate,
                               PolicyCompletion *completion = nullptr) {
   return execution::complete_action(completion, FeedbackKind::Rule, "Propagate",
@@ -555,9 +563,15 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
         }
         return spec;
       }, [&] {
-    return default_direct_rule(k, "Lucky", candidate, [&] {
-      return execution::execute_action(k, execution::LuckyRequest<Opportunity>{});
-    });
+    static const RuleVTable &lucky = registered_rule("Lucky");
+    // Proof instances first close the root; DefaultPolicy offers them only at
+    // a propagated root, where that closure is a no-op.
+    if constexpr (Opportunity == LuckyOpportunity::Stconn ||
+                  Opportunity == LuckyOpportunity::SignedCardinality ||
+                  Opportunity == LuckyOpportunity::ParityProof ||
+                  Opportunity == LuckyOpportunity::ExactOneProof)
+      assert(kernel_propagation_fixpoint(k));
+    return apply_rule_instance(lucky, k, instance);
   }, [&](ApplyResult result) {
     auto out = strategy::controller::feedback_outcome(result);
     out.invocation.status = before.refine(k, result, out.invocation.status);
@@ -573,11 +587,8 @@ ApplyResult default_lucky(Kernel &k, const char *candidate,
       }, [&] {
     const size_t trail_begin = k.trail.size();
     const uint64_t roots_before = k.stats.root_assignments;
-    const ApplyResult result = default_direct_rule(
-        k, "Lucky", candidate, [&] {
-          return execution::execute_action(
-              k, execution::LuckyRequest<LuckyOpportunity::Cascade>{});
-        });
+    static const RuleVTable &lucky = registered_rule("Lucky");
+    const ApplyResult result = apply_rule_instance(lucky, k, INSTANCE_CANONICAL);
     // Lucky can prove failed-literal units even when every model probe fails.
     // Its root entry prefix survives speculative backtracking, so consume the
     // appended roots in assignment order before any later policy consumer.
@@ -4286,9 +4297,18 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_AUTHENTICATE,
       [&] { return execution::native_rule_feedback(kernel, "Lucky",
           LUCKY_GRAPH_AUTHENTICATE, "graph-authenticate"); },
-      [&] { return execution::execute_action(kernel, execution::GraphLabelingActionRequest{
-          execution::GraphLabelingOperation::Authenticate,
-          strategy::GraphLabelingParameters::from_kernel(kernel)}); },
+      [&] {
+        // Registry dispatch of Lucky 26; the policy keeps the typed result.
+        execution::GraphLabelingActionResult out;
+        static const RuleVTable &lucky = registered_rule("Lucky");
+        (void)apply_rule_structured(lucky, kernel, "26", [&] {
+          out = execution::execute_action(kernel, execution::GraphLabelingActionRequest{
+              execution::GraphLabelingOperation::Authenticate,
+              strategy::GraphLabelingParameters::from_kernel(kernel)});
+          return out.result;
+        });
+        return out;
+      },
       [](const execution::GraphLabelingActionResult &out) {
         return strategy::controller::feedback_outcome(out.result);
       }).authentication;
@@ -4332,9 +4352,18 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,
       [&] { return execution::native_rule_feedback(kernel, "Lucky",
           LUCKY_GRAPH_CONTINUE, "graph-continue"); },
-      [&] { return execution::execute_action(kernel, execution::GraphLabelingActionRequest{
-          execution::GraphLabelingOperation::Continue,
-          strategy::GraphLabelingParameters::from_kernel(kernel)}); },
+      [&] {
+        // Registry dispatch of Lucky 27; the policy keeps the typed result.
+        execution::GraphLabelingActionResult out;
+        static const RuleVTable &lucky = registered_rule("Lucky");
+        (void)apply_rule_structured(lucky, kernel, "27", [&] {
+          out = execution::execute_action(kernel, execution::GraphLabelingActionRequest{
+              execution::GraphLabelingOperation::Continue,
+              strategy::GraphLabelingParameters::from_kernel(kernel)});
+          return out.result;
+        });
+        return out;
+      },
       [&](const execution::GraphLabelingActionResult &out) {
         auto feedback = strategy::controller::feedback_outcome(out.result);
         feedback.invocation.status = before.refine(kernel, out.result, feedback.invocation.status);
@@ -4364,7 +4393,10 @@ ApplyResult DefaultPolicy::install_graph_labeling_hint(
             "authenticated-graph-labeling-improvement;objective=" +
                 std::to_string(hint.objective));
       },
-      [&] { return local_search_guidance_apply_candidate(kernel, hint.id); });
+      [&] {
+        static const RuleVTable &guidance = registered_rule("LocalSearchGuidance");
+        return apply_rule_instance(guidance, kernel, hint.id);
+      });
   if (installed == ApplyResult::Ok)
     ++graph_labeling_diagnostics_.phase_installs;
   return installed;
@@ -4773,12 +4805,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         "Lucky", LUCKY_EXACT_ONE_PROOF, [&] {
           return execution::native_rule_feedback(
               k, "Lucky", LUCKY_EXACT_ONE_PROOF,
-            "native-exact-one-refutation-opportunity"); }, [&] { return default_direct_rule(
-        k, "Lucky", "exact-one-refutation", [&] {
-          return execution::execute_action(
-              k, execution::LuckyRequest<LuckyOpportunity::ExactOneProof>{});
+            "native-exact-one-refutation-opportunity"); }, [&] {
+          static const RuleVTable &lucky = registered_rule("Lucky");
+          assert(kernel_propagation_fixpoint(k)); // its root closure is a no-op
+          return apply_rule_instance(lucky, k, LUCKY_EXACT_ONE_PROOF);
         });
-    });
     if (exact_one == ApplyResult::Unsat) {
       event_trace.macro(k, "exact_one_refutation_end", "unsat");
       return finish(20);
@@ -4849,8 +4880,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                   }, "bce-ticks");
             }, [&] {
               InprocessScope scope(k);
-              return default_direct_rule(k, "BCE", "post-structured-amo",
-                  [&] { return bce_apply(k); });
+              static const RuleVTable &bce = registered_rule("BCE");
+              return apply_rule(bce, k);
             }, [&](ApplyResult result) {
               return execution::native_rule_outcome(k, "BCE", result);
             });
@@ -5266,30 +5297,50 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const bool compact_due =
           compact_ && kernel_should_compact_variables(
                           k, config_.reduction.compact_inactive_percent);
-      reduce_candidates(k, reduce_scratch_, /*measure=*/false,
-                        config_.reduction.protect_tiers);
+      // The policy's victim count is Reduce's canonical fraction for the
+      // default unramped reduction; any other count is the explicit instance.
+      // The rule ranks the same candidates under the posed tiers.
+      const bool canonical_victims = !reduction && !default_reduction_.ramp;
+      size_t reduce_victims = 0;
+      bool ranked = false;
+      const auto rank_victims = [&] {
+        if (ranked) return;
+        ranked = true;
+        reduce_candidates(k, reduce_scratch_, /*measure=*/false,
+                          config_.reduction.protect_tiers);
+        reduce_victims = std::min(rp.victims(k, reduce_scratch_.size()),
+                                  reduce_scratch_.size());
+      };
+      if (!canonical_victims) rank_victims();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
+      rank_victims();
       k.diagnostic_policy_reduce_bytes =
           reduce_scratch_.capacity() * sizeof(Ref);
-#endif
-      const size_t reduce_victims =
-          std::min(rp.victims(k, reduce_scratch_.size()),
-                   reduce_scratch_.size());
       event_trace.reduction(k, reduce_scratch_, reduce_victims);
+#endif
+      strategy::ReduceParameters selected = strategy::ReduceParameters::from_kernel(k);
+      selected.victim_numerator = config_.reduction.victim_numerator;
+      selected.victim_denominator = config_.reduction.victim_denominator;
+      selected.protect_tiers = config_.reduction.protect_tiers;
+      selected.compact_collection = compact_due;
+      const uint64_t reduce_instance =
+          canonical_victims ? INSTANCE_CANONICAL : reduce_victims;
       (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reduce",
-          INSTANCE_CANONICAL, [&] {
+          reduce_instance, [&] {
+            rank_victims();
             std::string description = "compact=" + std::to_string(compact_due) + ";victim-ids=";
             for (size_t i = 0; i < reduce_victims; ++i)
               description += std::to_string(clause_at(k.arena, reduce_scratch_[i])->id()) + ',';
-            return execution::native_rule_feedback(k, "Reduce", INSTANCE_CANONICAL,
-                                                   std::move(description));
-          }, [&] { return default_direct_rule_lazy(
-          k, "Reduce",
-          [&] { return "victims=" + std::to_string(reduce_victims); }, [&] {
-            return execution::execute_action(k, execution::ReductionRequest{
-                std::span<const Ref>(reduce_scratch_.data(), reduce_victims), compact_due});
+            auto spec = execution::native_rule_feedback(k, "Reduce", reduce_instance,
+                                                        std::move(description));
+            spec.description.invocation->parameters = selected;
+            return spec;
+          }, [&] {
+            static const RuleVTable &reduce_rule = registered_rule("Reduce");
+            const strategy::ScopedReduceParameters scoped(k, selected);
+            return canonical_victims ? apply_rule(reduce_rule, k)
+                                     : apply_rule_instance(reduce_rule, k, reduce_victims);
           });
-      });
       if (compact_due)
         event_trace_target_state(
             k, "reduce-compact-pre",
@@ -5327,7 +5378,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       (void)execution::complete_action(completion_, FeedbackKind::Rule, "SwitchMode",
           INSTANCE_CANONICAL, [&] { return execution::native_rule_feedback(
               k, "SwitchMode", INSTANCE_CANONICAL, "native-mode-transition"); }, [&] {
-        execution::execute_action(k, execution::SwitchModeRequest{});
+        static const RuleVTable &switch_mode = registered_rule("SwitchMode");
+        (void)apply_rule(switch_mode, k);
         mode.count++;
         averages[k.h->stable].saved_decisions = k.stats.decisions;
         if (k.h->stable) // entering stable: fresh reluctant sequence
@@ -5385,12 +5437,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                        ? ";purpose=retained-root" : ";purpose=scheduled")); }, [&] {
         if (keep < k.level)
           heuristics_update_target_phases(k);
-        const ApplyResult restarted = default_direct_rule_lazy(
-            k, "Restart",
-            [&] { return "keep-level=" + std::to_string(keep); },
-            [&] {
-              return execution::execute_action(k, execution::RestartRequest{keep});
-            });
+        static const RuleVTable &restart_rule = registered_rule("Restart");
+        const ApplyResult restarted = apply_rule_instance(restart_rule, k, keep);
         reluctant.trigger = false; // consumed (kissat reluctant.h)
         if (!k.h->stable) // kissat restart.c: focused-only limit update
           update_restart_limit(k);
@@ -5456,7 +5504,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                     ? REORDER_HEAP : INSTANCE_CANONICAL;
         (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reorder", target,
             [&] { return execution::native_rule_feedback(k, "Reorder", target, "native-reorder"); }, [&] {
-          const ApplyResult reordered = execution::execute_action(k, execution::ReorderRequest{target});
+          static const RuleVTable &reorder_rule = registered_rule("Reorder");
+          const ApplyResult reordered = apply_rule_instance(reorder_rule, k, target);
           reorder.count++;
           update_reorder_limit(k);
           return reordered;
@@ -5519,7 +5568,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               parameters.seed_candidate = 0;
               spec.description.invocation->parameters = std::move(parameters);
               return spec;
-            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed, 0}); },
+            }, [&] {
+              static const RuleVTable &walk_rule = registered_rule("Walk");
+              return execution::execute_action(k, execution::WalkRequest{allowance, seed, 0},
+                                               [&] { return apply_rule(walk_rule, k); });
+            },
             [&](ApplyResult result) {
               auto out = strategy::controller::feedback_outcome(result);
               out.invocation.status = before_walk.refine(k, result, out.invocation.status);
@@ -5537,7 +5590,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           type = REPHASE_ORIGINAL;
         (void)execution::complete_action(completion_, FeedbackKind::Rule, "Rephase", type,
             [&] { return execution::native_rule_feedback(k, "Rephase", type, "native-rephase"); },
-            [&] { return execution::execute_action(k, execution::RephaseRequest{type}); });
+            [&] {
+              static const RuleVTable &rephase_rule = registered_rule("Rephase");
+              return apply_rule_instance(rephase_rule, k, type);
+            });
       }
       update_rephase_limit(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-rephase-search-continuation");
