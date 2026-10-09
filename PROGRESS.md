@@ -18,7 +18,7 @@ openstacks and VexRiscv closures were not rerun on c2.2. Its predecessor c2.1 =
   899, 991, 1075, 1129;
 - [qualification report](benchmarks/reports/2026-10-08-candidate-c2.1-qualification/README.md).
 
-Main's source equals c2.2. Development after c2.1 was
+Main's source equals c2.3 (c2.2 plus a behaviour-identical cleanup). Development after c2.1 was
 purged from the tree at the user's request and survives only in Git history (last
 pre-purge main: `d3a6a6527`). That includes the c3/c4 Satsuma symmetry practice, the
 witness-free SR rewrite (`163429b44`), the Kissat start-of-search repair (`5ea5c5df1`;
@@ -29,22 +29,27 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Next action
 
-0. **Candidate c2.2 = `8ce068dbf`** (c2.1 + startup FastEliminate guard) is the committed candidate:
-   [record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md). Full Debug job 1761569 pending.
-   Cleanup done: graph labeling on by default, trimmed statistics, DefaultPolicy structural Walk seeding
-   and the X17 census tool removed; byte-identical to c2.2 on 9 identity rows. Persistent affine search
-   stays (plan §9.5 Persistent XOR) pending a user decision. Doc compaction is done. Next: stale
-   branches/links, then full Tier D on the cleaned candidate.
-1. Baseline reruns (A) 1757931 and (B) 1757933 run under governor 1757996 (600 s; hold
-   >750 GB, release <700 GB); (C) follows (A).
-2. Then the full Tactix Tier D run on c2.1: cpu-q, 4 CPUs, 32 GB, 5,000 s solve, 8 h
-   check, at most 125 concurrent, under the governor; rerun failed checks at 64 GB.
+0. **Candidate c2.3 = `555ecb4b0`** (branch `candidate-c2.3`, Release `ae4a26e4…`) is c2.2
+   ([record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md); full Debug 353/353) plus the
+   cleanup: graph labeling on by default, trimmed statistics, DefaultPolicy structural Walk seeding
+   and the X17 census tool removed. It is byte-identical to c2.2 on 9 identity rows
+   (`benchmarks/probes/scratch/cleanup-20261009/`). Persistent affine search stays (plan §9.5
+   Persistent XOR) pending a user decision.
+1. Full Tier D on c2.3 is running (`benchmarks/runs/20261009-tierd-c2.3`, job 1761609; cpu-q,
+   4 CPUs, 32 GB, 5,000 s solve, 8 h check, `%125`, certificates on the home quota). When it
+   finishes: `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts
+   at 64 GB.
+2. Close the DefaultPolicy public-API gap following the
+   [eight-step plan](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md); Steps 0–1
+   are in progress. Every step stays byte-identical to c2.3.
 
 ## Live work
 
 | Work | Jobs | Status |
 |---|---|---|
-| Baseline reruns | (A) 1757931, (B) 1757933; governor 1757996 | running |
+| Tactix Tier D (c2.3) | 1761609 | running |
+| Baseline reruns | (A) 1757931, (B) 1757933; (C) launches after (A) | running |
+| Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB); watches all of the above | running |
 
 ## Verification authorities
 
