@@ -417,10 +417,6 @@ void release(RefinementSession *&session) noexcept {
   session = nullptr;
 }
 
-void forget_first_refinement(RefinementSession &session) noexcept {
-  session.first_refinement.reset();
-}
-
 void release(RefinementBranch *&branch) noexcept {
   delete branch;
   branch = nullptr;
@@ -487,65 +483,11 @@ Status root_partition(RefinementSession &session,
   return result.status;
 }
 
-// Cell representative and size of every prefix vertex, or, with a query
-// list, of the queried vertices only (entry i describes query[i]): a caller
-// that reads a few candidate vertices then pays nothing linear in the graph.
-static Status fill_partition(const dejavu::ds::coloring &coloring,
-                      uint32_t vertex_count, uint32_t returned_prefix_size,
-                      const uint32_t *query, uint32_t query_count,
-                      IndividualizedPartition &result) {
-  const uint32_t entries = query ? query_count : returned_prefix_size;
-  if (entries > SIZE_MAX / sizeof(uint32_t)) {
-    result.status = Status::ResourceExhausted;
-    return result.status;
-  }
-  result.cells = static_cast<uint32_t *>(
-      std::malloc(static_cast<size_t>(entries) * sizeof(uint32_t)));
-  result.sizes = static_cast<uint32_t *>(
-      std::malloc(static_cast<size_t>(entries) * sizeof(uint32_t)));
-  if (entries && (!result.cells || !result.sizes)) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
-  }
-  std::vector<uint8_t> seen(query ? 0 : vertex_count, 0);
-  for (uint32_t at = 0; at < entries; ++at) {
-    const uint32_t vertex = query ? query[at] : at;
-    if (vertex >= returned_prefix_size) {
-      release(result);
-      result.status = Status::Invalid;
-      return result.status;
-    }
-    const int color = coloring.vertex_to_col[vertex];
-    const int size = color >= 0 && color < static_cast<int>(vertex_count)
-                         ? coloring.ptn[color] + 1
-                         : 0;
-    const int representative = size > 0 ? coloring.lab[color] : -1;
-    if (representative < 0 ||
-        representative >= static_cast<int>(vertex_count)) {
-      release(result);
-      result.status = Status::Failed;
-      return result.status;
-    }
-    result.cells[at] = static_cast<uint32_t>(representative);
-    result.sizes[at] = static_cast<uint32_t>(size);
-    if (!query && !seen[color]) {
-      seen[color] = 1;
-      ++result.cell_count;
-    }
-  }
-  result.domain_size = entries;
-  result.status = Status::Complete;
-  return result.status;
-}
-
 Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback stop,
                                 void *stop_context,
-                                IndividualizedPartition &result,
-                                const uint32_t *query,
-                                uint32_t query_count) noexcept {
+                                IndividualizedPartition &result) noexcept {
   release(result);
   if (anchor >= returned_prefix_size ||
       returned_prefix_size > branch.vertex_count) {
@@ -582,10 +524,8 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
           charged += work;
           return true;
         };
-    uint64_t splits = 0;
     const std::function<dejavu::ir::type_split_color_hook> split_hook =
         [&](int, int, int) {
-          ++splits;
           if (stopped(stop, stop_context)) {
             interrupted = true;
             return false;
@@ -597,13 +537,11 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
       const int individualized =
           dejavu::ir::refinement::individualize_vertex(
               &branch.coloring, static_cast<int>(anchor));
-      ++splits;
       branch.refinement.refine_coloring(branch.internal, &branch.coloring,
                                         individualized, -1, &split_hook,
                                         &worklist_hook);
     }
     result.ticks = charged;
-    result.splits = splits;
     if (interrupted) {
       result.status = Status::Interrupted;
       return result.status;
@@ -612,8 +550,45 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
       result.status = Status::Incomplete;
       return result.status;
     }
-    return fill_partition(branch.coloring, branch.vertex_count,
-                          returned_prefix_size, query, query_count, result);
+    if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
+      result.status = Status::ResourceExhausted;
+      return result.status;
+    }
+    result.cells = static_cast<uint32_t *>(std::malloc(
+        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+    result.sizes = static_cast<uint32_t *>(std::malloc(
+        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+    if (returned_prefix_size && (!result.cells || !result.sizes)) {
+      release(result);
+      result.status = Status::ResourceExhausted;
+      return result.status;
+    }
+    std::vector<uint8_t> seen(branch.vertex_count, 0);
+    for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
+      const int vertex_color = branch.coloring.vertex_to_col[vertex];
+      const int size =
+          vertex_color >= 0 &&
+                  vertex_color < static_cast<int>(branch.vertex_count)
+              ? branch.coloring.ptn[vertex_color] + 1
+              : 0;
+      const int representative =
+          size > 0 ? branch.coloring.lab[vertex_color] : -1;
+      if (representative < 0 ||
+          representative >= static_cast<int>(branch.vertex_count)) {
+        release(result);
+        result.status = Status::Failed;
+        return result.status;
+      }
+      result.cells[vertex] = static_cast<uint32_t>(representative);
+      result.sizes[vertex] = static_cast<uint32_t>(size);
+      if (!seen[vertex_color]) {
+        seen[vertex_color] = 1;
+        ++result.cell_count;
+      }
+    }
+    result.domain_size = returned_prefix_size;
+    result.status = Status::Complete;
+    return result.status;
   } catch (const std::bad_alloc &) {
     release(result);
     result.status = Status::ResourceExhausted;
@@ -631,9 +606,7 @@ Status individualized_partition(RefinementSession &session,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback stop,
                                 void *stop_context,
-                                IndividualizedPartition &result,
-                                const uint32_t *query,
-                                uint32_t query_count) noexcept {
+                                IndividualizedPartition &result) noexcept {
   release(result);
   if (!anchors || !anchor_count ||
       returned_prefix_size > session.vertex_count) {
@@ -679,10 +652,8 @@ Status individualized_partition(RefinementSession &session,
           charged += work;
           return true;
         };
-    uint64_t splits = 0;
     const std::function<dejavu::ir::type_split_color_hook> split_hook =
         [&](int, int, int) {
-          ++splits;
           if (stopped(stop, stop_context)) {
             interrupted = true;
             return false;
@@ -700,12 +671,10 @@ Status individualized_partition(RefinementSession &session,
       const int individualized =
           dejavu::ir::refinement::individualize_vertex(
               &child, static_cast<int>(anchors[i]));
-      ++splits;
       refinement.refine_coloring(session.internal, &child, individualized, -1,
                                  &split_hook, &worklist_hook);
     }
     result.ticks = charged;
-    result.splits = splits;
     if (interrupted) {
       result.status = Status::Interrupted;
       return result.status;
@@ -715,8 +684,43 @@ Status individualized_partition(RefinementSession &session,
       return result.status;
     }
 
-    return fill_partition(child, session.vertex_count, returned_prefix_size,
-                          query, query_count, result);
+    if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
+      result.status = Status::ResourceExhausted;
+      return result.status;
+    }
+    result.cells = static_cast<uint32_t *>(std::malloc(
+        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+    result.sizes = static_cast<uint32_t *>(std::malloc(
+        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+    if (returned_prefix_size && (!result.cells || !result.sizes)) {
+      release(result);
+      result.status = Status::ResourceExhausted;
+      return result.status;
+    }
+    std::vector<uint8_t> seen(session.vertex_count, 0);
+    for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
+      const int color = child.vertex_to_col[vertex];
+      const int size = color >= 0 && color < static_cast<int>(session.vertex_count)
+                           ? child.ptn[color] + 1
+                           : 0;
+      const int representative =
+          size > 0 ? child.lab[color] : -1;
+      if (representative < 0 ||
+          representative >= static_cast<int>(session.vertex_count)) {
+        release(result);
+        result.status = Status::Failed;
+        return result.status;
+      }
+      result.cells[vertex] = static_cast<uint32_t>(representative);
+      result.sizes[vertex] = static_cast<uint32_t>(size);
+      if (!seen[color]) {
+        seen[color] = 1;
+        ++result.cell_count;
+      }
+    }
+    result.domain_size = returned_prefix_size;
+    result.status = Status::Complete;
+    return result.status;
   } catch (const std::bad_alloc &) {
     release(result);
     result.status = Status::ResourceExhausted;
@@ -765,9 +769,7 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
     std::unique_ptr<dejavu::ds::coloring> child_owner(new dejavu::ds::coloring);
     auto &child = *child_owner;
     child.copy_any(&session.root);
-    uint64_t splits = 0;
     const auto capture_split = [&](int, int color, int size) {
-      ++splits;
       if (captured) {
         const int vertex = child.lab[color];
         captured->events.push_back({0, session.root.vertex_to_col[vertex],
@@ -818,7 +820,6 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
     refinement.refine_coloring(session.internal, &child, individualized, -1,
                                &split_hook, &worklist_hook);
     result.ticks = charged;
-    result.splits = splits;
     if (interrupted) {
       result.status = Status::Interrupted;
       return result.status;
@@ -1434,7 +1435,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       input.domain_size > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
       !settings.error_bound ||
       settings.error_bound > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
-      settings.chain_mode > 2 || settings.base_selection > 7 ||
+      settings.chain_mode > 2 || settings.base_selection > 6 ||
       settings.cut_point > 1 ||
       (settings.chain_mode && (input.domain_size & 1u)) ||
       (input.generator_count && !input.generator_images && !input.generator_offsets) ||
@@ -1788,10 +1789,6 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       const bool first_amo = settings.base_selection >= 2 && settings.base_selection <= 4;
       const bool ordered_remainder = settings.base_selection == 3 || settings.base_selection == 4;
       bool amo_exhausted = false;
-      // Satsuma's fix_and_cut (base_selection 7): `there_is_no_amo` turns
-      // true once any scan reaches the last clause and stays true.
-      const bool owner_scan = settings.base_selection == 7;
-      bool owner_no_amo = false;
       bool negation_fixing = settings.negation_fixing_first;
       uint64_t clause_frontier = 0;
       const uint32_t variable_count = (input.domain_size + 1u) / 2u;
@@ -1862,11 +1859,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
             !(ordered_remainder && amo_exhausted) &&
             !(first_shortest && !base.empty());
         const bool forward_scan = settings.base_selection == 4 ||
-                                  owner_scan ||
                                   (first_shortest && !base.empty());
-        // The owner's per-level score_v: 0 until a clause is taken, then
-        // the taken clause's (common >= score_v) truth value.
-        uint32_t owner_score = 0;
         std::vector<uint32_t> common_score(variable_count, 0);
         if (rank_common) {
           for (uint32_t variable = 0; variable < variable_count; ++variable)
@@ -1892,8 +1885,6 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                                     : forward_scan ? clause_frontier : 0;
         bool frontier_found = false;
         for (uint64_t clause = scan_begin; clause < input.clause_count; ++clause) {
-          if (owner_scan && clause + 1 == input.clause_count)
-            owner_no_amo = true;
           std::vector<uint32_t> candidate;
           bool satisfied = false;
           for (uint64_t at = input.clause_offsets[clause];
@@ -1928,31 +1919,6 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           if (forward_scan && !frontier_found) {
             clause_frontier = clause;
             frontier_found = true;
-          }
-          if (owner_scan) {
-            // symmetries.h fix_and_cut: the anchor is the clause's first
-            // literal; `score_i = common >= score_v` is a truth value.
-            const uint32_t front = candidate.front();
-            const bool owner_amo = !owner_no_amo && input.clause_is_amo &&
-                                   input.clause_is_amo[clause];
-            const uint32_t owner_score_i =
-                common_score[front >> 1] >= owner_score ? 1u : 0u;
-            const int front_orbit =
-                orbits.orbit_size(static_cast<int>(front));
-            if (!(owner_score_i || owner_amo))
-              continue;
-            if (selected_clause != UINT64_MAX && !owner_amo &&
-                front_orbit >= selected_orbit_size)
-              continue;
-            selected_clause = clause;
-            representative = front;
-            selected_active = std::move(candidate);
-            selected_amo = owner_amo;
-            selected_orbit_size = front_orbit;
-            owner_score = owner_score_i;
-            if (owner_amo || owner_no_amo)
-              break;
-            continue;
           }
           uint32_t candidate_representative = candidate.front();
           if (rank_common)

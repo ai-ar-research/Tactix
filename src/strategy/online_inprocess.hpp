@@ -182,14 +182,6 @@ public:
   uint64_t sequence_passes() const { return sequence_passes_; }
   uint64_t step_consumed(StepId) const;
   bool complete() const { return complete_; }
-  // Since configuration, a generated SR discovery stopped at an owner-
-  // equivalent detection limit or found its shared allowance exhausted.
-  bool detection_limit_reached() const { return detection_limit_reached_; }
-  // Optional caller-owned snapshot/refinement shared with sibling orbitopal
-  // detections; null builds a private one per detection.
-  void share_orbitopal_formula_cache(OrbitopalFormulaCache *cache) {
-    orbitopal_cache_ = cache;
-  }
   // Restart-controller atomic doses can renew composition allowance while
   // retaining an unfinished native selection/discovery cursor. This never
   // changes the bound solver state or silently refreshes a stale selection.
@@ -214,7 +206,6 @@ private:
     std::vector<uint64_t> selection;
     std::vector<FactorGrid> structured_selection;
     std::vector<SubstitutionRedundancyInstance> sr_selection;
-    UniqueLiteralOccurrenceCache unique_literal_cache;
     SubstitutionRedundancyGeneralCursor sr_general_cursor;
     bool sr_general_mode = false;
     BveOccurrenceCache bve_occurrences;
@@ -233,8 +224,6 @@ private:
   size_t step_index_ = 0;
   uint64_t sequence_passes_ = 0;
   bool sequence_progress_ = false;
-  bool detection_limit_reached_ = false;
-  OrbitopalFormulaCache *orbitopal_cache_ = nullptr;
   bool configured_ = false;
   bool complete_ = false;
   uint64_t revision_ = 0;

@@ -34,10 +34,6 @@ add_executable(test_ulc_rat test_ulc_rat.cpp)
 target_link_libraries(test_ulc_rat PRIVATE tactix_lib)
 add_test(NAME ulc_rat COMMAND test_ulc_rat)
 
-add_executable(test_symmetry_use test_symmetry_use.cpp)
-target_link_libraries(test_symmetry_use PRIVATE tactix_lib)
-add_test(NAME symmetry_use COMMAND test_symmetry_use)
-
 add_executable(test_analyze test_analyze.cpp)
 target_link_libraries(test_analyze PRIVATE tactix_lib)
 add_test(NAME analyze COMMAND test_analyze)
@@ -364,11 +360,6 @@ add_test(NAME default_affine_search_proof_model
          COMMAND ${CMAKE_SOURCE_DIR}/tests/default_affine_search_proof_model.sh
                  $<TARGET_FILE:test_default_affine_search> ${CMAKE_SOURCE_DIR})
 set_tests_properties(default_affine_search_proof_model PROPERTIES SKIP_RETURN_CODE 77)
-
-add_test(NAME default_affine_run_schedule_proof
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/default_affine_run_schedule_proof.sh
-                 $<TARGET_FILE:test_default_affine_run_schedule> ${CMAKE_SOURCE_DIR})
-set_tests_properties(default_affine_run_schedule_proof PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME affine_matrix_actual_geometry_proof_model
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/affine_matrix_actual_geometry_proof_model.sh

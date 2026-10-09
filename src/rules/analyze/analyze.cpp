@@ -1024,14 +1024,6 @@ void analyze_eager_subsume(Kernel &k) {
   }
 }
 
-// SymmetryUse observation: the conflict clause as an analysis antecedent.
-static void symuse_note_conflict(Kernel &k) {
-  if (k.conflict_ref != INVALID_REF)
-    kernel_symuse_note_large_use(k, clause_at(k.arena, k.conflict_ref)->id());
-  else
-    kernel_symuse_note_binary_use(k, k.conflict_bin[0], k.conflict_bin[1]);
-}
-
 // Kissat analyze.c:390-520 handles a conflict at decision level one as a
 // failed-literal traversal, not as ordinary 1-UIP.  Walking the implication
 // graph backwards can expose several singleton frontiers: each one is a root
@@ -1051,8 +1043,6 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
 
   const Lit failed = k.trail[k.frames[1]];
   const Lit not_failed = negate(failed);
-  if (k.symuse_active) [[unlikely]]
-    symuse_note_conflict(k);
   std::vector<std::pair<Lit, uint64_t>> units;
   uint32_t unresolved = 0;
   bool direct_failed = false;
@@ -1125,13 +1115,6 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
       if (lrat)
         chain_record(k, v);
 
-      if (k.symuse_active) [[unlikely]] {
-        if (a.binary)
-          kernel_symuse_note_binary_use(
-              k, lit, a.jumped ? k.jumped_over[v] : a.reason);
-        else
-          kernel_symuse_note_large_use(k, clause_at(k.arena, a.reason)->id());
-      }
       if (a.binary) {
         const Lit other = a.reason;
         if (other == not_failed) {
@@ -1334,8 +1317,6 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
           kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
         else
           kernel_assign(k, forced, jump2, cref, /*binary=*/false);
-        if (k.symuse_active) [[unlikely]]
-          kernel_symuse_note_trail(k, k.trail.size() - 1);
         k.conflict_valid = false;
         k.conflict_ref = INVALID_REF;
         k.pending.valid = false; // nothing to assert: no clause was learned
@@ -1364,8 +1345,6 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
     // that one observation can move the next Reduce tier quantile.
     if (k.conflict_ref != INVALID_REF)
       mark_used(k, clause_at(k.arena, k.conflict_ref));
-    if (k.symuse_active) [[unlikely]]
-      symuse_note_conflict(k);
 
     const Ref conflict_ref0 = k.conflict_ref; // may be garbage'd by OTFS
 
@@ -1433,15 +1412,10 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
                                                 k.jumped_over[var_of(t)]));
         mark(a.reason); // the other literal of the binary reason clause
         resolvent_size--;
-        if (k.symuse_active) [[unlikely]]
-          kernel_symuse_note_binary_use(
-              k, t, a.jumped ? k.jumped_over[var_of(t)] : a.reason);
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
         Clause *reason = clause_at(k.arena, a.reason);
         mark_used(k, reason);
-        if (k.symuse_active) [[unlikely]]
-          kernel_symuse_note_large_use(k, reason->id());
         event_trace_detail(k, "analysis_reason_ref", a.reason);
         event_trace_detail(k, "analysis_reason_id", reason->id());
         event_trace_detail(k, "analysis_reason_order",
@@ -1616,8 +1590,6 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
       kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
     else
       kernel_assign(k, forced, jump, cref, /*binary=*/false);
-    if (k.symuse_active) [[unlikely]]
-      kernel_symuse_note_trail(k, k.trail.size() - 1);
     k.conflict_valid = false;
     k.conflict_ref = INVALID_REF;
     k.pending.valid = false;

@@ -694,10 +694,6 @@ static void test_condition_cube_with_retired_external_variable(void) {
   /* Variable 5 belongs to the input universe but its only clause vanishes
      during input normalization. It is still a legal, harmless cube member. */
   add_clause(s, (const int[]){5, -5, 0});
-  /* Once (1 | 2) is conditioned away, -1 and -2 are pure, so every model of
-     the remaining clauses can leave (1 | 2) false and the cube repairs it,
-     independently of which literals startup symmetry fixes. */
-  add_clause(s, (const int[]){-2, 4, 0});
   const int clause[] = {1, 2};
   const int cube[] = {1, 3, 4, 5};
   assert(tactix_apply_condition(s, clause, 2, cube, 4) == 0);

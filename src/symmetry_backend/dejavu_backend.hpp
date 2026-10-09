@@ -129,9 +129,6 @@ struct IndividualizedPartition {
   uint32_t domain_size = 0;
   uint32_t cell_count = 0;
   uint64_t ticks = 0;
-  // Color splits of the individualizations and refinement, counted as
-  // DejaVu's ir::controller counts them (one per split-hook call).
-  uint64_t splits = 0;
   uint32_t *cells = nullptr;
   uint32_t *sizes = nullptr;
 };
@@ -145,8 +142,6 @@ struct RefinementOrbit {
   Status status = Status::Failed;
   uint32_t count = 0;
   uint64_t ticks = 0;
-  // Color splits of the anchor individualization and its refinement.
-  uint64_t splits = 0;
   uint32_t *vertices = nullptr;
 };
 
@@ -201,7 +196,6 @@ struct GroupSettings {
   // scoring and smaller-orbit ties without an early first-AMO exit.
   // Six uses that ranking for the initial level, then a forward caller-order
   // frontier for subsequent levels, starting the remainder at clause zero.
-  // Seven is Satsuma's fix_and_cut scan (implementation-notes, FixAndCut).
   uint8_t base_selection = 0;
   // Optional threshold between completed FixAndCut planning levels. Zero
   // disables it; maximum_ticks independently bounds planning and finalization.
@@ -327,23 +321,17 @@ Status root_partition(RefinementSession &, uint32_t returned_prefix_size,
                       RefinementPartition &) noexcept;
 Status prepare_refinement_branch(RefinementSession &,
                                  RefinementBranch *&) noexcept;
-// With a query list the result describes only those vertices, in query
-// order (cells[i] and sizes[i] belong to query[i]; cell_count stays zero).
 Status individualized_partition(RefinementBranch &, uint32_t anchor,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback,
                                 void *stop_context,
-                                IndividualizedPartition &,
-                                const uint32_t *query = nullptr,
-                                uint32_t query_count = 0) noexcept;
+                                IndividualizedPartition &) noexcept;
 Status individualized_partition(RefinementSession &, const uint32_t *anchors,
                                 uint32_t anchor_count,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback,
                                 void *stop_context,
-                                IndividualizedPartition &,
-                                const uint32_t *query = nullptr,
-                                uint32_t query_count = 0) noexcept;
+                                IndividualizedPartition &) noexcept;
 Status individualized_partition(RefinementSession &, uint32_t anchor,
                                 uint32_t returned_prefix_size,
                                 uint64_t maximum_ticks, StopCallback,
@@ -357,8 +345,6 @@ Status probe_base_length(RefinementSession &, uint64_t maximum_ticks,
                          StopCallback, void *stop_context, uint32_t &length,
                          uint64_t &ticks) noexcept;
 void release(RefinementSession *&) noexcept;
-// Drop the session's memoized first refinement of the last reduced anchor.
-void forget_first_refinement(RefinementSession &) noexcept;
 void release(RefinementBranch *&) noexcept;
 void release(RefinementRows &) noexcept;
 void release(RefinementPartition &) noexcept;

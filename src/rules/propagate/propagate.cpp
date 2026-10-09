@@ -26,13 +26,8 @@ ApplyResult propagate_service(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
   const bool lrat = k.proof && k.proof->lrat();
-  const size_t assigned_before = k.trail.size();
   // `kernel_propagate` publishes the root literals it forces.
   const bool conflict = kernel_propagate(k);
-  // Observed here rather than inside kernel_propagate, whose machine code
-  // (the search propagation loop) stays independent of the bookkeeping.
-  if (k.symuse_active) [[unlikely]]
-    kernel_symuse_note_trail(k, assigned_before);
   if (conflict) {
     k.stats.conflicts++;
     if (k.level == 0) { // root conflict: the formula is refuted

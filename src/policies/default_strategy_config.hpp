@@ -43,8 +43,7 @@ struct DefaultStrategyConfig {
   static strategy::OnlineStrategyStage structured_root_stage_after_feedback(
       const strategy::OnlineStrategyStage &, bool prior_stage_progress,
       bool prior_unique_literal_amo_progress,
-      bool prior_nonforcing_cut_progress, bool prior_detection_limit = false,
-      const Kernel *root = nullptr, bool *graph_component_limit = nullptr);
+      bool prior_nonforcing_cut_progress);
   // Named compatibility constants are kept beside the typed fields so tests
   // and design probes can cite a default without duplicating its literal.
   static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
@@ -290,6 +289,7 @@ struct DefaultStrategyConfig {
       strategy::GraphLabelingParameters p;
       p.maximum_vertices = 140;
       p.workspace_bytes = 512ull << 20;
+      p.work[size_t(strategy::GraphLabelingStage::Recognition)] = 100'000'000;
       p.work[size_t(strategy::GraphLabelingStage::Construction)] = 100'000'000;
       p.work[size_t(strategy::GraphLabelingStage::Window)] = 5'000'000'000;
       p.work[size_t(strategy::GraphLabelingStage::Repair)] = 1'000'000'000;
@@ -305,14 +305,6 @@ struct DefaultStrategyConfig {
       p.anneal_iterations = UINT64_MAX;
       p.stall_anneal_iterations = 100'000;
       p.seed = 0;
-      // Recognition has no separate dose: its cost is bounded by the primary
-      // region it reads (graph_labeling::recognize), so it takes the remainder
-      // of the representable profile ceiling. Kernel budgets and interrupts
-      // still apply.
-      uint64_t other_stages = 0;
-      for (uint64_t allowance : p.work) other_stages += allowance;
-      p.work[size_t(strategy::GraphLabelingStage::Recognition)] =
-          UINT64_MAX - other_stages;
       return p;
     }();
     // Source capture and all trajectory work occur only in initial or full
@@ -362,23 +354,10 @@ struct DefaultStrategyConfig {
     uint64_t autodisable_check_every = 1024;
     // Zero inherits the explicit existing policy profile: preprocessing/search
     // effort quantum, and affine_root_closure's accepted certificate byte cap.
-    // The service quantum is one atomic step's allowance, not a schedule.
     uint64_t maximum_initialization_work = 0;
     uint64_t maximum_service_work = 0;
     uint64_t maximum_retained_bytes = 0;
-    // Run schedule (docs/implementation-notes.md, affine search schedule):
-    // Kissat's Eliminate interval (NLOG2N, scaled delta) and a probe-class
-    // SET_EFFORT_LIMIT share. Zero inherits inprocess.sweep_permille.
-    uint32_t effort_permille = 0;
-    // Fruitful = search used the run's output (SymmetryUse AFFINE class);
-    // false falls back to "the run published output" and tags nothing.
-    bool output_use_fruitfulness = true;
   } affine_search;
-
-  // Diagnostic only: record which symmetry-breaking SR output search used
-  // (the `c symuse` report). No decision reads it; off by default so that
-  // its trail/analysis bookkeeping costs nothing.
-  bool symmetry_use_observation = false;
 
   struct Inprocess {
     // Production values are formula-shape invariant. These typed switches
@@ -440,10 +419,8 @@ struct DefaultStrategyConfig {
     // hard budget above.
     // This is deterministic work feedback, not time.
     bool structured_root_progress_feedback = true;
-    // Above the domain limit the owner's generic detection and negation/binary
-    // fixing are bounded only by DejaVu's own limits (satsuma.h:217, 227), so
-    // they keep the cumulative hard allowance alone. Structured detectors keep
-    // their own split-scale feedback (orbitopal_progress_feedback).
+    // The owner's >50k-variable program is one generic generator-fixing scan,
+    // rather than the orbitopal chain governed by the window above.
     bool structured_root_large_domain_progress_feedback = false;
     uint64_t structured_root_progress_minimum_ticks = 16ull << 20;
     uint64_t structured_root_progress_ticks_per_variable = 16;
@@ -462,9 +439,9 @@ struct DefaultStrategyConfig {
         structured_root_bounded_backtracking_stages =
             DefaultStrategyConfig::
                 bounded_backtracking_structured_root_preprocessing_stages();
-    // Above this domain Satsuma switches only its fixing pass to negation/
-    // binary fixing (satsuma.h:217, 227); its structured detection and
-    // repetition are unchanged. UINT64_MAX disables the alternate program.
+    // Satsuma changes the complete symmetry schedule above this domain: one
+    // generic exact-generator pass uses negation/binary fixing and repeats
+    // only after output. UINT64_MAX disables the alternate typed program.
     uint64_t structured_root_large_domain_limit = 50'000;
     std::vector<strategy::OnlineStrategyStage>
         structured_root_large_domain_stages =

@@ -116,29 +116,22 @@ static void retained_root_maintenance(ProofFormat format,const char *prefix){
  for(const auto &c:clausal_form({1,4},false)){auto native=body(k,c);assert(kernel_delete_binary(k,native[0],native[1]));}
  const long first_record=std::ftell(records);assert(first_record>=0);
  // A full-restart root window performs retained maintenance before publishing.
- // Gauss-Jordan first exposes x1 = 1 from the live E1 + E2.
  const auto first_window=DefaultAffineSearchTestAccess::refresh(policy,k);
  assert(first_window.root_service);const auto &first=*first_window.root_service;
- assert(first.status==AffineMatrixServiceStatus::Applied&&first.installed_reason==std::vector<int32_t>{1});
- assert(propagate_apply(k)==ApplyResult::Ok&&k.value(kernel_internalize(k,1))>0&&!k.value(kernel_internalize(k,4)));
- const long leased_record=std::ftell(records);assert(leased_record>first_record);
- // The next window derives d from root x1 through the leased x <-> d.
- const auto leased_window=DefaultAffineSearchTestAccess::refresh(policy,k);
- assert(leased_window.root_service);const auto &leased=*leased_window.root_service;
- assert(leased.status==AffineMatrixServiceStatus::Applied&&leased.installed_reason==std::vector<int32_t>({-1,4}));
- const long record_end=std::ftell(records);assert(record_end>leased_record);
- assert(!std::fseek(records,leased_record,SEEK_SET));std::string certificate(static_cast<size_t>(record_end-leased_record),'\0');
+ assert(first.status==AffineMatrixServiceStatus::Applied&&first.installed_reason==std::vector<int32_t>{4});
+ const long record_end=std::ftell(records);assert(record_end>first_record);
+ assert(!std::fseek(records,first_record,SEEK_SET));std::string certificate(static_cast<size_t>(record_end-first_record),'\0');
  assert(std::fread(certificate.data(),1,certificate.size(),records)==certificate.size());
  assert(certificate.find("\"source_ordinals\":")!=std::string::npos);
  assert(certificate.find("\"clause_id\":7,")!=std::string::npos||certificate.find("\"clause_id\":8,")!=std::string::npos);
  assert(!std::fseek(records,record_end,SEEK_SET));
- assert(propagate_apply(k)==ApplyResult::Ok&&k.value(kernel_internalize(k,1))>0&&k.value(kernel_internalize(k,4))>0);
+ assert(propagate_apply(k)==ApplyResult::Ok&&!k.value(kernel_internalize(k,1))&&k.value(kernel_internalize(k,4))>0);
  // Native x <-> d was removed before the previous restart window, yet its
  // leased premises produced d. Now remove E1/E2 as well: maintenance must keep
  // the authenticated owner alive without duplicating an already published fact.
  for(Ref ref:large_refs)kernel_delete_clause(k,clause_at(k.arena,ref));
  for(const auto &c:clausal_form({2,3},true)){auto native=body(k,c);assert(kernel_delete_binary(k,native[0],native[1]));}
- assert(propagate_apply(k)==ApplyResult::Ok&&k.value(kernel_internalize(k,1))>0&&k.value(kernel_internalize(k,4))>0);
+ assert(propagate_apply(k)==ApplyResult::Ok&&!k.value(kernel_internalize(k,1))&&k.value(kernel_internalize(k,4))>0);
  const auto snapshot_before=k.stats.affine_matrix_init_snapshot_work;
  const auto recognition_before=k.stats.affine_matrix_init_recognition_work;
  const auto checks_before=k.stats.affine_matrix_init_normalization_rup_checks;
@@ -148,7 +141,7 @@ static void retained_root_maintenance(ProofFormat format,const char *prefix){
  assert(!maintained.root_reason_additions&&maintained.maintenance_service_work>0&&session.active_sources()==3);
  assert(k.stats.affine_matrix_init_snapshot_work==snapshot_before&&k.stats.affine_matrix_init_recognition_work==recognition_before&&k.stats.affine_matrix_init_normalization_rup_checks==checks_before);
  assert(propagate_apply(k)==ApplyResult::Ok&&k.value(kernel_internalize(k,4))>0);
- assert(k.value(kernel_internalize(k,1))>0);
+ assert(!k.value(kernel_internalize(k,1))&&k.unit_ids[var_of(kernel_internalize(k,4))]!=0);
  // Fresh public proof premises/native IDs are genuinely new discovery input.
  // In DRAT, root4 has only its old binary reason, not an emitted unit ID.
  for(size_t i=0;i<discovered_group.size();++i){auto native=body(k,discovered_group[i]);
