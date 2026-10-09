@@ -1129,13 +1129,12 @@ int main(int argc, char **argv) {
       graph_metric("useful_hints", graph.useful_hints);
       graph_metric("phase_install_attempts", graph.phase_install_attempts);
       graph_metric("phase_installs", graph.phase_installs);
+      graph_metric("runs", graph.runs);
       graph_metric("delayed_runs", graph.delayed_runs);
       graph_metric("fruitful_runs", graph.fruitful_runs);
       graph_metric("fruitless_runs", graph.fruitless_runs);
       graph_metric("run_conflict_limit", graph.run_conflict_limit);
       graph_metric("delay_current", graph.delay_current);
-      graph_metric("run_effort_last", graph.run_effort_last);
-      graph_metric("run_effort_total", graph.run_effort_total);
       graph_metric("recognized", kernel.stats.graph_labeling_recognized);
       graph_metric("vertices", kernel.stats.graph_labeling_vertices);
       graph_metric("separation", kernel.stats.graph_labeling_separation);

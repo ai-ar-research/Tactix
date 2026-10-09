@@ -16,7 +16,7 @@ using namespace tactix;
 namespace tactix {
 struct DefaultGraphLabelingTestAccess {
   static GraphLabelingSliceResult service(DefaultPolicy &policy, Kernel &kernel) {
-    return policy.service_graph_labeling(kernel, UINT64_MAX);
+    return policy.service_graph_labeling(kernel);
   }
 };
 } // namespace tactix
@@ -40,12 +40,16 @@ struct StopAfterGraphRoot final : BranchingPolicy {
     const auto &diagnostics = policy.graph_labeling_diagnostics();
     assert(diagnostics.authentication_attempts == 1);
     assert(diagnostics.authentication_successes == 1);
-    assert(diagnostics.slices == 1);
-    assert(diagnostics.useful_hints == 1);
-    assert(diagnostics.phase_install_attempts == 1);
-    assert(diagnostics.phase_installs == 1);
+    // The initial root run continues the trajectory until it stops being
+    // pending (the owner runs its solver to completion before CDCL).
+    assert(diagnostics.runs == 1 && diagnostics.fruitless_runs == 1);
+    assert(diagnostics.slices >= 1 &&
+           diagnostics.pending_slices == diagnostics.slices - 1);
+    assert(diagnostics.useful_hints >= 1);
+    assert(diagnostics.phase_install_attempts >= 1);
+    assert(diagnostics.phase_installs == diagnostics.phase_install_attempts);
     assert(kernel.stats.graph_labeling_recognized == 1);
-    assert(kernel.stats.graph_labeling_calls == 2);
+    assert(kernel.stats.graph_labeling_calls == diagnostics.slices + 1);
     assert(kernel.graph_labeling_session.authenticated());
     assert(kernel.graph_labeling_session.candidate_fingerprint());
     stop = 1;
@@ -252,8 +256,8 @@ int main() {
     assert(whole.stats.graph_labeling_nodes == split.stats.graph_labeling_nodes);
     assert(whole.stats.graph_labeling_work == split.stats.graph_labeling_work);
 
-    // Default uses the same retained action; its serialized construction
-    // dose caps a Window invocation even under an unbounded run effort.
+    // Default uses the same retained action and its serialized construction
+    // dose as the Window invocation ceiling; no separate hidden profile exists.
     Kernel policy_kernel;
     ScopedHeuristics policy_h(policy_kernel);
     permutation(policy_kernel, true);

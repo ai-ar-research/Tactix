@@ -297,8 +297,9 @@ struct DefaultStrategyConfig {
     }();
     // Source capture and all trajectory work occur only at the initial root
     // and in natural full-restart root windows; the service never requests a
-    // restart. Interval and effort follow the shared Kissat-derived root
-    // service schedule (docs/implementation-notes.md, S5 Lucky).
+    // restart. The interval follows the shared Kissat-derived root service
+    // schedule; each run spends the owner's full stage doses
+    // (docs/implementation-notes.md, S5 Lucky).
   } graph_labeling_model;
   struct RamseyStartup {
     bool enabled = true;

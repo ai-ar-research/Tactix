@@ -120,11 +120,10 @@ struct DefaultGraphLabelingDiagnostics {
   uint64_t useful_hints = 0;
   uint64_t phase_install_attempts = 0;
   uint64_t phase_installs = 0;
-  // Kissat-derived schedule: delayed occurrences, fruitfulness verdicts,
-  // the current conflict limit and delay, and the last/total effort limits.
-  uint64_t delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
+  // Runs (each a full owner dose) and their Kissat-derived schedule:
+  // delayed occurrences, fruitfulness verdicts, conflict limit and delay.
+  uint64_t runs = 0, delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
   uint64_t run_conflict_limit = 0, delay_current = 0;
-  uint64_t run_effort_last = 0, run_effort_total = 0;
 };
 
 // Root-service run schedule (kissat kimits.h/kimits.c): occurrences drive the
@@ -360,12 +359,12 @@ private:
   DefaultGraphLabelingDiagnostics graph_labeling_diagnostics_;
   DefaultRootServiceSchedule graph_labeling_schedule_;
   GraphLabelingAuthenticationResult authenticate_graph_labeling(Kernel &);
-  GraphLabelingSliceResult service_graph_labeling(Kernel &, uint64_t effort);
+  GraphLabelingSliceResult service_graph_labeling(Kernel &);
+  GraphLabelingSliceResult run_graph_labeling(Kernel &);
   ApplyResult install_graph_labeling_hint(Kernel &,
                                           const GraphLabelingSliceResult &);
   bool graph_labeling_due(const Kernel &);
-  void schedule_graph_labeling(const Kernel &,
-                               const GraphLabelingSliceResult &, uint64_t effort);
+  void schedule_graph_labeling(const Kernel &, const GraphLabelingSliceResult &);
   void reset_graph_labeling_schedule(const Kernel &);
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
