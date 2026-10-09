@@ -66,15 +66,16 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t usefulness_resumptions = 0, paused_search_skips = 0;
   uint64_t root_services = 0, search_services = 0;
   uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
-  uint64_t reasons_published = 0, implications_consumed = 0, conflicts_consumed = 0;
+  uint64_t reasons_published = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
   uint64_t cached_event_calls = 0;
-  uint64_t service_due_ticks=0, service_delay_current=0, service_tick_skips=0;
+  // Natural full-restart root windows: runs whose retained inputs changed,
+  // windows skipped because they had not, and the input-change scan.
+  uint64_t restart_runs = 0, unchanged_skips = 0, trigger_work = 0;
   uint64_t pending_slices=0, resumed_slices=0, completed_slice_steps=0;
   uint64_t slice_work=0, slice_cumulative_work=0, minimum_slice_work=0;
-  uint64_t no_yield_delays=0, productive_delay_decays=0, service_wakeups=0;
   uint64_t proof_additions = 0, proof_deletions = 0;
   uint64_t root_unit_work = 0, root_unit_additions = 0, premise_maintenance_work = 0;
   uint64_t alias_work = 0, alias_proof_additions = 0;
@@ -323,14 +324,9 @@ private:
   friend struct DefaultGraphLabelingTestAccess;
   DefaultAffineSearchDiagnostics affine_search_diagnostics_;
   std::optional<std::array<uint64_t, 13>> affine_completed_census_;
-  std::vector<uint64_t> affine_reason_ids_;
-  std::vector<std::pair<int32_t,int32_t>> affine_binary_reasons_;
   uint64_t affine_refresh_ticks_ = 0, affine_refresh_work_ = 0;
   uint64_t affine_service_allowance_ = 0;
-  DefaultInprocessScheduler::SlotEntry affine_service_slot_;
-  uint64_t affine_service_next_ticks_=0;
-  std::array<uint64_t,3> affine_service_wake_stamp_{};
-  uint64_t affine_tracking_limit_ = 0;
+  AffineMatrixInputCursor affine_inputs_;
   uint64_t affine_usefulness_calls_ = 0, affine_usefulness_yield_ = 0;
   uint64_t affine_usefulness_checks_ = 0;
   bool affine_usefulness_paused_ = false;
@@ -338,9 +334,8 @@ private:
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
   bool record_affine_service_result(Kernel &,const AffineMatrixServiceResult &,bool root);
   bool affine_additional_recognition_due(const Kernel &) const;
-  bool affine_service_due(const Kernel &,bool root);
-  void schedule_affine_service(const Kernel &,const AffineMatrixServiceResult &);
-  void observe_affine_consumption(const Kernel &, size_t trail_begin);
+  ApplyResult run_affine_search(Kernel &, bool startup);
+  ApplyResult affine_restart_service(Kernel &);
 
   DefaultGraphLabelingDiagnostics graph_labeling_diagnostics_;
   bool graph_labeling_schedule_initialized_ = false;

@@ -102,6 +102,11 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Persistent affine search and graph labeling never force a restart: both run only in natural
+  full-restart root windows; affine runs only after a root fact on its retained support (or another
+  retained-input change). Affine basis is Gauss–Jordan on every sync path, the startup census runs
+  after preprocessing, BVE skips the persistent support, and the per-propagation consumption
+  observer is removed.
 - Compact living docs: archive the SP-JUMP-1 closure record to
   [docs/log](docs/log/2026-10-09-doc-compaction-archive.md); reflow and compact other budgeted docs.
 - Remove DefaultPolicy's off-by-default structural Walk seeding and the X17-only census tool.

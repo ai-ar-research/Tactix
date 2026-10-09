@@ -368,6 +368,11 @@ add_test(NAME default_affine_search_proof_model
                  $<TARGET_FILE:test_default_affine_search> ${CMAKE_SOURCE_DIR})
 set_tests_properties(default_affine_search_proof_model PROPERTIES SKIP_RETURN_CODE 77)
 
+add_test(NAME default_affine_restart_trigger_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/default_affine_restart_trigger_proof.sh
+                 $<TARGET_FILE:test_default_affine_restart_trigger> ${CMAKE_SOURCE_DIR})
+set_tests_properties(default_affine_restart_trigger_proof PROPERTIES SKIP_RETURN_CODE 77)
+
 add_test(NAME affine_matrix_actual_geometry_proof_model
          COMMAND bash ${CMAKE_SOURCE_DIR}/tests/affine_matrix_actual_geometry_proof_model.sh
                  $<TARGET_FILE:test_affine_matrix_actual_geometry> ${CMAKE_SOURCE_DIR})

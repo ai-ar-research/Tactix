@@ -154,6 +154,13 @@ public:
   size_t active_sources() const { return image_.equations.size(); }
   size_t basis_rank() const noexcept { return matrix_.basis_rank(); }
   size_t support_variables() const noexcept { return matrix_.admitted_variables().size(); }
+  const std::vector<affine_semantic_extension::External> &support() const noexcept {
+    return matrix_.admitted_variables();
+  }
+  // A retained Gaussian slice is unfinished and resumes at the next service.
+  bool slice_pending() const noexcept {
+    return slice_retry_ || matrix_.continuation_pending();
+  }
   uint64_t retained_bytes() const {
     const uint64_t extra=matrix_.continuation_bytes();
     return extra>UINT64_MAX-retained_bytes_?UINT64_MAX:retained_bytes_+extra;
@@ -257,6 +264,20 @@ AffineMatrixServiceResult affine_matrix_search_step(
 AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     Kernel &, AffineMatrixSearchSession &,
     const std::vector<std::pair<Lit, Lit>> &);
+// Scheduling advice only (no rule semantics): whether a retained session's
+// GF(2) inputs changed since `cursor` was last consumed. Inputs are root facts
+// on the admitted support, retirement of a support variable (substitution,
+// elimination, compaction), owner or premise-lease changes, and an unfinished
+// slice. Each root-trail literal is scanned once; `work` counts the scan.
+struct AffineMatrixInputCursor {
+  uint64_t root_scanned = 0, namespace_epoch = 0, owner_version = 0;
+  uint64_t premise_epoch = 0;
+  bool valid = false;
+};
+bool affine_matrix_search_inputs_changed(const Kernel &,
+    const AffineMatrixSearchSession &, AffineMatrixInputCursor &, uint64_t &work);
+void affine_matrix_search_consume_inputs(const Kernel &,
+    const AffineMatrixSearchSession &, AffineMatrixInputCursor &);
 // Root-only bounded additional recognition; successful persistent admission
 // extends the retained source system rather than replacing deleted sources.
 AffineMatrixInitResult affine_matrix_search_refresh(
