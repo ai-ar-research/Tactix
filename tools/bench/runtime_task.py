@@ -34,6 +34,19 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,
 
 CAMPAIGN = None
 ROOT = None
+# Named certificate scratch under a declared campaign directory (home quota).
+HOME_SCRATCH_POLICY = "home-directory-files-v1"
+# resource_contract.cake_heap_mib: CakeML heap for a non-default task memory.
+CAKE_HEAP_MIB = None
+CAKE_STAGES = ("cake_lpr", "cake-pb-cnf")
+
+
+class TaskTerminated(RuntimeError):
+    """SIGTERM (scancel or wall limit) reached a home-scratch task."""
+
+
+def task_terminated_signal(signum, _frame):
+    raise TaskTerminated(f"terminated by signal {signum}")
 
 
 class ProofPipelineDeadline(TimeoutError):
@@ -786,6 +799,8 @@ def validate_runtime_pin_contract(campaign, manifest):
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
         required.add("pins/anonymous_scratch.py")
+    if manifest.get("scratch_policy") == HOME_SCRATCH_POLICY:
+        required.add("pins/directory_scratch.py")
     if manifest.get("gf2_telemetry") is not None:
         required.update({"pins/gf2_target_score.py",
                          "pins/inspect_policy_feedback.py",
@@ -832,8 +847,11 @@ def proof_stage(scratch, name, command, timeout, produced=None,
         raise
     if name == 'drat-trim':
         command = drat_command_with_timeout(command, timeout)
+    environment = stage_environment(name)
+    if CAKE_HEAP_MIB is not None and name in CAKE_STAGES:
+        environment["CML_HEAP_SIZE"] = str(CAKE_HEAP_MIB)
     result = measured(command, stdout, stderr, metrics, timeout,
-                      environment=stage_environment(name))
+                      environment=environment)
     output = "\n".join(tail(stdout, 100) + tail(stderr, 100))
     if name not in ("drat-trim", "dsr-trim", "dsr-compress", "srcheck",
                     "cake_lpr", "veripb", "cake-pb-cnf"):
@@ -1134,8 +1152,28 @@ def provisional_result(result, recorded_at):
                 validation_pending=True, recorded_at=recorded_at)
 
 
+def home_scratch_root(campaign, manifest):
+    """The declared home-filesystem scratch root of a campaign."""
+    root = manifest.get("scratch_directory")
+    if not isinstance(root, str) or not Path(root).is_absolute():
+        raise RuntimeError("home scratch policy requires an absolute scratch_directory")
+    root = Path(root)
+    if root != campaign / "scratch" and campaign not in root.parents:
+        raise RuntimeError("home scratch must live inside the campaign directory")
+    return root
+
+
+def cake_heap_mib(manifest):
+    value = manifest.get("resource_contract", {}).get("cake_heap_mib")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 4096:
+        raise RuntimeError("invalid resource_contract.cake_heap_mib")
+    return value
+
+
 def main():
-    global CAMPAIGN, ROOT
+    global CAMPAIGN, ROOT, CAKE_HEAP_MIB
     if len(sys.argv) != 3 or not os.environ.get("SLURM_JOB_ID"):
         raise SystemExit("usage (SLURM only): runtime_task.py CAMPAIGN TASK")
     CAMPAIGN = Path(sys.argv[1]).resolve()
@@ -1184,6 +1222,8 @@ def main():
             "structural_provenance": telemetry_local / "provenance.jsonl",
         }
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
+    home = manifest.get("scratch_policy") == HOME_SCRATCH_POLICY
+    previous_term_handler = None
     cnf_name = "input.cnf"
     proof_name = ("proof.out" if certificate == "auto" else
                   "proof.dsr" if certificate == "dsr" else "proof.drat")
@@ -1198,6 +1238,7 @@ def main():
     retained_proof = None
     try:
         validate_runtime_pin_contract(CAMPAIGN, manifest)
+        CAKE_HEAP_MIB = cake_heap_mib(manifest)
         retention_contract = failed_proof_retention_contract(manifest)
         if retention_contract is not None and certificate != "dsr":
             raise RuntimeError("failed-proof retention requires explicit DSR")
@@ -1281,6 +1322,15 @@ def main():
                 scratch = AnonymousScratch(
                     capacity_contract["directory"] if capacity_contract else "/tmp",
                     **options)
+        elif home:
+            from directory_scratch import DirectoryScratch
+            previous_term_handler = signal.signal(
+                signal.SIGTERM, task_terminated_signal)
+            scratch = DirectoryScratch(
+                home_scratch_root(CAMPAIGN, manifest),
+                f"{task:04d}-{os.environ['SLURM_JOB_ID']}")
+            # Checker temporaries stay on the same accounted filesystem.
+            os.environ["TMPDIR"] = str(scratch.tmpdir)
         else:
             scratch = Path(tempfile.mkdtemp(
                 prefix=f"tactix-runtime-{task:03d}-", dir=scratch_root))
@@ -1484,11 +1534,23 @@ def main():
                     admission=shared_admission, monitor=floor_monitor.status())
             if resource_status is not None and result is not None:
                 result["scratch_resources"] = resource_status
+        if home and scratch is not None:
+            # A second SIGTERM must not abandon cleanup half way.
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            try:
+                scratch.close()
+            except OSError as error:
+                if result is not None:
+                    result["cleanup_error"] = repr(error)
+            if result is not None:
+                result["scratch_resources"] = scratch.resource_status()
+        if previous_term_handler is not None:
+            signal.signal(signal.SIGTERM, previous_term_handler)
         if scratch_ledger is not None:
             scratch_ledger.close()
         if previous_floor_handler is not None:
             signal.signal(signal.SIGUSR1, previous_floor_handler)
-        elif scratch is not None:
+        elif scratch is not None and not home:
             shutil.rmtree(scratch, ignore_errors=True)
         if previous_xfsz_handler is not None:
             signal.signal(signal.SIGXFSZ, previous_xfsz_handler)

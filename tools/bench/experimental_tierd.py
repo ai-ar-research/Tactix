@@ -129,6 +129,12 @@ FIXED44_RESOURCE_PROFILE={
     'inner_step_cpus':4,
     'inner_step_memory_mib':32768,
 }
+HOME_SCRATCH_POLICY='home-directory-files-v1'
+DEFAULT_MEMORY_MIB=32768
+# CakeML launchers reserve the heap plus a 4 GiB stack; keep 4 GiB slack.
+# At 32768 MiB this is proof_oracle.CAKE_LPR_ENVIRONMENT's 24576 MiB heap.
+CAKE_RESERVED_MIB=8192
+RECHECK_CLASSES=('memout','timeout','crash','rejected','other','unfinished')
 FIXED44_COOPERATIVE_RESOURCE_PROFILE={
     'schema':'tactix-fixed44-cooperative-isolation-v1',
     'participant_scope':'same-user-repository-profile',
@@ -253,24 +259,182 @@ def scratch_srun_prefix(resources):
     return ['srun','--exact','--nodes=1','--ntasks=1',
             f'--cpus-per-task={cpus}',f'--mem={memory}M','--cpu-bind=cores']
 
+def check_failure_class(check):
+    """Failure class of one runtime_task proof_check/model_check record.
+
+    Returns verified/timeout/memout/crash/rejected/other, or None when nothing
+    was checked.  Markers are baseline_rerun.classify_check's; runtime stages
+    carry ``output_tail`` (proof) or ``stdout_tail``/``stderr_tail`` (model)
+    and the /usr/bin/time exit status (128+signal for a killed checker).
+    """
+    from baseline_rerun import MEMOUT_MARKERS, TIMEOUT_MARKERS
+    if not check:
+        return None
+    if check.get('result')=='verified':
+        return 'verified'
+    stages=check.get('stages') or [check]
+    last=stages[-1]
+    parts=[last.get('output_tail'),last.get('stdout_tail'),last.get('stderr_tail')]
+    text='\n'.join('\n'.join(map(str,part)) if isinstance(part,list) else str(part or '')
+                   for part in parts).lower()
+    if (check.get('deadline_expired') or any(stage.get('timed_out') for stage in stages) or
+            any(marker in text for marker in TIMEOUT_MARKERS)):
+        return 'timeout'
+    code=last.get('exit_code')
+    if code in (137,-9) or any(marker in text for marker in MEMOUT_MARKERS):
+        return 'memout'
+    if code in (139,135,-11,-7):
+        return 'crash'
+    if (last.get('result')=='rejected' or 's invalid' in text or
+            's not verified' in text or 'error' in text or 'failed' in text):
+        return 'rejected'
+    return 'other'
+
+def result_failure_class(result, provisional):
+    """Class of a finished campaign row that reached SAT/UNSAT, else None.
+
+    ``unfinished``: the solver published a SAT/UNSAT provisional verdict but
+    the task never wrote a checked result (or wrote INFRA_ERROR), e.g. the
+    task cgroup killed the runner itself during checking.
+    """
+    if result is not None and result.get('verdict') in ('SAT','UNSAT'):
+        if result.get('valid'):
+            return None
+        check=result.get('proof_check' if result['verdict']=='UNSAT' else 'model_check')
+        return check_failure_class(check) or 'other'
+    if (provisional is not None and provisional.get('verdict') in ('SAT','UNSAT') and
+            (result is None or result.get('verdict')=='INFRA_ERROR')):
+        return 'unfinished'
+    return None
+
+def recheck_selection(source, classes):
+    """[(matrix row, class)] of a finished campaign whose class is selected."""
+    with (source/'matrix.tsv').open(newline='') as f:
+        matrix=list(csv.DictReader(f,delimiter='\t'))
+    chosen=[]
+    for row in matrix:
+        task=int(row['task'])
+        def load(directory):
+            path=source/directory/f'{task:03d}.json'
+            return json.loads(path.read_text()) if path.exists() else None
+        cls=result_failure_class(load('results'),load('provisional'))
+        if cls in classes:
+            chosen.append((row,cls))
+    return chosen
+
+def source_array_live(source):
+    launch=source/'launch.json'
+    if not launch.exists():return False
+    job=json.loads(launch.read_text())['job_id']
+    q=subprocess.run(['squeue','-h','-j',str(job),'-o','%i'],capture_output=True,text=True)
+    return q.returncode==0 and bool(q.stdout.strip())
+
+def recheck_rows(a):
+    """Rows, inputs and arm of a recheck campaign over a finished campaign."""
+    source=a.recheck_from.resolve()
+    if not all((source/name).exists() for name in ('manifest.json','matrix.tsv','results')):
+        raise ValueError('recheck source is not a prepared campaign')
+    if source_array_live(source):
+        raise ValueError('recheck source array is still queued or running')
+    source_manifest=verify(source)
+    arms=source_manifest['arms']
+    if list(arms)!=['tactix']:
+        raise ValueError('recheck source must have exactly the tactix arm')
+    classes=tuple(a.recheck_classes)
+    chosen=recheck_selection(source,classes)
+    if not chosen:
+        raise ValueError('recheck selection is empty')
+    rows=[]
+    for index,(row,cls) in enumerate(chosen):
+        rows.append(dict(task=index,rank=int(row['rank']),arm=row['arm'],tier=row['tier'],
+                         instance=row['instance'],expected=row['expected'],
+                         source_task=int(row['task']),source_class=cls))
+    counts={}
+    for _,cls in chosen:counts[cls]=counts.get(cls,0)+1
+    result_hashes={f'results/{int(row["task"]):03d}.json':sha(source/'results'/f'{int(row["task"]):03d}.json')
+                   for row,_ in chosen if (source/'results'/f'{int(row["task"]):03d}.json').exists()}
+    authority=dict(path=(str(source.relative_to(ROOT)) if source.is_relative_to(ROOT)
+                         else str(source)),manifest_sha256=sha(source/'manifest.json'),
+                   classes=list(classes),counts=counts,selected_result_sha256=result_hashes,
+                   rule='rows of the source campaign that reached SAT/UNSAT without a checked '
+                        'result, by experimental_tierd.result_failure_class')
+    return source,source_manifest,rows,authority
+
+def register_with_governor(jobs_file, job, label):
+    """Append one array job to a quota governor's jobs.json (re-read every tick)."""
+    jobs_file=Path(jobs_file)
+    data=json.loads(jobs_file.read_text())
+    if not isinstance(data.get('jobs'),list):
+        raise ValueError('governor jobs file lacks a jobs list')
+    if str(job) not in [str(j['id']) for j in data['jobs']]:
+        data['jobs'].append({'id':str(job),'label':label})
+    temporary=jobs_file.with_name('.'+jobs_file.name+f'.{os.getpid()}.tmp')
+    temporary.write_text(json.dumps(data,indent=2)+'\n')
+    os.replace(temporary,jobs_file)
+    return data
+
+def summarize(c):
+    """Bounded read-only status of a campaign: counts, missing rows, leftovers."""
+    m=json.loads((c/'manifest.json').read_text())
+    with (c/'matrix.tsv').open(newline='') as f:rows=list(csv.DictReader(f,delimiter='\t'))
+    counts={};missing=[];invalid=[];cleanup=[];certificate_bytes=0
+    for row in rows:
+        task=int(row['task']);path=c/'results'/f'{task:03d}.json'
+        if not path.exists():missing.append(task);continue
+        r=json.loads(path.read_text())
+        pipeline=(r.get('proof_check') or {}).get('pipeline') if r.get('verdict')=='UNSAT' else None
+        key=f"{r.get('verdict')}/{'valid' if r.get('valid') else 'invalid'}"+(f'/{pipeline}' if pipeline else '')
+        counts[key]=counts.get(key,0)+1
+        if r.get('verdict') in ('SAT','UNSAT') and not r.get('valid'):
+            invalid.append(dict(task=task,instance=row['instance'],
+                                failure_class=result_failure_class(r,None)))
+        if r.get('cleanup_pending') or not r.get('artifact_deleted'):cleanup.append(task)
+        certificate_bytes+=r.get('certificate_bytes') or 0
+    scratch=m.get('scratch_directory')
+    leftovers=sorted(p.name for p in Path(scratch).iterdir()) if scratch and Path(scratch).is_dir() else []
+    out=dict(campaign=str(c),tasks=len(rows),results=len(rows)-len(missing),missing=missing,
+             counts=dict(sorted(counts.items())),invalid=invalid,cleanup_pending=cleanup,
+             scratch_leftovers=leftovers,certificate_bytes_total=certificate_bytes)
+    print(json.dumps(out,indent=2))
+    return out
+
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
+    recheck=None
+    if a.recheck_from:
+        recheck=recheck_rows(a)
+        source_manifest=recheck[1]
+        source_arm=source_manifest['arms']['tactix']
+        a.binary=recheck[0]/source_arm['path']
+        a.certificate=source_arm['certificate']
+        a.dsr_checker_profile=source_manifest['dsr_checker_profile']
+        a.binary_source_commit=source_manifest['source_commit']
+        a.source=Path(source_manifest['source_tree'])
+        if sha(a.binary)!=source_arm['sha256']:
+            raise ValueError('recheck source binary changed')
+        transport=recheck[0]/'pins/dsr-transport'
+        a.dsr_transport=transport if transport.exists() else None
     revision=a.binary_source_commit or 'HEAD'
     commit=subprocess.check_output(['git','rev-parse',revision],cwd=ROOT,text=True).strip()
     # Every archived source/build input must be exactly the committed blob.
     source=a.source.resolve()
-    listing=subprocess.check_output(['git','ls-tree','-rz',commit,'--','src','include','CMakeLists.txt'],cwd=ROOT)
-    sources={}
-    for entry in listing.split(b'\0'):
-        if not entry:continue
-        metadata,name=entry.split(b'\t',1);mode,kind,oid=metadata.split();name=name.decode()
-        p=source/name
-        if kind!=b'blob' or not p.is_file():continue
-        actual=subprocess.check_output(['git','hash-object',str(p)],cwd=ROOT).strip()
-        if actual!=oid:raise ValueError('source differs from HEAD: '+name)
-        sources[name]=sha(p)
-    if not all(str(p.relative_to(source)) in sources for p in (source/'src').rglob('*') if p.is_file()):
-        raise ValueError('uncommitted source in build tree')
+    if recheck is not None:
+        # The recheck reruns the source campaign's own pinned binary; its
+        # source binding was verified when that campaign was prepared.
+        sources=dict(recheck[1]['source_files'])
+    else:
+        listing=subprocess.check_output(['git','ls-tree','-rz',commit,'--','src','include','CMakeLists.txt'],cwd=ROOT)
+        sources={}
+        for entry in listing.split(b'\0'):
+            if not entry:continue
+            metadata,name=entry.split(b'\t',1);mode,kind,oid=metadata.split();name=name.decode()
+            p=source/name
+            if kind!=b'blob' or not p.is_file():continue
+            actual=subprocess.check_output(['git','hash-object',str(p)],cwd=ROOT).strip()
+            if actual!=oid:raise ValueError('source differs from HEAD: '+name)
+            sources[name]=sha(p)
+        if not all(str(p.relative_to(source)) in sources for p in (source/'src').rglob('*') if p.is_file()):
+            raise ValueError('uncommitted source in build tree')
     manifest=json.loads((ref/'manifest.json').read_text())
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
     dsr_profile=getattr(a,'dsr_checker_profile','frozen')
@@ -315,6 +479,8 @@ def prepare(a):
             row['expected']=selected['verdict']
         source_rows.sort(key=lambda row:row['rank'])
     rows=[dict(task=i,**r) for i,r in enumerate(source_rows)]
+    if recheck is not None:
+        rows=recheck[2]; selection_authority=None
     assert rows and len({r['instance'] for r in rows})==len(rows)
     scratch_capacity=selected_scratch_capacity(a,selection_authority,rows)
     capacity_profile=getattr(a,'scratch_capacity_profile',None)
@@ -322,14 +488,25 @@ def prepare(a):
     inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
     assert set(inputs)=={r['instance'] for r in rows}
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
-    arm_arguments=solver_arguments(a.certificate,a.solver_argument,
-                                   a.gf2_telemetry,a.causal_preflight)
+    arm_arguments=(list(recheck[1]['arms']['tactix']['arguments']) if recheck is not None else
+                   solver_arguments(a.certificate,a.solver_argument,
+                                    a.gf2_telemetry,a.causal_preflight))
+    home=bool(a.home_scratch)
+    if home and (capacity_profile or a.retain_failed_proof):
+        raise ValueError('home scratch excludes anonymous capacity profiles and proof retention')
+    if a.memory_mib!=DEFAULT_MEMORY_MIB and capacity_profile:
+        raise ValueError('scratch capacity profiles require 32768 MiB')
+    cake_heap=(a.memory_mib-CAKE_RESERVED_MIB
+               if home or a.memory_mib!=DEFAULT_MEMORY_MIB else None)
+    if cake_heap is not None and cake_heap<4096:
+        raise ValueError('memory too small for the CakeML heap')
     if a.gf2_telemetry:
         profile=a.gf2_affine_profile.resolve()
         if not profile.is_file():raise ValueError('GF2 affine profile is not a file')
         arm_arguments.append(f'--controller-gf2-affine-profile={c}/pins/gf2-affine.profile')
     c.mkdir()
     directories=['pins','logs','claims','provisional','results']
+    if home:directories.append('scratch')
     if a.retain_failed_proof:directories.append('retained-proofs')
     if a.gf2_telemetry:directories.append('telemetry')
     for name in directories:(c/name).mkdir()
@@ -339,6 +516,8 @@ def prepare(a):
         shutil.copy2(checker_source,c/'pins'/name)
     runner_pins=['runtime_task.py','proof_oracle.py','anonymous_scratch.py',
                  'test_anonymous_scratch.py','validate_anonymous_runtime.py']
+    if home:
+        runner_pins.extend(['directory_scratch.py','test_directory_scratch.py'])
     if a.gf2_telemetry:
         runner_pins.extend(['gf2_target_score.py','inspect_policy_feedback.py'])
     for name in runner_pins:
@@ -352,7 +531,7 @@ def prepare(a):
     batch_memory=(
         ('0' if capacity_resources.get('outer_allocation_memory')=='all'
          else f'{capacity_resources["task_memory_mib"]}M')
-        if capacity_resources else '32768M')
+        if capacity_resources else f'{a.memory_mib}M')
     def slurm_header(cpus, memory):
         return f'''#!/usr/bin/env bash
 #SBATCH --partition={a.partition}
@@ -366,7 +545,8 @@ def prepare(a):
     wall=scheduler_wall_seconds(
         a.solve_timeout,a.checker_timeout+((scratch_capacity or {}).get('admission_wait_seconds') or 0))
     capacity_environment=('export TMPDIR=/tmp\nexport PYTHONDONTWRITEBYTECODE=1\n'
-                          if capacity_profile else '')
+                          if capacity_profile else
+                          'export PYTHONDONTWRITEBYTECODE=1\n' if home else '')
     runtime_prefix=' '.join(scratch_srun_prefix(capacity_resources))
     runtime_command=(
         f'exec {runtime_prefix} python3 {c}/pins/runtime_task.py {c} '
@@ -379,11 +559,12 @@ set -euo pipefail
 ulimit -c 0
 {capacity_environment}{runtime_command}
 ''')
-    (c/'validate.sbatch').write_text(slurm_header(a.cpus_per_task,'32768M')+f'''#SBATCH --job-name=tierd-anonymous-check
+    scratch_test='test_directory_scratch.py' if home else 'test_anonymous_scratch.py'
+    (c/'validate.sbatch').write_text(slurm_header(a.cpus_per_task,f'{a.memory_mib}M')+f'''#SBATCH --job-name=tierd-{'home' if home else 'anonymous'}-check
 #SBATCH --time=00:05:00
 set -euo pipefail
 ulimit -c 0
-python3 {c}/pins/test_anonymous_scratch.py
+{capacity_environment if home else ''}python3 {c}/pins/{scratch_test}
 exec python3 {c}/pins/validate_anonymous_runtime.py {c}
 ''')
     m=dict(schema=('tactix-experimental-single-tierd-v4-gf2-telemetry'
@@ -393,14 +574,16 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         arms={'tactix':dict(path='pins/tactix',sha256=sha(c/'pins/tactix'),
                            arguments=arm_arguments,
                            certificate=a.certificate)},
-        input_sha256=inputs,scratch_policy='anonymous-local-files-v1',
+        input_sha256=inputs,scratch_policy=HOME_SCRATCH_POLICY if home else 'anonymous-local-files-v1',
         dataset_authority=dict(path=str(ref/'manifest.json'),sha256=sha(ref/'manifest.json')),
         selection_authority=selection_authority,
         dsr_checker_profile=dsr_profile,
-        resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=32768,solve_timeout=a.solve_timeout,
+        resource_contract=dict(partition=a.partition,cpus_per_task=a.cpus_per_task,memory_mib=a.memory_mib,solve_timeout=a.solve_timeout,
             checker_timeout=a.checker_timeout,scheduler_wall_seconds=wall,
             array=f'0-{len(rows)-1}{f"%{a.array_throttle}" if a.array_throttle else ""}',
             throttle=a.array_throttle,node_constraint=None,
+            **({'throttle_reason':a.array_throttle_reason} if a.array_throttle else {}),
+            **({'cake_heap_mib':cake_heap} if cake_heap is not None else {}),
             **({'scratch_isolation':capacity_resources}
                if capacity_profile else {})),
         proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
@@ -413,6 +596,22 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     if checker_provenance is not None:
         m['dsr_checker_provenance']=checker_provenance
+    if recheck is not None:
+        m['recheck_source']=recheck[3]
+    if home:
+        m['scratch_directory']=str(c/'scratch')
+        m['cleanup_contract']=(
+            'Named files in one private per-task directory scratch/<task>-<job> under the campaign '
+            '(home quota, never node /tmp): decompressed input, certificate, checker CNF, LSR/DRAT/LRAT/'
+            'PBP elaborations, model and checker temporaries (TMPDIR). Each artifact is unlinked at the '
+            'same checked hand-off at which anonymous scratch releases it, and the task directory is '
+            'removed (bounded NFS retries) before the result is published; SIGTERM (scancel, wall '
+            'limit) runs the same cleanup. Only bounded JSON metadata and scheduler logs persist; core '
+            'dumps disabled. Storage is governed by the 10-minute home-quota governor (hold pending '
+            'tasks above 750 GB, release below 700 GB, never touch running tasks).')
+        m['caveat']=('If the entire job dies (SIGKILL, node failure, runner OOM), its result may be '
+            'missing and its scratch directory left behind; never interpret missing as timeout or '
+            'checked; the summary lists scratch leftovers for explicit removal.')
     if capacity_profile:
         m['anonymous_scratch_capacity']=scratch_capacity
         m['scratch_capacity_profile']=capacity_profile
@@ -474,7 +673,11 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
     verify(c); print(c)
 
 def submit(a):
-    c=a.campaign.resolve();verify(c)
+    c=a.campaign.resolve();m=verify(c)
+    if a.governor_jobs is not None:
+        if a.validate:raise ValueError('--governor-jobs applies to the array submission')
+        governor=a.governor_jobs.resolve()
+        json.loads(governor.read_text())['jobs']  # readable before submitting
     name='validation-launch.json' if a.validate else 'launch.json'
     assert not (c/name).exists()
     if not a.validate:assert json.loads((c/'validation.json').read_text())['passed']
@@ -482,8 +685,13 @@ def submit(a):
     command=['sbatch','--parsable']
     if a.afterany is not None:command.append(f'--dependency=afterany:{a.afterany}')
     job=subprocess.check_output([*command,str(script)],text=True).strip().split(';')[0]
-    save(c/name,dict(job_id=job,manifest_sha256=sha(c/'manifest.json'),submitted_at=dt.datetime.now(dt.timezone.utc).isoformat(),
-                     dependency_afterany=a.afterany))
+    record=dict(job_id=job,manifest_sha256=sha(c/'manifest.json'),submitted_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+                dependency_afterany=a.afterany)
+    if a.governor_jobs is not None:
+        record['governor_jobs']=str(governor)
+    save(c/name,record)
+    if a.governor_jobs is not None:
+        register_with_governor(governor,job,c.name)
     print(job)
 
 if __name__=='__main__':
@@ -502,6 +710,18 @@ if __name__=='__main__':
     p.add_argument('--solve-timeout',type=int,default=1200)
     p.add_argument('--checker-timeout',type=int,default=16000)
     p.add_argument('--array-throttle',type=int)
+    p.add_argument('--array-throttle-reason',
+                   help='required with --array-throttle; recorded in the manifest')
+    p.add_argument('--memory-mib',type=int,default=DEFAULT_MEMORY_MIB,
+                   help='Slurm task memory; a non-default value (or --home-scratch) records a CakeML heap of memory-8192 MiB')
+    p.add_argument('--home-scratch',action='store_true',
+                   help='named certificate scratch under <campaign>/scratch (home quota) instead of anonymous /tmp files')
+    p.add_argument('--recheck-from',type=Path,
+                   help='prepare a recheck of a finished campaign: same pinned binary/arguments, rows selected by --recheck-classes')
+    p.add_argument('--recheck-classes',default='memout',
+                   help='comma list of '+','.join(RECHECK_CLASSES))
+    p.add_argument('--governor-jobs',type=Path,
+                   help='with --submit: append the array job id to this quota-governor jobs.json')
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
     p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
     p.add_argument('--solver-argument',action='append',default=[],
@@ -529,7 +749,24 @@ if __name__=='__main__':
     p.add_argument('--selection-table',type=Path)
     g=p.add_mutually_exclusive_group(required=True)
     g.add_argument('--prepare',action='store_true');g.add_argument('--validate',action='store_true');g.add_argument('--submit',action='store_true')
+    g.add_argument('--summarize',action='store_true')
     a=p.parse_args()
+    a.recheck_classes=tuple(x.strip() for x in a.recheck_classes.split(',') if x.strip())
+    if not a.recheck_classes or not set(a.recheck_classes)<=set(RECHECK_CLASSES):
+        p.error('--recheck-classes must be a nonempty subset of '+','.join(RECHECK_CLASSES))
+    if a.summarize:
+        summarize(a.campaign.resolve());sys.exit(0)
+    if a.array_throttle is not None and not a.array_throttle_reason:
+        p.error('--array-throttle requires --array-throttle-reason')
+    if a.memory_mib < 1:p.error('--memory-mib must be positive')
+    if (a.home_scratch or a.recheck_from or a.memory_mib!=DEFAULT_MEMORY_MIB) and not a.prepare:
+        p.error('--home-scratch, --recheck-from and --memory-mib are valid only with --prepare')
+    if a.recheck_from and (a.source or a.binary or a.binary_source_commit or a.solver_argument or
+                           a.dsr_transport or a.dsr_checker_profile!='frozen' or
+                           a.instance or a.selection_table or a.gf2_telemetry or a.causal_preflight):
+        p.error('--recheck-from takes binary, source, arguments and rows from the source campaign')
+    if a.governor_jobs is not None and not a.submit:
+        p.error('--governor-jobs is valid only with --submit')
     if a.cpus_per_task < 1:p.error('--cpus-per-task must be positive')
     if a.solve_timeout < 1:p.error('--solve-timeout must be positive')
     if a.checker_timeout < 1:p.error('--checker-timeout must be positive')
