@@ -383,6 +383,11 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   suffix. Ordered physical duplicates remain significant for gate membership.
 - TransitiveReduce commits failed-walk units with native-LRAT BFS chains, preserves earlier tombstones, and reaches root before the
   next dosed candidate. DefaultPolicy consumes direct and propagated roots there.
+- Public dispatch, online steps, the controller's search services and trace replay publish rule events to H through
+  `execution::execute_action(RuleApplicationRequest, publisher)` with a declared profile. Public dispatch defaults to the v1
+  DISCARD profile, which drops the events; `tactix_set_guidance_publication(NATIVE)` applies DefaultPolicy's dosed-candidate
+  profile (`tests/test_api_guidance_publication.c`). DefaultPolicy's per-slot publication (Substitute rounds, Factor advice,
+  forward closure) still calls the publisher's consumers directly until gap-plan step 5.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime
 review](../benchmarks/reports/2026-09-07-runtime-review.md); the pre-compaction text is recoverable from Git commit `96e894c`.

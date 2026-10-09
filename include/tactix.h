@@ -263,7 +263,26 @@ void tactix_set_backbone_round_limits(tactix *, uint32_t initial_rounds,
 #define TACTIX_CFG_VIVIFY_IRREDUNDANT_SORT_RATIO 24
 #define TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD 25
 #define TACTIX_CFG_CONGRUENCE_WATCH_ORDER 26
+#define TACTIX_CFG_GUIDANCE_PUBLICATION 27
 uint64_t tactix_config(tactix *, int cfg_id);
+
+/* Guidance publication (additive). Rule applications publish events that
+ * concern decision guidance (H): new root assignments, retired variables,
+ * Factor's fresh variables and Substitute's substituted variables. DISCARD,
+ * the v1 default, drops them after tactix_apply, tactix_apply_instance,
+ * tactix_apply_condition, tactix_apply_semantic_instance and
+ * tactix_online_advance: H keeps retired variables queued (they remain in
+ * tactix_decide_candidates) and never demotes fresh ones. NATIVE publishes
+ * them after each such call with DefaultPolicy's own profile: root-fixed and
+ * retired variables leave the queue and score heap, and fresh/substituted
+ * variables are demoted under the posed Factor/Substitute settings. Online
+ * steps always publish natively per application; the mode governs only
+ * events left after the step. The mode changes H alone, never an
+ * application's formula or proof effect. Settable at any state; returns 0,
+ * or -1 for an unknown mode. */
+#define TACTIX_GUIDANCE_DISCARD 0
+#define TACTIX_GUIDANCE_NATIVE 1
+int tactix_set_guidance_publication(tactix *, int mode);
 
 /* run the default policy to completion: 10 SAT / 20 UNSAT */
 int tactix_solve(tactix *);

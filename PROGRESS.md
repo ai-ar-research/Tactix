@@ -44,8 +44,12 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    are committed and byte-identical to c2.3 on 12 identity rows, with full Debug 355/355
    ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-steps-0-1/README.md)): route
    ratchet `tests/test_default_action_map.cpp` (internal entries 24 → 14), report-only public
-   replay, and macro actions through registry dispatch. Pending before push: §8.4 default gates
-   and the §8.2 fuzz legs for Step 1. Next: Step 2.
+   replay, and macro actions through registry dispatch. Step 2 is committed
+   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step2/README.md)): public and
+   controller H publication go through the shared executor, with the additive
+   `tactix_set_guidance_publication` (v1 default DISCARD). DefaultPolicy and the controller are
+   byte-identical to c2.3, and full Debug passes 356/356. Pending before push: §8.4 default
+   gates and the §8.2 fuzz legs for Steps 1–2. Next: Step 3.
 
 ## Live work
 

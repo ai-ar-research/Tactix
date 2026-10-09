@@ -2,8 +2,10 @@
 #include "policies/trace.hpp"
 
 #include "policies/heuristics.hpp"
+#include "policies/rule_publication.hpp"
 #include "rules/registry.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/publication_execution.hpp"
 #include "strategy/random_online.hpp"
 
 #include <cstdlib>
@@ -253,18 +255,18 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
     if (!std::strcmp(name, "Restart") && payload != INSTANCE_CANONICAL &&
         payload < k.level)
       heuristics_update_target_phases(k);
-    const ApplyResult res =
-        payload == INSTANCE_CANONICAL
-            ? apply_rule(r, k)
-            : semantic ? apply_rule_semantic_instance(r, k, payload)
-                       : r.apply_instance
-                             ? apply_rule_instance(r, k, payload)
-                             : apply_rule(r, k);
     // RandomPolicy consumes rule-produced search advice and retirements after
     // every action. Replay must do the same: these H transitions can change a
     // later branch choice even when the proof-producing rule delta is exact.
-    heuristics_consume_rule_advice(k);
-    heuristics_consume_retirements(k);
+    const ApplyResult res = execution::execute_action(
+        k, execution::RuleApplicationRequest{}, [&] {
+          return payload == INSTANCE_CANONICAL
+                     ? apply_rule(r, k)
+                     : semantic ? apply_rule_semantic_instance(r, k, payload)
+                                : r.apply_instance
+                                      ? apply_rule_instance(r, k, payload)
+                                      : apply_rule(r, k);
+        }, HeuristicRulePublisher{}).result;
     steps++;
     if ((steps & 255) == 0)
       kernel_check_invariants(k); // no-op in NDEBUG, as in random_solve

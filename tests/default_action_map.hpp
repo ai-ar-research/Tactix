@@ -474,18 +474,23 @@ inline std::vector<Fixture> fixtures() {
   return out;
 }
 
-// Run DefaultPolicy on an already loaded kernel and return its feedback.
-inline std::vector<ActionFeedback> run(const Fixture &fixture, Kernel &k) {
+// Run DefaultPolicy on an already loaded kernel, reporting to `receiver`.
+inline void run(const Fixture &fixture, Kernel &k, FeedbackReceiver &receiver) {
   DefaultStrategyConfig config;
   if (fixture.configure) fixture.configure(config, k);
   DefaultPolicy policy(config);
   volatile sig_atomic_t stop = 0;
   StopAtFirstDecision branching(stop);
   if (fixture.stop_at_first_decision) policy.branching = &branching;
-  Capture capture;
-  policy.set_feedback(&capture);
+  policy.set_feedback(&receiver);
   const int verdict = policy.solve(k, fixture.stop_at_first_decision ? &stop : nullptr);
   assert(verdict == 0 || verdict == 10 || verdict == 20);
+}
+
+// Run DefaultPolicy on an already loaded kernel and return its feedback.
+inline std::vector<ActionFeedback> run(const Fixture &fixture, Kernel &k) {
+  Capture capture;
+  run(fixture, k, capture);
   return capture.actions;
 }
 

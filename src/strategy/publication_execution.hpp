@@ -4,12 +4,24 @@
 
 namespace tactix::execution {
 
-enum class RootPublication : uint8_t { Deferred, NewAssignments };
+// Root publication origin. NewAssignments scans from the entry trail when the
+// application assigned at level zero. RootTrail rescans the whole trail: an
+// application that backtracks below its entry trail (ConflictAnalysis) leaves
+// new root assignments before that offset. Consumers filter inactive
+// variables, so a rescan is idempotent.
+enum class RootPublication : uint8_t { Deferred, NewAssignments, RootTrail };
 
 struct RuleApplicationRequest {
   RootPublication roots = RootPublication::Deferred;
   bool retirements = true;
+  bool advice = true;
 };
+
+// DefaultPolicy's profile for a dosed Eliminate candidate (advice, new roots,
+// retirements), which public NATIVE guidance publication applies after every
+// registry dispatch (tactix_set_guidance_publication).
+inline constexpr RuleApplicationRequest NATIVE_RULE_PUBLICATION{
+    RootPublication::NewAssignments, true, true};
 
 struct RuleApplicationResult {
   ApplyResult result;
@@ -31,9 +43,11 @@ RuleApplicationResult execute_action(Kernel &k,
                             k.stats.root_assignments, k.stats.bve_eliminated,
                             k.propagate_head};
   out.result = apply();
-  publisher.advice(k);
-  if (request.roots == RootPublication::NewAssignments &&
-      k.stats.root_assignments != out.roots_before)
+  if (request.advice) publisher.advice(k);
+  if (request.roots == RootPublication::RootTrail)
+    publisher.roots(k, 0);
+  else if (request.roots == RootPublication::NewAssignments &&
+           k.stats.root_assignments != out.roots_before)
     publisher.roots(k, out.trail_before);
   if (request.retirements) publisher.retirements(k);
   return out;
