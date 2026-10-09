@@ -14,4 +14,13 @@ struct HeuristicRulePublisher {
   void retirements(Kernel &k) const { heuristics_consume_retirements(k); }
 };
 
+// The v1 public profile: rule events leave the kernel without reaching H.
+// H then keeps eliminated, substituted and root-fixed variables active and
+// never demotes Factor's fresh variables (gap plan finding 2).
+struct DiscardedRulePublisher {
+  void advice(Kernel &k) const { heuristics_discard_rule_events(k); }
+  void roots(Kernel &, size_t) const {}
+  void retirements(Kernel &) const {}
+};
+
 } // namespace tactix

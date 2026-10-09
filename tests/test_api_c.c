@@ -583,7 +583,9 @@ static void test_stats_and_config_surface(void) {
   assert(tactix_config(s, TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD) == 7);
   assert(tactix_config(s, TACTIX_CFG_CONGRUENCE_WATCH_ORDER) ==
          TACTIX_CONGRUENCE_CANONICAL_WATCH_ORDER);
-  assert(tactix_config(s, 27) == UINT64_MAX); /* first unknown cfg id */
+  assert(tactix_config(s, TACTIX_CFG_GUIDANCE_PUBLICATION) ==
+         TACTIX_GUIDANCE_DISCARD);
+  assert(tactix_config(s, 28) == UINT64_MAX); /* first unknown cfg id */
   assert(tactix_config(s, -1) == UINT64_MAX);
   /* every band Vivify implements is settable: clamping 3/4/5 onto 0 would
      deny API callers a tier DefaultPolicy uses (N1) */

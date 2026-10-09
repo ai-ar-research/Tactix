@@ -316,6 +316,13 @@ target_link_libraries(test_api_instances PRIVATE tactix_lib)
 target_include_directories(test_api_instances PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_instances COMMAND test_api_instances)
 
+# tactix_set_guidance_publication: NATIVE public dispatch publishes rule events
+# into H exactly as the shared executor does; DISCARD keeps the v1 behavior.
+add_executable(test_api_guidance_publication test_api_guidance_publication.c)
+target_link_libraries(test_api_guidance_publication PRIVATE tactix_lib)
+target_include_directories(test_api_guidance_publication PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME api_guidance_publication COMMAND test_api_guidance_publication)
+
 add_executable(test_online_api test_online_api.c)
 target_link_libraries(test_online_api PRIVATE tactix_lib)
 target_include_directories(test_online_api PRIVATE ${CMAKE_SOURCE_DIR}/include)

@@ -1,8 +1,10 @@
 #include "policies/random_controller_policy.hpp"
 
+#include "policies/rule_publication.hpp"
 #include "policies/stress_common.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "strategy/publication_execution.hpp"
 
 #include <cstdio>
 #include <algorithm>
@@ -936,6 +938,16 @@ static std::string result_record(const ActionResult &result) {
       << result.composition_overshoot;
   return out.str();
 }
+
+// Search-service publication through the shared executor profile. Search
+// Propagate publishes only its new roots. ConflictAnalysis rescans the root
+// trail because its backjump ends below the entry trail; root rule actions
+// publish their own advice inside the online executor, so a search service
+// drains none (asserted) and its advice-before-roots order is not observable.
+static constexpr execution::RuleApplicationRequest PROPAGATION_PUBLICATION{
+    execution::RootPublication::NewAssignments, false, false};
+static constexpr execution::RuleApplicationRequest ANALYSIS_PUBLICATION{
+    execution::RootPublication::RootTrail, true, true};
 
 static std::string service_record(const Kernel &k, const char *service,
                                  uint64_t choice, ApplyResult result) {
@@ -2961,11 +2973,9 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // The registered ConflictAnalysis boundary fuses learning and backjump;
       // Analyze's internal primitive alone leaves a pending assertion.
       const auto result = controller.search_service("ConflictAnalysis", INSTANCE_CANONICAL, [&] {
-        const auto native = apply_rule(analysis, k);
-        heuristics_consume_root_assignments(k, 0);
-        heuristics_consume_rule_advice(k);
-        heuristics_consume_retirements(k);
-        return native;
+        assert(k.fresh_var_events.empty() && k.substituted_events.empty());
+        return execution::execute_action(k, ANALYSIS_PUBLICATION,
+            [&] { return apply_rule(analysis, k); }, HeuristicRulePublisher{}).result;
       });
       if (trace_ && !emit(service_record(k, "ConflictAnalysis", 0, result)))
         return -1;
@@ -2983,11 +2993,9 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const auto observation = controller.observe();
     if (observation.searching) {
       if (!kernel_propagation_fixpoint(k)) {
-        const size_t trail = k.trail.size();
         const auto result = controller.search_service("Propagate", INSTANCE_CANONICAL, [&] {
-          const auto native = apply_rule(propagation, k);
-          heuristics_consume_root_assignments(k, trail);
-          return native;
+          return execution::execute_action(k, PROPAGATION_PUBLICATION,
+              [&] { return apply_rule(propagation, k); }, HeuristicRulePublisher{}).result;
         });
         if (trace_ && !emit(service_record(k, "Propagate", 0, result)))
           return -1;
@@ -3034,11 +3042,9 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (controller.affine_matrix_root_service_due()) {
         if (!kernel_propagation_fixpoint(k)) {
-          const size_t trail = k.trail.size();
           const auto result = controller.search_service("Propagate", INSTANCE_CANONICAL, [&] {
-            const auto native = apply_rule(propagation, k);
-            heuristics_consume_root_assignments(k, trail);
-            return native;
+            return execution::execute_action(k, PROPAGATION_PUBLICATION,
+                [&] { return apply_rule(propagation, k); }, HeuristicRulePublisher{}).result;
           });
           if (trace_ && !emit(service_record(k, "Propagate", 0, result))) return -1;
           continue;

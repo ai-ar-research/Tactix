@@ -32,6 +32,8 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/publication_execution.hpp"
+#include "policies/rule_publication.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -69,6 +71,7 @@ struct tactix_solver {
   bool input_completed = false;
   bool pending_input_proof = false;
   uint64_t model_strategy_epoch = UINT64_MAX;
+  int guidance_publication = TACTIX_GUIDANCE_DISCARD;
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
@@ -132,6 +135,25 @@ void prepare_external_model(tactix_solver *solver) {
 
 void external_state_change(tactix_solver *solver) {
   ++solver->kernel.strategy_epoch;
+}
+
+// Every public registry dispatch publishes its rule events through the
+// session's selected profile, before invariants are checked or the result is
+// observed. NATIVE is DefaultPolicy's executor profile with the same publisher.
+template <class Apply>
+ApplyResult apply_published(tactix_solver *solver, Apply &&apply) {
+  if (solver->guidance_publication == TACTIX_GUIDANCE_NATIVE)
+    return execution::execute_action(solver->kernel,
+                                     execution::NATIVE_RULE_PUBLICATION,
+                                     std::forward<Apply>(apply),
+                                     HeuristicRulePublisher{})
+        .result;
+  return execution::execute_action(
+             solver->kernel,
+             execution::RuleApplicationRequest{
+                 execution::RootPublication::Deferred, false, true},
+             std::forward<Apply>(apply), DiscardedRulePublisher{})
+      .result;
 }
 
 bool online_repeat(int mode, uint64_t limit, strategy::RepeatSpec &out) {
@@ -2477,8 +2499,8 @@ int tactix_apply(tactix_solver *s, int rule_id) {
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
     return -1;
-  const ApplyResult res = apply_rule(r, s->kernel);
-  heuristics_discard_rule_events(s->kernel);
+  const ApplyResult res =
+      apply_published(s, [&] { return apply_rule(r, s->kernel); });
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(s, res);
 }
@@ -2517,12 +2539,11 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   // (tests/test_api_instances.c).
   if (!r.apply_instance && instance != INSTANCE_CANONICAL)
     return -1;
-  ApplyResult res;
-  if (instance == INSTANCE_CANONICAL || !r.apply_instance)
-    res = apply_rule(r, s->kernel); // canonical (the only instance if no slot)
-  else
-    res = apply_rule_instance(r, s->kernel, instance);
-  heuristics_discard_rule_events(s->kernel);
+  const ApplyResult res = apply_published(s, [&] {
+    if (instance == INSTANCE_CANONICAL || !r.apply_instance)
+      return apply_rule(r, s->kernel); // canonical (the only instance if no slot)
+    return apply_rule_instance(r, s->kernel, instance);
+  });
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(s, res);
 }
@@ -2575,10 +2596,11 @@ int tactix_apply_condition(tactix_solver *s, const int *clause,
       candidate.push_back(',');
     candidate += std::to_string(witness[i]);
   }
-  const ApplyResult result = apply_rule_structured(
-      rule, s->kernel, candidate.c_str(),
-      [&] { return condition_commit(s->kernel, instance, prepared); });
-  heuristics_discard_rule_events(s->kernel);
+  const ApplyResult result = apply_published(s, [&] {
+    return apply_rule_structured(
+        rule, s->kernel, candidate.c_str(),
+        [&] { return condition_commit(s->kernel, instance, prepared); });
+  });
   kernel_check_invariants(s->kernel);
   return result_code(s, result);
 }
@@ -2618,14 +2640,13 @@ int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
                                                : r.apply_instance;
   if (!apply && instance != INSTANCE_CANONICAL)
     return -1;
-  ApplyResult result;
-  if (instance == INSTANCE_CANONICAL || !apply)
-    result = apply_rule(r, s->kernel);
-  else if (r.apply_semantic_instance)
-    result = apply_rule_semantic_instance(r, s->kernel, instance);
-  else
-    result = apply_rule_instance(r, s->kernel, instance);
-  heuristics_discard_rule_events(s->kernel);
+  const ApplyResult result = apply_published(s, [&] {
+    if (instance == INSTANCE_CANONICAL || !apply)
+      return apply_rule(r, s->kernel);
+    if (r.apply_semantic_instance)
+      return apply_rule_semantic_instance(r, s->kernel, instance);
+    return apply_rule_instance(r, s->kernel, instance);
+  });
   kernel_check_invariants(s->kernel);
   return result_code(s, result);
 }
@@ -3047,8 +3068,13 @@ int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   if (!s || !result || !s->online)
     return -1;
   input_complete(s);
-  const strategy::InvocationResult advanced = s->online->advance(s->kernel);
-  heuristics_discard_rule_events(s->kernel);
+  // The online executor publishes each application natively; the session
+  // profile governs only events left after the composed step.
+  strategy::InvocationResult advanced;
+  (void)apply_published(s, [&] {
+    advanced = s->online->advance(s->kernel);
+    return advanced.rule_result;
+  });
   kernel_check_invariants(s->kernel);
   if (advanced.status == strategy::InvocationStatus::Sat) {
     prepare_external_model(s);
@@ -3259,9 +3285,18 @@ uint64_t tactix_config(tactix_solver *s, int cfg_id) {
     return k.vivify_irredundant_sort_ratio;
   case 25: // TACTIX_CFG_INSTANTIATE_NEW_MATERIAL_THRESHOLD
     return k.instantiate_parameters.new_material_threshold;
+  case 27: // TACTIX_CFG_GUIDANCE_PUBLICATION
+    return static_cast<uint64_t>(s->guidance_publication);
   default:
     return UINT64_MAX;
   }
+}
+
+int tactix_set_guidance_publication(tactix_solver *s, int mode) {
+  if (!s || (mode != TACTIX_GUIDANCE_DISCARD && mode != TACTIX_GUIDANCE_NATIVE))
+    return -1;
+  s->guidance_publication = mode;
+  return 0;
 }
 
 int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
