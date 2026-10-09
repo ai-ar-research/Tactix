@@ -75,6 +75,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Per-run statistics print the persistent affine-search block and `c handoff` only when enabled or
+  nonzero (typical run 227 -> 157 `c` lines; parsed lines unchanged).
 - Graph labeling (Lucky 26/27 schedule) is on by default; plain `--auto-proof` equals c2.2's qualified
   arguments (identity check: 9 rows byte-identical).
 - Restore the startup FastEliminate guard after root-fixing structured symmetry (c2.2).
