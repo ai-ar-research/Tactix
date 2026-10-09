@@ -102,6 +102,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Graph labeling's run dose follows its owner (LymphoSAT runs its antibandwidth solver to completion
+  before CDCL): the first run is in the initial root window, and every run continues the trajectory
+  within the serialized stage doses until it completes, finds a model or is interrupted; later runs
+  keep the Eliminate conflict limit and fruitless/fruitful delay. The 50‰ walk share is removed.
 - Both retained root services use Kissat's split: due at the Eliminate NLOG2N conflict limit with a
   delay that halves after a fruitful run and doubles after a fruitless one, and run within a
   `SET_EFFORT_LIMIT` share of search ticks (affine: sweep share; graph labeling: walk share). The

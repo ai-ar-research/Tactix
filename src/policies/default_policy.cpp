@@ -4396,19 +4396,13 @@ bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
 }
 
 void DefaultPolicy::schedule_graph_labeling(
-    const Kernel &kernel, const GraphLabelingSliceResult &result, uint64_t effort) {
+    const Kernel &kernel, const GraphLabelingSliceResult &result) {
+  // A run that ends without a model exhausted its owner dose: fruitless.
+  // An interrupted run defers the verdict.
   auto &d = graph_labeling_diagnostics_;
-  ++d.slices;
-  const bool fruitful =
-      result.useful_hint || result.status == GraphLabelingSliceStatus::Sat;
-  const bool unfinished = result.status == GraphLabelingSliceStatus::Pending ||
-                          result.status == GraphLabelingSliceStatus::Interrupted;
-  if (fruitful) ++d.useful_hints;
-  if (unfinished) ++d.pending_slices;
-  if (result.status == GraphLabelingSliceStatus::TrajectoryComplete)
-    ++d.completed_trajectories;
-  // A slice cut by its effort limit without output defers the verdict.
-  if (fruitful || !unfinished) {
+  ++d.runs;
+  const bool fruitful = result.status == GraphLabelingSliceStatus::Sat;
+  if (result.status != GraphLabelingSliceStatus::Interrupted) {
     judge_root_service_run(graph_labeling_schedule_, fruitful);
     ++(fruitful ? d.fruitful_runs : d.fruitless_runs);
   }
@@ -4416,8 +4410,32 @@ void DefaultPolicy::schedule_graph_labeling(
   graph_labeling_schedule_.last_ticks = search_ticks(kernel);
   d.run_conflict_limit = graph_labeling_schedule_.next_conflicts;
   d.delay_current = graph_labeling_schedule_.delay_current;
-  d.run_effort_last = effort;
-  d.run_effort_total = saturated_sum(d.run_effort_total, effort);
+}
+
+GraphLabelingSliceResult DefaultPolicy::run_graph_labeling(Kernel &kernel) {
+  // The run dose follows the owner: LymphoSAT's dispatcher runs its matched
+  // antibandwidth solver to completion before the CDCL fallback
+  // (winners/lymphosat-sc2026/green/lymphosat/src/solver/core/main.cpp,
+  // solvers/antibandwidth/solver/meta.json). A run continues the trajectory
+  // slice by slice, each within its serialized stage dose, until it
+  // completes, finds a model or is interrupted.
+  GraphLabelingSliceResult result;
+  bool sliced = false;
+  for (;;) {
+    const GraphLabelingSliceResult slice = service_graph_labeling(kernel);
+    if (sliced && slice.status == GraphLabelingSliceStatus::NoStructure) break;
+    result = slice;
+    sliced = true;
+    if (result.status == GraphLabelingSliceStatus::Sat) break;
+    (void)install_graph_labeling_hint(kernel, result);
+    if (result.status != GraphLabelingSliceStatus::Pending) break;
+    if (kernel_terminating(kernel)) {
+      result.status = GraphLabelingSliceStatus::Interrupted;
+      break;
+    }
+  }
+  if (sliced) schedule_graph_labeling(kernel, result);
+  return result;
 }
 
 GraphLabelingAuthenticationResult
@@ -4465,22 +4483,24 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
   return result;
 }
 
-GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel,
-                                                              uint64_t effort) {
+GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
   GraphLabelingSliceResult result;
   if (!config_.graph_labeling_model.enabled ||
       !kernel.graph_labeling_session.authenticated() || kernel.level ||
       !graph_labeling_model_guard(kernel))
     return result;
-  // Run effort: the SET_EFFORT_LIMIT share, within the profile's
-  // serialized Window continuation dose and any caller budget.
+  // One slice: the profile's serialized Window continuation dose (other
+  // stages are bounded by their own stage work), within any caller budget.
   const uint64_t suggested =
       kernel.graph_labeling_session.recommended_continuation_work();
-  uint64_t allowance = suggested ? std::min(effort, suggested) : effort;
-  if (kernel_has_work_budget(kernel))
-    allowance = std::min(allowance, kernel.work_budget);
+  const uint64_t allowance = kernel_has_work_budget(kernel)
+      ? std::min(kernel.work_budget, suggested ? suggested : kernel.work_budget)
+      : suggested;
   strategy::ScopedRuleWorkBudget work_budget(
-      kernel, strategy::RuleWorkBudget{strategy::RuleWorkBudgetMode::Bounded, allowance});
+      kernel, suggested
+                  ? strategy::RuleWorkBudget{
+                        strategy::RuleWorkBudgetMode::Bounded, allowance}
+                  : strategy::RuleWorkBudget{});
   const strategy::GuidanceOutcomeSnapshot before(kernel);
   result = execution::complete_action(
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,
@@ -4503,7 +4523,15 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel,
         feedback.invocation.status = before.refine(kernel, out.result, feedback.invocation.status);
         return feedback;
       }).slice;
-  schedule_graph_labeling(kernel, result, allowance);
+  auto &d = graph_labeling_diagnostics_;
+  ++d.slices;
+  if (result.useful_hint || result.status == GraphLabelingSliceStatus::Sat)
+    ++d.useful_hints;
+  if (result.status == GraphLabelingSliceStatus::Pending ||
+      result.status == GraphLabelingSliceStatus::Interrupted)
+    ++d.pending_slices;
+  if (result.status == GraphLabelingSliceStatus::TrajectoryComplete)
+    ++d.completed_trajectories;
   return result;
 }
 
@@ -5176,11 +5204,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.graph_labeling_model.enabled &&
       k.graph_labeling_session.authenticated()) {
-    const auto graph = service_graph_labeling(k, root_service_effort(
-        k, graph_labeling_schedule_, config_.rephase.walk_permille));
+    const auto graph = run_graph_labeling(k);
     if (graph.status == GraphLabelingSliceStatus::Sat)
       return finish(10);
-    (void)install_graph_labeling_hint(k, graph);
   }
   presearch_ticks->leave();
   presearch_ticks.reset();
@@ -5555,11 +5581,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (affine_candidate && affine_restart_service(k) == ApplyResult::Unsat)
           return finish(20);
         if (graph_labeling_due(k)) {
-          const auto graph = service_graph_labeling(k, root_service_effort(
-              k, graph_labeling_schedule_, config_.rephase.walk_permille));
+          const auto graph = run_graph_labeling(k);
           if (graph.status == GraphLabelingSliceStatus::Sat)
             return finish(10);
-          (void)install_graph_labeling_hint(k, graph);
         }
       }
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
