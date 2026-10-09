@@ -327,7 +327,7 @@ DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
 AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
 it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
 suppressed admission was rejected, so the working policy has no MAB branch.
-Startup FastEliminate runs whenever it is enabled; structured-root progress, including root units from certified symmetry breaking, never suppresses it ([snw attribution](../benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md)). `fastel_root_suppressed` remains as a producer-zero compatibility counter.
+**FastEliminate after structured roots (accepted deviation).** When structured symmetry breaking fixes a root (`default_should_run_fast_elimination_after_structured`), startup FastEliminate is skipped and counted in `fastel_root_suppressed`; clause-only structured progress composes with it. Kissat-sc2024 always runs startup fast elimination, while Satsuma's pipeline hands its output to a Kissat whose `fastel` defaults to 0. User decision 2026-10-09 reverses the earlier never-suppress decision ([snw attribution](../benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md)): with the guard, c1 passed B28+C5 and Rank1–50 outright and verified noL-11-10 in 42.7 s, which never-suppress loses at 5,000 s, while snw_16_9_CCSpre stays lost either way. Remove when a general trajectory explanation makes never-suppress pass the same gates.
 ## 10. Reorder
 
 Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). Its target, maximum clause size, clause-decay, binary weight, and
