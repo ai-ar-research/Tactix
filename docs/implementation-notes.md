@@ -393,9 +393,15 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   tiers (the shared boundaries Reduce, Vivify bands and the likely-kept filter read); each BVE pass installs its growth bound;
   a Factor dose installs composite matching and the dose's end clears it. Clients issue them through
   `tactix_install_parameters`/`tactix_install_material_settings`. Rule-state resets are not profiles and stay native: the
-  BVE retry refill (gap-plan step 5, BVE ordering profile), the per-round SubsumeForward/Strengthen completeness reset (step 5,
-  slot invocations), and the per-solve graph-labeling session clear, `unflushed_root` and input-binary-order release (step 4
-  support vocabulary). The OTFS retier pose stays inside ConflictAnalysis until step 6.
+  BVE retry refill (gap-plan step 5, BVE ordering profile) and the per-round SubsumeForward/Strengthen completeness reset (step 5,
+  slot invocations). The OTFS retier pose stays inside ConflictAnalysis until step 6.
+- DefaultPolicy's support transactions run shared requests that `tactix_support` exposes
+  ([controller interface](controller-interface.md)); the per-solve graph-labeling reset, input-binary-order release and root-prefix
+  consumption, and the presearch and structured-root execution contexts, are recorded supports. Deviations: inprocessing
+  phase entry/exit (context, watch disconnect/reconnect, occurrence session, Factor selection, sparse resume) remains a native
+  bracket until gap-plan step 4b; the Strengthen forward closure until step 5; a warm-up picked by a caller-installed branching
+  policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
+  `complete_profile_mode` is enabled.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime
 review](../benchmarks/reports/2026-09-07-runtime-review.md); the pre-compaction text is recoverable from Git commit `96e894c`.

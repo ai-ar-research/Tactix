@@ -17,6 +17,10 @@ struct SparseCollectRequest {
 struct CompactVariablesRequest {
   bool fold_fixed = false;
 };
+// Public support flags (TACTIX_COMPACT_*): fold root-fixed variables, and
+// republish the random branching order after a compaction.
+inline constexpr uint64_t COMPACT_FOLD_FIXED = 1;
+inline constexpr uint64_t COMPACT_PUBLISH_RANDOM_ORDER = 2;
 struct CollectGarbageRequest {
   Ref watch_start = 0;
   bool sparse_collection = false;

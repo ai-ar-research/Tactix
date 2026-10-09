@@ -66,8 +66,8 @@ POLICY_BINDINGS = {
         (ROOT_EXECUTION, r"if \(request\.charge_search_ticks\) k\.inprocessing = false"),
         (ROOT_EXECUTION, r"k\.inprocessing = inprocessing"),
         (POLICY[0], r"execution::ExecutionScope<execution::ExecutionContext::Inprocessing>"),
-        (EXECUTION_SCOPE, r"kernel_\.inprocessing = true"),
-        (EXECUTION_SCOPE, r"kernel_\.inprocessing = previous_inprocessing_"),
+        (EXECUTION_SCOPE, r"k\.inprocessing = true"),
+        (EXECUTION_SCOPE, r"k\.inprocessing = previous\.inprocessing"),
     ],
     "work_budget": [
         (POLICY[0], r"execution::WorkSettingsRequest\{\s*handed,"),

@@ -53,10 +53,15 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    `tactix_install_parameters`/`tactix_install_material_settings`, and DefaultPolicy's
    classification, tier-pose, BVE-bound and Factor-composite writes become typed installs
    (ratchet internal entries 14 → 12; DefaultPolicy and controller byte-identical to c2.3; full
-   Debug 356/356). The public replay now applies every install; its strict prefix still stops at the
-   first `MaterializeColdState`. Pending before push: §8.4 default gates and the §8.2 fuzz legs
-   for Steps 1–3. Next: Step 4 support vocabulary together with replay of the structured-root
-   online steps, then Step 6.
+   Debug 356/356). Step 4a is committed
+   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step4/README.md)): additive
+   `tactix_support` exposes every support transaction DefaultPolicy composes except the
+   inprocessing phase bracket, the per-solve resets and execution contexts become recorded supports,
+   and the public replay runs the structured-root online steps through `tactix_online_*` with H equal
+   after all 198 of them (the default-profile streams replay to the end). Its identity and full-Debug
+   validation is recorded in the report. Pending before push: §8.4 default gates and the §8.2 fuzz
+   legs for Steps 1–4a. Next: Step 4b (public phase entry/exit, which unblocks the search profiles
+   up to their first `ConflictAnalysis`), then Step 6.
 
 ## Live work
 

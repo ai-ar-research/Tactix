@@ -346,6 +346,92 @@ inline bool encode_one(const strategy::AffineModelParameters &p, Encoded &e) {
   return true;
 }
 
+// The graph-symmetry block of an SR profile. Explicit ENABLE/DISABLE and
+// offset enum values make the C form exact; zero-means-default fields with a
+// typed zero have no C form.
+inline bool encode_graph_symmetry(const GraphSymmetryParameters &g,
+                                  tactix_online_sr_parameters &c) {
+  if (!g.schreier_domain_limit || !g.error_bound || !g.binary_graph_density_permille)
+    return false;
+  c.maximum_graph_vertices = g.maximum_graph_vertices;
+  c.maximum_graph_edges = g.maximum_graph_edges;
+  c.maximum_symmetry_generators = g.maximum_generators;
+  c.symmetry_backend_search_budget = g.backend_search_budget;
+  c.symmetry_backend_support_budget = g.backend_support_budget;
+  c.symmetry_backend_component_size_limit = g.backend_component_size_limit;
+  c.maximum_symmetry_fixing_instances = g.maximum_fixing_instances;
+  c.maximum_symmetry_generator_instances_per_pass = g.maximum_generator_instances_per_pass;
+  c.maximum_symmetry_group_ticks = g.maximum_group_ticks;
+  c.symmetry_chain_planning_tick_limit = g.chain_planning_tick_limit;
+  c.symmetry_schreier_domain_limit = g.schreier_domain_limit;
+  c.symmetry_seed = g.seed;
+  c.symmetry_error_bound = g.error_bound;
+  c.symmetry_fixing_mode = static_cast<int>(g.fixing_mode);
+  c.symmetry_generator_order = static_cast<int>(g.generator_order);
+  c.symmetry_clause_order = static_cast<int>(g.clause_order);
+  c.symmetry_literal_order = static_cast<int>(g.literal_order);
+  c.symmetry_clause_scope = g.clause_scope == SymmetryClauseScope::All
+                                ? TACTIX_ONLINE_SYMMETRY_CLAUSES_ALL
+                                : TACTIX_ONLINE_SYMMETRY_CLAUSES_UNIQUE_LITERALS;
+  c.symmetry_pair_orientation = static_cast<int>(g.pair_orientation);
+  c.symmetry_binary_graph_mode = static_cast<int>(g.binary_graph_mode) + 1;
+  c.symmetry_binary_graph_density_permille = g.binary_graph_density_permille;
+  c.symmetry_clause_selection = static_cast<int>(g.clause_selection) + 1;
+  c.symmetry_chain_mode = static_cast<int>(g.chain_mode) + 1;
+  c.symmetry_base_selection = static_cast<int>(g.base_selection) + 1;
+  c.symmetry_cut_point = static_cast<int>(g.cut_point) + 1;
+  c.symmetry_nonforcing_cut_admission = static_cast<int>(g.nonforcing_cut_admission) + 1;
+  c.symmetry_structured_scope = static_cast<int>(g.structured_scope) + 1;
+  c.symmetry_negation_fixing_first_mode = setting(g.negation_fixing_first);
+  c.symmetry_first_literal_fix_anchor_mode = setting(g.first_literal_fix_anchor);
+  c.symmetry_direct_generator_involutions_mode = setting(g.direct_generator_involutions_only);
+  c.symmetry_decompose_mode = setting(g.decompose);
+  c.symmetry_prefer_depth_first_mode = setting(g.prefer_depth_first);
+  c.symmetry_strong_certification_mode = setting(g.strong_certification);
+  c.symmetry_pointwise_root_stabilizer_mode = setting(g.pointwise_root_stabilizer);
+  c.symmetry_factor_support_components_mode = setting(g.factor_support_components);
+  c.symmetry_preserve_detector_order_mode = setting(g.preserve_detector_order);
+  c.symmetry_use_structured_generators_mode = setting(g.use_structured_generators);
+  c.symmetry_stabilize_structured_variables_mode =
+      setting(g.stabilize_structured_variables);
+  return true;
+}
+
+// An SR profile in complete-profile mode: every orbitopal, general and graph
+// field is read whatever the producer, so the C form is exact.
+inline bool encode_one(const SubstitutionRedundancyParameters &p, Encoded &e) {
+  auto &c = e.parameters.value.substitution_redundancy;
+  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  if (!p.minimum_orbitopal_clique_columns || !p.orbitopal_base_probe_factor)
+    return false; // zero selects the typed default in C
+  c.complete_profile_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  c.maximum_validation_ticks = p.maximum_validation_ticks;
+  c.producer = static_cast<int>(p.producer);
+  c.orbitopal_orientation = static_cast<int>(p.orbitopal_orientation);
+  c.orbitopal_column_order = static_cast<int>(p.orbitopal_column_order);
+  c.orbitopal_completion = static_cast<int>(p.orbitopal_completion);
+  c.orbitopal_discovery_order = static_cast<int>(p.orbitopal_discovery_order);
+  c.orbitopal_row_orbit_source = static_cast<int>(p.orbitopal_row_orbit_source);
+  c.minimum_orbitopal_rows = p.minimum_orbitopal_rows;
+  c.minimum_orbitopal_columns = p.minimum_orbitopal_columns;
+  c.maximum_orbitopal_matrices = p.maximum_orbitopal_matrices;
+  c.maximum_orbitopal_instances = p.maximum_orbitopal_instances;
+  c.minimum_orbitopal_clique_columns = p.minimum_orbitopal_clique_columns;
+  c.maximum_orbitopal_clique_vertices = p.maximum_orbitopal_clique_vertices;
+  c.maximum_orbitopal_clique_ticks = p.maximum_orbitopal_clique_ticks;
+  c.maximum_orbitopal_product_states = p.maximum_orbitopal_product_states;
+  c.orbitopal_unique_literal_amo_mode = setting(p.complete_unique_literal_amos);
+  c.orbitopal_generator_fallback_mode = setting(p.orbitopal_generator_fallback);
+  c.orbitopal_refinement_mode = setting(p.maximum_orbitopal_refinement_orbits != 0);
+  c.maximum_orbitopal_refinement_orbits = p.maximum_orbitopal_refinement_orbits;
+  c.orbitopal_progress_feedback_mode = setting(p.orbitopal_progress_feedback);
+  c.orbitopal_base_probe_filter_mode = setting(p.orbitopal_base_probe_filter);
+  c.orbitopal_base_probe_factor = p.orbitopal_base_probe_factor;
+  c.maximum_detection_ticks = p.maximum_detection_ticks;
+  c.maximum_general_candidates_per_advance = p.maximum_general_candidates_per_advance;
+  return encode_graph_symmetry(p.graph_symmetry, c);
+}
+
 inline bool encode(const strategy::InprocessParameters &parameters, Encoded &e) {
   e.parameters = {};
   return std::visit([&](const auto &p) { return encode_one(p, e); }, parameters);

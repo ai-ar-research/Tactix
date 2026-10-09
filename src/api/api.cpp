@@ -31,8 +31,15 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/execution_scope.hpp"
+#include "strategy/guidance_execution.hpp"
+#include "strategy/heuristic_execution.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/parameter_execution.hpp"
 #include "strategy/publication_execution.hpp"
+#include "strategy/reduction_execution.hpp"
+#include "strategy/representation_execution.hpp"
+#include "strategy/root_execution.hpp"
 #include "strategy/work_execution.hpp"
 #include "policies/rule_publication.hpp"
 
@@ -77,6 +84,9 @@ struct tactix_solver {
   // Additive and lazy: ordinary tactix_solve sessions retain the pre-online
   // object layout's allocation behavior and never construct program vectors.
   std::unique_ptr<strategy::OnlineInprocessExecutor> online;
+  // Execution contexts entered through tactix_support, innermost last.
+  std::vector<std::pair<execution::ExecutionContext,
+                        execution::ExecutionContextState>> contexts;
   tactix_solver() : direct_php_action_session(kernel) {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
@@ -111,6 +121,11 @@ namespace tactix::api_detail {
 Kernel &kernel_for_fixed_testing(void *opaque) {
   assert(opaque);
   return static_cast<::tactix_solver *>(opaque)->kernel;
+}
+const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *opaque) {
+  assert(opaque);
+  const auto &online = static_cast<::tactix_solver *>(opaque)->online;
+  return online ? &online->program() : nullptr;
 }
 }
 
@@ -416,6 +431,98 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
   if (p.symmetry_first_literal_fix_anchor_mode != TACTIX_ONLINE_SETTING_INHERIT)
     graph.first_literal_fix_anchor =
         p.symmetry_first_literal_fix_anchor_mode == TACTIX_ONLINE_SETTING_ENABLE;
+  return true;
+}
+
+// The orbitopal producer's fields of an SR profile, validated and converted.
+bool online_orbitopal_parameters(const tactix_online_sr_parameters &p,
+                                 SubstitutionRedundancyParameters &sr) {
+  if (p.orbitopal_orientation < TACTIX_ONLINE_ORBITOPAL_ROWS ||
+      p.orbitopal_orientation > TACTIX_ONLINE_ORBITOPAL_BOTH ||
+      p.orbitopal_column_order <
+          TACTIX_ONLINE_ORBITOPAL_ORDER_CANONICAL ||
+      p.orbitopal_column_order >
+          TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_BOUNDED_GREEDY_CLIQUE ||
+      p.orbitopal_completion <
+          TACTIX_ONLINE_ORBITOPAL_COMPLETION_MATRIX_ONLY ||
+      p.orbitopal_completion >
+          TACTIX_ONLINE_ORBITOPAL_COMPLETION_INDIVIDUALIZED_GRAPH ||
+      p.orbitopal_discovery_order <
+          TACTIX_ONLINE_ORBITOPAL_DISCOVERY_REFINEMENT_THEN_UNIQUE_LITERAL ||
+      p.orbitopal_discovery_order >
+          TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_ONLY ||
+      p.orbitopal_row_orbit_source <
+          TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_DETECTED_GENERATORS ||
+      p.orbitopal_row_orbit_source >
+          TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_REFINEMENT_CELLS ||
+      p.orbitopal_unique_literal_amo_mode <
+          TACTIX_ONLINE_SETTING_INHERIT ||
+      p.orbitopal_unique_literal_amo_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+      p.orbitopal_generator_fallback_mode <
+          TACTIX_ONLINE_SETTING_INHERIT ||
+      p.orbitopal_generator_fallback_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+      p.orbitopal_refinement_mode < TACTIX_ONLINE_SETTING_INHERIT ||
+      p.orbitopal_refinement_mode > TACTIX_ONLINE_SETTING_ENABLE ||
+      p.orbitopal_progress_feedback_mode <
+          TACTIX_ONLINE_SETTING_INHERIT ||
+      p.orbitopal_progress_feedback_mode >
+          TACTIX_ONLINE_SETTING_ENABLE ||
+      p.orbitopal_base_probe_filter_mode <
+          TACTIX_ONLINE_SETTING_INHERIT ||
+      p.orbitopal_base_probe_filter_mode > TACTIX_ONLINE_SETTING_ENABLE)
+    return false;
+  sr.orbitopal_orientation =
+      static_cast<OrbitopalOrientation>(p.orbitopal_orientation);
+  sr.orbitopal_column_order =
+      static_cast<OrbitopalColumnOrder>(p.orbitopal_column_order);
+  sr.orbitopal_completion =
+      static_cast<OrbitopalCompletion>(p.orbitopal_completion);
+  sr.orbitopal_discovery_order =
+      static_cast<OrbitopalDiscoveryOrder>(p.orbitopal_discovery_order);
+  sr.orbitopal_row_orbit_source =
+      static_cast<OrbitopalRowOrbitSource>(p.orbitopal_row_orbit_source);
+  sr.minimum_orbitopal_rows = p.minimum_orbitopal_rows;
+  sr.minimum_orbitopal_columns = p.minimum_orbitopal_columns;
+  sr.maximum_orbitopal_matrices = p.maximum_orbitopal_matrices;
+  sr.maximum_orbitopal_instances = p.maximum_orbitopal_instances;
+  sr.minimum_orbitopal_clique_columns =
+      p.minimum_orbitopal_clique_columns
+          ? p.minimum_orbitopal_clique_columns
+          : sr.minimum_orbitopal_clique_columns;
+  sr.maximum_orbitopal_clique_vertices =
+      p.maximum_orbitopal_clique_vertices;
+  sr.maximum_orbitopal_clique_ticks = p.maximum_orbitopal_clique_ticks;
+  sr.maximum_orbitopal_product_states =
+      p.maximum_orbitopal_product_states;
+  if (p.orbitopal_unique_literal_amo_mode !=
+      TACTIX_ONLINE_SETTING_INHERIT)
+    sr.complete_unique_literal_amos =
+        p.orbitopal_unique_literal_amo_mode ==
+        TACTIX_ONLINE_SETTING_ENABLE;
+  if (p.orbitopal_generator_fallback_mode !=
+      TACTIX_ONLINE_SETTING_INHERIT)
+    sr.orbitopal_generator_fallback =
+        p.orbitopal_generator_fallback_mode ==
+        TACTIX_ONLINE_SETTING_ENABLE;
+  if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_DISABLE)
+    sr.maximum_orbitopal_refinement_orbits = 0;
+  else if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_ENABLE)
+    sr.maximum_orbitopal_refinement_orbits =
+        p.maximum_orbitopal_refinement_orbits;
+  if (p.orbitopal_progress_feedback_mode !=
+      TACTIX_ONLINE_SETTING_INHERIT)
+    sr.orbitopal_progress_feedback =
+        p.orbitopal_progress_feedback_mode ==
+        TACTIX_ONLINE_SETTING_ENABLE;
+  if (p.orbitopal_base_probe_filter_mode !=
+      TACTIX_ONLINE_SETTING_INHERIT)
+    sr.orbitopal_base_probe_filter =
+        p.orbitopal_base_probe_filter_mode ==
+        TACTIX_ONLINE_SETTING_ENABLE;
+  sr.orbitopal_base_probe_factor =
+      p.orbitopal_base_probe_factor
+          ? p.orbitopal_base_probe_factor
+          : sr.orbitopal_base_probe_factor;
   return true;
 }
 
@@ -1109,93 +1216,20 @@ bool online_parameters(const tactix_online_parameters &source,
         return false;
       sr.producer = legacy;
     }
-    if (sr.producer == SubstitutionRedundancyProducer::Orbitopal) {
-      if (p.orbitopal_orientation < TACTIX_ONLINE_ORBITOPAL_ROWS ||
-          p.orbitopal_orientation > TACTIX_ONLINE_ORBITOPAL_BOTH ||
-          p.orbitopal_column_order <
-              TACTIX_ONLINE_ORBITOPAL_ORDER_CANONICAL ||
-          p.orbitopal_column_order >
-              TACTIX_ONLINE_ORBITOPAL_ORDER_COOCCURRENCE_BOUNDED_GREEDY_CLIQUE ||
-          p.orbitopal_completion <
-              TACTIX_ONLINE_ORBITOPAL_COMPLETION_MATRIX_ONLY ||
-          p.orbitopal_completion >
-              TACTIX_ONLINE_ORBITOPAL_COMPLETION_INDIVIDUALIZED_GRAPH ||
-          p.orbitopal_discovery_order <
-              TACTIX_ONLINE_ORBITOPAL_DISCOVERY_REFINEMENT_THEN_UNIQUE_LITERAL ||
-          p.orbitopal_discovery_order >
-              TACTIX_ONLINE_ORBITOPAL_DISCOVERY_UNIQUE_LITERAL_ONLY ||
-          p.orbitopal_row_orbit_source <
-              TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_DETECTED_GENERATORS ||
-          p.orbitopal_row_orbit_source >
-              TACTIX_ONLINE_ORBITOPAL_ROW_ORBITS_REFINEMENT_CELLS ||
-          p.orbitopal_unique_literal_amo_mode <
-              TACTIX_ONLINE_SETTING_INHERIT ||
-          p.orbitopal_unique_literal_amo_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-          p.orbitopal_generator_fallback_mode <
-              TACTIX_ONLINE_SETTING_INHERIT ||
-          p.orbitopal_generator_fallback_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-          p.orbitopal_refinement_mode < TACTIX_ONLINE_SETTING_INHERIT ||
-          p.orbitopal_refinement_mode > TACTIX_ONLINE_SETTING_ENABLE ||
-          p.orbitopal_progress_feedback_mode <
-              TACTIX_ONLINE_SETTING_INHERIT ||
-          p.orbitopal_progress_feedback_mode >
-              TACTIX_ONLINE_SETTING_ENABLE ||
-          p.orbitopal_base_probe_filter_mode <
-              TACTIX_ONLINE_SETTING_INHERIT ||
-          p.orbitopal_base_probe_filter_mode > TACTIX_ONLINE_SETTING_ENABLE)
+    if (p.complete_profile_mode < TACTIX_ONLINE_SETTING_INHERIT ||
+        p.complete_profile_mode > TACTIX_ONLINE_SETTING_ENABLE)
+      return false;
+    const bool complete = p.complete_profile_mode == TACTIX_ONLINE_SETTING_ENABLE;
+    if (complete) {
+      if (!online_orbitopal_parameters(p, sr) ||
+          !online_graph_symmetry_parameters(p, sr.graph_symmetry))
         return false;
-      sr.orbitopal_orientation =
-          static_cast<OrbitopalOrientation>(p.orbitopal_orientation);
-      sr.orbitopal_column_order =
-          static_cast<OrbitopalColumnOrder>(p.orbitopal_column_order);
-      sr.orbitopal_completion =
-          static_cast<OrbitopalCompletion>(p.orbitopal_completion);
-      sr.orbitopal_discovery_order =
-          static_cast<OrbitopalDiscoveryOrder>(p.orbitopal_discovery_order);
-      sr.orbitopal_row_orbit_source =
-          static_cast<OrbitopalRowOrbitSource>(p.orbitopal_row_orbit_source);
-      sr.minimum_orbitopal_rows = p.minimum_orbitopal_rows;
-      sr.minimum_orbitopal_columns = p.minimum_orbitopal_columns;
-      sr.maximum_orbitopal_matrices = p.maximum_orbitopal_matrices;
-      sr.maximum_orbitopal_instances = p.maximum_orbitopal_instances;
-      sr.minimum_orbitopal_clique_columns =
-          p.minimum_orbitopal_clique_columns
-              ? p.minimum_orbitopal_clique_columns
-              : sr.minimum_orbitopal_clique_columns;
-      sr.maximum_orbitopal_clique_vertices =
-          p.maximum_orbitopal_clique_vertices;
-      sr.maximum_orbitopal_clique_ticks = p.maximum_orbitopal_clique_ticks;
-      sr.maximum_orbitopal_product_states =
-          p.maximum_orbitopal_product_states;
-      if (p.orbitopal_unique_literal_amo_mode !=
-          TACTIX_ONLINE_SETTING_INHERIT)
-        sr.complete_unique_literal_amos =
-            p.orbitopal_unique_literal_amo_mode ==
-            TACTIX_ONLINE_SETTING_ENABLE;
-      if (p.orbitopal_generator_fallback_mode !=
-          TACTIX_ONLINE_SETTING_INHERIT)
-        sr.orbitopal_generator_fallback =
-            p.orbitopal_generator_fallback_mode ==
-            TACTIX_ONLINE_SETTING_ENABLE;
-      if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_DISABLE)
-        sr.maximum_orbitopal_refinement_orbits = 0;
-      else if (p.orbitopal_refinement_mode == TACTIX_ONLINE_SETTING_ENABLE)
-        sr.maximum_orbitopal_refinement_orbits =
-            p.maximum_orbitopal_refinement_orbits;
-      if (p.orbitopal_progress_feedback_mode !=
-          TACTIX_ONLINE_SETTING_INHERIT)
-        sr.orbitopal_progress_feedback =
-            p.orbitopal_progress_feedback_mode ==
-            TACTIX_ONLINE_SETTING_ENABLE;
-      if (p.orbitopal_base_probe_filter_mode !=
-          TACTIX_ONLINE_SETTING_INHERIT)
-        sr.orbitopal_base_probe_filter =
-            p.orbitopal_base_probe_filter_mode ==
-            TACTIX_ONLINE_SETTING_ENABLE;
-      sr.orbitopal_base_probe_factor =
-          p.orbitopal_base_probe_factor
-              ? p.orbitopal_base_probe_factor
-              : sr.orbitopal_base_probe_factor;
+      sr.maximum_detection_ticks = p.maximum_detection_ticks;
+      sr.maximum_general_candidates_per_advance =
+          p.maximum_general_candidates_per_advance;
+    } else if (sr.producer == SubstitutionRedundancyProducer::Orbitopal) {
+      if (!online_orbitopal_parameters(p, sr))
+        return false;
       sr.maximum_detection_ticks = p.maximum_detection_ticks;
       if (sr.orbitopal_completion ==
               OrbitopalCompletion::IndividualizedGraphCompletion &&
@@ -3333,6 +3367,230 @@ int tactix_install_material_settings(tactix_solver *s, int touch_filter_mode,
   execution::execute_action(s->kernel, execution::MaterialSettingsRequest{
                                            selected(touch), selected(kept)});
   return 0;
+}
+
+namespace {
+
+// Native support records carry these public arguments as their instance.
+static_assert(execution::execution_context_argument(execution::ExecutionContext::Startup) ==
+              TACTIX_CONTEXT_STARTUP);
+static_assert(execution::execution_context_argument(execution::ExecutionContext::Inprocessing) ==
+              TACTIX_CONTEXT_INPROCESSING);
+static_assert(execution::execution_context_argument(execution::ExecutionContext::Speculation) ==
+              TACTIX_CONTEXT_SPECULATION);
+static_assert(execution::root_preparation_argument({true, false}, false) ==
+                  TACTIX_ROOT_PREPARATION_PROBING &&
+              execution::root_preparation_argument({false, false}, true) ==
+                  TACTIX_ROOT_PREPARATION_CAPTURE_TARGET &&
+              execution::root_preparation_argument({false, true}, false) ==
+                  TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX);
+static_assert(execution::COMPACT_FOLD_FIXED == TACTIX_COMPACT_FOLD_FIXED &&
+              execution::COMPACT_PUBLISH_RANDOM_ORDER ==
+                  TACTIX_COMPACT_PUBLISH_RANDOM_ORDER);
+static_assert(static_cast<int>(execution::WarmupPhase::Heuristic) ==
+                  TACTIX_WARMUP_PHASE_HEURISTIC &&
+              static_cast<int>(execution::WarmupPhase::Positive) ==
+                  TACTIX_WARMUP_PHASE_POSITIVE &&
+              static_cast<int>(execution::WarmupPhase::Negative) ==
+                  TACTIX_WARMUP_PHASE_NEGATIVE);
+
+// A quiescent root: no pending conflict, analysis, occurrence session or
+// probing transaction.
+bool support_root(const Kernel &k) {
+  return !k.inconsistent && !k.level && !k.conflict_valid && !k.pending.valid &&
+         !k.dense && !k.probing.recording;
+}
+
+// Roots a support derives reach H as a registry dispatch's would under the
+// session profile.
+void publish_support_roots(tactix_solver *s, size_t begin) {
+  if (s->guidance_publication == TACTIX_GUIDANCE_NATIVE)
+    HeuristicRulePublisher{}.roots(s->kernel, begin);
+}
+
+int support_result(tactix_solver *s, ApplyResult result) {
+  if (result == ApplyResult::Unsat) {
+    s->proof.flush();
+    return 20;
+  }
+  return result == ApplyResult::NoOp ? 1 : 0;
+}
+
+} // namespace
+
+int tactix_support(tactix_solver *s, int support, uint64_t argument) {
+  if (!s)
+    return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  const auto flags = [&](uint64_t allowed) { return !(argument & ~allowed); };
+  int result = -1;
+  switch (support) {
+  case TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE:
+    if (argument)
+      return -1;
+    execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_PREPARATION_RESTART:
+    if (argument > UINT32_MAX || !restart_guard(k))
+      return -1;
+    result = support_result(s, execution::execute_action(
+        k, execution::RestartRequest{static_cast<uint32_t>(argument),
+                                     execution::RestartPurpose::Preparation}));
+    break;
+  case TACTIX_SUPPORT_ROOT_PREPARATION: {
+    if (!flags(TACTIX_ROOT_PREPARATION_PROBING |
+               TACTIX_ROOT_PREPARATION_CAPTURE_TARGET |
+               TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX) ||
+        k.inconsistent || k.pending.valid || k.dense || k.probing.recording)
+      return -1;
+    const ApplyResult prepared = execution::execute_action(
+        k, execution::RootPreparationRequest{
+               (argument & TACTIX_ROOT_PREPARATION_PROBING) != 0,
+               (argument & TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX) != 0},
+        [&] {
+          if (argument & TACTIX_ROOT_PREPARATION_CAPTURE_TARGET)
+            heuristics_update_target_phases(k);
+        },
+        [&](const execution::RestartRequest &request) {
+          return execution::execute_action(k, request);
+        },
+        [&] {
+          const size_t begin = k.trail.size();
+          const uint64_t roots = k.stats.root_assignments;
+          const ApplyResult propagated = propagate_apply(k);
+          if (k.stats.root_assignments != roots)
+            publish_support_roots(s, begin);
+          return propagated;
+        });
+    result = support_result(s, prepared);
+    break;
+  }
+  case TACTIX_SUPPORT_SPARSE_COLLECT: {
+    if (argument || !support_root(k) || !kernel_propagation_fixpoint(k))
+      return -1;
+    // Derived units stay on the propagation queue for the caller's Propagate,
+    // which publishes the roots it assigns.
+    const RootCollectOutcome collected =
+        execution::execute_action(k, execution::SparseCollectRequest{});
+    result = collected == RootCollectOutcome::Refuted ? support_result(s, ApplyResult::Unsat)
+             : collected == RootCollectOutcome::Unit  ? 2
+             : collected == RootCollectOutcome::NoChange ? 1 : 0;
+    break;
+  }
+  case TACTIX_SUPPORT_COMPACT_RANDOM_ORDER:
+    if (argument || !support_root(k) || !k.h)
+      return -1;
+    execution::execute_action(k, execution::CompactRandomOrderRequest{});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_COMPACT_VARIABLES: {
+    if (!flags(TACTIX_COMPACT_FOLD_FIXED | TACTIX_COMPACT_PUBLISH_RANDOM_ORDER) ||
+        !support_root(k))
+      return -1;
+    const bool compacted = execution::execute_action(
+        k, execution::CompactVariablesRequest{(argument & TACTIX_COMPACT_FOLD_FIXED) != 0});
+    if (compacted && (argument & TACTIX_COMPACT_PUBLISH_RANDOM_ORDER))
+      heuristics_compact_random_order_fixed(k);
+    result = compacted ? 0 : 1;
+    break;
+  }
+  case TACTIX_SUPPORT_REDUCTION_PREPARATION:
+    if (argument || !restart_guard(k) || k.pending.valid || k.dense ||
+        k.probing.recording)
+      return -1;
+    execution::execute_action(k, execution::ReductionPreparationRequest{},
+        [&](size_t begin) { publish_support_roots(s, begin); });
+    result = support_result(s, k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok);
+    break;
+  case TACTIX_SUPPORT_COLLECT_GARBAGE:
+    if (!flags(TACTIX_COLLECT_SPARSE | TACTIX_COLLECT_PRESERVE_EAGER) ||
+        !support_root(k) || k.bve_occurrence_count_image)
+      return -1;
+    execution::execute_action(k, execution::CollectGarbageRequest{
+        0, (argument & TACTIX_COLLECT_SPARSE) != 0,
+        (argument & TACTIX_COLLECT_PRESERVE_EAGER) != 0});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_FLUSH_RETIRED_REDUNDANT:
+    if (argument || !support_root(k))
+      return -1;
+    execution::execute_action(k, execution::FlushRetiredRedundantRequest{});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION:
+    if (argument)
+      return -1;
+    execution::execute_action(k, execution::BeginBveDefinitionSessionRequest{});
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_WARMUP: {
+    if (argument > TACTIX_WARMUP_PHASE_NEGATIVE || !support_root(k) || !k.h ||
+        !kernel_propagation_fixpoint(k))
+      return -1;
+    const auto phase = static_cast<execution::WarmupPhase>(argument);
+    const auto warmed = execution::execute_action(k, execution::WarmupRequest{},
+        [&] { return execution::warmup_decision(k, phase); }, [](Lit) {},
+        [](size_t) {});
+    result = warmed.interrupted ? 1 : 0;
+    break;
+  }
+  case TACTIX_SUPPORT_RESEED_GUIDANCE:
+    if (argument || !support_root(k) || k.h != &s->heuristics)
+      return -1;
+    // The session's H is replaced by the one a native policy attaches after
+    // preparing the residual seed (DefaultPolicy's residual handoff).
+    execution::execute_action(k, execution::HeuristicDetachmentRequest{s->heuristics});
+    (void)execution::execute_action(k, execution::ResidualActivationRequest{});
+    {
+      const std::vector<Var> order = k.input_activation_order;
+      s->heuristics = Heuristics{};
+      execution::execute_action(k, execution::HeuristicAttachmentRequest{s->heuristics});
+      execution::execute_action(k, execution::ResidualImportRequest{order});
+    }
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION:
+    if (argument)
+      return -1;
+    result = execution::execute_action(k, execution::ResetGraphLabelingSessionRequest{}) ? 0 : 1;
+    break;
+  case TACTIX_SUPPORT_RELEASE_INPUT_ORDER:
+    if (argument)
+      return -1;
+    result = execution::execute_action(k, execution::ReleaseInputBinaryOrderRequest{}) ? 0 : 1;
+    break;
+  case TACTIX_SUPPORT_CONSUME_ROOT_PREFIX:
+    if (argument)
+      return -1;
+    result = execution::execute_action(k, execution::ConsumeRootPrefixRequest{}) ? 0 : 1;
+    break;
+  case TACTIX_SUPPORT_ENTER_CONTEXT: {
+    if (argument < TACTIX_CONTEXT_STARTUP || argument > TACTIX_CONTEXT_SPECULATION)
+      return -1;
+    const auto context = argument == TACTIX_CONTEXT_STARTUP
+                             ? execution::ExecutionContext::Startup
+                         : argument == TACTIX_CONTEXT_INPROCESSING
+                             ? execution::ExecutionContext::Inprocessing
+                             : execution::ExecutionContext::Speculation;
+    s->contexts.emplace_back(context, execution::enter_execution_context(k, context));
+    return 0; // a context changes no solver state a client observes
+  }
+  case TACTIX_SUPPORT_LEAVE_CONTEXT:
+    if (argument || s->contexts.empty())
+      return -1;
+    execution::leave_execution_context(k, s->contexts.back().first,
+                                       s->contexts.back().second);
+    s->contexts.pop_back();
+    return 0;
+  default:
+    return -1;
+  }
+  if (result == 0 || result == 2 || result == 20)
+    external_state_change(s);
+  kernel_check_invariants(k); // no-op in NDEBUG
+  return result;
 }
 
 int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {

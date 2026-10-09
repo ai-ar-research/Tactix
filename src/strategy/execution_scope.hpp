@@ -33,31 +33,48 @@ enum class ExecutionContext : uint8_t {
   Speculation,  // suppress phase saving without changing work attribution
 };
 
+// The public support argument naming a context (TACTIX_CONTEXT_*).
+constexpr uint64_t execution_context_argument(ExecutionContext context) {
+  return static_cast<uint64_t>(context) + 1;
+}
+
+// The wires a context owns, saved on entry and restored on exit.
+struct ExecutionContextState {
+  bool inprocessing = false;
+  bool phase_saving_suppressed = false;
+};
+
+inline ExecutionContextState enter_execution_context(Kernel &k,
+                                                     ExecutionContext context) {
+  const ExecutionContextState previous{k.inprocessing, k.phase_saving_suppressed};
+  if (context != ExecutionContext::Speculation) k.inprocessing = true;
+  if (context != ExecutionContext::Startup) k.phase_saving_suppressed = true;
+  return previous;
+}
+
+inline void leave_execution_context(Kernel &k, ExecutionContext context,
+                                    const ExecutionContextState &previous) {
+  if (context != ExecutionContext::Startup)
+    k.phase_saving_suppressed = previous.phase_saving_suppressed;
+  if (context != ExecutionContext::Speculation)
+    k.inprocessing = previous.inprocessing;
+}
+
 // Mechanical wires are shared; policies choose the context and scope lifetime.
 // Restore only the fields owned by that context, including nested scopes.
+// Public sessions hold the same transition as an explicit enter/leave pair
+// (tactix_support TACTIX_SUPPORT_ENTER_CONTEXT / LEAVE_CONTEXT).
 template <ExecutionContext Context> class ExecutionScope {
 public:
   explicit ExecutionScope(Kernel &k)
-      : kernel_(k), previous_inprocessing_(k.inprocessing),
-        previous_phase_saving_(k.phase_saving_suppressed) {
-    if constexpr (Context != ExecutionContext::Speculation)
-      kernel_.inprocessing = true;
-    if constexpr (Context != ExecutionContext::Startup)
-      kernel_.phase_saving_suppressed = true;
-  }
-  ~ExecutionScope() {
-    if constexpr (Context != ExecutionContext::Startup)
-      kernel_.phase_saving_suppressed = previous_phase_saving_;
-    if constexpr (Context != ExecutionContext::Speculation)
-      kernel_.inprocessing = previous_inprocessing_;
-  }
+      : kernel_(k), previous_(enter_execution_context(k, Context)) {}
+  ~ExecutionScope() { leave_execution_context(kernel_, Context, previous_); }
   ExecutionScope(const ExecutionScope &) = delete;
   ExecutionScope &operator=(const ExecutionScope &) = delete;
 
 private:
   Kernel &kernel_;
-  bool previous_inprocessing_;
-  bool previous_phase_saving_;
+  ExecutionContextState previous_;
 };
 
 } // namespace tactix::execution

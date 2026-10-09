@@ -190,6 +190,7 @@ public:
   void reset_runtime();
 
   uint64_t revision() const { return revision_; }
+  const OnlineStrategyProgram &program() const { return program_; }
   size_t step_index() const { return step_index_; }
   uint64_t sequence_passes() const { return sequence_passes_; }
   uint64_t step_consumed(StepId) const;

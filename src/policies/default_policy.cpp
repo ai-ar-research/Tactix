@@ -1962,12 +1962,13 @@ ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
   // changing phases. Chronological backtracking can retain out-of-order root
   // assignments that must be rescanned after their transient blockers vanish.
   // Warm-up must not defer those scans until after its first decision.
+  constexpr execution::RootPreparationRequest preparation{false, true};
   return execution::complete_action(completion_, FeedbackKind::Support, "RootPreparation",
-      INSTANCE_CANONICAL, [] {
+      execution::root_preparation_argument(preparation, true), [] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = "probing=0;clear-unflushed-root=1;restart-purpose=preparation";
         return spec;
-      }, [&] { return execution::execute_action(k, execution::RootPreparationRequest{false, true},
+      }, [&] { return execution::execute_action(k, preparation,
       [&] { heuristics_update_target_phases(k); },
       [&](const execution::RestartRequest &request) {
         return default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
@@ -2133,6 +2134,50 @@ using InprocessScope =
 // phase saving unchanged outside the actual Probe pipeline.
 using PreSearchTickScope =
     execution::ExecutionScope<execution::ExecutionContext::Startup>;
+
+// An execution context held across a span of actions. Entry and an explicit
+// leave are the public ENTER_CONTEXT / LEAVE_CONTEXT supports; an early exit
+// after the feedback session has finished restores the wires unrecorded.
+template <execution::ExecutionContext Context> class RecordedExecutionContext {
+public:
+  RecordedExecutionContext(Kernel &k, PolicyCompletion *completion)
+      : kernel_(k), completion_(completion) {
+    (void)execution::complete_action(completion_, FeedbackKind::Support,
+        "EnterExecutionContext", execution::execution_context_argument(Context), [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = description();
+          return spec;
+        }, [&] {
+          scope_.emplace(kernel_);
+          return ApplyResult::Ok;
+        });
+  }
+  void leave() {
+    if (!scope_) return;
+    (void)execution::complete_action(completion_, FeedbackKind::Support,
+        "LeaveExecutionContext", execution::execution_context_argument(Context), [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = description();
+          return spec;
+        }, [&] {
+          scope_.reset();
+          return ApplyResult::Ok;
+        });
+  }
+  RecordedExecutionContext(const RecordedExecutionContext &) = delete;
+  RecordedExecutionContext &operator=(const RecordedExecutionContext &) = delete;
+
+private:
+  static const char *description() {
+    return Context == execution::ExecutionContext::Startup ? "context=startup"
+           : Context == execution::ExecutionContext::Inprocessing
+               ? "context=inprocessing"
+               : "context=speculation";
+  }
+  Kernel &kernel_;
+  PolicyCompletion *completion_;
+  std::optional<execution::ExecutionScope<Context>> scope_;
+};
 
 uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
 uint64_t meter_backbone(const Kernel &k) { return k.stats.backbone_ticks; }
@@ -3240,6 +3285,16 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
   }
   const Var v = heuristics_next_active_decision_var(k);
   return decide_lit(k, v);
+}
+
+int8_t DefaultBranching::forced_phase(const Kernel &k) const {
+  static const DefaultStrategyConfig::Branching defaults;
+  const auto &cfg = config_ ? *config_ : defaults;
+  if (k.h->stable || !cfg.focused_phase_switch_span ||
+      cfg.focused_phase_pattern.empty())
+    return 0;
+  const uint64_t epoch = k.stats.switched / cfg.focused_phase_switch_span;
+  return cfg.focused_phase_pattern[epoch % cfg.focused_phase_pattern.size()];
 }
 
 Lit DefaultBranching::decide_lit(const Kernel &k, Var v) {
@@ -4524,7 +4579,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_tracking_limit_=0;
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
-  k.graph_labeling_session.clear();
+  (void)execution::complete_action(completion_, FeedbackKind::Support,
+      "ResetGraphLabelingSession", INSTANCE_CANONICAL, [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = "per-solve";
+        return spec;
+      }, [&] {
+        execution::execute_action(k, execution::ResetGraphLabelingSessionRequest{});
+        return ApplyResult::Ok;
+      });
   reset_graph_labeling_schedule(k);
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.chronological_levels = chrono_levels;
@@ -4625,8 +4688,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return verdict;
   };
 
-  std::optional<PreSearchTickScope> presearch_ticks;
-  presearch_ticks.emplace(k);
+  std::optional<RecordedExecutionContext<execution::ExecutionContext::Startup>>
+      presearch_ticks;
+  presearch_ticks.emplace(k, completion_);
 
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
@@ -4916,11 +4980,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "direct_csp_model_end", "unknown");
   }
-  if (k.input_binary_order_captured) {
-    k.input_binary_order.clear();
-    k.input_binary_order.shrink_to_fit();
-    k.input_binary_order_captured = false;
-  }
+  if (k.input_binary_order_captured)
+    (void)execution::complete_action(completion_, FeedbackKind::Support,
+        "ReleaseInputBinaryOrder", INSTANCE_CANONICAL, [] {
+          execution::NativeFeedbackSpec spec;
+          spec.description.description = "after-original-input-opportunities";
+          return spec;
+        }, [&] {
+          execution::execute_action(k, execution::ReleaseInputBinaryOrderRequest{});
+          return ApplyResult::Ok;
+        });
   if (lucky_guard(k)) {
     event_trace.macro(k, "lucky_early_begin");
     k.stats.lucky_early_calls++;
@@ -5097,6 +5166,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
     (void)install_graph_labeling_hint(k, graph);
   }
+  presearch_ticks->leave();
   presearch_ticks.reset();
   // There is no Kissat collection point between late Lucky and search
   // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
@@ -5108,7 +5178,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Preprocessing has consumed the root-unit trail prefix.  Tactix retains
   // those literals for stable IDs/proof witnesses, so only the lifecycle
   // marker is cleared (Kissat physically clears that prefix).
-  k.unflushed_root = 0;
+  (void)execution::complete_action(completion_, FeedbackKind::Support,
+      "ConsumeRootPrefix", INSTANCE_CANONICAL, [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = "before-search";
+        return spec;
+      }, [&] {
+        return execution::execute_action(k, execution::ConsumeRootPrefixRequest{})
+                   ? ApplyResult::Ok : ApplyResult::NoOp;
+      });
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL"))
     for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
@@ -5361,7 +5439,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                   k.unassigned_active));
       if (compact_due)
         (void)execution::complete_action(completion_, FeedbackKind::Support,
-            "CompactVariables", INSTANCE_CANONICAL, [] {
+            "CompactVariables", execution::COMPACT_FOLD_FIXED | execution::COMPACT_PUBLISH_RANDOM_ORDER, [] {
               execution::NativeFeedbackSpec spec;
               spec.description.description = "fold-fixed=1;publish-random-order=1";
               return spec;
@@ -5541,12 +5619,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // trail is then discarded without undoing it.
         if (config_.rephase.walk_warmup) {
           BranchingPolicy &bp = branching ? *branching : default_branching_;
+          // The record's instance is the public WARMUP phase argument when
+          // the default branching picks; another branching has no public form.
+          const int8_t forced = default_branching_.forced_phase(k);
+          const execution::WarmupPhase phase =
+              forced > 0 ? execution::WarmupPhase::Positive
+              : forced < 0 ? execution::WarmupPhase::Negative
+                           : execution::WarmupPhase::Heuristic;
+          const bool default_pick = &bp == &default_branching_;
           (void)execution::complete_action(completion_, FeedbackKind::Support,
-              "Warmup", INSTANCE_CANONICAL, [] {
+              "Warmup", default_pick ? static_cast<uint64_t>(phase) : INSTANCE_CANONICAL,
+              [default_pick] {
                 execution::NativeFeedbackSpec spec;
                 spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
                 spec.description.effort_currency = "ticks";
-                spec.description.description = "native-assignment-phase-warmup";
+                spec.description.description = default_pick
+                    ? "native-assignment-phase-warmup"
+                    : "native-assignment-phase-warmup;pick=installed-branching";
                 return spec;
               }, [&] { return execution::execute_action(k, execution::WarmupRequest{},
               [&] { return bp.pick(k); }, [&](Lit decision) {
@@ -6735,7 +6824,11 @@ int DefaultInprocessScheduler::run_structured_root(
     structured_root.terminal = InvocationStatus::Inapplicable;
     return 0;
   }
-  InprocessScope scope(k);
+  RecordedExecutionContext<execution::ExecutionContext::Inprocessing> scope(k, completion);
+  struct LeaveOnReturn {
+    RecordedExecutionContext<execution::ExecutionContext::Inprocessing> &scope;
+    ~LeaveOnReturn() { scope.leave(); }
+  } leave_on_return{scope};
   const auto hard_discovery_limit =
       config().structured_root_sr_discovery_budget;
   uint64_t progress_window = 0;
@@ -6956,8 +7049,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // still uses ordinary search propagation here. Enter the common simplifier
   // scope only after that boundary so Eliminate credits search ticks and
   // saves phases for any newly exposed root implications.
+  const execution::RootPreparationRequest preparation{group == SlotGroup::Probe, true};
   const ApplyResult root_result = execution::complete_action(completion,
-      FeedbackKind::Support, "RootPreparation", INSTANCE_CANONICAL, [&] {
+      FeedbackKind::Support, "RootPreparation",
+      execution::root_preparation_argument(preparation, group != SlotGroup::Probe), [&] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = std::string("probing=") +
             std::to_string(group == SlotGroup::Probe) + ";clear-unflushed-root=1;purpose=preparation";
@@ -6965,7 +7060,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
         return spec;
       }, [&] { return execution::execute_action(
-      k, execution::RootPreparationRequest{group == SlotGroup::Probe, true},
+      k, preparation,
       [&] {
         // Probe's bracket suppresses target capture; Eliminate retains it.
         if (group != SlotGroup::Probe) heuristics_update_target_phases(k);
