@@ -29,28 +29,11 @@ Parallel work owns disjoint semantic modules and scoped commits. The primary int
 
 Make symmetry discovery/application available at full Restart-to-root boundaries. Policy owns interval, relevant-change admission, scheduling position and effort; legality remains independent of those scheduling choices. An interval becoming due does not interrupt an ordinary partial restart or change configuration there. Charge snapshot/graph construction, detection, witness validation and application. Check cheaply for relevant changes after an unsuccessful attempt; do not repeat whole-formula discovery on unchanged input merely because another restart occurred.
 
-Study positions around other passes because propagation/cleanup may expose symmetry while elimination, substitution, factoring and earlier breaking may obscure it. Initial hypothesis: root propagation, lightweight cleanup, discovery and validated application, propagation, then broader inprocessing. This is a hypothesis to review against the retained startup/reference sequence, not a universal order. Keep discovery and application adjacent; intervening changes
-invalidate or require revalidation of pending candidates. Track relevant change
-kinds rather than treating every mutation as equally informative.
+Study positions around other passes because propagation/cleanup may expose symmetry while elimination, substitution, factoring and earlier breaking may obscure it. Initial hypothesis: root propagation, lightweight cleanup, discovery and validated application, propagation, then broader inprocessing. This is a hypothesis to review against the retained startup/reference sequence, not a universal order. Keep discovery and application adjacent; intervening changes invalidate or require revalidation of pending candidates. Track relevant change kinds rather than treating every mutation as equally informative.
 
-Prefer small propagation-useful units/binaries initially. Reusing structure or
-generators is distinct from fresh discovery and requires valid identity mapping
-and revalidation; old symmetries cannot be assumed valid after transformations.
-Validate SR against the relevant live formula **and checker-retained proof
-database**, including learned clauses and prior symmetry-breaking effects.
-Root level alone is not a soundness argument. Before complete validation, budget
-exhaustion/interruption publishes no formula/proof mutation; an admitted atomic
-commit completes proof/bookkeeping/root closure and records actual overshoot.
+Prefer small propagation-useful units/binaries initially. Reusing structure or generators is distinct from fresh discovery and requires valid identity mapping and revalidation; old symmetries cannot be assumed valid after transformations. Validate SR against the relevant live formula **and checker-retained proof database**, including learned clauses and prior symmetry-breaking effects. Root level alone is not a soundness argument. Before complete validation, budget exhaustion/interruption publishes no formula/proof mutation; an admitted atomic commit completes proof/bookkeeping/root closure and records actual overshoot.
 
-Retain the existing Claude review requirement for a bounded restart-time SR
-schedule/evidence report before implementation or promotion. The new workstream
-permits this investigation now, rather than postponing its design until the old
-57-row gate; it does not waive the standing coverage or preservation gates.
-The review compares later SR off/on with identical rules/seeds on B28+C5 and
-Rank1–40, retaining all 57 Satsuma-owned rows under the standing gates.
-Record discovery cost, effective consequences, downstream search work and proof
-cost. Exact positions, interval values, allowances and cache design are decided
-by that review, with source-backed or derived defaults rather than guessed constants.
+Retain the existing Claude review requirement for a bounded restart-time SR schedule/evidence report before implementation or promotion. The new workstream permits this investigation now, rather than postponing its design until the old 57-row gate; it does not waive the standing coverage or preservation gates. The review compares later SR off/on with identical rules/seeds on B28+C5 and Rank1–40, retaining all 57 Satsuma-owned rows under the standing gates. Record discovery cost, effective consequences, downstream search work and proof cost. Exact positions, interval values, allowances and cache design are decided by that review, with source-backed or derived defaults rather than guessed constants.
 
 ## General constructor guidance and CDCL phases
 
@@ -206,32 +189,8 @@ Demonstrate effective default/random reach for every capability; performance-onl
 
 ## Verification, completion and remaining decisions
 
-The active checkpoint requires at least12 of the fixed44 independently checked
-on one candidate. Subsequent gates require all original36, then all44 including
-the eight MAB-only rows, on a coherent candidate. None of these checkpoints by
-itself proves superiority beyond the saved portfolio.
-Use the saved 5,000-second solve/32-GiB envelope and the historical complete
-14,400-second checker pipeline for comparable target acceptance. Raw UNSAT,
-checker crashes and clean deadline censors do not close a target. Investigate
-the 13 certificate-side misses separately, retaining their frozen classifications.
-Classify WV100/WV2–89 row by row: LymphoSAT-owned rows are checked recovery obligations, while other rows are preservation controls under the standing slowdown/checker rules. Map each mechanism across them and the 44; aggregate similarity cannot hide a lost owned solve. Broader T4 requirements remain distinct.
+The active checkpoint requires at least12 of the fixed44 independently checked on one candidate. Subsequent gates require all original36, then all44 including the eight MAB-only rows, on a coherent candidate. None of these checkpoints by itself proves superiority beyond the saved portfolio. Use the saved 5,000-second solve/32-GiB envelope and the historical complete 14,400-second checker pipeline for comparable target acceptance. Raw UNSAT, checker crashes and clean deadline censors do not close a target. Investigate the 13 certificate-side misses separately, retaining their frozen classifications. Classify WV100/WV2–89 row by row: LymphoSAT-owned rows are checked recovery obligations, while other rows are preservation controls under the standing slowdown/checker rules. Map each mechanism across them and the 44; aggregate similarity cannot hide a lost owned solve. Broader T4 requirements remain distinct.
 
-Every integration increment and cumulative candidate requires continued
-Claude-owned DefaultPolicy/random-policy proof/model fuzz under plan §8.2,
-with effective action reach, negative controls and failures resolved before promotion.
-Require API/eligibility, identity/compaction, repeated actions, interruption,
-allowance/overshoot, stale candidate, phase-memory and replay checks, and full Debug at acceptance.
-For symmetry, include learned/checker-retained clauses and earlier breaking;
-for guidance, test private seeding, saved/best preservation, target supersession,
-fixed/retired/new variables, and unsupported phase profiles without hidden override.
-Keep B28+C5 and Rank1–50 as mandatory regression gates; apply the row-level recovery/preservation split above to WV100/WV2–89. The 44 plus LymphoSAT-owned WV/WV2 rows drive mechanism selection, but no promotion gate is optional;
-rerun all four for behavior-changing integrations, including Boolean constraints,
-auxiliary variables and scheduling changes. Acceptance covers the intended
-enabled DefaultPolicy configuration; passing with a new mechanism disabled
-establishes compatibility only, not its performance acceptance.
-Retain exact ceilings, memory/coverage exceptions and bounded checking from plan §8.4:
-1,800 seconds for the whole pipeline and at most `max(30% of baseline,20s)`
-extra completed check time. This regression exception never verifies a target.
+Every integration increment and cumulative candidate requires continued Claude-owned DefaultPolicy/random-policy proof/model fuzz under plan §8.2, with effective action reach, negative controls and failures resolved before promotion. Require API/eligibility, identity/compaction, repeated actions, interruption, allowance/overshoot, stale candidate, phase-memory and replay checks, and full Debug at acceptance. For symmetry, include learned/checker-retained clauses and earlier breaking; for guidance, test private seeding, saved/best preservation, target supersession, fixed/retired/new variables, and unsupported phase profiles without hidden override. Keep B28+C5 and Rank1–50 as mandatory regression gates; apply the row-level recovery/preservation split above to WV100/WV2–89. The 44 plus LymphoSAT-owned WV/WV2 rows drive mechanism selection, but no promotion gate is optional; rerun all four for behavior-changing integrations, including Boolean constraints, auxiliary variables and scheduling changes. Acceptance covers the intended enabled DefaultPolicy configuration; passing with a new mechanism disabled establishes compatibility only, not its performance acceptance. Retain exact ceilings, memory/coverage exceptions and bounded checking from plan §8.4: 1,800 seconds for the whole pipeline and at most `max(30% of baseline,20s)` extra completed check time. This regression exception never verifies a target.
 
-Future targeted candidate experiments, fuzz and preservation gates follow their skills and the user's experiment authorization; this plan launches none. Do not recreate the baseline campaign. Measure actual work/cost and individual regressions; saved asynchronous timings are not causal speedups.
-Beyond the fixed gaps, evaluate generalization and additional checked solves on union/held-out inputs against the frozen four-arm portfolio, preserving every reference-covered result as the parity floor. Define the broader evaluation protocol and a numerical meaning of "substantially more" before claiming the ultimate objective; do not invent that threshold now. Mechanism and schedule choices follow the attribution review.
+Future targeted candidate experiments, fuzz and preservation gates follow their skills and the user's experiment authorization; this plan launches none. Do not recreate the baseline campaign. Measure actual work/cost and individual regressions; saved asynchronous timings are not causal speedups. Beyond the fixed gaps, evaluate generalization and additional checked solves on union/held-out inputs against the frozen four-arm portfolio, preserving every reference-covered result as the parity floor. Define the broader evaluation protocol and a numerical meaning of "substantially more" before claiming the ultimate objective; do not invent that threshold now. Mechanism and schedule choices follow the attribution review.

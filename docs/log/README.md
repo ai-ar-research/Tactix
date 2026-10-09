@@ -27,3 +27,7 @@ numbers *as measured then*; on conflict, the current truth is `PROGRESS.md` for 
 The [16 September structured-SR excerpt](2026-09-16-structured-sr-progress.md)
 preserves unique early experiment pointers and checkpoint qualifications removed
 from the current resume guide; later AM7 evidence remains in its primary report.
+
+The [9 October compaction archive](2026-10-09-doc-compaction-archive.md)
+preserves verbatim living-document detail removed by that day's `compact-docs`
+pass; the owning documents keep current dispositions and link to it.

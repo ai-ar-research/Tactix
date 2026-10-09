@@ -33,8 +33,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    [record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md). Full Debug job 1761569 pending.
    Cleanup done: graph labeling on by default, trimmed statistics, DefaultPolicy structural Walk seeding
    and the X17 census tool removed; byte-identical to c2.2 on 9 identity rows. Persistent affine search
-   stays (plan §9.5 Persistent XOR) pending a user decision. Next: stale branches/links, doc compaction,
-   then full Tier D on the cleaned candidate.
+   stays (plan §9.5 Persistent XOR) pending a user decision. Doc compaction is done. Next: stale
+   branches/links, then full Tier D on the cleaned candidate.
 1. Baseline reruns (A) 1757931 and (B) 1757933 run under governor 1757996 (600 s; hold
    >750 GB, release <700 GB); (C) follows (A).
 2. Then the full Tactix Tier D run on c2.1: cpu-q, 4 CPUs, 32 GB, 5,000 s solve, 8 h
@@ -58,7 +58,7 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 ## Standing references and operations
 
 - Keep the approved no-MAB baseline `d170b4a5` and [saved five-arm comparison](benchmarks/reports/2026-10-01-tierd-five-arm-terminal-results.md);
-  do not rerun the baseline. Historical accepted gap coverage remains4/44 on its
+  do not rerun the baseline. Historical accepted gap coverage remains 4/44 on its
   [frozen checkpoint](benchmarks/reports/2026-10-07-0e-four-regressions-terminal/README.md),
   not on the current repaired candidate.
 - The noL-free checkpoint's [fourth regression gate](benchmarks/reports/2026-10-07-nol-free-wv2-accepted/README.md)
@@ -67,8 +67,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
   formal full-verification targets remain distinct from regression censors.
 - The latest recorded [Tier-B paired window](benchmarks/runs/20260926-163543-B-am466-split-paired/) predates the no-MAB baseline and is historical diagnostic evidence only.
 - Follow plan §8.1 for storage and Slurm. Quota at the purge: 540 GB; earlier audited
-  obsolete Debug cleanup reclaimed44.57GB allocated. Recheck before builds and
-  clean disposable storage aggressively above700GB. Protect live pins and evidence.
+  obsolete Debug cleanup reclaimed 44.57 GB allocated. Recheck before builds and
+  clean disposable storage aggressively above 700 GB. Protect live pins and evidence.
 - [Andrew's handoff report](report-to-andrew/20261007T224148Z-session-handoff/report.pdf)
   has adjacent TeX; the [documentation cleanup report](report-to-andrew/20261007T225802Z-documentation-cleanup/report.pdf) records this follow-up.
 - Earlier experiment narratives remain in their primary reports and Git. Old
@@ -77,14 +77,11 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Compact living docs: archive the SP-JUMP-1 closure record to
+  [docs/log](docs/log/2026-10-09-doc-compaction-archive.md); reflow and compact other budgeted docs.
 - Remove DefaultPolicy's off-by-default structural Walk seeding and the X17-only census tool.
 - Per-run statistics print the persistent affine-search block and `c handoff` only when enabled or
   nonzero (typical run 227 -> 157 `c` lines; parsed lines unchanged).
 - Graph labeling (Lucky 26/27 schedule) is on by default; plain `--auto-proof` equals c2.2's qualified
   arguments (identity check: 9 rows byte-identical).
 - Restore the startup FastEliminate guard after root-fixing structured symmetry (c2.2).
-- Purge: main's code returns to c2.1; post-c2.1 development removed from the tree.
-- `0268acb59`: qualify c2.1 (13 verified fixed44 closures, all gates and fuzz).
-- `4a22518c8`: accept WV100 snw_16_9_CCSpre as a faithful-port retention exception.
-- `7f1dbc40a`: retain gate rows that solve within the 5,000 s envelope.
-- `b175fb6e5`: require profiling both arms of every slowdown.
