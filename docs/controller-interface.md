@@ -225,14 +225,11 @@ and additive C v13 select full-current-CNF objective `1` and strict-improvement
 admission `1`. One private CSR retains physical clause multiplicity, including
 learned large clauses; preparation and complete search quanta have independent
 allowances. Equal/worse or incomplete admissions install no phases and select no
-fallback. A missing/replaced identity declines rather than changing source. DefaultPolicy keeps
-structural Walk seeding disabled by default until it has an admission rule and
-a preparation allowance distinct from Walk search work. Its opt-in diagnostic
-profile rotates all six producer kinds without a preceding target import;
-seeded Walk leaves its winning full assignment in saved/target and never gets
-followed by an implicit raw target import. The random controller chooses
-seeded/unseeded Walk and target installation independently while retaining the
-configured allowance.
+fallback. A missing/replaced identity declines rather than changing source. DefaultPolicy
+runs only unseeded Walk. Seeded Walk leaves its winning full assignment in
+saved/target and is never followed by an implicit raw target import. The random
+controller chooses seeded/unseeded Walk and target installation independently
+while retaining the configured allowance.
 
 Seed preparation charges the Walk allowance for each ordinary phase slot,
 candidate identity slot and literal evaluated in the ordinary/candidate copies

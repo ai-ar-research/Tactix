@@ -3,7 +3,6 @@
 import importlib.util
 import json
 import pathlib
-import re
 import subprocess
 import sys
 import tempfile
@@ -196,33 +195,12 @@ def main():
         default_records = sorted(pathlib.Path(directory).glob("profile-*.feedback.jsonl"))
         expected_records = {
             f"profile-{profile}-pigeons-{pigeons}.feedback.jsonl"
-            for profile in range(7) for pigeons in (4, 6)
+            for profile in range(6) for pigeons in (4, 6)
         }
         assert {record.name for record in default_records} == expected_records
         for default_path in default_records:
             default_summary = inspector.inspect(default_path)
             assert default_summary["terminal"]["verdict"] in (10, 20)
-        guided_path = pathlib.Path(directory) / "profile-6-pigeons-6.feedback.jsonl"
-        guided_rows = legacy_rows(
-            [json.loads(line) for line in inspector.open_records(guided_path)])
-        guided_actions = [row for row in guided_rows if row["type"] == "action"]
-        imports = 0
-        for action in guided_actions:
-            if action["identity"] != "Walk":
-                continue
-            before = action["before"]["native"]["walk_seed_imports"]
-            after = action["after"]["native"]["walk_seed_imports"]
-            if after == before:
-                continue
-            assert after == before + 1
-            imports += 1
-            invocation = action["native_request"]["invocation"]
-            match = re.search(r"walk2\([^,]+,[^,]+,(\d+),", invocation)
-            assert match
-            assert int(match.group(1)) > 0
-        assert imports > 0
-        assert not any(action["identity"] == "LocalSearchGuidance"
-                       for action in guided_actions)
         with inspector.open_records(default_records[-1]) as source:
             default_rows = legacy_rows([json.loads(line) for line in source])
         native_action = next(i for i, row in enumerate(default_rows)

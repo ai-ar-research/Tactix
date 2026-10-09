@@ -902,13 +902,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   walk_parameters.score_curve = rephase.walk_score_curve;
   if (!walk_parameters.valid() || rephase.rotation.empty())
     return reject("rephase Walk settings are invalid");
-  if (rephase.structural_walk_seed &&
-      rephase.structural_seed_rotation.empty())
-    return reject("structural local-search rotation is empty");
-  for (const strategy::LocalSearchKind kind :
-       rephase.structural_seed_rotation)
-    if (!strategy::valid_local_search_kind(kind))
-      return reject("structural local-search rotation contains an invalid kind");
   for (const DefaultRephaseSlot slot : rephase.rotation)
     if (slot != DefaultRephaseSlot::Best &&
         slot != DefaultRephaseSlot::Walk &&
@@ -1202,8 +1195,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << " rephase.walk_use_branch_seed="
       << rephase.walk_use_branch_seed
       << " rephase.walk_random_seed=" << rephase.walk_random_seed
-      << " rephase.structural_walk_seed="
-      << rephase.structural_walk_seed
       << " rephase.stable_only=" << rephase.stable_only
       << " rephase.late_lucky=" << rephase.late_lucky;
   for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
@@ -1213,9 +1204,6 @@ std::string DefaultStrategyConfig::serialize() const {
   for (size_t i = 0; i < rephase.rotation.size(); ++i)
     out << " rephase.rotation" << i << '='
         << static_cast<unsigned>(rephase.rotation[i]);
-  for (size_t i = 0; i < rephase.structural_seed_rotation.size(); ++i)
-    out << " rephase.structural_seed_rotation" << i << '='
-        << static_cast<unsigned>(rephase.structural_seed_rotation[i]);
   out
       << " reorder.initial_interval=" << reorder.initial_interval
       << " reorder.interval=" << reorder.interval
@@ -2013,7 +2001,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   reluctant.wait = config_.restart.reluctant_period;
   rephase = {};
   rephase.next_conflicts = conflicts + config_.rephase.initial_interval;
-  structural_seed_cursor_ = 0;
   reorder = {};
   reorder.next_conflicts = conflicts + config_.reorder.initial_interval;
   bump_reasons_delay_ = {};
@@ -3854,7 +3841,6 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
          << ':' << default_branching_.randec_rng
          << " bump_delay=" << bump_reasons_delay_.count << ':' << bump_reasons_delay_.current
          << " retier=" << retier_.next_conflicts << ':' << retier_.interval
-         << " structural_seed=" << structural_seed_cursor_
          << " rule-state=" << k.factor_completed << ':' << k.subsume_complete << ':'
          << k.strengthen_complete << ':' << k.sweep_incomplete
          << " material=" << k.touch_filter << ':' << k.touch_redundant
@@ -5501,12 +5487,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return out;
           });
         }
-        // Select an exact retained publication. Walk imports it privately;
-        // constructor advice never overwrites saved/best phases at this boundary.
-        const uint64_t candidate = config_.rephase.structural_walk_seed
-            ? local_search_guidance_select_next(k,
-                config_.rephase.structural_seed_rotation, structural_seed_cursor_)
-            : 0;
         const uint64_t reference = walk_effort_reference(k);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
@@ -5524,20 +5504,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               auto parameters = strategy::WalkParameters::from_kernel(k);
               parameters.step_budget = allowance;
               parameters.random_seed = seed;
-              parameters.seed_candidate = candidate;
+              // DefaultPolicy runs unseeded Walk; seeding is a controller choice.
+              parameters.seed_candidate = 0;
               spec.description.invocation->parameters = std::move(parameters);
               return spec;
-            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed, candidate}); },
+            }, [&] { return execution::execute_action(k, execution::WalkRequest{allowance, seed, 0}); },
             [&](ApplyResult result) {
               auto out = strategy::controller::feedback_outcome(result);
               out.invocation.status = before_walk.refine(k, result, out.invocation.status);
               return out;
             });
-        // Seeded Walk already arbitrates the raw candidate against ordinary
-        // phases on the current CNF.  Its tail installs the winning full
-        // assignment in saved/target.  Reapplying the raw partial candidate
-        // here would discard that refinement in stable CDCL.  Controllers
-        // retain LocalSearchGuidance as an independent explicit action.
       } else {
         const DefaultRephaseSlot effective =
             slot == DefaultRephaseSlot::Walk

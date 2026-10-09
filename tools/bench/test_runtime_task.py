@@ -389,7 +389,7 @@ with tempfile.TemporaryDirectory() as tmp:
             "output": "terminal-controller-counters",
             "retain_full_telemetry": False,
         }
-        arm = {"arguments": ["--controller-families=NaryCspPrefix"]}
+        arm = {"arguments": ["--controller-families=NaryCspEquality"]}
         manifest = {
             "resource_contract": {"solve_timeout": 60},
             "arms": {"tactix": arm},
@@ -401,19 +401,16 @@ with tempfile.TemporaryDirectory() as tmp:
             output.write_text(
                 "c controller-rule AffineConsequence requests=9 applications=9 "
                 "effective=9 exhausted=0 stale=0 interrupted=0 work=9 overshoot=0\n"
-                "c controller-rule NaryCspPrefix requests=0 applications=0 "
+                "c controller-rule NaryCspEquality requests=0 applications=0 "
                 "effective=0 exhausted=0 stale=0 interrupted=0 work=0 overshoot=0\n"
-                "c controller-producer NaryCspPrefix calls=224 work=1138621224 "
+                "c controller-producer NaryCspEquality calls=224 work=1138621224 "
                 "candidates=0 offers=0\n"
                 "c controller-producer AffineConsequence calls=999 work=999 "
                 "candidates=999 offers=999\n"
-                "c controller-producer NaryCspPrefix calls=225 work=1138621225 "
+                "c controller-producer NaryCspEquality calls=225 work=1138621225 "
                 "candidates=0 offers=0\n"
                 "c controller-loop full-restarts=223 partial-restarts=733 "
                 "configuration-changes=214 maximum-root-actions=0\n" +
-                "c nary-csp-census candidate-domains=3 exact-domains=2 "
-                "relation-keys=1 tuples=7 first-decline=no-semantic-candidate "
-                "status=declined complete=1 work=123 offers=0\n" +
                 "".join(f"service Decide {index}\n" for index in range(1000)) +
                 "c decisions   449783 (0 via API)\n"
                 "c conflicts   306345\n"
@@ -423,21 +420,17 @@ with tempfile.TemporaryDirectory() as tmp:
             summary = terminal_counter_summary(
                 output, arm["arguments"], "UNKNOWN")
         self.assertEqual(summary["controller_rules"], {
-            "NaryCspPrefix": {
+            "NaryCspEquality": {
                 "requests": 0, "applications": 0, "effective": 0,
                 "exhausted": 0, "stale": 0, "interrupted": 0,
                 "work": 0, "overshoot": 0,
             }})
-        self.assertEqual(summary["controller_producers"]["NaryCspPrefix"], {
+        self.assertEqual(summary["controller_producers"]["NaryCspEquality"], {
             "calls": 225, "work": 1138621225, "candidates": 0, "offers": 0})
         self.assertNotIn("AffineConsequence", summary["controller_rules"])
         self.assertNotIn("AffineConsequence", summary["controller_producers"])
         self.assertEqual(sum("controller-producer" in line
                              for line in summary["lines"]), 1)
-        self.assertEqual(sum(line.startswith("c nary-csp-census ")
-                             for line in summary["lines"]), 1)
-        self.assertIn("candidate-domains=3", summary["lines"][3])
-        self.assertIn("first-decline=no-semantic-candidate", summary["lines"][3])
         self.assertFalse(summary["full_telemetry_retained"])
         self.assertLess(len(json.dumps(summary).encode()), 4096)
         self.assertFalse(any(line.startswith("service ") for line in summary["lines"]))

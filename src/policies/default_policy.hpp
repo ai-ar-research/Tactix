@@ -363,7 +363,6 @@ private:
   bool reduce_sqrt_ = true;
   bool compact_ = true;
   bool lucky_late_ = true;
-  uint64_t structural_seed_cursor_ = 0;
   bool dynamic_tiers_ = true;
   struct { uint64_t next_conflicts = 0, interval = 0; } retier_;
   DefaultStrategyConfig base_config_;

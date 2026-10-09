@@ -64,7 +64,6 @@ static DefaultStrategyConfig search_profile() {
   config.inprocess.structured_root_large_domain_stages.clear();
   config.inprocess.initial_fast_elimination = false;
   config.rephase.late_lucky = false;
-  config.rephase.structural_walk_seed = false;
   config.rephase.stable_only = false;
   config.rephase.initial_interval = config.rephase.interval = 1;
   config.rephase.rotation = {DefaultRephaseSlot::Walk};

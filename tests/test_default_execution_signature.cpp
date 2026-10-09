@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   assert(!diagnostics);
 #endif
   uint64_t search_conflicts = 0, search_learned = 0;
-  for (unsigned profile : {0u, 1u, 2u, 3u, 4u, 5u, 6u})
+  for (unsigned profile : {0u, 1u, 2u, 3u, 4u, 5u})
     for (unsigned pigeons : {4u, 6u}) {
       Kernel k;
       ScopedHeuristics h(k);
@@ -93,7 +93,6 @@ int main(int argc, char **argv) {
           // Exercise support transactions that ordinary short fixtures do not
           // reach: complete warm-up, Walk handoff and automatic mode changes.
           config.rephase.walk_warmup = true;
-          config.rephase.structural_walk_seed = false;
           config.rephase.stable_only = false;
           config.rephase.initial_interval = 1;
           config.rephase.interval = 1;
@@ -107,14 +106,6 @@ int main(int argc, char **argv) {
           if (profile == 5) {
             config.rephase.rotation = {DefaultRephaseSlot::Best,
                 DefaultRephaseSlot::Original, DefaultRephaseSlot::Inverted};
-          }
-          if (profile == 6) {
-            // An explicit embedding-supplied advisory hint exercises native
-            // guidance consumption without depending on a model producer.
-            kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity,
-                                          std::vector<uint8_t>(k.nvars, 0));
-            config.rephase.structural_walk_seed = true;
-            config.rephase.structural_seed_rotation = {strategy::LocalSearchKind::Parity};
           }
         }
       }
@@ -135,11 +126,6 @@ int main(int argc, char **argv) {
         assert(k.stats.warmups && k.stats.warming_decisions);
         assert(k.stats.walks && k.stats.walk_steps);
         if (profile == 4) assert(k.stats.switched);
-        if (profile == 6) {
-          assert(k.stats.walk_seed_imports);
-          assert(!k.stats.local_search_target_install_attempts);
-          assert(!k.stats.local_search_target_installs);
-        }
       }
       if (profile == 5 && verdict == 20) assert(k.stats.rephased >= 3);
       if (verdict == 10) {
