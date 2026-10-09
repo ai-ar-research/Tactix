@@ -36,13 +36,17 @@ bool covers_complete_snapshot(const AffineLiveSnapshot &owner,
          covered == owner.premises.size();
 }
 
-MatrixLimits matrix_limits(const strategy::AffineConsequenceParameters &p) {
+// Persistent search sessions keep a Gauss-Jordan basis; the non-persistent
+// startup root-closure snapshot keeps the forward-echelon basis.
+MatrixLimits matrix_limits(const strategy::AffineConsequenceParameters &p,
+                           bool persistent) {
   return {p.basis_maximum_work,
           p.basis_maximum_nodes,
           p.maximum_external_extent,
           p.basis_maximum_intermediate_width,
           p.basis_maximum_sources,
-          p.maximum_external_extent};
+          p.maximum_external_extent,
+          persistent};
 }
 
 MatrixTransactionLimits transaction_limits(
@@ -844,7 +848,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   bool matrix_exhausted = false;
   const uint64_t owner_version = session.owner_version_ + 1;
   const MatrixStatus built = build_affine_matrix(
-      image.equations, owner_version, matrix_limits(parameters),
+      image.equations, owner_version,
+      matrix_limits(parameters, persistence.maximum_retained_bytes != 0),
       [&](uint64_t amount) {
         if (kernel_terminating(kernel)) return false;
         if (!add(amount, parameters.basis_maximum_work, matrix_work)) {
@@ -1520,7 +1525,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   if (session.owner_version_ == UINT64_MAX) return exhausted();
   AffineMatrix matrix;
   const auto built = build_affine_matrix(image.equations, session.owner_version_ + 1,
-                                          matrix_limits(session.parameters_), charge, matrix, true);
+                                          matrix_limits(session.parameters_, session.persistent()),
+                                          charge, matrix, true);
   // Losing rows here would erase obligations just before variable retirement.
   if (built != MatrixStatus::Complete) return exhausted();
   // Reprice every retained row, since each new authenticated alias/root source
@@ -1665,7 +1671,8 @@ AffineMatrixServiceResult affine_matrix_search_step(
       }
       AffineMatrix replacement;
       const auto status = build_affine_matrix(surviving.equations,
-          session.owner_version_ + 1, matrix_limits(session.parameters_), charge, replacement, true);
+          session.owner_version_ + 1, matrix_limits(session.parameters_, session.persistent()),
+          charge, replacement, true);
       if (status != MatrixStatus::Complete && status != MatrixStatus::Partial) {
         result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
                                                      AffineMatrixServiceStatus::ResourceExhausted;

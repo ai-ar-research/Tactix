@@ -170,7 +170,7 @@ finished:
   // row, so a conditioned row is a singleton exactly when its pivot is
   // forced. Rows are visited by descending pivot; a row only holds pivots
   // larger than its own, and those rows are already reduced.
-  if (!work.interrupted) {
+  if (!work.interrupted && limits.reduced_row_echelon) {
     for (auto row = basis.rbegin(); row != basis.rend(); ++row) {
       // One pivot lookup per coordinate after the row's own pivot.
       if (row->second.variables.size() > 1 &&
@@ -825,7 +825,8 @@ MatrixStatus AffineMatrix::synchronize_sliced(
         auto first=state.basis.begin();state.rows.push_back(std::move(first->second));state.basis.erase(first);
         continue;
       }
-      state.phase=8;state.scan=state.rows.size();
+      if (limits_.reduced_row_echelon) {state.phase=8;state.scan=state.rows.size();}
+      else {state.phase=3;state.scan=0;}
     }
     if (state.phase==8) {
       // Gauss-Jordan back-substitution, as in reduce(): descending pivots,
@@ -1070,7 +1071,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   // every other row, by descending new pivot. Its other coordinates are
   // non-pivots, so the remaining rows keep their pivots.
   std::vector<std::pair<External,size_t>> new_pivots;
-  for(const auto &[id,row]:replacement){
+  if(limits_.reduced_row_echelon) for(const auto &[id,row]:replacement){
     if(!work.consume(1+comparisons))return declined();
     const auto &old=rows_[id];
     if(!row.variables.empty()&&(old.variables.empty()||old.variables.front()!=row.variables.front()))

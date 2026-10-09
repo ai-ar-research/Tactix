@@ -19,6 +19,9 @@ struct MatrixLimits {
   uint32_t maximum_row_width = 0;
   uint32_t maximum_sources = 0;
   uint32_t maximum_assignments = 0;
+  // Keep every synchronized basis in reduced row-echelon form (Gauss-Jordan,
+  // CryptoMiniSat EGaussian); false keeps the forward-echelon basis.
+  bool reduced_row_echelon = false;
 };
 
 struct MatrixAssignment {

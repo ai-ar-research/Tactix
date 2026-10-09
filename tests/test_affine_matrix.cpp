@@ -14,7 +14,7 @@ static Equation equation(std::initializer_list<External> variables, bool rhs) {
   return result;
 }
 
-static MatrixLimits limits() { return {1000000, 64, 64, 64, 64, 64}; }
+static MatrixLimits limits() { return {1000000, 64, 64, 64, 64, 64, true}; }
 
 static bool parity(const std::vector<External> &variables, uint64_t values) {
   bool result = false;
