@@ -5211,7 +5211,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               return target;
             }
           });
-      }, [](const execution::ConflictAnalysisExecutionResult &result) {
+      }, [&](const execution::ConflictAnalysisExecutionResult &result,
+             strategy::controller::NativeActionDescription &description) {
+        // The realized target makes the native choice replayable as the
+        // public ConflictAnalysis instance (target clamped to [jump, level-1]).
+        // Conflict reuse and level-one unit batches end without Backjump at
+        // their own realized level.
+        if (result.backjumped)
+          description.description += ";target=" + std::to_string(result.target) +
+                                     ";jump=" + std::to_string(result.jump);
+        else if (result.result != ApplyResult::Unsat)
+          description.description += ";target=" + std::to_string(k.level) +
+                                     ";no-backjump=1";
         return strategy::controller::feedback_outcome(result.result);
       });
       if (analysis.analysis == ApplyResult::Unsat)

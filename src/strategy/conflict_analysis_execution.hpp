@@ -16,6 +16,10 @@ struct ConflictAnalysisExecutionResult {
   ApplyResult analysis;
   ApplyResult result;
   bool backjumped;
+  // Realized backjump: the level reached and the learned clause's jump level.
+  // Feedback records these so the native target is replayable as the public
+  // ConflictAnalysis instance; they are meaningful only when backjumped.
+  uint32_t target = 0, jump = 0;
 };
 
 inline ApplyResult execute_analysis_step(Kernel &k,
@@ -42,8 +46,9 @@ ConflictAnalysisExecutionResult execute_action(Kernel &k,
   const uint32_t target = advise(analysis);
   if (analysis != ApplyResult::Ok || !k.pending.valid)
     return {analysis, analysis, false};
+  const uint32_t jump = k.pending.jump_level;
   const ApplyResult result = backjump_apply_to(k, target);
-  return {analysis, result, true};
+  return {analysis, result, true, k.level, jump};
 }
 
 inline ApplyResult execute_action(
