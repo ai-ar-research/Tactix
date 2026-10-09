@@ -150,7 +150,7 @@ int main() {
       for (size_t index = 1; index < stages->size(); ++index)
         assert(!schedules_lucky_instance((*stages)[index].program, 8));
     }
-  assert(!defaults.graph_labeling_model.enabled);
+  assert(defaults.graph_labeling_model.enabled);
   assert(defaults.inprocess.structured_root_before_lucky);
   assert(!defaults.inprocess.structured_root_residual_search_handoff);
   assert(defaults.inprocess.structured_root_progress_feedback);
@@ -230,16 +230,16 @@ int main() {
          std::string::npos);
   assert(default_snapshot.find("independent_set_model.enabled=1") !=
          std::string::npos);
-  assert(default_snapshot.find("graph_labeling_model.enabled=0") !=
+  assert(default_snapshot.find("graph_labeling_model.enabled=1") !=
          std::string::npos);
   {
     // Empty formulas exercise the guards and counters without constructor
-    // search. The default attempts the accepted affine opportunity; graph
-    // labeling remains explicitly opt-in.
+    // search. The default attempts the accepted affine opportunity and the
+    // graph-labeling authentication.
     Kernel production;
     assert(DefaultPolicy(defaults).solve(production) == 10);
     assert(production.stats.affine_model_calls == 1);
-    assert(production.stats.graph_labeling_calls == 0);
+    assert(production.stats.graph_labeling_calls == 1);
     assert(production.stats.affine_matrix_init_attempts == 0);
 
     DefaultStrategyConfig affine_disabled = defaults;
@@ -257,12 +257,12 @@ int main() {
     assert(without_affine.solve(disabled) == 10);
     assert(disabled.stats.affine_model_calls == 0);
 
-    DefaultStrategyConfig graph_enabled = defaults;
-    graph_enabled.graph_labeling_model.enabled = true;
+    DefaultStrategyConfig graph_disabled = defaults;
+    graph_disabled.graph_labeling_model.enabled = false;
     Kernel graph;
-    assert(DefaultPolicy(graph_enabled).solve(graph) == 10);
+    assert(DefaultPolicy(graph_disabled).solve(graph) == 10);
     assert(graph.stats.affine_model_calls == 1);
-    assert(graph.stats.graph_labeling_calls == 1);
+    assert(graph.stats.graph_labeling_calls == 0);
   }
   {
     // DefaultPolicy schedules the same authenticated matrix service before

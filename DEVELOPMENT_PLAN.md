@@ -679,8 +679,8 @@ schedulers, producers, CLI and tests are retired; retain numeric tombstones and
 neutral authenticated owners only for independently retained consumers. The
 subplan owns Rank 401's actual Satsuma-residual/import/branch-order comparison;
 original-seed ablations and alternative serializers are controls, not parity.
-Rank 991's shared Authenticate/Continue actions and bounded service remain opt-in
-pending cumulative verification and performance/regression acceptance.
+Rank 991's shared Authenticate/Continue actions and bounded service are on in
+DefaultPolicy, the configuration every candidate gate qualified.
 
 **Persistent XOR.** Recognize once using authenticated subimages/affine matrices;
 retain source/proof provenance, lease premises or certify durable representations

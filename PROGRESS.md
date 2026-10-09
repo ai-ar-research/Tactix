@@ -75,6 +75,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Graph labeling (Lucky 26/27 schedule) is on by default; plain `--auto-proof` equals c2.2's qualified
+  arguments (identity check: 9 rows byte-identical).
 - Restore the startup FastEliminate guard after root-fixing structured symmetry (c2.2).
 - Purge: main's code returns to c2.1; post-c2.1 development removed from the tree.
 - `0268acb59`: qualify c2.1 (13 verified fixed44 closures, all gates and fuzz).

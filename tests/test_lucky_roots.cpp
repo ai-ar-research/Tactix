@@ -43,6 +43,8 @@ static unsigned fixture(unsigned roots, bool reverse, bool fold) {
   volatile sig_atomic_t stop=1;
   DefaultStrategyConfig config;
   config.inprocess.structured_root_before_lucky = false; // reference Lucky lifecycle
+  // Graph authentication observes the stop before the late Lucky opportunity.
+  config.graph_labeling_model.enabled = false;
   assert(DefaultPolicy(config).solve(k,&stop)==0);
   assert(k.stats.lucky_early_calls==1 && k.stats.lucky_late_calls==1);
   assert(k.level==0 && kernel_root_fixed(k)==roots);
