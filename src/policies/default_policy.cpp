@@ -333,6 +333,16 @@ void pose_affine_structured_stage(DefaultStrategyConfig &config) {
 
 } // namespace
 
+// Admitted support of a persistent affine session (sorted externals).
+static bool affine_support_protected(const Kernel &kernel, Var variable) {
+  const auto *session = kernel.affine_matrix_search_session;
+  if (!session || !session->enabled() || !session->persistent())
+    return false;
+  const auto &support = session->support();
+  return std::binary_search(support.begin(), support.end(),
+                            kernel_externalize(kernel, make_lit(variable, false)));
+}
+
 std::optional<strategy::AffineConsequenceParameters>
 default_affine_search_parameters(const Kernel &kernel,
                                  const DefaultStrategyConfig &config) {
@@ -4728,12 +4738,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (affine_root == ApplyResult::Unsat ||
       affine_root == ApplyResult::Conflict)
     return finish(20);
-  if(config_.affine_search.enabled) {
-    (void)initialize_affine_search(k);
-    if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled() &&
-       run_affine_search(k,true)==ApplyResult::Unsat)
-      return finish(20);
-  }
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
@@ -5122,6 +5126,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   startup = default_propagate(k, "post-preprocess", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20);
+  // CryptoMiniSat's startup simplification finds XORs after variable
+  // elimination ("occ-bve,occ-xor", solverconf.cpp simplify_schedule_startup).
+  if(config_.affine_search.enabled) {
+    (void)initialize_affine_search(k);
+    if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled() &&
+       run_affine_search(k,true)==ApplyResult::Unsat)
+      return finish(20);
+  }
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
@@ -5996,6 +6008,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (lit_of_instance(k, payload, &candidate) &&
             var_of(candidate) < k.nvars &&
             (k.value(candidate) || kernel_var_retired(k, var_of(candidate))))
+          continue;
+        // CryptoMiniSat OccSimplifier::can_eliminate_var keeps every variable
+        // of a retained XOR (`xorclauses_vars`): DefaultPolicy does not offer
+        // the persistent affine session's admitted support to BVE.
+        if (lit_of_instance(k, payload, &candidate) &&
+            var_of(candidate) < k.nvars &&
+            affine_support_protected(k, var_of(candidate)))
           continue;
         // Resolvent generation can delete a newly satisfied large antecedent
         // and reinsert its still-active pivot before retiring it. Preserve

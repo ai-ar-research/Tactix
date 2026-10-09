@@ -165,6 +165,44 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
   }
 
 finished:
+  // Gauss-Jordan (CryptoMiniSat EGaussian::eliminate XORs a pivot row into
+  // *all* rows with a 1 in its column): remove every other pivot from each
+  // row, so a conditioned row is a singleton exactly when its pivot is
+  // forced. Rows are visited by descending pivot; a row only holds pivots
+  // larger than its own, and those rows are already reduced.
+  if (!work.interrupted) {
+    for (auto row = basis.rbegin(); row != basis.rend(); ++row) {
+      // One pivot lookup per coordinate after the row's own pivot.
+      if (row->second.variables.size() > 1 &&
+          !work.consume(row->second.variables.size() - 1)) {
+        if (work.interrupted) return MatrixStatus::Interrupted;
+        partial = true;
+        break;
+      }
+      size_t at = 1;
+      while (at < row->second.variables.size()) {
+        const auto pivot = basis.find(row->second.variables[at]);
+        if (pivot == basis.end()) { ++at; continue; }
+        const CombineStatus combined =
+            combine(row->second, pivot->second, limits, work);
+        if (combined == CombineStatus::Interrupted)
+          return MatrixStatus::Interrupted;
+        if (combined == CombineStatus::Exhausted) {
+          partial = true;
+          goto reduced;
+        }
+        if (combined == CombineStatus::BoundedOut) {
+          // Kept sound but unreduced against this pivot: reduction stays
+          // complete only within the row-width and provenance bounds.
+          ++at;
+          continue;
+        }
+        // The XOR removed this pivot and added only non-pivot or larger
+        // reduced coordinates; rescan from the same position.
+      }
+    }
+  }
+reduced:
   if (coefficient_rank) *coefficient_rank = basis.size();
   output.clear();
   output.reserve(contradictions.size() + basis.size());
@@ -787,7 +825,46 @@ MatrixStatus AffineMatrix::synchronize_sliced(
         auto first=state.basis.begin();state.rows.push_back(std::move(first->second));state.basis.erase(first);
         continue;
       }
-      state.phase=3;state.scan=0;
+      state.phase=8;state.scan=state.rows.size();
+    }
+    if (state.phase==8) {
+      // Gauss-Jordan back-substitution, as in reduce(): descending pivots,
+      // one row XOR per step. Pivot rows follow the contradictions in
+      // ascending pivot order.
+      const auto pivot_rows=std::partition_point(state.rows.begin(),state.rows.end(),
+          [](const MatrixRow &row){return row.variables.empty();});
+      const size_t first_pivot=size_t(pivot_rows-state.rows.begin());
+      if (state.scan==first_pivot) {state.phase=3;state.scan=0;continue;}
+      auto &row=state.rows[state.scan-1];
+      if (!step(1 + __uint128_t(row.variables.size())*comparisons)) return pending();
+      const MatrixRow *other=nullptr;
+      for (size_t at=1; at<row.variables.size() && !other; ++at) {
+        const External variable=row.variables[at];
+        const auto found=std::lower_bound(pivot_rows,state.rows.end(),variable,
+            [](const MatrixRow &candidate,External value){return candidate.variables.front()<value;});
+        if (found!=state.rows.end() && found->variables.front()==variable) other=&*found;
+      }
+      if (!other) {--state.scan;continue;}
+      if (!step(1 + row.variables.size() + other->variables.size() +
+                row.source_equations.size() + other->source_equations.size())) return pending();
+      std::vector<External> variables; std::vector<size_t> sources;
+      xor_sorted(row.variables,other->variables,variables);
+      xor_sorted(row.source_equations,other->source_equations,sources);
+      if (variables.size()>limits_.maximum_row_width || sources.size()>limits_.maximum_sources) {
+        continuation_={};return MatrixStatus::Exhausted;
+      }
+      const uint64_t before=4*(uint64_t(row.variables.size())*sizeof(External)+
+          uint64_t(row.source_equations.size())*sizeof(size_t));
+      const uint64_t after=4*(uint64_t(variables.size())*sizeof(External)+
+          uint64_t(sources.size())*sizeof(size_t));
+      if (after>before) {
+        const __uint128_t next_bytes=__uint128_t(state.bytes)+(after-before);
+        if (next_bytes>slice.maximum_bytes) return MatrixStatus::Exhausted;
+        state.bytes=uint64_t(next_bytes);state.payload_bytes+=after-before;
+      }
+      row.variables=std::move(variables);row.source_equations=std::move(sources);
+      row.rhs^=other->rhs;
+      continue;
     }
     if (state.phase==3 || state.phase==4) {
       if (state.scan<state.rows.size()) {
@@ -952,12 +1029,14 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   }
   std::map<size_t,MatrixRow> replacement;
   RowIndex additions;
+  const uint64_t row_reserve=index_node_bytes<std::pair<const size_t,MatrixRow>>() +
+      6 * (uint64_t(limits_.maximum_row_width)*sizeof(External) +
+           uint64_t(limits_.maximum_sources)*sizeof(size_t));
+  std::map<External,size_t> staged_pivots;
   for(size_t id:dirty){
     const auto &old=rows_[id];
     if(!work.consume(1+old.variables.size()*comparisons+old.source_equations.size()) ||
-       !memory(index_node_bytes<std::pair<const size_t,MatrixRow>>() +
-           6 * (uint64_t(limits_.maximum_row_width)*sizeof(External) +
-                uint64_t(limits_.maximum_sources)*sizeof(size_t))))return declined();
+       !memory(row_reserve))return declined();
     MatrixRow row;row.rhs=old.rhs;row.source_equations=old.source_equations;
     row.variables.reserve(old.variables.size());
     for(External variable:old.variables){
@@ -968,8 +1047,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
       if(!work.consume(1+comparisons))return declined();
       const External pivot=row.variables.front();
       const MatrixRow *other=nullptr;
-      auto staged=additions.pivots.find(pivot);
-      if(staged!=additions.pivots.end())other=&replacement.at(staged->second);
+      auto staged=staged_pivots.find(pivot);
+      if(staged!=staged_pivots.end())other=&replacement.at(staged->second);
       else{
         auto retained=index_.pivots.find(pivot);
         if(retained!=index_.pivots.end()&&!dirty.contains(retained->second))other=&rows_[retained->second];
@@ -979,6 +1058,53 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
       if(status!=CombineStatus::Complete)return declined();
     }
     if(!bounded(row,limits_))return declined();
+    if(!work.consume(1+comparisons))return declined();
+    if(!row.variables.empty()){
+      if(!memory(pivot_node))return declined();
+      staged_pivots.emplace(row.variables.front(),id);
+    }
+    replacement.emplace(id,std::move(row));
+  }
+  // Gauss-Jordan column elimination (CryptoMiniSat EGaussian::eliminate_col):
+  // a row whose pivot was assigned takes a new pivot, which is removed from
+  // every other row, by descending new pivot. Its other coordinates are
+  // non-pivots, so the remaining rows keep their pivots.
+  std::vector<std::pair<External,size_t>> new_pivots;
+  for(const auto &[id,row]:replacement){
+    if(!work.consume(1+comparisons))return declined();
+    const auto &old=rows_[id];
+    if(!row.variables.empty()&&(old.variables.empty()||old.variables.front()!=row.variables.front()))
+      new_pivots.emplace_back(row.variables.front(),id);
+  }
+  std::sort(new_pivots.begin(),new_pivots.end(),std::greater<>());
+  for(const auto &[pivot,pivot_id]:new_pivots){
+    std::vector<size_t> candidates;
+    auto retained=index_.occurrences.find(pivot);
+    if(retained!=index_.occurrences.end()){
+      if(!work.consume(1+retained->second.size()))return declined();
+      candidates=retained->second;
+    }
+    for(const auto &[id,row]:replacement){(void)row;candidates.push_back(id);}
+    if(!work.consume(1+candidates.size()*comparisons))return declined();
+    std::sort(candidates.begin(),candidates.end());
+    candidates.erase(std::unique(candidates.begin(),candidates.end()),candidates.end());
+    for(size_t id:candidates){
+      if(id==pivot_id)continue;
+      auto staged=replacement.find(id);
+      const MatrixRow &current=staged==replacement.end()?rows_[id]:staged->second;
+      if(!work.consume(1+comparisons*std::bit_width(uint64_t(current.variables.size()))))return declined();
+      if(!std::binary_search(current.variables.begin(),current.variables.end(),pivot))continue;
+      if(staged==replacement.end()){
+        if(!work.consume(1+current.variables.size()+current.source_equations.size())||
+           !memory(row_reserve+conflict_node))return declined();
+        staged=replacement.emplace(id,rows_[id]).first;
+        dirty.insert(id);
+      }
+      const auto status=combine(staged->second,replacement.at(pivot_id),limits_,work);
+      if(status!=CombineStatus::Complete)return declined();
+    }
+  }
+  for(auto &[id,row]:replacement){
     // A zero equation is a tombstone in its stable slot; it cannot be an event.
     if(row.variables.empty()&&!row.rhs)row.source_equations.clear();
     if(!work.consume(1+comparisons))return declined();
@@ -987,7 +1113,6 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
       additions.pivots.emplace(row.variables.front(),id);
       if(row.variables.size()==1){if(!memory(pivot_node))return declined();additions.singletons.emplace(row.variables.front(),id);}
     }else if(row.rhs){if(!memory(conflict_node))return declined();additions.conflicts.insert(id);}
-    replacement.emplace(id,std::move(row));
   }
   // Copy only occurrence lists touched by the private rows. The sorted IDs
   // remain stable; unrelated row bodies and occurrence lists are never copied.
