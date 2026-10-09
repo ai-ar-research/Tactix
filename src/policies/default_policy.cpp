@@ -3829,6 +3829,13 @@ void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
   // existing NLOG2N updater use n=1, i.e. eliminateinit=500 with the exact
   // post-preprocessing BINIRR_CLAUSES scaling population.
   update_limit(k, SlotGroup::Eliminate);
+  // The same kissat_init_limits call re-derives the first search-time Probe
+  // deadline (INIT_CONFLICT_LIMIT(probe, true)).  The startup Probe phase
+  // closes before initial fast elimination, so the deadline it set scaled the
+  // pre-elimination population.  After the one startup round n=1, i.e.
+  // probeinit; without a startup round the clock keeps its startup invitation.
+  if (probe_clock.rounds)
+    update_limit(k, SlotGroup::Probe);
   search_limits_initialized_ = true;
 }
 
@@ -6922,6 +6929,12 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   initial_fast_elimination_attempted_.clear();
   initial_fast_elimination_marks_.clear();
   initial_fast_elimination_active_ = false;
+  // fastel.c:kissat_fast_variable_elimination ends by setting the eliminate
+  // flag of every variable.  Attempts above retired the retry bit of each
+  // kept candidate, so without this the first search-time Eliminate would
+  // schedule only variables whose clauses changed since; untouched factor
+  // extension variables were the visible casualties.
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{1});
   return result;
 }
 
