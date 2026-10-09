@@ -411,8 +411,11 @@ static void test_native_batches(bool vivify, bool budgeted) {
           exited += record.identity == "InprocessPhaseExit";
         }
       }
-      assert((installed == std::vector<std::string>{"Congruence", "Instantiate", "Backbone", "BCE",
-          "HyperTernaryRes", "Factor", "TransitiveReduce", "Substitute", "Vivify", "BVE"}));
+      std::vector<std::string> expected{"Congruence", "Instantiate", "Backbone", "BCE",
+          "HyperTernaryRes", "Factor", "TransitiveReduce", "Substitute", "Vivify", "BVE"};
+      // A Vivify dose first poses its tier boundaries as a Reduce profile.
+      if (vivify) expected.push_back("Reduce");
+      assert(installed == expected);
       assert(entered == 1 && exited == 1);
     }
     if (vivify) {

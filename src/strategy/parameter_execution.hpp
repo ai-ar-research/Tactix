@@ -88,6 +88,8 @@ void execute_action(Kernel &k,
 
 // The persistent phase profile owns only guidance, leaving the caller's Walk
 // seed and native work ceiling intact. Borrow the curve without an extra copy.
+// The record carries the permanent Walk profile a client installs: the
+// guidance, with the per-application budget, seed and candidate at zero.
 struct WalkGuidanceInstallationRequest {
   uint32_t even_break_base_milli;
   const std::vector<strategy::WalkParameters::ScorePoint> &score_curve;
@@ -109,7 +111,8 @@ inline void execute_action(Kernel &k,
         spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
         auto &inv = spec.description.invocation.emplace();
         inv.rule = "Walk";
-        auto selected = strategy::WalkParameters::from_kernel(k);
+        strategy::WalkParameters selected;
+        selected.step_budget = 0;
         selected.even_break_base_milli = request.even_break_base_milli;
         selected.score_curve = request.score_curve;
         inv.parameters = std::move(selected);

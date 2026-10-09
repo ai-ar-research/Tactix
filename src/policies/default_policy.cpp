@@ -675,24 +675,33 @@ constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
 constexpr uint32_t REORDER_STABLE_ONLY = 2;
 
-void pose_tiers(Kernel &k, uint8_t tier1_mode, uint8_t tier2_mode) {
+// The posed tier boundaries are ReduceParameters' tier1/tier2, which Reduce
+// ranking, Vivify's tier bands and the likely-kept material filter read. A
+// pose is a permanent install of that profile with the selected modes' tiers.
+void pose_tiers(Kernel &k, uint8_t tier1_mode, uint8_t tier2_mode,
+                execution::PolicyCompletion *completion) {
   assert(tier1_mode < MODES_PER_CYCLE && tier2_mode < MODES_PER_CYCLE);
-  k.tier1 = k.tier1_by_mode[tier1_mode];
-  k.tier2 = std::max(k.tier1, k.tier2_by_mode[tier2_mode]);
+  strategy::ReduceParameters posed = strategy::ReduceParameters::from_kernel(k);
+  posed.tier1 = k.tier1_by_mode[tier1_mode];
+  posed.tier2 = std::max(posed.tier1, k.tier2_by_mode[tier2_mode]);
+  execution::execute_action(k, execution::ParameterInstallationRequest{posed},
+                            completion, "Reduce");
 }
 
 void pose_reduce_tiers(Kernel &k,
-                       const DefaultStrategyConfig::Reduction &config) {
+                       const DefaultStrategyConfig::Reduction &config,
+                       execution::PolicyCompletion *completion) {
   // Kissat 4.0.4's shipped internal.h deliberately uses focused tier-1 and
   // stable tier-2 for Reduce (the general focusedtiers selector is compiled
   // out). Keep the unusual hybrid explicit: it is the first-reduction witness
   // on P4A tr-n300-s055, not an inferred simplification.
-  pose_tiers(k, config.reduce_tier1_mode, config.reduce_tier2_mode);
+  pose_tiers(k, config.reduce_tier1_mode, config.reduce_tier2_mode, completion);
 }
 
 void pose_vivify_tiers(Kernel &k,
-                       const DefaultStrategyConfig::Inprocess &config) {
-  pose_tiers(k, config.vivify_tier_mode, config.vivify_tier_mode);
+                       const DefaultStrategyConfig::Inprocess &config,
+                       execution::PolicyCompletion *completion) {
+  pose_tiers(k, config.vivify_tier_mode, config.vivify_tier_mode, completion);
 }
 
 void retier_current_mode(Kernel &k,
@@ -3161,8 +3170,12 @@ FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
 void DefaultPolicy::update_formula_classification(Kernel &k) const {
   const FormulaClassification classification = classify_formula(k);
   // `classification.small` is write-only in pinned Kissat. Do not invent a
-  // second consumer: only `bigbig` gates ordinary fast binary assignment.
-  k.jump_reasons_bigbig = classification.bigbig;
+  // second consumer: only `bigbig` gates ordinary fast binary assignment,
+  // through the installed ConflictAnalysis profile.
+  strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
+  analysis.jump_reasons_bigbig = classification.bigbig;
+  execution::execute_action(k, execution::ParameterInstallationRequest{analysis},
+                            completion_, "ConflictAnalysis");
   k.stats.jump_reason_classifications++;
   k.stats.jump_reason_bigbig += classification.bigbig;
 }
@@ -4570,7 +4583,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
                                        config_.reduction.tier2_default);
     }
-    pose_vivify_tiers(k, config_.inprocess);
+    pose_vivify_tiers(k, config_.inprocess, completion_);
     reset_schedule(k);
   }
   inprocess_.build(k, completion_);
@@ -5289,7 +5302,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
       if (dynamic_tiers_)
         retier_current_mode(k, config_.reduction);
-      pose_reduce_tiers(k, config_.reduction);
+      pose_reduce_tiers(k, config_.reduction, completion_);
       // Kissat samples compactlim before selecting/deleting victims and uses
       // that decision to choose sparse-collection start 0 versus the first
       // reducible clause.  Reusing the decision after Reduce also prevents a
@@ -5363,7 +5376,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             static_cast<uint32_t>(k.compact_import_order.size() -
                                   k.unassigned_active));
       update_reduce_limit(k);
-      pose_vivify_tiers(k, config_.inprocess);
+      pose_vivify_tiers(k, config_.inprocess, completion_);
       update_formula_classification(k);
       inprocess_.note_reduce(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-reduce-search-continuation");
@@ -5847,8 +5860,14 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       break;
     }
     engaged = true;
-    if (ramp)
-      k.bve_bound = level_mode ? bve_level_ : ramp->bound(pass);
+    if (ramp) {
+      // The pass bound is the installed BVE growth bound, which the
+      // policy's candidate scores and the pass's inherited profile read.
+      strategy::BveParameters bound = strategy::BveParameters::from_kernel(k);
+      bound.growth_bound = level_mode ? bve_level_ : ramp->bound(pass);
+      execution::execute_action(k, execution::ParameterInstallationRequest{bound},
+                                ctx.completion, "BVE");
+    }
     elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
     // Pose and validate BVE's typed invocation once per pass.  Keeping this
     // session outside the hot candidate loop preserves the legacy default
@@ -6233,8 +6252,17 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
   return false;
 }
 
-void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &) {
-  k.factor_composite = true;
+void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &,
+                                                   PolicyCompletion *completion) {
+  set_factor_composite(k, true, completion);
+}
+
+void DefaultInprocessScheduler::set_factor_composite(Kernel &k, bool composite,
+                                                     PolicyCompletion *completion) {
+  strategy::FactorParameters factor = strategy::FactorParameters::from_kernel(k);
+  factor.composite = composite;
+  execution::execute_action(k, execution::ParameterInstallationRequest{factor},
+                            completion, "Factor");
 }
 
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
@@ -6245,7 +6273,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   // A stable OTFS retier legitimately poses the stable snapshot for the
   // analysis it resumes, so pose the Vivify consumer here instead of relying
   // on the last Reduce to have left these shared fields in focused mode.
-  pose_vivify_tiers(k, config());
+  pose_vivify_tiers(k, config(), completion);
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;
@@ -6359,7 +6387,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   e.journal_round_budget_break = false;
 #endif
   if (factor_entry)
-    factor_dose_config(k, e);
+    factor_dose_config(k, e, completion);
   // The fused Strengthen pass reproduces Kissat's forward-step ceiling at the
   // only reference cut point: strictly between complete candidates.  The
   // standalone C1 decomposition retains its diagnostic per-partner budget.
@@ -6452,9 +6480,12 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   if (factor_entry && k.factor_completed)
     factor_marked_watermark_ = k.factor_literals_marked;
   work.reset();
-  k.factor_composite = false;
   return ar;
   }, [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
+  // Every budgeted dose leaves composite Factor matching off; only a Factor
+  // dose turns it on, so the install is needed only after one.
+  if (k.factor_composite)
+    set_factor_composite(k, false, completion);
   const uint64_t spent = e.meter(k) - spent_before;
   e.tm.handed += handed;
   e.tm.spent += spent;

@@ -585,7 +585,9 @@ static void test_stats_and_config_surface(void) {
          TACTIX_CONGRUENCE_CANONICAL_WATCH_ORDER);
   assert(tactix_config(s, TACTIX_CFG_GUIDANCE_PUBLICATION) ==
          TACTIX_GUIDANCE_DISCARD);
-  assert(tactix_config(s, 28) == UINT64_MAX); /* first unknown cfg id */
+  assert(tactix_config(s, TACTIX_CFG_TOUCH_FILTER) == 1);
+  assert(tactix_config(s, TACTIX_CFG_LIKELY_KEPT_REDUNDANT) == 0);
+  assert(tactix_config(s, 30) == UINT64_MAX); /* first unknown cfg id */
   assert(tactix_config(s, -1) == UINT64_MAX);
   /* every band Vivify implements is settable: clamping 3/4/5 onto 0 would
      deny API callers a tier DefaultPolicy uses (N1) */
@@ -607,6 +609,96 @@ static void test_stats_and_config_surface(void) {
     assert(tactix_stat(s, id) != UINT64_MAX);
   assert(tactix_stat(s, 61) == UINT64_MAX); /* first unknown id */
   assert(tactix_stat(s, -1) == UINT64_MAX);
+  tactix_release(s);
+}
+
+static int rule_named(const char *name) {
+  int id;
+  for (id = 0; id < tactix_rule_count(); id++) {
+    const char *rule = tactix_rule_name(id);
+    if (rule && !strcmp(rule, name)) return id;
+  }
+  return -1;
+}
+
+/* Permanent installs: the online-step conversion and checks, a permanent
+ * effect, no input finalization, and no change on rejection. */
+static void test_permanent_installs(void) {
+  tactix *s = tactix_init();
+  tactix_online_parameters p;
+  tactix_online_walk_score_point curve[2] = {{0, 2100}, {3000, 2600}};
+  const int bve = rule_named("BVE"), factor = rule_named("Factor");
+  const int vivify = rule_named("Vivify"), walk = rule_named("Walk");
+  const int lucky = rule_named("Lucky");
+  assert(bve >= 0 && factor >= 0 && vivify >= 0 && walk >= 0 && lucky >= 0);
+  memset(&p, 0, sizeof p);
+  p.kind = TACTIX_ONLINE_PARAMETERS_BVE;
+  p.value.bve.gate_mask = TACTIX_BVE_GATE_ITE;
+  p.value.bve.growth_bound = 8;
+  p.value.bve.xor_arity_limit = 5;
+  p.value.bve.definition_cores = 2;
+  assert(tactix_install_parameters(s, factor, &p) == -1); /* family/rule */
+  assert(tactix_install_parameters(s, 39, &p) == -1);     /* retired id */
+  assert(tactix_install_parameters(s, -1, &p) == -1);
+  assert(tactix_install_parameters(s, bve, NULL) == -1);
+  p.value.bve.definition_cores = 0;                       /* invalid */
+  assert(tactix_install_parameters(s, bve, &p) == -1);
+  assert(tactix_config(s, TACTIX_CFG_BVE_BOUND) != 8);
+  p.value.bve.definition_cores = 2;
+  assert(tactix_install_parameters(s, bve, &p) == 0);
+  assert(tactix_config(s, TACTIX_CFG_BVE_BOUND) == 8);
+  assert(tactix_config(s, TACTIX_CFG_BVE_GATES) == TACTIX_BVE_GATE_ITE);
+  memset(&p, 0, sizeof p);
+  assert(tactix_install_parameters(s, bve, &p) == -1); /* INHERIT is no profile */
+  p.kind = TACTIX_ONLINE_PARAMETERS_FACTOR;
+  p.value.factor.maximum_clause_size = 5;
+  p.value.factor.composite = 1;
+  assert(tactix_install_parameters(s, factor, &p) == 0);
+  assert(tactix_config(s, TACTIX_CFG_FACTOR_COMPOSITE) == 1);
+  memset(&p, 0, sizeof p);
+  p.kind = TACTIX_ONLINE_PARAMETERS_VIVIFY;
+  p.value.vivify.scope = 3;
+  p.value.vivify.irredundant_sort_ratio = 10;
+  p.value.vivify.reuse = 1;
+  assert(tactix_install_parameters(s, vivify, &p) == 0);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == 3);
+  /* Walk installs its guidance only; the step budget belongs to a Walk. */
+  tactix_set_work_budget(s, 777);
+  memset(&p, 0, sizeof p);
+  p.kind = TACTIX_ONLINE_PARAMETERS_WALK;
+  p.value.walk.even_break_base_milli = 2100;
+  p.value.walk.score_curve = curve;
+  p.value.walk.score_curve_count = 2;
+  p.value.walk.step_budget = 5;
+  assert(tactix_install_parameters(s, walk, &p) == -1);
+  p.value.walk.step_budget = 0;
+  assert(tactix_install_parameters(s, walk, &p) == 0);
+  assert(tactix_config(s, TACTIX_CFG_WORK_BUDGET) == 777);
+  memset(&p, 0, sizeof p);
+  p.kind = TACTIX_ONLINE_PARAMETERS_SIMON_MODEL;
+  p.value.simon_model.maximum_rounds = 8;
+  p.value.simon_model.maximum_candidates = 16;
+  assert(tactix_install_parameters(s, bve, &p) == -1);
+  assert(tactix_install_parameters(s, lucky, &p) == 0);
+  /* Material settings: INHERIT keeps, DISABLE/ENABLE set. */
+  assert(tactix_install_material_settings(s, 3, TACTIX_ONLINE_SETTING_INHERIT) == -1);
+  assert(tactix_install_material_settings(s, TACTIX_ONLINE_SETTING_DISABLE,
+                                          TACTIX_ONLINE_SETTING_ENABLE) == 0);
+  assert(tactix_config(s, TACTIX_CFG_TOUCH_FILTER) == 0);
+  assert(tactix_config(s, TACTIX_CFG_LIKELY_KEPT_REDUNDANT) == 1);
+  assert(tactix_install_material_settings(s, TACTIX_ONLINE_SETTING_INHERIT,
+                                          TACTIX_ONLINE_SETTING_DISABLE) == 0);
+  assert(tactix_config(s, TACTIX_CFG_TOUCH_FILTER) == 0);
+  assert(tactix_config(s, TACTIX_CFG_LIKELY_KEPT_REDUNDANT) == 0);
+  assert(tactix_install_material_settings(s, TACTIX_ONLINE_SETTING_ENABLE,
+                                          TACTIX_ONLINE_SETTING_INHERIT) == 0);
+  /* Installs finalize no input: clauses are still accepted afterwards. */
+  tactix_set_work_budget(s, 0);
+  add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){-1, 2, 0});
+  add_clause(s, (const int[]){-2, 3, 0});
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 2) > 0 && tactix_value(s, 3) > 0);
   tactix_release(s);
 }
 
@@ -727,6 +819,7 @@ int main(void) {
   test_lrat_import_liveness_parity();
   test_bve_gate_selection();
   test_stats_and_config_surface();
+  test_permanent_installs();
   test_action_kind();
   puts("test_api_c OK");
   return 0;

@@ -48,8 +48,15 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step2/README.md)): public and
    controller H publication go through the shared executor, with the additive
    `tactix_set_guidance_publication` (v1 default DISCARD). DefaultPolicy and the controller are
-   byte-identical to c2.3, and full Debug passes 356/356. Pending before push: §8.4 default
-   gates and the §8.2 fuzz legs for Steps 1–2. Next: Step 3.
+   byte-identical to c2.3, and full Debug passes 356/356. Step 3 is committed
+   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step3/README.md)): additive
+   `tactix_install_parameters`/`tactix_install_material_settings`, and DefaultPolicy's
+   classification, tier-pose, BVE-bound and Factor-composite writes become typed installs
+   (ratchet internal entries 14 → 12; DefaultPolicy and controller byte-identical to c2.3; full
+   Debug 356/356). The public replay now applies every install; its strict prefix still stops at the
+   first `MaterializeColdState`. Pending before push: §8.4 default gates and the §8.2 fuzz legs
+   for Steps 1–3. Next: Step 4 support vocabulary together with replay of the structured-root
+   online steps, then Step 6.
 
 ## Live work
 

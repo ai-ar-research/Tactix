@@ -57,7 +57,9 @@ static void test_parameter_completion() {
   execute_action(k, WalkGuidanceInstallationRequest{2200, curve}, &completion);
   assert(k.work_budget == 83 && k.walk_random_seed == 31 && k.walk_even_break_base_milli == 2200);
   const auto &walk = std::get<WalkParameters>(receiver.actions[1].native_request->invocation->parameters);
-  assert(walk.step_budget == 83 && walk.random_seed == 31 && walk.score_curve == curve);
+  // The record is the permanent profile a client installs: guidance only.
+  assert(!walk.step_budget && !walk.random_seed && !walk.seed_candidate &&
+         walk.even_break_base_milli == 2200 && walk.score_curve == curve);
   k.touch_filter = true;
   k.touch_redundant = false;
   execute_action(k, MaterialSettingsRequest{false, std::nullopt}, &completion);

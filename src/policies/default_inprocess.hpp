@@ -287,7 +287,8 @@ private:
   SlotStep run_batch_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
   bool factor_entry_declines(const Kernel &, SlotEntry &);
-  void factor_dose_config(Kernel &, SlotEntry &);
+  void factor_dose_config(Kernel &, SlotEntry &, execution::PolicyCompletion *);
+  static void set_factor_composite(Kernel &, bool, execution::PolicyCompletion *);
   ApplyResult run_budgeted_batch(Kernel &, SlotEntry &, const RuleVTable &,
                                  uint64_t, bool, execution::PolicyCompletion *);
   ApplyResult run_vivify_dose(Kernel &, SlotEntry &, const RuleVTable &,
