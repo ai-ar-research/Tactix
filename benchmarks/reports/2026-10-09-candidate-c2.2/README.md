@@ -49,5 +49,5 @@ later storage cleanup, so this report cites only c2.2's own runs.
 - The gates are partial: 192 of 272 rows. snw_16_9_CCSpre and noL-11-8 remain
   the accepted §8.4 exceptions.
 - No fuzz campaign was run on c2.2.
-- Full Debug is job 1761569.
+- Full Debug: 353/353 passed, zero skips (job 1761569, archived source `8ce068dbf`).
 - The full fixed44 set was not rerun.
