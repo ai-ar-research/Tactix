@@ -314,88 +314,25 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
 - **Soundness:** both directions are validated before addition; each committed direction has its own completed RUP derivation. An interrupted second derivation retires its proof-only prefix, while no equivalence substitution occurs until both directions commit.
 
 ### V6 · Congruence — gate congruence closure (AND/XOR/ITE)
-- **Precondition (abstract):** two gates of the same kind with the same inputs compute the same function, so their outputs are
-  equivalent: `out = f(in…)` and `out' = f(in…)` ⇒ `F ⊨ out ↔ out'`. Extraction recognises a gate from its defining clauses — AND
-  `out=∧inᵢ` (base `(out∨¬in₁∨…)` + binaries `(¬out∨inᵢ)`), XOR `out=⊕inᵢ` (all `2^k` parity clauses present), ITE
-  `out=cond?then:else` (all four defining ternaries present). The relation is closed under a union-find over literals: after two
-  gates’ outputs are merged, gates whose inputs used either output re-canonicalize and may themselves become congruent, so one apply
-  collapses every circuit layer.
-- **Effect:** for each congruent pair add the two equivalence binaries `(¬a∨b),(a∨¬b)` and `unite(a,b)` in the union-find (gate
-  CLAUSES are never rewritten here — V3 `Substitute`, run next in the phase, performs the whole-formula collapse over the added
-  binaries). Canonicalization is per kind: AND sorts representative inputs; XOR folds each input representative’s sign into a parity
-  bit the output absorbs and cancels repeated variables (`x⊕x=0`); ITE normalizes to `cond`,`then` positive (a flip absorbed by the
-  output). A canonicalization may **degenerate**, and each degeneracy is itself an inference over `F`, not a dead end. Three
-  outcomes:
+- **Precondition (abstract):** two gates of the same kind with the same inputs compute the same function, so their outputs are equivalent: `out = f(in…)` and `out' = f(in…)` ⇒ `F ⊨ out ↔ out'`. Extraction recognises a gate from its defining clauses — AND `out=∧inᵢ` (base `(out∨¬in₁∨…)` + binaries `(¬out∨inᵢ)`), XOR `out=⊕inᵢ` (all `2^k` parity clauses present), ITE `out=cond?then:else` (all four defining ternaries present). The relation is closed under a union-find over literals: after two gates’ outputs are merged, gates whose inputs used either output re-canonicalize and may themselves become congruent, so one apply collapses every circuit layer.
+- **Effect:** for each congruent pair add the two equivalence binaries `(¬a∨b),(a∨¬b)` and `unite(a,b)` in the union-find (gate CLAUSES are never rewritten here — V3 `Substitute`, run next in the phase, performs the whole-formula collapse over the added binaries). Canonicalization is per kind: AND sorts representative inputs; XOR folds each input representative’s sign into a parity bit the output absorbs and cancels repeated variables (`x⊕x=0`); ITE normalizes to `cond`,`then` positive (a flip absorbed by the output). A canonicalization may **degenerate**, and each degeneracy is itself an inference over `F`, not a dead end. Three outcomes:
   - **a root unit** — `AND(…,x,¬x,…)` ⇒ `out = 0` ⇒ `¬out`; an XOR whose variables all cancel ⇒ `out` is the parity constant.
-  - **a merge with no second gate** — a unary gate `AND(x)` / `XOR(x)` (the latter signed by the folded parity), or an ITE whose
-    branches coincide (`then ≡ else` ⇒ `out ↔ then`).
-  - **a root input unit from a valued gate** — after representative values and cancellations leave one effective input, the fixed
-    output forces that input (for XOR, the conclusion still depends on every independently cancelled representative even though
-    those representatives vanished from the key).
-  - **a smaller gate of another kind**, which re-enters the closure under that kind: an ITE with `then ≡ ¬else` is the XOR `¬out =
-    cond ⊕ then`, and an ITE whose `cond` shares a variable with a branch is a 2-input AND/OR (`cond ≡ then` ⇒ `out = cond ∨ else`;
-    `cond ≡ ¬then` ⇒ `out = ¬cond ∧ else`; `cond ≡ else` ⇒ `out = cond ∧ then`; `cond ≡ ¬else` ⇒ `out = ¬cond ∨ then`).
+  - **a merge with no second gate** — a unary gate `AND(x)` / `XOR(x)` (the latter signed by the folded parity), or an ITE whose branches coincide (`then ≡ else` ⇒ `out ↔ then`).
+  - **a root input unit from a valued gate** — after representative values and cancellations leave one effective input, the fixed output forces that input (for XOR, the conclusion still depends on every independently cancelled representative even though those representatives vanished from the key).
+  - **a smaller gate of another kind**, which re-enters the closure under that kind: an ITE with `then ≡ ¬else` is the XOR `¬out = cond ⊕ then`, and an ITE whose `cond` shares a variable with a branch is a 2-input AND/OR (`cond ≡ then` ⇒ `out = cond ∨ else`; `cond ≡ ¬then` ⇒ `out = ¬cond ∧ else`; `cond ≡ else` ⇒ `out = cond ∧ then`; `cond ≡ ¬else` ⇒ `out = ¬cond ∨ then`).
 
-  A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
-  Applying gate extraction may delete root-satisfied clauses with `del`, independently of a
-  later merge. Root units justify their removal; no reconstruction witness is needed.
-  After any merge, including binary-only rounds, cleanup may delete root-satisfied or representative-tautological clauses,
-  and clauses subsumed modulo the proved equivalences. An irredundant victim requires an
-  irredundant surviving subsumer; redundant victims may use either class. Each deletion emits `del`
-  after its justifying equivalences are live, preserves models, and needs no reconstruction witness.
-  Typed ITE collapses, including a single fixed branch, re-enter closure under the effective kind.
-  Non-valued converted ANDs publish RUP implication binaries even without a match; root-valued sides
-  can remain as original-clause cofactors. Original gates retain proof/occurrence ownership (D-CONG-ITE).
-  If an ITE's effective AND/OR collapses again to a constant, its original ternaries need both
-  condition-case lemmas before the output unit; direct RUP is not implied by semantic equivalence.
-  Literal-form `x ≡ ¬x` refutes for AND/XOR/ITE by normalizing the two degenerate binaries to opposing units.
-  *(Closed ledger row **D-CONG-UNIT**,
-  `implementation-notes.md` §2.)*
-- **Instances:** the frozen scalar payload remains the canonical closure. The additive semantic surface names each distinct
-  currently available transition: a matching-output or unary-gate equivalence, a gate-degeneracy unit, or a V6a unit. It emits only
-  that transition; the next enumeration reads persistent binary pairs/root values and exposes later layers, including literal-form
-  refutations. Closure is repeat-to-fixpoint composition.
-- **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting transient lemmas first, then
-  `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest first in every clausal format; an abandoned inference also retires its partial ladder. Each new representative union publishes both
-  additions even if an identical binary is already live; the duplicate is RUP from that existing clause and has its own immutable
-  proof identity. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the equivalence binaries added
-  earlier in the closure; a root-true intermediate contributes its proved unit id). XOR — a parity-elimination **ladder**: eliminate
-  every cancelled representative from either original gate and all but one unassigned shared rhs variable, emitting `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for all sign patterns; representatives assigned by the negated output conclusion need no split.
-  Every lemma is RUP over the current DB; the two size-0 lemmas are the binaries. ITE — a fixed **6-clause case-split on cond**:
-  `{a,¬b,±cond}`, `{¬a,b,±cond}` then the two binaries. A **degeneracy** conclusion (output unit, input unit, or unary merge) is
-  likewise not RUP on its own — the parity clauses propagate nothing until all but one of their literals is assigned — and needs its
-  own ladder, even with other root-fixed inputs, quantified over **cancelled** representatives rather than a shared rhs: for `size = |cancelled| … 1`, every
-  sign pattern over `cancelled[0..size-1]` appended to each conclusion; the size-0 lemmas are the unit / the two binaries. **No
-  `add_rat`.** Native-LRAT hints replay against the complete negated conclusion cube; a root unit already true there is an assumption, not a hint, and is omitted. Equivalence-preserving (no variable eliminated here), so no `ρ` witness — the outputs stay live until V3.
-  *(Native-LRAT realization and transient-lemma deletion are closed ledger rows D-CONG-LRAT / D-CONG-DELETE / D-CONG-TAUT; the
-  remaining proof-path completeness deviation is D-CONG-SKIP (LRAT path only) — `implementation-notes.md` §2.)*
-- **Soundness:** a gate is emitted only when ALL its defining clauses are present (XOR: the full `2^k` parity set; ITE: all four
-  ternaries), so `out = f(in…)` genuinely holds and the merged equivalence is entailed. The union-find only ever equates literals
-  proven equivalent; `x ≡ ¬x` is a refutation.
+  A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`. Applying gate extraction may delete root-satisfied clauses with `del`, independently of a later merge. Root units justify their removal; no reconstruction witness is needed. After any merge, including binary-only rounds, cleanup may delete root-satisfied or representative-tautological clauses, and clauses subsumed modulo the proved equivalences. An irredundant victim requires an irredundant surviving subsumer; redundant victims may use either class. Each deletion emits `del` after its justifying equivalences are live, preserves models, and needs no reconstruction witness. Typed ITE collapses, including a single fixed branch, re-enter closure under the effective kind. Non-valued converted ANDs publish RUP implication binaries even without a match; root-valued sides can remain as original-clause cofactors. Original gates retain proof/occurrence ownership (D-CONG-ITE). If an ITE's effective AND/OR collapses again to a constant, its original ternaries need both condition-case lemmas before the output unit; direct RUP is not implied by semantic equivalence. Literal-form `x ≡ ¬x` refutes for AND/XOR/ITE by normalizing the two degenerate binaries to opposing units. *(Closed ledger row **D-CONG-UNIT**, `implementation-notes.md` §2.)*
+- **Instances:** the frozen scalar payload remains the canonical closure. The additive semantic surface names each distinct currently available transition: a matching-output or unary-gate equivalence, a gate-degeneracy unit, or a V6a unit. It emits only that transition; the next enumeration reads persistent binary pairs/root values and exposes later layers, including literal-form refutations. Closure is repeat-to-fixpoint composition.
+- **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting transient lemmas first, then `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest first in every clausal format; an abandoned inference also retires its partial ladder. Each new representative union publishes both additions even if an identical binary is already live; the duplicate is RUP from that existing clause and has its own immutable proof identity. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the equivalence binaries added earlier in the closure; a root-true intermediate contributes its proved unit id). XOR — a parity-elimination **ladder**: eliminate every cancelled representative from either original gate and all but one unassigned shared rhs variable, emitting `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for all sign patterns; representatives assigned by the negated output conclusion need no split. Every lemma is RUP over the current DB; the two size-0 lemmas are the binaries. ITE — a fixed **6-clause case-split on cond**: `{a,¬b,±cond}`, `{¬a,b,±cond}` then the two binaries. A **degeneracy** conclusion (output unit, input unit, or unary merge) is likewise not RUP on its own — the parity clauses propagate nothing until all but one of their literals is assigned — and needs its own ladder, even with other root-fixed inputs, quantified over **cancelled** representatives rather than a shared rhs: for `size = |cancelled| … 1`, every sign pattern over `cancelled[0..size-1]` appended to each conclusion; the size-0 lemmas are the unit / the two binaries. **No `add_rat`.** Native-LRAT hints replay against the complete negated conclusion cube; a root unit already true there is an assumption, not a hint, and is omitted. Equivalence-preserving (no variable eliminated here), so no `ρ` witness — the outputs stay live until V3. *(Native-LRAT realization and transient-lemma deletion are closed ledger rows D-CONG-LRAT / D-CONG-DELETE / D-CONG-TAUT; the remaining proof-path completeness deviation is D-CONG-SKIP (LRAT path only) — `implementation-notes.md` §2.)*
+- **Soundness:** a gate is emitted only when ALL its defining clauses are present (XOR: the full `2^k` parity set; ITE: all four ternaries), so `out = f(in…)` genuinely holds and the merged equivalence is entailed. The union-find only ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
 
 #### V6a · the binary-resolution unit channel (a SECOND inference inside V6's apply)
-- **Precondition (abstract):** binaries `(l∨o)` and `(l∨¬o)` both in `F` resolve on `o` to `(l∨l)`, so `F ⊨ l` and `l` may be added
-  as a root unit. **No gate is involved** — nothing is extracted, canonicalized or united. It is one resolution step, and it is a
-  *strict special case of V2 Backbone's* precondition (assume `¬l`; binary propagation forces `o` from `(l∨o)` and `¬o` from
-  `(l∨¬o)`, a depth-1 failed literal), so the conclusions are a subset of V2's, which are a subset of V1's. What it adds over V2 is
-  not reach but **completeness at linear cost**: one sweep of the binary watches finds every such unit, where V2 pays a BIG
-  propagation per probed literal.
-- **Effect:** collect-then-batch, into the SAME batch as the degeneracy units above — nothing is asserted mid-sweep, so the closure
-  that follows sees an unchanged trail and M1 owns the cascade. Deriving both `l` and `¬l` in one round is a refutation (the two
-  units resolve to ∅).
-- **Canonical dose:** every admitted V6 application performs exactly one complete linear scan of the active variables and their
-  binary watches. V6a owns that structural allowance: spending the shared Congruence gate-extraction budget cannot truncate it. A
-  global termination request may stop the scan, soundly dropping only the remaining optional inferences. `congruence_y1_ticks`
-  accounts for the scan and any proof replay without turning the completeness guarantee into a tuned constant.
-- **Proof δ:** `add_rup({l}, chain)` per unit, the chain **replayed** rather than assembled from the two binary ids — assuming `¬l`
-  at a probing scope and reading the antecedents off the conflict gives the chain in the checker's own propagation order by
-  construction, which a hand-built pair silently gets wrong (the D-CONG-LRAT lesson). A replay that finds no conflict emits nothing
-  and drops the inference (D-CONG-SKIP). No `ρ` witness — no variable is eliminated.
-- **Soundness:** resolution. Both parents are clauses of `F` carried with their own ids, so `{l}` is entailed, and it is RUP, which
-  is what the emitted chain certifies.
-- **Why it lives in V6 rather than in a rule of its own:** the reference couples the two at exactly this rate (`congruence.c:4613`),
-  and the units it derives seed the value cascade V6's unit channel needs. The retained dose and its T105 ablation are ledger
-  `SP-CONG-UNITS-1`.
+- **Precondition (abstract):** binaries `(l∨o)` and `(l∨¬o)` both in `F` resolve on `o` to `(l∨l)`, so `F ⊨ l` and `l` may be added as a root unit. **No gate is involved** — nothing is extracted, canonicalized or united. It is one resolution step, and it is a *strict special case of V2 Backbone's* precondition (assume `¬l`; binary propagation forces `o` from `(l∨o)` and `¬o` from `(l∨¬o)`, a depth-1 failed literal), so the conclusions are a subset of V2's, which are a subset of V1's. What it adds over V2 is not reach but **completeness at linear cost**: one sweep of the binary watches finds every such unit, where V2 pays a BIG propagation per probed literal.
+- **Effect:** collect-then-batch, into the SAME batch as the degeneracy units above — nothing is asserted mid-sweep, so the closure that follows sees an unchanged trail and M1 owns the cascade. Deriving both `l` and `¬l` in one round is a refutation (the two units resolve to ∅).
+- **Canonical dose:** every admitted V6 application performs exactly one complete linear scan of the active variables and their binary watches. V6a owns that structural allowance: spending the shared Congruence gate-extraction budget cannot truncate it. A global termination request may stop the scan, soundly dropping only the remaining optional inferences. `congruence_y1_ticks` accounts for the scan and any proof replay without turning the completeness guarantee into a tuned constant.
+- **Proof δ:** `add_rup({l}, chain)` per unit, the chain **replayed** rather than assembled from the two binary ids — assuming `¬l` at a probing scope and reading the antecedents off the conflict gives the chain in the checker's own propagation order by construction, which a hand-built pair silently gets wrong (the D-CONG-LRAT lesson). A replay that finds no conflict emits nothing and drops the inference (D-CONG-SKIP). No `ρ` witness — no variable is eliminated.
+- **Soundness:** resolution. Both parents are clauses of `F` carried with their own ids, so `{l}` is entailed, and it is RUP, which is what the emitted chain certifies.
+- **Why it lives in V6 rather than in a rule of its own:** the reference couples the two at exactly this rate (`congruence.c:4613`), and the units it derives seed the value cascade V6's unit channel needs. The retained dose and its T105 ablation are ledger `SP-CONG-UNITS-1`.
 
 ## 6b. Variable elimination and addition (E1–E2)
 
@@ -593,65 +530,10 @@ extend `C` until the extension is blocked, and then the ORIGINAL `C` is deleted.
 
 ## 6d. Direct substitution redundancy (X7)
 ### X7 · SubstitutionRedundancy — add a clause with a finite DSR witness
-- **Precondition (abstract):** let `C` be a nonempty, non-tautological clause, `p ∈ C` its pivot, and `σ` a finite,
-  polarity-preserving substitution mapping variables to constants or literals. DSR supplies the default `σ(p)=true` when the
-  witness has no explicit mapping for the pivot; an explicit pivot mapping overrides that default. For every `D ∈ F ∪ {C}`, either
-  `D|σ` is satisfied or unit propagation refutes `F ∧ ¬C ∧ ¬(D|σ)`. The candidate-image obligation is essential when the pivot is explicitly mapped. Discovery, work limits and producers are strategy choices.
-- **Effect:** add `C`, then perform ordinary root propagation; existing clauses and reconstruction state stay unchanged. An
-  already-present/true candidate or a validated candidate whose root-simplified clause is already present is a format-neutral no-op with no proof line; a unit may close the root formula.
-- **Proof δ / soundness:** `add_sr(C,p,σ)` joins the combined DSR stream; mapping sources are positive variables with signed images.
-  The serializer preserves the semantic witness using direct, repivoted, RUP or lemma forms. The general form chooses fresh
-  proof-only `z`, adds `E=(¬z∨C)` by vacuous RAT and `K=(z∨C)` by SR with `z=true` and `σ`, derives `C` by RUP, then deletes `K,E`.
-  Under `¬K`, the original obligations apply; `E|σ` is the candidate-image obligation. Both temporary clauses are nonunit and
-  completely removed, so no solver variable or reconstruction change is needed. A clause that is unit at the root always takes
-  this form (stating the default pivot image), so no witnessed line propagates when the checker reads it. Every root fact used by validation is already a DSR RUP unit. `dsr-trim` and Trestle check the complete stream; no legal witness is excluded by its number of open images.
-- **Instances / termination:** `(C,p,σ)` is the explicit tuple. Lazy enumeration covers every legal tuple and resumes after selected
-  batches. Repetition terminates over finite clause space or by caller budget/stop. Row-oriented, column-oriented, stabilizer-chain,
-  and direct-generator symmetry discovery are producers of ordinary X7 tuples, not additional guards or new proof rules.
-  Forward-only clause scanning is an optional producer priority; explicit X7 remains unrestricted by its scan frontier. Shortest-active-clause selection is another producer priority with unchanged tuple obligations.
-  Strategy may re-sift retained stabilizer generators on every base extension; this changes discovery, not X7 legality.
-  Strategy may retain detector callback order or canonicalize generator maps before traversal; either order uses the same X7 validation.
-  Structured generators and a caller-selected discovery stabilizer may guide generic discovery; every emitted tuple retains the same X7 obligations. The stabilizer may fix whole matrices or their row/column anchors; neither choice restricts explicit X7.
-  A planning stop may finalize and publish a prefix of complete chain levels under the independent total work budget;
-  it never relaxes tuple validation or permits a partially published level. Structured
-  row-candidate discovery may use equitable refinement cells or detected-generator orbits; an equitable cell is only a
-  candidate set and never replaces exact action validation. Explicit
-  and general tuples are independently checked against the current live formula. A generated orbitopal prefix may share a structural
-  validation: for member `i`, its full action is an exact clause-set automorphism of the base formula (duplicate counts are irrelevant), maps the selected fixed literal to its
-  witness mate, and preserves the multiset of prior prefix units `U_<i`. It is therefore an automorphism of `F ∪ U_<i`, which proves
-  the same X7 SR condition without repeating propagation over every base clause. The executor admits this only in original prefix
-  order and rejects external state changes; the emitted proof remains an ordinary independently checked DSR `add_sr` sequence.
-  A graph-symmetry clausal-fixing level chooses a representative `r` and the other active literals `k` of one clause in their common
-  orbit. For each `k`, it first applies the ordinary X7 tuple `C_k = (r ∨ ¬k)` with pivot `r` and the inverse Schreier transversal
-  `h(r)=k`; pivot order is part of the DSR rule. Under `¬C_k`, `k` is true, so the image of every earlier cut at this level is
-  immediately satisfied. The level then applies unit `(r)`, which is RUP from the complete binary prefix and the source clause. The pointwise
-  stabilizer of `r` preserves the completed level, so later levels use the same incremental chain. An AMO source additionally
-  propagates every other active literal false. Every materialized transversal is exact-checked against the detection snapshot;
-  ordered application certifies the earlier cuts, while the live root closure must remain invariant under the witness. This private
-  producer certificate only avoids repeating the generic formula scan; every emitted tuple remains independently checkable DSR.
-  Product-axis witnesses may move variables outside the selected matrix if they preserve the full formula and required prefix;
-  fixing those outside variables is a sufficient discovery fast path, not an additional X7 precondition.
-  If no source clause lies in the current orbit, a fix-and-cut producer may instead publish the complete orbit level
-  `B_k = (¬r ∨ k)` for every `k ∈ O(r) \ {r}`, each with pivot `¬r` and inverse transversal `h(r)=k`. Under `¬B_k`, the image
-  of every earlier member of that level is satisfied by `¬k`. If `¬r ∈ O(r)`, the level is the unit `(r)` with the corresponding
-  negation-orbit witness. Before granting the private certificate to a later level, the producer independently checks that its
-  transversal fixes every earlier cut base and maps every earlier complete cut orbit into itself; fixed points satisfy these obligations automatically. Hence each image is another
-  published cut or a tautology. The chain is closed before any transversal is materialized. No partial level is selected when its
-  action or work budget is insufficient. Cut-producing repeat-to-fixpoint remains finite because original clauses are retained,
-  each effective application adds a previously absent binary or unit, and the finite literal domain has only finitely many such
-  clauses. Strategy may rank only the initial level by active clause length and then use a forward caller-order scan;
-  this changes producer priority, not the X7 condition or selectable explicit instances.
-  After a complete chain has passed all of these checks, strategy may withhold
-  the whole batch when it contains only nonforcing binary orbit cuts. Strategy
-  may require compound progress for a singleton nonforcing binary batch, but
-  never suppresses a certified forcing unit, including a checked binary made
-  unit by live root assignments. These batch-admission choices neither change
-  the X7 precondition nor prevent
-  a caller from selecting the same explicit tuples or requesting unconditional
-  publication.
-  A producer may factor the supplied generator subgroup by whole generator supports. Each factor acts identically outside
-  its component; coupled cycles stay together. Local source clauses retain every unknown literal, and mapped witnesses
-  undergo the same full-formula and preceding-prefix checks. This changes discovery order, never explicit X7 legality.
+- **Precondition (abstract):** let `C` be a nonempty, non-tautological clause, `p ∈ C` its pivot, and `σ` a finite, polarity-preserving substitution mapping variables to constants or literals. DSR supplies the default `σ(p)=true` when the witness has no explicit mapping for the pivot; an explicit pivot mapping overrides that default. For every `D ∈ F ∪ {C}`, either `D|σ` is satisfied or unit propagation refutes `F ∧ ¬C ∧ ¬(D|σ)`. The candidate-image obligation is essential when the pivot is explicitly mapped. Discovery, work limits and producers are strategy choices.
+- **Effect:** add `C`, then perform ordinary root propagation; existing clauses and reconstruction state stay unchanged. An already-present/true candidate or a validated candidate whose root-simplified clause is already present is a format-neutral no-op with no proof line; a unit may close the root formula.
+- **Proof δ / soundness:** `add_sr(C,p,σ)` joins the combined DSR stream; mapping sources are positive variables with signed images. The serializer preserves the semantic witness using direct, repivoted, RUP or lemma forms. The general form chooses fresh proof-only `z`, adds `E=(¬z∨C)` by vacuous RAT and `K=(z∨C)` by SR with `z=true` and `σ`, derives `C` by RUP, then deletes `K,E`. Under `¬K`, the original obligations apply; `E|σ` is the candidate-image obligation. Both temporary clauses are nonunit and completely removed, so no solver variable or reconstruction change is needed. A clause that is unit at the root always takes this form (stating the default pivot image), so no witnessed line propagates when the checker reads it. Every root fact used by validation is already a DSR RUP unit. `dsr-trim` and Trestle check the complete stream; no legal witness is excluded by its number of open images.
+- **Instances / termination:** `(C,p,σ)` is the explicit tuple. Lazy enumeration covers every legal tuple and resumes after selected batches. Repetition terminates over finite clause space or by caller budget/stop. Row-oriented, column-oriented, stabilizer-chain, and direct-generator symmetry discovery are producers of ordinary X7 tuples, not additional guards or new proof rules. Forward-only clause scanning is an optional producer priority; explicit X7 remains unrestricted by its scan frontier. Shortest-active-clause selection is another producer priority with unchanged tuple obligations. Strategy may re-sift retained stabilizer generators on every base extension; this changes discovery, not X7 legality. Strategy may retain detector callback order or canonicalize generator maps before traversal; either order uses the same X7 validation. Structured generators and a caller-selected discovery stabilizer may guide generic discovery; every emitted tuple retains the same X7 obligations. The stabilizer may fix whole matrices or their row/column anchors; neither choice restricts explicit X7. A planning stop may finalize and publish a prefix of complete chain levels under the independent total work budget; it never relaxes tuple validation or permits a partially published level. Structured row-candidate discovery may use equitable refinement cells or detected-generator orbits; an equitable cell is only a candidate set and never replaces exact action validation. Explicit and general tuples are independently checked against the current live formula. A generated orbitopal prefix may share a structural validation: for member `i`, its full action is an exact clause-set automorphism of the base formula (duplicate counts are irrelevant), maps the selected fixed literal to its witness mate, and preserves the multiset of prior prefix units `U_<i`. It is therefore an automorphism of `F ∪ U_<i`, which proves the same X7 SR condition without repeating propagation over every base clause. The executor admits this only in original prefix order and rejects external state changes; the emitted proof remains an ordinary independently checked DSR `add_sr` sequence. A graph-symmetry clausal-fixing level chooses a representative `r` and the other active literals `k` of one clause in their common orbit. For each `k`, it first applies the ordinary X7 tuple `C_k = (r ∨ ¬k)` with pivot `r` and the inverse Schreier transversal `h(r)=k`; pivot order is part of the DSR rule. Under `¬C_k`, `k` is true, so the image of every earlier cut at this level is immediately satisfied. The level then applies unit `(r)`, which is RUP from the complete binary prefix and the source clause. The pointwise stabilizer of `r` preserves the completed level, so later levels use the same incremental chain. An AMO source additionally propagates every other active literal false. Every materialized transversal is exact-checked against the detection snapshot; ordered application certifies the earlier cuts, while the live root closure must remain invariant under the witness. This private producer certificate only avoids repeating the generic formula scan; every emitted tuple remains independently checkable DSR. Product-axis witnesses may move variables outside the selected matrix if they preserve the full formula and required prefix; fixing those outside variables is a sufficient discovery fast path, not an additional X7 precondition. If no source clause lies in the current orbit, a fix-and-cut producer may instead publish the complete orbit level `B_k = (¬r ∨ k)` for every `k ∈ O(r) \ {r}`, each with pivot `¬r` and inverse transversal `h(r)=k`. Under `¬B_k`, the image of every earlier member of that level is satisfied by `¬k`. If `¬r ∈ O(r)`, the level is the unit `(r)` with the corresponding negation-orbit witness. Before granting the private certificate to a later level, the producer independently checks that its transversal fixes every earlier cut base and maps every earlier complete cut orbit into itself; fixed points satisfy these obligations automatically. Hence each image is another published cut or a tautology. The chain is closed before any transversal is materialized. No partial level is selected when its action or work budget is insufficient. Cut-producing repeat-to-fixpoint remains finite because original clauses are retained, each effective application adds a previously absent binary or unit, and the finite literal domain has only finitely many such clauses. Strategy may rank only the initial level by active clause length and then use a forward caller-order scan; this changes producer priority, not the X7 condition or selectable explicit instances. After a complete chain has passed all of these checks, strategy may withhold the whole batch when it contains only nonforcing binary orbit cuts. Strategy may require compound progress for a singleton nonforcing binary batch, but never suppresses a certified forcing unit, including a checked binary made unit by live root assignments. These batch-admission choices neither change the X7 precondition nor prevent a caller from selecting the same explicit tuples or requesting unconditional publication. A producer may factor the supplied generator subgroup by whole generator supports. Each factor acts identically outside its component; coupled cycles stay together. Local source clauses retain every unknown literal, and mapped witnesses undergo the same full-formula and preceding-prefix checks. This changes discovery order, never explicit X7 legality.
 ## 6e. Clause strengthening by instantiation (X4)
 
 ### X4 · Instantiate — removing a literal a probe refutes

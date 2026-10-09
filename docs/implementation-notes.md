@@ -74,30 +74,16 @@ Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first C
 
 ### Closed
 
-- D-NOOP: Restart and Reduce use their pure `!inconsistent` guards. Restart exposes the root no-op, refreshes a conflict after a
-  prefix change, and discharges a surviving root conflict before root rewrites. Reduce locks and forwards a live large conflict
-  antecedent; pending clauses and trail reasons retain their protection. Zero-victim compact Reduce reports effective root
-  deletion/shortening/unit production as progress and root refutation as UNSAT; storage-only collection remains a semantic no-op.
-- D-ROOT: removed by the approved action-boundary contract. Inprocessing rules, S5 Lucky, and S6 Walk operate only on the level-zero
-  root formula; a strategy at a non-root search state explicitly composes S1 Restart before applying them. No executor-owned
-  decision-cube suspension or replay is supported.
+- D-NOOP: Restart and Reduce use their pure `!inconsistent` guards. Restart exposes the root no-op, refreshes a conflict after a prefix change, and discharges a surviving root conflict before root rewrites. Reduce locks and forwards a live large conflict antecedent; pending clauses and trail reasons retain their protection. Zero-victim compact Reduce reports effective root deletion/shortening/unit production as progress and root refutation as UNSAT; storage-only collection remains a semantic no-op.
+- D-ROOT: removed by the approved action-boundary contract. Inprocessing rules, S5 Lucky, and S6 Walk operate only on the level-zero root formula; a strategy at a non-root search state explicitly composes S1 Restart before applying them. No executor-owned decision-cube suspension or replay is supported.
 - D-SUBST-UNBOUNDED: public Substitute is unbounded; policy meters it.
-- D-CCE-SCOPE: CCE enumerates and applies individual large-clause and binary-pair semantic victims. A binary victim excludes every
-  identical copy from ALA/CLA support and deletes all copies through the duplicate-safe path. `test_cce` covers unique/duplicate
-  pairs, reconstruction, models and DRAT/LRAT.
-- D-C1C2-VICTIM: explicit C1 enumerates every live victim without canonical filters. C2 enumerates each victim/removal result and
-  fused C1 deletion; proper strengthening admits redundant partners because its RUP clause survives their later forgetting. Selected
-  batches preserve arena offsets; focused reconfiguration and model/DRAT/LRAT witnesses cover the transitions.
-- D-LEVEL/D-SPLIT: Decide may run off-fixpoint, M3 is atomic, and every inprocessing apply drains root closure with native-LRAT unit
-  identities.
-- D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY/TAUT: canonical ladders, degeneracies, deletion order, and the 1,000,000-input AND scope
-  are covered. Matching XOR ladders quantify cancelled representatives from both immutable source gates as well as the shared-key prefix; canonicalization alone does not prove their removal. DSR/DRAT record the same transient population as LRAT (literal multisets rather than IDs), including failed partial ladders, and retire it before later kernel-only SR validation. Otherwise a later witness can be valid for the live kernel yet fail against a leftover XOR/ITE lemma in the checker.
-- D-CONG-SKIP: a BIG bridge may cross a root-true intermediate by citing its proved unit id, so native LRAT no longer loses that
-  legal path. The focused chain regression and native Congruence proofs pass; a nonzero `congruence_unjustified` remains an alarm
-  for a different missing proof path.
+- D-CCE-SCOPE: CCE enumerates and applies individual large-clause and binary-pair semantic victims. A binary victim excludes every identical copy from ALA/CLA support and deletes all copies through the duplicate-safe path. `test_cce` covers unique/duplicate pairs, reconstruction, models and DRAT/LRAT.
+- D-C1C2-VICTIM: explicit C1 enumerates every live victim without canonical filters. C2 enumerates each victim/removal result and fused C1 deletion; proper strengthening admits redundant partners because its RUP clause survives their later forgetting. Selected batches preserve arena offsets; focused reconfiguration and model/DRAT/LRAT witnesses cover the transitions.
+- D-LEVEL/D-SPLIT: Decide may run off-fixpoint, M3 is atomic, and every inprocessing apply drains root closure with native-LRAT unit identities.
+- D-CONG-LRAT/UNIT/INPUT-UNIT/DELETE/ARITY/TAUT: canonical ladders, degeneracies, deletion order, and the 1,000,000-input AND scope are covered. Matching XOR ladders quantify cancelled representatives from both immutable source gates as well as the shared-key prefix; canonicalization alone does not prove their removal. DSR/DRAT record the same transient population as LRAT (literal multisets rather than IDs), including failed partial ladders, and retire it before later kernel-only SR validation. Otherwise a later witness can be valid for the live kernel yet fail against a leftover XOR/ITE lemma in the checker.
+- D-CONG-SKIP: a BIG bridge may cross a root-true intermediate by citing its proved unit id, so native LRAT no longer loses that legal path. The focused chain regression and native Congruence proofs pass; a nonzero `congruence_unjustified` remains an alarm for a different missing proof path.
 - D-FACTOR-LRAT: Factor emits real RAT; dividers precede quotients and grid deletion.
-- D-RULE-CAPS: typed per-call settings cover all behavior-changing controls, with separate native-rule and composition budgets and
-  exact semantic instances. Reopen on a heuristic cutoff, silent truncation or explicit-instance filter.
+- D-RULE-CAPS: typed per-call settings cover all behavior-changing controls, with separate native-rule and composition budgets and exact semantic instances. Reopen on a heuristic cutoff, silent truncation or explicit-instance filter.
 
 ## 3. Cross-cutting state invariants
 
@@ -133,151 +119,62 @@ Level-one failed-literal batches publish before survivor bumps. Eager subsumptio
 
 - External identities never change; dense search maps translate only at proof/API/reconstruction boundaries.
 - Public C SAT status and direct/online SAT results prepare the reconstructed external model; value reads use a strategy-epoch cache. Reconstruction after stepping leaves live search state unchanged, and later public transitions invalidate the cached view.
-- Factor variables form `[first_extension_var,nvars)`, are model-projected and demoted once per apply; a call snapshots its literal
-  universe.
-- `factor_size=5` and `factor_cand_rounds=2` are source-backed within-rule scope. BVE includes extension variables in production and
-  public instances; reversing Factor is ordinary model reconstruction, not an admission reason.
-- Factor admission uses Kissat's cumulative material lifecycle. A zero-to-one factor-bit transition increments
-  `factor_literals_marked`; a fully drained call snapshots it after its own additions. Interrupted calls remain retryable, while
-  Factor output cannot automatically schedule another call.
-- Dense entry retains one binary per partner; exit keeps binary encounter then arena order. Physical degrees drive
-  matching/cache-line ticks. Isolated support repair5592 counts a pair for candidate peeling only if its smaller imported endpoint
-  is unassigned/unretired.
-- Dense Factor entries use compact apply-local clause ids and lazy canonical remainder ids. Epoch quotient marks replace per-column
-  hash sets; these are representation changes only and add no admission predicate.
-- Factor enters through the same null-stack dense transition as Kissat: sparse large watches are flushed, binary partners are
-  borrowed directly from the remaining packed watch slices, and only large occurrences need an apply-local Factor record. While
-  growing a quotient, membership in the selected factor set uses one byte per literal, matching Kissat's temporary `FACTOR` bit; the
-  application-stable active predicate is likewise cached as Kissat's byte-sized `ACTIVE` flag. Known-unique binary grid members are
-  removed by one find plus suffix move instead of two general compactions. These changes preserve the selected grids, encounter
-  order, logical ticks, and N1--N4 while removing representation work absent from Kissat's Factor loop.
-- Selecting a next factor publishes that literal to the temporary `FACTOR` image before matching, just as `new_quotient` does. A
-  current clause already containing the selected literal therefore has two factors and is not scanned as an impossible remainder
-  row. The inner effort cutoff is checked only after charging each current quotient occurrence; there is no additional
-  pre-`next_factor` cutoff. Rank-27 campaign `4588` pins all 424 accepted grids and total/pop/first/next/match meters bit-exact to
-  Kissat.
-- Extension-variable growth is amortized: kernel identity/trail/frame storage grows geometrically, while the compact import order
-  and inverse append one fresh identity incrementally. This removes quadratic reserve/rebuild work without changing the extension
-  order, Factor selection, or any N1--N4 surface.
-- `FactorSelection` is strategy-owned; Factor owns proof-bearing rewrite, gain, and effort. Proof order is dividers, quotients, then
-  grid deletion.
-- Production omits queue restamping after zero-yield Factor passes; native Kissat does it unconditionally. Isolated repair:
-  `SP-FACTOR-QUALITY-1`.
+- Factor variables form `[first_extension_var,nvars)`, are model-projected and demoted once per apply; a call snapshots its literal universe.
+- `factor_size=5` and `factor_cand_rounds=2` are source-backed within-rule scope. BVE includes extension variables in production and public instances; reversing Factor is ordinary model reconstruction, not an admission reason.
+- Factor admission uses Kissat's cumulative material lifecycle. A zero-to-one factor-bit transition increments `factor_literals_marked`; a fully drained call snapshots it after its own additions. Interrupted calls remain retryable, while Factor output cannot automatically schedule another call.
+- Dense entry retains one binary per partner; exit keeps binary encounter then arena order. Physical degrees drive matching/cache-line ticks. Isolated support repair5592 counts a pair for candidate peeling only if its smaller imported endpoint is unassigned/unretired.
+- Dense Factor entries use compact apply-local clause ids and lazy canonical remainder ids. Epoch quotient marks replace per-column hash sets; these are representation changes only and add no admission predicate.
+- Factor enters through the same null-stack dense transition as Kissat: sparse large watches are flushed, binary partners are borrowed directly from the remaining packed watch slices, and only large occurrences need an apply-local Factor record. While growing a quotient, membership in the selected factor set uses one byte per literal, matching Kissat's temporary `FACTOR` bit; the application-stable active predicate is likewise cached as Kissat's byte-sized `ACTIVE` flag. Known-unique binary grid members are removed by one find plus suffix move instead of two general compactions. These changes preserve the selected grids, encounter order, logical ticks, and N1--N4 while removing representation work absent from Kissat's Factor loop.
+- Selecting a next factor publishes that literal to the temporary `FACTOR` image before matching, just as `new_quotient` does. A current clause already containing the selected literal therefore has two factors and is not scanned as an impossible remainder row. The inner effort cutoff is checked only after charging each current quotient occurrence; there is no additional pre-`next_factor` cutoff. Rank-27 campaign `4588` pins all 424 accepted grids and total/pop/first/next/match meters bit-exact to Kissat.
+- Extension-variable growth is amortized: kernel identity/trail/frame storage grows geometrically, while the compact import order and inverse append one fresh identity incrementally. This removes quadratic reserve/rebuild work without changing the extension order, Factor selection, or any N1--N4 surface.
+- `FactorSelection` is strategy-owned; Factor owns proof-bearing rewrite, gain, and effort. Proof order is dividers, quotients, then grid deletion.
+- Production omits queue restamping after zero-yield Factor passes; native Kissat does it unconditionally. Isolated repair: `SP-FACTOR-QUALITY-1`.
 
 ### Binary/watch and clause-order identity
 
-- Native LRAT uses the exact binary-pair proof-id archive. Large declared DRAT inputs may use mirrored watches as identity authority
-  to avoid an oversized archive; API and LRAT behavior are unchanged.
-- Per-literal watches follow pinned Kissat's flat-vector lifecycle. A vector at the global tail extends in place while stack
-  allocation remains; otherwise it relocates to a doubled slice. `watch_holes` counts both abandoned words and unused slice
-  capacity, matching `vectors.usable`. Defragmentation is checked only at the same generic `new_clause` consumers as Kissat—original
-  import, learned clauses, BVE resolvents, large Factor quotients, and binary Vivify replacements—with the shipped `defragsize=2^18`
-  and strict `usable > 75%` boundary. Specialized binary constructors and delayed propagation rewatches never trigger a whole-arena
-  pack. Per-list entry order survives every relocation and pack.
-- The dense occurrence index follows the same flat-vector lifecycle: `large` and Eliminate's mixed `ordered` stream are per-literal
-  slices of one arena each rather than independent per-literal allocations, so a rebuild counts every list in the arena walk it
-  already makes and lays each slice out at its exact final length. A later push relocates by doubling and adds the abandoned image
-  to the same `holes` accounting. A slice reference is therefore valid only until the next push to that index — the precondition
-  Kissat states for `BEGIN_WATCHES`. Isolated7253's [single-image
-  cutover](../benchmarks/reports/2026-09-11-occurrence-cutover-checkpoint-7258.md) migrates Kernel and rule consumers to one mixed
-  owner plus exact large counts and filtered views; Probe stays direct-large and forward stays partial. Fixed actual-parent
-  order/proof/model/sanitizer gates and the final refactor runtime/RSS consolidation gates pass.
-- Attached dense views change together: large promotion/removal uses paired kernel primitives, including Sweep's eager session erases. Canonical Substitute republishes an attached mixed stream after bulk watch rewrites. Free N1 schedules may attach it outside DefaultPolicy's Eliminate group; a stale mirror is not an admissible scheduling deviation.
-  If Sweep's second certified general direction is interrupted after the first binary commits, its session reconciles primed mixed streams from physical watches before publication, reports the one-direction consequence as progress, and leaves the pair queued without an equivalence rewrite.
+- Native LRAT uses the exact binary-pair proof-id archive. Large declared DRAT inputs may use mirrored watches as identity authority to avoid an oversized archive; API and LRAT behavior are unchanged.
+- Per-literal watches follow pinned Kissat's flat-vector lifecycle. A vector at the global tail extends in place while stack allocation remains; otherwise it relocates to a doubled slice. `watch_holes` counts both abandoned words and unused slice capacity, matching `vectors.usable`. Defragmentation is checked only at the same generic `new_clause` consumers as Kissat—original import, learned clauses, BVE resolvents, large Factor quotients, and binary Vivify replacements—with the shipped `defragsize=2^18` and strict `usable > 75%` boundary. Specialized binary constructors and delayed propagation rewatches never trigger a whole-arena pack. Per-list entry order survives every relocation and pack.
+- The dense occurrence index follows the same flat-vector lifecycle: `large` and Eliminate's mixed `ordered` stream are per-literal slices of one arena each rather than independent per-literal allocations, so a rebuild counts every list in the arena walk it already makes and lays each slice out at its exact final length. A later push relocates by doubling and adds the abandoned image to the same `holes` accounting. A slice reference is therefore valid only until the next push to that index — the precondition Kissat states for `BEGIN_WATCHES`. Isolated7253's [single-image cutover](../benchmarks/reports/2026-09-11-occurrence-cutover-checkpoint-7258.md) migrates Kernel and rule consumers to one mixed owner plus exact large counts and filtered views; Probe stays direct-large and forward stays partial. Fixed actual-parent order/proof/model/sanitizer gates and the final refactor runtime/RSS consolidation gates pass.
+- Attached dense views change together: large promotion/removal uses paired kernel primitives, including Sweep's eager session erases. Canonical Substitute republishes an attached mixed stream after bulk watch rewrites. Free N1 schedules may attach it outside DefaultPolicy's Eliminate group; a stale mirror is not an admissible scheduling deviation. If Sweep's second certified general direction is interrupted after the first binary commits, its session reconciles primed mixed streams from physical watches before publication, reports the one-direction consequence as progress, and leaves the pair queued without an equivalence rewrite.
 - Dense mode forbids sparse large-watch publication, including new clauses. Production since `7a668e76` enters Eliminate with `kernel_flush_large_watches`, suppresses sparse publication while disconnected, and restores sparse watches at exit; affected fuzz and cumulative runtime acceptance remain open. Ledger `SP-ELIM-DENSE-ENTRY-1` owns the gate.
-- DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only packing exception. During the deletion-free scope,
-  the retained binary-id key map remains the exact live-set image, so known-new binary insertion does not rescan a high-degree watch
-  list. The general post-import binary API retains its live-pair check. The import-only exact bitmap falls back to the ordinary filter, rebuilt from live watches, before advisory-header growth exceeds its literal universe; late/repeated headers retain every existing pair and the same scoped owner. No parser tolerance, rule guard or API capability changes.
-- Surviving large Strengthen, Vivify, root-flush, Sweep, and Substitute rewrites stay in place, retaining Ref, span, header,
-  occurrence, and watch pose; a disconnected dense/Vivify phase stays disconnected until its common rebuild. Consumer marks remain
-  path-specific: connected Sweep publishes its image; canonical Substitute does not. Large Vivify publishes its new prefix plus the
-  old-size stale tail before shrinking. Unit/binary collapses retire the record; packed replacements inherit a source position
-  cleared at collection. Native learned-large and binary Vivify retry surviving old free variables. Isolated5378 covers
-  learned-large;6269 adds binary terminals, including instantiation, without occurrence changes. `SP-VIVIFY-RETRY-1` remains open.
-- Large OTFS shrinks the reason in its own record (kissat `strengthen.c`): same reference and arena position, the root-false first
-  watch retained with its watch entry, only the resolved literal marked removed and only the surviving tail marked added, `searched`
-  reset, glue clamped, `shrunken` set; the record stays the trail literal's reason until Backjump unassigns it. Binary OTFS
-  publishes the new binary and retires the old record at Backjump.
-- Whole-arena collection replays remaining packed positions; proof IDs are never positions, and Reduce's sparse partition remains
-  authoritative.
-- Walk's sparse resume uses the same current source position for its large-clause reconnect when packed replacements are still
-  pending.
-- Reduce captures Kissat's historical `first_reducible` watermark before advancing its next-call marker; promotion or retirement
-  cannot erase this cut. Generation-local positions map replacements to sources; genuine collection recomputes the marker, while
-  implementation-only packing forwards it. Only the prefix retains blockers/cursors; the tail is stably partitioned and rewatched,
-  even from zero. Isolated [7233](../benchmarks/reports/2026-09-11-gc-forward-checkpoint-7239.md) fuses sparse watch
-  filtering/forwarding: excluded old records get an invalid sentinel; packed prefix references retain stable live entries.
-  Dense/whole paths stay unchanged. CaDiCaL-style VMTF/phase ordering is available only as the explicit diagnostic arm
-  `TACTIX_ARENA_ORDER=1`; formula classification and benchmark/rank identity never select it, and Reduce never consumes it.
-- Reduce's `compactlim` admission is measured on `compact_import_order`, the kernel-owned image of Kissat's dense `VARS` population.
-  Initial sparse collection has already removed never-activated identities and collapsed all root-fixed variables onto one inactive
-  representative; only that representative plus later retirements contribute to `vars - active`. Admission uses Kissat's strict
-  `inactive > floor(percent*vars/100)` boundary. Stable external identities remain untouched, and direct kernel compaction may still
-  rebuild a root-fixed-only arena when an explicit caller requests it.
-- `external_import_rank` is permanent proof/reconstruction authority; `internal_import_rank` is its direct current-identity cache
-  and is remapped through variable compaction. Kernel invariants assert equality.
-- Substitute snapshots binaries in import/sign order, preserves asymmetric updates, and overwrites surviving large images in place.
-  Its append-only pools use offset-length slices; no pointer may survive growth.
-- Sweep's connected substitution is proof-rule-internal and policy-free. It rewrites reached irredundant occurrences, preserves
-  directed bridge images, leaves classes active, and lets mandatory Substitute own learned cleanup, reconstruction, retirement, and
-  heuristic publication.
-- Connected large-clause deduplication keeps the latest retiring occurrence's position (merge-forest order for batches), not the
-  first literal. Canonical substitution remains first-occurrence. Proof-hint order is independent.
-- A surviving in-place large Sweep image keeps its Ref/allocation span and an `INVALID_LIT` tail marker. Collapse/deletion becomes
-  lazy garbage; canonical Sweep owes no exit collection. Public/sessionless calls refresh immediately if they own raw Refs.
+- DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only packing exception. During the deletion-free scope, the retained binary-id key map remains the exact live-set image, so known-new binary insertion does not rescan a high-degree watch list. The general post-import binary API retains its live-pair check. The import-only exact bitmap falls back to the ordinary filter, rebuilt from live watches, before advisory-header growth exceeds its literal universe; late/repeated headers retain every existing pair and the same scoped owner. No parser tolerance, rule guard or API capability changes.
+- Surviving large Strengthen, Vivify, root-flush, Sweep, and Substitute rewrites stay in place, retaining Ref, span, header, occurrence, and watch pose; a disconnected dense/Vivify phase stays disconnected until its common rebuild. Consumer marks remain path-specific: connected Sweep publishes its image; canonical Substitute does not. Large Vivify publishes its new prefix plus the old-size stale tail before shrinking. Unit/binary collapses retire the record; packed replacements inherit a source position cleared at collection. Native learned-large and binary Vivify retry surviving old free variables. Isolated5378 covers learned-large;6269 adds binary terminals, including instantiation, without occurrence changes. `SP-VIVIFY-RETRY-1` remains open.
+- Large OTFS shrinks the reason in its own record (kissat `strengthen.c`): same reference and arena position, the root-false first watch retained with its watch entry, only the resolved literal marked removed and only the surviving tail marked added, `searched` reset, glue clamped, `shrunken` set; the record stays the trail literal's reason until Backjump unassigns it. Binary OTFS publishes the new binary and retires the old record at Backjump.
+- Whole-arena collection replays remaining packed positions; proof IDs are never positions, and Reduce's sparse partition remains authoritative.
+- Walk's sparse resume uses the same current source position for its large-clause reconnect when packed replacements are still pending.
+- Reduce captures Kissat's historical `first_reducible` watermark before advancing its next-call marker; promotion or retirement cannot erase this cut. Generation-local positions map replacements to sources; genuine collection recomputes the marker, while implementation-only packing forwards it. Only the prefix retains blockers/cursors; the tail is stably partitioned and rewatched, even from zero. Isolated [7233](../benchmarks/reports/2026-09-11-gc-forward-checkpoint-7239.md) fuses sparse watch filtering/forwarding: excluded old records get an invalid sentinel; packed prefix references retain stable live entries. Dense/whole paths stay unchanged. CaDiCaL-style VMTF/phase ordering is available only as the explicit diagnostic arm `TACTIX_ARENA_ORDER=1`; formula classification and benchmark/rank identity never select it, and Reduce never consumes it.
+- Reduce's `compactlim` admission is measured on `compact_import_order`, the kernel-owned image of Kissat's dense `VARS` population. Initial sparse collection has already removed never-activated identities and collapsed all root-fixed variables onto one inactive representative; only that representative plus later retirements contribute to `vars - active`. Admission uses Kissat's strict `inactive > floor(percent*vars/100)` boundary. Stable external identities remain untouched, and direct kernel compaction may still rebuild a root-fixed-only arena when an explicit caller requests it.
+- `external_import_rank` is permanent proof/reconstruction authority; `internal_import_rank` is its direct current-identity cache and is remapped through variable compaction. Kernel invariants assert equality.
+- Substitute snapshots binaries in import/sign order, preserves asymmetric updates, and overwrites surviving large images in place. Its append-only pools use offset-length slices; no pointer may survive growth.
+- Sweep's connected substitution is proof-rule-internal and policy-free. It rewrites reached irredundant occurrences, preserves directed bridge images, leaves classes active, and lets mandatory Substitute own learned cleanup, reconstruction, retirement, and heuristic publication.
+- Connected large-clause deduplication keeps the latest retiring occurrence's position (merge-forest order for batches), not the first literal. Canonical substitution remains first-occurrence. Proof-hint order is independent.
+- A surviving in-place large Sweep image keeps its Ref/allocation span and an `INVALID_LIT` tail marker. Collapse/deletion becomes lazy garbage; canonical Sweep owes no exit collection. Public/sessionless calls refresh immediately if they own raw Refs.
 
 ### Search, compaction, and BVE scratch
 
-- The shipped DefaultPolicy frontend may defer rule-cold per-variable state and leave `H` unattached through startup propagation and
-  early Lucky. A terminal startup result never materializes either image. If early Lucky returns unknown, the kernel materializes
-  rule state and `ScopedHeuristics` consumes the parser-retained activation order before any later rule. Factor extensions receive
-  the normal cumulative activation score on stable-heap insertion, then Factor demotes that score to zero exactly as Kissat does.
-  Bare kernels, API clients, random/replay, stress, and supplied `H` stay eager.
-- Isolated7371 consumes either DefaultPolicy Lucky call's new roots before later guidance; raw Lucky remains guidance-independent and walks permanent maps. Either early or late Lucky refutation terminates at that call boundary, before journal guard checks or later policy phases can observe an already-inconsistent state.
-  Fresh H preserves compact order: first late attach reconstructs extensions by external identity; later detached extension creation appends to the retained image, never restoring unactivated input identities.
-- Variable compaction remaps target/best phase arrays and recomputes assigned high-water counts. VMTF cursor, random permutation and
-  import ranks are mapped; isolated6357 preserves detached stamps/links (SP-COMPACT-1). Isolated
-  [7339](../benchmarks/reports/2026-09-11-root-storage-regression-7355.md) archives unreferenced root-prefix values/unit IDs,
-  retaining one representative and referenced/late roots; logical material counts include archived facts, physical bounds do not. No
-  admission/cadence change; migration can still alter scheduling state, so no parity/promotion claim.
-- `ReservedTrail` owns pre-reserved storage plus a logical end. Variable growth reserves before assignment; backtrack shrinks only
-  the logical end.
-- BVE reuses touched-only indexes, flat pools and persistent Kitten stacks. Isolated7116 combines7087 root-free antecedent offsets
-  with direct mapped physical-clause SubSolver import and XOR-consumer-local indexes. Root-filtered snapshots remain; views end
-  before mutation/collection, and import retains owned copies. First-occurrence ids, physical root-false literals,
-  candidate/proof/tick order stay unchanged; gates are in the [stage2
-  checkpoint](../benchmarks/reports/2026-09-10-bve-import-stage2-7124.md).
-- Generated complete PureOnly BVE passes retain an ordinary occurrence image, attached only during each atomic application and its propagation followup. Kernel identity and state versions invalidate it; copied executors rebuild before mutation, pass completion/reconfiguration releases it, and caller-owned dense images remain borrowed. Live redundant large clauses select the existing sparse path, preserving its delete-only cleanup. Other rules see the original sparse boundary, including affine Lucky. Eliminate's mixed occurrence is one Kissat-shaped 31-bit payload plus tag. Binary deletion compacts stably; inspected/rebuilt
-  lists retire stale refs.
-- Each completed consistent BVE round collects the whole arena even at zero yield, rebuilds relocated refs, and satisfies generic
-  phase reclamation.
-- Collection follows `large_watches_connected`, independently of an optional occurrence cache: disconnected collection must not
-  reconnect large watches (isolated7339).
+- The shipped DefaultPolicy frontend may defer rule-cold per-variable state and leave `H` unattached through startup propagation and early Lucky. A terminal startup result never materializes either image. If early Lucky returns unknown, the kernel materializes rule state and `ScopedHeuristics` consumes the parser-retained activation order before any later rule. Factor extensions receive the normal cumulative activation score on stable-heap insertion, then Factor demotes that score to zero exactly as Kissat does. Bare kernels, API clients, random/replay, stress, and supplied `H` stay eager.
+- Isolated7371 consumes either DefaultPolicy Lucky call's new roots before later guidance; raw Lucky remains guidance-independent and walks permanent maps. Either early or late Lucky refutation terminates at that call boundary, before journal guard checks or later policy phases can observe an already-inconsistent state. Fresh H preserves compact order: first late attach reconstructs extensions by external identity; later detached extension creation appends to the retained image, never restoring unactivated input identities.
+- Variable compaction remaps target/best phase arrays and recomputes assigned high-water counts. VMTF cursor, random permutation and import ranks are mapped; isolated6357 preserves detached stamps/links (SP-COMPACT-1). Isolated [7339](../benchmarks/reports/2026-09-11-root-storage-regression-7355.md) archives unreferenced root-prefix values/unit IDs, retaining one representative and referenced/late roots; logical material counts include archived facts, physical bounds do not. No admission/cadence change; migration can still alter scheduling state, so no parity/promotion claim.
+- `ReservedTrail` owns pre-reserved storage plus a logical end. Variable growth reserves before assignment; backtrack shrinks only the logical end.
+- BVE reuses touched-only indexes, flat pools and persistent Kitten stacks. Isolated7116 combines7087 root-free antecedent offsets with direct mapped physical-clause SubSolver import and XOR-consumer-local indexes. Root-filtered snapshots remain; views end before mutation/collection, and import retains owned copies. First-occurrence ids, physical root-false literals, candidate/proof/tick order stay unchanged; gates are in the [stage2 checkpoint](../benchmarks/reports/2026-09-10-bve-import-stage2-7124.md).
+- Generated complete PureOnly BVE passes retain an ordinary occurrence image, attached only during each atomic application and its propagation followup. Kernel identity and state versions invalidate it; copied executors rebuild before mutation, pass completion/reconfiguration releases it, and caller-owned dense images remain borrowed. Live redundant large clauses select the existing sparse path, preserving its delete-only cleanup. Other rules see the original sparse boundary, including affine Lucky. Eliminate's mixed occurrence is one Kissat-shaped 31-bit payload plus tag. Binary deletion compacts stably; inspected/rebuilt lists retire stale refs.
+- Each completed consistent BVE round collects the whole arena even at zero yield, rebuilds relocated refs, and satisfies generic phase reclamation.
+- Collection follows `large_watches_connected`, independently of an optional occurrence cache: disconnected collection must not reconnect large watches (isolated7339).
 - DefaultPolicy specializes active-invariant selection; the generic path stays total for N1 and injected policies.
 
 ### Budgets and canonical scope
 
-- `work_budget=0` is unbounded. Vivify meters propagation ticks; Sweep meters Kitten ticks while policy accounts for host
-  representation; Factor meters dense-watch cache lines. Clear every scoped budget after apply.
-- Vivify scope 0 spans every tier; 1--5 select bands. Canonical Vivify uses focused tiers, persistent probing pose, cumulative
-  shares, root simplification, prioritized two-pass counts, physical candidate pose, glue promotion, and logical-order reclamation
-  once per dose. That Tactix-only packing pass forwards live eager-recent refs and invalidates retired ones; genuine
-  Kissat-equivalent collections reset the register instead.
-- Vivify's population census serves only schedules containing irredundant candidates; omitting it must preserve mixed/public-scope
-  ordering.
-- Sweep uses exact inclusive embedded limits and strict enclosing limits, resumes its retained tail, and grows its 256/1024/2
-  environment bounds on completed passes toward 8192/32768/3. Entry revalidation is once per call; persistent external-var marks
-  and a separate incomplete flag govern fresh admission and completion even with a retained tail. `SP-SWEEP-3` still needs cumulative acceptance; neither state is a public guard or per-pop filter.
+- `work_budget=0` is unbounded. Vivify meters propagation ticks; Sweep meters Kitten ticks while policy accounts for host representation; Factor meters dense-watch cache lines. Clear every scoped budget after apply.
+- Vivify scope 0 spans every tier; 1--5 select bands. Canonical Vivify uses focused tiers, persistent probing pose, cumulative shares, root simplification, prioritized two-pass counts, physical candidate pose, glue promotion, and logical-order reclamation once per dose. That Tactix-only packing pass forwards live eager-recent refs and invalidates retired ones; genuine Kissat-equivalent collections reset the register instead.
+- Vivify's population census serves only schedules containing irredundant candidates; omitting it must preserve mixed/public-scope ordering.
+- Sweep uses exact inclusive embedded limits and strict enclosing limits, resumes its retained tail, and grows its 256/1024/2 environment bounds on completed passes toward 8192/32768/3. Entry revalidation is once per call; persistent external-var marks and a separate incomplete flag govern fresh admission and completion even with a retained tail. `SP-SWEEP-3` still needs cumulative acceptance; neither state is a public guard or per-pop filter.
 - Live empty and one-clause Sweep environments run the initial embedded solve; `SP-SWEEP-SMALL-1` still owes cumulative N4 acceptance.
-- Substitute's isolated policy repair publishes each round's roots, then its import-ordered retirements, before later rounds or
-  watch reconnection; production's call-wide publication remains `SP-SUBSTITUTE-ROUND-1` debt.
-- Reduce begins at conflict 1,000, then uses `1000*sqrt(reductions)` and the dynamic tier/compaction lifecycle. Formula profiles may
-  dose independently measured work but may not dose Vivify or replace cadence, tiers, or collection policy.
+- Substitute's isolated policy repair publishes each round's roots, then its import-ordered retirements, before later rounds or watch reconnection; production's call-wide publication remains `SP-SUBSTITUTE-ROUND-1` debt.
+- Reduce begins at conflict 1,000, then uses `1000*sqrt(reductions)` and the dynamic tier/compaction lifecycle. Formula profiles may dose independently measured work but may not dose Vivify or replace cadence, tiers, or collection policy.
 
 ### Input and proof identity
 
-- Input position is checker id. Normalization preserves id consumption for tautologies, duplicates, refuted tails, and root
-  simplification.
+- Input position is checker id. Normalization preserves id consumption for tautologies, duplicates, refuted tails, and root simplification.
 - Shared proof primitives own addition, replacement, deletion, empty emission, and root-unit naming. Native DSR stages consecutive internal `add_rup` units through a following deletion block. Each unit gets two temporary RUP clauses on one shared auxiliary; the whole block of deletions precedes the units, and the helpers are then retired. A deletion of a staged unit first publishes the batch. Garbage marking and proof deletion remain inseparable.
 - The optional proof shadow checks raw/add/delete/Y1 premises and representative values; production compiles it out.
 

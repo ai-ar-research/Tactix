@@ -1,10 +1,6 @@
 # Tactix — proof-rule-driven SAT solver
 
-`DEVELOPMENT_PLAN.md` owns stable scope, architecture, roadmap, and gates.
-`PROGRESS.md` owns current status and the next step. Rule semantics live in
-`docs/calculus.md`; implemented guards and deviations in
-`docs/implementation-notes.md`; evidence in frozen reports. One fact has one
-home; other documents link to it.
+`DEVELOPMENT_PLAN.md` owns stable scope, architecture, roadmap, and gates. `PROGRESS.md` owns current status and the next step. Rule semantics live in `docs/calculus.md`; implemented guards and deviations in `docs/implementation-notes.md`; evidence in frozen reports. One fact has one home; other documents link to it.
 
 ## Non-negotiables
 
@@ -61,14 +57,8 @@ capability, not DefaultPolicy's choice to decline an offered action.
 
 1. Read the PROGRESS resume block and take its first actionable item.
 2. Implement the smallest complete increment using the matching project skill.
-3. Validate correctness with the required proof/model oracles; make performance
-   claims only from the benchmark protocol.
-4. Keep PROGRESS factual and concise; revise the plan instead of silently
-   diverging from it.
-5. Run `wrap-up` before stopping. It validates, generates Andrew's report,
-   commits and pushes coherent work, and leaves a self-contained next step.
-   Documentation compaction happens only when explicitly requested.
+3. Validate correctness with the required proof/model oracles; make performance claims only from the benchmark protocol.
+4. Keep PROGRESS factual and concise; revise the plan instead of silently diverging from it.
+5. Run `wrap-up` before stopping. It validates, generates Andrew's report, commits and pushes coherent work, and leaves a self-contained next step. Documentation compaction happens only when explicitly requested.
 
-Project skills: benchmarks, calculus, codex-revisit-docs, compact-docs, compete,
-debug-performance, fuzz, generate-report, multi-agent, proof-check, revamp,
-revise-plan, revisit-codebase, rule-dev, slurm-jobs, stress-policy, wrap-up.
+Project skills: benchmarks, calculus, codex-revisit-docs, compact-docs, compete, debug-performance, fuzz, generate-report, multi-agent, proof-check, revamp, revise-plan, revisit-codebase, rule-dev, slurm-jobs, stress-policy, wrap-up.

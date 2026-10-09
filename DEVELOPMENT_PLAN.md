@@ -436,104 +436,29 @@ WV100 benefit. No arbitrary replacement ratio, routine refresh/best-of
 reference, or cross-window unit-cost inference is allowed. Pending checks permit
 work, not acceptance; correctness, B28+C5, Rank and memory gates remain.
 
-**Causal convergence and consolidation.** Journal each earliest portable gap
-with its cause, strength, evidence, reproducer, owner, and reopening condition.
-Compose only independently supported repairs. Complete checked B28+C5 and one
-Claude-owned fuzz checkpoint before promotion; feature-off projections and
-pending checks cannot replace these gates.
+**Causal convergence and consolidation.** Journal each earliest portable gap with its cause, strength, evidence, reproducer, owner, and reopening condition. Compose only independently supported repairs. Complete checked B28+C5 and one Claude-owned fuzz checkpoint before promotion; feature-off projections and pending checks cannot replace these gates.
 
-**Checkpoint and promotion contract.** N1--N4 govern every change. A development
-checkpoint must state pending verification and known failures; committing it
-does not accept it or replace a passing baseline. Promotion requires the declared
-API surface, checked proof/model behavior and all retained performance/scheduling
-gates. A default-off mechanism still owes N1/N2 for its public surface; disabling
-its default schedule establishes compatibility, not acceptance of the mechanism.
+**Checkpoint and promotion contract.** N1--N4 govern every change. A development checkpoint must state pending verification and known failures; committing it does not accept it or replace a passing baseline. Promotion requires the declared API surface, checked proof/model behavior and all retained performance/scheduling gates. A default-off mechanism still owes N1/N2 for its public surface; disabling its default schedule establishes compatibility, not acceptance of the mechanism.
 
-**Refactor/N1 gate.** Complete strategy composition and audit the combined
-candidate's calculus/API surface—legal instances, branches/phases, boundaries,
-budgets and disable switches—before promoting winner-derived changes. Resolve
-restrictions with direct API reach/regression and correctness evidence; fuzz
-alone is insufficient. §9.5 owns current attribution and Boolean-repair priorities.
+**Refactor/N1 gate.** Complete strategy composition and audit the combined candidate's calculus/API surface—legal instances, branches/phases, boundaries, budgets and disable switches—before promoting winner-derived changes. Resolve restrictions with direct API reach/regression and correctness evidence; fuzz alone is insufficient. §9.5 owns current attribution and Boolean-repair priorities.
 
-Rule/kernel changes may improve general calculus or proof-neutral representation,
-but never absorb strategy-owned admission, cadence, effort, deadlines or
-benchmark-conditioned choice. Preserve legal instances and proof/reconstruction
-obligations even when one scheduled rule motivates an optimization. The automated
-rule/policy boundary check remains a required focused guard.
+Rule/kernel changes may improve general calculus or proof-neutral representation, but never absorb strategy-owned admission, cadence, effort, deadlines or benchmark-conditioned choice. Preserve legal instances and proof/reconstruction obligations even when one scheduled rule motivates an optimization. The automated rule/policy boundary check remains a required focused guard.
 
-**Worse-side-first priority.** At the earliest common portable state, compare
-both throughput and work quality per invocation. Record effort allowance,
-entry/exit ticks, overshoot, frontier/order, semantic rewrites, physical pose,
-lineage, CPU/memory cost, and downstream yield. Equal ticks with higher cost or
-equal cost with weaker work is not parity. Localize semantic or representation
-divergence before comparing later work. Clause IDs, arena refs, benchmark names,
-and wall time are diagnostics, never alignment keys or solver controls.
+**Worse-side-first priority.** At the earliest common portable state, compare both throughput and work quality per invocation. Record effort allowance, entry/exit ticks, overshoot, frontier/order, semantic rewrites, physical pose, lineage, CPU/memory cost, and downstream yield. Equal ticks with higher cost or equal cost with weaker work is not parity. Localize semantic or representation divergence before comparing later work. Clause IDs, arena refs, benchmark names, and wall time are diagnostics, never alignment keys or solver controls.
 
-**WV100 winner-signature target.** After the refactor gate, treat the five
-frozen baselines as an offline VBS. WV100 is permanently the first 100 rows of
-the frozen coverage ranking in `benchmarks/tiers/WV100.tsv`: each row has a
-checked solve within 1,200 seconds and 32 GiB from exactly one configuration.
-All checked solver/status combinations qualify, including LymphoSAT UNSAT.
-The fixed set contains 33 SAT and 67 UNSAT targets: 34 LymphoSAT, 57
-Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024 sole-winner
-signatures. Solved entries remain in the denominator; the goal is checked
-Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract. The persistent goal continues beyond recovery of the Rank/B28 runtime gates: identify and integrate the relevant techniques from each remaining row's owning baseline into Tactix's shared rules and strategy. No sequential portfolio, external solver stage, or benchmark-specific dispatch qualifies; retain correctness, fuzz, memory and aggregate runtime gates throughout. **WV2-89** is the second fixed tranche, `benchmarks/tiers/WV2-89.tsv`: the 89 rows of ranks 101–250 whose fastest checked configuration solves within 300 seconds (57 SAT, 32 UNSAT; fastest owner 25 LymphoSAT, 21 Satsuma+Kissat, 24 AE-Kissat-MAB, 19 Kissat). Its target is 600 seconds per row. Rows owned by LymphoSAT or Satsuma+Kissat are technique-integration targets; rows that several Kissat configurations solve are a DefaultPolicy parity question (N3), not a licence for per-instance tuning.
+**WV100 winner-signature target.** After the refactor gate, treat the five frozen baselines as an offline VBS. WV100 is permanently the first 100 rows of the frozen coverage ranking in `benchmarks/tiers/WV100.tsv`: each row has a checked solve within 1,200 seconds and 32 GiB from exactly one configuration. All checked solver/status combinations qualify, including LymphoSAT UNSAT. The fixed set contains 33 SAT and 67 UNSAT targets: 34 LymphoSAT, 57 Satsuma+Kissat, seven AE-Kissat-MAB, and two kissat-sc2024 sole-winner signatures. Solved entries remain in the denominator; the goal is checked Tactix coverage of 100/100 under the same 32-GiB/1,200-second contract. The persistent goal continues beyond recovery of the Rank/B28 runtime gates: identify and integrate the relevant techniques from each remaining row's owning baseline into Tactix's shared rules and strategy. No sequential portfolio, external solver stage, or benchmark-specific dispatch qualifies; retain correctness, fuzz, memory and aggregate runtime gates throughout. **WV2-89** is the second fixed tranche, `benchmarks/tiers/WV2-89.tsv`: the 89 rows of ranks 101–250 whose fastest checked configuration solves within 300 seconds (57 SAT, 32 UNSAT; fastest owner 25 LymphoSAT, 21 Satsuma+Kissat, 24 AE-Kissat-MAB, 19 Kissat). Its target is 600 seconds per row. Rows owned by LymphoSAT or Satsuma+Kissat are technique-integration targets; rows that several Kissat configurations solve are a DefaultPolicy parity question (N3), not a licence for per-instance tuning.
 
-**Satsuma coverage obligation.** Preserve all 57 Satsuma+Kissat-owned rows in
-the fixed WV100 denominator and their useful root-start transitions. The
-retained classification is 51 structured row/row-column cases, five Johnson
-cases and one general automorphism/Schreier case; these are attribution aids,
-not dispatch labels or necessarily disjoint classes. A class closes only when
-every member is independently checked through Tactix's integrated mechanisms.
-Use this set as a permanent mechanism regression control. Current integration
-order is owned by §9.5 and its subplan; the earlier requirement to finish all 57
-before investigating other owners or restart-root SR no longer governs it.
-B28+C5 and Rank1–40 own the separate scheduling study, while Rank1–50 retains
-the broader final N3 gate. All symmetry reasoning remains at initial/full roots.
+**Satsuma coverage obligation.** Preserve all 57 Satsuma+Kissat-owned rows in the fixed WV100 denominator and their useful root-start transitions. The retained classification is 51 structured row/row-column cases, five Johnson cases and one general automorphism/Schreier case; these are attribution aids, not dispatch labels or necessarily disjoint classes. A class closes only when every member is independently checked through Tactix's integrated mechanisms. Use this set as a permanent mechanism regression control. Current integration order is owned by §9.5 and its subplan; the earlier requirement to finish all 57 before investigating other owners or restart-root SR no longer governs it. B28+C5 and Rank1–40 own the separate scheduling study, while Rank1–50 retains the broader final N3 gate. All symmetry reasoning remains at initial/full roots.
 
-Use saved checked baselines, official descriptions and source to attribute each
-winning transition before implementation; never rerun valid references, invoke
-external solving stages, or dispatch by instance identity. AE-Kissat-MAB's seven
-rows remain attribution targets; its rejected immediate two-arm bandit stays out.
+Use saved checked baselines, official descriptions and source to attribute each winning transition before implementation; never rerun valid references, invoke external solving stages, or dispatch by instance identity. AE-Kissat-MAB's seven rows remain attribution targets; its rejected immediate two-arm bandit stays out.
 
-**Symmetry integration contract.** Separate colored-CNF detection from seeded
-stabilizer-chain fixing. Detection, representation/density, alignment, clique
-ordering, traversal, seed, batching, repetition and work limits are typed,
-replayable strategy choices. Pin/license/failure-isolate third-party backends.
-Treat their output as untrusted: exact-check signed permutations against the live
-formula and derived clauses against checker-visible premises before mutation.
-Complete transversal mappings, pivot-sensitive DSR and prefix-preservation
-obligations are owned by [the X7 calculus](docs/calculus.md#6d-direct-substitution-redundancy-x7);
-[implementation notes](docs/implementation-notes.md) own dense-binary graphs,
-column-action kernels, exact cached generator words and current producer guards.
+**Symmetry integration contract.** Separate colored-CNF detection from seeded stabilizer-chain fixing. Detection, representation/density, alignment, clique ordering, traversal, seed, batching, repetition and work limits are typed, replayable strategy choices. Pin/license/failure-isolate third-party backends. Treat their output as untrusted: exact-check signed permutations against the live formula and derived clauses against checker-visible premises before mutation. Complete transversal mappings, pivot-sensitive DSR and prefix-preservation obligations are owned by [the X7 calculus](docs/calculus.md#6d-direct-substitution-redundancy-x7); [implementation notes](docs/implementation-notes.md) own dense-binary graphs, column-action kernels, exact cached generator words and current producer guards.
 
-Preserve Satsuma's useful simplification/breaking alternation and pure-literal
-predecessor. The retained reference root program composes propagation, simultaneous
-PureOnly BVE, duplicate removal/ULC AMO completion, Orbitopal closure and one graph
-generator application before fresh detection, propagating to a scoped fixpoint.
-Its binary-SCC predecessor was rejected by the ranks 34/37/39 controls. Current
-typed DefaultPolicy stages are owned by implementation notes; public producers
-retain arbitrary order, repetition, budgets and resumption under §5.
+Preserve Satsuma's useful simplification/breaking alternation and pure-literal predecessor. The retained reference root program composes propagation, simultaneous PureOnly BVE, duplicate removal/ULC AMO completion, Orbitopal closure and one graph generator application before fresh detection, propagating to a scoped fixpoint. Its binary-SCC predecessor was rejected by the ranks 34/37/39 controls. Current typed DefaultPolicy stages are owned by implementation notes; public producers retain arbitrary order, repetition, budgets and resumption under §5.
 
-Discovery/validation is mutation-free; pre-commit stop/resource/proof failure
-publishes nothing. Atomic commit completes proof, bookkeeping and root closure.
-A productive generated job fixes/retires variables, shortens clauses or publishes
-useful units/binaries; strategy owns that admission without narrowing N1.
-Resource-limited prefixes are incomplete, never fixpoints. Commit complete orbits
-or invalidate and re-detect; formula/producer/identity changes invalidate cursors,
-while compatible budget updates retain progress. Charge deterministic work/replay.
-Proof-neutral post-SR fanout advice to VMTF/EVSIDS remains an experiment: type and
-replay its measure/order/cap/strength, and compare advice off on the same proof
-and formula transition. Rules never alter heuristic scores.
+Discovery/validation is mutation-free; pre-commit stop/resource/proof failure publishes nothing. Atomic commit completes proof, bookkeeping and root closure. A productive generated job fixes/retires variables, shortens clauses or publishes useful units/binaries; strategy owns that admission without narrowing N1. Resource-limited prefixes are incomplete, never fixpoints. Commit complete orbits or invalidate and re-detect; formula/producer/identity changes invalidate cursors, while compatible budget updates retain progress. Charge deterministic work/replay. Proof-neutral post-SR fanout advice to VMTF/EVSIDS remains an experiment: type and replay its measure/order/cap/strength, and compare advice off on the same proof and formula transition. Rules never alter heuristic scores.
 
-Require Satsuma-scale end-to-end behavior on all 57 and no worse unit cost for
-comparable symmetry work. Measure equivalent operations and phase times,
-including inapplicable passes; fewer operations alone do not establish lower cost.
-The accepted 100s-versus-120s CPU-Q example is neither a universal ratio nor a 10s
-requirement. Preserve checked coverage and report it before PAR-2, proof cost,
-memory and regressions. Restart-root SR positions, intervals, effort and caches
-follow the subplan's bounded Claude review; all 57 and the standing gates remain.
-Current protocols belong here and in that subplan, never in dated design snapshots.
+Require Satsuma-scale end-to-end behavior on all 57 and no worse unit cost for comparable symmetry work. Measure equivalent operations and phase times, including inapplicable passes; fewer operations alone do not establish lower cost. The accepted 100s-versus-120s CPU-Q example is neither a universal ratio nor a 10s requirement. Preserve checked coverage and report it before PAR-2, proof cost, memory and regressions. Restart-root SR positions, intervals, effort and caches follow the subplan's bounded Claude review; all 57 and the standing gates remain. Current protocols belong here and in that subplan, never in dated design snapshots.
 
 ### 8.4 Flexibility
 
@@ -639,69 +564,17 @@ independently checkable native proofs and must earn a measured time/memory gain.
 
 ### 9.5 Organic winner-technique integration
 
-The active milestone is **at least 12 independently verified closures from the
-fixed 44-instance gap on one coherent candidate**, with N1–N4, effective
-Claude-owned fuzz, full Debug and B28+C5, Rank1–50, WV100 and WV2–89 acceptance.
-The [winner-integration subplan](docs/winner-integration-plan.md) owns attribution,
-symmetry/guidance design, provenance, shared-action contracts and the subsequent
-original 36/full 44 checkpoints. The longer-term aim remains superiority beyond
-the saved four-arm portfolio. Use the approved no-MAB `d170b4a5` comparison;
-never rerun it. Reward/training remain deferred. This workstream permits reviewed
-improvements before formal T4-VBS; it neither accepts Phase 4.5 nor weakens its gates.
+The active milestone is **at least 12 independently verified closures from the fixed 44-instance gap on one coherent candidate**, with N1–N4, effective Claude-owned fuzz, full Debug and B28+C5, Rank1–50, WV100 and WV2–89 acceptance. The [winner-integration subplan](docs/winner-integration-plan.md) owns attribution, symmetry/guidance design, provenance, shared-action contracts and the subsequent original 36/full 44 checkpoints. The longer-term aim remains superiority beyond the saved four-arm portfolio. Use the approved no-MAB `d170b4a5` comparison; never rerun it. Reward/training remain deferred. This workstream permits reviewed improvements before formal T4-VBS; it neither accepts Phase 4.5 nor weakens its gates.
 
-**Generality is an integration gate.** Audit new and already integrated
-LymphoSAT-derived constructors, local search, theory reasoning and scheduling.
-Require a general algorithm and structurally justified applicability. Reject
-benchmark fingerprints, unjustified encoding/shape exceptions and target-tuned
-thresholds; a semantic recognizer for a supported encoding is legitimate.
-Source attribution and correct proofs/models alone do not establish generality.
-Promotion needs matched causal benefit and acceptable total overhead on varied,
-held-out and nonapplicable inputs, plus all standing gates. Prefer general
-Boolean-search or scheduling repairs where they explain the gap. Retire overfitted
-techniques even if named targets remain unsolved; 12/44 permits no exception.
-Always admit a valid, fully proof-checked symmetry-breaking unit when its action
-commits. Singleton/compound-progress heuristics or benchmark timing cannot veto
-it; discovery budgets and invalid/stale/uncertified-candidate guards still apply.
+**Generality is an integration gate.** Audit new and already integrated LymphoSAT-derived constructors, local search, theory reasoning and scheduling. Require a general algorithm and structurally justified applicability. Reject benchmark fingerprints, unjustified encoding/shape exceptions and target-tuned thresholds; a semantic recognizer for a supported encoding is legitimate. Source attribution and correct proofs/models alone do not establish generality. Promotion needs matched causal benefit and acceptable total overhead on varied, held-out and nonapplicable inputs, plus all standing gates. Prefer general Boolean-search or scheduling repairs where they explain the gap. Retire overfitted techniques even if named targets remain unsolved; 12/44 permits no exception. Always admit a valid, fully proof-checked symmetry-breaking unit when its action commits. Singleton/compound-progress heuristics or benchmark timing cannot veto it; discovery budgets and invalid/stale/uncertified-candidate guards still apply.
 
-**Reasoning and guidance.** Attribute an UNSAT owner's complete analysis before
-integrating it with structural authentication and terminal independently checked
-DSR. Failed, interrupted or incomplete analysis is formula-neutral; private
-continuation state and scheduling feedback may survive. Optional nonterminal
-consequences need checked derivations, explicit assumption scope, Boolean
-hardness beyond cheap propagation/bounded RUP, actual consumption and causal
-solving benefit. SAT-only techniques may use bounded resumable local search:
-complete candidates require whole-CNF verification, partial candidates guide
-phases only. Preserve generic guidance and shared recognizers. Add no rule-specific
-PBP route until measured clausal proof/check cost establishes practical need.
+**Reasoning and guidance.** Attribute an UNSAT owner's complete analysis before integrating it with structural authentication and terminal independently checked DSR. Failed, interrupted or incomplete analysis is formula-neutral; private continuation state and scheduling feedback may survive. Optional nonterminal consequences need checked derivations, explicit assumption scope, Boolean hardness beyond cheap propagation/bounded RUP, actual consumption and causal solving benefit. SAT-only techniques may use bounded resumable local search: complete candidates require whole-CNF verification, partial candidates guide phases only. Preserve generic guidance and shared recognizers. Add no rule-specific PBP route until measured clausal proof/check cost establishes practical need.
 
-**Retired mechanisms and search attribution.** X17/noL-specific actions,
-schedulers, producers, CLI and tests are retired; retain numeric tombstones and
-neutral authenticated owners only for independently retained consumers. The
-subplan owns Rank 401's actual Satsuma-residual/import/branch-order comparison;
-original-seed ablations and alternative serializers are controls, not parity.
-Rank 991's shared Authenticate/Continue actions and bounded service are on in
-DefaultPolicy, the configuration every candidate gate qualified.
+**Retired mechanisms and search attribution.** X17/noL-specific actions, schedulers, producers, CLI and tests are retired; retain numeric tombstones and neutral authenticated owners only for independently retained consumers. The subplan owns Rank 401's actual Satsuma-residual/import/branch-order comparison; original-seed ablations and alternative serializers are controls, not parity. Rank 991's shared Authenticate/Continue actions and bounded service are on in DefaultPolicy, the configuration every candidate gate qualified.
 
-**Persistent XOR.** Recognize once using authenticated subimages/affine matrices;
-retain source/proof provenance, lease premises or certify durable representations
-before deletion, and explicitly handle substitution/elimination. At initial/full
-restart roots only, incorporate new root facts, resume bounded Gaussian work,
-skip unchanged states and publish checked clauses before `ResumeSearch`. Retained
-state survives search; no conditional consequence becomes an unconditional unit.
-Use proof-checked satisfiability-preserving extensions, explicit work/memory/proof
-budgets and the existing charged tick/interval/fruitlessness-delay mechanisms.
-Rank 569 targets substantially below verified Kissat 3359.975s with compact proofs,
-useful yield and independently measured checking. The subplan owns lifecycle,
-provenance and mixed-CNF tests; fuzz, full Debug and all four gates remain required.
+**Persistent XOR.** Recognize once using authenticated subimages/affine matrices; retain source/proof provenance, lease premises or certify durable representations before deletion, and explicitly handle substitution/elimination. At initial/full restart roots only, incorporate new root facts, resume bounded Gaussian work, skip unchanged states and publish checked clauses before `ResumeSearch`. Retained state survives search; no conditional consequence becomes an unconditional unit. Use proof-checked satisfiability-preserving extensions, explicit work/memory/proof budgets and the existing charged tick/interval/fruitlessness-delay mechanisms. Rank 569 targets substantially below verified Kissat 3359.975s with compact proofs, useful yield and independently measured checking. The subplan owns lifecycle, provenance and mixed-CNF tests; fuzz, full Debug and all four gates remain required.
 
-**Cadence.** Aim for a fresh clean candidate within an eight-hour development
-window. Continue independent work while long fuzz, Debug, regression and checker
-jobs run; repair terminal findings without waiving gates. The host has four cores:
-use Slurm and immutable pins for substantial builds, sanitizers and measurements.
-Refresh Andrew's report at coherent checkpoints. Follow §8.1's 700-GB storage gate;
-clean reproducible unused builds opportunistically below it and preserve evidence.
-On a requested handoff, record submitted jobs and exact next actions without
-waiting for them or presenting an unvalidated checkpoint as accepted.
+**Cadence.** Aim for a fresh clean candidate within an eight-hour development window. Continue independent work while long fuzz, Debug, regression and checker jobs run; repair terminal findings without waiving gates. The host has four cores: use Slurm and immutable pins for substantial builds, sanitizers and measurements. Refresh Andrew's report at coherent checkpoints. Follow §8.1's 700-GB storage gate; clean reproducible unused builds opportunistically below it and preserve evidence. On a requested handoff, record submitted jobs and exact next actions without waiting for them or presenting an unvalidated checkpoint as accepted.
 
 ## 10. Risks and mitigations
 
