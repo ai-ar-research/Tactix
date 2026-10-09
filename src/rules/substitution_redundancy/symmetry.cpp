@@ -20,8 +20,6 @@ namespace {
 struct FormulaSnapshot {
   SymmetryClauseMultiset clause_index;
   std::vector<uint32_t> occurrences;
-  // Clause ID of each snapshot clause (0 for root units): source order.
-  std::vector<uint64_t> clause_ids;
 };
 
 struct SymmetryGraphStorage {
@@ -102,7 +100,6 @@ bool charge(const Kernel &kernel, const SubstitutionRedundancyParameters &p,
       amount > p.maximum_detection_ticks - result.ticks) {
     result.ticks = p.maximum_detection_ticks;
     result.status = SymmetryEnumerationStatus::LimitReached;
-    result.allowance_limit_reached = true;
     return false;
   }
   result.ticks += amount;
@@ -117,7 +114,6 @@ bool snapshot_formula(const Kernel &kernel,
   const uint64_t literal_vertices = 2ull * kernel.nvars;
   if (literal_vertices > static_cast<uint64_t>(std::numeric_limits<int>::max())) {
     result.status = SymmetryEnumerationStatus::LimitReached;
-    result.detection_limit_reached = true;
     return false;
   }
   std::vector<std::vector<Lit>> clauses;
@@ -126,11 +122,8 @@ bool snapshot_formula(const Kernel &kernel,
     for (const WatchEntry watch : kernel.watches.entries(literal)) {
       if (!charge(kernel, parameters, stop, result, 1))
         return false;
-      if (watch.binary() && literal < watch.other()) {
+      if (watch.binary() && literal < watch.other())
         clauses.push_back({literal, watch.other()});
-        snapshot.clause_ids.push_back(
-            kernel_binary_id(kernel, literal, watch.other()));
-      }
     }
   for (Ref ref = 0; ref < kernel.arena.size();) {
     const Clause *clause = clause_at(kernel.arena, ref);
@@ -139,7 +132,6 @@ bool snapshot_formula(const Kernel &kernel,
       if (!charge(kernel, parameters, stop, result, clause->size))
         return false;
       clauses.emplace_back(clause->begin(), clause->end());
-      snapshot.clause_ids.push_back(clause->id());
     }
     ref += words;
   }
@@ -150,7 +142,6 @@ bool snapshot_formula(const Kernel &kernel,
     if (kernel.value(positive)) {
       clauses.push_back(
           {kernel.value(positive) > 0 ? positive : negate(positive)});
-      snapshot.clause_ids.push_back(0);
     }
   }
   for (const auto &clause : clauses) {
@@ -232,7 +223,6 @@ bool build_symmetry_graph(const Kernel &kernel,
         2ull * kernel.nvars + binaries + nonbinary_support;
     if (over_size_limits(minimum_vertices, minimum_edges)) {
       result.status = SymmetryEnumerationStatus::LimitReached;
-      result.detection_limit_reached = true;
       return false;
     }
     if (!charge(kernel, parameters, stop, result, binaries))
@@ -281,29 +271,20 @@ bool build_symmetry_graph(const Kernel &kernel,
     return false;
   }
   const uint64_t edge_count = negation_edges + clause_edges;
-  if (over_size_limits(vertex_count, edge_count)) {
-    result.status = SymmetryEnumerationStatus::LimitReached;
-    result.detection_limit_reached = true;
+  if (over_size_limits(vertex_count, edge_count) ||
+      !charge(kernel, parameters, stop, result, edge_count)) {
+    if (result.status == SymmetryEnumerationStatus::Complete)
+      result.status = SymmetryEnumerationStatus::LimitReached;
     return false;
   }
-  if (!charge(kernel, parameters, stop, result, edge_count))
-    return false;
 
   storage.vertices = static_cast<uint32_t>(vertex_count);
   storage.edge_count = edge_count;
   storage.colors.assign(storage.vertices, 1);
   storage.degrees.assign(storage.vertices, 0);
   storage.edges.reserve(static_cast<size_t>(2 * edge_count));
-  // Satsuma gives each literal of an unused variable its own color
-  // (symmetries.h compute_from_hypergraph, unused_color): a variable without
-  // any clause is never moved, so it yields no generator and no unit.
-  const auto unused = [&](Lit literal) {
-    return !snapshot.occurrences[literal] &&
-           !snapshot.occurrences[negate(literal)];
-  };
   for (Lit literal = 0; literal < literal_vertices; ++literal)
     storage.colors[literal] = (kernel_var_retired(kernel, var_of(literal)) ||
-                              unused(literal) ||
                               (settings.pointwise_root_stabilizer &&
                                kernel.value(literal)))
                                   ? 3 + literal
@@ -464,7 +445,6 @@ bool exact_sparse_automorphism(const Kernel &kernel, const FormulaSnapshot &snap
 struct EligibleClause {
   std::vector<Lit> literals;
   bool amo = false;
-  uint64_t id = 0;
 };
 
 bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
@@ -478,9 +458,7 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
   for (const auto &clause : snapshot.clause_index.clauses())
     if (clause.size() == 2)
       binaries.insert(kernel_binary_key(clause[0], clause[1]));
-  const auto &snapshot_clauses = snapshot.clause_index.clauses();
-  for (size_t index = 0; index < snapshot_clauses.size(); ++index) {
-    auto clause = snapshot_clauses[index];
+  for (auto clause : snapshot.clause_index.clauses()) {
     if (clause.size() < 2)
       continue;
     if (settings.clause_scope == SymmetryClauseScope::UniqueLiteralsOnly &&
@@ -499,20 +477,11 @@ bool eligible_clauses(const Kernel &kernel, const FormulaSnapshot &snapshot,
           break;
         }
       }
-    result.push_back({std::move(clause), amo,
-                      index < snapshot.clause_ids.size()
-                          ? snapshot.clause_ids[index] : 0});
+    result.push_back({std::move(clause), amo});
   }
   apply_order(result, settings.clause_order,
               static_cast<uint64_t>(settings.seed) ^ 0x434c41555345534full);
-  // Satsuma scans its clause database in source order: input clauses in file
-  // order, then later additions (cnf.h read_from_cnf2wl keep_original_order).
-  if (settings.base_selection == SymmetryBaseSelection::SatsumaFixAndCut)
-    std::stable_sort(result.begin(), result.end(),
-                     [](const auto &first, const auto &second) {
-                       return first.id < second.id;
-                     });
-  else if (settings.clause_selection != SymmetryClauseSelection::InputOrder)
+  if (settings.clause_selection != SymmetryClauseSelection::InputOrder)
     std::stable_sort(
         result.begin(), result.end(), [&](const auto &first, const auto &second) {
           if (settings.clause_selection ==
@@ -791,30 +760,6 @@ SymmetryEnumerationStatus convert(symmetry_backend::Status status) {
 
 } // namespace
 
-uint64_t substitution_redundancy_symmetry_graph_vertices(
-    const Kernel &kernel, const GraphSymmetryParameters &settings,
-    uint64_t &work) {
-  const uint64_t binaries = kernel.watches.binary_clauses();
-  uint64_t large = 0;
-  work = 0;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, ref);
-    ++work;
-    large += !clause->garbage();
-    ref += clause_actual_words(clause);
-  }
-  bool direct = settings.binary_graph_mode == SymmetryBinaryGraphMode::DirectEdges;
-  if (settings.binary_graph_mode == SymmetryBinaryGraphMode::Automatic) {
-    const uint64_t threshold = static_cast<uint64_t>(kernel.nvars) *
-                               settings.binary_graph_density_permille;
-    direct = binaries >= threshold / 1000 + (threshold % 1000 != 0);
-  }
-  // Matches build_symmetry_graph: direct mode adds one negation vertex per
-  // variable and represents first copies of binaries as edges.
-  return (direct ? 3ull : 2ull) * kernel.nvars + large +
-         (direct ? 0 : binaries);
-}
-
 SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     const Kernel &kernel,
     const SubstitutionRedundancyParameters &requested_parameters,
@@ -844,9 +789,7 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
   // The same invocation would fail graph admission later; this is not an X7
   // guard or a restriction on separate structured/explicit applications.
   if (2ull * kernel.nvars > parameters.graph_symmetry.maximum_graph_vertices) {
-    // The owner's graph component limit (satsuma.h:168-176).
     result.status = SymmetryEnumerationStatus::LimitReached;
-    result.detection_limit_reached = true;
     return result;
   }
 
@@ -913,8 +856,6 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     }
     structured_incomplete =
         discovery.status == OrbitopalEnumerationStatus::LimitReached;
-    result.detection_limit_reached |= discovery.detection_limit_reached;
-    result.allowance_limit_reached |= discovery.allowance_limit_reached;
     if (!configured.use_structured_generators)
       structured.generators.clear();
     if (!configured.stabilize_structured_variables)
@@ -928,7 +869,6 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     // involved yet.
     if (result.ticks >= parameters.maximum_detection_ticks) {
       result.status = SymmetryEnumerationStatus::LimitReached;
-      result.allowance_limit_reached = true;
       return result;
     }
   }
@@ -1079,16 +1019,6 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
               static_cast<unsigned>(detection));
   const bool detection_incomplete =
       detection == symmetry_backend::Status::Incomplete || structured_incomplete;
-  // DejaVu's own limits (symmetries.h:579) stop the detector before it
-  // completes its group. A stop at the generator cap derived from the tick
-  // allowance (or no affordable generator at all) is an allowance stop.
-  if (detection == symmetry_backend::Status::Incomplete) {
-    if (!settings.initial_generators ||
-        (detector_work_capped && proposed.count >= settings.maximum_generators))
-      result.allowance_limit_reached = true;
-    else
-      result.detection_limit_reached = true;
-  }
   result.status = convert(detection);
   // Completeness of the remaining subgroup says nothing about completeness
   // of the combined basis in the unrestricted original automorphism group.
@@ -1307,7 +1237,6 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     if (scheduling.finish_admitted_group &&
         result.ticks >= parameters.maximum_detection_ticks) {
       result.status = SymmetryEnumerationStatus::LimitReached;
-      result.allowance_limit_reached = true;
       return result;
     }
     const uint64_t planning_allowance =
@@ -1359,22 +1288,8 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
       symmetry_backend::release(fixings);
       return result;
     }
-    if (fixing_status == SymmetryEnumerationStatus::LimitReached) {
+    if (fixing_status == SymmetryEnumerationStatus::LimitReached)
       result.status = fixing_status;
-      // The owner's Schreier cost limit (symmetries.h:1468, 3099) is the
-      // configured planning limit. Planning cut short by a smaller remaining
-      // tick allowance stopped at that allowance instead.
-      const uint64_t configured_planning =
-          configured.chain_planning_tick_limit
-              ? configured.chain_planning_tick_limit
-              : UINT64_MAX;
-      if (scheduling.finish_admitted_group &&
-          planning_allowance < configured_planning &&
-          fixings.ticks >= planning_allowance)
-        result.allowance_limit_reached = true;
-      else
-        result.detection_limit_reached = true;
-    }
     group_ticks = fixings.ticks;
     if (scheduling.finish_admitted_group) {
       if (!charge(kernel, group_parameters, stop, result, group_ticks)) {

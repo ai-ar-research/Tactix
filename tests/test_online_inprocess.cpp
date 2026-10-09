@@ -36,8 +36,7 @@ namespace tactix {
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &, const SubstitutionRedundancyInstance &,
-    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *,
-    UniqueLiteralOccurrenceCache * = nullptr);
+    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *);
 }
 
 static Kernel forward_fixture() {
@@ -2888,92 +2887,6 @@ static void orbitopal_refinement_completes_hidden_columns() {
          bounded.stats.sr_applications == 0 && !bounded.inconsistent);
 }
 
-// Satsuma skips special detection for a shallow group (symmetries.h:2939):
-// more than 10,000 non-trivial equitable literal cells and a probed base
-// shorter than 4*log2(cells). Here one involution swaps every pair x_i/y_i at
-// once while a directed z-path separates the pairs: 2 * 5,100 cells, base 1.
-static void orbitopal_shallow_group_skips_special_detection() {
-  constexpr int pairs = 5100;
-  const auto z = [](int i) { return 1 + i; };
-  const auto x = [&](int i) { return 1 + pairs + i; };
-  const auto y = [&](int i) { return 1 + 2 * pairs + i; };
-  const auto fixture = [&] {
-    Kernel k;
-    kernel_reserve_vars(k, 3 * pairs);
-    for (int i = 0; i < pairs; ++i) {
-      const Lit link[] = {internalize(-z(i)), internalize(x(i)), internalize(y(i))};
-      kernel_add_large_clause(k, link, 3, false, 0, ++k.next_clause_id);
-      if (i + 1 == pairs)
-        continue;
-      kernel_add_binary_clause(k, internalize(z(i)), internalize(-z(i + 1)),
-                               ++k.next_clause_id);
-      kernel_add_binary_clause(k, internalize(x(i)), internalize(-x(i + 1)),
-                               ++k.next_clause_id);
-      kernel_add_binary_clause(k, internalize(y(i)), internalize(-y(i + 1)),
-                               ++k.next_clause_id);
-    }
-    return k;
-  };
-  SubstitutionRedundancyParameters parameters;
-  parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
-  parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
-  parameters.orbitopal_discovery_order = OrbitopalDiscoveryOrder::RefinementOnly;
-  parameters.orbitopal_completion = OrbitopalCompletion::IndividualizedGraphCompletion;
-  parameters.orbitopal_generator_fallback = false;
-  parameters.graph_symmetry.maximum_generators = 0;
-  parameters.orbitopal_row_orbit_source = OrbitopalRowOrbitSource::RefinementCells;
-  parameters.maximum_orbitopal_refinement_orbits = 1;
-  Kernel shallow = fixture();
-  OrbitopalEnumerationResult skipped;
-  assert(!apply_all_orbitopal(shallow, parameters, &skipped));
-  assert(skipped.status == OrbitopalEnumerationStatus::Complete &&
-         !skipped.refinement_orbits && !skipped.detection_limit_reached &&
-         !shallow.stats.sr_applied);
-  // The skip belongs to the owner's base-probe filter; without it the same
-  // refinement cells are row candidates.
-  parameters.orbitopal_base_probe_filter = false;
-  Kernel probed = fixture();
-  OrbitopalEnumerationResult examined;
-  apply_all_orbitopal(probed, parameters, &examined);
-  assert(examined.refinement_orbits == 1);
-  kernel_check_invariants(probed);
-}
-
-// One snapshot and refinement serve consecutive detections on an unchanged
-// formula (Satsuma: one graph per pass); a formula change rebuilds them. The
-// cached and private paths enumerate the same instances.
-static void orbitopal_formula_cache_matches_private_snapshots() {
-  SubstitutionRedundancyParameters parameters;
-  parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
-  parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
-  parameters.orbitopal_completion = OrbitopalCompletion::IndividualizedGraphCompletion;
-  parameters.orbitopal_discovery_order = OrbitopalDiscoveryOrder::RefinementOnly;
-  parameters.orbitopal_generator_fallback = false;
-  parameters.graph_symmetry.maximum_generators = 0;
-  parameters.orbitopal_row_orbit_source = OrbitopalRowOrbitSource::RefinementCells;
-  const auto clauses = [&](Kernel &k, OrbitopalFormulaCache *cache) {
-    std::vector<std::vector<Lit>> out;
-    substitution_redundancy_enumerate_orbitopal(
-        k, parameters,
-        [&](const SubstitutionRedundancyInstance &instance) {
-          out.push_back(instance.clause);
-          return true;
-        },
-        nullptr, cache);
-    return out;
-  };
-  Kernel k = orbitopal_refinement_fixture();
-  const auto expected = clauses(k, nullptr);
-  assert(!expected.empty());
-  OrbitopalFormulaCache cache;
-  assert(clauses(k, &cache) == expected);
-  assert(clauses(k, &cache) == expected);
-  // A new clause changes the formula; the cache must not serve the old one.
-  kernel_add_binary_clause(k, internalize(-7), internalize(-8),
-                           ++k.next_clause_id);
-  assert(clauses(k, &cache) == clauses(k, nullptr));
-}
-
 static void orbitopal_refinement_cells_need_no_generic_generators() {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
@@ -3274,31 +3187,6 @@ static void orbitopal_clique_order_matches_exhaustive_connected_graphs() {
   assert(connected_graphs == 728 && noncanonical_incumbents > 0);
 }
 
-// Satsuma colors each literal of an unused variable apart (symmetries.h
-// compute_from_hypergraph), so such a variable is never moved: the group of
-// (1 | 2) with unused 3 is the single swap, not swap x complement-flip of 3.
-static void graph_symmetry_never_moves_unused_variables() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
-  SubstitutionRedundancyParameters parameters;
-  parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
-  parameters.graph_symmetry.fixing_mode = SymmetryFixingMode::GeneratorsOnly;
-  std::vector<SubstitutionRedundancyInstance> instances;
-  const auto enumeration = substitution_redundancy_enumerate_symmetry(
-      k, parameters,
-      [&](const SubstitutionRedundancyInstance &instance) {
-        instances.push_back(instance);
-        return true;
-      });
-  assert(enumeration.status == SymmetryEnumerationStatus::Complete);
-  assert(enumeration.generators_proposed == 1 &&
-         enumeration.generators_validated == 1);
-  for (const auto &instance : instances)
-    for (const Lit literal : instance.clause)
-      assert(var_of(literal) != var_of(internalize(3)));
-}
-
 static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
   Kernel k = symmetry_fixture();
   SubstitutionRedundancyParameters parameters;
@@ -3567,41 +3455,6 @@ static void compound_admission_publishes_a_singleton_forcing_unit() {
              .status == SubstitutionRedundancyApplicationStatus::Applied);
   assert(k.value(unit) > 0);
   kernel_check_invariants(k);
-}
-
-// Satsuma's fix_and_cut (symmetries.h) takes the first applicable clause in
-// source order and fixes through its first literal; a later clause replaces
-// it only as an AMO or with a marked shared clause and a smaller orbit. Here
-// the triangle (-1 -2), (-1 -3), (-2 -3) precedes the edge (-4 -5): the owner
-// scan fixes through -1 (orbit 3), while the smaller-orbit ranking fixes
-// through the edge (orbit 2) first.
-static void satsuma_fix_and_cut_takes_first_applicable_clause() {
-  const auto first_fixed_variable = [](SymmetryBaseSelection selection) {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
-    for (const auto &edge : {std::pair{-1, -2}, {-1, -3}, {-2, -3}, {-4, -5}})
-      kernel_add_binary_clause(k, internalize(edge.first),
-                               internalize(edge.second), ++k.next_clause_id);
-    SubstitutionRedundancyParameters parameters = sst_parameters();
-    parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
-    parameters.graph_symmetry.clause_selection = SymmetryClauseSelection::InputOrder;
-    parameters.graph_symmetry.base_selection = selection;
-    std::vector<SubstitutionRedundancyInstance> instances;
-    const auto enumeration = substitution_redundancy_enumerate_symmetry(
-        k, parameters,
-        [&](const SubstitutionRedundancyInstance &instance) {
-          instances.push_back(instance);
-          return true;
-        });
-    assert(enumeration.status == SymmetryEnumerationStatus::Complete);
-    assert(!instances.empty());
-    return var_of(instances.front().clause.front());
-  };
-  assert(first_fixed_variable(SymmetryBaseSelection::SatsumaFixAndCut) ==
-         var_of(internalize(1)));
-  const Var ranked =
-      first_fixed_variable(SymmetryBaseSelection::FirstAmoThenForwardRemainder);
-  assert(ranked == var_of(internalize(4)) || ranked == var_of(internalize(5)));
 }
 
 static void stabilizer_chain_adds_all_cuts_before_rup_unit() {
@@ -5243,13 +5096,9 @@ int main(int argc, char **argv) {
   orbitopal_refinement_starts_from_one_unique_column();
   orbitopal_discovery_scopes_are_independent();
   orbitopal_refinement_cells_need_no_generic_generators();
-  orbitopal_shallow_group_skips_special_detection();
-  orbitopal_formula_cache_matches_private_snapshots();
-  graph_symmetry_never_moves_unused_variables();
   for (bool preserve : {false, true})
     graph_symmetry_is_exact_bounded_and_interruptible(preserve);
   stabilizer_chain_adds_all_cuts_before_rup_unit();
-  satsuma_fix_and_cut_takes_first_applicable_clause();
   large_domain_generator_fixing_uses_units_without_a_chain();
   compound_admission_publishes_a_singleton_forcing_unit();
   fix_and_cut_reaches_nonclausal_orbits();

@@ -333,16 +333,6 @@ void pose_affine_structured_stage(DefaultStrategyConfig &config) {
 
 } // namespace
 
-// Admitted support of a persistent affine session (sorted externals).
-static bool affine_support_protected(const Kernel &kernel, Var variable) {
-  const auto *session = kernel.affine_matrix_search_session;
-  if (!session || !session->enabled() || !session->persistent())
-    return false;
-  const auto &support = session->support();
-  return std::binary_search(support.begin(), support.end(),
-                            kernel_externalize(kernel, make_lit(variable, false)));
-}
-
 std::optional<strategy::AffineConsequenceParameters>
 default_affine_search_parameters(const Kernel &kernel,
                                  const DefaultStrategyConfig &config) {
@@ -633,6 +623,20 @@ bool default_should_seed_structured_residual(
          (!unique_literal_amo_binaries || generic_graph_root_progress);
 }
 
+bool default_should_run_initial_fast_elimination(uint64_t candidates,
+                                                 uint64_t active) {
+  return candidates && candidates > active - std::min(candidates, active);
+}
+
+bool default_fast_elimination_discovery_admissible(uint64_t active,
+                                                   uint64_t remaining) {
+  // Discovery has to inspect every live variable before the owner order is
+  // known. Reserve an equal amount of the shared dose for the transformation;
+  // otherwise startup would pay mostly to construct a domain that can only be
+  // mutated by a short, incomplete prefix.
+  return active && active <= remaining / 2;
+}
+
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
@@ -685,10 +689,8 @@ DefaultStrategyConfig::reference_structured_root_program() {
   pure.id = 1000;
   pure.rule = "BVE";
   strategy::BveParameters pure_parameters;
-  // The owner assigns one round of the literals that are pure now, then
-  // propagates once (satsuma.h "propagate one round of pure literals"). A
-  // literal made pure by that round waits for the next earned pass.
-  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureOnly;
+  // The owner closes pure literals inside its simplification (satsuma.h).
+  pure_parameters.candidate_scope = strategy::BveCandidateScope::PureClosure;
   pure.parameters = pure_parameters;
   pure.granularity = strategy::InvocationGranularity::CompleteCurrentPass;
   pure.work_unit = strategy::WorkUnit::BveTicks;
@@ -1046,9 +1048,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
         stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::Continue &&
         stage.on_budget_exhaustion != strategy::BudgetExhaustionPolicy::FinishRoundThenStop)
       return reject("structured root budget disposition is invalid");
-    if (stage.repeat_trigger != strategy::RepeatTrigger::AnyProgress &&
-        stage.repeat_trigger != strategy::RepeatTrigger::SymmetryBreakingOutput)
-      return reject("structured root repeat trigger is invalid");
     if (!strategy::validate_online_strategy_program(stage.program, error))
       return false;
     if (stage.structured_handoff_after_prior_progress &&
@@ -1277,9 +1276,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_search.maximum_initialization_work=" << affine_search.maximum_initialization_work
       << " affine_search.maximum_service_work=" << affine_search.maximum_service_work
       << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
-      << " affine_search.effort_permille=" << affine_search.effort_permille
-      << " affine_search.output_use_fruitfulness=" << affine_search.output_use_fruitfulness
-      << " symmetry_use_observation=" << symmetry_use_observation
       << " affine_model.enabled=" << affine_model.enabled;
   {
     strategy::OnlineStrategyProgram affine;
@@ -1561,11 +1557,6 @@ std::string DefaultStrategyConfig::serialize() const {
     out << " inprocess.structured_root_stage" << i
         << ".structured_handoff_after_prior_progress="
         << stage.structured_handoff_after_prior_progress;
-    out << " inprocess.structured_root_stage" << i << ".repeat_trigger="
-        << static_cast<unsigned>(stage.repeat_trigger)
-        << " inprocess.structured_root_stage" << i
-        << ".stop_repeat_at_detection_limit="
-        << stage.stop_repeat_at_detection_limit;
   }
   for (size_t i = 0;
        i < inprocess.structured_root_bounded_backtracking_stages.size(); ++i) {
@@ -1589,11 +1580,6 @@ std::string DefaultStrategyConfig::serialize() const {
     out << " inprocess.structured_root_bounded_backtracking_stage" << i
         << ".structured_handoff_after_prior_progress="
         << stage.structured_handoff_after_prior_progress;
-    out << " inprocess.structured_root_bounded_backtracking_stage" << i << ".repeat_trigger="
-        << static_cast<unsigned>(stage.repeat_trigger)
-        << " inprocess.structured_root_bounded_backtracking_stage" << i
-        << ".stop_repeat_at_detection_limit="
-        << stage.stop_repeat_at_detection_limit;
   }
   for (size_t i = 0; i < inprocess.structured_root_large_domain_stages.size();
        ++i) {
@@ -1616,11 +1602,6 @@ std::string DefaultStrategyConfig::serialize() const {
     out << " inprocess.structured_root_large_stage" << i
         << ".structured_handoff_after_prior_progress="
         << stage.structured_handoff_after_prior_progress;
-    out << " inprocess.structured_root_large_stage" << i << ".repeat_trigger="
-        << static_cast<unsigned>(stage.repeat_trigger)
-        << " inprocess.structured_root_large_stage" << i
-        << ".stop_repeat_at_detection_limit="
-        << stage.stop_repeat_at_detection_limit;
   }
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
@@ -3585,6 +3566,9 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   bve_level_ = 0;
   bve_level_idx_ = 0;
   initial_fast_elimination_active_ = false;
+  initial_fast_elimination_discovery_ticks_ = 0;
+  initial_fast_elimination_budget_exhausted_ = false;
+  initial_fast_elimination_attempted_.clear();
   structured_root_consumed_ = false;
   structured_root = {};
   default_candidate_order_.reset(config().candidate_order_seed);
@@ -3822,13 +3806,6 @@ void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
   // existing NLOG2N updater use n=1, i.e. eliminateinit=500 with the exact
   // post-preprocessing BINIRR_CLAUSES scaling population.
   update_limit(k, SlotGroup::Eliminate);
-  // The same kissat_init_limits call re-derives the first search-time Probe
-  // deadline (INIT_CONFLICT_LIMIT(probe, true)).  The startup Probe phase
-  // closes before initial fast elimination, so the deadline it set scaled the
-  // pre-elimination population.  After the one startup round n=1, i.e.
-  // probeinit; without a startup round the clock keeps its startup invitation.
-  if (probe_clock.rounds)
-    update_limit(k, SlotGroup::Probe);
   search_limits_initialized_ = true;
 }
 
@@ -3947,6 +3924,17 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
   const uint64_t started = now_nanos();
   if(refresh)++affine_search_diagnostics_.refreshes;
   else ++affine_search_diagnostics_.initializations;
+  affine_tracking_limit_=parameters->maximum_session_keys;
+  // RootMaintenance can publish through the same service; reserve its
+  // observational reason storage before entering the irreversible action.
+  for(auto *ids:{&affine_reason_ids_})
+    if(ids->size()==ids->capacity()&&ids->size()<affine_tracking_limit_)
+      ids->reserve(size_t(std::min<uint64_t>(affine_tracking_limit_,
+          std::max<uint64_t>(1,2*ids->capacity()))));
+  if(affine_binary_reasons_.size()==affine_binary_reasons_.capacity()&&
+      affine_binary_reasons_.size()<affine_tracking_limit_)
+    affine_binary_reasons_.reserve(size_t(std::min<uint64_t>(affine_tracking_limit_,
+        std::max<uint64_t>(1,2*affine_binary_reasons_.capacity()))));
   // Each phase owns an independent cap: lifecycle, trail, synchronization,
   // planner, source revalidation, and durable-session bookkeeping.
   affine_service_allowance_=parameters->maximum_snapshot_work;
@@ -4044,6 +4032,17 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   }
   const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
   const uint64_t started=now_nanos();
+  // Prepare observational storage before publication. Metadata insertion after
+  // Applied then cannot allocate or invalidate the certified formula commit.
+  auto reserve_next=[&](auto &values) {
+    if(values.size()==values.capacity() && values.size()<affine_tracking_limit_) {
+      const uint64_t capacity=values.capacity()>UINT64_MAX/2 ? UINT64_MAX :
+          std::max<uint64_t>(1,2*values.capacity());
+      values.reserve(static_cast<size_t>(std::min(capacity,affine_tracking_limit_)));
+    }
+  };
+  reserve_next(affine_reason_ids_);
+  reserve_next(affine_binary_reasons_);
   result=execution::complete_action(
       completion_,FeedbackKind::SearchService,"AffineMatrixSearch",INSTANCE_CANONICAL,
       [&] {
@@ -4097,13 +4096,7 @@ bool DefaultPolicy::affine_additional_recognition_due(
 
 bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
     const AffineMatrixServiceResult &result,bool root) {
-  if(result.status==AffineMatrixServiceStatus::Pending)++affine_search_diagnostics_.pending_slices;
-  affine_search_diagnostics_.resumed_slices+=result.slice_resumed;
-  affine_search_diagnostics_.completed_slice_steps=saturated_sum(
-      affine_search_diagnostics_.completed_slice_steps,result.slice_completed_steps);
-  affine_search_diagnostics_.slice_work=saturated_sum(affine_search_diagnostics_.slice_work,result.slice_work);
-  affine_search_diagnostics_.slice_cumulative_work=result.slice_cumulative_work;
-  affine_search_diagnostics_.minimum_slice_work=result.slice_minimum_work;
+  schedule_affine_service(kernel,result);
   if(root)++affine_search_diagnostics_.root_services;
   else ++affine_search_diagnostics_.search_services;
   affine_search_diagnostics_.incremental_capture_calls+=result.incremental_capture;
@@ -4127,31 +4120,15 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
         affine_search_diagnostics_.widest_reason,result.installed_reason.size());
     affine_search_diagnostics_.proof_additions+=result.live.additions;
     affine_search_diagnostics_.proof_deletions+=result.live.deletions;
-    // Provenance for the run's fruitfulness verdict (SymmetryUse AFFINE
-    // class). The root-published clause is tagged so that its own root
-    // propagation never counts as use; the literal it implies is tagged as a
-    // unit, whose root consequences and later root forcing do count. Callers
-    // propagate after this, so the unit's immediate consequences are seen.
-    if(config_.affine_search.output_use_fruitfulness) {
-      std::vector<Lit> body;
-      body.reserve(result.installed_reason.size());
-      for(int32_t external:result.installed_reason) {
-        const Lit lit=kernel_internalize(kernel,external);
-        if(lit==INVALID_LIT || var_of(lit)>=kernel.nvars){body.clear();break;}
-        body.push_back(lit);
-      }
-      const uint64_t epoch=affine_schedule_.runs;
-      if(body.size()==2 || (body.size()>2 && result.live.installed_reason_id)) {
-        kernel_symuse_tag_affine(kernel,body.data(),uint32_t(body.size()),
-                                 result.live.installed_reason_id,epoch);
-        ++affine_search_diagnostics_.output_tags;
-      }
-      for(const Lit lit:body)
-        if(!kernel.value(lit)) {
-          kernel_symuse_tag_affine(kernel,&lit,1,0,epoch);
-          ++affine_search_diagnostics_.output_tags;
-          break;
-        }
+    // Actual native IDs, rather than arena offsets, survive collection. Binary
+    // watches without ID storage are observed by the exact published body.
+    if(result.live.installed_reason_id && affine_reason_ids_.size()<affine_tracking_limit_)
+      affine_reason_ids_.push_back(result.live.installed_reason_id);
+    if(result.installed_reason.size()==2 && affine_binary_reasons_.size()<affine_tracking_limit_) {
+      auto pair=std::minmax(result.installed_reason[0],result.installed_reason[1]);
+      std::pair<int32_t,int32_t> key{pair.first,pair.second};
+      auto it=std::lower_bound(affine_binary_reasons_.begin(),affine_binary_reasons_.end(),key);
+      if(it==affine_binary_reasons_.end() || *it!=key)affine_binary_reasons_.insert(it,key);
     }
   }
   // A paused owner can still deliver a genuinely useful root consequence.
@@ -4196,161 +4173,47 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   return optional_disable;
 }
 
-static uint64_t affine_run_conflict_delta(const Kernel &k, uint64_t occurrences,
-    const DefaultStrategyConfig::Inprocess &config) {
-  // kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N, true):
-  // eliminateint * n * log10(n + 9)^2, then kissat_scale_delta.
-  const double n = static_cast<double>(std::max<uint64_t>(occurrences, 1));
-  const double lg = std::log10(n + config.logarithm_offset);
-  return scale_inprocessing_delta(
-      k, static_cast<uint64_t>(static_cast<double>(config.eliminate_interval) * n * lg * lg),
-      config);
+bool DefaultPolicy::affine_service_due(const Kernel &kernel,bool root) {
+  (void)root;
+  const std::array<uint64_t,3> current{
+      kernel.affine_matrix_search_session?kernel.affine_matrix_search_session->owner_version():0,
+      kernel.stats.root_assignments,kernel.affine_semantic_namespace_epoch};
+  if(current!=affine_service_wake_stamp_) {
+    affine_service_wake_stamp_=current;affine_service_next_ticks_=search_ticks(kernel);
+    ++affine_search_diagnostics_.service_wakeups;
+  }
+  affine_search_diagnostics_.service_due_ticks=affine_service_next_ticks_;
+  if(search_ticks(kernel)>=affine_service_next_ticks_)return true;
+  ++affine_search_diagnostics_.service_tick_skips;return false;
 }
 
-uint64_t DefaultPolicy::affine_run_effort(const Kernel &k) const {
-  // kimits.h SET_EFFORT_LIMIT: per-mille share of the search ticks since the
-  // last run, floored at mineffort; the initial preprocessing reference
-  // matches DefaultInprocessScheduler::set_entry_limit at zero conflicts.
-  uint64_t reference;
-  if (!k.stats.conflicts) {
-    reference = config_.inprocess.preprocess_initial_ticks;
-  } else {
-    const uint64_t now = search_ticks(k);
-    reference = now >= affine_schedule_.last_ticks ? now - affine_schedule_.last_ticks : 0;
-    if (reference < config_.inprocess.minimum_effort_ticks)
-      reference = config_.inprocess.minimum_effort_ticks;
+void DefaultPolicy::schedule_affine_service(const Kernel &kernel,
+    const AffineMatrixServiceResult &result) {
+  const uint64_t quantum=config_.affine_search.maximum_service_work?
+      config_.affine_search.maximum_service_work:config_.inprocess.minimum_effort_ticks;
+  uint64_t work=0;
+  for(uint64_t amount:{result.lifecycle_work,result.trail_capture_work,result.synchronization_work,
+      result.session_work,result.live.planner_work,result.live.revalidation_work})work=saturated_sum(work,amount);
+  const bool pending=result.status==AffineMatrixServiceStatus::Pending;
+  const bool no_yield=result.status==AffineMatrixServiceStatus::NoEvent||result.status==AffineMatrixServiceStatus::Duplicate;
+  if(pending)++affine_search_diagnostics_.pending_slices;
+  else if(no_yield) {
+    update_inprocess_delay(affine_service_slot_.delay_current,affine_service_slot_.delay_count,true);
+    ++affine_search_diagnostics_.no_yield_delays;
   }
-  const uint32_t permille = config_.affine_search.effort_permille
-      ? config_.affine_search.effort_permille : config_.inprocess.sweep_permille;
-  return scale_permille(reference, permille);
-}
-
-void DefaultPolicy::judge_affine_run(const Kernel &k) {
-  auto &s = affine_schedule_;
-  if (!s.verdict_pending) return;
-  s.verdict_pending = false;
-  // Fruitful = search used the run's output since the run (plan §9.5).
-  const uint64_t uses = config_.affine_search.output_use_fruitfulness
-      ? kernel_symuse_affine_uses(k, s.last_epoch) : s.last_published;
-  affine_search_diagnostics_.output_uses =
-      saturated_sum(affine_search_diagnostics_.output_uses, uses);
-  if (uses) {
-    s.delay_current /= 2; // kimits.c kissat_reduce_delay
-    ++affine_search_diagnostics_.fruitful_runs;
-  } else {
-    // Plan §9.5: doubling, more aggressive than kissat_bump_delay's +1.
-    s.delay_current = !s.delay_current ? 1
-        : s.delay_current > UINT32_MAX / 2 ? UINT32_MAX : 2 * s.delay_current;
-    ++affine_search_diagnostics_.fruitless_runs;
-  }
-  s.delay_count = s.delay_current;
-  affine_search_diagnostics_.delay_current = s.delay_current;
-}
-
-bool DefaultPolicy::affine_run_due(const Kernel &k) {
-  auto &s = affine_schedule_;
-  if (k.stats.conflicts < s.next_conflicts) return false;
-  const auto *session = k.affine_matrix_search_session;
-  if (!session || !session->enabled()) return false;
-  const auto consume_occurrence = [&] {
-    ++s.occurrences;
-    s.next_conflicts = k.stats.conflicts +
-        affine_run_conflict_delta(k, s.occurrences, config_.inprocess);
-    affine_search_diagnostics_.run_conflict_limit = s.next_conflicts;
-  };
-  // CryptoMiniSat's usefulness autodisable stops the service until a new
-  // admission resumes it; each limit hit while paused consumes an occurrence.
-  if (affine_usefulness_paused_) {
-    ++affine_search_diagnostics_.paused_search_skips;
-    consume_occurrence();
-    return false;
-  }
-  // Kissat eliminate.c waits at an expired limit until the formula changed.
-  uint64_t work = 0;
-  const bool changed = affine_matrix_search_inputs_changed(k, *session, s.inputs, work);
-  affine_search_diagnostics_.trigger_work =
-      saturated_sum(affine_search_diagnostics_.trigger_work, work);
-  if (!changed) {
-    if (!s.waiting) ++affine_search_diagnostics_.unchanged_waits;
-    s.waiting = true;
-    return false;
-  }
-  s.waiting = false;
-  judge_affine_run(k);
-  // kimits.c kissat_delaying: a delayed occurrence still advances the
-  // interval count, as Kissat's probe round does when congruence is delayed.
-  if (s.delay_count) {
-    --s.delay_count;
-    ++affine_search_diagnostics_.delayed_runs;
-    consume_occurrence();
-    return false;
-  }
-  return true;
-}
-
-void DefaultPolicy::finish_affine_run(const Kernel &k, uint64_t published) {
-  auto &s = affine_schedule_;
-  s.last_epoch = s.runs++;
-  s.last_published = published;
-  s.verdict_pending = true;
-  ++s.occurrences;
-  s.next_conflicts = k.stats.conflicts +
-      affine_run_conflict_delta(k, s.occurrences, config_.inprocess);
-  s.last_ticks = search_ticks(k); // kissat: last.ticks.<phase> = search_ticks
-  if (k.affine_matrix_search_session && k.affine_matrix_search_session->enabled())
-    affine_matrix_search_consume_inputs(k, *k.affine_matrix_search_session, s.inputs);
-  affine_search_diagnostics_.runs = s.runs;
-  affine_search_diagnostics_.run_conflict_limit = s.next_conflicts;
-}
-
-ApplyResult DefaultPolicy::run_affine_search(Kernel &k, bool startup) {
-  // One run at a full-restart (or initial) root: retained maintenance, then
-  // atomic Gaussian steps, each published consequence followed by ordinary
-  // root BCP, until a fixpoint, an unfinished slice, or the run's effort
-  // limit. Step allowances are the session's own; the limit is checked
-  // between steps, so a run overshoots by at most one step allowance.
-  if (k.level) std::abort();
-  const uint64_t effort = affine_run_effort(k);
-  uint64_t spent = 0, published = 0;
-  bool more = true;
-  if (!startup) {
-    const bool recognize = affine_additional_recognition_due(k);
-    const uint64_t before = affine_search_diagnostics_.initialization_work;
-    const auto refreshed = initialize_affine_search(k, true, recognize);
-    spent = saturated_sum(spent, affine_search_diagnostics_.initialization_work - before);
-    published += refreshed.root_reason_additions;
-    if (refreshed.root_unit_additions || refreshed.root_reason_additions) {
-      if (default_propagate(k, "affine-restart-publication", completion_) != ApplyResult::Ok)
-        return ApplyResult::Unsat;
-    }
-    if (refreshed.root_service)
-      more = refreshed.root_service->status == AffineMatrixServiceStatus::Applied ||
-             refreshed.root_service->status == AffineMatrixServiceStatus::Pending;
-  }
-  auto *session = k.affine_matrix_search_session;
-  while (more && session && session->enabled() && spent < effort) {
-    const uint64_t before = affine_search_diagnostics_.service_work;
-    const auto service = service_affine_search(k, true);
-    spent = saturated_sum(spent, affine_search_diagnostics_.service_work - before);
-    ++affine_search_diagnostics_.run_steps;
-    if (service.result == ApplyResult::Unsat) return ApplyResult::Unsat;
-    if (service.status == AffineMatrixServiceStatus::Applied) {
-      if (!service.bcp_pending) std::abort();
-      ++published;
-      if (default_propagate(k, startup ? "affine-persistent-root"
-                                       : "affine-restart-publication",
-                            completion_) != ApplyResult::Ok)
-        return ApplyResult::Unsat;
-      continue;
-    }
-    more = service.status == AffineMatrixServiceStatus::Pending;
-  }
-  affine_search_diagnostics_.run_work = saturated_sum(affine_search_diagnostics_.run_work, spent);
-  affine_search_diagnostics_.run_effort_last = effort;
-  affine_search_diagnostics_.run_effort_total =
-      saturated_sum(affine_search_diagnostics_.run_effort_total, effort);
-  finish_affine_run(k, published);
-  return ApplyResult::Ok;
+  affine_search_diagnostics_.resumed_slices+=result.slice_resumed;
+  affine_search_diagnostics_.completed_slice_steps=saturated_sum(
+      affine_search_diagnostics_.completed_slice_steps,result.slice_completed_steps);
+  affine_search_diagnostics_.slice_work=saturated_sum(affine_search_diagnostics_.slice_work,result.slice_work);
+  affine_search_diagnostics_.slice_cumulative_work=result.slice_cumulative_work;
+  affine_search_diagnostics_.minimum_slice_work=result.slice_minimum_work;
+  const __uint128_t delay=__uint128_t(std::max(quantum,work))*
+      (pending?1:uint64_t(affine_service_slot_.delay_current)+1);
+  affine_service_next_ticks_=saturated_sum(search_ticks(kernel),delay>UINT64_MAX?UINT64_MAX:uint64_t(delay));
+  affine_service_wake_stamp_={kernel.affine_matrix_search_session?kernel.affine_matrix_search_session->owner_version():0,
+      kernel.stats.root_assignments,kernel.affine_semantic_namespace_epoch};
+  affine_search_diagnostics_.service_due_ticks=affine_service_next_ticks_;
+  affine_search_diagnostics_.service_delay_current=affine_service_slot_.delay_current;
 }
 
 void DefaultPolicy::reset_graph_labeling_schedule(const Kernel &kernel) {
@@ -4511,10 +4374,51 @@ ApplyResult DefaultPolicy::install_graph_labeling_hint(
   return installed;
 }
 
+void DefaultPolicy::observe_affine_consumption(const Kernel &kernel,size_t begin) {
+  if(!config_.affine_search.enabled)return;
+  auto published=[&](uint64_t id) {
+    return id && std::binary_search(affine_reason_ids_.begin(),affine_reason_ids_.end(),id);
+  };
+  auto binary=[&](Lit first,Lit second) {
+    int32_t a=kernel_externalize(kernel,first),b=kernel_externalize(kernel,second);
+    if(a>b)std::swap(a,b);
+    return std::binary_search(affine_binary_reasons_.begin(),affine_binary_reasons_.end(),std::pair{a,b});
+  };
+  for(size_t i=begin;i<kernel.trail.size();++i) {
+    Lit lit=kernel.trail[i];const auto &assigned=kernel.assigned[var_of(lit)];
+    bool used=false;
+    if(assigned.reason==UNIT_REASON)used=published(kernel.unit_ids[var_of(lit)]);
+    else if(assigned.reason!=DECISION_REASON) {
+      if(assigned.binary)used=binary(lit,assigned.reason);
+      else used=published(clause_at(kernel.arena,assigned.reason)->id());
+    }
+    if(used) {
+      ++affine_search_diagnostics_.implications_consumed;
+      update_inprocess_delay(affine_service_slot_.delay_current,affine_service_slot_.delay_count,false);
+      ++affine_search_diagnostics_.productive_delay_decays;
+      affine_service_next_ticks_=search_ticks(kernel);
+      affine_search_diagnostics_.service_due_ticks=affine_service_next_ticks_;
+      affine_search_diagnostics_.service_delay_current=affine_service_slot_.delay_current;
+    }
+  }
+  if(kernel.conflict_valid) {
+    bool used=kernel.conflict_ref==INVALID_REF
+        ? binary(kernel.conflict_bin[0],kernel.conflict_bin[1])
+        : published(clause_at(kernel.arena,kernel.conflict_ref)->id());
+    if(used) {
+      ++affine_search_diagnostics_.conflicts_consumed;
+      update_inprocess_delay(affine_service_slot_.delay_current,affine_service_slot_.delay_count,false);
+      ++affine_search_diagnostics_.productive_delay_decays;
+      affine_service_next_ticks_=search_ticks(kernel);
+      affine_search_diagnostics_.service_due_ticks=affine_service_next_ticks_;
+      affine_search_diagnostics_.service_delay_current=affine_service_slot_.delay_current;
+    }
+  }
+}
+
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
-  k.symuse.record_symmetry = config_.symmetry_use_observation;
   // Completion ends while owned heuristic state is still attached, including
   // solve-entry and startup terminal paths. No mutable Kernel hook is installed.
   std::optional<ScopedHeuristics> owned_h;
@@ -4571,9 +4475,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   const uint64_t alias_work_begin=k.stats.affine_matrix_alias_work;
   const uint64_t alias_additions_begin=k.stats.affine_matrix_alias_proof_additions;
   const uint64_t premise_maintenance_begin=k.proof ? k.proof->premise_maintenance_work() : 0;
+  affine_reason_ids_.clear();
+  affine_binary_reasons_.clear();
   affine_refresh_ticks_=search_ticks(k);
   affine_refresh_work_=0;
-  affine_schedule_={};
+  affine_service_slot_={};affine_service_next_ticks_=search_ticks(k);affine_service_wake_stamp_={};
+  affine_tracking_limit_=0;
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
   k.graph_labeling_session.clear();
@@ -4721,6 +4628,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (affine_root == ApplyResult::Unsat ||
       affine_root == ApplyResult::Conflict)
     return finish(20);
+  if(config_.affine_search.enabled) {
+    (void)initialize_affine_search(k);
+    for(;;) {
+      const size_t trail_begin=k.trail.size();
+      const auto service=service_affine_search(k,true);
+      observe_affine_consumption(k,trail_begin);
+      if(service.result==ApplyResult::Unsat)return finish(20);
+      if(service.status!=AffineMatrixServiceStatus::Applied)break;
+      if(!service.bcp_pending)std::abort();
+      const size_t propagation_begin=k.trail.size();
+      const auto propagated=default_propagate(k,"affine-persistent-root",completion_);
+      observe_affine_consumption(k,propagation_begin);
+      if(propagated!=ApplyResult::Ok)return finish(20);
+    }
+  }
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
     event_trace.macro(k, "signed_cardinality_proof_begin");
@@ -5109,14 +5031,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   startup = default_propagate(k, "post-preprocess", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20);
-  // CryptoMiniSat's startup simplification finds XORs after variable
-  // elimination ("occ-bve,occ-xor", solverconf.cpp simplify_schedule_startup).
-  if(config_.affine_search.enabled) {
-    (void)initialize_affine_search(k);
-    if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled() &&
-       run_affine_search(k,true)==ApplyResult::Unsat)
-      return finish(20);
-  }
   if (lucky_late_ && lucky_guard(k)) {
     event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
@@ -5205,6 +5119,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const size_t trace_trail_begin = k.trail.size();
     const ApplyResult r = default_propagate(k, "search", completion_);
     event_trace.implications(k, trace_trail_begin);
+    observe_affine_consumption(k,trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
@@ -5428,10 +5343,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.restart_clock(k, restart.next_conflicts, avg.initialized,
                                 avg.fast_glue.value, avg.slow_glue.value,
                                 config_.restart.glue_margin, ordinary_restart);
-      // Kissat's probe/eliminate enter level zero at their own conflict
-      // limits; the affine run likewise requests its full-root window.
       const bool affine_restart = config_.affine_search.enabled &&
-          affine_run_due(k);
+          k.affine_matrix_search_session &&
+          k.affine_matrix_search_session->enabled() &&
+          affine_service_due(k, false);
       const bool graph_restart=graph_labeling_due(k);
       // A due retained service owns an explicit full-root window even when
       // the ordinary conflict restart clock has not fired.
@@ -5480,8 +5395,33 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (rooted != ApplyResult::Ok)
           return finish(20);
       }
-      if (affine_restart && run_affine_search(k, false) == ApplyResult::Unsat)
-        return finish(20);
+      if (affine_restart) {
+        const bool recognize = affine_additional_recognition_due(k);
+        const size_t maintenance_begin = k.trail.size();
+        const auto refreshed = initialize_affine_search(k, true, recognize);
+        observe_affine_consumption(k, maintenance_begin);
+        bool published = refreshed.root_unit_additions ||
+                         refreshed.root_reason_additions;
+        if (!published && !refreshed.root_service &&
+            k.affine_matrix_search_session &&
+            k.affine_matrix_search_session->enabled()) {
+          const size_t service_begin = k.trail.size();
+          const auto service = service_affine_search(k, true);
+          observe_affine_consumption(k, service_begin);
+          if (service.result == ApplyResult::Unsat)
+            return finish(20);
+          published = service.status == AffineMatrixServiceStatus::Applied;
+          if (published && !service.bcp_pending) std::abort();
+        }
+        if (published) {
+          const size_t propagation_begin = k.trail.size();
+          const ApplyResult propagated = default_propagate(
+              k, "affine-restart-publication", completion_);
+          observe_affine_consumption(k, propagation_begin);
+          if (propagated != ApplyResult::Ok)
+            return finish(20);
+        }
+      }
       const bool run_graph = graph_restart || graph_labeling_due(k);
       if (run_graph) {
         const auto graph = service_graph_labeling(k);
@@ -5828,6 +5768,7 @@ uint64_t DefaultInprocessScheduler::ledger_remaining(SlotEntry &e, const Kernel 
 DefaultInprocessScheduler::SlotStep
 DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
                                SlotPhaseCtx &ctx) {
+  uint64_t limit = e.limit;
   ctx.last_result = ApplyResult::NoOp;
   if (!r.guard(k)) {
     e.tm.dec_guard++;
@@ -5836,10 +5777,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   const bool bve_entry = !std::strcmp(r.name, "BVE");
   const bool initial_fast_bve =
       bve_entry && initial_fast_elimination_active_;
-  // fastel.c kissat_fast_variable_elimination has no effort limit: rounds,
-  // occurrence, clause-size and resolvent caps are its only bounds
-  // (ledger ORDER-ELIM-INIT-1).
-  const uint64_t limit = initial_fast_bve ? UINT64_MAX : e.limit;
   BveBoundPolicy *ramp = nullptr;
   if (bve_entry && !initial_fast_bve)
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
@@ -5874,8 +5811,32 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           r, k, parameters, *bve_invocation_budget);
     }
     if (initial_fast_bve) {
+      // Candidate discovery must inspect every live variable before the
+      // owner's radix order is known. Charge that mandatory lower bound to
+      // the same typed startup dose as resolution. If it cannot fit, decline
+      // before allocating or mutating a partial owner domain.
+      const uint64_t active = active_variables(k);
       ++k.stats.fastel_rounds;
-      k.stats.fastel_active += active_variables(k);
+      k.stats.fastel_active += active;
+      const uint64_t resolution_remaining = ledger_remaining(e, k, e.limit);
+      const bool overflow =
+          initial_fast_elimination_discovery_ticks_ > resolution_remaining;
+      const uint64_t discovery_remaining =
+          overflow ? 0
+                   : resolution_remaining -
+                         initial_fast_elimination_discovery_ticks_;
+      if (!default_fast_elimination_discovery_admissible(
+              active, discovery_remaining)) {
+        ++k.stats.fastel_budget_stops;
+        initial_fast_elimination_budget_exhausted_ = true;
+        ctx.eliminate_limit_reached = true;
+        ++e.tm.dec_budget;
+        return SlotStep::Next;
+      }
+      initial_fast_elimination_discovery_ticks_ += active;
+      k.stats.fastel_discovery_ticks += active;
+      assert(initial_fast_elimination_discovery_ticks_ <= e.limit);
+      limit = e.limit - initial_fast_elimination_discovery_ticks_;
     }
     payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
     uint32_t n =
@@ -5900,9 +5861,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (!lit_of_instance(k, payloads_[j], &candidate))
           continue;
         const Var variable = var_of(candidate);
-        // fastel.c gathers only active variables whose `eliminate` flag is
-        // set; `bve_retry` is that flag's kernel image.
-        if (variable >= k.bve_retry.size() || !k.bve_retry[variable] ||
+        if (variable >= initial_fast_elimination_attempted_.size() ||
+            initial_fast_elimination_attempted_[variable] ||
             k.value(candidate) || kernel_var_retired(k, variable))
           continue;
         const Lit positive = make_lit(variable, false);
@@ -5929,6 +5889,11 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         candidates.push_back({payloads_[j], pos + neg, tie});
       }
       k.stats.fastel_candidates += candidates.size();
+      if (!default_should_run_initial_fast_elimination(candidates.size(),
+                                                       active_variables(k))) {
+        ++k.stats.fastel_declined;
+        candidates.clear();
+      }
       std::stable_sort(candidates.begin(), candidates.end(),
                        [](const Candidate &a, const Candidate &b) {
                          return std::tie(a.score, a.tie) <
@@ -5967,13 +5932,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             var_of(candidate) < k.nvars &&
             (k.value(candidate) || kernel_var_retired(k, var_of(candidate))))
           continue;
-        // CryptoMiniSat OccSimplifier::can_eliminate_var keeps every variable
-        // of a retained XOR (`xorclauses_vars`): DefaultPolicy does not offer
-        // the persistent affine session's admitted support to BVE.
-        if (lit_of_instance(k, payload, &candidate) &&
-            var_of(candidate) < k.nvars &&
-            affine_support_protected(k, var_of(candidate)))
-          continue;
         // Resolvent generation can delete a newly satisfied large antecedent
         // and reinsert its still-active pivot before retiring it. Preserve
         // that physical ghost until pop, but do not apply/count BVE again.
@@ -5985,8 +5943,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (!lit_of_instance(k, payload, &candidate))
           continue;
         const Var variable = var_of(candidate);
-        if (variable >= k.bve_retry.size() || !k.bve_retry[variable])
+        if (variable >= initial_fast_elimination_attempted_.size() ||
+            initial_fast_elimination_attempted_[variable])
           continue;
+        initial_fast_elimination_attempted_[variable] = 1;
         const int subsume_id = tactix_rule_id("SubsumeForward");
         assert(subsume_id >= 0);
         const RuleVTable &subsume =
@@ -6003,15 +5963,18 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             parameters.occurrence_limit, parameters.clause_size_limit, ctx.completion);
         if (pos > parameters.occurrence_limit ||
             neg > parameters.occurrence_limit ||
-            pos + neg > parameters.occurrence_limit) {
-          // fastel.c clears a tried pivot's flag whether or not it was
-          // eliminated; removing a clause re-arms its other variables.
-          k.bve_retry[variable] = 0;
+            pos + neg > parameters.occurrence_limit)
           continue;
-        }
       }
-      if (e.meter(k) > limit)
+      if (e.meter(k) > limit) {
+        if (initial_fast_bve &&
+            !initial_fast_elimination_budget_exhausted_) {
+          ++k.stats.fastel_budget_stops;
+          initial_fast_elimination_budget_exhausted_ = true;
+          ctx.eliminate_limit_reached = true;
+        }
         break; // dose spent
+      }
       if (!r.guard(k)) {
         break;
       }
@@ -6054,9 +6017,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           r.name, payload, [&] {
             const uint64_t spent = e.meter ? e.meter(k) : 0;
             return slot_feedback(k, e, r, payload,
-                e.meter && !initial_fast_bve
-                    ? strategy::WorkLimit::bounded(limit >= spent ? limit - spent : 0)
-                    : strategy::WorkLimit::unlimited(), "native-dosed-candidate");
+                e.meter ? strategy::WorkLimit::bounded(limit >= spent ? limit - spent : 0)
+                        : strategy::WorkLimit::unlimited(), "native-dosed-candidate");
           }, [&] {
         auto published = execution::execute_action(
           k, execution::RuleApplicationRequest{
@@ -6104,13 +6066,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
         break;
-      }
-      if (initial_fast_bve) {
-        // fastel.c clears the pivot's `eliminate` flag after the attempt and
-        // before flushing its units, so only later clause removals re-arm it.
-        Lit tried;
-        if (lit_of_instance(k, payload, &tried) && var_of(tried) < k.nvars)
-          k.bve_retry[var_of(tried)] = 0;
       }
       if (ar != ApplyResult::Ok)
         continue; // this candidate changed nothing; try the next
@@ -6725,30 +6680,17 @@ int DefaultInprocessScheduler::run_structured_root(
   structured_root.sr_discovery_progress_window = progress_window;
   structured_root.stages.resize(stages.size());
   bool prior_stage_progress = false;
-  // Satsuma's reached_limits, sticky for the whole startup lifecycle.
-  bool detection_limit_reached = false;
-  // Detections already completed without effect on the current formula.
-  strategy::UnchangedDetections unchanged_detections;
-  // One orbitopal snapshot and refinement per unchanged formula, shared by
-  // every stage's orbitopal detections (Satsuma: one graph per pass).
-  OrbitopalFormulaCache orbitopal_formula_cache;
-  // Satsuma's iteration counter: one repetition budget for all stages.
-  uint64_t owner_iterations = 0;
   const uint64_t unique_literal_amo_before =
       k.stats.sr_unique_literal_amo_binaries;
   const uint64_t nonforcing_cuts_before =
       k.stats.sr_nonforcing_cuts_declined;
   for (size_t index = 0; index < stages.size(); ++index) {
-    bool graph_component_limit = false;
     const auto stage = DefaultStrategyConfig::structured_root_stage_after_feedback(
         stages[index], prior_stage_progress,
         k.stats.sr_unique_literal_amo_binaries > unique_literal_amo_before,
-        k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before,
-        detection_limit_reached, &k, &graph_component_limit);
-    detection_limit_reached |= graph_component_limit;
+        k.stats.sr_nonforcing_cuts_declined > nonforcing_cuts_before);
     auto &telem = structured_root.stages[index];
     ++telem.runs;
-    telem.detection_limit_reached |= graph_component_limit;
     strategy::OnlineStrategySequence executor;
     std::string error;
     if (!executor.configure(stage, 1,
@@ -6756,21 +6698,9 @@ int DefaultInprocessScheduler::run_structured_root(
       telem.terminal = structured_root.terminal = InvocationStatus::InvalidRequest;
       return 0;
     }
-    executor.share_unchanged_detections(&unchanged_detections);
-    executor.share_orbitopal_formula_cache(&orbitopal_formula_cache);
-    executor.share_repetition_budget(&owner_iterations);
     const uint64_t started = now_nanos();
-    const uint64_t discovery_started = sr_discovery_allowance.consumed();
-    const uint64_t outputs_started = strategy::symmetry_breaking_outputs(k);
     const auto finish = [&] {
       telem.sequence_passes = executor.rounds();
-      telem.discovery_ticks +=
-          sr_discovery_allowance.consumed() - discovery_started;
-      telem.symmetry_breaking_outputs +=
-          strategy::symmetry_breaking_outputs(k) - outputs_started;
-      telem.unchanged_detection_skips += executor.unchanged_detection_skips();
-      telem.detection_limit_reached |= executor.detection_limit_reached();
-      detection_limit_reached |= executor.detection_limit_reached();
       telem.nanos += now_nanos() - started;
       structured_root.sequence_passes += telem.sequence_passes;
       structured_root.nanos += telem.nanos;
@@ -6895,6 +6825,9 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
   initial_fast_elimination_active_ = true;
+  initial_fast_elimination_discovery_ticks_ = 0;
+  initial_fast_elimination_budget_exhausted_ = false;
+  initial_fast_elimination_attempted_.assign(k.nvars, 0);
   initial_fast_elimination_marks_.assign(2 * static_cast<size_t>(k.nvars), 0);
   const uint64_t eliminated_before = k.stats.bve_eliminated;
   const uint64_t resolutions_before = k.stats.bve_resolutions;
@@ -6903,14 +6836,9 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   k.stats.fastel_nanos += now_nanos() - started;
   k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
   k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
+  initial_fast_elimination_attempted_.clear();
   initial_fast_elimination_marks_.clear();
   initial_fast_elimination_active_ = false;
-  // fastel.c:kissat_fast_variable_elimination ends by setting the eliminate
-  // flag of every variable.  Attempts above retired the retry bit of each
-  // kept candidate, so without this the first search-time Eliminate would
-  // schedule only variables whose clauses changed since; untouched factor
-  // extension variables were the visible casualties.
-  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{1});
   return result;
 }
 
@@ -7066,7 +6994,6 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     ctx.round_changed = false;
     k.subsume_complete = true;
     k.strengthen_complete = true;
-    const uint64_t round_eliminated_before = k.stats.bve_eliminated;
     for (size_t slot = 0; slot < entries.size(); slot++) {
       SlotEntry &e = entries[slot];
       if (e.group != group)
@@ -7256,13 +7183,6 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     }
     if (ctx.eliminate_limit_reached)
       break;
-    // fastel.c ends its round loop as soon as a round eliminates nothing;
-    // units learned by declined candidates do not start another round.
-    if (initial_fast_elimination_active_) {
-      if (k.stats.bve_eliminated == round_eliminated_before)
-        break;
-      continue;
-    }
     const bool subsume_pending =
         group == SlotGroup::Eliminate &&
         config().hold_subsume_until_eliminate &&
@@ -7447,19 +7367,13 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
   for (size_t i = 0; i < structured_root.stages.size(); ++i) {
     const auto &stage = structured_root.stages[i];
     std::printf("c structured-stage %zu runs %llu advances %llu applications %llu "
-                "effective %llu passes %llu seconds %.6f terminal %u "
-                "discovery-ticks %llu sbp %llu detection-limit %u "
-                "unchanged-skips %llu\n", i,
+                "effective %llu passes %llu seconds %.6f terminal %u\n", i,
                 (unsigned long long)stage.runs,
                 (unsigned long long)stage.advances,
                 (unsigned long long)stage.applications,
                 (unsigned long long)stage.effective,
                 (unsigned long long)stage.sequence_passes, stage.nanos / 1e9,
-                static_cast<unsigned>(stage.terminal),
-                (unsigned long long)stage.discovery_ticks,
-                (unsigned long long)stage.symmetry_breaking_outputs,
-                static_cast<unsigned>(stage.detection_limit_reached),
-                (unsigned long long)stage.unchanged_detection_skips);
+                static_cast<unsigned>(stage.terminal));
   }
 
   std::printf("c meters      probe %llu backbone %llu vivify %llu "

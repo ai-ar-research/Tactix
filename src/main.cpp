@@ -186,7 +186,6 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
-  std::optional<bool> symmetry_use_report;
   std::optional<bool> default_graph_labeling;
   std::optional<bool> default_structured_symmetry;
   bool random_policy = false;
@@ -229,9 +228,6 @@ int main(int argc, char **argv) {
       quiet = true;
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
-    } else if (!strcmp(a, "--sr-native-witness")) {
-      // A/B diagnostic: keep every SR line native (no witness-free expansion).
-      setenv("TACTIX_SR_NATIVE_WITNESS", "1", 1);
     } else if (!strcmp(a, "--dsr")) {
       proof_family = CliProofFamily::Dsr;
     } else if (!strcmp(a, "--auto-proof")) {
@@ -240,14 +236,6 @@ int main(int argc, char **argv) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
       proof_family = CliProofFamily::Lrat; // native LRAT compatibility
-    } else if (!strncmp(a, "--symmetry-use-report=", 22)) {
-      if (!strcmp(a + 22, "on")) symmetry_use_report = true;
-      else if (!strcmp(a + 22, "off")) symmetry_use_report = false;
-      else {
-        fprintf(stderr, "tactix: --symmetry-use-report requires on or off\n");
-        printf("s UNKNOWN\n");
-        return 1;
-      }
     } else if (!strncmp(a, "--default-affine-search=", 24)) {
       if (!strcmp(a + 24, "on")) default_affine_search = true;
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
@@ -500,7 +488,7 @@ int main(int argc, char **argv) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
-             "[--default-affine-search=on|off] [--symmetry-use-report=on|off] "
+             "[--default-affine-search=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
              "[--random-policy[=SEED]] "
@@ -963,10 +951,6 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
-  if (symmetry_use_report) {
-    default_config.symmetry_use_observation = *symmetry_use_report;
-    kernel.symuse.record_symmetry = *symmetry_use_report; // non-Default policies
-  }
   if (default_graph_labeling)
     default_config.graph_labeling_model.enabled = *default_graph_labeling;
   if (default_structured_symmetry)
@@ -1063,6 +1047,8 @@ int main(int argc, char **argv) {
       metric("root_services", affine.root_services);
       metric("search_services", affine.search_services);
       metric("reasons_published", affine.reasons_published);
+      metric("implications_consumed", affine.implications_consumed);
+      metric("conflicts_consumed", affine.conflicts_consumed);
       metric("admitted_sources", affine.admitted_sources);
       metric("active_sources", affine.active_sources);
       const auto &graph = default_policy.graph_labeling_diagnostics();
@@ -1123,26 +1109,18 @@ int main(int argc, char **argv) {
       metric("incremental_capture_calls", affine.incremental_capture_calls);
       metric("unchanged_support_calls", affine.unchanged_support_calls);
       metric("cached_event_calls", affine.cached_event_calls);
-      metric("runs", affine.runs);
-      metric("delayed_runs", affine.delayed_runs);
-      metric("unchanged_waits", affine.unchanged_waits);
-      metric("fruitful_runs", affine.fruitful_runs);
-      metric("fruitless_runs", affine.fruitless_runs);
-      metric("run_conflict_limit", affine.run_conflict_limit);
-      metric("delay_current", affine.delay_current);
-      metric("run_effort_last", affine.run_effort_last);
-      metric("run_effort_total", affine.run_effort_total);
-      metric("run_work", affine.run_work);
-      metric("run_steps", affine.run_steps);
-      metric("output_tags", affine.output_tags);
-      metric("output_uses", affine.output_uses);
-      metric("trigger_work", affine.trigger_work);
+      metric("service_due_ticks", affine.service_due_ticks);
+      metric("service_delay_current", affine.service_delay_current);
+      metric("service_tick_skips", affine.service_tick_skips);
       metric("pending_slices", affine.pending_slices);
       metric("resumed_slices", affine.resumed_slices);
       metric("completed_slice_steps", affine.completed_slice_steps);
       metric("slice_work", affine.slice_work);
       metric("slice_cumulative_work", affine.slice_cumulative_work);
       metric("minimum_slice_work", affine.minimum_slice_work);
+      metric("no_yield_delays", affine.no_yield_delays);
+      metric("productive_delay_decays", affine.productive_delay_decays);
+      metric("service_wakeups", affine.service_wakeups);
 
       metric("capture_delta_literals", affine.capture_delta_literals);
       metric("premise_maintenance_work", affine.premise_maintenance_work);
@@ -1522,11 +1500,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_validation_ticks,
            (unsigned long long)kernel.stats.sr_witness_literals,
            (unsigned long long)kernel.stats.sr_unique_literal_amo_binaries);
-    printf("c sr-expand   %llu witness-free expansions, %llu native lines, "
-           "%llu expansion additions\n",
-           (unsigned long long)kernel.stats.sr_expanded,
-           (unsigned long long)kernel.stats.sr_expansion_native,
-           (unsigned long long)kernel.stats.sr_expansion_additions);
     printf("c sr-life     %llu post-AMO nonhelper consequences, %llu graph root units\n",
            (unsigned long long)kernel.stats.sr_post_amo_nonhelper_applied,
            (unsigned long long)kernel.stats.sr_post_amo_graph_root_units);
@@ -1536,48 +1509,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_nonforcing_cuts_declined,
            (unsigned long long)kernel.stats.sr_singleton_forcing_batches_declined,
            (unsigned long long)kernel.stats.sr_singleton_forcing_rows_declined);
-    for (uint32_t run = 0; run < kernel.symuse.runs.size(); run++) {
-      const SymmetryUseRun &use = kernel.symuse.runs[run];
-      const uint64_t alive = kernel_symuse_alive(kernel, run);
-      printf("c symuse run %u: %llu clauses (%llu helpers, %llu units), "
-             "%llu propagations (%llu helper, %llu search), %llu analysis "
-             "uses (%llu helper), %llu root forced, %llu deleted, %llu alive\n",
-             run, (unsigned long long)use.clauses,
-             (unsigned long long)use.helpers, (unsigned long long)use.units,
-             (unsigned long long)use.propagations,
-             (unsigned long long)use.helper_propagations,
-             (unsigned long long)use.search_propagations,
-             (unsigned long long)use.analysis_uses,
-             (unsigned long long)use.helper_analysis_uses,
-             (unsigned long long)use.root_forced,
-             (unsigned long long)(use.clauses - alive),
-             (unsigned long long)alive);
-    }
-    if (!kernel.symuse.affine_runs.empty()) {
-      SymmetryUseRun total;
-      uint64_t used = 0;
-      for (const SymmetryUseRun &use : kernel.symuse.affine_runs) {
-        total.clauses += use.clauses;
-        total.units += use.units;
-        total.propagations += use.propagations;
-        total.search_propagations += use.search_propagations;
-        total.analysis_uses += use.analysis_uses;
-        total.root_forced += use.root_forced;
-        total.large_deleted += use.large_deleted;
-        used += use.root_forced + use.analysis_uses + use.search_propagations != 0;
-      }
-      printf("c symuse affine: %llu tagged runs (%llu used), %llu clauses (%llu units), "
-             "%llu propagations (%llu above root), %llu analysis uses, "
-             "%llu root forced, %llu deleted\n",
-             (unsigned long long)kernel.symuse.affine_runs.size(),
-             (unsigned long long)used, (unsigned long long)total.clauses,
-             (unsigned long long)total.units,
-             (unsigned long long)total.propagations,
-             (unsigned long long)total.search_propagations,
-             (unsigned long long)total.analysis_uses,
-             (unsigned long long)total.root_forced,
-             (unsigned long long)total.large_deleted);
-    }
     printf("c handoff     %llu residual seeds, %llu variables, %.3f seconds\n",
            (unsigned long long)kernel.stats.residual_handoff_calls,
            (unsigned long long)kernel.stats.residual_handoff_variables,

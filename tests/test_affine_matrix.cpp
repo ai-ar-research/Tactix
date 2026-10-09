@@ -576,9 +576,7 @@ static void bounded_predecessor_restore() {
                              [](uint64_t) { return true; }, rebuilt) ==
          MatrixStatus::Complete);
   MatrixEvent rebuilt_event;
-  // 17 for conditioning and the pivot collision, 1 for the Gauss-Jordan
-  // pivot lookup in the reduced row {3,4}.
-  assert(synchronize_work(rebuilt, prefix, status, rebuilt_event) == 18 &&
+  assert(synchronize_work(rebuilt, prefix, status, rebuilt_event) == 17 &&
          status == MatrixStatus::Complete && rebuilt.rows() == matrix.rows() &&
          rebuilt_event.row == event.row && rebuilt_event.reason == event.reason);
   event.row.source_equations = {0};
@@ -787,103 +785,6 @@ static void sliced_reduction_controls() {
   assert(!changed.continuation_pending());
 }
 
-// Gauss-Jordan completeness (CryptoMiniSat keeps its matrix in reduced
-// row-echelon form): a conditioned system yields a conflict exactly when it is
-// inconsistent, otherwise an implication exactly when some open variable is
-// forced. Full rebuild, dirty incremental, sliced and predecessor paths agree.
-static void gauss_jordan_completeness_oracle() {
-  uint64_t seed = 0x9e3779b97f4a7c15ull;
-  const auto next = [&] { seed = seed * 6364136223846793005ull + 1442695040888963407ull; return seed >> 33; };
-  const External variables = 5;
-  const auto check = [&](const std::vector<Equation> &input,
-                         const std::vector<MatrixAssignment> &trail,
-                         const MatrixEvent &event) {
-    uint64_t fixed = 0, values = 0;
-    for (const auto assignment : trail) {
-      fixed |= uint64_t{1} << (assignment.variable - 1);
-      if (assignment.value) values |= uint64_t{1} << (assignment.variable - 1);
-    }
-    uint64_t always_true = (uint64_t{1} << variables) - 1, always_false = always_true;
-    bool consistent = false;
-    for (uint64_t completion = 0; completion < (uint64_t{1} << variables); ++completion) {
-      if ((completion & fixed) != values) continue;
-      bool satisfied = true;
-      for (const auto &equation : input)
-        satisfied &= parity(equation.variables, completion) == equation.rhs;
-      if (!satisfied) continue;
-      consistent = true;
-      always_true &= completion;
-      always_false &= ~completion;
-    }
-    if (!consistent) { assert(event.kind == MatrixEventKind::Conflict); return; }
-    const uint64_t forced = (always_true | always_false) & ~fixed &
-                            ((uint64_t{1} << variables) - 1);
-    if (!forced) { assert(event.kind == MatrixEventKind::None); return; }
-    assert(event.kind == MatrixEventKind::Implication);
-    const uint64_t bit = uint64_t{1} << (event.implied_variable - 1);
-    assert(forced & bit);
-    assert(event.implied_value == bool(always_true & bit));
-    check_reason(input, event);
-  };
-  for (int round = 0; round < 300; ++round) {
-    std::vector<Equation> input(3);
-    for (auto &equation : input) {
-      uint64_t mask = 0;
-      while (!mask) mask = next() & 31;
-      for (External variable = 1; variable <= variables; ++variable)
-        if (mask & (uint64_t{1} << (variable - 1))) equation.variables.push_back(variable);
-      equation.rhs = next() & 1;
-    }
-    AffineMatrix pristine;
-    const auto built = build_affine_matrix(input, 31, limits(), [](uint64_t) { return true; }, pristine);
-    if (built == MatrixStatus::NoStructure) continue;
-    assert(built == MatrixStatus::Complete);
-    uint32_t ternary_count = 1;
-    for (External variable = 1; variable <= variables; ++variable) ternary_count *= 3;
-    for (uint32_t ternary = 0; ternary < ternary_count; ++ternary) {
-      uint32_t value = ternary;
-      std::vector<MatrixAssignment> trail;
-      for (External variable = 1; variable <= variables; ++variable) {
-        const uint32_t digit = value % 3;
-        value /= 3;
-        if (digit) trail.push_back({variable, digit == 2});
-      }
-      AffineMatrix full = pristine;
-      MatrixEvent event;
-      assert(full.synchronize(trail, [](uint64_t) { return true; }, event) == MatrixStatus::Complete);
-      check(input, trail, event);
-      // Sliced reduction of the same snapshot.
-      AffineMatrix sliced = pristine;
-      MatrixStatus status = MatrixStatus::Pending;
-      while (status == MatrixStatus::Pending)
-        status = sliced.synchronize_sliced(trail, [](uint64_t) { return true; }, event, {1000, 1000000});
-      assert(status == MatrixStatus::Complete);
-      check(input, trail, event);
-      // Dirty incremental extension: index the empty trail, then extend by
-      // each sorted prefix of the snapshot.
-      AffineMatrix dirty = pristine;
-      const MatrixIncrementalLimits index{1u << 24};
-      assert(dirty.synchronize({}, [](uint64_t) { return true; }, event, true, &index) == MatrixStatus::Complete);
-      std::vector<MatrixAssignment> prefix;
-      for (const auto assignment : trail) {
-        prefix.push_back(assignment);
-        assert(dirty.synchronize(prefix, [](uint64_t) { return true; }, event, true, &index) == MatrixStatus::Complete);
-        check(input, prefix, event);
-      }
-      // Ordinary extension then predecessor restore on backtrack.
-      if (!trail.empty()) {
-        AffineMatrix restore = pristine;
-        std::vector<MatrixAssignment> shorter(trail.begin(), trail.end() - 1);
-        assert(restore.synchronize(shorter, [](uint64_t) { return true; }, event) == MatrixStatus::Complete);
-        assert(restore.synchronize(trail, [](uint64_t) { return true; }, event) == MatrixStatus::Complete);
-        check(input, trail, event);
-        assert(restore.synchronize(shorter, [](uint64_t) { return true; }, event) == MatrixStatus::Complete);
-        check(input, shorter, event);
-      }
-    }
-  }
-}
-
 int main() {
   sliced_reduction_controls();
   derived_implication_conflict_and_backtrack();
@@ -898,7 +799,6 @@ int main() {
   exhaustive_small_reason_oracle();
   bounded_predecessor_restore();
   nonmatching_predecessor_failure_is_atomic();
-  gauss_jordan_completeness_oracle();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "
             "backtrack, and transactional bounds PASS");
 }

@@ -519,12 +519,6 @@ struct Stats {
   uint64_t residual_handoff_nanos = 0;
   uint64_t sr_validation_ticks = 0;
   uint64_t sr_witness_literals = 0;
-  // Witness-free SR expansion (docs/calculus.md): expanded lines, lines kept
-  // native because the stream was witnessed or the expansion was out of scope
-  // or over budget, and the clause additions the expansions wrote.
-  uint64_t sr_expanded = 0;
-  uint64_t sr_expansion_native = 0;
-  uint64_t sr_expansion_additions = 0;
   uint64_t switched = 0; // mode switches (S4)
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots
@@ -1306,14 +1300,12 @@ struct Stats {
   uint64_t bve_rounds = 0;         // BVE canonical-apply calls (a policy that
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
   uint64_t bve_resolutions = 0;    // resolvents attempted — BVE's unit of work
-  uint64_t fastel_rounds = 0;      // startup fastel candidate gathers
-  uint64_t fastel_candidates = 0;  // candidates in those gathers
-  uint64_t fastel_active = 0;      // active variables at those gathers
-  // Producer-zero: startup fastel has no effort dose or majority admission
-  // (fastel.c); the counters keep the `c fastel` line layout.
-  uint64_t fastel_discovery_ticks = 0;
-  uint64_t fastel_budget_stops = 0;
-  uint64_t fastel_declined = 0;
+  uint64_t fastel_rounds = 0;      // startup owner-pass admission checks
+  uint64_t fastel_candidates = 0;  // candidates in those checked domains
+  uint64_t fastel_active = 0;      // active variables at those checks
+  uint64_t fastel_discovery_ticks = 0; // live variables inspected by admission
+  uint64_t fastel_budget_stops = 0; // domains exceeding the shared effort dose
+  uint64_t fastel_declined = 0;    // domains where the owner pass was minority
   uint64_t fastel_root_suppressed = 0; // producer-zero: startup FastEliminate is never suppressed
   uint64_t fastel_eliminated = 0;  // eliminations committed by startup fastel
   uint64_t fastel_resolutions = 0; // BVE work committed by startup fastel
@@ -1561,73 +1553,6 @@ private:
   size_t used_ = 0;
 };
 
-// Provenance of symmetry-breaking output (plan §9.5, per-run tags): which
-// published clauses search actually consumed; no decision reads symmetry runs.
-// The AFFINE class (per affine run epoch) feeds DefaultPolicy's affine delay
-// (docs/implementation-notes.md). Large clauses are identified by proof id,
-// retired exactly by kernel_delete_clause; binaries and units keep a stable
-// external identity and an internal filter that compaction rebuilds.
-// `Kernel::symuse_active` stays false until the first tag. Propagation is
-// observed by rescanning the trail segment a propagation call assigned, after
-// the call returns, so the propagation loop itself carries no bookkeeping;
-// analysis pays one predictable branch per resolved antecedent.
-struct SymmetryUseRun {
-  uint64_t clauses = 0, helpers = 0, units = 0, binaries = 0, large = 0;
-  // Assignments whose reason is a tagged binary/large clause, made by search
-  // propagation (propagate_service), probing, warm-up, binary-only
-  // propagation or a conflict-reuse assertion: helper share, and the share
-  // made outside inprocessing, warm-up and probing.
-  // For AFFINE runs, search_propagations counts only assignments above the
-  // root: a root-published affine clause's own root propagation is not use.
-  uint64_t propagations = 0, helper_propagations = 0, search_propagations = 0;
-  // Conflict clauses and reasons resolved by ConflictAnalysis (1UIP and the
-  // failed-level-one walk; not minimization or shrinking).
-  uint64_t analysis_uses = 0, helper_analysis_uses = 0;
-  // Root implications whose reason contains the negation of a tagged unit
-  // (one level: the unit's own consequences, not their descendants). When the
-  // run tagged no binary and no tagged large clause is live, only propagation
-  // at the root is inspected for this. A reason that is itself an AFFINE
-  // clause is not attributed: Gaussian output consumed by Gaussian output.
-  uint64_t root_forced = 0;
-  uint64_t large_deleted = 0; // retired by any path, in-place shrink included
-};
-
-struct SymmetryUse {
-  static constexpr uint64_t HELPER = 1u << 8; // tag value: (run + 1) | HELPER
-  // Affine tag value: AFFINE | (epoch << AFFINE_SHIFT), epoch saturating at
-  // AFFINE_EPOCHS - 1; counted in `affine_runs[epoch]`, never in `runs`.
-  static constexpr uint64_t AFFINE = 1u << 9;
-  static constexpr uint32_t AFFINE_SHIFT = 10;
-  static constexpr uint32_t AFFINE_EPOCHS = 1u << (32 - AFFINE_SHIFT);
-  static constexpr uint8_t BINARY_MARK = 1;   // lit occurs in a tagged binary
-  static constexpr uint8_t UNIT_MARK = 2;     // lit is a tagged unit's negation
-  struct StableBinary {
-    Lit a, b; // external literals
-    uint32_t tag;
-  };
-  struct StableUnit {
-    Lit lit; // external literal
-    uint32_t tag;
-  };
-  uint8_t run = 0; // tag for new publications
-  std::vector<SymmetryUseRun> runs;
-  std::vector<SymmetryUseRun> affine_runs; // indexed by affine run epoch
-  std::vector<StableBinary> binaries;
-  std::vector<StableUnit> units;
-  // Internal-space filters, rebuilt by kernel_compact_variables.
-  std::vector<uint8_t> lit_marks;
-  BinaryIdMap binary_tags; // internal binary key -> tag
-  BinaryIdMap unit_tags;   // internal unit literal -> tag
-  BinaryIdMap large_tags;  // proof id -> tag, zero once retired
-  uint64_t large_min = UINT64_MAX, large_max = 0; // empty range: no large tag
-  uint64_t live_large = 0; // tagged large clauses not yet retired
-  bool has_units = false;
-  // SR symmetry output is tagged only when set (diagnostic `c symuse` report;
-  // DefaultStrategyConfig::symmetry_use_observation). Off, no symmetry tag
-  // arms `symuse_active`, so the trail/analysis/delete hooks cost nothing.
-  bool record_symmetry = false;
-};
-
 struct Kernel {
   uint32_t nvars = 0;
   // Keep the Kernel ABI identical when the standalone event-trace test links
@@ -1674,7 +1599,6 @@ struct Kernel {
   uint32_t unassigned = 0;
   uint32_t unassigned_active = 0;
   bool warming = false; // Kissat walk warm-up: suppress random branching.
-  bool symuse_active = false; // some clause carries a SymmetryUse tag
   uint64_t walk_random_seed = 0; // policy RNG snapshot for a faithful Walk
 
   Arena arena;
@@ -1894,18 +1818,6 @@ struct Kernel {
   // names the pre-collection arena, so anything holding one across a possible
   // collection compares this instead of reasoning about the call graph.
   uint64_t arena_generation = 1;
-  // Bumped by every in-place rewrite of a large record's literal set.
-  uint64_t large_clause_rewrites = 0;
-  // Large-record references of the variables witness-free SR expansion has
-  // asked for, valid for one arena generation and rewrite count; the arena
-  // prefix [0, covered) is indexed. Records are filtered when read.
-  struct SrExpansionOccurrences {
-    uint64_t arena_generation = 0;
-    uint64_t rewrites = 0;
-    size_t covered = 0;
-    std::vector<uint8_t> interest;
-    std::vector<std::vector<Ref>> refs;
-  } sr_expansion_occurrences;
 
   // Cold shared-strategy boundary epoch. Registry dispatch and public API
   // mutations advance it; DefaultPolicy's static hot path never reads or
@@ -2234,7 +2146,6 @@ struct Kernel {
   bool affine_capture_epochs_trusted = true;
   strategy::InstantiateParameters instantiate_parameters;
   strategy::BackboneParameters backbone_parameters;
-  SymmetryUse symuse; // observation only; see SymmetryUse
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   // Keep diagnostic-only storage at the final object boundary. The dedicated
@@ -2248,28 +2159,6 @@ struct Kernel {
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
-
-// SymmetryUse bookkeeping (observation only). `tag` publishes a just-added
-// clause/unit under the current run tag; the note_* hooks are reached only
-// behind `k.symuse_active` and filter by literal mark or id range first.
-void kernel_symuse_tag(Kernel &, const Lit *lits, uint32_t size, uint64_t id,
-                       bool helper);
-// Tag persistent Gaussian output under affine run `epoch` (AFFINE class).
-void kernel_symuse_tag_affine(Kernel &, const Lit *lits, uint32_t size,
-                              uint64_t id, uint64_t epoch);
-// Search use of affine run `epoch`'s output: root-forced assignments,
-// analysis antecedents and above-root propagations.
-uint64_t kernel_symuse_affine_uses(const Kernel &, uint64_t epoch);
-// Attribute the assignments trail[from..] by their recorded reasons.
-[[gnu::noinline]] void kernel_symuse_note_trail(Kernel &, size_t from);
-[[gnu::noinline]] void kernel_symuse_note_binary_use(Kernel &, Lit a, Lit b);
-[[gnu::noinline]] void kernel_symuse_note_large_use(Kernel &, uint64_t id);
-[[gnu::noinline, gnu::cold]] void kernel_symuse_note_delete(Kernel &,
-                                                            uint64_t id);
-void kernel_symuse_rebuild_filters(Kernel &);
-// Tagged clauses of `run` still present at the end: units, binaries found in
-// the watch lists, large clauses never retired.
-uint64_t kernel_symuse_alive(const Kernel &, uint32_t run);
 
 inline void kernel_affine_note_trail_retraction(Kernel &k) {
   if (k.affine_trail_retraction_epoch == UINT64_MAX)
@@ -2840,8 +2729,6 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   // already idempotent; this makes the whole retirement idempotent.
   if (c->garbage())
     return; // already retired
-  if (k.symuse_active) [[unlikely]]
-    kernel_symuse_note_delete(k, c->id());
   const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
                                    k.arena.data());
   kernel_retire_root_reason(k, c, ref);

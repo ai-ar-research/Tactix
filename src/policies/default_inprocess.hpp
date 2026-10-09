@@ -214,10 +214,6 @@ public:
     uint64_t effective = 0;
     uint64_t sequence_passes = 0;
     uint64_t nanos = 0;
-    uint64_t discovery_ticks = 0;
-    uint64_t symmetry_breaking_outputs = 0;
-    uint64_t unchanged_detection_skips = 0;
-    bool detection_limit_reached = false;
     strategy::InvocationStatus terminal =
         strategy::InvocationStatus::Completed;
   };
@@ -315,6 +311,9 @@ private:
   bool preprocess_followups_ = true;
   bool preprocess_only_ = false;
   bool initial_fast_elimination_active_ = false;
+  uint64_t initial_fast_elimination_discovery_ticks_ = 0;
+  bool initial_fast_elimination_budget_exhausted_ = false;
+  std::vector<uint8_t> initial_fast_elimination_attempted_;
   std::vector<uint8_t> initial_fast_elimination_marks_;
   bool structured_root_consumed_ = false;
   bool initialized_ = false;

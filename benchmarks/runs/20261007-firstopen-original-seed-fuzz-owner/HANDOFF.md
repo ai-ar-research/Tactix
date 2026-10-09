@@ -1,3 +1,14 @@
+# HANDOFF — FirstOpen owner (current state, 2026-10-08)
+
+**Terminal: c2 PASS** — see `FINAL_REPORT.md` / `status.json`. No jobs running. b26 and c1 SUPERSEDED (`SUPERSEDED.md`).
+Disposable when root no longer needs them (no job references them): owner build pins
+`build/pin-fo-fuzz-lib-{rel,asan}`, `build/pin-fo-fuzz-drv1`, `build/pin-fo-fuzz-diag-am23` (b26),
+`build/pin-fo-fuzz-c1stg-*`, `build/pin-fo-fuzz-c1-drv2`; extracted trees `src-fo`, `src-d576stg`, `src-c1stg`,
+`src-c1`, `src-c2stg` and the matching `harness-root*` (c2 trees/pins back the final report).
+
+The section below is the earlier (b26-era) handoff, kept for history.
+
+---
 # HANDOFF — FirstOpen owner (Claude session 385a3588), stopped 2026-10-07 at user request
 
 State: **no jobs running or pending** from this owner. No commits/pushes. No production edits.

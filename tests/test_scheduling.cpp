@@ -1283,58 +1283,6 @@ static void test_structured_root_exhaustion_finishes_selected_scope() {
   }
 }
 
-// Satsuma's reached_limits is sticky across its iterations (satsuma.h:49,
-// 194, 267, 810): once one stage reached a detection limit, a later stage
-// completes its pass but does not repeat even after symmetry output.
-static void test_structured_root_detection_limit_is_sticky() {
-  using namespace strategy;
-  for (const bool stop_at_limit : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
-    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
-    OnlineInvocation limited;
-    limited.id = 1181;
-    limited.rule = "SubstitutionRedundancy";
-    SubstitutionRedundancyParameters parameters;
-    parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
-    parameters.graph_symmetry.maximum_graph_vertices = 1;
-    limited.parameters = parameters;
-    OnlineInvocation unit;
-    unit.id = 1182;
-    unit.rule = "SubstitutionRedundancy";
-    unit.parameters = SubstitutionRedundancyParameters{};
-    unit.granularity = InvocationGranularity::OneInstance;
-    // Literal -2 occurs nowhere, so the unit 2 is blocked.
-    unit.substitution_redundancy_instances = {
-        SubstitutionRedundancyInstance{{internalize(2)}, {}, {}}};
-    OnlineStrategyStage first, second;
-    first.program.sequence = {limited};
-    first.program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 4};
-    first.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
-    second.program.sequence = {unit};
-    second.program.repeat = {RepeatMode::UntilSizeScaledFixpoint, 4};
-    second.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
-    for (auto *stage : {&first, &second}) {
-      stage->repeat_trigger = RepeatTrigger::SymmetryBreakingOutput;
-      stage->stop_repeat_at_detection_limit = stop_at_limit;
-    }
-    DefaultStrategyConfig config;
-    config.inprocess.structured_root_stages = {first, second};
-    DefaultPolicy policy(config);
-    assert(policy.inprocess().run_structured_root(k, nullptr) == 0);
-    const auto &stages = policy.inprocess().structured_root.stages;
-    assert(stages.size() == 2);
-    assert(stages[0].detection_limit_reached &&
-           stages[0].sequence_passes == 1);
-    assert(stages[1].effective == 1 && stages[1].symmetry_breaking_outputs == 1);
-    assert(stages[1].sequence_passes == (stop_at_limit ? 1u : 2u));
-    assert(!k.inprocessing && !k.phase_saving_suppressed);
-    kernel_check_invariants(k);
-  }
-}
-
 static void test_structured_root_publishes_before_probe_slots() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -1447,66 +1395,6 @@ static void test_initial_elimination_deadline_matches_kissat(void) {
          "Kissat Eliminate enters at the stored conflict limit");
   std::printf("  initial elimination: post-preprocess due at conflict %llu\n",
               (unsigned long long)delta);
-}
-
-// kimits.c:kissat_init_limits also sets the first search-time Probe deadline
-// (INIT_CONFLICT_LIMIT(probe, true)) at start_search.  The startup Probe
-// round ends before initial fast elimination changes BINIRR_CLAUSES, so the
-// deadline that round left behind must be re-derived from the final
-// population.
-static void test_initial_probe_deadline_uses_search_population(void) {
-  Kernel k;
-  kernel_reserve_vars(k, 12);
-  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  DefaultPolicy p;
-  p.inprocess().build(k);
-  // The completed startup Probe round set its deadline from this population.
-  p.inprocess().probe_clock.rounds = 1;
-  p.inprocess().update_limit(k, SlotGroup::Probe);
-  const uint64_t stale = p.inprocess().probe_clock.next_conflicts;
-
-  // Startup elimination then changes the population before search starts.
-  for (int v = 4; v <= 12; v += 3) {
-    const Lit c[3] = {internalize(v), internalize(v + 1), internalize(v + 2)};
-    kernel_add_large_clause(k, c, 3, false, 0);
-  }
-  p.inprocess().initialize_search_limits(k);
-  const double f =
-      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 10) - 5;
-  const uint64_t delta = static_cast<uint64_t>(
-      (4.5 * f * f + 25) *
-      static_cast<double>(DefaultInprocessScheduler::PROBE_INTERVAL));
-  assert(delta != stale && "fixture must change the scaled deadline");
-  assert(p.inprocess().probe_clock.next_conflicts == delta &&
-         "first search-time probe must use post-preprocessing scaling");
-  assert(p.inprocess().probe_clock.rounds == 1);
-  std::printf("  initial probe: stale %llu -> post-preprocess %llu\n",
-              (unsigned long long)stale, (unsigned long long)delta);
-}
-
-// fastel.c:kissat_fast_variable_elimination ends by setting the eliminate
-// flag of every variable, so the first search-time Eliminate schedules all
-// active variables, including candidates fast elimination tried and kept.
-static void test_initial_fast_elimination_rearms_every_variable(void) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit b[3] = {internalize(-1), internalize(4), internalize(5)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
-  ScopedHeuristics heuristics(k);
-  DefaultPolicy p;
-  p.inprocess().build(k);
-  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
-  const int result = p.inprocess().run_initial_fast_elimination(k, nullptr,
-                                                                nullptr);
-  assert(result != 20);
-  assert(std::all_of(k.bve_retry.begin(), k.bve_retry.end(),
-                     [](uint8_t retry) { return retry == 1; }) &&
-         "fast elimination must leave every variable scheduled for BVE");
-  std::printf("  initial fastel: all %zu retry bits re-armed\n",
-              k.bve_retry.size());
 }
 
 static void test_bve_default_order_adds_search_relevancy() {
@@ -1910,9 +1798,7 @@ static void test_initial_fast_elimination_composes_only_proof_rules(void) {
   std::printf("  fastel: typed local subsumption plus bounded BVE only\n");
 }
 
-// fastel.c has no effort limit: a dose far smaller than the live domain must
-// neither decline discovery nor cut the candidate loop.
-static void test_initial_fast_elimination_ignores_effort_dose(void) {
+static void test_initial_fast_elimination_budgets_discovery_before_mutation(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -1925,45 +1811,14 @@ static void test_initial_fast_elimination_ignores_effort_dose(void) {
   DefaultPolicy policy(config);
   policy.inprocess().build(k);
   assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
-  assert(k.stats.fastel_active >= 4 && k.stats.fastel_candidates >= 4);
-  assert(!k.stats.fastel_budget_stops && !k.stats.fastel_declined &&
-         !k.stats.fastel_discovery_ticks);
+  assert(k.stats.fastel_rounds == 1 && k.stats.fastel_active == 4);
+  assert(k.stats.fastel_budget_stops == 1);
+  assert(k.stats.fastel_discovery_ticks == 0 &&
+         k.stats.fastel_candidates == 0 && !k.stats.bve_eliminated);
   for (Var variable = 0; variable < k.nvars; ++variable)
-    assert(kernel_var_retired(k, variable) &&
-           "every candidate fits the occurrence and resolvent caps");
+    assert(!kernel_var_retired(k, variable));
   kernel_check_invariants(k);
-  std::printf("  fastel: no effort dose, %llu eliminated\n",
-              (unsigned long long)k.stats.fastel_eliminated);
-}
-
-// fastel.c clears a tried pivot's `eliminate` flag, but every later clause
-// removal re-arms the flags of the removed clause's variables, so a kept
-// pivot is gathered again in the next round (fastel.c:855,898; clause.c
-// kissat_mark_clause_as_garbage / kissat_delete_binary).
-static void test_initial_fast_elimination_rearms_neighbours(void) {
-  Kernel k;
-  kernel_reserve_vars(k, 11);
-  // y: one positive and nine negative occurrences, nine resolvents (> 8):
-  // tried first (score 2, lowest import position) and kept.  a and every
-  // c_i are pure; eliminating them removes all of y's clauses.
-  const Lit y = internalize(1), a = internalize(2);
-  kernel_add_binary_clause(k, y, a);
-  for (int external = 3; external <= 11; ++external)
-    kernel_add_binary_clause(k, negate(y), internalize(external));
-  ScopedHeuristics heuristics(k);
-  DefaultStrategyConfig config;
-  DefaultPolicy policy(config);
-  policy.inprocess().build(k);
-  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
-  assert(k.stats.fastel_rounds == 3 &&
-         "round two eliminates the re-armed pivot; round three eliminates "
-         "nothing and ends the pass");
-  assert(kernel_var_retired(k, var_of(y)) &&
-         "a kept pivot whose clauses were removed must be retried");
-  assert(std::all_of(k.bve_retry.begin(), k.bve_retry.end(),
-                     [](uint8_t retry) { return retry == 1; }));
-  kernel_check_invariants(k);
-  std::printf("  fastel: re-armed pivot eliminated in round 2\n");
+  std::printf("  fastel discovery: mandatory scan declines before mutation\n");
 }
 
 static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
@@ -1985,10 +1840,10 @@ static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
   kernel_add_binary_clause(k, negate(y), internalize(9));
   kernel_add_binary_clause(k, negate(y), internalize(10));
 
-  // Keep the support variables behind x/y in the owner's radix order. Each
-  // support receives four positive ring occurrences, so y's score 4 precedes
-  // x's 6, and both precede every support score. One round: pure supports
-  // removed later in the round re-arm x for the next one.
+  // Keep the support variables behind x/y in the owner's radix order while
+  // making the candidate domain a majority of the live formula. Each support
+  // receives four positive ring occurrences, so y's score 4 precedes x's 6,
+  // and both precede every support score.
   for (int external = 3; external <= 10; ++external)
     for (int offset = 1; offset <= 4; ++offset) {
       const int other = 3 + (external - 3 + offset) % 8;
@@ -2001,7 +1856,6 @@ static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
   heuristics_score_set(k, var_of(y), 100.0);
 
   DefaultStrategyConfig config;
-  config.inprocess.initial_fast_elimination_rounds = 1;
   DefaultPolicy policy(config);
   policy.inprocess().build(k);
   assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
@@ -2009,6 +1863,13 @@ static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
   assert(kernel_var_retired(k, var_of(y)) &&
          "startup fastel must preserve its owner radix order instead of "
          "re-ranking candidates with ordinary BVE activity");
+  const auto &rules = tactix_rules();
+  for (const auto &entry : policy.inprocess().entries)
+    if (entry.group == SlotGroup::Eliminate &&
+        !std::strcmp(rules[entry.rule].name, "BVE"))
+      assert(entry.limit == config.inprocess.preprocess_initial_ticks *
+                                config.inprocess.bve_permille / 1000 &&
+             "startup fastel must use the ordinary typed BVE effort dose");
   kernel_check_invariants(k);
   std::printf("  fastel candidate order: owner score survives BVE dispatch\n");
 }
@@ -2314,8 +2175,7 @@ int main() {
   test_eliminate_sparse_resume_replays_root_suffix_as_search();
   test_preprocess_is_reduced_and_bounded();
   test_initial_fast_elimination_composes_only_proof_rules();
-  test_initial_fast_elimination_ignores_effort_dose();
-  test_initial_fast_elimination_rearms_neighbours();
+  test_initial_fast_elimination_budgets_discovery_before_mutation();
   test_initial_fast_elimination_keeps_owner_candidate_order();
   test_preprocess_followup_truth_table();
   test_preprocess_final_followup_is_observed();
@@ -2344,12 +2204,9 @@ int main() {
   test_default_slot_membership_matches_kissat();
   test_default_structured_root_sequence_is_effective();
   test_structured_root_exhaustion_finishes_selected_scope();
-  test_structured_root_detection_limit_is_sticky();
   test_structured_root_publishes_before_probe_slots();
   test_two_slot_clocks_diverge();
   test_initial_elimination_deadline_matches_kissat();
-  test_initial_probe_deadline_uses_search_population();
-  test_initial_fast_elimination_rearms_every_variable();
   test_bve_default_order_adds_search_relevancy();
   test_bve_score_preserves_kissat_binary64_pose();
   test_inprocess_scale_keeps_kissat_logn_offset();

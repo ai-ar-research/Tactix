@@ -6,7 +6,6 @@
 #include <functional>
 #include <limits>
 #include <utility>
-#include <memory>
 #include <vector>
 
 namespace tactix {
@@ -133,14 +132,6 @@ enum class SymmetryBaseSelection : uint8_t {
   ShortestClause,
   // Rank the initial level by length, then retain a forward clause frontier.
   FirstShortestThenForwardRemainder,
-  // Satsuma's fix_and_cut scan exactly (symmetries.h): clauses in source
-  // order from a forward frontier; the first applicable clause is taken and
-  // its first literal is the base point; a later clause replaces it only if
-  // it is an AMO (break), or if its first variable shares a clause with an
-  // earlier base point and its orbit is smaller. Once a scan has reached the
-  // last clause, AMO preference ends and every level takes its first
-  // applicable clause.
-  SatsumaFixAndCut,
 };
 
 // Where a FixAndCut cut level takes its base point once no clause is fixable.
@@ -257,7 +248,7 @@ struct GraphSymmetryParameters {
            chain_mode >= SymmetryChainMode::ClausalFixing &&
            chain_mode <= SymmetryChainMode::FixAndCutResift &&
            base_selection >= SymmetryBaseSelection::ClauseOrder &&
-           base_selection <= SymmetryBaseSelection::SatsumaFixAndCut &&
+           base_selection <= SymmetryBaseSelection::FirstShortestThenForwardRemainder &&
            cut_point >= SymmetryCutPoint::FirstOpen &&
            cut_point <= SymmetryCutPoint::LargestOrbitLast &&
            structured_scope >= SymmetryStructuredScope::WholeMatrix &&
@@ -420,18 +411,6 @@ struct OrbitopalEnumerationResult {
   uint64_t largest_product_columns = 0;
   uint64_t product_exact_actions = 0;
   uint64_t product_ulc_actions = 0;
-  // Color splits of anchor individualizations in row-column (product) and row
-  // detection, the measure of Satsuma's split limit (symmetries.h:2041, 2950).
-  uint64_t refinement_splits = 0;
-  // Discovery stopped at a limit the owning preprocessor reports as
-  // `reached_limits` (Satsuma symmetries.h: split limit 2041/2950, graph size
-  // satsuma.h:168-176). Caller-selected orbit, clique, product-state and
-  // matrix caps and the zero-progress work window do not set it.
-  bool detection_limit_reached = false;
-  // Discovery stopped because `maximum_detection_ticks` ran out. Only the
-  // caller knows whether that allowance is an owner limit (the cumulative
-  // cost ceiling) or a renewable scheduling window.
-  bool allowance_limit_reached = false;
 };
 
 enum class SymmetryEnumerationStatus : uint8_t {
@@ -460,14 +439,6 @@ struct SymmetryEnumerationResult {
   uint64_t ticks = 0;
   // True only when discovery establishes the full unrestricted clause-set group.
   bool complete_group = false;
-  // Discovery stopped at a limit the owning preprocessor reports as
-  // `reached_limits` (Satsuma symmetries.h:579 DejaVu limits, 1468/3099
-  // Schreier cost at the configured planning limit, satsuma.h:168-176 graph
-  // size). A structured sub-discovery contributes its own flags.
-  bool detection_limit_reached = false;
-  // Discovery or group planning stopped because `maximum_detection_ticks`
-  // ran out; the caller classifies that allowance (see the orbitopal field).
-  bool allowance_limit_reached = false;
 };
 
 // Composition-only resource policy for graph-symmetry discovery. Once group
@@ -521,34 +492,12 @@ struct SymmetryDiscoveryHints {
 
 using OrbitopalInstanceVisitor =
     std::function<bool(const SubstitutionRedundancyInstance &)>;
-// Formula snapshot and equitable refinement that consecutive generated
-// orbitopal detections reuse while the formula is unchanged. Satsuma builds one
-// symmetry graph and one refinement per pass and runs all its special
-// detectors on it (satsuma.h generate_symmetry_predicate). Any formula, root
-// assignment or arena change, a different kernel or different graph limits
-// rebuild it. The owner must outlive every enumeration that uses it.
-class OrbitopalFormulaCache {
-public:
-  OrbitopalFormulaCache();
-  ~OrbitopalFormulaCache();
-  OrbitopalFormulaCache(const OrbitopalFormulaCache &) = delete;
-  OrbitopalFormulaCache &operator=(const OrbitopalFormulaCache &) = delete;
-  struct State;
-  std::unique_ptr<State> state;
-};
 OrbitopalEnumerationResult substitution_redundancy_enumerate_orbitopal(
     const Kernel &, const SubstitutionRedundancyParameters &,
-    const OrbitopalInstanceVisitor &, volatile sig_atomic_t *stop = nullptr,
-    OrbitopalFormulaCache *cache = nullptr);
+    const OrbitopalInstanceVisitor &, volatile sig_atomic_t *stop = nullptr);
 OrbitopalEnumerationResult substitution_redundancy_discover_orbitopal_generators(
     const Kernel &, const SubstitutionRedundancyParameters &,
     SymmetryDiscoveryHints &, volatile sig_atomic_t *stop = nullptr);
-// Lower bound on the vertices of the graph the GraphSymmetry producer builds
-// for the live formula (literal, negation-gadget and clause vertices before
-// duplicate-binary and root-unit adjustments). `work` receives the clause
-// headers visited.
-uint64_t substitution_redundancy_symmetry_graph_vertices(
-    const Kernel &, const GraphSymmetryParameters &, uint64_t &work);
 SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
     const Kernel &, const SubstitutionRedundancyParameters &,
     const OrbitopalInstanceVisitor &, volatile sig_atomic_t *stop = nullptr,
@@ -565,21 +514,6 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
     Kernel &, const SubstitutionRedundancyInstance &,
     const SubstitutionRedundancyParameters & = {},
     volatile sig_atomic_t *stop = nullptr);
-
-// Per-literal occurrences in live large clauses, reused to authenticate one
-// freshly enumerated batch of unique-literal AMO binaries. The batch adds only
-// binaries and root units; any arena change (generation, size, live
-// irredundant count) rebuilds it, and a retired clause can only make an entry
-// overcount, which declines the certificate. Callers discard it between
-// batches, because in-place rewrites outside a batch are not keyed.
-struct UniqueLiteralOccurrenceCache {
-  const Kernel *owner = nullptr;
-  uint64_t arena_generation = 0;
-  size_t arena_size = 0;
-  uint64_t live_irredundant_large = 0;
-  std::vector<uint32_t> count;
-  std::vector<Ref> last;
-};
 ApplyResult substitution_redundancy_apply(
     Kernel &, const SubstitutionRedundancyInstance &,
     const SubstitutionRedundancyParameters & = {},

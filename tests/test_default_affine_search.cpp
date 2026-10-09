@@ -174,9 +174,8 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
   if(enabled && with_proof) {
     assert(stats.initializations==1 && stats.admitted_sources==2);
     // This small search never earns another recognition quantum. Root-only
-    // maintenance must not count the same two source equations as new census;
-    // the conflict-limited run schedule need not refresh at all here.
-    assert(stats.recognized_equations==2 && stats.runs>=1);
+    // maintenance must not count the same two source equations as new census.
+    assert(stats.refreshes>0 && stats.recognized_equations==2);
     assert(kernel.stats.decisions>0 && stats.root_services>0 && !stats.search_services);
     // These fixtures authenticate retained equations, but have no initial
     // root-relevant consequence. CDCL may finish before any later root fact

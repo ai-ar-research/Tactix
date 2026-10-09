@@ -150,32 +150,6 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
   return false;
 }
 
-void refresh_unique_literal_cache(const Kernel &k,
-                                  UniqueLiteralOccurrenceCache &cache) {
-  if (cache.owner == &k && cache.arena_generation == k.arena_generation &&
-      cache.arena_size == k.arena.size() &&
-      cache.live_irredundant_large == k.live_irredundant_large &&
-      cache.count.size() == 2ull * k.nvars)
-    return;
-  cache.owner = &k;
-  cache.arena_generation = k.arena_generation;
-  cache.arena_size = k.arena.size();
-  cache.live_irredundant_large = k.live_irredundant_large;
-  cache.count.assign(2ull * k.nvars, 0);
-  cache.last.assign(2ull * k.nvars, INVALID_REF);
-  for (Ref reference = 0; reference < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, reference);
-    const Ref at = reference;
-    reference += clause_actual_words(clause);
-    if (clause->garbage())
-      continue;
-    for (const Lit literal : *clause) {
-      ++cache.count[literal];
-      cache.last[literal] = at;
-    }
-  }
-}
-
 // Re-authenticate the private unique-literal completion against the proof
 // population which exists at publication time. For (~a | ~b), (~a) is a RAT
 // pivot exactly when the only live clause containing a also contains b: its
@@ -185,11 +159,8 @@ void refresh_unique_literal_cache(const Kernel &k,
 // unique source to be irredundant so a learned clause cannot masquerade as the
 // at-least-one premise.
 bool authenticate_unique_literal_amo(const Kernel &k,
-                                     std::vector<Lit> &candidate,
-                                     UniqueLiteralOccurrenceCache *cache) {
+                                     std::vector<Lit> &candidate) {
   if (candidate.size() != 2) return false;
-  if (cache)
-    refresh_unique_literal_cache(k, *cache);
 
   const auto endpoint_is_rat = [&](size_t pivot_index) {
     if (k.value(candidate[pivot_index])) return false;
@@ -198,17 +169,15 @@ bool authenticate_unique_literal_amo(const Kernel &k,
     uint64_t occurrences = 0;
     bool sole_source = false;
 
-    // Only the pivot's own variable can carry the unit clause (positive).
-    const Var pivot_var = var_of(positive);
-    Lit unit = INVALID_LIT;
-    if (k.unit_ids[pivot_var])
-      unit = k.value(make_lit(pivot_var, false)) > 0
-                 ? make_lit(pivot_var, false)
-                 : make_lit(pivot_var, true);
-    else if (pivot_var < k.dsr_root_values.size() &&
-             k.dsr_root_values[pivot_var])
-      unit = make_lit(pivot_var, k.dsr_root_values[pivot_var] < 0);
-    if (unit == positive) ++occurrences;
+    for (Var var = 0; var < k.nvars; ++var) {
+      Lit unit = INVALID_LIT;
+      if (k.unit_ids[var])
+        unit = k.value(make_lit(var, false)) > 0 ? make_lit(var, false)
+                                                 : make_lit(var, true);
+      else if (var < k.dsr_root_values.size() && k.dsr_root_values[var])
+        unit = make_lit(var, k.dsr_root_values[var] < 0);
+      if (unit == positive) ++occurrences;
+    }
 
     std::unordered_set<uint64_t> binaries;
     for (const WatchEntry watch : k.watches.entries(positive)) {
@@ -219,20 +188,6 @@ bool authenticate_unique_literal_amo(const Kernel &k,
       ++occurrences;
     }
 
-    const auto source = [&](const Clause *clause) {
-      return !clause->redundant() &&
-             std::find(clause->begin(), clause->end(), partner) != clause->end();
-    };
-    if (cache) {
-      occurrences += cache->count[positive];
-      if (occurrences != 1 || cache->last[positive] == INVALID_REF)
-        return false;
-      const Clause *clause = clause_at(k.arena, cache->last[positive]);
-      return !clause->garbage() &&
-             std::find(clause->begin(), clause->end(), positive) !=
-                 clause->end() &&
-             source(clause);
-    }
     for (Ref reference = 0; reference < k.arena.size();) {
       const Clause *clause = clause_at(k.arena, reference);
       reference += clause_actual_words(clause);
@@ -240,7 +195,9 @@ bool authenticate_unique_literal_amo(const Kernel &k,
           std::find(clause->begin(), clause->end(), positive) == clause->end())
         continue;
       ++occurrences;
-      sole_source = source(clause);
+      sole_source = !clause->redundant() &&
+                    std::find(clause->begin(), clause->end(), partner) !=
+                        clause->end();
     }
     return occurrences == 1 && sole_source;
   };
@@ -249,22 +206,6 @@ bool authenticate_unique_literal_amo(const Kernel &k,
   if (!endpoint_is_rat(1)) return false;
   std::swap(candidate[0], candidate[1]);
   return true;
-}
-
-bool authenticate_unique_literal_amo_checked(const Kernel &k,
-                                             std::vector<Lit> &candidate,
-                                             UniqueLiteralOccurrenceCache *cache) {
-#ifndef NDEBUG
-  // The cached image must reproduce the formula scan exactly.
-  if (cache) {
-    std::vector<Lit> scanned = candidate;
-    const bool expected = authenticate_unique_literal_amo(k, scanned, nullptr);
-    const bool cached = authenticate_unique_literal_amo(k, candidate, cache);
-    assert(cached == expected && (!cached || scanned == candidate));
-    return cached;
-  }
-#endif
-  return authenticate_unique_literal_amo(k, candidate, cache);
 }
 
 class ValidationFormula {
@@ -502,114 +443,6 @@ ValidationResult validate_semantics(
   return {ValidationStatus::Valid, formula.ticks()};
 }
 
-// Witness-free expansion scope (docs/calculus.md, SR witness-free
-// expansion): no true-mapped literal, the witness permutes its source
-// variables, and each moved variable is either open at the root together with
-// its image or root-assigned with an image of the same value (that variable
-// is then left in place). Collects the live checker clauses containing a
-// renamed variable: every binary copy from the watch lists, large records
-// from the cached occurrence index.
-bool collect_sr_expansion(Kernel &k, const ParsedWitness &witness, Lit pivot,
-                          uint32_t size, bool propagates,
-                          Proof::SrExpansion &expansion) {
-  if (!witness.emitted_true.empty() ||
-      witness.images[var_of(pivot)] == INVALID_LIT)
-    return false;
-  std::unordered_set<Var> targets;
-  targets.reserve(witness.emitted_mappings.size());
-  for (const DsrLiteralMapping &mapping : witness.emitted_mappings) {
-    const Var target = var_of(mapping.to);
-    if (witness.images[target] == INVALID_LIT || !targets.insert(target).second)
-      return false;
-  }
-  for (const DsrLiteralMapping &mapping : witness.emitted_mappings) {
-    const int source_value = k.value(mapping.from);
-    if (source_value != k.value(mapping.to))
-      return false;
-    if (source_value)
-      continue;
-    expansion.renamed.push_back(var_of(mapping.from));
-    expansion.images.push_back(mapping.to);
-  }
-  if (expansion.renamed.empty())
-    return false;
-  // Stop collecting as soon as the expansion exceeds its budget.
-  expansion.population = kernel_irredundant_clauses(k);
-  const auto over_budget = [&] {
-    return Proof::sr_expansion_additions(expansion.ids.size(),
-                                         expansion.renamed.size(), size,
-                                         propagates) > expansion.population;
-  };
-  if (over_budget())
-    return false;
-
-  auto &index = k.sr_expansion_occurrences;
-  if (index.interest.size() < k.nvars) {
-    index.interest.resize(k.nvars, 0);
-    index.refs.resize(k.nvars);
-  }
-  bool widened = false;
-  for (const Var var : expansion.renamed)
-    if (!index.interest[var])
-      index.interest[var] = 1, widened = true;
-  if (widened || index.arena_generation != k.arena_generation ||
-      index.rewrites != k.large_clause_rewrites ||
-      index.covered > k.arena.size()) {
-    for (auto &refs : index.refs)
-      refs.clear();
-    index.covered = 0;
-    index.arena_generation = k.arena_generation;
-    index.rewrites = k.large_clause_rewrites;
-  }
-  for (Ref ref = static_cast<Ref>(index.covered); ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage())
-      for (const Lit lit : *clause)
-        if (index.interest[var_of(lit)])
-          index.refs[var_of(lit)].push_back(ref);
-    ref += clause_actual_words(clause);
-  }
-  index.covered = k.arena.size();
-
-  std::unordered_set<Var> renamed(expansion.renamed.begin(),
-                                  expansion.renamed.end());
-  const auto is_renamed = [&](Lit lit) { return renamed.count(var_of(lit)) > 0; };
-  const auto append = [&](uint64_t id, const Lit *lits, uint32_t size) {
-    expansion.ids.push_back(id);
-    expansion.lits.insert(expansion.lits.end(), lits, lits + size);
-    expansion.offsets.push_back(static_cast<uint32_t>(expansion.lits.size()));
-  };
-  for (const Var var : expansion.renamed)
-    for (const Lit lit : {make_lit(var, false), make_lit(var, true)})
-      for (const WatchEntry watch : k.watches.entries(lit)) {
-        if (!watch.binary())
-          continue;
-        const Lit other = watch.other();
-        // Each physical copy is listed under both literals; take it once.
-        if (is_renamed(other) && other < lit)
-          continue;
-        const Lit clause[2] = {lit, other};
-        append(kernel_binary_id(k, lit, other), clause, 2);
-        if (over_budget())
-          return false;
-      }
-  std::vector<Ref> large;
-  for (const Var var : expansion.renamed)
-    large.insert(large.end(), index.refs[var].begin(), index.refs[var].end());
-  std::sort(large.begin(), large.end());
-  large.erase(std::unique(large.begin(), large.end()), large.end());
-  for (const Ref ref : large) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (clause->garbage() ||
-        std::none_of(clause->begin(), clause->end(), is_renamed))
-      continue;
-    append(clause->id(), clause->begin(), clause->size);
-    if (over_budget())
-      return false;
-  }
-  return true;
-}
-
 bool increment_digits(std::vector<uint32_t> &digits, uint32_t base) {
   for (size_t i = 0; i < digits.size(); ++i) {
     if (++digits[i] < base)
@@ -749,8 +582,7 @@ static SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_detailed_impl(
     Kernel &k, const SubstitutionRedundancyInstance &instance,
     const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, bool accept_generated_certificate,
-    UniqueLiteralOccurrenceCache *unique_literal_cache) {
+    volatile sig_atomic_t *stop, bool accept_generated_certificate) {
   SubstitutionRedundancyApplicationResult outcome;
   if (!substitution_redundancy_guard(k) || !parameters.valid())
     return outcome;
@@ -773,8 +605,7 @@ substitution_redundancy_apply_detailed_impl(
     if (candidate.size() != 2 || !instance.witness.empty() ||
         !instance.substitution.empty())
       return outcome;
-    if (!authenticate_unique_literal_amo_checked(k, candidate,
-                                                 unique_literal_cache)) {
+    if (!authenticate_unique_literal_amo(k, candidate)) {
       outcome.status = SubstitutionRedundancyApplicationStatus::Inapplicable;
       return outcome;
     }
@@ -879,36 +710,7 @@ substitution_redundancy_apply_detailed_impl(
   }
 
   const uint64_t sr_id = ++k.next_clause_id;
-  bool expanded = false;
-  if (k.proof && !certified_unique_literal_amo && !kept.empty()) {
-    const bool propagates = kept.size() == 1;
-    if (k.proof->sr_expansion_open()) {
-      Proof::SrExpansion expansion;
-      expanded = collect_sr_expansion(
-                     k, witness, candidate.front(),
-                     static_cast<uint32_t>(candidate.size()), propagates,
-                     expansion) &&
-                 k.proof->add_sr_expanded(
-                     sr_id, candidate.data(), candidate.size(),
-                     witness.emitted_mappings.data(),
-                     witness.emitted_mappings.size(), expansion,
-                     static_cast<uint32_t>(k.external_to_internal.size()),
-                     propagates);
-      if (expanded) {
-        ++k.stats.sr_expanded;
-        k.stats.sr_expansion_additions += Proof::sr_expansion_additions(
-            expansion.ids.size(), expansion.renamed.size(),
-            static_cast<uint32_t>(candidate.size()), propagates);
-      }
-    }
-    if (!expanded) {
-      ++k.stats.sr_expansion_native;
-      if (!k.proof->sr_expansion_open() &&
-          !k.sr_expansion_occurrences.interest.empty())
-        k.sr_expansion_occurrences = {};
-    }
-  }
-  if (k.proof && !expanded) {
+  if (k.proof) {
     if (certified_unique_literal_amo) {
       k.proof->add_rat(sr_id, candidate.data(), candidate.size(), nullptr, 0);
     } else if (!k.proof->add_sr(
@@ -963,13 +765,6 @@ substitution_redundancy_apply_detailed_impl(
   } else {
     kernel_add_large_clause(k, kept.data(), kept.size(), true, 0, committed_id);
   }
-  // Observation-only provenance of symmetry-breaking output (SymmetryUse),
-  // recorded only when the diagnostic report is requested.
-  if (k.symuse.record_symmetry &&
-      (parameters.producer == SubstitutionRedundancyProducer::Orbitopal ||
-       parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry))
-    kernel_symuse_tag(k, kept.data(), static_cast<uint32_t>(kept.size()),
-                      committed_id, unique_literal_amo);
   outcome.status = SubstitutionRedundancyApplicationStatus::Applied;
   outcome.rule_result = ApplyResult::Ok;
   ++k.stats.sr_applied;
@@ -996,16 +791,16 @@ SubstitutionRedundancyApplicationResult substitution_redundancy_apply_detailed(
     const SubstitutionRedundancyParameters &parameters,
     volatile sig_atomic_t *stop) {
   return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
-                                                      stop, false, nullptr);
+                                                      stop, false);
 }
 
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &k, const SubstitutionRedundancyInstance &instance,
     const SubstitutionRedundancyParameters &parameters,
-    volatile sig_atomic_t *stop, UniqueLiteralOccurrenceCache *cache) {
+    volatile sig_atomic_t *stop) {
   return substitution_redundancy_apply_detailed_impl(k, instance, parameters,
-                                                      stop, true, cache);
+                                                      stop, true);
 }
 
 ApplyResult substitution_redundancy_apply(
@@ -1031,12 +826,11 @@ ApplyResult substitution_redundancy_apply_orbitopal(
   if (enumeration.status == OrbitopalEnumerationStatus::Interrupted)
     return ApplyResult::NoOp;
   bool progress = false;
-  UniqueLiteralOccurrenceCache cache;
   for (const SubstitutionRedundancyInstance &instance : instances) {
     if ((stop && *stop) || (kernel.stop && *kernel.stop))
       break;
     const ApplyResult applied = substitution_redundancy_apply_orbitopal_prefix(
-                                    kernel, instance, parameters, stop, &cache)
+                                    kernel, instance, parameters, stop)
                                     .rule_result;
     if (applied == ApplyResult::Unsat)
       return applied;

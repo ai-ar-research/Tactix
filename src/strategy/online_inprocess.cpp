@@ -35,8 +35,7 @@ namespace tactix {
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &, const SubstitutionRedundancyInstance &,
-    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *,
-    UniqueLiteralOccurrenceCache *);
+    const SubstitutionRedundancyParameters &, volatile sig_atomic_t *);
 }
 
 namespace tactix::strategy {
@@ -1423,7 +1422,6 @@ bool OnlineStrategyExecutor::configure(const OnlineStrategyProgram &program,
   step_index_ = 0;
   sequence_passes_ = 0;
   sequence_progress_ = false;
-  detection_limit_reached_ = false;
   complete_ = program_.sequence.empty();
   configured_ = true;
   if (error)
@@ -1436,7 +1434,6 @@ void OnlineStrategyExecutor::reset_runtime() {
   step_index_ = 0;
   sequence_passes_ = 0;
   sequence_progress_ = false;
-  detection_limit_reached_ = false;
   complete_ = program_.sequence.empty();
 }
 
@@ -1500,9 +1497,6 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   runtime.selection.clear();
   runtime.structured_selection.clear();
   runtime.sr_selection.clear();
-  // The authentication image is valid only for the batch it serves, whose
-  // state the executor's epoch checks protect from external mutation.
-  runtime.unique_literal_cache = {};
   runtime.cursor = 0;
   if (!continuing_general_sr)
     runtime.pass_progress = false;
@@ -1610,20 +1604,6 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                       discovery_pools);
     uint64_t discovery_limit_at_entry = 0;
     uint64_t hard_detection_ticks = 0;
-    const uint64_t configured_detection_ticks = parameters.maximum_detection_ticks;
-    uint64_t window_at_entry = UINT64_MAX;
-    // A producer that ran out of its tick allowance reached an owner limit
-    // (Satsuma's cumulative cost ceiling, or the step's own configured limit)
-    // unless the binding allowance was the renewable progress window, still
-    // below the hard ceiling, that the root scheduler extends on progress.
-    const auto window_bound = [&] {
-      if (!shared_discovery || !discovery_feedback.ticks_per_generator ||
-          configured_detection_ticks <= window_at_entry)
-        return false;
-      const WorkLimit limit = sr_discovery_allowance->limit();
-      return !limit.is_unlimited() &&
-             limit.amount() < discovery_feedback.hard_limit;
-    };
     const bool inline_generator_feedback =
         shared_discovery && discovery_feedback.ticks_per_generator &&
         discovery_feedback.hard_limit > sr_discovery_allowance->consumed();
@@ -1651,8 +1631,6 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         return false;
       }
       const WorkLimit remaining = discovery_budget.remaining();
-      if (!remaining.is_unlimited())
-        window_at_entry = remaining.amount();
       if (!remaining.admits_work()) {
         out.status = InvocationStatus::BudgetExhausted;
         out.budget_status = discovery_budget.status();
@@ -1665,8 +1643,6 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
             graph_entry_reaches_detector()) {
           runtime.graph_entry_requested = true;
           out.discovery_entry_required = true;
-        } else if (!window_bound()) {
-          detection_limit_reached_ = true;
         }
         return false;
       }
@@ -1710,7 +1686,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                 runtime.sr_selection.push_back(instance);
                 return true;
               },
-              stop, orbitopal_cache_);
+              stop);
       out.budget_status = discovery_budget.charge(
           WorkUnit::SrDiscoveryTicks, enumeration.ticks);
       if (out.budget_status == BudgetStatus::AccountingOverflow) {
@@ -1723,9 +1699,6 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
       }
       runtime.selection_truncated =
           enumeration.status == OrbitopalEnumerationStatus::LimitReached;
-      detection_limit_reached_ |=
-          enumeration.detection_limit_reached ||
-          (enumeration.allowance_limit_reached && !window_bound());
       // Orbitopal sub-strategies share one structured detector family.  A
       // bounded empty prefix is not evidence that paying another complete
       // snapshot for the next orientation is useful.  Formula progress still
@@ -1831,9 +1804,6 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         out.step_id = step.id;
         return false;
       }
-      detection_limit_reached_ |=
-          enumeration.detection_limit_reached ||
-          (enumeration.allowance_limit_reached && !window_bound());
     }
     runtime.selection.resize(runtime.sr_selection.size());
     for (size_t i = 0; i < runtime.selection.size(); ++i)
@@ -1873,7 +1843,6 @@ bool OnlineStrategyExecutor::finish_step_pass(const Kernel &k,
   runtime.selection.clear();
   runtime.structured_selection.clear();
   runtime.sr_selection.clear();
-  runtime.unique_literal_cache = {};
   runtime.sr_general_cursor = {};
   runtime.sr_general_mode = false;
   runtime.selection_truncated = false;
@@ -2537,8 +2506,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                                instance->symmetry_chain_certificate ||
                                instance->unique_literal_amo_certificate)
                           ? substitution_redundancy_apply_orbitopal_prefix(
-                                k, *instance, parameters, stop,
-                                &runtime.unique_literal_cache)
+                                k, *instance, parameters, stop)
                           : substitution_redundancy_apply_detailed(
                                 k, *instance, parameters, stop);
                   return sr_application->rule_result;

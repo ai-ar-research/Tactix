@@ -1304,7 +1304,6 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   assert(!c->garbage());
   assert(id == k.next_clause_id);
   assert(size >= 3 && size <= c->size);
-  ++k.large_clause_rewrites;
   const bool retain = retained_watch != INVALID_LIT;
   assert(!retain || (lits[0] == retained_watch &&
                      (c->lits[0] == retained_watch ||
@@ -2053,7 +2052,6 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
 void kernel_propagate_beyond_conflicts(Kernel &k) {
   assert(k.warming);
   kernel_settle_binary_only_debt(k); // full scans, conflicts included
-  const size_t assigned_before = k.trail.size();
   const uint64_t before = k.stats.propagations;
   const uint32_t saved_propagate = k.propagate_head;
   uint64_t ticks = 0;
@@ -2065,8 +2063,6 @@ void kernel_propagate_beyond_conflicts(Kernel &k) {
   k.stats.propagations += k.propagate_head - saved_propagate;
   kernel_charge_ticks(k, ticks);
   k.stats.warming_propagations += k.stats.propagations - before;
-  if (k.symuse_active) [[unlikely]]
-    kernel_symuse_note_trail(k, assigned_before);
 }
 
 // binary-only propagation of `lit` (kissat backbone.c backbone_propagate /
@@ -2254,8 +2250,6 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
     conflict = kernel_propagate(k, ignore); // no open scope: nothing to record
-    if (k.symuse_active) [[unlikely]]
-      kernel_symuse_note_trail(k, assigned_before);
   } else {
     const uint32_t saved_propagate = k.propagate_head;
     uint64_t ticks = 0;
@@ -2275,8 +2269,6 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
     }
     k.stats.propagations += k.propagate_head - saved_propagate;
     kernel_charge_ticks(k, ticks);
-    if (k.symuse_active) [[unlikely]]
-      kernel_symuse_note_trail(k, assigned_before);
   }
   if (named_root_units)
     kernel_emit_root_units(k, assigned_before);
@@ -2318,8 +2310,6 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   kernel_charge_ticks(k, ticks);
   if (named_root_units)
     kernel_emit_root_units(k, assigned_before);
-  if (k.symuse_active) [[unlikely]]
-    kernel_symuse_note_trail(k, assigned_before);
   return conflict;
 }
 
@@ -3902,8 +3892,6 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
     k.proof->bind_variable_map(&k.internal_to_external);
     k.proof->bind_external_variable_map(&k.external_to_internal);
   }
-  if (k.symuse_active)
-    kernel_symuse_rebuild_filters(k);
   k.stats.variable_compactions++;
   k.stats.compacted_variables += old_nvars - new_nvars;
   kernel_check_invariants(k);

@@ -277,7 +277,7 @@ bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
       p.symmetry_first_literal_fix_anchor_mode > TACTIX_ONLINE_SETTING_ENABLE ||
       p.symmetry_base_selection < TACTIX_ONLINE_SYMMETRY_BASE_INHERIT ||
       p.symmetry_base_selection >
-          TACTIX_ONLINE_SYMMETRY_BASE_SATSUMA_FIX_AND_CUT ||
+          TACTIX_ONLINE_SYMMETRY_BASE_FIRST_SHORTEST_THEN_FORWARD_REMAINDER ||
       p.symmetry_direct_generator_involutions_mode <
           TACTIX_ONLINE_SETTING_INHERIT ||
       p.symmetry_direct_generator_involutions_mode >

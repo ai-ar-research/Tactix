@@ -103,9 +103,7 @@ void pivot_collision_and_conflict(){
  auto matrix=build(sources);MatrixEvent event;
  assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
  assert(matrix.synchronize({{1,true}},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
- // Gauss-Jordan basis {1,4}=1, {2,3,4}=1: x1 moves the first row's pivot to
- // x4, which column elimination removes from the second row as well.
- assert(matrix.last_dirty_rows()==2&&event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&!event.implied_value);
+ assert(matrix.last_dirty_rows()==1&&event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&!event.implied_value);
  assert((event.reason==std::vector<int32_t>{-1,-4}));assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
  assert(matrix.synchronize({{1,true},{4,true}},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
  assert(event.kind==MatrixEventKind::Conflict&&(event.reason==std::vector<int32_t>{-1,-4}));

@@ -87,27 +87,6 @@ static void permutation(Kernel &k, bool difficult) {
 
 int main() {
   {
-    // The default profile gives Recognition no separate constant dose: it
-    // takes the remainder of the representable ceiling, so the stage sum is
-    // exact and valid, and authentication of an indexed fixture succeeds.
-    const auto defaults = DefaultStrategyConfig{}.graph_labeling_model.parameters;
-    assert(defaults.valid());
-    uint64_t sum = 0;
-    for (uint64_t allowance : defaults.work) {
-      assert(allowance <= UINT64_MAX - sum);
-      sum += allowance;
-    }
-    assert(sum == UINT64_MAX);
-    Kernel k;
-    ScopedHeuristics h(k);
-    permutation(k, false);
-    k.graph_labeling_parameters = defaults;
-    GraphLabelingModelSession session;
-    const auto auth = graph_labeling_model_authenticate(k, session);
-    assert(auth.status == GraphLabelingAuthenticationStatus::Authenticated);
-    assert(auth.work && auth.work == k.stats.graph_labeling_work);
-  }
-  {
     Kernel kernel;
     ScopedHeuristics heuristics(kernel);
     permutation(kernel, true);

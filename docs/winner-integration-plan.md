@@ -210,10 +210,8 @@ The active checkpoint requires at least12 of the fixed44 independently checked
 on one candidate. Subsequent gates require all original36, then all44 including
 the eight MAB-only rows, on a coherent candidate. None of these checkpoints by
 itself proves superiority beyond the saved portfolio.
-Use the saved 5,000-second solve/32-GiB envelope and a complete checker
-pipeline of up to 45,000 seconds, the sc24-26 owner baseline allowance. By user
-decision this extends the historical 14,400-second window instead of changing
-proof routes. Raw UNSAT,
+Use the saved 5,000-second solve/32-GiB envelope and the historical complete
+14,400-second checker pipeline for comparable target acceptance. Raw UNSAT,
 checker crashes and clean deadline censors do not close a target. Investigate
 the 13 certificate-side misses separately, retaining their frozen classifications.
 Classify WV100/WV2–89 row by row: LymphoSAT-owned rows are checked recovery obligations, while other rows are preservation controls under the standing slowdown/checker rules. Map each mechanism across them and the 44; aggregate similarity cannot hide a lost owned solve. Broader T4 requirements remain distinct.

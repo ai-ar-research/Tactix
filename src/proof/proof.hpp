@@ -131,38 +131,6 @@ public:
               const Lit *true_lits, uint32_t ntrue,
               const DsrLiteralMapping *mappings, uint32_t nmappings,
               uint32_t external_variables, bool propagates = false);
-  // Witness-free expansion of a permutation-witness SR addition
-  // (docs/calculus.md, SR witness-free expansion). `renamed[i]` are the
-  // moved variables open at the root, `images[i]` the witness image of the
-  // positive literal of `renamed[i]`; the touched clauses are every live
-  // checker clause containing a renamed variable (flat `lits`, `offsets`
-  // has one more entry than `ids`). `population` is the live checker
-  // population the expansion is checked against.
-  struct SrExpansion {
-    std::vector<Var> renamed;
-    std::vector<Lit> images;
-    std::vector<uint64_t> ids;
-    std::vector<uint32_t> offsets = {0};
-    std::vector<Lit> lits;
-    uint64_t population = 0;
-  };
-  // Expansion applies only while the stream is still witness-free.
-  bool sr_expansion_open() const {
-    return file_ && dsr() && !has_sr_witness_ && sr_expansion_enabled_;
-  }
-  // Clause additions the expansion writes; it is admitted only within the
-  // population it is checked against.
-  // A root-unit clause enters through (z | C) and (-z | C), adding six.
-  static uint64_t sr_expansion_additions(uint64_t touched, uint64_t renamed,
-                                         uint32_t size, bool propagates) {
-    return 3 * touched + 6 * renamed + size + 4 + (propagates ? 6 : 0);
-  }
-  // Writes the expansion and returns true, or writes nothing and returns
-  // false (the caller then emits the native add_sr line).
-  bool add_sr_expanded(uint64_t id, const Lit *lits, uint32_t size,
-                       const DsrLiteralMapping *mappings, uint32_t nmappings,
-                       const SrExpansion &expansion,
-                       uint32_t external_variables, bool propagates);
   void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
   // root-level propagation-derived unit: explicit in LRAT (each level-0
   // assignment needs an id for later chains), implied/omitted in DSR/DRAT
@@ -340,8 +308,6 @@ private:
   bool automatic_pending_ = false;
   bool input_transaction_ = false;
   bool has_sr_witness_ = false;
-  // TACTIX_SR_NATIVE_WITNESS=1 keeps every SR line native (A/B diagnostic).
-  bool sr_expansion_enabled_ = true;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;
