@@ -40,10 +40,12 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    finishes: `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts
    at 64 GB.
 2. Close the DefaultPolicy public-API gap following the
-   [eight-step plan](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md). Step 0
-   committed: route ratchet `tests/test_default_action_map.cpp` (24 internal entries), report-only
-   replay `tests/test_default_public_replay.cpp`, realized analysis target in feedback. Step 1 in
-   progress. Every step stays byte-identical to c2.3.
+   [eight-step plan](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md). Steps 0–1
+   are committed and byte-identical to c2.3 on 12 identity rows, with full Debug 355/355
+   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-steps-0-1/README.md)): route
+   ratchet `tests/test_default_action_map.cpp` (internal entries 24 → 14), report-only public
+   replay, and macro actions through registry dispatch. Pending before push: §8.4 default gates
+   and the §8.2 fuzz legs for Step 1. Next: Step 2.
 
 ## Live work
 

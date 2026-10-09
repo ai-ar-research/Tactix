@@ -58,7 +58,10 @@ inline ApplyResult execute_action(Kernel &k,
                                   const LocalSearchRotationRequest &request) {
   return local_search_guidance_apply_next(k, request.rotation, request.cursor);
 }
-inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
+// `apply` runs the canonical Walk under the scoped profile: walk_apply, or a
+// caller's registry dispatch of the same canonical instance.
+template <class Apply>
+ApplyResult execute_action(Kernel &k, const WalkRequest &request, Apply &&apply) {
   // This native profile owns only the handoff and clears it on completion.
   // Caller ceiling modes and offsets stay inherited; the chosen seed persists.
   WorkSettingsScope work(k, {request.allowance, std::nullopt, std::nullopt,
@@ -71,8 +74,10 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
   parameters.preparation_budget = request.preparation_allowance;
   if (!parameters.valid()) return ApplyResult::NoOp;
   strategy::ScopedWalkParameters selected(k, parameters);
-  const auto result = walk_apply(k);
-  return result;
+  return apply();
+}
+inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
+  return execute_action(k, request, [&] { return walk_apply(k); });
 }
 
 struct WarmupRequest {};

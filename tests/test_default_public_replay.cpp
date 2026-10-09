@@ -55,8 +55,12 @@ int result_code(ApplyResult result) {
 }
 
 // Apply a recorded permanent profile while loading the replay solver.
+// Guidance-only and material installs are assumed: their typed description
+// is wider than what they write (InstallWalkGuidance inherits the budget).
 bool install_at_load(Kernel &k, const ActionFeedback &record) {
-  if (!record.native_request || !record.native_request->invocation) return false;
+  if (record.identity != "InstallRuleParameters" || !record.native_request ||
+      !record.native_request->invocation)
+    return false;
   bool installed = false;
   std::visit([&](const auto &parameters) {
     if constexpr (requires { strategy::install_rule_parameters(k, parameters); }) {

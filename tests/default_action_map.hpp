@@ -109,39 +109,39 @@ inline const std::vector<Entry> &entries() {
        Route::Kernel, Boundary::Interval, Replay::None, true,
        "none: native target after learning, per-conflict bump payload and "
        "OTFS retier hook (target now recorded as ;target=)", "A3,C1,C4"},
-      {"restart-scheduled", K::SearchService, "Restart", nullptr, Route::Shared,
+      {"restart-scheduled", K::SearchService, "Restart", nullptr, Route::Public,
        Boundary::Interval, Replay::RegistryInstance, true,
        "Restart instance = keep-level", "A4"},
       {"resume-search", K::ResumeSearch, "ResumeSearch", nullptr, Route::Public,
        Boundary::Interval, Replay::Marker, false,
        "interval marker (ResumeSearch native configuration: step 7)", "D1"},
       // --- macro actions at interval boundaries ---
-      {"reduce", K::Rule, "Reduce", nullptr, Route::Shared, Boundary::Crossing,
+      {"reduce", K::Rule, "Reduce", nullptr, Route::Public, Boundary::Crossing,
        Replay::RegistryInstance, true,
        "Reduce canonical under scoped ReduceParameters", "A12"},
-      {"switch-mode", K::Rule, "SwitchMode", nullptr, Route::Shared,
+      {"switch-mode", K::Rule, "SwitchMode", nullptr, Route::Public,
        Boundary::Crossing, Replay::RegistryInstance, true, "SwitchMode canonical",
        "A13"},
-      {"reorder", K::Rule, "Reorder", nullptr, Route::Shared, Boundary::Crossing,
+      {"reorder", K::Rule, "Reorder", nullptr, Route::Public, Boundary::Crossing,
        Replay::RegistryInstance, true, "Reorder instance = target", "A13"},
-      {"rephase", K::Rule, "Rephase", nullptr, Route::Shared, Boundary::Crossing,
+      {"rephase", K::Rule, "Rephase", nullptr, Route::Public, Boundary::Crossing,
        Replay::RegistryInstance, true, "Rephase instance = type", "A13"},
-      {"walk", K::Rule, "Walk", nullptr, Route::Shared, Boundary::Crossing,
+      {"walk", K::Rule, "Walk", nullptr, Route::Public, Boundary::Crossing,
        Replay::None, true,
        "Walk canonical under scoped WalkParameters (online Walk parameters)",
        "A13"},
       {"lucky-opportunity", K::Rule, "Lucky",
        [](const ActionFeedback &r) { return !lucky_graph_session(r.instance); },
-       Route::Shared, Boundary::Crossing, Replay::RegistryInstance, true,
+       Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,
        "Lucky instance (canonical = cascade, 6-24 opportunities)", "A6"},
       {"lucky-graph-session", K::Rule, "Lucky",
        [](const ActionFeedback &r) { return lucky_graph_session(r.instance); },
-       Route::Shared, Boundary::Crossing, Replay::RegistryInstance, true,
+       Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,
        "Lucky instance 26 (authenticate) / 27 (continue)", "A9"},
       {"local-search-guidance", K::Rule, "LocalSearchGuidance", nullptr,
-       Route::Shared, Boundary::Crossing, Replay::RegistryInstance, true,
+       Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,
        "LocalSearchGuidance instance = hint id", "A9"},
-      {"bce-post-structured", K::Rule, "BCE", nullptr, Route::Shared,
+      {"bce-post-structured", K::Rule, "BCE", nullptr, Route::Public,
        Boundary::Crossing, Replay::RegistryInstance, true, "BCE canonical", "A7"},
       {"propagate-root", K::Rule, "Propagate",
        [](const ActionFeedback &r) { return description(r) != "search"; },
@@ -410,7 +410,7 @@ inline std::vector<Fixture> fixtures() {
                          std::to_string(pigeons),
                      [=](Kernel &k) { pigeonhole(k, pigeons, 5); },
                      [=](DefaultStrategyConfig &c, Kernel &) { signature_profile(c, profile); },
-                     false, true, pigeonhole_dimacs(pigeons, 5)});
+                     false, true, pigeonhole_dimacs(pigeons, 5), nullptr});
   for (const char *name : {"online-config-3.cnf", "online-config-4.cnf",
                            "sweep_interrupted_direction.cnf", "sweep-retarget-lrat.cnf"}) {
     const std::string path = fixtures_dir() + name;
@@ -418,7 +418,7 @@ inline std::vector<Fixture> fixtures() {
                      FILE *input = std::fopen(path.c_str(), "r");
                      assert(input && !parse_dimacs(input, k));
                      std::fclose(input);
-                   }, nullptr, false, true, file_dimacs(path)});
+                   }, nullptr, false, true, file_dimacs(path), nullptr});
   }
   out.push_back({"graph-labeling-permutation", graph_permutation,
                  [](DefaultStrategyConfig &c, Kernel &k) {
@@ -470,7 +470,7 @@ inline std::vector<Fixture> fixtures() {
                    config.inprocess.structured_root_stages = {
                        {program, strategy::BudgetExhaustionPolicy::Continue}};
                    config.inprocess.structured_root_before_lucky = true;
-                 }, false, false});
+                 }, false, false, {}, nullptr});
   return out;
 }
 
