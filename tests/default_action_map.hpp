@@ -8,7 +8,7 @@
 //   Shared - a typed request without dispatch whose transition a declared
 //            public request (id + instance) expresses;
 //   Kernel - no public request expresses it yet;
-//   Declared - a declared non-action; Diagnostic - an off-by-default arm.
+//   Declared - a declared non-action.
 // test_default_action_map ratchets the internal (Shared/Kernel) entries.
 
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
@@ -46,7 +46,7 @@ using strategy::controller::Observation;
 using strategy::controller::SearchIntervalFeedback;
 using strategy::controller::StopReason;
 
-enum class Route { Public, Shared, Kernel, Declared, Diagnostic };
+enum class Route { Public, Shared, Kernel, Declared };
 // Interval: a step legitimately inside the native search interval (plan §2);
 // Crossing: an action at or across a declared action boundary.
 enum class Boundary { Interval, Crossing };
@@ -67,10 +67,9 @@ inline const char *route_name(Route r) {
   return r == Route::Public   ? "P"
          : r == Route::Shared ? "S"
          : r == Route::Kernel ? "K"
-         : r == Route::Declared ? "D"
-                                : "X";
+                              : "D";
 }
-inline bool declared_route(Route r) { return r == Route::Declared || r == Route::Diagnostic; }
+inline bool declared_route(Route r) { return r == Route::Declared; }
 inline bool internal(Route r) { return r == Route::Shared || r == Route::Kernel; }
 
 inline std::string_view description(const ActionFeedback &r) {
@@ -151,11 +150,6 @@ inline const std::vector<Entry> &entries() {
        "(tactix_install_retier_schedule); the policy reads only the completed "
        "transaction's statistics. A static in-interval instantiation (plan "
        "section 3), so no registry dispatch is expected", "A3,C1,C3,C4"},
-      {"conflict-analysis-ranked-trail", K::SearchService, "ConflictAnalysis",
-       [](const ActionFeedback &r) { return r.instance != ANALYZE_TARGET_CHRONO; },
-       Route::Diagnostic, Boundary::Interval, Replay::None, true,
-       "none: declared diagnostic arm (H-ranked target after learning), "
-       "outside the correspondence claim", "A3"},
       {"restart-scheduled", K::SearchService, "Restart", nullptr, Route::Public,
        Boundary::Interval, Replay::RegistryInstance, true,
        "Restart instance = keep-level", "A4"},
@@ -309,10 +303,6 @@ inline const std::vector<Entry> &entries() {
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_WARMUP(phase): H's decision order (H)", "A11",
        TACTIX_SUPPORT_WARMUP},
-      {"support-warmup-installed-branching", K::Support, "Warmup", nullptr,
-       Route::Diagnostic, Boundary::Crossing, Replay::None, false,
-       "none: a caller-installed BranchingPolicy picks (declared "
-       "diagnostic arm)", "A11"},
       {"support-residual-guidance", K::Support, "PrepareResidualGuidance",
        nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_RESEED_GUIDANCE (with the attach and import-order "
@@ -352,11 +342,6 @@ inline const std::vector<Entry> &entries() {
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_ENTER_INPROCESS_PHASE(eliminate flag, Factor bound)",
        "A11", TACTIX_SUPPORT_ENTER_INPROCESS_PHASE},
-      {"support-phase-entry-injected-factor", K::Support, "InprocessPhaseEntry",
-       nullptr, Route::Declared, Boundary::Crossing, Replay::None, false,
-       "declared excluded diagnostic arm: an injected FactorMatchPolicy "
-       "(C++ scoring/accept override); DefaultPolicy's own selection is the "
-       "public phase-entry Factor bound", "A11,C4"},
       {"support-occurrence-session", K::Support, "OpenOccurrenceSession", nullptr,
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION", "A11",
@@ -408,25 +393,10 @@ struct Capture final : FeedbackReceiver {
   void search_interval(const SearchIntervalFeedback &) override {}
 };
 
-struct StopAtFirstDecision final : BranchingPolicy {
-  volatile sig_atomic_t &stop;
-  explicit StopAtFirstDecision(volatile sig_atomic_t &s) : stop(s) {}
-  const char *name() const override { return "stop-at-first-decision"; }
-  Lit pick(Kernel &kernel) override {
-    stop = 1;
-    for (Var variable = 0; variable < kernel.nvars; ++variable)
-      if (!kernel.value(make_lit(variable, false)) &&
-          !kernel_var_retired(kernel, variable))
-        return make_lit(variable, false);
-    return INVALID_LIT;
-  }
-};
-
 struct Fixture {
   std::string name;
   std::function<void(Kernel &)> load;
   std::function<void(DefaultStrategyConfig &, Kernel &)> configure;
-  bool stop_at_first_decision = false;
   // Structured-root programs run only without a proof or with native DSR.
   bool clausal_proof = true;
   // The same input as DIMACS clauses for the public-API replay (empty: the
@@ -495,7 +465,6 @@ inline void signature_profile(DefaultStrategyConfig &config, unsigned profile) {
   config.rephase.late_lucky = false;
   config.mode.force = profile <= 2 ? profile : 2;
   config.analysis.chronological_levels = profile == 2 ? 0 : 100;
-  config.analysis.reuse_ranked_trail_suffix = profile == 1;
   config.restart.reluctant_period = 2;
   config.reduction.initial_interval = 5;
   config.rephase.initial_interval = 10;
@@ -577,7 +546,7 @@ inline std::vector<Fixture> fixtures() {
                          std::to_string(pigeons),
                      [=](Kernel &k) { pigeonhole(k, pigeons, 5); },
                      [=](DefaultStrategyConfig &c, Kernel &) { signature_profile(c, profile); },
-                     false, true, pigeonhole_dimacs(pigeons, 5), nullptr});
+                     true, pigeonhole_dimacs(pigeons, 5), nullptr});
   for (const char *name : {"online-config-3.cnf", "online-config-4.cnf",
                            "sweep_interrupted_direction.cnf", "sweep-retarget-lrat.cnf"}) {
     const std::string path = fixtures_dir() + name;
@@ -585,7 +554,7 @@ inline std::vector<Fixture> fixtures() {
                      FILE *input = std::fopen(path.c_str(), "r");
                      assert(input && !parse_dimacs(input, k));
                      std::fclose(input);
-                   }, nullptr, false, true, file_dimacs(path), nullptr});
+                   }, nullptr, true, file_dimacs(path), nullptr});
   }
   out.push_back({"graph-labeling-permutation", graph_permutation,
                  [](DefaultStrategyConfig &c, Kernel &k) {
@@ -604,7 +573,7 @@ inline std::vector<Fixture> fixtures() {
                      *enabled = false;
                    c.graph_labeling_model.enabled = true;
                    c.graph_labeling_model.parameters = k.graph_labeling_parameters;
-                 }, true, true, graph_permutation_dimacs(), graph_parameters});
+                 }, true, graph_permutation_dimacs(), graph_parameters});
   out.push_back({"post-structured-bce", [](Kernel &k) {
                    kernel_reserve_vars(k, 7);
                    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
@@ -637,7 +606,7 @@ inline std::vector<Fixture> fixtures() {
                    config.inprocess.structured_root_stages = {
                        {program, strategy::BudgetExhaustionPolicy::Continue}};
                    config.inprocess.structured_root_before_lucky = true;
-                 }, false, false, {}, nullptr});
+                 }, false, {}, nullptr});
   return out;
 }
 
@@ -646,12 +615,9 @@ inline void run(const Fixture &fixture, Kernel &k, FeedbackReceiver &receiver) {
   DefaultStrategyConfig config;
   if (fixture.configure) fixture.configure(config, k);
   DefaultPolicy policy(config);
-  volatile sig_atomic_t stop = 0;
-  StopAtFirstDecision branching(stop);
-  if (fixture.stop_at_first_decision) policy.branching = &branching;
   policy.set_feedback(&receiver);
-  const int verdict = policy.solve(k, fixture.stop_at_first_decision ? &stop : nullptr);
-  assert(verdict == 0 || verdict == 10 || verdict == 20);
+  const int verdict = policy.solve(k);
+  assert(verdict == 10 || verdict == 20);
 }
 
 // Run DefaultPolicy on an already loaded kernel and return its feedback.

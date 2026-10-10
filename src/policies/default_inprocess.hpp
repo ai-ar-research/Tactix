@@ -27,9 +27,10 @@ private:
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;
 };
 
-class DefaultFactorMatch final : public FactorMatchPolicy {
+// The Factor grid selection (kissat factor.c): reference scores, and a grid
+// is accepted when its gain exceeds the coupled BVE growth bound.
+class DefaultFactorMatch final : public FactorSelection {
 public:
-  const char *name() const override { return "watches-size"; }
   double seed_score(const Kernel &, Lit, double reference_score) override {
     return reference_score;
   }
@@ -207,7 +208,6 @@ public:
   };
 
   BveBoundPolicy *bve_bound = nullptr;
-  FactorMatchPolicy *factor_match = nullptr;
   CandidateOrderPolicy *candidate_order = nullptr;
   std::vector<SlotEntry> entries;
   SlotClock probe_clock, elim_clock;

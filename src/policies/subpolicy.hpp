@@ -69,41 +69,4 @@ struct BveBoundPolicy : SubPolicy {
   virtual uint32_t bound(uint32_t pass) const = 0;
 };
 
-// Factor grid-selection strategy, the Factor analog of BveBoundPolicy. The BVA
-// proof rule is `apply_factoring(x, F, R)`; which grid to build is strategy,
-// left to this sub-policy, which owns only the scalars the rule's mechanism
-// keys on. N1 rests on Factor's public seed-literal surface, which enumerates
-// every unassigned, unretired seed independently of this policy. Swappability
-// changes ranking/admission only; it is not the reachability argument. Design:
-// docs/design/s2a-factor-matcher-design.md.
-struct FactorMatchPolicy : SubPolicy, FactorSelection {
-  // The coupled Factor bound (BVE's growth allowance) for this phase. An
-  // injected matcher customizes SCORING, not the growth invariant — kissat's
-  // bound test is unconditional (factor.c:939) — so the policy hands it the
-  // snapshot; ignoring it is an explicit choice, not an accident.
-  void set_bound(uint32_t) override {}
-  // Optional per-sweep lifecycle for a stateful score (kissat distinct_paths
-  // caches across a sweep). The no-op default keeps a stateless arm trivial.
-  void begin_sweep(const Kernel &) override {}
-  void end_sweep() override {}
-
-  // Seed priority for the max-heap (kissat watches_score / update_candidate),
-  // re-consulted on the stale re-score and the post-apply re-push.
-  virtual double seed_score(const Kernel &, Lit seed,
-                            double reference_score) override = 0;
-
-  // Secondary key among next-factor candidates tied on the max co-occurrence
-  // count `cofactor` (kissat tied_next_factor_score), which stays the primary
-  // key in the rule. `seed` is the chain's seed factor, ignored by the default
-  // arm and keyed on by structural scores.
-  virtual double next_factor_score(const Kernel &, Lit cand,
-                                   uint32_t cofactor, Lit seed,
-                                   double reference_score) override = 0;
-
-  // Accept threshold for the best greedy grid (m by n, net gain
-  // delta = m*n - (m+n)). The rule exposes every m,n >= 2 grid, including a
-  // zero-gain 2x2 grid; the selection policy alone decides profitability.
-  virtual bool accept(uint32_t m, uint32_t n, int delta) override = 0;
-};
-
 } // namespace tactix

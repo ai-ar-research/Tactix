@@ -14,11 +14,11 @@
 
 using namespace action_map;
 
-// Internal entries after Step 5 (inprocessing slots as online invocations),
-// on top of Step 4b's public phase bracket and Step 6's public chrono
-// ConflictAnalysis (its ranked-trail arm is a declared diagnostic). Each later
-// step removes the entries it routes publicly.
+// No internal entries remain (gap plan Step 7); the declared entries are the
+// two non-actions of docs/implementation-notes.md.
 static const std::set<std::string> EXPECTED_INTERNAL = {};
+static const std::set<std::string> EXPECTED_DECLARED = {"materialize-cold-state",
+                                                        "attach-heuristics"};
 
 // Entries whose route a refactor step changes must be reached by the fixtures,
 // or their dispatch check would be vacuous.
@@ -185,6 +185,13 @@ int main(int argc, char **argv) {
       std::cerr << "fixtures do not reach entry " << id << '\n';
       ok = false;
     }
+  if (declared != EXPECTED_DECLARED) {
+    for (const auto &id : declared)
+      if (!EXPECTED_DECLARED.count(id)) std::cerr << "newly declared: " << id << '\n';
+    for (const auto &id : EXPECTED_DECLARED)
+      if (!declared.count(id)) std::cerr << "no longer declared (shrink the list): " << id << '\n';
+    ok = false;
+  }
   if (internal_ids != EXPECTED_INTERNAL) {
     for (const auto &id : internal_ids)
       if (!EXPECTED_INTERNAL.count(id)) std::cerr << "newly internal: " << id << '\n';

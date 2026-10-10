@@ -5,7 +5,7 @@
 // certificate bytes, models and trajectory counters on every replayable
 // action-map fixture, then lists the routes that block a pure public client.
 // The complete correspondence is asserted once no internal ratchet entry is
-// reached (declared diagnostics are not internal).
+// reached (declared non-actions are not internal).
 #undef NDEBUG
 #include "default_action_map.hpp"
 #include "api/api_internal.hpp"
@@ -169,10 +169,7 @@ std::string emit(const Fixture &fixture, const std::string &scratch) {
     DefaultStrategyConfig config;
     if (fixture.configure) fixture.configure(config, k);
     DefaultPolicy policy(config);
-    volatile sig_atomic_t stop = 0;
-    StopAtFirstDecision branching(stop);
-    if (fixture.stop_at_first_decision) policy.branching = &branching;
-    verdict = policy.solve(k, fixture.stop_at_first_decision ? &stop : nullptr);
+    verdict = policy.solve(k);
   }
 #if defined(TACTIX_DEFAULT_POLICY_PUBLIC_PORT)
   port::PublicPort::session = nullptr;

@@ -10,6 +10,8 @@
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
+#include "strategy/controller_observation.hpp"
+#include "strategy/policy_completion.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -106,8 +108,8 @@ static void test_substitute_budget_stops_second_round() {
 // --- posed BVE ladder drives Factor's phase snapshot -----------------------
 // An irregular injected ladder detects both ways this wire previously went
 // inert: advancing with a hardcoded doubling sequence and stopping at a
-// hardcoded ceiling.  FactorMatchPolicy::set_bound observes the snapshot taken
-// at phase entry, before that phase's BVE dose advances the level.
+// hardcoded ceiling.  The phase-entry record's public Factor bound observes the
+// snapshot taken at entry, before that phase's BVE dose advances the level.
 class PosedBveLadder final : public BveBoundPolicy {
 public:
   const char *name() const override { return "posed-0-3-5-13"; }
@@ -119,19 +121,29 @@ public:
   }
 };
 
-class BoundRecorder final : public FactorMatchPolicy {
-public:
-  const char *name() const override { return "bound-recorder"; }
-  void set_bound(uint32_t bound) override { seen.push_back(bound); }
-  double seed_score(const Kernel &, Lit, double) override { return 0; }
-  double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
-                           double) override {
-    return 0;
-  }
-  bool accept(uint32_t, uint32_t, int) override { return false; }
-
+// The Factor bound each phase entry publishes: the high 32 bits of the
+// InprocessPhaseEntry record's public argument
+// (TACTIX_SUPPORT_ENTER_INPROCESS_PHASE).
+struct PhaseEntryBounds final : strategy::controller::FeedbackReceiver {
   std::vector<uint32_t> seen;
+  void after_action(const strategy::controller::ActionFeedback &record) override {
+    if (record.identity == "InprocessPhaseEntry")
+      seen.push_back(static_cast<uint32_t>(record.instance >> 32));
+  }
+  void search_interval(const strategy::controller::SearchIntervalFeedback &) override {}
 };
+static int observed_phase(DefaultInprocessScheduler &scheduler, Kernel &k,
+                          SlotGroup group, PhaseEntryBounds &bounds) {
+  execution::PolicyCompletion completion(k, &bounds,
+      [](const Kernel &kernel, const void *) {
+        return strategy::controller::observe_kernel(kernel);
+      }, nullptr);
+  completion.begin();
+  const int result = scheduler.run_phase(k, group, nullptr, &completion);
+  completion.finish(result, result == 20 ? strategy::controller::StopReason::Unsat
+                                         : strategy::controller::StopReason::Completed);
+  return result;
+}
 
 static uint64_t zero_meter(const Kernel &) { return 0; }
 static uint64_t one_elimination_meter(const Kernel &k) {
@@ -338,10 +350,9 @@ static void test_factor_bound_walks_posed_bve_ladder() {
   k.stats.conflicts = 1;
 
   PosedBveLadder ladder;
-  BoundRecorder recorder;
+  PhaseEntryBounds recorder;
   DefaultPolicy p;
   p.inprocess().bve_bound = &ladder;
-  p.inprocess().factor_match = &recorder;
 
   DefaultInprocessScheduler::SlotEntry bve;
   bve.rule = tactix_rule_id("BVE");
@@ -353,7 +364,7 @@ static void test_factor_bound_walks_posed_bve_ladder() {
 
   static constexpr uint32_t expected[5] = {0, 3, 5, 13, 13};
   for (const uint32_t bound : expected) {
-    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(observed_phase(p.inprocess(), k, SlotGroup::Eliminate, recorder) != 20);
     assert(k.bve_bound == bound &&
            "BVE did not use the posed ladder's current level");
   }

@@ -42,8 +42,9 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    DefaultPolicy's actions leave through one action port (`src/strategy/action_port.hpp`), and the
    twin test `default_public_correspondence` runs it over the static, public (`tactix.h` only) and
    hard-coded ports on 19 fixtures with identical verdicts, certificates, models, counters and H
-   layout (`correspondence: COMPLETE`, 7,248 public requests, 0 fallbacks). The route ratchet has 0
-   internal entries (51 public, 5 declared diagnostics/non-actions); the public replay is a gate.
+   layout (`correspondence: COMPLETE`, 0 fallbacks). The route ratchet has 0 internal entries (51 public,
+   2 declared non-actions); the public replay is a gate. The three diagnostic arms are removed
+   ([record](benchmarks/reports/2026-10-10-remove-diagnostic-arms/README.md)).
    Every step is byte-identical to c2.4 on 12 identity rows. Final code `50c619192` (Release
    `d540ef32…`, every pre-existing object identical to the gated `4ee060d8…` build of `d56c7f9bc`):
    full Debug 361/361; §8.4 overhead −0.15% instructions aggregate over 67 rows (oski15a08b00s +6.1%
