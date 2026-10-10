@@ -149,5 +149,64 @@ Validation of `build/pin-fastelfid-fix2-rel` (same `src` as the final patch):
   passing tests are `scheduling`, `default_action_map` (internal 0, declared 2),
   `default_public_correspondence` and `default_public_replay`.
 
-Still open: the 5,000 s A/B on the 12 `efdced45a` rows plus the 13 rows gained since no-MAB, full Debug,
-fuzz, and the §8.4 gates. All of these run on the committed version.
+## Results on the committed fix (`0f7c10174`)
+
+**Pins.**
+- `build/pin-fastelfid-0f7c10174-rel`: built from `git archive 0f7c10174`. It reproduces the validated
+  binary, sha `a7c66bab…`. A scratch rebuild with the gate pin's exact flags (Release plus `-O3`) gives
+  the same hash.
+- Diagnostic arm `build/pin-fastel-nostr-rel` (sha `e8eb0b2e…`, not for main): the same commit with only
+  the feasibility self-strengthening switched off (`nostrengthen.patch`: `fastel_feasibility = false`).
+  It is held by `refs/diagnostic/fastel-nostr` as commit `f1657f12d099`. A counting-trace build confirms
+  0 fastel strengthenings on par32-4 and bp4_TCO_CSO_ZR, against 25 and 284 with the fix.
+
+**Full Debug** (`benchmarks/runs/20261010-fastelfid-full-debug`, built from the archived source pin):
+361 of 361 tests pass, exit 0.
+
+**26-row 5,000 s A/B.** Each arm ran once, all at the same time, on `cpu-dense-hwulab-q` with 4 CPUs,
+32 GiB and checked proofs. Arm campaigns:
+- main: `benchmarks/runs/20261010-fastelfid-ab-main`, the Tier D apigap-final pin `d540ef32`;
+- fix: `benchmarks/runs/20261010-fastelfid-ab-fix`;
+- nostr: `benchmarks/runs/20261010-fastelfid-ab-nostr`.
+
+| Row | main | fix | nostr |
+|---|---|---|---|
+| **12 rows perturbed by efdced45a** | | | |
+| par32-4 | TO | TO | S 4,381 |
+| sha1 zeroOut_18 | TO | S 1,855 | S 2,056 |
+| Break_18_32 | TO | TO | S 4,907 |
+| bp4_TCO_CSO_ZR | TO | TO | S 53 |
+| connm n1200 | TO | S 3,256 | TO |
+| pcmax m15 | S 4,872 | S 4,825 | S 182 |
+| SDP_126_17 | TO | S 1,419 | S 2,875 |
+| SDP_140_19 | TO | TO | S 1,119 |
+| bp4_TCO_CSO_IXA_LP_ZR | TO | S 2,054 | S 960 |
+| Circuit_multiplier36 | TO | S 3,662 | S 4,527 |
+| as-p51-l19-o8 | TO | S 1,011 | S 1,895 |
+| pcmax m12 | TO | TO | S 3,123 |
+| **Rows gained since no-MAB (plus the second totalizer corner)** | | | |
+| ramsey_4_4_18 / 19 | U 0 / U 0 | U 0 / U 0 | U 0 / U 0 |
+| lightsout totalizer corner 23 / 24 | U 1 / U 1 | U 1 / U 1 | U 1 / U 1 |
+| abw-K-dwt__234 | S 22 | S 22 | S 23 |
+| noL-11-10 | S 41 | S 41 | S 41 |
+| mp1-Nb7T42 | S 57 | S 61 | S 59 |
+| SC25_Timetable E_48 / E_50 | S 2,883 / S 2,363 | S 2,725 / S 2,293 | S 2,987 / S 2,427 |
+| FmlaImplyChain_3_7_8 | U 3,366* | U 3,198* | U 3,384* |
+| lightsout direct corner | U 3,378 | TO | TO |
+| pcmax m37 | S 3,422 | TO | S 2,409 |
+| SDP_132_18 | S 4,428 | S 1,116 | TO |
+| toughsat_factoring_inf | S 931 | S 1,720 | TO |
+| **Solved (checked)** | **14 (13)** | **18 (17)** | **21 (20)** |
+
+\* In all three arms the checker was killed for running out of memory (exit 137 at 32 GiB), the same
+check memout that Tier D recorded. No arm returned a wrong verdict or an invalid model.
+
+**What the A/B shows.**
+- On the 12 rows `efdced45a` perturbed: the fix arm recovers 7 of 12 (main solves 1). The
+  no-strengthening arm recovers 11 of 12, including par32-4, Break_18_32, bp4_TCO_CSO_ZR, SDP_140_19 and
+  pcmax m12, which the fix arm still loses.
+- On the gained rows: the fix arm keeps 12 of 14 (it loses the lightsout direct corner and pcmax m37); the
+  no-strengthening arm keeps 11 (it loses the direct corner, SDP_132_18 and toughsat).
+- The difference between fix and nostr on these rows is the faithfully ported strengthening step itself.
+  Whether that step, ported faithfully, helps here is a separate question from fidelity. The gates and
+  Tier D on both pins are the authority.
