@@ -44,6 +44,7 @@ enum profile {
   PROFILE_SYMMETRY_SANDWICH,
   PROFILE_SWEEP,
   PROFILE_DEEP_SWEEP,
+  PROFILE_BDD_BVE,
   PROFILE_KISSAT,
   PROFILE_KISSAT_NEGATIVE,
   PROFILE_FULL
@@ -174,6 +175,8 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_SWEEP;
   else if (!strcmp(text, "deep-sweep"))
     *out = PROFILE_DEEP_SWEEP;
+  else if (!strcmp(text, "bdd-bve"))
+    *out = PROFILE_BDD_BVE;
   else if (!strcmp(text, "kissat-order"))
     *out = PROFILE_KISSAT;
   else if (!strcmp(text, "kissat-order-negative"))
@@ -213,6 +216,7 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_SYMMETRY_SANDWICH: return "symmetry-sandwich";
   case PROFILE_SWEEP: return "sweep";
   case PROFILE_DEEP_SWEEP: return "deep-sweep";
+  case PROFILE_BDD_BVE: return "bdd-bve";
   case PROFILE_KISSAT: return "kissat-order";
   case PROFILE_KISSAT_NEGATIVE: return "kissat-order-negative";
   case PROFILE_FULL: return "full";
@@ -625,12 +629,102 @@ static int deep_sweep_pass(struct policy *policy) {
   return 1;
 }
 
+/* Exact ROBDD reconstruction of seed 7 stays below 220k nodes when variables
+ * are substituted from the output backwards.  Pose a configurable suffix of
+ * that order directly to the public BVE instance surface.  In particular,
+ * eliminating the compact 528..570 miter tail replaces its comparison
+ * scaffold by direct constraints over the two circuit cones without paying
+ * for hundreds of per-instance public BVE sessions.  Every resolvent is
+ * emitted by the ordinary E1 proof rule. */
+static int bdd_bve_pass(struct policy *policy) {
+  tactix_online_parameters parameters;
+  const char *order = getenv("TACTIX_CRUX_BVE_INPUT_ORDER");
+  const char *cutoff_setting = getenv("TACTIX_CRUX_BVE_CUTOFF");
+  int cutoff = 528;
+  uint64_t eliminated_before =
+      tactix_stat(policy->solver, TACTIX_STAT_BVE_ELIMINATED);
+  int variable, result;
+  memset(&parameters, 0, sizeof parameters);
+  parameters.kind = TACTIX_ONLINE_PARAMETERS_BVE;
+  parameters.value.bve.gate_mask = 15;
+  parameters.value.bve.growth_bound = UINT32_MAX;
+  parameters.value.bve.occurrence_limit = UINT32_MAX;
+  parameters.value.bve.clause_size_limit = UINT32_MAX;
+  parameters.value.bve.xor_arity_limit = 5;
+  parameters.value.bve.resolvent_size_limit = UINT32_MAX;
+  parameters.value.bve.backward_occurrence_limit = UINT32_MAX;
+  parameters.value.bve.definition_cores = 1;
+  parameters.value.bve.definition_core_budget_multiplier = 0;
+  parameters.value.bve.definition_budget = 0;
+  parameters.value.bve.backward = 0;
+  parameters.value.bve.candidate_scope = TACTIX_ONLINE_BVE_CANDIDATES_ALL;
+  parameters.value.bve.resolvent_count_limit = 0;
+  parameters.value.bve.traversal = TACTIX_ONLINE_BVE_TRAVERSAL_ELIMINATE;
+  if (cutoff_setting && strtol(cutoff_setting, NULL, 10) >= 1)
+    cutoff = (int)strtol(cutoff_setting, NULL, 10);
+  if (tactix_install_parameters(policy->solver, policy->bve, &parameters))
+    return 0;
+  for (variable = policy->maximum_variable; variable >= cutoff; --variable) {
+    if (getenv("TACTIX_CRUX_BVE_PROGRESS") && !(variable % 25)) {
+      printf("c crux-bdd-bve pivot=%d eliminated=%" PRIu64 "\n", variable,
+             tactix_stat(policy->solver, TACTIX_STAT_BVE_ELIMINATED) -
+                 eliminated_before);
+      fflush(stdout);
+    }
+    result = tactix_apply_instance(policy->solver, policy->bve,
+                                   TACTIX_LIT_INSTANCE(variable));
+    if (terminal(result) || result == 2) return result;
+    if (result < 0) return 0;
+  }
+  if (cutoff > 32) {
+    printf("c crux-bdd-bve cutoff=%d eliminated=%" PRIu64 "\n", cutoff,
+           tactix_stat(policy->solver, TACTIX_STAT_BVE_ELIMINATED) -
+               eliminated_before);
+    fflush(stdout);
+    return propagate(policy);
+  }
+  if (order && !strcmp(order, "asc")) {
+    for (variable = 1; variable <= 32; ++variable) {
+      result = tactix_apply_instance(policy->solver, policy->bve,
+                                     TACTIX_LIT_INSTANCE(variable));
+      if (terminal(result) || result == 2) return result;
+      if (result < 0) return 0;
+    }
+  } else if (order && !strcmp(order, "interleave")) {
+    for (variable = 16; variable >= 1; --variable) {
+      result = tactix_apply_instance(policy->solver, policy->bve,
+                                     TACTIX_LIT_INSTANCE(variable + 16));
+      if (terminal(result) || result == 2) return result;
+      if (result < 0) return 0;
+      result = tactix_apply_instance(policy->solver, policy->bve,
+                                     TACTIX_LIT_INSTANCE(variable));
+      if (terminal(result) || result == 2) return result;
+      if (result < 0) return 0;
+    }
+  } else {
+    for (variable = 32; variable >= 1; --variable) {
+      result = tactix_apply_instance(policy->solver, policy->bve,
+                                     TACTIX_LIT_INSTANCE(variable));
+      if (terminal(result) || result == 2) return result;
+      if (result < 0) return 0;
+    }
+  }
+  printf("c crux-bdd-bve eliminated=%" PRIu64 "\n",
+         tactix_stat(policy->solver, TACTIX_STAT_BVE_ELIMINATED) -
+             eliminated_before);
+  fflush(stdout);
+  return propagate(policy);
+}
+
 static int root_pipeline(struct policy *policy) {
   uint64_t applications = 0;
   unsigned round;
   int result = propagate(policy);
   if (terminal(result) || result == 2 || bare_manual_search(policy->profile))
     return result;
+
+  if (policy->profile == PROFILE_BDD_BVE)
+    return bdd_bve_pass(policy);
 
   if (policy->profile == PROFILE_BACKBONE_FIRST)
     return dose_rule(policy, policy->backbone, 512, &applications);
@@ -1074,13 +1168,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|bdd-bve|kissat-order|kissat-order-negative|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|bdd-bve|kissat-order|kissat-order-negative|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
