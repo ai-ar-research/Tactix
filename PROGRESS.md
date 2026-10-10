@@ -37,88 +37,35 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Next action
 
-0. **Candidate c2.3 = `555ecb4b0`** (branch `candidate-c2.3`, Release `ae4a26e4…`) is c2.2
-   ([record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md); full Debug 353/353) plus the
-   cleanup: graph labeling on by default, trimmed statistics, DefaultPolicy structural Walk seeding
-   and the X17 census tool removed. It is byte-identical to c2.2 on 9 identity rows
-   (`benchmarks/probes/scratch/cleanup-20261009/`). Persistent affine search stays (plan §9.5
-   Persistent XOR), reworked in c2.4 by user decision (natural full restarts only).
-   lec_mult 64 GiB rechecks: every solved arm verified (569 off/on/c2.3; 1004 on, and off in a
-   7,200 s re-solve).
-1. Full Tier D on c2.3 is running (`benchmarks/runs/20261009-tierd-c2.3`, job 1761609; cpu-q,
-   4 CPUs, 32 GB, 5,000 s solve, 8 h check, `%125`, certificates on the home quota). When it
-   finishes: `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts
-   at 64 GB.
-2. Close the DefaultPolicy public-API gap following the
-   [eight-step plan](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md). Steps 0–1
-   are committed and byte-identical to c2.3 on 12 identity rows, with full Debug 355/355
-   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-steps-0-1/README.md)): route
-   ratchet `tests/test_default_action_map.cpp` (internal entries 24 → 14), report-only public
-   replay, and macro actions through registry dispatch. Step 2 is committed
-   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step2/README.md)): public and
-   controller H publication go through the shared executor, with the additive
-   `tactix_set_guidance_publication` (v1 default DISCARD). DefaultPolicy and the controller are
-   byte-identical to c2.3, and full Debug passes 356/356. Step 3 is committed
-   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step3/README.md)): additive
-   `tactix_install_parameters`/`tactix_install_material_settings`, and DefaultPolicy's
-   classification, tier-pose, BVE-bound and Factor-composite writes become typed installs
-   (ratchet internal entries 14 → 12; DefaultPolicy and controller byte-identical to c2.3; full
-   Debug 356/356). Step 4a is committed
-   ([record](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-step4/README.md)): additive
-   `tactix_support` exposes every support transaction DefaultPolicy composes except the
-   inprocessing phase bracket, the per-solve resets and execution contexts become recorded supports,
-   and the public replay runs the structured-root online steps through `tactix_online_*` with H equal
-   after all 198 of them (the default-profile streams replay to the end). DefaultPolicy and the
-   controller are byte-identical to c2.3 (12 identity rows) and full Debug passes 357/357. Steps 1–4a
-   are gated as part of c2.4. Step 4b is committed, not pushed
-   ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step4b/README.md)): the shared
-   inprocessing phase bracket (entry, occurrence session, exit) is public through `tactix_support`
-   and recorded by DefaultPolicy, so every search profile replays publicly to its first
-   `ConflictAnalysis` with H equal; DefaultPolicy and the controller are byte-identical to c2.4
-   (12 identity rows) and full Debug passes 358/358. Step 6 is committed, not pushed
-   ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step6/README.md)): the native
-   ConflictAnalysis request carries its bump payload, target mode and retier schedule by value,
-   the additive semantic instance `TACTIX_ANALYZE_TARGET_CHRONO` and `tactix_install_retier_schedule`
-   express it publicly, and the OTFS retier hook is gone; the replay runs 330 analyses through the
-   public instance (2,999 of 6,357 records, from 1,154). DefaultPolicy and the controller are
-   byte-identical to c2.4 (12 identity rows on the validation tree), user instructions within
-   −0.11%…−0.06% of c2.4; on the final commit full Debug passes 359/359 and identity holds. A
-   follow-up makes DefaultPolicy read only the completed analysis (public statistic deltas, with
-   the additive `TACTIX_STAT_BACKJUMPS`), so the ratchet marks `conflict-analysis` public
-   (internal entries 10 → 9). Step 5 is committed, not
-   pushed ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step5/README.md)): every
-   inprocessing slot occurrence is a dispatched typed invocation (Substitute round batch, Vivify
-   band ledger, Strengthen forward closure, forward-round and BVE-reschedule supports, all public),
-   and the BVE score heap with its kernel hook lives in `BveInvocationSession` (ratchet internal
-   entries 15 → 10; only `slot-fastel-occurrence` remains of the slots). DefaultPolicy and the
-   controller are byte-identical to c2.4 (12 identity rows on `8ddd44960`); instructions −0.02% and
-   −0.05% on two BVE/Factor-heavy rows; full Debug 360/360 on `123cf44fb`. Step 7 is committed, not pushed
-   ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step7/README.md)): DefaultPolicy's
-   actions leave through one action port (`src/strategy/action_port.hpp`; production StaticPort
-   binds the registered functions, `.text`-identical to the unported build), and the twin test
-   `default_public_correspondence` runs DefaultPolicy over the static, public (`tactix.h` only) and
-   hardcoded ports on 19 fixtures with identical verdicts, certificates, models, counters and H
-   layout: 6,934 public requests, 0 fallbacks, `correspondence: COMPLETE`. Additive public forms:
-   affine profile/result/release, the fastel instance and prefix compaction, the retirement hold,
-   `COMPACT_VARIABLES` above the root, Substitute round-break reporting. The ratchet's internal set
-   is empty apart from declared diagnostics; the replay is a gate (5,462 of 6,366 records); the §8.4
-   overhead harness (`tools/bench/port_overhead.py`) measures +0.2% instructions on 66–67
-   Rank1–50/B28+C5 rows. On `d56c7f9bc` (Release `4ee060d8…`) DefaultPolicy is byte-identical to
-   c2.4 on 12 identity rows (three arms), full Debug passes 361/361 and
-   the overhead is −0.15% instructions aggregate on 67 rows (identical certificates). The
-   policy-side scopes around public requests are now port types that PublicPort establishes through
-   `tactix.h` only (additive `tactix_install_work_settings`/`tactix_read_work_settings`,
-   `tactix_install_tick_attribution`, in the new `src/api/api_work.cpp`); every existing production
-   object is byte-identical to the `4ee060d8…` build. On `50c619192` (Release `d540ef32…`) the 12
-   identity rows are ALL-IDENTICAL and full Debug passes 361/361. Next: the §8.4 four-set gates for
-   Steps 4b–7.
+0. **DefaultPolicy is a client of the public API** (plan §5.6/§8.4; [plan](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md),
+   [Step 7 record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step7/README.md)). Steps 0–7 are done:
+   DefaultPolicy's actions leave through one action port (`src/strategy/action_port.hpp`), and the
+   twin test `default_public_correspondence` runs it over the static, public (`tactix.h` only) and
+   hard-coded ports on 19 fixtures with identical verdicts, certificates, models, counters and H
+   layout (`correspondence: COMPLETE`, 7,248 public requests, 0 fallbacks). The route ratchet has 0
+   internal entries (51 public, 5 declared diagnostics/non-actions); the public replay is a gate.
+   Every step is byte-identical to c2.4 on 12 identity rows. Final code `50c619192` (Release
+   `d540ef32…`, every pre-existing object identical to the gated `4ee060d8…` build of `d56c7f9bc`):
+   full Debug 361/361; §8.4 overhead −0.15% instructions aggregate over 67 rows (oski15a08b00s +6.1%
+   alone); [§8.4 gates and fuzz](benchmarks/reports/2026-10-10-apigap-s7-gates/README.md) pass
+   (B28+C5 958.7 s, Rank1–50 8,431.7 s, WV100/WV2–89 with the accepted exceptions; 263 shared rows
+   identical to c2.4; five fuzz legs 0 failures; broad legs never reach graph-labeling slices).
+   Step records: [4b](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step4b/README.md),
+   [5](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step5/README.md),
+   [6](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step6/README.md).
+1. Full Tier D on the final code (`d540ef32…`): see Live work. When it finishes:
+   `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts at 64 GB.
+2. Tier D on c2.3 finished: 984 verified (473 SAT, 511 UNSAT), 169 unsolved, 7 proof-check timeouts,
+   6 proof-check memouts, rechecked at 64 GB in `benchmarks/runs/20261010-tierd-c2.3-recheck-64g`
+   (job 1763695).
 
 ## Live work
 
 | Work | Jobs | Status |
 |---|---|---|
-| Tactix Tier D (c2.3) | 1761609 | running |
-| Baseline reruns | (B) 1757933; (C) Satsuma 64 GB recheck 1763099 | running |
+| Tier D c2.3 64 GB memout recheck | 1763695 | running |
+| Tier D on the final code (`benchmarks/runs/20261010-tierd-apigap-final`; cpu-q, 4 CPUs, 32 GB, 5,000 s, 8 h check, `%125`) | 1764457 | running |
+| Baseline reruns | (B) 1757933; (C) Satsuma 64 GB recheck 1763099 | finished; aggregates pending review |
 | Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB); watches all of the above | running |
 
 ## Verification authorities
