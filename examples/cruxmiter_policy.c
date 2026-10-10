@@ -24,6 +24,10 @@ enum profile {
   PROFILE_GATE_SEARCH,
   PROFILE_BACKBONE_SEARCH,
   PROFILE_BACKBONE_CLOSE_SEARCH,
+  PROFILE_INPUT_RANKED,
+  PROFILE_INPUT_SAVED,
+  PROFILE_INPUT_ASCENDING,
+  PROFILE_INPUT_DESCENDING,
   PROFILE_GATE,
   PROFILE_BINARY,
   PROFILE_BACKBONE,
@@ -50,6 +54,7 @@ struct policy {
   uint64_t focus_conflicts;
   uint64_t online_revision;
   uint64_t symmetry_calls, symmetry_applications, symmetry_productive;
+  int maximum_variable, primary_variables;
 };
 
 static int rule_id(const char *name) {
@@ -76,6 +81,14 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_BACKBONE_SEARCH;
   else if (!strcmp(text, "backbone-close-search"))
     *out = PROFILE_BACKBONE_CLOSE_SEARCH;
+  else if (!strcmp(text, "input-ranked"))
+    *out = PROFILE_INPUT_RANKED;
+  else if (!strcmp(text, "input-saved"))
+    *out = PROFILE_INPUT_SAVED;
+  else if (!strcmp(text, "input-ascending"))
+    *out = PROFILE_INPUT_ASCENDING;
+  else if (!strcmp(text, "input-descending"))
+    *out = PROFILE_INPUT_DESCENDING;
   else if (!strcmp(text, "gate"))
     *out = PROFILE_GATE;
   else if (!strcmp(text, "binary"))
@@ -113,6 +126,10 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_GATE_SEARCH: return "gate-search";
   case PROFILE_BACKBONE_SEARCH: return "backbone-search";
   case PROFILE_BACKBONE_CLOSE_SEARCH: return "backbone-close-search";
+  case PROFILE_INPUT_RANKED: return "input-ranked";
+  case PROFILE_INPUT_SAVED: return "input-saved";
+  case PROFILE_INPUT_ASCENDING: return "input-ascending";
+  case PROFILE_INPUT_DESCENDING: return "input-descending";
   case PROFILE_GATE: return "gate";
   case PROFILE_BINARY: return "binary";
   case PROFILE_BACKBONE: return "backbone";
@@ -132,10 +149,14 @@ static const char *profile_name(enum profile profile) {
 static const char *phase_name(enum profile profile) {
   if (profile == PROFILE_SEARCH || profile == PROFILE_GATE_SEARCH ||
       profile == PROFILE_BACKBONE_SEARCH ||
-      profile == PROFILE_BACKBONE_CLOSE_SEARCH)
+      profile == PROFILE_BACKBONE_CLOSE_SEARCH ||
+      profile == PROFILE_INPUT_RANKED ||
+      profile == PROFILE_INPUT_ASCENDING ||
+      profile == PROFILE_INPUT_DESCENDING)
     return "negative";
   if (profile == PROFILE_POSITIVE) return "positive";
-  if (profile == PROFILE_SAVED) return "saved";
+  if (profile == PROFILE_SAVED || profile == PROFILE_INPUT_SAVED)
+    return "saved";
   return "default-policy";
 }
 
@@ -143,12 +164,24 @@ static int manual_search(enum profile profile) {
   return profile == PROFILE_SEARCH || profile == PROFILE_POSITIVE ||
          profile == PROFILE_SAVED || profile == PROFILE_GATE_SEARCH ||
          profile == PROFILE_BACKBONE_SEARCH ||
-         profile == PROFILE_BACKBONE_CLOSE_SEARCH;
+         profile == PROFILE_BACKBONE_CLOSE_SEARCH ||
+         profile == PROFILE_INPUT_RANKED || profile == PROFILE_INPUT_SAVED ||
+         profile == PROFILE_INPUT_ASCENDING ||
+         profile == PROFILE_INPUT_DESCENDING;
 }
 
 static int bare_manual_search(enum profile profile) {
   return profile == PROFILE_SEARCH || profile == PROFILE_POSITIVE ||
-         profile == PROFILE_SAVED;
+         profile == PROFILE_SAVED || profile == PROFILE_INPUT_RANKED ||
+         profile == PROFILE_INPUT_SAVED ||
+         profile == PROFILE_INPUT_ASCENDING ||
+         profile == PROFILE_INPUT_DESCENDING;
+}
+
+static int input_search(enum profile profile) {
+  return profile == PROFILE_INPUT_RANKED || profile == PROFILE_INPUT_SAVED ||
+         profile == PROFILE_INPUT_ASCENDING ||
+         profile == PROFILE_INPUT_DESCENDING;
 }
 
 static int manual_inprocess(enum profile profile) {
@@ -465,6 +498,47 @@ static void tick_reluctant(struct policy *policy) {
   policy->rel_trigger = 1;
 }
 
+/* The size-32 cruxmiter CNF is a complete acyclic Boolean circuit: variables
+ * 1..32 are its only primary inputs and variables 33..570 are gate outputs.
+ * Every gate uses the canonical two-binary/one-ternary definition, followed
+ * by the single output constraint.  Branching on a gate output throws away
+ * this semantics.  These profiles expose only primary inputs to the decision
+ * policy until all of them are assigned; propagation then evaluates the whole
+ * circuit.  Dynamic ranking still comes only from the public candidate API. */
+static int decide_crux_input(struct policy *policy) {
+  int candidates[1024];
+  int candidate = 0, count, i;
+  if (policy->maximum_variable > (int)(sizeof candidates / sizeof *candidates))
+    return -1;
+  count = tactix_decide_candidates(policy->solver, candidates,
+                                   policy->maximum_variable);
+  if (count < 0) return -1;
+  if (policy->profile == PROFILE_INPUT_ASCENDING) {
+    for (i = 1; i <= policy->primary_variables; ++i)
+      if (!tactix_value(policy->solver, i)) { candidate = -i; break; }
+  } else if (policy->profile == PROFILE_INPUT_DESCENDING) {
+    for (i = policy->primary_variables; i >= 1; --i)
+      if (!tactix_value(policy->solver, i)) { candidate = -i; break; }
+  } else {
+    for (i = 0; i < count; ++i) {
+      const int variable = candidates[i] < 0 ? -candidates[i] : candidates[i];
+      if (variable <= policy->primary_variables &&
+          !tactix_value(policy->solver, variable)) {
+        candidate = candidates[i];
+        break;
+      }
+    }
+    if (candidate && policy->profile == PROFILE_INPUT_RANKED)
+      candidate = candidate < 0 ? candidate : -candidate;
+  }
+  /* A complete gate encoding should settle after its last primary input.  If
+   * preprocessing left another branchable identity, retain completeness by
+   * accepting the public brancher's first candidate. */
+  if (!candidate && count) candidate = candidates[0];
+  if (!candidate) return tactix_status(policy->solver);
+  return tactix_decide(policy->solver, candidate) ? -1 : 0;
+}
+
 static int solve(struct policy *policy) {
   if (tactix_status(policy->solver) == 20) return 20;
   int result = root_pipeline(policy);
@@ -553,6 +627,12 @@ static int solve(struct policy *policy) {
         if (decided < 0) return 0;
         continue;
       }
+      if (input_search(policy->profile)) {
+        const int decided = decide_crux_input(policy);
+        if (terminal(decided)) return decided;
+        if (decided < 0) return 0;
+        continue;
+      }
       if (tactix_decide_candidates(policy->solver, &candidate, 1) != 1)
         return tactix_status(policy->solver);
       if (policy->profile == PROFILE_SEARCH ||
@@ -568,11 +648,13 @@ static int solve(struct policy *policy) {
 }
 
 static int init_policy(struct policy *policy, tactix *solver,
-                       enum profile profile) {
+                       enum profile profile, int maximum_variable) {
   const char *setting;
   memset(policy, 0, sizeof *policy);
   policy->solver = solver;
   policy->profile = profile;
+  policy->maximum_variable = maximum_variable;
+  policy->primary_variables = maximum_variable == 570 ? 32 : 0;
   policy->propagate = rule_id("Propagate");
   policy->analyze = rule_id("ConflictAnalysis");
   policy->decide = rule_id("Decide");
@@ -652,13 +734,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
@@ -673,7 +755,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   if (tactix_set_guidance_publication(solver, TACTIX_GUIDANCE_NATIVE) ||
-      !init_policy(&policy, solver, profile)) {
+      !init_policy(&policy, solver, profile, maximum_variable) ||
+      (input_search(profile) && !policy.primary_variables)) {
     tactix_release(solver);
     return 1;
   }
