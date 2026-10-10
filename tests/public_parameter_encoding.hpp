@@ -103,6 +103,33 @@ inline bool encode_one(const strategy::VivifyParameters &p, Encoded &e) {
   c.irredundant_sort_ratio = p.irredundant_sort_ratio;
   c.reuse = p.reuse;
   c.flush = p.flush;
+  c.band = p.band;
+  c.band_budget = p.band_budget;
+  c.band_offset = p.band_offset;
+  return true;
+}
+
+inline bool encode_one(const strategy::SweepParameters &p, Encoded &e) {
+  auto &c = e.parameters.value.sweep;
+  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SWEEP;
+  c = {p.max_depth, p.max_depth_ceiling, p.max_env_vars, p.max_env_vars_ceiling,
+       p.max_env_clauses, p.max_env_clauses_ceiling, p.max_candidates,
+       p.max_proof_steps, p.max_seeds, p.flip_rounds, p.env_ticks, p.round_ticks,
+       p.strip_false, p.measure_closure, p.full_partition, p.skip_embedded_fixed,
+       p.resume, p.force_general_proof};
+  return true;
+}
+
+inline bool encode_one(const strategy::SubsumeForwardParameters &p, Encoded &e) {
+  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSUME;
+  e.parameters.value.subsume = {p.clause_size_limit, p.large_occurrence_limit,
+                                p.binary_occurrence_limit};
+  return true;
+}
+
+inline bool encode_one(const strategy::StrengthenParameters &p, Encoded &e) {
+  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_STRENGTHEN;
+  e.parameters.value.strengthen = {p.clause_size_limit, p.occurrence_limit};
   return true;
 }
 
@@ -139,6 +166,8 @@ inline bool encode_one(const strategy::TransitiveReduceParameters &p, Encoded &e
 inline bool encode_one(const strategy::SubstituteParameters &p, Encoded &e) {
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTE;
   e.parameters.value.substitute.demote_substituted = p.demote_substituted;
+  e.parameters.value.substitute.max_rounds = p.max_rounds;
+  e.parameters.value.substitute.round_effort_ceiling = p.round_effort_ceiling;
   return true;
 }
 

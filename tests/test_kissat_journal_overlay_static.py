@@ -110,7 +110,7 @@ assert 'strcmp (event, "bve_schedule")' in eventtrace
 assert 'std::strcmp(event, "bve_schedule")' in tactix_trace
 assert 'kissat_event_trace_bve_schedule (solver, &solver->schedule);' in prepare
 assert 'event_trace_bve_schedule(k, stack_.data()' in (
-    root / "src/policies/default_policy.cpp").read_text()
+    root / "src/strategy/bve_schedule.hpp").read_text()
 assert 'insertion_hash=' in eventtrace and 'topology_hash=' in eventtrace
 assert 'score_xor=' in eventtrace and 'score_sum=' in eventtrace
 assert 'SAT_EVENT_TRACE_BVE_POP_FROM' in eventtrace

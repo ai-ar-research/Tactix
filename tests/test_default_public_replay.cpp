@@ -1,8 +1,8 @@
 // Public-API replay reporter (gap plan Step 0; report-only until step 7).
 // A reference DefaultPolicy stream on a C-API solver is replayed on a second
-// one through tactix.h only: registry instances, decisions, installs, supports
-// and the structured-root online steps (public_online_encoding.hpp; each must
-// convert back to the native request). The replay stops at the first record
+// one through tactix.h only: registry instances, decisions, installs, supports,
+// the structured-root online steps and the inprocessing slot invocations
+// (public_online_encoding.hpp; each must convert back to the native request). The replay stops at the first record
 // without a public request or at the first divergence; a census lists every
 // blocking entry. Per guidance-publication mode it reports the first H and
 // installed-profile divergences and H after each online step; each public
@@ -123,6 +123,14 @@ Profile profile(const Kernel &k) {
 size_t installed_family(const ActionFeedback &record) {
   if (record.identity == "InstallMaterialSettings") return MATERIAL_SETTINGS;
   return record.native_request->invocation->parameters.index();
+}
+
+// The first differing window of two serialized profiles.
+std::string first_difference(const std::string &expected, const std::string &actual) {
+  size_t at = 0;
+  while (at < expected.size() && at < actual.size() && expected[at] == actual[at]) ++at;
+  const size_t from = at > 40 ? at - 40 : 0;
+  return "expected ..." + expected.substr(from, 100) + " actual ..." + actual.substr(from, 100);
 }
 
 std::string profile_mismatch(const Profile &expected, const Profile &actual) {
@@ -288,7 +296,7 @@ struct GuidanceCapture final : FeedbackReceiver {
 
 struct Report {
   uint64_t records = 0, installed = 0, assumed = 0, replayed = 0;
-  uint64_t supports = 0, online_steps = 0, online_h_equal = 0;
+  uint64_t supports = 0, online_steps = 0, online_h_equal = 0, slot_steps = 0;
   // Online steps that made rule progress, and that grew the root trail.
   uint64_t online_progress = 0, online_roots = 0;
   std::string first_online_h_divergence = "none";
@@ -388,7 +396,9 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
       const std::string_view text = description(record);
       const std::string key = std::string(text.substr(0, text.find(';'))) + ";step=" +
                               std::to_string(invocation.id);
-      if (key != online_key || tactix_online_complete(s) == 1) {
+      // A slot occurrence is one online invocation of its own.
+      const bool slot = starts(entry->id, "slot-");
+      if (slot || key != online_key || tactix_online_complete(s) == 1) {
         public_encoding::EncodedStep encoded;
         if (!public_encoding::encode_step(observed, invocation, rule_id(invocation.rule),
                                           encoded)) {
@@ -432,6 +442,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
         break;
       }
       ++report.online_steps;
+      report.slot_steps += slot;
       report.online_progress += expected_invocation.made_rule_progress;
       report.online_roots += record.after.root_population > record.before.root_population;
       ++report.replayed;
@@ -450,8 +461,22 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
         break;
       }
       const size_t family = installed_family(record);
-      if (!lookahead && profile(observed)[family] != reference.profile_after[i][family])
-        report.install_mismatches.push_back(where);
+      // The reference observes state when the record is delivered, which a
+      // native publication scope (a whole inprocessing phase) defers; the
+      // record's own typed profile is what the install must reproduce.
+      std::string expected = reference.profile_after[i][family];
+      if (family != MATERIAL_SETTINGS) {
+        const auto &invocation = *record.native_request->invocation;
+        Profile own(MATERIAL_SETTINGS + 1);
+        std::visit([&](const auto &p) {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(p)>, std::monostate>)
+            image(own, invocation.rule.c_str(), p);
+        }, invocation.parameters);
+        expected = own[family];
+      }
+      if (!lookahead && profile(observed)[family] != expected)
+        report.install_mismatches.push_back(where + ": " +
+            first_difference(expected, profile(observed)[family]));
       ++report.installed;
       ++report.replayed;
       continue;
@@ -546,6 +571,7 @@ int main() {
   std::map<std::string, uint64_t> blockers, lookahead_stops;
   uint64_t replayed = 0, installed = 0, records_total = 0;
   uint64_t lookahead_replayed = 0, lookahead_assumed = 0;
+  uint64_t slot_steps = 0, lookahead_slot_steps = 0;
   std::vector<std::string> install_mismatches;
   std::map<int, uint64_t> guidance_matches;
   uint64_t guidance_compared = 0, candidates_compared = 0;
@@ -617,6 +643,8 @@ int main() {
     records_total += report.records;
     lookahead_replayed += ahead.replayed;
     lookahead_assumed += ahead.assumed;
+    slot_steps += report.slot_steps;
+    lookahead_slot_steps += ahead.slot_steps;
     if (ahead.stop != "end-of-stream")
       ++lookahead_stops[ahead.stop.substr(ahead.stop.find(' ') + 1)];
     std::cout << "fixture=" << fixture.name << " records=" << report.records
@@ -628,10 +656,12 @@ int main() {
   std::cout << "replayed " << replayed << " of " << records_total << " records ("
             << installed << " permanent installs, " << supports << " supports, "
             << online_steps[TACTIX_GUIDANCE_DISCARD]
-            << " online steps); blocking entries over all streams:";
+            << " online steps, of which " << slot_steps
+            << " inprocessing slots); blocking entries over all streams:";
   for (const auto &[id, count] : blockers) std::cout << ' ' << id << '=' << count;
   std::cout << "\nlookahead (support transactions assumed): replayed "
-            << lookahead_replayed << ", assumed " << lookahead_assumed << "; stops:";
+            << lookahead_replayed << " (" << lookahead_slot_steps
+            << " inprocessing slots), assumed " << lookahead_assumed << "; stops:";
   for (const auto &[where, count] : lookahead_stops) std::cout << " [" << where << "]=" << count;
   for (const auto &where : install_mismatches)
     std::cout << "\ninstalled profile differs from the reference: " << where;
@@ -661,6 +691,7 @@ int main() {
   // have observed nonempty guidance, every public install must reproduce the
   // reference's installed profile, and every encoded online step must convert
   // back to exactly the native request.
+  std::cout.flush();
   assert(replayed > 0 && installed > 0 && candidates_compared > 0);
   assert(supports > 0 && online_steps[TACTIX_GUIDANCE_DISCARD] > 0);
   assert(install_mismatches.empty() && round_trips.empty());

@@ -42,6 +42,7 @@
 #include "strategy/reduction_execution.hpp"
 #include "strategy/representation_execution.hpp"
 #include "strategy/root_execution.hpp"
+#include "strategy/slot_execution.hpp"
 #include "strategy/work_execution.hpp"
 #include "policies/rule_publication.hpp"
 
@@ -209,6 +210,9 @@ bool online_post_application(int value, strategy::PostApplication &out) {
     return true;
   case TACTIX_ONLINE_POST_PROPAGATE:
     out = strategy::PostApplication::Propagate;
+    return true;
+  case TACTIX_ONLINE_POST_FORWARD_CLOSURE:
+    out = strategy::PostApplication::ForwardClosure;
     return true;
   default:
     return false;
@@ -903,7 +907,7 @@ bool online_parameters(const tactix_online_parameters &source,
       return false;
     target = strategy::VivifyParameters{
         static_cast<uint8_t>(p.scope), p.reuse != 0, p.flush != 0,
-        p.irredundant_sort_ratio};
+        p.irredundant_sort_ratio, p.band != 0, p.band_budget, p.band_offset};
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_ANALYZE: {
@@ -941,7 +945,9 @@ bool online_parameters(const tactix_online_parameters &source,
   }
   case TACTIX_ONLINE_PARAMETERS_SUBSTITUTE:
     target = strategy::SubstituteParameters{
-        source.value.substitute.demote_substituted != 0};
+        source.value.substitute.demote_substituted != 0,
+        source.value.substitute.max_rounds,
+        source.value.substitute.round_effort_ceiling != 0};
     return true;
   case TACTIX_ONLINE_PARAMETERS_REDUCE: {
     const tactix_online_reduce_parameters &source_reduce =
@@ -3668,6 +3674,16 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     s->contexts.emplace_back(context, execution::enter_execution_context(k, context));
     return 0; // a context changes no solver state a client observes
   }
+  case TACTIX_SUPPORT_BEGIN_FORWARD_ROUND:
+    if (argument)
+      return -1;
+    result = execution::execute_action(k, execution::BeginForwardRoundRequest{}) ? 0 : 1;
+    break;
+  case TACTIX_SUPPORT_RESCHEDULE_BVE:
+    if (argument)
+      return -1;
+    result = execution::execute_action(k, execution::RescheduleBveCandidatesRequest{}) ? 0 : 1;
+    break;
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
     if (argument || s->contexts.empty() ||
         (s->phase.open() && s->contexts.size() <= s->phase_contexts))

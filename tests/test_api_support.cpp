@@ -237,7 +237,7 @@ void test_rejections() {
   const auto trail = k.trail;
   const uint64_t epoch = k.strategy_epoch;
   assert(tactix_support(nullptr, TACTIX_SUPPORT_SPARSE_COLLECT, 0) == -1);
-  for (int unknown : {-1, 0, 21})
+  for (int unknown : {-1, 0, 23})
     assert(tactix_support(s, unknown, 0) == -1);
   assert(tactix_support(s, TACTIX_SUPPORT_ROOT_PREPARATION, 8) == -1);
   assert(tactix_support(s, TACTIX_SUPPORT_COMPACT_VARIABLES, 4) == -1);

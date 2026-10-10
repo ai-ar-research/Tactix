@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rules/substitute/substitute.hpp"
+#include "strategy/rule_parameters.hpp"
 
 namespace tactix::execution {
 
@@ -72,6 +73,46 @@ SubstituteBatchResult execute_action(Kernel &k,
     if (closure == ApplyResult::Unsat)
       out.result = closure;
   }
+  return out;
+}
+
+// A typed Substitute application (SubstituteParameters::max_rounds > 0):
+// the round batch, its continuation and its per-round effort ceiling are the
+// invocation's, in Substitute's own currency (stats.substitute_ticks) against
+// the application's rule work budget. The publisher consumes each round's
+// roots and retirements before the next round or the final reconnection.
+struct SubstituteRoundsResult {
+  ApplyResult result = ApplyResult::NoOp;
+  uint32_t rounds = 0;
+  uint64_t last_round_effort = 0;
+  bool round_budget_break = false;
+};
+
+template <class Publisher>
+SubstituteRoundsResult execute_substitute_rounds(
+    Kernel &k, const strategy::SubstituteParameters &parameters,
+    Publisher &&publish) {
+  struct RoundSnapshot {
+    uint64_t active;
+    uint64_t effort;
+  };
+  SubstituteRoundsResult out;
+  const uint64_t ceiling = k.work_budget;
+  out.result = execute_action(
+      k, SubstituteBatchRequest{parameters.max_rounds},
+      [&] { return RoundSnapshot{kernel_active_variables(k), k.stats.substitute_ticks}; },
+      [&](size_t trail_begin) { publish(trail_begin); },
+      [&](const RoundSnapshot &before, ApplyResult current) {
+        out.last_round_effort = k.stats.substitute_ticks - before.effort;
+        ++out.rounds;
+        if (current == ApplyResult::Unsat) return false;
+        if (kernel_active_variables(k) >= before.active) return false;
+        if (parameters.round_effort_ceiling && out.last_round_effort > ceiling) {
+          out.round_budget_break = true;
+          return false;
+        }
+        return true;
+      }).result;
   return out;
 }
 

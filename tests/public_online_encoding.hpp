@@ -93,6 +93,8 @@ inline bool encode_step(const Kernel &k, const strategy::OnlineInvocation &in,
   c.budget = in.budget.is_unlimited() ? 0 : in.budget.amount();
   c.post_application = in.post_application == PostApplication::Propagate
                            ? TACTIX_ONLINE_POST_PROPAGATE
+                       : in.post_application == PostApplication::ForwardClosure
+                           ? TACTIX_ONLINE_POST_FORWARD_CLOSURE
                            : TACTIX_ONLINE_POST_NONE;
   // SR payloads keep internal literals; C names them by external identity.
   for (const auto &instance : in.substitution_redundancy_instances) {

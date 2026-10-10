@@ -52,8 +52,7 @@ ROOT_EXECUTION = "src/strategy/root_execution.hpp"
 EXECUTION_SCOPE = "src/strategy/execution_scope.hpp"
 POLICY_ADAPTERS["inprocessing"] = [ROOT_EXECUTION, EXECUTION_SCOPE]
 VIVIFY_EXECUTION = "src/strategy/vivify_execution.hpp"
-VIVIFY_BAND = (r"execution::VivifyBandRequest\{\s*band_scope,\s*cumulative,\s*"
-               r"spent,\s*e\.tick_counter,\s*e\.meter\}")
+VIVIFY_BAND = r"execution::VivifyBandRequest\{\s*band,\s*e\.tick_counter,\s*e\.meter\}"
 WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
                   r"reference, config_\.rephase\.walk_permille\)")
 WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, 0\}"
@@ -94,8 +93,9 @@ POLICY_BINDINGS = {
     "work_budget_offset": [
         (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),
         (POLICY[0], VIVIFY_BAND),
-        (VIVIFY_EXECUTION, r"WorkSettingsRequest\{request\.cumulative_budget,\s*"
-                          r"request\.spent_offset"),
+        (POLICY[0], r"band\.band_offset = spent;"),
+        (VIVIFY_EXECUTION, r"WorkSettingsRequest\{request\.band\.band_budget,\s*"
+                          r"request\.band\.band_offset"),
         (WORK_EXECUTION, r"k\.work_budget_offset\s*=\s*\*request\.offset"),
     ],
     "work_budget_bounded": [

@@ -65,6 +65,10 @@ uint64_t repeat_round_limit(const Kernel &, const RepeatSpec &);
 enum class PostApplication : uint8_t {
   None,
   Propagate,
+  // Strengthen only: reconnect the watches the pass disconnected and close
+  // root propagation over the trail suffix from the application's entry
+  // propagation head, before the next action observes the formula.
+  ForwardClosure,
 };
 
 struct OnlineInvocation {

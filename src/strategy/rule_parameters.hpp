@@ -44,7 +44,14 @@ struct TransitiveReduceParameters {
 
 struct SubstituteParameters {
   bool demote_substituted = false;
-  constexpr bool valid() const { return true; }
+  // Round batch inside one watch session (0: one canonical round). A further
+  // round runs only after a round that retired a variable; with
+  // `round_effort_ceiling`, also only while that round's own Substitute effort
+  // stayed within the application's rule work budget (substitute.c rounds).
+  // Per application only: installs and from_kernel leave both at zero.
+  uint32_t max_rounds = 0;
+  bool round_effort_ceiling = false;
+  constexpr bool valid() const { return max_rounds || !round_effort_ceiling; }
   static SubstituteParameters from_kernel(const Kernel &);
 };
 

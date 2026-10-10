@@ -1040,12 +1040,18 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     if (v.size() == 18 && !boolean(v[17], p.force_general_proof))
       return false;
     parameters = p;
-  } else if (tuple(text, "vivify", v) && v.size() == 4) {
+  } else if (tuple(text, "vivify", v) && (v.size() == 4 || v.size() == 7)) {
     VivifyParameters p;
     if (v[0] > UINT8_MAX) return false;
     p.scope = static_cast<uint8_t>(v[0]);
     if (!boolean(v[1], p.reuse) || !boolean(v[2], p.flush)) return false;
-    U32_AT(3, p.irredundant_sort_ratio); parameters = p;
+    U32_AT(3, p.irredundant_sort_ratio);
+    if (v.size() == 7) {
+      if (!boolean(v[4], p.band)) return false;
+      p.band_budget = v[5];
+      p.band_offset = v[6];
+    }
+    parameters = p;
   } else if (tuple(text, "bce", v) && v.size() == 1) {
     BceParameters p; U32_AT(0, p.occurrence_limit); parameters = p;
   } else if (tuple(text, "ternary", v) && v.size() == 2) {
@@ -1062,9 +1068,13 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     if (!boolean(v[0], p.early_exit) || !boolean(v[1], p.live_meter) ||
         !boolean(v[2], p.checked_budget_meter)) return false;
     parameters = p;
-  } else if (tuple(text, "substitute", v) && v.size() == 1) {
+  } else if (tuple(text, "substitute", v) && (v.size() == 1 || v.size() == 3)) {
     SubstituteParameters p;
     if (!boolean(v[0], p.demote_substituted)) return false;
+    if (v.size() == 3) {
+      U32_AT(1, p.max_rounds);
+      if (!boolean(v[2], p.round_effort_ceiling)) return false;
+    }
     parameters = p;
   } else if (tuple(text, "reduce", v) &&
              (v.size() == 2 || v.size() == 6 || v.size() == 7)) {
@@ -2606,8 +2616,15 @@ std::string serialize_online_strategy_program(
           << p->resume << ',' << p->force_general_proof << ')';
     else if (const auto *p =
                  std::get_if<VivifyParameters>(&step.parameters))
+    {
       out << ":vivify(" << unsigned(p->scope) << ',' << p->reuse << ','
-          << p->flush << ',' << p->irredundant_sort_ratio << ')';
+          << p->flush << ',' << p->irredundant_sort_ratio;
+      // The band ledger is appended only when set, so band-free programs keep
+      // their established serialization.
+      if (p->band || p->band_budget || p->band_offset)
+        out << ',' << p->band << ',' << p->band_budget << ',' << p->band_offset;
+      out << ')';
+    }
     else if (const auto *p = std::get_if<BceParameters>(&step.parameters))
       out << ":bce(" << p->occurrence_limit << ')';
     else if (const auto *p =
@@ -2625,7 +2642,12 @@ std::string serialize_online_strategy_program(
           << p->checked_budget_meter << ')';
     else if (const auto *p =
                  std::get_if<SubstituteParameters>(&step.parameters))
-      out << ":substitute(" << p->demote_substituted << ')';
+    {
+      out << ":substitute(" << p->demote_substituted;
+      if (p->max_rounds || p->round_effort_ceiling)
+        out << ',' << p->max_rounds << ',' << p->round_effort_ceiling;
+      out << ')';
+    }
     else if (const auto *p =
                  std::get_if<ReduceParameters>(&step.parameters))
       out << ":reduce(" << p->tier1 << ',' << p->tier2 << ','

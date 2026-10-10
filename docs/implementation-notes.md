@@ -395,21 +395,33 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
 - Public dispatch, online steps, the controller's search services and trace replay publish rule events to H through
   `execution::execute_action(RuleApplicationRequest, publisher)` with a declared profile. Public dispatch defaults to the v1
   DISCARD profile, which drops the events; `tactix_set_guidance_publication(NATIVE)` applies DefaultPolicy's dosed-candidate
-  profile (`tests/test_api_guidance_publication.c`). DefaultPolicy's per-slot publication (Substitute rounds, Factor advice,
-  forward closure) still calls the publisher's consumers directly until gap-plan step 5.
+  profile (`tests/test_api_guidance_publication.c`). DefaultPolicy's per-slot publication (each Substitute round, Factor advice,
+  the forward closure's roots, Sweep's retirement hold until its follow-up Substitute) still calls the publisher's consumers
+  directly; the public executor publishes once per application, so these differ in `H` only.
 - DefaultPolicy's boundary kernel-field writes of rule profiles are permanent typed installs (`InstallRuleParameters`):
   formula classification installs ConflictAnalysis `jump_reasons_bigbig`; Reduce/Vivify tier poses install ReduceParameters
   tiers (the shared boundaries Reduce, Vivify bands and the likely-kept filter read); each BVE pass installs its growth bound;
   a Factor dose installs composite matching and the dose's end clears it. Clients issue them through
-  `tactix_install_parameters`/`tactix_install_material_settings`. Rule-state resets are not profiles and stay native: the
-  BVE retry refill (gap-plan step 5, BVE ordering profile) and the per-round SubsumeForward/Strengthen completeness reset (step 5,
-  slot invocations). The OTFS retier pose belongs to ConflictAnalysis's retier schedule (§4, §9).
+  `tactix_install_parameters`/`tactix_install_material_settings`. Rule-state resets are not profiles: the BVE retry refill after
+  a growth-bound increase and the per-round SubsumeForward/Strengthen completeness reset are recorded supports
+  (`RescheduleBveCandidates`, `BeginForwardRound`; `TACTIX_SUPPORT_RESCHEDULE_BVE`/`BEGIN_FORWARD_ROUND`). The OTFS retier pose
+  belongs to ConflictAnalysis's retier schedule (§4, §9).
+- DefaultPolicy's inprocessing slots run typed online invocations of the registered rule (gap-plan step 5): registry dispatch
+  under the slot's scoped parameters with the ledger remainder as rule work budget; Sweep under its SweepParameters;
+  Substitute under `SubstituteParameters{max_rounds, round_effort_ceiling}` (rounds continue after a round that retired a
+  variable, and with the ceiling only while that round's `substitute_ticks` stayed within the rule budget); each Vivify band
+  under `VivifyParameters{scope, band, band_budget, band_offset}`; an Eliminate-pipeline Strengthen with
+  `PostApplication::ForwardClosure`. `BveInvocationSession` owns the Kissat score-heap ordering profile, its occurrence-count
+  image and the kernel score hook for the pass, and the connected unit flush after a candidate's propagation. Deviations: the
+  startup fast-elimination occurrence flush (SC2024 fastel) still drives SubsumeForward through a policy traversal; the
+  score-heap ordering is not selectable for a public BVE pass (the online executor orders a CompleteCurrentPass by its
+  selection snapshot); DefaultFactorMatch is installed at phase entry (step 4b's bracket) rather than posed as a Factor
+  parameter profile.
 - DefaultPolicy's support transactions run shared requests that `tactix_support` exposes
   ([controller interface](controller-interface.md)); the per-solve graph-labeling reset, input-binary-order release and root-prefix
   consumption, the presearch and structured-root execution contexts, and the inprocessing phase bracket (shared
   `execution::InprocessPhase`: entry, occurrence session, exit) are recorded supports. Deviations: a phase entry with an
-  injected FactorMatchPolicy (diagnostic arm) has no public form until the step-5 Factor selection profile; the Strengthen
-  forward closure until step 5; a warm-up picked by a caller-installed branching policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
+  injected FactorMatchPolicy (a declared, excluded diagnostic arm) has no public form; a warm-up picked by a caller-installed branching policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
   `complete_profile_mode` is enabled.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime

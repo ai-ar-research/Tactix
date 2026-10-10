@@ -610,12 +610,27 @@ structured-root `Enter/LeaveExecutionContext` records; a context left
 implicitly after the session has ended is unrecorded. `MaterializeColdState`
 (predicate-equivalent initial state, never deferred in a C session) and
 `AttachHeuristics` (a C session owns H from `tactix_init`) are declared
-non-actions. A phase entry with an injected Factor matcher, the Strengthen
-forward closure and a warm-up picked by a caller-installed branching policy
-have no public form yet. An SR
+non-actions. A phase entry with an injected Factor matcher (a declared,
+excluded diagnostic arm) and a warm-up picked by a caller-installed branching
+policy have no public form yet. An SR
 online profile with `complete_profile_mode` ENABLE converts every orbitopal,
 general and graph field whatever the producer, so a GraphSymmetry step's
 structured-generator handoff carries its orbitopal settings.
+
+DefaultPolicy's inprocessing slot occurrences are typed online invocations a
+client can issue: each slot rule as an online step under the slot's parameters
+with the ledger remainder as `rule_budget`; Substitute with
+`max_rounds`/`round_effort_ceiling` (a round batch in one watch session whose
+optional rounds follow a round that retired a variable and, with the ceiling,
+stayed within the rule budget); a Vivify band with `band`/`band_budget`/
+`band_offset` (one share of a cumulative dose ledger); Strengthen with
+`TACTIX_ONLINE_POST_FORWARD_CLOSURE` (watch reconnection and root propagation
+from the application's entry propagation head). The forward-round completeness
+reset and the BVE reschedule after a growth-bound increase are
+`TACTIX_SUPPORT_BEGIN_FORWARD_ROUND` and `TACTIX_SUPPORT_RESCHEDULE_BVE`
+(`BeginForwardRound`, `RescheduleBveCandidates` records). These round batch and
+band fields are per application: a permanent install rejects them. The startup
+fast-elimination occurrence flush has no public form yet.
 
 Successful ResumeSearch starts an interval after root work. Restart closes it;
 partial continuation starts a linked interval under the same configuration.
