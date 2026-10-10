@@ -59,8 +59,6 @@ static std::vector<ActionFeedback> phase_records(SlotGroup group,
       for (uint32_t i = 0; i < 20; ++i) lits[i] = make_lit(clause * 20 + i, true);
       kernel_add_large_clause(k, lits, 20, true, 2, 0);
     }
-    k.tier1_by_mode[0] = k.tier2_by_mode[0] = 2;
-    k.tier1_by_mode[1] = k.tier2_by_mode[1] = 2;
     k.tier1 = k.tier2 = 2;
   } else {
     pigeonhole(k, 4, 5);
@@ -72,6 +70,11 @@ static std::vector<ActionFeedback> phase_records(SlotGroup group,
   config.inprocess.vivify_permille = 1000;
   DefaultPolicy policy(config);
   policy.inprocess().build(k);
+  // A Vivify dose poses the focused tier snapshot of the retier schedule.
+  RetierSchedule tiers;
+  tiers.tier1_by_mode[0] = tiers.tier2_by_mode[0] = 2;
+  tiers.tier1_by_mode[1] = tiers.tier2_by_mode[1] = 2;
+  if (vivify_fixture) policy.inprocess().set_retier_schedule(&tiers);
   for (auto &entry : policy.inprocess().entries) {
     entry.enabled = false;
     for (const char *rule : rules)
