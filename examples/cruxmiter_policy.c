@@ -73,6 +73,26 @@ struct buffered_clause {
 };
 
 static int input_order_mode;
+static int hot_rank(int variable);
+
+static int input_rank(int variable) {
+  if (input_order_mode == 2) return hot_rank(variable);
+  if (input_order_mode == 3)
+    return variable <= 32 ? variable - 1 : 32 + variable;
+  if (input_order_mode == 4)
+    return variable <= 32 ? 32 - variable : 32 + variable;
+  if (input_order_mode == 5) {
+    if (variable <= 16) return 2 * (variable - 1);
+    if (variable <= 32) return 2 * (variable - 17) + 1;
+    return 32 + variable;
+  }
+  if (input_order_mode == 6) {
+    if (variable <= 16) return 2 * (16 - variable);
+    if (variable <= 32) return 2 * (32 - variable) + 1;
+    return 32 + variable;
+  }
+  return -variable;
+}
 
 static int hot_rank(int variable) {
   /* Frequency order from the complete seed-7 stable trace.  Only the prefix
@@ -90,8 +110,8 @@ static int hot_rank(int variable) {
 static int compare_literals(const void *left, const void *right) {
   const int a = *(const int *)left, b = *(const int *)right;
   const int av = a < 0 ? -a : a, bv = b < 0 ? -b : b;
-  const int ar = input_order_mode == 2 ? hot_rank(av) : -av;
-  const int br = input_order_mode == 2 ? hot_rank(bv) : -bv;
+  const int ar = input_rank(av);
+  const int br = input_rank(bv);
   return ar < br ? -1 : ar > br ? 1 : a < b ? -1 : a > b;
 }
 
@@ -387,8 +407,17 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable) 
         clauses[i] = clauses[clauses_count - i - 1];
         clauses[clauses_count - i - 1] = tmp;
       }
-    } else if (!strcmp(order, "max-desc") || !strcmp(order, "hot")) {
-      input_order_mode = !strcmp(order, "hot") ? 2 : 1;
+    } else if (!strcmp(order, "max-desc") || !strcmp(order, "hot") ||
+               !strcmp(order, "primary") ||
+               !strcmp(order, "primary-reverse") ||
+               !strcmp(order, "primary-interleave") ||
+               !strcmp(order, "primary-interleave-reverse")) {
+      input_order_mode = !strcmp(order, "hot") ? 2
+                         : !strcmp(order, "primary") ? 3
+                         : !strcmp(order, "primary-reverse") ? 4
+                         : !strcmp(order, "primary-interleave") ? 5
+                         : !strcmp(order, "primary-interleave-reverse") ? 6
+                         : 1;
       for (i = 0; i < clauses_count; ++i) {
         unsigned key = UINT_MAX;
         qsort(clauses[i].literals, clauses[i].count, sizeof(int),
@@ -396,9 +425,7 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable) 
         for (j = 0; j < clauses[i].count; ++j) {
           const int lit = clauses[i].literals[j];
           const int var = lit < 0 ? -lit : lit;
-          const unsigned rank = input_order_mode == 2
-                                    ? (unsigned)hot_rank(var)
-                                    : (unsigned)(*maximum_variable - var);
+          const unsigned rank = (unsigned)input_rank(var);
           if (rank < key) key = rank;
         }
         clauses[i].key = key;
