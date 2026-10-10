@@ -64,10 +64,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 | Work | Jobs | Status |
 |---|---|---|
-| Tier D c2.3 64 GB memout recheck | 1763695 | running |
-| Tier D on the final code (`benchmarks/runs/20261010-tierd-apigap-final`; cpu-q, 4 CPUs, 32 GB, 5,000 s, 8 h check, `%125`) | 1764457 | running |
-| Baseline reruns | (B) 1757933; (C) Satsuma 64 GB recheck 1763099 | finished; aggregates pending review |
-| Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB); watches all of the above | running |
+| Tier D on FastEliminate-fidelity `0f7c10174` (`benchmarks/runs/20261010-tierd-fastel`; cpu-q, 4 CPUs, 32 GB, 5,000 s, 8 h check, `%125`) | 1770131 | running; then 64 GB `recheck` of proof-check memouts |
+| Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB) | running |
 
 ## Verification authorities
 
@@ -104,7 +102,9 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
   irredundant clause (no inherited position, large-parent literal order), subsumed parents are deleted,
   candidates are gathered in import order, and `flags.eliminate` re-arms on every removal (public
   `TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE`) so rounds 2-4 run; par32-4 matches Kissat for 300 decisions.
-  DefaultPolicy no longer installs graph-labeling hints into target phases. Gates pending
+  DefaultPolicy no longer installs graph-labeling hints into target phases. §8.4 gates and fuzz pass
+  ([gates](benchmarks/reports/2026-10-10-fastel-fix-gates/README.md); Rank1–50 overrun accepted by user);
+  chosen over a no-self-strengthening arm (265 vs ≤265 solved, faster)
   ([divergence](benchmarks/reports/2026-10-10-search-divergence-bisect/README.md)).
 - Graph labeling's run dose follows its owner (LymphoSAT runs its antibandwidth solver to completion
   before CDCL): the first run is in the initial root window, and every run continues the trajectory
