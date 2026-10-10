@@ -21,6 +21,8 @@ enum profile {
   PROFILE_SAVED,
   PROFILE_GATE,
   PROFILE_BINARY,
+  PROFILE_BACKBONE,
+  PROFILE_SWEEP,
   PROFILE_FULL
 };
 
@@ -28,8 +30,8 @@ struct policy {
   tactix *solver;
   enum profile profile;
   int propagate, analyze, restart, reduce, switchmode;
-  int congruence, substitute, hbr, vivify, strengthen, subsume, bve,
-      transitive;
+  int congruence, substitute, hbr, backbone, sweep, vivify, strengthen,
+      subsume, bve, transitive;
   uint64_t rel_u, rel_v, rel_wait;
   int rel_trigger;
   uint64_t reduce_next, inprocess_next;
@@ -57,6 +59,10 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_GATE;
   else if (!strcmp(text, "binary"))
     *out = PROFILE_BINARY;
+  else if (!strcmp(text, "backbone"))
+    *out = PROFILE_BACKBONE;
+  else if (!strcmp(text, "sweep"))
+    *out = PROFILE_SWEEP;
   else if (!strcmp(text, "full"))
     *out = PROFILE_FULL;
   else
@@ -71,6 +77,8 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_SAVED: return "saved";
   case PROFILE_GATE: return "gate";
   case PROFILE_BINARY: return "binary";
+  case PROFILE_BACKBONE: return "backbone";
+  case PROFILE_SWEEP: return "sweep";
   case PROFILE_FULL: return "full";
   }
   return "invalid";
@@ -201,6 +209,24 @@ static int root_pipeline(struct policy *policy) {
     if (applications == before) break;
   }
   if (policy->profile == PROFILE_GATE) return 1;
+
+  if (policy->profile == PROFILE_BACKBONE) {
+    result = dose_rule(policy, policy->backbone, 512, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    return dose_rule(policy, policy->substitute, 24, &applications);
+  }
+
+  if (policy->profile == PROFILE_SWEEP) {
+    result = dose_rule(policy, policy->sweep, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->substitute, 24, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    return dose_rule(policy, policy->substitute, 24, &applications);
+  }
 
   /* Implications exposed by the first collapse can reveal another gate layer.
    * Clean only after mining that layer. */
@@ -344,6 +370,8 @@ static int init_policy(struct policy *policy, tactix *solver,
   policy->congruence = rule_id("Congruence");
   policy->substitute = rule_id("Substitute");
   policy->hbr = rule_id("HyperBinaryRes");
+  policy->backbone = rule_id("Backbone");
+  policy->sweep = rule_id("Sweep");
   policy->vivify = rule_id("Vivify");
   policy->strengthen = rule_id("Strengthen");
   policy->subsume = rule_id("SubsumeForward");
@@ -357,6 +385,7 @@ static int init_policy(struct policy *policy, tactix *solver,
          policy->restart >= 0 && policy->reduce >= 0 &&
          policy->switchmode >= 0 && policy->congruence >= 0 &&
          policy->substitute >= 0 && policy->hbr >= 0 &&
+         policy->backbone >= 0 && policy->sweep >= 0 &&
          policy->vivify >= 0 && policy->strengthen >= 0 &&
          policy->subsume >= 0 && policy->bve >= 0 &&
          policy->transitive >= 0;
@@ -393,13 +422,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|sweep|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|sweep|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
