@@ -100,6 +100,12 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Startup FastEliminate self-strengthening follows SC2024 `fastel.c`: the strengthened clause is a new
+  irredundant clause (no inherited position, large-parent literal order), subsumed parents are deleted,
+  candidates are gathered in import order, and `flags.eliminate` re-arms on every removal (public
+  `TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE`) so rounds 2-4 run; par32-4 matches Kissat for 300 decisions.
+  DefaultPolicy no longer installs graph-labeling hints into target phases. Gates pending
+  ([divergence](benchmarks/reports/2026-10-10-search-divergence-bisect/README.md)).
 - Graph labeling's run dose follows its owner (LymphoSAT runs its antibandwidth solver to completion
   before CDCL): the first run is in the initial root window, and every run continues the trajectory
   within the serialized stage doses until it completes, finds a model or is interrupted; later runs

@@ -3761,6 +3761,17 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
       return -1;
     result = execution::execute_action(k, execution::RescheduleBveCandidatesRequest{}) ? 0 : 1;
     break;
+  case TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE: {
+    if (!argument || argument > static_cast<uint64_t>(INT32_MAX))
+      return -1;
+    const Lit lit = kernel_internalize(k, static_cast<int>(argument));
+    if (lit == INVALID_LIT)
+      return -1;
+    result = execution::execute_action(
+                 k, execution::RetireBveCandidateRequest{var_of(lit)})
+                 ? 0 : 1;
+    break;
+  }
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
     if (argument || s->contexts.empty() ||
         (s->phase.open() && s->contexts.size() <= s->phase_contexts))

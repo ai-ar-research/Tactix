@@ -318,7 +318,7 @@ private:
   bool initial_fast_elimination_active_ = false;
   uint64_t initial_fast_elimination_discovery_ticks_ = 0;
   bool initial_fast_elimination_budget_exhausted_ = false;
-  std::vector<uint8_t> initial_fast_elimination_attempted_;
+  bool initial_fast_elimination_admitted_ = false;
   std::vector<uint8_t> initial_fast_elimination_marks_;
   bool structured_root_consumed_ = false;
   bool initialized_ = false;

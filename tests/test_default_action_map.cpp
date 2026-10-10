@@ -25,7 +25,7 @@ static const std::set<std::string> EXPECTED_DECLARED = {"materialize-cold-state"
 static const std::set<std::string> REQUIRED_OBSERVED = {
     "propagate-search", "decide", "conflict-analysis", "restart-scheduled",
     "resume-search", "reduce", "switch-mode", "reorder", "rephase", "walk",
-    "lucky-opportunity", "lucky-graph-session", "local-search-guidance",
+    "lucky-opportunity", "lucky-graph-session",
     "bce-post-structured", "propagate-root", "slot-registered",
     "slot-bve-candidate", "slot-sweep-batch", "slot-substitute-rounds",
     "structured-root-online", "support-begin-forward-round",
