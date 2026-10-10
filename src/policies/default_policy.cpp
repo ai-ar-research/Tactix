@@ -3275,7 +3275,6 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   initial_fast_elimination_active_ = false;
   initial_fast_elimination_discovery_ticks_ = 0;
   initial_fast_elimination_budget_exhausted_ = false;
-  initial_fast_elimination_attempted_.clear();
   structured_root_consumed_ = false;
   structured_root = {};
   default_candidate_order_.reset(config().candidate_order_seed);
@@ -4058,7 +4057,6 @@ GraphLabelingSliceResult DefaultPolicy::run_graph_labeling(Kernel &kernel) {
     result = slice;
     sliced = true;
     if (result.status == GraphLabelingSliceStatus::Sat) break;
-    (void)install_graph_labeling_hint(kernel, result);
     if (result.status != GraphLabelingSliceStatus::Pending) break;
     if (kernel_terminating(kernel)) {
       result.status = GraphLabelingSliceStatus::Interrupted;
@@ -4164,35 +4162,6 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
   if (result.status == GraphLabelingSliceStatus::TrajectoryComplete)
     ++d.completed_trajectories;
   return result;
-}
-
-ApplyResult DefaultPolicy::install_graph_labeling_hint(
-    Kernel &kernel, const GraphLabelingSliceResult &result) {
-  if (!result.useful_hint || !result.hint_published || kernel.level ||
-      !kernel.graph_labeling_session.authenticated() ||
-      !local_search_guidance_guard(kernel))
-    return ApplyResult::NoOp;
-  const auto &hint = kernel.local_search_hints[static_cast<size_t>(
-      strategy::LocalSearchKind::GraphLabeling)];
-  if (!hint.available() || !hint.objective_exact ||
-      hint.objective != result.objective_after)
-    return ApplyResult::NoOp;
-  ++graph_labeling_diagnostics_.phase_install_attempts;
-  const ApplyResult installed = port::complete_action(
-      completion_, FeedbackKind::Rule, "LocalSearchGuidance", hint.id,
-      [&] {
-        return execution::native_rule_feedback(
-            kernel, "LocalSearchGuidance", hint.id,
-            "authenticated-graph-labeling-improvement;objective=" +
-                std::to_string(hint.objective));
-      },
-      [&] {
-        static const RuleVTable &guidance = registered_rule("LocalSearchGuidance");
-        return port::apply_rule_instance(guidance, kernel, hint.id);
-      });
-  if (installed == ApplyResult::Ok)
-    ++graph_labeling_diagnostics_.phase_installs;
-  return installed;
 }
 
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
@@ -5647,13 +5616,40 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       };
       std::vector<Candidate> candidates;
       candidates.reserve(n);
+      const auto import_position = [&](Var variable) -> uint64_t {
+        return variable < k.compact_import_position.size() &&
+                       k.compact_import_position[variable] != INVALID_VAR
+                   ? k.compact_import_position[variable]
+                   : variable;
+      };
+      // fastel.c gathers over all_variables, i.e. in the owner's import
+      // order.  The gather flush mutates (satisfied/subsumed occurrences), so
+      // its traversal order decides which clause of a subsuming pair dies.
+      {
+        std::vector<std::pair<uint64_t, uint64_t>> gather;
+        gather.reserve(n);
+        for (uint32_t j = 0; j < n; ++j) {
+          Lit candidate;
+          const uint64_t key = lit_of_instance(k, payloads_[j], &candidate)
+                                   ? import_position(var_of(candidate))
+                                   : UINT64_MAX;
+          gather.emplace_back(key, payloads_[j]);
+        }
+        std::stable_sort(gather.begin(), gather.end(),
+                         [](const auto &a, const auto &b) {
+                           return a.first < b.first;
+                         });
+        for (uint32_t j = 0; j < n; ++j)
+          payloads_[j] = gather[j].second;
+      }
       for (uint32_t j = 0; j < n; ++j) {
         Lit candidate;
         if (!lit_of_instance(k, payloads_[j], &candidate))
           continue;
         const Var variable = var_of(candidate);
-        if (variable >= initial_fast_elimination_attempted_.size() ||
-            initial_fast_elimination_attempted_[variable] ||
+        // `flags.eliminate`: cleared after each attempt, re-armed by every
+        // removal of a clause containing the variable (kernel bve_retry).
+        if (variable >= k.bve_retry.size() || !k.bve_retry[variable] ||
             k.value(candidate) || kernel_var_retired(k, variable))
           continue;
         const Lit positive = make_lit(variable, false);
@@ -5672,18 +5668,19 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (neg > parameters.occurrence_limit ||
             pos + neg > parameters.occurrence_limit)
           continue;
-        const uint64_t tie =
-            variable < k.compact_import_position.size() &&
-                    k.compact_import_position[variable] != INVALID_VAR
-                ? k.compact_import_position[variable]
-                : variable;
-        candidates.push_back({payloads_[j], pos + neg, tie});
+        candidates.push_back(
+            {payloads_[j], pos + neg, import_position(variable)});
       }
       k.stats.fastel_candidates += candidates.size();
-      if (!default_should_run_initial_fast_elimination(candidates.size(),
+      // Admission decides whether the owner pass runs at all; its later
+      // rounds (fastel.c) gather the re-armed variables unconditionally.
+      if (!initial_fast_elimination_admitted_ &&
+          !default_should_run_initial_fast_elimination(candidates.size(),
                                                        active_variables(k))) {
         ++k.stats.fastel_declined;
         candidates.clear();
+      } else {
+        initial_fast_elimination_admitted_ = true;
       }
       std::stable_sort(candidates.begin(), candidates.end(),
                        [](const Candidate &a, const Candidate &b) {
@@ -5735,10 +5732,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (!lit_of_instance(k, payload, &candidate))
           continue;
         const Var variable = var_of(candidate);
-        if (variable >= initial_fast_elimination_attempted_.size() ||
-            initial_fast_elimination_attempted_[variable])
+        if (variable >= k.bve_retry.size() || !k.bve_retry[variable])
           continue;
-        initial_fast_elimination_attempted_[variable] = 1;
         const int subsume_id = tactix_rule_id("SubsumeForward");
         assert(subsume_id >= 0);
         const RuleVTable &subsume =
@@ -5755,8 +5750,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             parameters.occurrence_limit, parameters.clause_size_limit, ctx.completion);
         if (pos > parameters.occurrence_limit ||
             neg > parameters.occurrence_limit ||
-            pos + neg > parameters.occurrence_limit)
+            pos + neg > parameters.occurrence_limit) {
+          port::execute_action(k, execution::RetireBveCandidateRequest{variable});
           continue;
+        }
       }
       if (e.meter(k) > limit) {
         if (initial_fast_bve &&
@@ -5855,6 +5852,14 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         return strategy::controller::feedback_outcome(published.result);
       });
       const ApplyResult ar = applied.result;
+      if (initial_fast_bve && !k.inconsistent) {
+        // The attempt clears `eliminate` after it ran, overriding re-arms by
+        // its own strengthened or weakened clauses.
+        Lit attempted;
+        if (lit_of_instance(k, payload, &attempted))
+          port::execute_action(
+              k, execution::RetireBveCandidateRequest{var_of(attempted)});
+      }
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
         break;
@@ -6609,16 +6614,17 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   initial_fast_elimination_active_ = true;
   initial_fast_elimination_discovery_ticks_ = 0;
   initial_fast_elimination_budget_exhausted_ = false;
-  initial_fast_elimination_attempted_.assign(k.nvars, 0);
+  initial_fast_elimination_admitted_ = false;
   initial_fast_elimination_marks_.assign(2 * static_cast<size_t>(k.nvars), 0);
   const uint64_t eliminated_before = k.stats.bve_eliminated;
   const uint64_t resolutions_before = k.stats.bve_resolutions;
   const uint64_t started = now_nanos();
   const int result = run_phase(k, SlotGroup::Eliminate, stop, completion);
+  // fastel.c ends by setting every variable's eliminate flag again.
+  (void)port::execute_action(k, execution::RescheduleBveCandidatesRequest{});
   k.stats.fastel_nanos += now_nanos() - started;
   k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
   k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
-  initial_fast_elimination_attempted_.clear();
   initial_fast_elimination_marks_.clear();
   initial_fast_elimination_active_ = false;
   return result;

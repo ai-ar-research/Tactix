@@ -2143,6 +2143,20 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                  c.ref, c.id, d.active.data(), d.active.size(),
                                  d.ref, d.id, "fastel-strengthened");
+            // A mixed pair's self-subsuming resolvent is the large antecedent
+            // without its pivot, copied in that clause's own order
+            // (fastel.c::can_fast_resolve_binary_large); the binary-first
+            // image belongs to elimination resolvents only.
+            if ((c.ref == INVALID_REF) != (d.ref == INVALID_REF)) {
+              const bool large_first = c.ref != INVALID_REF;
+              const MClause &large = large_first ? c : d;
+              const Lit large_pivot = large_first ? first_pivot : second_pivot;
+              def->resolvent_lits.resize(lits_begin);
+              for (const Lit l : large.active)
+                if (l != large_pivot && k.value(l) == 0)
+                  def->resolvent_lits.push_back(l);
+              assert(def->resolvent_lits.size() - lits_begin == lits_size);
+            }
             const uint64_t id = ++k.next_clause_id;
             const Lit *const lits = def->resolvent_lits.data() + lits_begin;
             if (k.proof) {
@@ -2164,21 +2178,27 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
                                      d_subsumed ? d.ref : INVALID_REF);
 
-            const MClause &victim = c_subsumed ? c : d;
-            Ref replacement = INVALID_REF;
-            const ReplaceOutcome outcome = kernel_replace_clause(
-                k, clause_at(k.arena, victim.ref), id, lits,
-                static_cast<uint32_t>(lits_size), /*redundant=*/false, 0,
-                &replacement);
-            assert(outcome == ReplaceOutcome::Binary ||
-                   outcome == ReplaceOutcome::Large);
-            (void)outcome;
-            (void)replacement;
-            if (c_subsumed && d_subsumed) {
-              const Ref other = victim.ref == c.ref ? d.ref : c.ref;
-              Clause *const clause = clause_at(k.arena, other);
+            // fastel.c publishes the self-subsuming resolvent as a NEW
+            // irredundant clause (end of the arena and of every occurrence
+            // list), then garbage-marks each subsumed antecedent, re-arming
+            // elimination for all of its literals.  It is not an in-place
+            // shrink: the resolvent must not inherit the antecedent's logical
+            // position (kernel_replace_clause).
+            assert(lits_size >= 2);
+            if (lits_size == 2)
+              kernel_add_binary_clause(k, lits[0], lits[1], id);
+            else
+              kernel_add_large_clause(k, lits,
+                                      static_cast<uint32_t>(lits_size),
+                                      /*redundant=*/false, 0, id);
+            for (const Ref antecedent :
+                 {c_subsumed ? c.ref : INVALID_REF,
+                  d_subsumed ? d.ref : INVALID_REF}) {
+              if (antecedent == INVALID_REF)
+                continue;
+              Clause *const clause = clause_at(k.arena, antecedent);
               if (!clause->garbage())
-                kernel_delete_clause(k, clause);
+                kernel_delete_clause(k, clause, true, "fastel-strengthen");
             }
             k.stats.strengthened++;
             def->resolvent_lits.resize(lits_begin);

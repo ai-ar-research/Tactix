@@ -118,8 +118,6 @@ struct DefaultGraphLabelingDiagnostics {
   uint64_t pending_slices = 0;
   uint64_t completed_trajectories = 0;
   uint64_t useful_hints = 0;
-  uint64_t phase_install_attempts = 0;
-  uint64_t phase_installs = 0;
   // Runs (each a full owner dose) and their Kissat-derived schedule:
   // delayed occurrences, fruitfulness verdicts, conflict limit and delay.
   uint64_t runs = 0, delayed_runs = 0, fruitful_runs = 0, fruitless_runs = 0;
@@ -357,8 +355,6 @@ private:
   GraphLabelingAuthenticationResult authenticate_graph_labeling(Kernel &);
   GraphLabelingSliceResult service_graph_labeling(Kernel &);
   GraphLabelingSliceResult run_graph_labeling(Kernel &);
-  ApplyResult install_graph_labeling_hint(Kernel &,
-                                          const GraphLabelingSliceResult &);
   bool graph_labeling_due(const Kernel &);
   void schedule_graph_labeling(const Kernel &, const GraphLabelingSliceResult &);
   void reset_graph_labeling_schedule(const Kernel &);

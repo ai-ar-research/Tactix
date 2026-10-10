@@ -1127,8 +1127,6 @@ int main(int argc, char **argv) {
       graph_metric("pending_slices", graph.pending_slices);
       graph_metric("completed_trajectories", graph.completed_trajectories);
       graph_metric("useful_hints", graph.useful_hints);
-      graph_metric("phase_install_attempts", graph.phase_install_attempts);
-      graph_metric("phase_installs", graph.phase_installs);
       graph_metric("runs", graph.runs);
       graph_metric("delayed_runs", graph.delayed_runs);
       graph_metric("fruitful_runs", graph.fruitful_runs);

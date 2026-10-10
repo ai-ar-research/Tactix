@@ -1849,7 +1849,11 @@ static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
   heuristics_score_set(k, var_of(x), 0.0);
   heuristics_score_set(k, var_of(y), 100.0);
 
+  // One round keeps the first choice observable: the pure supports are
+  // eliminated after x's failed attempt, which re-arms x, and a later owner
+  // round then eliminates it as well (fastel.c flags.eliminate lifecycle).
   DefaultStrategyConfig config;
+  config.inprocess.initial_fast_elimination_rounds = 1;
   DefaultPolicy policy(config);
   policy.inprocess().build(k);
   assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);

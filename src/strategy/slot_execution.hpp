@@ -21,6 +21,12 @@ struct BeginForwardRoundRequest {};
 // Fixed and eliminated variables are filtered when a schedule is built.
 struct RescheduleBveCandidatesRequest {};
 
+// One variable stops being a BVE candidate until a removal re-arms it
+// (fastel.c clears `flags.eliminate` after every fast-elimination attempt).
+struct RetireBveCandidateRequest {
+  Var var = INVALID_VAR;
+};
+
 // Strengthen's forward closure (PostApplication::ForwardClosure): reconnect
 // the watches the pass disconnected and propagate the root suffix from
 // `trail_from`, the application's entry propagation head.
@@ -56,6 +62,13 @@ inline bool execute_action(Kernel &k, RescheduleBveCandidatesRequest) {
       std::find(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0}) != k.bve_retry.end();
   std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{1});
   return changed;
+}
+
+inline bool execute_action(Kernel &k, const RetireBveCandidateRequest &request) {
+  if (request.var >= k.bve_retry.size() || !k.bve_retry[request.var])
+    return false;
+  k.bve_retry[request.var] = 0;
+  return true;
 }
 
 inline ApplyResult execute_action(Kernel &k, const ForwardClosureRequest &request) {

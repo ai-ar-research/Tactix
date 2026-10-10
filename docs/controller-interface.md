@@ -624,7 +624,9 @@ stayed within the rule budget); a Vivify band with `band`/`band_budget`/
 from the application's entry propagation head). The forward-round completeness
 reset and the BVE reschedule after a growth-bound increase are
 `TACTIX_SUPPORT_BEGIN_FORWARD_ROUND` and `TACTIX_SUPPORT_RESCHEDULE_BVE`
-(`BeginForwardRound`, `RescheduleBveCandidates` records). These round batch and
+(`BeginForwardRound`, `RescheduleBveCandidates` records). Startup fast
+elimination clears a single variable's candidate flag after each attempt with
+`TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE` (`RetireBveCandidate`). These round batch and
 band fields are per application: a permanent install rejects them. The startup
 fast-elimination occurrence flush has no public form yet.
 

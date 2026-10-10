@@ -361,6 +361,10 @@ inline const std::vector<Entry> &entries() {
       {"support-reschedule-bve", K::Support, "RescheduleBveCandidates", nullptr,
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_RESCHEDULE_BVE", "C5", TACTIX_SUPPORT_RESCHEDULE_BVE},
+      {"support-retire-bve-candidate", K::Support, "RetireBveCandidate", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE", "C5",
+       TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE},
   };
   return table;
 }

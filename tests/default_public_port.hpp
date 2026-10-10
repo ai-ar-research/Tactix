@@ -693,6 +693,13 @@ struct PublicPort {
       const int code = support(s, TACTIX_SUPPORT_RESCHEDULE_BVE, 0);
       if (code == -1) return declined("support:reschedule-bve");
       return code == 0;
+    } else if constexpr (std::is_same_v<R, RetireBveCandidateRequest>) {
+      const int code = support(
+          s, TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE,
+          static_cast<uint64_t>(
+              kernel_externalize(k, make_lit(request.var, false))));
+      if (code == -1) return declined("support:retire-bve-candidate");
+      return code == 0;
     } else if constexpr (std::is_same_v<R, ConsumeRootPrefixRequest>) {
       const int code = support(s, TACTIX_SUPPORT_CONSUME_ROOT_PREFIX, 0);
       if (code == -1) return declined("support:consume-root-prefix");

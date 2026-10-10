@@ -1870,6 +1870,11 @@ int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
 #define TACTIX_RETIREMENTS_RELEASE 0
 #define TACTIX_RETIREMENTS_HOLD 1
 #define TACTIX_RETIREMENTS_RELEASE_ONLY 2
+/* Clear one variable's BVE candidate flag (Kissat `flags.eliminate`):
+ * argument = DIMACS variable. Returns 0 when the flag was set, 1 when it was
+ * already clear. Any later removal of a clause containing the variable sets
+ * it again; TACTIX_SUPPORT_RESCHEDULE_BVE sets it for every variable. */
+#define TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE 26
 #define TACTIX_ROOT_PREPARATION_PROBING 1
 #define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
 #define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4

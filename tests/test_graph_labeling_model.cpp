@@ -51,8 +51,8 @@ struct StopAfterGraphRoot final : strategy::controller::FeedbackReceiver {
     assert(diagnostics.slices >= 1 &&
            diagnostics.pending_slices == diagnostics.slices - 1);
     assert(diagnostics.useful_hints >= 1);
-    assert(diagnostics.phase_install_attempts >= 1);
-    assert(diagnostics.phase_installs == diagnostics.phase_install_attempts);
+    // DefaultPolicy no longer installs the published hint as search phase
+    // guidance: the owner never feeds a partial labeling to its CDCL.
     assert(kernel.stats.graph_labeling_recognized == 1);
     assert(kernel.stats.graph_labeling_calls == diagnostics.slices + 1);
     assert(kernel.graph_labeling_session.authenticated());
