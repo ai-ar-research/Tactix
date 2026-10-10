@@ -43,9 +43,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    and the X17 census tool removed. It is byte-identical to c2.2 on 9 identity rows
    (`benchmarks/probes/scratch/cleanup-20261009/`). Persistent affine search stays (plan §9.5
    Persistent XOR), reworked in c2.4 by user decision (natural full restarts only).
-   Pending: lec_mult 64 GiB proof rechecks (jobs 1763319–1763321, 1763353;
-   `benchmarks/runs/20261009-restart-rework-lec64-*`); record their verdicts in the restart-only
-   report.
+   lec_mult 64 GiB rechecks: every solved arm verified (569 off/on/c2.3; 1004 on, and off in a
+   7,200 s re-solve).
 1. Full Tier D on c2.3 is running (`benchmarks/runs/20261009-tierd-c2.3`, job 1761609; cpu-q,
    4 CPUs, 32 GB, 5,000 s solve, 8 h check, `%125`, certificates on the home quota). When it
    finishes: `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts
@@ -80,7 +79,6 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 |---|---|---|
 | Tactix Tier D (c2.3) | 1761609 | running |
 | Baseline reruns | (B) 1757933; (C) Satsuma 64 GB recheck 1763099 | running |
-| lec_mult 64 GiB proof rechecks | 1763319–1763321, 1763353 | running |
 | Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB); watches all of the above | running |
 
 ## Verification authorities
