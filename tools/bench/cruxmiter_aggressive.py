@@ -14,7 +14,7 @@ import run
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CRUX = os.path.join(ROOT, "cruxmiter")
-PIN_SOURCE_COMMIT = "9a6ad1f23"
+PIN_SOURCE_COMMIT = "cd10a2e1e"
 PIN = os.path.join(ROOT, "build", f"pin-cruxmiter-{PIN_SOURCE_COMMIT}")
 POLICY = os.path.join(PIN, "examples", "tactix-cruxmiter-policy")
 ENV = "/usr/bin/env"
@@ -41,6 +41,7 @@ ARMS = {
         "backbone", "TACTIX_SLOT_ENABLE=CCE",
         "TACTIX_SLOT_MAX_APPLIES=CCE:1"),
     "backbone-symmetry": command("backbone-symmetry"),
+    "backbone-symmetry-scan": command("backbone-symmetry-scan"),
     "symmetry-sandwich": command("symmetry-sandwich"),
     "symmetry-sandwich-cce": command(
         "symmetry-sandwich", "TACTIX_SLOT_ENABLE=CCE"),
