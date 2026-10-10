@@ -31,6 +31,9 @@ NEXT_POLICY = os.path.join(
 INPUT_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-13500d0b0", "examples",
     "tactix-cruxmiter-policy")
+PHASE_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-a5dddbaca", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -342,6 +345,37 @@ ARMS = {
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_ENABLE=CCE", "TACTIX_SLOT_MAX_APPLIES=CCE:1"),
+    # Preserve the winning scheduler/search settings while using the public
+    # warm-up surface to install TACO's phase=0 observation as saved phases.
+    "rbc-backbone-negative": policy(
+        "backbone-negative", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", binary=PHASE_POLICY),
+    "rbc-backbone-positive": policy(
+        "backbone-positive", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", binary=PHASE_POLICY),
+    "rb-backbone-negative": policy(
+        "backbone-negative", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", binary=PHASE_POLICY),
+    "rbc-backbone-negative-randec0": policy(
+        "backbone-negative", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", "TACTIX_RANDEC=0",
+        binary=PHASE_POLICY),
+    "rbc-backbone-negative-walk0": policy(
+        "backbone-negative", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_WALK_PERMILLE=0", binary=PHASE_POLICY),
+    # Explicitly preserve the producer/consumer order from Kissat's probe
+    # phase instead of the default name-sorted inprocessing slot order.
+    "rbc-kissat-order": policy(
+        "kissat-order", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", binary=PHASE_POLICY),
+    "rbc-kissat-order-negative": policy(
+        "kissat-order-negative", "TACTIX_FORCE_MODE=stable",
+        "TACTIX_REORDER=0", "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        binary=PHASE_POLICY),
+    "kissat-order-negative": policy(
+        "kissat-order-negative", "TACTIX_FORCE_MODE=stable",
+        binary=PHASE_POLICY),
     # CNF-derived policy: variables 1..32 are primary inputs of a complete
     # acyclic gate encoding; branch only on them and let propagation evaluate
     # variables 33..570.
@@ -388,7 +422,7 @@ def main():
         240.0 if args.stage == "screen" else 600.0)
     cnf = os.path.join(ROOT, REL)
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
-                   KISSAT):
+                   PHASE_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     if not os.path.isfile(cnf):
@@ -419,7 +453,7 @@ def main():
         "input_sha256": digest(cnf),
         "executables": {path: digest(path) for path in
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
-                         INPUT_POLICY, KISSAT)},
+                         INPUT_POLICY, PHASE_POLICY, KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
