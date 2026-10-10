@@ -745,11 +745,7 @@ struct PublicPort {
       // profile and the retier schedule installed around the application and
       // the schedule read back. The policy's advice (trace only in Chrono
       // mode) runs after the transaction; it reads only public statistics.
-      if (request.target_mode != AnalysisTarget::Chrono) {
-        // The ranked-trail target is a declared diagnostic arm.
-        ++census.declared["ConflictAnalysis:ranked-trail-diagnostic"];
-        return StaticPort::execute(k, std::forward<Request>(request), std::forward<Args>(args)...);
-      }
+      if (request.target_mode != AnalysisTarget::Chrono) return fallback();
       auto &&[instrument, advise] = std::forward_as_tuple(args...);
       static const int id = rule_id("ConflictAnalysis");
       auto profile = strategy::AnalyzeParameters::from_kernel(k);

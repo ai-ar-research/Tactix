@@ -84,7 +84,6 @@ int main(int argc, char **argv) {
         config.rephase.late_lucky = false;
         config.mode.force = profile <= 2 ? profile : 2;
         config.analysis.chronological_levels = profile == 2 ? 0 : 100;
-        config.analysis.reuse_ranked_trail_suffix = profile == 1;
         config.restart.reluctant_period = 2;
         config.reduction.initial_interval = 5;
         config.rephase.initial_interval = 10;

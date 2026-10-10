@@ -1137,8 +1137,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << " analysis.bump_reason_rate=" << analysis.bump_reason_rate
       << " analysis.reason_depth=" << analysis.reason_depth
       << " analysis.chronological_levels=" << analysis.chronological_levels
-      << " analysis.reuse_ranked_trail_suffix="
-      << analysis.reuse_ranked_trail_suffix
       << " analysis.conflict_reuse=" << analysis.conflict_reuse
       << " analysis.jump_reasons=" << analysis.jump_reasons
       << " analysis.shrink_glue_promote=" << analysis.shrink_glue_promote
@@ -1800,7 +1798,7 @@ std::string DefaultStrategyConfig::serialize() const {
 
 DefaultPolicy::DefaultPolicy()
     : chrono_levels(DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT),
-      chrono_reuse_trail_(false), base_config_(), config_(base_config_),
+      base_config_(), config_(base_config_),
       default_branching_(&config_.branching),
       default_reduction_(&config_.reduction), inprocess_(&config_.inprocess) {
   pose_affine_structured_stage(base_config_);
@@ -1818,7 +1816,6 @@ DefaultPolicy::DefaultPolicy()
 
 DefaultPolicy::DefaultPolicy(const DefaultStrategyConfig &config)
     : chrono_levels(config.analysis.chronological_levels),
-      chrono_reuse_trail_(config.analysis.reuse_ranked_trail_suffix),
       base_config_(config), config_(config),
       default_branching_(&config_.branching),
       default_reduction_(&config_.reduction), inprocess_(&config_.inprocess) {
@@ -2057,43 +2054,6 @@ static uint64_t scale_inprocessing_delta(
 }
 
 namespace {
-
-uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
-  const uint32_t begin = k.frames[jump + 1];
-  const uint32_t end = static_cast<uint32_t>(k.trail.size());
-  if (begin >= end || !k.h)
-    return jump;
-  uint32_t best_pos = begin;
-  Var best = 0;
-  bool have_best = false;
-  for (uint32_t i = begin; i < end; i++) {
-    const Var v = var_of(k.trail[i]);
-    if (kernel_var_retired(k, v))
-      continue;
-    if (!have_best) {
-      best = v;
-      best_pos = i;
-      have_best = true;
-      continue;
-    }
-    const bool better =
-        k.h->stable
-            ? (k.h->scores.score[v] > k.h->scores.score[best] ||
-               (k.h->scores.score[v] == k.h->scores.score[best] && v < best))
-            : k.h->links[v].stamp > k.h->links[best].stamp;
-    if (better) {
-      best = v;
-      best_pos = i;
-    }
-  }
-  if (!have_best) // the whole suffix is retired variables: nothing to keep
-    return jump;
-  uint32_t res = jump;
-  while (res + 1 < k.level && k.frames[res + 1] <= best_pos)
-    res++;
-  return res;
-}
-
 
 using port::TickSinkScope;
 using execution::metered_rule_apply;
@@ -3017,7 +2977,6 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   // Preserve the pre-existing white-box policy pose surface: callers and
   // focused tests may set these public members before solve().
   config_.analysis.chronological_levels = chrono_levels;
-  config_.analysis.reuse_ranked_trail_suffix = chrono_reuse_trail_;
   config_.branching.random_sequences = default_branching_.randec_enabled;
   if (const char *fm = std::getenv("TACTIX_FORCE_MODE")) {
     if (!std::strcmp(fm, "focused"))
@@ -3058,9 +3017,6 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
     if (n >= 0)
       config_.analysis.chronological_levels = static_cast<uint32_t>(n);
   }
-  if (const char *cr = std::getenv("TACTIX_CHRONO_REUSE"))
-    config_.analysis.reuse_ranked_trail_suffix =
-        std::strtoul(cr, nullptr, 10) != 0;
   if (const char *value = std::getenv("TACTIX_CONFLICT_REUSE"))
     config_.analysis.conflict_reuse = *value != '0';
   if (const char *value = std::getenv("TACTIX_JUMP_REASONS"))
@@ -3280,7 +3236,6 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   compact_ = config_.reduction.compact_variables;
   lucky_late_ = config_.rephase.late_lucky;
   chrono_levels = config_.analysis.chronological_levels;
-  chrono_reuse_trail_ = config_.analysis.reuse_ranked_trail_suffix;
   default_branching_.set_config(&config_.branching);
   default_branching_.randec_enabled = config_.branching.random_sequences;
   default_reduction_.set_config(&config_.reduction);
@@ -3568,7 +3523,7 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
   result.sequence = completion_ ? completion_->sequence() : 0;
   result.searching = completion_ && completion_->searching();
   if (completion_) result.last_action = completion_->last_action();
-  result.have_search_configuration = !branching && completion_ &&
+  result.have_search_configuration = completion_ &&
       completion_->have_search_configuration();
   result.search.branching = stable ? Branching::Evsids : Branching::Vmtf;
   result.search.restart = stable ? Restart::Reluctant : Restart::AdaptiveGlue;
@@ -3584,7 +3539,6 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
   std::ostringstream native;
   native.imbue(std::locale::classic());
   native << std::setprecision(17) << "version=1 stable=" << stable
-         << " external_branching=" << bool(branching)
          << " mode=" << mode.count << ':' << mode.conflicts_limit << ':'
          << mode.ticks_limit << ':' << mode.ticks_at_focus_entry
          << " reluctant_trigger=" << reluctant.trigger
@@ -4956,8 +4910,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
-      BranchingPolicy &bp = branching ? *branching : default_branching_;
-      bp.on_search_propagation_conflict();
+      default_branching_.on_search_propagation_conflict();
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
       event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
@@ -4970,20 +4923,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                          static_cast<int64_t>(
                              averages[k.h->stable].decision_rate.value * 1000));
 #endif
-      // The per-conflict payload, by value (gap plan Step 6). Chrono is the
-      // public ANALYZE_TARGET_CHRONO instance; the ranked-trail arm keeps an
-      // advised target and is a declared diagnostic outside correspondence.
+      // The per-conflict payload, by value (gap plan Step 6): the public
+      // ANALYZE_TARGET_CHRONO instance.
       execution::NativeConflictAnalysisRequest request;
       request.bump_reason_limit = want_bump_reasons(k);
       request.bump_reason_depth = config_.analysis.reason_depth;
-      request.target_mode = chrono_reuse_trail_ ? AnalysisTarget::Advised
-                                                : AnalysisTarget::Chrono;
+      request.target_mode = AnalysisTarget::Chrono;
       request.retier_schedule = retier_;
       assert(k.conflict_reuse_chrono_levels == chrono_levels);
       event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-      const uint64_t analysis_instance =
-          request.target_mode == AnalysisTarget::Chrono ? ANALYZE_TARGET_CHRONO
-                                                        : INSTANCE_CANONICAL;
+      const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
       const uint64_t learned_before = k.stats.learned;
       const uint64_t glue_sum_before = k.stats.learned_glue_sum;
       const uint64_t backjumps_before = k.stats.backjumps;
@@ -4993,10 +4942,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
           [&] {
             auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-                analysis_instance,
-                request.target_mode == AnalysisTarget::Chrono
-                    ? "native-target-chrono"
-                    : "native-target-after-learning");
+                analysis_instance, "native-target-chrono");
             // The record names the request's whole payload: the profile with
             // its bump fields, and the schedule it carries.
             auto &profile = std::get<strategy::AnalyzeParameters>(
@@ -5016,9 +4962,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 apply);
           },
           [&](ApplyResult ar) -> uint32_t {
-            // Advice only traces, except that the ranked-trail diagnostic arm
-            // (Advised) picks its target here; the policy's own updates read
-            // the completed transaction below.
+            // Advice only traces; the policy's own updates read the completed
+            // transaction below.
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             if (ar == ApplyResult::Unsat) {
               event_trace.detail(k, "analysis_end", -1);
@@ -5033,32 +4978,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                  k.pending.lits.size());
               event_trace.detail(k, "analysis_tail_policy_updated",
                                  k.pending.glue);
-              if (request.target_mode == AnalysisTarget::Chrono) {
-                const uint32_t chosen_back = k.level - 1;
-                event_trace.detail(
-                    k, "analysis_tail_target",
-                    chosen_back - k.pending.jump_level > chrono_levels
-                        ? chosen_back
-                        : k.pending.jump_level);
-              }
+              const uint32_t chosen_back = k.level - 1;
+              event_trace.detail(
+                  k, "analysis_tail_target",
+                  chosen_back - k.pending.jump_level > chrono_levels
+                      ? chosen_back
+                      : k.pending.jump_level);
             }
+#else
+            (void)ar;
 #endif
-            if (request.target_mode == AnalysisTarget::Chrono ||
-                ar != ApplyResult::Ok || !k.pending.valid)
-              return 0;
-            const uint32_t jump = k.pending.jump_level;
-            const uint32_t back = k.level - 1;
-            uint32_t target = jump;
-            if (back - jump > chrono_levels) {
-              k.stats.chronological++;
-              target = back;
-            } else if (chrono_levels != UINT32_MAX && jump < back) {
-              target = reuse_trail_level(k, jump);
-              if (target != jump)
-                k.stats.chronological++;
-            }
-            event_trace.detail(k, "analysis_tail_target", target);
-            return target;
+            return 0;
           });
       }, [&](const execution::ConflictAnalysisExecutionResult &result,
              strategy::controller::NativeActionDescription &description) {
@@ -5229,8 +5159,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // transition.  It is a no-op on stable entry and starts (or continues)
         // a focused sequence regardless of decision level or its ordinary
         // conflict deadline.
-        if (!branching)
-          default_branching_.start_random_sequence(k);
+        default_branching_.start_random_sequence(k);
         return ApplyResult::Ok;
       });
       feedback.resume(IntervalStart::NativeContinuation, "native-mode-search-continuation");
@@ -5251,10 +5180,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
       // threshold.  That call is semantically part of restart: during a
       // random-decision sequence it consumes and counts a draw before the
-      // post-restart decision.  Route through the active branching subpolicy,
-      // then hand only its variable to the policy-neutral Restart rule.
-      BranchingPolicy &bp = branching ? *branching : default_branching_;
-      const Lit next = bp.pick_for_restart_reuse(k);
+      // post-restart decision.  Route through the branching subpolicy, then
+      // hand only its variable to the policy-neutral Restart rule.
+      const Lit next = default_branching_.pick_for_restart_reuse(k);
       const uint32_t keep = heuristics_restart_reuse_level_for(k, var_of(next));
       const ApplyResult restart_result = port::complete_action(
           completion_, FeedbackKind::SearchService,
@@ -5333,27 +5261,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // beyond conflicts. Assignment-time phase saving is the output; the
         // trail is then discarded without undoing it.
         if (config_.rephase.walk_warmup) {
-          BranchingPolicy &bp = branching ? *branching : default_branching_;
-          // The record's instance is the public WARMUP phase argument when
-          // the default branching picks; another branching has no public form.
+          // The record's instance is the public WARMUP phase argument.
           const int8_t forced = default_branching_.forced_phase(k);
           const execution::WarmupPhase phase =
               forced > 0 ? execution::WarmupPhase::Positive
               : forced < 0 ? execution::WarmupPhase::Negative
                            : execution::WarmupPhase::Heuristic;
-          const bool default_pick = &bp == &default_branching_;
           (void)port::complete_action(completion_, FeedbackKind::Support,
-              "Warmup", default_pick ? static_cast<uint64_t>(phase) : INSTANCE_CANONICAL,
-              [default_pick] {
+              "Warmup", static_cast<uint64_t>(phase), [] {
                 execution::NativeFeedbackSpec spec;
                 spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
                 spec.description.effort_currency = "ticks";
-                spec.description.description = default_pick
-                    ? "native-assignment-phase-warmup"
-                    : "native-assignment-phase-warmup;pick=installed-branching";
+                spec.description.description = "native-assignment-phase-warmup";
                 return spec;
               }, [&] { return port::execute_action(k, execution::WarmupRequest{},
-              [&] { return bp.pick(k); }, [&](Lit decision) {
+              [&] { return default_branching_.pick(k); }, [&](Lit decision) {
             event_trace.detail(k, "decision", kernel_externalize(k, decision));
             event_trace.heap_after_decision(k);
             event_trace.heap_scores(k);
@@ -5439,8 +5361,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (stop && *stop)
       return finish(0);
-    BranchingPolicy &bp = branching ? *branching : default_branching_;
-    const Lit decision = bp.pick(k);
+    const Lit decision = default_branching_.pick(k);
     (void)port::complete_action(completion_, FeedbackKind::SearchService,
         "Decide", lit_instance(k, decision), [&] {
           return execution::native_rule_feedback(k, "Decide", lit_instance(k, decision),
@@ -5456,7 +5377,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               port::execute_action(k, execution::DecisionRequest{decision});
           if (result == ApplyResult::Ok)
             heuristics_note_target_decision(
-                k, decision, !branching && k.h->stable);
+                k, decision, k.h->stable);
           return result;
         });
     });
@@ -6761,19 +6682,15 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // the enclosing native scope and all of that publication have finished.
   execution::CompletionPublication phase_published(completion);
   port::InprocessPhase phase;
-  // The default selection's bound is the public entry argument; an injected
-  // matcher (diagnostic arm) has no public form and keeps the snapshot.
-  const uint32_t default_factor_bound = std::max(k.factor_bound, factor_bound_snapshot_);
+  // The Factor selection's bound is the public entry argument.
+  const uint32_t factor_bound = std::max(k.factor_bound, factor_bound_snapshot_);
   (void)port::complete_action(completion, FeedbackKind::Support,
-      "InprocessPhaseEntry", factor_match ? INSTANCE_CANONICAL
-          : execution::inprocess_phase_argument(group == SlotGroup::Eliminate,
-                                                default_factor_bound), [&] {
+      "InprocessPhaseEntry",
+      execution::inprocess_phase_argument(group == SlotGroup::Eliminate, factor_bound), [&] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = std::string("group=") +
             (group == SlotGroup::Probe ? "probe" : "eliminate") +
-            ";factor-selection=" + (factor_match ? "injected" : "default") +
-            ";factor-bound=" + std::to_string(factor_match ? factor_bound_snapshot_ :
-                default_factor_bound);
+            ";factor-selection=default;factor-bound=" + std::to_string(factor_bound);
         spec.description.effort_currency = "ticks";
         spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
         return spec;
@@ -6783,11 +6700,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // Kissat's dense-mode entry (eliminate.c) disconnects large watches before
   // occurrences are built; Probe consumers share the ordinary large occurrence
   // image and keep their own rule-local transitions (phase_execution.hpp).
-  phase.enter(k, factor_match
-      ? execution::InprocessPhaseEntryRequest{group == SlotGroup::Eliminate,
-                                              *factor_match, factor_bound_snapshot_}
-      : execution::InprocessPhaseEntryRequest{group == SlotGroup::Eliminate,
-                                              default_factor_match_, default_factor_bound});
+  phase.enter(k, execution::InprocessPhaseEntryRequest{group == SlotGroup::Eliminate,
+                                                       default_factor_match_, factor_bound});
   k.stats.inprocess_entry_nanos += now_nanos() - phase_nanos_at_entry;
     return ApplyResult::Ok;
       });

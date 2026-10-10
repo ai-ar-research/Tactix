@@ -3,6 +3,8 @@
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
+#include "strategy/controller_observation.hpp"
+#include "strategy/policy_completion.hpp"
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -18,24 +20,38 @@ public:
     const uint32_t levels[]={0,3,5};assert(pass<num_passes());return levels[pass];
   }
 };
-class Recorder final : public FactorMatchPolicy {
-public:
+// The Factor bound each phase entry publishes: the high 32 bits of the
+// InprocessPhaseEntry record's public argument
+// (TACTIX_SUPPORT_ENTER_INPROCESS_PHASE).
+struct PhaseEntryBounds final : strategy::controller::FeedbackReceiver {
   std::vector<uint32_t> seen;
-  const char *name() const override{return "cut-bound-recorder";}
-  void set_bound(uint32_t bound) override{seen.push_back(bound);}
-  double seed_score(const Kernel &,Lit,double) override{return 0;}
-  double next_factor_score(const Kernel &,Lit,uint32_t,Lit,double) override{return 0;}
-  bool accept(uint32_t,uint32_t,int) override{return false;}
+  void after_action(const strategy::controller::ActionFeedback &record) override {
+    if (record.identity == "InprocessPhaseEntry")
+      seen.push_back(static_cast<uint32_t>(record.instance >> 32));
+  }
+  void search_interval(const strategy::controller::SearchIntervalFeedback &) override {}
 };
+static int observed_phase(DefaultInprocessScheduler &scheduler, Kernel &k,
+                          SlotGroup group, PhaseEntryBounds &bounds) {
+  execution::PolicyCompletion completion(k, &bounds,
+      [](const Kernel &kernel, const void *) {
+        return strategy::controller::observe_kernel(kernel);
+      }, nullptr);
+  completion.begin();
+  const int result = scheduler.run_phase(k, group, nullptr, &completion);
+  completion.finish(result, result == 20 ? strategy::controller::StopReason::Unsat
+                                         : strategy::controller::StopReason::Completed);
+  return result;
+}
 static uint64_t eliminated(const Kernel &k){return k.stats.bve_eliminated;}
 
 static void check(bool terminal) {
   Kernel k;Heuristics h;k.h=&h;kernel_reserve_vars(k,8);
   for(int v=1;v<=8;v+=2)kernel_add_binary_clause(k,internalize(v),internalize(v+1));
   k.stats.conflicts=1;
-  Ladder ladder(terminal);Recorder recorder;DefaultPolicy policy;
+  Ladder ladder(terminal);PhaseEntryBounds recorder;DefaultPolicy policy;
   auto &scheduler=policy.inprocess();
-  scheduler.bve_bound=&ladder;scheduler.factor_match=&recorder;
+  scheduler.bve_bound=&ladder;
   const uint64_t entry_material = k.subsume_material_count;
   scheduler.elim_clock.material_mark = entry_material - 1;
   DefaultInprocessScheduler::SlotEntry bve;
@@ -43,7 +59,7 @@ static void check(bool terminal) {
   bve.enabled=true;bve.dosed=true;bve.order=CandidateOrder::Heuristic;
   bve.meter=eliminated;bve.permille=0;
   scheduler.entries.push_back(bve);
-  assert(scheduler.run_phase(k,SlotGroup::Eliminate,nullptr)==0);
+  assert(observed_phase(scheduler,k,SlotGroup::Eliminate,recorder)==0);
   assert(k.stats.bve_eliminated==1 && scheduler.entries[0].limit==0);
   assert(scheduler.entries[0].tm.admitted==1);
   assert(recorder.seen.size()==1 && recorder.seen[0]==0);
@@ -56,7 +72,7 @@ static void check(bool terminal) {
   assert(scheduler.elim_clock.material_mark ==
          (terminal ? k.subsume_material_count : entry_material - 1));
   const uint64_t saved_material = scheduler.elim_clock.material_mark;
-  assert(scheduler.run_phase(k,SlotGroup::Probe,nullptr)==0);
+  assert(observed_phase(scheduler,k,SlotGroup::Probe,recorder)==0);
   assert(scheduler.elim_clock.material_mark == saved_material);
   assert(recorder.seen.size()==2);
   assert(recorder.seen[1]==(terminal?0:3));

@@ -116,9 +116,8 @@ Advised (the caller's target after learning). DefaultPolicy's glue averages, rel
 completed transaction through public statistic deltas (`learned`, `learned_glue_sum`, `backjumps`, `reason_bump_*`); its
 in-transaction advice only traces. DefaultPolicy's native request carries its per-conflict payload by value: the
 reason-bump limit and depth, installed for that analysis only and reset to 0/1, and its retier schedule, applied at OTFS
-conflicts and returned updated; no kernel callback remains. The ranked-trail arm
-(`DefaultStrategyConfig::analysis.reuse_ranked_trail_suffix`, off by default) is the only Advised user: an H-ranked target that is
-a declared diagnostic outside the public-correspondence claim (gap-plan step 6).
+conflicts and returned updated; no kernel callback remains. DefaultPolicy never issues Advised (CaDiCaL's ranked
+analysis-side trail reuse was removed by user decision, 2026-10-10; `SP-CHRONO-1`).
 Internal scheduler advice is not a learner observation or selection boundary; pending clauses are consumed before external publication. Backjump is not independently selectable.
 Level-one failed-literal batches publish before survivor bumps. Eager subsumption follows backtrack before propagation; reason-locked clauses are never deleted.
 
@@ -422,13 +421,17 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
 - DefaultPolicy's support transactions run shared requests that `tactix_support` exposes
   ([controller interface](controller-interface.md)); the per-solve graph-labeling reset, input-binary-order release and root-prefix
   consumption, the presearch and structured-root execution contexts, and the inprocessing phase bracket (shared
-  `execution::InprocessPhase`: entry, occurrence session, exit) are recorded supports. Deviations: a phase entry with an
-  injected FactorMatchPolicy (a declared, excluded diagnostic arm) has no public form; a warm-up picked by a caller-installed branching policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
-  `complete_profile_mode` is enabled.
+  `execution::InprocessPhase`: entry, occurrence session, exit) are recorded supports. Deviation: the C online conversion
+  reads only the selected SR producer's fields unless `complete_profile_mode` is enabled.
 - DefaultPolicy's actions leave through one action port (`src/strategy/action_port.hpp`;
   [controller interface](controller-interface.md)); `test_default_public_correspondence` issues the public requests with
-  identical results. Declared diagnostics outside that claim (ratchet `Declared`/`Diagnostic`): an injected FactorMatchPolicy,
-  a warm-up picked by a caller-installed branching policy and the ranked-trail analysis target. The policy-side scopes around
+  identical results. DefaultPolicy has no caller-installed branching, Factor-selection or ranked-trail arm (removed by user
+  decision, 2026-10-10). The ratchet's two declared non-actions are startup-lifetime choices of the shipped frontend that a C
+  session (eager kernel state, H owned from `tactix_init`) does not make
+  ([evidence](../benchmarks/reports/2026-10-10-remove-diagnostic-arms/README.md)): `MaterializeColdState` (eager allocation
+  is search-identical but raises peak RSS on the 58.6M-variable Rank-5 input) and `AttachHeuristics` (attaching H before the
+  early opportunities changes certificates: startup propagation and early Lucky then write saved phases and deactivate roots
+  into it, and the residual activation handoff seeds only an unattached H). The policy-side scopes around
   public requests (Reduce and BVE pass profiles, work budgets, the Vivify band scope, tick attribution) are port types too;
   PublicPort establishes them through `tactix_install_parameters`, `tactix_install_work_settings`,
   `tactix_set_vivify_scope` and `tactix_install_tick_attribution`.

@@ -28,14 +28,19 @@ static GraphLabelingSliceResult sliced(
   return graph_labeling_model_slice(kernel, session);
 }
 
-struct StopAfterGraphRoot final : BranchingPolicy {
+// Stops the solve at its first search decision, observed as the Decide
+// feedback record, and checks the graph-root state that decision follows.
+struct StopAfterGraphRoot final : strategy::controller::FeedbackReceiver {
   DefaultPolicy &policy;
-  volatile sig_atomic_t &stop;
+  const Kernel &kernel;
+  volatile sig_atomic_t stop = 0;
   unsigned picks = 0;
-  StopAfterGraphRoot(DefaultPolicy &p, volatile sig_atomic_t &s)
-      : policy(p), stop(s) {}
-  const char *name() const override { return "graph-root-test"; }
-  Lit pick(Kernel &kernel) override {
+  StopAfterGraphRoot(DefaultPolicy &p, const Kernel &k) : policy(p), kernel(k) {}
+  void search_interval(const strategy::controller::SearchIntervalFeedback &) override {}
+  void after_action(const strategy::controller::ActionFeedback &record) override {
+    if (record.kind != strategy::controller::FeedbackKind::SearchService ||
+        record.identity != "Decide")
+      return;
     assert(!picks++);
     const auto &diagnostics = policy.graph_labeling_diagnostics();
     assert(diagnostics.authentication_attempts == 1);
@@ -53,11 +58,6 @@ struct StopAfterGraphRoot final : BranchingPolicy {
     assert(kernel.graph_labeling_session.authenticated());
     assert(kernel.graph_labeling_session.candidate_fingerprint());
     stop = 1;
-    for (Var variable = 0; variable < kernel.nvars; ++variable)
-      if (!kernel.value(make_lit(variable, false)) &&
-          !kernel_var_retired(kernel, variable))
-        return make_lit(variable, false);
-    return INVALID_LIT;
   }
 };
 
@@ -120,11 +120,10 @@ int main() {
     config.graph_labeling_model.enabled = true;
     config.graph_labeling_model.parameters = kernel.graph_labeling_parameters;
     DefaultPolicy policy(config);
-    volatile sig_atomic_t stop = 0;
-    StopAfterGraphRoot branching(policy, stop);
-    policy.branching = &branching;
-    assert(policy.solve(kernel, &stop) == 0);
-    assert(branching.picks == 1);
+    StopAfterGraphRoot stopper(policy, kernel);
+    policy.set_feedback(&stopper);
+    assert(policy.solve(kernel, &stopper.stop) == 0);
+    assert(stopper.picks == 1);
   }
   {
     Kernel measured;

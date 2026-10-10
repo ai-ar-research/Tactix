@@ -24,8 +24,8 @@ constexpr uint64_t ANALYZE_TARGET_CHRONO = uint64_t{1} << 63;
 // caller fixed before analysis, clamped to [jump_level, level-1] on every
 // path. Chrono: conflict_reuse_target on every path; the learned clause's
 // target is reported to the caller. Advised: chronological on the reuse
-// paths, the learned clause's target left to the caller (a declared
-// diagnostic arm, docs/implementation-notes.md).
+// paths, the learned clause's target left to the caller (DefaultPolicy
+// issues Chrono only, docs/implementation-notes.md).
 enum class AnalysisTarget : uint8_t { Explicit, Chrono, Advised };
 
 RuleEligibility analyze_guard(const Kernel &);

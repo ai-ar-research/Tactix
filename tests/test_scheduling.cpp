@@ -88,16 +88,10 @@ static void test_reason_bump_delay_lives_at_final_clause_gate(void) {
   std::printf("  reason bump delay: consumed only at finalized-clause gate\n");
 }
 
-static void test_analysis_trail_reuse_defaults_to_kissat(void) {
-  DefaultPolicy p;
-  assert(!p.chrono_reuse_trail_ &&
-         "Kissat is the tie-break and has no analysis-side trail reuse");
-  // The CaDiCaL strategy remains a first-class diagnostic/experimental arm.
-  p.chrono_reuse_trail_ = true;
-  assert(p.chrono_reuse_trail_);
+static void test_bump_reasons_rate_defaults_to_kissat(void) {
   assert(DefaultPolicy::BUMP_REASONS_RATE == 10.0 &&
          "Kissat's bumpreasonsrate=10 is the conflicting-default tie-break");
-  std::printf("  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n");
+  std::printf("  bump reasons rate: Kissat default\n");
 }
 
 static void test_factor_material_gate_uses_literal_marks(void) {
@@ -2166,7 +2160,7 @@ int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_matches_kissat();
   test_reason_bump_delay_lives_at_final_clause_gate();
-  test_analysis_trail_reuse_defaults_to_kissat();
+  test_bump_reasons_rate_defaults_to_kissat();
   test_factor_material_gate_uses_literal_marks();
   test_large_formula_factor_decline_is_solve_latched();
   test_retier_schedule_advances_only_on_otfs_conflicts();

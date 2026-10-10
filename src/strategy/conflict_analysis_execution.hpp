@@ -10,9 +10,8 @@ namespace tactix::execution {
 // The native per-conflict payload, by value. The executor installs the bump
 // payload for this analysis only and restores the neutral values (limit 0,
 // depth 1) afterwards; the retier schedule is applied at every OTFS conflict
-// and returned updated. Chrono is the public ANALYZE_TARGET_CHRONO instance;
-// Advised keeps the caller's target after learning (the default, and the
-// declared ranked-trail diagnostic arm).
+// and returned updated. Chrono is the public ANALYZE_TARGET_CHRONO instance
+// (DefaultPolicy's); Advised keeps the caller's target after learning.
 struct NativeConflictAnalysisRequest {
   uint32_t bump_reason_limit = 0, bump_reason_depth = 1;
   AnalysisTarget target_mode = AnalysisTarget::Advised;

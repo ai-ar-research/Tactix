@@ -559,8 +559,7 @@ for the retier schedule it carried and returned. A client reproduces it by
 installing that profile (`tactix_install_parameters`) and schedule
 (`tactix_install_retier_schedule`), applying the instance, and restoring the
 neutral bump fields; `tactix_read_retier_schedule` returns the updated
-schedule. The ranked-trail diagnostic arm records the canonical instance with
-its realized `;target=`.
+schedule.
 The original scheduler `build(kernel)` keeps its receiver-free entry point;
 an explicit completion overload exposes its profile installations. Temporary
 overrides retain their existing native save/restore lifetime inside the atomic
@@ -572,8 +571,7 @@ Factor-selection handoff, `OpenOccurrenceSession` the phase's occurrence index
 (built after structured startup), and `InprocessPhaseExit` the cleanup; all
 three run the shared `execution::InprocessPhase` bracket. The default
 selection's bound (DefaultPolicy's own calculation) is the entry record's
-instance in public argument form; an injected matcher receives the existing
-phase snapshot and its entry record stays canonical (no public form). The
+instance in public argument form. The
 receipts remain queued until the phase finishes. A structured-root SAT
 terminal skips the occurrence session and records that early exit explicitly.
 Phase support does not claim individual rule applications or formula
@@ -609,10 +607,8 @@ carry the public argument as their instance and add `ResetGraphLabelingSession`,
 structured-root `Enter/LeaveExecutionContext` records; a context left
 implicitly after the session has ended is unrecorded. `MaterializeColdState`
 (predicate-equivalent initial state, never deferred in a C session) and
-`AttachHeuristics` (a C session owns H from `tactix_init`) are declared
-non-actions. A phase entry with an injected Factor matcher (a declared,
-excluded diagnostic arm) and a warm-up picked by a caller-installed branching
-policy have no public form yet. An SR
+`AttachHeuristics` (a C session owns H from `tactix_init`) are the declared
+non-actions. An SR
 online profile with `complete_profile_mode` ENABLE converts every orbitopal,
 general and graph field whatever the producer, so a GraphSymmetry step's
 structured-generator handoff carries its orbitopal settings.
