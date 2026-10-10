@@ -508,7 +508,16 @@ ARMS = {
             "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
             "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
             f"TACTIX_CRUX_INPUT_ORDER=random{seed}", binary=ORDER_POLICY)
-        for seed in range(5)
+        for seed in range(32)
+    },
+    **{
+        f"rbc-vivify-order-random{seed}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", f"TACTIX_CRUX_INPUT_ORDER=random{seed}",
+            binary=ORDER_POLICY)
+        for seed in range(32)
     },
     # Preserve the winning scheduler/search settings while using the public
     # warm-up surface to install TACO's phase=0 observation as saved phases.
