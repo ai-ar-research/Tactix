@@ -42,6 +42,7 @@ enum profile {
   PROFILE_BACKBONE_SYMMETRY_SCAN,
   PROFILE_SYMMETRY_SANDWICH,
   PROFILE_SWEEP,
+  PROFILE_DEEP_SWEEP,
   PROFILE_KISSAT,
   PROFILE_KISSAT_NEGATIVE,
   PROFILE_FULL
@@ -167,6 +168,8 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_SYMMETRY_SANDWICH;
   else if (!strcmp(text, "sweep"))
     *out = PROFILE_SWEEP;
+  else if (!strcmp(text, "deep-sweep"))
+    *out = PROFILE_DEEP_SWEEP;
   else if (!strcmp(text, "kissat-order"))
     *out = PROFILE_KISSAT;
   else if (!strcmp(text, "kissat-order-negative"))
@@ -204,6 +207,7 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_BACKBONE_SYMMETRY_SCAN: return "backbone-symmetry-scan";
   case PROFILE_SYMMETRY_SANDWICH: return "symmetry-sandwich";
   case PROFILE_SWEEP: return "sweep";
+  case PROFILE_DEEP_SWEEP: return "deep-sweep";
   case PROFILE_KISSAT: return "kissat-order";
   case PROFILE_KISSAT_NEGATIVE: return "kissat-order-negative";
   case PROFILE_FULL: return "full";
@@ -540,6 +544,80 @@ static int graph_symmetry_pass(struct policy *policy, int publish) {
   return 1;
 }
 
+/* The crux circuit has 46 gate levels, while the reference Sweep grows only
+ * to depth three.  Ask the same public rule for one deliberately deep pass so
+ * it can see functional equivalences across the complete acyclic cone.  The
+ * limits remain finite and formula-shaped: all 570 variables fit in one
+ * environment, while the tick caps prevent an unlucky seed from monopolizing
+ * the solve. */
+static int deep_sweep_pass(struct policy *policy) {
+  tactix_online_step step;
+  tactix_online_program program;
+  tactix_online_result out;
+  tactix_online_sweep_parameters *parameters;
+  const char *setting;
+  uint32_t depth = 46;
+  uint64_t applications = 0, productive = 0;
+  setting = getenv("TACTIX_CRUX_SWEEP_DEPTH");
+  if (setting && strtoul(setting, NULL, 10))
+    depth = (uint32_t)strtoul(setting, NULL, 10);
+  memset(&step, 0, sizeof step);
+  step.step_id = 2000 + policy->online_revision;
+  step.rule_id = policy->sweep;
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SWEEP;
+  parameters = &step.parameters.value.sweep;
+  parameters->max_depth = depth;
+  parameters->max_depth_ceiling = depth;
+  parameters->max_env_vars = 2048;
+  parameters->max_env_vars_ceiling = 8192;
+  parameters->max_env_clauses = 8192;
+  parameters->max_env_clauses_ceiling = 32768;
+  parameters->max_candidates = 0;
+  parameters->max_proof_steps = 0;
+  parameters->max_seeds = 0;
+  parameters->flip_rounds = 8;
+  parameters->env_ticks = UINT64_C(200000000);
+  parameters->round_ticks = UINT64_C(1000000000);
+  parameters->strip_false = 1;
+  parameters->measure_closure = 1;
+  parameters->full_partition = 1;
+  parameters->resume = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.rule_budget_mode = TACTIX_ONLINE_RULE_BUDGET_UNLIMITED;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  step.post_application = TACTIX_ONLINE_POST_PROPAGATE;
+  program.steps = &step;
+  program.step_count = 1;
+  program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  program.repeat_limit = 1;
+  if (tactix_online_configure(policy->solver, &program,
+                              ++policy->online_revision,
+                              TACTIX_ONLINE_RECONFIGURE_RESET))
+    return 0;
+  while (!tactix_online_complete(policy->solver)) {
+    if (tactix_online_advance(policy->solver, &out)) return 0;
+    applications += out.applications;
+    productive += out.made_rule_progress != 0;
+    if (out.status == TACTIX_ONLINE_UNSAT) return 20;
+    if (out.status == TACTIX_ONLINE_SAT) return 10;
+    if (out.status == TACTIX_ONLINE_CONFLICT) return 2;
+    if (out.status == TACTIX_ONLINE_INVALID_REQUEST ||
+        out.status == TACTIX_ONLINE_STALE_REQUEST ||
+        out.status == TACTIX_ONLINE_RESOURCE_EXHAUSTED ||
+        out.status == TACTIX_ONLINE_ACCOUNTING_ERROR)
+      return 0;
+  }
+  printf("c crux-deep-sweep depth=%u applications=%" PRIu64
+         " productive=%" PRIu64 " equivalences=%" PRIu64 "\n",
+         depth, applications, productive,
+         tactix_stat(policy->solver, TACTIX_STAT_SWEEP_EQUIVALENCES));
+  fflush(stdout);
+  return 1;
+}
+
 static int root_pipeline(struct policy *policy) {
   uint64_t applications = 0;
   unsigned round;
@@ -638,6 +716,22 @@ static int root_pipeline(struct policy *policy) {
     result = dose_rule(policy, policy->congruence, 4, &applications);
     if (terminal(result) || result == 2) return result;
     return dose_rule(policy, policy->substitute, 24, &applications);
+  }
+
+  if (policy->profile == PROFILE_DEEP_SWEEP) {
+    result = dose_rule(policy, policy->backbone, 512, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->substitute, 24, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = deep_sweep_pass(policy);
+    if (terminal(result) || result == 2 || !result) return result;
+    result = dose_rule(policy, policy->substitute, 64, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    return dose_rule(policy, policy->substitute, 64, &applications);
   }
 
   /* Mirror Kissat's authored probe-phase ordering with explicit public-rule
@@ -957,13 +1051,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
