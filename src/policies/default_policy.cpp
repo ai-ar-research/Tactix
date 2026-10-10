@@ -4985,6 +4985,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           request.target_mode == AnalysisTarget::Chrono ? ANALYZE_TARGET_CHRONO
                                                         : INSTANCE_CANONICAL;
       const uint64_t learned_before = k.stats.learned;
+      const uint64_t glue_sum_before = k.stats.learned_glue_sum;
+      const uint64_t backjumps_before = k.stats.backjumps;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const auto analysis = execution::complete_action(
@@ -5014,53 +5016,36 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 apply);
           },
           [&](ApplyResult ar) -> uint32_t {
-            // Kissat calls DELAYING(bumpreasons) inside
-            // analyze_reason_side_literals, after ordinary analysis has produced a
-            // final clause.  Reused conflicts, failed-literal unit batches, and
-            // other early analysis exits must not consume this countdown.
-            if (k.pending.valid && k.stats.learned != learned_before)
-              bump_reasons_delay_.reached_gate(
-                  k.stats.reason_bump_rounds != br_rounds,
-                  k.stats.reason_bump_aborted != br_aborted);
+            // Advice only traces, except that the ranked-trail diagnostic arm
+            // (Advised) picks its target here; the policy's own updates read
+            // the completed transaction below.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
             if (ar == ApplyResult::Unsat) {
               event_trace.detail(k, "analysis_end", -1);
-              return 0;
-            }
-            if (!k.pending.valid) { // reused conflict or direct level-one unit batch
-              // Level-one failed-literal analysis owns its root-unit batch inside
-              // the atomic M3 transition, so it has no pending clause for policy to
-              // observe. Kissat still updates the glue averages and reluctant clock
-              // once for that size-one/glue-zero conflict result (learn.c:120-130).
-              if (k.stats.learned != learned_before) {
-                observe_glue(k, 0);
-                if (k.h->stable)
-                  tick_reluctant();
-              }
+            } else if (!k.pending.valid) {
               event_trace.detail(k, "analysis_end", k.level);
               event_trace_analysis_deletions(k);
               event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                                      mode.ticks_at_focus_entry, mode.count);
-              return 0;
+            } else {
+              event_trace.learned(k, k.pending.lits);
+              event_trace.detail(k, "analysis_tail_learned_emitted",
+                                 k.pending.lits.size());
+              event_trace.detail(k, "analysis_tail_policy_updated",
+                                 k.pending.glue);
+              if (request.target_mode == AnalysisTarget::Chrono) {
+                const uint32_t chosen_back = k.level - 1;
+                event_trace.detail(
+                    k, "analysis_tail_target",
+                    chosen_back - k.pending.jump_level > chrono_levels
+                        ? chosen_back
+                        : k.pending.jump_level);
+              }
             }
-            event_trace.learned(k, k.pending.lits);
-            event_trace.detail(k, "analysis_tail_learned_emitted",
-                               k.pending.lits.size());
-            observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
-            if (k.h->stable)
-              tick_reluctant(); // per learned clause (kissat learn.c)
-            event_trace.detail(k, "analysis_tail_policy_updated", k.pending.glue);
-            if (request.target_mode == AnalysisTarget::Chrono) {
-              // The analysis chose the chronological target; trace it here,
-              // where the advised target is traced.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-              const uint32_t chosen_back = k.level - 1;
-              event_trace.detail(k, "analysis_tail_target",
-                                 chosen_back - k.pending.jump_level > chrono_levels
-                                     ? chosen_back
-                                     : k.pending.jump_level);
 #endif
+            if (request.target_mode == AnalysisTarget::Chrono ||
+                ar != ApplyResult::Ok || !k.pending.valid)
               return 0;
-            }
             const uint32_t jump = k.pending.jump_level;
             const uint32_t back = k.level - 1;
             uint32_t target = jump;
@@ -5094,7 +5079,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       retier_ = analysis.retier_schedule;
       if (analysis.analysis == ApplyResult::Unsat)
         return finish(20);
-      if (!analysis.backjumped)
+      // Post-transaction observation through public statistics only: a
+      // learned result (a backjumped clause, or a level-one unit batch, which
+      // Kissat observes as size one / glue zero, learn.c:120-130) feeds the
+      // glue averages and the reluctant clock; only a final learned clause
+      // (a counted backjump) reaches Kissat's DELAYING(bumpreasons) gate,
+      // never reuse or early exits.
+      const bool backjumped = k.stats.backjumps != backjumps_before;
+      assert(backjumped == analysis.backjumped);
+      if (k.stats.learned != learned_before) {
+        if (backjumped)
+          bump_reasons_delay_.reached_gate(
+              k.stats.reason_bump_rounds != br_rounds,
+              k.stats.reason_bump_aborted != br_aborted);
+        observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
+                                              glue_sum_before));
+        if (k.h->stable)
+          tick_reluctant(); // per learned clause (kissat learn.c)
+      }
+      assert(!backjumped || k.stats.learned == learned_before + 1);
+      if (!backjumped)
         continue;
       event_trace.detail(k, "analysis_tail_backjump_return", k.level);
       event_trace.heap_scores(k);

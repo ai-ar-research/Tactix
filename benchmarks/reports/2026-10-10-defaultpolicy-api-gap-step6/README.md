@@ -159,10 +159,64 @@ two identical-code arms (c2.4 vs 4b). The rejected three-instantiation build mea
 `benchmarks/runs/20261010-apigap-s6-full-debug`, job 1763900: 357/359 passed. The two failures
 were documentation checks: `rule_policy_boundary` (the first `reduce_retier_at_conflict` read the
 search mode from H inside `rules/reduce`; the caller, ConflictAnalysis, now passes the mode) and
-`comment_hygiene` (a 13-line replay header comment). This commit contains both fixes; the full
-Debug and identity reruns on this commit are recorded in the follow-up commit.
+`comment_hygiene` (a 13-line replay header comment). This commit contains both fixes.
+
+**Final commit `d1cf91ecd`.** Full Debug from its archive
+(`benchmarks/runs/20261010-apigap-s6-final-full-debug`, pin
+`benchmarks/runs/20261010-apigap-s6-source/pins/source-pin-d1cf91ecd.json`, job 1763943):
+**359/359 passed** (Step 4b's 358 plus `analysis_native_target`). Release from the same archive
+(`f6e60247…`, byte-identical to the validation-tree rebuild with both fixes): identity campaign
+`benchmarks/runs/20261010-apigap-s6-identity-final`, job 1763908, 12/12 rows identical to c2.4 in
+verdict, conflicts, decisions and certificate SHA-256, all certificates and models valid;
+`test_default_execution_signature` outputs and controller signatures identical as above.
 
 **Doc checks.** All `tools/docs/check-*.py` pass.
+
+## Follow-up: analysis observation after the transaction
+
+The Step 7 ActionPort needs DefaultPolicy to read only what a public client sees after the atomic
+ConflictAnalysis step. The advise closure still read `k.pending` (validity, glue) between analysis and
+backjump for the glue averages, the reluctant clock and the reason-bump delay gate. The follow-up
+commit moves these updates after the transaction and derives them from the completed step's
+public statistics (Observation `cumulative` and `tactix_stat`): a learned result is a `learned`
+delta; its glue is the `learned_glue_sum` delta (glue zero for a level-one unit batch, as before);
+the bump delay gate fires only when the step backjumped, observed as a delta of the additive
+statistic `backjumps` (`TACTIX_STAT_BACKJUMPS` = 61; every Backjump tail of a learned clause,
+including the stale path; reuse and unit batches do not count, which the return code and the other
+deltas cannot separate), with the `reason_bump_rounds`/`reason_bump_aborted` deltas. A Debug assert
+checks the delta against the executor's `backjumped`. None of
+these policy fields is read by Backjump, so the order change is invisible. The advice now only traces
+(compiled out without `TACTIX_ENABLE_EVENT_TRACE`; the trace build compiles), except that the
+ranked-trail diagnostic arm still picks its target there. The ratchet marks `conflict-analysis`
+**Public** (`check_dispatch` off: a static in-interval instantiation, plan §3, so no registry dispatch
+is expected); internal entries on main go from 10 to 9 (`propagate-search`, `decide`,
+`conflict-analysis-ranked-trail`, `propagate-root`, two affine-matrix entries,
+`slot-fastel-occurrence`, `install-affine-matrix-parameters`, `support-warmup-installed-branching`);
+records public 2,557 / internal 4,516 / declared 9.
+
+Checks on the follow-up (Release from an archive of main `a5fbb4125` code plus the change,
+`819a3e4c…`; `test_api_c` now expects ids 0..61):
+`test_analysis_native_target`, `test_native_policy_feedback`, `test_scheduling`, the ratchet and the
+replay (3,030 of 6,366 records, 330 public chrono analyses, 0 schedule mismatches) pass;
+`test_default_execution_signature`, `test_startup_support_signature` and
+`test_inprocess_execution_signature` retained DRAT, models and CNFs identical to c2.4 (stdout differs
+only in `state.strategy`, from Step 5's dispatch); controller signatures (88 files) identical apart
+from elapsed nanoseconds and the added `backjumps` statistic; `test_random_controller_policy`
+identical. Identity campaign `benchmarks/runs/20261010-apigap-s6-identity-advice2`, job 1764043:
+12/12 rows identical to c2.4 in verdict, conflicts, decisions and certificate SHA-256, every
+certificate or model valid. Full Debug of the follow-up commit: recorded in the next commit.
+
+Same-CPU proofless A/B (`benchmarks/runs/20261010-apigap-s6-perf4`, job 1764042; c2.4, main at
+Step 5, follow-up), user instructions:
+
+| Instance | c2.4 | Step 5 main | Follow-up | Δ vs Step 5 | Δ vs c2.4 |
+|---|---|---|---|---|---|
+| b18 | 1.549674e12 | 1.548704e12 | 1.548756e12 | +0.003% | −0.06% |
+| mp1-Nb7T42 | 4.061615e11 | 4.057115e11 | 4.057278e11 | +0.004% | −0.11% |
+| sted5_0x24204-50 | 8.525085e11 | 8.517009e11 | 8.517160e11 | +0.002% | −0.09% |
+| noL-11-16 | 2.235472e11 | 2.233864e11 | 2.233945e11 | +0.004% | −0.07% |
+
+Cycles stay within ±1% of both other arms (the same spread as c2.4 vs Step 5, whose code differs only in slot dispatch).
 
 ## What blocks next
 

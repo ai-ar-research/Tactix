@@ -930,6 +930,7 @@ struct Stats {
   uint64_t binprop_large = 0;
   uint64_t chronological = 0;  // chrono backtrack targets taken
   uint64_t backjump_stale = 0;
+  uint64_t backjumps = 0;      // completed ConflictAnalysis backjump tails
   uint64_t inprocess_phases = 0;   // policy inprocessing phases (a root descent
   uint64_t parity_consequence_attempts = 0;
   uint64_t parity_consequence_clauses = 0, parity_consequence_equations = 0;

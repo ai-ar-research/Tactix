@@ -3331,6 +3331,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.parity_consequence_helpers;
   case 60: // TACTIX_STAT_PARITY_CONSEQUENCE_PUBLISHED
     return k.stats.parity_consequence_published;
+  case 61: // TACTIX_STAT_BACKJUMPS
+    return k.stats.backjumps;
 
   default:
     return UINT64_MAX;
