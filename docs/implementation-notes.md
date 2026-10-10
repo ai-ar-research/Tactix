@@ -112,7 +112,9 @@ Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first C
 M3 learns, truncates, and asserts through one shared atomic executor with three target modes: Explicit (a public v1 level,
 fixed before analysis and clamped on every path), Chrono (the public `ANALYZE_TARGET_CHRONO` payload and DefaultPolicy's native
 request: the chronological target after learning on every path, one `stats.chronological` per chosen chronological target) and
-Advised (the caller's target after learning). DefaultPolicy's native request carries its per-conflict payload by value: the
+Advised (the caller's target after learning). DefaultPolicy's glue averages, reluctant clock and reason-bump delay read only the
+completed transaction through public statistic deltas (`learned`, `learned_glue_sum`, `backjumps`, `reason_bump_*`); its
+in-transaction advice only traces. DefaultPolicy's native request carries its per-conflict payload by value: the
 reason-bump limit and depth, installed for that analysis only and reset to 0/1, and its retier schedule, applied at OTFS
 conflicts and returned updated; no kernel callback remains. The ranked-trail arm
 (`DefaultStrategyConfig::analysis.reuse_ranked_trail_suffix`, off by default) is the only Advised user: an H-ranked target that is

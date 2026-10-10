@@ -140,10 +140,12 @@ inline const std::vector<Entry> &entries() {
        "tactix_decide(literal) / Decide instance", "A2"},
       {"conflict-analysis", K::SearchService, "ConflictAnalysis",
        [](const ActionFeedback &r) { return r.instance == ANALYZE_TARGET_CHRONO; },
-       Route::Shared, Boundary::Interval, Replay::Analysis, true,
+       Route::Public, Boundary::Interval, Replay::Analysis, false,
        "ConflictAnalysis semantic instance ANALYZE_TARGET_CHRONO under the "
        "installed bump payload (tactix_install_parameters) and retier schedule "
-       "(tactix_install_retier_schedule)", "A3,C1,C3,C4"},
+       "(tactix_install_retier_schedule); the policy reads only the completed "
+       "transaction's statistics. A static in-interval instantiation (plan "
+       "section 3), so no registry dispatch is expected", "A3,C1,C3,C4"},
       {"conflict-analysis-ranked-trail", K::SearchService, "ConflictAnalysis",
        [](const ActionFeedback &r) { return r.instance != ANALYZE_TARGET_CHRONO; },
        Route::Kernel, Boundary::Interval, Replay::None, true,

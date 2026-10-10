@@ -15,10 +15,11 @@
 using namespace action_map;
 
 // Internal entries after Step 5 (inprocessing slots as online invocations),
-// on top of Step 4b's public phase bracket and Step 6's shared
-// ConflictAnalysis. Each later step removes the entries it routes publicly.
+// on top of Step 4b's public phase bracket and Step 6's public chrono
+// ConflictAnalysis (its ranked-trail arm is a declared diagnostic). Each later
+// step removes the entries it routes publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
-    "propagate-search", "decide", "conflict-analysis",
+    "propagate-search", "decide",
     "conflict-analysis-ranked-trail", "propagate-root",
     "affine-matrix-initialize", "affine-matrix-search", "slot-fastel-occurrence",
     "install-affine-matrix-parameters", "support-warmup-installed-branching"};

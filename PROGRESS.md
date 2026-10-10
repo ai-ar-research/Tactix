@@ -82,7 +82,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    express it publicly, and the OTFS retier hook is gone; the replay runs 330 analyses through the
    public instance (2,999 of 6,357 records, from 1,154). DefaultPolicy and the controller are
    byte-identical to c2.4 (12 identity rows on the validation tree), user instructions within
-   −0.11%…−0.06% of c2.4; final-commit Debug and identity reruns pending. Step 5 is committed, not
+   −0.11%…−0.06% of c2.4; on the final commit full Debug passes 359/359 and identity holds. A
+   follow-up makes DefaultPolicy read only the completed analysis (public statistic deltas, with
+   the additive `TACTIX_STAT_BACKJUMPS`), so the ratchet marks `conflict-analysis` public
+   (internal entries 10 → 9). Step 5 is committed, not
    pushed ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step5/README.md)): every
    inprocessing slot occurrence is a dispatched typed invocation (Substitute round batch, Vivify
    band ledger, Strengthen forward closure, forward-round and BVE-reschedule supports, all public),

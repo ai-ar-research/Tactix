@@ -26,6 +26,7 @@ void backjump_assign_learned_unit(Kernel &k, Lit unit) {
 
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
+  k.stats.backjumps++; // public observation of a learned-clause transaction
   PendingLearned &p = k.pending;
   event_trace_detail(k, "analysis_tail_backjump_begin", target);
   // Chronological target (D-LEVEL-2): true-level assignment stamps the

@@ -152,6 +152,9 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_PARITY_CONSEQUENCE_DELETIONS 58
 #define TACTIX_STAT_PARITY_CONSEQUENCE_HELPERS 59
 #define TACTIX_STAT_PARITY_CONSEQUENCE_PUBLISHED 60
+/* ConflictAnalysis steps that ended in a backjump with a learned clause
+ * (stale or not); reuse and level-one unit batches do not count. */
+#define TACTIX_STAT_BACKJUMPS 61
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
