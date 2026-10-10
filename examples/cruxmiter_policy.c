@@ -44,6 +44,7 @@ struct policy {
   int rel_trigger;
   uint64_t reduce_next, inprocess_next;
   uint64_t online_revision;
+  uint64_t symmetry_calls, symmetry_applications, symmetry_productive;
 };
 
 static int rule_id(const char *name) {
@@ -229,6 +230,7 @@ static int graph_symmetry_pass(struct policy *policy) {
   tactix_online_program program;
   tactix_online_result out;
   tactix_online_sr_parameters *parameters;
+  uint64_t applications = 0, productive = 0;
   memset(&step, 0, sizeof step);
   step.step_id = 1000 + policy->online_revision;
   step.rule_id = rule_id("SubstitutionRedundancy");
@@ -280,6 +282,8 @@ static int graph_symmetry_pass(struct policy *policy) {
     return 0;
   while (!tactix_online_complete(policy->solver)) {
     if (tactix_online_advance(policy->solver, &out)) return 0;
+    applications += out.applications;
+    productive += out.made_rule_progress != 0;
     if (out.status == TACTIX_ONLINE_UNSAT) return 20;
     if (out.status == TACTIX_ONLINE_SAT) return 10;
     if (out.status == TACTIX_ONLINE_CONFLICT) return 2;
@@ -289,6 +293,13 @@ static int graph_symmetry_pass(struct policy *policy) {
         out.status == TACTIX_ONLINE_ACCOUNTING_ERROR)
       return 0;
   }
+  ++policy->symmetry_calls;
+  policy->symmetry_applications += applications;
+  policy->symmetry_productive += productive;
+  printf("c crux-symmetry call=%" PRIu64 " applications=%" PRIu64
+         " productive=%" PRIu64 "\n",
+         policy->symmetry_calls, applications, productive);
+  fflush(stdout);
   return 1;
 }
 
@@ -599,6 +610,10 @@ int main(int argc, char **argv) {
          tactix_stat(solver, TACTIX_STAT_HBR_BINARIES),
          tactix_stat(solver, TACTIX_STAT_VIVIFIED),
          tactix_stat(solver, TACTIX_STAT_BVE_ELIMINATED));
+  printf("c crux-symmetry-total calls=%" PRIu64 " applications=%" PRIu64
+         " productive=%" PRIu64 "\n",
+         policy.symmetry_calls, policy.symmetry_applications,
+         policy.symmetry_productive);
   if (result == 10) {
     puts("s SATISFIABLE");
     print_model(solver, maximum_variable);
