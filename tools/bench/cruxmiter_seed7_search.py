@@ -28,6 +28,9 @@ OLD_POLICY = os.path.join(OLD_PIN, "examples", "tactix-cruxmiter-policy")
 NEXT_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-d2f139f0b", "examples",
     "tactix-cruxmiter-policy")
+INPUT_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-13500d0b0", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -339,6 +342,25 @@ ARMS = {
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_ENABLE=CCE", "TACTIX_SLOT_MAX_APPLIES=CCE:1"),
+    # CNF-derived policy: variables 1..32 are primary inputs of a complete
+    # acyclic gate encoding; branch only on them and let propagation evaluate
+    # variables 33..570.
+    "input-ranked": policy("input-ranked", binary=INPUT_POLICY),
+    "input-saved": policy("input-saved", binary=INPUT_POLICY),
+    "input-ascending": policy("input-ascending", binary=INPUT_POLICY),
+    "input-descending": policy("input-descending", binary=INPUT_POLICY),
+    "input-ranked-focus1000": policy(
+        "input-ranked", "TACTIX_CRUX_FOCUS_CONFLICTS=1000",
+        binary=INPUT_POLICY),
+    "input-ranked-focus10000": policy(
+        "input-ranked", "TACTIX_CRUX_FOCUS_CONFLICTS=10000",
+        binary=INPUT_POLICY),
+    "input-ranked-reluctant256": policy(
+        "input-ranked", "TACTIX_CRUX_RELUCTANT_PERIOD=256",
+        binary=INPUT_POLICY),
+    "input-ranked-reduce500": policy(
+        "input-ranked", "TACTIX_CRUX_REDUCE_INTERVAL=500",
+        binary=INPUT_POLICY),
     "kissat": [KISSAT],
 }
 
@@ -365,7 +387,8 @@ def main():
     timeout = args.timeout if args.timeout is not None else (
         240.0 if args.stage == "screen" else 600.0)
     cnf = os.path.join(ROOT, REL)
-    for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, KISSAT):
+    for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
+                   KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     if not os.path.isfile(cnf):
@@ -395,7 +418,8 @@ def main():
         "campaign_wrapper_sha256": digest(__file__),
         "input_sha256": digest(cnf),
         "executables": {path: digest(path) for path in
-                        (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, KISSAT)},
+                        (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
+                         INPUT_POLICY, KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
