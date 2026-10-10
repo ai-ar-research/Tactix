@@ -204,7 +204,10 @@ only in `state.strategy`, from Step 5's dispatch); controller signatures (88 fil
 from elapsed nanoseconds and the added `backjumps` statistic; `test_random_controller_policy`
 identical. Identity campaign `benchmarks/runs/20261010-apigap-s6-identity-advice2`, job 1764043:
 12/12 rows identical to c2.4 in verdict, conflicts, decisions and certificate SHA-256, every
-certificate or model valid. Full Debug of the follow-up commit: recorded in the next commit.
+certificate or model valid. Full Debug of the follow-up commit `ce705cddb` from its archive
+(`benchmarks/runs/20261010-apigap-s6-advice-full-debug`, pin
+`benchmarks/runs/20261010-apigap-s6-source/pins/source-pin-ce705cddb.json`, job 1764071):
+**360/360 passed**.
 
 Same-CPU proofless A/B (`benchmarks/runs/20261010-apigap-s6-perf4`, job 1764042; c2.4, main at
 Step 5, follow-up), user instructions:
