@@ -29,6 +29,7 @@ enum profile {
   PROFILE_BACKBONE_HEAVY,
   PROFILE_SYMMETRY_BACKBONE,
   PROFILE_BACKBONE_SYMMETRY,
+  PROFILE_BACKBONE_SYMMETRY_SCAN,
   PROFILE_SYMMETRY_SANDWICH,
   PROFILE_SWEEP,
   PROFILE_FULL
@@ -81,6 +82,8 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_SYMMETRY_BACKBONE;
   else if (!strcmp(text, "backbone-symmetry"))
     *out = PROFILE_BACKBONE_SYMMETRY;
+  else if (!strcmp(text, "backbone-symmetry-scan"))
+    *out = PROFILE_BACKBONE_SYMMETRY_SCAN;
   else if (!strcmp(text, "symmetry-sandwich"))
     *out = PROFILE_SYMMETRY_SANDWICH;
   else if (!strcmp(text, "sweep"))
@@ -105,6 +108,7 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_BACKBONE_HEAVY: return "backbone-heavy";
   case PROFILE_SYMMETRY_BACKBONE: return "symmetry-backbone";
   case PROFILE_BACKBONE_SYMMETRY: return "backbone-symmetry";
+  case PROFILE_BACKBONE_SYMMETRY_SCAN: return "backbone-symmetry-scan";
   case PROFILE_SYMMETRY_SANDWICH: return "symmetry-sandwich";
   case PROFILE_SWEEP: return "sweep";
   case PROFILE_FULL: return "full";
@@ -225,7 +229,7 @@ static int dose_rule(struct policy *policy, int rule, unsigned cap,
  * will still run its complete orbitopal + graph schedule later; this extra
  * pass tests whether exposing symmetry before or immediately after Backbone
  * gives that schedule a better residual formula. */
-static int graph_symmetry_pass(struct policy *policy) {
+static int graph_symmetry_pass(struct policy *policy, int publish) {
   tactix_online_step step;
   tactix_online_program program;
   tactix_online_result out;
@@ -246,8 +250,8 @@ static int graph_symmetry_pass(struct policy *policy) {
   parameters->symmetry_backend_search_budget = 64;
   parameters->symmetry_backend_support_budget = UINT64_C(64) << 20;
   parameters->symmetry_backend_component_size_limit = UINT64_C(5000000);
-  parameters->maximum_symmetry_fixing_instances = 128;
-  parameters->maximum_symmetry_generator_instances_per_pass = 1;
+  parameters->maximum_symmetry_fixing_instances = publish ? 128 : 0;
+  parameters->maximum_symmetry_generator_instances_per_pass = publish ? 1 : 0;
   parameters->maximum_symmetry_group_ticks = UINT64_C(20000000000);
   parameters->symmetry_clause_scope = TACTIX_ONLINE_SYMMETRY_CLAUSES_ALL;
   parameters->symmetry_binary_graph_mode =
@@ -339,20 +343,22 @@ static int root_pipeline(struct policy *policy) {
   }
 
   if (policy->profile == PROFILE_SYMMETRY_BACKBONE) {
-    result = graph_symmetry_pass(policy);
+    result = graph_symmetry_pass(policy, 1);
     if (terminal(result) || result == 2 || !result) return result;
     return dose_rule(policy, policy->backbone, 512, &applications);
   }
 
   if (policy->profile == PROFILE_BACKBONE_SYMMETRY ||
+      policy->profile == PROFILE_BACKBONE_SYMMETRY_SCAN ||
       policy->profile == PROFILE_SYMMETRY_SANDWICH) {
     if (policy->profile == PROFILE_SYMMETRY_SANDWICH) {
-      result = graph_symmetry_pass(policy);
+      result = graph_symmetry_pass(policy, 1);
       if (terminal(result) || result == 2 || !result) return result;
     }
     result = dose_rule(policy, policy->backbone, 512, &applications);
     if (terminal(result) || result == 2) return result;
-    result = graph_symmetry_pass(policy);
+    result = graph_symmetry_pass(
+        policy, policy->profile != PROFILE_BACKBONE_SYMMETRY_SCAN);
     if (terminal(result) || result == 2 || !result) return result;
     result = dose_rule(policy, policy->congruence, 4, &applications);
     if (terminal(result) || result == 2) return result;
@@ -571,13 +577,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|symmetry-sandwich|sweep|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|symmetry-sandwich|sweep|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
