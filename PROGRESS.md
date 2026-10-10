@@ -92,9 +92,19 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    and the BVE score heap with its kernel hook lives in `BveInvocationSession` (ratchet internal
    entries 15 → 10; only `slot-fastel-occurrence` remains of the slots). DefaultPolicy and the
    controller are byte-identical to c2.4 (12 identity rows on `8ddd44960`); instructions −0.02% and
-   −0.05% on two BVE/Factor-heavy rows; full Debug 360/360 on `123cf44fb`. Next: Step 7 (which
-   takes the startup fast-elimination flush); Step 5 also leaves a public score-heap BVE pass and
-   the mid-search Reduce replay divergence (profiles 2 and 5).
+   −0.05% on two BVE/Factor-heavy rows; full Debug 360/360 on `123cf44fb`. Step 7 is committed, not pushed
+   ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step7/README.md)): DefaultPolicy's
+   actions leave through one action port (`src/strategy/action_port.hpp`; production StaticPort
+   binds the registered functions, `.text`-identical to the unported build), and the twin test
+   `default_public_correspondence` runs DefaultPolicy over the static, public (`tactix.h` only) and
+   hardcoded ports on 19 fixtures with identical verdicts, certificates, models, counters and H
+   layout: 6,934 public requests, 0 fallbacks, `correspondence: COMPLETE`. Additive public forms:
+   affine profile/result/release, the fastel instance and prefix compaction, the retirement hold,
+   `COMPACT_VARIABLES` above the root, Substitute round-break reporting. The ratchet's internal set
+   is empty apart from declared diagnostics; the replay is a gate (5,462 of 6,366 records); the §8.4
+   overhead harness (`tools/bench/port_overhead.py`) measures +0.2% instructions on 66–67
+   Rank1–50/B28+C5 rows. Next: identity, full Debug and overhead on the Step 7 commit (evidence
+   commit), then the §8.4 four-set gates for Steps 4b–7.
 
 ## Live work
 

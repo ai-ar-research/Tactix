@@ -461,6 +461,38 @@ inline bool encode_one(const SubstitutionRedundancyParameters &p, Encoded &e) {
   return encode_graph_symmetry(p.graph_symmetry, c);
 }
 
+inline bool encode_one(const strategy::AffineConsequenceParameters &p, Encoded &e) {
+  auto &c = e.parameters.value.affine_consequence;
+  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
+  c.maximum_clauses = p.maximum_clauses;
+  c.maximum_snapshot_literals = p.maximum_snapshot_literals;
+  c.maximum_snapshot_work = p.maximum_snapshot_work;
+  c.maximum_groups = p.maximum_groups;
+  c.maximum_patterns = p.maximum_patterns;
+  c.maximum_elimination_work = p.maximum_elimination_work;
+  c.maximum_arity = p.maximum_arity;
+  c.maximum_intermediate_width = p.maximum_intermediate_width;
+  c.maximum_sources = p.maximum_sources;
+  c.maximum_output_width = p.maximum_output_width;
+  c.maximum_proof_additions = p.maximum_proof_additions;
+  c.maximum_proof_deletions = p.maximum_proof_deletions;
+  c.maximum_journal_bytes = p.maximum_journal_bytes;
+  c.consequence = p.consequence;
+  c.semantics = p.semantics == strategy::AffineConsequenceSemantics::CertifiedBasisV2
+                    ? TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2
+                    : TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1;
+  c.basis_maximum_work = p.basis_maximum_work;
+  c.basis_maximum_intermediate_width = p.basis_maximum_intermediate_width;
+  c.basis_maximum_sources = p.basis_maximum_sources;
+  c.basis_maximum_premises = p.basis_maximum_premises;
+  c.basis_maximum_nodes = p.basis_maximum_nodes;
+  c.basis_maximum_direct_width = p.basis_maximum_direct_width;
+  c.maximum_external_extent = p.maximum_external_extent;
+  c.maximum_session_keys = p.maximum_session_keys;
+  c.maximum_session_work = p.maximum_session_work;
+  return true;
+}
+
 inline bool encode(const strategy::InprocessParameters &parameters, Encoded &e) {
   e.parameters = {};
   return std::visit([&](const auto &p) { return encode_one(p, e); }, parameters);

@@ -412,6 +412,12 @@ public:
   }
 
   InvocationResult apply_one(uint64_t instance) {
+    return apply_one_with(instance, [&] { return apply_rule_instance(rule_, k_, instance); });
+  }
+  // `dispatch` applies the registered BVE instance: registry dispatch here,
+  // the public request for an action port (strategy/action_port.hpp).
+  template <class Dispatch>
+  InvocationResult apply_one_with(uint64_t instance, Dispatch &&dispatch) {
     InvocationResult out;
     out.before = state_version(k_);
     out.after = out.before;
@@ -447,7 +453,7 @@ public:
     }
 
     const uint64_t work_before = k_.stats.bve_resolutions;
-    const ApplyResult result = apply_rule_instance(rule_, k_, instance);
+    const ApplyResult result = dispatch();
     const uint64_t work_after = k_.stats.bve_resolutions;
     if (work_after < work_before) {
       out.status = InvocationStatus::AccountingError;

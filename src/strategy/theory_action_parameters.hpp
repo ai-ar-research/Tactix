@@ -65,7 +65,9 @@ struct AffineConsequenceParameters {
 // persistence. Deferred limits bound outstanding physical deletion occupancy,
 // not all proof-maintenance scans or total process memory.
 struct AffineMatrixInitializeParameters {
-  enum class Admission : uint8_t { AuthenticatedSubimage = 1 };
+  // CompleteSnapshot: the startup root closure's non-persistent session over
+  // the complete live formula (zero persistence limits).
+  enum class Admission : uint8_t { AuthenticatedSubimage = 1, CompleteSnapshot = 2 };
   enum class Operation : uint8_t {
     Initialize = 1, Refresh = 2, RootMaintenance = 3,
     // Append-only compatibility tag. It is root-only like RootMaintenance;
@@ -80,10 +82,16 @@ struct AffineMatrixInitializeParameters {
   uint64_t maximum_deferred_literal_work = 0;
   bool operator==(const AffineMatrixInitializeParameters &) const = default;
   bool valid() const {
-    return basis.valid() && basis.semantics == AffineConsequenceSemantics::CertifiedBasisV2 &&
-           !basis.consequence && admission == Admission::AuthenticatedSubimage &&
-           operation >= Operation::Initialize && operation <= Operation::SearchStep &&
-           maximum_retained_bytes && maximum_deferred_deletions && maximum_deferred_literal_work;
+    if (!basis.valid() || basis.semantics != AffineConsequenceSemantics::CertifiedBasisV2 ||
+        basis.consequence || operation < Operation::Initialize ||
+        operation > Operation::SearchStep)
+      return false;
+    if (admission == Admission::CompleteSnapshot)
+      return (operation == Operation::Initialize || operation == Operation::SearchStep) &&
+             !maximum_retained_bytes && !maximum_deferred_deletions &&
+             !maximum_deferred_literal_work;
+    return admission == Admission::AuthenticatedSubimage && maximum_retained_bytes &&
+           maximum_deferred_deletions && maximum_deferred_literal_work;
   }
   static AffineMatrixInitializeParameters from_kernel(const Kernel &);
 };

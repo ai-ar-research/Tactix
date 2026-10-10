@@ -11,7 +11,9 @@ struct HeuristicRulePublisher {
   void roots(Kernel &k, size_t begin) const {
     heuristics_consume_root_assignments(k, begin);
   }
-  void retirements(Kernel &k) const { heuristics_consume_retirements(k); }
+  void retirements(Kernel &k) const {
+    if (!k.retirement_publication_held) heuristics_consume_retirements(k);
+  }
 };
 
 // The v1 public profile: rule events leave the kernel without reaching H.

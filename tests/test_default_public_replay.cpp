@@ -1,15 +1,13 @@
-// Public-API replay reporter (gap plan Step 0; report-only until step 7).
-// A reference DefaultPolicy stream on a C-API solver is replayed on a second
-// one through tactix.h only: registry instances, decisions, installs, supports,
-// the structured-root online steps and the inprocessing slot invocations
-// (public_online_encoding.hpp; each must convert back to the native request). The replay stops at the first record
-// without a public request or at the first divergence; a census lists every
-// blocking entry. Per guidance-publication mode it reports the first H and
-// installed-profile divergences and H after each online step; each public
-// install must reproduce the reference's profile (asserted). ConflictAnalysis
-// replays as the public chrono instance under the record's payload; its
-// returned retier schedule must equal the native one (asserted). A lookahead
-// pass assumes support transactions without a public request yet.
+// Public-API replay gate (gap plan Step 0 reporter; a gate since Step 7). A
+// reference DefaultPolicy stream on a C-API solver is replayed on a second one
+// through tactix.h only: registry instances, decisions, installs, supports,
+// online steps and, where public, analyses
+// (benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step7/README.md). The
+// replay stops at the first record without a public request; a census lists
+// every blocking entry. Gate: no public record diverges or is refused, H
+// matches at every measured stop under NATIVE publication and every public
+// install reproduces its profile; with no blocking entry left, every stream
+// replays to its end. A lookahead pass assumes support transactions.
 #undef NDEBUG
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
 // with the internal namespace.
@@ -17,6 +15,7 @@
 #include "tactix.h"
 #undef tactix
 #include "default_action_map.hpp"
+#include "rules/subsume_forward/subsume_forward.hpp"
 #include "public_online_encoding.hpp"
 
 #include "api/api_internal.hpp"
@@ -398,9 +397,25 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
                               std::to_string(invocation.id);
       // A slot occurrence is one online invocation of its own.
       const bool slot = starts(entry->id, "slot-");
-      if (slot || key != online_key || tactix_online_complete(s) == 1) {
+      // Each Walk is its own one-step program, as each slot occurrence is.
+      const bool fresh = slot || std::string_view(entry->id) == "walk";
+      if (fresh || key != online_key || tactix_online_complete(s) == 1) {
         public_encoding::EncodedStep encoded;
-        if (!public_encoding::encode_step(observed, invocation, rule_id(invocation.rule),
+        strategy::OnlineInvocation step = invocation;
+        // A Walk record names its scoped profile; the public form is one
+        // canonical online Walk step under exactly those parameters.
+        if (std::string_view(entry->id) == "walk") {
+          step = strategy::OnlineInvocation{};
+          step.id = invocation.id ? invocation.id : 1;
+          step.rule = invocation.rule;
+          step.parameters = invocation.parameters;
+          step.granularity = strategy::InvocationGranularity::CanonicalApplication;
+        }
+        if (step.budget.is_unlimited())
+          step.work_unit = step.rule == "BVE"         ? strategy::WorkUnit::BveTicks
+                           : step.rule == "Propagate" ? strategy::WorkUnit::Propagations
+                                                      : strategy::WorkUnit::Applications;
+        if (!public_encoding::encode_step(observed, step, rule_id(invocation.rule),
                                           encoded)) {
           report.stop = where + ": step has no tactix_online_step_v2 form";
           break;
@@ -412,7 +427,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
           break;
         }
         strategy::OnlineStrategyProgram native;
-        native.sequence.push_back(invocation);
+        native.sequence.push_back(step);
         const auto *configured = api_detail::online_program_for_fixed_testing(s);
         if (!lookahead && strategy::serialize_online_strategy_program(*configured) !=
                               strategy::serialize_online_strategy_program(native))
@@ -542,7 +557,33 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
     } else {
       const int id = rule_id(record.identity);
       assert(id >= 0);
-      code = tactix_apply_instance(s, id, record.instance);
+      std::optional<strategy::ReduceParameters> restore;
+      const auto *invocation =
+          record.native_request && record.native_request->invocation
+              ? &*record.native_request->invocation : nullptr;
+      if (invocation && invocation->rule == "Reduce" &&
+          std::holds_alternative<strategy::ReduceParameters>(invocation->parameters)) {
+        public_encoding::Encoded scoped;
+        restore = strategy::ReduceParameters::from_kernel(observed);
+        assert(public_encoding::encode(invocation->parameters, scoped) &&
+               tactix_install_parameters(s, id, &scoped.parameters) == 0);
+      }
+      uint64_t instance = record.instance;
+      // A fastel record names its clause start; the public instance carries
+      // the occurrence limit the record's description states.
+      if (std::string_view(entry->id) == "slot-fastel-occurrence") {
+        const std::string_view text = description(record);
+        const size_t at = text.find(";occurrence-limit=");
+        assert(at != std::string_view::npos);
+        const uint32_t limit = static_cast<uint32_t>(std::stoul(std::string(text.substr(at + 18))));
+        instance = subsume_forward_fastel_instance(static_cast<Ref>(record.instance), limit);
+      }
+      code = tactix_apply_instance(s, id, instance);
+      if (restore) {
+        public_encoding::Encoded previous;
+        assert(public_encoding::encode(strategy::InprocessParameters(*restore), previous) &&
+               tactix_install_parameters(s, id, &previous.parameters) == 0);
+      }
     }
     // A native no-op (for instance Propagate at a fixpoint) is declined by
     // the public guard; the same unchanged state is an equivalent replay.
@@ -585,6 +626,8 @@ int main() {
   uint64_t analyses = 0, analysis_bumps = 0, analysis_retiers = 0;
   uint64_t lookahead_analyses = 0;
   std::vector<std::string> retier_mismatches;
+  std::vector<std::string> gate_failures;
+  uint64_t nonempty_streams = 0, early_stops = 0;
   for (const Fixture &fixture : fixtures()) {
     if (fixture.dimacs.empty()) continue;
     ++replayed_fixtures;
@@ -627,6 +670,11 @@ int main() {
       for (const auto &where : mode.round_trip_mismatches)
         round_trips.push_back(fixture.name + " " + name + " " + where);
     }
+    nonempty_streams += !records.empty();
+    early_stops += report.stop != "end-of-stream";
+    if (report.stop != "end-of-stream" &&
+        report.stop.find(": no public request: ") == std::string::npos)
+      gate_failures.push_back(fixture.name + " stopped at " + report.stop);
     const Report ahead = replay(fixture, reference, TACTIX_GUIDANCE_DISCARD, true);
     analyses += report.analyses;
     analysis_bumps += report.analysis_bumps;
@@ -686,12 +734,19 @@ int main() {
             << deferred_stops[TACTIX_GUIDANCE_NATIVE] << " (" << guidance_compared
             << " comparisons over " << candidates_compared << " candidate literals, "
             << guidance_deferred << " deferred)\n";
-  // Report-only, except that the replay machinery itself must have executed
-  // public calls (installs, supports and online steps), the H comparison must
-  // have observed nonempty guidance, every public install must reproduce the
-  // reference's installed profile, and every encoded online step must convert
-  // back to exactly the native request.
-  std::cout.flush();
+  // NATIVE is DefaultPolicy's publication profile; DISCARD is reported only.
+  if (guidance_matches[TACTIX_GUIDANCE_NATIVE] + deferred_stops[TACTIX_GUIDANCE_NATIVE] !=
+      nonempty_streams)
+    gate_failures.push_back("H differs at a stop under native publication");
+  if (blockers.empty() && early_stops)
+    gate_failures.push_back("no blocking entry is left but a stream stops early");
+  for (const auto &failure : gate_failures) std::cerr << "replay gate: " << failure << '\n';
+  // The replay machinery itself must have executed public calls (installs,
+  // supports and online steps), the H comparison must have observed nonempty
+  // guidance, every public install must reproduce the reference's installed
+  // profile, and every encoded online step must convert back to exactly the
+  // native request.
+  assert(gate_failures.empty());
   assert(replayed > 0 && installed > 0 && candidates_compared > 0);
   assert(supports > 0 && online_steps[TACTIX_GUIDANCE_DISCARD] > 0);
   assert(install_mismatches.empty() && round_trips.empty());

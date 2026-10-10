@@ -522,8 +522,59 @@ static uint32_t subsume_forward_instances(Kernel &k, uint64_t *out,
   return n;
 }
 
+bool subsume_forward_compact_fastel_prefix(Kernel &k, Lit lit, size_t prefix) {
+  assert(k.dense && k.dense->track_order);
+  const auto live = [&](OccIndex::Entry entry) {
+    if (entry.binary) {
+      const Lit other = entry.payload;
+      return k.value(other) > 0 || !kernel_var_retired(k, var_of(other));
+    }
+    const Clause *clause = clause_at(k.arena, entry.payload);
+    if (clause->garbage()) return false;
+    for (const Lit other : *clause)
+      if (other == lit) return true;
+    return false;
+  };
+  size_t at = 0;
+  bool dead = false;
+  for (const OccIndex::Entry entry : k.dense->ordered[lit]) {
+    if (at++ == prefix) break;
+    dead |= !live(entry);
+  }
+  if (!dead) return false;
+  size_t visited = 0;
+  k.dense->ordered.compact(lit, [&](OccIndex::Entry entry) {
+    return visited++ >= prefix || live(entry);
+  });
+  return true;
+}
+
+// A fastel instance inside an ordered occurrence session; anything else, or a
+// payload that is not a live irredundant clause start, declines.
+static ApplyResult subsume_forward_apply_fastel(Kernel &k, uint64_t inst) {
+  const Ref candidate = static_cast<Ref>(inst);
+  const uint64_t limit = (inst & ~SUBSUME_FORWARD_FASTEL_INSTANCE) >>
+                         SUBSUME_FORWARD_FASTEL_LIMIT_SHIFT;
+  if (!k.dense || !k.dense->track_order || k.level || k.conflict_valid ||
+      k.inconsistent)
+    return ApplyResult::NoOp;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    if (ref == candidate) {
+      // Zero in, zero out: any scratch is equivalent to the caller's.
+      thread_local std::vector<uint8_t> marks;
+      return subsume_forward_try_fastel(k, ref, static_cast<uint32_t>(limit), marks);
+    }
+    if (ref > candidate)
+      break;
+    ref += clause_actual_words(clause_at(k.arena, ref));
+  }
+  return ApplyResult::NoOp;
+}
+
 template <bool Collect>
 static ApplyResult subsume_forward_apply_instance_impl(Kernel &k, uint64_t inst) {
+  if (inst != INSTANCE_CANONICAL && (inst & SUBSUME_FORWARD_FASTEL_INSTANCE))
+    return subsume_forward_apply_fastel(k, inst);
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;

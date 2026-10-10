@@ -3,11 +3,12 @@
 // DefaultPolicy action-route map (gap plan,
 // benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md §1).
 // Route: how DefaultPolicy executes a feedback record now.
-//   Public - registry dispatch, an online invocation or a public support;
+//   Public - registry dispatch, an online invocation, a public support, or a
+//            registered function the port twin proves (plan §3);
 //   Shared - a typed request without dispatch whose transition a declared
 //            public request (id + instance) expresses;
 //   Kernel - no public request expresses it yet;
-//   Declared - a declared non-action: no state a client observes or holds.
+//   Declared - a declared non-action; Diagnostic - an off-by-default arm.
 // test_default_action_map ratchets the internal (Shared/Kernel) entries.
 
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
@@ -45,7 +46,7 @@ using strategy::controller::Observation;
 using strategy::controller::SearchIntervalFeedback;
 using strategy::controller::StopReason;
 
-enum class Route { Public, Shared, Kernel, Declared };
+enum class Route { Public, Shared, Kernel, Declared, Diagnostic };
 // Interval: a step legitimately inside the native search interval (plan §2);
 // Crossing: an action at or across a declared action boundary.
 enum class Boundary { Interval, Crossing };
@@ -66,8 +67,10 @@ inline const char *route_name(Route r) {
   return r == Route::Public   ? "P"
          : r == Route::Shared ? "S"
          : r == Route::Kernel ? "K"
-                              : "D";
+         : r == Route::Declared ? "D"
+                                : "X";
 }
+inline bool declared_route(Route r) { return r == Route::Declared || r == Route::Diagnostic; }
 inline bool internal(Route r) { return r == Route::Shared || r == Route::Kernel; }
 
 inline std::string_view description(const ActionFeedback &r) {
@@ -133,11 +136,13 @@ inline const std::vector<Entry> &entries() {
       // --- search-interval internals (plan §2: static micro dispatch) ---
       {"propagate-search", K::Rule, "Propagate",
        [](const ActionFeedback &r) { return description(r) == "search"; },
-       Route::Shared, Boundary::Interval, Replay::RegistryInstance, true,
-       "Propagate canonical (H root consumption is policy publication)", "A1"},
-      {"decide", K::SearchService, "Decide", nullptr, Route::Shared,
-       Boundary::Interval, Replay::Decide, true,
-       "tactix_decide(literal) / Decide instance", "A2"},
+       Route::Public, Boundary::Interval, Replay::RegistryInstance, false,
+       "tactix_apply(Propagate); production calls the registered propagate_apply "
+       "statically (default_public_correspondence)", "A1"},
+      {"decide", K::SearchService, "Decide", nullptr, Route::Public,
+       Boundary::Interval, Replay::Decide, false,
+       "tactix_decide(literal); production calls the registered decide_apply "
+       "statically (default_public_correspondence)", "A2"},
       {"conflict-analysis", K::SearchService, "ConflictAnalysis",
        [](const ActionFeedback &r) { return r.instance == ANALYZE_TARGET_CHRONO; },
        Route::Public, Boundary::Interval, Replay::Analysis, false,
@@ -148,7 +153,7 @@ inline const std::vector<Entry> &entries() {
        "section 3), so no registry dispatch is expected", "A3,C1,C3,C4"},
       {"conflict-analysis-ranked-trail", K::SearchService, "ConflictAnalysis",
        [](const ActionFeedback &r) { return r.instance != ANALYZE_TARGET_CHRONO; },
-       Route::Kernel, Boundary::Interval, Replay::None, true,
+       Route::Diagnostic, Boundary::Interval, Replay::None, true,
        "none: declared diagnostic arm (H-ranked target after learning), "
        "outside the correspondence claim", "A3"},
       {"restart-scheduled", K::SearchService, "Restart", nullptr, Route::Public,
@@ -170,8 +175,9 @@ inline const std::vector<Entry> &entries() {
       {"rephase", K::Rule, "Rephase", nullptr, Route::Public, Boundary::Crossing,
        Replay::RegistryInstance, true, "Rephase instance = type", "A13"},
       {"walk", K::Rule, "Walk", nullptr, Route::Public, Boundary::Crossing,
-       Replay::None, true,
-       "Walk canonical under scoped WalkParameters (online Walk parameters)",
+       Replay::Online, true,
+       "Walk as one online step under its scoped WalkParameters (step budget, "
+       "seed, seed candidate)",
        "A13"},
       {"lucky-opportunity", K::Rule, "Lucky",
        [](const ActionFeedback &r) {
@@ -190,14 +196,23 @@ inline const std::vector<Entry> &entries() {
        Boundary::Crossing, Replay::RegistryInstance, true, "BCE canonical", "A7"},
       {"propagate-root", K::Rule, "Propagate",
        [](const ActionFeedback &r) { return description(r) != "search"; },
-       Route::Shared, Boundary::Crossing, Replay::RegistryInstance, true,
-       "Propagate canonical (H root consumption is policy publication)", "A1"},
+       Route::Public, Boundary::Crossing, Replay::RegistryInstance, false,
+       "tactix_apply(Propagate); production calls the registered propagate_apply "
+       "statically (default_public_correspondence)", "A1"},
       {"affine-matrix-initialize", K::Rule, "AffineMatrixInitialize", nullptr,
-       Route::Kernel, Boundary::Crossing, Replay::None, true,
-       "partial: AffineMatrixInitialize op; no public disable", "A8"},
+       Route::Public, Boundary::Crossing, Replay::None, false,
+       "AffineMatrixInitialize under tactix_install_affine_matrix_profile "
+       "(complete-snapshot or persistent operation), its typed result read back "
+       "(tactix_read_affine_matrix_result), released by "
+       "TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX; production calls the registered "
+       "functions statically (default_public_correspondence)", "A8"},
       {"affine-matrix-search", K::SearchService, "AffineMatrixSearch", nullptr,
-       Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "partial: AffineMatrixInitialize SearchStep operation", "A8"},
+       Route::Public, Boundary::Crossing, Replay::None, false,
+       "AffineMatrixInitialize under tactix_install_affine_matrix_profile "
+       "(complete-snapshot or persistent operation), its typed result read back "
+       "(tactix_read_affine_matrix_result), released by "
+       "TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX; production calls the registered "
+       "functions statically (default_public_correspondence)", "A8"},
       // --- inprocessing slots (A10) ---
       {"slot-registered", K::Rule, nullptr,
        [](const ActionFeedback &r) { return slot_registered(r); },
@@ -236,14 +251,14 @@ inline const std::vector<Entry> &entries() {
        [](const ActionFeedback &r) {
          return starts(description(r), "fastel-occurrence");
        },
-       Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "none: fastel occurrence traversal calls rule internals", "A10"},
+       Route::Public, Boundary::Crossing, Replay::RegistryInstance, false,
+       "SubsumeForward instance TACTIX_SUBSUME_FORWARD_FASTEL (clause start, "
+       "occurrence limit) inside the Eliminate occurrence session", "A10"},
       // --- permanent installs (C2, C3, C5, C6) and support (A5, A11) ---
       {"install-affine-matrix-parameters", K::Support, "InstallRuleParameters",
        [](const ActionFeedback &r) { return installs_rule(r, "AffineMatrixInitialize"); },
-       Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "none: the persistent affine profile has no tactix_online_parameters "
-       "form", "A8"},
+       Route::Public, Boundary::Crossing, Replay::None, false,
+       "tactix_install_parameters (AffineMatrixInitialize, AffineConsequence profile)", "A8"},
       {"install-parameters", K::Support, "InstallRuleParameters", nullptr,
        Route::Public, Boundary::Crossing, Replay::Install, false,
        "tactix_install_parameters(rule, typed profile)", "C2,C3,C5,C6"},
@@ -295,9 +310,9 @@ inline const std::vector<Entry> &entries() {
        "TACTIX_SUPPORT_WARMUP(phase): H's decision order (H)", "A11",
        TACTIX_SUPPORT_WARMUP},
       {"support-warmup-installed-branching", K::Support, "Warmup", nullptr,
-       Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "none: a caller-installed BranchingPolicy picks (native profile: "
-       "step 7)", "A11"},
+       Route::Diagnostic, Boundary::Crossing, Replay::None, false,
+       "none: a caller-installed BranchingPolicy picks (declared "
+       "diagnostic arm)", "A11"},
       {"support-residual-guidance", K::Support, "PrepareResidualGuidance",
        nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_RESEED_GUIDANCE (with the attach and import-order "

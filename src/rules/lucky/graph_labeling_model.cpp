@@ -45,7 +45,17 @@ bool GraphLabelingModelSession::authenticated() const { return bool(state_); }
 bool GraphLabelingModelSession::complete() const {
   return state_ && state_->stage == State::Stage::Done;
 }
-void GraphLabelingModelSession::clear() { state_.reset(); }
+void GraphLabelingModelSession::clear() {
+  state_.reset();
+  last_authentication_.reset();
+  last_slice_.reset();
+}
+void GraphLabelingModelSession::record_public_result(
+    const GraphLabelingAuthenticationResult &authentication,
+    const GraphLabelingSliceResult &slice) {
+  last_authentication_ = std::make_unique<GraphLabelingAuthenticationResult>(authentication);
+  last_slice_ = std::make_unique<GraphLabelingSliceResult>(slice);
+}
 uint64_t GraphLabelingModelSession::candidate_fingerprint() const {
   if (!state_ || state_->best.labels.empty()) return 0;
   uint64_t result = 0xcbf29ce484222325ULL;

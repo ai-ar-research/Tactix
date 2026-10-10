@@ -425,6 +425,12 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   `execution::InprocessPhase`: entry, occurrence session, exit) are recorded supports. Deviations: a phase entry with an
   injected FactorMatchPolicy (a declared, excluded diagnostic arm) has no public form; a warm-up picked by a caller-installed branching policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
   `complete_profile_mode` is enabled.
+- DefaultPolicy's actions leave through one action port (`src/strategy/action_port.hpp`;
+  [controller interface](controller-interface.md)); `test_default_public_correspondence` issues the public requests with
+  identical results. Declared diagnostics outside that claim (ratchet `Declared`/`Diagnostic`): an injected FactorMatchPolicy,
+  a warm-up picked by a caller-installed branching policy and the ranked-trail analysis target. Policy-side scopes around
+  public requests (Reduce tiers, the graph-labeling, Sweep and Substitute work budgets, the BVE pass parameters) are installed
+  by a client explicitly; the twin test runs them in place.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime
 review](../benchmarks/reports/2026-09-07-runtime-review.md); the pre-compaction text is recoverable from Git commit `96e894c`.

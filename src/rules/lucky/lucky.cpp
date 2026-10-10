@@ -395,12 +395,15 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
                ? execution::execute_action(
                      k, execution::LuckyRequest<LuckyOpportunity::IndependentSet>{})
                : ApplyResult::NoOp;
-  if (inst == LUCKY_GRAPH_AUTHENTICATE || inst == LUCKY_GRAPH_CONTINUE)
-    return execution::execute_action(k, execution::GraphLabelingActionRequest{
+  if (inst == LUCKY_GRAPH_AUTHENTICATE || inst == LUCKY_GRAPH_CONTINUE) {
+    const auto out = execution::execute_action(k, execution::GraphLabelingActionRequest{
         inst == LUCKY_GRAPH_AUTHENTICATE
             ? execution::GraphLabelingOperation::Authenticate
             : execution::GraphLabelingOperation::Continue,
-        strategy::GraphLabelingParameters::from_kernel(k)}).result;
+        strategy::GraphLabelingParameters::from_kernel(k)});
+    k.graph_labeling_session.record_public_result(out.authentication, out.slice);
+    return out.result;
+  }
   if (inst == LUCKY_GRAPH_LABELING)
     return graph_labeling_model_guard(k)
                ? execution::execute_action(

@@ -30,9 +30,19 @@ public:
   // total cap; zero means the current stage needs no policy-imposed slice.
   uint64_t recommended_continuation_work() const;
   void clear();
+  // The typed result of the last public Lucky 26/27 application: its public
+  // observation (null before one).
+  void record_public_result(const GraphLabelingAuthenticationResult &,
+                            const GraphLabelingSliceResult &);
+  const GraphLabelingAuthenticationResult *last_authentication() const {
+    return last_authentication_.get();
+  }
+  const GraphLabelingSliceResult *last_slice() const { return last_slice_.get(); }
 
 private:
   std::unique_ptr<State> state_;
+  std::unique_ptr<GraphLabelingAuthenticationResult> last_authentication_;
+  std::unique_ptr<GraphLabelingSliceResult> last_slice_;
   friend GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
       Kernel &, GraphLabelingModelSession &);
   friend GraphLabelingSliceResult graph_labeling_model_slice(

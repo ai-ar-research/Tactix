@@ -683,6 +683,64 @@ model/proof, then the frontend exits 1 and reports the feedback error on stderr.
 Ordinary successful runs retain solver exit codes. With neither flag, no
 feedback receiver or provenance hashing is constructed.
 
+## Native search configuration and action port
+
+DefaultPolicy is the native `ResumeSearch` configuration plus public requests
+(plan §5.6). The native configuration `native-v1` is the Kissat search profile
+`DefaultStrategyConfig` installs: tick-driven stable/focused mode switching;
+VMTF (focused) and EVSIDS (stable) branching with random-decision sequences and
+the focused-phase pattern; chronological backtracking beyond the configured
+level distance; reason-side bumping within the bump-reason limit and depth; and
+adaptive glue restarts (focused) or reluctant doubling (stable) with trail
+reuse. Inside one native interval DefaultPolicy steps Decide, Propagate,
+ConflictAnalysis and partial restarts by static dispatch. Every macro event
+leaves the interval through a request with a public form: registry dispatch,
+a typed install, a `tactix_support` transaction or the inprocessing phase
+bracket.
+
+`src/strategy/action_port.hpp` names those exits as one action port. The
+production StaticPort binds them to the registered functions themselves.
+PublicPort (`tests/default_public_port.hpp`) issues each action that has a
+public request as that request on a bound C session under NATIVE guidance
+publication. HardcodedPort calls the registered rule functions without dispatch
+accounting; it is the §8.4 hardcoded twin (`tactix-hardcoded`). The
+`default_public_correspondence` test runs DefaultPolicy over all three ports and
+requires identical verdicts, certificate bytes, models and trajectory counters.
+It lists the ratchet's internal entries the fixtures reach and the actions the
+port runs statically (ratcheted; none apart from declared diagnostics);
+`tools/bench/port_overhead.py` measures
+StaticPort against HardcodedPort for the §8.4 bound.
+
+Public forms the port uses beyond the registry, installs and supports:
+
+- ConflictAnalysis is the `TACTIX_ANALYZE_TARGET_CHRONO` instance under the
+  request's installed bump payload and retier schedule; the policy reads the
+  completed transaction's statistics (`TACTIX_STAT_BACKJUMPS` among them).
+- `COMPACT_VARIABLES` runs at any consistent state, since Reduce compacts
+  above the root.
+- Affine services: `tactix_install_affine_matrix_profile` installs an
+  AffineMatrixInitialize profile (the startup root closure's
+  `COMPLETE_SNAPSHOT` admission with zero persistence, or the persistent
+  authenticated profile) and the next canonical application runs its
+  operation; `tactix_read_affine_matrix_result` reads the typed result back;
+  `TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX` releases the session.
+- The fast-elimination occurrence check is the SubsumeForward instance
+  `TACTIX_SUBSUME_FORWARD_FASTEL` (clause start and occurrence limit) inside
+  the Eliminate occurrence session.
+- Graph labeling (Lucky 26/27) and the score-heap BVE pass apply their public
+  instances; the graph-labeling session and the BVE invocation session keep
+  the typed result and the candidate order, which the policy reads.
+- Walk, the Sweep batch and the Substitute round batch run as one online step
+  each under their scoped profile (work budget, material settings; Walk: step
+  budget, seed, seed candidate; Sweep: exact limits; Substitute: rounds and
+  round-effort ceiling, whose break the step reports as an incomplete
+  selection). The executor publishes each Substitute round.
+- `TACTIX_SUPPORT_HOLD_RETIREMENTS` holds retirement publication around a Sweep
+  until the follow-up Substitute or the next boundary publication, as Kissat
+  retires a productive Sweep's union after that Substitute.
+- `TACTIX_SUPPORT_COMPACT_FASTEL_PREFIX` compacts a fast-elimination scan's
+  occurrence prefix, which the fastel flush does after its per-clause checks.
+
 ## Initial sampling and validation
 
 Sample uniformly over eligible root families plus one ResumeSearch choice, then

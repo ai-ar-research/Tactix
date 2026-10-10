@@ -60,7 +60,7 @@
 #include "rules/vivify/vivify.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 #include "strategy/bve_invocation.hpp"
-
+#include "strategy/action_port.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -452,7 +452,7 @@ const RuleVTable &registered_rule(const char *name) {
 
 ApplyResult default_propagate(Kernel &k, const char *candidate,
                               PolicyCompletion *completion = nullptr) {
-  return execution::complete_action(completion, FeedbackKind::Rule, "Propagate",
+  return port::complete_action(completion, FeedbackKind::Rule, "Propagate",
       INSTANCE_CANONICAL, [&] {
         return execution::native_rule_feedback(k, "Propagate", INSTANCE_CANONICAL,
             candidate, [](const Kernel &kernel) { return kernel.stats.propagations; },
@@ -461,7 +461,7 @@ ApplyResult default_propagate(Kernel &k, const char *candidate,
     const size_t trail_begin = k.trail.size();
     const uint64_t root_assignments = k.stats.root_assignments;
     const ApplyResult result = default_direct_rule(
-        k, "Propagate", candidate, [&] { return propagate_apply(k); },
+        k, "Propagate", candidate, [&] { return port::propagate_apply(k); },
         ApplyResult::Ok);
     // Kissat marks every true-level-zero assignment fixed in its assignment
     // primitive. Keep the proof rule independent of policy state, but consume
@@ -481,14 +481,14 @@ ApplyResult default_affine_root_closure(
       !kernel.structural_provenance)
     return ApplyResult::Ok;
 
-  execution::execute_action(
+  port::execute_action(
       kernel, execution::ParameterInstallationRequest{*selected}, completion,
       "AffineMatrixInitialize");
   const uint64_t init_allowance = saturated_sum(
       saturated_sum(selected->maximum_snapshot_work,
                     selected->maximum_elimination_work),
       selected->basis_maximum_work);
-  const AffineMatrixInitResult initialized = execution::complete_action(
+  const AffineMatrixInitResult initialized = port::complete_action(
       completion, FeedbackKind::Rule, "AffineMatrixInitialize",
       INSTANCE_CANONICAL,
       [&] {
@@ -499,7 +499,7 @@ ApplyResult default_affine_root_closure(
             strategy::WorkLimit::bounded(init_allowance));
       },
       [&] {
-        return affine_matrix_search_initialize(
+        return port::affine_matrix_search_initialize(
             kernel, *kernel.affine_matrix_search_session, *selected,
             AffineMatrixAdmission::CompleteSnapshot);
       },
@@ -508,7 +508,7 @@ ApplyResult default_affine_root_closure(
     return ApplyResult::Ok;
 
   for (;;) {
-    const AffineMatrixServiceResult service = execution::complete_action(
+    const AffineMatrixServiceResult service = port::complete_action(
         completion, FeedbackKind::SearchService, "AffineMatrixSearch",
         INSTANCE_CANONICAL,
         [&] {
@@ -524,7 +524,7 @@ ApplyResult default_affine_root_closure(
           return spec;
         },
         [&] {
-          return affine_matrix_search_step(
+          return port::affine_matrix_search_step(
               kernel, *kernel.affine_matrix_search_session);
         },
         affine_service_outcome);
@@ -539,7 +539,7 @@ ApplyResult default_affine_root_closure(
     // This startup schedule deliberately retains no dormant matrix. Future
     // learned policies may initialize the same public action again after an
     // explicit root transition with their own interval and effort choice.
-    kernel.affine_matrix_search_session->disable();
+    port::affine_matrix_search_release(*kernel.affine_matrix_search_session);
     return ApplyResult::Ok;
   }
 }
@@ -549,7 +549,7 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
                                       PolicyCompletion *completion = nullptr) {
   constexpr uint64_t instance = execution::lucky_feedback_instance<Opportunity>();
   const strategy::GuidanceOutcomeSnapshot before(k);
-  return execution::complete_action(completion, FeedbackKind::Rule, "Lucky", instance,
+  return port::complete_action(completion, FeedbackKind::Rule, "Lucky", instance,
       [&] {
         auto spec = execution::native_rule_feedback(k, "Lucky", instance, candidate);
         if constexpr (Opportunity == LuckyOpportunity::GraphLabeling) {
@@ -570,7 +570,7 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
                   Opportunity == LuckyOpportunity::ParityProof ||
                   Opportunity == LuckyOpportunity::ExactOneProof)
       assert(kernel_propagation_fixpoint(k));
-    return apply_rule_instance(lucky, k, instance);
+    return port::apply_rule_instance(lucky, k, instance);
   }, [&](ApplyResult result) {
     auto out = strategy::controller::feedback_outcome(result);
     out.invocation.status = before.refine(k, result, out.invocation.status);
@@ -580,14 +580,14 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
 
 ApplyResult default_lucky(Kernel &k, const char *candidate,
                           PolicyCompletion *completion = nullptr) {
-  return execution::complete_action(completion, FeedbackKind::Rule, "Lucky",
+  return port::complete_action(completion, FeedbackKind::Rule, "Lucky",
       INSTANCE_CANONICAL, [&] {
         return execution::native_rule_feedback(k, "Lucky", INSTANCE_CANONICAL, candidate);
       }, [&] {
     const size_t trail_begin = k.trail.size();
     const uint64_t roots_before = k.stats.root_assignments;
     static const RuleVTable &lucky = registered_rule("Lucky");
-    const ApplyResult result = apply_rule_instance(lucky, k, INSTANCE_CANONICAL);
+    const ApplyResult result = port::apply_rule_instance(lucky, k, INSTANCE_CANONICAL);
     // Lucky can prove failed-literal units even when every model probe fails.
     // Its root entry prefix survives speculative backtracking, so consume the
     // appended roots in assignment order before any later policy consumer.
@@ -608,7 +608,7 @@ ApplyResult default_resume_sparse_propagation(Kernel &k,
   // to the beginning of the suffix produced by the simplifier after sparse
   // watches are rebuilt. Tactix retains immutable root identities, so the
   // equivalent cursor is the saved suffix boundary, not literal trail zero.
-  return execution::execute_action(
+  return port::execute_action(
       k, execution::SparseResumeRequest{trail_begin, charge_search_ticks}, [&] {
         return default_propagate(k, charge_search_ticks ? "eliminate-sparse-resume"
                                                        : "probe-sparse-resume");
@@ -616,7 +616,7 @@ ApplyResult default_resume_sparse_propagation(Kernel &k,
 }
 
 void default_prepare_reduction(Kernel &k) {
-  execution::execute_action(k, execution::ReductionPreparationRequest{},
+  port::execute_action(k, execution::ReductionPreparationRequest{},
       [&](size_t begin) { heuristics_consume_root_assignments(k, begin); });
 }
 
@@ -683,7 +683,7 @@ void pose_tiers(Kernel &k, const RetierSchedule &tiers, uint8_t tier1_mode,
   strategy::ReduceParameters posed = strategy::ReduceParameters::from_kernel(k);
   posed.tier1 = tiers.tier1_by_mode[tier1_mode];
   posed.tier2 = std::max(posed.tier1, tiers.tier2_by_mode[tier2_mode]);
-  execution::execute_action(k, execution::ParameterInstallationRequest{posed},
+  port::execute_action(k, execution::ParameterInstallationRequest{posed},
                             completion, "Reduce");
 }
 
@@ -1953,16 +1953,16 @@ ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
   // assignments that must be rescanned after their transient blockers vanish.
   // Warm-up must not defer those scans until after its first decision.
   constexpr execution::RootPreparationRequest preparation{false, true};
-  return execution::complete_action(completion_, FeedbackKind::Support, "RootPreparation",
+  return port::complete_action(completion_, FeedbackKind::Support, "RootPreparation",
       execution::root_preparation_argument(preparation, true), [] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = "probing=0;clear-unflushed-root=1;restart-purpose=preparation";
         return spec;
-      }, [&] { return execution::execute_action(k, preparation,
+      }, [&] { return port::execute_action(k, preparation,
       [&] { heuristics_update_target_phases(k); },
       [&](const execution::RestartRequest &request) {
         return default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
-            [&] { return execution::execute_action(k, request); });
+            [&] { return port::execute_action(k, request); });
       }, [&] { return default_propagate(k, "rephase-root"); });
   });
 }
@@ -2117,7 +2117,7 @@ template <execution::ExecutionContext Context> class RecordedExecutionContext {
 public:
   RecordedExecutionContext(Kernel &k, PolicyCompletion *completion)
       : kernel_(k), completion_(completion) {
-    (void)execution::complete_action(completion_, FeedbackKind::Support,
+    (void)port::complete_action(completion_, FeedbackKind::Support,
         "EnterExecutionContext", execution::execution_context_argument(Context), [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = description();
@@ -2129,7 +2129,7 @@ public:
   }
   void leave() {
     if (!scope_) return;
-    (void)execution::complete_action(completion_, FeedbackKind::Support,
+    (void)port::complete_action(completion_, FeedbackKind::Support,
         "LeaveExecutionContext", execution::execution_context_argument(Context), [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = description();
@@ -2894,7 +2894,7 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
   // through the installed ConflictAnalysis profile.
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.jump_reasons_bigbig = classification.bigbig;
-  execution::execute_action(k, execution::ParameterInstallationRequest{analysis},
+  port::execute_action(k, execution::ParameterInstallationRequest{analysis},
                             completion_, "ConflictAnalysis");
   k.stats.jump_reason_classifications++;
   k.stats.jump_reason_bigbig += classification.bigbig;
@@ -3341,23 +3341,23 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
 }
 
 void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *completion) const {
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().congruence_parameters}, completion, "Congruence");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().instantiate_parameters}, completion, "Instantiate");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().backbone_parameters}, completion, "Backbone");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().bce_parameters}, completion, "BCE");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().ternary_parameters}, completion, "HyperTernaryRes");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().factor_parameters}, completion, "Factor");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().transitive_parameters}, completion, "TransitiveReduce");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().substitute_parameters}, completion, "Substitute");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().vivify_parameters}, completion, "Vivify");
   // The scheduler owns these limits, while gate mask, growth ramp and physical
   // traversal retain the installed caller profile until their native occasion.
@@ -3372,7 +3372,7 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
   bve.definition_cores = config().bve_definition_cores;
   bve.definition_core_budget_multiplier = config().bve_definition_core_budget_multiplier;
   bve.backward = config().bve_backward;
-  execution::execute_action(k, execution::ParameterInstallationRequest{bve}, completion, "BVE");
+  port::execute_action(k, execution::ParameterInstallationRequest{bve}, completion, "BVE");
 }
 
 void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
@@ -3531,7 +3531,7 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   // kernel's unlimited default squares to a magnitude that cancels every
   // score difference in `kissat_bve_variable_score`.
   install_parameters(k, completion);
-  execution::execute_action(k, execution::MaterialSettingsRequest{
+  port::execute_action(k, execution::MaterialSettingsRequest{
                                    config().touch_filter,
                                    config().likely_kept_redundant}, completion);
   if (!initialized_) {
@@ -3682,9 +3682,9 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
        parameters->basis_maximum_work,parameters->basis_maximum_work,
        parameters->maximum_session_work})
     affine_service_allowance_=saturated_sum(affine_service_allowance_,cap);
-  execution::execute_action(kernel, execution::ParameterInstallationRequest{*parameters},
+  port::execute_action(kernel, execution::ParameterInstallationRequest{*parameters},
                             completion_, "AffineMatrixInitialize");
-  result = execution::complete_action(
+  result = port::complete_action(
       completion_, FeedbackKind::Rule, "AffineMatrixInitialize", INSTANCE_CANONICAL,
       [&] {
         return execution::native_rule_feedback(
@@ -3698,9 +3698,9 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
       },
       [&] {
         auto initialized = refresh
-            ? affine_matrix_search_refresh(kernel,*kernel.affine_matrix_search_session,
+            ? port::affine_matrix_search_refresh(kernel,*kernel.affine_matrix_search_session,
                 *parameters,persistence,recognize)
-            : affine_matrix_search_initialize(kernel,*kernel.affine_matrix_search_session,
+            : port::affine_matrix_search_initialize(kernel,*kernel.affine_matrix_search_session,
                 *parameters,AffineMatrixAdmission::AuthenticatedSubimage,persistence);
         uint64_t work = 0;
         for (uint64_t amount : {initialized.snapshot_work,initialized.recognition_work,
@@ -3772,7 +3772,7 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   }
   const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
   const uint64_t started=now_nanos();
-  result=execution::complete_action(
+  result=port::complete_action(
       completion_,FeedbackKind::SearchService,"AffineMatrixSearch",INSTANCE_CANONICAL,
       [&] {
         execution::NativeFeedbackSpec spec;
@@ -3785,7 +3785,7 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
         spec.description.have_affine_matrix_event=true;
         return spec;
       },[&] {
-        auto serviced=affine_matrix_search_step(kernel,*kernel.affine_matrix_search_session);
+        auto serviced=port::affine_matrix_search_step(kernel,*kernel.affine_matrix_search_session);
         uint64_t work=0;
         for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
              serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
@@ -3894,7 +3894,7 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   const bool optional_disable = result.terminal_failure() &&
       result.status != AffineMatrixServiceStatus::Interrupted &&
       kernel.affine_matrix_search_session->enabled();
-  if (optional_disable) kernel.affine_matrix_search_session->disable(kernel);
+  if (optional_disable) port::affine_matrix_search_release(*kernel.affine_matrix_search_session, kernel);
   return optional_disable;
 }
 
@@ -4122,7 +4122,7 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
       !graph_labeling_model_guard(kernel))
     return result;
   ++graph_labeling_diagnostics_.authentication_attempts;
-  result = execution::complete_action(
+  result = port::complete_action(
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_AUTHENTICATE,
       [&] { return execution::native_rule_feedback(kernel, "Lucky",
           LUCKY_GRAPH_AUTHENTICATE, "graph-authenticate"); },
@@ -4130,8 +4130,8 @@ DefaultPolicy::authenticate_graph_labeling(Kernel &kernel) {
         // Registry dispatch of Lucky 26; the policy keeps the typed result.
         execution::GraphLabelingActionResult out;
         static const RuleVTable &lucky = registered_rule("Lucky");
-        (void)apply_rule_structured(lucky, kernel, "26", [&] {
-          out = execution::execute_action(kernel, execution::GraphLabelingActionRequest{
+        (void)port::apply_rule_structured(lucky, kernel, "26", [&] {
+          out = port::execute_action(kernel, execution::GraphLabelingActionRequest{
               execution::GraphLabelingOperation::Authenticate,
               strategy::GraphLabelingParameters::from_kernel(kernel)});
           return out.result;
@@ -4179,7 +4179,7 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
                         strategy::RuleWorkBudgetMode::Bounded, allowance}
                   : strategy::RuleWorkBudget{});
   const strategy::GuidanceOutcomeSnapshot before(kernel);
-  result = execution::complete_action(
+  result = port::complete_action(
       completion_, FeedbackKind::Rule, "Lucky", LUCKY_GRAPH_CONTINUE,
       [&] { return execution::native_rule_feedback(kernel, "Lucky",
           LUCKY_GRAPH_CONTINUE, "graph-continue"); },
@@ -4187,8 +4187,8 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
         // Registry dispatch of Lucky 27; the policy keeps the typed result.
         execution::GraphLabelingActionResult out;
         static const RuleVTable &lucky = registered_rule("Lucky");
-        (void)apply_rule_structured(lucky, kernel, "27", [&] {
-          out = execution::execute_action(kernel, execution::GraphLabelingActionRequest{
+        (void)port::apply_rule_structured(lucky, kernel, "27", [&] {
+          out = port::execute_action(kernel, execution::GraphLabelingActionRequest{
               execution::GraphLabelingOperation::Continue,
               strategy::GraphLabelingParameters::from_kernel(kernel)});
           return out.result;
@@ -4224,7 +4224,7 @@ ApplyResult DefaultPolicy::install_graph_labeling_hint(
       hint.objective != result.objective_after)
     return ApplyResult::NoOp;
   ++graph_labeling_diagnostics_.phase_install_attempts;
-  const ApplyResult installed = execution::complete_action(
+  const ApplyResult installed = port::complete_action(
       completion_, FeedbackKind::Rule, "LocalSearchGuidance", hint.id,
       [&] {
         return execution::native_rule_feedback(
@@ -4234,7 +4234,7 @@ ApplyResult DefaultPolicy::install_graph_labeling_hint(
       },
       [&] {
         static const RuleVTable &guidance = registered_rule("LocalSearchGuidance");
-        return apply_rule_instance(guidance, kernel, hint.id);
+        return port::apply_rule_instance(guidance, kernel, hint.id);
       });
   if (installed == ApplyResult::Ok)
     ++graph_labeling_diagnostics_.phase_installs;
@@ -4279,10 +4279,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // not only discard its decision trail. S1 Restart owns that transition
   // (docs/calculus.md §4); startup inprocessing requires !conflict_valid.
   if (k.level || k.conflict_valid) {
-    if (execution::complete_action(completion_, FeedbackKind::Support, "Restart", 0,
+    if (port::complete_action(completion_, FeedbackKind::Support, "Restart", 0,
             [&] { return execution::native_rule_feedback(k, "Restart", 0,
                 "keep-level=0;purpose=preparation;solve-entry=1"); }, [&] {
-              return execution::execute_action(k, execution::RestartRequest{
+              return port::execute_action(k, execution::RestartRequest{
                   0, execution::RestartPurpose::Preparation});
             }) == ApplyResult::Unsat)
       { feedback.finish(20, StopReason::Unsat); return 20; }
@@ -4299,13 +4299,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   affine_schedule_={};
   affine_usefulness_calls_=affine_usefulness_yield_=affine_usefulness_checks_=0;
   affine_usefulness_paused_=false;
-  (void)execution::complete_action(completion_, FeedbackKind::Support,
+  (void)port::complete_action(completion_, FeedbackKind::Support,
       "ResetGraphLabelingSession", INSTANCE_CANONICAL, [] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = "per-solve";
         return spec;
       }, [&] {
-        execution::execute_action(k, execution::ResetGraphLabelingSessionRequest{});
+        port::execute_action(k, execution::ResetGraphLabelingSessionRequest{});
         return ApplyResult::Ok;
       });
   reset_graph_labeling_schedule(k);
@@ -4317,38 +4317,38 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   analysis.shrink_glue_promote = config_.analysis.shrink_glue_promote;
   analysis.bump_extension_reasons = config_.analysis.bump_extension_reasons;
   analysis.eager_subsume = config_.analysis.eager_subsume;
-  execution::execute_action(k, execution::ParameterInstallationRequest{analysis}, completion_, "ConflictAnalysis");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{analysis}, completion_, "ConflictAnalysis");
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.reorder.parameters}, completion_, "Reorder");
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.parity_model.parameters}, completion_, "Lucky", LUCKY_PARITY_PROOF);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.onehot_model.parameters}, completion_, "Lucky", LUCKY_EXACT_ONE_PROOF);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.affine_model.parameters}, completion_, "Lucky", 8);
-  execution::execute_action(
+  port::execute_action(
       k,
       execution::ParameterInstallationRequest{
           config_.balanced_signature_model.parameters},
       completion_, "Lucky", 10);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.fermat_model.parameters}, completion_, "Lucky", 11);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.lookup_circuit_model.parameters}, completion_, "Lucky", 13);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.simon_model.parameters}, completion_, "Lucky", 14);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.stconn_proof.parameters}, completion_, "Lucky", 15);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.signed_cardinality_proof.parameters}, completion_, "Lucky", 16);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.exact_cover_model.parameters}, completion_, "Lucky", 17);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.independent_set_model.parameters}, completion_, "Lucky", 18);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.graph_labeling_model.parameters}, completion_, "Lucky",
                             LUCKY_GRAPH_LABELING);
-  execution::execute_action(k, execution::ParameterInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{
                                    config_.ramsey_startup.parameters}, completion_, "Lucky", LUCKY_STARTUP_RAMSEY);
   strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
   reduce.victim_numerator = config_.reduction.victim_numerator;
@@ -4356,8 +4356,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   reduce.protect_tiers = config_.reduction.protect_tiers;
   reduce.compact_collection = config_.reduction.canonical_compact_collection;
   reduce.reduction_bookkeeping = config_.reduction.bookkeeping;
-  execution::execute_action(k, execution::ParameterInstallationRequest{reduce}, completion_, "Reduce");
-  execution::execute_action(k, execution::WalkGuidanceInstallationRequest{
+  port::execute_action(k, execution::ParameterInstallationRequest{reduce}, completion_, "Reduce");
+  port::execute_action(k, execution::WalkGuidanceInstallationRequest{
                                    config_.rephase.walk_even_break_base_milli,
                                    config_.rephase.walk_score_curve}, completion_);
   if (reset_schedule_per_solve) {
@@ -4432,13 +4432,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (counting == ApplyResult::Unsat)
       return finish(20);
   }
-  (void)execution::complete_action(completion_, FeedbackKind::Support,
+  (void)port::complete_action(completion_, FeedbackKind::Support,
       "CloseStartupCertificate", INSTANCE_CANONICAL, [] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = "close-original-input-opportunity;commit-native-dsr";
         return spec;
       }, [&] {
-        execution::execute_action(k, execution::CloseStartupCertificateRequest{});
+        port::execute_action(k, execution::CloseStartupCertificateRequest{});
         return ApplyResult::NoOp;
       });
   ApplyResult startup = default_propagate(k, "startup", completion_);
@@ -4583,14 +4583,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // clauses. Its count-only preflight keeps every decline proof-atomic.
   if (onehot_model_guard(k)) {
     event_trace.macro(k, "exact_one_refutation_begin");
-    const ApplyResult exact_one = execution::complete_action(completion_, FeedbackKind::Rule,
+    const ApplyResult exact_one = port::complete_action(completion_, FeedbackKind::Rule,
         "Lucky", LUCKY_EXACT_ONE_PROOF, [&] {
           return execution::native_rule_feedback(
               k, "Lucky", LUCKY_EXACT_ONE_PROOF,
             "native-exact-one-refutation-opportunity"); }, [&] {
           static const RuleVTable &lucky = registered_rule("Lucky");
           assert(kernel_propagation_fixpoint(k)); // its root closure is a no-op
-          return apply_rule_instance(lucky, k, LUCKY_EXACT_ONE_PROOF);
+          return port::apply_rule_instance(lucky, k, LUCKY_EXACT_ONE_PROOF);
         });
     if (exact_one == ApplyResult::Unsat) {
       event_trace.macro(k, "exact_one_refutation_end", "unsat");
@@ -4610,7 +4610,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
       (!k.proof || k.proof->dsr())) {
-    execution::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
+    port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
     const uint64_t post_amo_progress_before =
@@ -4654,7 +4654,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (inprocess_reach_root(k))
         return finish(20);
       if (bce_guard(k)) {
-        const ApplyResult bce = execution::complete_action(completion_,
+        const ApplyResult bce = port::complete_action(completion_,
             FeedbackKind::Rule, "BCE", INSTANCE_CANONICAL, [&] {
               return execution::native_rule_feedback(k, "BCE", INSTANCE_CANONICAL,
                   "post-structured-amo", [](const Kernel &kernel) {
@@ -4663,7 +4663,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             }, [&] {
               InprocessScope scope(k);
               static const RuleVTable &bce = registered_rule("BCE");
-              return apply_rule(bce, k);
+              return port::apply_rule(bce, k);
             }, [&](ApplyResult result) {
               return execution::native_rule_outcome(k, "BCE", result);
             });
@@ -4686,13 +4686,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "direct_csp_model_end", "unknown");
   }
   if (k.input_binary_order_captured)
-    (void)execution::complete_action(completion_, FeedbackKind::Support,
+    (void)port::complete_action(completion_, FeedbackKind::Support,
         "ReleaseInputBinaryOrder", INSTANCE_CANONICAL, [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "after-original-input-opportunities";
           return spec;
         }, [&] {
-          execution::execute_action(k, execution::ReleaseInputBinaryOrderRequest{});
+          port::execute_action(k, execution::ReleaseInputBinaryOrderRequest{});
           return ApplyResult::Ok;
         });
   if (lucky_guard(k)) {
@@ -4723,7 +4723,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
   // boundary: materialize before sparse collection and every authored rule.
-  execution::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
+  port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
   // Search guidance is likewise unobservable to startup propagation and Lucky.
   // Attach it only after the early opportunity fails. ScopedHeuristics consumes
   // the parser's retained activation order, preserving the exact first-search
@@ -4737,7 +4737,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           structured_root_amo_binaries_added,
           structured_root_graph_root_progress) &&
       config_.inprocess.structured_root_residual_search_handoff) {
-    (void)execution::complete_action(completion_, FeedbackKind::Support,
+    (void)port::complete_action(completion_, FeedbackKind::Support,
         "PrepareResidualGuidance", INSTANCE_CANONICAL, [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "prepare-first-search-activation-seed";
@@ -4747,7 +4747,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         }, [&] {
           const uint64_t started = now_nanos();
           k.stats.residual_handoff_variables +=
-              execution::execute_action(k, execution::ResidualActivationRequest{});
+              port::execute_action(k, execution::ResidualActivationRequest{});
           residual_import_order = k.input_activation_order;
           k.stats.residual_handoff_nanos += now_nanos() - started;
           ++k.stats.residual_handoff_calls;
@@ -4755,7 +4755,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         });
   }
   if (!k.h)
-    (void)execution::complete_action(completion_, FeedbackKind::Support,
+    (void)port::complete_action(completion_, FeedbackKind::Support,
         "AttachHeuristics", INSTANCE_CANONICAL, [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "fresh;activation-storage=shrink";
@@ -4767,7 +4767,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           return ApplyResult::Ok;
         });
   if (!residual_import_order.empty())
-    (void)execution::complete_action(completion_, FeedbackKind::Support,
+    (void)port::complete_action(completion_, FeedbackKind::Support,
         "SeedResidualImportOrder", INSTANCE_CANONICAL, [&] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "variables=" + std::to_string(residual_import_order.size());
@@ -4775,7 +4775,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
           return spec;
         }, [&] {
-          execution::execute_action(k, execution::ResidualImportRequest{residual_import_order});
+          port::execute_action(k, execution::ResidualImportRequest{residual_import_order});
           return ApplyResult::Ok;
         });
   event_trace.macro(k, "preprocess_begin");
@@ -4789,7 +4789,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace_substitute_map(k, l, l);
 #endif
     event_trace_slot_boundary(k, "SparseCollect", "begin");
-    collected = execution::execute_action(k, execution::SparseCollectRequest{}, completion_);
+    collected = port::execute_action(k, execution::SparseCollectRequest{}, completion_);
     event_trace_slot_boundary(k, "SparseCollect", "end");
     if (collected == RootCollectOutcome::Refuted)
       return finish(20);
@@ -4805,7 +4805,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // policy state and must use the same compacted population and ordering.
   event_trace_target_state(k, "startup-compact-pre",
                            static_cast<uint32_t>(k.trail.size()));
-  (void)execution::complete_action(completion_, FeedbackKind::Support,
+  (void)port::complete_action(completion_, FeedbackKind::Support,
       "CompactRandomOrder", INSTANCE_CANONICAL, [] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = "fold-root-fixed-branching-population";
@@ -4813,7 +4813,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
         return spec;
       }, [&] {
-        execution::execute_action(k, execution::CompactRandomOrderRequest{});
+        port::execute_action(k, execution::CompactRandomOrderRequest{});
         return ApplyResult::Ok;
       });
   event_trace_target_state(
@@ -4890,13 +4890,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Preprocessing has consumed the root-unit trail prefix.  Tactix retains
   // those literals for stable IDs/proof witnesses, so only the lifecycle
   // marker is cleared (Kissat physically clears that prefix).
-  (void)execution::complete_action(completion_, FeedbackKind::Support,
+  (void)port::complete_action(completion_, FeedbackKind::Support,
       "ConsumeRootPrefix", INSTANCE_CANONICAL, [] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = "before-search";
         return spec;
       }, [&] {
-        return execution::execute_action(k, execution::ConsumeRootPrefixRequest{})
+        return port::execute_action(k, execution::ConsumeRootPrefixRequest{})
                    ? ApplyResult::Ok : ApplyResult::NoOp;
       });
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -4989,7 +4989,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const uint64_t backjumps_before = k.stats.backjumps;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
-      const auto analysis = execution::complete_action(
+      const auto analysis = port::complete_action(
           completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
           [&] {
             auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
@@ -5007,7 +5007,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 ";retier=" + execution::retier_schedule_text(request.retier_schedule);
             return spec;
           }, [&] {
-        return execution::execute_action(
+        return port::execute_action(
           k, request,
           [&](auto &&apply) {
             return default_direct_rule_lazy(
@@ -5115,7 +5115,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_reduce(k) && reduce_guard(k)) {
       event_trace.macro(k, "reduce_begin");
       feedback.end_interval(StopReason::RootPreparation);
-      (void)execution::complete_action(completion_, FeedbackKind::Support,
+      (void)port::complete_action(completion_, FeedbackKind::Support,
           "ReductionPreparation", INSTANCE_CANONICAL, [] {
             execution::NativeFeedbackSpec spec;
             spec.description.description = "native-reduce-root-preparation";
@@ -5165,7 +5165,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       selected.compact_collection = compact_due;
       const uint64_t reduce_instance =
           canonical_victims ? INSTANCE_CANONICAL : reduce_victims;
-      (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reduce",
+      (void)port::complete_action(completion_, FeedbackKind::Rule, "Reduce",
           reduce_instance, [&] {
             rank_victims();
             std::string description = "compact=" + std::to_string(compact_due) + ";victim-ids=";
@@ -5178,8 +5178,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }, [&] {
             static const RuleVTable &reduce_rule = registered_rule("Reduce");
             const strategy::ScopedReduceParameters scoped(k, selected);
-            return canonical_victims ? apply_rule(reduce_rule, k)
-                                     : apply_rule_instance(reduce_rule, k, reduce_victims);
+            return canonical_victims ? port::apply_rule(reduce_rule, k)
+                                     : port::apply_rule_instance(reduce_rule, k, reduce_victims);
           });
       if (compact_due)
         event_trace_target_state(
@@ -5187,13 +5187,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             static_cast<uint32_t>(k.compact_import_order.size() -
                                   k.unassigned_active));
       if (compact_due)
-        (void)execution::complete_action(completion_, FeedbackKind::Support,
+        (void)port::complete_action(completion_, FeedbackKind::Support,
             "CompactVariables", execution::COMPACT_FOLD_FIXED | execution::COMPACT_PUBLISH_RANDOM_ORDER, [] {
               execution::NativeFeedbackSpec spec;
               spec.description.description = "fold-fixed=1;publish-random-order=1";
               return spec;
             }, [&] {
-              const bool compacted = execution::execute_action(k, execution::CompactVariablesRequest{true});
+              const bool compacted = port::execute_action(k, execution::CompactVariablesRequest{true});
               if (compacted) heuristics_compact_random_order_fixed(k);
               return compacted ? ApplyResult::Ok : ApplyResult::NoOp;
             });
@@ -5215,11 +5215,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       event_trace.macro(k, "switch_begin");
       feedback.end_interval(StopReason::StrategyChange);
-      (void)execution::complete_action(completion_, FeedbackKind::Rule, "SwitchMode",
+      (void)port::complete_action(completion_, FeedbackKind::Rule, "SwitchMode",
           INSTANCE_CANONICAL, [&] { return execution::native_rule_feedback(
               k, "SwitchMode", INSTANCE_CANONICAL, "native-mode-transition"); }, [&] {
         static const RuleVTable &switch_mode = registered_rule("SwitchMode");
-        (void)apply_rule(switch_mode, k);
+        (void)port::apply_rule(switch_mode, k);
         mode.count++;
         averages[k.h->stable].saved_decisions = k.stats.decisions;
         if (k.h->stable) // entering stable: fresh reluctant sequence
@@ -5256,7 +5256,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       BranchingPolicy &bp = branching ? *branching : default_branching_;
       const Lit next = bp.pick_for_restart_reuse(k);
       const uint32_t keep = heuristics_restart_reuse_level_for(k, var_of(next));
-      const ApplyResult restart_result = execution::complete_action(
+      const ApplyResult restart_result = port::complete_action(
           completion_, FeedbackKind::SearchService,
           "Restart", keep, [&] { return execution::native_rule_feedback(
               k, "Restart", keep, "retained-level=" + std::to_string(keep) +
@@ -5264,7 +5264,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (keep < k.level)
           heuristics_update_target_phases(k);
         static const RuleVTable &restart_rule = registered_rule("Restart");
-        const ApplyResult restarted = apply_rule_instance(restart_rule, k, keep);
+        const ApplyResult restarted = port::apply_rule_instance(restart_rule, k, keep);
         reluctant.trigger = false; // consumed (kissat reluctant.h)
         if (!k.h->stable) // kissat restart.c: focused-only limit update
           update_restart_limit(k);
@@ -5308,10 +5308,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                     ? REORDER_QUEUE
                                 : config_.reorder.target == DefaultReorderTarget::Heap
                                     ? REORDER_HEAP : INSTANCE_CANONICAL;
-        (void)execution::complete_action(completion_, FeedbackKind::Rule, "Reorder", target,
+        (void)port::complete_action(completion_, FeedbackKind::Rule, "Reorder", target,
             [&] { return execution::native_rule_feedback(k, "Reorder", target, "native-reorder"); }, [&] {
           static const RuleVTable &reorder_rule = registered_rule("Reorder");
-          const ApplyResult reordered = apply_rule_instance(reorder_rule, k, target);
+          const ApplyResult reordered = port::apply_rule_instance(reorder_rule, k, target);
           reorder.count++;
           update_reorder_limit(k);
           return reordered;
@@ -5342,7 +5342,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               : forced < 0 ? execution::WarmupPhase::Negative
                            : execution::WarmupPhase::Heuristic;
           const bool default_pick = &bp == &default_branching_;
-          (void)execution::complete_action(completion_, FeedbackKind::Support,
+          (void)port::complete_action(completion_, FeedbackKind::Support,
               "Warmup", default_pick ? static_cast<uint64_t>(phase) : INSTANCE_CANONICAL,
               [default_pick] {
                 execution::NativeFeedbackSpec spec;
@@ -5352,7 +5352,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                     ? "native-assignment-phase-warmup"
                     : "native-assignment-phase-warmup;pick=installed-branching";
                 return spec;
-              }, [&] { return execution::execute_action(k, execution::WarmupRequest{},
+              }, [&] { return port::execute_action(k, execution::WarmupRequest{},
               [&] { return bp.pick(k); }, [&](Lit decision) {
             event_trace.detail(k, "decision", kernel_externalize(k, decision));
             event_trace.heap_after_decision(k);
@@ -5373,7 +5373,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                   : config_.rephase.walk_random_seed;
         const uint64_t allowance = scale_permille(reference, config_.rephase.walk_permille);
         const strategy::GuidanceOutcomeSnapshot before_walk(k);
-        (void)execution::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
+        (void)port::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
             [&] {
               auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
                   "native-walk", [](const Kernel &kernel) { return kernel.stats.walk_steps; },
@@ -5387,8 +5387,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               return spec;
             }, [&] {
               static const RuleVTable &walk_rule = registered_rule("Walk");
-              return execution::execute_action(k, execution::WalkRequest{allowance, seed, 0},
-                                               [&] { return apply_rule(walk_rule, k); });
+              return port::execute_action(k, execution::WalkRequest{allowance, seed, 0},
+                                               [&] { return port::apply_rule(walk_rule, k); });
             },
             [&](ApplyResult result) {
               auto out = strategy::controller::feedback_outcome(result);
@@ -5405,11 +5405,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           type = REPHASE_INVERTED;
         else if (effective == DefaultRephaseSlot::Original)
           type = REPHASE_ORIGINAL;
-        (void)execution::complete_action(completion_, FeedbackKind::Rule, "Rephase", type,
+        (void)port::complete_action(completion_, FeedbackKind::Rule, "Rephase", type,
             [&] { return execution::native_rule_feedback(k, "Rephase", type, "native-rephase"); },
             [&] {
               static const RuleVTable &rephase_rule = registered_rule("Rephase");
-              return apply_rule_instance(rephase_rule, k, type);
+              return port::apply_rule_instance(rephase_rule, k, type);
             });
       }
       update_rephase_limit(k);
@@ -5441,7 +5441,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(0);
     BranchingPolicy &bp = branching ? *branching : default_branching_;
     const Lit decision = bp.pick(k);
-    (void)execution::complete_action(completion_, FeedbackKind::SearchService,
+    (void)port::complete_action(completion_, FeedbackKind::SearchService,
         "Decide", lit_instance(k, decision), [&] {
           return execution::native_rule_feedback(k, "Decide", lit_instance(k, decision),
               "literal=" + std::to_string(kernel_externalize(k, decision)));
@@ -5453,7 +5453,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         },
         [&] {
           const ApplyResult result =
-              execution::execute_action(k, execution::DecisionRequest{decision});
+              port::execute_action(k, execution::DecisionRequest{decision});
           if (result == ApplyResult::Ok)
             heuristics_note_target_decision(
                 k, decision, !branching && k.h->stable);
@@ -5553,11 +5553,8 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
   execution::CompletionPublication published(completion);
   assert(k.dense && k.dense->track_order);
   size_t count = 0;
-  // Kissat compacts the inspected prefix in place.  Delay publication until
-  // this immutable span expires, but retain the same per-entry keep decisions;
-  // an early cap leaves the uninspected suffix untouched.
-  const size_t physical = k.dense->ordered.size(lit);
-  std::vector<uint8_t> keep(physical, 1);
+  // Kissat compacts the inspected prefix in place once this immutable span
+  // expires; an early cap leaves the uninspected suffix untouched.
   size_t at = 0;
   // SubsumeForward marks a clause garbage but does not collect or mutate the
   // dense payload, so this owner-ordered view remains stable during the scan.
@@ -5569,7 +5566,7 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
         continue;
       }
       if (kernel_var_retired(k, var_of(other))) {
-        keep[at++] = 0;
+        ++at;
         continue;
       }
     } else {
@@ -5579,7 +5576,7 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
       for (const Lit other : *clause)
         contains |= other == lit;
       if (clause->garbage() || !contains) {
-        keep[at++] = 0;
+        ++at;
         continue;
       }
       if (clause->size > clause_size_limit) {
@@ -5594,7 +5591,7 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
         ++at;
         continue;
       }
-      const ApplyResult cleaned = execution::complete_action(completion, FeedbackKind::Rule,
+      const ApplyResult cleaned = port::complete_action(completion, FeedbackKind::Rule,
           "SubsumeForward", ref, [&] {
             auto spec = execution::native_rule_feedback(k, "SubsumeForward", ref,
                 "fastel-occurrence;clause-id=" + std::to_string(clause->id()) +
@@ -5603,15 +5600,15 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
                 ";clause-size-limit=" + std::to_string(clause_size_limit),
                 meter_forward_pair, "forward-plus-strengthen-visits");
             return spec;
-          }, [&] { return apply_rule_structured(
+          }, [&] { return port::apply_rule_structured(
           subsume, k, "fastel-occurrence",
           [&] {
-            return subsume_forward_try_fastel(k, ref, occurrence_limit,
+            return port::subsume_forward_try_fastel(k, ref, occurrence_limit,
                                               marks);
           });
       });
       if (cleaned == ApplyResult::Ok) {
-        keep[at++] = 0;
+        ++at;
         continue;
       }
     }
@@ -5619,14 +5616,7 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
     if (++count > occurrence_limit)
       break;
   }
-  if (std::find(keep.begin(), keep.end(), uint8_t{0}) != keep.end()) {
-    size_t published = 0;
-    k.dense->ordered.compact(lit, [&](OccIndex::Entry) {
-      assert(published < keep.size());
-      return keep[published++];
-    });
-    assert(published == keep.size());
-  }
+  port::execute_action(k, execution::CompactFastelPrefixRequest{lit, at});
   return count;
 }
 
@@ -5669,7 +5659,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // policy's candidate scores and the pass's inherited profile read.
       strategy::BveParameters bound = strategy::BveParameters::from_kernel(k);
       bound.growth_bound = level_mode ? bve_level_ : ramp->bound(pass);
-      execution::execute_action(k, execution::ParameterInstallationRequest{bound},
+      port::execute_action(k, execution::ParameterInstallationRequest{bound},
                                 ctx.completion, "BVE");
     }
     elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
@@ -5894,14 +5884,14 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       Var trace_bve_var = INVALID_VAR;
       const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
 #endif
-      const auto applied = execution::complete_action(ctx.completion, FeedbackKind::Rule,
+      const auto applied = port::complete_action(ctx.completion, FeedbackKind::Rule,
           r.name, payload, [&] {
             const uint64_t spent = e.meter ? e.meter(k) : 0;
             return slot_feedback(k, e, r, payload,
                 e.meter ? strategy::WorkLimit::bounded(limit >= spent ? limit - spent : 0)
                         : strategy::WorkLimit::unlimited(), "native-dosed-candidate");
           }, [&] {
-        auto published = execution::execute_action(
+        auto published = port::execute_action(
           k, execution::RuleApplicationRequest{
                  execution::RootPublication::NewAssignments, bve_entry}, [&] {
         TickSinkScope sink(k, e.tick_counter);
@@ -5917,15 +5907,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 #endif
         const ApplyResult result = metered_rule_apply(k, e.meter, [&] {
           if (!bve_entry)
-            return apply_rule_instance(r, k, payload);
+            return port::apply_rule_instance(r, k, payload);
           const strategy::InvocationResult invoked =
-              bve_invocation_session->apply_one(payload);
+              port::bve_apply_one(*bve_invocation_session, payload);
           // Existing configurations predate typed validation.  The surrounding
           // scheduler has already checked this candidate and its stop/guard;
           // preserve that legacy transition if an as-yet-unmigrated setting
           // cannot be represented instead of silently turning it into NoOp.
           if (!invoked.applications)
-            return apply_rule_instance(r, k, payload);
+            return port::apply_rule_instance(r, k, payload);
           return invoked.rule_result;
         });
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -5991,13 +5981,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // elimination round; deferring its lazy garbage until phase exit carries
     // a much larger arena into the following Strengthen round and changes the
     // physical state from which that common consumer reconstructs.
-    (void)execution::complete_action(ctx.completion, FeedbackKind::Support,
+    (void)port::complete_action(ctx.completion, FeedbackKind::Support,
         "CollectGarbage", INSTANCE_CANONICAL, [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "completed-bve-round;watch-start=0;sparse=0;preserve-eager=0";
           return spec;
         }, [&] {
-          execution::execute_action(k, execution::CollectGarbageRequest{});
+          port::execute_action(k, execution::CollectGarbageRequest{});
           return ApplyResult::NoOp;
         });
     // The resolution ceiling belongs to the whole Eliminate phase.  Finish
@@ -6062,7 +6052,7 @@ void DefaultInprocessScheduler::set_factor_composite(Kernel &k, bool composite,
                                                      PolicyCompletion *completion) {
   strategy::FactorParameters factor = strategy::FactorParameters::from_kernel(k);
   factor.composite = composite;
-  execution::execute_action(k, execution::ParameterInstallationRequest{factor},
+  port::execute_action(k, execution::ParameterInstallationRequest{factor},
                             completion, "Factor");
 }
 
@@ -6103,7 +6093,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     band.band = true;
     band.band_budget = cumulative;
     band.band_offset = spent;
-    return execution::complete_action(completion, FeedbackKind::Rule, r.name,
+    return port::complete_action(completion, FeedbackKind::Rule, r.name,
         INSTANCE_CANONICAL, [&] {
           auto spec = slot_feedback(k, e, r, INSTANCE_CANONICAL,
               strategy::WorkLimit::bounded(cumulative >= spent ? cumulative - spent : 0),
@@ -6112,7 +6102,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
           spec.description.description += ";scope=" + std::to_string(band_scope) +
               ";cumulative=" + std::to_string(cumulative) + ";offset=" + std::to_string(spent);
           return spec;
-        }, [&] { return execution::execute_action(k, r,
+        }, [&] { return port::execute_action(k, r,
             execution::VivifyBandRequest{band, e.tick_counter, e.meter}); },
         [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
   };
@@ -6215,7 +6205,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
                  (!std::strcmp(r.name, "SubsumeForward") ||
                   !std::strcmp(r.name, "Strengthen"))},
       execution::WorkSettingsExit::ClearBudget);
-  const ApplyResult ar = execution::complete_action(completion, FeedbackKind::Rule,
+  const ApplyResult ar = port::complete_action(completion, FeedbackKind::Rule,
       r.name, INSTANCE_CANONICAL, [&] {
         auto spec = slot_feedback(k, e, r, INSTANCE_CANONICAL,
             strategy::WorkLimit::bounded(handed), substitute
@@ -6235,16 +6225,16 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
     if (!std::strcmp(r.name, "Sweep")) {
       const auto *posed = std::get_if<SweepLimits>(&e.parameters);
       const SweepLimits lim = posed ? *posed : configured_sweep_limits(config());
-      ar = apply_rule_structured(r, k, "budgeted-batch", [&] {
-        return execution::execute_action(k, execution::SweepRequest{lim});
+      ar = port::apply_rule_structured(r, k, "budgeted-batch", [&] {
+        return port::execute_action(k, execution::SweepRequest{lim});
       });
     } else if (substitute) {
       // The typed round batch retains one watch session; publication of each
       // round's roots and retirements is DefaultPolicy's guidance profile.
       const execution::SubstituteRoundsResult rounds = [&] {
         execution::SubstituteRoundsResult out;
-        (void)apply_rule_structured(r, k, "rounds", [&] {
-          out = execution::execute_substitute_rounds(
+        (void)port::apply_rule_structured(r, k, "rounds", [&] {
+          out = port::execute_substitute_rounds(
               k, substitute_rounds, [&](size_t trail_begin) {
                 default_publish_substitute_round(k, trail_begin);
               });
@@ -6261,7 +6251,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
 #endif
     } else {
       ar = metered_rule_apply(k, e.meter, [&] {
-        return execution::execute_action(k, execution::RegisteredRuleRequest{r});
+        return port::execute_action(k, execution::RegisteredRuleRequest{r});
       });
     }
   }
@@ -6366,7 +6356,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   } else if (budgeted) {
     ar = run_budgeted_batch(k, e, r, limit, factor_entry, ctx.completion);
   } else {
-    ar = execution::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
+    ar = port::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
         INSTANCE_CANONICAL, [&] {
           auto spec = slot_feedback(k, e, r, INSTANCE_CANONICAL,
               strategy::WorkLimit::unlimited(), "native-unbudgeted-batch");
@@ -6393,8 +6383,8 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
       const std::string candidate =
           "policy-complete-rounds=" + std::to_string(rounds.max_rounds);
       result = metered_rule_apply(k, journal_effort_meter(e, r), [&] {
-        return apply_rule_structured(r, k, candidate.c_str(), [&] {
-          return execution::execute_substitute_rounds(
+        return port::apply_rule_structured(r, k, candidate.c_str(), [&] {
+          return port::execute_substitute_rounds(
                      k, rounds, [&](size_t trail_begin) {
                        default_publish_substitute_round(k, trail_begin);
                      })
@@ -6404,7 +6394,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     } else {
       result = metered_rule_apply(k, journal_effort_meter(e, r),
                               [&] {
-        return execution::execute_action(k, execution::RegisteredRuleRequest{r});
+        return port::execute_action(k, execution::RegisteredRuleRequest{r});
       });
     }
     return result;
@@ -6461,7 +6451,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     // then close the reconnected suffix before any following slot observes it.
     heuristics_consume_root_assignments(k, forward_trail_from);
     const size_t closure_trail_from = k.trail.size();
-    const ApplyResult closure = execution::complete_action(ctx.completion,
+    const ApplyResult closure = port::complete_action(ctx.completion,
         FeedbackKind::Support, "ForwardClosure", INSTANCE_CANONICAL, [&] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "trail-from=" + std::to_string(forward_trail_from);
@@ -6469,7 +6459,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
           spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
           return spec;
         }, [&] {
-          const ApplyResult result = execution::execute_action(
+          const ApplyResult result = port::execute_action(
               k, execution::ForwardClosureRequest{forward_trail_from});
           heuristics_consume_root_assignments(k, closure_trail_from);
           return result;
@@ -6583,7 +6573,7 @@ int DefaultInprocessScheduler::run_structured_root(
       const auto advanced =
           executor.advance_with(
               k, [&](const strategy::OnlineInvocation &step, auto &&apply) {
-                return execution::complete_action(completion, FeedbackKind::Rule,
+                return port::complete_action(completion, FeedbackKind::Rule,
                     step.rule.c_str(), INSTANCE_CANONICAL, [&] {
                       execution::NativeFeedbackSpec spec;
                       spec.description.description = "structured-stage=" + std::to_string(index) +
@@ -6728,7 +6718,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // its outer fixpoint rounds must reuse the same deterministic generator
   // sequence instead of restarting it at each BVE slot visit.
   if (group == SlotGroup::Eliminate && !initial_fast_elimination_active_)
-    execution::execute_action(k, execution::BeginBveDefinitionSessionRequest{}, completion);
+    port::execute_action(k, execution::BeginBveDefinitionSessionRequest{}, completion);
   install_parameters(k, completion);
   factor_bound_snapshot_ =
       couple_factor_bound_ ? bve_level_ : 0;
@@ -6740,7 +6730,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // scope only after that boundary so Eliminate credits search ticks and
   // saves phases for any newly exposed root implications.
   const execution::RootPreparationRequest preparation{group == SlotGroup::Probe, true};
-  const ApplyResult root_result = execution::complete_action(completion,
+  const ApplyResult root_result = port::complete_action(completion,
       FeedbackKind::Support, "RootPreparation",
       execution::root_preparation_argument(preparation, group != SlotGroup::Probe), [&] {
         execution::NativeFeedbackSpec spec;
@@ -6749,7 +6739,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         spec.description.effort_currency = "propagations";
         spec.meter = [](const Kernel &kernel) { return kernel.stats.propagations; };
         return spec;
-      }, [&] { return execution::execute_action(
+      }, [&] { return port::execute_action(
       k, preparation,
       [&] {
         // Probe's bracket suppresses target capture; Eliminate retains it.
@@ -6757,7 +6747,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       },
       [&](const execution::RestartRequest &request) {
         return default_direct_rule(k, "Restart", "keep-level=0;inprocess=1", [&] {
-          return execution::execute_action(k, request);
+          return port::execute_action(k, request);
         });
       },
       [&] {
@@ -6770,11 +6760,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // a later followup or phase exit. Deliver immutable leaf records only after
   // the enclosing native scope and all of that publication have finished.
   execution::CompletionPublication phase_published(completion);
-  execution::InprocessPhase phase;
+  port::InprocessPhase phase;
   // The default selection's bound is the public entry argument; an injected
   // matcher (diagnostic arm) has no public form and keeps the snapshot.
   const uint32_t default_factor_bound = std::max(k.factor_bound, factor_bound_snapshot_);
-  (void)execution::complete_action(completion, FeedbackKind::Support,
+  (void)port::complete_action(completion, FeedbackKind::Support,
       "InprocessPhaseEntry", factor_match ? INSTANCE_CANONICAL
           : execution::inprocess_phase_argument(group == SlotGroup::Eliminate,
                                                 default_factor_bound), [&] {
@@ -6809,7 +6799,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   if (structured_result == 10) {
     // No pipeline occurrence image has been attached yet. Preserve the
     // terminal model and release only the phase-owned guidance handoff.
-    (void)execution::complete_action(completion, FeedbackKind::Support,
+    (void)port::complete_action(completion, FeedbackKind::Support,
         "InprocessPhaseExit", INSTANCE_CANONICAL, [] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "structured-terminal=sat;no-occurrence-session";
@@ -6826,7 +6816,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   const bool structured_unsat = structured_result == 20;
   const uint64_t dense_connect_started = now_nanos();
-  (void)execution::complete_action(completion, FeedbackKind::Support,
+  (void)port::complete_action(completion, FeedbackKind::Support,
       "OpenOccurrenceSession", INSTANCE_CANONICAL, [&] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = std::string("group=") +
@@ -6866,13 +6856,13 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     // then discard that absolute ceiling before the next round.
     forward_pair_limit_ = 0;
     ctx.round_changed = false;
-    (void)execution::complete_action(completion, FeedbackKind::Support,
+    (void)port::complete_action(completion, FeedbackKind::Support,
         "BeginForwardRound", INSTANCE_CANONICAL, [&] {
           execution::NativeFeedbackSpec spec;
           spec.description.description = "round=" + std::to_string(ctx.outer);
           return spec;
         }, [&] {
-          return execution::execute_action(k, execution::BeginForwardRoundRequest{})
+          return port::execute_action(k, execution::BeginForwardRoundRequest{})
                      ? ApplyResult::Ok : ApplyResult::NoOp;
         });
     for (size_t slot = 0; slot < entries.size(); slot++) {
@@ -7030,7 +7020,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
           sweep_retired_begin = retired_before;
           sweep_substituted_begin = substituted_before;
         } else if (sweep_retired_begin == SIZE_MAX) {
-          heuristics_consume_retirements(k);
+          port::execute_action(k, execution::PublishRetirementsRequest{});
         }
       } else {
         if (substitute && sweep_retired_begin != SIZE_MAX) {
@@ -7051,7 +7041,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
           // exception: its inline rewrites deliberately wait for the
           // mandatory follow-up Substitute to retire the complete
           // import-ordered union.
-          heuristics_consume_retirements(k);
+          port::execute_action(k, execution::PublishRetirementsRequest{});
         }
       }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -7077,7 +7067,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   k.stats.inprocess_slot_loop_nanos += now_nanos() - slot_loop_started;
   const uint64_t phase_exit_started = now_nanos();
-  (void)execution::complete_action(completion, FeedbackKind::Support,
+  (void)port::complete_action(completion, FeedbackKind::Support,
       "InprocessPhaseExit", INSTANCE_CANONICAL, [&] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = std::string("group=") +
@@ -7130,14 +7120,14 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       bve_level_ = std::min(bramp.bound(++bve_level_idx_), blim);
       // eliminate.c::try_to_eliminate_all_variables_again: every variable is
       // a candidate again whenever the bound grows.
-      (void)execution::complete_action(completion, FeedbackKind::Support,
+      (void)port::complete_action(completion, FeedbackKind::Support,
           "RescheduleBveCandidates", INSTANCE_CANONICAL, [&] {
             execution::NativeFeedbackSpec spec;
             spec.description.description =
                 "growth-bound=" + std::to_string(bve_level_);
             return spec;
           }, [&] {
-            return execution::execute_action(k, execution::RescheduleBveCandidatesRequest{})
+            return port::execute_action(k, execution::RescheduleBveCandidatesRequest{})
                        ? ApplyResult::Ok : ApplyResult::NoOp;
           });
       clock.marks_mark = 0;

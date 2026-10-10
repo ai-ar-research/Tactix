@@ -2214,7 +2214,7 @@ bool online_program_v16(const tactix_online_program_v16 &source,
     strategy::InprocessParameters converted;
     if (!online_parameters(encoded,converted)) return false;
     const auto *basis=std::get_if<strategy::AffineConsequenceParameters>(&converted);
-    if (!basis || p.admission!=1 || p.operation<1 || p.operation>4) return false;
+    if (!basis || p.admission<1 || p.admission>2 || p.operation<1 || p.operation>4) return false;
     strategy::AffineMatrixInitializeParameters out;
     out.basis=*basis;
     out.admission=static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p.admission);
@@ -3427,6 +3427,57 @@ int tactix_install_parameters(tactix_solver *s, int rule_id,
   return strategy::install_permanent_parameters(s->kernel, converted) ? 0 : -1;
 }
 
+int tactix_install_affine_matrix_profile(
+    tactix_solver *s, const tactix_online_affine_matrix_initialize_parameters *p) {
+  if (!s || !p || p->admission < 1 || p->admission > 2 || p->operation < 1 ||
+      p->operation > 4)
+    return -1;
+  tactix_online_parameters encoded{};
+  encoded.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
+  encoded.value.affine_consequence = p->basis;
+  strategy::InprocessParameters basis;
+  if (!online_parameters(encoded, basis) ||
+      !std::holds_alternative<strategy::AffineConsequenceParameters>(basis))
+    return -1;
+  strategy::AffineMatrixInitializeParameters profile;
+  profile.basis = std::get<strategy::AffineConsequenceParameters>(basis);
+  profile.admission =
+      static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p->admission);
+  profile.operation =
+      static_cast<strategy::AffineMatrixInitializeParameters::Operation>(p->operation);
+  profile.maximum_retained_bytes = p->maximum_retained_bytes;
+  profile.maximum_deferred_deletions = p->maximum_deferred_deletions;
+  profile.maximum_deferred_literal_work = p->maximum_deferred_literal_work;
+  const strategy::InprocessParameters converted = profile;
+  if (!profile.valid() ||
+      !strategy::validate_parameter_installation("AffineMatrixInitialize", converted))
+    return -1;
+  return strategy::install_permanent_parameters(s->kernel, converted) ? 0 : -1;
+}
+
+int tactix_read_affine_matrix_result(tactix_solver *s, tactix_affine_matrix_result *out) {
+  if (!s || !out) return -1;
+  *out = {};
+  const AffineMatrixSearchSession &session = s->affine_matrix_search_session;
+  if (const auto &init = session.last_initialization()) {
+    out->initialization_status = static_cast<int>(init->status) + 1;
+    out->initialization_result = static_cast<int>(init->result);
+    out->unchanged = init->unchanged;
+    out->equations = init->equations;
+    out->rows = init->rows;
+    out->admitted_sources = init->admitted_sources;
+  }
+  if (const auto &service = session.last_service()) {
+    out->service_status = static_cast<int>(service->status) + 1;
+    out->service_result = static_cast<int>(service->result);
+    out->bcp_pending = service->bcp_pending;
+  }
+  out->enabled = session.enabled();
+  out->persistent = session.persistent();
+  out->basis_rank = session.enabled() ? session.basis_rank() : 0;
+  return 0;
+}
+
 int tactix_install_material_settings(tactix_solver *s, int touch_filter_mode,
                                      int likely_kept_redundant_mode) {
   strategy::SettingOverride touch, kept;
@@ -3585,8 +3636,11 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     result = 0;
     break;
   case TACTIX_SUPPORT_COMPACT_VARIABLES: {
+    // Any consistent state, as Reduce compacts above the root; the kernel
+    // renumbers the trail with the variables.
     if (!flags(TACTIX_COMPACT_FOLD_FIXED | TACTIX_COMPACT_PUBLISH_RANDOM_ORDER) ||
-        !support_root(k))
+        k.inconsistent || k.conflict_valid || k.pending.valid || k.dense ||
+        k.probing.recording)
       return -1;
     const bool compacted = execution::execute_action(
         k, execution::CompactVariablesRequest{(argument & TACTIX_COMPACT_FOLD_FIXED) != 0});
@@ -3681,6 +3735,27 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
       return -1;
     result = execution::execute_action(k, execution::BeginForwardRoundRequest{}) ? 0 : 1;
     break;
+  case TACTIX_SUPPORT_COMPACT_FASTEL_PREFIX: {
+    const Lit lit = kernel_internalize(
+        k, static_cast<int32_t>(static_cast<uint32_t>(argument)));
+    if (lit == INVALID_LIT || !k.dense || !k.dense->track_order)
+      return -1;
+    result = execution::execute_action(
+                 k, execution::CompactFastelPrefixRequest{lit, static_cast<size_t>(argument >> 32)})
+                 ? 0 : 1;
+    break;
+  }
+  case TACTIX_SUPPORT_HOLD_RETIREMENTS:
+    // HOLD defers retirement publication; RELEASE ends the hold and publishes
+    // the queued events under the session profile; RELEASE_ONLY leaves them
+    // for the next publication. Guidance only: no state a rule reads.
+    if (argument > TACTIX_RETIREMENTS_RELEASE_ONLY)
+      return -1;
+    k.retirement_publication_held = argument == TACTIX_RETIREMENTS_HOLD;
+    if (argument == TACTIX_RETIREMENTS_RELEASE &&
+        s->guidance_publication == TACTIX_GUIDANCE_NATIVE)
+      HeuristicRulePublisher{}.retirements(k);
+    return 0;
   case TACTIX_SUPPORT_RESCHEDULE_BVE:
     if (argument)
       return -1;
@@ -3712,6 +3787,15 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
         k.level || k.conflict_valid || k.pending.valid || k.dense || k.probing.recording)
       return -1;
     s->phase.open_occurrences(k, s->phase_occurrences);
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX:
+    // Drop the affine search session's algebraic and proof-planning state;
+    // published clauses stay. DETACHED clears without releasing leases.
+    if (argument > TACTIX_AFFINE_MATRIX_RELEASE_DETACHED || !k.affine_matrix_search_session)
+      return -1;
+    if (argument) k.affine_matrix_search_session->disable();
+    else k.affine_matrix_search_session->disable(k);
     result = 0;
     break;
   case TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE:
