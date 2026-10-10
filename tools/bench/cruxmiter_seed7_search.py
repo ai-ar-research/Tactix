@@ -345,6 +345,44 @@ ARMS = {
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_ENABLE=CCE", "TACTIX_SLOT_MAX_APPLIES=CCE:1"),
+    # The seed-7 boundary trace shows all structural progress in the startup
+    # and first paired search-time rounds.  Later Congruence/Sweep/Factor and
+    # Backbone passes are no-ops, while Vivify repeatedly spends most of the
+    # inprocessing ticks deleting learned clauses.  Preserve the productive
+    # prefix and cap the tail through the public slot scheduler.
+    "rbc-cap2": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Congruence:2,Substitute:2,Backbone:2,Vivify:2,Sweep:2,TransitiveReduce:2,Factor:2"),
+    "rbc-cap3": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Congruence:3,Substitute:3,Backbone:3,Vivify:3,Sweep:3,TransitiveReduce:3,Factor:3"),
+    "rbc-cap5": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Congruence:5,Substitute:5,Backbone:5,Vivify:5,Sweep:5,TransitiveReduce:5,Factor:5"),
+    "rbc-cap10": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Congruence:10,Substitute:10,Backbone:10,Vivify:10,Sweep:10,TransitiveReduce:10,Factor:10"),
+    "rbc-vivify2": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Vivify:2"),
+    "rbc-vivify3": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Vivify:3"),
+    "rbc-vivify5": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_MAX_APPLIES=Vivify:5"),
+    "rbc-cap3-prune-noops": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_DISABLE=Sweep,Factor,Strengthen",
+        "TACTIX_SLOT_MAX_APPLIES=Congruence:3,Substitute:3,Backbone:3,Vivify:3,TransitiveReduce:2"),
     # Preserve the winning scheduler/search settings while using the public
     # warm-up surface to install TACO's phase=0 observation as saved phases.
     "rbc-backbone-negative": policy(
