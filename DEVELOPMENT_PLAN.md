@@ -94,7 +94,9 @@ actions or become soundness preconditions; label diagnostic-only limits clearly.
 Use two dispatch tiers backed by the same rule implementations:
 
 - **Micro rules** (`Propagate`, `Decide`, `ConflictAnalysis`) use static dispatch
-  in DefaultPolicy and dynamic stepping in instrumented policies.
+  in DefaultPolicy and dynamic stepping in instrumented policies. Static dispatch
+  is a static instantiation of the same registered rule and support functions that
+  the public API reaches, not a separate implementation.
 - **Macro rules and policy operations** use registry-driven dynamic dispatch;
   their lower frequency makes runtime flexibility affordable.
 
@@ -207,7 +209,9 @@ literal's 32-bit pattern and cannot alias `TACTIX_INSTANCE_CANONICAL`.
 Enumeration is lazy and caller-buffered. Errors are integer returns. External
 policies pull; v1 has no callback injection. Configuration may narrow or order
 DefaultPolicy choices but never the N1 instance surface. IPASIR-style
-incremental solving remains O7.
+incremental solving remains O7. Later surfaces (guidance publication, permanent
+parameter installs, support transactions, analysis target instances) are additive,
+leave v1 unchanged and are owned by `docs/controller-interface.md`.
 
 ### 5.2 Rule catalog
 
@@ -287,7 +291,7 @@ capability or N1–N4 for simplicity.
 
 Build a controller that owns strategy objects and accepts policy action requests; first use a random policy, then a feedback-informed learner. Both drive the same execution interface within one solve. DefaultPolicy remains the comparison baseline, not a mandatory learner arm or fallback. Gates are in §8.5; development stages are in §9.4.
 
-**Shared execution.** DefaultPolicy and random/learned selection are concrete, stateful policies over shared typed rule and support execution. Policies choose order, timing, instances, parameters, effort and scheduling-state updates; the executor owns mechanical preparation, application, publication, continuation and accounting. Preserve DefaultPolicy's native scheduling, adaptive doses, startup certificate boundaries and static hot dispatch; random selection retains fixed configured allowances. Shared machinery need not impose identical budgets or choices. Map every default operation and verify deterministic action/state correspondence, including support scopes, rather than infer architectural equivalence from regression passes.
+**Shared execution.** DefaultPolicy and random/learned selection are concrete, stateful policies over shared typed rule and support execution. Policies choose order, timing, instances, parameters, effort and scheduling-state updates; the executor owns mechanical preparation, application, publication, continuation and accounting. Preserve DefaultPolicy's native scheduling, adaptive doses, startup certificate boundaries and static hot dispatch; random selection retains fixed configured allowances. Shared machinery need not impose identical budgets or choices. Map every default operation and verify deterministic action/state correspondence, including support scopes, rather than infer architectural equivalence from regression passes. DefaultPolicy is the native `ResumeSearch` configuration plus public requests: every macro action, parameter install, support transaction and guidance publication it makes has an exact public form. Acceptance is a twin test that runs DefaultPolicy over its production static port and over a port using only the public API, and requires identical verdicts, certificates, models and trajectory counters. The staged roadmap is the [correspondence plan](benchmarks/reports/2026-10-09-defaultpolicy-api-gap-plan/README.md).
 
 **Restart loop.** Learner strategy changes and all theory reasoning occur only after explicit full Restart to decision level zero. Theory discovery, retained-state maintenance, bounded continuation and proof publication are root actions inside that restart window; no theory service runs at an ordinary search fixpoint or partial restart. Ordinary restarts continuing with the installed search configuration may retain a valid trail prefix through the shared parameterized Restart mechanism; preserve DefaultPolicy's native reuse. Root-preparation backtracks and scheduled restarts retain distinct counter semantics. Retain learned clauses, formula transformations, authenticated private theory state and root assignments. At root: observe, request an eligible action, apply it, observe its result, recompute eligibility, and repeat until explicit `ResumeSearch` or a terminal result. Multiple inprocessing actions may precede search. Search configuration selection belongs to `ResumeSearch(configuration)` and takes effect immediately before search begins, not as a separate repeated root action; partial continuation does not reinstall it.
 
@@ -471,6 +475,8 @@ resources and frozen controls in §8.1–§8.3. Focused correctness/API validati
 alone does not authorize a new Tier-D campaign.
 
 Default dynamic-macro/static-micro overhead is ≤5% versus a hardcoded twin.
+Correspondence gate: the §5.6 DefaultPolicy twin test passes on the fixture set, and the
+same harness measures the static port against a hardcoded loop for that bound.
 Refactoring must preserve existing configurations' action/work/proof behavior
 and runtime within measured noise on Rank 1–50 and B28+C5. Review individual
 regressions as well as aggregates; new behavior is opt-in. Flag conflicting N1 repairs.
@@ -559,7 +565,7 @@ independently checkable native proofs and must earn a measured time/memory gain.
 
 - **Controller foundations (7a):** specify the action space and implement §5.6 with read-only observation and a seeded random policy, without reward computation or learning. Complete §8.2's two-policy fuzz acceptance, §8.4's four-set DefaultPolicy regression gates and focused interface checks. Follow the versioned interface linked in §5.6 for allowance units, lifecycle and observation/request/result schemas; specification does not replace execution and coverage validation.
 - The accepted stabilization and completed Tier-D comparison permit this interface stage despite unmet formal benchmark targets and deferred Tier-D checker-failure investigation; these obligations remain recorded and no N1--N4 or performance gate is relabeled complete. This stage is not a claim of learned improvement.
-- **Shared execution and feedback preparation:** realize §5.6's shared-policy contract, preserve default action/state correspondence and integrate ordinary partial trail retention without moving learner changes away from root. Add feedback and offline inspection while selection stays random; no scalar reward or learning is implemented. Complete full Debug and fresh Claude-owned campaigns of at least 100,000 seeds per policy plus retained corpus and targeted nonvacuous action/configuration, partial/full restart, continuation/staleness, interruption, observation/feedback and replay coverage. Require independent completed proofs/models, separate timeout reporting and passing terminal reports, all four §8.4 default regression gates and instrumentation-overhead evidence; retain existing exceptions and no fallback/rollback/forced-resumption/global-loop-budget constraints.
+- **Shared execution and feedback preparation:** realize §5.6's shared-policy contract through the staged correspondence plan linked there, each step byte-identical to the current candidate; preserve default action/state correspondence and integrate ordinary partial trail retention without moving learner changes away from root. Add feedback and offline inspection while selection stays random; no scalar reward or learning is implemented. Complete full Debug and fresh Claude-owned campaigns of at least 100,000 seeds per policy plus retained corpus and targeted nonvacuous action/configuration, partial/full restart, continuation/staleness, interruption, observation/feedback and replay coverage. Require independent completed proofs/models, separate timeout reporting and passing terminal reports, all four §8.4 default regression gates and instrumentation-overhead evidence; retain existing exceptions and no fallback/rollback/forced-resumption/global-loop-budget constraints.
 - **Reward and learning:** decide O6, validate reward proxies/attribution offline, then replace random selection with a feedback-informed policy on the same controller. Include it in proof/model fuzzing; pass L-safe before expanding learned context or composed actions, and L-win before claiming improvement. Retain arbitrary-interruption validation and decide schedule distillation (O13).
 
 ### 9.5 Organic winner-technique integration
