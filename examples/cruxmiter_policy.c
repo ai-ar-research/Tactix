@@ -62,6 +62,51 @@ struct policy {
   int maximum_variable, primary_variables;
 };
 
+struct buffered_clause {
+  int *literals;
+  size_t count, ordinal;
+  unsigned key;
+};
+
+static int input_order_mode;
+
+static int hot_rank(int variable) {
+  /* Frequency order from the complete seed-7 stable trace.  Only the prefix
+   * matters; every unlisted variable retains its DIMACS-relative order. */
+  static const int hot[] = {
+      232, 5, 243, 17, 24, 16, 235, 15, 503, 562, 33, 339, 92, 162,
+      18, 381, 104, 164, 307, 386, 240, 238, 160, 7, 93, 121, 245, 508,
+      105, 32, 102, 125, 34, 127, 122, 99, 181, 3, 246, 378, 377, 569};
+  size_t i;
+  for (i = 0; i < sizeof hot / sizeof *hot; ++i)
+    if (hot[i] == variable) return (int)i;
+  return 1000 + variable;
+}
+
+static int compare_literals(const void *left, const void *right) {
+  const int a = *(const int *)left, b = *(const int *)right;
+  const int av = a < 0 ? -a : a, bv = b < 0 ? -b : b;
+  const int ar = input_order_mode == 2 ? hot_rank(av) : -av;
+  const int br = input_order_mode == 2 ? hot_rank(bv) : -bv;
+  return ar < br ? -1 : ar > br ? 1 : a < b ? -1 : a > b;
+}
+
+static int compare_clauses(const void *left, const void *right) {
+  const struct buffered_clause *a = (const struct buffered_clause *)left;
+  const struct buffered_clause *b = (const struct buffered_clause *)right;
+  if (a->key != b->key)
+    return a->key < b->key ? -1 : 1;
+  return a->ordinal < b->ordinal ? -1 : a->ordinal > b->ordinal;
+}
+
+static uint64_t next_random(uint64_t *state) {
+  uint64_t x = *state;
+  x ^= x << 13;
+  x ^= x >> 7;
+  x ^= x << 17;
+  return *state = x;
+}
+
 static int rule_id(const char *name) {
   int i;
   for (i = 0; i < tactix_rule_count(); ++i) {
@@ -225,6 +270,12 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable) 
   FILE *input = fopen(path, "r");
   char line[1 << 16];
   int open_clause = 0, saw_header = 0;
+  const char *order = getenv("TACTIX_CRUX_INPUT_ORDER");
+  struct buffered_clause *clauses = NULL;
+  size_t clauses_count = 0, clauses_capacity = 0;
+  int *literals = NULL;
+  size_t literals_count = 0, literals_capacity = 0;
+  int buffered = order && *order;
   if (!input) {
     fprintf(stderr, "tactix-cruxmiter-policy: cannot open '%s': %s\n", path,
             strerror(errno));
@@ -261,16 +312,46 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable) 
         fclose(input);
         return 0;
       }
-      if (tactix_add_checked(solver, (int)value)) {
-        fprintf(stderr, "tactix-cruxmiter-policy: rejected DIMACS literal\n");
-        fclose(input);
-        return 0;
-      }
       if (value) {
         const int variable = value < 0 ? -(int)value : (int)value;
         if (variable > *maximum_variable) *maximum_variable = variable;
         open_clause = 1;
+        if (buffered) {
+          if (literals_count == literals_capacity) {
+            const size_t next = literals_capacity ? 2 * literals_capacity : 8;
+            int *grown = (int *)realloc(literals, next * sizeof *grown);
+            if (!grown) goto allocation_failed;
+            literals = grown;
+            literals_capacity = next;
+          }
+          literals[literals_count++] = (int)value;
+        } else if (tactix_add_checked(solver, (int)value)) {
+          fprintf(stderr, "tactix-cruxmiter-policy: rejected DIMACS literal\n");
+          fclose(input);
+          return 0;
+        }
       } else {
+        if (buffered) {
+          if (clauses_count == clauses_capacity) {
+            const size_t next = clauses_capacity ? 2 * clauses_capacity : 256;
+            struct buffered_clause *grown = (struct buffered_clause *)realloc(
+                clauses, next * sizeof *grown);
+            if (!grown) goto allocation_failed;
+            clauses = grown;
+            clauses_capacity = next;
+          }
+          clauses[clauses_count].literals = literals;
+          clauses[clauses_count].count = literals_count;
+          clauses[clauses_count].ordinal = clauses_count;
+          clauses[clauses_count].key = 0;
+          ++clauses_count;
+          literals = NULL;
+          literals_count = literals_capacity = 0;
+        } else if (tactix_add_checked(solver, 0)) {
+          fprintf(stderr, "tactix-cruxmiter-policy: rejected DIMACS clause\n");
+          fclose(input);
+          return 0;
+        }
         open_clause = 0;
       }
       cursor = end;
@@ -282,7 +363,68 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable) 
     return 0;
   }
   fclose(input);
+  input = NULL;
+  if (buffered) {
+    size_t i, j;
+    if (!strcmp(order, "reverse")) {
+      for (i = 0; i < clauses_count / 2; ++i) {
+        const struct buffered_clause tmp = clauses[i];
+        clauses[i] = clauses[clauses_count - i - 1];
+        clauses[clauses_count - i - 1] = tmp;
+      }
+    } else if (!strcmp(order, "max-desc") || !strcmp(order, "hot")) {
+      input_order_mode = !strcmp(order, "hot") ? 2 : 1;
+      for (i = 0; i < clauses_count; ++i) {
+        unsigned key = UINT_MAX;
+        qsort(clauses[i].literals, clauses[i].count, sizeof(int),
+              compare_literals);
+        for (j = 0; j < clauses[i].count; ++j) {
+          const int lit = clauses[i].literals[j];
+          const int var = lit < 0 ? -lit : lit;
+          const unsigned rank = input_order_mode == 2
+                                    ? (unsigned)hot_rank(var)
+                                    : (unsigned)(*maximum_variable - var);
+          if (rank < key) key = rank;
+        }
+        clauses[i].key = key;
+      }
+      qsort(clauses, clauses_count, sizeof *clauses, compare_clauses);
+    } else if (!strncmp(order, "random", 6)) {
+      uint64_t state = strtoull(order + 6, NULL, 10) + UINT64_C(0x9e3779b97f4a7c15);
+      for (i = clauses_count; i > 1; --i) {
+        const size_t pick = (size_t)(next_random(&state) % i);
+        const struct buffered_clause tmp = clauses[i - 1];
+        clauses[i - 1] = clauses[pick];
+        clauses[pick] = tmp;
+      }
+    } else {
+      fprintf(stderr, "tactix-cruxmiter-policy: unknown input order '%s'\n",
+              order);
+      goto buffered_failed;
+    }
+    for (i = 0; i < clauses_count; ++i) {
+      for (j = 0; j < clauses[i].count; ++j)
+        if (tactix_add_checked(solver, clauses[i].literals[j]))
+          goto buffered_failed;
+      if (tactix_add_checked(solver, 0)) goto buffered_failed;
+      free(clauses[i].literals);
+      clauses[i].literals = NULL;
+    }
+    free(clauses);
+  }
   return 1;
+
+allocation_failed:
+  fprintf(stderr, "tactix-cruxmiter-policy: out of memory buffering DIMACS\n");
+buffered_failed:
+  if (input) fclose(input);
+  free(literals);
+  if (clauses) {
+    size_t i;
+    for (i = 0; i < clauses_count; ++i) free(clauses[i].literals);
+  }
+  free(clauses);
+  return 0;
 }
 
 static int terminal(int result) { return result == 10 || result == 20; }
