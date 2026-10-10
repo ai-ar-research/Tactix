@@ -40,6 +40,9 @@ FIXPOINT_POLICY = os.path.join(
 ORDER_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-2611ff982", "examples",
     "tactix-cruxmiter-policy")
+DEEP_SWEEP_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-612e5ddac", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -368,6 +371,26 @@ ARMS = {
         "TACTIX_SWEEP_FLIP_ROUNDS=8", "TACTIX_SWEEP_TICKS=200000000",
         "TACTIX_SWEEP_ROUND_TICKS=1000000000",
         "TACTIX_SWEEP_FORCE_GENERAL=1"),
+    # Unlike the environment knobs above, these invoke one typed public Sweep
+    # step at the requested depth before DefaultPolicy starts.  This bypasses
+    # the default scheduler's depth-three growth ceiling and directly tests
+    # the full 46-level circuit cone observed in the parsed CNF.
+    **{
+        f"rbc-online-deep-sweep{depth}": policy(
+            "deep-sweep", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            f"TACTIX_CRUX_SWEEP_DEPTH={depth}", binary=DEEP_SWEEP_POLICY)
+        for depth in (8, 16, 32, 46)
+    },
+    **{
+        f"rbc-online-deep-sweep{depth}-vivify": policy(
+            "deep-sweep", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", f"TACTIX_CRUX_SWEEP_DEPTH={depth}",
+            binary=DEEP_SWEEP_POLICY)
+        for depth in (16, 46)
+    },
     "rbc-transitive100": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
@@ -564,7 +587,8 @@ def main():
         240.0 if args.stage == "screen" else 600.0)
     cnf = os.path.join(ROOT, REL)
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
-                   PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY, KISSAT):
+                   PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY,
+                   DEEP_SWEEP_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     if not os.path.isfile(cnf):
@@ -596,7 +620,7 @@ def main():
         "executables": {path: digest(path) for path in
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
                          INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY,
-                         ORDER_POLICY, KISSAT)},
+                         ORDER_POLICY, DEEP_SWEEP_POLICY, KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
