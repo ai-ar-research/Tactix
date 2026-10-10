@@ -15,3 +15,13 @@ target_link_libraries(demo3_scripted_default PRIVATE m)
 add_executable(tactix-cruxmiter-policy cruxmiter_policy.c)
 target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib)
 target_include_directories(tactix-cruxmiter-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Dedicated benchmark-family policies implemented against the same frozen
+# public interface.  EEVBNN accepts both plain and gzip-compressed DIMACS.
+add_executable(tactix-eevbnn-policy eevbnn_policy.c)
+target_link_libraries(tactix-eevbnn-policy PRIVATE tactix_lib ZLIB::ZLIB)
+target_include_directories(tactix-eevbnn-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+add_executable(tactix-random3sat-policy random3sat_policy.c)
+target_link_libraries(tactix-random3sat-policy PRIVATE tactix_lib)
+target_include_directories(tactix-random3sat-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
