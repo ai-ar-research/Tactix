@@ -18,6 +18,7 @@ PIN_SOURCE_COMMIT = "9a6ad1f23"
 PIN = os.path.join(ROOT, "build", f"pin-cruxmiter-{PIN_SOURCE_COMMIT}")
 POLICY = os.path.join(PIN, "examples", "tactix-cruxmiter-policy")
 ENV = "/usr/bin/env"
+UNIQUE_SEEDS = (0, 2, 3, 4, 5, 6, 7, 8, 9)
 
 
 def sha256(path):
@@ -49,7 +50,8 @@ ARMS = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("stage", choices=("screen", "target"))
+    parser.add_argument("stage", choices=("screen", "family", "target"))
+    parser.add_argument("--size", type=int, default=26)
     parser.add_argument("--winner", choices=tuple(ARMS),
                         default="backbone-cce")
     parser.add_argument("--partition", default="cpu-dense-hwulab-q")
@@ -60,24 +62,34 @@ def main():
 
     if not os.path.isfile(POLICY) or not os.access(POLICY, os.X_OK):
         raise SystemExit(f"missing executable pin: {POLICY}")
-    width = 26 if args.stage == "screen" else 32
+    if args.stage == "family" and not 20 <= args.size <= 31:
+        raise SystemExit("family --size must be between 20 and 31")
+    width = args.size if args.stage == "family" else (
+        26 if args.stage == "screen" else 32)
     timeout = args.timeout if args.timeout is not None else (
-        180.0 if args.stage == "screen" else 1200.0)
-    rel = f"cruxmiter/cruxmiter{width}seed4.cnf"
-    path = os.path.join(ROOT, rel)
-    if not os.path.isfile(path):
-        raise SystemExit(f"missing cruxmiter input: {path}")
+        1200.0 if args.stage == "target" else 180.0)
+    seeds = UNIQUE_SEEDS if args.stage == "family" else (4,)
+    entries = [
+        (f"cruxmiter/cruxmiter{width}seed{seed}.cnf", "UNKNOWN", 0.0)
+        for seed in seeds
+    ]
+    paths = {rel: os.path.join(ROOT, rel) for rel, _, _ in entries}
+    missing = [path for path in paths.values() if not os.path.isfile(path)]
+    if missing:
+        raise SystemExit("missing cruxmiter input(s): " + ", ".join(missing))
     selected = tuple(ARMS) if args.stage == "screen" else (
         "backbone-stable", args.winner)
     solvers = [(name, ARMS[name], True, True, True) for name in selected]
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     label = f"crux-aggressive-{args.stage}-seed4"
+    if args.stage == "family":
+        label = f"crux-aggressive-family-{width}"
     outdir = os.path.join(run.RUNS, f"{stamp}-{label}")
     os.makedirs(outdir, exist_ok=False)
     metadata = {
         "stage": args.stage,
-        "target": rel,
-        "winner": args.winner if args.stage == "target" else None,
+        "targets": [rel for rel, _, _ in entries],
+        "winner": args.winner if args.stage != "screen" else None,
         "timeout_seconds": timeout,
         "partition": args.partition,
         "pin_source_commit": PIN_SOURCE_COMMIT,
@@ -86,7 +98,7 @@ def main():
             check=True, capture_output=True, text=True).stdout.strip(),
         "campaign_wrapper_sha256": sha256(__file__),
         "policy_sha256": sha256(POLICY),
-        "input_sha256": sha256(path),
+        "input_sha256": {rel: sha256(path) for rel, path in paths.items()},
         "arms": {name: ARMS[name] for name in selected},
         "proof_lifecycle": (
             "task-local scratch; removed by normal, exception, SIGTERM, "
@@ -101,7 +113,7 @@ def main():
     print(f"pin source commit: {PIN_SOURCE_COMMIT}")
     print(f"policy sha256: {metadata['policy_sha256']}")
     return run.slurm_submit(
-        submit, [(rel, "UNKNOWN", 0.0)], solvers, {rel: path}, timeout, 32,
+        submit, entries, solvers, paths, timeout, 32,
         outdir, stamp, PIN_SOURCE_COMMIT, label)
 
 
