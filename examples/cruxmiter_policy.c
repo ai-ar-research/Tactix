@@ -31,6 +31,8 @@ enum profile {
   PROFILE_GATE,
   PROFILE_BINARY,
   PROFILE_BACKBONE,
+  PROFILE_BACKBONE_NEGATIVE,
+  PROFILE_BACKBONE_POSITIVE,
   PROFILE_BACKBONE_FIRST,
   PROFILE_BACKBONE_CLOSE,
   PROFILE_BACKBONE_HEAVY,
@@ -39,6 +41,8 @@ enum profile {
   PROFILE_BACKBONE_SYMMETRY_SCAN,
   PROFILE_SYMMETRY_SANDWICH,
   PROFILE_SWEEP,
+  PROFILE_KISSAT,
+  PROFILE_KISSAT_NEGATIVE,
   PROFILE_FULL
 };
 
@@ -47,7 +51,7 @@ struct policy {
   enum profile profile;
   int propagate, analyze, decide, restart, reduce, switchmode;
   int congruence, substitute, hbr, backbone, sweep, vivify, strengthen,
-      subsume, bve, transitive;
+      subsume, bve, transitive, factor;
   uint64_t rel_u, rel_v, rel_wait, rel_period;
   int rel_trigger;
   uint64_t reduce_next, inprocess_next;
@@ -95,6 +99,10 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_BINARY;
   else if (!strcmp(text, "backbone"))
     *out = PROFILE_BACKBONE;
+  else if (!strcmp(text, "backbone-negative"))
+    *out = PROFILE_BACKBONE_NEGATIVE;
+  else if (!strcmp(text, "backbone-positive"))
+    *out = PROFILE_BACKBONE_POSITIVE;
   else if (!strcmp(text, "backbone-first"))
     *out = PROFILE_BACKBONE_FIRST;
   else if (!strcmp(text, "backbone-close"))
@@ -111,6 +119,10 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_SYMMETRY_SANDWICH;
   else if (!strcmp(text, "sweep"))
     *out = PROFILE_SWEEP;
+  else if (!strcmp(text, "kissat-order"))
+    *out = PROFILE_KISSAT;
+  else if (!strcmp(text, "kissat-order-negative"))
+    *out = PROFILE_KISSAT_NEGATIVE;
   else if (!strcmp(text, "full"))
     *out = PROFILE_FULL;
   else
@@ -133,6 +145,8 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_GATE: return "gate";
   case PROFILE_BINARY: return "binary";
   case PROFILE_BACKBONE: return "backbone";
+  case PROFILE_BACKBONE_NEGATIVE: return "backbone-negative";
+  case PROFILE_BACKBONE_POSITIVE: return "backbone-positive";
   case PROFILE_BACKBONE_FIRST: return "backbone-first";
   case PROFILE_BACKBONE_CLOSE: return "backbone-close";
   case PROFILE_BACKBONE_HEAVY: return "backbone-heavy";
@@ -141,6 +155,8 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_BACKBONE_SYMMETRY_SCAN: return "backbone-symmetry-scan";
   case PROFILE_SYMMETRY_SANDWICH: return "symmetry-sandwich";
   case PROFILE_SWEEP: return "sweep";
+  case PROFILE_KISSAT: return "kissat-order";
+  case PROFILE_KISSAT_NEGATIVE: return "kissat-order-negative";
   case PROFILE_FULL: return "full";
   }
   return "invalid";
@@ -188,6 +204,15 @@ static int manual_inprocess(enum profile profile) {
   return profile == PROFILE_GATE_SEARCH ||
          profile == PROFILE_BACKBONE_SEARCH ||
          profile == PROFILE_BACKBONE_CLOSE_SEARCH;
+}
+
+static int warmup_phase(enum profile profile) {
+  if (profile == PROFILE_BACKBONE_NEGATIVE ||
+      profile == PROFILE_KISSAT_NEGATIVE)
+    return TACTIX_WARMUP_PHASE_NEGATIVE;
+  if (profile == PROFILE_BACKBONE_POSITIVE)
+    return TACTIX_WARMUP_PHASE_POSITIVE;
+  return -1;
 }
 
 /* The benchmark files are plain DIMACS. Keep parsing in this external client
@@ -395,6 +420,8 @@ static int root_pipeline(struct policy *policy) {
     return 1;
 
   if (policy->profile == PROFILE_BACKBONE ||
+      policy->profile == PROFILE_BACKBONE_NEGATIVE ||
+      policy->profile == PROFILE_BACKBONE_POSITIVE ||
       policy->profile == PROFILE_BACKBONE_SEARCH) {
     result = dose_rule(policy, policy->backbone, 512, &applications);
     if (terminal(result) || result == 2) return result;
@@ -443,6 +470,32 @@ static int root_pipeline(struct policy *policy) {
     result = dose_rule(policy, policy->sweep, 4, &applications);
     if (terminal(result) || result == 2) return result;
     result = dose_rule(policy, policy->substitute, 24, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    return dose_rule(policy, policy->substitute, 24, &applications);
+  }
+
+  /* Mirror Kissat's authored probe-phase ordering with explicit public-rule
+   * calls.  In particular, keep Congruence adjacent to its Substitute
+   * consumer, revisit Backbone after Sweep/TransitiveReduce, and leave
+   * Factor last.  The generic scheduler otherwise sorts these rules by name,
+   * which loses those producer/consumer relationships on this gate CNF. */
+  if (policy->profile == PROFILE_KISSAT ||
+      policy->profile == PROFILE_KISSAT_NEGATIVE) {
+    result = dose_rule(policy, policy->backbone, 512, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->vivify, 16, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->sweep, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->substitute, 24, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->transitive, 64, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->backbone, 512, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->factor, 4, &applications);
     if (terminal(result) || result == 2) return result;
     result = dose_rule(policy, policy->congruence, 4, &applications);
     if (terminal(result) || result == 2) return result;
@@ -549,8 +602,13 @@ static int solve(struct policy *policy) {
    * by the shipped search policy.  This isolates the question under test—the
    * proof-rule order—while retaining the mature restart/rephase machinery.
    * PROFILE_SEARCH remains the direct stable=2,target=0,phase=0 translation. */
-  if (!manual_search(policy->profile))
+  if (!manual_search(policy->profile)) {
+    const int phase = warmup_phase(policy->profile);
+    if (phase >= 0 && tactix_support(policy->solver, TACTIX_SUPPORT_WARMUP,
+                                    (uint64_t)phase) < 0)
+      return 0;
     return tactix_solve(policy->solver);
+  }
 
   /* Enter stable mode once, never switch back, and never capture a target
    * phase: the public-policy equivalent of stable=2,target=0. */
@@ -671,6 +729,7 @@ static int init_policy(struct policy *policy, tactix *solver,
   policy->subsume = rule_id("SubsumeForward");
   policy->bve = rule_id("BVE");
   policy->transitive = rule_id("TransitiveReduce");
+  policy->factor = rule_id("Factor");
   policy->rel_u = policy->rel_v = 1;
   policy->rel_period = policy->rel_wait = 1024;
   policy->reduce_next = 2000;
@@ -700,7 +759,7 @@ static int init_policy(struct policy *policy, tactix *solver,
          policy->backbone >= 0 && policy->sweep >= 0 &&
          policy->vivify >= 0 && policy->strengthen >= 0 &&
          policy->subsume >= 0 && policy->bve >= 0 &&
-         policy->transitive >= 0;
+         policy->transitive >= 0 && policy->factor >= 0;
 }
 
 static void print_model(tactix *solver, int maximum_variable) {
@@ -734,13 +793,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
