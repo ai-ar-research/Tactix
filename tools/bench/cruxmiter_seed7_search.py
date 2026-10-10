@@ -26,7 +26,8 @@ DEFAULT = os.path.join(PIN, "tactix")
 POLICY = os.path.join(PIN, "examples", "tactix-cruxmiter-policy")
 OLD_POLICY = os.path.join(OLD_PIN, "examples", "tactix-cruxmiter-policy")
 NEXT_POLICY = os.path.join(
-    ROOT, "build", "crux-seed7-next", "examples", "tactix-cruxmiter-policy")
+    ROOT, "build", "pin-cruxmiter-d2f139f0b", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
