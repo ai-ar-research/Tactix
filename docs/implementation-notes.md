@@ -431,7 +431,8 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   ([evidence](../benchmarks/reports/2026-10-10-remove-diagnostic-arms/README.md)): `MaterializeColdState` (eager allocation
   is search-identical but raises peak RSS on the 58.6M-variable Rank-5 input) and `AttachHeuristics` (attaching H before the
   early opportunities changes certificates: startup propagation and early Lucky then write saved phases and deactivate roots
-  into it, and the residual activation handoff seeds only an unattached H). The policy-side scopes around
+  into it, and the residual activation handoff seeds only an unattached H). Both are kept by user decision and are
+  candidates to become public support actions (deferred cold-state materialization; explicit H attachment). The policy-side scopes around
   public requests (Reduce and BVE pass profiles, work budgets, the Vivify band scope, tick attribution) are port types too;
   PublicPort establishes them through `tactix_install_parameters`, `tactix_install_work_settings`,
   `tactix_set_vivify_scope` and `tactix_install_tick_attribution`.
