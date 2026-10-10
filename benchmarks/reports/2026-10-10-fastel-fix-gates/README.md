@@ -58,8 +58,8 @@ Jobs 1769334 (B28+C5), 1769365 (Rank1–50), 1769366 (WV100) and 1769367 (WV2–
 | WV2–89 bphp_p23_h22 | UNKNOWN 600 s | UNKNOWN 600 s (retained at 5,000 s) | UNSAT 604.5 s; conflicts and certificate identical to s7 and c2.4; proof check censored at 1,800 s, as before |
 
 - **Gained against s7:** WV2–89 Circuit_multiplier24, SAT in 84.2 s (s7 needed the 5,000 s rule).
-- **noL-11-8:** the accepted exception. Its 5,000 s run (job 1769673, task 3) is informational and
-  was still running when this report was written.
+- **noL-11-8:** the accepted exception. UNKNOWN at 5,000 s, with 96.6M conflicts (job 1769673,
+  task 3).
 
 **Changed trajectories.** On rows that both solved, 23 differ from s7. On 17 of them, the
 `c fastel` counters show the fix directly: the old "1 minority decline" is gone, and there are
@@ -120,4 +120,53 @@ archive; `tools/fuzz` is unchanged since s7. Canonical32 checkers, no dsr-transp
 
 ## A versus B (no self-strengthening)
 
-In progress: arm B's gates are jobs 1769842–1769845. The comparison will be added in a follow-up commit.
+Arm B is the diagnostic pin `build/pin-fastel-nostr-rel/tactix` `e8eb0b2ed2cb…`, built by the fix
+agent. It is `0f7c10174` with only FastEliminate self-strengthening disabled: detached commit
+`f1657f12d`, `refs/diagnostic/fastel-nostr`, a one-line `fastel_feasibility=false`. Its
+`PIN.json` lists `CMAKE_CXX_FLAGS=-O3` on top of Release; CMake Release already uses -O3.
+
+B's gates used the same shape: jobs 1769842 (B28+C5), 1769843 (Rank1–50), 1769844 (WV100) and
+1769845 (WV2–89), in `benchmarks/runs/20261010-nostr-regression-*`. B's 5,000 s retention reruns
+are in `20261010-nostr-r5000`, job 1770127. B's proof checks were not waited on, per the user.
+
+| Gate | A solved at limit / with 5,000 s retention | B solved at limit / with 5,000 s retention | A s (ceiling) | B s | s7 s |
+|---|---|---|---|---|---|
+| B28+C5 | 33 / 33 | 33 / 33 | 895.1 (999.9) | 2,080.3 (over) | 958.7 |
+| Rank1–50 | 50 / 50 | 50 / 50 | 8,562.5 (8,521.5) | 9,254.2 (over) | 8,431.7 |
+| WV100 | 97 / 99 (+ snw16 exception) | 97 / 99 (+ snw16 exception) | 842.3 | 880.4 | 2,355.5 |
+| WV2–89 | 81 / 83 (+ noL-11-8 exception) | 82 / 83 (+ noL-11-8 exception) | 3,345.4 | 3,547.3 | 3,928.0 |
+| **Total** | **261 / 265** | **262 / 265** | | | |
+
+**Retention rows:**
+
+- **A:** 1x1x13_1x3x6_pair SAT 1,351.1 s; Break_20_72 SAT 4,057.5 s; bphp UNSAT 604.5 s;
+  jkkk SAT 2,104.4 s. Lost retained rows: 0, excluding the exceptions.
+- **B:** jkkk SAT 172.9 s at the limit; bphp UNSAT 602.9 s (same conflicts and certificate as A
+  and s7); 1x1x13 SAT 1,355.6 s (15,768,815 conflicts, the same as A); Break_20_72 SAT 3,773.5 s, model verified (103.3M conflicts against A's 100.8M; the arms diverge after the 1,200 s limit). Lost retained rows: 0, excluding the exceptions.
+
+**Lost and gained.** Against s7, both arms lose 1x1x13 and Break_20_72 at the suite limit and
+gain Circuit_multiplier24. A also loses jkkk at the limit; B does not. Between the two arms, B
+solves jkkk at the limit and A does not; otherwise neither arm solves a row the other misses.
+
+**Trajectories that differ between A and B:** 21 rows.
+
+| Gate | Rows | Notable times (A / B) |
+|---|---|---|
+| B28+C5 | 10 | mp1-Nb5T15 121.0 / 1,154.9 s; sted5_0x24204-50 3.1 / 134.5 s; PRP_30_38 18.6 / 40.8 s |
+| Rank1–50 | 6 | dislog_a14 649.0 / 913.6 s; jgiraldezlevy 140.5 / 90.6 s; grs-32-128 471.6 / 439.2 s |
+| WV100 | 0 | — |
+| WV2–89 | 5 | jkkk UNKNOWN / SAT 172.9 s; snw_16_9_preOpt 271.0 / 62.7 s; Circuit_multiplier24 84.2 / 195.3 s; HCP-529-420 55.6 / 128.5 s |
+
+B also differs from s7 on every one of these rows, because the other parts of the fastel fix
+(the removed minority decline and the re-arming) remain in B.
+
+**Decision rule** (user): most solved rows across the four gates, counting §8.4 5,000 s
+retention. Ties are broken by fewer lost retained rows, then by lower total solver time on rows
+both solve, then in favor of A, the faithful port.
+
+- **Solved:** A 265, B 265. Tie.
+- **Lost retained rows:** A 0, B 0. Tie.
+- **Time on rows both solve within the limits:** A 13,645.3 s, B 15,589.4 s. Most of the gap is
+  B28+C5 mp1-Nb5T15 (+1,034 s).
+- **Choice: A (`0f7c10174`)**, on the time tie-break. The coordinator pushed it to origin/main
+  (`dc309c261`), and full Tier D on A is job 1770131.
