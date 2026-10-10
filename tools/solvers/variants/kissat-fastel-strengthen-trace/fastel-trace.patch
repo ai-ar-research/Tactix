@@ -1,0 +1,197 @@
+diff -ruN -x makefile winners/kissat-sc2024/src/decide.c tools/solvers/variants/kissat-fastel-strengthen-trace/src/decide.c
+--- winners/kissat-sc2024/src/decide.c	2026-08-13 13:21:04.107861752 -0400
++++ tools/solvers/variants/kissat-fastel-strengthen-trace/src/decide.c	2026-10-10 14:46:58.118648252 -0400
+@@ -1,3 +1,4 @@
++#include "fttrace.h"
+ #include "decide.h"
+ #include "inlineframes.h"
+ #include "inlineheap.h"
+@@ -227,6 +228,15 @@
+     lit = NOT (lit);
+   kissat_push_frame (solver, lit);
+   assert (solver->level < SIZE_STACK (solver->frames));
++  if (ft_enabled ()) {
++    static unsigned long ft_decisions;
++    if (ft_decisions < 300)
++      fprintf (stderr, "c FT dec %lu %d level=%u conflicts=%llu warming=%d\n",
++               ft_decisions, ft_ext (solver, lit), solver->level,
++               (unsigned long long) solver->statistics.conflicts,
++               (int) solver->warming);
++    ft_decisions++;
++  }
+   LOG ("decide literal %s", LOGLIT (lit));
+   kissat_assign_decision (solver, lit);
+   STOP (decide);
+diff -ruN -x makefile winners/kissat-sc2024/src/fastel.c tools/solvers/variants/kissat-fastel-strengthen-trace/src/fastel.c
+--- winners/kissat-sc2024/src/fastel.c	2026-08-13 13:21:04.114861968 -0400
++++ tools/solvers/variants/kissat-fastel-strengthen-trace/src/fastel.c	2026-10-10 14:46:58.118648252 -0400
+@@ -8,6 +8,7 @@
+ #include "report.h"
+ #include "terminate.h"
+ #include "weaken.h"
++#include "fttrace.h"
+ 
+ static bool fast_forward_subsumed (kissat *solver, clause *c) {
+   assert (!c->garbage);
+@@ -78,6 +79,11 @@
+   for (all_literals_in_clause (other, c))
+     marks[other] = 0;
+   if (subsumed) {
++    if (ft_enabled ()) {
++      fprintf (stderr, "c FT sub ");
++      ft_clause (solver, c);
++      fputc ('\n', stderr);
++    }
+     LOGCLS (c, "subsumed");
+     kissat_mark_clause_as_garbage (solver, c);
+     INC (subsumed);
+@@ -543,6 +549,16 @@
+     INC (fast_strengthened);
+     const size_t size = SIZE_STACK (*clause);
+     const reference ref = kissat_reference_clause (solver, c);
++    if (ft_enabled ()) {
++      fprintf (stderr, "c FT str bl pivot=%d bin=%d oldref=%u old=",
++               ft_ext (solver, LIT (pivot)), ft_ext (solver, lit),
++               (unsigned) ref);
++      ft_clause (solver, c);
++      fprintf (stderr, " new=");
++      ft_stack (solver);
++      fprintf (stderr, " arena_end=%zu\n",
++               (size_t) SIZE_STACK (solver->arena));
++    }
+     if (!size) {
+       assert (!solver->inconsistent);
+       solver->inconsistent = true;
+@@ -675,6 +691,18 @@
+         INC (fast_strengthened);
+         const reference c_ref = kissat_reference_clause (solver, c);
+         const reference d_ref = kissat_reference_clause (solver, d);
++        if (ft_enabled ()) {
++          fprintf (stderr, "c FT str ll pivot=%d cref=%u c=",
++                   ft_ext (solver, LIT (pivot)), (unsigned) c_ref);
++          ft_clause (solver, c);
++          fprintf (stderr, " dref=%u d=", (unsigned) d_ref);
++          ft_clause (solver, d);
++          fprintf (stderr, " new=");
++          ft_stack (solver);
++          fprintf (stderr, " csub=%d dsub=%d arena_end=%zu\n",
++                   (int) c_subsumed, (int) d_subsumed,
++                   (size_t) SIZE_STACK (solver->arena));
++        }
+         kissat_new_irredundant_clause (solver);
+         strengthened = true;
+         if (c_subsumed) {
+@@ -769,14 +797,26 @@
+   if (sum > fasteloccs)
+     return false;
+   const size_t fastelim = GET_OPTION (fastelim);
++  if (ft_enabled ())
++    fprintf (stderr, "c FT try pivot=%d pos=%zu neg=%zu\n",
++             ft_ext (solver, LIT (pivot)), pos, neg);
+   if (product <= fastelim) {
+     do_fast_eliminate (solver, pivot);
++    if (ft_enabled ())
++      fprintf (stderr, "c FT elim pivot=%d direct\n",
++               ft_ext (solver, LIT (pivot)));
+     return true;
+   }
+   if (resolvents_limited (solver, pivot, fastelim)) {
+     do_fast_eliminate (solver, pivot);
++    if (ft_enabled ())
++      fprintf (stderr, "c FT elim pivot=%d limited\n",
++               ft_ext (solver, LIT (pivot)));
+     return true;
+   }
++  if (ft_enabled ())
++    fprintf (stderr, "c FT keep pivot=%d%s\n", ft_ext (solver, LIT (pivot)),
++             solver->inconsistent ? " inconsistent" : "");
+   return false;
+ }
+ 
+@@ -877,6 +917,16 @@
+         round);
+ #endif
+     RADIX_STACK (candidate, unsigned, candidates, RANK_CANDIDATE);
++    if (ft_enabled ()) {
++      fprintf (stderr, "c FT round %u candidates=%zu active=%u irr=%llu bin=%llu\n",
++               round, (size_t) SIZE_STACK (candidates), solver->active,
++               (unsigned long long) IRREDUNDANT_CLAUSES,
++               (unsigned long long) BINARY_CLAUSES);
++      size_t pos_in_round = 0;
++      for (all_stack (candidate, cand, candidates))
++        fprintf (stderr, "c FT cand %u %zu %d %u\n", round, pos_in_round++,
++                 ft_ext (solver, LIT (cand.pivot)), cand.score);
++    }
+     unsigned eliminated_this_round = 0;
+     for (all_stack (candidate, candidate, candidates)) {
+       const unsigned pivot = candidate.pivot;
+@@ -929,6 +979,10 @@
+       variables_after,
+       kissat_percent (variables_after, original_variables));
+ #endif
++  if (ft_enabled ())
++    fprintf (stderr, "c FT end active=%u irr=%llu bin=%llu\n", solver->active,
++             (unsigned long long) IRREDUNDANT_CLAUSES,
++             (unsigned long long) BINARY_CLAUSES);
+   STOP (fastel);
+   REPORT (!eliminated, 'e');
+ }
+diff -ruN -x makefile winners/kissat-sc2024/src/fttrace.h tools/solvers/variants/kissat-fastel-strengthen-trace/src/fttrace.h
+--- winners/kissat-sc2024/src/fttrace.h	1969-12-31 19:00:00.000000000 -0500
++++ tools/solvers/variants/kissat-fastel-strengthen-trace/src/fttrace.h	2026-10-10 14:46:27.126010791 -0400
+@@ -0,0 +1,36 @@
++#ifndef _fttrace_h_INCLUDED
++#define _fttrace_h_INCLUDED
++// Diagnostic-only fastel/decision trace (KISSAT_FT=1 enables; stderr).
++#include "inline.h"
++#include "internal.h"
++#include <stdio.h>
++#include <stdlib.h>
++
++static inline int ft_enabled (void) {
++  static int state = -1;
++  if (state < 0)
++    state = getenv ("KISSAT_FT") != 0;
++  return state;
++}
++
++static inline int ft_ext (kissat *solver, unsigned lit) {
++  return kissat_export_literal (solver, lit);
++}
++
++static inline void ft_lits (kissat *solver, const unsigned *lits,
++                            unsigned size) {
++  fputc ('[', stderr);
++  for (unsigned i = 0; i < size; i++)
++    fprintf (stderr, i ? " %d" : "%d", ft_ext (solver, lits[i]));
++  fputc (']', stderr);
++}
++
++static inline void ft_clause (kissat *solver, clause *c) {
++  ft_lits (solver, c->lits, c->size);
++}
++
++static inline void ft_stack (kissat *solver) {
++  ft_lits (solver, BEGIN_STACK (solver->clause),
++           SIZE_STACK (solver->clause));
++}
++#endif
+diff -ruN -x makefile winners/kissat-sc2024/src/search.c tools/solvers/variants/kissat-fastel-strengthen-trace/src/search.c
+--- winners/kissat-sc2024/src/search.c	2026-08-13 13:21:04.150863079 -0400
++++ tools/solvers/variants/kissat-fastel-strengthen-trace/src/search.c	2026-10-10 14:46:58.119647757 -0400
+@@ -1,3 +1,4 @@
++#include "fttrace.h"
+ #include "search.h"
+ #include "analyze.h"
+ #include "bump.h"
+@@ -190,6 +191,10 @@
+   if (!res)
+     kissat_classify (solver);
+   if (!res && searching (solver)) {
++    if (ft_enabled ())
++      fprintf (stderr, "c FT search-start active=%u irr=%llu bin=%llu\n",
++               solver->active, (unsigned long long) IRREDUNDANT_CLAUSES,
++               (unsigned long long) BINARY_CLAUSES);
+     start_search (solver);
+     while (!res) {
+       clause *conflict = kissat_search_propagate (solver);
