@@ -135,11 +135,13 @@ static int propagate(struct policy *policy) {
   return tactix_apply(policy->solver, policy->propagate);
 }
 
-/* Apply a root rule to its public canonical fixpoint. Every successful
- * mutation is settled by Propagate before the next application observes it.
- * The cap is a safety boundary for a malformed future rule contract. */
-static int close_rule(struct policy *policy, int rule, unsigned cap,
-                      uint64_t *applications) {
+/* Apply a bounded public-rule dose.  Every successful mutation is settled by
+ * Propagate before the next application observes it.  A dose deliberately
+ * hands control on after its cap: the development runs showed that driving
+ * HBR or BVE to a local fixpoint spends far more than the whole default solve
+ * on this family. */
+static int dose_rule(struct policy *policy, int rule, unsigned cap,
+                     uint64_t *applications) {
   unsigned count;
   if (rule < 0) return 1;
   for (count = 0; count < cap; ++count) {
@@ -152,8 +154,7 @@ static int close_rule(struct policy *policy, int rule, unsigned cap,
       if (terminal(settled) || settled == 2) return settled;
     }
   }
-  fprintf(stderr, "tactix-cruxmiter-policy: rule fixpoint cap exhausted\n");
-  return -2;
+  return 1;
 }
 
 static int root_pipeline(struct policy *policy) {
@@ -164,46 +165,47 @@ static int root_pipeline(struct policy *policy) {
     return result;
 
   /* Preserve circuit signatures: gate congruence publishes equivalences and
-   * Substitute then collapses the whole CNF. */
-  for (round = 0; round < 8; ++round) {
+   * Substitute then collapses the whole CNF.  The doses mirror the useful
+   * counts observed in DefaultPolicy's size-20 trace. */
+  for (round = 0; round < 2; ++round) {
     const uint64_t before = applications;
-    result = close_rule(policy, policy->congruence, 64, &applications);
-    if (terminal(result) || result == 2 || result == -2) return result;
-    result = close_rule(policy, policy->substitute, 256, &applications);
-    if (terminal(result) || result == 2 || result == -2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->substitute, 24, &applications);
+    if (terminal(result) || result == 2) return result;
     if (applications == before) break;
   }
   if (policy->profile == PROFILE_GATE) return 1;
 
   /* Implications exposed by the first collapse can reveal another gate layer.
    * Clean only after mining that layer. */
-  for (round = 0; round < 4; ++round) {
+  for (round = 0; round < 2; ++round) {
     const uint64_t before = applications;
-    result = close_rule(policy, policy->hbr, 512, &applications);
-    if (terminal(result) || result == 2 || result == -2) return result;
-    result = close_rule(policy, policy->congruence, 64, &applications);
-    if (terminal(result) || result == 2 || result == -2) return result;
-    result = close_rule(policy, policy->substitute, 256, &applications);
-    if (terminal(result) || result == 2 || result == -2) return result;
+    result = dose_rule(policy, policy->hbr, 64, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->substitute, 24, &applications);
+    if (terminal(result) || result == 2) return result;
     if (applications == before) break;
   }
   if (policy->profile == PROFILE_BINARY) return 1;
 
   /* General clause work follows structural closure. BVE is deliberately late:
    * eliminating gate outputs first would erase the signatures above. */
-  result = close_rule(policy, policy->vivify, 64, &applications);
-  if (terminal(result) || result == 2 || result == -2) return result;
-  result = close_rule(policy, policy->strengthen, 64, &applications);
-  if (terminal(result) || result == 2 || result == -2) return result;
-  result = close_rule(policy, policy->subsume, 64, &applications);
-  if (terminal(result) || result == 2 || result == -2) return result;
-  result = close_rule(policy, policy->bve, 4096, &applications);
-  if (terminal(result) || result == 2 || result == -2) return result;
-  result = close_rule(policy, policy->transitive, 2048, &applications);
-  if (terminal(result) || result == 2 || result == -2) return result;
-  result = close_rule(policy, policy->congruence, 64, &applications);
-  if (terminal(result) || result == 2 || result == -2) return result;
-  return close_rule(policy, policy->substitute, 256, &applications);
+  result = dose_rule(policy, policy->vivify, 16, &applications);
+  if (terminal(result) || result == 2) return result;
+  result = dose_rule(policy, policy->strengthen, 8, &applications);
+  if (terminal(result) || result == 2) return result;
+  result = dose_rule(policy, policy->subsume, 8, &applications);
+  if (terminal(result) || result == 2) return result;
+  result = dose_rule(policy, policy->bve, 300, &applications);
+  if (terminal(result) || result == 2) return result;
+  result = dose_rule(policy, policy->transitive, 64, &applications);
+  if (terminal(result) || result == 2) return result;
+  result = dose_rule(policy, policy->congruence, 4, &applications);
+  if (terminal(result) || result == 2) return result;
+  return dose_rule(policy, policy->substitute, 24, &applications);
 }
 
 static void tick_reluctant(struct policy *policy) {
@@ -225,9 +227,17 @@ static void tick_reluctant(struct policy *policy) {
 }
 
 static int solve(struct policy *policy) {
+  if (tactix_status(policy->solver) == 20) return 20;
   int result = root_pipeline(policy);
   if (terminal(result)) return result;
-  if (result == 2 || result == -2) return result == 2 ? 20 : 0;
+  if (result == 2) return 20;
+
+  /* The three structural profiles are ordered public-rule preludes followed
+   * by the shipped search policy.  This isolates the question under test—the
+   * proof-rule order—while retaining the mature restart/rephase machinery.
+   * PROFILE_SEARCH remains the direct stable=2,target=0,phase=0 translation. */
+  if (policy->profile != PROFILE_SEARCH)
+    return tactix_solve(policy->solver);
 
   /* Enter stable mode once, never switch back, and never capture a target
    * phase: the public-policy equivalent of stable=2,target=0. */
@@ -275,7 +285,7 @@ static int solve(struct policy *policy) {
         }
         result = root_pipeline(policy);
         if (terminal(result)) return result;
-        if (result == 2 || result == -2) return result == 2 ? 20 : 0;
+        if (result == 2) return 20;
         policy->inprocess_next = conflicts + 10000;
         continue;
       }
