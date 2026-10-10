@@ -103,8 +103,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    `COMPACT_VARIABLES` above the root, Substitute round-break reporting. The ratchet's internal set
    is empty apart from declared diagnostics; the replay is a gate (5,462 of 6,366 records); the §8.4
    overhead harness (`tools/bench/port_overhead.py`) measures +0.2% instructions on 66–67
-   Rank1–50/B28+C5 rows. Next: identity, full Debug and overhead on the Step 7 commit (evidence
-   commit), then the §8.4 four-set gates for Steps 4b–7.
+   Rank1–50/B28+C5 rows. On `d56c7f9bc` (Release `4ee060d8…`) DefaultPolicy is byte-identical to
+   c2.4 on 12 identity rows (three arms), full Debug passes 361/361 and
+   the overhead is −0.15% instructions aggregate on 67 rows (identical certificates). Next: the
+   §8.4 four-set gates for Steps 4b–7.
 
 ## Live work
 
