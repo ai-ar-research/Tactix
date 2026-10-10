@@ -49,6 +49,9 @@ TACO_WARMUP_POLICY = os.path.join(
 TAIL_BVE_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-0bf67f97e", "examples",
     "tactix-cruxmiter-policy")
+BDD_ORDER_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-43db14f2b", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -542,6 +545,24 @@ ARMS = {
             f"TACTIX_CRUX_BVE_CUTOFF={cutoff}", binary=TAIL_BVE_POLICY)
         for cutoff in (565, 560, 550, 540, 530, 528, 520, 500)
     },
+    **{
+        f"rbc-order-{order}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            f"TACTIX_CRUX_INPUT_ORDER={order}", binary=BDD_ORDER_POLICY)
+        for order in ("primary", "primary-reverse", "primary-interleave",
+                      "primary-interleave-reverse")
+    },
+    **{
+        f"rbcv-order-{order}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            f"TACTIX_CRUX_INPUT_ORDER={order}", binary=BDD_ORDER_POLICY)
+        for order in ("primary", "primary-reverse", "primary-interleave",
+                      "primary-interleave-reverse")
+    },
     "rbc-cce1": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
@@ -727,7 +748,7 @@ def main():
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
                    PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY,
                    DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, TAIL_BVE_POLICY,
-                   KISSAT):
+                   BDD_ORDER_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     if not os.path.isfile(cnf):
@@ -760,7 +781,7 @@ def main():
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
                          INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY,
                          ORDER_POLICY, DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY,
-                         TAIL_BVE_POLICY, KISSAT)},
+                         TAIL_BVE_POLICY, BDD_ORDER_POLICY, KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
