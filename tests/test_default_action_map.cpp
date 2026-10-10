@@ -13,14 +13,15 @@
 
 using namespace action_map;
 
-// Internal entries after Step 4a (support transactions through
-// tactix_support). Each later step removes the entries it routes publicly.
+// Internal entries after Step 4b (support transactions, including the
+// inprocessing phase bracket, through tactix_support). Each later step removes
+// the entries it routes publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
     "propagate-search", "decide", "conflict-analysis", "propagate-root",
     "affine-matrix-initialize", "affine-matrix-search", "slot-sweep-batch",
     "slot-substitute-rounds", "slot-vivify-band", "slot-fastel-occurrence",
     "install-affine-matrix-parameters", "support-warmup-installed-branching",
-    "support-phase-bracket", "support-forward-closure"};
+    "support-phase-entry-injected-factor", "support-forward-closure"};
 
 // Entries whose route a refactor step changes must be reached by the fixtures,
 // or their dispatch check would be vacuous.
@@ -36,7 +37,8 @@ static const std::set<std::string> REQUIRED_OBSERVED = {
     "support-compact-variables", "support-reduction-preparation",
     "support-warmup", "support-reset-graph-labeling",
     "support-consume-root-prefix", "support-enter-context",
-    "support-leave-context", "materialize-cold-state", "support-phase-bracket"};
+    "support-leave-context", "materialize-cold-state", "support-phase-entry",
+    "support-occurrence-session", "support-phase-exit"};
 
 int main(int argc, char **argv) {
   const bool dump = argc > 1 && !std::strcmp(argv[1], "--dump");

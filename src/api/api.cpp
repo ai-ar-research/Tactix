@@ -36,6 +36,7 @@
 #include "strategy/heuristic_execution.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "strategy/parameter_execution.hpp"
+#include "strategy/phase_execution.hpp"
 #include "strategy/publication_execution.hpp"
 #include "strategy/reduction_execution.hpp"
 #include "strategy/representation_execution.hpp"
@@ -87,6 +88,14 @@ struct tactix_solver {
   // Execution contexts entered through tactix_support, innermost last.
   std::vector<std::pair<execution::ExecutionContext,
                         execution::ExecutionContextState>> contexts;
+  // The inprocessing phase bracket entered through tactix_support: its
+  // default Factor selection and occurrence index outlive the bracket, which
+  // is declared last so that it closes before them. `phase_contexts` is the
+  // context depth at entry; contexts nest strictly inside the bracket.
+  DefaultFactorMatch phase_factor_selection;
+  OccIndex phase_occurrences;
+  size_t phase_contexts = 0;
+  execution::InprocessPhase phase;
   tactix_solver() : direct_php_action_session(kernel) {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
@@ -2448,8 +2457,17 @@ int tactix_set_vivify_parameters(tactix_solver *s, unsigned scope, int reuse,
   return 0;
 }
 
+namespace {
+int leave_phase(tactix_solver *s);
+}
+
 int tactix_solve(tactix_solver *s) {
   input_complete(s);
+  // Search runs outside the inprocessing phase bracket.
+  if (s->phase.open()) {
+    if (s->phase.occurrences_open()) (void)leave_phase(s);
+    else s->phase.exit_terminal(s->kernel);
+  }
   const int r = default_solve(s->kernel);
   rule_journal_flush();
   external_state_change(s);
@@ -3384,6 +3402,9 @@ static_assert(execution::root_preparation_argument({true, false}, false) ==
                   TACTIX_ROOT_PREPARATION_CAPTURE_TARGET &&
               execution::root_preparation_argument({false, true}, false) ==
                   TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX);
+static_assert(execution::PHASE_ELIMINATE == TACTIX_PHASE_ELIMINATE &&
+              execution::inprocess_phase_argument(false, 1) ==
+                  uint64_t{1} << TACTIX_PHASE_FACTOR_BOUND_SHIFT);
 static_assert(execution::COMPACT_FOLD_FIXED == TACTIX_COMPACT_FOLD_FIXED &&
               execution::COMPACT_PUBLISH_RANDOM_ORDER ==
                   TACTIX_COMPACT_PUBLISH_RANDOM_ORDER);
@@ -3406,6 +3427,29 @@ bool support_root(const Kernel &k) {
 void publish_support_roots(tactix_solver *s, size_t begin) {
   if (s->guidance_publication == TACTIX_GUIDANCE_NATIVE)
     HeuristicRulePublisher{}.roots(s->kernel, begin);
+}
+
+// Leave the open inprocessing phase bracket (DefaultPolicy's phase exit).
+int leave_phase(tactix_solver *s) {
+  Kernel &k = s->kernel;
+  const ApplyResult left = s->phase.exit(
+      k, k.inconsistent,
+      [&] {
+        if (s->guidance_publication == TACTIX_GUIDANCE_NATIVE)
+          HeuristicRulePublisher{}.retirements(k);
+      },
+      [&] {
+        const size_t begin = k.trail.size();
+        const uint64_t roots = k.stats.root_assignments;
+        const ApplyResult propagated = propagate_apply(k);
+        if (k.stats.root_assignments != roots) publish_support_roots(s, begin);
+        return propagated;
+      });
+  if (left == ApplyResult::Unsat) {
+    s->proof.flush();
+    return 20;
+  }
+  return 0;
 }
 
 int support_result(tactix_solver *s, ApplyResult result) {
@@ -3578,12 +3622,50 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     return 0; // a context changes no solver state a client observes
   }
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
-    if (argument || s->contexts.empty())
+    if (argument || s->contexts.empty() ||
+        (s->phase.open() && s->contexts.size() <= s->phase_contexts))
       return -1;
     execution::leave_execution_context(k, s->contexts.back().first,
                                        s->contexts.back().second);
     s->contexts.pop_back();
     return 0;
+  case TACTIX_SUPPORT_ENTER_INPROCESS_PHASE: {
+    const bool eliminate = (argument & TACTIX_PHASE_ELIMINATE) != 0;
+    if ((argument & ~(TACTIX_PHASE_ELIMINATE | (uint64_t{UINT32_MAX} << 32))) ||
+        s->phase.open() || !support_root(k) || k.factor_selection ||
+        (eliminate && !k.large_watches_connected))
+      return -1;
+    s->phase_contexts = s->contexts.size();
+    s->phase.enter(k, execution::InprocessPhaseEntryRequest{
+                          eliminate, s->phase_factor_selection,
+                          static_cast<uint32_t>(argument >> 32)});
+    result = 0;
+    break;
+  }
+  case TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION:
+    if (argument || !s->phase.open() || s->phase.occurrences_open() || k.inconsistent ||
+        k.level || k.conflict_valid || k.pending.valid || k.dense || k.probing.recording)
+      return -1;
+    s->phase.open_occurrences(k, s->phase_occurrences);
+    result = 0;
+    break;
+  case TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE:
+    if (argument || !s->phase.open() || s->contexts.size() != s->phase_contexts ||
+        k.level || k.conflict_valid || k.pending.valid || k.probing.recording)
+      return -1;
+    if (!s->phase.occurrences_open()) {
+      // Without a session only a Probe bracket may close (a structured
+      // startup terminal); an Eliminate bracket must reconnect its watches.
+      if (s->phase.eliminate())
+        return -1;
+      s->phase.exit_terminal(k);
+      result = 0;
+      break;
+    }
+    if (k.dense != nullptr && k.dense != &s->phase_occurrences)
+      return -1;
+    result = leave_phase(s);
+    break;
   default:
     return -1;
   }

@@ -397,10 +397,10 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   slot invocations). The OTFS retier pose stays inside ConflictAnalysis until step 6.
 - DefaultPolicy's support transactions run shared requests that `tactix_support` exposes
   ([controller interface](controller-interface.md)); the per-solve graph-labeling reset, input-binary-order release and root-prefix
-  consumption, and the presearch and structured-root execution contexts, are recorded supports. Deviations: inprocessing
-  phase entry/exit (context, watch disconnect/reconnect, occurrence session, Factor selection, sparse resume) remains a native
-  bracket until gap-plan step 4b; the Strengthen forward closure until step 5; a warm-up picked by a caller-installed branching
-  policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
+  consumption, the presearch and structured-root execution contexts, and the inprocessing phase bracket (shared
+  `execution::InprocessPhase`: entry, occurrence session, exit) are recorded supports. Deviations: a phase entry with an
+  injected FactorMatchPolicy (diagnostic arm) has no public form until the step-5 Factor selection profile; the Strengthen
+  forward closure until step 5; a warm-up picked by a caller-installed branching policy until the step-7 native profile. The C online conversion reads only the selected SR producer's fields unless
   `complete_profile_mode` is enabled.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime

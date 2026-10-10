@@ -3,8 +3,10 @@
 // publication, the other runs DefaultPolicy's composition of the same shared
 // requests on its kernel. Formula, assignment, lifecycle and H state must stay
 // identical after every transaction. Also: rejections leave the solver
-// unchanged, execution contexts nest and restore, and an SR profile in
-// complete-profile mode converts every field whatever the producer.
+// unchanged, execution contexts nest and restore, the inprocessing phase
+// bracket matches DefaultPolicy's shared bracket and nests with contexts, and
+// an SR profile in complete-profile mode converts every field whatever the
+// producer.
 #undef NDEBUG
 #define tactix tactix_c_handle
 #include "tactix.h"
@@ -20,6 +22,7 @@
 #include "strategy/execution_scope.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/online_inprocess.hpp"
+#include "strategy/phase_execution.hpp"
 #include "strategy/reduction_execution.hpp"
 #include "strategy/representation_execution.hpp"
 #include "strategy/root_execution.hpp"
@@ -234,7 +237,7 @@ void test_rejections() {
   const auto trail = k.trail;
   const uint64_t epoch = k.strategy_epoch;
   assert(tactix_support(nullptr, TACTIX_SUPPORT_SPARSE_COLLECT, 0) == -1);
-  for (int unknown : {-1, 0, 18})
+  for (int unknown : {-1, 0, 21})
     assert(tactix_support(s, unknown, 0) == -1);
   assert(tactix_support(s, TACTIX_SUPPORT_ROOT_PREPARATION, 8) == -1);
   assert(tactix_support(s, TACTIX_SUPPORT_COMPACT_VARIABLES, 4) == -1);
@@ -275,6 +278,76 @@ void test_reseed() {
   assert(candidates(k).size() == active && active > 0);
   assert(!k.compact_import_order.empty());
   tactix_release(s);
+}
+
+// The phase bracket: the public session against DefaultPolicy's shared
+// bracket with its default Factor selection, H publication and Propagate.
+void test_phase_bracket() {
+  tactix_c_handle *pub = load(), *nat = load();
+  Kernel &p = kernel(pub), &n = kernel(nat);
+  const int propagate = tactix_rule_id("Propagate"), bve = tactix_rule_id("BVE");
+  assert(tactix_apply(pub, propagate) == tactix_apply(nat, propagate));
+  same(p, n);
+  for (const bool eliminate : {true, false}) {
+    const uint32_t bound = eliminate ? 3 : 0;
+    assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE,
+                          (eliminate ? TACTIX_PHASE_ELIMINATE : 0) |
+                              (uint64_t{bound} << TACTIX_PHASE_FACTOR_BOUND_SHIFT)) == 0);
+    DefaultFactorMatch selection;
+    OccIndex occurrences;
+    execution::InprocessPhase phase;
+    phase.enter(n, {eliminate, selection, bound});
+    same(p, n);
+    assert(p.inprocessing && p.phase_saving_suppressed);
+    assert(p.large_watches_connected == !eliminate && p.factor_selection &&
+           static_cast<DefaultFactorMatch *>(p.factor_selection)->bound == bound);
+    // One bracket at a time; supports that need a quiescent root decline
+    // while the session is open; contexts nest strictly inside.
+    assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == -1);
+    if (eliminate) assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+    assert(tactix_support(pub, TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION, 1) == -1);
+    assert(tactix_support(pub, TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION, 0) == 0);
+    phase.open_occurrences(n, occurrences);
+    assert(p.dense && tactix_support(pub, TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION, 0) == -1);
+    assert(tactix_support(pub, TACTIX_SUPPORT_SPARSE_COLLECT, 0) == -1);
+    assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_CONTEXT, TACTIX_CONTEXT_SPECULATION) == 0);
+    assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+    assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == 0);
+    assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == -1);
+    if (eliminate) {
+      const int ra = tactix_apply(pub, bve), rb = tactix_apply(nat, bve);
+      assert(ra == rb && ra != -1);
+    }
+    same(p, n);
+    const int left = tactix_support(pub, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0);
+    const ApplyResult exited = phase.exit(n, n.inconsistent,
+        [&] { heuristics_consume_retirements(n); }, [&] { return native_propagate(n); });
+    assert(left == (exited == ApplyResult::Unsat ? 20 : 0));
+    same(p, n);
+    assert(!p.inprocessing && !p.phase_saving_suppressed && !p.dense &&
+           p.large_watches_connected && !p.factor_selection);
+    assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == -1);
+  }
+  // A Probe bracket closes without a session (structured startup terminal).
+  assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 2) == -1);
+  assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == 0);
+  assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == 0);
+  assert(!p.inprocessing && !p.factor_selection);
+  // An outer context cannot be left inside the bracket.
+  assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_CONTEXT, TACTIX_CONTEXT_STARTUP) == 0);
+  assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, 0) == 0);
+  assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == -1);
+  assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == 0);
+  assert(tactix_support(pub, TACTIX_SUPPORT_LEAVE_CONTEXT, 0) == 0);
+  assert(!p.inprocessing);
+  // tactix_solve leaves an open bracket before searching.
+  assert(tactix_support(pub, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE, TACTIX_PHASE_ELIMINATE) == 0);
+  assert(tactix_support(pub, TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION, 0) == 0);
+  const int verdict = tactix_solve(pub);
+  assert(verdict == 10 || verdict == 20);
+  assert(!p.dense && p.large_watches_connected && !p.factor_selection);
+  tactix_release(pub);
+  tactix_release(nat);
 }
 
 // complete_profile_mode: a GraphSymmetry profile carries the orbitopal
@@ -336,6 +409,7 @@ int main() {
   test_contexts();
   test_rejections();
   test_reseed();
+  test_phase_bracket();
   test_complete_sr_profile();
   return 0;
 }

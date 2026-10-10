@@ -215,17 +215,25 @@ std::string guidance_mismatch(const Guidance &expected, const Guidance &actual) 
 }
 
 // The reference stream with H and the installed profile captured after
-// every record.
+// every record. Records of a native composite (an inprocessing phase) are
+// delivered when it finishes, so their capture is current only if the state
+// has not moved since the record: `current` marks the captures to compare.
 struct GuidanceCapture final : FeedbackReceiver {
   const Kernel &kernel;
   std::vector<ActionFeedback> actions;
   std::vector<Guidance> after;
   std::vector<Profile> profile_after;
+  std::vector<bool> current;
   explicit GuidanceCapture(const Kernel &k) : kernel(k) {}
   void after_action(const ActionFeedback &value) override {
     actions.push_back(value);
     after.push_back(guidance(kernel));
     profile_after.push_back(profile(kernel));
+    const auto version = strategy::state_version(kernel);
+    current.push_back(mismatch(value.after, strategy::controller::observe_kernel(kernel)).empty() &&
+                      version.arena_generation == value.after.state.arena_generation &&
+                      version.touch_epoch == value.after.state.touch_epoch &&
+                      version.strategy_epoch == value.after.state.strategy_epoch);
   }
   void search_interval(const SearchIntervalFeedback &) override {}
 };
@@ -240,6 +248,7 @@ struct Report {
   std::string stop = "end-of-stream";
   std::string first_guidance_divergence = "none"; // record and fields
   std::string guidance_at_stop = "unmeasured";   // differing fields, or empty
+  uint64_t guidance_deferred = 0; // comparisons skipped: capture not current
   std::string first_profile_divergence = "none";
   std::vector<std::string> install_mismatches; // installed family differs
   uint64_t guidance_compared = 0, candidates_compared = 0;
@@ -261,6 +270,11 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
   // Compare the replayed prefix ending after record `last` with the reference.
   const auto compare = [&](size_t last) {
     if (lookahead) return;
+    if (!reference.current[last]) {
+      ++report.guidance_deferred;
+      report.guidance_at_stop = "deferred";
+      return;
+    }
     const Guidance actual = guidance(observed);
     ++report.guidance_compared;
     report.candidates_compared += actual.candidates.size();
@@ -430,6 +444,8 @@ int main() {
   std::vector<std::string> install_mismatches;
   std::map<int, uint64_t> guidance_matches;
   uint64_t guidance_compared = 0, candidates_compared = 0;
+  std::map<int, uint64_t> deferred_stops;
+  uint64_t guidance_deferred = 0;
   uint64_t replayed_fixtures = 0;
   uint64_t supports = 0;
   std::map<int, uint64_t> online_steps, online_h_equal;
@@ -459,6 +475,8 @@ int main() {
                        (mode.guidance_at_stop.empty() ? "same" : mode.guidance_at_stop) +
                        " h-" + name + "-first=" + mode.first_guidance_divergence;
       guidance_matches[publication] += mode.guidance_at_stop.empty();
+      deferred_stops[publication] += mode.guidance_at_stop == "deferred";
+      guidance_deferred += mode.guidance_deferred;
       guidance_compared += mode.guidance_compared;
       candidates_compared += mode.candidates_compared;
       for (const auto &where : mode.install_mismatches)
@@ -513,8 +531,11 @@ int main() {
   std::cout << "\nH equal at the replay stop point: discard "
             << guidance_matches[TACTIX_GUIDANCE_DISCARD] << '/' << replayed_fixtures
             << ", native " << guidance_matches[TACTIX_GUIDANCE_NATIVE] << '/'
-            << replayed_fixtures << " (" << guidance_compared << " comparisons over "
-            << candidates_compared << " candidate literals)\n";
+            << replayed_fixtures << "; deferred (reference capture not current at the "
+            << "stop): discard " << deferred_stops[TACTIX_GUIDANCE_DISCARD] << ", native "
+            << deferred_stops[TACTIX_GUIDANCE_NATIVE] << " (" << guidance_compared
+            << " comparisons over " << candidates_compared << " candidate literals, "
+            << guidance_deferred << " deferred)\n";
   // Report-only, except that the replay machinery itself must have executed
   // public calls (installs, supports and online steps), the H comparison must
   // have observed nonempty guidance, every public install must reproduce the

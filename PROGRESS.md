@@ -70,8 +70,13 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    and the public replay runs the structured-root online steps through `tactix_online_*` with H equal
    after all 198 of them (the default-profile streams replay to the end). DefaultPolicy and the
    controller are byte-identical to c2.3 (12 identity rows) and full Debug passes 357/357. Steps 1–4a
-   are gated as part of c2.4. Next: Step 4b (public phase entry/exit, which unblocks the search profiles
-   up to their first `ConflictAnalysis`), then Step 6.
+   are gated as part of c2.4. Step 4b is committed, not pushed
+   ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step4b/README.md)): the shared
+   inprocessing phase bracket (entry, occurrence session, exit) is public through `tactix_support`
+   and recorded by DefaultPolicy, so every search profile replays publicly to its first
+   `ConflictAnalysis` with H equal; DefaultPolicy and the controller are byte-identical to c2.4
+   (12 identity rows) and full Debug passes 358/358. Next: Step 6 (`ConflictAnalysis`) and
+   Step 5 (slot invocations), then Step 7.
 
 ## Live work
 

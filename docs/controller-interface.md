@@ -559,13 +559,16 @@ rule record; receivers run after restoration rather than observing an extra
 temporary-profile selection action.
 
 `InprocessPhaseEntry` records the native simplifier-context, sparse-watch and
-Factor-selection handoff. Shared typed selection requests install the chosen
-matcher and optional bound, then explicitly clear the handoff at native exit.
-The default owns its bound calculation; injected matchers receive the existing
-phase snapshot. Entry/exit receipts remain queued until enclosing context and
-occurrence scopes restore. A structured-root SAT terminal still skips building
-occurrences and now records that early exit explicitly. Phase support does not
-claim individual rule applications or formula progress.
+Factor-selection handoff, `OpenOccurrenceSession` the phase's occurrence index
+(built after structured startup), and `InprocessPhaseExit` the cleanup; all
+three run the shared `execution::InprocessPhase` bracket. The default
+selection's bound (DefaultPolicy's own calculation) is the entry record's
+instance in public argument form; an injected matcher receives the existing
+phase snapshot and its entry record stays canonical (no public form). The
+receipts remain queued until the phase finishes. A structured-root SAT
+terminal skips the occurrence session and records that early exit explicitly.
+Phase support does not claim individual rule applications or formula
+progress.
 
 Default residual guidance retains its native admission predicate and order:
 prepare the residual activation seed, attach fresh H, then seed residual import
@@ -583,17 +586,24 @@ flags), sparse collection, random-order and variable compaction, Reduce
 preparation, garbage collection, retired-redundant flush, a new BVE
 definition session, warm-up (H's decision order with a heuristic or forced
 polarity), residual H reseeding, graph-labeling session reset, input-order
-release, root-prefix consumption, and entering/leaving an execution context
-(startup, inprocessing, speculation). Roots it derives reach H through the
-session's guidance-publication profile. DefaultPolicy's support records
+release, root-prefix consumption, entering/leaving an execution context
+(startup, inprocessing, speculation), and the inprocessing phase bracket:
+`ENTER_INPROCESS_PHASE` (Eliminate flag and the default Factor selection's
+bound), `OPEN_OCCURRENCE_SESSION` and `LEAVE_INPROCESS_PHASE`. The session
+holds one bracket at a time with its own selection and occurrence index;
+contexts nest strictly inside it, root-only supports decline while its
+session is open, and `tactix_solve` leaves an open bracket first. Roots and
+retirements it publishes reach H through the session's guidance-publication
+profile. DefaultPolicy's support records
 carry the public argument as their instance and add `ResetGraphLabelingSession`,
 `ReleaseInputBinaryOrder`, `ConsumeRootPrefix` and the presearch and
 structured-root `Enter/LeaveExecutionContext` records; a context left
 implicitly after the session has ended is unrecorded. `MaterializeColdState`
 (predicate-equivalent initial state, never deferred in a C session) and
 `AttachHeuristics` (a C session owns H from `tactix_init`) are declared
-non-actions. Phase entry/exit, the Strengthen forward closure and a warm-up
-picked by a caller-installed branching policy have no public form yet. An SR
+non-actions. A phase entry with an injected Factor matcher, the Strengthen
+forward closure and a warm-up picked by a caller-installed branching policy
+have no public form yet. An SR
 online profile with `complete_profile_mode` ENABLE converts every orbitopal,
 general and graph field whatever the producer, so a GraphSymmetry step's
 structured-generator handoff carries its orbitopal settings.

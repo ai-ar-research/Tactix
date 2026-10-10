@@ -317,15 +317,23 @@ inline const std::vector<Entry> &entries() {
        Route::Declared, Boundary::Crossing, Replay::Marker, false,
        "declared non-action: a C session owns H from tactix_init "
        "(reseeding is TACTIX_SUPPORT_RESEED_GUIDANCE)", "A11"},
-      {"support-phase-bracket", K::Support, nullptr,
-       [](const ActionFeedback &r) {
-         return r.identity == "InprocessPhaseEntry" ||
-                r.identity == "InprocessPhaseExit";
-       },
-       Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "none: phase entry/exit (inprocessing context, watch disconnect/"
-       "reconnect, occurrence session, Factor selection, sparse resume) is "
-       "step 4b", "A11,C4"},
+      {"support-phase-entry", K::Support, "InprocessPhaseEntry",
+       [](const ActionFeedback &r) { return r.instance != INSTANCE_CANONICAL; },
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_ENTER_INPROCESS_PHASE(eliminate flag, Factor bound)",
+       "A11", TACTIX_SUPPORT_ENTER_INPROCESS_PHASE},
+      {"support-phase-entry-injected-factor", K::Support, "InprocessPhaseEntry",
+       nullptr, Route::Kernel, Boundary::Crossing, Replay::None, false,
+       "none: an injected FactorMatchPolicy (diagnostic arm; Factor selection "
+       "profile is step 5)", "A11,C4"},
+      {"support-occurrence-session", K::Support, "OpenOccurrenceSession", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION", "A11",
+       TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION},
+      {"support-phase-exit", K::Support, "InprocessPhaseExit", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE", "A11",
+       TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE},
       {"support-forward-closure", K::Support, "ForwardClosure", nullptr,
        Route::Kernel, Boundary::Crossing, Replay::None, false,
        "none: Strengthen forward-closure post-application is step 5", "A10"},
