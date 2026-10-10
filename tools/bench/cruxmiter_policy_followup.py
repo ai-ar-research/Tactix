@@ -26,6 +26,7 @@ PIN = os.path.join(ROOT, "build", "pin-cruxmiter-255f5ade0")
 PIN_SOURCE_COMMIT = "255f5ade0"
 DEFAULT = os.path.join(PIN, "tactix")
 POLICY = os.path.join(PIN, "examples", "tactix-cruxmiter-policy")
+KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 UNIQUE_SEEDS = (0, 2, 3, 4, 5, 6, 7, 8, 9)
 
@@ -45,8 +46,10 @@ def instances(stage, size):
         if not 20 <= size <= 31:
             raise SystemExit("family --size must be between 20 and 31")
         names = [f"cruxmiter{size}seed{seed}.cnf" for seed in UNIQUE_SEEDS]
-    else:
+    elif stage == "target32":
         names = [f"cruxmiter32seed{seed}.cnf" for seed in UNIQUE_SEEDS]
+    else:
+        names = ["cruxmiter32seed7.cnf"]
     entries = [(f"cruxmiter/{name}", "UNKNOWN", 0.0) for name in names]
     paths = {rel: os.path.join(ROOT, rel) for rel, _, _ in entries}
     missing = [path for path in paths.values() if not os.path.isfile(path)]
@@ -67,6 +70,8 @@ def arm(name):
 
 
 def arms(stage, winner):
+    if stage == "kissat32":
+        return [("kissat", [KISSAT], True, True, True)]
     if stage != "target32":
         selected = ("default", "default-stable", "backbone", "backbone-stable")
     else:
@@ -76,7 +81,8 @@ def arms(stage, winner):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("stage", choices=("ladder", "family", "target32"))
+    parser.add_argument("stage", choices=("ladder", "family", "target32",
+                                          "kissat32"))
     parser.add_argument("--size", type=int, default=28)
     parser.add_argument("--winner", choices=("default-stable", "backbone",
                                              "backbone-stable"),
@@ -87,7 +93,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    for binary in (DEFAULT, POLICY):
+    for binary in (DEFAULT, POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     entries, paths = instances(args.stage, args.size)
@@ -114,6 +120,7 @@ def main():
         "executables": {
             "default": {"path": DEFAULT, "sha256": file_sha256(DEFAULT)},
             "policy": {"path": POLICY, "sha256": file_sha256(POLICY)},
+            "kissat": {"path": KISSAT, "sha256": file_sha256(KISSAT)},
         },
         "inputs": {
             rel: {"path": paths[rel], "sha256": file_sha256(paths[rel])}
