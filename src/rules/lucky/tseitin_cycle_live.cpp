@@ -389,8 +389,7 @@ void detach_shadow(Kernel &shadow) {
   shadow.proof = nullptr;
   shadow.h = nullptr;
   shadow.population_observer = nullptr;
-  shadow.analysis_conflict_hook = nullptr;
-  shadow.analysis_conflict_hook_state = nullptr;
+  shadow.retier_schedule = {};
   shadow.bve_score_update_hook = nullptr;
   shadow.bve_score_update_state = nullptr;
   shadow.structural_provenance = nullptr;

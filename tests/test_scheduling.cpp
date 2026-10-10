@@ -5,6 +5,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "rules/reduce/reduce.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 
@@ -171,40 +172,38 @@ static void test_large_formula_factor_decline_is_solve_latched(void) {
 }
 
 static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
+  // ConflictAnalysis applies the schedule only at the conflict an OTFS
+  // re-analysis counts (test_analysis_native_target exercises that path);
+  // here the schedule step itself: deadline, geometric interval, pose.
   Kernel k;
   kernel_reserve_vars(k, 1);
   ScopedHeuristics h(k);
   DefaultPolicy p;
   p.reset_schedule(k);
+  RetierSchedule tiers = p.retier_schedule();
+  assert(tiers.enabled && tiers.next_conflicts == 2 && tiers.interval == 2);
+  k.stats.conflicts = 2;
+  assert(!reduce_retier_at_conflict(k, tiers, k.h->stable ? 1u : 0u) && k.stats.retiered == 0 &&
+         "the deadline itself must not retier");
   k.stats.conflicts = 3;
-  assert(!p.update_tiers_after_analysis(k));
-  assert(k.stats.retiered == 0 &&
-         "ordinary learned conflicts must not advance Kissat's glue limit");
-  AnalysisConflictCheckpoint checkpoint;
-  checkpoint.conflicts = k.stats.conflicts;
-  checkpoint.mode = 0;
-  checkpoint.used_glue[3] = 1;
-  k.analysis_conflict_checkpoints.push_back(checkpoint);
-  assert(p.update_tiers_after_analysis(k));
-  assert(k.stats.retiered == 1 &&
-         "an OTFS re-analysis conflict must advance the glue limit");
-  assert(k.analysis_conflict_checkpoints.empty() &&
-         "policy must consume each internal observation exactly once");
-  assert(!p.update_tiers_after_analysis(k));
+  k.stats.used_glue[0][3] = 1;
+  assert(reduce_retier_at_conflict(k, tiers, k.h->stable ? 1u : 0u));
+  assert(k.stats.retiered == 1 && tiers.interval == 4 &&
+         tiers.next_conflicts == 7 && "an OTFS conflict past the deadline "
+                                      "retiers and grows the interval");
+  assert(!reduce_retier_at_conflict(k, tiers, k.h->stable ? 1u : 0u));
   k.h->stable = true;
-  k.tier1_by_mode[0] = 2;
-  k.tier2_by_mode[0] = 6;
-  k.tier1_by_mode[1] = 2;
-  k.tier2_by_mode[1] = 5;
-  checkpoint.conflicts = 70000;
-  checkpoint.mode = 1;
-  checkpoint.used_glue[3] = 1;
-  k.analysis_conflict_checkpoints.push_back(checkpoint);
-  assert(p.update_tiers_after_analysis(k));
-  assert(k.tier1 == k.tier1_by_mode[1] &&
-         k.tier2 == k.tier2_by_mode[1] &&
+  k.stats.conflicts = 70000;
+  k.stats.used_glue[1][3] = 1;
+  assert(reduce_retier_at_conflict(k, tiers, k.h->stable ? 1u : 0u));
+  assert(k.tier1 == tiers.tier1_by_mode[1] &&
+         k.tier2 == tiers.tier2_by_mode[1] &&
          "an internal stable-mode retier must be posed before OTFS resumes");
-  std::printf("  retier cadence: only OTFS re-analysis advances glue limit\n");
+  RetierSchedule disabled = tiers;
+  disabled.enabled = false;
+  k.stats.conflicts = 1u << 30;
+  assert(!reduce_retier_at_conflict(k, disabled, 1));
+  std::printf("  retier cadence: deadline, growth and pose of the OTFS step\n");
 }
 
 // --- the resumption cursor, a policy object --------------------------------
@@ -616,18 +615,20 @@ static void test_vivify_dose_poses_focused_tiers(void) {
   }
   assert(vivify);
 
-  k.tier1_by_mode[0] = 20;
-  k.tier2_by_mode[0] = 38;
-  k.tier1_by_mode[1] = 19;
-  k.tier2_by_mode[1] = 46;
-  k.tier1 = k.tier1_by_mode[1];
-  k.tier2 = k.tier2_by_mode[1];
+  RetierSchedule tiers;
+  tiers.tier1_by_mode[0] = 20;
+  tiers.tier2_by_mode[0] = 38;
+  tiers.tier1_by_mode[1] = 19;
+  tiers.tier2_by_mode[1] = 46;
+  p.inprocess().set_retier_schedule(&tiers);
+  k.tier1 = tiers.tier1_by_mode[1];
+  k.tier2 = tiers.tier2_by_mode[1];
 
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
   assert(vivify->tm.admitted > 0 && k.stats.vivify_rounds > 0 &&
          "the fixture must execute a real Vivify dose");
-  assert(k.tier1 == k.tier1_by_mode[0] &&
-         k.tier2 == k.tier2_by_mode[0] &&
+  assert(k.tier1 == tiers.tier1_by_mode[0] &&
+         k.tier2 == tiers.tier2_by_mode[0] &&
          "Vivify consumed the last posed stable snapshot instead of Kissat's "
          "shipped focused tier snapshot");
   std::printf("  vivify tiers: stable retier -> focused 20/38 at dose entry\n");
@@ -650,15 +651,12 @@ static void test_vivify_dose_poses_focused_tiers(void) {
       selected_vivify = &e;
   }
   assert(selected_vivify);
-  selected.tier1_by_mode[0] = 20;
-  selected.tier2_by_mode[0] = 38;
-  selected.tier1_by_mode[1] = 19;
-  selected.tier2_by_mode[1] = 46;
+  selected_policy.inprocess().set_retier_schedule(&tiers);
   assert(selected_policy.inprocess().run_phase(
              selected, SlotGroup::Probe, nullptr) == 0);
   assert(selected_vivify->tm.admitted > 0 &&
-         selected.tier1 == selected.tier1_by_mode[1] &&
-         selected.tier2 == selected.tier2_by_mode[1] &&
+         selected.tier1 == tiers.tier1_by_mode[1] &&
+         selected.tier2 == tiers.tier2_by_mode[1] &&
          "typed Vivify tier mode must select the requested snapshot");
 }
 
@@ -710,8 +708,9 @@ static void test_vivify_dose_merges_tier2_into_tier1(void) {
       lits[i] = make_lit(clause * 20 + i, true);
     kernel_add_large_clause(k, lits, 20, true, 2, 0);
   }
-  k.tier1_by_mode[0] = k.tier2_by_mode[0] = 2;
-  k.tier1_by_mode[1] = k.tier2_by_mode[1] = 2;
+  RetierSchedule tiers;
+  tiers.tier1_by_mode[0] = tiers.tier2_by_mode[0] = 2;
+  tiers.tier1_by_mode[1] = tiers.tier2_by_mode[1] = 2;
   k.tier1 = k.tier2 = 2;
 
   DefaultStrategyConfig cfg;
@@ -720,6 +719,7 @@ static void test_vivify_dose_merges_tier2_into_tier1(void) {
   cfg.inprocess.vivify_permille = 1000;
   DefaultPolicy p(cfg);
   p.inprocess().build(k);
+  p.inprocess().set_retier_schedule(&tiers);
   const auto &rules = tactix_rules();
   for (auto &e : p.inprocess().entries)
     e.enabled = !std::strcmp(rules[e.rule].name, "Vivify");

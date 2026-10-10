@@ -552,6 +552,15 @@ analysis classification (`jump_reasons_bigbig`), posed Reduce/Vivify tiers,
 the per-pass BVE bound and composite Factor matching are such installs. The
 persistent AffineMatrixInitialize profile has no `tactix_online_parameters`
 form.
+DefaultPolicy's native ConflictAnalysis record names the public semantic
+instance `TACTIX_ANALYZE_TARGET_CHRONO` and its per-conflict payload: the
+analysis profile with the reason-bump fields, and `;retier=`/`;retier-after=`
+for the retier schedule it carried and returned. A client reproduces it by
+installing that profile (`tactix_install_parameters`) and schedule
+(`tactix_install_retier_schedule`), applying the instance, and restoring the
+neutral bump fields; `tactix_read_retier_schedule` returns the updated
+schedule. The ranked-trail diagnostic arm records the canonical instance with
+its realized `;target=`.
 The original scheduler `build(kernel)` keeps its receiver-free entry point;
 an explicit completion overload exposes its profile installations. Temporary
 overrides retain their existing native save/restore lifetime inside the atomic

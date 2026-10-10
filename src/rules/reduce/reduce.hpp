@@ -33,19 +33,20 @@ void reduce_candidates(Kernel &, std::vector<Ref> &out, bool measure = false,
 // The frozen v1 surface continues to enumerate only ranked victim counts.
 constexpr uint64_t REDUCE_CLAUSE_INSTANCE = uint64_t{1} << 63;
 
-// Recompute one mode's tier snapshot from configurable quantiles of its
-// used-glue histogram (kissat 4.0 tiers.c). A pure configuration update — no
-// proof delta, no formula change — and when/how to pose it is the policy's.
-void reduce_retier(Kernel &, uint32_t mode, uint32_t tier1_default,
-                   uint32_t tier2_default,
-                   uint32_t tier1_relative_permille,
-                   uint32_t tier2_relative_permille);
-void reduce_retier_from_histogram(Kernel &, uint32_t mode,
-                                  const uint64_t *used,
-                                  uint32_t tier1_default,
-                                  uint32_t tier2_default,
-                                  uint32_t tier1_relative_permille,
-                                  uint32_t tier2_relative_permille);
+// Recompute one mode's tier snapshot in `schedule` from its configurable
+// quantiles of the used-glue histogram (kissat 4.0 tiers.c). A pure
+// configuration update — no proof delta, no formula change — and when/how to
+// pose it is the caller's. Counts `stats.retiered`.
+void reduce_retier(Kernel &, RetierSchedule &schedule, uint32_t mode);
+void reduce_retier_from_histogram(Kernel &, RetierSchedule &schedule,
+                                  uint32_t mode, const uint64_t *used);
+
+// The schedule's conflict deadline (kissat analyze.c, tested only on the
+// conflict an OTFS re-analysis counts): past it, retier the current search
+// mode (0 focused, 1 stable), pose that mode's tiers as `tier1/tier2`, and
+// advance the deadline geometrically. True when it fired.
+bool reduce_retier_at_conflict(Kernel &, RetierSchedule &schedule,
+                               uint32_t mode);
 
 // delete exactly refs[0..n) (re-validating: reasons/garbage are skipped),
 // emit proof deletes, then collect garbage. The CHOICE of n and whether a due

@@ -12,6 +12,7 @@
 #include "policies/default_policy.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
+#include "rules/analyze/analyze.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -2703,6 +2704,52 @@ int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
   });
   kernel_check_invariants(s->kernel);
   return result_code(s, result);
+}
+
+static_assert(TACTIX_ANALYZE_TARGET_CHRONO == ANALYZE_TARGET_CHRONO);
+
+int tactix_install_retier_schedule(tactix_solver *s,
+                                   const tactix_retier_schedule *schedule) {
+  if (!s || !schedule || schedule->growth == 0 ||
+      schedule->tier1_relative_permille > 1000 ||
+      schedule->tier2_relative_permille > 1000)
+    return -1;
+  RetierSchedule &installed = s->kernel.retier_schedule;
+  installed.enabled = schedule->enabled != 0;
+  installed.next_conflicts = schedule->next_conflicts;
+  installed.interval = schedule->interval;
+  installed.max_interval = schedule->max_interval;
+  installed.growth = schedule->growth;
+  installed.tier1_default = schedule->tier1_default;
+  installed.tier2_default = schedule->tier2_default;
+  installed.tier1_relative_permille = schedule->tier1_relative_permille;
+  installed.tier2_relative_permille = schedule->tier2_relative_permille;
+  for (int mode = 0; mode != 2; ++mode) {
+    installed.tier1_by_mode[mode] = schedule->tier1_by_mode[mode];
+    installed.tier2_by_mode[mode] = schedule->tier2_by_mode[mode];
+  }
+  return 0;
+}
+
+int tactix_read_retier_schedule(tactix_solver *s, tactix_retier_schedule *out) {
+  if (!s || !out)
+    return -1;
+  const RetierSchedule &installed = s->kernel.retier_schedule;
+  *out = {};
+  out->enabled = installed.enabled;
+  out->next_conflicts = installed.next_conflicts;
+  out->interval = installed.interval;
+  out->max_interval = installed.max_interval;
+  out->growth = installed.growth;
+  out->tier1_default = installed.tier1_default;
+  out->tier2_default = installed.tier2_default;
+  out->tier1_relative_permille = installed.tier1_relative_permille;
+  out->tier2_relative_permille = installed.tier2_relative_permille;
+  for (int mode = 0; mode != 2; ++mode) {
+    out->tier1_by_mode[mode] = installed.tier1_by_mode[mode];
+    out->tier2_by_mode[mode] = installed.tier2_by_mode[mode];
+  }
+  return 0;
 }
 
 int tactix_online_configure(tactix_solver *s,

@@ -578,9 +578,10 @@ static void test_retier_uses_kissat_truncation() {
   used[5] = 3;
   used[6] = 1;
   used[7] = 1;
-  reduce_retier_from_histogram(k, 1, used, 2, 6, 500, 900);
-  assert(k.tier1_by_mode[1] == 1);
-  assert(k.tier2_by_mode[1] == 5);
+  RetierSchedule tiers; // defaults 2/6, relative permilles 500/900
+  reduce_retier_from_histogram(k, tiers, 1, used);
+  assert(tiers.tier1_by_mode[1] == 1);
+  assert(tiers.tier2_by_mode[1] == 5);
 }
 
 static void test_solve_with_restarts_still_correct() {

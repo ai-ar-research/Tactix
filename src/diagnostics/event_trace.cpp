@@ -129,7 +129,6 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
       capacity_bytes(k.shrinkable) + capacity_bytes(k.reason_bumped) +
       capacity_bytes(k.minimize_scratch) + capacity_bytes(k.learned_scratch) +
       capacity_bytes(k.otfs_scratch) + capacity_bytes(k.otfs_retired) +
-      capacity_bytes(k.analysis_conflict_checkpoints) +
       capacity_bytes(k.radix_scratch) + capacity_bytes(k.marked_levels) +
       capacity_bytes(k.touched_levels) + capacity_bytes(k.eager_marks) +
       capacity_bytes(k.reason_walk_stack) + capacity_bytes(k.jump_pending) +
@@ -2254,15 +2253,15 @@ void EventTrace::vivify_counts(const Kernel &k, const uint32_t *counts,
   emit(k, "vivify_counts", payload.c_str(), false);
 }
 
-void EventTrace::retier(const Kernel &k, uint32_t mode,
-                        const uint64_t *used_glue) {
+void EventTrace::retier(const Kernel &k, const RetierSchedule &tiers,
+                        uint32_t mode, const uint64_t *used_glue) {
   assert(mode < 2);
   std::string payload =
       std::string("mode=") + (mode ? "stable" : "focused") +
-      "|focused=" + std::to_string(k.tier1_by_mode[0]) + ',' +
-      std::to_string(k.tier2_by_mode[0]) + "|stable=" +
-      std::to_string(k.tier1_by_mode[1]) + ',' +
-      std::to_string(k.tier2_by_mode[1]) + "|posed=" +
+      "|focused=" + std::to_string(tiers.tier1_by_mode[0]) + ',' +
+      std::to_string(tiers.tier2_by_mode[0]) + "|stable=" +
+      std::to_string(tiers.tier1_by_mode[1]) + ',' +
+      std::to_string(tiers.tier2_by_mode[1]) + "|posed=" +
       std::to_string(k.tier1) + ',' + std::to_string(k.tier2) + "|used=";
   uint64_t total = 0;
   for (uint32_t glue = 0; glue <= Stats::MAX_GLUE_USED; ++glue) {
@@ -3064,10 +3063,10 @@ void event_trace_clause_used(const Kernel &k, const Clause *clause,
     active_trace->clause_used(k, clause, mode);
 }
 
-void event_trace_retier(const Kernel &k, uint32_t mode,
-                        const uint64_t *used_glue) {
+void event_trace_retier(const Kernel &k, const RetierSchedule &tiers,
+                        uint32_t mode, const uint64_t *used_glue) {
   if (active_trace)
-    active_trace->retier(k, mode, used_glue);
+    active_trace->retier(k, tiers, mode, used_glue);
 }
 
 void event_trace_randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
