@@ -6,9 +6,10 @@ The later seed-7-only search produced a substantially faster public-API
 policy.  On `cruxmiter32seed7.cnf` (SHA-256
 `042bfac2783188c773ea8e2d26952a36f512ad3a7bd6821e92b128a0f40a0457`) it
 solves UNSAT in **42.328 s** and its 101,573,080-byte binary DRAT certificate
-is independently verified in 63.995 s.  The earlier checked references are
-177.189 s for stock Tactix and 115.931 s for Kissat 4.0.4, making the policy
-4.19x faster than stock Tactix and 2.74x faster than Kissat.  This is the best
+is independently verified in 63.995 s.  In the same final run, stock Tactix
+took 176.731 s and Kissat 4.0.4 took 115.682 s; both certificates also passed
+independent checking.  The policy is therefore 4.18x faster than stock Tactix
+and 2.73x faster than Kissat.  This is the best
 checked crux result from the experiment, but it does not meet the requested 5x
 speedup against the faster baseline.
 
