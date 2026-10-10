@@ -156,3 +156,10 @@ them needs targeted fixtures: the GL and AF driver rows of the c2.1 owner campai
 - The broad fuzz legs are incremental (10k/10k/5k/5k), not a 100k acceptance. The targeted
   driver matrix was not rerun, and graph-labeling reach is zero in the broad legs.
 - The sted5 statistics loss after SIGTERM did not reproduce in one draw.
+
+## Disposition
+
+**Accepted by user decision (2026-10-09).** The B28+C5 and Rank1–50 aggregate ceiling overruns are
+recorded as environmental: every row solved in both arms has identical conflicts and certificate
+SHA-256, and same-CPU instruction counts on the six largest contributors match within 0.2%. c2.4 =
+`3361d3b51` (branch `candidate-c2.4`, Release `57bdd51c…`) is the committed candidate.

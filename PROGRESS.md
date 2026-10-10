@@ -2,7 +2,15 @@
 
 ## Current stage
 
-**Committed candidate: c2.2 = `8ce068dbf`** (user decision 2026-10-09): c2.1 plus the startup
+**Committed candidate: c2.4 = `3361d3b51`** (branch `candidate-c2.4`, Release `57bdd51c…`; user
+decision 2026-10-09; [gates](benchmarks/reports/2026-10-09-candidate-c2.4-gates/README.md)): c2.3
+plus API-gap Steps 1–4a and the [restart-only retained services](benchmarks/reports/2026-10-09-restart-only-services/README.md).
+All 263 gate rows solved by both c2.4 and c2.3 search have identical conflicts and certificates;
+WV100 and WV2–89 pass; the B28+C5 (1,011.2 s) and Rank1–50 (8,626.8 s) ceiling overruns were
+accepted as environmental (same-CPU instructions within 0.2%); fuzz 0 failures in five legs
+(graph-labeling slices unreached by broad legs); full Debug 358/358; abw-K-dwt SAT 21.3 s.
+
+**Earlier candidate: c2.2 = `8ce068dbf`** (user decision 2026-10-09): c2.1 plus the startup
 FastEliminate guard ([record](benchmarks/reports/2026-10-09-candidate-c2.2/README.md)); adds the
 verified noL-11-10 closure and solves noL-11-0 within the gate; c2.1's snw_16_9_Encpre,
 openstacks and VexRiscv closures were not rerun on c2.2. Its predecessor c2.1 =
@@ -34,7 +42,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    cleanup: graph labeling on by default, trimmed statistics, DefaultPolicy structural Walk seeding
    and the X17 census tool removed. It is byte-identical to c2.2 on 9 identity rows
    (`benchmarks/probes/scratch/cleanup-20261009/`). Persistent affine search stays (plan §9.5
-   Persistent XOR) pending a user decision.
+   Persistent XOR), reworked in c2.4 by user decision (natural full restarts only).
+   Pending: lec_mult 64 GiB proof rechecks (jobs 1763319–1763321, 1763353;
+   `benchmarks/runs/20261009-restart-rework-lec64-*`); record their verdicts in the restart-only
+   report.
 1. Full Tier D on c2.3 is running (`benchmarks/runs/20261009-tierd-c2.3`, job 1761609; cpu-q,
    4 CPUs, 32 GB, 5,000 s solve, 8 h check, `%125`, certificates on the home quota). When it
    finishes: `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts
@@ -59,8 +70,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    inprocessing phase bracket, the per-solve resets and execution contexts become recorded supports,
    and the public replay runs the structured-root online steps through `tactix_online_*` with H equal
    after all 198 of them (the default-profile streams replay to the end). DefaultPolicy and the
-   controller are byte-identical to c2.3 (12 identity rows) and full Debug passes 357/357. Pending before push: §8.4 default gates and the §8.2 fuzz
-   legs for Steps 1–4a. Next: Step 4b (public phase entry/exit, which unblocks the search profiles
+   controller are byte-identical to c2.3 (12 identity rows) and full Debug passes 357/357. Steps 1–4a
+   are gated as part of c2.4. Next: Step 4b (public phase entry/exit, which unblocks the search profiles
    up to their first `ConflictAnalysis`), then Step 6.
 
 ## Live work
@@ -68,7 +79,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 | Work | Jobs | Status |
 |---|---|---|
 | Tactix Tier D (c2.3) | 1761609 | running |
-| Baseline reruns | (A) 1757931, (B) 1757933; (C) launches after (A) | running |
+| Baseline reruns | (B) 1757933; (C) Satsuma 64 GB recheck 1763099 | running |
+| lec_mult 64 GiB proof rechecks | 1763319–1763321, 1763353 | running |
 | Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB); watches all of the above | running |
 
 ## Verification authorities
