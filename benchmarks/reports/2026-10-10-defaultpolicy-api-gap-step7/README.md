@@ -9,8 +9,8 @@ and 5 (`123cf44fb`). The identity baseline is c2.4 = `3361d3b51` (Release `57bdd
 
 | | Commit | Notes |
 |---|---|---|
-| Step 7 | this commit (on `ce705cddb`) | code, tests, docs, PROGRESS |
-| Evidence | follow-up commit | identity, full Debug and overhead on this commit |
+| Step 7 code | `d56c7f9bc` | Release `4ee060d8…` (`build/pin-apigap-s7-rel`, from the archive) |
+| Evidence | this record | identity, full Debug and overhead on `d56c7f9bc` |
 
 Development ran in extracted copies (`benchmarks/runs/20261010-apigap-s7-source`): an overlay of
 new files plus scripted edits (`apply_step7.sh`) rebased onto `1caa7af83`/`daffc2623` (4b),
@@ -160,23 +160,42 @@ counters and checked certificates through `runtime_task.py`. Ratio = static / ha
 |---|---|---|---|---|
 | 4b base (`20261010-apigap-s7-overhead-1caa`) | 67 (67) | 1.0001 / 1.0005 / 1.0093 | 0.9907 / 0.9944 | 0.9908 |
 | Step 5 base (`20261010-apigap-s7-overhead-a5fb`) | 66 (66) | 1.0021 / 1.0017 / 1.0360 | 1.0058 / 1.0094 | 1.0056 |
+| **Step 7 commit** (`20261010-apigap-s7-overhead-final`, pins `4ee060d8…` / `95d3ebc6…`) | 67 (67) | 0.9985 / 1.0008 / 1.0610 | 0.9842 / 1.0040 | 0.9828 |
 
-The overhead is within the ≤5% bound. The Step 5 rise is BVE candidates and fastel instances,
-which now go through registry dispatch accounting. The run on the final commit is in the evidence
-commit.
+The overhead is within the ≤5% bound. On the commit every one of the 67 instances has identical
+certificates between the arms. The largest per-instance instruction ratio is +6.1% on a 4–5 s
+row, `hwmcc17miters-xits-iso-oski15a08b00s`. The Step 5 rise is BVE candidates and fastel
+instances, which now go through registry dispatch accounting.
 
 ## Byte identity (12 rows × 3 arms)
 
-Pending in the evidence commit: c2.4 `--auto-proof`, the final Release `--auto-proof`, and the
-final Release with `--default-affine-search=on`.
+Campaign `benchmarks/runs/20261010-apigap-s7-identity`, job 1764072, cloned from the Step 6 campaign: `cpu-dense-hwulab-q`, 8 CPUs, 32 GiB, 600 s solve limit, `runtime_task.py`. The three arms run sequentially in one allocation: c2.4 `--auto-proof` (`57bdd51c…`), Step 7 `--auto-proof` (`4ee060d8…`, `build/pin-apigap-s7-rel` from the archive of `d56c7f9bc`), and Step 7 with `--default-affine-search=on`. All 12 rows agree in verdict, conflicts, decisions and certificate SHA-256 across the three arms, and every certificate or model is valid.
+
+| Row | Verdict | Conflicts | Decisions | Certificate | Wall (s): c2.4 / affine on / Step 7 |
+|---|---|---|---|---|---|
+| ramsey_4_4_19 | UNSAT | 0 | 0 | `d169d9686c94` | 0.167 / 0.167 / 0.167 |
+| lightsout_24 | UNSAT | 1 | 0 | `6fbc0514e27a` | 0.768 / 0.718 / 0.818 |
+| mp1-Nb7T42 | SAT | 638,214 | 15,456,796 | `3b6b38a3bfa0` | 65.325 / 65.683 / 65.3 |
+| battleship-14-26 | SAT | 665,487 | 1,681,225 | `fbedb083879e` | 15.243 / 15.096 / 15.041 |
+| oddball_53_5_tto | SAT | 0 | 0 | `ba97acaa4dc6` | 5.676 / 6.026 / 5.678 |
+| abw-K-dwt__234 | SAT | 0 | 0 | `1026936d5617` | 22.355 / 21.955 / 21.007 |
+| cliquecolouring_n13_k8_c7 | UNSAT | 1 | 0 | `ed71148e8802` | 0.067 / 0.067 / 0.067 |
+| 9vliw_bp_mc | UNSAT | 198,066 | 2,279,994 | `438781f64b25` | 11.035 / 10.785 / 10.757 |
+| combined-crypto1 | SAT | 75,764 | 172,719 | `134984e88e13` | 2.17 / 2.17 / 2.17 |
+| sted5_0x24204-50 | SAT | 2,333,179 | 5,655,352 | `83c48a7431f7` | 130.847 / 129.025 / 128.591 |
+| noL-11-16 | SAT | 1,180,890 | 3,131,471 | `190aa7fb722c` | 30.769 / 30.805 / 31.269 |
+| b18 | UNSAT | 3,331,178 | 49,260,596 | `df61ef101a9d` | 230.524 / 219.344 / 220.545 |
+
+abw-K-dwt and oddball report 0 conflicts because startup routines solve them. Wall times are within noise. The single outlier is c2.4's own b18 arm at 230.5 s, against 219–221 s for the Step 7 arms, which is a per-allocation effect: every counter is identical.
 
 ## Full Debug
 
-Port-relevant Debug (ASan/UBSan) tests pass at every base: twin, replay, ratchet, execution
-signatures, `api_support`, `native_policy_feedback` and `controller_execution_signature`. A full
-Release ctest of the archive copy fails only checker-environment scripts, because the archive
-lacks checker pins. The archived-source full Debug campaign on this commit is in the evidence
-commit.
+`tools/bench/full_debug_archive_campaign.py` ran on the archived source of `d56c7f9bc`
+(`benchmarks/runs/20261010-apigap-s7-final-source/pins/source-pin.json`) as
+`benchmarks/runs/20261010-apigap-s7-full-debug`, job 1764252: **361/361 passed**. That is Step 5's
+360 plus `default_public_correspondence`, and the harness verified the archive after the run. The
+Debug build tree was deleted afterwards. Port-relevant Debug tests also passed at every
+intermediate base.
 
 ## Ratchet
 
