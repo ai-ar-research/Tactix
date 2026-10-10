@@ -211,8 +211,6 @@ void vivify_fixture(Kernel &k) {
     for (uint32_t i = 0; i < 20; ++i) lits[i] = make_lit(clause * 20 + i, true);
     kernel_add_large_clause(k, lits, 20, true, 2, 0);
   }
-  k.tier1_by_mode[0] = k.tier2_by_mode[0] = 2;
-  k.tier1_by_mode[1] = k.tier2_by_mode[1] = 2;
   k.tier1 = k.tier2 = 2;
 }
 
