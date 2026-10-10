@@ -34,6 +34,9 @@ INPUT_POLICY = os.path.join(
 PHASE_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-a5dddbaca", "examples",
     "tactix-cruxmiter-policy")
+FIXPOINT_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-97b3567f1", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -383,6 +386,22 @@ ARMS = {
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_DISABLE=Sweep,Factor,Strengthen",
         "TACTIX_SLOT_MAX_APPLIES=Congruence:3,Substitute:3,Backbone:3,Vivify:3,TransitiveReduce:2"),
+    "fixpoint-stable": policy(
+        "backbone-fixpoint", "TACTIX_FORCE_MODE=stable",
+        binary=FIXPOINT_POLICY),
+    "fixpoint-reorder-no-bve": policy(
+        "backbone-fixpoint", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", binary=FIXPOINT_POLICY),
+    "fixpoint-rbc": policy(
+        "backbone-fixpoint", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        binary=FIXPOINT_POLICY),
+    "fixpoint-rbc-capped": policy(
+        "backbone-fixpoint", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_DISABLE=Sweep,Factor,Strengthen",
+        "TACTIX_SLOT_MAX_APPLIES=Congruence:3,Substitute:3,Backbone:3,Vivify:3,TransitiveReduce:2",
+        binary=FIXPOINT_POLICY),
     # Preserve the winning scheduler/search settings while using the public
     # warm-up surface to install TACO's phase=0 observation as saved phases.
     "rbc-backbone-negative": policy(
@@ -460,7 +479,7 @@ def main():
         240.0 if args.stage == "screen" else 600.0)
     cnf = os.path.join(ROOT, REL)
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
-                   PHASE_POLICY, KISSAT):
+                   PHASE_POLICY, FIXPOINT_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     if not os.path.isfile(cnf):
@@ -491,7 +510,7 @@ def main():
         "input_sha256": digest(cnf),
         "executables": {path: digest(path) for path in
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
-                         INPUT_POLICY, PHASE_POLICY, KISSAT)},
+                         INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY, KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
