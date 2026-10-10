@@ -82,9 +82,16 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    express it publicly, and the OTFS retier hook is gone; the replay runs 330 analyses through the
    public instance (2,999 of 6,357 records, from 1,154). DefaultPolicy and the controller are
    byte-identical to c2.4 (12 identity rows on the validation tree), user instructions within
-   −0.11%…−0.06% of c2.4; final-commit Debug and identity reruns pending. Next: Step 5 (slot
-   invocations; also the mid-search Reduce divergence that now stops profiles 2 and 5), then
-   Step 7.
+   −0.11%…−0.06% of c2.4; final-commit Debug and identity reruns pending. Step 5 is committed, not
+   pushed ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step5/README.md)): every
+   inprocessing slot occurrence is a dispatched typed invocation (Substitute round batch, Vivify
+   band ledger, Strengthen forward closure, forward-round and BVE-reschedule supports, all public),
+   and the BVE score heap with its kernel hook lives in `BveInvocationSession` (ratchet internal
+   entries 15 → 10; only `slot-fastel-occurrence` remains of the slots). DefaultPolicy and the
+   controller are byte-identical to c2.4 (12 identity rows on `8ddd44960`); instructions −0.02% and
+   −0.05% on two BVE/Factor-heavy rows; full Debug 360/360 on `123cf44fb`. Next: Step 7 (which
+   takes the startup fast-elimination flush); Step 5 also leaves a public score-heap BVE pass and
+   the mid-search Reduce replay divergence (profiles 2 and 5).
 
 ## Live work
 
