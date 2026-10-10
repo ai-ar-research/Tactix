@@ -344,6 +344,40 @@ ARMS = {
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_PERMILLE=Vivify:200"),
+    "rbc-vivify300": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:300"),
+    "rbc-vivify400": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:400"),
+    "rbc-vivify600": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:600"),
+    "rbc-vivify1000": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:1000"),
+    "rbc-vivify200-reuse0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_VIVIFY_REUSE=0"),
+    "rbc-vivify200-flush0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_VIVIFY_FLUSH=0"),
+    "rbc-vivify200-reuse0-flush0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_VIVIFY_REUSE=0",
+        "TACTIX_VIVIFY_FLUSH=0"),
+    "rbc-vivify200-no-factor-sweep": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1"),
     "rbc-cce1": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
