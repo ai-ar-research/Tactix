@@ -43,6 +43,9 @@ ORDER_POLICY = os.path.join(
 DEEP_SWEEP_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-612e5ddac", "examples",
     "tactix-cruxmiter-policy")
+TACO_WARMUP_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-75cfe6d23", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -516,6 +519,17 @@ ARMS = {
         "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
         "TACTIX_NO_SWEEP=1",
         "TACTIX_SLOT_DISABLE=Backbone,Congruence,Strengthen,Substitute,TransitiveReduce"),
+    **{
+        f"taco-warmup-{conflicts}": policy(
+            "taco-warmup", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            f"TACTIX_CRUX_WARMUP_CONFLICTS={conflicts}",
+            binary=TACO_WARMUP_POLICY)
+        for conflicts in (100, 1000, 5000, 10000, 25000, 50000, 100000,
+                          250000)
+    },
     "rbc-cce1": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
@@ -700,7 +714,7 @@ def main():
     cnf = os.path.join(ROOT, REL)
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
                    PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY,
-                   DEEP_SWEEP_POLICY, KISSAT):
+                   DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     if not os.path.isfile(cnf):
@@ -732,7 +746,8 @@ def main():
         "executables": {path: digest(path) for path in
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
                          INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY,
-                         ORDER_POLICY, DEEP_SWEEP_POLICY, KISSAT)},
+                         ORDER_POLICY, DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY,
+                         KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
