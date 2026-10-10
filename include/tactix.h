@@ -398,6 +398,9 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 #define TACTIX_ONLINE_REPEAT_SIZE_SCALED_FIXPOINT 3
 #define TACTIX_ONLINE_POST_NONE 0
 #define TACTIX_ONLINE_POST_PROPAGATE 1
+/* Strengthen only: reconnect the pass's disconnected watches and close root
+ * propagation from the application's entry propagation head. */
+#define TACTIX_ONLINE_POST_FORWARD_CLOSURE 2
 #define TACTIX_ONLINE_WORK_APPLICATIONS 0
 #define TACTIX_ONLINE_WORK_BVE_TICKS 1
 #define TACTIX_ONLINE_WORK_PROPAGATIONS 2
@@ -784,6 +787,11 @@ typedef struct {
 typedef struct {
   uint32_t scope, irredundant_sort_ratio;
   int reuse, flush;
+  /* Appended, zero = off: one band of a cumulative dose ledger. The
+   * application is bounded by band_budget probing ticks measured from a dose
+   * start band_offset ticks earlier. Online applications only. */
+  int band;
+  uint64_t band_budget, band_offset;
 } tactix_online_vivify_parameters;
 typedef struct {
   uint32_t occurrence_limit;
@@ -800,6 +808,12 @@ typedef struct {
 } tactix_online_transitive_parameters;
 typedef struct {
   int demote_substituted;
+  /* Appended, zero = one canonical round: a batch of up to max_rounds rounds
+   * in one watch session, continuing only after a round that retired a
+   * variable; a nonzero round_effort_ceiling also stops after a round whose
+   * own Substitute effort exceeded the step's rule budget. Online only. */
+  uint32_t max_rounds;
+  int round_effort_ceiling;
 } tactix_online_substitute_parameters;
 typedef struct {
   uint32_t tier1, tier2;
@@ -1754,7 +1768,11 @@ int tactix_install_material_settings(tactix *, int touch_filter_mode,
  *                              bracket without a session only clears the
  *                              selection and leaves the context. Contexts
  *                              entered inside the bracket must be left first;
- *                              tactix_solve leaves an open bracket. */
+ *                              tactix_solve leaves an open bracket.
+ *   BEGIN_FORWARD_ROUND        start a forward-subsumption round:
+ *                              SubsumeForward and Strengthen completeness
+ *                              flags set (an interrupted pass clears its own).
+ *   RESCHEDULE_BVE             make every variable a BVE candidate again. */
 #define TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE 1
 #define TACTIX_SUPPORT_PREPARATION_RESTART 2
 #define TACTIX_SUPPORT_ROOT_PREPARATION 3
@@ -1777,6 +1795,8 @@ int tactix_install_material_settings(tactix *, int touch_filter_mode,
 #define TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE 20
 #define TACTIX_PHASE_ELIMINATE 1
 #define TACTIX_PHASE_FACTOR_BOUND_SHIFT 32
+#define TACTIX_SUPPORT_BEGIN_FORWARD_ROUND 21
+#define TACTIX_SUPPORT_RESCHEDULE_BVE 22
 #define TACTIX_ROOT_PREPARATION_PROBING 1
 #define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
 #define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4

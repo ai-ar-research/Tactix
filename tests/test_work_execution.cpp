@@ -97,9 +97,13 @@ static void test_band(uint32_t scope, uint64_t budget, uint64_t offset) {
   old.tick_sink = nullptr;
   {
     VivifyDoseScope dose(shared);
+    strategy::VivifyParameters band = strategy::VivifyParameters::from_kernel(shared);
+    band.scope = static_cast<uint8_t>(scope);
+    band.band = true;
+    band.band_budget = budget;
+    band.band_offset = offset;
     const auto actual = execute_action(
-        shared, rule, VivifyBandRequest{scope, budget, offset,
-                                        &Stats::vivify_ticks, nullptr});
+        shared, rule, VivifyBandRequest{band, &Stats::vivify_ticks, nullptr});
     assert(actual == expected);
     assert(shared.vivify_scope == scope && shared.work_budget == budget);
     assert(shared.work_budget_offset == offset && shared.work_budget_bounded);

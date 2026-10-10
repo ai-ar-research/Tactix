@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rules/bve/bve.hpp"
+#include "strategy/bve_schedule.hpp"
 #include "strategy/rule_invocation.hpp"
 
 #include <algorithm>
@@ -305,8 +306,11 @@ inline InvocationStatus terminal_status(ApplyResult result) {
 
 // A policy may keep one session alive while it chooses BVE candidates.  Rule
 // identity, parameters and budget currency are validated once, and the legacy
-// Kernel ABI is posed once for the whole safe pass.  Candidate ordering and
-// post-application propagation remain policy decisions.
+// Kernel ABI is posed once for the whole safe pass.  The session owns the
+// candidate ordering profile the policy selects (the Kissat score heap, whose
+// state the kernel's BVE score notifications update) and the connected unit
+// flush that follows a candidate's propagation; which profile, which
+// candidates and when to propagate remain policy decisions.
 class BveInvocationSession {
 public:
   BveInvocationSession(const RuleVTable &rule, Kernel &k,
@@ -323,8 +327,37 @@ public:
   }
   BveInvocationSession(const BveInvocationSession &) = delete;
   BveInvocationSession &operator=(const BveInvocationSession &) = delete;
+  ~BveInvocationSession() { finish_ordering(); }
 
   bool valid() const { return valid_; }
+
+  // Score-heap ordering profile over `instances`: builds the heap and its
+  // occurrence-count image, then receives every score update the kernel
+  // publishes until finish_ordering().
+  void order_by_score_heap(const uint64_t *instances, uint32_t n) {
+    assert(!heap_ && !k_.bve_score_update_hook);
+    heap_.emplace();
+    heap_->initialize(k_, instances, n);
+    k_.bve_score_update_hook = BveCandidateHeap::update_hook;
+    k_.bve_score_update_state = &*heap_;
+  }
+  bool ordered() const { return heap_.has_value(); }
+  bool ordering_empty() const { return heap_->empty(); }
+  uint64_t next_ordered() { return heap_->pop_max(); }
+  void finish_ordering() {
+    if (!heap_) return;
+    k_.bve_score_update_hook = nullptr;
+    k_.bve_score_update_state = nullptr;
+    assert(k_.bve_occurrence_count_image);
+    k_.bve_occurrence_count_image = nullptr;
+    heap_.reset();
+  }
+
+  // eliminate.c flush_units_while_connected: after a candidate's propagation,
+  // the units from `propagation_begin` update the connected occurrence image.
+  void flush_units_while_connected(uint32_t propagation_begin) {
+    bve_flush_units_while_connected(k_, propagation_begin);
+  }
 
   InvocationResult apply_canonical() {
     InvocationResult out;
@@ -447,6 +480,7 @@ private:
   uint64_t configuration_revision_;
   bool valid_ = false;
   std::optional<detail::ScopedBveParameters> posed_;
+  std::optional<BveCandidateHeap> heap_;
 };
 
 // Execute through the existing registered BVE primitive.  This intentionally

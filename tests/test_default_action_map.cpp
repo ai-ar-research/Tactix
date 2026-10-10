@@ -6,6 +6,7 @@
 // registry dispatch, internal records naming a registry rule do not.
 #undef NDEBUG
 #include "default_action_map.hpp"
+#include "strategy/policy_completion.hpp"
 
 #include <iostream>
 #include <map>
@@ -13,17 +14,14 @@
 
 using namespace action_map;
 
-// Internal entries after Step 6: Step 4b's inprocessing phase bracket goes
-// through tactix_support; ConflictAnalysis is Shared (its native payload is
-// the public chrono instance) beside the declared ranked-trail diagnostic arm.
-// Each later step removes the entries it routes publicly.
+// Internal entries after Step 5 (inprocessing slots as online invocations),
+// on top of Step 4b's public phase bracket and Step 6's shared
+// ConflictAnalysis. Each later step removes the entries it routes publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
     "propagate-search", "decide", "conflict-analysis",
     "conflict-analysis-ranked-trail", "propagate-root",
-    "affine-matrix-initialize", "affine-matrix-search", "slot-sweep-batch",
-    "slot-substitute-rounds", "slot-vivify-band", "slot-fastel-occurrence",
-    "install-affine-matrix-parameters", "support-warmup-installed-branching",
-    "support-phase-entry-injected-factor", "support-forward-closure"};
+    "affine-matrix-initialize", "affine-matrix-search", "slot-fastel-occurrence",
+    "install-affine-matrix-parameters", "support-warmup-installed-branching"};
 
 // Entries whose route a refactor step changes must be reached by the fixtures,
 // or their dispatch check would be vacuous.
@@ -32,7 +30,8 @@ static const std::set<std::string> REQUIRED_OBSERVED = {
     "resume-search", "reduce", "switch-mode", "reorder", "rephase", "walk",
     "lucky-opportunity", "lucky-graph-session", "local-search-guidance",
     "bce-post-structured", "propagate-root", "slot-registered",
-    "slot-bve-candidate", "structured-root-online",
+    "slot-bve-candidate", "slot-sweep-batch", "slot-substitute-rounds",
+    "structured-root-online", "support-begin-forward-round",
     "install-parameters", "install-walk-guidance", "install-material-settings",
     "close-startup-certificate", "support-root-preparation",
     "support-sparse-collect", "support-compact-random-order",
@@ -40,7 +39,54 @@ static const std::set<std::string> REQUIRED_OBSERVED = {
     "support-warmup", "support-reset-graph-labeling",
     "support-consume-root-prefix", "support-enter-context",
     "support-leave-context", "materialize-cold-state", "support-phase-entry",
-    "support-occurrence-session", "support-phase-exit"};
+    "support-occurrence-session", "support-phase-exit", "slot-vivify-band",
+    "support-forward-closure", "support-reschedule-bve"};
+
+// Slot occurrences the solve fixtures do not schedule (a search-time Vivify
+// dose, an Eliminate-pipeline Strengthen pass and its forward closure, a BVE
+// growth-bound increase), from one native phase with only the named slots
+// enabled, as tests/test_native_policy_feedback.cpp runs it.
+static std::vector<ActionFeedback> phase_records(SlotGroup group,
+                                                 std::vector<const char *> rules,
+                                                 bool vivify_fixture) {
+  Kernel k;
+  k.stats.conflicts = 1;
+  k.stats.search_ticks = 1000000000;
+  if (vivify_fixture) {
+    kernel_reserve_vars(k, 160);
+    for (uint32_t clause = 0; clause < 8; ++clause) {
+      Lit lits[20];
+      for (uint32_t i = 0; i < 20; ++i) lits[i] = make_lit(clause * 20 + i, true);
+      kernel_add_large_clause(k, lits, 20, true, 2, 0);
+    }
+    k.tier1_by_mode[0] = k.tier2_by_mode[0] = 2;
+    k.tier1_by_mode[1] = k.tier2_by_mode[1] = 2;
+    k.tier1 = k.tier2 = 2;
+  } else {
+    pigeonhole(k, 4, 5);
+  }
+  ScopedHeuristics h(k);
+  DefaultStrategyConfig config;
+  config.inprocess.minimum_effort_ticks = 1000;
+  config.inprocess.phase_rounds = 1;
+  config.inprocess.vivify_permille = 1000;
+  DefaultPolicy policy(config);
+  policy.inprocess().build(k);
+  for (auto &entry : policy.inprocess().entries) {
+    entry.enabled = false;
+    for (const char *rule : rules)
+      entry.enabled |= !std::strcmp(tactix_rules()[entry.rule].name, rule);
+  }
+  Capture capture;
+  execution::PolicyCompletion completion(k, &capture,
+      [](const Kernel &kernel, const void *owner) {
+        return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
+      }, &policy);
+  completion.begin();
+  (void)policy.inprocess().run_phase(k, group, nullptr, &completion);
+  completion.finish(0, StopReason::Completed);
+  return capture.actions;
+}
 
 int main(int argc, char **argv) {
   const bool dump = argc > 1 && !std::strcmp(argv[1], "--dump");
@@ -50,21 +96,16 @@ int main(int argc, char **argv) {
   };
   std::map<std::string, Tally> tally;
   bool ok = true;
-  for (const Fixture &fixture : fixtures()) {
-    Kernel k;
-    ScopedHeuristics h(k);
-    fixture.load(k);
-    Proof proof;
-    if (fixture.clausal_proof) {
-      assert(proof.open("/dev/null", ProofFormat::DratAscii));
-      proof.bind_variable_map(&k.internal_to_external);
-      k.proof = &proof;
-    }
-    const auto records = run(fixture, k);
+  std::vector<std::pair<std::string, std::vector<ActionFeedback>>> phases;
+  phases.emplace_back("phase-vivify", phase_records(SlotGroup::Probe, {"Vivify"}, true));
+  phases.emplace_back("phase-eliminate",
+                      phase_records(SlotGroup::Eliminate, {"BVE", "Strengthen"}, false));
+  const auto account = [&](const std::string &name,
+                           const std::vector<ActionFeedback> &records) {
     for (const ActionFeedback &record : records) {
       const Entry *entry = classify(record);
       if (!entry) {
-        std::cerr << "unclassified record in " << fixture.name << ": kind="
+        std::cerr << "unclassified record in " << name << ": kind="
                   << static_cast<int>(record.kind) << " identity=" << record.identity
                   << " instance=" << record.instance << " description="
                   << description(record) << '\n';
@@ -81,7 +122,7 @@ int main(int argc, char **argv) {
       const bool applied = record.outcome.invocation.applications != 0;
       if (entry->route == Route::Public ? applied && !dispatched(record)
                                         : dispatched(record)) {
-        std::cerr << "route mismatch in " << fixture.name << ": entry=" << entry->id
+        std::cerr << "route mismatch in " << name << ": entry=" << entry->id
                   << " declared=" << route_name(entry->route)
                   << " dispatched=" << dispatched(record) << " identity="
                   << record.identity << " instance=" << record.instance
@@ -89,6 +130,23 @@ int main(int argc, char **argv) {
         ok = false;
       }
     }
+  };
+  for (const auto &[name, records] : phases) {
+    account(name, records);
+    if (dump) std::cout << "phase " << name << " records=" << records.size() << '\n';
+  }
+  for (const Fixture &fixture : fixtures()) {
+    Kernel k;
+    ScopedHeuristics h(k);
+    fixture.load(k);
+    Proof proof;
+    if (fixture.clausal_proof) {
+      assert(proof.open("/dev/null", ProofFormat::DratAscii));
+      proof.bind_variable_map(&k.internal_to_external);
+      k.proof = &proof;
+    }
+    const auto records = run(fixture, k);
+    account(fixture.name, records);
     if (fixture.clausal_proof) proof.flush();
     if (dump)
       std::cout << "fixture " << fixture.name << " records=" << records.size() << '\n';

@@ -199,15 +199,17 @@ inline const std::vector<Entry> &entries() {
       // --- inprocessing slots (A10) ---
       {"slot-registered", K::Rule, nullptr,
        [](const ActionFeedback &r) { return slot_registered(r); },
-       Route::Public, Boundary::Crossing, Replay::None, true,
-       "registry dispatch of the slot rule (scoped slot parameters)", "A10"},
+       Route::Public, Boundary::Crossing, Replay::Online, true,
+       "online invocation of the slot rule (scoped slot parameters, rule "
+       "work budget = ledger remaining)", "A10"},
       {"slot-bve-candidate", K::Rule, "BVE",
        [](const ActionFeedback &r) {
          return starts(description(r), "native-dosed-candidate");
        },
-       Route::Public, Boundary::Crossing, Replay::None, true,
-       "BVE instance dispatched by the shared typed BVE invocation session "
-       "(the policy's heap/score hook is C4, outside the record)", "A10,C4"},
+       Route::Public, Boundary::Crossing, Replay::Online, true,
+       "BVE instance dispatched by the shared typed BVE invocation session, "
+       "which owns the score-heap ordering profile and the connected unit "
+       "flush", "A10,C4"},
       {"structured-root-online", K::Rule, nullptr,
        [](const ActionFeedback &r) { return structured_stage(r); },
        Route::Public, Boundary::Crossing, Replay::Online, true,
@@ -216,17 +218,18 @@ inline const std::vector<Entry> &entries() {
        [](const ActionFeedback &r) {
          return starts(description(r), "native-budgeted-batch");
        },
-       Route::Shared, Boundary::Crossing, Replay::None, true,
-       "Sweep canonical under SweepLimits", "A10"},
-      {"slot-substitute-rounds", K::Rule, "Substitute", nullptr, Route::Kernel,
-       Boundary::Crossing, Replay::None, true,
-       "none: max-rounds and per-round effort break are policy closures", "A10"},
+       Route::Public, Boundary::Crossing, Replay::Online, true,
+       "Sweep canonical under SweepLimits (registry dispatch)", "A10"},
+      {"slot-substitute-rounds", K::Rule, "Substitute", nullptr, Route::Public,
+       Boundary::Crossing, Replay::Online, true,
+       "Substitute under SubstituteParameters{max_rounds, "
+       "round_effort_ceiling} against the rule work budget", "A10"},
       {"slot-vivify-band", K::Rule, "Vivify",
        [](const ActionFeedback &r) {
          return starts(description(r), "native-vivify-band");
        },
-       Route::Kernel, Boundary::Crossing, Replay::None, true,
-       "none: cumulative vivify band ledger", "A10"},
+       Route::Public, Boundary::Crossing, Replay::Online, true,
+       "Vivify under VivifyParameters{scope, band ledger}", "A10"},
       {"slot-fastel-occurrence", K::Rule, "SubsumeForward",
        [](const ActionFeedback &r) {
          return starts(description(r), "fastel-occurrence");
@@ -333,9 +336,10 @@ inline const std::vector<Entry> &entries() {
        "TACTIX_SUPPORT_ENTER_INPROCESS_PHASE(eliminate flag, Factor bound)",
        "A11", TACTIX_SUPPORT_ENTER_INPROCESS_PHASE},
       {"support-phase-entry-injected-factor", K::Support, "InprocessPhaseEntry",
-       nullptr, Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "none: an injected FactorMatchPolicy (diagnostic arm; Factor selection "
-       "profile is step 5)", "A11,C4"},
+       nullptr, Route::Declared, Boundary::Crossing, Replay::None, false,
+       "declared excluded diagnostic arm: an injected FactorMatchPolicy "
+       "(C++ scoring/accept override); DefaultPolicy's own selection is the "
+       "public phase-entry Factor bound", "A11,C4"},
       {"support-occurrence-session", K::Support, "OpenOccurrenceSession", nullptr,
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION", "A11",
@@ -345,8 +349,16 @@ inline const std::vector<Entry> &entries() {
        "TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE", "A11",
        TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE},
       {"support-forward-closure", K::Support, "ForwardClosure", nullptr,
-       Route::Kernel, Boundary::Crossing, Replay::None, false,
-       "none: Strengthen forward-closure post-application is step 5", "A10"},
+       Route::Public, Boundary::Crossing, Replay::Marker, false,
+       "the preceding Strengthen step's PostApplication::ForwardClosure "
+       "(TACTIX_ONLINE_POST_FORWARD_CLOSURE)", "A10"},
+      {"support-begin-forward-round", K::Support, "BeginForwardRound", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_BEGIN_FORWARD_ROUND", "C5",
+       TACTIX_SUPPORT_BEGIN_FORWARD_ROUND},
+      {"support-reschedule-bve", K::Support, "RescheduleBveCandidates", nullptr,
+       Route::Public, Boundary::Crossing, Replay::Support, false,
+       "TACTIX_SUPPORT_RESCHEDULE_BVE", "C5", TACTIX_SUPPORT_RESCHEDULE_BVE},
   };
   return table;
 }

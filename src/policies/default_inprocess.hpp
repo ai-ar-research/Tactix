@@ -3,6 +3,7 @@
 #include "policies/default_strategy_config.hpp"
 #include "policies/subpolicy.hpp"
 #include "rules/registry.hpp"
+#include "strategy/bve_schedule.hpp"
 
 #include <cstdlib>
 #include <optional>
@@ -47,13 +48,6 @@ using CandidateOrder = strategy::CandidateOrder;
 const char *candidate_order_name(CandidateOrder);
 bool parse_candidate_order(const char *, CandidateOrder *);
 
-// Kissat eliminate.c `variable_score`: preserve its named binary64
-// intermediates (`prod`, `sum`, structural `score`, and `occlim2`).  Flattening
-// the algebraically equivalent subtractions can move an equal-score candidate
-// by one ULP and therefore changes mutable-heap topology.
-double kissat_bve_variable_score(double relevance, uint64_t positive,
-                                 uint64_t negative,
-                                 uint64_t occurrence_limit);
 
 class DefaultCandidateOrder final : public CandidateOrderPolicy {
 public:

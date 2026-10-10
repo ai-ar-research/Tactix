@@ -18,9 +18,18 @@ struct VivifyParameters {
   bool reuse = true;
   bool flush = false;
   uint32_t irredundant_sort_ratio = IRREDUNDANT_SORT_RATIO_DEFAULT;
+  // One band of a cumulative dose ledger (vivify.c: each tier's share joins
+  // one probing-tick ceiling). With `band`, the application is bounded by
+  // `band_budget` measured from a dose start `band_offset` ticks earlier, so
+  // unused work of an earlier band carries into later ones and an overrun is
+  // precharged. Per application only: installs and from_kernel leave it off.
+  bool band = false;
+  uint64_t band_budget = 0;
+  uint64_t band_offset = 0;
 
   constexpr bool valid() const {
-    return scope <= 5 && irredundant_sort_ratio != 0;
+    return scope <= 5 && irredundant_sort_ratio != 0 &&
+           (band || (!band_budget && !band_offset));
   }
 
   static VivifyParameters from_kernel(const Kernel &);

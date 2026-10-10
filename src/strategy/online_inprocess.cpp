@@ -19,7 +19,10 @@
 #include "strategy/parameter_execution.hpp"
 #include "strategy/publication_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
+#include "strategy/slot_execution.hpp"
+#include "strategy/substitute_execution.hpp"
 #include "strategy/sweep_execution.hpp"
+#include "strategy/vivify_execution.hpp"
 #include "policies/rule_publication.hpp"
 
 #include <cmath>
@@ -118,6 +121,7 @@ bool valid_post_application(PostApplication value) {
   switch (value) {
   case PostApplication::None:
   case PostApplication::Propagate:
+  case PostApplication::ForwardClosure:
     return true;
   }
   return false;
@@ -696,6 +700,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       return reject("step repeat specification is invalid");
     if (!valid_post_application(step.post_application))
       return reject("post-application action is invalid");
+    if (step.post_application == PostApplication::ForwardClosure &&
+        step.rule != "Strengthen")
+      return reject("forward closure follows only a Strengthen application");
     if (step.rule == "DirectPhpRefutation" &&
         step.post_application != PostApplication::None)
       return reject("DirectPhpRefutation is terminal and has no follow-up");
@@ -1357,6 +1364,12 @@ bool validate_parameter_installation(const std::string &rule,
                walk->objective != WalkParameters::Objective::LegacyWalk ||
                walk->admission != WalkParameters::Admission::Legacy))
     return reject("Walk's budget, seed and objective belong to an application");
+  if (const auto *vivify = std::get_if<VivifyParameters>(&parameters);
+      vivify && vivify->band)
+    return reject("a Vivify band ledger belongs to an application");
+  if (const auto *substitute = std::get_if<SubstituteParameters>(&parameters);
+      substitute && substitute->max_rounds)
+    return reject("Substitute's round batch belongs to an application");
   if (error)
     error->clear();
   return true;
@@ -2136,6 +2149,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     }
     const uint64_t payload = runtime.selection[runtime.cursor];
     const size_t trail_before = k.trail.size();
+    const uint32_t propagate_head_before = k.propagate_head;
     InvocationBudget budget(step.work_unit, allowance);
     bool consume_generated_sr_noop = false;
     bool discard_generated_sr_batch = false;
@@ -2222,6 +2236,40 @@ InvocationResult OnlineStrategyExecutor::advance(
                              ? InvocationStatus::Completed
                              : detail::terminal_status(result);
       out.after = state_version(k);
+    } else if (step.rule == "Substitute" &&
+               std::holds_alternative<SubstituteParameters>(step.parameters) &&
+               std::get<SubstituteParameters>(step.parameters).max_rounds) {
+      // A typed round batch: one dispatched application, one watch session,
+      // each round's roots and retirements published before the next round.
+      const SubstituteParameters &rounds = std::get<SubstituteParameters>(step.parameters);
+      execution::ParameterExecutionScope<SubstituteParameters> demotion(k, step.parameters);
+      ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
+      const ApplyResult result = execution::execute_action(
+          k, execution::RuleApplicationRequest{}, [&] {
+            return apply_rule_structured(rule, k, "rounds", [&] {
+              return execution::execute_substitute_rounds(k, rounds, [&](size_t begin) {
+                HeuristicRulePublisher{}.roots(k, begin);
+                HeuristicRulePublisher{}.retirements(k);
+              }).result;
+            });
+          }, HeuristicRulePublisher{}).result;
+      out.before = out.after;
+      out.configuration_revision = revision_;
+      out.work_unit = WorkUnit::Applications;
+      out.rule_id = rule.id;
+      out.instance = payload;
+      out.work = 1;
+      out.applications = 1;
+      out.rule_result = result;
+      out.made_rule_progress = result == ApplyResult::Ok;
+      out.selection_complete = runtime.cursor + 1 == runtime.selection.size();
+      out.budget_status = budget.charge(WorkUnit::Applications, 1);
+      out.status = result == ApplyResult::NoOp
+                       ? InvocationStatus::NoChange
+                       : result == ApplyResult::Ok
+                             ? InvocationStatus::Completed
+                             : detail::terminal_status(result);
+      out.after = state_version(k);
     } else {
       const uint64_t propagations_before = k.stats.propagations;
       const GuidanceOutcomeSnapshot guidance_before(k);
@@ -2252,6 +2300,13 @@ InvocationResult OnlineStrategyExecutor::advance(
       // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
       // scopes still unwind to the caller profile after this atomic apply.
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
+      // A Vivify band poses its cumulative ledger for this application only.
+      std::optional<execution::WorkSettingsScope> vivify_band;
+      if (const auto *vivify = std::get_if<VivifyParameters>(&step.parameters);
+          vivify && vivify->band)
+        vivify_band.emplace(k, execution::WorkSettingsRequest{
+                                   vivify->band_budget, vivify->band_offset,
+                                   true, std::nullopt});
       const bool enumerated_factor_grid =
           step.rule == "Factor" &&
           step.granularity == InvocationGranularity::CompleteCurrentPass;
@@ -3118,6 +3173,18 @@ InvocationResult OnlineStrategyExecutor::advance(
     // expected_state was recorded and correctly make the retained batch stale.
     // The follow-up is scheduling scaffolding: only the primary rule decides
     // whether this pass made progress for repeat-to-fixpoint.
+    if (step.post_application == PostApplication::ForwardClosure &&
+        out.status != InvocationStatus::Unsat &&
+        out.status != InvocationStatus::Sat &&
+        out.status != InvocationStatus::Conflict) {
+      heuristics_consume_root_assignments(k, propagate_head_before);
+      if (execution::execute_action(k, execution::ForwardClosureRequest{
+                                           propagate_head_before}) ==
+          ApplyResult::Unsat) {
+        out.status = InvocationStatus::Unsat;
+        out.rule_result = ApplyResult::Unsat;
+      }
+    }
     if (step.post_application == PostApplication::Propagate &&
         out.status != InvocationStatus::Unsat &&
         out.status != InvocationStatus::Sat &&
