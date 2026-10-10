@@ -1,8 +1,10 @@
 /* Public-API cruxmiter policy experiment.
  *
  * TACO repeatedly selects KISSAT stable=2 and usually target=0 or phase=0 on
- * this family. This client translates that signal into always-stable EVSIDS
- * search, reluctant restarts, no target capture, and explicit phase variants.
+ * this family. The structural profiles retain DefaultPolicy's mature target,
+ * phase and restart machinery while forcing its stable mode after the normal
+ * focused-to-stable transition. The direct-search profiles remain explicit
+ * target/phase ablations.
  */
 #include "tactix.h"
 
@@ -25,6 +27,9 @@ enum profile {
   PROFILE_BACKBONE_FIRST,
   PROFILE_BACKBONE_CLOSE,
   PROFILE_BACKBONE_HEAVY,
+  PROFILE_SYMMETRY_BACKBONE,
+  PROFILE_BACKBONE_SYMMETRY,
+  PROFILE_SYMMETRY_SANDWICH,
   PROFILE_SWEEP,
   PROFILE_FULL
 };
@@ -38,6 +43,7 @@ struct policy {
   uint64_t rel_u, rel_v, rel_wait;
   int rel_trigger;
   uint64_t reduce_next, inprocess_next;
+  uint64_t online_revision;
 };
 
 static int rule_id(const char *name) {
@@ -70,6 +76,12 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_BACKBONE_CLOSE;
   else if (!strcmp(text, "backbone-heavy"))
     *out = PROFILE_BACKBONE_HEAVY;
+  else if (!strcmp(text, "symmetry-backbone"))
+    *out = PROFILE_SYMMETRY_BACKBONE;
+  else if (!strcmp(text, "backbone-symmetry"))
+    *out = PROFILE_BACKBONE_SYMMETRY;
+  else if (!strcmp(text, "symmetry-sandwich"))
+    *out = PROFILE_SYMMETRY_SANDWICH;
   else if (!strcmp(text, "sweep"))
     *out = PROFILE_SWEEP;
   else if (!strcmp(text, "full"))
@@ -90,6 +102,9 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_BACKBONE_FIRST: return "backbone-first";
   case PROFILE_BACKBONE_CLOSE: return "backbone-close";
   case PROFILE_BACKBONE_HEAVY: return "backbone-heavy";
+  case PROFILE_SYMMETRY_BACKBONE: return "symmetry-backbone";
+  case PROFILE_BACKBONE_SYMMETRY: return "backbone-symmetry";
+  case PROFILE_SYMMETRY_SANDWICH: return "symmetry-sandwich";
   case PROFILE_SWEEP: return "sweep";
   case PROFILE_FULL: return "full";
   }
@@ -202,6 +217,81 @@ static int dose_rule(struct policy *policy, int rule, unsigned cap,
   return 1;
 }
 
+/* Run one bounded graph-automorphism symmetry pass entirely through the
+ * public online-program interface.  This is intentionally a separate action
+ * from Congruence: it certifies and publishes a fundamental-domain constraint
+ * rather than merely merging gates already proved equivalent.  DefaultPolicy
+ * will still run its complete orbitopal + graph schedule later; this extra
+ * pass tests whether exposing symmetry before or immediately after Backbone
+ * gives that schedule a better residual formula. */
+static int graph_symmetry_pass(struct policy *policy) {
+  tactix_online_step step;
+  tactix_online_program program;
+  tactix_online_result out;
+  tactix_online_sr_parameters *parameters;
+  memset(&step, 0, sizeof step);
+  step.step_id = 1000 + policy->online_revision;
+  step.rule_id = rule_id("SubstitutionRedundancy");
+  if (step.rule_id < 0) return 0;
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  parameters = &step.parameters.value.substitution_redundancy;
+  parameters->maximum_validation_ticks = UINT64_C(20000000000);
+  parameters->maximum_detection_ticks = UINT64_C(20000000000);
+  parameters->producer = TACTIX_ONLINE_SR_GRAPH_SYMMETRY;
+  parameters->maximum_graph_vertices = UINT64_C(5000000);
+  parameters->maximum_graph_edges = UINT64_C(1000000);
+  parameters->maximum_symmetry_generators = 128;
+  parameters->symmetry_backend_search_budget = 64;
+  parameters->symmetry_backend_support_budget = UINT64_C(64) << 20;
+  parameters->symmetry_backend_component_size_limit = UINT64_C(5000000);
+  parameters->maximum_symmetry_fixing_instances = 128;
+  parameters->maximum_symmetry_generator_instances_per_pass = 1;
+  parameters->maximum_symmetry_group_ticks = UINT64_C(20000000000);
+  parameters->symmetry_clause_scope = TACTIX_ONLINE_SYMMETRY_CLAUSES_ALL;
+  parameters->symmetry_binary_graph_mode =
+      TACTIX_ONLINE_SYMMETRY_BINARY_GRAPH_AUTOMATIC;
+  parameters->symmetry_binary_graph_density_permille = 1000;
+  parameters->symmetry_clause_selection =
+      TACTIX_ONLINE_SYMMETRY_CLAUSE_SELECTION_AMO_THEN_SHORTEST;
+  parameters->symmetry_chain_mode =
+      TACTIX_ONLINE_SYMMETRY_CHAIN_FIX_AND_CUT;
+  parameters->symmetry_base_selection =
+      TACTIX_ONLINE_SYMMETRY_BASE_COMMON_CLAUSE_AMO;
+  parameters->symmetry_cut_point =
+      TACTIX_ONLINE_SYMMETRY_CUT_POINT_LARGEST_ORBIT_LAST;
+  parameters->symmetry_negation_fixing_first_mode =
+      TACTIX_ONLINE_SETTING_ENABLE;
+  parameters->symmetry_first_literal_fix_anchor_mode =
+      TACTIX_ONLINE_SETTING_ENABLE;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.rule_budget_mode = TACTIX_ONLINE_RULE_BUDGET_UNLIMITED;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget_unlimited = 1;
+  step.post_application = TACTIX_ONLINE_POST_PROPAGATE;
+  program.steps = &step;
+  program.step_count = 1;
+  program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  program.repeat_limit = 1;
+  if (tactix_online_configure(policy->solver, &program,
+                              ++policy->online_revision,
+                              TACTIX_ONLINE_RECONFIGURE_RESET))
+    return 0;
+  while (!tactix_online_complete(policy->solver)) {
+    if (tactix_online_advance(policy->solver, &out)) return 0;
+    if (out.status == TACTIX_ONLINE_UNSAT) return 20;
+    if (out.status == TACTIX_ONLINE_SAT) return 10;
+    if (out.status == TACTIX_ONLINE_CONFLICT) return 2;
+    if (out.status == TACTIX_ONLINE_INVALID_REQUEST ||
+        out.status == TACTIX_ONLINE_STALE_REQUEST ||
+        out.status == TACTIX_ONLINE_RESOURCE_EXHAUSTED ||
+        out.status == TACTIX_ONLINE_ACCOUNTING_ERROR)
+      return 0;
+  }
+  return 1;
+}
+
 static int root_pipeline(struct policy *policy) {
   uint64_t applications = 0;
   unsigned round;
@@ -235,6 +325,27 @@ static int root_pipeline(struct policy *policy) {
     result = dose_rule(policy, policy->backbone, 1024, &applications);
     if (terminal(result) || result == 2) return result;
     return 1;
+  }
+
+  if (policy->profile == PROFILE_SYMMETRY_BACKBONE) {
+    result = graph_symmetry_pass(policy);
+    if (terminal(result) || result == 2 || !result) return result;
+    return dose_rule(policy, policy->backbone, 512, &applications);
+  }
+
+  if (policy->profile == PROFILE_BACKBONE_SYMMETRY ||
+      policy->profile == PROFILE_SYMMETRY_SANDWICH) {
+    if (policy->profile == PROFILE_SYMMETRY_SANDWICH) {
+      result = graph_symmetry_pass(policy);
+      if (terminal(result) || result == 2 || !result) return result;
+    }
+    result = dose_rule(policy, policy->backbone, 512, &applications);
+    if (terminal(result) || result == 2) return result;
+    result = graph_symmetry_pass(policy);
+    if (terminal(result) || result == 2 || !result) return result;
+    result = dose_rule(policy, policy->congruence, 4, &applications);
+    if (terminal(result) || result == 2) return result;
+    return dose_rule(policy, policy->substitute, 24, &applications);
   }
 
   if (policy->profile == PROFILE_BACKBONE_CLOSE) {
@@ -449,13 +560,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|sweep|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|symmetry-sandwich|sweep|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|sweep|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|symmetry-sandwich|sweep|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
@@ -474,9 +585,10 @@ int main(int argc, char **argv) {
     tactix_release(solver);
     return 1;
   }
-  printf("c cruxmiter-policy profile=%s "
-         "search=evsids/reluctant phase=%s target=off\n",
-         profile_name(profile), phase_name(profile));
+  printf("c cruxmiter-policy profile=%s search=%s phase=%s target=%s\n",
+         profile_name(profile),
+         manual_search(profile) ? "evsids/reluctant" : "default-policy",
+         phase_name(profile), manual_search(profile) ? "off" : "default-policy");
   result = solve(&policy);
   printf("c conflicts %" PRIu64 "\n",
          tactix_stat(solver, TACTIX_STAT_CONFLICTS));
