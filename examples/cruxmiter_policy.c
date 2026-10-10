@@ -24,6 +24,7 @@ enum profile {
   PROFILE_GATE_SEARCH,
   PROFILE_BACKBONE_SEARCH,
   PROFILE_BACKBONE_CLOSE_SEARCH,
+  PROFILE_TACO_WARMUP,
   PROFILE_INPUT_RANKED,
   PROFILE_INPUT_SAVED,
   PROFILE_INPUT_ASCENDING,
@@ -58,6 +59,7 @@ struct policy {
   int rel_trigger;
   uint64_t reduce_next, inprocess_next;
   uint64_t focus_conflicts;
+  uint64_t warmup_conflicts;
   uint64_t online_revision;
   uint64_t symmetry_calls, symmetry_applications, symmetry_productive;
   int maximum_variable, primary_variables;
@@ -132,6 +134,8 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_BACKBONE_SEARCH;
   else if (!strcmp(text, "backbone-close-search"))
     *out = PROFILE_BACKBONE_CLOSE_SEARCH;
+  else if (!strcmp(text, "taco-warmup"))
+    *out = PROFILE_TACO_WARMUP;
   else if (!strcmp(text, "input-ranked"))
     *out = PROFILE_INPUT_RANKED;
   else if (!strcmp(text, "input-saved"))
@@ -189,6 +193,7 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_GATE_SEARCH: return "gate-search";
   case PROFILE_BACKBONE_SEARCH: return "backbone-search";
   case PROFILE_BACKBONE_CLOSE_SEARCH: return "backbone-close-search";
+  case PROFILE_TACO_WARMUP: return "taco-warmup";
   case PROFILE_INPUT_RANKED: return "input-ranked";
   case PROFILE_INPUT_SAVED: return "input-saved";
   case PROFILE_INPUT_ASCENDING: return "input-ascending";
@@ -219,6 +224,7 @@ static const char *phase_name(enum profile profile) {
   if (profile == PROFILE_SEARCH || profile == PROFILE_GATE_SEARCH ||
       profile == PROFILE_BACKBONE_SEARCH ||
       profile == PROFILE_BACKBONE_CLOSE_SEARCH ||
+      profile == PROFILE_TACO_WARMUP ||
       profile == PROFILE_INPUT_RANKED ||
       profile == PROFILE_INPUT_ASCENDING ||
       profile == PROFILE_INPUT_DESCENDING)
@@ -234,6 +240,7 @@ static int manual_search(enum profile profile) {
          profile == PROFILE_SAVED || profile == PROFILE_GATE_SEARCH ||
          profile == PROFILE_BACKBONE_SEARCH ||
          profile == PROFILE_BACKBONE_CLOSE_SEARCH ||
+         profile == PROFILE_TACO_WARMUP ||
          profile == PROFILE_INPUT_RANKED || profile == PROFILE_INPUT_SAVED ||
          profile == PROFILE_INPUT_ASCENDING ||
          profile == PROFILE_INPUT_DESCENDING;
@@ -664,7 +671,8 @@ static int root_pipeline(struct policy *policy) {
   if (policy->profile == PROFILE_BACKBONE ||
       policy->profile == PROFILE_BACKBONE_NEGATIVE ||
       policy->profile == PROFILE_BACKBONE_POSITIVE ||
-      policy->profile == PROFILE_BACKBONE_SEARCH) {
+      policy->profile == PROFILE_BACKBONE_SEARCH ||
+      policy->profile == PROFILE_TACO_WARMUP) {
     result = dose_rule(policy, policy->backbone, 512, &applications);
     if (terminal(result) || result == 2) return result;
     return 1;
@@ -891,6 +899,16 @@ static int solve(struct policy *policy) {
     {
       const uint64_t conflicts =
           tactix_stat(policy->solver, TACTIX_STAT_CONFLICTS);
+      if (policy->profile == PROFILE_TACO_WARMUP &&
+          conflicts >= policy->warmup_conflicts) {
+        const int rooted = tactix_support(
+            policy->solver, TACTIX_SUPPORT_ROOT_PREPARATION, 0);
+        if (terminal(rooted)) return rooted;
+        if (rooted < 0) return 0;
+        printf("c crux-taco-warmup handoff=%" PRIu64 "\n", conflicts);
+        fflush(stdout);
+        return tactix_solve(policy->solver);
+      }
       if (conflicts >= policy->reduce_next) {
         const int reduced = tactix_apply(policy->solver, policy->reduce);
         if (terminal(reduced)) return reduced;
@@ -954,7 +972,8 @@ static int solve(struct policy *policy) {
       if (policy->profile == PROFILE_SEARCH ||
           policy->profile == PROFILE_GATE_SEARCH ||
           policy->profile == PROFILE_BACKBONE_SEARCH ||
-          policy->profile == PROFILE_BACKBONE_CLOSE_SEARCH)
+          policy->profile == PROFILE_BACKBONE_CLOSE_SEARCH ||
+          policy->profile == PROFILE_TACO_WARMUP)
         candidate = candidate < 0 ? candidate : -candidate;
       else if (policy->profile == PROFILE_POSITIVE)
         candidate = candidate < 0 ? -candidate : candidate;
@@ -992,6 +1011,7 @@ static int init_policy(struct policy *policy, tactix *solver,
   policy->rel_period = policy->rel_wait = 1024;
   policy->reduce_next = 2000;
   policy->inprocess_next = 10000;
+  policy->warmup_conflicts = 10000;
   /* These are policy-owned schedule controls, not Kernel options.  They make
    * the specialized public client able to search timing as well as rule
    * order.  An in-processing interval of zero disables repeated root doses
@@ -1010,6 +1030,9 @@ static int init_policy(struct policy *policy, tactix *solver,
   setting = getenv("TACTIX_CRUX_FOCUS_CONFLICTS");
   if (setting)
     policy->focus_conflicts = strtoull(setting, NULL, 10);
+  setting = getenv("TACTIX_CRUX_WARMUP_CONFLICTS");
+  if (setting && strtoull(setting, NULL, 10))
+    policy->warmup_conflicts = strtoull(setting, NULL, 10);
   return policy->propagate >= 0 && policy->analyze >= 0 &&
          policy->decide >= 0 && policy->restart >= 0 && policy->reduce >= 0 &&
          policy->switchmode >= 0 && policy->congruence >= 0 &&
@@ -1051,13 +1074,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|kissat-order|kissat-order-negative|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
