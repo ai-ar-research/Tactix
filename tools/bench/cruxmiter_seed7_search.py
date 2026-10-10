@@ -279,6 +279,66 @@ ARMS = {
     "reorder-no-bve-chrono1000": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CHRONO_LEVELS=1000"),
+    # Third-stage center: Reorder=off, BVE=off, conflict-clause reuse=off.
+    "rbc-default": cli(
+        "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0", "TACTIX_NO_BVE=1",
+        "TACTIX_CONFLICT_REUSE=0"),
+    "rbc-gate": policy(
+        "gate", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0"),
+    "rbc-randec0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", "TACTIX_RANDEC=0"),
+    "rbc-walk0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_WALK_PERMILLE=0"),
+    "rbc-no-factor": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", "TACTIX_NO_FACTOR=1"),
+    "rbc-no-sweep": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0", "TACTIX_NO_SWEEP=1"),
+    "rbc-no-closure-delay": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_NO_CLOSURE_DELAY=1"),
+    "rbc-no-jump": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_JUMP_REASONS=0"),
+    "rbc-backbone100": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Backbone:100"),
+    "rbc-hbr40": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=HyperBinaryRes:40"),
+    "rbc-hbr100": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=HyperBinaryRes:100"),
+    "rbc-substitute100": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Substitute:100"),
+    "rbc-sweep200": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Sweep:200"),
+    "rbc-transitive100": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=TransitiveReduce:100"),
+    "rbc-vivify200": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200"),
+    "rbc-cce1": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_ENABLE=CCE", "TACTIX_SLOT_MAX_APPLIES=CCE:1"),
     "kissat": [KISSAT],
 }
 
