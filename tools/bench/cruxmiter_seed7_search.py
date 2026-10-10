@@ -243,6 +243,42 @@ ARMS = {
         "TACTIX_RANDEC=0", "TACTIX_REDUCE_CADENCE=arith",
         "TACTIX_REDUCE_RAMP=0", "TACTIX_NO_FACTOR=1", "TACTIX_NO_BVE=1",
         "TACTIX_NO_CLOSURE_DELAY=1", "TACTIX_JUMP_REASONS=0"),
+    # Coordinate search around Reorder=off + BVE=off, the second-stage winner.
+    "default-reorder-no-bve": cli(
+        "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0", "TACTIX_NO_BVE=1"),
+    "gate-reorder-no-bve": policy(
+        "gate", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1"),
+    "close-reorder-no-bve": policy(
+        "backbone-close", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1"),
+    "reorder-no-bve-randec0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_RANDEC=0"),
+    "reorder-no-bve-walk0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_WALK_PERMILLE=0"),
+    "reorder-no-bve-randec0-walk0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_RANDEC=0", "TACTIX_WALK_PERMILLE=0"),
+    "reorder-no-bve-no-jump": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_JUMP_REASONS=0"),
+    "reorder-no-bve-no-conflict-reuse": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0"),
+    "reorder-no-bve-no-sweep": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_NO_SWEEP=1"),
+    "reorder-no-bve-chrono0": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CHRONO_LEVELS=0"),
+    "reorder-no-bve-chrono20": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CHRONO_LEVELS=20"),
+    "reorder-no-bve-chrono1000": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CHRONO_LEVELS=1000"),
     "kissat": [KISSAT],
 }
 
