@@ -33,6 +33,7 @@ enum profile {
   PROFILE_BACKBONE,
   PROFILE_BACKBONE_NEGATIVE,
   PROFILE_BACKBONE_POSITIVE,
+  PROFILE_BACKBONE_FIXPOINT,
   PROFILE_BACKBONE_FIRST,
   PROFILE_BACKBONE_CLOSE,
   PROFILE_BACKBONE_HEAVY,
@@ -103,6 +104,8 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_BACKBONE_NEGATIVE;
   else if (!strcmp(text, "backbone-positive"))
     *out = PROFILE_BACKBONE_POSITIVE;
+  else if (!strcmp(text, "backbone-fixpoint"))
+    *out = PROFILE_BACKBONE_FIXPOINT;
   else if (!strcmp(text, "backbone-first"))
     *out = PROFILE_BACKBONE_FIRST;
   else if (!strcmp(text, "backbone-close"))
@@ -147,6 +150,7 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_BACKBONE: return "backbone";
   case PROFILE_BACKBONE_NEGATIVE: return "backbone-negative";
   case PROFILE_BACKBONE_POSITIVE: return "backbone-positive";
+  case PROFILE_BACKBONE_FIXPOINT: return "backbone-fixpoint";
   case PROFILE_BACKBONE_FIRST: return "backbone-first";
   case PROFILE_BACKBONE_CLOSE: return "backbone-close";
   case PROFILE_BACKBONE_HEAVY: return "backbone-heavy";
@@ -418,6 +422,24 @@ static int root_pipeline(struct policy *policy) {
   if (policy->profile == PROFILE_GATE ||
       policy->profile == PROFILE_GATE_SEARCH)
     return 1;
+
+  /* Failed-literal batches expose units in layers on this acyclic miter.
+   * Consume each layer before asking Backbone for the next one.  The ordinary
+   * startup sequence runs Backbone once and can leave later constant gates
+   * hidden behind the first batch of substitutions. */
+  if (policy->profile == PROFILE_BACKBONE_FIXPOINT) {
+    for (round = 0; round < 16; ++round) {
+      const uint64_t before = applications;
+      result = dose_rule(policy, policy->backbone, 4, &applications);
+      if (terminal(result) || result == 2) return result;
+      result = dose_rule(policy, policy->congruence, 4, &applications);
+      if (terminal(result) || result == 2) return result;
+      result = dose_rule(policy, policy->substitute, 64, &applications);
+      if (terminal(result) || result == 2) return result;
+      if (applications == before) break;
+    }
+    return 1;
+  }
 
   if (policy->profile == PROFILE_BACKBONE ||
       policy->profile == PROFILE_BACKBONE_NEGATIVE ||
@@ -793,13 +815,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|kissat-order|kissat-order-negative|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
