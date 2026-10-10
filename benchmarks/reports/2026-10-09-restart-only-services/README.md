@@ -144,9 +144,9 @@ on the home quota under the governor. Campaigns are `benchmarks/runs/20261009-re
 
 | Arm | 569 | 1004 |
 |---|---|---|
-| c2.3 | UNSAT 3,575 s, cert `9dd8775c…` (same as before): CHECK_PENDING | (unsolved by c2.3) |
-| `3361d3b51` default | UNSAT 3,573 s, cert `9dd8775c…` (identical to c2.3): CHECK_PENDING | UNKNOWN at 5,000 s this time (4,971 s before); a re-solve with a 7,200 s limit is running (`…-lec64-new1004`): CHECK_PENDING |
-| `3361d3b51` affine on | UNSAT 2,732 s, cert `f7689d01…` (identical to the `b2ff44d6f` run): CHECK_PENDING | UNSAT 4,102 s, cert `a827670c…` (identical to the `b2ff44d6f` run): CHECK_PENDING |
+| c2.3 | UNSAT 3,575 s, cert `9dd8775c…` (same as before): verified | (unsolved by c2.3) |
+| `3361d3b51` default | UNSAT 3,573 s, cert `9dd8775c…` (identical to c2.3): verified | UNKNOWN at 5,000 s this time (4,971 s before); the 7,200 s re-solve (`…-lec64-new1004`) gives UNSAT 5,423 s: verified |
+| `3361d3b51` affine on | UNSAT 2,732 s, cert `f7689d01…` (identical to the `b2ff44d6f` run): verified | UNSAT 4,102 s, cert `a827670c…` (identical to the `b2ff44d6f` run): verified |
 
 ## Open for the main session
 
