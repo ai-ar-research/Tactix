@@ -17,6 +17,7 @@ CRUX = os.path.join(ROOT, "cruxmiter")
 PIN_SOURCE_COMMIT = "cd10a2e1e"
 PIN = os.path.join(ROOT, "build", f"pin-cruxmiter-{PIN_SOURCE_COMMIT}")
 POLICY = os.path.join(PIN, "examples", "tactix-cruxmiter-policy")
+KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 UNIQUE_SEEDS = (0, 2, 3, 4, 5, 6, 7, 8, 9)
 
@@ -48,12 +49,14 @@ ARMS = {
         "symmetry-sandwich", "TACTIX_SLOT_ENABLE=CCE"),
     "full-stable": command("full"),
     "full-stable-cce": command("full", "TACTIX_SLOT_ENABLE=CCE"),
+    "kissat": [KISSAT],
 }
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("stage", choices=("screen", "family", "target"))
+    parser.add_argument("stage", choices=("screen", "family", "target",
+                                          "kissat"))
     parser.add_argument("--size", type=int, default=26)
     parser.add_argument("--winner", choices=tuple(ARMS),
                         default="backbone-cce")
@@ -63,14 +66,15 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    if not os.path.isfile(POLICY) or not os.access(POLICY, os.X_OK):
-        raise SystemExit(f"missing executable pin: {POLICY}")
+    for binary in (POLICY, KISSAT):
+        if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
+            raise SystemExit(f"missing executable pin: {binary}")
     if args.stage == "family" and not 20 <= args.size <= 31:
         raise SystemExit("family --size must be between 20 and 31")
     width = args.size if args.stage == "family" else (
         26 if args.stage == "screen" else 32)
     timeout = args.timeout if args.timeout is not None else (
-        1200.0 if args.stage == "target" else 180.0)
+        1200.0 if args.stage in ("target", "kissat") else 180.0)
     seeds = UNIQUE_SEEDS if args.stage == "family" else (4,)
     entries = [
         (f"cruxmiter/cruxmiter{width}seed{seed}.cnf", "UNKNOWN", 0.0)
@@ -80,8 +84,12 @@ def main():
     missing = [path for path in paths.values() if not os.path.isfile(path)]
     if missing:
         raise SystemExit("missing cruxmiter input(s): " + ", ".join(missing))
-    selected = tuple(ARMS) if args.stage == "screen" else (
-        "backbone-stable", args.winner)
+    if args.stage == "screen":
+        selected = tuple(name for name in ARMS if name != "kissat")
+    elif args.stage == "kissat":
+        selected = ("kissat",)
+    else:
+        selected = ("backbone-stable", args.winner)
     solvers = [(name, ARMS[name], True, True, True) for name in selected]
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     label = f"crux-aggressive-{args.stage}-seed4"
@@ -92,7 +100,7 @@ def main():
     metadata = {
         "stage": args.stage,
         "targets": [rel for rel, _, _ in entries],
-        "winner": args.winner if args.stage != "screen" else None,
+        "winner": args.winner if args.stage in ("family", "target") else None,
         "timeout_seconds": timeout,
         "partition": args.partition,
         "pin_source_commit": PIN_SOURCE_COMMIT,
