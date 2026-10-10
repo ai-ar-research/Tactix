@@ -33,7 +33,11 @@ enum profile {
   PROFILE_LUCKY_BNN_CASCADE,
   PROFILE_INPUT_STABLE_NEGATIVE,
   PROFILE_INPUT_STABLE_POSITIVE,
-  PROFILE_INPUT_AUTO
+  PROFILE_INPUT_AUTO,
+  PROFILE_INPUT_INCIDENCE_NEGATIVE,
+  PROFILE_INPUT_INCIDENCE_POSITIVE,
+  PROFILE_INPUT_INCIDENCE_AUTO,
+  PROFILE_INPUT_D_MATCHED
 };
 
 struct policy {
@@ -43,6 +47,8 @@ struct policy {
   int congruence, substitute, hyperbinary, vivify, strengthen, subsume, bve;
   int lucky;
   int input_extent, input_cursor, input_positive, admitted;
+  int *input_order;
+  uint32_t *input_score;
   uint64_t input_decisions, heap_decisions;
   uint64_t reluctant_u, reluctant_v, reluctant_wait;
   int reluctant_trigger;
@@ -67,6 +73,10 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_INPUT_STABLE_NEGATIVE: return "input-stable-negative";
   case PROFILE_INPUT_STABLE_POSITIVE: return "input-stable-positive";
   case PROFILE_INPUT_AUTO: return "input-auto";
+  case PROFILE_INPUT_INCIDENCE_NEGATIVE: return "input-incidence-negative";
+  case PROFILE_INPUT_INCIDENCE_POSITIVE: return "input-incidence-positive";
+  case PROFILE_INPUT_INCIDENCE_AUTO: return "input-incidence-auto";
+  case PROFILE_INPUT_D_MATCHED: return "input-d-matched";
   }
   return "invalid";
 }
@@ -74,7 +84,7 @@ static const char *profile_name(enum profile profile) {
 static int parse_profile(const char *text, enum profile *profile) {
   enum profile candidate;
   for (candidate = PROFILE_DEFAULT;
-       candidate <= PROFILE_INPUT_AUTO; ++candidate)
+       candidate <= PROFILE_INPUT_D_MATCHED; ++candidate)
     if (!strcmp(text, profile_name(candidate))) {
       *profile = candidate;
       return 1;
@@ -93,7 +103,8 @@ static int rule_id(const char *name) {
 }
 
 static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
-                       int *input_extent, uint64_t *declared_clauses) {
+                       int *input_extent, uint64_t *declared_clauses,
+                       uint32_t **input_score) {
   gzFile input = gzopen(path, "rb");
   char line[1 << 16];
   int open_clause = 0, saw_header = 0;
@@ -104,6 +115,7 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
   *maximum_variable = 0;
   *input_extent = 0;
   *declared_clauses = 0;
+  *input_score = NULL;
   while (gzgets(input, line, sizeof line)) {
     char *cursor = line;
     while (isspace((unsigned char)*cursor)) ++cursor;
@@ -129,6 +141,12 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
       saw_header = 1;
       *declared_clauses = (uint64_t)clauses;
       if (variables > *maximum_variable) *maximum_variable = variables;
+      *input_score = calloc((size_t)variables + 1, sizeof **input_score);
+      if (!*input_score) {
+        fprintf(stderr, "tactix-eevbnn-policy: score allocation failed\n");
+        gzclose(input);
+        return 0;
+      }
       continue;
     }
     while (*cursor) {
@@ -151,6 +169,9 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
       if (value) {
         const int variable = value < 0 ? -(int)value : (int)value;
         if (variable > *maximum_variable) *maximum_variable = variable;
+        if (*input_score && variable <= *input_extent &&
+            (*input_score)[variable] != UINT32_MAX)
+          ++(*input_score)[variable];
         open_clause = 1;
       } else {
         open_clause = 0;
@@ -204,13 +225,50 @@ static int uses_manual_search(enum profile profile) {
          profile == PROFILE_BNN_STABLE_NEGATIVE ||
          profile == PROFILE_INPUT_STABLE_NEGATIVE ||
          profile == PROFILE_INPUT_STABLE_POSITIVE ||
-         profile == PROFILE_INPUT_AUTO;
+         profile == PROFILE_INPUT_AUTO ||
+         profile == PROFILE_INPUT_INCIDENCE_NEGATIVE ||
+         profile == PROFILE_INPUT_INCIDENCE_POSITIVE ||
+         profile == PROFILE_INPUT_INCIDENCE_AUTO ||
+         profile == PROFILE_INPUT_D_MATCHED;
 }
 
 static int uses_input_branching(enum profile profile) {
   return profile == PROFILE_INPUT_STABLE_NEGATIVE ||
          profile == PROFILE_INPUT_STABLE_POSITIVE ||
-         profile == PROFILE_INPUT_AUTO;
+         profile == PROFILE_INPUT_AUTO ||
+         profile == PROFILE_INPUT_INCIDENCE_NEGATIVE ||
+         profile == PROFILE_INPUT_INCIDENCE_POSITIVE ||
+         profile == PROFILE_INPUT_INCIDENCE_AUTO ||
+         profile == PROFILE_INPUT_D_MATCHED;
+}
+
+static int uses_incidence_order(enum profile profile) {
+  return profile == PROFILE_INPUT_INCIDENCE_NEGATIVE ||
+         profile == PROFILE_INPUT_INCIDENCE_POSITIVE ||
+         profile == PROFILE_INPUT_INCIDENCE_AUTO;
+}
+
+static const uint32_t *sort_score;
+static int compare_input_score(const void *left, const void *right) {
+  const int a = *(const int *)left, b = *(const int *)right;
+  if (sort_score[a] != sort_score[b])
+    return sort_score[a] < sort_score[b] ? 1 : -1;
+  return a < b ? -1 : a != b;
+}
+
+static int build_input_order(struct policy *policy) {
+  int variable;
+  if (!uses_incidence_order(policy->profile)) return 1;
+  policy->input_order = malloc((size_t)policy->input_extent *
+                               sizeof *policy->input_order);
+  if (!policy->input_order) return 0;
+  for (variable = 1; variable <= policy->input_extent; ++variable)
+    policy->input_order[variable - 1] = variable;
+  sort_score = policy->input_score;
+  qsort(policy->input_order, (size_t)policy->input_extent,
+        sizeof *policy->input_order, compare_input_score);
+  sort_score = NULL;
+  return 1;
 }
 
 static int lucky_probe(enum profile profile) {
@@ -290,7 +348,10 @@ static int solve(struct policy *policy) {
   if (terminal(result)) return result;
   if (result == 2) return 20;
   if (!uses_manual_search(policy->profile) ||
-      (policy->profile == PROFILE_INPUT_AUTO && !policy->admitted))
+      ((policy->profile == PROFILE_INPUT_AUTO ||
+        policy->profile == PROFILE_INPUT_INCIDENCE_AUTO ||
+        policy->profile == PROFILE_INPUT_D_MATCHED) &&
+       !policy->admitted))
     return tactix_solve(policy->solver);
 
   /* SwitchMode at the root enters stable EVSIDS.  It is deliberately never
@@ -336,9 +397,14 @@ static int solve(struct policy *policy) {
       if (uses_input_branching(policy->profile)) {
         int input_decided = 0;
         while (policy->input_cursor <= policy->input_extent) {
-          candidate = policy->input_cursor++;
+          candidate = (uses_incidence_order(policy->profile)
+                       ? policy->input_order[policy->input_cursor - 1]
+                       : policy->input_cursor);
+          ++policy->input_cursor;
           if (policy->profile == PROFILE_INPUT_STABLE_NEGATIVE ||
-              (policy->profile == PROFILE_INPUT_AUTO &&
+              policy->profile == PROFILE_INPUT_INCIDENCE_NEGATIVE ||
+              ((policy->profile == PROFILE_INPUT_AUTO ||
+                policy->profile == PROFILE_INPUT_INCIDENCE_AUTO) &&
                !policy->input_positive))
             candidate = -candidate;
           if (!tactix_decide(policy->solver, candidate)) {
@@ -403,14 +469,15 @@ static void print_model(tactix *solver, int maximum_variable) {
 }
 
 static void usage(const char *program) {
-  fprintf(stderr, "usage: %s [--profile=default|stable-negative|stable-positive|stable-saved|gate-default|bnn-default|gate-stable-negative|bnn-stable-negative|lucky-forward-false|lucky-forward-true|lucky-backward-false|lucky-backward-true|lucky-bnn-cascade|input-stable-negative|input-stable-positive|input-auto] [--drat] CNF[.gz] [PROOF]\n", program);
+  fprintf(stderr, "usage: %s [--profile=default|stable-negative|stable-positive|stable-saved|gate-default|bnn-default|gate-stable-negative|bnn-stable-negative|lucky-forward-false|lucky-forward-true|lucky-backward-false|lucky-backward-true|lucky-bnn-cascade|input-stable-negative|input-stable-positive|input-auto|input-incidence-negative|input-incidence-positive|input-incidence-auto|input-d-matched] [--drat] CNF[.gz] [PROOF]\n", program);
 }
 
 int main(int argc, char **argv) {
-  enum profile profile = PROFILE_INPUT_AUTO;
+  enum profile profile = PROFILE_INPUT_STABLE_NEGATIVE;
   const char *cnf = NULL, *proof = NULL;
   int maximum_variable = 0, input_extent = 0, result, arg;
   uint64_t declared_clauses = 0;
+  uint32_t *input_score = NULL;
   tactix *solver;
   struct policy policy;
   for (arg = 1; arg < argc; ++arg) {
@@ -442,23 +509,38 @@ int main(int argc, char **argv) {
     return 1;
   }
   if (!read_dimacs(solver, cnf, &maximum_variable, &input_extent,
-                   &declared_clauses) ||
+                   &declared_clauses, &input_score) ||
       tactix_set_guidance_publication(solver, TACTIX_GUIDANCE_NATIVE) ||
       !init_policy(&policy, solver, profile)) {
+    free(input_score);
     tactix_release(solver);
     return 1;
   }
   policy.input_extent = input_extent;
+  policy.input_score = input_score;
   policy.admitted = input_extent >= 2400 && input_extent <= 2800 &&
-                    maximum_variable >= 1000000 &&
-                    maximum_variable <= 1200000 &&
+                    maximum_variable >= 1000000 && maximum_variable <= 1200000 &&
                     declared_clauses * 10 >= (uint64_t)maximum_variable * 28 &&
                     declared_clauses * 10 <= (uint64_t)maximum_variable * 32;
   policy.input_positive = maximum_variable < 1100000;
+  if (profile == PROFILE_INPUT_STABLE_NEGATIVE ||
+      profile == PROFILE_INPUT_INCIDENCE_NEGATIVE)
+    policy.input_positive = 0;
+  if (profile == PROFILE_INPUT_STABLE_POSITIVE ||
+      profile == PROFILE_INPUT_INCIDENCE_POSITIVE ||
+      profile == PROFILE_INPUT_D_MATCHED)
+    policy.input_positive = 1;
+  if (!build_input_order(&policy)) {
+    fprintf(stderr, "tactix-eevbnn-policy: input-order allocation failed\n");
+    free(input_score);
+    tactix_release(solver);
+    return 1;
+  }
   printf("c eevbnn-policy profile=%s interface=public\n", profile_name(profile));
   printf("c eevbnn-admission input-vname-extent=%d variables=%d clauses=%" PRIu64
-         " admitted=%s phase=%s\n", input_extent, maximum_variable,
-         declared_clauses, policy.admitted ? "yes" : "no",
+         " admitted=%s phase=%s\n",
+         input_extent, maximum_variable, declared_clauses,
+         policy.admitted ? "yes" : "no",
          policy.input_positive ? "positive" : "negative");
   result = solve(&policy);
   printf("c conflicts %" PRIu64 "\n",
@@ -484,6 +566,8 @@ int main(int argc, char **argv) {
   } else {
     puts("s UNKNOWN");
   }
+  free(policy.input_order);
+  free(input_score);
   tactix_release(solver);
   return terminal(result) ? result : 0;
 }

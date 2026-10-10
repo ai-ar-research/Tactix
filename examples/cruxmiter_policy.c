@@ -63,6 +63,8 @@ struct policy {
   uint64_t warmup_conflicts;
   uint64_t online_revision;
   uint64_t symmetry_calls, symmetry_applications, symmetry_productive;
+  unsigned cs_round_limit;
+  int cs_force_rounds;
   int maximum_variable, primary_variables;
 };
 
@@ -497,6 +499,44 @@ static int dose_rule(struct policy *policy, int rule, unsigned cap,
   return 1;
 }
 
+/* Congruence and Substitute form a producer/consumer pair on gate CNFs.
+ * Continue while either public progress counter changes, with a small safety
+ * cap for formulas that expose equivalences in several layers. */
+static int adaptive_gate_closure(struct policy *policy,
+                                 uint64_t *applications) {
+  unsigned round;
+  for (round = 0; round < policy->cs_round_limit; ++round) {
+    const uint64_t applications_before = *applications;
+    const uint64_t merges_before =
+        tactix_stat(policy->solver, TACTIX_STAT_CONGRUENCE_MERGES);
+    const uint64_t substitutions_before =
+        tactix_stat(policy->solver, TACTIX_STAT_SUBSTITUTE_VARS);
+    uint64_t merges_after, substitutions_after;
+    int result = dose_rule(policy, policy->congruence, 4, applications);
+    if (terminal(result) || result == 2) return result;
+    result = dose_rule(policy, policy->substitute, 24, applications);
+    if (terminal(result) || result == 2) return result;
+    merges_after = tactix_stat(policy->solver,
+                               TACTIX_STAT_CONGRUENCE_MERGES);
+    substitutions_after = tactix_stat(policy->solver,
+                                      TACTIX_STAT_SUBSTITUTE_VARS);
+    printf("c crux-gate-closure round=%u applications=%" PRIu64
+           " merges=%" PRIu64 " substitutions=%" PRIu64 "\n",
+           round + 1, *applications - applications_before,
+           merges_after - merges_before,
+           substitutions_after - substitutions_before);
+    fflush(stdout);
+    /* Two producer/consumer rounds are the inexpensive family baseline.  A
+     * third or later round is earned only when the preceding round exposed
+     * another equivalence or substitution layer. */
+    if (!policy->cs_force_rounds && round + 1 >= 2 &&
+        merges_after == merges_before &&
+        substitutions_after == substitutions_before)
+      break;
+  }
+  return 1;
+}
+
 /* Run one bounded graph-automorphism symmetry pass entirely through the
  * public online-program interface.  This is intentionally a separate action
  * from Congruence: it certifies and publishes a fundamental-domain constraint
@@ -756,17 +796,10 @@ static int root_pipeline(struct policy *policy) {
   if (policy->profile == PROFILE_BACKBONE_FIRST)
     return dose_rule(policy, policy->backbone, 512, &applications);
 
-  /* Preserve circuit signatures: gate congruence publishes equivalences and
-   * Substitute then collapses the whole CNF.  The doses mirror the useful
-   * counts observed in DefaultPolicy's size-20 trace. */
-  for (round = 0; round < 2; ++round) {
-    const uint64_t before = applications;
-    result = dose_rule(policy, policy->congruence, 4, &applications);
-    if (terminal(result) || result == 2) return result;
-    result = dose_rule(policy, policy->substitute, 24, &applications);
-    if (terminal(result) || result == 2) return result;
-    if (applications == before) break;
-  }
+  /* Preserve circuit signatures and consume as many productive gate layers
+   * as this formula exposes, within a configurable safety bound. */
+  result = adaptive_gate_closure(policy, &applications);
+  if (terminal(result) || result == 2) return result;
   if (policy->profile == PROFILE_GATE ||
       policy->profile == PROFILE_GATE_SEARCH)
     return 1;
@@ -1133,6 +1166,7 @@ static int init_policy(struct policy *policy, tactix *solver,
   policy->reduce_next = 2000;
   policy->inprocess_next = 10000;
   policy->warmup_conflicts = 10000;
+  policy->cs_round_limit = 4;
   /* These are policy-owned schedule controls, not Kernel options.  They make
    * the specialized public client able to search timing as well as rule
    * order.  An in-processing interval of zero disables repeated root doses
@@ -1154,6 +1188,13 @@ static int init_policy(struct policy *policy, tactix *solver,
   setting = getenv("TACTIX_CRUX_WARMUP_CONFLICTS");
   if (setting && strtoull(setting, NULL, 10))
     policy->warmup_conflicts = strtoull(setting, NULL, 10);
+  setting = getenv("TACTIX_CRUX_CS_ROUNDS");
+  if (setting) {
+    const unsigned long limit = strtoul(setting, NULL, 10);
+    if (limit >= 1 && limit <= 16) policy->cs_round_limit = (unsigned)limit;
+  }
+  setting = getenv("TACTIX_CRUX_CS_FORCE");
+  if (setting) policy->cs_force_rounds = strtol(setting, NULL, 10) != 0;
   return policy->propagate >= 0 && policy->analyze >= 0 &&
          policy->decide >= 0 && policy->restart >= 0 && policy->reduce >= 0 &&
          policy->switchmode >= 0 && policy->congruence >= 0 &&
