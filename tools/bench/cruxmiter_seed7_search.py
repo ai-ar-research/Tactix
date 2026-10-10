@@ -623,6 +623,26 @@ ARMS = {
         "input-ranked", "TACTIX_CRUX_REDUCE_INTERVAL=500",
         binary=INPUT_POLICY),
     "kissat": [KISSAT],
+    # Directly validate the CNC+TACO observation on the development seed.
+    # These are diagnostic controls for transferring the winning components
+    # back through Tactix's public policy surface.
+    "kissat-taco": [KISSAT, "--stable=2", "--target=0", "--phase=0"],
+    "kissat-taco-positive": [
+        KISSAT, "--stable=2", "--target=0", "--phase=1"],
+    "kissat-taco-target": [
+        KISSAT, "--stable=2", "--target=1", "--phase=0"],
+    "kissat-taco-reorder0": [
+        KISSAT, "--stable=2", "--target=0", "--phase=0", "--reorder=0"],
+    "kissat-taco-eliminate0": [
+        KISSAT, "--stable=2", "--target=0", "--phase=0", "--eliminate=0"],
+    "kissat-taco-reorder0-eliminate0": [
+        KISSAT, "--stable=2", "--target=0", "--phase=0", "--reorder=0",
+        "--eliminate=0"],
+    "kissat-taco-vivify200": [
+        KISSAT, "--stable=2", "--target=0", "--phase=0",
+        "--vivifyeffort=200"],
+    "kissat-taco-sweep0": [
+        KISSAT, "--stable=2", "--target=0", "--phase=0", "--sweep=0"],
 }
 
 
