@@ -2244,13 +2244,16 @@ InvocationResult OnlineStrategyExecutor::advance(
       const SubstituteParameters &rounds = std::get<SubstituteParameters>(step.parameters);
       execution::ParameterExecutionScope<SubstituteParameters> demotion(k, step.parameters);
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
+      bool round_budget_break = false;
       const ApplyResult result = execution::execute_action(
           k, execution::RuleApplicationRequest{}, [&] {
             return apply_rule_structured(rule, k, "rounds", [&] {
-              return execution::execute_substitute_rounds(k, rounds, [&](size_t begin) {
+              const auto batch = execution::execute_substitute_rounds(k, rounds, [&](size_t begin) {
                 HeuristicRulePublisher{}.roots(k, begin);
                 HeuristicRulePublisher{}.retirements(k);
-              }).result;
+              });
+              round_budget_break = batch.round_budget_break;
+              return batch.result;
             });
           }, HeuristicRulePublisher{}).result;
       out.before = out.after;
@@ -2262,7 +2265,9 @@ InvocationResult OnlineStrategyExecutor::advance(
       out.applications = 1;
       out.rule_result = result;
       out.made_rule_progress = result == ApplyResult::Ok;
-      out.selection_complete = runtime.cursor + 1 == runtime.selection.size();
+      // A round batch the round-effort ceiling stopped is incomplete.
+      out.selection_complete =
+          runtime.cursor + 1 == runtime.selection.size() && !round_budget_break;
       out.budget_status = budget.charge(WorkUnit::Applications, 1);
       out.status = result == ApplyResult::NoOp
                        ? InvocationStatus::NoChange

@@ -126,7 +126,7 @@ PARAMETER_EXECUTION = "src/strategy/parameter_execution.hpp"
 POLICY_ADAPTERS["bve_definition_session"] = [PARAMETER_EXECUTION]
 POLICY_BINDINGS["bve_definition_session"] = [
     (POLICY[0], r"if \(group == SlotGroup::Eliminate && !initial_fast_elimination_active_\)\s*"
-                r"execution::execute_action\(k, execution::BeginBveDefinitionSessionRequest\{\}, completion\)"),
+                r"port::execute_action\(k, execution::BeginBveDefinitionSessionRequest\{\}, completion\)"),
     (PARAMETER_EXECUTION, r"k\.bve_definition_session\s*=\s*k\.bve_definition_session\s*\+\s*1"),
 ]
 PARAMETER_INSTALL = (PARAMETER_EXECUTION,
@@ -334,6 +334,8 @@ TABLE = {
                                            "advanced once per ordinary Eliminate phase"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
+    "retirement_publication_held": ("API", "TACTIX_SUPPORT_HOLD_RETIREMENTS guidance hold; "
+                                "native policies hold by not publishing"),
     "walk_seed_candidate":     ("POLICY", "exact publication for private Walk seeding; DefaultPolicy passes zero"),
     "walk_preparation_budget": ("POLICY", "typed private preparation allowance, scoped during Walk"),
     "walk_objective":          ("POLICY", "typed private current-CNF objective, scoped during Walk"),

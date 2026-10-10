@@ -689,6 +689,22 @@ add_executable(test_solve_reset test_solve_reset.cpp)
 target_link_libraries(test_solve_reset PRIVATE tactix_lib)
 add_test(NAME solve_reset COMMAND test_solve_reset)
 
+# DefaultPolicy static/public twin (plan §5.6 acceptance, §8.4 correspondence
+# gate): one source over the static, hardcoded and public action ports; the
+# public executable runs the other two and compares.
+add_executable(default_correspondence_static test_default_public_correspondence.cpp)
+target_link_libraries(default_correspondence_static PRIVATE tactix_lib)
+tactix_port_twin(default_correspondence_hardcoded test_default_public_correspondence.cpp
+                 $<TARGET_OBJECTS:tactix_default_policy_hardcoded>)
+tactix_port_twin(test_default_public_correspondence test_default_public_correspondence.cpp
+                 default_public_port.cpp)
+target_compile_definitions(test_default_public_correspondence PRIVATE
+                           TACTIX_DEFAULT_POLICY_PUBLIC_PORT=1)
+add_test(NAME default_public_correspondence
+         COMMAND test_default_public_correspondence
+                 $<TARGET_FILE:default_correspondence_static>
+                 $<TARGET_FILE:default_correspondence_hardcoded>)
+
 # Conventional C++ tests are discovered automatically. Existing explicit
 # declarations above preserve special names/arguments; a newly added
 # test_<name>.cpp gets a matching executable and CTest entry without a central

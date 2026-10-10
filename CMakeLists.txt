@@ -95,6 +95,30 @@ target_link_libraries(tactix_lib PUBLIC tactix_symmetry_backend ZLIB::ZLIB)
 add_executable(tactix src/main.cpp)
 target_link_libraries(tactix PRIVATE tactix_lib)
 
+# DefaultPolicy over another action port (strategy/action_port.hpp): every
+# tactix object except the production default_policy.cpp, plus a translation
+# unit that recompiles it over that port. tactix-hardcoded is the §8.4
+# hardcoded twin (tools/bench/port_overhead.py).
+set(TACTIX_PORT_TWIN_OBJECTS
+    "$<FILTER:$<TARGET_OBJECTS:tactix_lib>,EXCLUDE,/default_policy\\.cpp\\.o$>")
+function(tactix_port_usage target)
+  target_include_directories(${target} PRIVATE
+    $<TARGET_PROPERTY:tactix_lib,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(${target} PRIVATE
+    $<TARGET_PROPERTY:tactix_lib,INTERFACE_COMPILE_DEFINITIONS>)
+endfunction()
+function(tactix_port_twin target)
+  add_executable(${target} ${ARGN} ${TACTIX_PORT_TWIN_OBJECTS})
+  add_dependencies(${target} tactix_lib)
+  tactix_port_usage(${target})
+  target_link_options(${target} PRIVATE $<TARGET_PROPERTY:tactix_lib,INTERFACE_LINK_OPTIONS>)
+  target_link_libraries(${target} PRIVATE tactix_symmetry_backend ZLIB::ZLIB)
+endfunction()
+add_library(tactix_default_policy_hardcoded OBJECT src/policies/default_policy_hardcoded.cpp)
+tactix_port_usage(tactix_default_policy_hardcoded)
+tactix_port_twin(tactix-hardcoded src/main.cpp
+                 $<TARGET_OBJECTS:tactix_default_policy_hardcoded>)
+
 enable_testing()
 add_test(NAME dsr_transport COMMAND python3
   ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)

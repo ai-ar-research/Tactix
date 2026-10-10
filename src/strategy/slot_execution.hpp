@@ -4,6 +4,8 @@
 // slot scheduler, tactix_support and the online executor. Scheduling (when a
 // round starts, when a bound grows) stays with the caller.
 #include "rules/strengthen/strengthen.hpp"
+#include "rules/subsume_forward/subsume_forward.hpp"
+#include "policies/heuristics.hpp"
 
 #include <algorithm>
 
@@ -25,6 +27,22 @@ struct RescheduleBveCandidatesRequest {};
 struct ForwardClosureRequest {
   uint32_t trail_from = 0;
 };
+
+// The fastel flush's compaction of the scanned prefix of `lit`'s ordered
+// occurrence list (Kissat compacts the inspected prefix in place).
+struct CompactFastelPrefixRequest {
+  Lit lit = INVALID_LIT;
+  size_t prefix = 0;
+};
+inline bool execute_action(Kernel &k, const CompactFastelPrefixRequest &request) {
+  return subsume_forward_compact_fastel_prefix(k, request.lit, request.prefix);
+}
+
+// A slot boundary's retirement publication into guidance (H only).
+struct PublishRetirementsRequest {};
+inline void execute_action(Kernel &k, PublishRetirementsRequest) {
+  heuristics_consume_retirements(k);
+}
 
 inline bool execute_action(Kernel &k, BeginForwardRoundRequest) {
   const bool changed = !k.subsume_complete || !k.strengthen_complete;

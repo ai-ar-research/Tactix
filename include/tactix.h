@@ -360,6 +360,11 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
  * more than c levels below level-1 keeps the trail to level-1; otherwise it
  * backjumps to j. Every other payload is the v1 target level. */
 #define TACTIX_ANALYZE_TARGET_CHRONO (UINT64_C(1) << 63)
+/* SubsumeForward instance: the fast-elimination occurrence check of one clause
+ * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
+ * ordered Eliminate occurrence session. */
+#define TACTIX_SUBSUME_FORWARD_FASTEL (UINT64_C(1) << 63)
+#define TACTIX_SUBSUME_FORWARD_FASTEL_LIMIT_SHIFT 32
 
 /* Glue-tier retier schedule (additive). Registry ConflictAnalysis applies an
  * enabled installed schedule at every conflict an OTFS re-analysis counts:
@@ -1601,6 +1606,9 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_PROFILE_LEGACY 0
 #define TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1 1
 #define TACTIX_AFFINE_MATRIX_AUTHENTICATED_SUBIMAGE 1
+/* The startup root closure's non-persistent session over the complete live
+ * formula: INITIALIZE or SEARCH_STEP with zero persistence limits. */
+#define TACTIX_AFFINE_MATRIX_COMPLETE_SNAPSHOT 2
 #define TACTIX_AFFINE_MATRIX_INITIALIZE 1
 #define TACTIX_AFFINE_MATRIX_REFRESH 2
 #define TACTIX_AFFINE_MATRIX_ROOT_MAINTENANCE 3
@@ -1706,6 +1714,22 @@ int tactix_install_parameters(tactix *, int rule_id,
                               const tactix_online_parameters *parameters);
 int tactix_install_material_settings(tactix *, int touch_filter_mode,
                                      int likely_kept_redundant_mode);
+/* The AffineMatrixInitialize profile (admission, operation and persistence
+ * limits) installed permanently, as an online v16 step carries it; the next
+ * canonical AffineMatrixInitialize application runs that operation. Returns 0,
+ * or -1 for an invalid profile. */
+int tactix_install_affine_matrix_profile(
+    tactix *, const tactix_online_affine_matrix_initialize_parameters *);
+/* The typed result of the last public AffineMatrixInitialize application and
+ * the session state. Statuses are the native enumerators plus one (0: none). */
+typedef struct {
+  int initialization_status, initialization_result, unchanged;
+  uint64_t equations, rows, admitted_sources;
+  int service_status, service_result, bcp_pending;
+  int enabled, persistent;
+  uint64_t basis_rank;
+} tactix_affine_matrix_result;
+int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
 
 /* Support transactions (additive). The lifecycle, representation and
  * guidance transitions a native policy composes around rule applications,
@@ -1730,9 +1754,10 @@ int tactix_install_material_settings(tactix *, int touch_filter_mode,
  *                              state at a propagated root.
  *   COMPACT_RANDOM_ORDER       fold root-fixed variables of the random
  *                              branching order onto one representative (H).
- *   COMPACT_VARIABLES          COMPACT_* flags: compact variable storage,
- *                              optionally folding fixed variables and
- *                              republishing the random order.
+ *   COMPACT_VARIABLES          COMPACT_* flags: compact variable storage at
+ *                              any consistent state (also above the root, as
+ *                              Reduce does), optionally folding fixed variables
+ *                              and republishing the random order.
  *   REDUCTION_PREPARATION      Reduce's root preparation (flush pending root
  *                              units before collection).
  *   COLLECT_GARBAGE            COLLECT_* flags: arena collection at the root.
@@ -1800,6 +1825,26 @@ int tactix_install_material_settings(tactix *, int touch_filter_mode,
 #define TACTIX_PHASE_FACTOR_BOUND_SHIFT 32
 #define TACTIX_SUPPORT_BEGIN_FORWARD_ROUND 21
 #define TACTIX_SUPPORT_RESCHEDULE_BVE 22
+/* Release the affine search session (argument 0 releases its proof premise
+ * leases; AFFINE_MATRIX_RELEASE_DETACHED only clears it). Clauses it
+ * published stay ordinary clauses. */
+#define TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX 23
+#define TACTIX_AFFINE_MATRIX_RELEASE_DETACHED 1
+/* After a fast-elimination occurrence scan inside the Eliminate occurrence
+ * session: argument = DIMACS literal (low 32 bits) | scanned prefix length
+ * (high 32 bits); drop the prefix's dead entries of that literal's ordered
+ * occurrence list (garbage clauses, clauses without the literal, binaries
+ * with an unsatisfied retired partner). Representation only. */
+#define TACTIX_SUPPORT_COMPACT_FASTEL_PREFIX 24
+/* Retirement publication hold (guidance only): argument HOLD keeps retirement
+ * events queued through later publications (Kissat publishes a productive
+ * Sweep's union after the follow-up Substitute); RELEASE ends the hold and
+ * publishes the queued events under the session profile; RELEASE_ONLY ends it
+ * and leaves them for the next publication. */
+#define TACTIX_SUPPORT_HOLD_RETIREMENTS 25
+#define TACTIX_RETIREMENTS_RELEASE 0
+#define TACTIX_RETIREMENTS_HOLD 1
+#define TACTIX_RETIREMENTS_RELEASE_ONLY 2
 #define TACTIX_ROOT_PREPARATION_PROBING 1
 #define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
 #define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4

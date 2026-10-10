@@ -1178,9 +1178,14 @@ AffineMatrixInitResult affine_matrix_search_initialize(
 
 ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
   if (!kernel.affine_matrix_search_session) return ApplyResult::NoOp;
+  AffineMatrixSearchSession &session = *kernel.affine_matrix_search_session;
+  const auto initialized = [&](const AffineMatrixInitResult &result) {
+    session.last_initialization_ = result;
+    return result.result;
+  };
   if (!kernel.affine_matrix_initialize_parameters_active)
-    return affine_matrix_search_initialize(kernel, *kernel.affine_matrix_search_session,
-             kernel.affine_consequence_parameters).result;
+    return initialized(affine_matrix_search_initialize(kernel, session,
+                                                       kernel.affine_consequence_parameters));
   const auto &profile = kernel.affine_matrix_initialize_parameters;
   if (!profile.valid()) return ApplyResult::NoOp;
   const AffineMatrixPersistenceLimits limits{profile.maximum_retained_bytes,
@@ -1188,19 +1193,23 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
   using Operation = strategy::AffineMatrixInitializeParameters::Operation;
   switch (profile.operation) {
     case Operation::Initialize:
-      return affine_matrix_search_initialize(kernel, *kernel.affine_matrix_search_session,
-          profile.basis, AffineMatrixAdmission::AuthenticatedSubimage, limits).result;
+      return initialized(affine_matrix_search_initialize(kernel, session, profile.basis,
+          profile.admission == strategy::AffineMatrixInitializeParameters::Admission::CompleteSnapshot
+              ? AffineMatrixAdmission::CompleteSnapshot
+              : AffineMatrixAdmission::AuthenticatedSubimage,
+          limits));
     case Operation::Refresh:
     case Operation::RootMaintenance:
-      return affine_matrix_search_refresh(kernel, *kernel.affine_matrix_search_session,
-          profile.basis, limits, profile.operation == Operation::Refresh).result;
+      return initialized(affine_matrix_search_refresh(kernel, session, profile.basis, limits,
+                                                      profile.operation == Operation::Refresh));
     case Operation::SearchStep:
       if (kernel.affine_matrix_search_session->parameters_ != profile.basis ||
           kernel.affine_matrix_search_session->persistence_.maximum_retained_bytes != limits.maximum_retained_bytes ||
           kernel.affine_matrix_search_session->persistence_.maximum_deferred_deletions != limits.maximum_deferred_deletions ||
           kernel.affine_matrix_search_session->persistence_.maximum_deferred_literal_work != limits.maximum_deferred_literal_work)
         return ApplyResult::NoOp;
-      return affine_matrix_search_step(kernel, *kernel.affine_matrix_search_session).result;
+      session.last_service_ = affine_matrix_search_step(kernel, session);
+      return session.last_service_->result;
   }
   return ApplyResult::NoOp;
 }

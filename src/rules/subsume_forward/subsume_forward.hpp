@@ -46,6 +46,21 @@ ApplyResult subsume_forward_try(Kernel &, Ref candidate);
 ApplyResult subsume_forward_try_fastel(Kernel &, Ref candidate,
                                        uint32_t occurrence_limit,
                                        std::vector<uint8_t> &marks);
+// The same check as a public instance (TACTIX_SUBSUME_FORWARD_FASTEL): the tag
+// bit, the occurrence limit in bits 32..62 and the candidate's clause start in
+// bits 0..31. It applies only inside an ordered (Eliminate) occurrence session
+// and, like the native call, drains no root closure.
+constexpr uint64_t SUBSUME_FORWARD_FASTEL_INSTANCE = uint64_t{1} << 63;
+// After a fastel occurrence scan of `lit`, drop the inspected prefix's dead
+// entries in place (fastel.c): garbage clauses, clauses no longer containing
+// `lit` and binaries with an unsatisfied retired partner. Representation only.
+bool subsume_forward_compact_fastel_prefix(Kernel &, Lit lit, size_t prefix);
+constexpr uint32_t SUBSUME_FORWARD_FASTEL_LIMIT_SHIFT = 32;
+constexpr uint64_t subsume_forward_fastel_instance(Ref candidate, uint32_t occurrence_limit) {
+  return SUBSUME_FORWARD_FASTEL_INSTANCE |
+         (uint64_t{occurrence_limit & 0x7fffffffu} << SUBSUME_FORWARD_FASTEL_LIMIT_SHIFT) |
+         candidate;
+}
 
 // Canonical: the standalone diagnostic C1 round. The production fused
 // Strengthen pass owns Kissat forward.c's round-entry duplicate-binary sweep;

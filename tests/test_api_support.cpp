@@ -237,7 +237,7 @@ void test_rejections() {
   const auto trail = k.trail;
   const uint64_t epoch = k.strategy_epoch;
   assert(tactix_support(nullptr, TACTIX_SUPPORT_SPARSE_COLLECT, 0) == -1);
-  for (int unknown : {-1, 0, 23})
+  for (int unknown : {-1, 0, 26})
     assert(tactix_support(s, unknown, 0) == -1);
   assert(tactix_support(s, TACTIX_SUPPORT_ROOT_PREPARATION, 8) == -1);
   assert(tactix_support(s, TACTIX_SUPPORT_COMPACT_VARIABLES, 4) == -1);
@@ -255,11 +255,15 @@ void test_rejections() {
   assert(tactix_decide(s, lits[0]) == 0);
   const auto decided = k.trail;
   for (int support : {TACTIX_SUPPORT_SPARSE_COLLECT, TACTIX_SUPPORT_COMPACT_RANDOM_ORDER,
-                      TACTIX_SUPPORT_COMPACT_VARIABLES, TACTIX_SUPPORT_COLLECT_GARBAGE,
+                      TACTIX_SUPPORT_COLLECT_GARBAGE,
                       TACTIX_SUPPORT_FLUSH_RETIRED_REDUNDANT, TACTIX_SUPPORT_WARMUP,
                       TACTIX_SUPPORT_RESEED_GUIDANCE})
     assert(tactix_support(s, support, 0) == -1);
   assert(k.trail == decided && k.level == 1);
+  // Variable compaction also runs above the root, as Reduce compacts.
+  const int compacted = tactix_support(s, TACTIX_SUPPORT_COMPACT_VARIABLES, 0);
+  assert((compacted == 0 || compacted == 1) && k.level == 1);
+  if (compacted == 1) assert(k.trail == decided);
   tactix_release(s);
 }
 

@@ -18,11 +18,7 @@ using namespace action_map;
 // on top of Step 4b's public phase bracket and Step 6's public chrono
 // ConflictAnalysis (its ranked-trail arm is a declared diagnostic). Each later
 // step removes the entries it routes publicly.
-static const std::set<std::string> EXPECTED_INTERNAL = {
-    "propagate-search", "decide",
-    "conflict-analysis-ranked-trail", "propagate-root",
-    "affine-matrix-initialize", "affine-matrix-search", "slot-fastel-occurrence",
-    "install-affine-matrix-parameters", "support-warmup-installed-branching"};
+static const std::set<std::string> EXPECTED_INTERNAL = {};
 
 // Entries whose route a refactor step changes must be reached by the fixtures,
 // or their dispatch check would be vacuous.
@@ -160,7 +156,7 @@ int main(int argc, char **argv) {
   for (const Entry &entry : entries()) {
     assert(all.insert(entry.id).second); // entry ids are unique
     if (internal(entry.route)) internal_ids.insert(entry.id);
-    if (entry.route == Route::Declared) declared.insert(entry.id);
+    if (declared_route(entry.route)) declared.insert(entry.id);
     // A Support replay names its tactix_support transaction.
     assert((entry.replay == Replay::Support) == (entry.support != 0));
   }
@@ -169,7 +165,7 @@ int main(int argc, char **argv) {
     const auto found = tally.find(entry.id);
     const Tally t = found == tally.end() ? Tally{} : found->second;
     (internal(entry.route) ? internal_records
-     : entry.route == Route::Declared ? declared_records
+     : declared_route(entry.route) ? declared_records
                                       : public_records) += t.records;
     std::cout << route_name(entry.route) << ' '
               << (entry.boundary == Boundary::Interval ? "in" : "x ") << ' '

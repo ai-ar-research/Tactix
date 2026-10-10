@@ -140,6 +140,12 @@ public:
   // Persistent owners release leases only with an explicitly live Kernel.
   // The legacy clear is lifetime-safe even after the Kernel has gone away.
   void disable(Kernel &);
+  // The typed result of the last public AffineMatrixInitialize application
+  // (initialization/refresh or service step): its public observation.
+  const std::optional<AffineMatrixInitResult> &last_initialization() const {
+    return last_initialization_;
+  }
+  const std::optional<AffineMatrixServiceResult> &last_service() const { return last_service_; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   // True while the installed search session is still bound to the same
   // Kernel, provenance sink and proof stream.  Formula/search changes do not
@@ -247,6 +253,8 @@ private:
   uint64_t failed_next_clause_id_ = 0;
   strategy::AffineConsequenceParameters failed_parameters_;
   bool have_terminal_initialization_failure_ = false;
+  std::optional<AffineMatrixInitResult> last_initialization_;
+  std::optional<AffineMatrixServiceResult> last_service_;
 };
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &);

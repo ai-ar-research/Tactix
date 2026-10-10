@@ -1917,6 +1917,10 @@ struct Kernel {
   bool no_ext_reason_bump = false;
   std::vector<VarStatus> var_status;
   std::vector<Var> retired_events;
+  // Set only through TACTIX_SUPPORT_HOLD_RETIREMENTS: the guidance publisher
+  // leaves retirement events queued (Kissat's post-Sweep union waits for the
+  // follow-up Substitute). Native policies hold by not publishing.
+  bool retirement_publication_held = false;
   std::vector<Var> substituted_events;
   struct FreshVars {
     Var first = 0;
