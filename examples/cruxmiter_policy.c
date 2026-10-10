@@ -2,7 +2,7 @@
  *
  * TACO repeatedly selects KISSAT stable=2 and usually target=0 or phase=0 on
  * this family. This client translates that signal into always-stable EVSIDS
- * search, reluctant restarts, no target capture, and negative decisions.
+ * search, reluctant restarts, no target capture, and explicit phase variants.
  */
 #include "tactix.h"
 
@@ -15,7 +15,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum profile { PROFILE_SEARCH, PROFILE_GATE, PROFILE_BINARY, PROFILE_FULL };
+enum profile {
+  PROFILE_SEARCH,
+  PROFILE_POSITIVE,
+  PROFILE_SAVED,
+  PROFILE_GATE,
+  PROFILE_BINARY,
+  PROFILE_FULL
+};
 
 struct policy {
   tactix *solver;
@@ -42,6 +49,10 @@ static int rule_id(const char *name) {
 static int parse_profile(const char *text, enum profile *out) {
   if (!strcmp(text, "search"))
     *out = PROFILE_SEARCH;
+  else if (!strcmp(text, "positive"))
+    *out = PROFILE_POSITIVE;
+  else if (!strcmp(text, "saved"))
+    *out = PROFILE_SAVED;
   else if (!strcmp(text, "gate"))
     *out = PROFILE_GATE;
   else if (!strcmp(text, "binary"))
@@ -56,11 +67,25 @@ static int parse_profile(const char *text, enum profile *out) {
 static const char *profile_name(enum profile profile) {
   switch (profile) {
   case PROFILE_SEARCH: return "search";
+  case PROFILE_POSITIVE: return "positive";
+  case PROFILE_SAVED: return "saved";
   case PROFILE_GATE: return "gate";
   case PROFILE_BINARY: return "binary";
   case PROFILE_FULL: return "full";
   }
   return "invalid";
+}
+
+static const char *phase_name(enum profile profile) {
+  if (profile == PROFILE_SEARCH) return "negative";
+  if (profile == PROFILE_POSITIVE) return "positive";
+  if (profile == PROFILE_SAVED) return "saved";
+  return "default-policy";
+}
+
+static int manual_search(enum profile profile) {
+  return profile == PROFILE_SEARCH || profile == PROFILE_POSITIVE ||
+         profile == PROFILE_SAVED;
 }
 
 /* The benchmark files are plain DIMACS. Keep parsing in this external client
@@ -161,7 +186,7 @@ static int root_pipeline(struct policy *policy) {
   uint64_t applications = 0;
   unsigned round;
   int result = propagate(policy);
-  if (terminal(result) || result == 2 || policy->profile == PROFILE_SEARCH)
+  if (terminal(result) || result == 2 || manual_search(policy->profile))
     return result;
 
   /* Preserve circuit signatures: gate congruence publishes equivalences and
@@ -236,7 +261,7 @@ static int solve(struct policy *policy) {
    * by the shipped search policy.  This isolates the question under test—the
    * proof-rule order—while retaining the mature restart/rephase machinery.
    * PROFILE_SEARCH remains the direct stable=2,target=0,phase=0 translation. */
-  if (policy->profile != PROFILE_SEARCH)
+  if (!manual_search(policy->profile))
     return tactix_solve(policy->solver);
 
   /* Enter stable mode once, never switch back, and never capture a target
@@ -276,7 +301,7 @@ static int solve(struct policy *policy) {
           continue;
         }
       }
-      if (policy->profile != PROFILE_SEARCH &&
+      if (!manual_search(policy->profile) &&
           conflicts >= policy->inprocess_next) {
         if (tactix_stat(policy->solver, TACTIX_STAT_LEVEL)) {
           const int restarted =
@@ -297,7 +322,10 @@ static int solve(struct policy *policy) {
       int candidate;
       if (tactix_decide_candidates(policy->solver, &candidate, 1) != 1)
         return tactix_status(policy->solver);
-      candidate = candidate < 0 ? candidate : -candidate;
+      if (policy->profile == PROFILE_SEARCH)
+        candidate = candidate < 0 ? candidate : -candidate;
+      else if (policy->profile == PROFILE_POSITIVE)
+        candidate = candidate < 0 ? -candidate : candidate;
       if (tactix_decide(policy->solver, candidate)) return 0;
     }
   }
@@ -365,13 +393,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-      fprintf(stderr, "usage: %s [--profile=search|gate|binary|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|gate|binary|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
@@ -391,8 +419,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   printf("c cruxmiter-policy profile=%s "
-         "search=evsids/reluctant/negative target=off\n",
-         profile_name(profile));
+         "search=evsids/reluctant phase=%s target=off\n",
+         profile_name(profile), phase_name(profile));
   result = solve(&policy);
   printf("c conflicts %" PRIu64 "\n",
          tactix_stat(solver, TACTIX_STAT_CONFLICTS));

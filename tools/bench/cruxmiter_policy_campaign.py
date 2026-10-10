@@ -52,7 +52,8 @@ def instances(stage, development):
 def arms(stage, winner):
     if stage == "screen":
         return [("default", [DEFAULT], True, True, True)]
-    selected = ("search", "gate", "binary", "full") if stage == "tune" \
+    selected = ("search", "positive", "saved", "gate", "binary", "full") \
+        if stage == "tune" \
         else (winner,)
     result = [("default", [DEFAULT], True, True, True)]
     for profile in selected:
@@ -67,7 +68,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("stage", choices=("screen", "tune", "target"))
     parser.add_argument("--development", default="cruxmiter20seed4.cnf")
-    parser.add_argument("--winner", choices=("search", "gate", "binary", "full"),
+    parser.add_argument("--winner", choices=("search", "positive", "saved",
+                                             "gate", "binary", "full"),
                         default="gate")
     parser.add_argument("--partition", default="cpu-dense-hwulab-q")
     parser.add_argument("--timeout", type=float, default=1200.0)
