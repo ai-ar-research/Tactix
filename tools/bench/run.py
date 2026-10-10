@@ -65,6 +65,7 @@ import re
 import resource
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1042,6 +1043,19 @@ def slurm_run_one(outdir, idx):
     t = man["tasks"][idx]
     s = man["solvers"][t["solver"]]
     workdir = tempfile.mkdtemp(prefix="bench-")  # $TMPDIR: node-local
+    previous_handlers = {}
+
+    def cleanup_on_signal(signum, _frame):
+        # Proofs and checker expansions live only in this exact mkdtemp
+        # namespace. SLURM sends TERM before the hard wall limit (see the
+        # generated script), so timed-out/cancelled tasks erase them before
+        # exiting instead of leaving multi-GB files in node scratch.
+        shutil.rmtree(workdir, ignore_errors=True)
+        raise SystemExit(128 + signum)
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        previous_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, cleanup_on_signal)
     try:
         res = run_instance(s["cmd"], t["rel"], t["staged"], t["expected"],
                            man["timeout"], s["check_proofs"], workdir,
@@ -1051,6 +1065,8 @@ def slurm_run_one(outdir, idx):
                            s.get("verify_proofs", True))
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
     res["node"] = os.environ.get("SLURMD_NODENAME")
     resdir = os.path.join(outdir, "results")
     os.makedirs(resdir, exist_ok=True)
@@ -1261,6 +1277,11 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
                      "physical_cores": physical_cores,
                      "memory_gib": mem_gb, "throttle": args.throttle},
            "dsr_checkers": dsr_checker_pins(),
+           "proof_cleanup": {
+               "storage": "task-local-mkdtemp",
+               "normal_timeout": "run-instance-unlink-and-rmtree",
+               "slurm_timeout_or_cancel": "TERM-handler-rmtree",
+           },
            "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k,
                         "verify_proofs": v,
                         "score_proofs": sc}
@@ -1286,6 +1307,7 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task={cpus}
 #SBATCH --mem={mem_gb}G
 #SBATCH --time={tlimit}
+#SBATCH --signal=B:TERM@60
 #SBATCH --array={array}
 #SBATCH --output={outdir}/logs/task-%a.log
 exec {sys.executable} {me} --run-one {outdir} \
