@@ -2,6 +2,13 @@
 
 ## Current stage
 
+**Cruxmiter policy experiment (2026-10-10):** the public `backbone` profile
+(`Congruence -> Substitute -> Backbone(512) -> DefaultPolicy`) improved the
+proof-checked size-20 seed-4 development run from 2.553 s to 2.085 s (1.22x),
+but both it and DefaultPolicy timed out at 1,200 s on the locked
+`cruxmiter32seed4` target.  Do not claim target improvement; see the
+[experiment report](benchmarks/reports/2026-10-10-cruxmiter-policy/README.md).
+
 **Committed candidate: c2.4 = `3361d3b51`** (branch `candidate-c2.4`, Release `57bdd51c…`; user
 decision 2026-10-09; [gates](benchmarks/reports/2026-10-09-candidate-c2.4-gates/README.md)): c2.3
 plus API-gap Steps 1–4a and the [restart-only retained services](benchmarks/reports/2026-10-09-restart-only-services/README.md).
