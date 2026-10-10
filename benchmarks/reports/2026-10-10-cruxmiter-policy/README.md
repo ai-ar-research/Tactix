@@ -1,5 +1,76 @@
 # Cruxmiter public-policy experiment
 
+## Dedicated size-32 seed-7 follow-up
+
+The later seed-7-only search produced a substantially faster public-API
+policy.  On `cruxmiter32seed7.cnf` (SHA-256
+`042bfac2783188c773ea8e2d26952a36f512ad3a7bd6821e92b128a0f40a0457`) it
+solves UNSAT in **42.328 s** and its 101,573,080-byte binary DRAT certificate
+is independently verified in 63.995 s.  The earlier checked references are
+177.189 s for stock Tactix and 115.931 s for Kissat 4.0.4, making the policy
+4.19x faster than stock Tactix and 2.74x faster than Kissat.  This is the best
+checked crux result from the experiment, but it does not meet the requested 5x
+speedup against the faster baseline.
+
+The selected order and schedule are:
+
+1. `Propagate`;
+2. two bounded `Congruence(4) -> Substitute(24)` rounds;
+3. one bounded `Backbone` closure, propagating every productive application;
+4. DefaultPolicy in forced stable mode, with Reorder, BVE, and conflict-clause
+   reuse disabled;
+5. recurrent Vivify at 200 per mille, with Factor, Sweep, and repeated
+   Backbone disabled after the dedicated startup pass.
+
+This is policy composition only.  It includes `tactix.h`, uses registered rule
+and support calls, and does not change a rule or the kernel.
+
+The choices come from the seed-7 CNF and trace rather than a blind option
+cross-product.  Variables 1--32 are primary inputs, variables 33--527 are 495
+topologically ordered signed two-input AND gates, and variables 528--570 form
+the comparison tail.  The winning trace had 3,156,364 conflicts.  Vivify was
+productive in all 37 scheduled passes and dominated inprocessing work;
+Substitute retired 51 variables, while later Sweep and Factor calls made no
+progress and repeated Backbone was productive only once.  Reorder and BVE
+destroyed useful gate/import structure, which explains why disabling them was
+beneficial.  Stable decision phases were mixed (about 57% negative), so a
+global phase-zero policy lost despite the broader CNC+TACO observation.
+
+Direct controls confirmed that point.  Kissat with the exact
+`stable=2,target=0,phase=0` tuple timed out at 120 s on seed 7, while
+`stable=2,target=1,phase=0` took 41.077 s.  A bounded public
+`stable=2,target=0,phase=0` learning prefix before DefaultPolicy took 74.953 s
+at best.  Deep typed Sweep, exact BDD-guided input orders, random import
+orders, and explicit BVE of the miter tail all lost to the selected policy.
+An external exact BDD analysis did reduce the full miter to false in about
+0.3 s and 219k nodes, but the public rule set has no proof-producing BDD
+action; replaying its hundreds of pivots through separate public BVE sessions
+cost more than CDCL.
+
+The policy transferred across the smaller seed-7 ladder without tuning.  For
+sizes 27--31 it solved in 34.050, 136.051, 113.718, 144.118, and 85.150 s.
+Stock Tactix took 99.202, 97.065, 218.337, and timed out twice at 240 s;
+Kissat took 35.969, 142.310, 177.581, timed out at size 30, and took 114.968 s
+at size 31.  This establishes useful transfer, though the maximum advantage
+over the faster available baseline is only 1.56x.
+
+Primary follow-up artifacts are:
+
+- policy source: `examples/cruxmiter_policy.c`;
+- campaign harness: `tools/bench/cruxmiter_seed7_search.py`;
+- selected-policy verification:
+  `benchmarks/runs/20261010-140841-crux-seed7-verify/`;
+- smaller seed-7 transfer:
+  `benchmarks/runs/20261010-140425-crux-seed7-screen/`;
+- complete decision/inprocessing trace:
+  `benchmarks/runs/20261010-crux-seed7-rbc-trace/`.
+
+All follow-up jobs used `cpu-dense-hwulab-q`, four logical CPUs, and 16 GiB.
+Screen proofs were written for timing parity and removed without being called
+verified.  The selected final candidate was rerun with independent proof
+checking.  Proofs and checker expansions lived in task-local temporary
+directories with normal, timeout, SIGTERM, and SIGINT cleanup.
+
 ## Outcome
 
 This experiment produced a proof-checked public-API policy that improves the
