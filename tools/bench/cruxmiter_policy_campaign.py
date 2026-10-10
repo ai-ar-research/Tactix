@@ -18,8 +18,8 @@ import run
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CRUX = os.path.join(ROOT, "cruxmiter")
-PIN = os.path.join(ROOT, "build", "pin-cruxmiter-0133115c7")
-PIN_SOURCE_COMMIT = "0133115c7"
+PIN = os.path.join(ROOT, "build", "pin-cruxmiter-255f5ade0")
+PIN_SOURCE_COMMIT = "255f5ade0"
 DEFAULT = os.path.join(PIN, "tactix")
 POLICY = os.path.join(PIN, "examples", "tactix-cruxmiter-policy")
 
