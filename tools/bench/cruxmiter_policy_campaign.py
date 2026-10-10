@@ -53,7 +53,8 @@ def arms(stage, winner):
     if stage == "screen":
         return [("default", [DEFAULT], True, True, True)]
     selected = ("search", "positive", "saved", "gate", "binary",
-                "backbone", "sweep", "full") \
+                "backbone", "backbone-first", "backbone-close",
+                "backbone-heavy", "sweep", "full") \
         if stage == "tune" \
         else (winner,)
     result = [("default", [DEFAULT], True, True, True)]
@@ -71,7 +72,8 @@ def main():
     parser.add_argument("--development", default="cruxmiter20seed4.cnf")
     parser.add_argument("--winner", choices=("search", "positive", "saved",
                                              "gate", "binary", "backbone",
-                                             "sweep", "full"),
+                                             "backbone-first", "backbone-close",
+                                             "backbone-heavy", "sweep", "full"),
                         default="gate")
     parser.add_argument("--partition", default="cpu-dense-hwulab-q")
     parser.add_argument("--timeout", type=float, default=1200.0)

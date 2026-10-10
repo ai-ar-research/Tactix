@@ -22,6 +22,9 @@ enum profile {
   PROFILE_GATE,
   PROFILE_BINARY,
   PROFILE_BACKBONE,
+  PROFILE_BACKBONE_FIRST,
+  PROFILE_BACKBONE_CLOSE,
+  PROFILE_BACKBONE_HEAVY,
   PROFILE_SWEEP,
   PROFILE_FULL
 };
@@ -61,6 +64,12 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_BINARY;
   else if (!strcmp(text, "backbone"))
     *out = PROFILE_BACKBONE;
+  else if (!strcmp(text, "backbone-first"))
+    *out = PROFILE_BACKBONE_FIRST;
+  else if (!strcmp(text, "backbone-close"))
+    *out = PROFILE_BACKBONE_CLOSE;
+  else if (!strcmp(text, "backbone-heavy"))
+    *out = PROFILE_BACKBONE_HEAVY;
   else if (!strcmp(text, "sweep"))
     *out = PROFILE_SWEEP;
   else if (!strcmp(text, "full"))
@@ -78,6 +87,9 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_GATE: return "gate";
   case PROFILE_BINARY: return "binary";
   case PROFILE_BACKBONE: return "backbone";
+  case PROFILE_BACKBONE_FIRST: return "backbone-first";
+  case PROFILE_BACKBONE_CLOSE: return "backbone-close";
+  case PROFILE_BACKBONE_HEAVY: return "backbone-heavy";
   case PROFILE_SWEEP: return "sweep";
   case PROFILE_FULL: return "full";
   }
@@ -197,6 +209,9 @@ static int root_pipeline(struct policy *policy) {
   if (terminal(result) || result == 2 || manual_search(policy->profile))
     return result;
 
+  if (policy->profile == PROFILE_BACKBONE_FIRST)
+    return dose_rule(policy, policy->backbone, 512, &applications);
+
   /* Preserve circuit signatures: gate congruence publishes equivalences and
    * Substitute then collapses the whole CNF.  The doses mirror the useful
    * counts observed in DefaultPolicy's size-20 trace. */
@@ -211,6 +226,18 @@ static int root_pipeline(struct policy *policy) {
   if (policy->profile == PROFILE_GATE) return 1;
 
   if (policy->profile == PROFILE_BACKBONE) {
+    result = dose_rule(policy, policy->backbone, 512, &applications);
+    if (terminal(result) || result == 2) return result;
+    return 1;
+  }
+
+  if (policy->profile == PROFILE_BACKBONE_HEAVY) {
+    result = dose_rule(policy, policy->backbone, 1024, &applications);
+    if (terminal(result) || result == 2) return result;
+    return 1;
+  }
+
+  if (policy->profile == PROFILE_BACKBONE_CLOSE) {
     result = dose_rule(policy, policy->backbone, 512, &applications);
     if (terminal(result) || result == 2) return result;
     result = dose_rule(policy, policy->congruence, 4, &applications);
@@ -422,13 +449,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|sweep|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|sweep|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|sweep|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|sweep|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
