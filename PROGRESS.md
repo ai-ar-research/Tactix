@@ -109,7 +109,9 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    policy-side scopes around public requests are now port types that PublicPort establishes through
    `tactix.h` only (additive `tactix_install_work_settings`/`tactix_read_work_settings`,
    `tactix_install_tick_attribution`, in the new `src/api/api_work.cpp`); every existing production
-   object is byte-identical to the `4ee060d8…` build. Next: the §8.4 four-set gates for Steps 4b–7.
+   object is byte-identical to the `4ee060d8…` build. On `50c619192` (Release `d540ef32…`) the 12
+   identity rows are ALL-IDENTICAL and full Debug passes 361/361. Next: the §8.4 four-set gates for
+   Steps 4b–7.
 
 ## Live work
 

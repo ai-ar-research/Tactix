@@ -10,7 +10,9 @@ and 5 (`123cf44fb`). The identity baseline is c2.4 = `3361d3b51` (Release `57bdd
 | | Commit | Notes |
 |---|---|---|
 | Step 7 code | `d56c7f9bc` | Release `4ee060d8…` (`build/pin-apigap-s7-rel`, from the archive) |
-| Evidence | this record | identity, full Debug and overhead on `d56c7f9bc` |
+| Evidence | `1c677c97d` | identity, full Debug and overhead on `d56c7f9bc` |
+| Scope closure | `50c619192` | Release `d540ef32…` (`build/pin-apigap-s7-scopes2-rel`, from the archive) |
+| Scope evidence | this record | object identity vs `4ee060d8…`, identity and full Debug on `50c619192` |
 
 Development ran in extracted copies (`benchmarks/runs/20261010-apigap-s7-source`): an overlay of
 new files plus scripted edits (`apply_step7.sh`) rebased onto `1caa7af83`/`daffc2623` (4b),
@@ -163,8 +165,9 @@ counters and checked certificates through `runtime_task.py`. Ratio = static / ha
 | **Step 7 commit** (`20261010-apigap-s7-overhead-final`, pins `4ee060d8…` / `95d3ebc6…`) | 67 (67) | 0.9985 / 1.0008 / 1.0610 | 0.9842 / 1.0040 | 0.9828 |
 
 The overhead is within the ≤5% bound. On the commit every one of the 67 instances has identical
-certificates between the arms. The largest per-instance instruction ratio is +6.1% on a 4–5 s
-row, `hwmcc17miters-xits-iso-oski15a08b00s`. The Step 5 rise is BVE candidates and fastel
+certificates between the arms. One row stands out: `hwmcc17miters-xits-iso-oski15a08b00s`, a 4–5 s
+row, is +6.1% instructions on its own (ratio 1.0610), while the aggregate over all 67 rows is
+−0.15% (0.9985). The Step 5 rise is BVE candidates and fastel
 instances, which now go through registry dispatch accounting.
 
 ## Byte identity (12 rows × 3 arms)
@@ -217,13 +220,67 @@ Reclassified Public by this step:
 Declared: `materialize-cold-state` and `attach-heuristics` (non-actions); the injected
 FactorMatchPolicy, installed-branching warm-up and ranked-trail arms (diagnostics).
 
+## Scope closure (`50c619192`)
+
+DefaultPolicy holds a scope around some of its public requests. Before this commit those scopes wrote
+kernel state directly in every binary, PublicPort's included. They are now port types
+(`port::ScopedReduceParameters`, `BveInvocationSession`, `WorkSettingsScope`,
+`ScopedRuleWorkBudget`, `VivifyDoseScope` and `TickSinkScope`). `default_policy.cpp` changes
+names only, on the same lines, and production binds the same types with using-declarations.
+PublicPort establishes each scope through `tactix.h` alone.
+
+| Scope | Encloses | PublicPort's public form |
+|---|---|---|
+| Reduce tier, victim and compact profile | Reduce dispatch | `tactix_install_parameters` (Reduce), restored the same way |
+| BVE pass profile (`BveInvocationSession`) | score-heap BVE candidates | `tactix_install_parameters` (BVE) for the session's lifetime; the new `CallerPosed` constructor validates without posing |
+| Work settings: budgeted batch (Sweep, Substitute, SubsumeForward midround, …), BVE candidate residual | the batch or candidate dispatch | `tactix_install_work_settings`, restore value from `tactix_read_work_settings` |
+| Rule work budget (graph-labeling slice) | Lucky 27 | the same calls, with the online step's rule-budget wires |
+| Vivify dose and bands | Vivify bands | the same calls plus `tactix_set_vivify_scope` |
+| Tick sink (Probe, HBR, Backbone, Vivify, Instantiate currencies) | the metered dispatch | `tactix_install_tick_attribution` |
+
+The work-settings and tick-attribution entries are additive. They live in a translation unit of
+their own (`src/api/api_work.cpp`), and neither entry bumps the strategy epoch, as with
+`tactix_install_material_settings`. A typed profile's restore value is read from the session's
+kernel, because no typed readback exists; every write goes through a public call. The Vivify band
+form is compiled and type-checked, but no fixture reaches a Vivify band.
+
+**Twin and tests on `50c619192`.** The twin is `correspondence: COMPLETE` on 19 fixtures with 0
+mismatches, 0 fallbacks and 0 declined, over 7,248 public requests. The 314 added since
+`d56c7f9bc` are:
+- 142 tick-attribution installs;
+- 18 work-settings installs and 14 reads;
+- 140 typed installs for the Reduce and BVE scopes.
+
+Replay (5,462 of 6,366 records), `test_api_support` (with a work-settings and tick-attribution
+case) and the ratchet (51/0/5) pass.
+
+**Object identity against the `4ee060d8…` build** (`build/pin-apigap-s7-rel`, read-only), both
+built from archives with the same flags:
+
+- All 152 existing production objects are byte-identical, including `default_policy.cpp.o` and
+  `api.cpp.o`: 151 `tactix_lib` objects plus `main.cpp.o`. The single new object is `api_work.cpp.o`.
+- The binary's hash changes (`d540ef32…`; hardcoded twin `2c079d6a…`), because the new object's
+  code is inserted into `.text` and shifts the layout behind it by 0x200 bytes.
+- Every pre-existing symbol keeps its size. Disassembly of `.text` with addresses and RIP
+  displacements normalized differs only by the three new functions (148 lines, one block).
+- So the §8.4 gates measured on `4ee060d8…` run the same machine code as the final binary.
+- A first attempt defined the entries in `api.cpp`. That changed `api.cpp.o`'s code generation,
+  including the weak `AffineMatrixSearchSession::disable` copy the linker kept, which DefaultPolicy
+  reaches. Moving the entries out removed the change.
+
+**Identity and full Debug on `50c619192`:** campaign
+`benchmarks/runs/20261010-apigap-s7-scopes2-identity` (job 1764443) was cloned from the Step 7
+identity campaign onto `d540ef32…`. All 12 rows × 3 arms (c2.4, the closure, the closure with
+affine search on) are ALL-IDENTICAL in verdict, conflicts, decisions and certificate SHA-256 (the
+same values as the table above), and every certificate or model is valid. Full Debug
+(`tools/bench/full_debug_archive_campaign.py` on the archived source of `50c619192`,
+`benchmarks/runs/20261010-apigap-s7-scopes2-full-debug`, job 1764455): **361/361 passed**; the
+archive was verified after the run and the Debug build tree deleted.
+
 ## What remains
 
-Nothing blocks the correspondence on the fixtures. Three items remain outside the claim:
+Nothing blocks the correspondence on the fixtures. Two items remain outside the claim:
 
 - the declared diagnostic arms;
-- the policy-side scopes around public requests: Reduce tiers, the graph-labeling, Sweep and
-  Substitute work budgets, and the BVE pass parameters. The twin runs them in place; a client
-  installs them explicitly;
 - the H comparison's sensitivity to the retirement hold. On these fixtures it is not shown to be
   necessary: the twin matched before the hold existed.
