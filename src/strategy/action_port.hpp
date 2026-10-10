@@ -4,8 +4,10 @@
 // configuration and action port; plan §5.6, §8.4). default_policy.cpp leaves
 // its translation unit only through `port::` funnels: execute_action,
 // complete_action, apply_rule*, propagate_apply, InprocessPhase,
-// affine_matrix_search_*, subsume_forward_try_fastel, bve_apply_one and
-// execute_substitute_rounds. Production binds them to the registered functions
+// affine_matrix_search_*, subsume_forward_try_fastel, bve_apply_one,
+// execute_substitute_rounds, and the scopes it holds around requests
+// (TickSinkScope, WorkSettingsScope, ScopedRuleWorkBudget, VivifyDoseScope,
+// ScopedReduceParameters, BveInvocationSession). Production binds them to the registered functions
 // themselves (StaticPort, no forwarding layer). A twin translation unit defines
 // TACTIX_DEFAULT_POLICY_PUBLIC_PORT (PublicPort, tests/default_public_port.hpp)
 // or TACTIX_DEFAULT_POLICY_HARDCODED_PORT (HardcodedPort) before including
@@ -21,6 +23,9 @@
 #include "strategy/phase_execution.hpp"
 #include "strategy/policy_completion.hpp"
 #include "strategy/semantic_variable_advice.hpp"
+#include "strategy/rule_parameters.hpp"
+#include "strategy/vivify_execution.hpp"
+#include "strategy/work_execution.hpp"
 
 #include <concepts>
 #include <functional>
@@ -214,7 +219,13 @@ decltype(auto) complete_action(Args &&...args) {
 }
 #if defined(TACTIX_DEFAULT_POLICY_HARDCODED_PORT)
 using InprocessPhase = HardcodedPort::Phase;
-#endif // the public port declares port::InprocessPhase with PublicPort
+using execution::TickSinkScope;
+using execution::WorkSettingsScope;
+using execution::VivifyDoseScope;
+using strategy::ScopedRuleWorkBudget;
+using strategy::ScopedReduceParameters;
+using strategy::BveInvocationSession;
+#endif // the public port declares port::InprocessPhase and the scopes
 #else
 using ::tactix::apply_rule;
 using ::tactix::apply_rule_instance;
@@ -239,6 +250,12 @@ inline void affine_matrix_search_release(AffineMatrixSearchSession &session, Ker
 using execution::complete_action;
 using execution::execute_action;
 using execution::InprocessPhase;
+using execution::TickSinkScope;
+using execution::WorkSettingsScope;
+using execution::VivifyDoseScope;
+using strategy::ScopedRuleWorkBudget;
+using strategy::ScopedReduceParameters;
+using strategy::BveInvocationSession;
 #endif
 
 } // namespace tactix::port

@@ -105,8 +105,11 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    overhead harness (`tools/bench/port_overhead.py`) measures +0.2% instructions on 66–67
    Rank1–50/B28+C5 rows. On `d56c7f9bc` (Release `4ee060d8…`) DefaultPolicy is byte-identical to
    c2.4 on 12 identity rows (three arms), full Debug passes 361/361 and
-   the overhead is −0.15% instructions aggregate on 67 rows (identical certificates). Next: the
-   §8.4 four-set gates for Steps 4b–7.
+   the overhead is −0.15% instructions aggregate on 67 rows (identical certificates). The
+   policy-side scopes around public requests are now port types that PublicPort establishes through
+   `tactix.h` only (additive `tactix_install_work_settings`/`tactix_read_work_settings`,
+   `tactix_install_tick_attribution`, in the new `src/api/api_work.cpp`); every existing production
+   object is byte-identical to the `4ee060d8…` build. Next: the §8.4 four-set gates for Steps 4b–7.
 
 ## Live work
 

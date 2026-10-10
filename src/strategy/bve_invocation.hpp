@@ -325,6 +325,16 @@ public:
     if (valid_)
       posed_.emplace(k_, parameters);
   }
+  // The caller has posed `parameters` itself (an action port's public install);
+  // the session validates them and leaves the Kernel ABI to the caller.
+  struct CallerPosed {};
+  BveInvocationSession(CallerPosed, const RuleVTable &rule, Kernel &k,
+                       const BveParameters &parameters, InvocationBudget &budget)
+      : rule_(rule), k_(k), budget_(budget), configuration_revision_(0) {
+    valid_ = !std::strcmp(rule_.name, "BVE") && rule_.apply_instance &&
+             rule_.kind == ActionKind::ProofRule && parameters.valid() &&
+             budget_.unit() == WorkUnit::BveTicks;
+  }
   BveInvocationSession(const BveInvocationSession &) = delete;
   BveInvocationSession &operator=(const BveInvocationSession &) = delete;
   ~BveInvocationSession() { finish_ordering(); }

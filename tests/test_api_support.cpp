@@ -408,6 +408,32 @@ void test_complete_sr_profile() {
 
 } // namespace
 
+void test_work_settings() {
+  tactix_c_handle *s = load();
+  Kernel &k = kernel(s);
+  const uint64_t epoch = k.strategy_epoch;
+  tactix_work_settings w{};
+  assert(tactix_read_work_settings(s, &w) == 0 && w.fields == 15u);
+  assert(w.budget == k.work_budget && w.offset == k.work_budget_offset);
+  tactix_work_settings in{TACTIX_WORK_BUDGET | TACTIX_WORK_MIDROUND, 77, 5, 1, 1};
+  assert(tactix_install_work_settings(s, &in) == 0);
+  assert(k.work_budget == 77 && k.midround_budget && k.work_budget_offset == w.offset &&
+         k.work_budget_bounded == (w.bounded != 0));
+  in.fields = 16u;
+  assert(tactix_install_work_settings(s, &in) == -1 && k.work_budget == 77);
+  assert(tactix_install_work_settings(s, nullptr) == -1);
+  in = {TACTIX_WORK_OFFSET | TACTIX_WORK_BOUNDED, 0, 3, 1, 0};
+  assert(tactix_install_work_settings(s, &in) == 0);
+  assert(k.work_budget_offset == 3 && k.work_budget_bounded && k.work_budget == 77);
+  assert(tactix_install_tick_attribution(s, TACTIX_STAT_VIVIFY_TICKS) == 0 &&
+         k.tick_sink == &k.stats.vivify_ticks);
+  assert(tactix_install_tick_attribution(s, TACTIX_STAT_FACTOR_TICKS) == -1 &&
+         k.tick_sink == &k.stats.vivify_ticks);
+  assert(tactix_install_tick_attribution(s, TACTIX_TICK_ATTRIBUTION_NONE) == 0 && !k.tick_sink);
+  assert(k.strategy_epoch == epoch);
+  tactix_release(s);
+}
+
 int main() {
   test_twins();
   test_contexts();
@@ -415,5 +441,6 @@ int main() {
   test_reseed();
   test_phase_bracket();
   test_complete_sr_profile();
+  test_work_settings();
   return 0;
 }

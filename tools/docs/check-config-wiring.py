@@ -99,7 +99,7 @@ POLICY_BINDINGS = {
         (WORK_EXECUTION, r"k\.work_budget_offset\s*=\s*\*request\.offset"),
     ],
     "work_budget_bounded": [
-        (POLICY[0], r"execution::VivifyDoseScope dose\(k\)"),
+        (POLICY[0], r"port::VivifyDoseScope dose\(k\)"),
         (VIVIFY_EXECUTION, r"work_\(k, \{k\.work_budget, k\.work_budget_offset, true,"),
         (WORK_EXECUTION, r"k\.work_budget_bounded\s*=\s*\*request\.bounded"),
     ],

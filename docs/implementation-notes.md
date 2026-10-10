@@ -428,9 +428,10 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
 - DefaultPolicy's actions leave through one action port (`src/strategy/action_port.hpp`;
   [controller interface](controller-interface.md)); `test_default_public_correspondence` issues the public requests with
   identical results. Declared diagnostics outside that claim (ratchet `Declared`/`Diagnostic`): an injected FactorMatchPolicy,
-  a warm-up picked by a caller-installed branching policy and the ranked-trail analysis target. Policy-side scopes around
-  public requests (Reduce tiers, the graph-labeling, Sweep and Substitute work budgets, the BVE pass parameters) are installed
-  by a client explicitly; the twin test runs them in place.
+  a warm-up picked by a caller-installed branching policy and the ranked-trail analysis target. The policy-side scopes around
+  public requests (Reduce and BVE pass profiles, work budgets, the Vivify band scope, tick attribution) are port types too;
+  PublicPort establishes them through `tactix_install_parameters`, `tactix_install_work_settings`,
+  `tactix_set_vivify_scope` and `tactix_install_tick_attribution`.
 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime
 review](../benchmarks/reports/2026-09-07-runtime-review.md); the pre-compaction text is recoverable from Git commit `96e894c`.
