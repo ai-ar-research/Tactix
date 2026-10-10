@@ -169,7 +169,8 @@ public:
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
-  void retier(const Kernel &, uint32_t mode, const uint64_t *used_glue);
+  void retier(const Kernel &, const RetierSchedule &, uint32_t mode,
+              const uint64_t *used_glue);
   void reduction(const Kernel &, const std::vector<Ref> &, size_t victims);
 
 private:
@@ -353,7 +354,8 @@ public:
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
-  void retier(const Kernel &, uint32_t, const uint64_t *) {}
+  void retier(const Kernel &, const RetierSchedule &, uint32_t,
+              const uint64_t *) {}
   void reduction(const Kernel &, const std::vector<Ref> &, size_t) {}
 };
 #endif
@@ -385,7 +387,7 @@ void event_trace_clause_glue(const Kernel &, const char *source,
                              const Clause *, uint32_t old_glue,
                              uint32_t new_glue);
 void event_trace_clause_used(const Kernel &, const Clause *, uint32_t mode);
-void event_trace_retier(const Kernel &, uint32_t mode,
+void event_trace_retier(const Kernel &, const RetierSchedule &, uint32_t mode,
                         const uint64_t *used_glue);
 void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                           const std::vector<uint8_t> &, uint8_t bump_mask);
@@ -558,7 +560,8 @@ inline void event_trace_learned_stage(const Kernel &, const char *,
 inline void event_trace_clause_glue(const Kernel &, const char *,
                                     const Clause *, uint32_t, uint32_t) {}
 inline void event_trace_clause_used(const Kernel &, const Clause *, uint32_t) {}
-inline void event_trace_retier(const Kernel &, uint32_t, const uint64_t *) {}
+inline void event_trace_retier(const Kernel &, const RetierSchedule &,
+                               uint32_t, const uint64_t *) {}
 inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                                  const std::vector<uint8_t> &, uint8_t) {}
 inline void event_trace_analyzed_post(const Kernel &,

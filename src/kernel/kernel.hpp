@@ -1457,18 +1457,25 @@ struct ProbingLog {
 
 enum class VarStatus : uint8_t { Active = 0, Substituted, Eliminated };
 
-// Analyze is atomic at the rule boundary, but Kissat updates a policy clock
-// between OTFS re-analysis rounds. Preserve the exact observation made at
-// that internal boundary so DefaultPolicy can consume it after the rule
-// returns without moving strategy logic into the proof rule.
-struct AnalysisConflictCheckpoint {
-  uint64_t conflicts = 0;
-  uint32_t mode = 0;
-  uint64_t used_glue[Stats::MAX_GLUE_USED + 1] = {};
+// Glue-tier retier schedule (kissat tiers.c; deadline tested in analyze.c on
+// each OTFS re-analysis conflict). ConflictAnalysis applies it at that
+// internal boundary and Reduce's retier recomputes one mode's snapshot from
+// it; neither changes F, R or the proof. Callers own it: a native request
+// carries it by value and receives the updated copy, a public session
+// installs it into `Kernel::retier_schedule` (docs/calculus.md §3 M3).
+struct RetierSchedule {
+  bool enabled = false;
+  uint64_t next_conflicts = 0, interval = 0, max_interval = 0;
+  uint32_t growth = 1;
+  uint32_t tier1_default = 2, tier2_default = 6;
+  uint32_t tier1_relative_permille = 500, tier2_relative_permille = 900;
+  // Kissat's separate focused (0) and stable (1) tier snapshots.
+  uint32_t tier1_by_mode[2] = {2, 2};
+  uint32_t tier2_by_mode[2] = {6, 6};
+  bool operator==(const RetierSchedule &) const = default;
 };
 
 struct Kernel;
-using AnalysisConflictHook = void (*)(Kernel &, void *);
 // Policy-only observer for Kissat's mutable BVE schedule. Clause mutations
 // remain kernel operations; while a BVE dose owns a live heap it installs this
 // non-owning hook so each affected variable is rescored at the same mutation
@@ -1667,9 +1674,6 @@ struct Kernel {
   // not shrink in place.  The old reason stays valid until Backjump unassigns
   // its propagated literal, then is retired before the fused rule returns.
   std::vector<Ref> otfs_retired;
-  std::vector<AnalysisConflictCheckpoint> analysis_conflict_checkpoints;
-  AnalysisConflictHook analysis_conflict_hook = nullptr;
-  void *analysis_conflict_hook_state = nullptr;
   // Policy observation after the final learned clause has joined the formula
   // and while the analyzed set still names that conflict's variables.
   std::vector<Var> radix_scratch;   // radix-sort double buffer
@@ -2067,10 +2071,10 @@ struct Kernel {
       strategy::OnehotModelParameters::REFUTATION_MAXIMUM_ARITY_DEFAULT;
   uint64_t exact_one_refutation_maximum_proof_additions =
       strategy::OnehotModelParameters::REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
-  // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
+  // The retier schedule a public session installed; registry ConflictAnalysis
+  // applies it when enabled. Native requests carry their own.
+  RetierSchedule retier_schedule;
   // `tier1/tier2` is the pair posed for the rule currently being applied.
-  uint32_t tier1_by_mode[2] = {2, 2};
-  uint32_t tier2_by_mode[2] = {6, 6};
   uint32_t tier1 = 2, tier2 = 6;
   uint32_t reduce_victim_numerator =
       strategy::ReduceParameters::VICTIM_NUMERATOR_DEFAULT;
@@ -3008,27 +3012,6 @@ struct KernelStopPublisher {
   ~KernelStopPublisher() { k.stop = saved; }
   KernelStopPublisher(const KernelStopPublisher &) = delete;
   KernelStopPublisher &operator=(const KernelStopPublisher &) = delete;
-};
-
-struct KernelAnalysisConflictPublisher {
-  Kernel &k;
-  AnalysisConflictHook saved_hook;
-  void *saved_state;
-  KernelAnalysisConflictPublisher(Kernel &kk, AnalysisConflictHook hook,
-                                  void *state)
-      : k(kk), saved_hook(kk.analysis_conflict_hook),
-        saved_state(kk.analysis_conflict_hook_state) {
-    k.analysis_conflict_hook = hook;
-    k.analysis_conflict_hook_state = state;
-  }
-  ~KernelAnalysisConflictPublisher() {
-    k.analysis_conflict_hook = saved_hook;
-    k.analysis_conflict_hook_state = saved_state;
-  }
-  KernelAnalysisConflictPublisher(const KernelAnalysisConflictPublisher &) =
-      delete;
-  KernelAnalysisConflictPublisher &
-  operator=(const KernelAnalysisConflictPublisher &) = delete;
 };
 
 inline uint32_t kernel_root_fixed(const Kernel &k) {

@@ -338,9 +338,7 @@ static Kernel inprocess_fixture(bool vivify) {
       for (uint32_t i = 0; i < 20; ++i) lits[i] = make_lit(clause * 20 + i, true);
       kernel_add_large_clause(k, lits, 20, true, 2, 0);
     }
-    k.tier1_by_mode[0] = k.tier2_by_mode[0] = 2;
-    k.tier1_by_mode[1] = k.tier2_by_mode[1] = 2;
-    k.tier1 = k.tier2 = 2;
+    k.tier1 = k.tier2 = 2; // the snapshots are set on the policy below
   } else {
     kernel_reserve_vars(k, 5);
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -367,6 +365,10 @@ static void test_native_batches(bool vivify, bool budgeted) {
     ScopedHeuristics h(k);
     DefaultPolicy policy(config);
     policy.inprocess().build(k);
+    RetierSchedule tiers;
+    tiers.tier1_by_mode[0] = tiers.tier2_by_mode[0] = 2;
+    tiers.tier1_by_mode[1] = tiers.tier2_by_mode[1] = 2;
+    if (vivify) policy.inprocess().set_retier_schedule(&tiers);
     bool selected = false;
     for (auto &entry : policy.inprocess().entries) {
       entry.enabled = !selected && !std::strcmp(tactix_rules()[entry.rule].name, name);

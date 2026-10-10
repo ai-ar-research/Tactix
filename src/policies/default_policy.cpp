@@ -689,38 +689,36 @@ constexpr uint32_t REORDER_STABLE_ONLY = 2;
 // The posed tier boundaries are ReduceParameters' tier1/tier2, which Reduce
 // ranking, Vivify's tier bands and the likely-kept material filter read. A
 // pose is a permanent install of that profile with the selected modes' tiers.
-void pose_tiers(Kernel &k, uint8_t tier1_mode, uint8_t tier2_mode,
-                execution::PolicyCompletion *completion) {
+void pose_tiers(Kernel &k, const RetierSchedule &tiers, uint8_t tier1_mode,
+                uint8_t tier2_mode, execution::PolicyCompletion *completion) {
   assert(tier1_mode < MODES_PER_CYCLE && tier2_mode < MODES_PER_CYCLE);
   strategy::ReduceParameters posed = strategy::ReduceParameters::from_kernel(k);
-  posed.tier1 = k.tier1_by_mode[tier1_mode];
-  posed.tier2 = std::max(posed.tier1, k.tier2_by_mode[tier2_mode]);
+  posed.tier1 = tiers.tier1_by_mode[tier1_mode];
+  posed.tier2 = std::max(posed.tier1, tiers.tier2_by_mode[tier2_mode]);
   execution::execute_action(k, execution::ParameterInstallationRequest{posed},
                             completion, "Reduce");
 }
 
-void pose_reduce_tiers(Kernel &k,
+void pose_reduce_tiers(Kernel &k, const RetierSchedule &tiers,
                        const DefaultStrategyConfig::Reduction &config,
                        execution::PolicyCompletion *completion) {
   // Kissat 4.0.4's shipped internal.h deliberately uses focused tier-1 and
   // stable tier-2 for Reduce (the general focusedtiers selector is compiled
   // out). Keep the unusual hybrid explicit: it is the first-reduction witness
   // on P4A tr-n300-s055, not an inferred simplification.
-  pose_tiers(k, config.reduce_tier1_mode, config.reduce_tier2_mode, completion);
+  pose_tiers(k, tiers, config.reduce_tier1_mode, config.reduce_tier2_mode,
+             completion);
 }
 
-void pose_vivify_tiers(Kernel &k,
+void pose_vivify_tiers(Kernel &k, const RetierSchedule &tiers,
                        const DefaultStrategyConfig::Inprocess &config,
                        execution::PolicyCompletion *completion) {
-  pose_tiers(k, config.vivify_tier_mode, config.vivify_tier_mode, completion);
+  pose_tiers(k, tiers, config.vivify_tier_mode, config.vivify_tier_mode,
+             completion);
 }
 
-void retier_current_mode(Kernel &k,
-                         const DefaultStrategyConfig::Reduction &config) {
-  const uint32_t mode = k.h && k.h->stable ? 1u : 0u;
-  reduce_retier(k, mode, config.tier1_default, config.tier2_default,
-                config.tier1_relative_permille,
-                config.tier2_relative_permille);
+void retier_current_mode(Kernel &k, RetierSchedule &tiers) {
+  reduce_retier(k, tiers, k.h && k.h->stable ? 1u : 0u);
 }
 } // namespace
 
@@ -1825,6 +1823,8 @@ DefaultPolicy::DefaultPolicy()
   default_reduction_.ramp = config_.reduction.ramp_fraction;
   retier_.next_conflicts = retier_.interval =
       config_.reduction.retier_initial_interval;
+  sync_retier_profile();
+  inprocess_.set_retier_schedule(&retier_);
   assert(config_.valid());
 }
 
@@ -1839,6 +1839,8 @@ DefaultPolicy::DefaultPolicy(const DefaultStrategyConfig &config)
   default_reduction_.ramp = config_.reduction.ramp_fraction;
   retier_.next_conflicts = retier_.interval =
       config_.reduction.retier_initial_interval;
+  sync_retier_profile();
+  inprocess_.set_retier_schedule(&retier_);
   std::string config_error;
   if (!config_.valid(&config_error)) {
     std::fprintf(stderr, "c ERROR: invalid DefaultStrategyConfig: %s\n",
@@ -2025,6 +2027,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   reorder = {};
   reorder.next_conflicts = conflicts + config_.reorder.initial_interval;
   bump_reasons_delay_ = {};
+  sync_retier_profile();
   retier_.next_conflicts = config_.reduction.retier_initial_interval;
   retier_.interval = config_.reduction.retier_initial_interval;
   if (dynamic_tiers_)
@@ -3150,35 +3153,17 @@ void DefaultPolicy::update_reduce_limit(const Kernel &k) {
   DefaultDatabaseControl::update_limit(k, config_.reduction, reduce_sqrt_);
 }
 
-bool DefaultPolicy::update_tiers_after_analysis(Kernel &k) {
-  // Kissat analyze.c advances this exponential schedule only on the extra
-  // conflict created when OTFS restarts 1-UIP analysis. Ordinary propagated
-  // conflicts do not test the glue limit. Analyze remains atomic at the rule
-  // boundary, so it records the histogram seen at each internal OTFS boundary
-  // and the policy consumes those observations here. Reduce has its own
-  // independent current-mode refresh.
-  bool updated = false;
-  if (dynamic_tiers_)
-    for (const AnalysisConflictCheckpoint &checkpoint :
-         k.analysis_conflict_checkpoints) {
-      if (checkpoint.conflicts <= retier_.next_conflicts)
-        continue;
-      reduce_retier_from_histogram(
-          k, checkpoint.mode, checkpoint.used_glue,
-          config_.reduction.tier1_default,
-          config_.reduction.tier2_default,
-          config_.reduction.tier1_relative_permille,
-          config_.reduction.tier2_relative_permille);
-      k.tier1 = k.tier1_by_mode[checkpoint.mode];
-      k.tier2 = std::max(k.tier1, k.tier2_by_mode[checkpoint.mode]);
-      if (retier_.interval < config_.reduction.retier_max_interval)
-        retier_.interval *= config_.reduction.retier_growth;
-      retier_.next_conflicts = checkpoint.conflicts + retier_.interval;
-      event_trace_retier(k, checkpoint.mode, checkpoint.used_glue);
-      updated = true;
-    }
-  k.analysis_conflict_checkpoints.clear();
-  return updated;
+// The schedule's profile follows the configuration; its deadline, interval
+// and snapshots are schedule state (reset_schedule and solve entry).
+void DefaultPolicy::sync_retier_profile() {
+  const DefaultStrategyConfig::Reduction &config = config_.reduction;
+  retier_.enabled = dynamic_tiers_;
+  retier_.max_interval = config.retier_max_interval;
+  retier_.growth = config.retier_growth;
+  retier_.tier1_default = config.tier1_default;
+  retier_.tier2_default = config.tier2_default;
+  retier_.tier1_relative_permille = config.tier1_relative_permille;
+  retier_.tier2_relative_permille = config.tier2_relative_permille;
 }
 
 FormulaClassification DefaultPolicy::classify_formula_counts(
@@ -3601,6 +3586,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   bump_reasons_rate_ = config_.analysis.bump_reason_rate;
   reduce_sqrt_ = config_.reduction.square_root_cadence;
   dynamic_tiers_ = config_.reduction.dynamic_tiers;
+  sync_retier_profile();
   compact_ = config_.reduction.compact_variables;
   lucky_late_ = config_.rephase.late_lucky;
   chrono_levels = config_.analysis.chronological_levels;
@@ -4586,13 +4572,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   } feedback_lifetime{feedback, completion_, completion_};
   completion_ = feedback.enabled() ? &feedback : nullptr;
   feedback.begin();
-  KernelAnalysisConflictPublisher analysis_conflict_published(
-      k,
-      [](Kernel &kernel, void *state) {
-        DefaultPolicy *policy = static_cast<DefaultPolicy *>(state);
-        policy->update_tiers_after_analysis(kernel);
-      },
-      this);
   // Kissat creation order is production state.  CaDiCaL's VMTF/phase arena
   // permutation remains available only through the explicit typed/environment
   // diagnostic arm; no formula classifier or benchmark selector controls it.
@@ -4693,11 +4672,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                    config_.rephase.walk_score_curve}, completion_);
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
-      k.tier1_by_mode[mode] = config_.reduction.tier1_default;
-      k.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
-                                       config_.reduction.tier2_default);
+      retier_.tier1_by_mode[mode] = config_.reduction.tier1_default;
+      retier_.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
+                                             config_.reduction.tier2_default);
     }
-    pose_vivify_tiers(k, config_.inprocess, completion_);
+    pose_vivify_tiers(k, retier_, config_.inprocess, completion_);
     reset_schedule(k);
   }
   inprocess_.build(k, completion_);
@@ -5301,18 +5280,43 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                          static_cast<int64_t>(
                              averages[k.h->stable].decision_rate.value * 1000));
 #endif
-      k.bump_reason_limit = want_bump_reasons(k);
-      event_trace.detail(k, "reason_bump_limit", k.bump_reason_limit);
-      k.bump_reason_depth = config_.analysis.reason_depth;
+      // The per-conflict payload, by value (gap plan Step 6). Chrono is the
+      // public ANALYZE_TARGET_CHRONO instance; the ranked-trail arm keeps an
+      // advised target and is a declared diagnostic outside correspondence.
+      execution::NativeConflictAnalysisRequest request;
+      request.bump_reason_limit = want_bump_reasons(k);
+      request.bump_reason_depth = config_.analysis.reason_depth;
+      request.target_mode = chrono_reuse_trail_ ? AnalysisTarget::Advised
+                                                : AnalysisTarget::Chrono;
+      request.retier_schedule = retier_;
+      assert(k.conflict_reuse_chrono_levels == chrono_levels);
+      event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
+      const uint64_t analysis_instance =
+          request.target_mode == AnalysisTarget::Chrono ? ANALYZE_TARGET_CHRONO
+                                                        : INSTANCE_CANONICAL;
       const uint64_t learned_before = k.stats.learned;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const auto analysis = execution::complete_action(
-          completion_, FeedbackKind::SearchService, "ConflictAnalysis", INSTANCE_CANONICAL,
-          [&] { return execution::native_rule_feedback(k, "ConflictAnalysis",
-              INSTANCE_CANONICAL, "native-target-after-learning"); }, [&] {
+          completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
+          [&] {
+            auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
+                analysis_instance,
+                request.target_mode == AnalysisTarget::Chrono
+                    ? "native-target-chrono"
+                    : "native-target-after-learning");
+            // The record names the request's whole payload: the profile with
+            // its bump fields, and the schedule it carries.
+            auto &profile = std::get<strategy::AnalyzeParameters>(
+                spec.description.invocation->parameters);
+            profile.bump_reason_limit = request.bump_reason_limit;
+            profile.bump_reason_depth = request.bump_reason_depth;
+            spec.description.description +=
+                ";retier=" + execution::retier_schedule_text(request.retier_schedule);
+            return spec;
+          }, [&] {
         return execution::execute_action(
-          k, execution::NativeConflictAnalysisRequest{},
+          k, request,
           [&](auto &&apply) {
             return default_direct_rule_lazy(
                 k, "ConflictAnalysis",
@@ -5320,8 +5324,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 apply);
           },
           [&](ApplyResult ar) -> uint32_t {
-            k.bump_reason_limit = 0;
-            k.bump_reason_depth = 1;
             // Kissat calls DELAYING(bumpreasons) inside
             // analyze_reason_side_literals, after ordinary analysis has produced a
             // final clause.  Reused conflicts, failed-literal unit batches, and
@@ -5334,7 +5336,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               event_trace.detail(k, "analysis_end", -1);
               return 0;
             }
-            update_tiers_after_analysis(k);
             if (!k.pending.valid) { // reused conflict or direct level-one unit batch
               // Level-one failed-literal analysis owns its root-unit batch inside
               // the atomic M3 transition, so it has no pending clause for policy to
@@ -5358,22 +5359,31 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             if (k.h->stable)
               tick_reluctant(); // per learned clause (kissat learn.c)
             event_trace.detail(k, "analysis_tail_policy_updated", k.pending.glue);
-            {
-              const uint32_t jump = k.pending.jump_level;
-              const uint32_t back = k.level - 1;
-              uint32_t target = jump;
-              if (back - jump > chrono_levels) {
-                k.stats.chronological++;
-                target = back;
-              } else if (chrono_reuse_trail_ && chrono_levels != UINT32_MAX &&
-                         jump < back) {
-                target = reuse_trail_level(k, jump);
-                if (target != jump)
-                  k.stats.chronological++;
-              }
-              event_trace.detail(k, "analysis_tail_target", target);
-              return target;
+            if (request.target_mode == AnalysisTarget::Chrono) {
+              // The analysis chose the chronological target; trace it here,
+              // where the advised target is traced.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+              const uint32_t chosen_back = k.level - 1;
+              event_trace.detail(k, "analysis_tail_target",
+                                 chosen_back - k.pending.jump_level > chrono_levels
+                                     ? chosen_back
+                                     : k.pending.jump_level);
+#endif
+              return 0;
             }
+            const uint32_t jump = k.pending.jump_level;
+            const uint32_t back = k.level - 1;
+            uint32_t target = jump;
+            if (back - jump > chrono_levels) {
+              k.stats.chronological++;
+              target = back;
+            } else if (chrono_levels != UINT32_MAX && jump < back) {
+              target = reuse_trail_level(k, jump);
+              if (target != jump)
+                k.stats.chronological++;
+            }
+            event_trace.detail(k, "analysis_tail_target", target);
+            return target;
           });
       }, [&](const execution::ConflictAnalysisExecutionResult &result,
              strategy::controller::NativeActionDescription &description) {
@@ -5387,8 +5397,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         else if (result.result != ApplyResult::Unsat)
           description.description += ";target=" + std::to_string(k.level) +
                                      ";no-backjump=1";
+        description.description +=
+            ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
         return strategy::controller::feedback_outcome(result.result);
       });
+      retier_ = analysis.retier_schedule;
       if (analysis.analysis == ApplyResult::Unsat)
         return finish(20);
       if (!analysis.backjumped)
@@ -5421,8 +5434,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return finish(20);
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
       if (dynamic_tiers_)
-        retier_current_mode(k, config_.reduction);
-      pose_reduce_tiers(k, config_.reduction, completion_);
+        retier_current_mode(k, retier_);
+      pose_reduce_tiers(k, retier_, config_.reduction, completion_);
       // Kissat samples compactlim before selecting/deleting victims and uses
       // that decision to choose sparse-collection start 0 versus the first
       // reducible clause.  Reusing the decision after Reduce also prevents a
@@ -5496,7 +5509,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             static_cast<uint32_t>(k.compact_import_order.size() -
                                   k.unassigned_active));
       update_reduce_limit(k);
-      pose_vivify_tiers(k, config_.inprocess, completion_);
+      pose_vivify_tiers(k, retier_, config_.inprocess, completion_);
       update_formula_classification(k);
       inprocess_.note_reduce(k);
       feedback.resume(IntervalStart::NativeContinuation, "native-reduce-search-continuation");
@@ -6377,7 +6390,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   // A stable OTFS retier legitimately poses the stable snapshot for the
   // analysis it resumes, so pose the Vivify consumer here instead of relying
   // on the last Reduce to have left these shared fields in focused mode.
-  pose_vivify_tiers(k, config(), completion);
+  pose_vivify_tiers(k, retier_schedule(), config(), completion);
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;

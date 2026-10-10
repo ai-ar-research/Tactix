@@ -138,6 +138,15 @@ public:
     config_ = config;
     default_bve_ramp_.set_config(config);
   }
+  // The owning policy's retier schedule, whose focused/stable snapshots the
+  // Vivify tier pose reads; standalone schedulers read the defaults.
+  void set_retier_schedule(const RetierSchedule *schedule) {
+    retier_schedule_ = schedule;
+  }
+  const RetierSchedule &retier_schedule() const {
+    static const RetierSchedule defaults;
+    return retier_schedule_ ? *retier_schedule_ : defaults;
+  }
 
   struct SlotEntry {
     strategy::StepId step_id = 0;
@@ -322,6 +331,7 @@ private:
   bool search_limits_initialized_ = false;
   uint64_t last_reduce_conflicts_ = UINT64_MAX;
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;
+  const RetierSchedule *retier_schedule_ = nullptr;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
   DefaultCandidateOrder default_candidate_order_;

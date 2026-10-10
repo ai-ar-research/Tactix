@@ -13,11 +13,13 @@
 
 using namespace action_map;
 
-// Internal entries after Step 4b (support transactions, including the
-// inprocessing phase bracket, through tactix_support). Each later step removes
-// the entries it routes publicly.
+// Internal entries after Step 6: Step 4b's inprocessing phase bracket goes
+// through tactix_support; ConflictAnalysis is Shared (its native payload is
+// the public chrono instance) beside the declared ranked-trail diagnostic arm.
+// Each later step removes the entries it routes publicly.
 static const std::set<std::string> EXPECTED_INTERNAL = {
-    "propagate-search", "decide", "conflict-analysis", "propagate-root",
+    "propagate-search", "decide", "conflict-analysis",
+    "conflict-analysis-ranked-trail", "propagate-root",
     "affine-matrix-initialize", "affine-matrix-search", "slot-sweep-batch",
     "slot-substitute-rounds", "slot-vivify-band", "slot-fastel-occurrence",
     "install-affine-matrix-parameters", "support-warmup-installed-branching",

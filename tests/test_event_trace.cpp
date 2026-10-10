@@ -261,10 +261,11 @@ int main() {
     trace.detail(k, "analysis_end", 1);
     k.tier1 = 3;
     k.tier2 = 8;
-    k.tier1_by_mode[0] = 3;
-    k.tier2_by_mode[0] = 8;
+    RetierSchedule tiers;
+    tiers.tier1_by_mode[0] = 3;
+    tiers.tier2_by_mode[0] = 8;
     k.stats.used_glue[0][3] = 5;
-    trace.retier(k, 0, k.stats.used_glue[0]);
+    trace.retier(k, tiers, 0, k.stats.used_glue[0]);
     trace.reorder_begin(k);
     trace.reorder_end(k);
     trace.macro(k, "terminate", "10");

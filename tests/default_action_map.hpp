@@ -20,6 +20,7 @@
 #include "policies/heuristics.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
+#include "rules/analyze/analyze.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/registry.hpp"
 #include "strategy/native_feedback.hpp"
@@ -56,6 +57,8 @@ enum class Replay {
   Install,          // tactix_install_parameters / tactix_install_material_settings
   Support,          // tactix_support(entry support, record argument)
   Online,           // tactix_online_configure_v2 + tactix_online_advance
+  Analysis,         // install the record's analysis payload, then
+                    // tactix_apply_semantic_instance(ANALYZE_TARGET_CHRONO)
   None              // no public request yet: the replay stops here
 };
 
@@ -135,10 +138,17 @@ inline const std::vector<Entry> &entries() {
       {"decide", K::SearchService, "Decide", nullptr, Route::Shared,
        Boundary::Interval, Replay::Decide, true,
        "tactix_decide(literal) / Decide instance", "A2"},
-      {"conflict-analysis", K::SearchService, "ConflictAnalysis", nullptr,
+      {"conflict-analysis", K::SearchService, "ConflictAnalysis",
+       [](const ActionFeedback &r) { return r.instance == ANALYZE_TARGET_CHRONO; },
+       Route::Shared, Boundary::Interval, Replay::Analysis, true,
+       "ConflictAnalysis semantic instance ANALYZE_TARGET_CHRONO under the "
+       "installed bump payload (tactix_install_parameters) and retier schedule "
+       "(tactix_install_retier_schedule)", "A3,C1,C3,C4"},
+      {"conflict-analysis-ranked-trail", K::SearchService, "ConflictAnalysis",
+       [](const ActionFeedback &r) { return r.instance != ANALYZE_TARGET_CHRONO; },
        Route::Kernel, Boundary::Interval, Replay::None, true,
-       "none: native target after learning, per-conflict bump payload and "
-       "OTFS retier hook (target now recorded as ;target=)", "A3,C1,C4"},
+       "none: declared diagnostic arm (H-ranked target after learning), "
+       "outside the correspondence claim", "A3"},
       {"restart-scheduled", K::SearchService, "Restart", nullptr, Route::Public,
        Boundary::Interval, Replay::RegistryInstance, true,
        "Restart instance = keep-level", "A4"},

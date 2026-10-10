@@ -6,7 +6,9 @@
 // without a public request or at the first divergence; a census lists every
 // blocking entry. Per guidance-publication mode it reports the first H and
 // installed-profile divergences and H after each online step; each public
-// install must reproduce the reference's profile (asserted). A lookahead
+// install must reproduce the reference's profile (asserted). ConflictAnalysis
+// replays as the public chrono instance under the record's payload; its
+// returned retier schedule must equal the native one (asserted). A lookahead
 // pass assumes support transactions without a public request yet.
 #undef NDEBUG
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
@@ -160,6 +162,52 @@ std::string install(tactix_c_handle *s, const ActionFeedback &record) {
              ? "tactix_install_parameters rejected " + invocation.rule : "";
 }
 
+// A record's retier schedule text (execution::retier_schedule_text) after
+// `key`; false when absent or malformed.
+bool retier_schedule_field(std::string_view text, std::string_view key,
+                           tactix_retier_schedule &out) {
+  const size_t at = text.find(key);
+  if (at == std::string_view::npos) return false;
+  std::string_view rest = text.substr(at + key.size());
+  rest = rest.substr(0, rest.find(';'));
+  uint64_t v[13];
+  for (uint64_t &value : v) {
+    const size_t comma = rest.find(',');
+    const std::string field(rest.substr(0, comma));
+    if (field.empty()) return false;
+    value = std::stoull(field);
+    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+  }
+  out = {};
+  out.enabled = static_cast<int>(v[0]);
+  out.next_conflicts = v[1];
+  out.interval = v[2];
+  out.max_interval = v[3];
+  out.growth = static_cast<uint32_t>(v[4]);
+  out.tier1_default = static_cast<uint32_t>(v[5]);
+  out.tier2_default = static_cast<uint32_t>(v[6]);
+  out.tier1_relative_permille = static_cast<uint32_t>(v[7]);
+  out.tier2_relative_permille = static_cast<uint32_t>(v[8]);
+  out.tier1_by_mode[0] = static_cast<uint32_t>(v[9]);
+  out.tier2_by_mode[0] = static_cast<uint32_t>(v[10]);
+  out.tier1_by_mode[1] = static_cast<uint32_t>(v[11]);
+  out.tier2_by_mode[1] = static_cast<uint32_t>(v[12]);
+  return rest.empty();
+}
+
+bool same_schedule(const tactix_retier_schedule &a, const tactix_retier_schedule &b) {
+  return a.enabled == b.enabled && a.next_conflicts == b.next_conflicts &&
+         a.interval == b.interval && a.max_interval == b.max_interval &&
+         a.growth == b.growth && a.tier1_default == b.tier1_default &&
+         a.tier2_default == b.tier2_default &&
+         a.tier1_relative_permille == b.tier1_relative_permille &&
+         a.tier2_relative_permille == b.tier2_relative_permille &&
+         a.tier1_by_mode[0] == b.tier1_by_mode[0] &&
+         a.tier1_by_mode[1] == b.tier1_by_mode[1] &&
+         a.tier2_by_mode[0] == b.tier2_by_mode[0] &&
+         a.tier2_by_mode[1] == b.tier2_by_mode[1];
+}
+
 std::string mismatch(const Observation &expected, const Observation &actual) {
   std::string out;
   auto field = [&](const char *name, uint64_t a, uint64_t b) {
@@ -252,6 +300,10 @@ struct Report {
   std::string first_profile_divergence = "none";
   std::vector<std::string> install_mismatches; // installed family differs
   uint64_t guidance_compared = 0, candidates_compared = 0;
+  // Public chrono ConflictAnalysis replays: with a nonzero bump payload, with
+  // an OTFS retier, and those whose returned schedule differs from native.
+  uint64_t analyses = 0, analysis_bumps = 0, analysis_retiers = 0;
+  std::vector<std::string> retier_mismatches;
 };
 
 // Replay the stream publicly. With `lookahead`, support transactions without
@@ -404,6 +456,59 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
       ++report.replayed;
       continue;
     }
+    if (entry->replay == Replay::Analysis) {
+      // The native payload: the profile with its bump fields and the retier
+      // schedule. Install both, apply the chrono instance, compare the
+      // returned schedule, then restore the neutral profile and schedule.
+      tactix_retier_schedule before{}, after{}, returned{}, idle{};
+      const std::string_view text = description(record);
+      if (!record.native_request || !record.native_request->invocation ||
+          !retier_schedule_field(text, ";retier=", before) ||
+          !retier_schedule_field(text, ";retier-after=", after)) {
+        report.stop = where + ": unparsed analysis payload";
+        break;
+      }
+      const auto &invocation = *record.native_request->invocation;
+      auto profile = std::get<strategy::AnalyzeParameters>(invocation.parameters);
+      public_encoding::Encoded payload, neutral;
+      const int id = rule_id("ConflictAnalysis");
+      const bool bump = profile.bump_reason_limit != 0;
+      if (!public_encoding::encode(invocation.parameters, payload) ||
+          tactix_install_parameters(s, id, &payload.parameters) ||
+          tactix_read_retier_schedule(s, &idle) ||
+          tactix_install_retier_schedule(s, &before)) {
+        report.stop = where + ": analysis payload install rejected";
+        break;
+      }
+      const int code = tactix_apply_semantic_instance(s, id, TACTIX_ANALYZE_TARGET_CHRONO);
+      const int expected = result_code(record.outcome.invocation.rule_result);
+      assert(tactix_read_retier_schedule(s, &returned) == 0);
+      profile.bump_reason_limit = 0;
+      profile.bump_reason_depth = 1;
+      if (!public_encoding::encode(strategy::InprocessParameters(profile), neutral) ||
+          tactix_install_parameters(s, id, &neutral.parameters) ||
+          tactix_install_retier_schedule(s, &idle)) {
+        report.stop = where + ": analysis payload restore rejected";
+        break;
+      }
+      if (code != expected) {
+        report.stop = where + ": diverged: result " + std::to_string(code) +
+                      " expected " + std::to_string(expected);
+        break;
+      }
+      if (const std::string differs =
+              mismatch(record.after, strategy::controller::observe_kernel(observed));
+          !differs.empty()) {
+        report.stop = where + ": diverged state " + differs;
+        break;
+      }
+      if (!same_schedule(returned, after)) report.retier_mismatches.push_back(where);
+      ++report.analyses;
+      report.analysis_bumps += bump;
+      report.analysis_retiers += !same_schedule(before, after);
+      ++report.replayed;
+      continue;
+    }
     int code;
     int expected = result_code(record.outcome.invocation.rule_result);
     if (entry->replay == Replay::Decide) {
@@ -451,6 +556,9 @@ int main() {
   std::map<int, uint64_t> online_steps, online_h_equal;
   uint64_t online_progress = 0, online_roots = 0;
   std::vector<std::string> round_trips;
+  uint64_t analyses = 0, analysis_bumps = 0, analysis_retiers = 0;
+  uint64_t lookahead_analyses = 0;
+  std::vector<std::string> retier_mismatches;
   for (const Fixture &fixture : fixtures()) {
     if (fixture.dimacs.empty()) continue;
     ++replayed_fixtures;
@@ -494,6 +602,13 @@ int main() {
         round_trips.push_back(fixture.name + " " + name + " " + where);
     }
     const Report ahead = replay(fixture, reference, TACTIX_GUIDANCE_DISCARD, true);
+    analyses += report.analyses;
+    analysis_bumps += report.analysis_bumps;
+    analysis_retiers += report.analysis_retiers;
+    lookahead_analyses += ahead.analyses;
+    for (const Report *pass : {static_cast<const Report *>(&report), &ahead})
+      for (const auto &where : pass->retier_mismatches)
+        retier_mismatches.push_back(fixture.name + " " + where);
     replayed += report.replayed;
     installed += report.installed;
     supports += report.supports;
@@ -522,6 +637,11 @@ int main() {
     std::cout << "\ninstalled profile differs from the reference: " << where;
   for (const auto &where : round_trips)
     std::cout << "\nonline step C form differs from the native request: " << where;
+  std::cout << "\npublic chrono ConflictAnalysis replays: strict " << analyses
+            << " (" << analysis_bumps << " with a bump payload, " << analysis_retiers
+            << " with an OTFS retier), lookahead " << lookahead_analyses;
+  for (const auto &where : retier_mismatches)
+    std::cout << "\nreturned retier schedule differs from the native one: " << where;
   std::cout << "\nH equal after structured-root online steps: discard "
             << online_h_equal[TACTIX_GUIDANCE_DISCARD] << '/'
             << online_steps[TACTIX_GUIDANCE_DISCARD] << ", native "
@@ -544,5 +664,6 @@ int main() {
   assert(replayed > 0 && installed > 0 && candidates_compared > 0);
   assert(supports > 0 && online_steps[TACTIX_GUIDANCE_DISCARD] > 0);
   assert(install_mismatches.empty() && round_trips.empty());
+  assert(retier_mismatches.empty());
   return 0;
 }

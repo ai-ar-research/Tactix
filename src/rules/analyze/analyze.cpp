@@ -13,6 +13,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
+#include "rules/reduce/reduce.hpp"     // the retier schedule at OTFS conflicts
 #include "strategy/conflict_analysis_execution.hpp"
 
 #include <algorithm>
@@ -1183,15 +1184,19 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   return ApplyResult::Ok;
 }
 
-// Public dispatch supplies the selected backjump target before a reuse path
-// consumes the conflict. DefaultPolicy uses the other specialization, keeping
-// its reference target calculation out of the public action semantics.
-template <bool PublicTarget>
-static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) {
+// Target modes (analyze.hpp): Explicit clamps a caller target chosen before
+// analysis on every path. Otherwise the reuse paths take conflict_reuse_target
+// and, when `chosen` is set (Chrono), so does the learned clause, reported in
+// `*chosen`; with `chosen` null (Advised) the caller picks it. Chrono and
+// Advised share one instantiation: a third copy of this hot function loses
+// the inlining of its scratch-vector pushes (gap-plan Step 6 report).
+template <bool ExplicitTarget>
+static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
+                                          RetierSchedule *retier,
+                                          uint32_t *chosen) {
   assert(analyze_guard(k));
   assert(k.analyzed.empty());
   assert(k.bump_order.empty());
-  k.analysis_conflict_checkpoints.clear();
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
   const bool lrat = lrat_active(k);
   uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
@@ -1285,8 +1290,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
         }
 #endif
         const uint32_t target =
-            PublicTarget ? std::clamp(requested_target, jump2, k.level - 1)
-                         : conflict_reuse_target(k, jump2);
+            ExplicitTarget ? std::clamp(requested_target, jump2, k.level - 1)
+                           : conflict_reuse_target(k, jump2);
         unwind_after_conflict(k, target);
         analyze_retire_otfs_reasons(k);
         if (!jump2) {
@@ -1452,20 +1457,11 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
     // re-running 1-UIP analysis.  This is not cosmetic: restart, reduction,
     // mode, rephase, reorder, and inprocessing deadlines all read this clock.
     k.stats.conflicts++;
-    AnalysisConflictCheckpoint checkpoint;
-    checkpoint.conflicts = k.stats.conflicts;
-    checkpoint.mode = k.h && k.h->stable ? 1u : 0u;
-    std::copy(std::begin(k.stats.used_glue[checkpoint.mode]),
-              std::end(k.stats.used_glue[checkpoint.mode]),
-              std::begin(checkpoint.used_glue));
-    k.analysis_conflict_checkpoints.push_back(checkpoint);
-    // This is a policy observation at an internal atomic-rule boundary.
     // Kissat tests and applies its glue-tier deadline here, before bumping the
     // aborted analysis and before the next OTFS round can mark another clause
-    // used.  The hook keeps the proof rule policy-neutral while preserving
-    // that decision-observable order for DefaultPolicy.
-    if (k.analysis_conflict_hook)
-      k.analysis_conflict_hook(k, k.analysis_conflict_hook_state);
+    // used. The caller's schedule is part of the request, not a callback.
+    if (retier)
+      reduce_retier_at_conflict(k, *retier, k.h && k.h->stable ? 1u : 0u);
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
     otfs_round = true;
   }
@@ -1582,8 +1578,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
     if (cref != INVALID_REF && repair_conflict_watches(k, cref, k.level))
       k.stats.conflict_watch_repaired++;
     const uint32_t target =
-        PublicTarget ? std::clamp(requested_target, jump, k.level - 1)
-                     : conflict_reuse_target(k, jump);
+        ExplicitTarget ? std::clamp(requested_target, jump, k.level - 1)
+                       : conflict_reuse_target(k, jump);
     unwind_after_conflict(k, target);
     analyze_retire_otfs_reasons(k);
     if (cref == INVALID_REF)
@@ -1650,15 +1646,33 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) 
 
   k.conflict_valid = false;
   p.valid = true;
+  if (!ExplicitTarget && chosen)
+    *chosen = conflict_reuse_target(k, jump);
   return ApplyResult::Ok;
 }
 
+static RetierSchedule *installed_retier(Kernel &k) {
+  return k.retier_schedule.enabled ? &k.retier_schedule : nullptr;
+}
+
 ApplyResult analyze_apply(Kernel &k) {
-  return analyze_apply_internal<false>(k, 0);
+  return analyze_apply_internal<false>(k, 0, installed_retier(k), nullptr);
 }
 
 ApplyResult analyze_apply_with_target(Kernel &k, uint32_t target_level) {
-  return analyze_apply_internal<true>(k, target_level);
+  return analyze_apply_internal<true>(k, target_level, installed_retier(k),
+                                      nullptr);
+}
+
+ApplyResult analyze_apply_native(Kernel &k, AnalysisTarget mode,
+                                 RetierSchedule *retier, uint32_t *chosen) {
+  assert(mode != AnalysisTarget::Explicit);
+  return analyze_apply_internal<false>(
+      k, 0, retier, mode == AnalysisTarget::Chrono ? chosen : nullptr);
+}
+
+ApplyResult analyze_apply_chrono(Kernel &k, uint32_t *chosen) {
+  return analyze_apply_internal<false>(k, 0, installed_retier(k), chosen);
 }
 
 // ConflictAnalysis — the atomic learn+backjump rule (docs/calculus.md §3 M3).
@@ -1696,8 +1710,22 @@ static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {
   return conflictanalysis_apply_to(k, target);
 }
 
+// Additive semantic payload: ANALYZE_TARGET_CHRONO selects the target after
+// learning, the chronological target of conflict_reuse_target on the learned
+// clause as on both reuse paths. Every other payload is the frozen v1 level.
+// No semantic enumerator is registered, so semantic enumeration keeps the v1
+// level list.
+static ApplyResult conflictanalysis_apply_semantic_instance(Kernel &k,
+                                                            uint64_t inst) {
+  if (inst == ANALYZE_TARGET_CHRONO)
+    return execution::execute_action(
+        k, execution::ChronoConflictAnalysisRequest{});
+  return conflictanalysis_apply_instance(k, inst);
+}
+
 TACTIX_REGISTER_RULE(ConflictAnalysis, RuleTier::Micro, analyze_guard,
                      conflictanalysis_apply, conflictanalysis_instances,
-                     conflictanalysis_apply_instance);
+                     conflictanalysis_apply_instance, nullptr,
+                     conflictanalysis_apply_semantic_instance);
 
 } // namespace tactix

@@ -109,7 +109,14 @@ Unit, proof-oracle, runtime, full Release and sanitizer suites pass. The first C
 
 ## 4. Analyze and Backjump are atomic
 
-M3 learns, truncates, and asserts through one shared atomic executor. Explicit targets enter before analysis; native DefaultPolicy advice selects after learning, preserving tier/glue updates and diagnostic scope.
+M3 learns, truncates, and asserts through one shared atomic executor with three target modes: Explicit (a public v1 level,
+fixed before analysis and clamped on every path), Chrono (the public `ANALYZE_TARGET_CHRONO` payload and DefaultPolicy's native
+request: the chronological target after learning on every path, one `stats.chronological` per chosen chronological target) and
+Advised (the caller's target after learning). DefaultPolicy's native request carries its per-conflict payload by value: the
+reason-bump limit and depth, installed for that analysis only and reset to 0/1, and its retier schedule, applied at OTFS
+conflicts and returned updated; no kernel callback remains. The ranked-trail arm
+(`DefaultStrategyConfig::analysis.reuse_ranked_trail_suffix`, off by default) is the only Advised user: an H-ranked target that is
+a declared diagnostic outside the public-correspondence claim (gap-plan step 6).
 Internal scheduler advice is not a learner observation or selection boundary; pending clauses are consumed before external publication. Backjump is not independently selectable.
 Level-one failed-literal batches publish before survivor bumps. Eager subsumption follows backtrack before propagation; reason-locked clauses are never deleted.
 
@@ -219,7 +226,9 @@ positive-side binary (`equivalences.c`), and the AND/OR sweep never flags a larg
 
 Reason-side bumping and dynamic tiers are H-only and default on jointly. Bumps are one-level, capped, and all-or-nothing. Tier
 quantiles are 50%/90% with explicit empty fallbacks; policy reanchors on mode switch and reposes focused tiers before every Vivify
-dose.
+dose. The retier schedule (`RetierSchedule`: deadline, geometric interval, quantiles, focused/stable snapshots) is caller state:
+DefaultPolicy owns its copy, retiers the current mode on it before each Reduce, and every tier pose reads its snapshots; a public
+session installs one with `tactix_install_retier_schedule`, which registry ConflictAnalysis applies when enabled.
 DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
 AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
 it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
@@ -243,8 +252,8 @@ deliberately untimed. Timers never control solver behavior.
 
 ## 12. Conflict reuse and watch repair
 
-Reuse, including OTFS, honors public targets clamped to `[jump,level−1]`; canonical is `jump`. DefaultPolicy separately chooses
-reference chronology. Repair level-ranked watches (root-fixed entries may already be sparse-flushed), then clear the learn/backjump
+Reuse, including OTFS, honors public targets clamped to `[jump,level−1]`; canonical is `jump`. The chrono payload and
+DefaultPolicy's native request apply the reference chronology on reuse and learned paths alike (§4). Repair level-ranked watches (root-fixed entries may already be sparse-flushed), then clear the learn/backjump
 tail. At true level zero publish a named DRAT/LRAT unit and deactivate without learned counters or fresh bumps; otherwise retain the repaired reason.
 
 ## 13. Scheduling parity
@@ -394,7 +403,7 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
   a Factor dose installs composite matching and the dose's end clears it. Clients issue them through
   `tactix_install_parameters`/`tactix_install_material_settings`. Rule-state resets are not profiles and stay native: the
   BVE retry refill (gap-plan step 5, BVE ordering profile) and the per-round SubsumeForward/Strengthen completeness reset (step 5,
-  slot invocations). The OTFS retier pose stays inside ConflictAnalysis until step 6.
+  slot invocations). The OTFS retier pose belongs to ConflictAnalysis's retier schedule (§4, §9).
 - DefaultPolicy's support transactions run shared requests that `tactix_support` exposes
   ([controller interface](controller-interface.md)); the per-solve graph-labeling reset, input-binary-order release and root-prefix
   consumption, the presearch and structured-root execution contexts, and the inprocessing phase bracket (shared

@@ -330,7 +330,7 @@ public:
   void update_rephase_limit(const Kernel &);
   void update_reorder_limit(const Kernel &);
   uint64_t walk_effort_reference(const Kernel &) const;
-  bool update_tiers_after_analysis(Kernel &);
+  const RetierSchedule &retier_schedule() const { return retier_; }
   void update_formula_classification(Kernel &) const;
 
 private:
@@ -381,7 +381,11 @@ private:
   bool compact_ = true;
   bool lucky_late_ = true;
   bool dynamic_tiers_ = true;
-  struct { uint64_t next_conflicts = 0, interval = 0; } retier_;
+  // Policy-owned glue-tier schedule and snapshots: each native analysis
+  // carries it by value and returns it updated; Reduce retiers the current
+  // mode on it; every tier pose reads its snapshots.
+  RetierSchedule retier_;
+  void sync_retier_profile();
   DefaultStrategyConfig base_config_;
   DefaultStrategyConfig config_;
   DefaultBranching default_branching_;

@@ -112,6 +112,14 @@ This H-only companion to theory actions that publish semantic candidates, includ
   learn to backjump *within this one apply* — never a control state at a rule boundary. **Also (eager subsumption,
   `Kernel::eager_subsume`):** after backtracking, drop from `R` any of the last few learned clauses the new clause strictly subsumes
   — an `S2 Forget` step, not a new inference (`implementation-notes.md` §15). A reason-locked clause is never deleted.
+- **Instance surface:** v1 payloads are the backjump target, any level in `[0,level−1]`, clamped to `[j,d−1]` after analysis
+  (canonical `j`). The additive semantic payload `ANALYZE_TARGET_CHRONO` (high bit) chooses after learning: with the installed
+  chronological-level bound `c`, a reused or learned driver whose `j` lies more than `c` levels below `d−1` takes `t=d−1`,
+  otherwise `t=j`. Both stay in `[j,d−1]`, so soundness is unchanged.
+- **Configuration effects (no proof δ):** the reason-bump limit/depth select H-only reason-side bumping. An enabled retier
+  schedule is tested at every conflict an OTFS re-analysis counts; past its deadline the current mode's tier snapshot is
+  recomputed from the used-glue histogram, that mode's pair is posed as the Reduce tier boundaries, and the deadline advances
+  geometrically. Neither changes `F`, `R`, `τ` or `π`.
 - **Proof δ:** let `h_L` be the reason clauses used by analysis/minimization in increasing trail order, followed by the conflict
   clause. Emit `add_rup(L,h_L)`. For every OTFS replacement `C ↦ C′`, emit `add_rup(C′,h_C′) · del(C)` before the final learned
   addition; after backtracking emit `del(D)` for every eagerly subsumed recent clause `D`. Root refutation is `add_rup(∅,h_⊥)` in

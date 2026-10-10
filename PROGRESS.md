@@ -75,8 +75,16 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    inprocessing phase bracket (entry, occurrence session, exit) is public through `tactix_support`
    and recorded by DefaultPolicy, so every search profile replays publicly to its first
    `ConflictAnalysis` with H equal; DefaultPolicy and the controller are byte-identical to c2.4
-   (12 identity rows) and full Debug passes 358/358. Next: Step 6 (`ConflictAnalysis`) and
-   Step 5 (slot invocations), then Step 7.
+   (12 identity rows) and full Debug passes 358/358. Step 6 is committed, not pushed
+   ([record](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step6/README.md)): the native
+   ConflictAnalysis request carries its bump payload, target mode and retier schedule by value,
+   the additive semantic instance `TACTIX_ANALYZE_TARGET_CHRONO` and `tactix_install_retier_schedule`
+   express it publicly, and the OTFS retier hook is gone; the replay runs 330 analyses through the
+   public instance (2,999 of 6,357 records, from 1,154). DefaultPolicy and the controller are
+   byte-identical to c2.4 (12 identity rows on the validation tree), user instructions within
+   −0.11%…−0.06% of c2.4; final-commit Debug and identity reruns pending. Next: Step 5 (slot
+   invocations; also the mid-search Reduce divergence that now stops profiles 2 and 5), then
+   Step 7.
 
 ## Live work
 

@@ -350,6 +350,36 @@ int tactix_rule_semantic_instances(tactix *, int rule_id, uint64_t *out,
                                    int cap);
 int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 
+/* ConflictAnalysis semantic payload (additive; not enumerated, so semantic
+ * enumeration keeps the v1 level list): choose the backjump target after
+ * learning, the chronological target on every path. With the installed
+ * chronological_levels c, a learned or reused clause whose jump level j lies
+ * more than c levels below level-1 keeps the trail to level-1; otherwise it
+ * backjumps to j. Every other payload is the v1 target level. */
+#define TACTIX_ANALYZE_TARGET_CHRONO (UINT64_C(1) << 63)
+
+/* Glue-tier retier schedule (additive). Registry ConflictAnalysis applies an
+ * enabled installed schedule at every conflict an OTFS re-analysis counts:
+ * once that count exceeds next_conflicts it recomputes the current mode's
+ * tier1/tier2 snapshot from the used-glue histogram at the relative permille
+ * quantiles (the defaults when the histogram is empty), poses that mode's
+ * pair as the Reduce tier1/tier2 profile, multiplies interval by growth while
+ * it is below max_interval and sets next_conflicts to the count plus
+ * interval. Mode 0 is focused, 1 stable. No formula, proof or assignment
+ * change. tactix_install_retier_schedule returns 0, or -1 (nothing changes)
+ * for NULL, a permille above 1000 or zero growth;
+ * tactix_read_retier_schedule reads the installed schedule back (0, or -1). */
+typedef struct {
+  int enabled;
+  uint64_t next_conflicts, interval, max_interval;
+  uint32_t growth, tier1_default, tier2_default;
+  uint32_t tier1_relative_permille, tier2_relative_permille;
+  uint32_t tier1_by_mode[2], tier2_by_mode[2];
+} tactix_retier_schedule;
+int tactix_install_retier_schedule(tactix *,
+                                   const tactix_retier_schedule *schedule);
+int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
+
 /* --- additive online strategy composition -------------------------------
  * Configuration is copied and validated transactionally. All pointers only
  * need to remain valid for the configure call. One advance performs at most

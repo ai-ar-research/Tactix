@@ -38,6 +38,12 @@ add_executable(test_analyze test_analyze.cpp)
 target_link_libraries(test_analyze PRIVATE tactix_lib)
 add_test(NAME analyze COMMAND test_analyze)
 
+# Native ConflictAnalysis payload vs the public chrono instance (gap plan
+# Step 6): identical trail, learned clauses, tiers, schedule and proof.
+add_executable(test_analysis_native_target test_analysis_native_target.cpp)
+target_link_libraries(test_analysis_native_target PRIVATE tactix_lib)
+add_test(NAME analysis_native_target COMMAND test_analysis_native_target)
+
 add_executable(test_restart_reduce test_restart_reduce.cpp)
 target_link_libraries(test_restart_reduce PRIVATE tactix_lib)
 add_test(NAME restart_reduce COMMAND test_restart_reduce)

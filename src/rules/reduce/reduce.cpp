@@ -6,6 +6,7 @@
 #include "rules/reduce/reduce.hpp"
 #include "strategy/representation_execution.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "diagnostics/event_trace.hpp"
 
 #include "proof/proof.hpp"
 
@@ -22,25 +23,22 @@ namespace tactix {
 // the positive floating product to uint64_t, which truncates: the exact
 // integer equivalent is floor(total * permille / 1000), not a ceiling.
 // When to recompute is the policy's.
-void reduce_retier_from_histogram(Kernel &k, uint32_t mode,
-                                  const uint64_t *used,
-                                  uint32_t tier1_default,
-                                  uint32_t tier2_default,
-                                  uint32_t tier1_relative_permille,
-                                  uint32_t tier2_relative_permille) {
+void reduce_retier_from_histogram(Kernel &k, RetierSchedule &schedule,
+                                  uint32_t mode, const uint64_t *used) {
   assert(mode < 2);
   uint64_t total = 0;
   for (uint32_t g = 0; g <= Stats::MAX_GLUE_USED; g++)
     total += used[g];
   k.stats.retiered++;
   if (!total) {
-    k.tier1_by_mode[mode] = tier1_default;
-    k.tier2_by_mode[mode] = std::max(tier1_default, tier2_default);
+    schedule.tier1_by_mode[mode] = schedule.tier1_default;
+    schedule.tier2_by_mode[mode] =
+        std::max(schedule.tier1_default, schedule.tier2_default);
     return;
   }
   constexpr uint64_t scale = 1000;
-  const uint64_t lim1 = total * tier1_relative_permille / scale;
-  const uint64_t lim2 = total * tier2_relative_permille / scale;
+  const uint64_t lim1 = total * schedule.tier1_relative_permille / scale;
+  const uint64_t lim2 = total * schedule.tier2_relative_permille / scale;
   uint64_t acc = 0;
   uint32_t t1 = 0;
   for (uint32_t g = 0;; g++) {
@@ -59,18 +57,28 @@ void reduce_retier_from_histogram(Kernel &k, uint32_t mode,
         break;
       }
     }
-  k.tier1_by_mode[mode] = t1;
-  k.tier2_by_mode[mode] = t2;
+  schedule.tier1_by_mode[mode] = t1;
+  schedule.tier2_by_mode[mode] = t2;
 }
 
-void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
-                   uint32_t tier2_default,
-                   uint32_t tier1_relative_permille,
-                   uint32_t tier2_relative_permille) {
+void reduce_retier(Kernel &k, RetierSchedule &schedule, uint32_t mode) {
   assert(mode < 2);
-  reduce_retier_from_histogram(
-      k, mode, k.stats.used_glue[mode], tier1_default, tier2_default,
-      tier1_relative_permille, tier2_relative_permille);
+  reduce_retier_from_histogram(k, schedule, mode, k.stats.used_glue[mode]);
+}
+
+bool reduce_retier_at_conflict(Kernel &k, RetierSchedule &schedule,
+                               uint32_t mode) {
+  assert(mode < 2);
+  if (!schedule.enabled || k.stats.conflicts <= schedule.next_conflicts)
+    return false;
+  reduce_retier(k, schedule, mode);
+  k.tier1 = schedule.tier1_by_mode[mode];
+  k.tier2 = std::max(k.tier1, schedule.tier2_by_mode[mode]);
+  if (schedule.interval < schedule.max_interval)
+    schedule.interval *= schedule.growth;
+  schedule.next_conflicts = k.stats.conflicts + schedule.interval;
+  event_trace_retier(k, schedule, mode, k.stats.used_glue[mode]);
+  return true;
 }
 
 // Deleting redundant clauses is sound as long as trail reasons, a pending
