@@ -486,6 +486,36 @@ ARMS = {
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
         "TACTIX_NO_SWEEP=1", "TACTIX_CHRONO_REUSE=1"),
+    **{
+        f"rbcv-vivify{dose}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            f"TACTIX_SLOT_PERMILLE=Vivify:{dose}", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1")
+        for dose in (125, 150, 175, 225, 250, 275)
+    },
+    "rbcv-disable-backbone": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone"),
+    "rbcv-disable-backbone-congruence": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone,Congruence"),
+    "rbcv-disable-structural": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1",
+        "TACTIX_SLOT_DISABLE=Backbone,Congruence,Strengthen"),
+    "rbcv-vivify-only": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1",
+        "TACTIX_SLOT_DISABLE=Backbone,Congruence,Strengthen,Substitute,TransitiveReduce"),
     "rbc-cce1": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
