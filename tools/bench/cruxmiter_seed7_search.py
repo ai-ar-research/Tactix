@@ -12,6 +12,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import subprocess
 from types import SimpleNamespace
 
@@ -730,6 +731,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("stage", choices=("screen", "verify"))
     parser.add_argument("--arms", default="")
+    parser.add_argument("--instances", default=REL,
+                        help="comma-separated cruxmiter size variants, seed 7 only")
     parser.add_argument("--timeout", type=float, default=None)
     parser.add_argument("--partition", default="cpu-dense-hwulab-q")
     parser.add_argument("--wait", action="store_true")
@@ -744,15 +747,21 @@ def main():
         raise SystemExit("unknown arm(s): " + ", ".join(unknown))
     timeout = args.timeout if args.timeout is not None else (
         240.0 if args.stage == "screen" else 600.0)
-    cnf = os.path.join(ROOT, REL)
+    rels = tuple(filter(None, args.instances.split(",")))
+    if not rels or any(not re.fullmatch(
+            r"cruxmiter/cruxmiter(?:2[0-9]|3[0-2])seed7\.cnf", rel)
+                       for rel in rels):
+        raise SystemExit("--instances accepts only cruxmiter sizes 20..32 seed 7")
+    paths = {rel: os.path.join(ROOT, rel) for rel in rels}
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
                    PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY,
                    DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, TAIL_BVE_POLICY,
                    BDD_ORDER_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
-    if not os.path.isfile(cnf):
-        raise SystemExit(f"missing input: {cnf}")
+    missing = [path for path in paths.values() if not os.path.isfile(path)]
+    if missing:
+        raise SystemExit("missing input(s): " + ", ".join(missing))
 
     # Screen timings include proof writing but defer verification.  Verify is
     # submission-grade: every SAT model or UNSAT proof is independently checked.
@@ -764,7 +773,7 @@ def main():
     os.makedirs(outdir, exist_ok=False)
     metadata = {
         "stage": args.stage,
-        "development_instance": REL,
+        "development_instances": rels,
         "held_out_size32_seeds": [0, 2, 3, 4, 5, 6, 8, 9],
         "target_speedup": "5x-10x versus faster of DefaultPolicy and Kissat",
         "timeout_seconds": timeout,
@@ -776,7 +785,7 @@ def main():
             ["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], check=True,
             capture_output=True, text=True).stdout.strip(),
         "campaign_wrapper_sha256": digest(__file__),
-        "input_sha256": digest(cnf),
+        "input_sha256": {rel: digest(path) for rel, path in paths.items()},
         "executables": {path: digest(path) for path in
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
                          INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY,
@@ -794,11 +803,12 @@ def main():
         target.write("\n")
     submit = SimpleNamespace(partition=args.partition, throttle=None,
                              dry_run=args.dry_run, wait=args.wait, tier=label)
-    print(f"development target: {REL} ({metadata['input_sha256']})")
+    print(f"development targets: {', '.join(rels)}")
     print(f"arms: {', '.join(selected)}")
     # run.slurm_submit maps 16 GiB to two physical / four logical CPUs.
     return run.slurm_submit(
-        submit, [(REL, "UNKNOWN", 0.0)], solvers, {REL: cnf}, timeout, 16,
+        submit, [(rel, "UNKNOWN", 0.0) for rel in rels], solvers, paths,
+        timeout, 16,
         outdir, stamp, PIN_COMMIT, label)
 
 
