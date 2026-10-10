@@ -53,6 +53,12 @@ TAIL_BVE_POLICY = os.path.join(
 BDD_ORDER_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-43db14f2b", "examples",
     "tactix-cruxmiter-policy")
+ADAPTIVE_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-local-20261010", "examples",
+    "tactix-cruxmiter-policy")
+FINAL_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-final-20261010", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -72,6 +78,16 @@ def cli(*settings):
 
 def policy(profile="backbone", *settings, binary=POLICY):
     return [ENV, *settings, binary, f"--profile={profile}", "--drat"]
+
+
+def adaptive_rbcv(*settings):
+    """Current seed-7 center plus adaptive startup closure."""
+    return policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", *settings, binary=ADAPTIVE_POLICY)
 
 
 # All arms are formula-independent settings or public-rule sequences.  No arm
@@ -509,6 +525,51 @@ ARMS = {
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
         "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone"),
+    # Progress-driven startup closure.  These arms distinguish a productive
+    # third C->S layer from merely paying for another exhausted rule call.
+    "rbcv-adaptive-cs": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", binary=ADAPTIVE_POLICY),
+    "rbcv-final": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", binary=FINAL_POLICY),
+    **{
+        f"rbcv-force-cs{rounds}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            f"TACTIX_CRUX_CS_ROUNDS={rounds}", "TACTIX_CRUX_CS_FORCE=1",
+            binary=ADAPTIVE_POLICY)
+        for rounds in (1, 2, 3, 4)
+    },
+    "adaptive-slot-clocks1": adaptive_rbcv("TACTIX_SLOT_CLOCKS=1"),
+    "adaptive-watermark0": adaptive_rbcv("TACTIX_SLOT_WATERMARK=0"),
+    "adaptive-touch0": adaptive_rbcv("TACTIX_TOUCH_MARKS=0"),
+    "adaptive-touch-redundant0": adaptive_rbcv("TACTIX_TOUCH_REDUNDANT=0"),
+    "adaptive-touch-redundant1": adaptive_rbcv("TACTIX_TOUCH_REDUNDANT=1"),
+    "adaptive-reduce-arith": adaptive_rbcv("TACTIX_REDUCE_CADENCE=arith"),
+    "adaptive-reduce-arith-ramp0": adaptive_rbcv(
+        "TACTIX_REDUCE_CADENCE=arith", "TACTIX_REDUCE_RAMP=0"),
+    "adaptive-reduce-arith-ramp1": adaptive_rbcv(
+        "TACTIX_REDUCE_CADENCE=arith", "TACTIX_REDUCE_RAMP=1"),
+    "adaptive-no-jump-reasons": adaptive_rbcv("TACTIX_JUMP_REASONS=0"),
+    "adaptive-walk0": adaptive_rbcv("TACTIX_WALK_PERMILLE=0"),
+    "adaptive-lucky-late0": adaptive_rbcv("TACTIX_LUCKY_LATE=0"),
+    "adaptive-rephase-both": adaptive_rbcv("TACTIX_REPHASE_BOTH_MODES=1"),
+    "adaptive-subsume-hold0": adaptive_rbcv("TACTIX_SUBSUME_HOLD=0"),
+    "adaptive-preprocess-followups0": adaptive_rbcv(
+        "TACTIX_PREPROCESS_FOLLOWUPS=0"),
+    "adaptive-preprocess-followups1": adaptive_rbcv(
+        "TACTIX_PREPROCESS_FOLLOWUPS=1"),
+    "adaptive-arena-order0": adaptive_rbcv("TACTIX_ARENA_ORDER=0"),
+    "adaptive-arena-order1": adaptive_rbcv("TACTIX_ARENA_ORDER=1"),
     "rbcv-disable-backbone-congruence": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
@@ -732,7 +793,7 @@ def main():
     parser.add_argument("stage", choices=("screen", "verify"))
     parser.add_argument("--arms", default="")
     parser.add_argument("--instances", default=REL,
-                        help="comma-separated cruxmiter size variants, seed 7 only")
+                        help="comma-separated cruxmiter size/seed variants")
     parser.add_argument("--timeout", type=float, default=None)
     parser.add_argument("--partition", default="cpu-dense-hwulab-q")
     parser.add_argument("--wait", action="store_true")
@@ -749,14 +810,14 @@ def main():
         240.0 if args.stage == "screen" else 600.0)
     rels = tuple(filter(None, args.instances.split(",")))
     if not rels or any(not re.fullmatch(
-            r"cruxmiter/cruxmiter(?:2[0-9]|3[0-2])seed7\.cnf", rel)
+            r"cruxmiter/cruxmiter(?:2[0-9]|3[0-2])seed[0-9]\.cnf", rel)
                        for rel in rels):
-        raise SystemExit("--instances accepts only cruxmiter sizes 20..32 seed 7")
+        raise SystemExit("--instances accepts cruxmiter sizes 20..32, seeds 0..9")
     paths = {rel: os.path.join(ROOT, rel) for rel in rels}
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
                    PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY,
                    DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, TAIL_BVE_POLICY,
-                   BDD_ORDER_POLICY, KISSAT):
+                   BDD_ORDER_POLICY, ADAPTIVE_POLICY, FINAL_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     missing = [path for path in paths.values() if not os.path.isfile(path)]
@@ -768,14 +829,16 @@ def main():
     verify = args.stage == "verify"
     solvers = [(name, ARMS[name], True, verify, verify) for name in selected]
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    label = f"crux-seed7-{args.stage}"
+    label = f"crux-fixed-family-{args.stage}"
     outdir = os.path.join(run.RUNS, f"{stamp}-{label}")
     os.makedirs(outdir, exist_ok=False)
     metadata = {
         "stage": args.stage,
         "development_instances": rels,
-        "held_out_size32_seeds": [0, 2, 3, 4, 5, 6, 8, 9],
-        "target_speedup": "5x-10x versus faster of DefaultPolicy and Kissat",
+        "held_out_size32_seeds": [],
+        "selection_instance": "cruxmiter/cruxmiter32seed7.cnf",
+        "fixed_evaluation_set": list(rels),
+        "target_speedup": "maximize aggregate speedup versus faster of DefaultPolicy and Kissat",
         "timeout_seconds": timeout,
         "partition": args.partition,
         "cpus_per_task": 4,
@@ -790,7 +853,8 @@ def main():
                         (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY,
                          INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY,
                          ORDER_POLICY, DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY,
-                         TAIL_BVE_POLICY, BDD_ORDER_POLICY, KISSAT)},
+                         TAIL_BVE_POLICY, BDD_ORDER_POLICY,
+                         ADAPTIVE_POLICY, KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
