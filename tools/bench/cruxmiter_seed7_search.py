@@ -433,6 +433,59 @@ ARMS = {
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
         "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
         "TACTIX_NO_SWEEP=1"),
+    # Conflict-analysis refinements around the current 42.6-second center.
+    # The trace is search-dominated after the productive Vivify passes, so
+    # these vary which implication reasons feed the stable heap and learned
+    # clause tiers without changing any proof rule.
+    **{
+        f"rbcv-bump-limit{limit}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", f"TACTIX_BUMP_REASONS_LIMIT={limit}")
+        for limit in (0, 1, 2, 4, 20, 50)
+    },
+    **{
+        f"rbcv-bump-rate{rate}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", f"TACTIX_BUMP_REASONS_RATE={rate}")
+        for rate in (1, 2, 5, 20, 50)
+    },
+    **{
+        f"rbcv-eager{amount}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", f"TACTIX_EAGER_SUBSUME={amount}")
+        for amount in (0, 1, 2)
+    },
+    "rbcv-no-ext-reason-bump": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_NO_EXT_REASON_BUMP=1"),
+    "rbcv-no-dynamic-tiers": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_NO_DYNAMIC_TIERS=1"),
+    "rbcv-no-compact": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_NO_COMPACT=1"),
+    "rbcv-no-shrink-glue": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SHRINK_GLUE=0"),
+    "rbcv-chrono-reuse": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_CHRONO_REUSE=1"),
     "rbc-cce1": policy(
         "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
         "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
