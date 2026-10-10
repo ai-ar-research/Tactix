@@ -21,6 +21,9 @@ enum profile {
   PROFILE_SEARCH,
   PROFILE_POSITIVE,
   PROFILE_SAVED,
+  PROFILE_GATE_SEARCH,
+  PROFILE_BACKBONE_SEARCH,
+  PROFILE_BACKBONE_CLOSE_SEARCH,
   PROFILE_GATE,
   PROFILE_BINARY,
   PROFILE_BACKBONE,
@@ -38,12 +41,13 @@ enum profile {
 struct policy {
   tactix *solver;
   enum profile profile;
-  int propagate, analyze, restart, reduce, switchmode;
+  int propagate, analyze, decide, restart, reduce, switchmode;
   int congruence, substitute, hbr, backbone, sweep, vivify, strengthen,
       subsume, bve, transitive;
-  uint64_t rel_u, rel_v, rel_wait;
+  uint64_t rel_u, rel_v, rel_wait, rel_period;
   int rel_trigger;
   uint64_t reduce_next, inprocess_next;
+  uint64_t focus_conflicts;
   uint64_t online_revision;
   uint64_t symmetry_calls, symmetry_applications, symmetry_productive;
 };
@@ -66,6 +70,12 @@ static int parse_profile(const char *text, enum profile *out) {
     *out = PROFILE_POSITIVE;
   else if (!strcmp(text, "saved"))
     *out = PROFILE_SAVED;
+  else if (!strcmp(text, "gate-search"))
+    *out = PROFILE_GATE_SEARCH;
+  else if (!strcmp(text, "backbone-search"))
+    *out = PROFILE_BACKBONE_SEARCH;
+  else if (!strcmp(text, "backbone-close-search"))
+    *out = PROFILE_BACKBONE_CLOSE_SEARCH;
   else if (!strcmp(text, "gate"))
     *out = PROFILE_GATE;
   else if (!strcmp(text, "binary"))
@@ -100,6 +110,9 @@ static const char *profile_name(enum profile profile) {
   case PROFILE_SEARCH: return "search";
   case PROFILE_POSITIVE: return "positive";
   case PROFILE_SAVED: return "saved";
+  case PROFILE_GATE_SEARCH: return "gate-search";
+  case PROFILE_BACKBONE_SEARCH: return "backbone-search";
+  case PROFILE_BACKBONE_CLOSE_SEARCH: return "backbone-close-search";
   case PROFILE_GATE: return "gate";
   case PROFILE_BINARY: return "binary";
   case PROFILE_BACKBONE: return "backbone";
@@ -117,7 +130,10 @@ static const char *profile_name(enum profile profile) {
 }
 
 static const char *phase_name(enum profile profile) {
-  if (profile == PROFILE_SEARCH) return "negative";
+  if (profile == PROFILE_SEARCH || profile == PROFILE_GATE_SEARCH ||
+      profile == PROFILE_BACKBONE_SEARCH ||
+      profile == PROFILE_BACKBONE_CLOSE_SEARCH)
+    return "negative";
   if (profile == PROFILE_POSITIVE) return "positive";
   if (profile == PROFILE_SAVED) return "saved";
   return "default-policy";
@@ -125,7 +141,20 @@ static const char *phase_name(enum profile profile) {
 
 static int manual_search(enum profile profile) {
   return profile == PROFILE_SEARCH || profile == PROFILE_POSITIVE ||
+         profile == PROFILE_SAVED || profile == PROFILE_GATE_SEARCH ||
+         profile == PROFILE_BACKBONE_SEARCH ||
+         profile == PROFILE_BACKBONE_CLOSE_SEARCH;
+}
+
+static int bare_manual_search(enum profile profile) {
+  return profile == PROFILE_SEARCH || profile == PROFILE_POSITIVE ||
          profile == PROFILE_SAVED;
+}
+
+static int manual_inprocess(enum profile profile) {
+  return profile == PROFILE_GATE_SEARCH ||
+         profile == PROFILE_BACKBONE_SEARCH ||
+         profile == PROFILE_BACKBONE_CLOSE_SEARCH;
 }
 
 /* The benchmark files are plain DIMACS. Keep parsing in this external client
@@ -311,7 +340,7 @@ static int root_pipeline(struct policy *policy) {
   uint64_t applications = 0;
   unsigned round;
   int result = propagate(policy);
-  if (terminal(result) || result == 2 || manual_search(policy->profile))
+  if (terminal(result) || result == 2 || bare_manual_search(policy->profile))
     return result;
 
   if (policy->profile == PROFILE_BACKBONE_FIRST)
@@ -328,9 +357,12 @@ static int root_pipeline(struct policy *policy) {
     if (terminal(result) || result == 2) return result;
     if (applications == before) break;
   }
-  if (policy->profile == PROFILE_GATE) return 1;
+  if (policy->profile == PROFILE_GATE ||
+      policy->profile == PROFILE_GATE_SEARCH)
+    return 1;
 
-  if (policy->profile == PROFILE_BACKBONE) {
+  if (policy->profile == PROFILE_BACKBONE ||
+      policy->profile == PROFILE_BACKBONE_SEARCH) {
     result = dose_rule(policy, policy->backbone, 512, &applications);
     if (terminal(result) || result == 2) return result;
     return 1;
@@ -365,7 +397,8 @@ static int root_pipeline(struct policy *policy) {
     return dose_rule(policy, policy->substitute, 24, &applications);
   }
 
-  if (policy->profile == PROFILE_BACKBONE_CLOSE) {
+  if (policy->profile == PROFILE_BACKBONE_CLOSE ||
+      policy->profile == PROFILE_BACKBONE_CLOSE_SEARCH) {
     result = dose_rule(policy, policy->backbone, 512, &applications);
     if (terminal(result) || result == 2) return result;
     result = dose_rule(policy, policy->congruence, 4, &applications);
@@ -423,7 +456,7 @@ static void tick_reluctant(struct policy *policy) {
   } else {
     policy->rel_v *= 2;
   }
-  wait = policy->rel_v * UINT64_C(1024);
+  wait = policy->rel_v * policy->rel_period;
   if (wait > (UINT64_C(1) << 20)) {
     policy->rel_u = policy->rel_v = 1;
     wait = 1024;
@@ -447,7 +480,8 @@ static int solve(struct policy *policy) {
 
   /* Enter stable mode once, never switch back, and never capture a target
    * phase: the public-policy equivalent of stable=2,target=0. */
-  if (tactix_stat(policy->solver, TACTIX_STAT_STABLE) == 0 &&
+  if (!policy->focus_conflicts &&
+      tactix_stat(policy->solver, TACTIX_STAT_STABLE) == 0 &&
       tactix_apply(policy->solver, policy->switchmode) < 0)
     return 0;
 
@@ -458,7 +492,8 @@ static int solve(struct policy *policy) {
       result = tactix_apply(policy->solver, policy->analyze);
       if (terminal(result)) return result;
       if (result < 0) return 0;
-      tick_reluctant(policy);
+      if (tactix_stat(policy->solver, TACTIX_STAT_STABLE))
+        tick_reluctant(policy);
       continue;
     }
     if (!tactix_stat(policy->solver, TACTIX_STAT_UNASSIGNED)) return 10;
@@ -473,6 +508,17 @@ static int solve(struct policy *policy) {
             300 * tactix_stat(policy->solver, TACTIX_STAT_REDUCTIONS);
         if (reduced >= 0) continue;
       }
+      if (!tactix_stat(policy->solver, TACTIX_STAT_STABLE) &&
+          conflicts >= policy->focus_conflicts) {
+        const int switched = tactix_apply(policy->solver, policy->switchmode);
+        if (terminal(switched)) return switched;
+        if (switched >= 0) {
+          policy->rel_u = policy->rel_v = 1;
+          policy->rel_wait = policy->rel_period;
+          policy->rel_trigger = 0;
+          continue;
+        }
+      }
       if (policy->rel_trigger) {
         const int restarted = tactix_apply_instance(
             policy->solver, policy->restart, TACTIX_INSTANCE_CANONICAL);
@@ -482,7 +528,7 @@ static int solve(struct policy *policy) {
           continue;
         }
       }
-      if (!manual_search(policy->profile) &&
+      if (manual_inprocess(policy->profile) &&
           conflicts >= policy->inprocess_next) {
         if (tactix_stat(policy->solver, TACTIX_STAT_LEVEL)) {
           const int restarted =
@@ -501,9 +547,18 @@ static int solve(struct policy *policy) {
      * fixes the polarity to false, translating KISSAT phase=0. */
     {
       int candidate;
+      if (!tactix_stat(policy->solver, TACTIX_STAT_STABLE)) {
+        const int decided = tactix_apply(policy->solver, policy->decide);
+        if (terminal(decided)) return decided;
+        if (decided < 0) return 0;
+        continue;
+      }
       if (tactix_decide_candidates(policy->solver, &candidate, 1) != 1)
         return tactix_status(policy->solver);
-      if (policy->profile == PROFILE_SEARCH)
+      if (policy->profile == PROFILE_SEARCH ||
+          policy->profile == PROFILE_GATE_SEARCH ||
+          policy->profile == PROFILE_BACKBONE_SEARCH ||
+          policy->profile == PROFILE_BACKBONE_CLOSE_SEARCH)
         candidate = candidate < 0 ? candidate : -candidate;
       else if (policy->profile == PROFILE_POSITIVE)
         candidate = candidate < 0 ? -candidate : candidate;
@@ -514,11 +569,13 @@ static int solve(struct policy *policy) {
 
 static int init_policy(struct policy *policy, tactix *solver,
                        enum profile profile) {
+  const char *setting;
   memset(policy, 0, sizeof *policy);
   policy->solver = solver;
   policy->profile = profile;
   policy->propagate = rule_id("Propagate");
   policy->analyze = rule_id("ConflictAnalysis");
+  policy->decide = rule_id("Decide");
   policy->restart = rule_id("Restart");
   policy->reduce = rule_id("Reduce");
   policy->switchmode = rule_id("SwitchMode");
@@ -533,11 +590,29 @@ static int init_policy(struct policy *policy, tactix *solver,
   policy->bve = rule_id("BVE");
   policy->transitive = rule_id("TransitiveReduce");
   policy->rel_u = policy->rel_v = 1;
-  policy->rel_wait = 1024;
+  policy->rel_period = policy->rel_wait = 1024;
   policy->reduce_next = 2000;
   policy->inprocess_next = 10000;
+  /* These are policy-owned schedule controls, not Kernel options.  They make
+   * the specialized public client able to search timing as well as rule
+   * order.  An in-processing interval of zero disables repeated root doses
+   * while retaining the selected startup prelude. */
+  setting = getenv("TACTIX_CRUX_RELUCTANT_PERIOD");
+  if (setting && strtoull(setting, NULL, 10))
+    policy->rel_period = policy->rel_wait = strtoull(setting, NULL, 10);
+  setting = getenv("TACTIX_CRUX_REDUCE_INTERVAL");
+  if (setting && strtoull(setting, NULL, 10))
+    policy->reduce_next = strtoull(setting, NULL, 10);
+  setting = getenv("TACTIX_CRUX_INPROCESS_INTERVAL");
+  if (setting) {
+    const uint64_t interval = strtoull(setting, NULL, 10);
+    policy->inprocess_next = interval ? interval : UINT64_MAX;
+  }
+  setting = getenv("TACTIX_CRUX_FOCUS_CONFLICTS");
+  if (setting)
+    policy->focus_conflicts = strtoull(setting, NULL, 10);
   return policy->propagate >= 0 && policy->analyze >= 0 &&
-         policy->restart >= 0 && policy->reduce >= 0 &&
+         policy->decide >= 0 && policy->restart >= 0 && policy->reduce >= 0 &&
          policy->switchmode >= 0 && policy->congruence >= 0 &&
          policy->substitute >= 0 && policy->hbr >= 0 &&
          policy->backbone >= 0 && policy->sweep >= 0 &&
@@ -577,13 +652,13 @@ int main(int argc, char **argv) {
     } else if (!proof) {
       proof = argv[arg];
     } else {
-        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
+        fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
                       "[--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
-    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
+    fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|gate|binary|backbone|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|full] "
                     "[--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
