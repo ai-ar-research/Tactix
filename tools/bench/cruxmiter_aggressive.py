@@ -40,6 +40,7 @@ ARMS = {
     "backbone-cce-max1": command(
         "backbone", "TACTIX_SLOT_ENABLE=CCE",
         "TACTIX_SLOT_MAX_APPLIES=CCE:1"),
+    "backbone-close": command("backbone-close"),
     "backbone-symmetry": command("backbone-symmetry"),
     "backbone-symmetry-scan": command("backbone-symmetry-scan"),
     "symmetry-sandwich": command("symmetry-sandwich"),
