@@ -1703,7 +1703,28 @@ int tactix_install_material_settings(tactix *, int touch_filter_mode,
  *   CONSUME_ROOT_PREFIX        mark the propagated root prefix consumed.
  *   ENTER_CONTEXT              argument = CONTEXT_*: enter an execution
  *                              context (tick attribution, phase saving);
- *   LEAVE_CONTEXT              leave the innermost one. */
+ *   LEAVE_CONTEXT              leave the innermost one.
+ *   ENTER_INPROCESS_PHASE      argument = PHASE_ELIMINATE flag | (Factor
+ *                              bound << PHASE_FACTOR_BOUND_SHIFT): open the
+ *                              inprocessing phase bracket at a quiescent root:
+ *                              the inprocessing context, the sparse-resume
+ *                              cursor, large-watch disconnection (Eliminate)
+ *                              and the default Factor selection (accept a grid
+ *                              whose clause saving is positive and exceeds
+ *                              the bound). One bracket at a time.
+ *   OPEN_OCCURRENCE_SESSION    build the bracket's occurrence index (ordered
+ *                              for Eliminate); rule applications then use it.
+ *   LEAVE_INPROCESS_PHASE      close the bracket at the root: flush redundant
+ *                              clauses on retired variables (Probe, unless
+ *                              refuted), publish retirements (H), close the
+ *                              session, reconnect large watches (Eliminate, or
+ *                              if left disconnected), resume sparse Propagate
+ *                              from the cursor (Eliminate), clear the Factor
+ *                              selection and leave the context. A Probe
+ *                              bracket without a session only clears the
+ *                              selection and leaves the context. Contexts
+ *                              entered inside the bracket must be left first;
+ *                              tactix_solve leaves an open bracket. */
 #define TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE 1
 #define TACTIX_SUPPORT_PREPARATION_RESTART 2
 #define TACTIX_SUPPORT_ROOT_PREPARATION 3
@@ -1721,6 +1742,11 @@ int tactix_install_material_settings(tactix *, int touch_filter_mode,
 #define TACTIX_SUPPORT_CONSUME_ROOT_PREFIX 15
 #define TACTIX_SUPPORT_ENTER_CONTEXT 16
 #define TACTIX_SUPPORT_LEAVE_CONTEXT 17
+#define TACTIX_SUPPORT_ENTER_INPROCESS_PHASE 18
+#define TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION 19
+#define TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE 20
+#define TACTIX_PHASE_ELIMINATE 1
+#define TACTIX_PHASE_FACTOR_BOUND_SHIFT 32
 #define TACTIX_ROOT_PREPARATION_PROBING 1
 #define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
 #define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4

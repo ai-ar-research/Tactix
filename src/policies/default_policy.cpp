@@ -9,6 +9,7 @@
 #include "strategy/parameter_execution.hpp"
 #include "strategy/root_execution.hpp"
 #include "strategy/occurrence_execution.hpp"
+#include "strategy/phase_execution.hpp"
 #include "strategy/publication_execution.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/reduction_execution.hpp"
@@ -7094,43 +7095,35 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // a later followup or phase exit. Deliver immutable leaf records only after
   // the enclosing native scope and all of that publication have finished.
   execution::CompletionPublication phase_published(completion);
-  std::optional<InprocessScope> inprocess_scope;
-  uint32_t sparse_resume_trail = 0;
+  execution::InprocessPhase phase;
+  // The default selection's bound is the public entry argument; an injected
+  // matcher (diagnostic arm) has no public form and keeps the snapshot.
+  const uint32_t default_factor_bound = std::max(k.factor_bound, factor_bound_snapshot_);
   (void)execution::complete_action(completion, FeedbackKind::Support,
-      "InprocessPhaseEntry", INSTANCE_CANONICAL, [&] {
+      "InprocessPhaseEntry", factor_match ? INSTANCE_CANONICAL
+          : execution::inprocess_phase_argument(group == SlotGroup::Eliminate,
+                                                default_factor_bound), [&] {
         execution::NativeFeedbackSpec spec;
         spec.description.description = std::string("group=") +
             (group == SlotGroup::Probe ? "probe" : "eliminate") +
             ";factor-selection=" + (factor_match ? "injected" : "default") +
             ";factor-bound=" + std::to_string(factor_match ? factor_bound_snapshot_ :
-                std::max(k.factor_bound, factor_bound_snapshot_));
+                default_factor_bound);
         spec.description.effort_currency = "ticks";
         spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
         return spec;
       }, [&] {
-  inprocess_scope.emplace(k);
-  // Kissat has physically cleared the previously propagated root trail at
-  // this point. Preserve Tactix's immutable prefix but remember the equivalent
-  // beginning for its sparse-resume reset below.
-  sparse_resume_trail = static_cast<uint32_t>(k.trail.size());
   if (group == SlotGroup::Eliminate)
     event_trace_eliminate_cleanup(k, "entry");
-  // Only the Eliminate pipeline contains BVE, the sole consumer of Kissat's
-  // mixed binary/large connection stream. Probe consumers share the ordinary
-  // large occurrence image and do not instantiate a duplicate formula-wide
-  // ordering representation. Constructing either cache is not itself a
-  // physical sparse-watch transition. Eliminate owns that transition here:
-  // kissat_enter_dense_mode both disconnects large watches and deletes every
-  // repeated binary before occurrences are built (eliminate.c). Probe rules
-  // retain their own entry/exit transitions. Keeping sparse watches throughout
-  // Eliminate otherwise publishes and scans a second, obsolete large image.
-  if (group == SlotGroup::Eliminate)
-    execution::execute_action(k, execution::DisconnectLargeWatchesRequest{});
+  // Kissat's dense-mode entry (eliminate.c) disconnects large watches before
+  // occurrences are built; Probe consumers share the ordinary large occurrence
+  // image and keep their own rule-local transitions (phase_execution.hpp).
+  phase.enter(k, factor_match
+      ? execution::InprocessPhaseEntryRequest{group == SlotGroup::Eliminate,
+                                              *factor_match, factor_bound_snapshot_}
+      : execution::InprocessPhaseEntryRequest{group == SlotGroup::Eliminate,
+                                              default_factor_match_, default_factor_bound});
   k.stats.inprocess_entry_nanos += now_nanos() - phase_nanos_at_entry;
-  default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
-  execution::execute_action(k, execution::FactorSelectionInstallationRequest{
-      factor_match ? *factor_match : default_factor_match_,
-      factor_match ? std::optional<uint32_t>{factor_bound_snapshot_} : std::nullopt});
     return ApplyResult::Ok;
       });
   // Structured startup owns rule-local occurrence scopes. Construct the
@@ -7149,7 +7142,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
           spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
           return spec;
         }, [&] {
-          execution::execute_action(k, execution::ClearFactorSelectionRequest{});
+          phase.exit_terminal(k);
           k.stats.inprocess_propagations += k.stats.propagations - phase_props_at_entry;
           k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
           return ApplyResult::Sat;
@@ -7158,10 +7151,19 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   const bool structured_unsat = structured_result == 20;
   const uint64_t dense_connect_started = now_nanos();
-  execution::OccurrenceSession occurrences(
-      k, execution::OccurrenceSessionRequest{
-             occurrence_index_, execution::OccurrenceAttachment::Build,
-             group == SlotGroup::Eliminate});
+  (void)execution::complete_action(completion, FeedbackKind::Support,
+      "OpenOccurrenceSession", INSTANCE_CANONICAL, [&] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.description = std::string("group=") +
+            (group == SlotGroup::Probe ? "probe" : "eliminate") +
+            ";track-order=" + (group == SlotGroup::Eliminate ? "1" : "0");
+        spec.description.effort_currency = "ticks";
+        spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
+        return spec;
+      }, [&] {
+        phase.open_occurrences(k, occurrence_index_);
+        return ApplyResult::Ok;
+      });
   k.stats.inprocess_dense_connect_nanos +=
       now_nanos() - dense_connect_started;
   SlotPhaseCtx ctx{group, stop, completion};
@@ -7398,55 +7400,28 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         execution::NativeFeedbackSpec spec;
         spec.description.description = std::string("group=") +
             (group == SlotGroup::Probe ? "probe" : "eliminate") +
-            ";sparse-resume-trail=" + std::to_string(sparse_resume_trail);
+            ";sparse-resume-trail=" + std::to_string(phase.sparse_resume_trail());
         spec.description.effort_currency = "ticks";
         spec.meter = [](const Kernel &kernel) { return kernel.stats.ticks; };
         return spec;
       }, [&] {
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "before");
-  // Kissat collects the arena only inside an Eliminate round (eliminate.c:519,
-  // mirrored by the BVE round above) and at Reduce (reduce.c:202).  A Probe
-  // phase whose dosed entry applied (TransitiveReduce, HyperBinaryRes) leaves
-  // no arena garbage of its own and must not collect: a collection resets the
-  // eager-subsumption register and compacts the arena, both search-visible.
-  // Eliminate's sparse-resume pass below performs the reference's single
-  // arena-order collection of every root-satisfied or retired-variable large
-  // clause.  Other groups retain the generic redundant-retirement safeguard.
-  if (!ctx.phase_unsat && group != SlotGroup::Eliminate)
-    execution::execute_action(k, execution::FlushRetiredRedundantRequest{});
-  heuristics_consume_retirements(k);
-  occurrences.close();
-  // Only Eliminate reconnects at the pipeline level (eliminate.c:587-589).
-  // `probe.c` has no rewatch of its own: each dense-mode rule flushes large
-  // watches on entry and reconnects on exit (vivify.c:1265/1276,
-  // substitute.c:594, dense.c:105/217), and the pipeline returns to search
-  // carrying the pose the last sparse probing propagation left. A rewatch here
-  // re-sorts every watched pair, refreshes every cached blocker and resets
-  // every replacement-search cursor, erasing the stale hints Kissat keeps
+  // A public client leaves the phase with the refutation it observes.
+  assert(ctx.phase_unsat == k.inconsistent);
+  // Kissat collects the arena only inside an Eliminate round (eliminate.c:519)
+  // and at Reduce (reduce.c:202); Eliminate's sparse resume performs the single
+  // arena-order collection, so only other groups flush retired redundant
+  // clauses. Probe has no pipeline rewatch (probe.c; each dense-mode rule
+  // reconnects itself, vivify.c:1265/1276, substitute.c:594, dense.c:105/217),
+  // keeping Kissat's stale watch hints
   // (benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md 3.40).
-  // The full dense-mode exit corresponds to Kissat's arena-order reconnect.
-  // Packed Tactix replacements replay their persistent source positions, as
-  // every rule-local reconnect does, until collection materializes the order.
-  if (group == SlotGroup::Eliminate || !k.large_watches_connected)
-    execution::execute_action(k, execution::ReconnectLargeWatchesRequest{
-        group == SlotGroup::Eliminate});
-  if (group == SlotGroup::Eliminate && !ctx.phase_unsat) {
-    // dense.c::kissat_resume_sparse_mode resets propagation after reconnecting
-    // and, because Eliminate is not a probing scope, deliberately uses
-    // kissat_search_propagate. Its scan cost therefore contributes to the
-    // stable-mode and inprocessing `search_ticks` currency even though the
-    // enclosing simplifier remains active.
-    const ApplyResult replay = default_resume_sparse_propagation(
-        k, sparse_resume_trail, /*charge_search_ticks=*/true);
-    if (replay == ApplyResult::Unsat || k.inconsistent)
-      ctx.phase_unsat = true;
-    else
-      assert(replay == ApplyResult::Ok);
-  }
+  if (phase.exit(k, ctx.phase_unsat, [&] { heuristics_consume_retirements(k); },
+                 [&] { return default_propagate(k, "eliminate-sparse-resume"); }) ==
+      ApplyResult::Unsat)
+    ctx.phase_unsat = true;
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "after");
-  execution::execute_action(k, execution::ClearFactorSelectionRequest{});
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
   const uint64_t phase_finished = now_nanos();

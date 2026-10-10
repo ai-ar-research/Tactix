@@ -395,7 +395,7 @@ static void test_native_batches(bool vivify, bool budgeted) {
     else assert(snapshot == preserved);
     if (feedback) {
       std::vector<std::string> installed;
-      unsigned entered = 0, exited = 0;
+      unsigned entered = 0, opened = 0, exited = 0;
       for (const auto &record : capture.actions) {
         if (record.kind == FeedbackKind::Support) {
           assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
@@ -406,9 +406,11 @@ static void test_native_batches(bool vivify, bool budgeted) {
           assert(record.native_request->invocation);
           installed.push_back(record.native_request->invocation->rule);
           assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
-        } else if (record.identity == "InprocessPhaseEntry" || record.identity == "InprocessPhaseExit") {
+        } else if (record.identity == "InprocessPhaseEntry" || record.identity == "InprocessPhaseExit" ||
+                   record.identity == "OpenOccurrenceSession") {
           assert(!record.outcome.invocation.applications && !record.outcome.invocation.made_rule_progress);
           entered += record.identity == "InprocessPhaseEntry";
+          opened += record.identity == "OpenOccurrenceSession";
           exited += record.identity == "InprocessPhaseExit";
         }
       }
@@ -417,7 +419,7 @@ static void test_native_batches(bool vivify, bool budgeted) {
       // A Vivify dose first poses its tier boundaries as a Reduce profile.
       if (vivify) expected.push_back("Reduce");
       assert(installed == expected);
-      assert(entered == 1 && exited == 1);
+      assert(entered == 1 && opened == 1 && exited == 1);
     }
     if (vivify) {
       assert(k.stats.vivify_rounds == 3 && k.stats.vivify_checked == 8);
