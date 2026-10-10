@@ -113,6 +113,27 @@ ARMS = {
     "target0-reduce5000": policy(
         "backbone-close-search", "TACTIX_CRUX_REDUCE_INTERVAL=5000",
         binary=NEXT_POLICY),
+    "target0-focus100": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=100",
+        binary=NEXT_POLICY),
+    "target0-focus500": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=500",
+        binary=NEXT_POLICY),
+    "target0-focus1000": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=1000",
+        binary=NEXT_POLICY),
+    "target0-focus2000": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=2000",
+        binary=NEXT_POLICY),
+    "target0-focus5000": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=5000",
+        binary=NEXT_POLICY),
+    "target0-focus10000": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=10000",
+        binary=NEXT_POLICY),
+    "target0-focus1000-no-repeat": policy(
+        "backbone-close-search", "TACTIX_CRUX_FOCUS_CONFLICTS=1000",
+        "TACTIX_CRUX_INPROCESS_INTERVAL=0", binary=NEXT_POLICY),
     # Search and in-processing ablations around the known stable winner.
     "stable-randec0": policy("backbone", "TACTIX_FORCE_MODE=stable",
                              "TACTIX_RANDEC=0"),
