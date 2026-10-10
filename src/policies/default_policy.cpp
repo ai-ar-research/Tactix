@@ -2095,7 +2095,7 @@ uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
 }
 
 
-using execution::TickSinkScope;
+using port::TickSinkScope;
 using execution::metered_rule_apply;
 
 using InprocessScope =
@@ -4173,7 +4173,7 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
   const uint64_t allowance = kernel_has_work_budget(kernel)
       ? std::min(kernel.work_budget, suggested ? suggested : kernel.work_budget)
       : suggested;
-  strategy::ScopedRuleWorkBudget work_budget(
+  port::ScopedRuleWorkBudget work_budget(
       kernel, suggested
                   ? strategy::RuleWorkBudget{
                         strategy::RuleWorkBudgetMode::Bounded, allowance}
@@ -5177,7 +5177,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return spec;
           }, [&] {
             static const RuleVTable &reduce_rule = registered_rule("Reduce");
-            const strategy::ScopedReduceParameters scoped(k, selected);
+            const port::ScopedReduceParameters scoped(k, selected);
             return canonical_victims ? port::apply_rule(reduce_rule, k)
                                      : port::apply_rule_instance(reduce_rule, k, reduce_victims);
           });
@@ -5668,7 +5668,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // schedule without paying parameter save/restore and rule validation for
     // every pivot.
     std::optional<strategy::InvocationBudget> bve_invocation_budget;
-    std::optional<strategy::BveInvocationSession> bve_invocation_session;
+    std::optional<port::BveInvocationSession> bve_invocation_session;
     if (bve_entry) {
       bve_invocation_budget.emplace(strategy::WorkUnit::BveTicks,
                                     strategy::WorkLimit::unlimited());
@@ -5862,7 +5862,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         e.ord.advanced++;
       }
       const bool hand_residual = e.budget_aware && e.meter;
-      std::optional<execution::WorkSettingsScope> candidate_work;
+      std::optional<port::WorkSettingsScope> candidate_work;
       if (hand_residual) {
         const uint64_t remaining = ledger_remaining(e, k, limit);
         candidate_work.emplace(
@@ -6084,7 +6084,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
            remaining % denominator * weight / denominator;
   };
   uint64_t cumulative_budget = 0;
-  execution::VivifyDoseScope dose(k);
+  port::VivifyDoseScope dose(k);
   const auto apply_band = [&](uint32_t band_scope, uint64_t cumulative) {
     const uint64_t spent = e.meter(k) - dose_start;
     // The band is a typed Vivify invocation: scope plus its cumulative ledger.
@@ -6197,7 +6197,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   // only reference cut point: strictly between complete candidates.  The
   // standalone C1 decomposition retains its diagnostic per-partner budget.
   // Both cuts are resumable through the touched-variable substrate.
-  std::optional<execution::WorkSettingsScope> work;
+  std::optional<port::WorkSettingsScope> work;
   work.emplace(
       k, execution::WorkSettingsRequest{
              handed, std::nullopt, std::nullopt,

@@ -70,6 +70,7 @@ add_library(tactix_lib OBJECT
   ${TACTIX_STRATEGY_SOURCES}
   src/frontend/parse.cpp
   src/api/api.cpp
+  src/api/api_work.cpp
 )
 
 # Proof export can copy a huge learned core. Only this translation unit may

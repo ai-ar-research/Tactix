@@ -35,6 +35,7 @@
 #include "strategy/rule_execution.hpp"
 #include "strategy/slot_execution.hpp"
 #include "strategy/sweep_execution.hpp"
+#include "strategy/vivify_execution.hpp"
 #include "strategy/work_execution.hpp"
 #include "public_parameter_encoding.hpp"
 #include "public_online_encoding.hpp"
@@ -78,6 +79,7 @@ struct is_parameter_installation<execution::ParameterInstallationRequest<P>>
     : std::true_type {};
 
 class PublicInprocessPhase;
+class PublicTickSinkScope;
 
 struct PublicPort {
   using Phase = PublicInprocessPhase;
@@ -473,6 +475,39 @@ struct PublicPort {
     if (out != -1) counted("tactix_support");
     return out;
   }
+  // A typed profile installed permanently (tactix_install_parameters).
+  template <class Parameters>
+  static bool install(tactix_c_handle *s, const char *rule, const Parameters &parameters) {
+    public_encoding::Encoded encoded;
+    const int id = rule_id(rule);
+    if (id < 0 || !public_encoding::encode(strategy::InprocessParameters(parameters), encoded) ||
+        tactix_install_parameters(s, id, &encoded.parameters) != 0)
+      return false;
+    counted("tactix_install_parameters");
+    return true;
+  }
+  static ApplyResult vivify_band(Kernel &k, tactix_c_handle *s, const RuleVTable &rule,
+                                 const execution::VivifyBandRequest &band);
+  static tactix_work_settings work_settings(tactix_c_handle *s) {
+    tactix_work_settings out{};
+    const int code = tactix_read_work_settings(s, &out);
+    assert(code == 0);
+    (void)code;
+    counted("tactix_read_work_settings");
+    return out;
+  }
+  static void install_work(tactix_c_handle *s, const execution::WorkSettingsRequest &request) {
+    tactix_work_settings in{};
+    if (request.budget) in.fields |= TACTIX_WORK_BUDGET, in.budget = *request.budget;
+    if (request.offset) in.fields |= TACTIX_WORK_OFFSET, in.offset = *request.offset;
+    if (request.bounded) in.fields |= TACTIX_WORK_BOUNDED, in.bounded = *request.bounded;
+    if (request.midround) in.fields |= TACTIX_WORK_MIDROUND, in.midround = *request.midround;
+    if (!in.fields) return;
+    const int code = tactix_install_work_settings(s, &in);
+    assert(code == 0);
+    (void)code;
+    counted("tactix_install_work_settings");
+  }
 
   // The public form of one request, or nullopt when none applies (the caller
   // then runs the static request). A refused request returns -1 there too.
@@ -634,6 +669,9 @@ struct PublicPort {
       counted("tactix_online_advance:Walk");
       timed(rule_id("Walk"));
       return static_cast<ApplyResult>(out.rule_result);
+    } else if constexpr (std::is_same_v<R, RuleVTable> && sizeof...(Args) == 1 &&
+                         (std::is_same_v<std::remove_cvref_t<Args>, VivifyBandRequest> && ...)) {
+      return vivify_band(k, s, request, std::get<0>(std::forward_as_tuple(args...)));
     } else if constexpr (std::is_same_v<R, PublishRetirementsRequest>) {
       if (retirements_held) {
         release_retirements(s, TACTIX_RETIREMENTS_RELEASE);
@@ -845,7 +883,197 @@ private:
   uint32_t sparse_resume_trail_ = 0;
 };
 
+// Policy-side scopes around public requests, established through tactix.h:
+// typed profiles by tactix_install_parameters, work wires by
+// tactix_install_work_settings, tick attribution by
+// tactix_install_tick_attribution. A profile's restore value is read from the
+// session's kernel (no typed readback exists); every write is a public call.
+// Unbound (or a refused install), the static scope runs.
+class PublicTickSinkScope {
+public:
+  PublicTickSinkScope(Kernel &k, uint64_t Stats::*counter, bool restore = false) {
+    s_ = restore ? nullptr : PublicPort::bound(k);
+    if (s_ && tactix_install_tick_attribution(s_, stat(counter)) == 0) {
+      PublicPort::counted("tactix_install_tick_attribution");
+      return;
+    }
+    if (PublicPort::bound(k)) ++PublicPort::census.fallbacks["TickSinkScope"];
+    s_ = nullptr;
+    native_.emplace(k, counter, restore);
+  }
+  ~PublicTickSinkScope() {
+    if (!s_) return;
+    const int code = tactix_install_tick_attribution(s_, TACTIX_TICK_ATTRIBUTION_NONE);
+    assert(code == 0);
+    (void)code;
+    PublicPort::counted("tactix_install_tick_attribution");
+  }
+  PublicTickSinkScope(const PublicTickSinkScope &) = delete;
+  PublicTickSinkScope &operator=(const PublicTickSinkScope &) = delete;
+
+private:
+  static int stat(uint64_t Stats::*counter) {
+    if (!counter) return TACTIX_TICK_ATTRIBUTION_NONE;
+    if (counter == &Stats::probe_ticks) return TACTIX_STAT_PROBE_TICKS;
+    if (counter == &Stats::hbr_ticks) return TACTIX_STAT_HBR_TICKS;
+    if (counter == &Stats::backbone_ticks) return TACTIX_STAT_BACKBONE_TICKS;
+    if (counter == &Stats::vivify_ticks) return TACTIX_STAT_VIVIFY_TICKS;
+    if (counter == &Stats::instantiate_ticks) return TACTIX_STAT_INSTANTIATE_TICKS;
+    return -2; // refused: no public statistic
+  }
+  tactix_c_handle *s_ = nullptr;
+  std::optional<execution::TickSinkScope> native_;
+};
+
+class PublicWorkSettingsScope {
+public:
+  PublicWorkSettingsScope(Kernel &k, execution::WorkSettingsRequest request,
+                          execution::WorkSettingsExit exit = execution::WorkSettingsExit::Restore)
+      : s_(PublicPort::bound(k)), request_(request), exit_(exit) {
+    if (!s_) {
+      native_.emplace(k, request, exit);
+      return;
+    }
+    saved_ = PublicPort::work_settings(s_);
+    PublicPort::install_work(s_, request_);
+  }
+  ~PublicWorkSettingsScope() {
+    if (!s_) return;
+    const bool clear = exit_ == execution::WorkSettingsExit::ClearBudget;
+    execution::WorkSettingsRequest restore;
+    if (request_.budget) restore.budget = clear ? 0 : saved_.budget;
+    if (request_.offset) restore.offset = clear ? 0 : saved_.offset;
+    if (request_.bounded) restore.bounded = clear ? false : saved_.bounded != 0;
+    if (request_.midround) restore.midround = saved_.midround != 0;
+    PublicPort::install_work(s_, restore);
+  }
+  PublicWorkSettingsScope(const PublicWorkSettingsScope &) = delete;
+  PublicWorkSettingsScope &operator=(const PublicWorkSettingsScope &) = delete;
+
+private:
+  tactix_c_handle *s_;
+  execution::WorkSettingsRequest request_;
+  execution::WorkSettingsExit exit_;
+  tactix_work_settings saved_{};
+  std::optional<execution::WorkSettingsScope> native_;
+};
+
+class PublicScopedRuleWorkBudget {
+public:
+  PublicScopedRuleWorkBudget(Kernel &k, const strategy::RuleWorkBudget &budget)
+      : scope_(k, request(budget)) {}
+  PublicScopedRuleWorkBudget(const PublicScopedRuleWorkBudget &) = delete;
+  PublicScopedRuleWorkBudget &operator=(const PublicScopedRuleWorkBudget &) = delete;
+
+private:
+  // strategy::ScopedRuleWorkBudget's wires, as an online step's rule budget.
+  static execution::WorkSettingsRequest request(const strategy::RuleWorkBudget &budget) {
+    if (budget.mode == strategy::RuleWorkBudgetMode::Inherit) return {};
+    const bool bounded = budget.mode == strategy::RuleWorkBudgetMode::Bounded;
+    return {bounded ? budget.amount : 0, 0, bounded, bounded};
+  }
+  PublicWorkSettingsScope scope_;
+};
+
+class PublicVivifyDoseScope {
+public:
+  explicit PublicVivifyDoseScope(Kernel &k)
+      : k_(k), work_(k, {k.work_budget, k.work_budget_offset, true, std::nullopt},
+                     execution::WorkSettingsExit::ClearBudget) {}
+  ~PublicVivifyDoseScope() {
+    if (tactix_c_handle *s = PublicPort::bound(k_)) {
+      tactix_set_vivify_scope(s, 0);
+      PublicPort::counted("tactix_set_vivify_scope");
+    } else {
+      k_.vivify_scope = 0; // the static scope's exit
+    }
+  }
+  PublicVivifyDoseScope(const PublicVivifyDoseScope &) = delete;
+  PublicVivifyDoseScope &operator=(const PublicVivifyDoseScope &) = delete;
+
+private:
+  Kernel &k_;
+  PublicWorkSettingsScope work_;
+};
+
+class PublicScopedReduceParameters {
+public:
+  PublicScopedReduceParameters(Kernel &k, const strategy::ReduceParameters &parameters)
+      : s_(PublicPort::bound(k)) {
+    if (s_) {
+      saved_ = strategy::ReduceParameters::from_kernel(k);
+      if (PublicPort::install(s_, "Reduce", parameters)) return;
+      ++PublicPort::census.declined["tactix_install_parameters:Reduce-scope"];
+      s_ = nullptr;
+    }
+    native_.emplace(k, parameters);
+  }
+  ~PublicScopedReduceParameters() {
+    if (!s_) return;
+    const bool ok = PublicPort::install(s_, "Reduce", saved_);
+    assert(ok);
+    (void)ok;
+  }
+  PublicScopedReduceParameters(const PublicScopedReduceParameters &) = delete;
+  PublicScopedReduceParameters &operator=(const PublicScopedReduceParameters &) = delete;
+
+private:
+  tactix_c_handle *s_;
+  strategy::ReduceParameters saved_;
+  std::optional<strategy::ScopedReduceParameters> native_;
+};
+
+// The BVE pass session with its parameters posed by tactix_install_parameters
+// for the session's lifetime.
+class PublicBveInvocationSession : public strategy::BveInvocationSession {
+public:
+  PublicBveInvocationSession(const RuleVTable &rule, Kernel &k,
+                             const strategy::BveParameters &parameters,
+                             strategy::InvocationBudget &budget)
+      : BveInvocationSession(CallerPosed{}, rule, k, parameters, budget) {
+    if (!valid()) return;
+    s_ = PublicPort::bound(k);
+    if (s_) {
+      saved_ = strategy::BveParameters::from_kernel(k);
+      if (PublicPort::install(s_, "BVE", parameters)) return;
+      ++PublicPort::census.declined["tactix_install_parameters:BVE-session"];
+      s_ = nullptr;
+    }
+    native_.emplace(k, parameters);
+  }
+  ~PublicBveInvocationSession() {
+    if (!s_) return;
+    const bool ok = PublicPort::install(s_, "BVE", saved_);
+    assert(ok);
+    (void)ok;
+  }
+
+private:
+  tactix_c_handle *s_ = nullptr;
+  strategy::BveParameters saved_;
+  std::optional<strategy::detail::ScopedBveParameters> native_;
+};
+
+// A Vivify band: its scope and cumulative ledger installed publicly, ticks
+// attributed to the band's currency, then the registered rule.
+inline ApplyResult PublicPort::vivify_band(Kernel &k, tactix_c_handle *s, const RuleVTable &rule,
+                                           const execution::VivifyBandRequest &band) {
+  assert(band.band.band);
+  tactix_set_vivify_scope(s, band.band.scope);
+  counted("tactix_set_vivify_scope");
+  install_work(s, execution::WorkSettingsRequest{band.band.band_budget, band.band.band_offset,
+                                                 true, std::nullopt});
+  PublicTickSinkScope sink(k, band.tick_counter);
+  return execution::metered_rule_apply(k, band.meter, [&] { return apply_rule(rule, k); });
+}
+
 static_assert(ActionPort<PublicPort>);
 using InprocessPhase = PublicInprocessPhase;
+using TickSinkScope = PublicTickSinkScope;
+using WorkSettingsScope = PublicWorkSettingsScope;
+using ScopedRuleWorkBudget = PublicScopedRuleWorkBudget;
+using VivifyDoseScope = PublicVivifyDoseScope;
+using ScopedReduceParameters = PublicScopedReduceParameters;
+using BveInvocationSession = PublicBveInvocationSession;
 
 } // namespace tactix::port

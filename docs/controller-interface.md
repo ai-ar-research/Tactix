@@ -740,6 +740,16 @@ Public forms the port uses beyond the registry, installs and supports:
   retires a productive Sweep's union after that Substitute.
 - `TACTIX_SUPPORT_COMPACT_FASTEL_PREFIX` compacts a fast-elimination scan's
   occurrence prefix, which the fastel flush does after its per-clause checks.
+- The scopes the policy holds around requests are port types as well, and
+  PublicPort establishes each one through `tactix.h`. Reduce's tier, victim
+  and compact profile and the BVE pass profile use `tactix_install_parameters`.
+  Work budgets (the Sweep, Substitute and budgeted batch dose, the BVE
+  candidate residual, the graph-labeling slice and the Vivify dose and bands)
+  use `tactix_install_work_settings`, read back with
+  `tactix_read_work_settings`. The Vivify band scope uses
+  `tactix_set_vivify_scope`. Tick attribution to a rule's currency uses
+  `tactix_install_tick_attribution`. A profile's restore value is read from
+  the session's kernel, since there is no typed readback for it.
 
 ## Initial sampling and validation
 

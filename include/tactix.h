@@ -1714,6 +1714,31 @@ int tactix_install_parameters(tactix *, int rule_id,
                               const tactix_online_parameters *parameters);
 int tactix_install_material_settings(tactix *, int touch_filter_mode,
                                      int likely_kept_redundant_mode);
+/* Work settings budget-aware rules read: the per-round budget (in the rule's
+ * own currency), the offset already spent from it, whether a zero budget is an
+ * explicit zero allowance (bounded), and whether a rule may stop mid-round
+ * (SubsumeForward visits, Strengthen steps). Install sets the fields named in
+ * `fields` (TACTIX_WORK_*) and leaves the rest; read fills every field and
+ * sets `fields` to all. Neither changes formula, assignment or guidance state.
+ * Returns 0, or -1 for a null argument or an unknown field bit. */
+#define TACTIX_WORK_BUDGET 1u
+#define TACTIX_WORK_OFFSET 2u
+#define TACTIX_WORK_BOUNDED 4u
+#define TACTIX_WORK_MIDROUND 8u
+typedef struct {
+  uint32_t fields;
+  uint64_t budget, offset;
+  int bounded, midround;
+} tactix_work_settings;
+int tactix_install_work_settings(tactix *, const tactix_work_settings *);
+int tactix_read_work_settings(tactix *, tactix_work_settings *);
+/* Tick attribution: propagation ticks charged by later applications are also
+ * added to the statistic `stat` (TACTIX_STAT_PROBE_TICKS, _HBR_TICKS,
+ * _BACKBONE_TICKS, _VIVIFY_TICKS or _INSTANTIATE_TICKS), or to none with
+ * TACTIX_TICK_ATTRIBUTION_NONE. Returns 0, or -1 (nothing changes) for any
+ * other statistic. */
+#define TACTIX_TICK_ATTRIBUTION_NONE (-1)
+int tactix_install_tick_attribution(tactix *, int stat);
 /* The AffineMatrixInitialize profile (admission, operation and persistence
  * limits) installed permanently, as an online v16 step carries it; the next
  * canonical AffineMatrixInitialize application runs that operation. Returns 0,
