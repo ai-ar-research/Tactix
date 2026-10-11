@@ -412,7 +412,7 @@ def check_pbp_proof(cnf, proof, budget):
         return True, "VERIFIED", CHK_VERIFIED, details
 
 
-def solve_once(argv, timeout):
+def solve_once(argv, timeout, file_size_limit=None):
     """One solver invocation under the wall timeout + CPU backstop.
 
     Returns (verdict, elapsed, reached). Shared by the timed run and the §8.1 LRAT
@@ -426,6 +426,13 @@ def solve_once(argv, timeout):
         # stop it regardless of parent state (slack keeps wall-timeout primary).
         cap = int(timeout) + 5
         resource.setrlimit(resource.RLIMIT_CPU, (cap, cap + 2))
+        if file_size_limit is not None:
+            # The proof is the only solver-created regular file in benchmark
+            # invocations.  Let the kernel stop a solver on the first write
+            # beyond the campaign cap, without relying on a polling watchdog
+            # that can overshoot by many gigabytes on a fast proof stream.
+            cap = int(file_size_limit)
+            resource.setrlimit(resource.RLIMIT_FSIZE, (cap, cap))
 
     t0 = time.monotonic()
     try:
@@ -451,7 +458,7 @@ def reach_counters(stdout):
     return out
 
 
-def lrat_rescue(res, cmd, cnf, proof, timeout):
+def lrat_rescue(res, cmd, cnf, proof, timeout, proof_check_timeout=None):
     """Plan §8.1: "a proof that outruns even this [budget] is re-checked as
     native LRAT before the instance is called unsolved".
 
@@ -494,8 +501,9 @@ def lrat_rescue(res, cmd, cnf, proof, timeout):
         else:
             lbytes = os.path.getsize(lproof)
             t1 = time.monotonic()
-            ok, msg, rkind, _ = check_proof("lrat", cnf, lproof,
-                                            checker_budget(timeout))
+            budget = (proof_check_timeout if proof_check_timeout is not None
+                      else checker_budget(timeout))
+            ok, msg, rkind, _ = check_proof("lrat", cnf, lproof, budget)
             res["proof_rescue_kind"] = rkind
             detail = (f"re-solve {solve_s:.1f}s, {lbytes / 1e6:.0f} MB LRAT, "
                       f"cake_lpr {time.monotonic() - t1:.1f}s: {msg}")
@@ -514,7 +522,8 @@ def lrat_rescue(res, cmd, cnf, proof, timeout):
 
 
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
-                 score_proofs=True, verify_proofs=True):
+                 score_proofs=True, verify_proofs=True,
+                 proof_limit_bytes=None, proof_check_timeout=None):
     """`check_proofs` = hand the solver a proof path, i.e. make it write one.
     `verify_proofs` = actually run the checker over what it wrote.
     `score_proofs` = let a failed check count the instance unsolved.
@@ -543,6 +552,9 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            "proof_ok": None, "proof_bytes": None, "proof_check_time": None,
            "proof_format": fmt if check_proofs else None,
            "proof_route": None,
+           "proof_limit_bytes": proof_limit_bytes,
+           "proof_limit_reached": False,
+           "proof_check_budget_seconds": proof_check_timeout,
            "proof_scored": bool(check_proofs and verify_proofs and score_proofs),
            "proof_msg": None,
            # The classified checker outcome (CHK_*) and the checker's own
@@ -565,10 +577,16 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
     proof = os.path.join(workdir, rel.replace("/", "_") + "." + fmt)
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
-    verdict, elapsed, reached, stdout = solve_once(argv, timeout)
+    verdict, elapsed, reached, stdout = solve_once(
+        argv, timeout, proof_limit_bytes if check_proofs else None)
     res["reached"] = reached
     res["time"] = round(elapsed, 3)
     res["verdict"] = verdict
+    if (check_proofs and proof_limit_bytes is not None
+            and os.path.exists(proof)
+            and os.path.getsize(proof) >= proof_limit_bytes):
+        res["proof_limit_reached"] = True
+        res["proof_msg"] = "proof size limit reached"
 
     if verdict in ("SAT", "UNSAT"):
         res["solved"] = True
@@ -617,8 +635,11 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     res["proof_msg"] = "written, not verified (§8.1: baseline)"
                 else:
                     t1 = time.monotonic()
+                    budget = (proof_check_timeout
+                              if proof_check_timeout is not None
+                              else checker_budget(timeout))
                     ok, msg, kind, detail = check_proof(
-                        fmt, cnf, proof, checker_budget(timeout),
+                        fmt, cnf, proof, budget,
                         allow_pbp="--dsr" not in cmd,
                         route=res["proof_route"])
                     res["proof_check_time"] = round(time.monotonic() - t1, 3)
@@ -635,7 +656,8 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     # `--lrat` arm has nothing left to re-check).
                     if (not ok and score_proofs and fmt == "drat"
                             and kind == CHK_TIMEOUT):
-                        ok = lrat_rescue(res, cmd, cnf, proof, timeout)
+                        ok = lrat_rescue(res, cmd, cnf, proof, timeout,
+                                         proof_check_timeout)
                     if not ok and score_proofs:  # rejected proof = unsolved (§2)
                         res["solved"] = False
     if check_proofs and os.path.exists(proof):
@@ -1062,7 +1084,9 @@ def slurm_run_one(outdir, idx):
                            s.get("score_proofs", True),
                            # older manifests predate the split: verifying was
                            # unconditional, so default True for replayability
-                           s.get("verify_proofs", True))
+                           s.get("verify_proofs", True),
+                           man.get("max_proof_bytes"),
+                           man.get("proof_check_budget_seconds"))
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
         for signum, handler in previous_handlers.items():

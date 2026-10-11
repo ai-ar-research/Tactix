@@ -65,6 +65,10 @@ small comparison tail. The useful operations respect that construction:
 - Two rounds are a cheap family-wide baseline. A fixed third round sometimes
   helps but sometimes loses, so later rounds are earned by public progress
   counters and capped at four.
+- A seed-4 convergence probe with a 16-round cap stopped at the same fixed
+  point as the final policy: round 1 performed one application but found zero
+  merges and substitutions, and round 2 had zero applicable work. Increasing
+  the adaptive cap therefore cannot add another gate-closure step on seed 4.
 - One startup Backbone pass can expose constants after gate collapse.
 - Vivify was productive in all 37 scheduled passes in the winning seed-7
   trace and dominates the useful recurrent inprocessing.
@@ -74,6 +78,66 @@ small comparison tail. The useful operations respect that construction:
 - A proof-valid greedy BVE prefix took 73.4 seconds where the chosen seed-7
   policy took 42.3 seconds. Reorder and BVE also discard useful authored gate
   and import order, so both are disabled in the final schedule.
+
+### Follow-up supported-technique screen
+
+A post-rebase seed-7 screen tested whether additional currently supported
+rules could improve the selected policy. All runs used the same proof-writing
+conditions and a 180-second cutoff:
+
+| arm | time (s) | proof bytes |
+|---|---:|---:|
+| rebased final policy | 41.286 | 101,573,080 |
+| late-Lucky off + rephase in both modes | 41.203 | 101,573,080 |
+| startup Vivify -> Substitute -> TransitiveReduce -> Congruence -> Substitute | 94.875 | 220,105,637 |
+| startup wave without TransitiveReduce | 66.528 | 172,589,709 |
+| startup HBR -> Congruence -> Substitute | 167.332 | 361,950,058 |
+| HBR followed by the full startup wave | 80.163 | 196,979,076 |
+
+The search-knob arm emitted a byte-identical proof and is only timing noise.
+The startup structural arms were productive by public counters--for example,
+startup Vivify processed seven clauses and enabled substitutions--but changed
+the search trajectory enough to lose badly. HBR produced ten binaries and was
+the worst arm. Productive output is therefore not sufficient admission
+evidence on this circuit family; placement matters.
+
+A second local screen checked nearby search and inprocessing settings:
+
+| arm | time (s) | proof bytes |
+|---|---:|---:|
+| rebased final policy | 41.231 | 101,573,080 |
+| substitution demotion enabled | 41.341 | 101,573,080 |
+| complete transitive pass | 41.155 | 101,573,080 |
+| transitive work metered by checked clauses | 41.322 | 101,573,080 |
+| Walk dose 25 per mille | 74.950 | 190,308,167 |
+| Walk dose 75 per mille | 42.643 | 106,029,743 |
+| recurrent Vivify 190 per mille | 74.788 | 195,856,444 |
+| recurrent Vivify 210 per mille | 96.367 | 245,414,874 |
+
+The substitution and transitive controls produced byte-identical proofs, so
+they are inactive on this trajectory and their small timing differences are
+noise. Walk and Vivify show a sharp scheduling boundary around the selected
+settings: even small dose changes alter the proof and regress. This argues
+against further scalar tuning of phase work or recurrent Vivify on seed 7.
+
+The complete seed-7 trace suggests a more promising first-inprocessing wave:
+`Substitute -> Vivify -> Substitute -> TransitiveReduce -> Congruence ->
+Substitute`, with every consumer gated by its producer's public yield counter.
+A public-interface prototype tested that sequence after an adaptive search
+handoff. The handoff-only control took 83.964 seconds and the wave took
+118.684 seconds, versus 41.284 seconds for the uninterrupted policy. Thus the
+current pull interface can express the rules and gates, but interrupting and
+resuming DefaultPolicy loses more search state than the wave recovers. This
+prototype is rejected; its exact source diff is preserved in
+`technique-experiment.patch`.
+
+The practical supported-technique frontier remains the selected combination:
+adaptive startup `Congruence -> Substitute`, one bounded startup Backbone,
+recurrent Vivify at 200 per mille, and intact stable search with target
+capture, Walk, and mixed rephasing. Probe, Backbone, HBR, and
+TransitiveReduce are plausible only as counter-gated consumers of newly
+created units or binaries at a native inprocessing boundary. The present
+evidence does not justify adding them to the final policy.
 
 The CNC+TACO `stable=2,target=0,phase=0` observation was useful as a search
 direction, but the literal tuple did not transfer intact. On seed 7, Kissat
