@@ -59,6 +59,16 @@ ADAPTIVE_POLICY = os.path.join(
 FINAL_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-final-20261010", "examples",
     "tactix-cruxmiter-policy")
+REBASED_PIN = os.path.join(ROOT, "build", "pin-cruxmiter-rebased-5d2bab322")
+REBASED_DEFAULT = os.path.join(REBASED_PIN, "tactix")
+REBASED_POLICY = os.path.join(
+    REBASED_PIN, "examples", "tactix-cruxmiter-policy")
+WAVE_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-wave-20261010", "examples",
+    "tactix-cruxmiter-policy")
+BOUNDARY_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxmiter-boundary-20261010", "examples",
+    "tactix-cruxmiter-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -539,6 +549,107 @@ ARMS = {
         "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
         "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
         "TACTIX_CRUX_CS_ROUNDS=4", binary=FINAL_POLICY),
+    "rebased-default": [REBASED_DEFAULT, "--dsr"],
+    "rebased-policy": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", binary=REBASED_POLICY),
+    "rebased-backbone-close": policy(
+        "backbone-close", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", binary=REBASED_POLICY),
+    "rebased-backbone-symmetry-scan": policy(
+        "backbone-symmetry-scan", "TACTIX_FORCE_MODE=stable",
+        "TACTIX_REORDER=0", "TACTIX_NO_BVE=1",
+        "TACTIX_CONFLICT_REUSE=0", "TACTIX_SLOT_PERMILLE=Vivify:200",
+        "TACTIX_NO_FACTOR=1", "TACTIX_NO_SWEEP=1",
+        "TACTIX_SLOT_DISABLE=Backbone", "TACTIX_CRUX_CS_ROUNDS=4",
+        binary=REBASED_POLICY),
+    "rebased-late-backbone1": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200,Backbone:10",
+        "TACTIX_SLOT_MAX_APPLIES=Backbone:1", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_CRUX_CS_ROUNDS=4",
+        binary=REBASED_POLICY),
+    "rebased-sweep1": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200,Sweep:20",
+        "TACTIX_SLOT_ENABLE=Sweep", "TACTIX_SLOT_MAX_APPLIES=Sweep:1",
+        "TACTIX_NO_FACTOR=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", binary=REBASED_POLICY),
+    "rebased-search-refine": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", "TACTIX_LUCKY_LATE=0",
+        "TACTIX_REPHASE_BOTH_MODES=1", binary=REBASED_POLICY),
+    "rebased-substitute-demote": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", "TACTIX_SUBST_DEMOTE=1",
+        binary=REBASED_POLICY),
+    "rebased-transitive-complete": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", "TACTIX_V4_EARLY_EXIT=0",
+        binary=REBASED_POLICY),
+    "rebased-transitive-checked": policy(
+        "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+        "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+        "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+        "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+        "TACTIX_CRUX_CS_ROUNDS=4", "TACTIX_V4_METER=checked",
+        binary=REBASED_POLICY),
+    **{
+        f"rebased-walk{dose}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            "TACTIX_CRUX_CS_ROUNDS=4", f"TACTIX_WALK_PERMILLE={dose}",
+            binary=REBASED_POLICY)
+        for dose in (25, 75)
+    },
+    **{
+        f"rebased-vivify{dose}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            f"TACTIX_SLOT_PERMILLE=Vivify:{dose}", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            "TACTIX_CRUX_CS_ROUNDS=4", binary=REBASED_POLICY)
+        for dose in (190, 210)
+    },
+    **{
+        f"rebased-wave-{wave}": policy(
+            "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            "TACTIX_CRUX_CS_ROUNDS=4",
+            f"TACTIX_CRUX_STARTUP_WAVE={wave}", binary=WAVE_POLICY)
+        for wave in ("vivify", "vivify-no-transitive", "hbr", "hbr-vivify")
+    },
+    **{
+        f"rebased-native-boundary-{mode}": policy(
+            "taco-warmup", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
+            "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+            "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1",
+            "TACTIX_NO_SWEEP=1", "TACTIX_SLOT_DISABLE=Backbone",
+            "TACTIX_CRUX_CS_ROUNDS=4",
+            f"TACTIX_CRUX_NATIVE_BOUNDARY={mode}", binary=BOUNDARY_POLICY)
+        for mode in ("control", "wave")
+    },
     **{
         f"rbcv-force-cs{rounds}": policy(
             "backbone", "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0",
@@ -817,7 +928,9 @@ def main():
     for binary in (DEFAULT, POLICY, OLD_POLICY, NEXT_POLICY, INPUT_POLICY,
                    PHASE_POLICY, FIXPOINT_POLICY, ORDER_POLICY,
                    DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, TAIL_BVE_POLICY,
-                   BDD_ORDER_POLICY, ADAPTIVE_POLICY, FINAL_POLICY, KISSAT):
+                   BDD_ORDER_POLICY, ADAPTIVE_POLICY, FINAL_POLICY,
+                   REBASED_DEFAULT, REBASED_POLICY, WAVE_POLICY,
+                   BOUNDARY_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     missing = [path for path in paths.values() if not os.path.isfile(path)]
@@ -854,7 +967,9 @@ def main():
                          INPUT_POLICY, PHASE_POLICY, FIXPOINT_POLICY,
                          ORDER_POLICY, DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY,
                          TAIL_BVE_POLICY, BDD_ORDER_POLICY,
-                         ADAPTIVE_POLICY, KISSAT)},
+                         ADAPTIVE_POLICY, FINAL_POLICY, REBASED_DEFAULT,
+                         REBASED_POLICY, WAVE_POLICY, BOUNDARY_POLICY,
+                         KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
                          "write for timed parity; delete without checking"),
