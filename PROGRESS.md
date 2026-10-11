@@ -64,7 +64,7 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 | Work | Jobs | Status |
 |---|---|---|
-| Tier D on FastEliminate-fidelity `0f7c10174` (`benchmarks/runs/20261010-tierd-fastel`; cpu-q, 4 CPUs, 32 GB, 5,000 s, 8 h check, `%125`) | 1770131 | running; then 64 GB `recheck` of proof-check memouts |
+| Tier D on FastEliminate-fidelity `0f7c10174` (`benchmarks/runs/20261010-tierd-fastel`; cpu-q, 4 CPUs, 32 GB, 5,000 s, 8 h check, `%150` (raised from 125 by user request)) | 1770131 | running; then 64 GB `recheck` of proof-check memouts |
 | Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB) | running |
 
 ## Verification authorities
