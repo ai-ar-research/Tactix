@@ -332,7 +332,9 @@ def solver_command(binary, arm, cnf, proof, instrumentation=()):
             not isinstance(instrumentation, (list, tuple)) or
             any(not isinstance(arg, str) for arg in before + after + list(instrumentation))):
         raise RuntimeError("solver arguments must be string lists")
-    return [binary, *before, *instrumentation, cnf, proof, *after]
+    # certificate "none": the solver gets no proof path and runs proof-free.
+    proof_path = [] if arm.get("certificate") == "none" else [proof]
+    return [binary, *before, *instrumentation, cnf, *proof_path, *after]
 
 
 def sha256(path):
@@ -791,7 +793,7 @@ def validate_runtime_pin_contract(campaign, manifest):
                              "pins/cake_lpr"})
             if certificate == "auto":
                 required.update({"pins/veripb", "pins/cake-pb-cnf"})
-        else:
+        elif certificate != "none":
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
         required.add("pins/anonymous_scratch.py")
@@ -1416,8 +1418,10 @@ def main():
             "address_space_limit": None,
             "solver_statistics": statistics,
             "solver_stderr_tail": tail(stderr),
-            "certificate_bytes": proof.stat().st_size if proof.is_file() else None,
-            "certificate_sha256": sha256(proof) if proof.is_file() else None,
+            "certificate_bytes": (proof.stat().st_size if certificate != "none" and
+                                  proof.is_file() else None),
+            "certificate_sha256": (sha256(proof) if certificate != "none" and
+                                   proof.is_file() else None),
             "proof_check": None,
             "model_check": None,
             "valid": False,
@@ -1433,7 +1437,7 @@ def main():
         atomic_json(provisional_path, provisional_result(
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         release_scratch(scratch, 'solver.stderr', 'solve.time', 'solver.perf')
-        if verdict == "UNSAT" and proof.is_file():
+        if verdict == "UNSAT" and certificate != "none" and proof.is_file():
             reported_route = solver_reported_route(stdout)
             release_scratch(scratch, 'solver.stdout')
             checked = check_unsat_proof(

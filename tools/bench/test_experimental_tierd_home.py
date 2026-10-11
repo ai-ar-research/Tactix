@@ -328,5 +328,35 @@ class RecheckPreparation(unittest.TestCase):
             self.assertIn('recheck selection is empty', again.stderr)
 
 
+class CertificateNone(unittest.TestCase):
+    """certificate none: proof-free solving, models checked, no proof pins."""
+
+    def test_solver_gets_no_proof_path_or_flag(self):
+        self.assertEqual(et.solver_arguments('none', []), [])
+        self.assertEqual(et.solver_arguments('dsr', []), ['--dsr'])
+        self.assertEqual(et.solver_arguments('auto', ['--x']), ['--auto-proof', '--x'])
+        arm = dict(arguments=[], certificate='none')
+        self.assertEqual(runtime_task.solver_command('b', arm, 'f.cnf', 'p'), ['b', 'f.cnf'])
+        arm = dict(arguments=['--dsr'], certificate='dsr')
+        self.assertEqual(runtime_task.solver_command('b', arm, 'f.cnf', 'p'),
+                         ['b', '--dsr', 'f.cnf', 'p'])
+
+    def test_only_model_checker_pins_are_required(self):
+        ref = REPO / 'benchmarks/baselines/sc24-26-32g-5000s'
+        manifest = json.loads((ref / 'manifest.json').read_text())
+        self.assertEqual(set(et.checker_sources(ref, manifest, 'none')),
+                         {'checkmodel', 'modelcheck.py'})
+        with tempfile.TemporaryDirectory() as d:
+            c = Path(d)
+            (c / 'pins').mkdir()
+            for name in ('tactix', 'checkmodel', 'modelcheck.py'):
+                (c / 'pins' / name).write_text('')
+            pins = {f'pins/{n}': sha(c / 'pins' / n)
+                    for n in ('tactix', 'checkmodel', 'modelcheck.py')}
+            runtime_task.validate_runtime_pin_contract(
+                c, dict(arms={'tactix': dict(path='pins/tactix', certificate='none')},
+                        pin_sha256=pins))
+
+
 if __name__ == '__main__':
     unittest.main()

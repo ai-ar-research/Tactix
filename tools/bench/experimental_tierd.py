@@ -170,7 +170,7 @@ def dsr_checker_provenance(dsr_profile):
     return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
 
 def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
-    if certificate not in ('dsr','auto'):
+    if certificate not in ('dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
     if dsr_profile not in ('frozen','long64','long64-fixed'):
         raise ValueError('unsupported DSR checker profile: '+dsr_profile)
@@ -178,6 +178,8 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
            'drat-trim':'drat-trim','cake_lpr':'cake-lpr'}
     if certificate=='auto':
         names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
+    if certificate=='none':
+        names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
     sources={}
     for target,name in names.items():
         source=reference/baseline['checkers'][name]
@@ -185,6 +187,7 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
         if not source.is_file() or sha(source)!=expected:
             raise ValueError('frozen winner checker pin mismatch: '+name)
         sources[target]=source
+    if certificate=='none':return sources
     for name,expected in FROZEN_DSR_HASHES.items():
         source=FROZEN_DSR/name
         if dsr_profile=='long64' and name in LONG_DSR_HASHES:
@@ -208,9 +211,9 @@ def slurm_time(seconds):
 
 def solver_arguments(certificate, extra, gf2_telemetry=False,
                      causal_preflight=False):
-    if certificate not in ('dsr','auto'):
+    if certificate not in ('dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    proof='--auto-proof' if certificate=='auto' else '--dsr'
+    proof={'auto':['--auto-proof'],'dsr':['--dsr'],'none':[]}[certificate]
     if any(not value or value in PROOF_ARGUMENTS for value in extra):
         raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
     if gf2_telemetry and any(
@@ -223,7 +226,7 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
             value == reserved or value.startswith(reserved+'=')
             for value in extra for reserved in CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS):
         raise ValueError('causal preflight forbids full trace, feedback, and provenance artifacts')
-    return [proof,*extra]
+    return [*proof,*extra]
 
 def selected_scratch_capacity(a, selection_authority, rows):
     profile=getattr(a,'scratch_capacity_profile',None)
@@ -586,7 +589,9 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             **({'cake_heap_mib':cake_heap} if cake_heap is not None else {}),
             **({'scratch_isolation':capacity_resources}
                if capacity_profile else {})),
-        proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
+        proof_contract=('No certificate: the solver gets no proof path and runs proof-free; UNSAT verdicts are unchecked and never valid; SAT models are checked against the original CNF.'
+                        if a.certificate=='none' else
+                        'Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
@@ -723,7 +728,8 @@ if __name__=='__main__':
     p.add_argument('--governor-jobs',type=Path,
                    help='with --submit: append the array job id to this quota-governor jobs.json')
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
-    p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
+    p.add_argument('--certificate',choices=['dsr','auto','none'],default='dsr',
+                   help='none: no proof path, UNSAT unchecked and never valid; SAT models checked')
     p.add_argument('--solver-argument',action='append',default=[],
                    help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
     p.add_argument('--gf2-telemetry',action='store_true',
