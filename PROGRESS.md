@@ -61,8 +61,11 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
    Step records: [4b](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step4b/README.md),
    [5](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step5/README.md),
    [6](benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step6/README.md).
-1. Full Tier D on the final code (`d540ef32…`): see Live work. When it finishes:
-   `tools/bench/tierd_home_campaign.sh status`, then `recheck` the proof-check memouts at 64 GB.
+1. Tier D on FastEliminate-fidelity `0f7c10174` is final: 1,006 solved, 999 verified (8 h checks +
+   64 GB recheck; 990 within no-MAB's 4 h window vs no-MAB 986), verified PAR-2 −5.4%; ahead of every
+   reference solver ([report](benchmarks/reports/2026-10-11-tierd-fastel-final/README.md)). The SAT
+   losses (15) remain open: mechanisms M2–M4 and initial probing in the
+   [divergence bisect](benchmarks/reports/2026-10-10-search-divergence-bisect/README.md).
 2. Tier D on c2.3 finished: 984 verified (473 SAT, 511 UNSAT), 169 unsolved, 7 proof-check timeouts,
    6 proof-check memouts, rechecked at 64 GB in `benchmarks/runs/20261010-tierd-c2.3-recheck-64g`
    (job 1763695).
@@ -71,7 +74,7 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 | Work | Jobs | Status |
 |---|---|---|
-| Tier D on FastEliminate-fidelity `0f7c10174` (`benchmarks/runs/20261010-tierd-fastel`; cpu-q, 4 CPUs, 32 GB, 5,000 s, 8 h check, `%150` (raised from 125 by user request)) | 1770131 | running; then 64 GB `recheck` of proof-check memouts |
+| Proof-free Tier D of five milestone versions (first passes of Tier A `dcc3ecbd6`, old Tier B 14/14 `546298924`, Tier C `6f44f23d6`, Rank 1–50 `f50e46c0c`, WV100 `0a9063387`; `benchmarks/runs/20261011-tierd-noproof-*`; cpu-q, 4 CPUs, 32 GB, 5,000 s, `--certificate none`, `%125` per array by user request) | 1771815, 1771816, 1771918, 1771919, 1771920 | running; old-Tier-B screen done (`benchmarks/runs/20261011-tierb14-noproof-*`, 60 s cutoff: 8, 9, 14, 14, 14 of 14) |
 | Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB) | running |
 
 ## Verification authorities
@@ -105,6 +108,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Tier D tooling gains an opt-in `--certificate none` (proof-free solving: no proof path, UNSAT
+  unchecked and never valid, SAT models checked); the `dsr`/`auto` paths are unchanged.
 - Startup FastEliminate self-strengthening follows SC2024 `fastel.c`: the strengthened clause is a new
   irredundant clause (no inherited position, large-parent literal order), subsumed parents are deleted,
   candidates are gathered in import order, and `flags.eliminate` re-arms on every removal (public
