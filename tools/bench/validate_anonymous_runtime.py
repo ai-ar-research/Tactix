@@ -39,18 +39,29 @@ for verdict,formula in [('SAT','p cnf 2 1\n1 2 0\n'),('UNSAT','p cnf 2 4\n1 2 0\
         proof_name=('proof.out' if certificate=='auto' else 'proof.dsr' if certificate=='dsr' else 'proof.drat')
         cnf=s/'input.cnf';proof=s/proof_name;out=s/'solver.stdout';err=s/'solver.stderr'
         cnf.write_text(formula)
-        result=runtime.measured([c/arm['path'],*arm['arguments'],cnf,proof],out,err,s/'time',30)
+        argv=[c/arm['path'],*arm['arguments'],cnf]+([] if certificate=='none' else [proof])
+        result=runtime.measured(argv,out,err,s/'time',30)
         assert result['exit_code']=={'SAT':10,'UNSAT':20}[verdict],result
         assert runtime.solver_summary(out)[0]==verdict
         if verdict=='SAT':
-            certificate_bytes=proof.stat().st_size
-            certificate_sha256=runtime.sha256(proof)
-            assert s.release(proof_name)
+            if certificate!='none':
+                certificate_bytes=proof.stat().st_size
+                certificate_sha256=runtime.sha256(proof)
+                assert s.release(proof_name)
+            else:
+                s.release(proof_name)
             assert s.contains('input.cnf') and s.contains('solver.stdout')
             checked=runtime.measured([c/'pins/checkmodel',cnf,out],s/'checker.out',s/'checker.err',s/'check.time',30)
             assert checked['exit_code']==0,(checked,runtime.tail(s/'checker.out'))
-            assert certificate_bytes >= 0 and len(certificate_sha256)==64
+            if certificate!='none':
+                assert certificate_bytes >= 0 and len(certificate_sha256)==64
             for name in ('input.cnf','solver.stdout','checker.out','checker.err','check.time'):
+                s.release(name)
+        elif certificate=='none':
+            # No proof path was given: nothing to check, nothing may be written.
+            assert not (home and proof.exists())
+            checked=dict(result='unchecked-no-certificate')
+            for name in ('input.cnf','solver.stdout',proof_name):
                 s.release(name)
         else:
             reported_route=runtime.solver_reported_route(out)
