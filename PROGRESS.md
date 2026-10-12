@@ -74,7 +74,6 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 | Work | Jobs | Status |
 |---|---|---|
-| Proof-free Tier D of five milestone versions (first passes of Tier A `dcc3ecbd6`, old Tier B 14/14 `546298924`, Tier C `6f44f23d6`, Rank 1–50 `f50e46c0c`, WV100 `0a9063387`; `benchmarks/runs/20261011-tierd-noproof-*`; cpu-q, 4 CPUs, 32 GB, 5,000 s, `--certificate none`, `%125` per array by user request) | 1771815, 1771816, 1771918, 1771919, 1771920 | running; old-Tier-B screen done (`benchmarks/runs/20261011-tierb14-noproof-*`, 60 s cutoff: 8, 9, 14, 14, 14 of 14) |
 | Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB) | running |
 
 ## Verification authorities
@@ -108,6 +107,10 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 ## Recent changes
 
+- Proof-free Tier D of the five milestone versions (first passes of Tier A, old Tier B, Tier C,
+  Rank 1–50, WV100): 625, 735, 818, 977, 979 solved vs the current 1,006; the largest step is
+  Tier C → Rank 1–50 (+134 UNSAT) ([ladder](benchmarks/reports/2026-10-12-milestone-ladder-tierd/README.md),
+  per-instance [results](benchmarks/reports/2026-10-11-tierd-per-instance/README.md) for all solvers).
 - Tier D tooling gains an opt-in `--certificate none` (proof-free solving: no proof path, UNSAT
   unchecked and never valid, SAT models checked); the `dsr`/`auto` paths are unchanged.
 - Startup FastEliminate self-strengthening follows SC2024 `fastel.c`: the strengthened clause is a new
