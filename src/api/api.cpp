@@ -138,6 +138,16 @@ const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *op
   const auto &online = static_cast<::tactix_solver *>(opaque)->online;
   return online ? &online->program() : nullptr;
 }
+const char *load_dimacs_for_fixed_testing(void *opaque, FILE *in) {
+  assert(opaque);
+  auto *s = static_cast<::tactix_solver *>(opaque);
+  // The CLI's ingestion, including the advisory header, into a fresh session.
+  // parse_dimacs calls finish_input, which must run exactly once.
+  assert(!s->input_completed && !s->pending_input_proof && s->scratch.empty());
+  const char *err = parse_dimacs(in, s->kernel);
+  s->input_completed = true;
+  return err;
+}
 }
 
 namespace {
