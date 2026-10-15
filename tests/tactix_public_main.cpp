@@ -53,7 +53,7 @@ void print_model(const Kernel &k) {
 void print_census() {
   const auto &census = port::PublicPort::census;
   uint64_t calls = 0, fallbacks = 0, declined = 0;
-  for (const auto &[entry, count] : census.public_calls) calls += count;
+  calls = census.total_calls;
   for (const auto &[kind, count] : census.fallbacks) fallbacks += count;
   for (const auto &[kind, count] : census.declined) declined += count;
   printf("c public-port requests %llu fallbacks %llu declined %llu\n",
@@ -134,6 +134,7 @@ int main(int argc, char **argv) {
   port::PublicPort::session = s;
   port::PublicPort::retirements_held = false;
   port::PublicPort::census.clear();
+  port::PublicPort::census.detailed = false; // keep the per-call tally cheap
   int res;
   {
     DefaultStrategyConfig config;

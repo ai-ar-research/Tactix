@@ -52,13 +52,17 @@
 namespace tactix::port {
 
 struct PublicCensus {
+  uint64_t total_calls = 0;                      // every counted tactix.h request
+  // Per-entry detail is a string-keyed map: costly per call, so a benchmark
+  // client (tactix-public) disables it and keeps only the total.
+  bool detailed = true;
   std::map<std::string, uint64_t> public_calls; // tactix.h entry -> calls
   std::map<std::string, uint64_t> fallbacks;    // request kind without a public form
   std::map<std::string, uint64_t> declined;     // public request refused (-1)
   std::map<std::string, uint64_t> vacuous;      // refused no-op (nothing to apply)
   std::map<std::string, uint64_t> declared;     // declared non-action or composition
   uint64_t timed_dispatches = 0; // registry dispatches through tactix.h with a timing slot
-  void clear() { *this = PublicCensus{}; }
+  void clear() { const bool keep = detailed; *this = PublicCensus{}; detailed = keep; }
 };
 
 template <class T> std::string port_type_name() {
@@ -102,7 +106,10 @@ struct PublicPort {
     assert(&api_detail::kernel_for_fixed_testing(session) == &k);
     return session;
   }
-  static void counted(const char *entry) { ++census.public_calls[entry]; }
+  static void counted(const char *entry) {
+    ++census.total_calls;
+    if (census.detailed) ++census.public_calls[entry];
+  }
   // A dispatch through tactix.h that charges the rule's timing slot.
   static void timed(int id) {
     if (id >= 0 && static_cast<uint32_t>(id) < Stats::MAX_TIMED_RULES) ++census.timed_dispatches;
@@ -392,25 +399,30 @@ struct PublicPort {
   // The enclosing records: a support record's instance is its public
   // argument (RootPreparation flags, the Warmup phase).
   struct Frame {
-    std::string_view identity;
+    const char *identity; // compared only by record_argument, not per push
     uint64_t instance;
   };
-  static inline std::vector<Frame> frames;
+  // Records nest only a few deep; a fixed stack keeps this off the per-call
+  // allocation and bounds-checking path.
+  static constexpr size_t MAX_FRAMES = 64;
+  static inline Frame frames[MAX_FRAMES];
+  static inline size_t frame_depth = 0;
   template <class Completion, class... Rest>
   static decltype(auto) complete(Completion &&completion, execution::FeedbackKind kind,
                                  const char *identity, uint64_t instance, Rest &&...rest) {
-    frames.push_back({identity, instance});
+    if (frame_depth == MAX_FRAMES) std::abort();
+    frames[frame_depth++] = Frame{identity, instance};
     struct Pop {
-      ~Pop() { frames.pop_back(); }
+      ~Pop() { --frame_depth; }
     } pop;
     return execution::complete_action(std::forward<Completion>(completion), kind, identity,
                                       instance, std::forward<Rest>(rest)...);
   }
   static std::optional<uint64_t> record_argument(std::string_view identity) {
-    if (frames.empty() || frames.back().identity != identity ||
-        frames.back().instance == INSTANCE_CANONICAL)
+    if (!frame_depth || std::string_view(frames[frame_depth - 1].identity) != identity ||
+        frames[frame_depth - 1].instance == INSTANCE_CANONICAL)
       return std::nullopt;
-    return frames.back().instance;
+    return frames[frame_depth - 1].instance;
   }
 
   // Request arguments beyond the request itself that a public request can

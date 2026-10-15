@@ -359,6 +359,12 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
   ApplyResult result;
   if (vt.id >= Stats::MAX_TIMED_RULES) {
     result = apply();
+  } else if (vt.tier == RuleTier::Micro) {
+    // Propagate, Decide and ConflictAnalysis run once per search step: two
+    // clock reads would cost more than many applications. Count them only;
+    // their time is reported as unattributed, as on the static search path.
+    result = apply();
+    k.stats.rule_calls[vt.id]++;
   } else {
     const uint64_t t0 = now_nanos();
     result = apply();
