@@ -1,0 +1,6 @@
+corpus/chvatal/sel/n7-11111100101000.cnf
+corpus/chvatal/sel/n7-11110011000.cnf
+corpus/chvatal/sel/n7-111111101000.cnf
+corpus/chvatal/sel/n7-1111110011001.cnf
+corpus/chvatal/sel/n7-1111110010100.cnf
+corpus/chvatal/sel/n7-111111001001.cnf
