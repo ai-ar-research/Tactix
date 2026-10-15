@@ -409,6 +409,7 @@ int main(int argc, char **argv) {
   const char *cnf = NULL, *proof = NULL;
   int twins = 1, format = TACTIX_PROOF_DSR_BINARY, arg, result = 0;
   int per_round_off = getenv("CHVATAL_ONE_COLLAPSE") != NULL;
+  int witnessed = 0;
   struct formula f;
   tactix *solver;
   for (arg = 1; arg < argc; ++arg) {
@@ -476,6 +477,7 @@ int main(int argc, char **argv) {
                   (double)clock() / CLOCKS_PER_SEC);
         begin = end;
       }
+      witnessed = accepted > 0;
       printf("c chvatal-twins pairs=%zu rounds=%u accepted=%lld\n",
              pair_count, rounds, accepted);
       fflush(stdout);
@@ -493,6 +495,10 @@ int main(int argc, char **argv) {
   }
   if (getenv("CHVATAL_MERGE_ONLY")) return 0;
   if (!result) result = tactix_solve(solver);
+  /* The merge's SubstitutionRedundancy steps carry witnesses, so the DSR
+   * certificate takes the witnessed (dsr-trim -> Trestle) route. */
+  if (result == 20 && proof && format == TACTIX_PROOF_DSR_BINARY && witnessed)
+    puts("c proof-route dsr-trestle");
   printf("c conflicts %" PRIu64 "\n",
          tactix_stat(solver, TACTIX_STAT_CONFLICTS));
   if (result == 10) {
