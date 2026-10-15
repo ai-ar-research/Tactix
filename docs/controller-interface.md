@@ -626,7 +626,11 @@ reset and the BVE reschedule after a growth-bound increase are
 `TACTIX_SUPPORT_BEGIN_FORWARD_ROUND` and `TACTIX_SUPPORT_RESCHEDULE_BVE`
 (`BeginForwardRound`, `RescheduleBveCandidates` records). Startup fast
 elimination clears a single variable's candidate flag after each attempt with
-`TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE` (`RetireBveCandidate`). These round batch and
+`TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE` (`RetireBveCandidate`). A Strengthen
+application issued alone is followed by `TACTIX_SUPPORT_FORWARD_CLOSURE` (argument:
+its entry trail position), the standalone form of the post-application closure.
+`TACTIX_SUPPORT_COLLECT_GARBAGE` is also legal inside an open occurrence session, as
+DefaultPolicy collects after each completed BVE round. These round batch and
 band fields are per application: a permanent install rejects them. The startup
 fast-elimination occurrence flush has no public form yet.
 

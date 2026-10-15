@@ -554,6 +554,10 @@ struct PublicPort {
       const int code = support(s, TACTIX_SUPPORT_PREPARATION_RESTART, request.keep_level);
       if (code == -1) return declined("support:preparation-restart");
       return code == 20 ? ApplyResult::Unsat : code == 1 ? ApplyResult::NoOp : ApplyResult::Ok;
+    } else if constexpr (std::is_same_v<R, ForwardClosureRequest> && bare<Args...>) {
+      const int code = support(s, TACTIX_SUPPORT_FORWARD_CLOSURE, request.trail_from);
+      if (code == -1) return declined("support:forward-closure");
+      return code == 20 ? ApplyResult::Unsat : code == 1 ? ApplyResult::NoOp : ApplyResult::Ok;
     } else if constexpr (std::is_same_v<R, SparseCollectRequest> && bare<Args...>) {
       if (request.start) return fallback();
       const int code = support(s, TACTIX_SUPPORT_SPARSE_COLLECT, 0);
