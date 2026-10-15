@@ -1,20 +1,23 @@
 /* Public-API policy for symbreak's Chvatal-conjecture SAT subproblems.
  *
- * These formulas are a few hundred "semantic" set-membership variables tied
- * together by long clauses, plus thousands of auxiliary variables from the
- * CNF cardinality encodings (clauses of at most three literals).  The policy
- * runs its own CDCL loop through tactix.h and branches on the semantic layer:
+ * The CNF encodes seven cardinality constraints with independent totalizers
+ * that all count the same y-literals in the same order, so most auxiliary
+ * counter variables exist in seven structurally identical copies.  Clause
+ * learning about one copy never transfers to the others.
  *
- *  - primary variables are those occurring in some clause of four or more
- *    literals (a structural rule, not an instance-specific list);
- *  - the first `cube_levels` decision levels branch on unassigned primary
- *    variables in a static order (most long-clause occurrences first), which
- *    makes the top of the search a semantic cube split inside one session;
- *  - deeper levels prefer the heuristic's best-ranked primary variable among
- *    the first `scan` candidates, otherwise its best candidate.
+ * The policy finds such "twins" generically and merges them before handing
+ * the smaller formula to the shipped DefaultPolicy:
  *
- * Everything else (propagation, analysis, restarts, reduction, inprocessing)
- * is a registered public rule; the certificate is the session's DRAT stream.
+ *  - two variables are twins when the clauses containing their negative
+ *    literals are identical after removing that literal and mapping already
+ *    merged variables to their representative; repeating the test bottom-up
+ *    finds the twins of twins;
+ *  - for a twin b of representative a, the policy adds (a | -b) with witness
+ *    {a} and (b | -a) with witness {b} through the public
+ *    SubstitutionRedundancy rule, which validates every instance itself and
+ *    records the witness in the DSR certificate;
+ *  - Substitute then collapses the resulting equivalences, and tactix_solve
+ *    runs DefaultPolicy on the merged formula.
  */
 #include "tactix.h"
 
@@ -27,37 +30,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum mode { MODE_FOCUSED, MODE_STABLE, MODE_ALTERNATE };
-enum phase { PHASE_NEGATIVE, PHASE_POSITIVE, PHASE_HEURISTIC };
-
-struct options {
-  int solve_default;
-  unsigned cube_levels;
-  int scan;
-  enum mode mode;
-  enum phase phase;
-  uint64_t restart_period;
-  uint64_t vivify_interval;
-  uint64_t mode_interval;
-  int order_by_index;
+struct formula {
+  int *literals;       /* all clause literals, clause after clause */
+  size_t *starts;      /* clause i is literals[starts[i] .. starts[i+1]) */
+  size_t clauses, literal_count;
+  int variables;
 };
-
-struct policy {
-  tactix *solver;
-  struct options opt;
-  int propagate, analyze, restart, reduce, switchmode, vivify;
-  int *primary_order;
-  int primary_count;
-  unsigned char *is_primary;
-  int maximum_variable;
-  int *scan_buffer;
-  uint64_t rel_u, rel_v, rel_wait;
-  int rel_trigger;
-  uint64_t reduce_next, vivify_next, mode_next, mode_switches;
-  uint64_t static_decisions, primary_decisions, other_decisions;
-};
-
-static int terminal(int result) { return result == 10 || result == 20; }
 
 static int rule_id(const char *name) {
   int id;
@@ -68,22 +46,32 @@ static int rule_id(const char *name) {
   return -1;
 }
 
-/* Reads DIMACS into the session and counts, per variable, its occurrences in
- * clauses of four or more literals. */
-static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
-                       uint64_t **long_occurrences) {
+static int push(void **array, size_t *capacity, size_t count, size_t size) {
+  if (count < *capacity) return 1;
+  {
+    const size_t next = *capacity ? 2 * *capacity : 1024;
+    void *grown = realloc(*array, next * size);
+    if (!grown) return 0;
+    *array = grown;
+    *capacity = next;
+  }
+  return 1;
+}
+
+static int read_dimacs(tactix *solver, const char *path, struct formula *f) {
   FILE *input = fopen(path, "r");
   static char line[1 << 20];
+  size_t literal_capacity = 0, start_capacity = 0;
   int open_clause = 0, saw_header = 0;
-  int *clause = NULL;
-  size_t clause_count = 0, clause_capacity = 0, occ_capacity = 0;
-  uint64_t *occ = NULL;
   if (!input) {
     fprintf(stderr, "tactix-chvatal-policy: cannot open '%s': %s\n", path,
             strerror(errno));
     return 0;
   }
-  *maximum_variable = 0;
+  memset(f, 0, sizeof *f);
+  if (!push((void **)&f->starts, &start_capacity, 0, sizeof(size_t)))
+    goto fail;
+  f->starts[0] = 0;
   while (fgets(line, sizeof line, input)) {
     char *cursor = line;
     while (isspace((unsigned char)*cursor)) ++cursor;
@@ -94,9 +82,9 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
       unsigned long long clauses;
       if (sscanf(cursor, "p %7s %d %llu", kind, &variables, &clauses) != 3 ||
           strcmp(kind, "cnf") || variables < 0)
-        goto malformed;
+        goto fail;
       saw_header = 1;
-      if (variables > *maximum_variable) *maximum_variable = variables;
+      if (variables > f->variables) f->variables = variables;
       continue;
     }
     while (*cursor) {
@@ -107,216 +95,237 @@ static int read_dimacs(tactix *solver, const char *path, int *maximum_variable,
       errno = 0;
       value = strtol(cursor, &end, 10);
       if (end == cursor || errno || value < INT_MIN || value > INT_MAX)
-        goto malformed;
-      if (tactix_add_checked(solver, (int)value)) goto malformed;
+        goto fail;
+      if (tactix_add_checked(solver, (int)value)) goto fail;
       if (value) {
         const int variable = value < 0 ? -(int)value : (int)value;
-        if (variable > *maximum_variable) *maximum_variable = variable;
-        if (clause_count == clause_capacity) {
-          clause_capacity = clause_capacity ? 2 * clause_capacity : 64;
-          clause = (int *)realloc(clause, clause_capacity * sizeof *clause);
-          if (!clause) goto malformed;
-        }
-        clause[clause_count++] = variable;
+        if (variable > f->variables) f->variables = variable;
+        if (!push((void **)&f->literals, &literal_capacity, f->literal_count,
+                  sizeof(int)))
+          goto fail;
+        f->literals[f->literal_count++] = (int)value;
         open_clause = 1;
       } else {
-        if ((size_t)*maximum_variable + 1 > occ_capacity) {
-          const size_t next = 2 * ((size_t)*maximum_variable + 1);
-          uint64_t *grown = (uint64_t *)realloc(occ, next * sizeof *grown);
-          if (!grown) goto malformed;
-          memset(grown + occ_capacity, 0,
-                 (next - occ_capacity) * sizeof *grown);
-          occ = grown;
-          occ_capacity = next;
-        }
-        if (clause_count >= 4) {
-          size_t i;
-          for (i = 0; i < clause_count; ++i) ++occ[clause[i]];
-        }
-        clause_count = 0;
+        if (!push((void **)&f->starts, &start_capacity, f->clauses + 1,
+                  sizeof(size_t)))
+          goto fail;
+        f->starts[++f->clauses] = f->literal_count;
         open_clause = 0;
       }
       cursor = end;
     }
   }
-  if (ferror(input) || !saw_header || open_clause) goto malformed;
+  if (ferror(input) || !saw_header || open_clause) goto fail;
   fclose(input);
-  free(clause);
-  if ((size_t)*maximum_variable + 1 > occ_capacity) {
-    uint64_t *grown = (uint64_t *)realloc(
-        occ, ((size_t)*maximum_variable + 1) * sizeof *grown);
-    if (!grown) return 0;
-    memset(grown + occ_capacity, 0,
-           ((size_t)*maximum_variable + 1 - occ_capacity) * sizeof *grown);
-    occ = grown;
-  }
-  *long_occurrences = occ;
   return 1;
-
-malformed:
+fail:
   fprintf(stderr, "tactix-chvatal-policy: malformed or rejected DIMACS\n");
   fclose(input);
-  free(clause);
-  free(occ);
   return 0;
 }
 
-static const uint64_t *sort_occurrences;
-static int compare_primary(const void *left, const void *right) {
+static uint64_t mix(uint64_t x) {
+  x += UINT64_C(0x9e3779b97f4a7c15);
+  x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+  x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+  return x ^ (x >> 31);
+}
+
+static int compare_int(const void *left, const void *right) {
   const int a = *(const int *)left, b = *(const int *)right;
-  if (sort_occurrences[a] != sort_occurrences[b])
-    return sort_occurrences[a] > sort_occurrences[b] ? -1 : 1;
-  return a - b;
+  return (a > b) - (a < b);
 }
 
-static int build_primary(struct policy *policy, const uint64_t *occ) {
+struct keyed {
+  uint64_t key;
   int variable;
-  policy->is_primary = (unsigned char *)calloc(
-      (size_t)policy->maximum_variable + 1, 1);
-  policy->primary_order = (int *)malloc(
-      ((size_t)policy->maximum_variable + 1) * sizeof(int));
-  policy->scan_buffer = (int *)malloc(
-      ((size_t)policy->maximum_variable + 1) * sizeof(int));
-  if (!policy->is_primary || !policy->primary_order || !policy->scan_buffer)
-    return 0;
-  for (variable = 1; variable <= policy->maximum_variable; ++variable)
-    if (occ[variable]) {
-      policy->is_primary[variable] = 1;
-      policy->primary_order[policy->primary_count++] = variable;
-    }
-  if (!policy->opt.order_by_index) {
-    sort_occurrences = occ;
-    qsort(policy->primary_order, (size_t)policy->primary_count, sizeof(int),
-          compare_primary);
-  }
-  return 1;
+};
+
+static int compare_keyed(const void *left, const void *right) {
+  const struct keyed *a = (const struct keyed *)left;
+  const struct keyed *b = (const struct keyed *)right;
+  if (a->key != b->key) return a->key < b->key ? -1 : 1;
+  return a->variable - b->variable;
 }
 
-static int propagate(struct policy *policy) {
-  return tactix_apply(policy->solver, policy->propagate);
-}
+struct pair {
+  int representative, twin;
+};
 
-static void tick_reluctant(struct policy *policy) {
-  uint64_t wait;
-  if (policy->rel_trigger || --policy->rel_wait) return;
-  if ((policy->rel_u & (0 - policy->rel_u)) == policy->rel_v) {
-    ++policy->rel_u;
-    policy->rel_v = 1;
-  } else {
-    policy->rel_v *= 2;
-  }
-  wait = policy->rel_v * policy->opt.restart_period;
-  if (wait > (UINT64_C(1) << 20)) {
-    policy->rel_u = policy->rel_v = 1;
-    wait = policy->opt.restart_period;
-  }
-  policy->rel_wait = wait;
-  policy->rel_trigger = 1;
-}
-
-static int phase_literal(struct policy *policy, int variable) {
-  return policy->opt.phase == PHASE_POSITIVE ? variable : -variable;
-}
-
-/* Decides once.  Returns 1 after a decision, 0 when no unassigned variable
- * remains, -1 on an API error. */
-static int decide(struct policy *policy) {
-  const uint64_t level = tactix_stat(policy->solver, TACTIX_STAT_LEVEL);
-  int i, count;
-  if (level < policy->opt.cube_levels) {
-    /* tactix_decide refuses an assigned literal without changing state, so
-     * the first accepted primary in the static order is the cube split. */
-    for (i = 0; i < policy->primary_count; ++i)
-      if (!tactix_decide(policy->solver,
-                         phase_literal(policy, policy->primary_order[i]))) {
-        ++policy->static_decisions;
-        return 1;
-      }
-  }
-  count = tactix_decide_candidates(policy->solver, policy->scan_buffer,
-                                   policy->opt.scan);
-  if (count <= 0) return 0;
-  for (i = 0; i < count; ++i) {
-    const int literal = policy->scan_buffer[i];
-    if (policy->is_primary[literal < 0 ? -literal : literal]) {
-      if (tactix_decide(policy->solver, literal)) return -1;
-      ++policy->primary_decisions;
-      return 1;
-    }
-  }
-  if (tactix_decide(policy->solver, policy->scan_buffer[0])) return -1;
-  ++policy->other_decisions;
-  return 1;
-}
-
-static int root_vivify(struct policy *policy) {
-  int result;
-  if (tactix_stat(policy->solver, TACTIX_STAT_LEVEL)) {
-    result = tactix_apply_instance(policy->solver, policy->restart, 0);
-    if (terminal(result)) return result;
-  }
-  result = tactix_apply(policy->solver, policy->vivify);
-  if (terminal(result)) return result;
-  result = propagate(policy);
-  if (terminal(result)) return result;
-  if (result == 2) {
-    result = tactix_apply(policy->solver, policy->analyze);
-    if (terminal(result)) return result;
-  }
-  return 1;
-}
-
-static int search(struct policy *policy) {
-  int result;
-  if (policy->opt.mode == MODE_STABLE &&
-      tactix_apply(policy->solver, policy->switchmode) < 0)
-    return 0;
+/* Bottom-up twin rounds.  Returns the merge pairs in a valid application
+ * order (every pair's children are merged in an earlier round). */
+static struct pair *find_twins(const struct formula *f, size_t *pair_count,
+                               unsigned *rounds_out) {
+  const int n = f->variables;
+  int *rep = (int *)malloc(((size_t)n + 1) * sizeof(int));
+  uint64_t *signature = (uint64_t *)calloc((size_t)n + 1, sizeof(uint64_t));
+  uint64_t *negatives = (uint64_t *)calloc((size_t)n + 1, sizeof(uint64_t));
+  struct keyed *keyed = (struct keyed *)malloc(((size_t)n + 1) * sizeof *keyed);
+  int *scratch = NULL;
+  size_t scratch_capacity = 0, pair_capacity = 0, i;
+  struct pair *pairs = NULL;
+  unsigned rounds = 0;
+  int v;
+  *pair_count = 0;
+  if (!rep || !signature || !negatives || !keyed) goto done;
+  for (v = 0; v <= n; ++v) rep[v] = v;
   for (;;) {
-    uint64_t conflicts;
-    result = propagate(policy);
-    if (terminal(result)) return result;
-    if (result == 2) {
-      result = tactix_apply(policy->solver, policy->analyze);
-      if (terminal(result)) return result;
-      if (result < 0) return 0;
-      tick_reluctant(policy);
-      continue;
+    size_t merged = 0, count = 0;
+    memset(signature, 0, ((size_t)n + 1) * sizeof(uint64_t));
+    memset(negatives, 0, ((size_t)n + 1) * sizeof(uint64_t));
+    for (i = 0; i < f->clauses; ++i) {
+      const size_t begin = f->starts[i], end = f->starts[i + 1];
+      const size_t size = end - begin;
+      size_t j, k;
+      if (size > scratch_capacity) {
+        scratch_capacity = 2 * size;
+        scratch = (int *)realloc(scratch, scratch_capacity * sizeof(int));
+        if (!scratch) goto done;
+      }
+      for (j = begin; j < end; ++j) {
+        const int literal = f->literals[j];
+        const int variable = literal < 0 ? -literal : literal;
+        if (literal > 0) continue;
+        /* The clause without -variable, with representatives mapped in. */
+        {
+          size_t m = 0;
+          uint64_t h = UINT64_C(1469598103934665603);
+          for (k = begin; k < end; ++k) {
+            const int other = f->literals[k];
+            const int ov = other < 0 ? -other : other;
+            if (k == j) continue;
+            scratch[m++] = other < 0 ? -rep[ov] : rep[ov];
+          }
+          qsort(scratch, m, sizeof(int), compare_int);
+          for (k = 0; k < m; ++k)
+            if (!k || scratch[k] != scratch[k - 1])
+              h = mix(h ^ (uint64_t)(uint32_t)scratch[k]);
+          signature[variable] += mix(h);
+          ++negatives[variable];
+        }
+      }
     }
-    if (!tactix_stat(policy->solver, TACTIX_STAT_UNASSIGNED)) return 10;
-    conflicts = tactix_stat(policy->solver, TACTIX_STAT_CONFLICTS);
-    if (conflicts >= policy->reduce_next) {
-      const int reduced = tactix_apply(policy->solver, policy->reduce);
-      if (terminal(reduced)) return reduced;
-      policy->reduce_next = conflicts + 2000 +
-          300 * tactix_stat(policy->solver, TACTIX_STAT_REDUCTIONS);
-      if (reduced >= 0) continue;
+    for (v = 1; v <= n; ++v)
+      if (rep[v] == v && negatives[v]) {
+        keyed[count].key = mix(signature[v] ^ mix(negatives[v]));
+        keyed[count].variable = v;
+        ++count;
+      }
+    qsort(keyed, count, sizeof *keyed, compare_keyed);
+    for (i = 0; i < count;) {
+      size_t j = i + 1;
+      while (j < count && keyed[j].key == keyed[i].key) ++j;
+      for (size_t k = i + 1; k < j; ++k) {
+        if (!push((void **)&pairs, &pair_capacity, *pair_count,
+                  sizeof *pairs))
+          goto done;
+        pairs[*pair_count].representative = keyed[i].variable;
+        pairs[*pair_count].twin = keyed[k].variable;
+        ++*pair_count;
+        ++merged;
+      }
+      i = j;
     }
-    if (policy->opt.mode == MODE_ALTERNATE && conflicts >= policy->mode_next) {
-      const int switched = tactix_apply(policy->solver, policy->switchmode);
-      if (terminal(switched)) return switched;
-      ++policy->mode_switches;
-      policy->mode_next = conflicts +
-          policy->opt.mode_interval * (policy->mode_switches + 1);
-      if (switched >= 0) continue;
-    }
-    if (policy->opt.vivify_interval && conflicts >= policy->vivify_next) {
-      result = root_vivify(policy);
-      if (terminal(result)) return result;
-      policy->vivify_next = conflicts + policy->opt.vivify_interval;
-      policy->rel_trigger = 0;
-      continue;
-    }
-    if (policy->rel_trigger) {
-      const int restarted = tactix_apply_instance(
-          policy->solver, policy->restart, TACTIX_INSTANCE_CANONICAL);
-      if (terminal(restarted)) return restarted;
-      policy->rel_trigger = 0;
-      if (restarted >= 0) continue;
-    }
-    result = decide(policy);
-    if (result < 0) return 0;
-    if (!result) return tactix_status(policy->solver);
+    /* Map after the round so every pair of this round sees only earlier
+     * merges, exactly the order in which they are applied. */
+    for (i = *pair_count - merged; i < *pair_count; ++i)
+      rep[pairs[i].twin] = pairs[i].representative;
+    if (!merged) break;
+    ++rounds;
   }
+done:
+  *rounds_out = rounds;
+  free(rep);
+  free(signature);
+  free(negatives);
+  free(keyed);
+  free(scratch);
+  return pairs;
+}
+
+/* Adds both directions of every twin equivalence with SubstitutionRedundancy
+ * and returns the number of accepted instances (-1 on an API error). */
+static long long merge_twins(tactix *solver, const struct pair *pairs,
+                             size_t pair_count) {
+  const size_t count = 2 * pair_count;
+  tactix_online_sr_instance *instances;
+  int *storage;
+  tactix_online_step_v2 step;
+  tactix_online_program_v2 program;
+  tactix_online_result result;
+  long long accepted = 0;
+  size_t i;
+  if (!count) return 0;
+  instances = (tactix_online_sr_instance *)calloc(count, sizeof *instances);
+  storage = (int *)malloc(count * 3 * sizeof(int));
+  if (!instances || !storage) return -1;
+  for (i = 0; i < pair_count; ++i) {
+    const int a = pairs[i].representative, b = pairs[i].twin;
+    int *first = storage + 6 * i, *second = first + 3;
+    first[0] = a;  first[1] = -b; first[2] = a;   /* (a | -b), witness {a} */
+    second[0] = b; second[1] = -a; second[2] = b; /* (b | -a), witness {b} */
+    instances[2 * i].clause = first;
+    instances[2 * i].clause_count = 2;
+    instances[2 * i].witness = first + 2;
+    instances[2 * i].witness_count = 1;
+    instances[2 * i + 1].clause = second;
+    instances[2 * i + 1].clause_count = 2;
+    instances[2 * i + 1].witness = second + 2;
+    instances[2 * i + 1].witness_count = 1;
+  }
+  memset(&step, 0, sizeof step);
+  step.base.step_id = 1;
+  step.base.rule_id = rule_id("SubstitutionRedundancy");
+  step.base.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+  step.base.parameters.value.substitution_redundancy.maximum_validation_ticks =
+      UINT64_MAX;
+  step.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.base.repeat_limit = 1;
+  step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.base.budget_unlimited = 1;
+  step.base.post_application = TACTIX_ONLINE_POST_NONE;
+  step.sr_instances = instances;
+  step.sr_instance_count = count;
+  memset(&program, 0, sizeof program);
+  program.steps = &step;
+  program.step_count = 1;
+  program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  program.repeat_limit = 1;
+  if (step.base.rule_id < 0 ||
+      tactix_online_configure_v2(solver, &program, 1,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET)) {
+    free(instances);
+    free(storage);
+    return -1;
+  }
+  while (!tactix_online_complete(solver)) {
+    if (tactix_online_advance(solver, &result)) {
+      accepted = -1;
+      break;
+    }
+    if (result.made_rule_progress) ++accepted;
+    if (result.status == TACTIX_ONLINE_INTERRUPTED) break;
+  }
+  free(instances);
+  free(storage);
+  return accepted;
+}
+
+static int terminal(int result) { return result == 10 || result == 20; }
+
+/* Applies a rule until it stops changing the formula, propagating after
+ * every application. */
+static int saturate(tactix *solver, int rule, int propagate, unsigned cap) {
+  unsigned count;
+  for (count = 0; count < cap; ++count) {
+    int result = tactix_apply(solver, rule);
+    if (terminal(result)) return result;
+    if (result != 0) return 1;
+    result = tactix_apply(solver, propagate);
+    if (terminal(result) || result == 2) return result;
+  }
+  return 1;
 }
 
 static void print_model(tactix *solver, int maximum_variable) {
@@ -330,47 +339,17 @@ static void print_model(tactix *solver, int maximum_variable) {
   puts(" 0");
 }
 
-static int parse_u64(const char *text, uint64_t *out) {
-  char *end;
-  errno = 0;
-  *out = strtoull(text, &end, 10);
-  return !errno && *text && !*end;
-}
-
 int main(int argc, char **argv) {
-  struct policy policy;
   const char *cnf = NULL, *proof = NULL;
-  uint64_t *occ = NULL, value;
-  int arg, result;
+  int twins = 1, format = TACTIX_PROOF_DSR_BINARY, arg, result = 0;
+  struct formula f;
   tactix *solver;
-  memset(&policy, 0, sizeof policy);
-  policy.opt.cube_levels = 0;
-  policy.opt.scan = 64;
-  policy.opt.mode = MODE_ALTERNATE;
-  policy.opt.phase = PHASE_NEGATIVE;
-  policy.opt.restart_period = 512;
-  policy.opt.mode_interval = 1000;
   for (arg = 1; arg < argc; ++arg) {
     const char *a = argv[arg];
-    if (!strcmp(a, "--default")) policy.opt.solve_default = 1;
-    else if (!strncmp(a, "--cube-levels=", 14) && parse_u64(a + 14, &value))
-      policy.opt.cube_levels = (unsigned)value;
-    else if (!strncmp(a, "--scan=", 7) && parse_u64(a + 7, &value) && value)
-      policy.opt.scan = (int)value;
-    else if (!strcmp(a, "--mode=focused")) policy.opt.mode = MODE_FOCUSED;
-    else if (!strcmp(a, "--mode=stable")) policy.opt.mode = MODE_STABLE;
-    else if (!strcmp(a, "--mode=alternate")) policy.opt.mode = MODE_ALTERNATE;
-    else if (!strcmp(a, "--phase=negative")) policy.opt.phase = PHASE_NEGATIVE;
-    else if (!strcmp(a, "--phase=positive")) policy.opt.phase = PHASE_POSITIVE;
-    else if (!strncmp(a, "--restart=", 10) && parse_u64(a + 10, &value) && value)
-      policy.opt.restart_period = value;
-    else if (!strncmp(a, "--vivify=", 9) && parse_u64(a + 9, &value))
-      policy.opt.vivify_interval = value;
-    else if (!strncmp(a, "--mode-interval=", 16) && parse_u64(a + 16, &value) &&
-             value)
-      policy.opt.mode_interval = value;
-    else if (!strcmp(a, "--order=index")) policy.opt.order_by_index = 1;
-    else if (!strcmp(a, "--drat")) continue;
+    if (!strcmp(a, "--default")) twins = 0;
+    else if (!strcmp(a, "--twins")) twins = 1;
+    else if (!strcmp(a, "--dsr")) format = TACTIX_PROOF_DSR_BINARY;
+    else if (!strcmp(a, "--drat")) format = TACTIX_PROOF_DRAT_BINARY;
     else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix-chvatal-policy: unknown option '%s'\n", a);
       return 1;
@@ -379,56 +358,62 @@ int main(int argc, char **argv) {
     else return 1;
   }
   if (!cnf) {
-    fprintf(stderr, "usage: tactix-chvatal-policy [options] CNF [PROOF]\n");
+    fprintf(stderr,
+            "usage: tactix-chvatal-policy [--twins|--default] [--dsr|--drat] "
+            "CNF [PROOF]\n");
     return 1;
   }
   solver = tactix_init();
-  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DRAT_BINARY)) {
+  if (proof && tactix_proof(solver, proof, format)) {
     fprintf(stderr, "tactix-chvatal-policy: cannot create proof '%s'\n", proof);
     return 1;
   }
-  policy.solver = solver;
-  if (!read_dimacs(solver, cnf, &policy.maximum_variable, &occ) ||
-      tactix_set_guidance_publication(solver, TACTIX_GUIDANCE_NATIVE) ||
-      !build_primary(&policy, occ)) {
+  if (!read_dimacs(solver, cnf, &f) ||
+      tactix_set_guidance_publication(solver, TACTIX_GUIDANCE_NATIVE)) {
     tactix_release(solver);
     return 1;
   }
-  free(occ);
-  policy.propagate = rule_id("Propagate");
-  policy.analyze = rule_id("ConflictAnalysis");
-  policy.restart = rule_id("Restart");
-  policy.reduce = rule_id("Reduce");
-  policy.switchmode = rule_id("SwitchMode");
-  policy.vivify = rule_id("Vivify");
-  if (policy.propagate < 0 || policy.analyze < 0 || policy.restart < 0 ||
-      policy.reduce < 0 || policy.switchmode < 0 || policy.vivify < 0)
-    return 1;
-  policy.rel_u = policy.rel_v = 1;
-  policy.rel_wait = policy.opt.restart_period;
-  policy.reduce_next = 2000;
-  policy.mode_next = policy.opt.mode_interval;
-  policy.vivify_next = policy.opt.vivify_interval;
-  printf("c chvatal-policy primary=%d cube-levels=%u scan=%d default=%d\n",
-         policy.primary_count, policy.opt.cube_levels, policy.opt.scan,
-         policy.opt.solve_default);
-  fflush(stdout);
   if (tactix_status(solver) == 20) result = 20;
-  else if (policy.opt.solve_default) result = tactix_solve(solver);
-  else result = search(&policy);
-  printf("c conflicts %" PRIu64 " decisions static=%" PRIu64 " primary=%" PRIu64
-         " other=%" PRIu64 " mode-switches=%" PRIu64 "\n",
-         tactix_stat(solver, TACTIX_STAT_CONFLICTS), policy.static_decisions,
-         policy.primary_decisions, policy.other_decisions,
-         policy.mode_switches);
+  if (!result && twins) {
+    size_t pair_count;
+    unsigned rounds;
+    struct pair *pairs = find_twins(&f, &pair_count, &rounds);
+    const int propagate = rule_id("Propagate");
+    long long accepted;
+    result = tactix_apply(solver, propagate);
+    if (result == 2) result = tactix_apply(solver, rule_id("ConflictAnalysis"));
+    if (!terminal(result)) {
+      accepted = merge_twins(solver, pairs, pair_count);
+      printf("c chvatal-twins pairs=%zu rounds=%u accepted=%lld\n",
+             pair_count, rounds, accepted);
+      fflush(stdout);
+      result = tactix_apply(solver, propagate);
+      if (result == 2)
+        result = tactix_apply(solver, rule_id("ConflictAnalysis"));
+      if (!terminal(result))
+        result = saturate(solver, rule_id("Substitute"), propagate, 64);
+      if (result == 2)
+        result = tactix_apply(solver, rule_id("ConflictAnalysis"));
+      printf("c chvatal-twins substituted=%" PRIu64 "\n",
+             tactix_stat(solver, TACTIX_STAT_SUBSTITUTE_VARS));
+      fflush(stdout);
+    }
+    free(pairs);
+    if (!terminal(result)) result = 0;
+  }
+  if (!result) result = tactix_solve(solver);
+  printf("c conflicts %" PRIu64 "\n",
+         tactix_stat(solver, TACTIX_STAT_CONFLICTS));
   if (result == 10) {
     puts("s SATISFIABLE");
-    print_model(solver, policy.maximum_variable);
+    print_model(solver, f.variables);
   } else if (result == 20) {
     puts("s UNSATISFIABLE");
   } else {
     puts("s UNKNOWN");
   }
   tactix_release(solver);
+  free(f.literals);
+  free(f.starts);
   return result == 10 || result == 20 ? result : 0;
 }
