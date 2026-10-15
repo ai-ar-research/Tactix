@@ -69,14 +69,53 @@ Rejected:
 
 ## Paper runs
 
-Allocation is 4 CPUs and 16 GiB on `cpu-q`, with a 5,000 s solve limit and a
-7,200 s certificate-checking budget for every arm.
+**Fixed set:** the 23 population nodes that Kissat 4.0.4 solves in [300 s, 1,800 s)
+on the neutral screen (`corpus/chvatal/paper-hard.{txt,json}`). 11 are flagged as
+development formulas, leaving 12 held out. The broader 1-30 minute band of 101
+formulas was the first candidate set. It was narrowed to the hard tier because the
+merge costs a fixed ~65 s, which dominates rows that take only a few minutes.
 
-- Default Tactix and Kissat 4.0.4:
-  `benchmarks/runs/20261015-144648-chvatal-band-baselines`.
-- Satsuma+Kissat: `benchmarks/runs/20261015-144649-chvatal-band-satsuma`. Its
-  dedicated runner `tools/bench/chvatal_satsuma.py` checks certificates along the
-  frozen route dsr-trim → dsr-compress → srcheck.
-- Chvátal Tactix candidates: pending, to run after the baselines.
+**Protocol:** every arm uses `cpu-q` with 4 CPUs and 16 GiB per task, a 5,000 s
+solve limit and a 7,200 s certificate-checking budget, and all arms ran in the same
+window. Default Tactix is the CLI `tactix --dsr`. Chvátal Tactix is
+`tactix-chvatal-policy --twins --dsr` built from the same core (Tactix binary
+`c21cdede…`). Its witnessed DSR is checked with dsr-trim and Trestle. Kissat 4.0.4
+is checked with drat-trim. Satsuma+Kissat is checked with dsr-trim, dsr-compress -d
+and srcheck. A certificate check killed by the 16 GiB limit is rechecked at
+48–64 GiB; the original solve time is kept, following the paper's 64 GiB-recheck
+precedent.
 
-Results: pending.
+Runs:
+
+- `20261015-144648-chvatal-band-baselines`: Default Tactix and Kissat 4.0.4.
+- `20261015-144649-chvatal-band-satsuma`: Satsuma+Kissat.
+- `20261015-145107-chvatal-band-candidates`: Chvátal Tactix and its stable-mode
+  variant.
+- Rechecks: `20261015-150949-chvatal-band-recheck48-1`,
+  `20261015-160036-chvatal-hard-recheck48-2`,
+  `20261015-171709-chvatal-hard-recheck48-3` and
+  `20261015-173818-chvatal-hard-satsuma-recheck64`.
+
+**Results:** every configuration answers UNSAT on all 23 formulas. Chvátal Tactix,
+Kissat 4.0.4 and the stable variant have 23/23 certificates verified. Default
+Tactix has 20/23 verified, and its last 3 rechecks are in progress. Satsuma+Kissat
+has 22/23 verified, with one 64 GiB srcheck recheck in progress.
+
+Speedup of Chvátal Tactix, solve time only:
+
+| baseline | rows | total solve time | ratio | geo. mean | per-row range | faster on |
+|---|---|---|---:|---:|---|---|
+| Default Tactix | all 23 | 18,799 → 8,463 s | 2.22× | 2.09× | 1.42–3.08× | 23/23 |
+| Default Tactix | held-out 12 | 10,424 → 4,462 s | 2.34× | 2.18× | 1.42–3.08× | 12/12 |
+| Satsuma+Kissat | all 23 | 22,121 → 8,463 s | 2.61× | 2.45× | 1.58–3.48× | 23/23 |
+| Satsuma+Kissat | held-out 12 | 12,033 → 4,462 s | 2.70× | 2.51× | 1.64–3.48× | 12/12 |
+| Kissat 4.0.4 | all 23 | 21,791 → 8,463 s | 2.57× | 2.47× | 1.62–3.38× | 23/23 |
+| Kissat 4.0.4 | held-out 12 | 11,425 → 4,462 s | 2.56× | 2.45× | 1.77–3.35× | 12/12 |
+
+The stable-mode variant is no better (0.99× of plain Chvátal Tactix). Chvátal
+Tactix also writes about half the proof volume of the baselines, and its proofs
+check faster.
+
+The paper figures and table come from
+`~/paper-writing/Tactix-paper/scripts/{extract_chvatal_results,plot_chvatal,table_chvatal}.py`,
+which read `data/chvatal-sources.json`.
