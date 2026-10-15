@@ -52,7 +52,10 @@ def candidate_arms(specs):
         pin, _, args = rest.partition(":")
         binary = os.path.join(POLICY_PINS, pin, "build", "examples",
                               "tactix-chvatal-policy")
-        arms[name] = [ENV, binary, *filter(None, args.split(",")), "--drat"]
+        flags = list(filter(None, args.split(",")))
+        if "--dsr" not in flags and "--drat" not in flags:
+            flags.append("--drat")
+        arms[name] = [ENV, binary, *flags]
     return arms
 
 
