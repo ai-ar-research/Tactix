@@ -369,6 +369,36 @@ static int collapse(tactix *solver, int propagate) {
   return 1;
 }
 
+/* Classifies a finished binary DSR certificate the way the checker routing
+ * does: an addition (tag 1) whose first literal reappears later on its line
+ * carries a substitution witness and needs the witnessed route. */
+static int dsr_has_witness(const char *path) {
+  FILE *in = fopen(path, "rb");
+  int c, witnessed = 0;
+  if (!in) return -1;
+  while (!witnessed && (c = fgetc(in)) != EOF) {
+    const int addition = c == 1;
+    uint64_t first = 0;
+    int have_first = 0;
+    if (c != 1 && c != 2) { witnessed = -1; break; }
+    for (;;) {
+      uint64_t value = 0;
+      int shift = 0, byte;
+      do {
+        byte = fgetc(in);
+        if (byte == EOF) { fclose(in); return witnessed; }
+        value |= (uint64_t)(byte & 0x7f) << shift;
+        shift += 7;
+      } while (byte & 0x80);
+      if (!value) break;
+      if (!have_first) { first = value; have_first = 1; }
+      else if (addition && value == first) witnessed = 1;
+    }
+  }
+  fclose(in);
+  return witnessed;
+}
+
 static void print_model(tactix *solver, int maximum_variable) {
   int variable;
   fputs("v", stdout);
@@ -471,10 +501,7 @@ int main(int argc, char **argv) {
   }
   if (getenv("CHVATAL_MERGE_ONLY")) return 0;
   if (!result) result = tactix_solve(solver);
-  /* The merge's SubstitutionRedundancy steps carry witnesses, so the DSR
-   * certificate takes the witnessed (dsr-trim -> Trestle) route. */
-  if (result == 20 && proof && format == TACTIX_PROOF_DSR_BINARY && witnessed)
-    puts("c proof-route dsr-trestle");
+
   printf("c conflicts %" PRIu64 "\n",
          tactix_stat(solver, TACTIX_STAT_CONFLICTS));
   if (result == 10) {
@@ -486,6 +513,14 @@ int main(int argc, char **argv) {
     puts("s UNKNOWN");
   }
   tactix_release(solver);
+  /* Report the checker route from the certificate's own content, after the
+   * session has flushed and closed it. */
+  if (result == 20 && proof && format == TACTIX_PROOF_DSR_BINARY) {
+    const int has = dsr_has_witness(proof);
+    if (has >= 0) printf("c proof-route %s\n", has ? "dsr-trestle" : "dsr-cake_lpr");
+    (void)witnessed;
+  }
+  fflush(stdout);
   free(f.literals);
   free(f.starts);
   return result == 10 || result == 20 ? result : 0;
