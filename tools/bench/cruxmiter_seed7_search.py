@@ -75,6 +75,10 @@ BOUNDARY_POLICY = os.path.join(
 FALLBACK_POLICY = os.path.join(
     ROOT, "build", "pin-cruxfb-cd10a2e1e-20261015", "build", "examples",
     "tactix-crux-fallback-policy")
+# Same source plus the `direct` session-setup control profile.
+FALLBACK_CONTROL_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxfb-cd10a2e1e-20261015b", "build", "examples",
+    "tactix-crux-fallback-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -884,6 +888,8 @@ ARMS = {
                           "--warm-conflicts=10000", "--drat"],
     "fallback-warm-100k": [ENV, FALLBACK_POLICY, "--profile=warm",
                            "--warm-conflicts=100000", "--drat"],
+    "fallback-direct": [ENV, FALLBACK_CONTROL_POLICY, "--profile=direct",
+                        "--drat"],
     # Directly validate the CNC+TACO observation on the development seed.
     # These are diagnostic controls for transferring the winning components
     # back through Tactix's public policy surface.
@@ -941,7 +947,8 @@ def main():
                    DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, TAIL_BVE_POLICY,
                    BDD_ORDER_POLICY, ADAPTIVE_POLICY, FINAL_POLICY,
                    REBASED_DEFAULT, REBASED_POLICY, WAVE_POLICY,
-                   BOUNDARY_POLICY, FALLBACK_POLICY, KISSAT):
+                   BOUNDARY_POLICY, FALLBACK_POLICY,
+                   FALLBACK_CONTROL_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     missing = [path for path in paths.values() if not os.path.isfile(path)]
@@ -980,7 +987,7 @@ def main():
                          TAIL_BVE_POLICY, BDD_ORDER_POLICY,
                          ADAPTIVE_POLICY, FINAL_POLICY, REBASED_DEFAULT,
                          REBASED_POLICY, WAVE_POLICY, BOUNDARY_POLICY,
-                         FALLBACK_POLICY,
+                         FALLBACK_POLICY, FALLBACK_CONTROL_POLICY,
                          KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
