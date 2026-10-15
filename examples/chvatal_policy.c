@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 struct formula {
   int *literals;       /* all clause literals, clause after clause */
@@ -155,7 +156,7 @@ struct pair {
 /* Bottom-up twin rounds.  Returns the merge pairs in a valid application
  * order (every pair's children are merged in an earlier round). */
 static struct pair *find_twins(const struct formula *f, size_t *pair_count,
-                               unsigned *rounds_out) {
+                               unsigned *rounds_out, unsigned **round_out) {
   const int n = f->variables;
   int *rep = (int *)malloc(((size_t)n + 1) * sizeof(int));
   uint64_t *signature = (uint64_t *)calloc((size_t)n + 1, sizeof(uint64_t));
@@ -164,6 +165,8 @@ static struct pair *find_twins(const struct formula *f, size_t *pair_count,
   int *scratch = NULL;
   size_t scratch_capacity = 0, pair_capacity = 0, i;
   struct pair *pairs = NULL;
+  unsigned *pair_round = NULL;
+  size_t round_capacity = 0;
   unsigned rounds = 0;
   int v;
   *pair_count = 0;
@@ -219,8 +222,12 @@ static struct pair *find_twins(const struct formula *f, size_t *pair_count,
         if (!push((void **)&pairs, &pair_capacity, *pair_count,
                   sizeof *pairs))
           goto done;
+        if (!push((void **)&pair_round, &round_capacity, *pair_count,
+                  sizeof *pair_round))
+          goto done;
         pairs[*pair_count].representative = keyed[i].variable;
         pairs[*pair_count].twin = keyed[k].variable;
+        pair_round[*pair_count] = rounds;
         ++*pair_count;
         ++merged;
       }
@@ -235,6 +242,7 @@ static struct pair *find_twins(const struct formula *f, size_t *pair_count,
   }
 done:
   *rounds_out = rounds;
+  *round_out = pair_round;
   free(rep);
   free(signature);
   free(negatives);
@@ -246,7 +254,7 @@ done:
 /* Adds both directions of every twin equivalence with SubstitutionRedundancy
  * and returns the number of accepted instances (-1 on an API error). */
 static long long merge_twins(tactix *solver, const struct pair *pairs,
-                             size_t pair_count) {
+                             size_t pair_count, const unsigned *pair_round) {
   const size_t count = 2 * pair_count;
   tactix_online_sr_instance *instances;
   int *storage;
@@ -259,34 +267,53 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
   instances = (tactix_online_sr_instance *)calloc(count, sizeof *instances);
   storage = (int *)malloc(count * 3 * sizeof(int));
   if (!instances || !storage) return -1;
-  for (i = 0; i < pair_count; ++i) {
-    const int a = pairs[i].representative, b = pairs[i].twin;
-    int *first = storage + 6 * i, *second = first + 3;
-    first[0] = a;  first[1] = -b; first[2] = a;   /* (a | -b), witness {a} */
-    second[0] = b; second[1] = -a; second[2] = b; /* (b | -a), witness {b} */
-    instances[2 * i].clause = first;
-    instances[2 * i].clause_count = 2;
-    instances[2 * i].witness = first + 2;
-    instances[2 * i].witness_count = 1;
-    instances[2 * i + 1].clause = second;
-    instances[2 * i + 1].clause_count = 2;
-    instances[2 * i + 1].witness = second + 2;
-    instances[2 * i + 1].witness_count = 1;
+  /* Within a round, every (a | -b) on the representative's pivot precedes
+   * every (b | -a): a reverse clause contains -a and would otherwise become a
+   * resolution partner of a later forward instance on pivot a. */
+  {
+    size_t out = 0, begin = 0;
+    while (begin < pair_count) {
+      size_t end = begin, j;
+      while (end < pair_count && pair_round[end] == pair_round[begin]) ++end;
+      for (int direction = 0; direction < 2; ++direction)
+        for (j = begin; j < end; ++j) {
+          const int a = pairs[j].representative, b = pairs[j].twin;
+          int *c = storage + 3 * out;
+          c[0] = direction ? b : a;
+          c[1] = direction ? -a : -b;
+          c[2] = c[0];
+          instances[out].clause = c;
+          instances[out].clause_count = 2;
+          instances[out].witness = c + 2;
+          instances[out].witness_count = 1;
+          ++out;
+        }
+      begin = end;
+    }
   }
   memset(&step, 0, sizeof step);
   step.base.step_id = 1;
   step.base.rule_id = rule_id("SubstitutionRedundancy");
   step.base.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
   step.base.parameters.value.substitution_redundancy.maximum_validation_ticks =
-      UINT64_MAX;
-  step.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+      UINT64_C(1) << 20;
+  step.base.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
   step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
   step.base.repeat_limit = 1;
   step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   step.base.budget_unlimited = 1;
   step.base.post_application = TACTIX_ONLINE_POST_NONE;
   step.sr_instances = instances;
-  step.sr_instance_count = count;
+  if (getenv("CHVATAL_OFFSET")) {
+    const int offset = atoi(getenv("CHVATAL_OFFSET"));
+    step.sr_instances = instances + offset;
+    fprintf(stderr, "instance clause %d %d witness %d\n",
+            instances[offset].clause[0], instances[offset].clause[1],
+            instances[offset].witness[0]);
+  }
+  step.sr_instance_count = (int)count;
+  if (getenv("CHVATAL_LIMIT"))
+    step.sr_instance_count = atoi(getenv("CHVATAL_LIMIT"));
   memset(&program, 0, sizeof program);
   program.steps = &step;
   program.step_count = 1;
@@ -299,13 +326,36 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
     free(storage);
     return -1;
   }
-  while (!tactix_online_complete(solver)) {
-    if (tactix_online_advance(solver, &result)) {
-      accepted = -1;
-      break;
+  {
+    uint64_t failures = 0, advances = 0;
+    while (!tactix_online_complete(solver)) {
+      const int code = tactix_online_advance(solver, &result);
+      ++advances;
+      if (code) {
+        if (getenv("CHVATAL_DEBUG"))
+          fprintf(stderr, "advance %" PRIu64 " code=%d status=%d instance=%"
+                  PRIu64 " rule_result=%d\n", advances, code, result.status,
+                  result.instance, result.rule_result);
+        if (++failures > 16) break;
+        continue;
+      }
+      if (getenv("CHVATAL_TRACE") && advances < 20)
+        fprintf(stderr, "advance %" PRIu64 " status=%d instance=%" PRIu64
+                " progress=%d apps=%" PRIu64 " rule_result=%d sel=%d\n",
+                advances, result.status, result.instance,
+                result.made_rule_progress, result.applications,
+                result.rule_result, result.selection_complete);
+      if (result.made_rule_progress) ++accepted;
+      else if (getenv("CHVATAL_REJECTS") && result.instance < (uint64_t)count)
+        fprintf(stderr, "reject %" PRIu64 " status=%d rr=%d clause %d %d\n",
+                result.instance, result.status, result.rule_result,
+                instances[result.instance].clause[0],
+                instances[result.instance].clause[1]);
+      if (result.status == TACTIX_ONLINE_INTERRUPTED) break;
     }
-    if (result.made_rule_progress) ++accepted;
-    if (result.status == TACTIX_ONLINE_INTERRUPTED) break;
+    if (getenv("CHVATAL_DEBUG"))
+      fprintf(stderr, "advances=%" PRIu64 " failures=%" PRIu64 "\n",
+              advances, failures);
   }
   free(instances);
   free(storage);
@@ -328,6 +378,22 @@ static int saturate(tactix *solver, int rule, int propagate, unsigned cap) {
   return 1;
 }
 
+/* Collapses merged equivalences and drops the copies' now-duplicate
+ * definitions so the next validation round sees a smaller formula. */
+static int collapse(tactix *solver, int propagate) {
+  int result = saturate(solver, rule_id("Substitute"), propagate, 64);
+  if (terminal(result) || result == 2) return result;
+  if (!getenv("CHVATAL_NO_SUBSUME")) {
+    const int subsumed = tactix_apply(solver, rule_id("SubsumeForward"));
+    if (terminal(subsumed)) return subsumed;
+  }
+  (void)tactix_support(solver, TACTIX_SUPPORT_SPARSE_COLLECT, 0);
+  result = tactix_apply(solver, propagate);
+  if (terminal(result) || result == 2) return result;
+  (void)tactix_support(solver, TACTIX_SUPPORT_COLLECT_GARBAGE, 0);
+  return 1;
+}
+
 static void print_model(tactix *solver, int maximum_variable) {
   int variable;
   fputs("v", stdout);
@@ -342,6 +408,7 @@ static void print_model(tactix *solver, int maximum_variable) {
 int main(int argc, char **argv) {
   const char *cnf = NULL, *proof = NULL;
   int twins = 1, format = TACTIX_PROOF_DSR_BINARY, arg, result = 0;
+  int per_round_off = getenv("CHVATAL_ONE_COLLAPSE") != NULL;
   struct formula f;
   tactix *solver;
   for (arg = 1; arg < argc; ++arg) {
@@ -376,22 +443,44 @@ int main(int argc, char **argv) {
   if (tactix_status(solver) == 20) result = 20;
   if (!result && twins) {
     size_t pair_count;
-    unsigned rounds;
-    struct pair *pairs = find_twins(&f, &pair_count, &rounds);
+    unsigned rounds, *pair_round = NULL;
+    struct pair *pairs = find_twins(&f, &pair_count, &rounds, &pair_round);
     const int propagate = rule_id("Propagate");
     long long accepted;
     result = tactix_apply(solver, propagate);
     if (result == 2) result = tactix_apply(solver, rule_id("ConflictAnalysis"));
     if (!terminal(result)) {
-      accepted = merge_twins(solver, pairs, pair_count);
+      size_t begin = 0;
+      accepted = 0;
+      while (begin < pair_count && !terminal(result)) {
+        size_t end = begin;
+        long long round_accepted;
+        while (end < pair_count && pair_round[end] == pair_round[begin]) ++end;
+        round_accepted = merge_twins(solver, pairs + begin, end - begin,
+                                     pair_round + begin);
+        if (round_accepted < 0) break;
+        accepted += round_accepted;
+        result = tactix_apply(solver, propagate);
+        if (result == 2)
+          result = tactix_apply(solver, rule_id("ConflictAnalysis"));
+        if (!terminal(result) && !per_round_off)
+          result = collapse(solver, propagate);
+        if (result == 2)
+          result = tactix_apply(solver, rule_id("ConflictAnalysis"));
+        if (getenv("CHVATAL_DEBUG"))
+          fprintf(stderr, "round %u pairs=%zu accepted=%lld irredundant=%"
+                  PRIu64 " substituted=%" PRIu64 " clock=%.1f\n",
+                  pair_round[begin], end - begin, round_accepted,
+                  tactix_stat(solver, TACTIX_STAT_IRREDUNDANT_CLAUSES),
+                  tactix_stat(solver, TACTIX_STAT_SUBSTITUTE_VARS),
+                  (double)clock() / CLOCKS_PER_SEC);
+        begin = end;
+      }
       printf("c chvatal-twins pairs=%zu rounds=%u accepted=%lld\n",
              pair_count, rounds, accepted);
       fflush(stdout);
-      result = tactix_apply(solver, propagate);
-      if (result == 2)
-        result = tactix_apply(solver, rule_id("ConflictAnalysis"));
       if (!terminal(result))
-        result = saturate(solver, rule_id("Substitute"), propagate, 64);
+        result = collapse(solver, propagate);
       if (result == 2)
         result = tactix_apply(solver, rule_id("ConflictAnalysis"));
       printf("c chvatal-twins substituted=%" PRIu64 "\n",
@@ -399,8 +488,10 @@ int main(int argc, char **argv) {
       fflush(stdout);
     }
     free(pairs);
+    free(pair_round);
     if (!terminal(result)) result = 0;
   }
+  if (getenv("CHVATAL_MERGE_ONLY")) return 0;
   if (!result) result = tactix_solve(solver);
   printf("c conflicts %" PRIu64 "\n",
          tactix_stat(solver, TACTIX_STAT_CONFLICTS));
