@@ -704,6 +704,10 @@ add_test(NAME default_public_correspondence
          COMMAND test_default_public_correspondence
                  $<TARGET_FILE:default_correspondence_static>
                  $<TARGET_FILE:default_correspondence_hardcoded>)
+# The same PublicPort DefaultPolicy as a command-line solver, for benchmark
+# runs of the default strategy over tactix.h (tactix_public_main.cpp).
+tactix_port_twin(tactix-public tactix_public_main.cpp default_public_port.cpp)
+target_compile_definitions(tactix-public PRIVATE TACTIX_DEFAULT_POLICY_PUBLIC_PORT=1)
 
 # Conventional C++ tests are discovered automatically. Existing explicit
 # declarations above preserve special names/arguments; a newly added
