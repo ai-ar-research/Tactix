@@ -6,6 +6,8 @@
  * opening leaves behind (substituted gates, root units, learned clauses) is
  * handed to the unmodified default strategy.
  *
+ * The `direct` profile skips the opening entirely: it is the session-setup
+ * control, DefaultPolicy reached through this client with no prior action.
  * The opening is the selected crux prelude (bounded adaptive
  * Congruence -> Substitute closure and one startup Backbone dose).  The
  * `warm` profile then also runs a stable-mode public search phase for a
@@ -30,7 +32,7 @@
   (TACTIX_BVE_GATE_EQUIV | TACTIX_BVE_GATE_AND_OR | TACTIX_BVE_GATE_ITE |      \
    TACTIX_BVE_GATE_DEFINITION)
 
-enum profile { PROFILE_PRELUDE, PROFILE_WARM };
+enum profile { PROFILE_DIRECT, PROFILE_PRELUDE, PROFILE_WARM };
 
 struct policy {
   tactix *solver;
@@ -232,6 +234,7 @@ static int warm_search(struct policy *policy) {
 static int solve(struct policy *policy) {
   int result;
   if (tactix_status(policy->solver) == 20) return 20;
+  if (policy->profile == PROFILE_DIRECT) return tactix_solve(policy->solver);
   result = crux_prelude(policy);
   if (terminal(result)) return result;
   if (result == 2) {
@@ -291,7 +294,7 @@ static void print_model(tactix *solver, int maximum_variable) {
 
 static void usage(const char *program) {
   fprintf(stderr,
-          "usage: %s [--profile=prelude|warm] [--warm-conflicts=N] [--drat] "
+          "usage: %s [--profile=direct|prelude|warm] [--warm-conflicts=N] [--drat] "
           "CNF [PROOF]\n",
           program);
 }
@@ -305,7 +308,9 @@ int main(int argc, char **argv) {
   tactix *solver;
   struct policy policy;
   for (arg = 1; arg < argc; ++arg) {
-    if (!strcmp(argv[arg], "--profile=prelude")) {
+    if (!strcmp(argv[arg], "--profile=direct")) {
+      profile = PROFILE_DIRECT;
+    } else if (!strcmp(argv[arg], "--profile=prelude")) {
       profile = PROFILE_PRELUDE;
     } else if (!strcmp(argv[arg], "--profile=warm")) {
       profile = PROFILE_WARM;
@@ -361,7 +366,9 @@ int main(int argc, char **argv) {
   }
   printf("c crux-fallback-policy profile=%s warm-conflicts=%" PRIu64
          " fallback=default-policy\n",
-         profile == PROFILE_WARM ? "warm" : "prelude",
+         profile == PROFILE_WARM      ? "warm"
+         : profile == PROFILE_PRELUDE ? "prelude"
+                                      : "direct",
          profile == PROFILE_WARM ? warm_conflicts : 0);
   result = solve(&policy);
   printf("c conflicts %" PRIu64 "\n",
