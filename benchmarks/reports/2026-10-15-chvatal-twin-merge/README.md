@@ -97,9 +97,20 @@ Runs:
   `20261015-173818-chvatal-hard-satsuma-recheck64`.
 
 **Results:** every configuration answers UNSAT on all 23 formulas. Chvátal Tactix,
-Kissat 4.0.4 and the stable variant have 23/23 certificates verified. Default
-Tactix has 20/23 verified, and its last 3 rechecks are in progress. Satsuma+Kissat
-has 22/23 verified, with one 64 GiB srcheck recheck in progress.
+Default Tactix (after 48 GiB rechecks), Kissat 4.0.4 and the stable variant have
+23/23 certificates verified. Satsuma+Kissat has 22/23: its srcheck on
+n7-1111110011 (2.23 GB) was killed at 16 GiB after 6,789 s, and a 64 GiB recheck
+under the same 2-hour budget is in progress.
+
+| configuration | checked | mean PAR-2 (s) | solve (s) | check (s) | proofs (GB) |
+|---|---:|---:|---:|---:|---:|
+| Chvátal Tactix | 23/23 | 368.0 | 7,890 | 24,622 | 10.42 |
+| Default Tactix | 23/23 | 817.3 | 17,478 | 38,383 | 23.58 |
+| Satsuma+Kissat | 22/23 | 1,319.5 | 20,349 | 78,430 | 27.32 |
+| Kissat 4.0.4 | 23/23 | 947.5 | 20,353 | 32,026 | 27.62 |
+
+The solve, check and proof columns sum over the 22 formulas that every
+configuration solved with a checked proof.
 
 Speedup of Chvátal Tactix, solve time only:
 
