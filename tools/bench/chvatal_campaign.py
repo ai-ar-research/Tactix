@@ -81,6 +81,8 @@ def main():
     parser.add_argument("--verify-baselines", action="store_true",
                         help="also check baseline certificates (recorded, "
                              "and scored like candidate arms)")
+    parser.add_argument("--check-budget", type=float, default=None,
+                        help="per-certificate checking budget in seconds")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -133,11 +135,30 @@ def main():
     with open(os.path.join(outdir, "campaign.json"), "w") as target:
         json.dump(metadata, target, indent=2, sort_keys=True)
         target.write("\n")
+    # Write the manifest and scripts first, record the checking budget the
+    # tasks read from the manifest, then submit exactly what was written.
     submit = SimpleNamespace(partition=args.partition, throttle=None,
-                             dry_run=args.dry_run, wait=False, tier=args.label)
-    return run.slurm_submit(
+                             dry_run=True, wait=False, tier=args.label)
+    run.slurm_submit(
         submit, [(rel, "UNKNOWN", 0.0) for rel in rels], solvers, paths,
         args.timeout, args.mem, outdir, stamp, PIN_COMMIT, args.label)
+    if args.check_budget is not None:
+        manifest_path = os.path.join(outdir, "manifest.json")
+        manifest = json.load(open(manifest_path))
+        manifest["proof_check_budget_seconds"] = args.check_budget
+        with open(manifest_path, "w") as target:
+            json.dump(manifest, target, indent=2)
+    if args.dry_run:
+        return 0
+    array = subprocess.run(["sbatch", "--parsable",
+                            os.path.join(outdir, "array.sbatch")],
+                           check=True, capture_output=True, text=True).stdout.strip()
+    aggregate = subprocess.run(["sbatch", "--parsable",
+                                f"--dependency=afterany:{array}",
+                                os.path.join(outdir, "aggregate.sbatch")],
+                               check=True, capture_output=True, text=True).stdout.strip()
+    print(f"submitted: array {array}, aggregate {aggregate}\n  {outdir}")
+    return 0
 
 
 if __name__ == "__main__":
