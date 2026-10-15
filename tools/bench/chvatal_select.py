@@ -6,11 +6,11 @@ published n=7 configuration (chvatal-sat 7 -t 3 -D 20 -p 16), submitted to its
 Kissat oracle (corpus/chvatal/population.json, content-deduplicated).
 
 Difficulty is measured only by the neutral reference solver Kissat 4.0.4,
-symbreak's own oracle and not one of the compared strategies.  A node is hard
-when Kissat solves it in at least HARD_SECONDS but within the screen limit, so
-every selected formula has a finite reference time.  Every instance on which the twin-merge strategy was developed or tuned
-is excluded by clause-content hash, so the evaluation is held out.  If more
-than TARGET hard nodes remain, a uniform sample is drawn with a fixed seed.
+symbreak's own oracle and not one of the compared strategies.  The band keeps
+every node Kissat solves in [MIN_SECONDS, MAX_SECONDS) (default 1-30 minutes).
+Instances on which the twin-merge strategy was developed or tuned are matched by
+clause-content hash and flagged (or excluded on request) so held-out results
+can be reported separately.  An optional seeded uniform sample is supported.
 """
 
 import argparse
@@ -47,17 +47,23 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--screen", required=True,
                         help="Kissat 4.0.4 population screen run directory")
-    parser.add_argument("--hard-seconds", type=float, default=300.0)
-    parser.add_argument("--target", type=int, default=10)
+    parser.add_argument("--min-seconds", type=float, default=60.0)
+    parser.add_argument("--max-seconds", type=float, default=1800.0)
+    parser.add_argument("--target", type=int, default=0,
+                        help="sample size; 0 keeps every formula in the band")
+    parser.add_argument("--exclude-development", action="store_true")
+    parser.add_argument("--pending-beyond-band", action="store_true",
+                        help="unfinished screen tasks are known to have run "
+                             "past --max-seconds and lie outside the band")
     parser.add_argument("--seed", type=int, default=20261015)
-    parser.add_argument("--out", default="corpus/chvatal/paper-hard.txt")
+    parser.add_argument("--out", default="corpus/chvatal/paper-band.txt")
     args = parser.parse_args()
 
     population = json.load(open(os.path.join(ROOT, "corpus/chvatal/population.json")))
     manifest, screen = load_screen(os.path.join(ROOT, args.screen))
     limit = float(manifest["timeout"])
     missing = [n["file"] for n in population["nodes"] if n["file"] not in screen]
-    if missing:
+    if missing and not args.pending_beyond_band:
         raise SystemExit(f"screen incomplete: {len(missing)} population nodes "
                          "have no result")
 
@@ -69,29 +75,39 @@ def main():
 
     hard, dev_hard = [], []
     for node in population["nodes"]:
+        if node["file"] not in screen:
+            continue
         result = screen[node["file"]]
-        if not result["solved"] or result["time"] < args.hard_seconds:
+        if (not result["solved"] or result["time"] < args.min_seconds or
+                result["time"] >= args.max_seconds):
             continue
         seconds = result["time"]
         row = {"file": node["file"], "node": node["node"],
                "content_sha256": node["content_sha256"],
                "kissat_seconds": seconds,
-               "kissat_verdict": result["verdict"]}
-        (dev_hard if node["content_sha256"] in excluded else hard).append(row)
+               "kissat_verdict": result["verdict"],
+               "development": node["content_sha256"] in excluded}
+        if row["development"] and args.exclude_development:
+            dev_hard.append(row)
+        else:
+            hard.append(row)
 
     hard.sort(key=lambda r: r["file"])
     chosen = hard
-    if len(hard) > args.target:
+    if args.target and len(hard) > args.target:
         chosen = sorted(random.Random(args.seed).sample(hard, args.target),
                         key=lambda r: r["file"])
     with open(os.path.join(ROOT, args.out), "w") as target:
         target.writelines(r["file"] + "\n" for r in chosen)
     record = {
-        "rule": (f"Kissat 4.0.4 solves in [{args.hard_seconds:g}s, {limit:g}s); "
-                 "development instances excluded by content hash; "
-                 f"uniform sample of {args.target} with seed {args.seed} when "
-                 "more remain"),
+        "rule": (f"Kissat 4.0.4 (screen limit {limit:g}s) solves in "
+                 f"[{args.min_seconds:g}s, {args.max_seconds:g}s); development "
+                 "instances " + ("excluded" if args.exclude_development else
+                                 "kept and flagged") + " by content hash; " +
+                 (f"uniform sample of {args.target} with seed {args.seed}"
+                  if args.target else "every formula in the band")),
         "screen": args.screen, "screen_limit_seconds": limit,
+        "pending_beyond_band": len(missing),
         "population": len(population["nodes"]),
         "hard_total": len(hard) + len(dev_hard),
         "hard_excluded_development": len(dev_hard),
@@ -103,9 +119,9 @@ def main():
         target.write("\n")
     print(f"population {len(population['nodes'])}; hard {len(hard) + len(dev_hard)}"
           f" (development {len(dev_hard)}, eligible {len(hard)}); selected "
-          f"{len(chosen)}")
+          f"{len(chosen)} ({sum(r['development'] for r in chosen)} development)")
     for r in chosen:
-        print(f"  {r['kissat_seconds'] if r['kissat_seconds'] else 'TO':>8} "
+        print(f"  {r['kissat_seconds']:8.1f} {'dev ' if r['development'] else '    '}"
               f"{os.path.basename(r['file'])}")
 
 
