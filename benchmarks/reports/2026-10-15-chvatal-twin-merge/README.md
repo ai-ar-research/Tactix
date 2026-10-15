@@ -96,21 +96,22 @@ Runs:
   `20261015-171709-chvatal-hard-recheck48-3` and
   `20261015-173818-chvatal-hard-satsuma-recheck64`.
 
-**Results:** every configuration answers UNSAT on all 23 formulas. Chvátal Tactix,
-Default Tactix (after 48 GiB rechecks), Kissat 4.0.4 and the stable variant have
-23/23 certificates verified. Satsuma+Kissat has 22/23: its srcheck on
-n7-1111110011 (2.23 GB) was killed at 16 GiB after 6,789 s, and a 64 GiB recheck
-under the same 2-hour budget is in progress.
+**Results:** every configuration answers UNSAT on all 23 formulas, and all 92
+certificates are verified within the 2-hour checking limit. All 23 Default Tactix
+certificates take the witness-free route, whose cake_lpr heap does not fit in
+16 GiB; they were verified by 48 GiB rechecks. One Satsuma+Kissat srcheck
+(n7-1111110011, 2.23 GB) was killed at 16 GiB and verified at 64 GiB in 6,736 s.
+Every recheck keeps the original solve time.
 
-| configuration | checked | mean PAR-2 (s) | solve (s) | check (s) | proofs (GB) |
+| configuration | solved | runtime (s) | checked | check time (s) | PAR-2 (s) |
 |---|---:|---:|---:|---:|---:|
-| Chvátal Tactix | 23/23 | 368.0 | 7,890 | 24,622 | 10.42 |
-| Default Tactix | 23/23 | 817.3 | 17,478 | 38,383 | 23.58 |
-| Satsuma+Kissat | 22/23 | 1,319.5 | 20,349 | 78,430 | 27.32 |
-| Kissat 4.0.4 | 23/23 | 947.5 | 20,353 | 32,026 | 27.62 |
+| Chvátal Tactix | 23/23 | 8,463 | 23/23 | 26,562 | 368.0 |
+| Default Tactix | 23/23 | 18,799 | 23/23 | 41,357 | 817.3 |
+| Satsuma+Kissat | 23/23 | 22,121 | 23/23 | 85,165 | 961.8 |
+| Kissat 4.0.4 | 23/23 | 21,791 | 23/23 | 34,151 | 947.5 |
 
-The solve, check and proof columns sum over the 22 formulas that every
-configuration solved with a checked proof.
+Per formula, Chvátal Tactix's certificates check 3.12× faster than Satsuma+Kissat's
+(geometric mean).
 
 Speedup of Chvátal Tactix, solve time only:
 
