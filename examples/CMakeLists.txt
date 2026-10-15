@@ -16,6 +16,11 @@ add_executable(tactix-cruxmiter-policy cruxmiter_policy.c)
 target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib)
 target_include_directories(tactix-cruxmiter-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+# The crux opening followed by an unmodified DefaultPolicy handoff.
+add_executable(tactix-crux-fallback-policy crux_fallback_policy.c)
+target_link_libraries(tactix-crux-fallback-policy PRIVATE tactix_lib)
+target_include_directories(tactix-crux-fallback-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Dedicated benchmark-family policies implemented against the same frozen
 # public interface.  EEVBNN accepts both plain and gzip-compressed DIMACS.
 add_executable(tactix-eevbnn-policy eevbnn_policy.c)
