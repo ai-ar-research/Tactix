@@ -74,7 +74,8 @@ Kept: c2.1's evidence, the plan rules its acceptance uses (§8.3 profiling, §8.
 
 | Work | Jobs | Status |
 |---|---|---|
-| Quota governor | 1757996 (600 s; hold >750 GB, release <700 GB) | running |
+| Quota governor | 1779132 (600 s; hold >750 GB, release <700 GB; 1757996 was stopped 2026-10-15) | running |
+| C-routed DefaultPolicy (`tactix-public`): §8.4 gates + 44-row Tier D sample vs `0f7c10174` | first round (pre-fix) superseded; fixed rerun pending | answers, conflicts, proofs identical on all 226 finished rows; fastel instance-validation slowdown fixed |
 
 ## Verification authorities
 
