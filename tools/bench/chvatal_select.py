@@ -7,8 +7,8 @@ Kissat oracle (corpus/chvatal/population.json, content-deduplicated).
 
 Difficulty is measured only by the neutral reference solver Kissat 4.0.4,
 symbreak's own oracle and not one of the compared strategies.  A node is hard
-when Kissat needs at least HARD_SECONDS (or does not finish within the screen
-limit).  Every instance on which the twin-merge strategy was developed or tuned
+when Kissat solves it in at least HARD_SECONDS but within the screen limit, so
+every selected formula has a finite reference time.  Every instance on which the twin-merge strategy was developed or tuned
 is excluded by clause-content hash, so the evaluation is held out.  If more
 than TARGET hard nodes remain, a uniform sample is drawn with a fixed seed.
 """
@@ -70,9 +70,9 @@ def main():
     hard, dev_hard = [], []
     for node in population["nodes"]:
         result = screen[node["file"]]
-        seconds = result["time"] if result["solved"] else None
-        if seconds is not None and seconds < args.hard_seconds:
+        if not result["solved"] or result["time"] < args.hard_seconds:
             continue
+        seconds = result["time"]
         row = {"file": node["file"], "node": node["node"],
                "content_sha256": node["content_sha256"],
                "kissat_seconds": seconds,
@@ -87,8 +87,8 @@ def main():
     with open(os.path.join(ROOT, args.out), "w") as target:
         target.writelines(r["file"] + "\n" for r in chosen)
     record = {
-        "rule": (f"Kissat 4.0.4 time >= {args.hard_seconds:g}s or unsolved at "
-                 f"{limit:g}s; development instances excluded by content hash; "
+        "rule": (f"Kissat 4.0.4 solves in [{args.hard_seconds:g}s, {limit:g}s); "
+                 "development instances excluded by content hash; "
                  f"uniform sample of {args.target} with seed {args.seed} when "
                  "more remain"),
         "screen": args.screen, "screen_limit_seconds": limit,

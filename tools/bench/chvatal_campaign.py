@@ -78,6 +78,9 @@ def main():
     parser.add_argument("--partition", default="cpu-q")
     parser.add_argument("--label", default="chvatal")
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument("--verify-baselines", action="store_true",
+                        help="also check baseline certificates (recorded, "
+                             "and scored like candidate arms)")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -89,11 +92,13 @@ def main():
     candidates = candidate_arms(args.candidate)
     solvers = []
     for name in filter(None, args.arms.split(",")):
-        solvers.append((name, BASELINES[name], True, False, False))
+        solvers.append((name, BASELINES[name], True, args.verify_baselines,
+                        args.verify_baselines))
     for spec in args.env_arm:
         name, _, settings = spec.partition("=")
         solvers.append((name, [ENV, *filter(None, settings.split(",")),
-                               TACTIX, "--dsr"], True, False, False))
+                               TACTIX, "--dsr"], True, args.verify_baselines,
+                        args.verify_baselines))
     for name, cmd in candidates.items():
         solvers.append((name, cmd, True, args.verify, args.verify))
     executables = {TACTIX, SATSUMA_KISSAT, SATSUMA_RUNNER, KISSAT}
