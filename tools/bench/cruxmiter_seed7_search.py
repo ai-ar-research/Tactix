@@ -69,6 +69,12 @@ WAVE_POLICY = os.path.join(
 BOUNDARY_POLICY = os.path.join(
     ROOT, "build", "pin-cruxmiter-boundary-20261010", "examples",
     "tactix-cruxmiter-policy")
+# The crux opening followed by an unmodified DefaultPolicy handoff, built from
+# the baseline pin's cd10a2e1e source (its tactix and crux clients rebuild
+# byte-identically) plus examples/crux_fallback_policy.c.
+FALLBACK_POLICY = os.path.join(
+    ROOT, "build", "pin-cruxfb-cd10a2e1e-20261015", "build", "examples",
+    "tactix-crux-fallback-policy")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 REL = "cruxmiter/cruxmiter32seed7.cnf"
@@ -873,6 +879,11 @@ ARMS = {
         "input-ranked", "TACTIX_CRUX_REDUCE_INTERVAL=500",
         binary=INPUT_POLICY),
     "kissat": [KISSAT],
+    "fallback-prelude": [ENV, FALLBACK_POLICY, "--profile=prelude", "--drat"],
+    "fallback-warm-10k": [ENV, FALLBACK_POLICY, "--profile=warm",
+                          "--warm-conflicts=10000", "--drat"],
+    "fallback-warm-100k": [ENV, FALLBACK_POLICY, "--profile=warm",
+                           "--warm-conflicts=100000", "--drat"],
     # Directly validate the CNC+TACO observation on the development seed.
     # These are diagnostic controls for transferring the winning components
     # back through Tactix's public policy surface.
@@ -930,7 +941,7 @@ def main():
                    DEEP_SWEEP_POLICY, TACO_WARMUP_POLICY, TAIL_BVE_POLICY,
                    BDD_ORDER_POLICY, ADAPTIVE_POLICY, FINAL_POLICY,
                    REBASED_DEFAULT, REBASED_POLICY, WAVE_POLICY,
-                   BOUNDARY_POLICY, KISSAT):
+                   BOUNDARY_POLICY, FALLBACK_POLICY, KISSAT):
         if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise SystemExit(f"missing executable pin: {binary}")
     missing = [path for path in paths.values() if not os.path.isfile(path)]
@@ -969,6 +980,7 @@ def main():
                          TAIL_BVE_POLICY, BDD_ORDER_POLICY,
                          ADAPTIVE_POLICY, FINAL_POLICY, REBASED_DEFAULT,
                          REBASED_POLICY, WAVE_POLICY, BOUNDARY_POLICY,
+                         FALLBACK_POLICY,
                          KISSAT)},
         "arms": {name: ARMS[name] for name in selected},
         "proof_policy": ("write and verify" if verify else
