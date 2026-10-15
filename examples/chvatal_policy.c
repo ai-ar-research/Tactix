@@ -253,6 +253,8 @@ done:
 
 /* Adds both directions of every twin equivalence with SubstitutionRedundancy
  * and returns the number of accepted instances (-1 on an API error). */
+static int forward_only;
+
 static long long merge_twins(tactix *solver, const struct pair *pairs,
                              size_t pair_count, const unsigned *pair_round) {
   const size_t count = 2 * pair_count;
@@ -275,7 +277,7 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
     while (begin < pair_count) {
       size_t end = begin, j;
       while (end < pair_count && pair_round[end] == pair_round[begin]) ++end;
-      for (int direction = 0; direction < 2; ++direction)
+      for (int direction = 0; direction < 2 - forward_only; ++direction)
         for (j = begin; j < end; ++j) {
           const int a = pairs[j].representative, b = pairs[j].twin;
           int *c = storage + 3 * out;
@@ -291,71 +293,44 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
       begin = end;
     }
   }
-  memset(&step, 0, sizeof step);
-  step.base.step_id = 1;
-  step.base.rule_id = rule_id("SubstitutionRedundancy");
-  step.base.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
-  step.base.parameters.value.substitution_redundancy.maximum_validation_ticks =
-      UINT64_C(1) << 20;
-  step.base.granularity = TACTIX_ONLINE_GRANULARITY_BATCH;
-  step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.base.repeat_limit = 1;
-  step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.base.budget_unlimited = 1;
-  step.base.post_application = TACTIX_ONLINE_POST_NONE;
-  step.sr_instances = instances;
-  if (getenv("CHVATAL_OFFSET")) {
-    const int offset = atoi(getenv("CHVATAL_OFFSET"));
-    step.sr_instances = instances + offset;
-    fprintf(stderr, "instance clause %d %d witness %d\n",
-            instances[offset].clause[0], instances[offset].clause[1],
-            instances[offset].witness[0]);
-  }
-  step.sr_instance_count = (int)count;
-  if (getenv("CHVATAL_LIMIT"))
-    step.sr_instance_count = atoi(getenv("CHVATAL_LIMIT"));
-  memset(&program, 0, sizeof program);
-  program.steps = &step;
-  program.step_count = 1;
-  program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  program.repeat_limit = 1;
-  if (step.base.rule_id < 0 ||
-      tactix_online_configure_v2(solver, &program, 1,
-                                 TACTIX_ONLINE_RECONFIGURE_RESET)) {
-    free(instances);
-    free(storage);
-    return -1;
-  }
   {
-    uint64_t failures = 0, advances = 0;
-    while (!tactix_online_complete(solver)) {
-      const int code = tactix_online_advance(solver, &result);
-      ++advances;
-      if (code) {
-        if (getenv("CHVATAL_DEBUG"))
-          fprintf(stderr, "advance %" PRIu64 " code=%d status=%d instance=%"
-                  PRIu64 " rule_result=%d\n", advances, code, result.status,
-                  result.instance, result.rule_result);
-        if (++failures > 16) break;
-        continue;
+    const size_t used = forward_only ? pair_count : count;
+    static uint64_t revision = 1;
+    uint64_t failures = 0;
+    for (i = 0; i < used; ++i) {
+      memset(&step, 0, sizeof step);
+      step.base.step_id = 1;
+      step.base.rule_id = rule_id("SubstitutionRedundancy");
+      step.base.parameters.kind =
+          TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
+      step.base.parameters.value.substitution_redundancy
+          .maximum_validation_ticks = UINT64_C(1) << 22;
+      step.base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+      step.base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+      step.base.repeat_limit = 1;
+      step.base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+      step.base.budget_unlimited = 1;
+      step.base.post_application = TACTIX_ONLINE_POST_NONE;
+      step.sr_instances = instances + i;
+      step.sr_instance_count = 1;
+      memset(&program, 0, sizeof program);
+      program.steps = &step;
+      program.step_count = 1;
+      program.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+      program.repeat_limit = 1;
+      if (step.base.rule_id < 0 ||
+          tactix_online_configure_v2(solver, &program, ++revision,
+                                     TACTIX_ONLINE_RECONFIGURE_RESET) ||
+          tactix_online_advance(solver, &result)) {
+        accepted = -1;
+        break;
       }
-      if (getenv("CHVATAL_TRACE") && advances < 20)
-        fprintf(stderr, "advance %" PRIu64 " status=%d instance=%" PRIu64
-                " progress=%d apps=%" PRIu64 " rule_result=%d sel=%d\n",
-                advances, result.status, result.instance,
-                result.made_rule_progress, result.applications,
-                result.rule_result, result.selection_complete);
       if (result.made_rule_progress) ++accepted;
-      else if (getenv("CHVATAL_REJECTS") && result.instance < (uint64_t)count)
-        fprintf(stderr, "reject %" PRIu64 " status=%d rr=%d clause %d %d\n",
-                result.instance, result.status, result.rule_result,
-                instances[result.instance].clause[0],
-                instances[result.instance].clause[1]);
-      if (result.status == TACTIX_ONLINE_INTERRUPTED) break;
+      else if (result.status != TACTIX_ONLINE_NO_CHANGE) ++failures;
     }
     if (getenv("CHVATAL_DEBUG"))
-      fprintf(stderr, "advances=%" PRIu64 " failures=%" PRIu64 "\n",
-              advances, failures);
+      fprintf(stderr, "merge batch used=%zu accepted=%lld failures=%" PRIu64
+              "\n", used, accepted, failures);
   }
   free(instances);
   free(storage);
@@ -416,6 +391,7 @@ int main(int argc, char **argv) {
     const char *a = argv[arg];
     if (!strcmp(a, "--default")) twins = 0;
     else if (!strcmp(a, "--twins")) twins = 1;
+    else if (!strcmp(a, "--forward")) twins = forward_only = 1;
     else if (!strcmp(a, "--dsr")) format = TACTIX_PROOF_DSR_BINARY;
     else if (!strcmp(a, "--drat")) format = TACTIX_PROOF_DRAT_BINARY;
     else if (a[0] == '-' && a[1]) {
