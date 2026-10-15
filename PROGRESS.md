@@ -2,6 +2,13 @@
 
 ## Current stage
 
+**Chvátal public-API twin merge (2026-10-15):** `examples/chvatal_policy.c` merges the
+seven duplicated totalizer y-counters of symbreak's n=7 Chvátal subproblems with X7
+SubstitutionRedundancy + Substitute, then runs unmodified DefaultPolicy; in-sample hard rows
+are 2.1–2.5x faster than DefaultPolicy and 2.4–3.2x faster than Satsuma+Kissat, all
+certificates verified. Paper band fixed at 101 formulas (Kissat 1–30 min); baseline runs in
+flight. See the [report](benchmarks/reports/2026-10-15-chvatal-twin-merge/README.md).
+
 **Cruxmiter policy experiment (2026-10-10):** the public `backbone` profile
 (`Congruence -> Substitute -> Backbone(512) -> DefaultPolicy`) improved the
 proof-checked size-20 seed-4 development run from 2.553 s to 2.085 s (1.22x),
