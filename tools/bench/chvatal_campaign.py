@@ -52,10 +52,12 @@ def candidate_arms(specs):
         pin, _, args = rest.partition(":")
         binary = os.path.join(POLICY_PINS, pin, "build", "examples",
                               "tactix-chvatal-policy")
-        flags = list(filter(None, args.split(",")))
+        tokens = list(filter(None, args.split(",")))
+        env = [t for t in tokens if "=" in t and not t.startswith("-")]
+        flags = [t for t in tokens if t not in env]
         if "--dsr" not in flags and "--drat" not in flags:
             flags.append("--drat")
-        arms[name] = [ENV, binary, *flags]
+        arms[name] = [ENV, *env, binary, *flags]
     return arms
 
 
@@ -93,7 +95,8 @@ def main():
     for name, cmd in candidates.items():
         solvers.append((name, cmd, True, args.verify, args.verify))
     executables = {TACTIX, SATSUMA_KISSAT, SATSUMA_RUNNER}
-    executables |= {cmd[1] for cmd in candidates.values()}
+    executables |= {next(c for c in cmd[1:] if "=" not in c)
+                    for cmd in candidates.values()}
     for path in executables:
         if not os.access(path, os.X_OK):
             raise SystemExit(f"missing executable pin: {path}")
