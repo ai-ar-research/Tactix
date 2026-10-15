@@ -12,10 +12,13 @@ on the same machines:
 | B28+C5 | 33 | 33 / 33 | 33 | +0.9% | +0.9% | +0.9% |
 | Rank 1–50 | 50 | 50 / 50 | 50 | +0.8% | +1.5% | +1.4% |
 | WV100 | 100 | 97 / 97 | 100 | 0.0% | −0.1% | +0.5% |
+| WV2–89 (87 of 89 rows) | 87 | 80 / 80 | 87 | 0.0% | +1.4% | +0.9% |
 
 Every UNSAT certificate in the gate sets has the same SHA-256 in both arms; Tier A matches answers
 and certificate sizes. Tier A instances mostly take under 0.1 s, so its ratios are timing noise.
-WV2–89 was stopped at the user's request and is not reported.
+WV2–89 was cancelled at the user's request after 88 of 89 tasks per arm; one row is missing from
+each arm (bphp_p23_h22 from the C interface, linked_list_swap_contents from C++), so 87 rows are
+paired. The paper reports only Tier A, B28+C5, Rank 1–50 and WV100.
 
 ## Arms
 
@@ -35,6 +38,7 @@ DefaultPolicy over PublicPort; its census reported 0 fallbacks and 0 declined re
 | B28+C5 | `20261015-public-port-v3-regression-b28c5` (1779728) | `20261015-prod-samewindow-regression-b28c5` (1779729) |
 | Rank 1–50 | `…-v3-regression-rank1-50` (1779730) | `…-samewindow-regression-rank1-50` (1779731) |
 | WV100 | `…-v3-regression-wv100` (1779732) | `…-samewindow-regression-wv100` (1779733) |
+| WV2–89 (cancelled) | `…-v3-regression-wv2-89` (1779734) | `…-samewindow-regression-wv2-89` (1779735) |
 
 Gates: `controller_regression.py prepare`, `cpu-dense-hwulab-q`, 12 CPUs, 32 GiB, 1,200 s, full
 width. Tier A: 8 CPUs, 32 GiB, 30 s, same partition.
