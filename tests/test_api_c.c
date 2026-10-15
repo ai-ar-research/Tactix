@@ -799,6 +799,49 @@ static void test_condition_cube_with_retired_external_variable(void) {
   tactix_release(s);
 }
 
+/* tactix_read_dimacs: the CLI parser through the public API. It closes the
+ * input, refuses a session that already has input, and rejects malformed
+ * streams. */
+static FILE *stream(const char *text) {
+  FILE *f = tmpfile();
+  assert(f);
+  fputs(text, f);
+  rewind(f);
+  return f;
+}
+
+static void test_read_dimacs(void) {
+  tactix *s = tactix_init();
+  FILE *f = stream("c comment\np cnf 3 3\n1 2 0\n-1 2 0\n1 -2 0\n");
+  assert(tactix_read_dimacs(s, f) == 0);
+  fclose(f);
+  assert(tactix_add_checked(s, 3) == -1); /* input is closed */
+  assert(tactix_solve(s) == 10);
+  assert(tactix_value(s, 1) == 1 && tactix_value(s, 2) == 2);
+  tactix_release(s);
+
+  s = tactix_init();
+  f = stream("p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n");
+  assert(tactix_read_dimacs(s, f) == 0);
+  fclose(f);
+  assert(tactix_solve(s) == 20);
+  tactix_release(s);
+
+  s = tactix_init();
+  add_clause(s, (const int[]){1, 0});
+  f = stream("p cnf 1 1\n-1 0\n");
+  assert(tactix_read_dimacs(s, f) == -1); /* the session already has input */
+  fclose(f);
+  assert(tactix_solve(s) == 10);
+  tactix_release(s);
+
+  s = tactix_init();
+  f = stream("p cnf 2 1\n1 x 0\n");
+  assert(tactix_read_dimacs(s, f) == -1);
+  fclose(f);
+  tactix_release(s);
+}
+
 int main(void) {
   test_probe_large_clause_instance();
   test_condition_cube_api();
@@ -821,6 +864,7 @@ int main(void) {
   test_stats_and_config_surface();
   test_permanent_installs();
   test_action_kind();
+  test_read_dimacs();
   puts("test_api_c OK");
   return 0;
 }

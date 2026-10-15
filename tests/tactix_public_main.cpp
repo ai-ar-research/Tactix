@@ -123,10 +123,10 @@ int main(int argc, char **argv) {
     printf("s UNKNOWN\n");
     return 1;
   }
-  const char *err = api_detail::load_dimacs_for_fixed_testing(s, in);
+  const int read = tactix_read_dimacs(s, in);
   std::fclose(in);
-  if (err) {
-    fprintf(stderr, "tactix-public: parse error: %s\n", err);
+  if (read != 0) {
+    fprintf(stderr, "tactix-public: parse error in '%s'\n", cnf_path);
     printf("s UNKNOWN\n");
     return 1;
   }

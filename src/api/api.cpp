@@ -138,16 +138,6 @@ const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *op
   const auto &online = static_cast<::tactix_solver *>(opaque)->online;
   return online ? &online->program() : nullptr;
 }
-const char *load_dimacs_for_fixed_testing(void *opaque, FILE *in) {
-  assert(opaque);
-  auto *s = static_cast<::tactix_solver *>(opaque);
-  // The CLI's ingestion, including the advisory header, into a fresh session.
-  // parse_dimacs calls finish_input, which must run exactly once.
-  assert(!s->input_completed && !s->pending_input_proof && s->scratch.empty());
-  const char *err = parse_dimacs(in, s->kernel);
-  s->input_completed = true;
-  return err;
-}
 }
 
 namespace {
@@ -2273,6 +2263,18 @@ int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
   s->kernel.structural_provenance = stream;
   external_state_change(s);
   return 0;
+}
+
+// The CLI's ingestion into a fresh session. parse_dimacs calls finish_input,
+// which must run exactly once, so the session's own boundary is marked closed.
+int tactix_read_dimacs(tactix_solver *s, FILE *in) {
+  if (!s || !in || s->input_completed || s->pending_input_proof ||
+      !s->scratch.empty() || s->kernel.nvars || s->kernel.next_clause_id)
+    return -1;
+  const char *err = parse_dimacs(in, s->kernel);
+  s->input_completed = true;
+  external_state_change(s);
+  return err ? -1 : 0;
 }
 
 int tactix_add_checked(tactix_solver *s, int lit) {

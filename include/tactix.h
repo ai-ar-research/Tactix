@@ -171,6 +171,14 @@ int tactix_bind_structural_provenance(tactix *, FILE *);
 int tactix_add_checked(tactix *, int lit);
 void tactix_add(tactix *, int lit);
 
+/* Read a complete DIMACS CNF stream with the command-line parser, including
+ * its use of the advisory `p cnf` header, and close the input as the first
+ * status, rule or solve query does. Legal only on a session without input;
+ * attach a proof first. Returns 0; -1 without reading for a session that
+ * already has input; -1 for a malformed stream, after which the session holds
+ * a partial formula and should be released. */
+int tactix_read_dimacs(tactix *, FILE *);
+
 /* Proof logging (N2): attach exactly once, before the first operation that
  * reasons about the input (including status/enumeration/solve calls).
  * TACTIX_PROOF_* selects the format. Returns 0, or -1 for a late/duplicate
