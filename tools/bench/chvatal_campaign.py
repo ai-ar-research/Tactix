@@ -28,11 +28,13 @@ SATSUMA_RUNNER = os.path.join(
     ROOT, "tools", "solvers", "variants", "satsuma-kissat-sc2026",
     "run_satsuma_kissat.sh")
 POLICY_PINS = os.path.join(ROOT, "build")
+KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 ENV = "/usr/bin/env"
 
 BASELINES = {
     "tactix-default": [ENV, TACTIX, "--dsr"],
     "satsuma-kissat": [SATSUMA_KISSAT],
+    "kissat-4.0.4": [KISSAT],
 }
 
 
@@ -94,7 +96,7 @@ def main():
                                TACTIX, "--dsr"], True, False, False))
     for name, cmd in candidates.items():
         solvers.append((name, cmd, True, args.verify, args.verify))
-    executables = {TACTIX, SATSUMA_KISSAT, SATSUMA_RUNNER}
+    executables = {TACTIX, SATSUMA_KISSAT, SATSUMA_RUNNER, KISSAT}
     executables |= {next(c for c in cmd[1:] if "=" not in c)
                     for cmd in candidates.values()}
     for path in executables:
