@@ -61,6 +61,9 @@ def main():
     parser.add_argument("--arms", default="tactix-default,satsuma-kissat")
     parser.add_argument("--candidate", action="append", default=[],
                         help="NAME=PIN_DIR:ARG,ARG (verified arm)")
+    parser.add_argument("--env-arm", action="append", default=[],
+                        help="NAME=K=V,K=V: Tactix CLI under DefaultPolicy "
+                             "environment settings (baseline-style arm)")
     parser.add_argument("--instances", required=True,
                         help="file listing repository-relative CNF paths")
     parser.add_argument("--timeout", type=float, required=True)
@@ -80,6 +83,10 @@ def main():
     solvers = []
     for name in filter(None, args.arms.split(",")):
         solvers.append((name, BASELINES[name], True, False, False))
+    for spec in args.env_arm:
+        name, _, settings = spec.partition("=")
+        solvers.append((name, [ENV, *filter(None, settings.split(",")),
+                               TACTIX, "--dsr"], True, False, False))
     for name, cmd in candidates.items():
         solvers.append((name, cmd, True, args.verify, args.verify))
     executables = {TACTIX, SATSUMA_KISSAT, SATSUMA_RUNNER}
