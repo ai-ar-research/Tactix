@@ -81,9 +81,16 @@ with exit code 1. For a `pbp` route, install
 [CakePB](https://github.com/CakeML/cakeml/tree/master/examples/pseudo_bool)
 and pass them with `--veripb` and `--cake-pb`.
 
-To check a SAT answer, verify that every clause of the formula contains a
-literal from the `v` lines; any model checker for the SAT Competition format
-does this.
+To check a SAT answer, save the solver output and run the model checker,
+which confirms that the `v` lines satisfy every clause of the formula:
+
+```sh
+build/release/tactix formula.cnf > out.txt
+python3 tools/fuzz/checkmodel formula.cnf out.txt
+```
+
+`examples/cnf/` has small formulas to try, one for each answer and proof
+route; its README lists the expected results.
 
 ## Use Tactix as a library
 
