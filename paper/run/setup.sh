@@ -94,7 +94,10 @@ references () {
 
     echo "== Satsuma+Kissat =="
     local s="$ROOT/winners/satsuma-iter-kissat-sc2026/anders/satsuma-iter-kissat/src"
-    [ -x "$s/solver/kissat/build/kissat" ] || (cd "$s" && ./build.sh >/dev/null)
+    # The archive ships binaries built for glibc 2.38; rebuild everything once.
+    if [ ! -f "$TOOLS/satsuma-kissat.built" ]; then
+        (cd "$s" && ./build.sh >/dev/null) && touch "$TOOLS/satsuma-kissat.built"
+    fi
     ln -sfn "$s" "$SOLVERS/satsuma-kissat"
     ln -sf "$s/dsr-trim/bin/compress" "$BIN/satsuma-dsr-compress"
 
