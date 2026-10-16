@@ -27,13 +27,16 @@ REFERENCES = {
     "LymphoSAT": {"command": [f"{S}/lymphosat/run.sh", "{cnf}", "{proof_dir}"], "proof": "pbp"},
 }
 
-# The cruxmiter strategy as evaluated: the public-interface program plus the
-# environment settings it was run with.
-CRUX_ENVIRONMENT = {
-    "TACTIX_FORCE_MODE": "stable", "TACTIX_REORDER": "0", "TACTIX_NO_BVE": "1",
-    "TACTIX_CONFLICT_REUSE": "0", "TACTIX_SLOT_PERMILLE": "Vivify:200", "TACTIX_NO_FACTOR": "1",
-    "TACTIX_NO_SWEEP": "1", "TACTIX_SLOT_DISABLE": "Backbone", "TACTIX_CRUX_CS_ROUNDS": "4",
-}
+# The cruxmiter strategy as evaluated. It configures the default strategy it
+# hands over to through tactix_set_default_option (its --default-option flag);
+# the paper's runs passed the same settings through the environment, which
+# writes byte-identical proofs. TACTIX_CRUX_CS_ROUNDS is the program's own
+# schedule setting.
+CRUX_DEFAULT_OPTIONS = [
+    "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0", "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
+    "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1", "TACTIX_NO_SWEEP=1",
+    "TACTIX_SLOT_DISABLE=Backbone",
+]
 
 EXPERIMENTS = {
     "smoke": {
@@ -94,9 +97,11 @@ EXPERIMENTS = {
         "configurations": {
             "Default Tactix": {"command": [f"{T}/paper-cruxmiter/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
-            "Public policy": {"command": [f"{T}/paper-cruxmiter/tactix-cruxmiter-policy",
-                                          "--profile=backbone", "--drat", "{cnf}", "{proof}"],
-                              "environment": CRUX_ENVIRONMENT, "proof": "drat"},
+            "Public policy": {"command": [f"{T}/paper-cruxmiter-public/tactix-cruxmiter-policy",
+                                          "--profile=backbone",
+                                          *[f"--default-option={o}" for o in CRUX_DEFAULT_OPTIONS],
+                                          "--drat", "{cnf}", "{proof}"],
+                              "environment": {"TACTIX_CRUX_CS_ROUNDS": "4"}, "proof": "drat"},
             "Kissat 4.0.4": KISSAT,
         },
     },
@@ -129,6 +134,7 @@ TAGS = {
     "paper-milestone-d": "f50e46c0c",
     "paper-milestone-e": "0a9063387",
     "paper-cruxmiter": "5d2bab322",
+    "paper-cruxmiter-public": "b8b550aae",
     "paper-chvatal": "4dc8e673d",
     "paper-chvatal-default": "903ec8bb4",
 }
