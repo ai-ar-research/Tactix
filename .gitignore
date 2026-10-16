@@ -8,7 +8,7 @@ cake_lpr/
 dsr-trim-sr/
 trestle/
 winners/
-benchmarks/
+/benchmarks/
 report-to-andrew/
 
 # Locally built third-party binaries (symlinks from tools/*/setup.sh)
@@ -106,3 +106,7 @@ session-*.txt
 
 # Session-local adversarial-review worktree (an embedded repo, never a submodule)
 adversarial-review/
+
+# The paper artifact ships its own archives and compressed instances
+!/paper/logs/**/*.tar.xz
+!/paper/benchmarks/**

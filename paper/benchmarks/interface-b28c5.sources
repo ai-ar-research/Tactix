@@ -1,0 +1,35 @@
+# B28+C5: regression set used for the C-interface overhead comparison.
+# <gbd-hash> <file name> <expected answer>
+f86dad4ba35369eb720a0c9ddc45037a combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2.cnf.xz SAT
+909f704d5f4127c1197a086705468624 rbsat-v760c43649gyes10.cnf.xz SAT
+7083b70c1976162e2693d7a493717ffd battleship-14-26-sat.cnf.xz SAT
+3bf8ba6bb4e4ea9ad08b1b058661ba2e summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.xz SAT
+170b13af977e962321c493544b2bd0a9 circuit_48in64out_with_800gates_4in4out_dist128_seed4.sanitized.cnf.xz SAT
+70ef2b6bdc4101a0e35cf3d165571fe3 qwh.50.1250.shuffled-as.sat03-1655.cnf.xz SAT
+0336f81b60baac5b8f481dd3c32861a5 mod4block_2vars_10gates_u2_autoenc-sc2009.cnf.xz SAT
+7b48f9354d25521bd542d859c0ecdde9 hwmcc17miters-xits-iso-oski15a08b00s.sanitized.cnf.xz UNSAT
+1a6a635f5b959e191ec705b2f236568a square.2.0.i.smt2-cvc4.cnf.xz UNSAT
+cb2e8b7fada420c5046f587ea754d052 clique_n2_k10.sanitized.cnf.xz UNSAT
+fd1fbc1b090c14746a883b3a17259743 9vliw_bp_mc.shuffled.cnf.xz UNSAT
+c76f3c6c2e2eae85fc5f3d499f3db88d mp1-blockpuzzle_5x10_s7_free4.cnf.xz UNSAT
+f296fe701a562022c0de0cf565fbca7d x9-08014.sat.sanitized.cnf.xz UNSAT
+9cd3acdb765c15163bc239ae3a57f880 FmlaEquivChain_4_6_6.sanitized.cnf.xz UNSAT
+028d0cc7af63e9bba5795f20e24db4f6 pyhala-braun-sat-35-4-04.shuffled.cnf.xz SAT
+e4ac15cf2373fe0a3601065225178916 2013113162201nw.shuffled-as.sat03-1668.cnf.xz SAT
+f50eaf02a8041510b64104998cc81d2f sted5_0x24204-50.cnf.xz SAT
+1d18837c0ced5c18a3a4693993e61728 SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.normalised.cnf.xz SAT
+0876c518e5653369e20fb1ee0bb8db40 mp1-klieber2017s-0500-023-t12.cnf.xz SAT
+3a7a64e1d6cf5ce969b2b05b5464f707 PRP_30_38.cnf.xz SAT
+74931e82fd208ed949fa44bccd80df6b DivS_862_11.cnf.sanitized.cnf.xz SAT
+df813fe752353c2cc3b9040865aecfe4 veer_axi_yosyshq_appnote_123_veer_axi-p23_transition.cnf.xz UNSAT
+37d40a1092b58ad28285b9453872d211 DecompressReader_read_12.cnf.xz UNSAT
+a7e7d0f855781da215aed50e523a821c b22_1.cnf.xz UNSAT
+965bc4f6691b2e5f7388aaa9ba68f768 SCPC-500-5.cnf.xz UNSAT
+e6d247292b525447a220323901842e4c or_randxor_k3_n540_m540.cnf.xz UNSAT
+a45b60e53917968f922b97c6f8aa8db3 unsat-set-b-fclqcolor-10-07-09.sat05-1282.reshuffled-07.cnf.xz UNSAT
+c569d4b2b2e90a1a70bd23a1169355ef oddball_13_5_ttf.normalised.cnf.xz UNSAT
+9dcbf221b8d2bb01f30bcca283f3608d EDP3-11000.cnf.xz SAT
+075ca0a158690a55b7254d9aaee2e103 asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf.xz UNSAT
+511a2d81661a185c2115daec42270dec circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz SAT
+04e219c640ed59dc68ea2d50493de5b5 mp1-Nb5T15.cnf.xz SAT
+88d151d4e3c6ba9bd78454de141cd108 T105.2.0.cnf.xz UNSAT

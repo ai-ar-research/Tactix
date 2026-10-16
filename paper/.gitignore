@@ -1,3 +1,6 @@
 figures/
 .check/
 __pycache__/
+run/tools/
+run/instances/
+run/results/

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Compiler wrapper for LymphoSAT's "generic" build. Several nested packages
+# hard-code the competition host's Ice Lake flags; drop only those target
+# flags, keep every other option, and build for x86-64-v2.
+set -euo pipefail
+
+args=()
+for arg in "$@"; do
+    case "$arg" in
+        -march=icelake-server|-mtune=icelake-server|-march=native|-mtune=native) ;;
+        *) args+=("$arg") ;;
+    esac
+done
+exec "${LYMPHOSAT_REAL_CXX:?set by build_lymphosat.py}" -march=x86-64-v2 -mtune=generic "${args[@]}"
