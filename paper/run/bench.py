@@ -454,7 +454,10 @@ def main() -> None:
     directory = args.out / args.experiment
     directory.mkdir(parents=True, exist_ok=True)
     plan_path = directory / "plan.json"
-    if plan_path.exists() and json.loads(plan_path.read_text()) != tasks:
+    # Records are indexed by position, so a resumed run must select the same
+    # runs in the same order with the same limits.
+    identity = lambda ts: [(t["configuration"], t["set"], t["instance"], t["limits"], t["check"]) for t in ts]
+    if plan_path.exists() and identity(json.loads(plan_path.read_text())) != identity(tasks):
         sys.exit(f"{plan_path} holds a different selection; use another --out or remove it")
     plan_path.write_text(json.dumps(tasks, indent=1) + "\n")
     print(f"{args.experiment}: {len(tasks)} tasks -> {directory}")
