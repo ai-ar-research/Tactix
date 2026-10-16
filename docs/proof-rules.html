@@ -90,8 +90,8 @@
     <h1>Every proof rule, from guard to certificate.</h1>
     <p class="hero-copy">A learning interface for the state transitions in Tactix. Each entry pairs a compact formal rule with an intuitive reading and two worked micro-examples. The authoritative semantics remain in <a href="calculus.md">docs/calculus.md</a>.</p>
     <div class="hero-meta">
-      <span class="chip"><span class="dot"></span><span id="ruleCount">24 entries</span></span>
-      <span class="chip">22 public entries</span>
+      <span class="chip"><span class="dot"></span><span id="ruleCount">41 entries</span></span>
+      <span class="chip">every proof rule in the calculus</span>
       <span class="chip">2 folded / internal channels</span>
       <span class="chip">Offline · no dependencies</span>
     </div>
@@ -112,13 +112,13 @@
     <aside class="side" aria-label="Rule family filters">
       <h2>Rule families</h2>
       <div class="filters">
-        <button class="filter active" data-filter="all" type="button"><b>All rules</b><span>24</span></button>
+        <button class="filter active" data-filter="all" type="button"><b>All rules</b><span>41</span></button>
         <button class="filter" data-filter="core" type="button"><b>Core</b><span>4</span></button>
-        <button class="filter" data-filter="search" type="button"><b>Search</b><span>3</span></button>
+        <button class="filter" data-filter="search" type="button"><b>Search</b><span>4</span></button>
         <button class="filter" data-filter="clause" type="button"><b>Clause</b><span>3</span></button>
         <button class="filter" data-filter="graph" type="button"><b>Graph &amp; gates</b><span>7</span></button>
-        <button class="filter" data-filter="elimination" type="button"><b>Elimination</b><span>4</span></button>
-        <button class="filter" data-filter="addition" type="button"><b>Add &amp; strengthen</b><span>3</span></button>
+        <button class="filter" data-filter="elimination" type="button"><b>Elimination</b><span>7</span></button>
+        <button class="filter" data-filter="addition" type="button"><b>Add &amp; strengthen</b><span>16</span></button>
       </div>
       <p class="side-note"><strong>Reading tip.</strong> “Proof δ” is what the checker sees. Reconstruction <span class="math">ρ</span> is what repairs a SAT model after an equisatisfiable deletion.</p>
     </aside>
@@ -136,7 +136,7 @@ F₀ ≡SAT (F ∪ ρ)              F ⊨ R</div>
             <div><b>ρ</b>model witnesses</div>
             <div><b>π</b>proof cursor</div>
           </div>
-          <p class="plain"><strong>Scope.</strong> This guide covers the 25 public proof rules in the calculus, folded M4, and internal channel V6a. S3 Rephase, S4 SwitchMode, S6 Walk, and S7 Reorder are H-only policy operations, not proof rules. X5 Condition has a public explicit cube action; its default schedule remains off pending N4 review.</p>
+          <p class="plain"><strong>Scope.</strong> This guide covers the proof rules of the calculus, including the folded backjump step M4 and the internal channel V6a. Rephase, SwitchMode, Walk, Reorder and the other policy operations change only the decision heuristic and write no proof steps; docs/rules.md lists them. X5 Condition is available as an explicit action and is not scheduled by the default strategy.</p>
           <p><strong>Planned structural reasoning.</strong> Theory-to-Boolean inprocessing composes certified consequence, extension and witnessed-restriction steps; recognition alone is not a proof. Each addition records semantic premises and its proof reference. Fresh definitions require model projection; startup certificates do not become restart-safe automatically. This is a planned composition, not a new registered rule; see <a href="calculus.md">the calculus contract</a>.</p>
           <p><span class="math">H</span> (scores, phases, limits) is policy state outside <span class="math">σ</span>. A rule is applicable when its pure soundness precondition holds.</p>
         </div>
@@ -294,7 +294,7 @@ candidate D contains reason(x)
             <section class="panel" data-panel-content="formal"><div class="equation">F consistent and not refuted; level(τ)=0; no pending conflict
 ──────────────────────────────────────── S5
 configured complete-assignment candidate A
-if A ⊨ every live clause: Sat(A) ; otherwise restore root σ exactly  δown = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Stable IDs0–24 and26/27 are active; retired25 is an unselectable tombstone: probes 0–5; SAT constructors 6–14, 17, 18 and 21; structural refutations 15/16; startup refutations 19/20/22; proof-only XOR/exact-one refutations 23/24; retained graph authentication/continuation 26/27. Graph 26/27 share one Kernel-owned session across public and Default dispatch, derive no logical facts from partial work, and require explicit root windows. Canonical Lucky is the ordered 0–5 probe cascade.</p></div><div class="formal-block"><h4>Soundness</h4><p>Every completed constructor candidate requires a whole-live-CNF model check. Incomplete 6–10/21 candidates are heuristic guidance and prove nothing; 6/7 cannot refute. Structural UNSAT results require exact recognition, bounded proof preflight and a checked empty-clause derivation; unsupported formats and incomplete work decline before mutation.</p></div></div></section>
+if A ⊨ every live clause: Sat(A) ; otherwise restore root σ exactly  δown = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Stable IDs 0–24 and 26/27 are active; retired 25 is an unselectable tombstone: probes 0–5; SAT constructors 6–14, 17, 18 and 21; structural refutations 15/16; startup refutations 19/20/22; proof-only XOR/exact-one refutations 23/24; retained graph authentication/continuation 26/27. Graph 26/27 share one Kernel-owned session across public and Default dispatch, derive no logical facts from partial work, and require explicit root windows. Canonical Lucky is the ordered 0–5 probe cascade.</p></div><div class="formal-block"><h4>Soundness</h4><p>Every completed constructor candidate requires a whole-live-CNF model check. Incomplete 6–10/21 candidates are heuristic guidance and prove nothing; 6/7 cannot refute. Structural UNSAT results require exact recognition, bounded proof preflight and a checked empty-clause derivation; unsupported formats and incomplete work decline before mutation.</p></div></div></section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>Try the reference assignments, a bounded SAT constructor, or a certified structural refutation.</strong> Constructors keep their historical identities; incomplete supported searches may guide later phases, while parity and exact-one refutation remain separate actions 23/24.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>A lucky model</h4><div class="equation">F = {(a ∨ b), (¬a ∨ b), (a ∨ ¬b)}
 try A = {a=true, b=true}
@@ -794,6 +794,7 @@ T_W(M)=(a,¬b,c) satisfies C and D</div><p>Setting a alone would break D; the ou
         if (!card.hidden) shown += 1;
       });
       results.textContent = "Showing " + shown + " of " + cards.length + " entries";
+      document.getElementById("ruleCount").textContent = cards.length + " entries";
       empty.style.display = shown ? "none" : "block";
     }
 
