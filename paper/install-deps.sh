@@ -3,8 +3,11 @@
 # (the Docker image and Apptainer recipe call this; on a VM, run it with sudo).
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get install -y --no-install-recommends \
+# Run apt as root throughout: rootless builds (Apptainer --fakeroot) cannot
+# switch to apt's sandbox user.
+APT="apt-get -o APT::Sandbox::User=root"
+$APT update
+$APT install -y --no-install-recommends \
     build-essential cmake git curl ca-certificates xz-utils bzip2 unzip \
     zlib1g-dev libboost-all-dev python3 python3-matplotlib make time bc
 rm -rf /var/lib/apt/lists/*
