@@ -471,6 +471,8 @@ def main() -> None:
                           flush=True)
                     continue
                 check = (record.get("check") or {}).get("result", "")
+                if record["verdict"] == "SAT":
+                    check = "model ok" if record.get("model_ok") else "MODEL REJECTED"
                 print(f"[{done}/{len(tasks)}] {record['configuration']:24} {name:48} "
                       f"{record['verdict']:7} {record['solve']['wall_seconds']:9.2f} s {check}", flush=True)
         collect(args.out)

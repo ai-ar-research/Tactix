@@ -82,8 +82,10 @@ paper/run/bench.py run smoke --jobs 4
 ```
 
 The smoke test solves the five formulas in `examples/cnf/` with Tactix and
-Kissat and checks every answer. Expect 10 records, all `verified`; the three
-Tactix proof routes (`dsr-trestle`, `pbp`, `dsr-cake_lpr`) all appear.
+Kissat and checks every answer; it takes seconds. Expect `10 records, 10
+answered, 10 verified`. The records in `paper/run/results/smoke/records/`
+show all three routes of Tactix's proofs: `tactix-dsr` (dsr-trim and Trestle),
+`tactix-drat` (drat-trim and CakeLPR) and `tactix-pbp` (VeriPB and CakePB).
 
 The reduced evaluation runs each experiment on its subset in
 `benchmarks/subsets/`. The instances are already in the image:
