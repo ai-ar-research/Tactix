@@ -106,12 +106,16 @@ add_test(NAME reduce_trace_compare
 add_test(NAME modelcheck
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_modelcheck.py)
-add_test(NAME runtime_task
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
-add_test(NAME kissat_journal_overlay_static
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_kissat_journal_overlay_static.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME runtime_task
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
+endif()
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME kissat_journal_overlay_static
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_kissat_journal_overlay_static.py)
+endif()
 
 if(TACTIX_ENABLE_RULE_JOURNAL)
   add_executable(test_rule_journal test_rule_journal.cpp)
@@ -148,12 +152,16 @@ add_test(NAME p4_fixtures
 add_test(NAME campaign_certificate_cleanup
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_campaign_certificate_cleanup.py)
-add_test(NAME tierd_campaign_pinning
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_tierd_campaign_pinning.py)
-add_test(NAME slurm_memory_enforcement
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME tierd_campaign_pinning
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_tierd_campaign_pinning.py)
+endif()
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME slurm_memory_enforcement
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
+endif()
 add_test(NAME symmetry_backend_build_boundary
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_symmetry_backend_flags.py
@@ -173,9 +181,11 @@ add_executable(test_orbitopal_group test_orbitopal_group.cpp)
 target_include_directories(test_orbitopal_group PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(test_orbitopal_group PRIVATE tactix_lib)
 add_test(NAME orbitopal_group COMMAND test_orbitopal_group)
-add_test(NAME fuzz_slurm_snapshot
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME fuzz_slurm_snapshot
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
+endif()
 add_test(NAME fuzz_reachability
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_reachability.py)
@@ -524,8 +534,10 @@ set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 # must reach only the expected absent-empty end; see
 # benchmarks/reports/2026-09-25-am455-latest-source-fuzz-consolidation.md.
 add_test(NAME sweep_retarget_lrat
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_retarget_lrat.sh
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake_lpr --
+                 ${CMAKE_SOURCE_DIR}/tests/sweep_retarget_lrat.sh
                  ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix>)
+set_tests_properties(sweep_retarget_lrat PROPERTIES SKIP_RETURN_CODE 77)
 
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,
 # model sets compared by enumeration -- the only direct check that V4's deletions
@@ -542,9 +554,11 @@ add_test(NAME inspect_policy_feedback
                  $<TARGET_FILE:test_feedback_trace>
                  $<TARGET_FILE:test_default_execution_signature>)
 add_test(NAME feedback_frontend
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/drat-trim ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake_lpr --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_feedback_frontend.py
                  $<TARGET_FILE:tactix>)
+set_tests_properties(feedback_frontend PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME controller_native_producers
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_controller_native_producers.py
@@ -558,29 +572,39 @@ add_test(NAME direct_csp_controller
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_direct_csp_controller.py
                  $<TARGET_FILE:tactix>
                  ${CMAKE_SOURCE_DIR}/tools/fuzz/checkmodel)
-add_test(NAME public_theory_target_tables
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME public_theory_target_tables
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
+endif()
 add_test(NAME public_theory_target_score
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_score.py)
 
 add_test(NAME startup_parity_check
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_startup_parity_check.py
                  $<TARGET_FILE:test_startup_parity> $<TARGET_FILE:tactix>)
+set_tests_properties(startup_parity_check PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME count_preservation_check
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_count_preservation_check.py
                  $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)
+set_tests_properties(count_preservation_check PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME ramsey_cli
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/dsr-trim --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_ramsey_cli.py
                  $<TARGET_FILE:tactix>)
+set_tests_properties(ramsey_cli PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME congruence_sr_check
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/runs/20260921-am333-lymphosat-models-wv100/pins/dsr-trim --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_congruence_sr_check.py
                  $<TARGET_FILE:tactix>)
+set_tests_properties(congruence_sr_check PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(test_factor test_factor.cpp)
 target_link_libraries(test_factor PRIVATE tactix_lib)
@@ -755,9 +779,11 @@ endforeach()
 set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)
 
 add_test(NAME tseitin_cycle_action_journal
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim ${CMAKE_SOURCE_DIR}/tools/checkers/bin/srcheck --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_tseitin_cycle_action_journal.py
                  $<TARGET_FILE:test_tseitin_cycle_action>)
+set_tests_properties(tseitin_cycle_action_journal PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME nary_csp_equality_transitivity_proof_model
          COMMAND ${CMAKE_SOURCE_DIR}/tests/nary_csp_equality_transitivity_proof_model.sh

@@ -24,7 +24,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import csv
-import fnmatch
+import fcntl
 import glob
 import json
 import os
@@ -34,6 +34,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -96,18 +97,27 @@ def fetch(item: dict) -> Path:
     if item["source"] == "archive":
         target = CACHE / "archive" / item["instance"]
         if not target.exists():
-            target.parent.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run(["tar", "-xJf", ROOT / item["archive"], "-C", target.parent.parent],
-                           check=True)
+            (CACHE / "archive").mkdir(parents=True, exist_ok=True)
+            with (CACHE / "archive" / ".lock").open("w") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                if not target.exists():
+                    subprocess.run(["tar", "-xJf", ROOT / item["archive"], "-C", CACHE / "archive"],
+                                   check=True)
         return target
     target = CACHE / "gbd" / item["instance"]
-    if not target.exists():
-        target.parent.mkdir(parents=True, exist_ok=True)
-        partial = target.with_suffix(target.suffix + ".part")
-        with urllib.request.urlopen(GBD_URL.format(item["hash"]), timeout=600) as response, \
-                partial.open("wb") as stream:
-            shutil.copyfileobj(response, stream)
-        partial.rename(target)
+    if target.exists():
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # One download per instance even when parallel tasks share it.
+    with (target.parent / f".{target.name}.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not target.exists():
+            partial = target.with_name(f".{target.name}.{os.getpid()}.{threading.get_ident()}.part")
+            with urllib.request.urlopen(GBD_URL.format(item["hash"]), timeout=600) as response, \
+                    partial.open("wb") as stream:
+                shutil.copyfileobj(response, stream)
+            subprocess.run(["xz", "-t", partial], check=True)
+            os.replace(partial, target)
     return target
 
 

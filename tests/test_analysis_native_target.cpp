@@ -31,7 +31,10 @@ namespace {
 std::string read_file(const std::string &path) {
   std::ifstream input(path, std::ios::binary);
   assert(input);
-  return {std::istreambuf_iterator<char>(input), {}};
+  // Copy through rdbuf: GCC 13.1's string(InputIt) trips UBSan (PR 109703).
+  std::ostringstream text;
+  text << input.rdbuf();
+  return text.str();
 }
 
 std::string random_cnf(std::mt19937_64 &rng, uint32_t vars, uint32_t clauses) {
