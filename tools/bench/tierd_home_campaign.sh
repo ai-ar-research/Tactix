@@ -18,7 +18,7 @@
 # Without --instance the prepared array must hold exactly 1,166 rows; with
 # --instance it is a smoke campaign of exactly those rows.
 set -euo pipefail
-R=/home/hwu/SAT-solving
+R="$(cd "$(dirname "$0")/../.." && pwd)"
 T=$R/tools/bench/experimental_tierd.py
 GOVERNOR_JOBS=benchmarks/baselines/sc24-26-rerun-quota-governor/jobs.json
 THROTTLE=125

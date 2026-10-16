@@ -4,6 +4,7 @@
     paper/run/bench.py list
     paper/run/bench.py run EXPERIMENT [selection] [--jobs N] [--out DIR]
     paper/run/bench.py slurm EXPERIMENT [selection] --partition P [--out DIR]
+    paper/run/bench.py fetch EXPERIMENT [selection]
     paper/run/bench.py collect [--out DIR]
 
 Selection options narrow an experiment: --configurations A,B (names as in
@@ -407,6 +408,8 @@ def main() -> None:
     task = commands.add_parser("task")
     task.add_argument("plan", type=Path)
     task.add_argument("index", type=int)
+    prefetch = commands.add_parser("fetch", help="download the selected instances for offline runs")
+    _selection(prefetch)
     gather = commands.add_parser("collect")
     gather.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
@@ -428,6 +431,14 @@ def main() -> None:
         return
 
     tasks = plan(args.experiment, args)
+    if args.command == "fetch":
+        seen = set()
+        for task in tasks:
+            if task["instance"] not in seen:
+                seen.add(task["instance"])
+                fetch(task)
+        print(f"{args.experiment}: {len(seen)} instances in {CACHE}")
+        return
     directory = args.out / args.experiment
     directory.mkdir(parents=True, exist_ok=True)
     plan_path = directory / "plan.json"

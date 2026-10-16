@@ -78,8 +78,9 @@ The script reads the proof, picks the route from the table above, and prints
 `s VERIFIED UNSAT` with exit code 0, or the failing stage and checker output
 with exit code 1. For a `pbp` route, install
 [VeriPB](https://gitlab.com/MIAOresearch/software/VeriPB) and
-[CakePB](https://github.com/CakeML/cakeml/tree/master/examples/pseudo_bool)
-and pass them with `--veripb` and `--cake-pb`.
+[CakePB](https://gitlab.com/MIAOresearch/software/cakepb)
+and pass them with `--veripb` and `--cake-pb`; `paper/run/setup.sh checkers`
+builds both at the versions the paper used, into `paper/run/tools/bin/`.
 
 To check a SAT answer, save the solver output and run the model checker,
 which confirms that the `v` lines satisfy every clause of the formula:

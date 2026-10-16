@@ -1,0 +1,25 @@
+# Apptainer recipe equivalent to paper/Dockerfile, for clusters without Docker.
+#
+#   apptainer build --fakeroot tactix.sif paper/tactix.def      (from the repository root)
+#   apptainer shell tactix.sif                                    (the artifact is in /tactix)
+Bootstrap: docker
+From: ubuntu:24.04
+
+%files
+    . /tactix
+
+%post
+    /tactix/paper/install-deps.sh
+    export PATH=/root/.elan/bin:$PATH
+    cd /tactix
+    paper/run/setup.sh all
+    for e in tierd milestones interface cruxmiter chvatal; do
+        paper/run/bench.py fetch $e --subset short
+    done
+    paper/run/bench.py fetch smoke
+
+%environment
+    export PATH=/root/.elan/bin:$PATH
+
+%runscript
+    cd /tactix && exec /bin/bash "$@"

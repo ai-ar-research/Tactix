@@ -1,24 +1,24 @@
-/* Tactix public C API — v1, frozen at the phase-2 review (plan §5.1).
+/* Tactix public C API — v1.
  * Post-v1 changes are additive only.
  *
- * N1 guarantee: at any solver state, every rule whose guard holds can be
+ * Guarantee: at any solver state, every rule whose guard holds can be
  * discovered (tactix_rules_applicable), its instances enumerated
  * (tactix_rule_instances), and any of them applied (tactix_apply /
  * tactix_apply_instance); branching in particular is fully client-controlled
  * via tactix_decide_candidates / tactix_decide. This surface exists in every
  * build and every mode.
  *
- * External policies are pull-based (O5): they drive this stepping surface
+ * External policies are pull-based: they drive this stepping surface
  * themselves and observe the solver through tactix_stat. There is no callback
  * registration in v1.
  *
- * Instances (O3): a rule instance is a uint64_t payload whose encoding the
+ * Instances: a rule instance is a uint64_t payload whose encoding the
  * rule documents.
  *  - Decide, Probe, Backbone, TransitiveReduce: the DIMACS literal,
  *    zero-extended, i.e. TACTIX_LIT_INSTANCE(elit) below. Zero-extension is
  *    required, not stylistic: a sign-extending cast maps -1 onto
  *    TACTIX_INSTANCE_CANONICAL, so branching on -1 would silently get the
- *    canonical pick — an N1 hole.
+ *    canonical pick, so -1 could not be chosen.
  *  - Restart: the keep-level. Reduce: v1 payloads are ranked victim counts;
  *    its additive semantic surface returns tagged opaque payloads that select
  *    one legal redundant clause independently of policy protection.
@@ -60,13 +60,13 @@ typedef struct tactix_solver tactix;
 
 /* Literal-instance payload: the DIMACS literal's 32-bit pattern, zero-extended
    into [1, UINT32_MAX] — disjoint from TACTIX_INSTANCE_CANONICAL by
-   construction, so every literal (notably -1) stays expressible (N1). */
+   construction, so every literal (notably -1) stays expressible. */
 #define TACTIX_LIT_INSTANCE(elit) ((uint64_t)(uint32_t)(int32_t)(elit))
 
-/* proof formats (N2) */
+/* proof formats */
 #define TACTIX_PROOF_DRAT_BINARY 0
 #define TACTIX_PROOF_DRAT_ASCII 1
-#define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints (plan O4) */
+#define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints */
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 #define TACTIX_PROOF_AUTOMATIC 5 /* startup PBP or canonical binary DSR */
@@ -96,7 +96,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_PROBE_FAILED 19    /* failed literals -> units */
 #define TACTIX_STAT_BACKBONE_FAILED 20 /* binary failed literals -> units */
 #define TACTIX_STAT_TRANSITIVE_DELETED 21 /* redundant binaries deleted */
-/* The plan §5.6 reward/cost counters, exposed so an external or learned policy
+/* Reward/cost counters, exposed so an external or learned policy
  * can meter the work its schedule buys. Every rule family the inprocessing
  * schedule doses must expose a (yield, effort) PAIR, and the effort id must be
  * the counter that family's `EFFORT_SPECS` meter reads, so yield/effort is a
@@ -179,7 +179,7 @@ void tactix_add(tactix *, int lit);
  * a partial formula and should be released. */
 int tactix_read_dimacs(tactix *, FILE *);
 
-/* Proof logging (N2): attach exactly once, before the first operation that
+/* Proof logging: attach exactly once, before the first operation that
  * reasons about the input (including status/enumeration/solve calls).
  * TACTIX_PROOF_* selects the format. Returns 0, or -1 for a late/duplicate
  * attachment, an unwritable path, or an unsupported format. */
@@ -188,7 +188,7 @@ int tactix_proof(tactix *, const char *path, int format);
 /* BVE gate-type selection (additive): bitmask of the gate types BVE may
  * recognize; default (unset) is all. A performance knob only — every mask is
  * sound, a disabled type just falling back to the full resolvent cross product.
- * Settable at any state (N1). */
+ * Settable at any state. */
 #define TACTIX_BVE_GATE_EQUIV 1u  /* equivalence x<->~y */
 #define TACTIX_BVE_GATE_AND_OR 2u /* AND/OR x<->OR/AND(...) */
 #define TACTIX_BVE_GATE_ITE 4u    /* if-then-else x<->(c?t:e) */
@@ -197,9 +197,8 @@ int tactix_proof(tactix *, const char *path, int format);
 void tactix_set_bve_gates(tactix *, unsigned mask);
 
 /* Kernel configuration setters — the pose surface for external and learned
- * policies (§5.6). Every value is sound: config narrows or reorders which sound
- * applications happen, never their proof obligations. Settable at any state
- * (N1).
+ * policies. Every value is sound: config narrows or reorders which sound
+ * applications happen, never their proof obligations. Settable at any state.
  *  - bve_bound: BVE growth slack (eliminate iff resolvents <= occs + bound)
  *  - factor_bound: Factor acceptance (accept a grid iff delta > bound)
  *  - factor_composite: nonzero = Factor composes over extension vars
@@ -209,7 +208,7 @@ void tactix_set_bve_gates(tactix *, unsigned mask);
  *      within the live tier2, 2 = irredundant, 3/4/5 = the redundant tier1 /
  *      tier2 / tier3 bands. A value above 5 leaves the setting unchanged and is
  *      never substituted by another band, which would remove the capability
- *      rather than decline it (N1). */
+ *      rather than decline it. */
 void tactix_set_bve_bound(tactix *, unsigned bound);
 void tactix_set_factor_bound(tactix *, unsigned bound);
 void tactix_set_factor_composite(tactix *, int on);
@@ -303,7 +302,7 @@ int tactix_solve(tactix *);
 /* model access after SAT: >0 true, <0 false (DIMACS convention) */
 int tactix_value(tactix *, int lit);
 
-/* --- R3/N1: rule introspection and stepwise application ---------------- */
+/* --- rule introspection and stepwise application ----------------------- */
 
 /* Number of stable registry slots, including retired holes (0..count-1).
  * ID 39 is retired: its name is Retired39 and it cannot be selected.
@@ -311,7 +310,7 @@ int tactix_value(tactix *, int lit);
 int tactix_rule_count(void);
 const char *tactix_rule_name(int rule_id);
 
-/* Action kind (plan §4): a proof rule, which affects the proof state and so
+/* Action kind: a proof rule, which affects the proof state and so
  * carries a proof obligation, or an H-only policy operation. Both share one
  * append-only id space. Returns TACTIX_ACTION_*, or -1 if rule_id is out of
  * range or retired. */
@@ -321,7 +320,7 @@ int tactix_action_kind(int rule_id);
 
 /* Fill `out` with the ids of rules whose guard (the soundness precondition)
  * currently holds; returns the count (<= cap). Any of these may be applied now,
- * in any order — this is theoretical applicability, N1. */
+ * in any order: this is applicability by the guard, not a recommendation. */
 int tactix_rules_applicable(tactix *, int *out, int cap);
 
 /* Fill `out` with up to `cap` instance payloads of a rule, ranked with the
@@ -1912,7 +1911,7 @@ int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
 #define TACTIX_CONTEXT_SPECULATION 3
 int tactix_support(tactix *, int support, uint64_t argument);
 
-/* branching surface (N1): candidates ranked by the active heuristic
+/* branching surface: candidates ranked by the active heuristic
  * (saved/target-phase literals, DIMACS convention); tactix_decide branches
  * on an arbitrary unassigned literal chosen by the client. */
 int tactix_decide_candidates(tactix *, int *lits, int cap);
