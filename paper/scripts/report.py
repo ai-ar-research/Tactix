@@ -85,10 +85,13 @@ def cruxmiter(data: Path) -> None:
     rows = read(data / "crux-results.csv")
     by = {(r["configuration"], int(r["seed"])): r for r in rows}
     out = []
-    for seed in range(10):
+    for seed in sorted({int(r["seed"]) for r in rows}):
         line = [seed, ""]
         for configuration in ("Default Tactix", "Public policy", "Kissat 4.0.4"):
-            r = by[(configuration, seed)]
+            r = by.get((configuration, seed))
+            if r is None:
+                line += ["-", "-", "-"]
+                continue
             line += [f'{float(r["solve_seconds"]):.1f}', f'{float(r["check_seconds"]):.1f}',
                      f'{int(r["proof_bytes"]) / 1e9:.2f}']
         out.append(line)

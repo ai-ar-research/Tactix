@@ -45,7 +45,9 @@ $(FIGURES)/interface-overhead.pdf: $(DATA)/interface-overhead.csv
 	$(PLOT) --interface-data $< --interface $@
 $(FIGURES)/milestone-ladder.pdf: $(DATA)/milestone-times.csv
 	$(PLOT) --milestone-data $< --milestones $@
-$(FIGURES)/development-roadmap.pdf: $(DATA)/milestone-activity.csv
+# Development activity comes from git history (scripts/analyze_milestone_activity.py),
+# not from solver runs, so it is always read from data/.
+$(FIGURES)/development-roadmap.pdf: data/milestone-activity.csv
 	$(PYTHON) scripts/plot_development_roadmap.py --data $< --output $@
 $(FIGURES)/chvatal-scatter.pdf: $(DATA)/chvatal-results.csv
 	$(PYTHON) scripts/plot_chvatal.py --data $< --output $@
