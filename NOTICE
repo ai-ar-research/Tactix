@@ -1,0 +1,31 @@
+Tactix
+Copyright (c) 2026 Haoze Wu
+Licensed under the MIT License (see LICENSE).
+
+Bundled third-party code
+------------------------
+
+third_party/dejavu-4c275e9/
+  DejaVu 2.1, graph automorphism and canonical labeling.
+  Copyright (c) 2025 Markus Anders. MIT License (see its LICENSE file).
+  Upstream: https://github.com/markusa4/dejavu
+  Modified only by a cooperative termination hook; see README.tactix there.
+
+Algorithms adapted from other solvers
+-------------------------------------
+
+Tactix's default strategy reimplements the search and inprocessing mechanisms
+of Kissat and CaDiCaL (Copyright (c) Armin Biere and contributors, MIT
+License), its symmetry breaking follows Satsuma, and several structure-aware
+techniques follow LymphoSAT. These are independent implementations of the
+published algorithms and schedules; no source code from those solvers is
+included in this repository.
+
+External tools used at run time
+-------------------------------
+
+The proof checkers (drat-trim, cake_lpr, dsr-trim, Trestle, VeriPB, CakePB)
+and the reference solvers used in benchmarks are not distributed here.
+tools/checkers/setup.sh and tools/solvers/setup.sh download them from their
+upstream repositories at pinned commits, and the patches in
+tools/checkers/patches/ apply to those checkouts under their own licenses.
