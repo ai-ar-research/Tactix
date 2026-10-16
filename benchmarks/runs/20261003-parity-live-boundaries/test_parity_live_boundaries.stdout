@@ -1,6 +1,0 @@
-ternary: result 0, published 4, helpers 5
-quaternary: result 0, published 8, helpers 7
-unit: result 0, published 1, helpers 3
-root-conflict: result 4, published 0, helpers 3
-compacted-unit: result 0, published 1, helpers 4
-test_parity_live_boundaries: all passed

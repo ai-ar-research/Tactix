@@ -1,7 +1,0 @@
-build/pin-am455-sweep-retarget/tactix-release: OK
-build/pin-am455-sweep-retarget/tactix-debug: OK
-old-release rc=10 proof_bytes=36904
-/cm/local/apps/slurm/var/spool/job1724272/slurm_script: line 18: 3133035 Aborted                 (core dumped) "$solver" --lrat --random-policy=2475268 "$cnf" "$case_dir/out/$mode.lrat" > "$case_dir/out/$mode.stdout" 2> "$case_dir/out/$mode.stderr"
-old-debug rc=134 proof_bytes=16384
-new-release rc=10 proof_bytes=36896
-new-debug rc=10 proof_bytes=36896

@@ -1,7 +1,0 @@
-# AM488: superseded AM484 Phase 1 arrays stopped after diagnostic rows
-
-The AM484 automatic-proof arrays were submitted from candidate `3eb9a870` before Opus AM483's final frozen audit corrected Q1 to NOT ACCEPTED. AM485 then repaired the general X7 status order in source `0ed8b564`, making AM484 an old-source diagnostic rather than a latest-source gate. The replacement AM487 source authority and full-width Rank/B28+C5 campaigns are independently built, frozen and pin-verified; they remain unsubmitted pending AM486 Opus affected fuzz.
-
-The remaining AM484 tasks were canceled deliberately to free cluster capacity. `sacct` shows Rank array `1730901`: **38 completed**, **12 canceled**; B28+C5 array `1730932`: **32 completed**, **one canceled**. All 70 completed result JSON files have `valid=true` and `expected_match=true`, with their independent proof/model grades retained under the original immutable campaigns. The five formerly lost SAT cases at Ranks 7, 8, 10, 13 and 14 all returned SAT with independently verified original-CNF models. Incomplete arrays have no accepted aggregate runtime or Phase 1 verdict; canceled tasks are not scored or relabeled as passes.
-
-No reference solver was rerun. No checker option, automatic proof route, resource limit, array throttle, node constraint, or solver tuning changed. Repaired-source full Debug `1731003` and AM486 Opus affected fuzz remain in progress. No Tier D run was submitted.

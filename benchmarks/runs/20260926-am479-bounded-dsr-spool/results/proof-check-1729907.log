@@ -1,7 +1,0 @@
-{"name": "drat-trim", "exit_code": 0, "wall_seconds": 303.00600193440914, "status": ["s VERIFIED"], "tail": ["", "c finished parsing, read 119492778 bytes from proof file", "", "c detected empty clause; start verification via backward checking", "", "c 6488103 of 7214185 clauses in core                            ", "", "c 5929951 of 7450069 lemmas in core using 17265484 resolution steps", "", "c 0 RAT lemmas in core; 0 redundant literals in core lemmas", "", "s VERIFIED", "", "c verification time: 302.870 seconds", ""]}
-{"name": "cake_lpr", "exit_code": 0, "wall_seconds": 22.318235628306866, "status": ["s VERIFIED UNSAT"], "tail": ["s VERIFIED UNSAT", ""]}
-Traceback (most recent call last):
-  File "<stdin>", line 27, in <module>
-  File "/cm/local/apps/python3/lib/python3.9/pathlib.py", line 1160, in stat
-    return self._accessor.stat(self)
-FileNotFoundError: [Errno 2] No such file or directory: '/tmp/am478-r12-check-_v3npzv2/proof.lpr'

@@ -1,9 +1,0 @@
-# Witnessless RUP preserves XOR source leases — 2026-10-07
-
-`Proof::add_sr` now uses the authenticated serialization plan: a true witnessless RUP line keeps existing source-premise leases, and its checker observer event is `Rup`. Genuine SR/RAT retirement is unchanged. Extra mapping/true-literal metadata does not transform clauses when the serialized plan is RUP. The shadow already stores the emitted clause unchanged.
-
-Frozen overlay onto the v6 sorted-memory source: `proof.cpp` SHA256 `c2dda28d6c79df1549637fb44202425906454b4a6f7f6b60d66519c9996f844c`; lease fixture SHA256 `14648c9ff3d2e5bd963ce076c1a4445870fa120cd742bfbc956a69e48aeeff0d`. The coherent overlay replaces v6 affine, Proof and fixture objects with unchanged-header/source compatibility verification; encoding and population-observer fixtures are compiled with their exact target flags. This report does not qualify the later Default/session class-layout changes.
-
-Debug and ASan/UBSan/LSan each pass six native fixtures: lease lifecycle, persistent lifecycle, public frontend, Default, SR encoding and population observer. Each also passes 20 independently checked full non-refuting prefixes, 16 original-CNF models, 20 rejected unsupported-unit negative controls and the Default canonical/every-lemma proof/model wrapper. Sanitizer leak detection is enabled with required ptrace access. DSR prefix checks use forward dsr-trim/Trestle (no terminal refutation is claimed); DRAT prefixes use the checker's explicit derivation mode and exact expected status. Canonical UNSAT checks remain in the maintained Default wrapper.
-
-Raw artifacts, checker/binary/source/command hashes and logs are preserved. This closes a focused proof-lifecycle case only. Full Debug, cumulative Claude fuzz, regressions, performance and the fixed 44-instance goal remain open.

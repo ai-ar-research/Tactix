@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank1004-checker-width-compare/run.py", line 31, in <module>
-    assert solve['exit_code']==20 and not solve['timed_out'],'no completed UNSAT solve; retained partial artifact'
-AssertionError: no completed UNSAT solve; retained partial artifact

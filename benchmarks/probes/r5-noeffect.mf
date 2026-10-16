@@ -1,4 +1,0 @@
-main|9vliw_bp_mc.shuffled|tierB|pin-a1|300|0
-r5|9vliw_bp_mc.shuffled|tierB|pin-r5sc|300|0
-main|b22_1|tierB|pin-a1|300|0
-r5|b22_1|tierB|pin-r5sc|300|0

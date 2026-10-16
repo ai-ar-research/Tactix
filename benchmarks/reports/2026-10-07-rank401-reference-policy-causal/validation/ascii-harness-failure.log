@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-owner-policy-focused-repair/pins/check-proofs.py", line 10, in <module>
-    p=subprocess.run(list(map(str,cmd)),capture_output=True,text=True,timeout=60);(d/f'{i}.log').write_text(p.stdout+p.stderr);rows.append({'case':stem,'stage':i,'exit_code':p.returncode});assert p.returncode==0,(stem,i,p.returncode)
-AssertionError: ('ascii-0-0', 2, 1)

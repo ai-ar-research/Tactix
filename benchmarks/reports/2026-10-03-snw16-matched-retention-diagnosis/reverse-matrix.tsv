@@ -1,3 +1,0 @@
-task	rank	arm	tier	instance	expected
-0	96	candidate	WV100	tierD24-26/626c368587dd880086afc7b3fa1e6f27-snw_16_9_CCSpre.cnf.xz	SAT
-1	96	predecessor	WV100	tierD24-26/626c368587dd880086afc7b3fa1e6f27-snw_16_9_CCSpre.cnf.xz	SAT

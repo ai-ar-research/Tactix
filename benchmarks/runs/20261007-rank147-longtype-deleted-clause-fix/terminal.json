@@ -1,9 +1,0 @@
-{
-  "schema": "tactix-slurm-terminal-v1",
-  "job_id": "1755133",
-  "state": "COMPLETED",
-  "exit_code": "0:0",
-  "elapsed": "00:00:17",
-  "node": "node016",
-  "result_sha256": "7740cd3ff366c7b6bda7396edf239ad93667e165c0b74b0cb7fb82e57afc3709"
-}

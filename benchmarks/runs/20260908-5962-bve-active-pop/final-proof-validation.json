@@ -1,8 +1,0 @@
-{
-  "checked_proofs": 54,
-  "hashes": {
-    "benchmarks/runs/20260908-5962-bve-active-pop/inherited-proof-validation.json": "33a0128973690d9a40e920a394b70f8e7748e9056ba2c3f47a5a68d21a9f183a",
-    "benchmarks/runs/20260908-5962-bve-active-pop/controls/summary.json": "ca7502c1bea57cfa887add5b42c363bbbb1dee26616a18ba06a876b187b294ea"
-  },
-  "scope": "8 new inactive-pop policy refutations plus46 inherited Reduce/continuation/caller/edge/active-journal proofs.24 actual old/new SAT/model cases,6 native controls. No checker acceptance change or fuzz claim."
-}

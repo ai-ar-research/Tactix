@@ -110,3 +110,18 @@ adversarial-review/
 # The paper artifact ships its own archives and compressed instances
 !/paper/logs/**/*.tar.xz
 !/paper/benchmarks/**
+
+# Development material kept locally, outside the public repository
+/CLAUDE.md
+/.claude/
+/PROGRESS.md
+/DEVELOPMENT_PLAN.md
+/review.md
+/report-to-andrew/
+/docs/design/
+/docs/log/
+/docs/lessons.md
+/docs/papers/
+/docs/winner-integration-plan.md
+/docs/semantic-extension-foundations.md
+/tools/solvers/variants/

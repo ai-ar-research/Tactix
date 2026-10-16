@@ -1,1 +1,0 @@
-{"n": 8, "job_id": "1747635", "array_task": 0, "scope": "Bounded count-only BDD construction on synthetic matrices; no proof verification, target solve or historical rerun", "returncode": 0, "elapsed_seconds": 0.010489216074347496, "count": {"n": 8, "complete": true, "stopped": false, "completed_blocks": 16, "bdd_nodes": 3663, "additions": 26704}}

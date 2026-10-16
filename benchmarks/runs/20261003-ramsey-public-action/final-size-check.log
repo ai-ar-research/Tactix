@@ -1,8 +1,0 @@
-  warn  CLAUDE.md: 74 of 80 lines — under 10% reserve left, compact it before the next addition needs the room
-  warn  DEVELOPMENT_PLAN.md: 744 of 750 lines — under 10% reserve left, compact it before the next addition needs the room
-  warn  docs/winner-integration-plan.md: 240 of 240 lines — under 10% reserve left, compact it before the next addition needs the room
-  warn  docs/calculus.md: 680 of 680 lines — under 10% reserve left, compact it before the next addition needs the room
-  warn  docs/implementation-notes.md: 560 of 560 lines — under 10% reserve left, compact it before the next addition needs the room
-  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines — under 10% reserve left, compact it before the next addition needs the room
-  warn  docs/proof-rules.html: 930 of 1000 lines — under 10% reserve left, compact it before the next addition needs the room
-check-doc-size: 0 error(s), 7 warning(s), 31 file budget(s) checked

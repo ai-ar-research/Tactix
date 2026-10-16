@@ -1,5 +1,0 @@
-[  0%] Built target tactix_symmetry_backend
-[ 94%] Built target tactix_lib
-[100%] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o
-[100%] Linking CXX executable tactix
-[100%] Built target tactix

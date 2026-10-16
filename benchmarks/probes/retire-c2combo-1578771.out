@@ -1,5 +1,0 @@
-########## veer_axi — the untested cell: does R-c2 + physical segregation recover it?
---- off            c decisions   1611961831 (0 via API) c conflicts   20217 c substdec    1354519269 decisions on substituted vars (84.03% of 1611961831) s UNSATISFIABLE wall 210.34 s 
---- demote         c decisions   394247671 (0 via API) c conflicts   17557 c substdec    165721373 decisions on substituted vars (42.03% of 394247671) s UNSATISFIABLE wall 137.83 s 
---- retire         c decisions   5842622 (0 via API) c conflicts   3271 c substdec    0 decisions on substituted vars (0.00% of 5842622) s UNKNOWN wall 600.15 s 
---- retire+demote  c decisions   159696830 (0 via API) c conflicts   11590 c substdec    0 decisions on substituted vars (0.00% of 159696830) s UNKNOWN wall 600.13 s 

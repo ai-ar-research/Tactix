@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "/home/hwu/SAT-solving/benchmarks/runs/20261003-cardinality-shared-differential/run.py", line 9, in <module>
-    work=run/('case-'+str(index));work.mkdir();prefix=work/'shared'
-  File "/cm/local/apps/python3/lib/python3.9/pathlib.py", line 1251, in mkdir
-    self._accessor.mkdir(self, mode)
-FileExistsError: [Errno 17] File exists: '/home/hwu/SAT-solving/benchmarks/runs/20261003-cardinality-shared-differential/case-2'

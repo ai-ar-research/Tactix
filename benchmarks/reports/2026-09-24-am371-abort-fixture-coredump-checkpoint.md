@@ -1,7 +1,0 @@
-# AM371: expected-abort proof fixtures no longer stall in the host coredump path
-
-Date: 2026-09-24. Test-harness-only follow-up to AM370; no solver, proof format, checker, guard, or acceptance rule changed.
-
-The `proof` and `proof_output_failure` fixtures fork children that must die by `SIGABRT` when `/dev/full` prevents certificate publication. Although those children already set `RLIMIT_CORE=0`, repeat runs on this host left children in kernel `pipe_write` under the configured `systemd-coredump` pipe. The parent waited for each child, so the fixture could stall without evaluating its actual `SIGABRT` assertion. The environmental collector cause was not established; AM370 records the inconclusive attempts.
-
-Each expected-abort child now also calls Linux `prctl(PR_SET_DUMPABLE, 0)` before exercising the proof failure. This suppresses core collection for that child while preserving the required `SIGABRT` status and every existing assertion; non-abort test paths and solver code are unchanged. After the change, `proof` and `proof_output_failure` passed in Release and Debug, each three consecutive repeats per build (12 fixture executions total), all below one second per two-test repeat set. The complete 14-test Release N1/N2-oriented set from AM370 now passes 14/14, including both output-failure tests. This removes a fixture/host bottleneck; it does not turn these microtests into universal N2 evidence. The AM369 independent original-CNF proof/model checks and Opus affected fuzz remain separate gates.

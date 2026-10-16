@@ -1,7 +1,0 @@
-Test project /home/hwu/SAT-solving/build/persistent-xor-incremental-cumulative-20261007/sanitize
-    Start 138: affine_matrix_incremental_capture
-1/1 Test #138: affine_matrix_incremental_capture ...   Passed    0.27 sec
-
-100% tests passed out of 1
-
-Total Test time (real) =   0.28 sec

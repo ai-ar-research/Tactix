@@ -1,4 +1,0 @@
-benchmarks/probes/am445-h2-early-six/baseline-ascii.dsr: OK
-benchmarks/probes/am445-h2-early-six/early-six.dsr: OK
-benchmarks/probes/am445-h2-early-six/original-binary.dsr: OK
-benchmarks/probes/am445-h2-early-six/checker.cnf: OK

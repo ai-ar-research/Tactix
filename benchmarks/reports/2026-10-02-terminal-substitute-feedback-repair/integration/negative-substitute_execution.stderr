@@ -1,1 +1,0 @@
-negative-substitute_execution: /home/hwu/SAT-solving/build/shared-policy-terminal-substitute-f6f01982-integration/tests/test_substitute_execution.cpp:132: void test_rewrite_refutation_restores_owned_session(bool, bool): Assertion `k.inconsistent && k.large_watches_connected == !borrowed' failed.

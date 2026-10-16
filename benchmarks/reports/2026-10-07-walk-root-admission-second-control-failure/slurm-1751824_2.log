@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v2/run.py", line 156, in <module>
-    if __name__=='__main__': main()
-  File "/home/hwu/SAT-solving/benchmarks/probes/scratch/walk-root-admission-b56-v2/run.py", line 89, in main
-    assert valid==(label=='empty-positive'),f'checker control failed: {label}'
-AssertionError: checker control failed: empty-positive

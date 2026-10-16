@@ -1,9 +1,0 @@
-Test project /home/hwu/SAT-solving/benchmarks/runs/20261007-rank401-owner-policy-focused-repair/build-1754669
-    Start  8: sr_proof_encoding
-1/2 Test  #8: sr_proof_encoding ................   Passed    0.01 sec
-    Start 19: strategy_config
-2/2 Test #19: strategy_config ..................   Passed    0.35 sec
-
-100% tests passed out of 2
-
-Total Test time (real) =   0.39 sec

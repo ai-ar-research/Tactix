@@ -594,6 +594,15 @@ add_executable(test_subsume_n1 test_subsume_n1.cpp)
 target_link_libraries(test_subsume_n1 PRIVATE tactix_lib)
 add_test(NAME subsume_n1 COMMAND test_subsume_n1)
 
+# Development-consistency checks read the development plan, progress notes and
+# the Kissat/CaDiCaL reference clones, which live only in the development tree.
+if(EXISTS ${CMAKE_SOURCE_DIR}/DEVELOPMENT_PLAN.md)
+  set(_tactix_dev_default ON)
+else()
+  set(_tactix_dev_default OFF)
+endif()
+option(TACTIX_DEVELOPER_CHECKS "Run the development-consistency checks" ${_tactix_dev_default})
+
 # A source conformance check, not a unit test: every Kernel scheduling-config
 # field must have the writer its classification claims.
 add_test(NAME config_wiring
@@ -611,9 +620,11 @@ add_test(NAME effort_specs
 # accounted for by a parity-ledger row, §13.6's dismissal roster, or a named
 # carried/exempt entry, so a reference bump cannot turn the ledger into a silent
 # lower bound. Fails rather than skips without the reference clones (CLAUDE.md).
-add_test(NAME option_coverage
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME option_coverage
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
+endif()
 
 # The §5.6 reward channel: every dosed rule exposes a (yield, effort) pair,
 # header numbering matches api.cpp's case order, and every case returns the
@@ -631,43 +642,55 @@ add_test(NAME feedback_statistics
 # Source citations in the living docs must resolve; a stale one still reads
 # correct. Narrow on purpose: it prints what it skipped, so green is not
 # full coverage.
-add_test(NAME citations
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-citations.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME citations
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-citations.py)
+endif()
 
 # A `§X.Y` pointing at the wrong section reads exactly like one that resolves,
 # so every section reference in the living docs must resolve to a real section.
-add_test(NAME section_refs
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-section-refs.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME section_refs
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-section-refs.py)
+endif()
 
 # The phase-3 exit is "implemented, or a reasoned no-implement with evidence",
 # falsifiable only if every disposition has a ledger row.
-add_test(NAME inventory
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-inventory.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME inventory
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-inventory.py)
+endif()
 
 # The same shape over source comments, enforced rather than remembered. The
 # checker states the rule it applies; see it for what a comment may carry.
-add_test(NAME comment_hygiene
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-comment-hygiene.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME comment_hygiene
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-comment-hygiene.py)
+endif()
 
 # Living documentation is an onboarding surface, not an append-only archive.
 # These budgets and cheap cross-file invariants prevent wrap-up from silently
 # growing or contradicting it again.
-add_test(NAME doc_size
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-doc-size.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME doc_size
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-doc-size.py)
+endif()
 
 # The HTML guide is manually maintained, so at minimum its public/folded rule
 # inventory must stay identical to the calculus (plus V6a's internal card).
 add_test(NAME proof_rule_sync
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-proof-rule-sync.py)
-add_test(NAME default_strategy_config_check
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-default-strategy-config.py)
+if(TACTIX_DEVELOPER_CHECKS)
+  add_test(NAME default_strategy_config_check
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_SOURCE_DIR}/tools/docs/check-default-strategy-config.py)
+endif()
 
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)

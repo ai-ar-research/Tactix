@@ -1,3 +1,0 @@
-INVARIANT: unit binary (1 -7); levels 1 7 trailpos 7 13 head 11 size 11 level 4
-xdrv-current: /home/hwu/SAT-solving/src/kernel/kernel.cpp:4240: void tactix::kernel_check_invariants(const Kernel&): Assertion `false && "binary clause escaped propagation"' failed.
-timeout: the monitored command dumped core

@@ -1,8 +1,0 @@
-c CNF file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/negative.cnf
-c DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/negative.dsr
-c LSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-recognized-certificate-v2/case-2/negative-forward.lsr
-c Using a STREAMING parsing strategy.
-c Doing FORWARDS proof checking.
-c The CNF formula has 6 clauses and 4 variables.
-c Parsing the CNF took 0.000 secs
-c Checking proof...

@@ -1,8 +1,0 @@
-Fatal error: Number of HT buckets must be positive.
-c CNF file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/known-sat.cnf
-c DSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/known-bad.dsr
-c LSR file path: /home/hwu/SAT-solving/benchmarks/probes/scratch/r401-x20-first-interval-76e1f68b8/off/results/known-bad.lsr
-c Using a STREAMING parsing strategy.
-c Doing FORWARDS proof checking.
-c The CNF formula has 1 clauses and 1 variables.
-c Parsing the CNF took 0.000 secs

@@ -1,5 +1,0 @@
-# AM423 current-source H2 replay
-
-Diagnostic only. `build/am421-hint-release` was built from source commit `d7043567`; the later `b91c5652` changed only documentation/report files. `link.sh` links the frozen AM369 public-API replay driver to these objects and records its SHA-256. `check.sbatch` runs the exact original CNF/action program on hwulab, checks the resulting DSR through both the unchanged no-option route and the diagnostic `--delete-implied-units` route, and records all checker stages and input hashes. No production oracle changes.
-
-Job `1722271` completed `0:0`: the current proof equals the historical parent proof byte-for-byte; no-option backward/forward reject, while both diagnostic option elaborations pass pinned Trestle. See `benchmarks/reports/2026-09-25-am423-current-h2-proof-contract.md`. The exact driver and all run outputs are frozen in `job-1722271.tar.gz` (SHA-256 `2a1ce43cb9281c4c14772d4a03bfd62007e48052ef9465ddc2faff67818d1bc5`). The original CNF/action program and pinned checker binaries remain in the cited AM369 campaign; `out/1722271/inputs.sha256` records their exact hashes.

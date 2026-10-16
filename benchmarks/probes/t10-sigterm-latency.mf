@@ -1,7 +1,0 @@
-prefix-T105-60|pin-t11-c|60
-postfix-T105-60|pin-t10-b|60
-prefix-T105-45|pin-t11-c|45
-postfix-T105-45|pin-t10-b|45
-prefix-T105-30|pin-t11-c|30
-postfix-T105-30|pin-t10-b|30
-identity-postfix|pin-t10-b|none

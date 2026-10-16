@@ -1,1 +1,0 @@
-PASS: four independently original-CNF RUP checked tuples;12 off-diagonal models; no AND converse/cover AMO; missing implication/OR/domain/cover rejection; original/binary/transitive duplicate suppression; original occurrence IDs; checker witness tampering/work; EOF/hash/byte/query/wall/memory bounds

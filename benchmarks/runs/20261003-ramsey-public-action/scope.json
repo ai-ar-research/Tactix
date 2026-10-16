@@ -1,6 +1,0 @@
-{
-  "older_debug_job": 1747703,
-  "older_candidate_regression": "Rank1\u201350 fails proof cost; candidate not accepted",
-  "source_archive_sha256": "b17b7f914f85ae619fa48b967374373edaad4ac3078957ddeccca92a84a4d018",
-  "scope": "Preserve exact old source before public Ramsey edits. Old immutable binaries untouched. Old Debug live-root postflight will detect intentional source evolution; do not relabel it current-source acceptance. New source requires a fresh full gate. Fuzz owner already instructed to use its frozen source archive, not mutable headers."
-}

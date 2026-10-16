@@ -1,21 +1,0 @@
-=== battleship ARR bound-OFF (bisect: if fast, bound coupling is the culprit) ===
-s SATISFIABLE
-WALL 197.99 s
-=== battleship ARR composite-OFF ===
-s SATISFIABLE
-WALL 1.34 s
-=== mod4block ARR w/ retry fix (was 54.5; target ~24) ===
-c conflicts   1684324
-c otfs        34399 strengthened (1409 conflicts subsumed)
-c bve         0 rounds, 34 eliminated, 3531381 resolutions
-s SATISFIABLE
-WALL 54.45 s
-=== mp1 ARR w/ retry fix (must hold ~5.3) + PROOF CHECK ===
-c conflicts   178335
-c otfs        417 strengthened (13 conflicts subsumed)
-c factor      718 factorings
-c bve         0 rounds, 120 eliminated, 286684 resolutions
-s UNSATISFIABLE
-WALL 5.48 s
-s VERIFIED
-c verification time: 15.152 seconds

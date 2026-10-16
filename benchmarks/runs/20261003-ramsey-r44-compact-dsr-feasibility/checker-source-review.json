@@ -1,8 +1,0 @@
-{
-  "dsr_binary_matches_authority": true,
-  "compress_matches_authority": true,
-  "dsr_patch_matches_authority": true,
-  "trestle_commit": "03ac9418bc23d345fe0111533c198e8903362ed6",
-  "trestle_diff_matches_maintained_patch": true,
-  "trestle_binary_sha256": "19bf79f49e293bb0df82b1e4ec82ec45987c2791864598bada12525ef41a2945"
-}
