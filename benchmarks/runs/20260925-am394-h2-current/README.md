@@ -1,9 +1,0 @@
-# AM394 current-source H2 diagnostic
-
-Purpose: replay the exact AM369 H2 public-API action program without X5 against current pushed commit `c58c1f68e5e8245f9b2900ccc750811d273ce0fd`, then compare frozen no-option and `--delete-implied-units` native DSR checker outcomes. The driver is built from the historical frozen C source against current `build/am392-online-api-release` object files; `driver.sha256` pins its executable before SLURM submission. The job runs only this 21-variable original CNF, on `cpu-dense-hwulab-q`, 2 CPUs, 8 GiB, 20 minutes, without a node constraint. It is a diagnostic, not a production checker-contract change or N2 acceptance.
-
-Current source, frozen checker pins, original CNF/action program, checker spelling, emitted proof, checker outputs, and Trestle result are retained here. An expected no-option rejection is recorded, not hidden as a passing proof.
-
-First job `1720164` confirmed byte-identical current/parent DSR and the no-option rejection, but its script incorrectly passed binary LSR directly to Trestle; Trestle reported `s INVALID` on that unreadable input and the job failed. The corrected rerun decodes the LSR with the frozen `dsr-compress` first. Preserve the first logs as a harness diagnostic, not a proof verdict.
-
-Corrected job `1720167` completed 0: current DSR SHA-256 `1327bb08a0fbde95a662bbb299921d87549546e309f47c9aa54e4b4a46f46889` equals the historical parent proof byte-for-byte; forward no-option `dsr-trim` exits 1 at line 15, while forward `--delete-implied-units` exits 0 and decoded LSR passes pinned Trestle (`s VERIFIED UNSAT`). Separate checker-only commands on the same frozen artifact reproduce backward no-option exit 1 at line 18 (`Clause 60 not in watch pointers for literal 22`) and backward deletion-aware exit 0 with decoded LSR accepted by Trestle. This is a route comparison, not a production route change.

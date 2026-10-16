@@ -1,3 +1,0 @@
-tierB|b22_1|900
-tierB|mp1-klieber2017s-0500-023-t12|900
-tierB|mod4block_2vars_10gates_u2_autoenc-sc2009|900

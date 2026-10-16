@@ -1,6 +1,0 @@
-Verified 1183 original/staged inputs
-Traceback (most recent call last):
-  File "/home/hwu/SAT-solving/benchmarks/runs/20261002-shared-policy-staged-repair-v3-7e2c5eb1/run.py", line 71, in <module>
-    assert all((k+'=') not in metadata for k in keys) if arm=='repaired' else all((k+'=') in metadata for k in keys)
-AssertionError
-Verified 1183 original/staged inputs

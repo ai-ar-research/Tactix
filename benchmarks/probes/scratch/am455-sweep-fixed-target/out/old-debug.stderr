@@ -1,1 +1,0 @@
-tactix: /home/hwu/SAT-solving/benchmarks/runs/20260925-am444-sweep-core-target-claude-fuzz/src/src/proof/proof.cpp:234: void tactix::Proof::add_rup(uint64_t, const tactix::Lit*, uint32_t, const uint64_t*, uint32_t): Assertion `!(format_ == ProofFormat::Lrat && size > 0 && nchain == 0)' failed.

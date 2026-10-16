@@ -1,7 +1,0 @@
-c CNF file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/case-00/negative-check/checker.cnf
-c DSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/case-00/negative.dsr
-c LSR file path: /home/hwu/SAT-solving/benchmarks/runs/20261003-ramsey-r44-compact-dsr-feasibility/case-00/negative-check/proof.lsr
-c Using an EAGER parsing strategy.
-c Doing BACKWARDS proof checking.
-c The CNF formula has 1 clauses and 1 variables.
-c Parsing the CNF took 0.000 secs

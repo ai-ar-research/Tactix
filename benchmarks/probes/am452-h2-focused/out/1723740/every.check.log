@@ -1,7 +1,0 @@
-FAIL: every-lemma:srcheck did not verify /home/hwu/SAT-solving/benchmarks/probes/am452-h2-focused/out/1723740/candidate.dsr
-c Error or invalid proof
-s INVALID
-
-Parsing formula with 89 variables, 379 clauses
-Parsed formula
-

@@ -1,6 +1,0 @@
-{
-  "job": 1752234,
-  "submitted_at_utc": "2026-10-07T07:01:34.948510+00:00",
-  "manifest_sha256": "6a1b06a70cff7bcf77310078cd954ff1cf45fae62cdfa1fcd6e1190fac0c2fce",
-  "scope": "matched public C15 native-consumption diagnostic; not recovery or performance"
-}

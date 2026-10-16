@@ -1,7 +1,0 @@
-{
-  "job_id": "1674055",
-  "manifest_sha256": "023677676c7bd8a34e89bdfb5eb7bacc1575bedbabd8513dd3c3ebf32c7ba31a",
-  "command": "sbatch --parsable benchmarks/runs/20260908-5836-forward-admission-BC-gate/array.sbatch",
-  "scope": "Separate B28+C5 production/candidate gate;66 tasks,12CPU/48000MiB,1200s solver,16000s checker,5h allocation.",
-  "continuation": "Pending checks permit provisional development,not acceptance;no existing campaign changed."
-}

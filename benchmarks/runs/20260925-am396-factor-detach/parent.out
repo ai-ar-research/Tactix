@@ -1,1 +1,0 @@
-test_factor-parent: /home/hwu/SAT-solving/tests/test_factor.cpp:220: void test_factor_extension_between_heuristics_attachments(): Assertion `k.compact_import_order == std::vector<Var>({0, 1, 2, 3, 4, 5})' failed.

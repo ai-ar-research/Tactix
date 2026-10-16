@@ -1,8 +1,0 @@
-term|veer_axi_yosyshq_appnote_123_veer_axi-p23_transition|tierB|pin-v4poll|300|
-ab|veer_axi_yosyshq_appnote_123_veer_axi-p23_transition|tierB|pin-v4poll|300|TACTIX_TRANSITIVE_LIVE_METER=0
-ab|b22_1|tierB|pin-v4poll|300|
-ab|b22_1|tierB|pin-v4poll|300|TACTIX_TRANSITIVE_LIVE_METER=0
-ab|9vliw_bp_mc.shuffled|tierB|pin-v4poll|300|
-ab|9vliw_bp_mc.shuffled|tierB|pin-v4poll|300|TACTIX_TRANSITIVE_LIVE_METER=0
-ab|sted5_0x24204-50|tierB|pin-v4poll|300|
-ab|sted5_0x24204-50|tierB|pin-v4poll|300|TACTIX_TRANSITIVE_LIVE_METER=0

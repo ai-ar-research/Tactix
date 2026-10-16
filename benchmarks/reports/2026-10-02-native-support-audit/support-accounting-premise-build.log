@@ -1,5 +1,0 @@
-[  0%] Built target tactix_symmetry_backend
-[100%] Built target tactix_lib
-[100%] Building CXX object tests/CMakeFiles/test_native_policy_feedback.dir/test_native_policy_feedback.cpp.o
-[100%] Linking CXX executable test_native_policy_feedback
-[100%] Built target test_native_policy_feedback

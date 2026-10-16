@@ -1,4 +1,0 @@
-pre-wrap|DecompressReader_read_12|tierB|pin-tb4b|18837576|120
-post-wrap|DecompressReader_read_12|tierB|pin-facablate|18837576|120
-pre-ctl|DecompressReader_read_12|tierB|pin-tb4b|6|120
-post-ctl|DecompressReader_read_12|tierB|pin-facablate|6|120

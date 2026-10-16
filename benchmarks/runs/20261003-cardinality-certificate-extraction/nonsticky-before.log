@@ -1,1 +1,0 @@
-test-reject-once: tests/test_cardinality_certificate.cpp:109: void failure_controls(): Assertion `!engine.validate_clause({1,2},root)' failed.

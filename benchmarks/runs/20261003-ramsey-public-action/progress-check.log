@@ -1,4 +1,0 @@
-  note  build dirs newer than newest source: pin-ramsey-public-2742130e-debug-01(?)  (total pin-* dirs: 125)
-  note  newest completed tier run: 20260926-163543-B-am466-split-paired
-  WARN  no jobs queued, but PROGRESS does not say NOTHING IN FLIGHT — the anchor may list stale job ids
-check-progress: 0 error(s), 1 warning(s)

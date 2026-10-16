@@ -1,7 +1,0 @@
-pilot.py: OK
-snapshot/anonymous_scratch.py: OK
-snapshot/proof_oracle.py: OK
-snapshot/runtime_task.py: OK
-Filesystem        1B-blocks        Used    Available Use% Mounted on
-/dev/sda3      462588203008 53737631744 408850571264  12% /
-PASS {"colocated_all_admitted": true, "colocated_distinct_slots": true, "largest_stopped": true, "others_complete": true, "storage_returned": true}

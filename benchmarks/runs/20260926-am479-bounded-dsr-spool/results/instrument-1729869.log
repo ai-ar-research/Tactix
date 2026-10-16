@@ -1,9 +1,0 @@
-AM478 proof backend: flushes=179832 splits=177233 units=357068 deferred_del=354466 tempfiles=177233 flush_ms=9188.175
-c timing      24531 ms solve
-c timing      22368 ms (91.2%) inprocessing slot, 2163 ms (8.8%) search+scaffolding outside it
-c phasecost   structured 2186 ms, entry 0 ms, dense-connect 94 ms, slot-loop 20086 ms, exit 0 ms
-c timing        Congruence           20075 ms ( 81.8%) in 1 applications
-c timing        Lucky                    0 ms (  0.0%) in 1 applications
-c timing        (unattributed)        2293 ms (  9.3%)
-s UNSATISFIABLE
-c794f8d973045fecd759d3b64fade0e7e42a9bcc1eeaaa3d156a9ec9303620f8  /tmp/am478-instr-GNdnHl/proof.dsr

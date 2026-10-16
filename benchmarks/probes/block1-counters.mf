@@ -1,8 +1,0 @@
-9vliw_bp_mc.shuffled|tierB|pin-block1-counters|300
-sted5_0x24204-50|tierB|pin-block1-counters|300
-b22_1|tierB|pin-block1-counters|300
-veer_axi_yosyshq_appnote_123_veer_axi-p23_transition|tierB|pin-block1-counters|300
-DivS_862_11.cnf.sanitized|tierB|pin-block1-counters|300
-PRP_30_38|tierB|pin-block1-counters|300
-qwh.50.1250.shuffled-as.sat03-1655|tierB|pin-block1-counters|300
-2013113162201nw.shuffled-as.sat03-1668|tierB|pin-block1-counters|300

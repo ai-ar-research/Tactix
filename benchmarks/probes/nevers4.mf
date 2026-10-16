@@ -1,4 +1,0 @@
-rx-bothon|or_randxor_k3_n540_m540|300|bothon
-fq-bothon|unsat-set-b-fclqcolor-10-07-09|300|bothon
-ctx-bothon|ContextModel_output_7_3_9|1200|bothon
-nb5-bothon|mp1-Nb5T15|1200|bothon

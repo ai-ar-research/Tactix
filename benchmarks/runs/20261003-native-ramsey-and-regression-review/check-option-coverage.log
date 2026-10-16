@@ -1,6 +1,0 @@
-  ok    kissat  161 options  ·  cadical 257
-  ok    dismissed  83 (roster, parsed from §13.6)
-  ok    carried   125 (23 roster entries, anchors re-checked)
-  ok    cited     208 (named in the ledger corpus)
-  ok    exempt      2 (named in EXEMPT, with a reason)
-check-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)

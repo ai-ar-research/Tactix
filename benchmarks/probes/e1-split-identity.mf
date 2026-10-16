@@ -1,8 +1,0 @@
-base|9vliw_bp_mc.shuffled|tierB|pin-e1-base|300
-split|9vliw_bp_mc.shuffled|tierB|pin-e1-split|300
-base|FmlaEquivChain_4_6_6|tierB|pin-e1-base|300
-split|FmlaEquivChain_4_6_6|tierB|pin-e1-split|300
-base|b22_1|tierB|pin-e1-base|300
-split|b22_1|tierB|pin-e1-split|300
-base|sted5_0x24204-50|tierB|pin-e1-base|300
-split|sted5_0x24204-50|tierB|pin-e1-split|300

@@ -1,6 +1,0 @@
-pre|9vliw_bp_mc.shuffled|tierB|pin-a1|300|0
-post|9vliw_bp_mc.shuffled|tierB|pin-merged|300|0
-pre|sted5_0x24204-50|tierB|pin-a1|300|0
-post|sted5_0x24204-50|tierB|pin-merged|300|0
-pre|b22_1|tierB|pin-a1|300|0
-post|b22_1|tierB|pin-merged|300|0

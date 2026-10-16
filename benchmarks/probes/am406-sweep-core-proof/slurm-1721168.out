@@ -1,2 +1,0 @@
-test_sweep: /home/hwu/SAT-solving/tests/test_sweep.cpp:481: void {anonymous}::test_brute_force_oracle(uint32_t): Assertion `envs > 0' failed.
-/cm/local/apps/slurm/var/spool/job1721168/slurm_script: line 4: 3703613 Aborted                 (core dumped) build/am406-sweep-test/tests/test_sweep 0

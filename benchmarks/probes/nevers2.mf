@@ -1,6 +1,0 @@
-rx-ship-tm|or_randxor_k3_n540_m540|60|shipped-tm
-rx-facon-tm|or_randxor_k3_n540_m540|60|facon-tm
-fq-ship-tm|unsat-set-b-fclqcolor-10-07-09|60|shipped-tm
-fq-facon-tm|unsat-set-b-fclqcolor-10-07-09|60|facon-tm
-ctx-ship-tm|ContextModel_output_7_3_9|60|shipped-tm
-nb5-ship-tm|mp1-Nb5T15|60|shipped-tm

@@ -1,9 +1,0 @@
-Traceback (most recent call last):
-  File "/home/hwu/SAT-solving/build/compare-heuristic-lifecycle.py", line 47, in <module>
-    control_output = run([str(binary)], root)
-  File "/home/hwu/SAT-solving/build/compare-heuristic-lifecycle.py", line 21, in run
-    raise RuntimeError(f'{args[0]} failed ({result.returncode}):\n{result.stdout}\n{result.stderr}')
-RuntimeError: /home/hwu/SAT-solving/build/shared-policy-prep-debug/heuristic-lifecycle-control/control failed (-6):
-
-control: /home/hwu/SAT-solving/src/policies/heuristics.cpp:1046: void tactix::heuristics_check(const Kernel&): Assertion `k.saved_phases == &k.h->saved' failed.
-

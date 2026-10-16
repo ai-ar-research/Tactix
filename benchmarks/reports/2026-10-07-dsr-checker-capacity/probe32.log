@@ -1,2 +1,0 @@
-sizeof_srid=4 input=715827883
-/home/hwu/SAT-solving/benchmarks/runs/20261007-dsr-capacity-long-audit-r3/probe.c:9:3: runtime error: signed integer overflow: 715827883 * 3 cannot be represented in type 'int'

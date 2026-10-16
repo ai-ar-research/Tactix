@@ -1,7 +1,0 @@
-sanity|tierB|mod4block_2vars_10gates_u2_autoenc|300|default
-ctx-base|tierC|ContextModel_output_7_3_9|1200|broad
-ctx-nerb|tierC|ContextModel_output_7_3_9|1200|broad-nerb
-jgi-base|tierC|jgiraldezlevy.2200.9086|1200|broad
-jgi-nerb|tierC|jgiraldezlevy.2200.9086|1200|broad-nerb
-sted5-base|tierB|sted5_0x24204-50|600|broad
-sted5-nerb|tierB|sted5_0x24204-50|600|broad-nerb

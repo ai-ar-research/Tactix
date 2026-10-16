@@ -1,5 +1,0 @@
-solver exit=20 wall=387s verdict=s UNSATISFIABLE
--rw-r----- 1 hwu hwu 2078351730 Jul 27 02:31 /tmp/urq45-IslX/p.lrat
-== cake_lpr
-s VERIFIED UNSAT
-cake_lpr exit=0 wall=77s

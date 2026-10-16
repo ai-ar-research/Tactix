@@ -1,7 +1,0 @@
-{
-  "job_id": "1674056",
-  "manifest_sha256": "0853626e9fc95b2d157c0fd67b173af0cbb9b43db403e344422b5ea6eabffc24",
-  "command": "sbatch --parsable benchmarks/runs/20260908-5837-forward-admission-rank32-prefix/array.sbatch",
-  "scope": "Candidate-only300K causal diagnostic;complete stream from0;cached native early/suffix controls,no Kissat rerun.",
-  "watcher": "python3 tools/slurm/wait.py --job 1674056"
-}

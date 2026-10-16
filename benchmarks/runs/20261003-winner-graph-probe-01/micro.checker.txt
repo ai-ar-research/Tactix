@@ -1,1 +1,0 @@
-checkmodel: OK — 35 clauses satisfied, 16 vars assigned

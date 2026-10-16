@@ -1,9 +1,0 @@
-....
-----------------------------------------------------------------------
-Ran 4 tests in 0.014s
-
-OK
-                             [--dsr-checker-profile {frozen,long64,long64-fixed}]
-  --dsr-checker-profile {frozen,long64,long64-fixed}
-                        long64-fixed selects its source-backed deleted-clause
-experimental_tierd.py: error: argument --dsr-checker-profile: invalid choice: 'not-a-profile' (choose from 'frozen', 'long64', 'long64-fixed')

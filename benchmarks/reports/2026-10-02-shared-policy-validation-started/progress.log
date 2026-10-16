@@ -1,4 +1,0 @@
-  note  build dirs newer than newest source: pin-shared-policy-feedback-debug-0531c2f1(Debug), pin-shared-policy-feedback-release-0531c2f1(Release)  (total pin-* dirs: 74)
-  note  newest completed tier run: 20260926-163543-B-am466-split-paired
-  WARN  no jobs queued, but PROGRESS does not say NOTHING IN FLIGHT — the anchor may list stale job ids
-check-progress: 0 error(s), 1 warning(s)

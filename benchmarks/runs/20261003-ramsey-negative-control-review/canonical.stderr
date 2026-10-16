@@ -1,2 +1,0 @@
-Error: Could not derive the empty clause during backwards checking.
-If the proof is instead a proof of equisatisfiability or a proof of symmetry breaking, use forwards checking (-f).

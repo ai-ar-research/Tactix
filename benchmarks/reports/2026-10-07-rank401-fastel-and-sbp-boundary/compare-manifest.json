@@ -1,8 +1,0 @@
-{
-  "scope": "offline canonical clause/root/queue comparison of immutable snapshot1754599",
-  "job": "1754600",
-  "wrappers": {
-    "compare.py": "311d7a8ecb56c454a489f9ca87ff0d1ad5edf54acce7123f4800ac43da5b22fb",
-    "compare.sbatch": "358c01ec88698a91d3bab3cbd416dfa89df8734b92c381ab69904de575c74b20"
-  }
-}

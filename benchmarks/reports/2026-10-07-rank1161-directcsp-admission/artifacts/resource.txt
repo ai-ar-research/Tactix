@@ -1,2 +1,0 @@
-wall_seconds=6.44
-peak_rss_kb=116724

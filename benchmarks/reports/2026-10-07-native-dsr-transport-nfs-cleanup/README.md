@@ -1,9 +1,0 @@
-# Native transport NFS cleanup repair
-
-Claude owner7f64c8ea rejected the prior cleanup repair on shared NFS: delayed `.nfs` unlink completion left a staging directory and could replace a pipeline deadline with `ENOTEMPTY`. Its frozen disposition and bounded reproducer remain at `benchmarks/runs/20261007-native-transport-claude-oracle-owner/requalification/`. Proof/routing controls passed; this was storage/error handling, not an accepted proof failure.
-
-The managing oracle now removes only its own unique staging directory with the existing repository NFS retry policy (20 attempts; initial50ms, doubling to at most2s). It retries EBUSY, ENOTEMPTY and disappearing-child ENOENT; a missing child does not imply the parent is gone. Other errors fail immediately. A persistent cleanup error remains visible as the cause of the original deadline/interrupt, preserving that primary exception. Cleanup may extend failure-return latency by at most29.15s of retry waits; it does not extend solver/proof acceptance limits. Anonymous outputs and the native converter/checkers are unchanged.
-
-Final frozen Slurm1754454 passes11 native suites and92 protocol tests in each Release/ASan/UBSan arm, zero skips. Each arm also passes60 executions of Claude's unmodified NFS kill reproducer: child killed during output, original destination intact, no staging residue. Deterministic tests cover the disappearing-child race, nontransient failure, bounded retries, deadline preservation and isolation from another conversion. Exact identities are in gate.json. The preceding1754441 also passed, but final source additionally handles ENOENT correctly.
-
-Claude owner74798d4f independently requalifies the affected NFS, concurrency, routing/deadline and native-reach paths using these immutable inputs. Its terminal acceptance is pending. Prior standalone-publication and managing-process-SIGKILL limitations remain disclosed. No instance closure or cumulative solver acceptance is claimed.
