@@ -10,6 +10,7 @@
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "policies/strategy_settings.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
@@ -60,6 +61,8 @@ using namespace tactix;
 
 struct tactix_solver {
   Kernel kernel;
+  // Named settings of the default strategy (tactix_set_default_option).
+  StrategySettings default_options;
   Heuristics heuristics; // the session owns H, Kernel holds a non-owning
                          // pointer. Outlives every solve(), so tactix_decide
                          // before any solve still has an H.
@@ -2364,6 +2367,19 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   return 0;
 }
 
+int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
+  if (!s || !name || std::strncmp(name, "TACTIX_", 7) != 0) return -1;
+  auto &options = s->default_options;
+  for (auto it = options.begin(); it != options.end(); ++it)
+    if (it->first == name) {
+      if (value) it->second = value;
+      else options.erase(it);
+      return 0;
+    }
+  if (value) options.emplace_back(name, value);
+  return 0;
+}
+
 void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
   s->kernel.bve_gate_mask = mask;
   external_state_change(s);
@@ -2487,7 +2503,11 @@ int tactix_solve(tactix_solver *s) {
     if (s->phase.occurrences_open()) (void)leave_phase(s);
     else s->phase.exit_terminal(s->kernel);
   }
-  const int r = default_solve(s->kernel);
+  int r;
+  {
+    ScopedStrategySettings settings(&s->default_options);
+    r = default_solve(s->kernel);
+  }
   rule_journal_flush();
   external_state_change(s);
   if (r == 10)

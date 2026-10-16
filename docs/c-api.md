@@ -226,6 +226,21 @@ conflict, it first restarts to level 0. Learned clauses, root-level
 assignments and simplifications made by earlier actions are kept. The C
 interface has no way to interrupt `tactix_solve` or give it a time limit.
 
+The default strategy's settings can be chosen per session:
+
+```c
+tactix_set_default_option(s, "TACTIX_FORCE_MODE", "stable");
+tactix_set_default_option(s, "TACTIX_SLOT_DISABLE", "Backbone");
+```
+
+The names and values are the `TACTIX_*` settings that the command line reads
+from the environment (listed in [cli.md](cli.md#environment-variables)); a
+session's setting takes precedence over the environment while it solves, and
+a `NULL` value removes it. This is how a strategy that hands over to
+`tactix_solve` after its own opening tailors the rest of the search; the
+cruxmiter strategy in `examples/cruxmiter_policy.c` does so with its
+`--default-option=NAME=VALUE` flag.
+
 ### Status and model
 
 `tactix_status(s)` returns 0 while the answer is unknown, 10 when the current

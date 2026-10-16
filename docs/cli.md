@@ -516,7 +516,7 @@ requests. It handles SIGINT, SIGTERM and SIGXCPU like `tactix`. It has no
 ### tactix-cruxmiter-policy
 
 ```
-build/release/examples/tactix-cruxmiter-policy [--profile=NAME] [--drat] <cnf> [proof]
+build/release/examples/tactix-cruxmiter-policy [--profile=NAME] [--default-option=NAME=VALUE]... [--drat] <cnf> [proof]
 ```
 
 A strategy for multiplier-equivalence miters. In the default profile, `full`,
@@ -536,6 +536,13 @@ substitution pass, and hands the formula to the default strategy.
   `backbone-symmetry`, `backbone-symmetry-scan`, `symmetry-sandwich`, `sweep`,
   `deep-sweep`, `bdd-bve`, `kissat-order`, `kissat-order-negative`. The
   `input-*` profiles require the size-32 cruxmiter formula (570 variables).
+- `--default-option=NAME=VALUE` (repeatable) sets a `TACTIX_*` setting of the
+  default strategy that the program hands over to, through
+  `tactix_set_default_option` in the C interface. The paper's configuration is
+  `--profile=backbone` with `TACTIX_FORCE_MODE=stable`, `TACTIX_REORDER=0`,
+  `TACTIX_NO_BVE=1`, `TACTIX_CONFLICT_REUSE=0`,
+  `TACTIX_SLOT_PERMILLE=Vivify:200`, `TACTIX_NO_FACTOR=1`, `TACTIX_NO_SWEEP=1`
+  and `TACTIX_SLOT_DISABLE=Backbone` (see `paper/run/experiments.py`).
 - A line `c cruxmiter-policy profile=...` records the profile in use.
 - Schedule details can be adjusted with `TACTIX_CRUX_*` environment variables
   (`TACTIX_CRUX_RELUCTANT_PERIOD`, `TACTIX_CRUX_REDUCE_INTERVAL`,

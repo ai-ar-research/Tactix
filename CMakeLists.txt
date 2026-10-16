@@ -67,6 +67,7 @@ add_library(tactix_lib OBJECT
   src/engine/subsolver_proof_export.cpp
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
+  src/policies/strategy_settings.cpp
   src/policies/structured_root_strategy.cpp
   src/policies/random_policy.cpp
   src/policies/random_controller_policy.cpp
