@@ -457,14 +457,25 @@ def main() -> None:
     plan_path.write_text(json.dumps(tasks, indent=1) + "\n")
     print(f"{args.experiment}: {len(tasks)} tasks -> {directory}")
     if args.command == "run":
+        failed = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
             futures = {pool.submit(run_task, t, args.out, i): t for i, t in enumerate(tasks)}
             for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
-                record = future.result()
+                task = futures[future]
+                name = Path(task["instance"]).name[:48]
+                try:
+                    record = future.result()
+                except Exception as error:  # reported; not recorded, so a rerun retries it
+                    failed += 1
+                    print(f"[{done}/{len(tasks)}] {task['configuration']:24} {name:48} ERROR   {error}",
+                          flush=True)
+                    continue
                 check = (record.get("check") or {}).get("result", "")
-                print(f"[{done}/{len(tasks)}] {record['configuration']:24} {Path(record['instance']).name[:48]:48} "
+                print(f"[{done}/{len(tasks)}] {record['configuration']:24} {name:48} "
                       f"{record['verdict']:7} {record['solve']['wall_seconds']:9.2f} s {check}", flush=True)
         collect(args.out)
+        if failed:
+            sys.exit(f"{failed} task(s) failed to run; rerun the same command to retry them")
         return
     # slurm: one array task per (configuration, instance); full width
     limits = tasks[0]["limits"]
