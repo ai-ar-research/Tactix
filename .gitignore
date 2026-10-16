@@ -125,3 +125,5 @@ adversarial-review/
 /docs/winner-integration-plan.md
 /docs/semantic-extension-foundations.md
 /tools/solvers/variants/
+/docs/development-map.md
+/tools/fuzz/slurm-*.log

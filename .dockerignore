@@ -1,0 +1,20 @@
+# Keep the image to the repository itself (git history is needed to build
+# the paper-* tags); leave out local builds, caches and reference clones.
+build/
+benchmarks/
+winners/
+kissat/
+cadical/
+drat-trim/
+cake_lpr/
+dsr-trim/
+dsr-trim-sr/
+trestle/
+minisat/
+glucose/
+report-to-andrew/
+paper/run/tools/
+paper/run/instances/
+paper/run/results/
+paper/figures/
+.claude/worktrees/
