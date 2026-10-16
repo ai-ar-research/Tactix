@@ -20,6 +20,8 @@ TOOLS="$ROOT/paper/run/tools"
 BIN="$TOOLS/bin"
 SOLVERS="$TOOLS/solvers"
 JOBS="${JOBS:-$(nproc)}"
+# Several third-party builds declare CMake minimums that CMake 4 rejects.
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
 mkdir -p "$BIN" "$SOLVERS"
 
 SR2DRAT_URL=https://github.com/marijnheule/sr2drat
@@ -72,8 +74,13 @@ winners () {
 references () {
     winners
     echo "== Kissat 4.0.4 =="
-    "$ROOT/tools/solvers/setup.sh" >/dev/null
-    ln -sf "$(readlink -f "$ROOT/tools/solvers/bin/kissat")" "$SOLVERS/kissat-4.0.4"
+    local k4="$TOOLS/src/kissat-4.0.4"
+    if [ ! -x "$k4/build/kissat" ]; then
+        rm -rf "$k4"
+        git clone -q --depth 1 --branch rel-4.0.4 https://github.com/arminbiere/kissat.git "$k4"
+        (cd "$k4" && ./configure >/dev/null && make -j"$JOBS" kissat >/dev/null)
+    fi
+    ln -sf "$k4/build/kissat" "$SOLVERS/kissat-4.0.4"
 
     echo "== Kissat-sc2024 =="
     local k="$ROOT/winners/kissat-sc2024"

@@ -65,7 +65,7 @@ ln -sf "$ROOT/minisat/build/release/bin/minisat" "$BIN/minisat"
 echo "== glucose $GLUCOSE_TAG (T2 baseline) =="
 clone_at_tag glucose https://github.com/audemard/glucose.git "$GLUCOSE_TAG"
 if [ ! -x "$ROOT/glucose/build/glucose-simp" ]; then
-    (cd "$ROOT/glucose" && cmake -B build -DCMAKE_BUILD_TYPE=Release &&
+    (cd "$ROOT/glucose" && cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 &&
      cmake --build build -j"$(getconf _NPROCESSORS_ONLN)" --target glucose-simp)
 fi
 ln -sf "$ROOT/glucose/build/glucose-simp" "$BIN/glucose"
