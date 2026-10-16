@@ -12,7 +12,19 @@ in a few seconds.
 | `chvatal-6.cnf` | UNSAT | A Chvátal-conjecture formula (case n = 6) with duplicated totalizers; input for `tactix-chvatal-policy`. |
 
 `generate.py` regenerates the first three files. The last two are instances
-of the families studied in the paper.
+of the families studied in the paper:
+
+- `cruxmiter20seed0.cnf` belongs to the `cruxmiter` multiplier-verification
+  family introduced in D. Kaufmann, M. Kauers, A. Biere, D. Cok, *Arithmetic
+  Verification Problems Submitted to the SAT Race 2019*, building on
+  D. Ritirc, A. Biere, M. Kauers, *Column-Wise Verification of Multipliers
+  Using Computer Algebra*, FMCAD 2017.
+- `chvatal-6.cnf` is a Chvátal-conjecture formula from the encoding of
+  J. Looney et al., *Solution Space Partitioning for Extremal Set Theory*,
+  FMCAD 2026.
+
+The cruxmiter and Chvátal formulas of the paper's experiments are in
+`paper/benchmarks/`, from the same sources.
 
 ## Try them
 
