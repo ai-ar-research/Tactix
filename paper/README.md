@@ -9,7 +9,7 @@ There are three levels of reproduction:
 | Level | What it does | Time |
 |---|---|---|
 | 1. Analysis | Regenerate every table and figure from the archived logs | seconds |
-| 2. Smoke test and reduced evaluation | Run the solvers and checkers on small instances and on a reduced instance set of each experiment | ~15 minutes / a few hours |
+| 2. Smoke test and reduced evaluation | Run the solvers and checkers on small instances and on a reduced instance set of each experiment | seconds / about two hours |
 | 3. Full evaluation | Rerun all experiments | thousands of CPU-hours; needs a cluster |
 
 ## Contents
@@ -47,8 +47,9 @@ paper/
 - **Level 1:** Python 3.9+ with matplotlib, and `xz`. Nothing else.
 - **Levels 2–3:** Linux on x86-64 and either Docker (or Apptainer), or an
   Ubuntu 24.04 machine with the packages from `install-deps.sh`. Building
-  everything takes about an hour and 10 GB of disk; it downloads the solver and
-  checker sources. The reduced evaluation needs 4 cores and 16 GB of memory.
+  everything takes about 20 minutes on 16 cores (longer on fewer) and 10 GB of
+  disk; it downloads the solver and checker sources. The reduced evaluation
+  needs 4 cores and 16 GB of memory.
   The paper's experiments used 4–12 cores and 16–48 GB per run (listed by
   `paper/run/bench.py list`).
 
@@ -92,11 +93,11 @@ The reduced evaluation runs each experiment on its subset in
 
 ```sh
 B=paper/run/bench.py
-$B run tierd      --subset short --jobs 4   # 30 formulas x 6 solvers
-$B run milestones --subset short --jobs 4   # the same 30 formulas x 6 Tactix versions
-$B run interface  --subset short --no-check # Tier A and fast regression instances, sequential for timing
-$B run cruxmiter  --subset short --jobs 3   # seed 7
-$B run chvatal    --subset short --jobs 4   # 3 formulas x 5 configurations
+$B run tierd      --subset short --jobs 4   # 30 formulas x 6 solvers            ~15 min
+$B run milestones --subset short --jobs 4   # 30 formulas x 6 Tactix versions    ~20 min
+$B run interface  --subset short --no-check # 333 formulas x 2, sequential       ~20 min
+$B run cruxmiter  --subset short --jobs 3   # seed 7 x 3 configurations          ~15 min
+$B run chvatal    --subset short --jobs 4   # 3 formulas x 5 configurations      ~40 min
 make -C paper LOGS=run/results DATA=run/results/data FIGURES=run/results/figures data figures report
 ```
 
