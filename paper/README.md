@@ -146,9 +146,19 @@ record the exact binaries (`logs/*/raw/*/manifest.json`).
   verified both certificates, and the paper uses the rechecked outcome.
 - **Commits.** Each Tactix configuration was built from a commit tagged
   `paper-*` in this repository (`git tag -l 'paper-*'`; `run/experiments.py`
-  lists them). The cruxmiter strategy was run with the environment settings
-  listed in `run/experiments.py`, which configure the built-in default
-  strategy it hands over to.
+  lists them).
+- **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
+  drives its opening through `tactix.h` and then hands over to the built-in
+  default strategy. In the paper's runs that default strategy was configured
+  with nine `TACTIX_*` environment settings (stable mode, inprocessing limited
+  to vivification); `run/experiments.py` lists them, and `bench.py` sets them
+  exactly as the paper's runs did. These settings are not part of the C
+  interface.
+- **Tested environments.** The complete pipeline (setup, smoke test, reduced
+  evaluation, analysis) was run from a fresh clone on Rocky Linux 9 with
+  GCC 13 and CMake 4, and the container recipe was built and run with
+  Apptainer from the same Ubuntu 24.04 base as the Dockerfile, which shares
+  its installation script.
 - **Reference solvers** are built from their SAT Competition sources
   (`tools/solvers/fetch-winners.sh` records the URLs and archive hashes).
   LymphoSAT's competition binaries require an Ice Lake CPU; it is rebuilt for
