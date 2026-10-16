@@ -197,14 +197,20 @@ def _stage_ok(name: str, code, text: str) -> bool:
             "cake_lpr": "s VERIFIED UNSAT" in text,
             "veripb": "s VERIFIED UNSATISFIABLE" in text,
             "cake_pb_cnf": "VERIFIED" in text,
-            "dsr-compress": "ERROR" not in text and "not supported" not in text,
-            "sr2drat": True}[name]
+            "dsr-compress": "ERROR" not in text and "not supported" not in text}[name]
 
 
 def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float,
                    memory_gib: float) -> dict:
     """Check an UNSAT certificate; returns {result, pipeline, wall_seconds, stages}."""
     started = time.monotonic()
+    if kind == "satsuma":  # the verified SR pipeline the paper's runs used for Satsuma
+        from proof_oracle import check_dsr
+        verified, stage, output = check_dsr(BIN / "dsr-trim", BIN / "dsr-compress", BIN / "srcheck",
+                                            cnf, proof, work, seconds)
+        return {"result": "verified" if verified else "not-verified", "pipeline": "satsuma-dsr",
+                "wall_seconds": round(time.monotonic() - started, 3),
+                "failure": None if verified else f"{stage}: {output[-500:]}"}
     if kind == "tactix":
         from proof_oracle import check_routed  # tools/bench/proof_oracle.py
         verified, stage, output, route = check_routed(
@@ -214,14 +220,9 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
         return {"result": "verified" if verified else "not-verified", "pipeline": f"tactix-{route}",
                 "wall_seconds": round(time.monotonic() - started, 3),
                 "failure": None if verified else f"{stage}: {output[-500:]}"}
-    lrat, text_dsr, drat = work / "proof.lrat", work / "proof.text.dsr", work / "proof.drat"
+    lrat = work / "proof.lrat"
     if kind == "drat":
         stages = [("drat-trim", [BIN / "drat-trim", cnf, proof, "-L", lrat], None),
-                  ("cake_lpr", [BIN / "cake_lpr", cnf, lrat], None)]
-    elif kind == "satsuma":
-        stages = [("dsr-compress", [BIN / "satsuma-dsr-compress", "-d", proof, text_dsr], None),
-                  ("sr2drat", [BIN / "sr2drat", cnf, text_dsr], drat),
-                  ("drat-trim", [BIN / "drat-trim", cnf, drat, "-L", lrat], None),
                   ("cake_lpr", [BIN / "cake_lpr", cnf, lrat], None)]
     elif kind == "pbp":
         kernel = work / "proof.kernel.pbp"
@@ -239,7 +240,7 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
         remaining = max(1.0, seconds - (time.monotonic() - started))
         run = measured(command, out, err, remaining, env)
         text = ("" if redirect else out.read_text(errors="replace")) + err.read_text(errors="replace")
-        ok = _stage_ok(name, run["exit_code"], text) and (not redirect or out.stat().st_size > 0)
+        ok = _stage_ok(name, run["exit_code"], text)
         log.append({"name": name, **run, "result": "verified" if ok else "not-verified"})
         if not ok:
             break

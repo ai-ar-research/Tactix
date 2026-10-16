@@ -144,9 +144,10 @@ record the exact binaries (`logs/*/raw/*/manifest.json`).
   (`tools/solvers/fetch-winners.sh` records the URLs and archive hashes).
   LymphoSAT's competition binaries require an Ice Lake CPU; it is rebuilt for
   generic x86-64 without changing its algorithms (`run/build_lymphosat.py`).
-- **Checkers.** drat-trim, CakeLPR, dsr-trim, Trestle, sr2drat, VeriPB and
-  CakePB are built at pinned commits by `tools/checkers/setup.sh` and
-  `run/setup.sh`.
+- **Checkers.** drat-trim, CakeLPR, dsr-trim, Trestle, VeriPB and CakePB are
+  built at pinned commits by `tools/checkers/setup.sh` and `run/setup.sh`.
+  Satsuma's DSR certificates are checked like Tactix's: dsr-trim, then
+  `dsr-compress -d`, then Trestle, the pipeline the paper's runs used for them.
 
 ## Beyond the paper
 

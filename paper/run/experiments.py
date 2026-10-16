@@ -9,7 +9,7 @@ Proof kinds decide how an UNSAT answer is checked:
   tactix   Tactix's own certificate (DSR, DRAT-compatible DSR, or PB), routed by
            its content: dsr-trim + Trestle, drat-trim + CakeLPR, or VeriPB + CakePB
   drat     drat-trim (to LRAT) + CakeLPR
-  satsuma  Satsuma's DSR: decompress, sr2drat, drat-trim + CakeLPR
+  satsuma  Satsuma's DSR: dsr-trim, dsr-compress -d, Trestle
   pbp      VeriPB elaboration + CakePB
   none     no certificate (UNSAT is not checked)
 """

@@ -4,7 +4,7 @@
 # paper/run/tools/; rerunning skips what is already built.
 #
 #   paper/run/setup.sh checkers      drat-trim, cake_lpr, dsr-trim, Trestle,
-#                                    sr2drat, VeriPB, CakePB
+#                                    VeriPB, CakePB
 #   paper/run/setup.sh references    Kissat 4.0.4, Kissat-sc2024, AE-Kissat-MAB,
 #                                    Satsuma+Kissat, LymphoSAT
 #   paper/run/setup.sh tactix [TAG]  Tactix at every paper-* tag (or one tag)
@@ -24,8 +24,6 @@ JOBS="${JOBS:-$(nproc)}"
 export CMAKE_POLICY_VERSION_MINIMUM=3.5
 mkdir -p "$BIN" "$SOLVERS"
 
-SR2DRAT_URL=https://github.com/marijnheule/sr2drat
-SR2DRAT_COMMIT=ca313578e9ce23d37a3950e23a01b098aad5f310
 CAKEPB_URL=https://gitlab.com/MIAOresearch/software/cakepb
 CAKEPB_COMMIT=6edb2f3585f1c3e1b925964c4f33e133f7279d02
 
@@ -46,11 +44,6 @@ checkers () {
         ln -sf "$(readlink -f "$ROOT/tools/checkers/bin/$tool")" "$BIN/$tool"
     done
     ln -sf "$ROOT/tools/fuzz/checkmodel" "$BIN/checkmodel"
-
-    echo "== sr2drat =="
-    fetch_commit "$TOOLS/src/sr2drat" "$SR2DRAT_URL" "$SR2DRAT_COMMIT"
-    make -C "$TOOLS/src/sr2drat" sr2drat >/dev/null
-    ln -sf "$TOOLS/src/sr2drat/sr2drat" "$BIN/sr2drat"
 
     echo "== CakePB =="
     fetch_commit "$TOOLS/src/cakepb" "$CAKEPB_URL" "$CAKEPB_COMMIT"
@@ -99,7 +92,6 @@ references () {
         (cd "$s" && ./build.sh >/dev/null) && touch "$TOOLS/satsuma-kissat.built"
     fi
     ln -sfn "$s" "$SOLVERS/satsuma-kissat"
-    ln -sf "$s/dsr-trim/bin/compress" "$BIN/satsuma-dsr-compress"
 
     echo "== LymphoSAT (portable rebuild) =="
     local l="$ROOT/winners/lymphosat-sc2026/green/lymphosat/src"
