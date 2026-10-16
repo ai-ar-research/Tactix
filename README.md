@@ -54,6 +54,18 @@ build/release/examples/tactix-chvatal-policy formula.cnf proof
 restarts, the default schedule re-implemented outside the library) and
 strategies for binarized-neural-network and random 3-SAT encodings.
 
+## Documentation
+
+[docs/README.md](docs/README.md) indexes the guides: getting started, the
+command line, the C interface with a tutorial, the rule catalogue, and the
+architecture.
+
+## Reproducing the paper
+
+[paper/README.md](paper/README.md) is the artifact of the paper: logs of every
+experiment, scripts that regenerate its tables and figures in seconds, a
+container image, and a runner that repeats the experiments.
+
 ## Layout
 
 ```
@@ -64,6 +76,8 @@ tests/            unit, API, and proof tests (ctest)
 tools/checkers/   proof-checker setup and patches
 tools/fuzz/       fuzzing harness with proof and model oracles
 tools/bench/      benchmark runner and proof-checking script
+paper/            the paper's artifact: logs, analysis scripts, experiment runner
+docs/             user and developer documentation
 third_party/      DejaVu (graph automorphisms for symmetry breaking)
 ```
 
