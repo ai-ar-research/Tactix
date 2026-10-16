@@ -76,7 +76,7 @@ def instances(name: str, spec: dict, set_name: str | None = None) -> list[dict]:
             content_hash, file_name = fields[0], fields[1]
             instance = file_name if file_name.startswith(content_hash) else f"{content_hash}-{file_name}"
             out.append({"set": set_name, "instance": instance, "source": "gbd", "hash": content_hash,
-                        "competition": years.get(content_hash, "")})
+                        "file": file_name, "competition": years.get(content_hash, "")})
     elif kind == "archive":
         for fields in _read_list(Path(spec["list"])):
             out.append({"set": set_name, "instance": fields[0], "source": "archive",
@@ -262,7 +262,8 @@ def plan(name: str, args) -> list[dict]:
         subset = ROOT / "paper/benchmarks/subsets" / f"{name}-{args.subset}.txt"
         keep = {line.strip() for line in subset.read_text().splitlines()
                 if line.strip() and not line.startswith("#")}
-        items = [i for i in items if i["instance"] in keep or Path(i["instance"]).name in keep]
+        items = [i for i in items if i["instance"] in keep or Path(i["instance"]).name in keep
+                 or i.get("file") in keep]
     if getattr(args, "limit", None):
         items = items[:args.limit]
     configurations = list(experiment["configurations"])
