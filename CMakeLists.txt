@@ -25,8 +25,14 @@ add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a
 # narrow, noexcept boundary; the solver core retains its C-style build flags.
+# Tests and examples are built when Tactix is the top-level project; a parent
+# project that adds it with add_subdirectory gets only the solver and library.
+option(TACTIX_BUILD_TESTS "Build the tests and example strategies" ${PROJECT_IS_TOP_LEVEL})
+
 # Bounded certificate transport; the independent checkers still decide validity.
-add_executable(dsr-transport tools/bench/dsr_transport.cpp)
+if(TACTIX_BUILD_TESTS)
+  add_executable(dsr-transport tools/bench/dsr_transport.cpp)
+endif()
 
 add_library(tactix_symmetry_backend STATIC
   src/symmetry_backend/dejavu_backend.cpp)
@@ -120,8 +126,13 @@ tactix_port_usage(tactix_default_policy_hardcoded)
 tactix_port_twin(tactix-hardcoded src/main.cpp
                  $<TARGET_OBJECTS:tactix_default_policy_hardcoded>)
 
-enable_testing()
-add_test(NAME dsr_transport COMMAND python3
-  ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
-add_subdirectory(tests)
-add_subdirectory(examples)
+install(TARGETS tactix RUNTIME DESTINATION bin)
+install(FILES include/tactix.h DESTINATION include)
+
+if(TACTIX_BUILD_TESTS)
+  enable_testing()
+  add_test(NAME dsr_transport COMMAND python3
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
+  add_subdirectory(tests)
+  add_subdirectory(examples)
+endif()

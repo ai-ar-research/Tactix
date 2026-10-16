@@ -112,7 +112,7 @@ tactix () { # [tag]
     for tag in $tags; do
         local out="$TOOLS/tactix/$tag"
         [ -x "$out/tactix" ] && continue
-        echo "== Tactix $tag ($(git -C "$ROOT" rev-parse --short "$tag")) =="
+        echo "== Tactix $tag ($(git -C "$ROOT" rev-parse --short "$tag^{commit}")) =="
         local src="$TOOLS/src/tactix-$tag"
         rm -rf "$src" && mkdir -p "$src"
         git -C "$ROOT" archive "$tag" | tar -x -C "$src"
@@ -127,7 +127,7 @@ tactix () { # [tag]
             fi
         done
         [ -x "$out/tactix" ] || { echo "Tactix $tag did not build" >&2; exit 1; }
-        git -C "$ROOT" rev-parse "$tag" > "$out/COMMIT"
+        git -C "$ROOT" rev-parse "$tag^{commit}" > "$out/COMMIT"
     done
 }
 

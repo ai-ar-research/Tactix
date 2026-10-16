@@ -6,8 +6,8 @@ This guide builds Tactix, solves a formula, and checks the answer.
 
 - Linux and a C++20 compiler (tested with GCC 13).
 - CMake 3.25 or newer.
-- zlib (development headers), for `.gz` input.
-- `xz` on the `PATH`, for `.xz` input.
+- zlib (development headers).
+- `gzip` and `xz` on the `PATH`, for `.gz` and `.xz` input.
 - Python 3.9+, for the proof-checking script.
 
 ## Build
@@ -51,7 +51,7 @@ route applies:
 
 | `c proof-route` | Format | Checked by |
 |---|---|---|
-| `dsr-cake_lpr` | DSR without substitution witnesses, which is valid DRAT | drat-trim, then CakeLPR |
+| `dsr-cake_lpr` | DSR without substitution witnesses: DRAT in content, converted to DRAT for checking | drat-trim, then CakeLPR |
 | `dsr-trestle` | DSR with substitution witnesses | dsr-trim, then Trestle |
 | `pbp` | pseudo-Boolean proof | VeriPB, then CakePB |
 
@@ -124,8 +124,17 @@ programs written this way, and `examples/` has smaller ones, starting from
 plain DPLL (`demo1_dpll.c`). Every strategy, including your own, produces
 checkable proofs.
 
-To build against Tactix, add the repository as a CMake subdirectory and link
-`tactix_lib`, as `examples/CMakeLists.txt` does.
+To build against Tactix, add the repository to your CMake project and link
+`tactix_lib`, which carries the include path of `tactix.h`:
+
+```cmake
+add_subdirectory(path/to/tactix tactix)   # builds the solver and library only
+add_executable(my_strategy my_strategy.c)
+target_link_libraries(my_strategy PRIVATE tactix_lib)
+```
+
+`cmake --install build/release --prefix DIR` installs the `tactix` binary and
+`tactix.h`.
 
 ## Run the tests
 
