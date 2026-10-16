@@ -810,6 +810,25 @@ static FILE *stream(const char *text) {
   return f;
 }
 
+/* tactix_set_default_option: names are validated, values replace and remove,
+ * and a configured session still solves soundly. */
+static void test_default_options(void) {
+  assert(tactix_set_default_option(NULL, "TACTIX_FORCE_MODE", "stable") == -1);
+  tactix *s = tactix_init();
+  assert(tactix_set_default_option(s, NULL, "1") == -1);
+  assert(tactix_set_default_option(s, "FORCE_MODE", "stable") == -1);
+  assert(tactix_set_default_option(s, "TACTIX_FORCE_MODE", "focused") == 0);
+  assert(tactix_set_default_option(s, "TACTIX_FORCE_MODE", "stable") == 0);
+  assert(tactix_set_default_option(s, "TACTIX_NO_BVE", "1") == 0);
+  assert(tactix_set_default_option(s, "TACTIX_NO_BVE", NULL) == 0);
+  assert(tactix_set_default_option(s, "TACTIX_SLOT_DISABLE", "Backbone") == 0);
+  FILE *f = stream("p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n");
+  assert(tactix_read_dimacs(s, f) == 0);
+  fclose(f);
+  assert(tactix_solve(s) == 20);
+  tactix_release(s);
+}
+
 static void test_read_dimacs(void) {
   tactix *s = tactix_init();
   FILE *f = stream("c comment\np cnf 3 3\n1 2 0\n-1 2 0\n1 -2 0\n");
@@ -865,6 +884,7 @@ int main(void) {
   test_permanent_installs();
   test_action_kind();
   test_read_dimacs();
+  test_default_options();
   puts("test_api_c OK");
   return 0;
 }
