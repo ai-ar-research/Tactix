@@ -102,12 +102,18 @@ make -C paper LOGS=run/results DATA=run/results/data FIGURES=run/results/figures
 ```
 
 Each command prints one line per run and ends with a summary; `make` then
-prints the paper's tables for the rerun. On a subset, the counts are those of
-the subset, and runtimes depend on the machine. What should agree with the
-paper: every answer is correct and checked, the same solvers solve the same
-formulas, and the relative order of the configurations (for example, the
-cruxmiter and Chvátal strategies are faster than default Tactix on these
-formulas).
+prints the paper's tables for the rerun. Runtimes depend on the machine. What
+to expect:
+
+- every answer is correct and every certificate verifies (Tier D: `180
+  records, 180 answered, 180 verified`; cruxmiter: 3/3; Chvátal: 15/15);
+- the reduced Tier D and milestone sets consist of formulas that every
+  configuration solved within 60 s in the paper's runs, so they exercise all
+  solvers and checkers but do not show the ranking, which the full sets do;
+- the case studies show the paper's effect on their subsets: the cruxmiter
+  strategy solves seed 7 several times faster than default Tactix and Kissat,
+  and the Chvátal strategy is the fastest configuration on its three formulas;
+- the interface overhead stays within a few percent.
 
 ## Level 3: full evaluation
 
