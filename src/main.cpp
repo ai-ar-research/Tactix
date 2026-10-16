@@ -931,10 +931,15 @@ int main(int argc, char **argv) {
   const char *err = parse_dimacs(in, kernel);
   const uint64_t parse_nanos =
       frontend_time ? tactix::now_nanos() - parse_t0 : 0;
-  if (piped)
-    pclose(in);
-  else
-    fclose(in);
+  // A decompressor that is missing or fails leaves a truncated formula, which
+  // must not be solved as if it were the input.
+  const int close_status = piped ? pclose(in) : fclose(in);
+  if (!err && piped && close_status != 0) {
+    fprintf(stderr, "tactix: decompressing '%s' failed\n", cnf_path);
+    printf("s UNKNOWN\n");
+    fflush(stdout);
+    return 1;
+  }
   if (err) {
     fprintf(stderr, "tactix: parse error: %s\n", err);
     printf("s UNKNOWN\n");
