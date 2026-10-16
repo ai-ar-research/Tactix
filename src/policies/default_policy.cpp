@@ -1,4 +1,5 @@
 #include "policies/default_policy.hpp"
+#include "policies/strategy_settings.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 #include "strategy/execution_scope.hpp"
@@ -2978,21 +2979,21 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   // focused tests may set these public members before solve().
   config_.analysis.chronological_levels = chrono_levels;
   config_.branching.random_sequences = default_branching_.randec_enabled;
-  if (const char *fm = std::getenv("TACTIX_FORCE_MODE")) {
+  if (const char *fm = strategy_setting("TACTIX_FORCE_MODE")) {
     if (!std::strcmp(fm, "focused"))
       config_.mode.force = 1;
     else if (!std::strcmp(fm, "stable"))
       config_.mode.force = 2;
   }
-  if (std::getenv("TACTIX_NO_BUMP_REASONS"))
+  if (strategy_setting("TACTIX_NO_BUMP_REASONS"))
     config_.analysis.bump_reason_limit = 0;
-  if (const char *bl = std::getenv("TACTIX_BUMP_REASONS_LIMIT"))
+  if (const char *bl = strategy_setting("TACTIX_BUMP_REASONS_LIMIT"))
     config_.analysis.bump_reason_limit =
         static_cast<uint32_t>(std::strtoul(bl, nullptr, 10));
-  if (const char *br = std::getenv("TACTIX_BUMP_REASONS_RATE"))
+  if (const char *br = strategy_setting("TACTIX_BUMP_REASONS_RATE"))
     config_.analysis.bump_reason_rate = std::strtod(br, nullptr);
-  const char *cad = std::getenv("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
-  const char *rmp = std::getenv("TACTIX_REDUCE_RAMP");    // "1" | "0"
+  const char *cad = strategy_setting("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
+  const char *rmp = strategy_setting("TACTIX_REDUCE_RAMP");    // "1" | "0"
   if (cad)
     config_.reduction.square_root_cadence =
         std::strcmp(cad, "arith") != 0;
@@ -3001,102 +3002,102 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   else if (cad)
     config_.reduction.ramp_fraction =
         config_.reduction.square_root_cadence;
-  if (std::getenv("TACTIX_NO_DYNAMIC_TIERS"))
+  if (strategy_setting("TACTIX_NO_DYNAMIC_TIERS"))
     config_.reduction.dynamic_tiers = false;
-  if (std::getenv("TACTIX_NO_COMPACT"))
+  if (strategy_setting("TACTIX_NO_COMPACT"))
     config_.reduction.compact_variables = false;
-  if (const char *ll = std::getenv("TACTIX_LUCKY_LATE"))
+  if (const char *ll = strategy_setting("TACTIX_LUCKY_LATE"))
     config_.rephase.late_lucky = std::strtoul(ll, nullptr, 10) != 0;
-  if (std::getenv("TACTIX_REPHASE_BOTH_MODES"))
+  if (strategy_setting("TACTIX_REPHASE_BOTH_MODES"))
     config_.rephase.stable_only = false;
-  if (const char *ro = std::getenv("TACTIX_REORDER"))
+  if (const char *ro = strategy_setting("TACTIX_REORDER"))
     config_.reorder.mode =
         static_cast<uint32_t>(std::strtoul(ro, nullptr, 10));
-  if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
+  if (const char *cl = strategy_setting("TACTIX_CHRONO_LEVELS")) {
     const long n = std::strtol(cl, nullptr, 10);
     if (n >= 0)
       config_.analysis.chronological_levels = static_cast<uint32_t>(n);
   }
-  if (const char *value = std::getenv("TACTIX_CONFLICT_REUSE"))
+  if (const char *value = strategy_setting("TACTIX_CONFLICT_REUSE"))
     config_.analysis.conflict_reuse = *value != '0';
-  if (const char *value = std::getenv("TACTIX_JUMP_REASONS"))
+  if (const char *value = strategy_setting("TACTIX_JUMP_REASONS"))
     config_.analysis.jump_reasons = *value != '0';
-  if (const char *value = std::getenv("TACTIX_SHRINK_GLUE"))
+  if (const char *value = strategy_setting("TACTIX_SHRINK_GLUE"))
     config_.analysis.shrink_glue_promote = *value != '0';
-  if (std::getenv("TACTIX_NO_EXT_REASON_BUMP"))
+  if (strategy_setting("TACTIX_NO_EXT_REASON_BUMP"))
     config_.analysis.bump_extension_reasons = false;
-  if (const char *value = std::getenv("TACTIX_EAGER_SUBSUME"))
+  if (const char *value = strategy_setting("TACTIX_EAGER_SUBSUME"))
     config_.analysis.eager_subsume = std::min<uint32_t>(
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10)),
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
-  if (const char *rd = std::getenv("TACTIX_RANDEC"))
+  if (const char *rd = strategy_setting("TACTIX_RANDEC"))
     config_.branching.random_sequences = *rd != '0';
-  if (const char *wp = std::getenv("TACTIX_WALK_PERMILLE"))
+  if (const char *wp = strategy_setting("TACTIX_WALK_PERMILLE"))
     config_.rephase.walk_permille = std::strtoull(wp, nullptr, 10);
-  if (const char *bc = std::getenv("TACTIX_BVE_RAMP_MAX"))
+  if (const char *bc = strategy_setting("TACTIX_BVE_RAMP_MAX"))
     config_.inprocess.bve_default_ceiling =
         static_cast<uint32_t>(std::strtoul(bc, nullptr, 10));
-  if (const char *dt = std::getenv("TACTIX_BVE_DEF_TICKS"))
+  if (const char *dt = strategy_setting("TACTIX_BVE_DEF_TICKS"))
     config_.inprocess.bve_definition_budget = std::strtoull(dt, nullptr, 10);
-  if (const char *dc = std::getenv("TACTIX_BVE_DEF_CORES"))
+  if (const char *dc = strategy_setting("TACTIX_BVE_DEF_CORES"))
     config_.inprocess.bve_definition_cores = std::clamp<uint32_t>(
         static_cast<uint32_t>(std::strtoul(dc, nullptr, 10)), 1, 100);
-  if (const char *dm = std::getenv("TACTIX_BVE_DEF_CORE_MULTIPLIER"))
+  if (const char *dm = strategy_setting("TACTIX_BVE_DEF_CORE_MULTIPLIER"))
     config_.inprocess.bve_definition_core_budget_multiplier =
         static_cast<uint32_t>(std::strtoul(dm, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_BVE_BACKWARD"))
+  if (const char *value = strategy_setting("TACTIX_BVE_BACKWARD"))
     config_.inprocess.bve_backward = *value != '0';
-  if (const char *value = std::getenv("TACTIX_BCE_OCC_LIMIT"))
+  if (const char *value = strategy_setting("TACTIX_BCE_OCC_LIMIT"))
     config_.inprocess.bce_parameters.occurrence_limit =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_TERNARY_OCC_LIMIT"))
+  if (const char *value = strategy_setting("TACTIX_TERNARY_OCC_LIMIT"))
     config_.inprocess.ternary_parameters.occurrence_limit =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_TERNARY_MAXADD"))
+  if (const char *value = strategy_setting("TACTIX_TERNARY_MAXADD"))
     config_.inprocess.ternary_parameters.maximum_add_percent =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_FACTOR_SIZE"))
+  if (const char *value = strategy_setting("TACTIX_FACTOR_SIZE"))
     config_.inprocess.factor_parameters.maximum_clause_size =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_FACTOR_BOUND"))
+  if (const char *value = strategy_setting("TACTIX_FACTOR_BOUND"))
     config_.inprocess.factor_parameters.growth_bound =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_FACTOR_DEMOTE"))
+  if (const char *value = strategy_setting("TACTIX_FACTOR_DEMOTE"))
     config_.inprocess.factor_parameters.demote_fresh = *value != '0';
-  if (const char *value = std::getenv("TACTIX_FACTOR_CAND_ROUNDS"))
+  if (const char *value = strategy_setting("TACTIX_FACTOR_CAND_ROUNDS"))
     config_.inprocess.factor_parameters.candidate_rounds =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
-  if (const char *value = std::getenv("TACTIX_V4_EARLY_EXIT"))
+  if (const char *value = strategy_setting("TACTIX_V4_EARLY_EXIT"))
     config_.inprocess.transitive_parameters.early_exit = *value != '0';
-  if (const char *value = std::getenv("TACTIX_TRANSITIVE_LIVE_METER"))
+  if (const char *value = strategy_setting("TACTIX_TRANSITIVE_LIVE_METER"))
     config_.inprocess.transitive_parameters.live_meter = *value != '0';
-  if (const char *value = std::getenv("TACTIX_V4_METER"))
+  if (const char *value = strategy_setting("TACTIX_V4_METER"))
     config_.inprocess.transitive_parameters.checked_budget_meter =
         !std::strcmp(value, "checked");
-  if (const char *value = std::getenv("TACTIX_VIVIFY_REUSE"))
+  if (const char *value = strategy_setting("TACTIX_VIVIFY_REUSE"))
     config_.inprocess.vivify_parameters.reuse = *value != '0';
-  if (const char *value = std::getenv("TACTIX_VIVIFY_FLUSH"))
+  if (const char *value = strategy_setting("TACTIX_VIVIFY_FLUSH"))
     config_.inprocess.vivify_parameters.flush = *value != '0';
-  if (std::getenv("TACTIX_SUBST_DEMOTE"))
+  if (strategy_setting("TACTIX_SUBST_DEMOTE"))
     config_.inprocess.substitute_parameters.demote_substituted = true;
-  if (std::getenv("TACTIX_NO_BVE"))
+  if (strategy_setting("TACTIX_NO_BVE"))
     config_.inprocess.bve_enabled = false;
-  if (std::getenv("TACTIX_NO_FACTOR"))
+  if (strategy_setting("TACTIX_NO_FACTOR"))
     config_.inprocess.factor_enabled = false;
-  if (std::getenv("TACTIX_NO_SWEEP"))
+  if (strategy_setting("TACTIX_NO_SWEEP"))
     config_.inprocess.sweep_enabled = false;
-  if (const char *hold = std::getenv("TACTIX_SUBSUME_HOLD"))
+  if (const char *hold = strategy_setting("TACTIX_SUBSUME_HOLD"))
     config_.inprocess.hold_subsume_until_eliminate = *hold != '0';
-  if (const char *touch = std::getenv("TACTIX_TOUCH_MARKS"))
+  if (const char *touch = strategy_setting("TACTIX_TOUCH_MARKS"))
     config_.inprocess.touch_filter = *touch != '0';
-  if (const char *redundant = std::getenv("TACTIX_TOUCH_REDUNDANT"))
+  if (const char *redundant = strategy_setting("TACTIX_TOUCH_REDUNDANT"))
     config_.inprocess.likely_kept_redundant = *redundant != '0';
   const auto sweep_u32 = [](const char *name, uint32_t &slot) {
-    if (const char *s = std::getenv(name))
+    if (const char *s = strategy_setting(name))
       slot = static_cast<uint32_t>(std::strtoul(s, nullptr, 10));
   };
   const auto sweep_bool = [](const char *name, bool &slot) {
-    if (const char *s = std::getenv(name))
+    if (const char *s = strategy_setting(name))
       slot = std::strtoul(s, nullptr, 10) != 0;
   };
   sweep_u32("TACTIX_SWEEP_DEPTH",
@@ -3111,10 +3112,10 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
             config_.inprocess.sweep_parameters.flip_rounds);
   sweep_u32("TACTIX_SWEEP_SEEDS",
             config_.inprocess.sweep_parameters.max_seeds);
-  if (const char *s = std::getenv("TACTIX_SWEEP_TICKS"))
+  if (const char *s = strategy_setting("TACTIX_SWEEP_TICKS"))
     config_.inprocess.sweep_parameters.env_ticks =
         std::strtoull(s, nullptr, 10);
-  if (const char *s = std::getenv("TACTIX_SWEEP_ROUND_TICKS"))
+  if (const char *s = strategy_setting("TACTIX_SWEEP_ROUND_TICKS"))
     config_.inprocess.sweep_parameters.round_ticks =
         std::strtoull(s, nullptr, 10);
   sweep_bool("TACTIX_SWEEP_STRIP",
@@ -3130,20 +3131,20 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   sweep_bool("TACTIX_ARENA_ORDER",
              config_.inprocess.cadical_arena_ordering_enabled);
 
-  if (std::getenv("TACTIX_NO_CLOSURE_DELAY"))
+  if (strategy_setting("TACTIX_NO_CLOSURE_DELAY"))
     config_.inprocess.closure_delay = false;
-  if (const char *value = std::getenv("TACTIX_FACTOR_INIT_TICKS"))
+  if (const char *value = strategy_setting("TACTIX_FACTOR_INIT_TICKS"))
     config_.inprocess.factor_initial_ticks = std::strtoull(value, nullptr, 10);
-  if (std::getenv("TACTIX_PREPROCESS_ONLY"))
+  if (strategy_setting("TACTIX_PREPROCESS_ONLY"))
     config_.inprocess.preprocess_only = true;
-  if (const char *value = std::getenv("TACTIX_PREPROCESS_FOLLOWUPS"))
+  if (const char *value = strategy_setting("TACTIX_PREPROCESS_FOLLOWUPS"))
     config_.inprocess.preprocess_followups =
         std::strtoul(value, nullptr, 10) != 0;
-  if (const char *value = std::getenv("TACTIX_SLOT_CLOCKS"))
+  if (const char *value = strategy_setting("TACTIX_SLOT_CLOCKS"))
     config_.inprocess.split_clocks = std::strtoul(value, nullptr, 10) != 1;
-  if (const char *value = std::getenv("TACTIX_SLOT_WATERMARK"))
+  if (const char *value = strategy_setting("TACTIX_SLOT_WATERMARK"))
     config_.inprocess.watermarks = std::strtoul(value, nullptr, 10) != 0;
-  if (const char *value = std::getenv("TACTIX_FACTOR_COUPLE"))
+  if (const char *value = strategy_setting("TACTIX_FACTOR_COUPLE"))
     config_.inprocess.couple_factor_bound =
         std::strtoul(value, nullptr, 10) != 0;
 
@@ -3168,10 +3169,10 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
       }
     return false;
   };
-  const char *enabled = std::getenv("TACTIX_SLOT_ENABLE");
-  const char *disabled = std::getenv("TACTIX_SLOT_DISABLE");
-  const char *permille = std::getenv("TACTIX_SLOT_PERMILLE");
-  const char *maximum = std::getenv("TACTIX_SLOT_MAX_APPLIES");
+  const char *enabled = strategy_setting("TACTIX_SLOT_ENABLE");
+  const char *disabled = strategy_setting("TACTIX_SLOT_DISABLE");
+  const char *permille = strategy_setting("TACTIX_SLOT_PERMILLE");
+  const char *maximum = strategy_setting("TACTIX_SLOT_MAX_APPLIES");
   for (strategy::InprocessStep &step : config_.inprocess.program) {
     if (list_has(enabled, step.rule)) {
       step.enabled = true;
@@ -3206,10 +3207,10 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
       knob[p] = '\0';
     };
     knob_name("TACTIX_CURSOR_", step.rule);
-    if (const char *cursor = std::getenv(knob))
+    if (const char *cursor = strategy_setting(knob))
       step.cursor_enabled = std::strtoul(cursor, nullptr, 10) != 0;
     knob_name("TACTIX_ORDER_", step.rule);
-    if (const char *order = std::getenv(knob)) {
+    if (const char *order = strategy_setting(knob)) {
       CandidateOrder parsed;
       if (!parse_candidate_order(order, &parsed)) {
         std::fprintf(stderr, "c ERROR: %s: unknown candidate-order arm\n",
@@ -4823,7 +4824,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                    ? ApplyResult::Ok : ApplyResult::NoOp;
       });
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-  if (const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL"))
+  if (const char *selected = strategy_setting("TACTIX_EVENT_TRACE_FACTOR_LITERAL"))
     for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
       if (std::atoi(selected) == kernel_externalize(k, lit)) {
         event_trace_factor_literal_state(
@@ -5360,7 +5361,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 namespace {
 void slot_trace_entry(const Kernel &k, const DefaultInprocessScheduler::SlotEntry &e,
                       const RuleVTable &r, int outer) {
-  if (!std::getenv("TACTIX_SLOT_TRACE"))
+  if (!strategy_setting("TACTIX_SLOT_TRACE"))
     return;
   std::fprintf(stderr,
                "[slot] phase=%llu outer=%d %s enabled=%d defer=%d "
@@ -5698,7 +5699,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       bve_invocation_session->order_by_score_heap(payloads_.data(), n);
     else if (!initial_fast_bve)
       order_candidates(k, e, payloads_.data(), n);
-    if (std::getenv("TACTIX_SLOT_TRACE"))
+    if (strategy_setting("TACTIX_SLOT_TRACE"))
       std::fprintf(stderr,
                    "[slot]   %s pass=%u n=%u bve_bound=%u meter=%llu "
                    "limit=%llu\n",
@@ -7090,7 +7091,7 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   e.journal_reference = reference;
 #endif
-  if (std::getenv("TACTIX_SLOT_TRACE"))
+  if (strategy_setting("TACTIX_SLOT_TRACE"))
     std::fprintf(stderr,
                  "[slot-limit] %s now=%llu anchor=%llu reference=%llu "
                  "permille=%u delta=%llu meter=%llu\n",
@@ -7221,10 +7222,10 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
   DefaultPolicy policy;
   const int res = policy.solve(k, stop);
-  if (std::getenv("TACTIX_STRATEGY_CONFIG"))
+  if (strategy_setting("TACTIX_STRATEGY_CONFIG"))
     std::printf("c strategy-config %s\n",
                 policy.strategy_config_snapshot().c_str());
-  if (std::getenv("TACTIX_SLOT_STATS"))
+  if (strategy_setting("TACTIX_SLOT_STATS"))
     policy.inprocess().report(k);
   return res;
 }

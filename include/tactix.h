@@ -299,6 +299,16 @@ int tactix_set_guidance_publication(tactix *, int mode);
 /* run the default policy to completion: 10 SAT / 20 UNSAT */
 int tactix_solve(tactix *);
 
+/* Settings of the default strategy that tactix_solve runs, by name. The names
+ * and values are those the command line reads from the environment (TACTIX_*,
+ * listed in docs/cli.md), for example "TACTIX_FORCE_MODE" = "stable" or
+ * "TACTIX_SLOT_DISABLE" = "Backbone". A session's setting takes precedence
+ * over the environment while the session solves; value NULL removes it.
+ * Every setting is sound: settings choose which sound steps the default
+ * strategy schedules, never their proofs. Returns 0, or -1 for a NULL session
+ * or a name that does not start with "TACTIX_". */
+int tactix_set_default_option(tactix *, const char *name, const char *value);
+
 /* model access after SAT: >0 true, <0 false (DIMACS convention) */
 int tactix_value(tactix *, int lit);
 

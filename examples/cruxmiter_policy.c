@@ -1222,9 +1222,18 @@ int main(int argc, char **argv) {
   int maximum_variable = 0, result;
   tactix *solver;
   struct policy policy;
-  int arg;
+  /* --default-option=NAME=VALUE settings for the default strategy that the
+   * policy hands over to (tactix_set_default_option). */
+  const char *default_options[32];
+  int default_option_count = 0, arg;
   for (arg = 1; arg < argc; ++arg) {
-    if (!strncmp(argv[arg], "--profile=", 10)) {
+    if (!strncmp(argv[arg], "--default-option=", 17)) {
+      if (default_option_count == 32 || !strchr(argv[arg] + 17, '=')) {
+        fprintf(stderr, "bad or too many --default-option '%s'\n", argv[arg]);
+        return 1;
+      }
+      default_options[default_option_count++] = argv[arg] + 17;
+    } else if (!strncmp(argv[arg], "--profile=", 10)) {
       if (!parse_profile(argv[arg] + 10, &profile)) {
         fprintf(stderr, "unknown cruxmiter profile '%s'\n", argv[arg] + 10);
         return 1;
@@ -1237,16 +1246,33 @@ int main(int argc, char **argv) {
       proof = argv[arg];
     } else {
         fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|bdd-bve|kissat-order|kissat-order-negative|full] "
-                      "[--drat] CNF [PROOF]\n", argv[0]);
+                      "[--default-option=NAME=VALUE]... [--drat] CNF [PROOF]\n", argv[0]);
       return 1;
     }
   }
   if (!cnf) {
     fprintf(stderr, "usage: %s [--profile=search|positive|saved|gate-search|backbone-search|backbone-close-search|taco-warmup|input-ranked|input-saved|input-ascending|input-descending|gate|binary|backbone|backbone-negative|backbone-positive|backbone-fixpoint|backbone-first|backbone-close|backbone-heavy|symmetry-backbone|backbone-symmetry|backbone-symmetry-scan|symmetry-sandwich|sweep|deep-sweep|bdd-bve|kissat-order|kissat-order-negative|full] "
-                    "[--drat] CNF [PROOF]\n", argv[0]);
+                    "[--default-option=NAME=VALUE]... [--drat] CNF [PROOF]\n", argv[0]);
     return 1;
   }
   solver = tactix_init();
+  for (arg = 0; arg < default_option_count; ++arg) {
+    char name[128];
+    const char *equals = strchr(default_options[arg], '=');
+    const size_t length = (size_t)(equals - default_options[arg]);
+    if (length >= sizeof name) {
+      fprintf(stderr, "default option name too long: %s\n", default_options[arg]);
+      tactix_release(solver);
+      return 1;
+    }
+    memcpy(name, default_options[arg], length);
+    name[length] = 0;
+    if (tactix_set_default_option(solver, name, equals + 1)) {
+      fprintf(stderr, "rejected default option '%s'\n", default_options[arg]);
+      tactix_release(solver);
+      return 1;
+    }
+  }
   if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DRAT_BINARY)) {
     fprintf(stderr, "tactix-cruxmiter-policy: cannot create proof '%s'\n", proof);
     tactix_release(solver);
