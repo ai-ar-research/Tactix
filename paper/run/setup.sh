@@ -22,6 +22,8 @@ SOLVERS="$TOOLS/solvers"
 JOBS="${JOBS:-$(nproc)}"
 # Several third-party builds declare CMake minimums that CMake 4 rejects.
 export CMAKE_POLICY_VERSION_MINIMUM=3.5
+# Archives keep their owners only when that is possible (not in rootless containers).
+export TAR_OPTIONS="${TAR_OPTIONS:---no-same-owner}"
 mkdir -p "$BIN" "$SOLVERS"
 
 CAKEPB_URL=https://gitlab.com/MIAOresearch/software/cakepb

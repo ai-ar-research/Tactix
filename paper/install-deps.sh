@@ -3,6 +3,8 @@
 # (the Docker image and Apptainer recipe call this; on a VM, run it with sudo).
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+# Rootless builds cannot restore archive owners.
+export TAR_OPTIONS=--no-same-owner
 # Run apt as root throughout: rootless builds (Apptainer --fakeroot) cannot
 # switch to apt's sandbox user.
 APT="apt-get -o APT::Sandbox::User=root"

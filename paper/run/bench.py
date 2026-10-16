@@ -101,7 +101,7 @@ def fetch(item: dict) -> Path:
             with (CACHE / "archive" / ".lock").open("w") as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
                 if not target.exists():
-                    subprocess.run(["tar", "-xJf", ROOT / item["archive"], "-C", CACHE / "archive"],
+                    subprocess.run(["tar", "--no-same-owner", "-xJf", ROOT / item["archive"], "-C", CACHE / "archive"],
                                    check=True)
         return target
     target = CACHE / "gbd" / item["instance"]

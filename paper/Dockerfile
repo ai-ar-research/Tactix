@@ -10,7 +10,7 @@
 FROM ubuntu:24.04
 COPY paper/install-deps.sh /tmp/install-deps.sh
 RUN /tmp/install-deps.sh
-ENV PATH=/root/.elan/bin:$PATH
+ENV PATH=/root/.elan/bin:$PATH TAR_OPTIONS=--no-same-owner
 WORKDIR /tactix
 COPY . /tactix
 RUN paper/run/setup.sh all \

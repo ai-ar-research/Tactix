@@ -10,7 +10,7 @@ From: ubuntu:24.04
 
 %post
     /tactix/paper/install-deps.sh
-    export PATH=/root/.elan/bin:$PATH
+    export PATH=/root/.elan/bin:$PATH TAR_OPTIONS=--no-same-owner
     cd /tactix
     paper/run/setup.sh all
     for e in tierd milestones interface cruxmiter chvatal; do
