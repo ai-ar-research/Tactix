@@ -76,7 +76,9 @@ docker build -f paper/Dockerfile -t tactix-artifact .
 docker run --rm -it tactix-artifact
 ```
 
-Inside the container (`/tactix`):
+Inside the container (`/tactix`). With Apptainer (`paper/tactix.def`) the
+image is read-only, so add `--out /tmp/results` to `bench.py` and
+`CHECK=/tmp/check`, `FIGURES=/tmp/figures`, `DATA=/tmp/data` to `make`.
 
 ```sh
 paper/run/bench.py run smoke --jobs 4

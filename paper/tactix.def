@@ -2,6 +2,11 @@
 #
 #   apptainer build --fakeroot tactix.sif paper/tactix.def      (from the repository root)
 #   apptainer shell tactix.sif                                    (the artifact is in /tactix)
+#
+# A SIF image is read-only: send output to a writable directory, e.g.
+#   cd /tactix && paper/run/bench.py run smoke --out /tmp/results
+#   make -C paper CHECK=/tmp/check check
+#   make -C paper FIGURES=/tmp/figures figures report
 Bootstrap: docker
 From: ubuntu:24.04
 

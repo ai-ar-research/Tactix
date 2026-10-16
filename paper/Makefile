@@ -8,6 +8,8 @@ PYTHON ?= python3
 LOGS ?= logs
 DATA ?= data
 FIGURES ?= figures
+# Scratch space for `make check` (point it elsewhere in a read-only image).
+CHECK ?= .check
 export MPLCONFIGDIR ?= /tmp/tactix-matplotlib
 
 PLOT = $(PYTHON) scripts/plot_final_results.py --data $(DATA)/tierd-times.csv
@@ -55,13 +57,13 @@ $(FIGURES)/chvatal-table.tex: $(DATA)/chvatal-results.csv
 	$(PYTHON) scripts/table_chvatal.py --data $< --output $@
 
 check:
-	rm -rf .check && mkdir -p .check/logs .check/data
-	$(PYTHON) scripts/normalize.py --out .check/logs
-	$(PYTHON) scripts/make_data.py --logs .check/logs --out .check/data
-	@status=0; for f in .check/data/*.csv; do \
+	rm -rf $(CHECK) && mkdir -p $(CHECK)/logs $(CHECK)/data
+	$(PYTHON) scripts/normalize.py --out $(CHECK)/logs
+	$(PYTHON) scripts/make_data.py --logs $(CHECK)/logs --out $(CHECK)/data
+	@status=0; for f in $(CHECK)/data/*.csv; do \
 	  if cmp -s $$f $(DATA)/$$(basename $$f); then echo "identical  $$(basename $$f)"; \
 	  else echo "DIFFERENT  $$(basename $$f)"; status=1; fi; done; \
-	rm -rf .check; exit $$status
+	rm -rf $(CHECK); exit $$status
 
 clean:
-	rm -rf $(FIGURES) .check
+	rm -rf $(FIGURES) $(CHECK)

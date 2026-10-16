@@ -39,6 +39,16 @@ def true(value: str) -> bool:
     return value == "True"
 
 
+def total(values) -> float:
+    """Left-to-right float sum. Python 3.12's sum() compensates rounding, which
+    can change the last printed digit; this keeps the files identical across
+    Python versions and equal to the paper's."""
+    result = 0.0
+    for value in values:
+        result += value
+    return result
+
+
 def tierd(logs: Path, out: Path) -> None:
     detail = []
     for configuration in TIERD:
@@ -69,8 +79,8 @@ def tierd(logs: Path, out: Path) -> None:
             "sat": sum(r["verdict"] == "SAT" for r in solved),
             "unsat": sum(r["verdict"] == "UNSAT" for r in solved),
             "unsat_verified": sum(r["verdict"] == "UNSAT" for r in accepted),
-            "accepted_solve_mean_s": f'{sum(float(r["solve_seconds"]) for r in accepted) / len(accepted):.3f}',
-            "par2_mean_s": f'{sum(float(r["par2_seconds"]) for r in rows) / len(rows):.3f}',
+            "accepted_solve_mean_s": f'{total(float(r["solve_seconds"]) for r in accepted) / len(accepted):.3f}',
+            "par2_mean_s": f'{total(float(r["par2_seconds"]) for r in rows) / len(rows):.3f}',
         }
         return {"benchmark": benchmark, **result} if benchmark is not None else result
 
@@ -117,7 +127,7 @@ def milestones(logs: Path, out: Path) -> None:
                        "unsat_verified": unsat_verified, "unsat_unchecked": unsat - unsat_verified,
                        "raw_solved": len(solved),
                        "validated": sum(true(r["counted"]) for r in rows) if proof == "proof" else "",
-                       "par2_sum_s": round(sum(float(r["par2_seconds"]) for r in rows))})
+                       "par2_sum_s": round(total(float(r["par2_seconds"]) for r in rows))})
     transitions = []
     for index, (before, after) in enumerate(zip(solved_sets, solved_sets[1:])):
         gained = {k: v for k, v in after.items() if k not in before}
