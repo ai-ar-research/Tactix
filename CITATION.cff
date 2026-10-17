@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use Tactix, please cite it as below."
+title: "Tactix: a SAT solver with a programmable strategy interface"
+abstract: >-
+  Tactix is a proof-producing CDCL SAT solver whose solving strategy is
+  programmable through a C interface. Every solver step and inprocessing
+  technique is a proof rule that a strategy can select and configure; every
+  UNSAT answer comes with a machine-checkable proof. The repository is also
+  the artifact of the paper "Tactix: Towards a Programmable Strategy
+  Interface for Flexible SAT-Solving".
+type: software
+version: 0.1.0
+date-released: 2026-10-17
+license: MIT
+repository-code: "https://github.com/ai-ar-research/Tactix"
+keywords:
+  - SAT solving
+  - CDCL
+  - proof checking
+  - programmable strategy
+authors:
+  - family-names: Wu
+    given-names: Haoze
+    affiliation: Amherst College
+  - family-names: Schidler
+    given-names: André
+    affiliation: University of Freiburg
+  - family-names: Biere
+    given-names: Armin
+    affiliation: University of Freiburg
+  - family-names: Narodytska
+    given-names: Nina
+    affiliation: Broadcom
