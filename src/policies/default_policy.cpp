@@ -1,5 +1,6 @@
 #include "policies/default_policy.hpp"
 #include "policies/strategy_settings.hpp"
+#include "policies/progress.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 #include "strategy/execution_scope.hpp"
@@ -4168,6 +4169,7 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
+  progress_.start(k);
   // Completion ends while owned heuristic state is still attached, including
   // solve-entry and startup terminal paths. No mutable Kernel hook is installed.
   std::optional<ScopedHeuristics> owned_h;
@@ -4313,6 +4315,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 #endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
+    progress_.finish(k, verdict);
     // These source/proof hook costs overlap ordinary structural actions and
     // are diagnostics, not another charge of the whole Substitute invocation.
     affine_search_diagnostics_.alias_work=k.stats.affine_matrix_alias_work-alias_work_begin;
@@ -5106,6 +5109,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       pose_vivify_tiers(k, retier_, config_.inprocess, completion_);
       update_formula_classification(k);
       inprocess_.note_reduce(k);
+      progress_.event(k, 'R');
       feedback.resume(IntervalStart::NativeContinuation, "native-reduce-search-continuation");
       event_trace.macro(k, "reduce_end");
       continue;
@@ -5169,6 +5173,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return restarted;
       });
       feedback.end_interval(StopReason::Restart);
+      progress_.event(k, 'r');
       if (restart_result == ApplyResult::Unsat)
         return finish(20);
       // The retained root services (persistent affine search, graph

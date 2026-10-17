@@ -226,6 +226,9 @@ int main(int argc, char **argv) {
       return 0;
     } else if (!strcmp(a, "-q") || !strcmp(a, "--quiet")) {
       quiet = true;
+    } else if (!strcmp(a, "-v") || !strcmp(a, "--verbose")) {
+      // Progress lines from the default strategy (src/policies/progress.hpp).
+      setenv("TACTIX_VERBOSE", "1", 1);
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
@@ -487,7 +490,7 @@ int main(int argc, char **argv) {
     } else if (StressSolveFn fn = stress_policy_flag(a, &random_seed)) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
+      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
              "[--default-affine-search=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
