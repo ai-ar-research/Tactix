@@ -127,8 +127,40 @@ tactix_port_usage(tactix_default_policy_hardcoded)
 tactix_port_twin(tactix-hardcoded src/main.cpp
                  $<TARGET_OBJECTS:tactix_default_policy_hardcoded>)
 
-install(TARGETS tactix RUNTIME DESTINATION bin)
-install(FILES include/tactix.h DESTINATION include)
+# A fully static executable (glibc, libstdc++, zlib), for binary releases.
+option(TACTIX_STATIC_BINARY "Link the tactix executable statically" OFF)
+if(TACTIX_STATIC_BINARY)
+  target_link_options(tactix PRIVATE -static)
+endif()
+
+# The installable library: libtactix.a with every rule. Rules register in
+# static initializers, so consumers link the archive whole (the installed
+# CMake package and pkg-config file do this).
+add_library(tactix_symmetry_objects OBJECT src/symmetry_backend/dejavu_backend.cpp)
+target_include_directories(tactix_symmetry_objects PRIVATE src)
+target_include_directories(tactix_symmetry_objects SYSTEM PRIVATE third_party/dejavu-4c275e9)
+target_compile_options(tactix_symmetry_objects PRIVATE -fexceptions -frtti -fvisibility=hidden)
+add_library(tactix_archive STATIC $<TARGET_OBJECTS:tactix_lib>
+                                  $<TARGET_OBJECTS:tactix_symmetry_objects>)
+set_target_properties(tactix_archive PROPERTIES OUTPUT_NAME tactix)
+
+include(GNUInstallDirs)
+install(TARGETS tactix RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS tactix_archive ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES include/tactix.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+include(CMakePackageConfigHelpers)
+configure_package_config_file(cmake/TactixConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/TactixConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Tactix
+  PATH_VARS CMAKE_INSTALL_LIBDIR CMAKE_INSTALL_INCLUDEDIR)
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/TactixConfigVersion.cmake
+  COMPATIBILITY SameMinorVersion)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/TactixConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/TactixConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Tactix)
+configure_file(cmake/tactix.pc.in ${CMAKE_CURRENT_BINARY_DIR}/tactix.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tactix.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 if(TACTIX_BUILD_TESTS)
   enable_testing()

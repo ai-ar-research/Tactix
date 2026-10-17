@@ -1,0 +1,9 @@
+prefix=${pcfiledir}/../..
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: tactix
+Description: Tactix SAT solver with a programmable strategy interface
+Version: @PROJECT_VERSION@
+Cflags: -I${includedir}
+Libs: -L${libdir} -Wl,--whole-archive -ltactix -Wl,--no-whole-archive -lz -lstdc++ -lm -lpthread
