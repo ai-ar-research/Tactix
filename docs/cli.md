@@ -587,12 +587,13 @@ test formulas.
 
 ## SAT Competition entry points
 
-Two scripts at the repository root follow the SAT Competition conventions.
+Two scripts in `tools/compete/` follow the SAT Competition conventions; both
+work from any directory.
 
 | Script | Usage | Does |
 |---|---|---|
-| `build.sh` | `./build.sh` | `cmake --preset release` and `cmake --build --preset release --parallel`. |
-| `run.sh` | `./run.sh INSTANCE OUTPUT_DIRECTORY` | Creates `OUTPUT_DIRECTORY` and runs `build/release/tactix INSTANCE OUTPUT_DIRECTORY/proof.out` with default options. |
+| `build.sh` | `tools/compete/build.sh` | `cmake --preset release` and `cmake --build --preset release --parallel`. |
+| `run.sh` | `tools/compete/run.sh INSTANCE OUTPUT_DIRECTORY` | Creates `OUTPUT_DIRECTORY` and runs `build/release/tactix INSTANCE OUTPUT_DIRECTORY/proof.out` with default options. |
 
 `run.sh` exits with code 2 if it does not get exactly two arguments.
 Otherwise it replaces itself with the solver, so its output and exit code are

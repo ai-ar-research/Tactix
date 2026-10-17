@@ -3,7 +3,7 @@
 
 Usage: fetch.py --tier B [--sources path] [--cache-dir path]
 
-Downloads the instances listed in `benchmarks/tiers/<tier>.sources`
+Downloads the instances listed in `tools/bench/tiers/<tier>.sources`
 (lines: `<gbd-hash> <filename>`) from the Global Benchmark Database
 (benchmark-database.de) into `benchmarks/cache/tier<tier>/<filename>`.
 The cache is untracked; the .sources files are frozen in git, so any
@@ -29,7 +29,7 @@ def main() -> int:
                          "campaign union with its own content manifest)")
     args = ap.parse_args()
     sources = args.sources or os.path.join(
-        ROOT, "benchmarks", "tiers", f"{args.tier}.sources")
+        ROOT, "tools", "bench", "tiers", f"{args.tier}.sources")
     if not os.path.exists(sources):
         sys.exit(f"error: {sources} not found")
     cache = (os.path.abspath(args.cache_dir) if args.cache_dir else

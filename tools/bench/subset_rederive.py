@@ -5,7 +5,7 @@ This view isolates Sweep-mechanism parity only. It never removes an instance
 from its frozen tier's scored population, changes the full-tier solved-count
 gate, or excuses a candidate failure on an instance solved by original Kissat.
 
-The shipped `benchmarks/tiers/C-ruleneutral.list` came from a single-shot
+The shipped `tools/bench/tiers/C-ruleneutral.list` came from a single-shot
 ablation: exclude an instance iff ablating Sweep moved either baseline by >25 %.
 With one measurement per arm that test cannot separate "sweep matters here" from
 "this instance is chaotic", and most of its exclusions are instances measured to
@@ -29,7 +29,7 @@ rule would have excluded it — the shape of the perturbation-fragile instances
 the shipped list drops.
 
 Prints the per-instance table and the proposed list; --write updates
-benchmarks/tiers/C-ruleneutral.list in place (header regenerated).
+tools/bench/tiers/C-ruleneutral.list in place (header regenerated).
 """
 import argparse
 import json
@@ -106,7 +106,7 @@ def main():
 
     print(f"\nkeep {len(keep)}, exclude {len(drop)}")
     old = set()
-    p = os.path.join(ROOT, "benchmarks", "tiers", "C-ruleneutral.list")
+    p = os.path.join(ROOT, "tools", "bench", "tiers", "C-ruleneutral.list")
     if os.path.exists(p):
         old = {l.split()[0] for l in open(p)
                if l.strip() and not l.startswith("#")}

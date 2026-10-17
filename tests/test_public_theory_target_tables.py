@@ -17,7 +17,7 @@ def rows(path):
 
 authorities = {}
 for name in ("WV100.tsv", "WV2-89.tsv"):
-    for row in rows(ROOT / "benchmarks/tiers" / name):
+    for row in rows(ROOT / "tools/bench/tiers" / name):
         key = row["instance"]
         assert key not in authorities
         authorities[key] = row

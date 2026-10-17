@@ -22,7 +22,7 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MANIFESTS = pathlib.Path(__file__).resolve().parent / "manifests"
-TIERS = ROOT / "benchmarks/tiers"
+TIERS = ROOT / "tools/bench/tiers"
 CACHE = ROOT / "benchmarks/cache"
 CHECKMODEL = ROOT / "tools/fuzz/checkmodel"
 DRAT = ROOT / "tools/checkers/bin/drat-trim"

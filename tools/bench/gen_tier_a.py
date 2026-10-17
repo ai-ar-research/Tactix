@@ -11,7 +11,7 @@
   - random graph k-coloring encodings
 
 Status is established once with Kissat (30 s cap) and written to
-benchmarks/tiers/A.list (`tierA/<name>.cnf STATUS ref_seconds`), which is
+tools/bench/tiers/A.list (`tierA/<name>.cnf STATUS ref_seconds`), which is
 then frozen in git. Instances themselves stay in the untracked cache and are
 bit-reproducible from this script (fixed master seed).
 """
@@ -29,7 +29,7 @@ from generators import random_ksat, write_dimacs  # noqa: E402
 import random  # noqa: E402
 
 CACHE = os.path.join(ROOT, "benchmarks", "cache", "tierA")
-LIST = os.path.join(ROOT, "benchmarks", "tiers", "A.list")
+LIST = os.path.join(ROOT, "tools", "bench", "tiers", "A.list")
 KISSAT = os.path.join(ROOT, "tools", "solvers", "bin", "kissat")
 MASTER_SEED = 20260709
 TIMEOUT = 30.0

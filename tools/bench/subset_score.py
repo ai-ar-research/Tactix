@@ -22,7 +22,7 @@ import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-TIERS = os.path.join(ROOT, "benchmarks", "tiers")
+TIERS = os.path.join(ROOT, "tools", "bench", "tiers")
 
 # Reference-solver names, a last resort only (see split_arms). Matching an arm
 # by name is wrong in both directions: `--baseline label=<command>` gives a
