@@ -8,9 +8,9 @@ through a C interface. A strategy asks which rules apply, chooses one and its
 settings, and applies it. Whatever the strategy does, every UNSAT answer comes
 with a machine-checkable proof and every SAT answer with a model.
 
-- **A strong default.** The built-in strategy reimplements the search and
+- **A strong default strategy.** The built-in strategy reimplements the search and
   inprocessing schedules of Kissat and CaDiCaL and adds symmetry breaking and
-  structure-aware techniques (GF(2) reasoning, cardinality and parity
+  structure-aware techniques (e.g., GF(2) reasoning, cardinality and parity
   arguments).
 - **Your own strategy.** Strategies written against `include/tactix.h` drive
   the solver one operation at a time, and each invocation of a rule can use
