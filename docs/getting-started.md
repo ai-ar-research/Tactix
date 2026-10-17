@@ -133,8 +133,9 @@ add_executable(my_strategy my_strategy.c)
 target_link_libraries(my_strategy PRIVATE tactix_lib)
 ```
 
-`cmake --install build/release --prefix DIR` installs the `tactix` binary and
-`tactix.h`.
+`cmake --install build/release --prefix DIR` installs the `tactix` binary, the
+library `libtactix.a` and `tactix.h`, with a CMake package and a pkg-config
+file; [install.md](install.md) shows how to use them.
 
 ## Run the tests
 
