@@ -140,12 +140,8 @@ endif()
 # The installable library: libtactix.a with every rule. Rules register in
 # static initializers, so consumers link the archive whole (the installed
 # CMake package and pkg-config file do this).
-add_library(tactix_symmetry_objects OBJECT src/symmetry_backend/dejavu_backend.cpp)
-target_include_directories(tactix_symmetry_objects PRIVATE src)
-target_include_directories(tactix_symmetry_objects SYSTEM PRIVATE third_party/dejavu-4c275e9)
-target_compile_options(tactix_symmetry_objects PRIVATE -fexceptions -frtti -fvisibility=hidden)
 add_library(tactix_archive STATIC $<TARGET_OBJECTS:tactix_lib>
-                                  $<TARGET_OBJECTS:tactix_symmetry_objects>)
+                                  $<TARGET_OBJECTS:tactix_symmetry_backend>)
 set_target_properties(tactix_archive PROPERTIES OUTPUT_NAME tactix)
 
 include(GNUInstallDirs)
