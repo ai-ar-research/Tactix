@@ -43,10 +43,12 @@ lib/cmake/Tactix/        CMake package
 lib/pkgconfig/tactix.pc  pkg-config file
 ```
 
-(`lib` may be `lib64` or `lib/x86_64-linux-gnu`, depending on the platform
-the package was built on). Unpack it anywhere, for example to `$HOME/.local`.
-The library was built with GCC 13; link with GCC 13 or newer (or a Clang that
-uses libstdc++ 13 or newer), since it needs that C++ runtime.
+Unpack it anywhere, for example to `$HOME/.local` (a build from source may
+use `lib64` or `lib/x86_64-linux-gnu` instead of `lib`).
+The library was built on Ubuntu 24.04 with GCC 13: link it with GCC 13 or newer
+(or a Clang that uses libstdc++ 13 or newer) on a system with glibc 2.38 or
+newer (Ubuntu 24.04, Debian 13, Fedora 39 and later). On older systems, build
+it from source as below. The static `tactix` binary has no such requirement.
 
 ### From source
 
