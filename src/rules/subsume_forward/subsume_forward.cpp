@@ -558,17 +558,40 @@ static ApplyResult subsume_forward_apply_fastel(Kernel &k, uint64_t inst) {
   if (!k.dense || !k.dense->track_order || k.level || k.conflict_valid ||
       k.inconsistent)
     return ApplyResult::NoOp;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == candidate) {
-      // Zero in, zero out: any scratch is equivalent to the caller's.
-      thread_local std::vector<uint8_t> marks;
-      return subsume_forward_try_fastel(k, ref, static_cast<uint32_t>(limit), marks);
-    }
-    if (ref > candidate)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
+  // An arbitrary payload must be proved a clause start before it is used, at
+  // the cost of one occurrence list rather than an arena walk per call (a
+  // fastel pass issues one call per candidate). Read only in-bounds words:
+  // the header, then `size` literals. Garbage and redundant clauses are NoOp
+  // in subsume_forward_try_fastel itself, so they need no proof.
+  const uint64_t arena_words = k.arena.size();
+  if (uint64_t{candidate} + CLAUSE_HEADER_WORDS > arena_words)
+    return ApplyResult::NoOp;
+  const Clause *c = clause_at(static_cast<const Arena &>(k.arena), candidate);
+  if (uint64_t{candidate} + CLAUSE_HEADER_WORDS + c->size > arena_words ||
+      c->size == 0 || c->garbage() || c->redundant())
+    return ApplyResult::NoOp;
+  // Every live large clause of the ordered Eliminate session occurs in the
+  // list of each of its literals, and the lists hold only clause starts.
+  Lit rarest = INVALID_LIT;
+  for (uint32_t i = 0; i < c->size; ++i) {
+    const Lit lit = c->lits[i];
+    if (lit >= 2 * static_cast<uint64_t>(k.nvars))
+      return ApplyResult::NoOp;
+    if (rarest == INVALID_LIT ||
+        k.dense->ordered.large_size(lit) < k.dense->ordered.large_size(rarest))
+      rarest = lit;
   }
-  return ApplyResult::NoOp;
+  bool listed = false;
+  for (const Ref ref : k.dense->ordered.large_refs(rarest))
+    if (ref == candidate) {
+      listed = true;
+      break;
+    }
+  if (!listed)
+    return ApplyResult::NoOp;
+  // Zero in, zero out: any scratch is equivalent to the caller's.
+  thread_local std::vector<uint8_t> marks;
+  return subsume_forward_try_fastel(k, candidate, static_cast<uint32_t>(limit), marks);
 }
 
 template <bool Collect>

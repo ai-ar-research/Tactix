@@ -251,6 +251,51 @@ class HomeScratchRuntime(unittest.TestCase):
             runtime_task.cake_heap_mib({'resource_contract': {'cake_heap_mib': 100}})
 
 
+class VerifiedCertificateIdentity(unittest.TestCase):
+    """A certificate byte-identical to a verified reference skips its checker."""
+
+    def run_with_reference(self, reference_digest):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            body = ('open(sys.argv[-1],"wb").write(b"d 1 0\\n"*3)\n'
+                    'print("s UNSATISFIABLE");sys.exit(20)\n')
+            campaign, environment = HomeScratchRuntime.campaign(None, root, body)
+            # The checker rejects everything, so only identity can verify.
+            (campaign / 'pins/drat-trim').chmod(0o750)
+            (campaign / 'pins/drat-trim').write_text('#!/bin/sh\necho "s NOT VERIFIED"; exit 1\n')
+            table = campaign / 'pins/verified-certificates.json'
+            table.write_text(json.dumps({'tiny.cnf.xz': [dict(
+                certificate_sha256=reference_digest, campaign='ref', task=0,
+                binary_sha256='b', pipeline='dsr-as-drat-drat-trim-cake_lpr')]}))
+            manifest = json.loads((campaign / 'manifest.json').read_text())
+            manifest['pin_sha256'] = {str(p.relative_to(campaign)): sha(p)
+                                      for p in (campaign / 'pins').iterdir()}
+            manifest['verified_certificate_reference'] = dict(
+                path='pins/verified-certificates.json', sha256=sha(table))
+            (campaign / 'manifest.json').write_text(json.dumps(manifest))
+            completed = subprocess.run(
+                [sys.executable, HERE / 'runtime_task.py', campaign, '0'],
+                env=environment, capture_output=True, text=True, timeout=60)
+            result = json.loads((campaign / 'results/000.json').read_text())
+            self.assertEqual(list((campaign / 'scratch').iterdir()), [])
+            return completed.returncode, result
+
+    def test_identical_certificate_is_verified_without_checking(self):
+        digest = hashlib.sha256(b'd 1 0\n' * 3).hexdigest()
+        returncode, result = self.run_with_reference(digest)
+        self.assertEqual(returncode, 0, result)
+        self.assertTrue(result['valid'], result)
+        self.assertEqual(result['proof_check']['pipeline'], 'reference-certificate-identity')
+        self.assertEqual(result['proof_check']['reference']['certificate_sha256'], digest)
+
+    def test_different_certificate_is_checked(self):
+        returncode, result = self.run_with_reference('0' * 64)
+        self.assertNotEqual(returncode, 0, result)
+        self.assertFalse(result['valid'], result)
+        self.assertNotEqual(result['proof_check'].get('pipeline'),
+                            'reference-certificate-identity')
+
+
 class RecheckPreparation(unittest.TestCase):
     def test_memout_rows_become_a_64g_home_recheck(self):
         frozen = REPO / 'benchmarks/baselines/sc24-26-32g-5000s/manifest.json'
@@ -326,6 +371,36 @@ class RecheckPreparation(unittest.TestCase):
                 capture_output=True, text=True, timeout=120)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn('recheck selection is empty', again.stderr)
+
+
+class CertificateNone(unittest.TestCase):
+    """certificate none: proof-free solving, models checked, no proof pins."""
+
+    def test_solver_gets_no_proof_path_or_flag(self):
+        self.assertEqual(et.solver_arguments('none', []), [])
+        self.assertEqual(et.solver_arguments('dsr', []), ['--dsr'])
+        self.assertEqual(et.solver_arguments('auto', ['--x']), ['--auto-proof', '--x'])
+        arm = dict(arguments=[], certificate='none')
+        self.assertEqual(runtime_task.solver_command('b', arm, 'f.cnf', 'p'), ['b', 'f.cnf'])
+        arm = dict(arguments=['--dsr'], certificate='dsr')
+        self.assertEqual(runtime_task.solver_command('b', arm, 'f.cnf', 'p'),
+                         ['b', '--dsr', 'f.cnf', 'p'])
+
+    def test_only_model_checker_pins_are_required(self):
+        ref = REPO / 'benchmarks/baselines/sc24-26-32g-5000s'
+        manifest = json.loads((ref / 'manifest.json').read_text())
+        self.assertEqual(set(et.checker_sources(ref, manifest, 'none')),
+                         {'checkmodel', 'modelcheck.py'})
+        with tempfile.TemporaryDirectory() as d:
+            c = Path(d)
+            (c / 'pins').mkdir()
+            for name in ('tactix', 'checkmodel', 'modelcheck.py'):
+                (c / 'pins' / name).write_text('')
+            pins = {f'pins/{n}': sha(c / 'pins' / n)
+                    for n in ('tactix', 'checkmodel', 'modelcheck.py')}
+            runtime_task.validate_runtime_pin_contract(
+                c, dict(arms={'tactix': dict(path='pins/tactix', certificate='none')},
+                        pin_sha256=pins))
 
 
 if __name__ == '__main__':

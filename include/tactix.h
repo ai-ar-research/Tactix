@@ -1785,7 +1785,10 @@ int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
  *                              and republishing the random order.
  *   REDUCTION_PREPARATION      Reduce's root preparation (flush pending root
  *                              units before collection).
- *   COLLECT_GARBAGE            COLLECT_* flags: arena collection at the root.
+ *   COLLECT_GARBAGE            COLLECT_* flags: arena collection at the root,
+ *                              also inside an open occurrence session (the
+ *                              session's lists are remapped), as Kissat collects
+ *                              after each completed elimination round.
  *   FLUSH_RETIRED_REDUNDANT    delete redundant clauses on retired variables.
  *   BEGIN_BVE_DEFINITION_SESSION  start a new BVE definition-discovery
  *                              generator session.
@@ -1875,6 +1878,15 @@ int tactix_read_affine_matrix_result(tactix *, tactix_affine_matrix_result *);
  * already clear. Any later removal of a clause containing the variable sets
  * it again; TACTIX_SUPPORT_RESCHEDULE_BVE sets it for every variable. */
 #define TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE 26
+/* Strengthen's forward closure (Kissat eliminate.c after each forward call),
+ * standalone: argument = the trail position the preceding Strengthen
+ * application started from. Rebuilds the ordered occurrence image, closes root
+ * propagation from that position and flushes satisfied clauses, exactly as an
+ * online Strengthen step's TACTIX_ONLINE_POST_FORWARD_CLOSURE does. Requires
+ * the root of an open Eliminate occurrence session with large watches
+ * disconnected. Derived roots are not published to H; the caller publishes
+ * them (as DefaultPolicy does). Returns 0, 1 (nothing changed) or 20. */
+#define TACTIX_SUPPORT_FORWARD_CLOSURE 27
 #define TACTIX_ROOT_PREPARATION_PROBING 1
 #define TACTIX_ROOT_PREPARATION_CAPTURE_TARGET 2
 #define TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX 4

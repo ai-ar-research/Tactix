@@ -16,6 +16,11 @@ add_executable(tactix-cruxmiter-policy cruxmiter_policy.c)
 target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib)
 target_include_directories(tactix-cruxmiter-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+# The crux opening followed by an unmodified DefaultPolicy handoff.
+add_executable(tactix-crux-fallback-policy crux_fallback_policy.c)
+target_link_libraries(tactix-crux-fallback-policy PRIVATE tactix_lib)
+target_include_directories(tactix-crux-fallback-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Dedicated benchmark-family policies implemented against the same frozen
 # public interface.  EEVBNN accepts both plain and gzip-compressed DIMACS.
 add_executable(tactix-eevbnn-policy eevbnn_policy.c)
@@ -25,3 +30,8 @@ target_include_directories(tactix-eevbnn-policy PRIVATE ${CMAKE_SOURCE_DIR}/incl
 add_executable(tactix-random3sat-policy random3sat_policy.c)
 target_link_libraries(tactix-random3sat-policy PRIVATE tactix_lib)
 target_include_directories(tactix-random3sat-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Semantic-variable CDCL policy for symbreak's Chvatal SAT subproblems.
+add_executable(tactix-chvatal-policy chvatal_policy.c)
+target_link_libraries(tactix-chvatal-policy PRIVATE tactix_lib)
+target_include_directories(tactix-chvatal-policy PRIVATE ${CMAKE_SOURCE_DIR}/include)

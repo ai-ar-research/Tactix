@@ -170,7 +170,7 @@ def dsr_checker_provenance(dsr_profile):
     return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
 
 def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
-    if certificate not in ('dsr','auto'):
+    if certificate not in ('dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
     if dsr_profile not in ('frozen','long64','long64-fixed'):
         raise ValueError('unsupported DSR checker profile: '+dsr_profile)
@@ -178,6 +178,8 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
            'drat-trim':'drat-trim','cake_lpr':'cake-lpr'}
     if certificate=='auto':
         names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
+    if certificate=='none':
+        names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
     sources={}
     for target,name in names.items():
         source=reference/baseline['checkers'][name]
@@ -185,6 +187,7 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
         if not source.is_file() or sha(source)!=expected:
             raise ValueError('frozen winner checker pin mismatch: '+name)
         sources[target]=source
+    if certificate=='none':return sources
     for name,expected in FROZEN_DSR_HASHES.items():
         source=FROZEN_DSR/name
         if dsr_profile=='long64' and name in LONG_DSR_HASHES:
@@ -208,9 +211,9 @@ def slurm_time(seconds):
 
 def solver_arguments(certificate, extra, gf2_telemetry=False,
                      causal_preflight=False):
-    if certificate not in ('dsr','auto'):
+    if certificate not in ('dsr','auto','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    proof='--auto-proof' if certificate=='auto' else '--dsr'
+    proof={'auto':['--auto-proof'],'dsr':['--dsr'],'none':[]}[certificate]
     if any(not value or value in PROOF_ARGUMENTS for value in extra):
         raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
     if gf2_telemetry and any(
@@ -223,7 +226,7 @@ def solver_arguments(certificate, extra, gf2_telemetry=False,
             value == reserved or value.startswith(reserved+'=')
             for value in extra for reserved in CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS):
         raise ValueError('causal preflight forbids full trace, feedback, and provenance artifacts')
-    return [proof,*extra]
+    return [*proof,*extra]
 
 def selected_scratch_capacity(a, selection_authority, rows):
     profile=getattr(a,'scratch_capacity_profile',None)
@@ -398,6 +401,30 @@ def summarize(c):
     print(json.dumps(out,indent=2))
     return out
 
+def write_verified_certificate_reference(campaigns,destination):
+    """Instance -> certificates a source campaign verified; returns the sources or []."""
+    if not campaigns:return []
+    table,sources={},[]
+    for campaign in campaigns:
+        campaign=campaign.resolve();results=sorted((campaign/'results').glob('*.json'))
+        if not results:raise ValueError(f'no results in reference campaign {campaign}')
+        verified=0
+        for path in results:
+            r=json.loads(path.read_text())
+            check=r.get('proof_check') or {}
+            if (r.get('verdict')!='UNSAT' or check.get('result')!='verified' or
+                    check.get('pipeline')=='reference-certificate-identity' or
+                    not r.get('certificate_sha256')):
+                continue
+            table.setdefault(r['instance'],[]).append(dict(
+                certificate_sha256=r['certificate_sha256'],campaign=str(campaign),
+                task=r['task'],binary_sha256=r['binary_sha256'],pipeline=check.get('pipeline')))
+            verified+=1
+        sources.append(dict(campaign=str(campaign),
+                            manifest_sha256=sha(campaign/'manifest.json'),verified=verified))
+    with destination.open('x') as f:json.dump(table,f,indent=1,sort_keys=True)
+    return sources
+
 def prepare(a):
     c=a.campaign.resolve(); ref=ROOT/'benchmarks/baselines/sc24-26-32g-5000s'
     recheck=None
@@ -523,6 +550,8 @@ def prepare(a):
     for name in runner_pins:
         shutil.copy2(ROOT/'tools/bench'/name,c/'pins'/name)
     pin_dsr_transport(getattr(a, 'dsr_transport', None), c/'pins')
+    reference_sources=write_verified_certificate_reference(a.verified_certificate_reference,
+                                                           c/'pins/verified-certificates.json')
     with (c/'matrix.tsv').open('x',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
     batch_cpus=(capacity_resources.get('outer_allocation_cpus',
@@ -586,7 +615,9 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             **({'cake_heap_mib':cake_heap} if cake_heap is not None else {}),
             **({'scratch_isolation':capacity_resources}
                if capacity_profile else {})),
-        proof_contract=('Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
+        proof_contract=('No certificate: the solver gets no proof path and runs proof-free; UNSAT verdicts are unchecked and never valid; SAT models are checked against the original CNF.'
+                        if a.certificate=='none' else
+                        'Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
                         if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
@@ -643,6 +674,14 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                 'inherits a 60000000000-byte per-file limit, and permits at most six simultaneously '
                 'live anonymous files, preserving a declared 40000000000-byte reserve for managed '
                 'scratch. ENOSPC is incomplete infrastructure evidence.')
+    if reference_sources:
+        m['verified_certificate_reference']=dict(
+            path='pins/verified-certificates.json',
+            sha256=sha(c/'pins/verified-certificates.json'),
+            sources=reference_sources,
+            rule=('An UNSAT certificate whose SHA-256 equals one that a source campaign verified for '
+                  'the same instance is recorded as verified by identity and not checked again; every '
+                  'other certificate and every SAT model is checked as usual.'))
     if a.retain_failed_proof:
         m['failed_proof_retention']=dict(
             schema='tactix-failed-proof-retention-v1',
@@ -723,7 +762,11 @@ if __name__=='__main__':
     p.add_argument('--governor-jobs',type=Path,
                    help='with --submit: append the array job id to this quota-governor jobs.json')
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
-    p.add_argument('--certificate',choices=['dsr','auto'],default='dsr')
+    p.add_argument('--certificate',choices=['dsr','auto','none'],default='dsr',
+                   help='none: no proof path, UNSAT unchecked and never valid; SAT models checked')
+    p.add_argument('--verified-certificate-reference',type=Path,action='append',default=[],
+                   help='repeatable campaign directory; an UNSAT certificate byte-identical to one it '
+                        'verified for the same instance is recorded as verified by identity, unchecked')
     p.add_argument('--solver-argument',action='append',default=[],
                    help='repeatable immutable solver argument for the prepared arm; use = before values beginning with --')
     p.add_argument('--gf2-telemetry',action='store_true',
@@ -808,6 +851,8 @@ if __name__=='__main__':
         p.error('--retain-failed-proof requires explicit --certificate dsr')
     if a.retain_failed_proof_max_bytes < 1:
         p.error('--retain-failed-proof-max-bytes must be positive')
+    if a.verified_certificate_reference and (not a.prepare or a.certificate == 'none'):
+        p.error('--verified-certificate-reference requires --prepare and a certificate')
     if a.gf2_telemetry != bool(a.gf2_affine_profile):
         p.error('--gf2-affine-profile is required exactly when --gf2-telemetry is selected')
     prepare(a) if a.prepare else submit(a)

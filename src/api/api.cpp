@@ -138,6 +138,16 @@ const strategy::OnlineStrategyProgram *online_program_for_fixed_testing(void *op
   const auto &online = static_cast<::tactix_solver *>(opaque)->online;
   return online ? &online->program() : nullptr;
 }
+const char *load_dimacs_for_fixed_testing(void *opaque, FILE *in) {
+  assert(opaque);
+  auto *s = static_cast<::tactix_solver *>(opaque);
+  // The CLI's ingestion, including the advisory header, into a fresh session.
+  // parse_dimacs calls finish_input, which must run exactly once.
+  assert(!s->input_completed && !s->pending_input_proof && s->scratch.empty());
+  const char *err = parse_dimacs(in, s->kernel);
+  s->input_completed = true;
+  return err;
+}
 }
 
 namespace {
@@ -3658,8 +3668,11 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     result = support_result(s, k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok);
     break;
   case TACTIX_SUPPORT_COLLECT_GARBAGE:
+    // kernel_collect_garbage remaps an open occurrence session, so unlike the
+    // other root supports it does not require !k.dense.
     if (!flags(TACTIX_COLLECT_SPARSE | TACTIX_COLLECT_PRESERVE_EAGER) ||
-        !support_root(k) || k.bve_occurrence_count_image)
+        k.inconsistent || k.level || k.conflict_valid || k.pending.valid ||
+        k.probing.recording || k.bve_occurrence_count_image)
       return -1;
     execution::execute_action(k, execution::CollectGarbageRequest{
         0, (argument & TACTIX_COLLECT_SPARSE) != 0,
@@ -3772,6 +3785,14 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
                  ? 0 : 1;
     break;
   }
+  case TACTIX_SUPPORT_FORWARD_CLOSURE:
+    if (argument > k.trail.size() || k.level || k.conflict_valid ||
+        k.pending.valid || k.probing.recording || !k.dense ||
+        !k.dense->track_order || k.large_watches_connected)
+      return -1;
+    result = support_result(s, execution::execute_action(
+        k, execution::ForwardClosureRequest{static_cast<uint32_t>(argument)}));
+    break;
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
     if (argument || s->contexts.empty() ||
         (s->phase.open() && s->contexts.size() <= s->phase_contexts))

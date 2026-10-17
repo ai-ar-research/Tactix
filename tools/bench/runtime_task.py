@@ -332,7 +332,9 @@ def solver_command(binary, arm, cnf, proof, instrumentation=()):
             not isinstance(instrumentation, (list, tuple)) or
             any(not isinstance(arg, str) for arg in before + after + list(instrumentation))):
         raise RuntimeError("solver arguments must be string lists")
-    return [binary, *before, *instrumentation, cnf, proof, *after]
+    # certificate "none": the solver gets no proof path and runs proof-free.
+    proof_path = [] if arm.get("certificate") == "none" else [proof]
+    return [binary, *before, *instrumentation, cnf, *proof_path, *after]
 
 
 def sha256(path):
@@ -771,6 +773,22 @@ def expected_matches(expected, verdict):
     return verdict in ("SAT", "UNSAT") and expected in (verdict, "UNKNOWN")
 
 
+def verified_reference_identity(manifest, instance, digest):
+    """A source campaign's verified certificate for `instance` with the same bytes, or None."""
+    spec = manifest.get("verified_certificate_reference")
+    if not spec or digest is None:
+        return None
+    path = CAMPAIGN / spec["path"]
+    if sha256(path) != spec["sha256"]:
+        raise RuntimeError("verified certificate reference changed")
+    with open(path) as source:
+        entries = json.load(source).get(instance, [])
+    for entry in entries:
+        if entry["certificate_sha256"] == digest:
+            return entry
+    return None
+
+
 def checked_verdict_valid(expected, verdict, solve, certificate_valid):
     return bool(certificate_valid and expected_matches(expected, verdict) and
                 not solve["timed_out"] and
@@ -791,7 +809,7 @@ def validate_runtime_pin_contract(campaign, manifest):
                              "pins/cake_lpr"})
             if certificate == "auto":
                 required.update({"pins/veripb", "pins/cake-pb-cnf"})
-        else:
+        elif certificate != "none":
             raise RuntimeError(f"unsupported proof certificate: {certificate}")
     if manifest.get("scratch_policy") == "anonymous-local-files-v1":
         required.add("pins/anonymous_scratch.py")
@@ -1416,8 +1434,10 @@ def main():
             "address_space_limit": None,
             "solver_statistics": statistics,
             "solver_stderr_tail": tail(stderr),
-            "certificate_bytes": proof.stat().st_size if proof.is_file() else None,
-            "certificate_sha256": sha256(proof) if proof.is_file() else None,
+            "certificate_bytes": (proof.stat().st_size if certificate != "none" and
+                                  proof.is_file() else None),
+            "certificate_sha256": (sha256(proof) if certificate != "none" and
+                                   proof.is_file() else None),
             "proof_check": None,
             "model_check": None,
             "valid": False,
@@ -1433,7 +1453,18 @@ def main():
         atomic_json(provisional_path, provisional_result(
             result, dt.datetime.now(dt.timezone.utc).isoformat()))
         release_scratch(scratch, 'solver.stderr', 'solve.time', 'solver.perf')
-        if verdict == "UNSAT" and proof.is_file():
+        identity = (verified_reference_identity(
+                        manifest, row["instance"], result["certificate_sha256"])
+                    if verdict == "UNSAT" and certificate != "none" else None)
+        if identity is not None:
+            release_scratch(scratch, cnf_name, proof_name, 'solver.stdout')
+            result["proof_check"] = {
+                "result": "verified",
+                "pipeline": "reference-certificate-identity",
+                "reference": identity,
+            }
+            result["valid"] = True
+        elif verdict == "UNSAT" and certificate != "none" and proof.is_file():
             reported_route = solver_reported_route(stdout)
             release_scratch(scratch, 'solver.stdout')
             checked = check_unsat_proof(
