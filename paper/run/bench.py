@@ -232,7 +232,8 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
         raise ValueError(kind)
     env = dict(os.environ)
     if memory_gib >= 32:  # CakeML's default 4 GiB heap rejects large valid proofs
-        env["CML_HEAP_SIZE"] = "24576"
+        from proof_oracle import CAKE_LPR_ENVIRONMENT
+        env.update(CAKE_LPR_ENVIRONMENT)
     log = []
     for number, (name, command, redirect) in enumerate(stages, 1):
         out = redirect or work / f"check-{number}.out"

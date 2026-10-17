@@ -876,7 +876,19 @@ def dsr_proof_as_drat(proof, drat):
 # The frozen baseline's checker amendment 2: CakeML's 4096 MiB default heap
 # exhausts on large certificates, so the reference runs cake_lpr with a
 # 24576 MiB heap (the pipeline's parameter, not the binary's).
-CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': '24576'}
+def _cake_heap_mib():
+    """CakeML heap for CakeLPR and CakePB: 24 GiB, the size large proofs need,
+    capped at three quarters of physical memory, since on a smaller machine the
+    kernel refuses the reservation and the checker fails before reading."""
+    import os
+    try:
+        physical = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // 2**20
+    except (ValueError, OSError):
+        return 24576
+    return min(24576, physical * 3 // 4)
+
+
+CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': str(_cake_heap_mib())}
 
 
 # Python's poll selector converts seconds to signed-C-int milliseconds. Bound
