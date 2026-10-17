@@ -3,8 +3,9 @@
 #   docker build -f paper/Dockerfile -t tactix-artifact .
 #   docker run --rm -it tactix-artifact
 #
-# Build from the repository root. Building compiles Tactix at every paper-*
-# tag, the reference solvers and the proof checkers (about half an hour), and
+# Build from the repository root, in a clone that has the paper-commits
+# branch. Building compiles Tactix at every commit the paper evaluated, the
+# reference solvers and the proof checkers (about half an hour), and
 # downloads the instances of the reduced experiment set, so the smoke test and
 # the reduced evaluation then run offline.
 FROM ubuntu:24.04

@@ -144,16 +144,17 @@ record the exact binaries (`logs/*/raw/*/manifest.json`).
   only after a resource failure (Chvátal). One Chvátal campaign carries a
   `CORRECTNESS-BUG` note about two CakeLPR crashes; the recheck campaigns
   verified both certificates, and the paper uses the rechecked outcome.
-- **Commits.** Each Tactix configuration was built from a commit tagged
-  `paper-*` in this repository (`git tag -l 'paper-*'`; `run/experiments.py`
-  lists them).
+- **Commits.** Each Tactix configuration was built from a commit of this
+  repository; `BUILDS` in `run/experiments.py` lists them by full hash, and
+  `run/setup.sh tactix` builds each one. Three of them are not on `main`; the
+  `paper-commits` branch keeps them (`setup.sh` fetches it when needed).
 - **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
   drives its opening through `tactix.h` and then hands over to the built-in
   default strategy, configured through `tactix_set_default_option` (stable
   mode, inprocessing limited to vivification; the settings are in
   `run/experiments.py`). The paper's runs passed the same settings through the
-  environment, before the call existed; the artifact runs the strategy at tag
-  `paper-cruxmiter-public`, which uses the call and writes byte-identical
+  environment, before the call existed; the artifact runs the strategy at
+  commit `b8b550aae` (build `paper-cruxmiter-public`), which uses the call and writes byte-identical
   proofs (checked on seed 7: same SHA-256, and the same size as the paper's
   proof).
 - **Tested environments.** The complete pipeline (setup, smoke test, reduced

@@ -14,7 +14,7 @@ Proof kinds decide how an UNSAT answer is checked:
   none     no certificate (UNSAT is not checked)
 """
 
-T = "tools/tactix"  # Tactix builds, one directory per paper-* tag
+T = "tools/tactix"  # Tactix builds, one directory per entry of BUILDS
 S = "tools/solvers"
 
 KISSAT = {"command": [f"{S}/kissat-4.0.4", "{cnf}", "{proof}"], "proof": "drat"}
@@ -66,10 +66,10 @@ EXPERIMENTS = {
         "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800},
         "configurations": {
             **{f"Milestone {m}": {"command": [f"{T}/paper-milestone-{m.lower()}/tactix", "{cnf}"],
-                                  "proof": "none", "commit_tag": f"paper-milestone-{m.lower()}"}
+                                  "proof": "none", "build": f"paper-milestone-{m.lower()}"}
                for m in "ABCDE"},
             "Current": {"command": [f"{T}/paper-tierd/tactix", "--auto-proof", "{cnf}", "{proof}"],
-                        "proof": "tactix", "commit_tag": "paper-tierd"},
+                        "proof": "tactix", "build": "paper-tierd"},
         },
     },
     "interface": {
@@ -124,17 +124,19 @@ EXPERIMENTS = {
     },
 }
 
-# Paper commits, created as git tags by the artifact; setup.sh builds each one.
-TAGS = {
-    "paper-tierd": "0f7c10174",
-    "paper-interface": "984a72441",
-    "paper-milestone-a": "dcc3ecbd6",
-    "paper-milestone-b": "546298924",
-    "paper-milestone-c": "6f44f23d6",
-    "paper-milestone-d": "f50e46c0c",
-    "paper-milestone-e": "0a9063387",
-    "paper-cruxmiter": "5d2bab322",
-    "paper-cruxmiter-public": "b8b550aae",
-    "paper-chvatal": "4dc8e673d",
-    "paper-chvatal-default": "903ec8bb4",
+# The Tactix commits the paper evaluated, by build name; setup.sh builds each
+# one into tools/tactix/<name>/. Three of them (paper-cruxmiter, paper-chvatal,
+# paper-chvatal-default) are not on main; the paper-commits branch keeps them.
+BUILDS = {
+    "paper-tierd": "0f7c10174faa13e41e3ab60654bf8fc3322f4041",
+    "paper-interface": "984a72441a5f46528ec63546869bbea56b82e753",
+    "paper-milestone-a": "dcc3ecbd6591b80889f642c33ecda19ca660efcc",
+    "paper-milestone-b": "546298924b6e8989b39436b7e44b7317d1bf60e6",
+    "paper-milestone-c": "6f44f23d6f1b32126d7def74ad3918b3b9705a83",
+    "paper-milestone-d": "f50e46c0c45b049325e365b9afb17b3d9debaca4",
+    "paper-milestone-e": "0a90633874488baeffc5ab4d3630017f6f46e71e",
+    "paper-cruxmiter": "5d2bab3228805f10dfc965836740b463b015acfd",
+    "paper-cruxmiter-public": "b8b550aaec40706041a365816dabd5a5b163be63",
+    "paper-chvatal": "4dc8e673db4ca8de0a64a745c7da08fac24c175f",
+    "paper-chvatal-default": "903ec8bb4bd1c5518a64a367a05dc07d039b0070",
 }

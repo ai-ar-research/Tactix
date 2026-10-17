@@ -1,7 +1,7 @@
 # Build the paper artifact's Docker image and run its smoke test and the
 # analysis check inside it (paper/README.md, levels 1 and 2). Manual only:
 # the build compiles the proof checkers, the reference solvers and Tactix at
-# every paper-* tag.
+# every commit the paper evaluated.
 name: artifact
 
 on:
@@ -14,9 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # setup.sh builds the paper-* tags from history
-      - name: Fetch tags
-        run: git fetch --tags --force
+          fetch-depth: 0  # setup.sh builds the paper's commits from history
+      - name: Fetch the paper's commits that are not on main
+        run: git fetch origin paper-commits
       - name: Build the image
         run: DOCKER_BUILDKIT=1 docker build -f paper/Dockerfile -t tactix-artifact .
       - name: Smoke test

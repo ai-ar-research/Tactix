@@ -7,7 +7,8 @@
 #                                    VeriPB, CakePB
 #   paper/run/setup.sh references    Kissat 4.0.4, Kissat-sc2024, AE-Kissat-MAB,
 #                                    Satsuma+Kissat, LymphoSAT
-#   paper/run/setup.sh tactix [TAG]  Tactix at every paper-* tag (or one tag)
+#   paper/run/setup.sh tactix [NAME] Tactix at every commit the paper evaluated
+#                                    (BUILDS in experiments.py), or one of them
 #   paper/run/setup.sh all
 #
 # Needs git, curl, xz, a C/C++ toolchain, CMake, zlib, and Lean's `lake`
@@ -102,17 +103,24 @@ references () {
     ln -sfn "$l" "$SOLVERS/lymphosat"
 }
 
-tactix () { # [tag]
-    local tags
-    if [ $# -gt 0 ]; then tags="$1"; else tags="$(git -C "$ROOT" tag --list 'paper-*')"; fi
-    [ -n "$tags" ] || { echo "no paper-* tags in this clone; run git fetch --tags" >&2; exit 1; }
-    for tag in $tags; do
-        local out="$TOOLS/tactix/$tag"
+tactix () { # [build name]
+    local builds
+    builds="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1])
+from experiments import BUILDS
+wanted = sys.argv[2:]
+for name, commit in BUILDS.items():
+    if not wanted or name in wanted: print(name, commit)' "$ROOT/paper/run" "$@")"
+    [ -n "$builds" ] || { echo "unknown build: $*" >&2; exit 1; }
+    while read -r name commit; do
+        local out="$TOOLS/tactix/$name"
         [ -x "$out/tactix" ] && continue
-        echo "== Tactix $tag ($(git -C "$ROOT" rev-parse --short "$tag^{commit}")) =="
-        local src="$TOOLS/src/tactix-$tag"
+        # Three of the paper's commits live only on the paper-commits branch.
+        git -C "$ROOT" cat-file -e "$commit^{commit}" 2>/dev/null ||
+            git -C "$ROOT" fetch -q origin paper-commits
+        echo "== Tactix $name (${commit:0:9}) =="
+        local src="$TOOLS/src/tactix-$name"
         rm -rf "$src" && mkdir -p "$src"
-        git -C "$ROOT" archive "$tag" | tar -x -C "$src"
+        git -C "$ROOT" archive "$commit" | tar -x -C "$src"
         cmake -S "$src" -B "$src/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-O3 >/dev/null
         mkdir -p "$out"
         # Only the solver binaries; older commits lack the later ones.
@@ -123,9 +131,9 @@ tactix () { # [tag]
                 cp "$src/build/$binary" "$out/"
             fi
         done
-        [ -x "$out/tactix" ] || { echo "Tactix $tag did not build" >&2; exit 1; }
-        git -C "$ROOT" rev-parse "$tag^{commit}" > "$out/COMMIT"
-    done
+        [ -x "$out/tactix" ] || { echo "Tactix $name did not build" >&2; exit 1; }
+        echo "$commit" > "$out/COMMIT"
+    done <<< "$builds"
 }
 
 case "${1:-}" in

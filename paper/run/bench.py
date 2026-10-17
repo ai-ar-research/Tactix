@@ -305,7 +305,7 @@ def run_task(task: dict, out: Path, index: int) -> dict:
         record = {**{k: task[k] for k in ("experiment", "configuration", "set", "instance")},
                   "competition": task.get("competition", ""), "verdict": verdict, "solve": solve,
                   "limits": limits, "proof_kind": spec["proof"], "certificate_bytes": None,
-                  "check": None, "model_ok": None, "commit_tag": spec.get("commit_tag"),
+                  "check": None, "model_ok": None, "build": spec.get("build"),
                   "host": os.uname().nodename,
                   "solver_stdout_tail": stdout.read_text(errors="replace").splitlines()[-12:]}
         if verdict == "SAT":
@@ -377,9 +377,9 @@ def collect(out: Path) -> None:
             for record in records:
                 record["kissat_screen_seconds"] = screen.get(Path(record["instance"]).name.removesuffix(".xz"), "")
         for record in records:
-            tag = record.get("commit_tag")
-            if tag and (TOOLS / "tactix" / tag / "COMMIT").exists():
-                record["commit"] = (TOOLS / "tactix" / tag / "COMMIT").read_text().strip()[:9]
+            build = record.get("build") or record.get("commit_tag")
+            if build and (TOOLS / "tactix" / build / "COMMIT").exists():
+                record["commit"] = (TOOLS / "tactix" / build / "COMMIT").read_text().strip()[:9]
         rows = [_row(r) for r in records]
         if not rows:
             continue
