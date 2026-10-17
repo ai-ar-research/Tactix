@@ -44,6 +44,7 @@ details may change between releases.
 | Option | Use | Section |
 |---|---|---|
 | `-q`, `--quiet` | normal | [Output control](#output-control) |
+| `-v`, `--verbose` | normal | [Output control](#output-control) |
 | `--version`, `-h`, `--help` | normal | [Synopsis](#synopsis) |
 | `--auto-proof`, `--dsr`, `--drat`, `--lrat`, `--no-binary` | normal | [Proof format](#proof-format) |
 | `--default-affine-search=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
@@ -64,6 +65,29 @@ Options that take a value use the form `--option=VALUE`; a separate argument
 lines, the `c proof-route` line and error messages are still printed. The
 research policies print a few `c` lines of their own that `-q` does not
 suppress.
+
+**`-v`, `--verbose`.** Prints progress while the default strategy searches:
+a header, then a line at most about once per second at restarts and clause
+database reductions, and a last line when it stops.
+
+```
+c progress: seconds conflicts decisions restarts reductions mode fixed-variables irredundant-clauses (of 570 variables)
+c *     0.00            0             0        0      0 focused        1        526
+c r     1.01        65451        154813     2893     21 stable        20        788
+c r     2.01       126150        272111     4803     33 focused       20        836
+...
+c R    13.15       723232       1365990    26035    106 stable        20        972
+...
+c 0   186.19      7682404      11558820   200895    510 focused      116        950
+```
+
+The first column says what triggered the line: `*` start, `r` restart, `R`
+reduction, and at the end `1` (SAT), `0` (UNSAT) or `?` (stopped). The other
+columns are elapsed seconds; conflicts, decisions, restarts and reductions so
+far; the search mode; variables fixed at the root; and live irredundant
+clauses of three or more literals. `-v` only adds output: the search, the
+answer and the proof are the same as without it. Through the C interface, set
+it per session with `tactix_set_default_option(s, "TACTIX_VERBOSE", "1")`.
 
 ### Proof format
 

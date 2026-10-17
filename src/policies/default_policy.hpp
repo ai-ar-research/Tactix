@@ -1,5 +1,6 @@
 #pragma once
 
+#include "policies/progress.hpp"
 #include "policies/default_inprocess.hpp"
 #include "policies/default_periodic.hpp"
 #include "policies/default_restart.hpp"
@@ -361,6 +362,7 @@ private:
 
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
   void configure_from_env(const Kernel &);
+  ProgressReport progress_; // -v progress lines; output only
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);
   uint32_t want_bump_reasons(const Kernel &) const;
