@@ -127,3 +127,4 @@ adversarial-review/
 /tools/solvers/variants/
 /docs/development-map.md
 /tools/fuzz/slurm-*.log
+/corpus/

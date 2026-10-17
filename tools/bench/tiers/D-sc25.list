@@ -12,7 +12,7 @@
 # Running these 400 on their own would produce numbers not comparable to the full-tier
 # window they came from, which is the whole reason the subset instrument exists.
 #
-# DERIVATION, mechanical and reproducible from the repo: benchmarks/tiers/D.sources
+# DERIVATION, mechanical and reproducible from the repo: tools/bench/tiers/D.sources
 # carries D.list's per-track blocks, and its own header says they "are what a per-track
 # (e.g. SC25-only, gate T4) score is reconstructed from". This list is
 #     {main_2025 only: 393} union {shared, in BOTH main tracks: 7}  =  400,

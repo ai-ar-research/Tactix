@@ -19,7 +19,7 @@ Usage:
   on an explicit user request or for a documented correctness/resource limit;
   --dry-run writes manifest + sbatch scripts without submitting.
 
-- Tier lists are frozen files `benchmarks/tiers/<tier>.list`; each
+- Tier lists are frozen files `tools/bench/tiers/<tier>.list`; each
   non-comment line is `<relpath> <SAT|UNSAT|UNKNOWN> <ref_seconds>` with
   paths relative to `benchmarks/cache/`.
 - For the solver under test, every UNSAT answer's proof is checked; a rejected
@@ -74,7 +74,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CACHE = os.path.join(ROOT, "benchmarks", "cache")
-TIERS = os.path.join(ROOT, "benchmarks", "tiers")
+TIERS = os.path.join(ROOT, "tools", "bench", "tiers")
 MANIFESTS = os.path.join(HERE, "manifests")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")

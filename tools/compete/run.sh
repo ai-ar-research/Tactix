@@ -8,6 +8,6 @@ if [ "$#" -ne 2 ]; then
 fi
 instance=$1
 output_dir=$2
+root="$(cd "$(dirname "$0")/../.." && pwd)"
 mkdir -p "$output_dir"
-exec "$(dirname "$0")/build/release/tactix" "$instance" \
-  "$output_dir/proof.out"
+exec "$root/build/release/tactix" "$instance" "$output_dir/proof.out"

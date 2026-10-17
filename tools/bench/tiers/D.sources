@@ -4,7 +4,7 @@
 #   SELECT hash FROM track WHERE value IN ('main_2024','main_2025')
 # 793 distinct instances = the full SC2024 (400) + SC2025 (400) main tracks with
 # 7 content-identical instances shared between the tracks listed once.  The
-# blocks below mirror benchmarks/tiers/D.list exactly, and are what a per-track
+# blocks below mirror tools/bench/tiers/D.list exactly, and are what a per-track
 # (e.g. SC25-only, gate T4) score is reconstructed from.  Where GBD holds
 # several filenames for one hash, the lexicographically smallest is used.
 # Rationale, composition, and the retained-UNKNOWN decision: see D.list header.
