@@ -5,6 +5,7 @@
 | Document | Contents |
 |---|---|
 | [getting-started.md](getting-started.md) | Build, solve a formula, check its proof, call Tactix from C |
+| [install.md](install.md) | Release binaries, and installing Tactix as a library (CMake, pkg-config) |
 | [cli.md](cli.md) | Every command-line option, the output format, the example strategy programs |
 | [c-api.md](c-api.md) | The C interface: writing your own strategy, per-invocation rule settings, a tutorial |
 | [rules.md](rules.md) | Every proof rule and policy operation a strategy can apply |
