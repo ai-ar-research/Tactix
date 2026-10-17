@@ -9,7 +9,7 @@ from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-TIERS = ROOT / "benchmarks" / "tiers"
+TIERS = ROOT / "tools" / "bench" / "tiers"
 MANIFESTS = ROOT / "tools" / "bench" / "manifests"
 
 
