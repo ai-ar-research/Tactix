@@ -31,7 +31,9 @@ python3 tools/bench/proof_oracle.py check formula.cnf proof
 ```
 
 See [docs/getting-started.md](docs/getting-started.md) for requirements,
-proof formats, checking, and using Tactix as a library.
+proof formats, checking, and using Tactix as a library, and
+[docs/install.md](docs/install.md) for the static release binaries and
+installing the library.
 
 ## Example strategies
 
@@ -41,7 +43,7 @@ program built with the solver and produces checkable proofs.
 | Program | Source | Strategy |
 |---|---|---|
 | `tactix-public` | `tests/tactix_public_main.cpp` | The default strategy with every operation issued through `tactix.h`; it makes the same decisions and writes the same proofs as `tactix`. |
-| `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | For multiplier-equivalence miters (`cruxmiter`): alternates congruence closure and equivalent-literal substitution while they find new equivalences, simplifies the formula at the root, then hands over to the default strategy. The paper's configuration also limits inprocessing during search to vivification (see `paper/run/experiments.py`). |
+| `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | For multiplier-equivalence miters (`cruxmiter`): alternates congruence closure and equivalent-literal substitution while they make progress, then runs CDCL search with vivification as its only inprocessing. |
 | `tactix-chvatal-policy` | `examples/chvatal_policy.c` | For Chvátal-conjecture subproblems: finds counter variables that the formula's totalizers duplicate, merges them with substitution-redundancy steps, then runs the default strategy. |
 
 ```sh

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 project(tactix VERSION 0.1.0 LANGUAGES CXX C)
 
+# A fully static executable (glibc, libstdc++, zlib), for binary releases.
+option(TACTIX_STATIC_BINARY "Link the tactix executable statically" OFF)
+if(TACTIX_STATIC_BINARY)
+  set(ZLIB_USE_STATIC_LIBS ON)
+endif()
 find_package(ZLIB REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -127,8 +132,6 @@ tactix_port_usage(tactix_default_policy_hardcoded)
 tactix_port_twin(tactix-hardcoded src/main.cpp
                  $<TARGET_OBJECTS:tactix_default_policy_hardcoded>)
 
-# A fully static executable (glibc, libstdc++, zlib), for binary releases.
-option(TACTIX_STATIC_BINARY "Link the tactix executable statically" OFF)
 if(TACTIX_STATIC_BINARY)
   target_link_options(tactix PRIVATE -static)
 endif()
