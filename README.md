@@ -1,24 +1,17 @@
 # Tactix — A Programmable Strategy Interface for Flexible SAT Solving
 
-Tactix is a CDCL SAT solver whose solving strategy is a program you can
-replace. Every step the solver takes — propagating, deciding, analyzing a
-conflict, restarting, and each inprocessing technique such as variable
-elimination, vivification or symmetry breaking — is a proof rule exposed
-through a C interface. A strategy asks which rules apply, chooses one and its
-settings, and applies it. Whatever the strategy does, every UNSAT answer comes
-with a machine-checkable proof and every SAT answer with a model.
+Tactix is a CDCL SAT solver whose strategy you can replace. Propagation,
+decisions, conflict analysis, restarts and inprocessing rules are exposed
+through a C interface. A strategy chooses applicable rules and their settings.
+Every UNSAT answer has a machine-checkable proof; every SAT answer has a model.
 
-- **A strong default strategy.** The built-in strategy reimplements the search and
-  inprocessing schedules of Kissat and CaDiCaL and adds symmetry breaking and
-  structure-aware techniques (e.g., GF(2) reasoning, cardinality and parity
-  arguments).
+- **A strong default strategy.** It reimplements Kissat and CaDiCaL scheduling
+  and adds symmetry breaking and structure-aware reasoning.
 - **Your own strategy.** Strategies written against `include/tactix.h` drive
-  the solver one operation at a time, and each invocation of a rule can use
-  different settings. The default strategy itself can run this way.
+  operations one at a time with per-invocation settings; the default can too.
 - **Checked answers.** UNSAT proofs are written in DSR (DRAT extended with
-  substitution redundancy) or, for a few refutations found before search, as
-  pseudo-Boolean proofs, and are checked with formally verified checkers
-  (CakeLPR, Trestle, CakePB).
+  substitution redundancy) by default. `--pbp` writes an explicit whole-run
+  pseudo-Boolean proof, checked first by VeriPB and then by CakePB.
 
 ## Quick start
 
@@ -30,15 +23,10 @@ tools/checkers/setup.sh                       # once: build the proof checkers
 python3 tools/bench/proof_oracle.py check formula.cnf proof
 ```
 
-See [docs/getting-started.md](docs/getting-started.md) for requirements,
-proof formats, checking, and using Tactix as a library, and
-[docs/install.md](docs/install.md) for the static release binaries and
-installing the library.
+See [getting started](docs/getting-started.md) for requirements, proof checks
+and library use, and [installation](docs/install.md) for release binaries.
 
 ## Example strategies
-
-Three strategies show what the C interface can express. Each is a standalone
-program built with the solver and produces checkable proofs.
 
 | Program | Source | Strategy |
 |---|---|---|
@@ -56,17 +44,10 @@ build/release/examples/tactix-chvatal-policy formula.cnf proof
 restarts, the default schedule re-implemented outside the library) and
 strategies for binarized-neural-network and random 3-SAT encodings.
 
-## Documentation
+## Documentation and paper
 
-[docs/README.md](docs/README.md) indexes the guides: getting started, the
-command line, the C interface with a tutorial, the rule catalogue, and the
-architecture.
-
-## Reproducing the paper
-
-[paper/README.md](paper/README.md) is the artifact of the paper: logs of every
-experiment, scripts that regenerate its tables and figures in seconds, a
-container image, and a runner that repeats the experiments.
+[docs/README.md](docs/README.md) indexes the guides; [paper/README.md](paper/README.md)
+covers the artifact, logs, figures, container image and runner.
 
 ## Layout
 
@@ -78,6 +59,7 @@ tests/            unit, API, and proof tests (ctest)
 tools/checkers/   proof-checker setup and patches
 tools/fuzz/       fuzzing harness with proof and model oracles
 tools/bench/      benchmark runner and proof-checking script
+benchmarks/       frozen tiers, reference data, campaigns and reports
 paper/            the paper's artifact: logs, analysis scripts, experiment runner
 docs/             user and developer documentation
 third_party/      DejaVu (graph automorphisms for symmetry breaking)

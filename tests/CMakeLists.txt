@@ -29,6 +29,42 @@ add_test(NAME population_observer_inventory
 add_executable(test_sr_proof_encoding test_sr_proof_encoding.cpp)
 target_link_libraries(test_sr_proof_encoding PRIVATE tactix_lib)
 add_test(NAME sr_proof_encoding COMMAND test_sr_proof_encoding)
+add_test(NAME streaming_pbp_check
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_streaming_pbp_check.py
+                 $<TARGET_FILE:test_sr_proof_encoding>)
+set_tests_properties(streaming_pbp_check PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME algebraic_pbp_proofs
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tests/algebraic_pbp_proofs.sh
+                 $<TARGET_FILE:test_affine_matrix_search>
+                 $<TARGET_FILE:test_gf3_general_row_public>
+                 $<TARGET_FILE:test_cardinality_search_live>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(algebraic_pbp_proofs PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME cli_pbp_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tests/cli_pbp_proof.sh
+                 $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
+set_tests_properties(cli_pbp_proof PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME pbp_fuzz
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tests/test_pbp_fuzz.py
+                 $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
+set_tests_properties(pbp_fuzz PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(test_ulc_rat test_ulc_rat.cpp)
 target_link_libraries(test_ulc_rat PRIVATE tactix_lib)
@@ -218,6 +254,16 @@ add_executable(test_parity_model test_parity_model.cpp)
 target_link_libraries(test_parity_model PRIVATE tactix_lib)
 add_test(NAME parity_model COMMAND test_parity_model)
 
+add_executable(test_parity_certificate_resume test_parity_certificate.cpp)
+target_include_directories(test_parity_certificate_resume PRIVATE
+                           ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME parity_certificate_resume COMMAND test_parity_certificate_resume)
+add_test(NAME parity_certificate_resume_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/parity_certificate_resume_proof.sh
+                 $<TARGET_FILE:test_parity_certificate_resume>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(parity_certificate_resume_proof PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(test_onehot_model test_onehot_model.cpp)
 target_link_libraries(test_onehot_model PRIVATE tactix_lib)
 add_test(NAME onehot_model COMMAND test_onehot_model)
@@ -312,6 +358,19 @@ add_executable(test_api_c test_api_c.c)
 target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_n1 COMMAND test_api_c)
+
+add_executable(test_api_pbp_fixture api_pbp_fixture.c)
+target_link_libraries(test_api_pbp_fixture PRIVATE tactix_lib)
+target_include_directories(test_api_pbp_fixture PRIVATE
+                           ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME api_pbp_check
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
+                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tests/test_api_pbp_check.py
+                 $<TARGET_FILE:test_api_pbp_fixture> ${CMAKE_SOURCE_DIR})
+set_tests_properties(api_pbp_check PROPERTIES SKIP_RETURN_CODE 77)
 
 # External certificate-oracle fixture: invoked only by a pinned SLURM proof
 # job because it writes a proof and requires independent checker binaries.
@@ -520,6 +579,24 @@ add_test(NAME affine_matrix_search_proof
                  $<TARGET_FILE:test_affine_matrix_search>
                  ${CMAKE_SOURCE_DIR})
 set_tests_properties(affine_matrix_search_proof PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME gf3_general_row_public_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/gf3_general_row_public_proof.sh
+                 $<TARGET_FILE:test_gf3_general_row_public>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(gf3_general_row_public_proof PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME cardinality_search_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/cardinality_search_proof.sh
+                 $<TARGET_FILE:test_cardinality_search>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(cardinality_search_proof PROPERTIES SKIP_RETURN_CODE 77)
+
+add_test(NAME cardinality_search_live_proof
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/cardinality_search_live_proof.sh
+                 $<TARGET_FILE:test_cardinality_search_live>
+                 ${CMAKE_SOURCE_DIR})
+set_tests_properties(cardinality_search_live_proof PROPERTIES SKIP_RETURN_CODE 77)
 
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
 # for the lemmas, lrat-check for the chains), in sub-solver space and again

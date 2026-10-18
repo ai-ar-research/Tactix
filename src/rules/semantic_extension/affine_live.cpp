@@ -536,7 +536,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
     result.status = AffineLiveStatus::ResourceExhausted;
     return result;
   }
-  if (k.proof && (k.proof->lrat() || k.proof->pb())) {
+  if (k.proof && (k.proof->lrat() || k.proof->terminal_pbp())) {
     result.status = AffineLiveStatus::UnsupportedProof;
     return result;
   }

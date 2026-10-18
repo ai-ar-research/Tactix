@@ -46,7 +46,7 @@ details may change between releases.
 | `-q`, `--quiet` | normal | [Output control](#output-control) |
 | `-v`, `--verbose` | normal | [Output control](#output-control) |
 | `--version`, `-h`, `--help` | normal | [Synopsis](#synopsis) |
-| `--auto-proof`, `--dsr`, `--drat`, `--lrat`, `--no-binary` | normal | [Proof format](#proof-format) |
+| `--auto-proof`, `--dsr`, `--drat`, `--lrat`, `--pbp`, `--no-binary` | normal | [Proof format](#proof-format) |
 | `--default-affine-search=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
 | `--default-graph-labeling=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
 | `--default-structured-symmetry=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
@@ -101,9 +101,10 @@ argument. Without a proof path they have no visible effect (see
 | `--dsr` | Always DSR. |
 | `--drat` | DRAT. |
 | `--lrat` | LRAT with hints. |
+| `--pbp` | Whole-run pseudo-Boolean proof for ordinary CDCL and supported structured reasoning. |
 | `--no-binary` | Write the text variant of DSR or DRAT instead of binary. |
 
-`--auto-proof`, `--dsr`, `--drat` and `--lrat` select one format family; if
+`--auto-proof`, `--dsr`, `--drat`, `--lrat` and `--pbp` select one format family; if
 several are given, the last one wins. `--no-binary` combines with any of them.
 The resulting format is:
 
@@ -116,8 +117,11 @@ The resulting format is:
 | `--drat` | binary DRAT |
 | `--drat --no-binary` | text DRAT |
 | `--lrat` | text LRAT (`--no-binary` has no effect) |
+| `--pbp` | text PBP (`--no-binary` has no effect) |
 
-DRAT and LRAT cannot express substitution-redundancy steps. With `--drat` or
+Explicit PBP serializes RUP, RAT, substitution-redundancy and exact `del spec`
+deletion events. DRAT and LRAT cannot
+express substitution-redundancy steps. With `--drat` or
 `--lrat`, techniques that need them (symmetry breaking and some structured
 techniques) are declined, so the solver can take a different path than with
 the default format.
@@ -380,9 +384,10 @@ There are no time or memory limit options. Use the environment, for example
   can also be checked directly with drat-trim, and an `--lrat` proof with
   cake_lpr.
 
-One effect does not depend on the proof path: PBP is only possible in the
-automatic binary mode, so `--no-binary`, `--dsr`, `--drat` and `--lrat` disable
-the startup techniques that would produce one, even when no proof is written.
+Automatic startup PBP is possible only in automatic binary mode, so
+`--no-binary`, `--dsr`, `--drat` and `--lrat` disable startup techniques that
+require that terminal route, even when no proof is written. Explicit `--pbp`
+uses the whole-run streaming route instead.
 
 ## Input
 

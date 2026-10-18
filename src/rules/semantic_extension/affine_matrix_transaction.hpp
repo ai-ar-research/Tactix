@@ -2,6 +2,7 @@
 #pragma once
 
 #include "rules/semantic_extension/affine_matrix.hpp"
+#include "rules/lucky/parity_certificate.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -51,6 +52,9 @@ struct MatrixProofCacheEntry {
   std::vector<size_t> source_equations;
   std::vector<Equation> source_identity;
   std::vector<uint64_t> support_ids;
+  std::vector<External> coordinates;
+  parity_certificate::ActiveTree tree;
+  uint64_t parent_entry_id = 0;
 };
 
 // Proof-only RAT definitions and their derived root unit may remain in a
@@ -66,6 +70,7 @@ public:
   uint64_t generation() const { return generation_; }
   size_t size() const { return entries_.size(); }
   uint64_t retained_bytes() const;
+  const std::vector<MatrixProofCacheEntry> &entries() const { return entries_; }
   const MatrixProofCacheEntry *find(
       uint64_t, uint64_t proof_epoch, const std::vector<size_t> &,
       const std::vector<Equation> &) const;
@@ -95,9 +100,16 @@ public:
   const std::vector<MatrixProofEvent> &proof_events() const { return events_; }
   bool proof_cache_hit() const { return cache_hit_; }
   bool proof_cache_insert() const { return cache_insert_; }
+  bool proof_cache_resume() const { return cache_resume_; }
   uint64_t proof_cache_generation() const { return cache_generation_; }
   const MatrixProofCacheEntry &proof_cache_entry() const {
     return cache_entry_;
+  }
+  const std::vector<size_t> &resume_source_equations() const {
+    return resume_source_equations_;
+  }
+  const std::vector<Equation> &resume_source_identity() const {
+    return resume_source_identity_;
   }
 
 private:
@@ -117,9 +129,12 @@ private:
   std::vector<External> reason_;
   std::vector<size_t> source_equations_;
   std::vector<Equation> source_identity_;
+  std::vector<size_t> resume_source_equations_;
+  std::vector<Equation> resume_source_identity_;
   std::vector<MatrixProofEvent> events_;
   bool cache_hit_ = false;
   bool cache_insert_ = false;
+  bool cache_resume_ = false;
   uint64_t cache_generation_ = 0;
   MatrixProofCacheEntry cache_entry_;
 };

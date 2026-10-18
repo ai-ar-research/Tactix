@@ -343,6 +343,59 @@ def parse_rss(path):
 _active_process = None
 
 
+class AnonymousWork:
+    """Map logical artifact names to anonymous node-local files."""
+
+    def __init__(self, scratch, index):
+        self.scratch = scratch
+        self.index = index
+        self.names = {}
+
+    def __truediv__(self, name):
+        path = self.scratch / name
+        self.names[str(path)] = name
+        return path
+
+    def release(self, path):
+        return self.scratch.release(self.names[str(path)])
+
+    def key(self, path):
+        return f"node-local/{self.index:05d}/{self.names[str(path)]}"
+
+    def close(self):
+        self.scratch.close()
+
+
+def artifact_key(path, campaign, work):
+    return (work.key(path) if isinstance(work, AnonymousWork)
+            else str(Path(path).relative_to(campaign)))
+
+
+def release_artifact(path, work):
+    if isinstance(work, AnonymousWork):
+        work.release(path)
+    else:
+        Path(path).unlink()
+
+
+def artifact_exists(path, work):
+    if isinstance(work, AnonymousWork):
+        return work.scratch.contains(work.names[str(path)]) and Path(path).exists()
+    return Path(path).exists()
+
+
+def scratch_floor_signal(_signum, _frame):
+    raise RuntimeError("node-local scratch floor reached")
+
+
+def workspace_quota_signal(_signum, _frame):
+    raise RuntimeError("workspace quota threshold reached")
+
+
+def task_terminated_signal(_signum, _frame):
+    raise SystemExit("Slurm terminated task; scratch closing")
+
+
 def measured(cmd, stdout, stderr, timeout, metric, env=None):
     global _active_process
     wrapped = [str(TIME), "-f", "max_rss_kb=%M", "-o", str(metric), "--", *map(str, cmd)]
@@ -363,6 +416,14 @@ def measured(cmd, stdout, stderr, timeout, metric, env=None):
                 os.killpg(p.pid, signal.SIGKILL)
                 p.wait()
             rc = None
+        except BaseException:
+            os.killpg(p.pid, signal.SIGTERM)
+            try:
+                p.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait()
+            raise
         finally:
             _active_process = None
     return {"exit_code": rc, "wall_seconds": round(time.monotonic() - start, 3),
@@ -420,6 +481,10 @@ def checker_ok(name, rc, stdout, stderr):
         return rc == 0 and "s VERIFIED UNSAT" in text and "s INVALID" not in text
     if name == "dsr-compress":
         return rc == 0 and "ERROR" not in text and "not supported" not in text
+    if name == "frat-xor":
+        return rc == 0
+    if name == "cake-xlrup":
+        return rc == 0 and "s VERIFIED UNSAT" in text
     return False
 
 
@@ -467,6 +532,25 @@ def check_proof(man, campaign, solver, cnf, proof, work):
                                cnf, derived[1], "-L", derived[2]]),
                 ("cake-lpr", [campaign / man["checkers"]["cake-lpr"], cnf, derived[2]]),
             ]
+    elif fmt == "frat-xor":
+        # CryptoMiniSat may interleave FRAT comment lines. The elaborator
+        # accepts the proof stream after these comments are removed.
+        clean = work / "proof.clean.frat"
+        with open(proof, "rb") as source, open(clean, "wb") as target:
+            for line in source:
+                if not line.startswith(b"c"):
+                    target.write(line)
+        release_artifact(proof, work)
+        derived = [work / "proof.xlrup"]
+        workspace = man.get("certificate_policy", {}).get("storage") == "workspace-ephemeral"
+        frat_temp = (work / "proof.elab.temp"
+                     if isinstance(work, AnonymousWork) or workspace else None)
+        specs = [
+            ("frat-xor", [campaign / man["checkers"]["frat-xor"],
+                           "elab", clean, cnf, derived[0]]),
+            ("cake-xlrup", [campaign / man["checkers"]["cake-xlrup"],
+                             cnf, derived[0]]),
+        ]
     else:
         derived = [work / "proof.kernel.pbp"]
         specs = [
@@ -478,7 +562,7 @@ def check_proof(man, campaign, solver, cnf, proof, work):
     started = time.monotonic()
     stages = []
     derived_records = {}
-    consumed = [Path(proof), *derived]
+    consumed = [clean if fmt == "frat-xor" else Path(proof), *derived]
     for number, spec in enumerate(specs, 1):
         name, cmd, *redirect = spec
         stdout = work / f"checker-{number}.stdout"
@@ -487,7 +571,13 @@ def check_proof(man, campaign, solver, cnf, proof, work):
         actual_stdout = redirect[0] if redirect else stdout
         stage_env = None
         stage_environment = {}
-        if (name in ("cake-lpr", "cake-pb-cnf") and
+        if name == "frat-xor" and fmt == "frat-xor" and frat_temp is not None:
+            stage_env = os.environ.copy()
+            stage_env["FRAT_XOR_TEMP_PATH"] = str(frat_temp)
+            stage_environment = {"FRAT_XOR_TEMP_PATH": (
+                "anonymous-node-local" if isinstance(work, AnonymousWork)
+                else "workspace-ephemeral")}
+        if (name in ("cake-lpr", "cake-pb-cnf", "cake-xlrup") and
                 scheduler_memory_gib >= 32):
             # CakeML's shipped 4 GiB heap is smaller than the SC2026 32 GiB
             # process contract and can reject a valid large translated proof.
@@ -508,9 +598,18 @@ def check_proof(man, campaign, solver, cnf, proof, work):
             "stderr_tail": tail(stderr),
         })
         stages.append(measured_stage)
+        if name == "frat-xor" and fmt == "frat-xor" and frat_temp is not None:
+            measured_stage["temporary_bytes"] = (
+                frat_temp.stat().st_size if artifact_exists(frat_temp, work) else 0)
+            if artifact_exists(frat_temp, work):
+                release_artifact(frat_temp, work)
+            measured_stage["temporary_deleted"] = not artifact_exists(frat_temp, work)
+            if isinstance(work, AnonymousWork):
+                measured_stage["anonymous_temp_bytes"] = measured_stage["temporary_bytes"]
+                measured_stage["anonymous_temp_deleted"] = measured_stage["temporary_deleted"]
         produced = derived[number - 1] if number <= len(derived) else None
         if produced is not None and produced.is_file():
-            key = str(produced.relative_to(campaign))
+            key = artifact_key(produced, campaign, work)
             derived_records[key] = {
                 "path": key,
                 "bytes": produced.stat().st_size,
@@ -522,20 +621,20 @@ def check_proof(man, campaign, solver, cnf, proof, work):
         # bounds live proof storage and makes the manifest's stage-cleanup
         # contract true even when a later stage rejects or times out.
         consumed_path = consumed[number - 1]
-        measured_stage["input_artifact_deleted"] = not consumed_path.exists()
-        if consumed_path.exists():
-            consumed_path.unlink()
+        measured_stage["input_artifact_deleted"] = not artifact_exists(consumed_path, work)
+        if artifact_exists(consumed_path, work):
+            release_artifact(consumed_path, work)
             measured_stage["input_artifact_deleted"] = True
-        consumed_key = str(consumed_path.relative_to(campaign))
+        consumed_key = artifact_key(consumed_path, campaign, work)
         if consumed_key in derived_records:
             derived_records[consumed_key]["deleted"] = True
 
         if measured_stage["result"] != "verified":
             # A rejected stage can still leave a partial output.  It is useful
             # only through the recorded size/hash and must not survive.
-            if produced is not None and produced.exists():
-                produced.unlink()
-                derived_records[str(produced.relative_to(campaign))]["deleted"] = True
+            if produced is not None and artifact_exists(produced, work):
+                release_artifact(produced, work)
+                derived_records[artifact_key(produced, campaign, work)]["deleted"] = True
             break
     return {
         "pipeline": (amendment["pipeline"] if fmt == "dsr" and amendment
@@ -586,17 +685,68 @@ def run_one(campaign, index):
                                   "instance": inst["rel"], "outcome": "MISSING_INPUT",
                                   "cleanup_pending": False})
         return 2
-    work = campaign / "scratch" / f"{index:05d}"
-    work.mkdir(parents=True, exist_ok=False)
-    local = Path(tempfile.mkdtemp(prefix=f"frozen-{index:05d}-"))
-    cnf = local / "instance.cnf"
+    storage = man.get("certificate_policy", {}).get("storage")
+    anonymous = storage == "anonymous-node-local"
+    workspace = storage == "workspace-ephemeral"
+    scratch_ledger = floor_monitor = workspace_monitor = None
+    previous_term_handler = previous_floor_handler = previous_quota_handler = None
+    if anonymous:
+        if solver["certificate"] != "frat-xor" or solver["kind"] != "positional":
+            raise RuntimeError("anonymous node-local baseline supports positional FRAT-XOR only")
+        ledger_slots = resource_contract.get("node_scratch_ledger_slots", 32)
+        if (isinstance(ledger_slots, bool) or not isinstance(ledger_slots, int) or
+                not 1 <= ledger_slots <= 32):
+            raise RuntimeError("node_scratch_ledger_slots must be in 1..32")
+        from anonymous_scratch import ScratchFloorMonitor, admit_shared_scratch
+        scratch, scratch_ledger, admission = admit_shared_scratch(
+            "/tmp", admission_free_bytes=60 * 2**30,
+            maximum_file_bytes=300 * 2**30, maximum_live_handles=32,
+            ledger_directory=f"/tmp/tactix-cms-ledger-{os.getuid()}",
+            ledger_slot_prefix="slot-", ledger_slots=ledger_slots,
+            admission_wait_seconds=1800, admission_poll_seconds=5,
+            identity=f"{os.environ.get('SLURM_JOB_ID', 'local')}/{index}")
+        work = AnonymousWork(scratch, index)
+        local = None
+        cnf = work / "instance.cnf"
+        previous_term_handler = signal.signal(signal.SIGTERM, task_terminated_signal)
+        previous_floor_handler = signal.signal(signal.SIGUSR1, scratch_floor_signal)
+        floor_monitor = ScratchFloorMonitor(
+            scratch, scratch_ledger, directory="/tmp",
+            reserve_bytes=40 * 2**30, hard_floor_bytes=20 * 2**30,
+            poll_seconds=2, on_trigger=lambda _details: os.kill(os.getpid(), signal.SIGUSR1))
+        floor_monitor.start()
+    else:
+        work = campaign / "scratch" / f"{index:05d}"
+        work.mkdir(parents=True, exist_ok=False)
+        if workspace:
+            local = None
+            cnf = work / "instance.cnf"
+            previous_term_handler = signal.signal(signal.SIGTERM, task_terminated_signal)
+            if "workspace_quota_stop_gib" in resource_contract:
+                from workspace_quota import WorkspaceQuotaMonitor
+                previous_quota_handler = signal.signal(
+                    signal.SIGUSR1, workspace_quota_signal)
+                workspace_monitor = WorkspaceQuotaMonitor(
+                    lambda _details: os.kill(os.getpid(), signal.SIGUSR1),
+                    threshold_gib=resource_contract["workspace_quota_stop_gib"],
+                    poll_seconds=resource_contract.get(
+                        "workspace_quota_poll_seconds", 2))
+        else:
+            local = Path(tempfile.mkdtemp(prefix=f"frozen-{index:05d}-"))
+            cnf = local / "instance.cnf"
     try:
+        if workspace_monitor is not None:
+            workspace_monitor.start()
         with open(cnf, "wb") as out:
             subprocess.run(["xz", "-dc", source], stdout=out, check=True)
         stdout, stderr = work / "solver.stdout", work / "solver.stderr"
-        proof_dir = work / "proof-dir"
-        proof_dir.mkdir()
-        proof = proof_dir / "proof.out"
+        if anonymous:
+            proof_dir = None
+            proof = work / "proof.out"
+        else:
+            proof_dir = work / "proof-dir"
+            proof_dir.mkdir()
+            proof = proof_dir / "proof.out"
         executable = campaign / solver["executable"]
         if solver["kind"] == "positional":
             cmd = [executable, cnf, proof]
@@ -611,7 +761,7 @@ def run_one(campaign, index):
             "expected_match": inst["expected"] == "UNKNOWN" or answer == inst["expected"],
             "solve": solve, "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
             "certificate_format": solver["certificate"],
-            "certificate_path": str(proof.relative_to(campaign)),
+            "certificate_path": artifact_key(proof, campaign, work),
             "certificate_bytes": None, "certificate_sha256": None,
             "proof_check": None, "proof_ok": None, "model_check": None,
             "model_ok": None, "cleanup_pending": False, "retained_artifact": None,
@@ -651,6 +801,9 @@ def run_one(campaign, index):
                  answer == "UNSAT" and result["proof_ok"] is True)
         accepted = valid and result["expected_match"]
         result["valid"] = accepted
+        if anonymous:
+            result["scratch_admission"] = admission
+            result["scratch_floor"] = floor_monitor.status()
         result["solver_stdout_tail"] = tail(stdout)
         result["solver_stderr_tail"] = tail(stderr)
 
@@ -670,20 +823,44 @@ def run_one(campaign, index):
         if answer == "SAT":
             certificate_paths.append(stdout)
         for path in certificate_paths:
-            if path.exists():
-                path.unlink()
-        result["artifact_deleted"] = all(not path.exists()
+            if artifact_exists(path, work):
+                release_artifact(path, work)
+        result["artifact_deleted"] = all(not artifact_exists(path, work)
                                          for path in (proof, stdout)
                                          if answer == "SAT" or path == proof)
         result["derived_artifacts_deleted"] = all(
-            not path.exists() for path in (derived or []))
-        result["cleanup_retries"] = remove_tree_nfs_safe(work)
-        result["scratch_deleted"] = not work.exists()
+            not artifact_exists(path, work) for path in (derived or []))
+        if anonymous:
+            floor_monitor.stop()
+            floor_monitor = None
+            work.close()
+            result["cleanup_retries"] = 0
+            result["scratch_deleted"] = True
+        else:
+            result["cleanup_retries"] = remove_tree_nfs_safe(work)
+            result["scratch_deleted"] = not work.exists()
         result["cleanup_pending"] = False
         promote_pending_result(pending_path, result_path, result)
         return 0 if result["valid"] or answer == "UNKNOWN" else 1
     finally:
-        shutil.rmtree(local, ignore_errors=True)
+        if floor_monitor is not None:
+            floor_monitor.stop()
+        if workspace_monitor is not None:
+            workspace_monitor.stop()
+        if anonymous:
+            work.close()
+            scratch_ledger.close()
+            signal.signal(signal.SIGUSR1, previous_floor_handler)
+            signal.signal(signal.SIGTERM, previous_term_handler)
+        elif workspace:
+            try:
+                remove_tree_nfs_safe(work)
+            finally:
+                if previous_quota_handler is not None:
+                    signal.signal(signal.SIGUSR1, previous_quota_handler)
+                signal.signal(signal.SIGTERM, previous_term_handler)
+        else:
+            shutil.rmtree(local, ignore_errors=True)
 
 
 def resume_cleanup(campaign, index):
@@ -704,12 +881,13 @@ def resume_cleanup(campaign, index):
     if result.get("retained_artifact") or result.get("retained_artifacts"):
         raise SystemExit("cleanup journal violates zero-retention contract")
 
+    anonymous = man.get("certificate_policy", {}).get("storage") == "anonymous-node-local"
     work = campaign / "scratch" / f"{index:05d}"
-    retries = remove_tree_nfs_safe(work)
+    retries = 0 if anonymous else remove_tree_nfs_safe(work)
     result["cleanup_retries"] = result.get("cleanup_retries", 0) + retries
     result["artifact_deleted"] = True
     result["derived_artifacts_deleted"] = True
-    result["scratch_deleted"] = not work.exists()
+    result["scratch_deleted"] = anonymous or not work.exists()
     result["cleanup_pending"] = False
     promote_pending_result(pending_path, result_path, result)
     return 0 if result.get("valid") or result.get("verdict") == "UNKNOWN" else 1

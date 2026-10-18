@@ -343,7 +343,7 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
 
-  /* proof formats: all five accepted; junk isn't.
+  /* proof formats: all public formats accepted; junk isn't.
      Named after the writing process: ctest runs concurrently over several
      build directories, and a shared name lets those runs reopen and truncate
      each other's proof file. */
@@ -355,7 +355,7 @@ static void test_instance_surface(void) {
   tactix_release(s);
   const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                          TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII};
+                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     s = tactix_init();
     assert(tactix_proof(s, proof_path, formats[i]) == 0);
@@ -447,7 +447,8 @@ static void test_stepwise_unsat(void) {
 static void test_late_input_proof(void) {
   const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                          TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_AUTOMATIC};
+                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_AUTOMATIC,
+                         TACTIX_PROOF_PBP};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
     snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-late-%ld-%u.proof",
@@ -723,7 +724,8 @@ static void test_action_kind(void) {
       "Gf3GaussianConsequence", "TseitinCycleBreaking",
       "Retired39", "GraphIntervalEquivalence",
       "AffineMatrixInitialize", "NaryCspEquality",
-      "Gf3GeneralRowConsequence", "NaryCspEqualityAmo", "NaryCspEqualityTransitivity"};
+      "Gf3GeneralRowConsequence", "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
+      "CardinalitySearch"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)
@@ -741,6 +743,7 @@ static void test_action_kind(void) {
   /* spot-check proof rules, and assert the frozen policy-op classification */
   assert(tactix_action_kind(rule_id("Propagate")) == TACTIX_ACTION_PROOF_RULE);
   assert(tactix_action_kind(rule_id("BVE")) == TACTIX_ACTION_PROOF_RULE);
+  assert(tactix_action_kind(rule_id("CardinalitySearch")) == TACTIX_ACTION_PROOF_RULE);
   assert(tactix_action_kind(rule_id("Lucky")) == TACTIX_ACTION_PROOF_RULE);
   int policy_ops = 0;
   for (int i = 0; i < n; i++) {

@@ -20,7 +20,7 @@
 namespace tactix {
 
 enum class ProofFormat { DsrBinary, DsrAscii, DratBinary, DratAscii, Lrat,
-                         Automatic, Pbp };
+                         Automatic, Pbp, PbpStreaming };
 
 struct DsrLiteralMapping {
   Lit from = INVALID_LIT;
@@ -61,13 +61,21 @@ public:
   bool commit_dsr();
   FILE *begin_pb();
   bool finish_pb();
-  bool pb() const { return format_ == ProofFormat::Pbp; }
+  bool pb() const {
+    return format_ == ProofFormat::Pbp ||
+           format_ == ProofFormat::PbpStreaming;
+  }
+  // The startup-only terminal PBP route owns a complete refutation and cannot
+  // accept subsequent typed clause events.  Explicit streaming PBP can.
+  bool terminal_pbp() const { return format_ == ProofFormat::Pbp; }
+  bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
   bool lrat() const { return format_ == ProofFormat::Lrat; }
   ProofFormat format() const { return format_; }
   bool dsr() const {
     return format_ == ProofFormat::DsrBinary ||
            format_ == ProofFormat::DsrAscii;
   }
+  bool supports_sr() const { return dsr() || streaming_pbp(); }
   // Published proof feature, used only to choose an independent final checker.
   // The runner also scans the finished certificate and rejects disagreement.
   const char *verification_route() const {
@@ -301,13 +309,23 @@ private:
   void put_lit(Lit l);
   void put_external_lit(Lit l);
   void put_external_dimacs(int32_t literal);
+  void put_pbp_external_dimacs(int32_t literal);
+  void put_pbp_lit(Lit literal);
+  void put_pbp_clause(const char *rule, const Lit *lits, uint32_t size);
+  void put_pbp_external_clause(const char *rule, const int32_t *lits,
+                               uint32_t size);
+  void finish_streaming_pbp_unsat();
+  void publish_streaming_pbp_header();
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
   FILE *automatic_output_ = nullptr;
+  FILE *pbp_output_ = nullptr;
   bool automatic_pending_ = false;
   bool input_transaction_ = false;
   bool has_sr_witness_ = false;
+  bool streaming_pbp_finished_ = false;
+  uint64_t pbp_original_constraints_ = 0;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;

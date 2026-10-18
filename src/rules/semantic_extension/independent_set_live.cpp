@@ -533,7 +533,7 @@ IndependentSetLiveResult independent_set_live_apply(
       !request.maximum_journal_bytes ||
       (request.include_owner_capture_effort && !request.owner_snapshot))
     return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = IndependentSetLiveStatus::UnsupportedProof;
     return result;
   }

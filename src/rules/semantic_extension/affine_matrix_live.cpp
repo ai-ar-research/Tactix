@@ -75,6 +75,7 @@ bool same_request(const MatrixLiveRequest &first,
          first.action_id == second.action_id &&
          first.semantic_id == second.semantic_id &&
          first.records == second.records &&
+         first.compact_provenance == second.compact_provenance &&
          first.proof_cache == second.proof_cache &&
          first.premise_leases == second.premise_leases &&
          first.maximum_persistent_bytes == second.maximum_persistent_bytes;
@@ -121,19 +122,19 @@ std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
 bool validate_selected_sources(
     const Kernel &kernel, const AffineLiveSnapshot &owner,
     const std::vector<Equation> &current_sources,
-    const AffineMatrixTransaction &transaction, Work &work,
+    const std::vector<size_t> &source_equations,
+    const std::vector<Equation> &source_identity, Work &work,
     const std::vector<uint64_t> *leases, std::vector<uint64_t> &occurrences, std::vector<uint64_t> &clause_ids) {
   occurrences.clear();
   clause_ids.clear();
-  if (transaction.source_equations().size() !=
-      transaction.source_identity().size())
+  if (source_equations.size() != source_identity.size())
     return false;
   std::set<uint64_t> unique;
-  for (size_t at = 0; at < transaction.source_equations().size(); ++at) {
+  for (size_t at = 0; at < source_equations.size(); ++at) {
     if (!work.charge(1)) return false;
-    const size_t ordinal = transaction.source_equations()[at];
+    const size_t ordinal = source_equations[at];
     if (ordinal >= current_sources.size()) return false;
-    const Equation &identity = transaction.source_identity()[at];
+    const Equation &identity = source_identity[at];
     if (leases) {
       if (!work.charge(1 + identity.premise_clauses.size())) return false;
       for (const auto &clause : identity.premise_clauses)
@@ -295,31 +296,41 @@ bool make_journal(const MatrixLiveRequest &request,
         premise_at != source_clause_ids.size() || !append("]"))
       return false;
   }
-  if (!append(",\"proof_events\":[")) return false;
-  for (size_t i = 0; i < transaction.proof_events().size(); ++i) {
-    const MatrixProofEvent &proof = transaction.proof_events()[i];
-    const char *kind = proof.kind == MatrixProofEvent::Kind::Rat ? "rat"
-                       : proof.kind == MatrixProofEvent::Kind::Rup ? "rup"
-                                                                  : "delete";
-    if (!append((i ? "," : "") + std::string("{\"kind\":\"") + kind +
-                "\",\"id\":" + std::to_string(proof.id) +
-                ",\"deleted_id\":" + std::to_string(proof.deleted_id) +
-                ",\"install\":" + std::to_string(proof.install) +
-                ",\"clause\":") ||
-        !list(proof.clause) || !append("}"))
-      return false;
+  if (request.compact_provenance) {
+    if (!append(",\"proof_events_omitted\":true")) return false;
+  } else {
+    if (!append(",\"proof_events\":[")) return false;
+    for (size_t i = 0; i < transaction.proof_events().size(); ++i) {
+      const MatrixProofEvent &proof = transaction.proof_events()[i];
+      const char *kind = proof.kind == MatrixProofEvent::Kind::Rat ? "rat"
+                         : proof.kind == MatrixProofEvent::Kind::Rup ? "rup"
+                                                                    : "delete";
+      if (!append((i ? "," : "") + std::string("{\"kind\":\"") + kind +
+                  "\",\"id\":" + std::to_string(proof.id) +
+                  ",\"deleted_id\":" + std::to_string(proof.deleted_id) +
+                  ",\"install\":" + std::to_string(proof.install) +
+                  ",\"clause\":") ||
+          !list(proof.clause) || !append("}"))
+        return false;
+    }
+    if (!append("]")) return false;
   }
   const char *cache_status = transaction.proof_cache_hit()
                                  ? "hit"
+                             : transaction.proof_cache_resume()
+                                 ? (transaction.proof_cache_insert()
+                                        ? "resume-insert" : "resume-unretained")
                              : transaction.proof_cache_insert() ? "insert"
                                                                 : "disabled";
-  if (!append("],\"proof_cache\":{\"status\":\"" +
+  if (!append(",\"proof_cache\":{\"status\":\"" +
               std::string(cache_status) + "\",\"entry_id\":" +
               std::to_string(transaction.proof_cache_entry().entry_id) +
               ",\"generation\":" +
               std::to_string(transaction.proof_cache_generation()) +
               ",\"proof_epoch\":" +
-              std::to_string(transaction.proof_cache_entry().proof_epoch)) ||
+              std::to_string(transaction.proof_cache_entry().proof_epoch) +
+              ",\"parent_entry\":" +
+              std::to_string(transaction.proof_cache_entry().parent_entry_id)) ||
       (!transaction.proof_cache_hit() &&
        (!append(",\"support_ids\":") ||
         !list(transaction.proof_cache_entry().support_ids))) ||
@@ -373,7 +384,7 @@ MatrixLiveStatus transaction_status(MatrixTransactionStatus status) {
 }
 
 bool proof_supported(const Kernel &kernel) {
-  return !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb());
+  return !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp());
 }
 
 bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,
@@ -478,7 +489,14 @@ MatrixLiveResult prepare_affine_matrix_live(
     const auto &entry = candidate.transaction_.proof_cache_entry();
     bytes += 2 * sizeof(MatrixProofCacheEntry) +
         2 * (entry.source_equations.size() * sizeof(size_t) +
-             entry.support_ids.size() * sizeof(uint64_t));
+             entry.support_ids.size() * sizeof(uint64_t) +
+             entry.coordinates.size() * sizeof(External) +
+             entry.tree.variables.size() * sizeof(External) +
+             entry.tree.definitions.size() *
+                 sizeof(parity_certificate::ActiveDefinition));
+    for (const auto &definition : entry.tree.definitions)
+      bytes += 2 * definition.clauses.size() *
+               sizeof(parity_certificate::SmallClause);
     for (const auto &equation : entry.source_identity) {
       bytes += 2 * (sizeof(Equation) + equation.variables.size() * sizeof(External) +
                     equation.premises.size() * sizeof(uint64_t));
@@ -496,8 +514,17 @@ MatrixLiveResult prepare_affine_matrix_live(
   Work validation{0, request.maximum_revalidation_work, kernel};
   if (!validate_selected_sources(
           kernel, candidate.owner_, *request.exact_sources,
-          candidate.transaction_, validation, request.premise_leases, candidate.source_occurrences_,
-          candidate.source_clause_ids_)) {
+          candidate.transaction_.source_equations(),
+          candidate.transaction_.source_identity(), validation,
+          request.premise_leases, candidate.source_occurrences_,
+          candidate.source_clause_ids_) ||
+      (candidate.transaction_.proof_cache_resume() &&
+       !validate_selected_sources(
+           kernel, candidate.owner_, *request.exact_sources,
+           candidate.transaction_.resume_source_equations(),
+           candidate.transaction_.resume_source_identity(), validation,
+           request.premise_leases, candidate.resume_source_occurrences_,
+           candidate.resume_source_clause_ids_))) {
     result.revalidation_work = validation.used;
     result.status = validation.interrupted
                         ? MatrixLiveStatus::Interrupted
@@ -541,6 +568,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   result.preflight_journal_bytes = candidate.journal_.size();
   result.proof_cache_hit = candidate.transaction_.proof_cache_hit();
   result.proof_cache_insert = candidate.transaction_.proof_cache_insert();
+  result.proof_cache_resume = candidate.transaction_.proof_cache_resume();
   candidate.prepared_ = result;
   output = std::move(candidate);
   return result;
@@ -598,12 +626,22 @@ MatrixLiveResult publish_affine_matrix_live(
   Work validation{0, request.maximum_revalidation_work, kernel};
   std::vector<uint64_t> occurrences;
   std::vector<uint64_t> clause_ids;
+  std::vector<uint64_t> resume_occurrences;
+  std::vector<uint64_t> resume_clause_ids;
   if (!request.matrix->authenticates(
           request.owner_identity, *request.exact_sources, *request.event,
           [&](uint64_t amount) { return validation.charge(amount); }) ||
       !validate_selected_sources(
           kernel, prepared.owner_, *request.exact_sources,
-          prepared.transaction_, validation, request.premise_leases, occurrences, clause_ids)) {
+          prepared.transaction_.source_equations(),
+          prepared.transaction_.source_identity(), validation,
+          request.premise_leases, occurrences, clause_ids) ||
+      (prepared.transaction_.proof_cache_resume() &&
+       !validate_selected_sources(
+           kernel, prepared.owner_, *request.exact_sources,
+           prepared.transaction_.resume_source_equations(),
+           prepared.transaction_.resume_source_identity(), validation,
+           request.premise_leases, resume_occurrences, resume_clause_ids))) {
     result.revalidation_work = validation.used;
     result.status = validation.interrupted
                         ? MatrixLiveStatus::Interrupted
@@ -613,7 +651,9 @@ MatrixLiveResult publish_affine_matrix_live(
     return result;
   }
   if (occurrences != prepared.source_occurrences_ ||
-      clause_ids != prepared.source_clause_ids_) {
+      clause_ids != prepared.source_clause_ids_ ||
+      resume_occurrences != prepared.resume_source_occurrences_ ||
+      resume_clause_ids != prepared.resume_source_clause_ids_) {
     result.status = MatrixLiveStatus::Stale;
     return result;
   }

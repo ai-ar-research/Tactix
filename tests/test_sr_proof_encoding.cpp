@@ -33,6 +33,7 @@ static void fixture(Proof *proof, FILE *cnf, bool negative, bool compact) {
   if (proof) {
     proof->bind_variable_map(&k.internal_to_external);
     proof->arm_population_shadow();
+    proof->finish_input_transaction();
   }
 
   const auto apply = [&](int first, int second) {
@@ -101,9 +102,12 @@ int main(int argc, char **argv) {
     FILE *cnf = std::fopen(argv[1], "w");
     assert(cnf);
     Proof proof;
-    assert(proof.open(argv[2], !std::strcmp(argv[3], "binary")
+    const ProofFormat format = !std::strcmp(argv[3], "binary")
                                    ? ProofFormat::DsrBinary
-                                   : ProofFormat::DsrAscii));
+                               : !std::strcmp(argv[3], "pbp")
+                                   ? ProofFormat::PbpStreaming
+                                   : ProofFormat::DsrAscii;
+    assert(proof.open(argv[2], format));
     fixture(&proof, cnf, std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0);
     std::fclose(cnf);
   }

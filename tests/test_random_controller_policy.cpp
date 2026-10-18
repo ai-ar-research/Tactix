@@ -1356,6 +1356,24 @@ int main() {
     }
     assert(executed);
   }
+  {
+    Kernel k = fixture(false);
+    FILE *records = std::tmpfile();
+    assert(records);
+    k.structural_provenance = records;
+    RandomControllerConfig no_cardinality_offer;
+    no_cardinality_offer.parameters.rules = {"CardinalitySearch"};
+    const auto availability = controller_action_availability(k, no_cardinality_offer);
+    bool found = false;
+    for (const auto &entry : availability)
+      if (entry.rule == "CardinalitySearch") {
+        assert(!entry.eligible && entry.reason == "structured-witness-not-offered");
+        found = true;
+      }
+    assert(found);
+    k.structural_provenance = nullptr;
+    std::fclose(records);
+  }
   for (uint64_t seed : {1, 7, 17}) {
     Kernel sat = fixture(false), unsat = fixture(true);
     RandomControllerPolicy ps(seed), pu(seed);

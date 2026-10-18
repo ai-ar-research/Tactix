@@ -57,23 +57,26 @@ void capture() {
   const auto pending_journal=std::ftell(journal);
   const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
   auto outside=affine_matrix_search_step(k,session);
-  assert(outside.status==AffineMatrixServiceStatus::Inapplicable && session.enabled() && session.attached_to(k));
+  assert(outside.status==AffineMatrixServiceStatus::NoEvent && outside.unchanged_support &&
+         session.enabled() && session.attached_to(k));
   assert(session.owner_version()==pending_owner && k.next_clause_id==pending_id &&
          proof.premise_bytes()==pending_bytes && std::ftell(journal)==pending_journal && k.trail==pending_trail);
   kernel_assign_decision(k,kernel_internalize(k,1));assert(propagate_apply(k)==ApplyResult::Ok);
   const auto conditioned_trail=std::vector<Lit>(k.trail.begin(),k.trail.end());
   const auto conditioned=affine_matrix_search_step(k,session);
-  assert(conditioned.status==AffineMatrixServiceStatus::Inapplicable &&
-         conditioned.installed_reason.empty() && k.trail==conditioned_trail);
+  assert(conditioned.status==AffineMatrixServiceStatus::Applied &&
+         conditioned.installed_reason.size()==2 && conditioned.bcp_pending &&
+         k.trail==conditioned_trail);
+  assert(propagate_apply(k)==ApplyResult::Ok && kernel_external_value(k,internalize(4))<0);
   kernel_backtrack(k,0);
   assert(affine_matrix_search_step(k,session).status==AffineMatrixServiceStatus::NoEvent);
-  // Opposite decision assignments are likewise left to CDCL. The retained
-  // matrix is serviced only after the following full backtrack to root.
+  // Backtracking rebuilds the conditioned matrix before the opposite branch.
   kernel_assign_decision(k,kernel_internalize(k,8));assert(propagate_apply(k)==ApplyResult::Ok);
   kernel_assign_decision(k,kernel_internalize(k,-1));assert(propagate_apply(k)==ApplyResult::Ok);
   auto negative=affine_matrix_search_step(k,session);
-  assert(negative.status==AffineMatrixServiceStatus::Inapplicable &&
-         negative.installed_reason.empty() && session.enabled());
+  assert(negative.status==AffineMatrixServiceStatus::Applied &&
+         negative.installed_reason.size()==2 && negative.bcp_pending && session.enabled());
+  assert(propagate_apply(k)==ApplyResult::Ok && kernel_external_value(k,internalize(4))>0);
   kernel_backtrack(k,0);assert(!kernel_external_value(k,internalize(1)) && !kernel_external_value(k,internalize(4)));
   auto rooted=affine_matrix_search_step(k,session);assert(rooted.status==AffineMatrixServiceStatus::NoEvent);
   kernel_affine_note_namespace_change(k);

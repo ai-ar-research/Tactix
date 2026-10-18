@@ -238,6 +238,11 @@ def proof_check_status(checker: str, returncode: int, stdout: str,
     if checker == 'dsr-trim' and returncode != 0 and any(
             line.startswith(('Error:', 'ERROR:')) for line in lines):
         return 'rejected'
+    if checker == 'veripb' and returncode != 0 and any(
+            line.startswith(('Error: Verification error at ',
+                             'Error: Syntax error while parsing proof file!'))
+            for line in lines):
+        return 'rejected'
     return 'error'
 
 
@@ -1099,6 +1104,89 @@ def every_lemma_dsr_stages(dsr_trim, dsr_compress, srcheck, cnf, proof,
     return stages
 
 
+def complete_final_empty_rup_units(cnf, lsr, destination):
+    """Supply omitted live unit hints in a forward-elaborated final RUP chain.
+
+    Some dsr-trim forward traces omit root units already known to its internal
+    propagation engine. Trestle checks the explicit chain, so reconstruct only
+    missing *active singleton* premises of the final empty addition. No clause,
+    deletion, witness, or other lemma is changed; the returned file still needs
+    independent checker acceptance. Return None if the narrow case does not fit.
+    """
+    clauses = {}
+    next_id = 0
+    pending = []
+    with Path(cnf).open() as source:
+        for line in source:
+            if line.startswith(('c', 'p')):
+                continue
+            for token in line.split():
+                literal = int(token)
+                if literal:
+                    pending.append(literal)
+                else:
+                    next_id += 1
+                    clauses[next_id] = tuple(pending)
+                    pending.clear()
+    changed = False
+    with Path(lsr).open() as source, Path(destination).open('w') as target:
+        for line in source:
+            fields = line.split()
+            if not fields:
+                target.write(line)
+                continue
+            identifier = int(fields[0])
+            if fields[1] == 'd':
+                for token in fields[2:-1]:
+                    clauses.pop(int(token), None)
+            else:
+                boundary = fields.index('0', 1)
+                clause = tuple(map(int, fields[1:boundary]))
+                if not clause and not changed and fields[-1] == '0':
+                    hints = list(map(int, fields[boundary + 1:-1]))
+                    # RAT/SR chains have additional syntax and are out of scope.
+                    if hints and all(hint > 0 for hint in hints):
+                        units = {value[0]: key for key, value in clauses.items()
+                                 if len(value) == 1}
+                        assigned = set()
+                        repaired = []
+                        for hint in hints:
+                            premise = clauses.get(hint)
+                            if premise is None:
+                                break
+                            live = [lit for lit in premise if -lit not in assigned]
+                            if any(lit in assigned for lit in premise):
+                                break
+                            for literal in live[:-1]:
+                                unit_id = units.get(-literal)
+                                if unit_id is None:
+                                    break
+                                repaired.append(unit_id)
+                                assigned.add(-literal)
+                            else:
+                                live = [lit for lit in premise if -lit not in assigned]
+                                if len(live) > 1:
+                                    break
+                                repaired.append(hint)
+                                if not live:
+                                    if hint != hints[-1]:
+                                        break
+                                else:
+                                    assigned.add(live[0])
+                                continue
+                            break
+                        else:
+                            if len(repaired) > len(hints):
+                                line = ' '.join(map(str, [identifier, 0, *repaired, 0])) + '\n'
+                                changed = True
+                clauses[identifier] = clause
+            target.write(line)
+    if not changed:
+        Path(destination).unlink()
+        return None
+    return Path(destination)
+
+
 def dsr_compress_status(returncode, output) -> Literal['verified', 'error']:
     """dsr-compress converts a format; it is not an acceptance oracle."""
     return ('verified' if returncode == 0 and 'ERROR' not in output and
@@ -1293,6 +1381,34 @@ def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
             if ok:
                 (bridge_trivial_input_binary_lsr if made == binary_lsr
                  else bridge_trivial_input_lsr)(cnf, made)
+        if (not ok and name == 'srcheck' and
+                stages is every_lemma_dsr_stages and not witness_free and
+                proof_check_status(name, done.returncode, done.stdout,
+                                   done.stderr) == 'rejected'):
+            # dsr-trim's forward elaboration can omit live root-unit premises
+            # in the final chain. The mechanically completed trace is accepted
+            # only if the independent checker verifies it from the same CNF.
+            try:
+                completed = complete_final_empty_rup_units(
+                    checker_cnf, text_lsr, workdir / 'proof.unit-complete.lsr')
+            except (OSError, ValueError, IndexError):
+                completed = None
+            if completed is not None:
+                remaining = (None if timeout is None else
+                             timeout - (time.monotonic() - started))
+                if remaining is None or remaining > 0:
+                    try:
+                        retry = run_captured([str(srcheck), str(checker_cnf),
+                                              str(completed)], timeout=remaining,
+                                             env=stage_environment(name))
+                    except subprocess.TimeoutExpired:
+                        retry = None
+                    if retry is not None and proof_check_status(
+                            name, retry.returncode, retry.stdout,
+                            retry.stderr) == 'verified':
+                        ok = True
+                        output = ('forward final-unit hint completion; ' +
+                                  retry.stdout + '\n' + retry.stderr)
         if not ok:
             return False, name, output
     return True, None, ''

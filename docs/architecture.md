@@ -217,6 +217,7 @@ reused.
 | DSR | `TACTIX_PROOF_DSR_BINARY`, `_ASCII` / `--dsr` | DRAT plus SR additions; the native format |
 | DRAT | `TACTIX_PROOF_DRAT_BINARY`, `_ASCII` / `--drat` | compatibility; SR steps are unavailable |
 | LRAT | `TACTIX_PROOF_LRAT` / `--lrat` | compatibility, with antecedent hints |
+| PBP | `TACTIX_PROOF_PBP` / `--pbp` | explicit whole-run PBP; pinned VeriPB elaboration followed by verified CakePB checking |
 
 In automatic mode the backend stages the input-normalization steps privately.
 If a startup Lucky instance (XOR summation or count conservation) refutes the
@@ -229,8 +230,8 @@ After an UNSAT answer the solver prints the checker route:
 | Route | When | Checking pipeline |
 |---|---|---|
 | `dsr-cake_lpr` | no witnessed (SR) line was written, so the DSR stream is DRAT | drat-trim, then the verified checker CakeLPR |
-| `dsr-trestle` | SR lines were written | `dsr-trim` to LSR, then the verified checker Trestle |
-| `pbp` | pseudo-Boolean startup refutation | VeriPB, then the verified checker CakePB |
+| `dsr-trestle` | SR lines were written | `dsr-trim` to LSR, then the independent Lean checker Trestle |
+| `pbp` | pseudo-Boolean startup or explicit whole-run refutation | pinned VeriPB elaboration, then verified CakePB against the original CNF |
 
 `tools/bench/proof_oracle.py` runs these pipelines against the original CNF;
 see [getting-started.md](getting-started.md#check-a-proof). The proof

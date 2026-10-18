@@ -22,8 +22,10 @@
 | [implementation-notes.md](implementation-notes.md) | Guards, deviations from the calculus, and design decisions in the implementation |
 | [controller-interface.md](controller-interface.md) | The contract of the online configuration interface used by external controllers |
 | [scheduling-parity-ledger.md](scheduling-parity-ledger.md) | How the default strategy's scheduling follows Kissat and CaDiCaL, mechanism by mechanism |
+| [algebraic-reasoning-plan.md](algebraic-reasoning-plan.md) | CDCL-time GF(2), GF(3) and cardinality integration gates and current proof/performance evidence |
+| [algebraic-proof-bundle.md](algebraic-proof-bundle.md) | One public certificate bundle for batched algebraic lemmas and the canonical DSR search proof |
 
-The last four are reference material written during development; they use
+The development reference documents use
 some internal terminology and cross-reference each other.
 
 ## Contributing

@@ -43,13 +43,17 @@ ClauseKey normalized(ClauseKey clause) {
   return clause;
 }
 
-bool root_guard(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
-         !kernel.pending.valid && kernel.trail.empty() && !kernel.dense &&
+bool owner_guard(const Kernel &kernel) {
+  return !kernel.inconsistent && !kernel.conflict_valid &&
+         !kernel.pending.valid && !kernel.dense &&
          !kernel.probing.recording && kernel.large_watches_connected &&
          kernel_propagation_fixpoint(kernel) &&
          !kernel.external_to_internal.empty() &&
          kernel.external_to_internal.size() <= INT32_MAX;
+}
+
+bool root_guard(const Kernel &kernel) {
+  return !kernel.level && kernel.trail.empty() && owner_guard(kernel);
 }
 
 bool recognition_limits_valid(const Gf3AffineLiveRequest &request) {
@@ -270,8 +274,9 @@ bool current_clause(const Kernel &kernel, const Lit *literals, uint32_t size,
   ClauseKey external;
   external.reserve(size);
   for (uint32_t index = 0; index < size; ++index) {
-    if (kernel_var_retired(kernel, var_of(literals[index])) ||
-        kernel.value(literals[index]))
+    // A retained source is identified by its physical clause and proof ID.
+    // Search assignments can satisfy or falsify it without changing either.
+    if (kernel_var_retired(kernel, var_of(literals[index])))
       return false;
     external.push_back(kernel_externalize(kernel, literals[index]));
   }
@@ -575,7 +580,9 @@ Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
   if (!recognition_limits_valid(request) ||
       !request.maximum_revalidation_work)
     return result;
-  if (!root_guard(kernel)) {
+  // A root-captured owner can be revalidated during CDCL search. Its exact
+  // physical source identities do not depend on the current assignment.
+  if (!owner_guard(kernel)) {
     result.status = kernel_terminating(kernel)
                         ? Gf3AffineLiveStatus::Interrupted
                         : Gf3AffineLiveStatus::Inapplicable;
@@ -707,7 +714,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     Kernel &kernel, const Gf3AffineLiveRequest &request) {
   Gf3AffineLiveResult result;
   if (!apply_limits_valid(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Gf3AffineLiveStatus::UnsupportedProof;
     return result;
   }

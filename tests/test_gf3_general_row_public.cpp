@@ -5,6 +5,7 @@
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "policies/random_controller_policy.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "strategy/online_inprocess.hpp"
 
@@ -230,6 +231,66 @@ void native_producer_reaches_exact_action() {
   assert(reached);
 }
 
+bool apply_search_implication(Kernel &kernel,
+                              Gf3GeneralRowActionSession &session,
+                              FILE *records) {
+  const auto offered = gf3_general_row_action_offer(
+      kernel, session, limits(), {10000, 128, 10000000, false, {}});
+  assert(offered.status == Gf3GeneralRowActionStatus::Applied &&
+         !offered.offers.empty());
+  bool implied = false;
+  for (const auto &selection : offered.offers) {
+    Gf3GeneralRowLiveRequest request;
+    request.limits = limits().live;
+    request.selection = {selection.outcome, selection.tuple};
+    request.selected_identity = selection.identity;
+    request.action_id = kernel.structural_action_sequence + 1;
+    request.semantic_id = request.action_id;
+    request.records = records;
+    request.retained_owner = session.owner();
+    const auto planned = gf3_general_row_live_inspect(kernel, request);
+    if (planned.status != Gf3GeneralRowLiveStatus::Ready ||
+        planned.plan.consequence.size() != 2)
+      continue;
+    for (unsigned pivot = 0; pivot < 2 && !implied; ++pivot) {
+      const Lit false_literal = kernel_internalize(
+          kernel, -planned.plan.consequence[pivot]);
+      const Lit implied_literal = kernel_internalize(
+          kernel, planned.plan.consequence[1 - pivot]);
+      if (false_literal == INVALID_LIT || implied_literal == INVALID_LIT ||
+          kernel.value(false_literal) || kernel.value(implied_literal))
+        continue;
+      kernel_assign_decision(kernel, false_literal);
+      const auto propagated = propagate_apply(kernel);
+      if (propagated == ApplyResult::Ok && !kernel.value(implied_literal)) {
+        const auto applied = gf3_general_row_action_apply(
+            kernel, session, limits(), selection);
+        assert(applied.status == Gf3GeneralRowActionStatus::Applied &&
+               applied.live.propagation_pending);
+        assert(propagate_apply(kernel) == ApplyResult::Ok);
+        assert(kernel.value(implied_literal) > 0);
+        implied = true;
+      }
+      kernel_backtrack(kernel, 0);
+      assert(propagate_apply(kernel) == ApplyResult::Ok);
+    }
+    if (implied) break;
+  }
+  return implied;
+}
+
+void retained_owner_search_implication() {
+  Bound b;
+  const auto first = gf3_general_row_action_offer(
+      b.kernel, b.session, limits(), {1000, 1, 10000000, false, {}});
+  assert(first.offers.size() == 1);
+  const auto initialized = gf3_general_row_action_apply(
+      b.kernel, b.session, limits(), first.offers.front());
+  assert(initialized.status == Gf3GeneralRowActionStatus::Applied);
+  assert(propagate_apply(b.kernel) == ApplyResult::Ok);
+  assert(apply_search_implication(b.kernel, b.session, b.records));
+}
+
 void c_v11_deep_copies_typed_selection() {
   Bound source;
   const auto offered = gf3_general_row_action_offer(
@@ -301,7 +362,8 @@ void c_v11_deep_copies_typed_selection() {
 }
 
 void emit_public_fixture(const std::string &cnf_path,
-                         const std::string &proof_path) {
+                         const std::string &proof_path, bool search,
+                         ProofFormat format = ProofFormat::DsrAscii) {
   Formula source = formula();
   source.clauses.push_back({13, 14});
   source.clauses.push_back({13, -14});
@@ -340,13 +402,25 @@ void emit_public_fixture(const std::string &cnf_path,
   assert(offered.status == Gf3GeneralRowActionStatus::Applied &&
          offered.offers.size() == 1);
   Proof proof;
-  assert(proof.open(proof_path.c_str(), ProofFormat::DsrAscii));
+  assert(proof.open(proof_path.c_str(), format));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t input_id = 0;
+  for (const auto &external : source.clauses) {
+    std::vector<Lit> clause;
+    for (int32_t literal : external) clause.push_back(internalize(literal));
+    proof.seed_population(++input_id, clause.data(), clause.size());
+  }
+  assert(input_id == kernel.next_clause_id);
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   const auto applied = gf3_general_row_action_apply(
       kernel, session, limits(), offered.offers.front());
   assert(applied.status == Gf3GeneralRowActionStatus::Applied);
+  if (search) {
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+    assert(apply_search_implication(kernel, session, records));
+  }
   const Lit positive = internalize(13);
   const Lit negative = internalize(-13);
   proof.add_rup(++kernel.next_clause_id, &positive, 1, nullptr, 0);
@@ -360,7 +434,7 @@ void emit_public_fixture(const std::string &cnf_path,
 } // namespace
 
 int main(int argc, char **argv) {
-  assert(tactix_rules().size() == 46);
+  assert(tactix_rules().size() == 47);
   assert(std::string(tactix_rules()[43].name) == "Gf3GeneralRowConsequence");
   const auto reference = reference_inprocess_program();
   const auto step = std::find_if(reference.begin(), reference.end(),
@@ -372,8 +446,13 @@ int main(int argc, char **argv) {
   pagination_replay_and_atomic_apply();
   executor_requires_propagate_and_emits_dsr();
   native_producer_reaches_exact_action();
+  retained_owner_search_implication();
   c_v11_deep_copies_typed_selection();
-  if (argc == 3) emit_public_fixture(argv[1], argv[2]);
+  if (argc == 3) emit_public_fixture(argv[1], argv[2], false);
+  else if (argc == 4 && std::string(argv[1]) == "--proof-search")
+    emit_public_fixture(argv[2], argv[3], true);
+  else if (argc == 4 && std::string(argv[1]) == "--proof-search-pbp")
+    emit_public_fixture(argv[2], argv[3], true, ProofFormat::PbpStreaming);
   else assert(argc == 1);
   std::puts("test_gf3_general_row_public: passed");
 }

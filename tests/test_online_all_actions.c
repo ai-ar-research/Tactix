@@ -279,7 +279,7 @@ static void configure_parameters(const char *name,
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 46);
+  assert(count == 47);
   for (id = 0; id < count; ++id) {
     if (id == 39) continue; // Retired stable slot.
     tactix *solver = prepare(id);
@@ -290,6 +290,7 @@ static void reaches_every_registered_action(void) {
         !strcmp(name, "NaryCspEqualityAmo") ||
         !strcmp(name, "NaryCspEqualityTransitivity") ||
         !strcmp(name, "Gf3GeneralRowConsequence") ||
+        !strcmp(name, "CardinalitySearch") ||
         !strcmp(name, "Gf3GaussianConsequence") ||
         !strcmp(name, "TseitinCycleBreaking")) {
       tactix_release(solver);

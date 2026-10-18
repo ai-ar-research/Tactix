@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused soundness fuzzing for the public typed controller action space v5.
+"""Focused soundness fuzzing for typed controller actions (historical v5 name).
 
 Ordinary random CNFs cannot supply caller-owned GF(3) equation identities or
 Direct CSP domain rows.  This leg keeps one authenticated structure intact,
@@ -185,8 +185,10 @@ def trace_control(solver, timeout, seed, index):
             raise RuntimeError(f"{name}: seeded traces differ across processes")
         if family.encode() not in first_trace_data:
             raise RuntimeError(f"{name}: trace omitted typed {family} request")
-        if b"\nrequest 5 " not in first_trace_data:
-            raise RuntimeError(f"{name}: trace did not bind action-space v5")
+        expected_request = f"\nrequest {fuzz.ACTION_SPACE_VERSION} ".encode()
+        if expected_request not in first_trace_data:
+            raise RuntimeError(
+                f"{name}: trace did not bind action-space v{fuzz.ACTION_SPACE_VERSION}")
 
 
 def main():

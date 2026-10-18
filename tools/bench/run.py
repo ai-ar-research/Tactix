@@ -7,7 +7,7 @@ Usage:
   run.py --aggregate benchmarks/runs/<dir>      # re-merge a --slurm run
 
 - SLURM mode (see the slurm-jobs skill): submits one array task per
-  solver x instance to cpu-dense-hwulab-q (8 GiB per physical core, with two
+  solver x instance to cpu-q (8 GiB per physical core, with two
   requested logical CPUs per physical core on the current SMT-2 nodes;
   normally 8 logical CPUs / 32 GiB, while the 16-GiB debug contract uses 4),
   plus a dependent aggregate job that merges the
@@ -26,7 +26,8 @@ Usage:
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
   command picks the requested format: Tactix automatic output is routed by
   certificate content (startup PBP, witnessed DSR, or witness-free DSR),
-  `--lrat` selects native LRAT, and `--drat` selects compatibility DRAT.
+  `--lrat` selects native LRAT, `--drat` selects compatibility DRAT, and
+  `--pbp` selects whole-run PBP checked by VeriPB and CakePB.
   Other solver commands default to DRAT.
   A DRAT check that outruns its budget is not final: the arm is re-solved with
   `--lrat` and cake_lpr verifies that instead (§8.1, `lrat_rescue`). A checker
@@ -239,10 +240,12 @@ def parse_verdict(exitcode, stdout):
 def proof_format(cmd):
     """Which certificate this arm emits — the solver's own flag decides.
 
-    Tactix defaults to DSR. Explicit flags select compatibility formats;
-    external solvers retain their usual DRAT default."""
+    Tactix defaults to DSR. Explicit flags select compatibility formats or
+    whole-run PBP; external solvers retain their usual DRAT default."""
     if "--lrat" in cmd:
         return "lrat"
+    if "--pbp" in cmd:
+        return "pbp"
     if "--dsr" in cmd:
         return "dsr"
     if "--drat" in cmd:
@@ -268,6 +271,15 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
     and looks exactly like a rejected proof -- and the converse misreading, a
     genuine `s NOT VERIFIED` taken for an OOM, is just as easy. See
     classify_checker_output."""
+    if fmt == "pbp":
+        if route != "pbp":
+            return False, "rejected: missing PBP proof-route", CHK_REJECTED, []
+        try:
+            if certificate_route(proof) != "pbp":
+                return False, "rejected: PBP route/content mismatch", CHK_REJECTED, []
+        except DSRFormatError as error:
+            return False, f"rejected: {error}", CHK_REJECTED, []
+        return check_pbp_proof(cnf, proof, budget)
     if fmt == "dsr":
         if route not in REPORTED_DSR_ROUTES:
             return False, "rejected: missing solver proof-route", CHK_REJECTED, []
@@ -376,7 +388,7 @@ def check_proof(fmt, cnf, proof, budget, *, allow_pbp=True, route=None):
 
 
 def check_pbp_proof(cnf, proof, budget):
-    """Check automatic startup PBP through both pinned PB authorities."""
+    """Check startup or explicit whole-run PBP through both pinned authorities."""
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="tactix-pbp-check-") as scratch:
         checker_cnf = os.path.join(scratch, "checker.cnf")
@@ -1416,7 +1428,7 @@ def main() -> int:
                     help="after submission, wait for the aggregate job and "
                          "print its final state (launch this command in the "
                          "background to keep working)")
-    ap.add_argument("--partition", default="cpu-dense-hwulab-q")
+    ap.add_argument("--partition", default="cpu-q")
     ap.add_argument("--throttle", type=int, default=None,
                     help="exceptionally cap concurrent array tasks; default "
                          "is full width, and any use needs an explicit user "
@@ -1450,6 +1462,10 @@ def main() -> int:
         return slurm_aggregate(args.aggregate)
     if not (args.tier and args.solver):
         ap.error("--tier and --solver are required")
+    if args.slurm and args.tier == "D" and not args.dry_run:
+        ap.error("full Tier-D arrays must be prepared with --dry-run, "
+                 "--partition cpu-q and --throttle 125, then submitted "
+                 "through tools/slurm/submit_full_tierd.py")
     if not args.slurm and not 1 <= args.jobs <= 8:
         sys.exit("error: --jobs must be 1..8 (plan §8.1)")
 

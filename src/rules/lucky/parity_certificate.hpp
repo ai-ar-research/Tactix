@@ -7,6 +7,7 @@
 #include <bit>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <vector>
 #include <utility>
@@ -234,6 +235,22 @@ public:
   }
 };
 
+struct ActiveDefinition {
+  uint32_t position = 0;
+  External output = 0;
+  External first = 0;
+  External second = 0;
+  Clauses clauses;
+};
+
+struct ActiveTree {
+  uint32_t variable_count = 0;
+  std::vector<ActiveDefinition> definitions;
+  std::vector<External> variables;
+  SmallClause root_unit;
+  bool rhs = false;
+};
+
 template <class Sink> class Certificate {
   Sink &sink_;
   uint32_t width_ = 1;
@@ -301,19 +318,8 @@ template <class Sink> class Certificate {
   }
 
 public:
-  struct ActiveDefinition {
-    External output = 0;
-    External first = 0;
-    External second = 0;
-    Clauses clauses;
-  };
-
-  struct ActiveTree {
-    std::vector<ActiveDefinition> definitions;
-    std::vector<External> variables;
-    SmallClause root_unit;
-    bool rhs = false;
-  };
+  using ActiveDefinition = parity_certificate::ActiveDefinition;
+  using ActiveTree = parity_certificate::ActiveTree;
 
   Certificate(Sink &sink, uint32_t variables,
               uint32_t maximum_derivation_variables = 16,
@@ -461,6 +467,7 @@ public:
         (root_literal > 0) != parity_)
       return false;
     ActiveTree tree;
+    tree.variable_count = variables_;
     tree.root_unit = current_unit_[0];
     tree.rhs = parity_;
     for (uint32_t i = 0; i < variables_; ++i)
@@ -477,7 +484,8 @@ public:
       if (!first || !second || first == second)
         return false;
       tree.definitions.push_back(
-          {nodes_[node], first, second, definitions_[node]});
+          {static_cast<uint32_t>(node), nodes_[node], first, second,
+           definitions_[node]});
     }
     std::sort(tree.definitions.begin(), tree.definitions.end(),
               [](const ActiveDefinition &a, const ActiveDefinition &b) {
@@ -494,6 +502,87 @@ public:
     }
     ActiveTree checked = tree;
     output = std::move(checked);
+    return true;
+  }
+
+  // Resume from clauses that are already active in the same proof stream.
+  // The caller must establish their authenticated lifetime; this validates
+  // the exact tree shape without emitting or assuming any new proof step.
+  // A rejected snapshot leaves the certificate untouched.
+  bool resume_active_tree(const ActiveTree &tree) {
+    if (started_ || completed_ || export_started_ || retirement_started_ ||
+        tree.variable_count != variables_ || tree.variables.empty() ||
+        tree.root_unit.size != 1 ||
+        tree.definitions.size() >= width_ ||
+        !std::is_sorted(tree.variables.begin(), tree.variables.end()) ||
+        std::adjacent_find(tree.variables.begin(), tree.variables.end()) !=
+            tree.variables.end())
+      return false;
+    std::vector<External> nodes(nodes_.size(), 0);
+    std::vector<Clauses> definitions(definitions_.size());
+    std::vector<std::pair<External, External>> operands(operands_.size());
+    std::vector<const ActiveDefinition *> at(width_, nullptr);
+    External last_output = 0;
+    for (External variable : tree.variables) {
+      if (variable <= 0 || static_cast<uint32_t>(variable) > variables_)
+        return false;
+      nodes[width_ + static_cast<uint32_t>(variable) - 1] = variable;
+    }
+    for (const ActiveDefinition &definition : tree.definitions) {
+      if (!definition.position || definition.position >= width_ ||
+          at[definition.position] ||
+          definition.output <= static_cast<External>(variables_) ||
+          definition.output <= last_output)
+        return false;
+      at[definition.position] = &definition;
+      last_output = definition.output;
+    }
+    size_t used = 0;
+    for (uint32_t node = width_ - 1; node; --node) {
+      const External first = nodes[2 * node];
+      const External second = nodes[2 * node + 1];
+      const ActiveDefinition *definition = at[node];
+      if (!first || !second) {
+        if (definition) return false;
+        nodes[node] = first ? first : second;
+        continue;
+      }
+      if (first == second || !definition ||
+          !((definition->first == first && definition->second == second) ||
+            (definition->first == second && definition->second == first)) ||
+          definition->output <= first || definition->output <= second)
+        return false;
+      const External variables[3] = {definition->first, definition->second,
+                                     definition->output};
+      Clauses expected = xor_equation(variables, 3, false);
+      for (SmallClause &clause : expected) {
+        uint32_t pivot = 0;
+        while (pivot < clause.size &&
+               std::abs(clause.lits[pivot]) != definition->output)
+          ++pivot;
+        if (pivot == clause.size) return false;
+        std::swap(clause.lits[0], clause.lits[pivot]);
+      }
+      if (definition->clauses.size() != expected.size()) return false;
+      for (size_t i = 0; i < expected.size(); ++i) {
+        if (definition->clauses[i].size != expected[i].size) return false;
+        for (uint32_t j = 0; j < expected[i].size; ++j)
+          if (definition->clauses[i].lits[j] != expected[i].lits[j])
+            return false;
+      }
+      nodes[node] = definition->output;
+      definitions[node] = definition->clauses;
+      operands[node] = {definition->first, definition->second};
+      ++used;
+    }
+    if (used != tree.definitions.size() || !nodes[1] ||
+        tree.root_unit.lits[0] != (tree.rhs ? nodes[1] : -nodes[1]))
+      return false;
+    nodes_.swap(nodes);
+    definitions_.swap(definitions);
+    operands_.swap(operands);
+    current_unit_ = {tree.root_unit};
+    parity_ = tree.rhs;
     return true;
   }
 

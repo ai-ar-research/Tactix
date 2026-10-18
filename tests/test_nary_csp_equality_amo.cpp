@@ -153,7 +153,7 @@ void exhaustive_model_and_lifecycle() {
 }
 
 void public_identity_and_replay() {
-  assert(tactix_rules().size() == 46);
+  assert(tactix_rules().size() == 47);
   assert(std::string(tactix_rules()[44].name) == "NaryCspEqualityAmo");
   const auto reference = strategy::reference_inprocess_program();
   const auto found = std::find_if(reference.begin(), reference.end(),

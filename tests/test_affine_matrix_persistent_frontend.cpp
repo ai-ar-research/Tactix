@@ -11,6 +11,7 @@ extern "C" {
 }
 }
 #include "policies/default_policy.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "strategy/parameter_execution.hpp"
 #include "strategy/random_online.hpp"
@@ -114,7 +115,7 @@ static void c_surface(bool with_proof) {
     step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base=saved_base;
     step.affine_matrix_profile=TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
     step.affine_matrix=valid;step.affine_matrix.operation=TACTIX_AFFINE_MATRIX_SEARCH_STEP;
-    // Even an exact public profile cannot authorize theory work above root.
+    // A mismatched profile is rejected without changing the live search state.
     ++step.affine_matrix.maximum_retained_bytes;
     assert(capi::tactix_online_configure_v16(s,&program,942,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
     assert(capi::tactix_online_advance(s,&result)==0);
@@ -122,10 +123,11 @@ static void c_surface(bool with_proof) {
     --step.affine_matrix.maximum_retained_bytes;
     assert(capi::tactix_online_configure_v16(s,&program,943,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
     assert(capi::tactix_online_advance(s,&result)==0);
-    assert(result.status==TACTIX_ONLINE_INAPPLICABLE && !result.made_rule_progress);
+    assert(result.status==TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
+    assert(capi::tactix_apply(s,propagate)>=0);
     assert(kernel_propagation_fixpoint(api_detail::kernel_for_fixed_testing(s)));
     auto &kernel=api_detail::kernel_for_fixed_testing(s);
-    assert(!kernel.value(kernel_internalize(kernel,4)));
+    assert(kernel_external_value(kernel,internalize(4))<0);
   }
   capi::tactix_release(s);std::fclose(records);std::remove(path);
 }
@@ -346,11 +348,65 @@ static void c_service_continuation(bool typed_replay) {
   std::remove(path);
 }
 
+static void c_search_step_nonroot() {
+  auto *solver = capi::tactix_init();
+  assert(solver);
+  FILE *records = std::tmpfile();
+  assert(records);
+  assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
+  char path[] = "/tmp/tactix-c16-search-step-XXXXXX";
+  int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  assert(capi::tactix_proof(solver, path, TACTIX_PROOF_DSR_ASCII) == 0);
+  for (const auto &variables : {std::vector<int32_t>{1,2,3},
+                                std::vector<int32_t>{2,3,4}})
+    for (const auto &clause : affine_semantic_extension::clausal_form(
+             variables, variables.front() == 2)) {
+      for (int32_t literal : clause) capi::tactix_add(solver, literal);
+      capi::tactix_add(solver, 0);
+    }
+  const auto p = profile();
+  capi::tactix_online_step_v16 step{};
+  auto &base = step.base.base.base.base.base.base.base.base.base.base.base.base.base.base.base;
+  base.step_id = 941;
+  base.rule_id = 41;
+  base.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  base.repeat_limit = 1;
+  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  base.budget = 1;
+  step.affine_matrix_profile = TACTIX_AFFINE_MATRIX_PROFILE_PERSISTENT_V1;
+  step.affine_matrix = {c_basis(p.basis), 1, TACTIX_AFFINE_MATRIX_INITIALIZE,
+                        p.maximum_retained_bytes, p.maximum_deferred_deletions,
+                        p.maximum_deferred_literal_work};
+  capi::tactix_online_program_v16 program{&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(capi::tactix_online_configure_v16(solver, &program, 3001,
+      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  capi::tactix_online_result result{};
+  assert(capi::tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
+  auto &kernel = api_detail::kernel_for_fixed_testing(solver);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, 1));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  step.affine_matrix.operation = TACTIX_AFFINE_MATRIX_SEARCH_STEP;
+  assert(capi::tactix_online_configure_v16(solver, &program, 3002,
+      TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(capi::tactix_online_advance(solver, &result) == 0);
+  assert(result.status == TACTIX_ONLINE_COMPLETED && result.made_rule_progress);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  assert(kernel_external_value(kernel, internalize(4)) < 0);
+  capi::tactix_release(solver);
+  std::fclose(records);
+  std::remove(path);
+}
+
 int main() {
   replay_and_scope();
   c_surface(true);
   c_surface(false);
   c_service_continuation(false);
   c_service_continuation(true);
+  c_search_step_nonroot();
   for (unsigned mode = 0; mode < 5; ++mode) c_decline_retry(mode);
 }

@@ -27,6 +27,18 @@ enum class AffineMatrixInitStatus : uint8_t {
   Pending, // Retained Gaussian slice incomplete; resume at a later restart.
 };
 
+// Diagnostic attribution for bounded initialization declines. It does not
+// change admission or proof semantics.
+enum class AffineMatrixInitResourceStage : uint8_t {
+  None,
+  Snapshot,
+  RootImage,
+  RootCensus,
+  RootPreflight,
+  Matrix,
+  Retained,
+};
+
 // Public controller actions admit any authenticated affine subimage and may
 // retain a bounded partial matrix.  DefaultPolicy can impose the stronger
 // policy admission below before scheduling this relatively expensive service:
@@ -106,6 +118,8 @@ struct AffineMatrixAliasResult {
 
 struct AffineMatrixInitResult {
   AffineMatrixInitStatus status = AffineMatrixInitStatus::Invalid;
+  AffineMatrixInitResourceStage resource_stage = AffineMatrixInitResourceStage::None;
+  uint64_t resource_required_bytes = 0, resource_limit_bytes = 0;
   ApplyResult result = ApplyResult::NoOp;
   uint64_t owner_version = 0;
   uint64_t snapshot_clauses = 0;

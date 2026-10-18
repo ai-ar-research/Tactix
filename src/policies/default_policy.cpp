@@ -3468,6 +3468,7 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
             std::strcmp(rules[i].name, "DirectPhpRefutation") &&
             std::strcmp(rules[i].name, "Gf3GaussianConsequence") &&
             std::strcmp(rules[i].name, "Gf3GeneralRowConsequence") &&
+            std::strcmp(rules[i].name, "CardinalitySearch") &&
             std::strcmp(rules[i].name, "TseitinCycleBreaking") &&
             std::strcmp(rules[i].name, "NaryCspEquality") &&
             std::strcmp(rules[i].name, "NaryCspEqualityAmo") &&
@@ -3665,6 +3666,20 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
             affine_search_diagnostics_.initialization_work,work);
         return initialized;
       },affine_init_outcome);
+  if (const char *diagnostic=std::getenv("TACTIX_AFFINE_INIT_DIAG");
+      diagnostic && diagnostic[0]=='1' && diagnostic[1]=='\0') {
+    std::fprintf(stderr,
+        "tactix-affine-init status=%u resource-stage=%u required-bytes=%llu limit-bytes=%llu snapshot-work=%llu recognition-work=%llu matrix-work=%llu retention-work=%llu equations=%llu admitted=%llu\n",
+        unsigned(result.status),unsigned(result.resource_stage),
+        (unsigned long long)result.resource_required_bytes,
+        (unsigned long long)result.resource_limit_bytes,
+        (unsigned long long)result.snapshot_work,
+        (unsigned long long)result.recognition_work,
+        (unsigned long long)result.matrix_work,
+        (unsigned long long)result.premise_retention_work,
+        (unsigned long long)result.equations,
+        (unsigned long long)result.admitted_sources);
+  }
   affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
   if(result.root_service) {
     affine_search_diagnostics_.service_work=saturated_sum(
@@ -3721,10 +3736,6 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   AffineMatrixServiceResult result;
   if (!config_.affine_search.enabled || !kernel.affine_matrix_search_session ||
       !kernel.affine_matrix_search_session->enabled()) return result;
-  if (kernel.level) {
-    result.status = AffineMatrixServiceStatus::Inapplicable;
-    return result;
-  }
   const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
   const uint64_t started=now_nanos();
   result=port::complete_action(
@@ -3733,7 +3744,8 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
         execution::NativeFeedbackSpec spec;
         spec.meter=affine_service_work;
         spec.description.version=2;
-        spec.description.description="default-persistent-restart-root";
+        spec.description.description=root ? "default-persistent-restart-root"
+                                          : "default-persistent-search";
         spec.description.effort_currency="affine-matrix-work";
         spec.description.effort_allowance=strategy::WorkLimit::bounded(
             affine_service_allowance_);
@@ -4536,7 +4548,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // Lucky fast path.
   if (config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
-      (!k.proof || k.proof->dsr())) {
+      (!k.proof || k.proof->supports_sr())) {
     port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
     const uint64_t amo_binaries_before =
         k.stats.sr_unique_literal_amo_binaries;
@@ -5012,6 +5024,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);
       continue;
+    }
+    // The retained matrix observes a completed Boolean propagation prefix.
+    // A published conditional reason re-arms ordinary watched propagation,
+    // which consumes the implication or conflict on the next loop iteration.
+    if (k.level && config_.affine_search.enabled &&
+        k.affine_matrix_search_session &&
+        k.affine_matrix_search_session->enabled() &&
+        !affine_usefulness_paused_) {
+      const auto algebraic = service_affine_search(k, false);
+      if (algebraic.status == AffineMatrixServiceStatus::Applied)
+        continue;
     }
     if (k.unassigned_active == 0)
       return finish(10);
@@ -6431,7 +6454,7 @@ int DefaultInprocessScheduler::run_structured_root(
                 : config().structured_root_stages;
   if (stages.empty())
     return 0;
-  if (k.proof && !k.proof->dsr()) {
+  if (k.proof && !k.proof->supports_sr()) {
     ++structured_root.proof_format_declines;
     structured_root.terminal = InvocationStatus::Inapplicable;
     return 0;

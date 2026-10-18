@@ -126,7 +126,8 @@ struct TtfTruthTableLiveResult {
 };
 
 // Recognize, revalidate, and atomically publish one compact odd-coordinate
-// frontier. DSR/DRAT/no-proof are supported; LRAT/PBP decline before mutation.
+// frontier. DSR/DRAT/no-proof and streaming PBP are supported; LRAT and
+// terminal-PBP decline before mutation.
 // Propagation is deliberately left to a later controller action.
 TtfTruthTableLiveResult ttf_truth_table_live_apply(
     Kernel &, const TtfTruthTableLiveRequest &);

@@ -54,6 +54,7 @@ assert runner.proof_format(["/pin/tactix"]) == "dsr"
 assert runner.proof_format(["/pin/tactix", "--dsr"]) == "dsr"
 assert runner.proof_format(["/pin/tactix", "--drat"]) == "drat"
 assert runner.proof_format(["/pin/tactix", "--lrat"]) == "lrat"
+assert runner.proof_format(["/pin/tactix", "--pbp"]) == "pbp"
 assert runner.proof_format(["/pin/kissat"]) == "drat"
 
 with tempfile.TemporaryDirectory(prefix="generic-dsr-proof-") as directory:

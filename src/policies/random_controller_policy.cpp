@@ -607,6 +607,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
               std::string_view(rule.name) == "NaryCspEqualityAmo" ||
               std::string_view(rule.name) == "Gf3GaussianConsequence" ||
               std::string_view(rule.name) == "Gf3GeneralRowConsequence" ||
+              std::string_view(rule.name) == "CardinalitySearch" ||
               std::string_view(rule.name) == "TseitinCycleBreaking") &&
              (!config.offered_actions.contains(rule.name) ||
               config.offered_actions.at(rule.name).empty()))

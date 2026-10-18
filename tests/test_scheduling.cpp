@@ -1009,6 +1009,7 @@ static void test_inprocess_registry_requires_root(void) {
         !std::strcmp(rule.name, "DirectPhpRefutation") ||
         !std::strcmp(rule.name, "Gf3GaussianConsequence") ||
         !std::strcmp(rule.name, "Gf3GeneralRowConsequence") ||
+        !std::strcmp(rule.name, "CardinalitySearch") ||
         !std::strcmp(rule.name, "TseitinCycleBreaking") ||
         !std::strcmp(rule.name, "NaryCspEquality") ||
         !std::strcmp(rule.name, "NaryCspEqualityAmo") ||
@@ -1125,6 +1126,7 @@ static void test_default_slot_membership_matches_kissat(void) {
       "TseitinCycleBreaking", "NaryCspEquality",
       "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
       "Gf3GeneralRowConsequence",
+      "CardinalitySearch",
       "GraphIntervalEquivalence",
       "AffineMatrixInitialize",
   };

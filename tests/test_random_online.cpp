@@ -2230,9 +2230,10 @@ static void sample_each_applicable_action(Kernel &k,
       continue;
     if (!std::strcmp(rule.name, "IndependentSetCover") ||
         !std::strcmp(rule.name, "Gf3AffineConsequence") ||
-        !std::strcmp(rule.name, "DirectCspSupport")) {
-      // A legal cover is a variable-length caller/producer-owned request.
-      // Random generation must not fabricate one from a scalar payload.
+        !std::strcmp(rule.name, "DirectCspSupport") ||
+        !std::strcmp(rule.name, "CardinalitySearch")) {
+      // These legal theory systems are caller/producer-owned requests.
+      // Random generation must not fabricate them from scalar payloads.
       continue;
     }
     RandomOnlineConfig config;
@@ -2305,7 +2306,7 @@ static void every_registry_action_has_random_support() {
       "IndependentSetCover", "Gf3AffineConsequence", "DirectCspSupport",
       "NaryCspEquality", "Gf3GaussianConsequence",
       "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-      "Gf3GeneralRowConsequence",
+      "Gf3GeneralRowConsequence", "CardinalitySearch",
       "TseitinCycleBreaking"};
   assert(seen.size() + std::size(PRODUCER_OWNED) + 1 == tactix_rules().size());
   for (const char *name : PRODUCER_OWNED)

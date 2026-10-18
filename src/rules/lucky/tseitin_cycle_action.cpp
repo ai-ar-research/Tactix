@@ -649,8 +649,10 @@ bool make_journal(const Kernel &kernel, uint64_t action_id,
       !put(",\"semantic_id\":") || !number(action_id) ||
       !put(",\"identity\":\"") || !put(offered.identity) ||
       !put("\",\"proof_format\":\"") ||
-      !put(kernel.proof ? (kernel.proof->binary() ? "dsr-binary"
-                                                 : "dsr-ascii")
+      !put(kernel.proof ? (kernel.proof->streaming_pbp()
+                               ? "pbp"
+                               : kernel.proof->binary() ? "dsr-binary"
+                                                        : "dsr-ascii")
                         : "none") ||
       !put("\",\"parameters\":{") ||
       !put("\"snapshot_clauses\":") ||
@@ -943,14 +945,14 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
       .fact("provenance-bound", kernel.structural_provenance != nullptr)
       .fact("action-id-available",
             kernel.structural_action_sequence != UINT64_MAX)
-      .fact("dsr-proof", !kernel.proof || kernel.proof->dsr());
+      .fact("sr-proof", !kernel.proof || kernel.proof->supports_sr());
 }
 
 TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
     Kernel &kernel, const TseitinCycleBreakingSession &session,
     const TseitinCycleBreakingLimits &limits) {
   TseitinCycleBreakingOfferResult result;
-  if (kernel.proof && !kernel.proof->dsr()) {
+  if (kernel.proof && !kernel.proof->supports_sr()) {
     result.status = TseitinCycleBreakingStatus::UnsupportedProof;
     return result;
   }
@@ -1024,7 +1026,7 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
     Kernel &kernel, TseitinCycleBreakingSession &session,
     const TseitinCycleBreakingLimits &limits, const std::string &identity) {
   TseitinCycleBreakingResult result;
-  if (kernel.proof && !kernel.proof->dsr()) {
+  if (kernel.proof && !kernel.proof->supports_sr()) {
     result.status = TseitinCycleBreakingStatus::UnsupportedProof;
     return result;
   }

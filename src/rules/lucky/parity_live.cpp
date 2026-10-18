@@ -93,7 +93,7 @@ ParityLiveResult parity_live_apply(Kernel &k,const ParityLiveRequest &request) {
      k.inconsistent||k.level||k.conflict_valid||k.pending.valid||k.dense||
      k.probing.recording||!k.large_watches_connected||
      !kernel_propagation_fixpoint(k)||
-     (k.proof&&(k.proof->lrat()||k.proof->pb())))return result;
+     (k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())))return result;
   Journal journal{request.records,request.action_id};
   std::fprintf(request.records,"{\"action\":%llu,\"kind\":\"begin\",\"clauses_limit\":%llu,\"groups_limit\":%llu,\"selection_work\":%llu,\"intermediate_width\":%u,\"source_limit\":%u,\"output_width\":%u,\"descending\":%s,\"proof_limit\":%llu,\"consequence\":%zu}\n",(unsigned long long)request.action_id,(unsigned long long)request.premises.clauses,(unsigned long long)request.premises.groups,(unsigned long long)request.selection.work,request.selection.intermediate_width,request.selection.source_count,request.selection.output_width,request.descending?"true":"false",(unsigned long long)request.maximum_proof_additions,request.consequence);
   parity_premises::Collector collector(request.premises);

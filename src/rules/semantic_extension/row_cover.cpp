@@ -42,7 +42,7 @@ RowCoverResult derive_row_cover(Kernel &k,const RowCoverRequest &request) {
   if(!request.records || !request.action_id || k.inconsistent || k.level ||
       k.conflict_valid || k.pending.valid || k.dense || k.probing.recording ||
       !k.large_watches_connected || !kernel_propagation_fixpoint(k) ||
-      (k.proof&&(k.proof->lrat()||k.proof->pb())) ||
+      (k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())) ||
       k.external_to_internal.size()>=INT32_MAX ||
       k.external_to_internal.size()>=request.maximum_external_extent)return result;
   if(request.original_input&&(!k.startup_certificate_open||k.startup_input.empty()))return result;

@@ -310,7 +310,7 @@ RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
       .fact("session-attached", kernel.affine_matrix_search_session != nullptr)
       .fact("provenance-bound", kernel.structural_provenance != nullptr)
       .fact("clausal-proof",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 AffineMatrixInitResult affine_matrix_search_initialize(
@@ -431,6 +431,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     result.status = kernel_terminating(kernel)
                         ? AffineMatrixInitStatus::Interrupted
                         : AffineMatrixInitStatus::ResourceExhausted;
+    if(result.status==AffineMatrixInitStatus::ResourceExhausted)
+      result.resource_stage=AffineMatrixInitResourceStage::Snapshot;
     if (result.status == AffineMatrixInitStatus::ResourceExhausted)
       session.remember_terminal_initialization_failure(kernel, parameters);
     record_init(kernel, result);
@@ -609,6 +611,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       }
       if(!root_input_ready) {
         result.recognition_work=recognition;result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+        if(result.status==AffineMatrixInitStatus::ResourceExhausted)
+          result.resource_stage=AffineMatrixInitResourceStage::RootCensus;
         record_init(kernel,result);return result;
       }
       recognized = planned==RootImageStatus::Prepared?Status::Complete:
@@ -671,7 +675,12 @@ AffineMatrixInitResult affine_matrix_search_initialize(
             (session.enabled()?session.matrix_index_bytes_:0)+
             (kernel.proof?kernel.proof->persistent_external_bytes():0);
         const __uint128_t registry=kernel.proof?2*(__uint128_t(kernel.proof->premise_bytes())+registry_payload):0;
-        if(!priced || private_bytes+stage+registry>persistence.maximum_retained_bytes) {
+        const __uint128_t required_bytes=private_bytes+stage+registry;
+        if(!priced || required_bytes>persistence.maximum_retained_bytes) {
+          result.resource_stage=priced ? AffineMatrixInitResourceStage::RootPreflight
+                                      : AffineMatrixInitResourceStage::RootCensus;
+          result.resource_required_bytes=required_bytes>UINT64_MAX?UINT64_MAX:uint64_t(required_bytes);
+          result.resource_limit_bytes=persistence.maximum_retained_bytes;
           recognized=Status::Exhausted;
         } else {
           preparation_private_bytes=uint64_t(private_bytes);
@@ -680,6 +689,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         if(recognized!=Status::Complete) {
           result.recognition_work=recognition;
           result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+          if(result.status==AffineMatrixInitStatus::ResourceExhausted &&
+             result.resource_stage==AffineMatrixInitResourceStage::None)
+            result.resource_stage=AffineMatrixInitResourceStage::RootCensus;
           record_init(kernel,result);return result;
         }
         image = std::move(root_plan.image);
@@ -735,6 +747,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     if (result.status == AffineMatrixInitStatus::NoStructure ||
         result.status == AffineMatrixInitStatus::ResourceExhausted)
       session.remember_terminal_initialization_failure(kernel, parameters);
+    if(result.status==AffineMatrixInitStatus::ResourceExhausted &&
+       result.resource_stage==AffineMatrixInitResourceStage::None)
+      result.resource_stage=AffineMatrixInitResourceStage::RootImage;
     record_init(kernel, result);
     return result;
   }
@@ -871,6 +886,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     if (result.status == AffineMatrixInitStatus::NoStructure ||
         result.status == AffineMatrixInitStatus::ResourceExhausted)
       session.remember_terminal_initialization_failure(kernel, parameters);
+    if(result.status==AffineMatrixInitStatus::ResourceExhausted)
+      result.resource_stage=AffineMatrixInitResourceStage::Matrix;
     record_init(kernel, result);
     return result;
   }
@@ -918,6 +935,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
   if (!fits) {
     result.status = AffineMatrixInitStatus::ResourceExhausted;
+    result.resource_stage = AffineMatrixInitResourceStage::Retained;
+    result.resource_required_bytes=retained_bytes;
+    result.resource_limit_bytes=persistence.maximum_retained_bytes;
     record_init(kernel, result); return result;
   }
 
@@ -1633,7 +1653,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
     record_service(kernel, result);
     return result;
   }
-  if (kernel.level || kernel.inconsistent || kernel.conflict_valid || kernel.pending.valid ||
+  if (kernel.inconsistent || kernel.conflict_valid || kernel.pending.valid ||
       (session.persistent() && kernel.model_extended) || kernel.dense || kernel.probing.recording ||
       !kernel.large_watches_connected || !kernel_propagation_fixpoint(kernel)) {
     result.status = AffineMatrixServiceStatus::Inapplicable;
@@ -1973,6 +1993,15 @@ AffineMatrixServiceResult affine_matrix_search_step(
     record_service(kernel, result);
     return result;
   }
+  // A globally implied unit discovered above root cannot be installed as a
+  // root assignment while the current decision trail is live. Retain the
+  // matrix event for the next root window; other reasons carry their false
+  // trail antecedents and can be installed as ordinary non-root clauses.
+  if (kernel.level && event.reason.size() <= 1) {
+    result.status = AffineMatrixServiceStatus::NoEvent;
+    record_service(kernel, result);
+    return result;
+  }
   result.reason_width = event.reason.size();
   result.event_identity = event_identity(session.owner_version_, event);
   if (result.event_identity.size() > session.parameters_.maximum_journal_bytes) {
@@ -2019,6 +2048,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
   request.action_id = action_id;
   request.semantic_id = session.owner_version_;
   request.records = session.records_;
+  request.compact_provenance = kernel.affine_matrix_provenance_compact;
   request.proof_cache = &session.proof_cache_;
   if (session.persistent()) {
     request.premise_leases = &session.premise_leases_;
@@ -2068,13 +2098,12 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                     strategy::AffineMatrixInitializeParameters::Operation::SearchStep)
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
-                                  .fact("root-level", kernel.level == 0)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
                                   .fact("propagated", kernel_propagation_fixpoint(kernel))
                                   .fact("sparse", !kernel.dense && kernel.large_watches_connected)
                                   .fact("no-probe-transaction", !kernel.probing.recording)
                                   .fact("profile-valid", kernel.affine_matrix_initialize_parameters.valid())
-                                  .fact("clausal-proof", kernel.proof && !kernel.proof->lrat() && !kernel.proof->pb())
+                                  .fact("clausal-proof", kernel.proof && !kernel.proof->lrat() && !kernel.proof->terminal_pbp())
                                   .fact("no-extended-model", !kernel.model_extended)
                                   .fact("session-profile", kernel.affine_matrix_search_session &&
                                       kernel.affine_matrix_search_session->enabled() &&

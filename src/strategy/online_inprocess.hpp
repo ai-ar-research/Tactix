@@ -104,6 +104,8 @@ struct OnlineInvocation {
   std::vector<NaryCspEqualityTransitivitySelection> nary_csp_equality_transitivity_instances = {};
   std::vector<NaryCspEqualityAmoSelection> nary_csp_equality_amo_instances = {};
   std::vector<Gf3GeneralRowActionSelection> gf3_general_row_instances = {};
+  // Each selection is one explicitly nominated system of signed count bounds.
+  std::vector<std::vector<CardinalitySearchBound>> cardinality_search_instances = {};
   std::vector<DirectCspGuardedCoverActionSelection> direct_csp_guarded_cover_instances = {};
   RepeatSpec repeat;
   PostApplication post_application = PostApplication::None;

@@ -19,7 +19,7 @@ ExactCoverDefinitionResult define_exact_cover_block_occupancy(
       k.inconsistent || k.level || k.conflict_valid || k.pending.valid ||
       !k.trail.empty() || k.dense || k.probing.recording ||
       !k.large_watches_connected || !kernel_propagation_fixpoint(k) ||
-      (k.proof && k.proof->pb()) || kernel_terminating(k))
+      (k.proof && k.proof->terminal_pbp()) || kernel_terminating(k))
     return result;
 
   std::vector<exact_cover_semantic::Premise> source;

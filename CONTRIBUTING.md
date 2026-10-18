@@ -1,5 +1,8 @@
 # Contributing to Tactix
 
+Develop changes on a named non-default branch. Keep public `main` for reviewed
+integration; do not use it as a development worktree.
+
 ## Build and test
 
 ```sh

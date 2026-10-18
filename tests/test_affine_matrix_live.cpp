@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <set>
 #include <string>
 #include <unistd.h>
 
@@ -170,6 +171,41 @@ static void implication_is_consumed_by_ordinary_bcp() {
          provenance.find("proof-only balanced-XOR identities") !=
              std::string::npos &&
          provenance.find("\"planner_work\"") != std::string::npos);
+  std::fclose(journal);
+}
+
+static void compact_provenance_keeps_authenticated_reason() {
+  Kernel kernel;
+  install_implication_formula(kernel);
+  decide(kernel, -1);
+  decide(kernel, -2);
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  Fixture fixture;
+  recognize_and_synchronize(kernel, journal, fixture);
+  auto request = live_request(journal, fixture.owner, fixture.matrix,
+                              fixture.image.equations, fixture.event);
+  request.compact_provenance = true;
+  AffineMatrixLivePrepared prepared;
+  const auto preflight = prepare_affine_matrix_live(kernel, request, prepared);
+  assert(preflight.status == MatrixLiveStatus::Prepared);
+  auto changed = request;
+  changed.compact_provenance = false;
+  const auto rejected = publish_affine_matrix_live(kernel, changed, prepared);
+  assert(rejected.status == MatrixLiveStatus::Invalid &&
+         records(journal).empty());
+  const auto applied = publish_affine_matrix_live(kernel, request, prepared);
+  assert(applied.status == MatrixLiveStatus::Applied && applied.implication &&
+         applied.preflight_additions > 0 && applied.journal_bytes > 0);
+  assert(!kernel_propagate(kernel));
+  assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
+  const std::string provenance = records(journal);
+  assert(provenance.find("\"reason\":[1,2,-5]") != std::string::npos &&
+         provenance.find("\"sources\":[") != std::string::npos &&
+         provenance.find("\"occurrence\":") != std::string::npos &&
+         provenance.find("\"clause_id\":") != std::string::npos &&
+         provenance.find("\"proof_events_omitted\":true") != std::string::npos &&
+         provenance.find("\"proof_events\":[") == std::string::npos);
   std::fclose(journal);
 }
 
@@ -415,10 +451,211 @@ static int proof_fixture(const char *cnf_path, const char *proof_path) {
   return 0;
 }
 
+static int resumed_proof_fixture(const char *cnf_path,
+                                 const char *proof_path) {
+  Kernel kernel;
+  kernel_reserve_vars(kernel, 10);
+  const std::vector<int32_t> first{1,2,3,4,9,10};
+  const std::vector<int32_t> second{5,6,7,8,9,10};
+  add_equation(kernel, first, false);
+  add_equation(kernel, second, true);
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  AffineLiveSnapshot owner;
+  const auto capture = capture_request(journal);
+  assert(capture_affine_live_snapshot(kernel, capture, owner));
+  Image image;
+  assert(recognize(owner.premises, capture.image,
+                   [](uint64_t) { return true; }, image) == Status::Complete);
+  for (int32_t variable=1;variable<=8;++variable)
+    add_clause(kernel, {-variable});
+  assert(!kernel_propagate(kernel));
+  AffineMatrix matrix;
+  assert(build_affine_matrix(image.equations, 991, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  MatrixEvent prior_event;
+  assert(matrix.synchronize({{1,false},{2,false},{3,false},{4,false},{9,false}},
+                            [](uint64_t) { return true; }, prior_event) ==
+         MatrixStatus::Complete);
+  assert(prior_event.kind == MatrixEventKind::Implication &&
+         prior_event.row.source_equations.size() == 1);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof = &proof;
+  AffineMatrixProofCache cache;
+  MatrixTransactionLimits limits{10000000,1000000,1000000,100000,1000000};
+  AffineMatrixTransaction prior;
+  assert(prepare_affine_matrix_transaction(
+             matrix,991,image.equations,prior_event,
+             kernel.external_to_internal.size(),kernel.next_clause_id,limits,
+             [](uint64_t) { return true; },prior,&cache,
+             proof.persistent_external_epoch()) ==
+         MatrixTransactionStatus::Prepared);
+  assert(prior.proof_cache_insert());
+  Var first_helper = INVALID_VAR;
+  assert(kernel_reserve_proof_variables(kernel,prior.helper_extent(),first_helper));
+  std::set<uint64_t> support(prior.proof_cache_entry().support_ids.begin(),
+                             prior.proof_cache_entry().support_ids.end());
+  for (const MatrixProofEvent &step : prior.proof_events()) {
+    if (step.kind == MatrixProofEvent::Kind::Delete) {
+      assert(proof.del_external(kernel.next_clause_id,step.deleted_id,
+                                step.clause.data(),step.clause.size()));
+      continue;
+    }
+    assert(++kernel.next_clause_id == step.id);
+    const bool emitted = step.kind == MatrixProofEvent::Kind::Rat
+        ? proof.add_external_rat(step.id,step.clause.data(),step.clause.size())
+        : proof.add_external_rup(step.id,step.clause.data(),step.clause.size());
+    assert(emitted);
+    if (support.contains(step.id))
+      assert(proof.retain_external(step.id,step.clause.data(),
+                                   step.clause.size()));
+  }
+  assert(cache.commit(MatrixProofCacheEntry(prior.proof_cache_entry()),0));
+  MatrixEvent event;
+  assert(matrix.synchronize(trail(kernel),[](uint64_t) { return true; },event) ==
+         MatrixStatus::Complete);
+  assert(event.kind == MatrixEventKind::Conflict &&
+         event.row.source_equations.size() == 2);
+  auto request = live_request(journal,owner,matrix,image.equations,event);
+  request.proof_cache = &cache;
+  request.maximum_persistent_bytes = 10000000;
+  const auto applied = apply_affine_matrix_live(kernel,request);
+  assert(applied.status == MatrixLiveStatus::Applied &&
+         applied.proof_cache_resume && applied.proof_cache_insert &&
+         applied.conflict);
+  assert(kernel_propagate(kernel) && kernel.conflict_valid);
+  assert(proof.add_external_rup(++kernel.next_clause_id,nullptr,0));
+  proof.flush();
+  kernel.proof = nullptr;
+  FILE *cnf=std::fopen(cnf_path,"w");
+  assert(cnf);
+  std::fprintf(cnf,"p cnf %zu 72\n",kernel.external_to_internal.size());
+  for (const auto &[variables,rhs] :
+       std::vector<std::pair<std::vector<int32_t>,bool>>{{first,false},
+                                                         {second,true}})
+    for (const auto &clause : clausal_form(variables,rhs)) {
+      for (int32_t literal:clause) std::fprintf(cnf,"%d ",literal);
+      std::fprintf(cnf,"0\n");
+    }
+  for (int32_t variable=1;variable<=8;++variable)
+    std::fprintf(cnf,"-%d 0\n",variable);
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
+static int removed_source_proof_fixture(const char *cnf_path,
+                                        const char *proof_path) {
+  const std::vector<std::pair<std::vector<int32_t>,bool>> rows{
+      {{2,3,4,7},false},{{5,6,7,9},true},{{2,3,6,8},true},
+      {{2,4,7,8},false},{{1,2,5,9},true},{{1,3,6,7},false}};
+  Kernel kernel;
+  kernel_reserve_vars(kernel,9);
+  for(const auto &[variables,rhs]:rows)add_equation(kernel,variables,rhs);
+  FILE *journal=std::tmpfile();assert(journal);
+  AffineLiveSnapshot owner;
+  const auto capture=capture_request(journal);
+  assert(capture_affine_live_snapshot(kernel,capture,owner));
+  Image image;
+  assert(recognize(owner.premises,capture.image,[](uint64_t){return true;},
+                   image)==Status::Complete);
+  const auto rank = [&](const Equation &equation) {
+    for (size_t i=0;i<rows.size();++i)
+      if (equation.variables==rows[i].first && equation.rhs==rows[i].second)
+        return i;
+    return rows.size();
+  };
+  assert(image.equations.size()==rows.size());
+  std::sort(image.equations.begin(),image.equations.end(),
+            [&](const Equation &a,const Equation &b){return rank(a)<rank(b);});
+  for(size_t i=0;i<rows.size();++i)assert(rank(image.equations[i])==i);
+  for(int32_t literal:{-4,5,-8,-9})add_clause(kernel,{literal});
+  assert(!kernel_propagate(kernel));
+  AffineMatrix matrix;
+  assert(build_affine_matrix(image.equations,991,matrix_limits(),
+                             [](uint64_t){return true;},matrix)==
+         MatrixStatus::Complete);
+  MatrixEvent old_event;
+  assert(matrix.synchronize({{1,true},{2,true},{5,false},{6,true},
+                             {8,true},{9,true}},[](uint64_t){return true;},
+                            old_event)==MatrixStatus::Complete);
+  assert((old_event.row.source_equations==std::vector<size_t>{0,2,3}));
+  Proof proof;
+  assert(proof.open(proof_path,ProofFormat::DsrAscii));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  kernel.proof=&proof;
+  AffineMatrixProofCache cache;
+  MatrixTransactionLimits limits{10000000,1000000,1000000,100000,1000000};
+  AffineMatrixTransaction old_tx;
+  assert(prepare_affine_matrix_transaction(
+             matrix,991,image.equations,old_event,
+             kernel.external_to_internal.size(),kernel.next_clause_id,limits,
+             [](uint64_t){return true;},old_tx,&cache,
+             proof.persistent_external_epoch())==
+         MatrixTransactionStatus::Prepared);
+  assert(old_tx.proof_cache_insert());
+  Var first_helper=INVALID_VAR;
+  assert(kernel_reserve_proof_variables(kernel,old_tx.helper_extent(),
+                                       first_helper));
+  std::set<uint64_t> support(old_tx.proof_cache_entry().support_ids.begin(),
+                             old_tx.proof_cache_entry().support_ids.end());
+  for(const MatrixProofEvent &step:old_tx.proof_events()) {
+    if(step.kind==MatrixProofEvent::Kind::Delete) {
+      assert(proof.del_external(kernel.next_clause_id,step.deleted_id,
+                                step.clause.data(),step.clause.size()));
+      continue;
+    }
+    assert(++kernel.next_clause_id==step.id);
+    const bool emitted=step.kind==MatrixProofEvent::Kind::Rat
+        ?proof.add_external_rat(step.id,step.clause.data(),step.clause.size())
+        :proof.add_external_rup(step.id,step.clause.data(),step.clause.size());
+    assert(emitted);
+    if(support.contains(step.id))
+      assert(proof.retain_external(step.id,step.clause.data(),step.clause.size()));
+  }
+  assert(cache.commit(MatrixProofCacheEntry(old_tx.proof_cache_entry()),0));
+  MatrixEvent event;
+  assert(matrix.synchronize(trail(kernel),[](uint64_t){return true;},event)==
+         MatrixStatus::Complete);
+  std::fprintf(stderr,"removed live event kind=%u sources",unsigned(event.kind));
+  for(auto id:event.row.source_equations)std::fprintf(stderr," %zu",id);
+  std::fprintf(stderr,"\n");
+  assert((event.row.source_equations==std::vector<size_t>{0,1,2}));
+  auto request=live_request(journal,owner,matrix,image.equations,event);
+  request.proof_cache=&cache;
+  request.maximum_persistent_bytes=10000000;
+  const auto applied=apply_affine_matrix_live(kernel,request);
+  assert(applied.status==MatrixLiveStatus::Applied &&
+         applied.proof_cache_resume && applied.conflict);
+  assert(kernel_propagate(kernel)&&kernel.conflict_valid);
+  assert(proof.add_external_rup(++kernel.next_clause_id,nullptr,0));
+  proof.flush();kernel.proof=nullptr;
+  FILE *cnf=std::fopen(cnf_path,"w");assert(cnf);
+  std::fprintf(cnf,"p cnf %zu 52\n",kernel.external_to_internal.size());
+  for(const auto &[variables,rhs]:rows)
+    for(const auto &clause:clausal_form(variables,rhs)) {
+      for(int32_t literal:clause)std::fprintf(cnf,"%d ",literal);
+      std::fprintf(cnf,"0\n");
+    }
+  for(int32_t literal:{-4,5,-8,-9})std::fprintf(cnf,"%d 0\n",literal);
+  std::fclose(cnf);std::fclose(journal);
+  return 0;
+}
+
 int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--proof") == 0)
     return proof_fixture(argv[2], argv[3]);
+  if (argc == 4 && std::strcmp(argv[1], "--resume-proof") == 0)
+    return resumed_proof_fixture(argv[2], argv[3]);
+  if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
+    return removed_source_proof_fixture(argv[2], argv[3]);
   implication_is_consumed_by_ordinary_bcp();
+  compact_provenance_keeps_authenticated_reason();
   conflict_is_consumed_by_ordinary_bcp();
   unit_above_root_declines();
   stale_publication_boundaries();

@@ -205,7 +205,7 @@ RuleEligibility nary_csp_equality_action_guard(const Kernel &kernel) {
       .fact("candidate-id-available",
             kernel.semantic_variable_publication != (UINT64_MAX >> 8))
       .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 NaryCspEqualityActionResult nary_csp_equality_action_apply(

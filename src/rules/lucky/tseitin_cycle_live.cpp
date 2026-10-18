@@ -50,7 +50,7 @@ bool valid(const Request &request) {
 }
 
 bool supported_proof(const Kernel &kernel) {
-  return !kernel.proof || kernel.proof->dsr();
+  return !kernel.proof || kernel.proof->supports_sr();
 }
 
 struct PollContext {

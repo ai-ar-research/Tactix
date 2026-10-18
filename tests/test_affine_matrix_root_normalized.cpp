@@ -52,7 +52,9 @@ static void exercise(ProofFormat format,const char *prefix){
  const auto repeated=affine_matrix_search_refresh(k,session,session.parameters(),session.persistence_limits(),true);
  assert(repeated.status==AffineMatrixInitStatus::NoStructure&&repeated.unchanged&&session.enabled());
  kernel_assign_decision(k,kernel_internalize(k,1));
- // A legitimate but mistimed dose must not destroy durable authentication.
+ // A dose before propagation reaches its fixpoint must not destroy durable
+ // authentication; after propagation, the retained owner can now reason at
+ // this decision level and install an ordinary conditional clause.
  const auto pending_owner=session.owner_version(),pending_rank=session.basis_rank();
  const auto pending_bytes=proof.premise_bytes(),pending_epoch=proof.premise_epoch();
  const auto pending_id=k.next_clause_id;const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
@@ -63,10 +65,11 @@ static void exercise(ProofFormat format,const char *prefix){
  assert(propagate_apply(k)==ApplyResult::Ok);
  const std::vector<Lit> propagated_trail(k.trail.begin(),k.trail.end());
  const auto used=DefaultAffineSearchTestAccess::step(policy,k);
- assert(used.status==AffineMatrixServiceStatus::Inapplicable&&used.installed_reason.empty()&&session.enabled());
+ assert(used.status==AffineMatrixServiceStatus::Applied&&
+        used.installed_reason==std::vector<int32_t>({-1,-4})&&session.enabled());
  assert(session.owner_version()==pending_owner&&session.basis_rank()==pending_rank&&session.attached_to(k));
- assert(proof.premise_bytes()==pending_bytes&&proof.premise_epoch()==pending_epoch&&
-        k.next_clause_id==pending_id&&k.trail==propagated_trail&&!k.value(kernel_internalize(k,4)));
+ assert(k.next_clause_id>pending_id&&k.trail==propagated_trail&&
+        !k.value(kernel_internalize(k,4)));
  kernel_backtrack(k,0);assert(!k.value(kernel_internalize(k,1))&&!k.value(kernel_internalize(k,4)));
  assert(DefaultAffineSearchTestAccess::step(policy,k).status==AffineMatrixServiceStatus::NoEvent);
  // Verify a complete model of the original gated input, including signed root.

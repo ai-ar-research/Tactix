@@ -78,7 +78,7 @@ RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
       .fact("action-id-available",
             k.structural_action_sequence != UINT64_MAX)
       .fact("clausal-certificate",
-            !k.proof || (!k.proof->lrat() && !k.proof->pb()))
+            !k.proof || (!k.proof->lrat() && !k.proof->terminal_pbp()))
       .fact("candidate-slot-empty", !k.semantic_variable_candidate_pending)
       .fact("candidate-id-available",
             k.semantic_variable_publication != (UINT64_MAX >> 8));

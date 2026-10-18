@@ -118,7 +118,7 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     result.status = BatchPublicationStatus::Invalid;
     return result;
   }
-  if (k.proof && k.proof->pb()) {
+  if (k.proof && k.proof->terminal_pbp()) {
     result.status = BatchPublicationStatus::UnsupportedProof;
     return result;
   }

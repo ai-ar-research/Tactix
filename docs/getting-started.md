@@ -56,7 +56,9 @@ route applies:
 | `pbp` | pseudo-Boolean proof | VeriPB, then CakePB |
 
 Other formats can be requested explicitly: `--drat` (DRAT), `--lrat` (LRAT
-with hints), `--dsr` (always DSR). `--no-binary` writes the textual variant.
+with hints), `--dsr` (always DSR), and `--pbp` (whole-run PBP covering ordinary
+CDCL and supported structured reasoning). `--no-binary` writes the textual
+variant of DSR or DRAT.
 
 ## Check a proof
 

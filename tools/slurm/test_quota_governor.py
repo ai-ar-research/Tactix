@@ -49,7 +49,8 @@ class FakeSlurm:
 
 
 def args(**kw):
-    base = dict(user="hwu", hold_above=750.0, release_below=700.0)
+    base = dict(user="hwu", hold_above=750.0, release_below=700.0,
+                release_batch=40)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -72,6 +73,11 @@ class Parsing(unittest.TestCase):
 
 
 class Hysteresis(unittest.TestCase):
+    def test_same_hold_and_release_boundary(self):
+        self.assertEqual(qg.decide("released", 751, 750, 750), ("held", "hold"))
+        self.assertEqual(qg.decide("held", 750, 750, 750), ("held", "hold-new"))
+        self.assertEqual(qg.decide("held", 749, 750, 750), ("released", "release"))
+
     def test_sequence(self):
         state, actions = "released", []
         for usage in (600, 749, 751, 740, 705, 700, 699, 720, 751, None, 650):
@@ -133,6 +139,23 @@ class Cycle(unittest.TestCase):
         self.assertTrue(self.run_cycle(slurm, 500))
         slurm.live = {"200"}
         self.assertFalse(self.run_cycle(slurm, 500))
+
+    def test_release_is_bounded_across_checks(self):
+        held = [f"100_{index}" for index in range(95)]
+        slurm = FakeSlurm({task: "JobHeldUser" for task in held})
+        (self.dir / "state.json").write_text(json.dumps(
+            {"state": "held", "held": held}))
+        for expected_held, expected_released in ((55, 40), (15, 40), (0, 15)):
+            slurm.calls.clear()
+            self.assertFalse(self.run_cycle(slurm, 600))
+            releases = [call for call in slurm.calls
+                        if call[:2] == ["scontrol", "release"]]
+            self.assertEqual(sum(len(call[2].split(",")) for call in releases),
+                             expected_released)
+            state = json.loads((self.dir / "state.json").read_text())
+            self.assertEqual(len(state["held"]), expected_held)
+            self.assertEqual(state["state"],
+                             "released" if expected_held == 0 else "held")
 
 
 if __name__ == "__main__":

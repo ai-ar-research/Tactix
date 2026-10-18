@@ -173,11 +173,12 @@ void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="
   } else assert(status==20);
   if(enabled && with_proof) {
     assert(stats.initializations==1 && stats.admitted_sources==2);
-    // This small search never earns another recognition quantum. Root-only
+    // This small search never earns another recognition quantum. Root
     // maintenance must not count the same two source equations as new census;
     // it runs only in natural full-restart windows after a support root fact.
+    // The retained matrix is also serviced at propagated search fixpoints.
     assert(stats.recognized_equations==2 && stats.refreshes==stats.restart_runs);
-    assert(kernel.stats.decisions>0 && stats.root_services>0 && !stats.search_services);
+    assert(kernel.stats.decisions>0 && stats.root_services>0 && stats.search_services>0);
     // These fixtures authenticate retained equations, but have no initial
     // root-relevant consequence. CDCL may finish before any later root fact
     // makes one useful. If a restart does publish, it remains proof-backed;
@@ -246,8 +247,11 @@ void paused_owner_retry(const std::string &stem = "",
       assert(propagate_apply(kernel) == ApplyResult::Ok);
       const auto owner_before = session.owner_version();
       const auto trail_before = std::vector<Lit>(kernel.trail.begin(),kernel.trail.end());
-      const auto declined = DefaultAffineSearchTestAccess::service(policy, kernel);
-      assert(declined.status == AffineMatrixServiceStatus::Inapplicable &&
+      const auto searched = DefaultAffineSearchTestAccess::service(policy, kernel);
+      // The retained matrix now has a legal above-root search step. This
+      // fixture leaves two row variables unassigned, so it has no implication
+      // yet and must preserve both the owner and the Boolean trail.
+      assert(searched.status == AffineMatrixServiceStatus::NoEvent &&
              session.owner_version() == owner_before && kernel.trail == trail_before);
       kernel_backtrack(kernel, 0);
       assert(propagate_apply(kernel) == ApplyResult::Ok);
@@ -298,9 +302,11 @@ void paused_owner_retry(const std::string &stem = "",
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   const auto services = policy.affine_search_diagnostics().search_services;
   const auto paused_skips = policy.affine_search_diagnostics().paused_search_skips;
-  const auto declined = DefaultAffineSearchTestAccess::service(policy, kernel);
-  assert(declined.status == AffineMatrixServiceStatus::Inapplicable);
-  assert(policy.affine_search_diagnostics().search_services == services);
+  const auto searched = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(searched.status == AffineMatrixServiceStatus::NoEvent);
+  // The direct test accessor bypasses the policy loop's pause gate; it still
+  // records a charged no-event service, whereas the loop skips this call.
+  assert(policy.affine_search_diagnostics().search_services == services + 1);
   assert(policy.affine_search_diagnostics().paused_search_skips == paused_skips);
   kernel_backtrack(kernel, 0);
   for (const auto &clause : affine_semantic_extension::clausal_form({5,6,7}, false)) {

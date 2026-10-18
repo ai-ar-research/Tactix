@@ -328,7 +328,8 @@ def recheck_selection(source, classes):
 def source_array_live(source):
     launch=source/'launch.json'
     if not launch.exists():return False
-    job=json.loads(launch.read_text())['job_id']
+    launch_record=json.loads(launch.read_text())
+    job=launch_record.get('job_id') or launch_record['array_job_id']
     q=subprocess.run(['squeue','-h','-j',str(job),'-o','%i'],capture_output=True,text=True)
     return q.returncode==0 and bool(q.stdout.strip())
 

@@ -208,6 +208,15 @@ TABLE = {
                            r'native_producer_reaches_exact_action\('),
                           ("tests/test_gf3_general_row_public.cpp",
                            r'c_v11_deep_copies_typed_selection\(')]),
+    "CardinalitySearch":
+                        (EXPLICIT, "typed authenticated CDCL-time cardinality action; default slot disabled",
+                         [r'std::strcmp\(rules\[i\]\.name, "CardinalitySearch"\)'],
+                         [("src/rules/semantic_extension/cardinality_search_action.cpp",
+                           r'cardinality_search_action_apply\('),
+                          ("tests/test_cardinality_search_live.cpp",
+                           r'public_online_action_requires_exact_bounds_and_followup\('),
+                          ("tests/test_cardinality_search_live.cpp",
+                           r'c17_deep_copies_bounds_and_executes_search_action\(')]),
     "AffineMatrixInitialize":
                         (EXPLICIT, "typed bounded matrix initialization; default slot disabled and startup owner explicit",
                          [r'std::strcmp\(rules\[i\]\.name, "AffineMatrixInitialize"\)'],

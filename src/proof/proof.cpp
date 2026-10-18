@@ -30,6 +30,7 @@ CheckerRoute Proof::population_route() const noexcept {
   case ProofFormat::Lrat:
     return CheckerRoute::Lrat;
   case ProofFormat::Pbp:
+  case ProofFormat::PbpStreaming:
     return CheckerRoute::Pbp;
   case ProofFormat::Automatic:
     return CheckerRoute::AutomaticPending;
@@ -131,6 +132,8 @@ void Proof::finish_input_transaction() {
   observe_checker(CheckerPopulationEventKind::InputFinished,
                   CheckerClauseRole::Input, 0, 0, {});
   input_transaction_ = false;
+  if (streaming_pbp())
+    publish_streaming_pbp_header();
 }
 
 DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
@@ -204,6 +207,8 @@ Proof::~Proof() {
   bind_population_observer(nullptr);
   if (file_ && std::fclose(file_))
     std::abort();
+  if (pbp_output_ && std::fclose(pbp_output_))
+    std::abort();
   stream_identity_=0;
 }
 
@@ -220,11 +225,23 @@ uint64_t next_proof_stream_identity() noexcept {
 }
 bool Proof::open(const char *path, ProofFormat format) {
   stream_identity_=0; // Failed opens cannot lend cached-unit authority.
-  if (file_ || automatic_output_ || format == ProofFormat::Pbp)
+  if (file_ || automatic_output_ || pbp_output_ || format == ProofFormat::Pbp)
     return false;
   file_ = fopen(path, "wb");
   format_ = format;
   has_sr_witness_ = false;
+  streaming_pbp_finished_ = false;
+  pbp_original_constraints_ = 0;
+  if (file_ && format == ProofFormat::PbpStreaming) {
+    pbp_output_ = file_;
+    file_ = std::tmpfile();
+    if (!file_) {
+      std::fclose(pbp_output_);
+      pbp_output_ = nullptr;
+      return false;
+    }
+    input_transaction_ = true;
+  }
   if (file_ && format == ProofFormat::Automatic) {
     automatic_output_ = file_;
     file_ = std::tmpfile();
@@ -241,6 +258,7 @@ bool Proof::open(const char *path, ProofFormat format) {
     if(!stream_identity_) {
       std::fclose(file_);file_=nullptr;
       if(automatic_output_){std::fclose(automatic_output_);automatic_output_=nullptr;}
+      if(pbp_output_){std::fclose(pbp_output_);pbp_output_=nullptr;}
       automatic_pending_=input_transaction_=false;return false;
     }
   }
@@ -258,7 +276,7 @@ bool Proof::open(const char *path, ProofFormat format) {
 
 bool Proof::commit_dsr() {
   if (!automatic_pending_)
-    return !pb();
+    return streaming_pbp() || !pb();
   // Preserve the ordinary binary serializer's unbuffered stdio contract:
   // binary_buffer_ owns buffering and every fwrite must observe I/O failure.
   // The destination has not yet received any bytes, so setvbuf is still legal.
@@ -316,6 +334,39 @@ FILE *Proof::begin_pb() {
 
 bool Proof::finish_pb() {
   return pb() && file_ && !std::ferror(file_) && std::fflush(file_) == 0;
+}
+
+void Proof::publish_streaming_pbp_header() {
+  if (!streaming_pbp() || !pbp_output_)
+    return;
+  if (std::fflush(file_) || std::fseek(file_, 0, SEEK_SET))
+    std::abort();
+  if (std::fprintf(pbp_output_,
+                   "pseudo-Boolean proof version 3.0\nf %" PRIu64 ";\n",
+                   pbp_original_constraints_) < 0)
+    std::abort();
+  std::array<unsigned char, 65536> bytes{};
+  for (;;) {
+    const size_t count = std::fread(bytes.data(), 1, bytes.size(), file_);
+    if (count && std::fwrite(bytes.data(), 1, count, pbp_output_) != count)
+      std::abort();
+    if (count < bytes.size()) {
+      if (std::ferror(file_))
+        std::abort();
+      break;
+    }
+  }
+  std::fclose(file_);
+  file_ = pbp_output_;
+  pbp_output_ = nullptr;
+}
+
+void Proof::finish_streaming_pbp_unsat() {
+  if (!streaming_pbp() || streaming_pbp_finished_)
+    return;
+  std::fputs("output NONE ;\nconclusion UNSAT : -1 ;\n"
+             "end pseudo-Boolean proof ;\n", file_);
+  streaming_pbp_finished_ = true;
 }
 
 void Proof::put_byte(unsigned char byte) {
@@ -381,6 +432,66 @@ void Proof::put_external_dimacs(int32_t e) {
   } else {
     fprintf(file_, "%d ", e);
   }
+}
+
+void Proof::put_pbp_external_dimacs(int32_t literal) {
+  assert(literal && literal != INT32_MIN);
+  std::fputs("1 ", file_);
+  if (literal < 0)
+    std::fputc('~', file_);
+  std::fprintf(file_, "x%" PRIu32 " ", static_cast<uint32_t>(
+      literal < 0 ? -int64_t(literal) : int64_t(literal)));
+}
+
+void Proof::put_pbp_lit(Lit literal) {
+  if (variable_map_) {
+    assert(var_of(literal) < variable_map_->size());
+    literal = make_lit((*variable_map_)[var_of(literal)], negated(literal));
+  }
+  put_pbp_external_dimacs(externalize(literal));
+}
+
+void Proof::put_pbp_clause(const char *rule, const Lit *lits,
+                           uint32_t size) {
+  std::fprintf(file_, "%s ", rule);
+  for (uint32_t i = 0; i < size; ++i)
+    put_pbp_lit(lits[i]);
+  std::fputs(">= 1", file_);
+}
+
+void Proof::put_pbp_external_clause(const char *rule, const int32_t *lits,
+                                    uint32_t size) {
+  std::fprintf(file_, "%s ", rule);
+  for (uint32_t i = 0; i < size; ++i)
+    put_pbp_external_dimacs(lits[i]);
+  std::fputs(">= 1", file_);
+}
+
+// VeriPB's CNF reader drops tautological clauses and canonicalizes repeated
+// literals before populating the initial constraint database.  A `del spec`
+// must name that canonical constraint, rather than the raw DIMACS spelling
+// retained by Tactix for input-proof accounting.
+static bool canonical_pbp_deletion(const int32_t *lits, uint32_t size,
+                                   std::vector<int32_t> &canonical) {
+  canonical.clear();
+  canonical.reserve(size);
+  for (uint32_t i = 0; i < size; ++i) {
+    const int32_t literal = lits[i];
+    if (!literal || literal == INT32_MIN)
+      return false;
+    bool duplicate = false;
+    for (const int32_t other : canonical) {
+      if (literal == -other)
+        return false;
+      if (literal == other) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (!duplicate)
+      canonical.push_back(literal);
+  }
+  return true;
 }
 
 void Proof::put_u64(uint64_t v) { fprintf(file_, "%" PRIu64 " ", v); }
@@ -562,6 +673,21 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 #endif
   if (!file_)
     return;
+  if (streaming_pbp()) {
+    if (streaming_pbp_finished_)
+      std::abort();
+    put_pbp_clause("rup", lits, size);
+    std::fputs(" ;\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
+    observe_checker(CheckerPopulationEventKind::Add, role, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
+    if (!size)
+      finish_streaming_pbp_unsat();
+    return;
+  }
   if (dsr() && size == 1) {
     Lit external = lits[0];
     if (variable_map_) {
@@ -638,6 +764,29 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
 #endif
   if (!file_)
     return;
+  if (streaming_pbp()) {
+    if (!size || streaming_pbp_finished_)
+      std::abort();
+    put_pbp_clause("red", lits, size);
+    Lit pivot = lits[0];
+    if (variable_map_) {
+      assert(var_of(pivot) < variable_map_->size());
+      pivot = make_lit((*variable_map_)[var_of(pivot)], negated(pivot));
+    }
+    const int32_t external = externalize(pivot);
+    std::fprintf(file_, " : x%" PRIu32 " -> %d ;\n",
+                 static_cast<uint32_t>(external < 0 ? -int64_t(external)
+                                                    : int64_t(external)),
+                 external < 0 ? 0 : 1);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::Rat, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
+    return;
+  }
   if (format_ == ProofFormat::Lrat) {
     put_u64(id);
     for (uint32_t i = 0; i < size; i++)
@@ -709,6 +858,59 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
 
   if (!file_)
     return true;
+  if (streaming_pbp()) {
+    if (streaming_pbp_finished_)
+      return false;
+    put_pbp_clause("red", lits, size);
+    std::fputs(" :", file_);
+    const auto external_lit = [&](Lit literal) {
+      if (variable_map_) {
+        assert(var_of(literal) < variable_map_->size());
+        literal = make_lit((*variable_map_)[var_of(literal)],
+                           negated(literal));
+      }
+      return externalize(literal);
+    };
+    const Var pivot_var = var_of(lits[0]);
+    bool pivot_assigned = false;
+    for (uint32_t i = 0; i < ntrue; ++i)
+      pivot_assigned |= var_of(true_lits[i]) == pivot_var;
+    for (uint32_t i = 0; i < nmappings; ++i)
+      pivot_assigned |= var_of(mappings[i].from) == pivot_var;
+    const auto put_constant = [&](Lit source, bool value) {
+      const int32_t external = external_lit(source);
+      std::fprintf(file_, " x%" PRIu32 " -> %d",
+                   static_cast<uint32_t>(external < 0 ? -int64_t(external)
+                                                      : int64_t(external)),
+                   value ? 1 : 0);
+    };
+    if (!pivot_assigned)
+      put_constant(lits[0], !negated(lits[0]));
+    for (uint32_t i = 0; i < ntrue; ++i)
+      put_constant(true_lits[i], !negated(true_lits[i]));
+    for (uint32_t i = 0; i < nmappings; ++i) {
+      const int32_t from = external_lit(mappings[i].from);
+      int32_t to = external_lit(mappings[i].to);
+      if (from < 0)
+        to = -to;
+      std::fprintf(file_, " x%" PRIu32 " -> %sx%" PRIu32,
+                   static_cast<uint32_t>(from < 0 ? -int64_t(from)
+                                                  : int64_t(from)),
+                   to < 0 ? "~" : "",
+                   static_cast<uint32_t>(to < 0 ? -int64_t(to)
+                                                : int64_t(to)));
+    }
+    std::fputs(" ;\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::SubstitutionRedundancy, id, id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
+    has_sr_witness_ = true;
+    return true;
+  }
   if (!dsr())
     return false;
 
@@ -895,7 +1097,7 @@ void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
                              uint32_t nchain) {
   if (!file_)
     return;
-  if (format_ == ProofFormat::Lrat) {
+  if (format_ == ProofFormat::Lrat || streaming_pbp()) {
     const CheckerClauseRole saved = population_role_;
     population_role_ = CheckerClauseRole::DerivedUnit;
     add_rup(id, &unit, 1, chain, nchain);
@@ -928,6 +1130,34 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     std::abort();
   if (!file_)
     return;
+  if (streaming_pbp()) {
+    // RUP is monotone under retained constraints, but RAT/SR redundancy is
+    // not. Delete one exact matching constraint without coupling PBP's own
+    // numbering to Tactix clause IDs.
+    if (streaming_pbp_finished_)
+      return;
+    std::vector<int32_t> external;
+    external.reserve(size);
+    for (uint32_t i = 0; i < size; ++i) {
+      Lit literal = lits[i];
+      if (variable_map_)
+        literal = make_lit((*variable_map_)[var_of(literal)], negated(literal));
+      external.push_back(externalize(literal));
+    }
+    std::vector<int32_t> canonical;
+    if (!canonical_pbp_deletion(external.data(), external.size(), canonical))
+      return;
+    put_pbp_external_clause("del spec", canonical.data(), canonical.size());
+    std::fputs(" ;\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_del(del_id, lits, size);
+#endif
+    observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                    CheckerClauseRole::None, line_id, del_id,
+                    PopulationClauseView::internal_lits(lits, size,
+                                                         variable_map_));
+    return;
+  }
   Lit external_unit = size == 1 ? lits[0] : INVALID_LIT;
   if (size == 1 && variable_map_)
     external_unit = make_lit((*variable_map_)[var_of(external_unit)],
@@ -1031,6 +1261,27 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
   if (!file_)
     return true;
   flush_pending_dsr_units();
+  if (streaming_pbp()) {
+    if (streaming_pbp_finished_)
+      return false;
+    put_pbp_external_clause("rup", lits, size);
+    std::fputs(" ;\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    std::vector<Lit> external;
+    external.reserve(size);
+    for (uint32_t i = 0; i < size; ++i)
+      external.push_back(internalize(lits[i]));
+    const auto *saved = variable_map_;
+    variable_map_ = nullptr;
+    population_add(id, external.data(), size);
+    variable_map_ = saved;
+#endif
+    observe_checker(CheckerPopulationEventKind::Add, role, id, id,
+                    PopulationClauseView::external_lits(lits, size), true);
+    if (!size)
+      finish_streaming_pbp_unsat();
+    return true;
+  }
   if (format_ == ProofFormat::DsrBinary)
     put_byte(1);
   else if (format_ == ProofFormat::DratBinary)
@@ -1069,6 +1320,22 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
     variable_map_ = saved;
     if (premise_epoch_ != before) flush_persistent_external(id);
   }
+  if (!input_transaction_ && !commit_dsr())
+    return false;
+  if (streaming_pbp()) {
+    if (!size || !lits || streaming_pbp_finished_)
+      return false;
+    put_pbp_external_clause("red", lits, size);
+    const int32_t pivot = lits[0];
+    std::fprintf(file_, " : x%" PRIu32 " -> %d ;\n",
+                 static_cast<uint32_t>(pivot < 0 ? -int64_t(pivot)
+                                                 : int64_t(pivot)),
+                 pivot < 0 ? 0 : 1);
+    observe_checker(CheckerPopulationEventKind::Add,
+                    CheckerClauseRole::ExternalRat, id, id,
+                    PopulationClauseView::external_lits(lits, size), true);
+    return true;
+  }
   // DSR/DRAT infer RAT from the first literal after RUP fails, so their byte
   // stream is identical to an external RUP addition.
   const CheckerClauseRole saved = population_role_;
@@ -1089,7 +1356,7 @@ std::vector<int32_t> premise_key(const int32_t *lits, uint32_t size) {
 bool Proof::can_defer_premise_group_deletions(
     const std::vector<PremiseGroup> &groups, DeferredDeletionLimits incoming,
     const std::function<bool(uint64_t)> &charge) const {
-  if (!charge || lrat() || pb() || !file_) return false;
+  if (!charge || lrat() || (pb() && !streaming_pbp()) || !file_) return false;
   const bool bounded = incoming.maximum_pending_deletions || incoming.maximum_pending_literal_work;
   if (bounded && (!incoming.maximum_pending_deletions || !incoming.maximum_pending_literal_work)) return false;
   const uint64_t count_cap = std::min(premise_pending_deletion_cap_,
@@ -1117,7 +1384,7 @@ bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
   if (bounded && (!limits.maximum_pending_deletions || !limits.maximum_pending_literal_work ||
       premise_pending_deletions_ > limits.maximum_pending_deletions ||
       premise_pending_literal_work_ > limits.maximum_pending_literal_work)) return false;
-  if (!charge || lrat() || pb() || !file_ ||
+  if (!charge || lrat() || (pb() && !streaming_pbp()) || !file_ ||
       groups.size() > maximum_groups ||
       premise_groups_.size() > maximum_groups - groups.size() ||
       groups.size() > UINT64_MAX - next_premise_group_)
@@ -1285,7 +1552,8 @@ uint64_t Proof::persistent_external_bytes() const {
 
 bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
   if (!id || !size || !lits ||
-      external_tautological(lits, size) || lrat() || pb())
+      external_tautological(lits, size) || lrat() ||
+      (pb() && !streaming_pbp()))
     return false;
   if (!file_)
     return true;
@@ -1302,7 +1570,8 @@ bool Proof::retain_external(uint64_t id, const int32_t *lits, uint32_t size) {
 void Proof::flush_persistent_external(uint64_t line_id) {
   if (persistent_external_.empty())
     return;
-  if (lrat() || pb() || persistent_external_epoch_ == UINT64_MAX)
+  if (lrat() || (pb() && !streaming_pbp()) ||
+      persistent_external_epoch_ == UINT64_MAX)
     std::abort();
   std::vector<PersistentExternalClause> clauses =
       std::move(persistent_external_);
@@ -1319,12 +1588,34 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   if (defer_leased_deletion(lits, size)) return true;
   if (!input_transaction_ && !commit_dsr())
     return false;
-  (void)line_id;
-  if (lrat() || pb())
-    return false;
   assert(!size || lits);
   if (!file_)
     return true;
+  if (streaming_pbp()) {
+    if (streaming_pbp_finished_)
+      return true;
+    std::vector<int32_t> canonical;
+    if (!canonical_pbp_deletion(lits, size, canonical))
+      return true;
+    put_pbp_external_clause("del spec", canonical.data(), canonical.size());
+    std::fputs(" ;\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    std::vector<Lit> external;
+    external.reserve(size);
+    for (uint32_t i = 0; i < size; ++i)
+      external.push_back(internalize(lits[i]));
+    const auto *saved = variable_map_;
+    variable_map_ = nullptr;
+    population_del(del_id, external.data(), size);
+    variable_map_ = saved;
+#endif
+    observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                    CheckerClauseRole::None, line_id, del_id,
+                    PopulationClauseView::external_lits(lits, size), true);
+    return true;
+  }
+  if (lrat() || pb())
+    return false;
   if ((del_id && pending_unit_ids_.count(del_id)) ||
       (size == 1 && pending_unit_literals_.count(lits[0])))
     flush_pending_dsr_units();
@@ -1469,6 +1760,14 @@ void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
 #endif
   if (!file_)
     return;
+  // VeriPB's `f` statement names the number of constraints in the original
+  // CNF, not the largest internal clause id.  Streaming PBP may derive and
+  // spool root units while input parsing is still in progress; those derived
+  // ids can therefore make later raw-input ids non-contiguous.  Count each
+  // raw seed exactly once instead of inferring the input population from its
+  // internal identity namespace.
+  if (streaming_pbp() && input_transaction_)
+    ++pbp_original_constraints_;
   observe_checker(CheckerPopulationEventKind::InputSeed,
                   CheckerClauseRole::Input, id, id,
                   PopulationClauseView::internal_lits(lits, size,

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ulimit -c 0
 
 binary=$1
 root=$2
@@ -33,6 +34,49 @@ for scenario in root-unit root-empty; do
     --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
     --every-lemma
 done
+
+"$binary" --proof-search "$tmp/search.cnf" "$tmp/search.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/search.cnf" "$tmp/search.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
+# Each seed permutes the source variables, row signs, and decision phase.
+# A fresh independent check of every proof lemma catches mistakes hidden by
+# successful in-process propagation alone.
+cases=${AFFINE_SEARCH_FUZZ_CASES:-16}
+for ((seed=1; seed<=cases; ++seed)); do
+  "$binary" --proof-search-seed "$seed" \
+    "$tmp/search-$seed.cnf" "$tmp/search-$seed.dsr"
+  if ! python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+      "$tmp/search-$seed.cnf" "$tmp/search-$seed.dsr" \
+      --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+      --every-lemma > "$tmp/search-$seed.check" 2>&1; then
+    cat "$tmp/search-$seed.check"
+    exit 1
+  fi
+  rm -f "$tmp/search-$seed.cnf" "$tmp/search-$seed.dsr" \
+    "$tmp/search-$seed.check"
+done
+printf 'nonroot affine proof variants: %s independently checked\n' "$cases"
+
+# Four source XOR rows cancel five interior variables, leaving only the
+# decision and implied variable, forcing a four-source certificate.
+chain_cases=${AFFINE_SEARCH_CHAIN_FUZZ_CASES:-16}
+for ((seed=0; seed<chain_cases; ++seed)); do
+  "$binary" --proof-search-chain-seed "$seed" \
+    "$tmp/chain-$seed.cnf" "$tmp/chain-$seed.dsr"
+  if ! python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+      "$tmp/chain-$seed.cnf" "$tmp/chain-$seed.dsr" \
+      --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+      --every-lemma > "$tmp/chain-$seed.check" 2>&1; then
+    cat "$tmp/chain-$seed.check"
+    exit 1
+  fi
+  rm -f "$tmp/chain-$seed.cnf" "$tmp/chain-$seed.dsr" \
+    "$tmp/chain-$seed.check"
+done
+printf 'four-row nonroot affine proof variants: %s independently checked\n' "$chain_cases"
 
 "$binary" --proof-drat "$tmp/input-drat.cnf" "$tmp/proof.drat"
 "$drat_trim" "$tmp/input-drat.cnf" "$tmp/proof.drat" -f \

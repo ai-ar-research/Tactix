@@ -110,7 +110,7 @@ RuleEligibility nary_csp_equality_transitivity_guard(const Kernel &k){
    .fact("action-id-available",k.structural_action_sequence!=UINT64_MAX)
    .fact("candidate-slot-empty",!k.semantic_variable_candidate_pending)
    .fact("candidate-id-available",k.semantic_variable_publication!=(UINT64_MAX>>8))
-   .fact("clausal-certificate",!k.proof||(!k.proof->lrat()&&!k.proof->pb()));
+   .fact("clausal-certificate",!k.proof||(!k.proof->lrat()&&!k.proof->terminal_pbp()));
 }
 bool nary_csp_equality_transitivity_selection_valid(const Selection &s){
  if(!equality_transitivity::domains_valid(s.domains))return false;
@@ -142,7 +142,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
  if(selection_bytes>limits.maximum_preparation_bytes||!meter.charge(selection_bytes+18*values*values)){out.status=meter.failure();return finish();}
  if(!nary_csp_equality_transitivity_selection_valid(selected))return finish();
  if(!relations.belongs_to(k)||!equalities.belongs_to(k)||(session.retained()&&!session.belongs_to(k))){out.status=Status::Inapplicable;return finish();}
- if(k.proof&&(k.proof->lrat()||k.proof->pb())){out.status=Status::UnsupportedProof;return finish();}
+ if(k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())){out.status=Status::UnsupportedProof;return finish();}
  for(const auto &key:session.keys()){
    if(!meter.charge(key_bytes(key)+selection_bytes)){out.status=meter.failure();return finish();}
    if(key==selected){out.status=Status::Duplicate;return finish();}

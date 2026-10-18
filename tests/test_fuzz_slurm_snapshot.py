@@ -15,6 +15,15 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 SLURM = ROOT / "tools" / "fuzz" / "slurm.sh"
+cpp_version = re.search(
+    r"ACTION_SPACE_VERSION\s*=\s*(\d+)",
+    (ROOT / "src" / "strategy" / "controller_action_space.hpp").read_text(),
+)
+fuzz_version = re.search(
+    r"^ACTION_SPACE_VERSION\s*=\s*(\d+)$",
+    (ROOT / "tools" / "fuzz" / "fuzz.py").read_text(), re.M,
+)
+assert cpp_version and fuzz_version and cpp_version.group(1) == fuzz_version.group(1)
 
 
 def make_writable(path: Path) -> None:

@@ -84,9 +84,11 @@ int main(int argc,char **argv){
  const auto pending_owner=session.owner_version(),pending_id=k.next_clause_id;
  const auto pending_bytes=proof.premise_bytes();const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
  const auto useful=DefaultAffineSearchTestAccess::step(policy,k);
- assert(useful.status==AffineMatrixServiceStatus::Inapplicable&&useful.installed_reason.empty()&&session.enabled());
- assert(session.owner_version()==pending_owner&&k.next_clause_id==pending_id&&
-        proof.premise_bytes()==pending_bytes&&k.trail==pending_trail&&!k.value(kernel_internalize(k,4)));
+ assert(useful.status==AffineMatrixServiceStatus::Applied&&
+        useful.installed_reason==std::vector<int32_t>({-1,4})&&session.enabled());
+ assert(session.owner_version()==pending_owner&&k.next_clause_id>pending_id&&
+        proof.premise_bytes()>=pending_bytes&&k.trail==pending_trail&&
+        !k.value(kernel_internalize(k,4)));
  kernel_backtrack(k,0);
  assert(DefaultAffineSearchTestAccess::step(policy,k).status==AffineMatrixServiceStatus::NoEvent);
  // Complete planted model is checked against every original input clause.

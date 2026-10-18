@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  enum class CliProofFamily { Automatic, Dsr, Drat, Lrat };
+  enum class CliProofFamily { Automatic, Dsr, Drat, Lrat, Pbp };
   CliProofFamily proof_family = CliProofFamily::Automatic;
   bool binary_proof = true;
   bool quiet = false;
@@ -205,6 +205,7 @@ int main(int argc, char **argv) {
   const char *controller_trace_path = nullptr;
   const char *controller_replay_path = nullptr;
   const char *structural_provenance_path = nullptr;
+  bool compact_affine_provenance = false;
   const char *feedback_path = nullptr;
   const char *feedback_replay_path = nullptr;
   RandomControllerConfig controller_config;
@@ -239,6 +240,8 @@ int main(int argc, char **argv) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
       proof_family = CliProofFamily::Lrat; // native LRAT compatibility
+    } else if (!strcmp(a, "--pbp")) {
+      proof_family = CliProofFamily::Pbp;
     } else if (!strncmp(a, "--default-affine-search=", 24)) {
       if (!strcmp(a + 24, "on")) default_affine_search = true;
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
@@ -435,6 +438,8 @@ int main(int argc, char **argv) {
       controller_effort_set = true;
     } else if (!strncmp(a, "--structural-provenance=", 24)) {
       structural_provenance_path = a + 24;
+    } else if (!strcmp(a, "--compact-affine-provenance")) {
+      compact_affine_provenance = true;
     } else if (!strncmp(a, "--feedback=", 11)) {
       feedback_path = a + 11;
     } else if (!strncmp(a, "--feedback-replay=", 18)) {
@@ -490,7 +495,7 @@ int main(int argc, char **argv) {
     } else if (StressSolveFn fn = stress_policy_flag(a, &random_seed)) {
       stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat] [--no-binary] "
+      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat|--pbp] [--no-binary] "
              "[--default-affine-search=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
@@ -507,7 +512,7 @@ int main(int argc, char **argv) {
              "[--controller-restart-period=N] "
              "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
-             "[--structural-provenance=NEW_FILE] "
+             "[--structural-provenance=NEW_FILE] [--compact-affine-provenance] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
@@ -538,6 +543,8 @@ int main(int argc, char **argv) {
   const ProofFormat proof_format =
       proof_family == CliProofFamily::Automatic && binary_proof
           ? ProofFormat::Automatic
+          : proof_family == CliProofFamily::Pbp
+          ? ProofFormat::PbpStreaming
           : proof_family == CliProofFamily::Lrat
           ? ProofFormat::Lrat
           : proof_family == CliProofFamily::Drat
@@ -757,6 +764,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   Kernel kernel;
+  kernel.affine_matrix_provenance_compact = compact_affine_provenance;
   AffineBasisActionSession affine_basis_session;
   AffineMatrixSearchSession affine_matrix_search_session;
   ExactCoverExtensionActionSession exact_cover_extension_session;
@@ -992,6 +1000,8 @@ int main(int argc, char **argv) {
     } else {
       metadata += std::string("structural-provenance=1:") +
           (structural_provenance_path ? "1\n" : "0\n");
+      if (compact_affine_provenance)
+        metadata += "compact-affine-provenance=1:1\n";
       feedback.emplace();
       // Opening/provenance errors stay in the receiver. Even a rejected header
       // must not steer the selected policy or suppress its certificate/verdict.
@@ -1686,6 +1696,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.gf3_general_row_stale,
            (unsigned long long)kernel.stats.gf3_general_row_unsupported_proof,
            (unsigned long long)kernel.stats.gf3_general_row_installed_clauses);
+    printf("c card-search %llu attempts, %llu applied\n",
+           (unsigned long long)kernel.stats.cardinality_search_attempts,
+           (unsigned long long)kernel.stats.cardinality_search_applied);
     printf("c tseitin-cycle %llu attempts, %llu applied, %llu no-structure, "
            "%llu exhausted, %llu interrupted, %llu stale, "
            "%llu unsupported-proof\n",
