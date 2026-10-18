@@ -270,6 +270,12 @@ closes the fresh-source prerequisite. B28+C5 job 1791147, Rank1–50 job
 1791148, WV100 job 1791149 and full Tier-D job 1791375 are active; proof-free
 four-core CMS Tier-D job 1791200 is a comparator, not PBP acceptance evidence.
 No performance gate or PBP promotion is claimed before those results pass.
+All of the user's Slurm work is observed by reusable storage governor 1791687.
+It samples global home usage every 600 seconds, dynamically discovers new jobs,
+holds only PENDING tasks above 750 GiB, and releases below 700 GiB only tasks it
+held itself. RUNNING jobs are never control targets. This governor supersedes
+the narrower read-only Tier-D observer 1791376 and is operational protection,
+not performance or correctness evidence.
 
 The full Tier-D rerun also owns adjacent CryptoMiniSat mechanisms needed by
 the one-policy CG target. A later causal replay refines the initial `mp1`
