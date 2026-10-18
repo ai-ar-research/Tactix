@@ -56,6 +56,59 @@ int main(int argc,char **argv) {
     assert(c.run(e));assert(c.refuted());Clauses out;assert(!c.export_small_consequence(2,out)); }
   { Sink s;s.limit=1;Certificate c(s,7);assert(!c.accumulate(equations()));Clauses out;assert(!c.export_small_consequence(2,out)); }
   { Sink s;Certificate c(s,7);auto e=equations();e.back().variables[0]=8;assert(!c.accumulate(e));assert(!s.additions); }
+  // A checked active proof tree can be resumed without re-emitting its
+  // prefix.  Invalid tree shapes must leave the new certificate reusable.
+  { const auto input=equations();
+    Sink resumed_sink;Certificate first(resumed_sink,7);
+    assert(first.accumulate({input[0],input[1]}));
+    Certificate<Sink>::ActiveTree tree;assert(first.active_tree(tree));
+    Certificate second(resumed_sink,7);
+    auto bad=tree;bad.variable_count=8;
+    assert(!second.resume_active_tree(bad));
+    bad=tree;bad.root_unit.lits[0]=-bad.root_unit.lits[0];
+    assert(!second.resume_active_tree(bad));
+    bad=tree;bad.definitions.front().position=0;
+    assert(!second.resume_active_tree(bad));
+    bad=tree;bad.definitions.front().clauses.front().lits[0] *= -1;
+    assert(!second.resume_active_tree(bad));
+    assert(second.resume_active_tree(tree));
+    assert(second.accumulate({input[2],input[3]}));
+    Clauses result;assert(second.export_small_consequence(2,result));
+    check_binary(result,false);
+    Sink whole_sink;Certificate whole(whole_sink,7);
+    assert(whole.accumulate(input));
+    Clauses whole_result;assert(whole.export_small_consequence(2,whole_result));
+    assert(resumed_sink.additions==whole_sink.additions);
+  }
+  // The previous source set need not be a subset: XORing a source twice
+  // removes it.  This is the row-operation case needed by overlapping CDCL
+  // reasons, whose prior sets seldom form exact subsets.
+  { const auto input=equations();
+    Sink sink;Certificate first(sink,7);
+    assert(first.accumulate({input[0],input[1],input[2]}));
+    Certificate<Sink>::ActiveTree tree;assert(first.active_tree(tree));
+    const uint64_t prior_additions=sink.additions;
+    Certificate next(sink,7);assert(next.resume_active_tree(tree));
+    assert(next.accumulate({input[0],input[3]}));
+    Certificate<Sink>::ActiveTree result;assert(next.active_tree(result));
+    assert((result.variables==std::vector<External>{2,3,4}));
+    assert(!result.rhs);
+    Clauses exported;assert(next.export_small_consequence(3,exported));
+    const External variables[3]={2,3,4};
+    const Clauses expected=xor_equation(variables,3,false);
+    assert(exported.size()==expected.size());
+    for(size_t i=0;i<expected.size();++i) {
+      assert(exported[i].size==expected[i].size);
+      for(uint32_t j=0;j<expected[i].size;++j)
+        assert(exported[i].lits[j]==expected[i].lits[j]);
+    }
+    Sink independent;Certificate from_scratch(independent,7);
+    assert(from_scratch.accumulate({input[1],input[2],input[3]}));
+    Clauses scratch_export;assert(from_scratch.export_small_consequence(3,scratch_export));
+    std::printf("symmetric-difference incremental additions %llu vs fresh %llu\n",
+      (unsigned long long)(sink.additions-prior_additions),
+      (unsigned long long)independent.additions);
+  }
   for(uint8_t width:{uint8_t(3),uint8_t(4)}) {
     Sink s;Certificate c(s,7);Equation row{{1,2,3,4},width,true};Clauses out;
     assert(c.accumulate({row}));assert(c.export_small_consequence(width,out));
@@ -119,7 +172,11 @@ int main(int argc,char **argv) {
       std::fprintf(cnf,"0\n"); }
     std::fprintf(cnf,"8 9 0\n8 -9 0\n-8 9 0\n-8 -9 0\n");std::fclose(cnf);
     Sink sink;sink.proof=std::fopen(argv[2],"w");assert(sink.proof);
-    Certificate c(sink,7);Clauses out;assert(c.accumulate(e));assert(c.export_small_consequence(2,out));check_binary(out,false);
+    Certificate prefix(sink,7);assert(prefix.accumulate({e[0],e[1],e[2]}));
+    Certificate<Sink>::ActiveTree tree;assert(prefix.active_tree(tree));
+    Certificate resumed(sink,7);assert(resumed.resume_active_tree(tree));
+    Clauses out;assert(resumed.accumulate({e[0],e[3]}));
+    assert(resumed.export_small_consequence(3,out));
     std::fprintf(sink.proof,"8 0\n0\n");std::fclose(sink.proof);
     std::printf("prefix additions %llu; fresh proof variables %u\n",(unsigned long long)sink.additions,sink.fresh-9);
   }

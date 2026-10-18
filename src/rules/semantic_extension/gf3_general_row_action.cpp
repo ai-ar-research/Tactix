@@ -102,10 +102,14 @@ bool gf3_general_row_action_selection_valid(
 }
 
 RuleEligibility gf3_general_row_action_guard(const Kernel &kernel) {
+  const auto *session = kernel.gf3_general_row_action_session;
+  const bool retained_search_owner = session && session->retained() &&
+                                     session->belongs_to(kernel);
   return RuleEligibility{}
       .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
+      .fact("root-or-retained-search", !kernel.level || retained_search_owner)
+      .fact("assignment-free-or-retained-search",
+            kernel.trail.empty() || retained_search_owner)
       .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
       .fact("propagated", kernel_propagation_fixpoint(kernel))
       .fact("sparse", !kernel.dense && kernel.large_watches_connected)
@@ -114,7 +118,7 @@ RuleEligibility gf3_general_row_action_guard(const Kernel &kernel) {
       .fact("action-id-available",
             kernel.structural_action_sequence != UINT64_MAX)
       .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 Gf3GeneralRowActionResult gf3_general_row_action_apply(

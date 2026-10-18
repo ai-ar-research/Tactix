@@ -259,8 +259,10 @@ def trace_control(solver, timeout, policy_seed):
             if not line.startswith(b"elapsed-nanos ")) + b"\n"
         if normalize_trace(read_bytes(first)) != normalize_trace(read_bytes(second)):
             raise RuntimeError(f"{name}: seeded traces differ across processes")
-        if b"\nrequest 5 " not in read_bytes(first):
-            raise RuntimeError(f"{name}: trace omitted action-space v5 request")
+        expected_request = f"\nrequest {fuzz.ACTION_SPACE_VERSION} ".encode()
+        if expected_request not in read_bytes(first):
+            raise RuntimeError(
+                f"{name}: trace omitted action-space v{fuzz.ACTION_SPACE_VERSION} request")
 
 
 def interruption_control(solver, timeout, policy_seed):

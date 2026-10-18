@@ -1013,7 +1013,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
     AffineBasisLiveTransaction &output) {
   AffineBasisLiveResult result;
   if (!valid_request(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = AffineBasisLiveStatus::UnsupportedProof;
     return result;
   }
@@ -1438,7 +1438,7 @@ AffineBasisLiveResult publish_affine_basis_live(
     result.status = AffineBasisLiveStatus::Invalid;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = AffineBasisLiveStatus::UnsupportedProof;
     return result;
   }

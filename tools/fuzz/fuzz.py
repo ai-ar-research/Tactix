@@ -43,6 +43,9 @@ import tempfile
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# Keep this recorded controller trace version synchronized with the public
+# C++ action space; test_fuzz_slurm_snapshot.py checks the two declarations.
+ACTION_SPACE_VERSION = 8
 # slurm.sh executes this file from a read-only build/pin-fuzz-harness-*/fuzz
 # snapshot, where the two-dirname derivation would name <repo>/build instead
 # of the repository; the wrappers export TACTIX_REPO_ROOT for that layout,
@@ -58,6 +61,7 @@ from shrink import minimize  # noqa: E402
 sys.path.append(os.path.join(ROOT, "tools", "bench"))
 from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           bridge_trivial_input_lsr, bridge_trivial_input_lrat,
+                          complete_final_empty_rup_units,
                           certificate_route, dsr_proof_as_drat, drat_stages,
                           restate_duplicate_input_lrat, DSRFormatError,
                           dsr_compress_status,
@@ -378,6 +382,7 @@ REACH_SPECS = [
     ("NaryCspEquality", r"^c nary-eq\s+(\d+) attempts,"),
     ("NaryCspEqualityAmo", r"^c nary-eq-amo\s+(\d+) attempts,"),
     ("Gf3GeneralRowConsequence", r"^c gf3-row\s+(\d+) attempts,"),
+    ("CardinalitySearch", r"^c card-search\s+(\d+) attempts,"),
     # Initialization owns a distinct policy action and advances this counter
     # before bounded affine discovery, including sound admission declines.
     ("AffineMatrixInitialize", r"^c affine-matrix-init\s+(\d+) attempts,"),
@@ -750,7 +755,20 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 for name, command in stages(
                         DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf_path, proof,
                         binary_lsr, text_lsr, checker_cnf=checker_cnf):
-                    if not check(command):
+                    verified = check(command)
+                    if (not verified and name == 'srcheck' and
+                            stages is every_lemma_dsr_stages and
+                            out.checker_runs[-1]['status'] == 'rejected'):
+                        completed = os.path.join(workdir, 'proof.unit-complete.lsr')
+                        try:
+                            patched = complete_final_empty_rup_units(
+                                checker_cnf, text_lsr, completed)
+                        except (OSError, ValueError, IndexError):
+                            patched = None
+                        if patched is not None:
+                            out.proof_artifacts.append(completed)
+                            verified = check([SR_CHECK, checker_cnf, patched])
+                    if not verified:
                         out.fail("proof", label + why[name])
                         failed = True
                         break

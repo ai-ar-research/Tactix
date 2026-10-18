@@ -299,7 +299,7 @@ TtfTruthTableLiveResult ttf_truth_table_live_apply(
     Kernel &kernel, const TtfTruthTableLiveRequest &request) {
   TtfTruthTableLiveResult result;
   if (!request_valid(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = TtfTruthTableLiveStatus::UnsupportedProof;
     return result;
   }

@@ -162,6 +162,120 @@ static void root_unit_reuses_the_accumulated_clause() {
   assert(installs == 1);
 }
 
+static void isolated_symmetric_difference_resume(
+    AffineMatrixTransaction *first_out = nullptr,
+    AffineMatrixTransaction *second_out = nullptr) {
+  AffineMatrix matrix;
+  const auto input = sources();
+  assert(build_affine_matrix(input, 991, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  MatrixEvent first_event;
+  assert(matrix.synchronize({{1,false},{2,false},{3,false},{4,false},{9,false}},
+                            [](uint64_t) { return true; }, first_event) ==
+         MatrixStatus::Complete);
+  std::fprintf(stderr,"first kind=%u sources=%zu reason=%zu\n",
+               unsigned(first_event.kind),first_event.row.source_equations.size(),
+               first_event.reason.size());
+  AffineMatrixProofCache cache;
+  AffineMatrixTransaction first;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, input, first_event, 10, 1000,
+             transaction_limits(), [](uint64_t) { return true; },
+             first, &cache, 0) == MatrixTransactionStatus::Prepared);
+  assert(first.proof_cache_insert());
+  assert(cache.commit(MatrixProofCacheEntry(first.proof_cache_entry()), 0));
+  MatrixEvent second_event;
+  std::vector<MatrixAssignment> trail;
+  for (External variable=1;variable<=8;++variable)
+    trail.push_back({variable,false});
+  assert(matrix.synchronize(trail, [](uint64_t) { return true; },
+                            second_event) == MatrixStatus::Complete);
+  std::fprintf(stderr,"second kind=%u sources=%zu reason=%zu\n",
+               unsigned(second_event.kind),second_event.row.source_equations.size(),
+               second_event.reason.size());
+  AffineMatrixTransaction second;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, input, second_event, 10+first.helper_extent(),
+             1000+first.additions(), transaction_limits(),
+             [](uint64_t) { return true; }, second, &cache, 0) ==
+         MatrixTransactionStatus::Prepared);
+  AffineMatrixTransaction fresh;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, input, second_event, 10+first.helper_extent(),
+             1000+first.additions(), transaction_limits(),
+             [](uint64_t) { return true; }, fresh) ==
+         MatrixTransactionStatus::Prepared);
+  std::fprintf(stderr,"resume=%d first=%llu second=%llu fresh=%llu\n",
+               second.proof_cache_resume(),
+               (unsigned long long)first.additions(),
+               (unsigned long long)second.additions(),
+               (unsigned long long)fresh.additions());
+  assert(second.proof_cache_resume());
+  assert(second.additions() < fresh.additions());
+  if (first_out) *first_out = std::move(first);
+  if (second_out) *second_out = std::move(second);
+}
+
+static std::vector<Equation> removal_sources() {
+  return {authenticated_equation({2,3,4,7},false,1),
+          authenticated_equation({5,6,7,9},true,9),
+          authenticated_equation({2,3,6,8},true,17),
+          authenticated_equation({2,4,7,8},false,25),
+          authenticated_equation({1,2,5,9},true,33),
+          authenticated_equation({1,3,6,7},false,41)};
+}
+
+static void isolated_removed_source_resume(
+    AffineMatrixTransaction *old_out=nullptr,
+    AffineMatrixTransaction *new_out=nullptr) {
+  const auto input=removal_sources();
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input,991,matrix_limits(),
+                             [](uint64_t){return true;},matrix)==
+         MatrixStatus::Complete);
+  MatrixEvent old_event;
+  assert(matrix.synchronize({{1,true},{2,true},{5,false},{6,true},
+                             {8,true},{9,true}},
+                            [](uint64_t){return true;},old_event)==
+         MatrixStatus::Complete);
+  assert((old_event.row.source_equations==std::vector<size_t>{0,2,3}));
+  AffineMatrixProofCache cache;
+  AffineMatrixTransaction old_tx;
+  assert(prepare_affine_matrix_transaction(
+             matrix,991,input,old_event,9,52,transaction_limits(),
+             [](uint64_t){return true;},old_tx,&cache,0)==
+         MatrixTransactionStatus::Prepared);
+  assert(old_tx.proof_cache_insert());
+  assert(cache.commit(MatrixProofCacheEntry(old_tx.proof_cache_entry()),0));
+  MatrixEvent new_event;
+  assert(matrix.synchronize({{4,false},{5,true},{8,false},{9,false}},
+                            [](uint64_t){return true;},new_event)==
+         MatrixStatus::Complete);
+  assert((new_event.row.source_equations==std::vector<size_t>{0,1,2}));
+  AffineMatrixTransaction new_tx;
+  assert(prepare_affine_matrix_transaction(
+             matrix,991,input,new_event,9+old_tx.helper_extent(),
+             52+old_tx.additions(),transaction_limits(),
+             [](uint64_t){return true;},new_tx,&cache,0)==
+         MatrixTransactionStatus::Prepared);
+  AffineMatrixTransaction fresh;
+  assert(prepare_affine_matrix_transaction(
+             matrix,991,input,new_event,9+old_tx.helper_extent(),
+             52+old_tx.additions(),transaction_limits(),
+             [](uint64_t){return true;},fresh)==
+         MatrixTransactionStatus::Prepared);
+  std::fprintf(stderr,"removed resume=%d additions=%llu fresh=%llu removed=%zu\n",
+               new_tx.proof_cache_resume(),
+               (unsigned long long)new_tx.additions(),
+               (unsigned long long)fresh.additions(),
+               new_tx.resume_source_equations().size());
+  assert(new_tx.proof_cache_resume() &&
+         (new_tx.resume_source_equations()==std::vector<size_t>{3}));
+  if(old_out)*old_out=std::move(old_tx);
+  if(new_out)*new_out=std::move(new_tx);
+}
+
 static void empty_root_conflict_is_a_publishable_reason() {
   const std::vector<Equation> input = {
       authenticated_equation({1, 2, 3}, false, 600),
@@ -342,8 +456,22 @@ static void incomplete_or_forged_premises_are_unsupported() {
   reject(std::move(duplicate));
 }
 
-static int write_proof(const char *cnf_path, const char *proof_path) {
-  const auto transaction = prepared();
+static int write_proof(const char *cnf_path, const char *proof_path,
+                       bool with_cache = false) {
+  AffineMatrixTransaction transaction;
+  if (with_cache) {
+    AffineMatrix matrix;
+    MatrixEvent event;
+    event_fixture(matrix, event);
+    AffineMatrixProofCache cache;
+    assert(prepare_affine_matrix_transaction(
+               matrix, 991, sources(), event, 10, 1000,
+               transaction_limits(), [](uint64_t) { return true; },
+               transaction, &cache, 0) == MatrixTransactionStatus::Prepared);
+    assert(transaction.proof_cache_insert());
+  } else {
+    transaction = prepared();
+  }
   FILE *cnf = std::fopen(cnf_path, "w");
   assert(cnf);
   std::fprintf(cnf, "p cnf %u 72\n", 10 + transaction.helper_extent());
@@ -372,10 +500,89 @@ static int write_proof(const char *cnf_path, const char *proof_path) {
   return 0;
 }
 
+static int write_resume_proof(const char *cnf_path, const char *proof_path) {
+  AffineMatrixTransaction first, second;
+  isolated_symmetric_difference_resume(&first, &second);
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf %u 72\n",
+               10 + first.helper_extent() + second.helper_extent());
+  for (const Equation &source : sources()) {
+    const auto clauses = tactix::parity_certificate::xor_equation(
+        source.variables.data(), source.variables.size(), source.rhs);
+    for (const auto &clause : clauses) {
+      for (uint32_t i = 0; i < clause.size; ++i)
+        std::fprintf(cnf, "%d ", clause.lits[i]);
+      std::fprintf(cnf, "0\n");
+    }
+  }
+  for (External variable = 1; variable <= 8; ++variable)
+    std::fprintf(cnf, "-%d 0\n", variable);
+  std::fclose(cnf);
+  FILE *proof = std::fopen(proof_path, "w");
+  assert(proof);
+  for (const AffineMatrixTransaction *transaction : {&first, &second})
+    for (const MatrixProofEvent &event : transaction->proof_events()) {
+      if (event.kind == MatrixProofEvent::Kind::Delete)
+        std::fprintf(proof, "d ");
+      for (External literal : event.clause)
+        std::fprintf(proof, "%d ", literal);
+      std::fprintf(proof, "0\n");
+    }
+  std::fprintf(proof, "0\n");
+  std::fclose(proof);
+  return 0;
+}
+
+static int write_removed_proof(const char *cnf_path,const char *proof_path) {
+  AffineMatrixTransaction old_tx,new_tx;
+  isolated_removed_source_resume(&old_tx,&new_tx);
+  FILE *cnf=std::fopen(cnf_path,"w");assert(cnf);
+  std::fprintf(cnf,"p cnf %u 52\n",9+old_tx.helper_extent()+new_tx.helper_extent());
+  for(const Equation &source:removal_sources())
+    for(const auto &clause:source.premise_clauses) {
+      for(External literal:clause)std::fprintf(cnf,"%d ",literal);
+      std::fprintf(cnf,"0\n");
+    }
+  for(External literal:{-4,5,-8,-9})std::fprintf(cnf,"%d 0\n",literal);
+  std::fclose(cnf);
+  FILE *proof=std::fopen(proof_path,"w");assert(proof);
+  for(const AffineMatrixTransaction *tx:{&old_tx,&new_tx})
+    for(const MatrixProofEvent &event:tx->proof_events()) {
+      if(event.kind==MatrixProofEvent::Kind::Delete)std::fprintf(proof,"d ");
+      for(External literal:event.clause)std::fprintf(proof,"%d ",literal);
+      std::fprintf(proof,"0\n");
+    }
+  std::fprintf(proof,"0\n");std::fclose(proof);
+  return 0;
+}
+
 int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--proof") == 0)
     return write_proof(argv[2], argv[3]);
+  if (argc == 4 && std::strcmp(argv[1], "--proof-cache") == 0)
+    return write_proof(argv[2], argv[3], true);
+  if (argc == 4 && std::strcmp(argv[1], "--resume-proof") == 0)
+    return write_resume_proof(argv[2], argv[3]);
+  if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
+    return write_removed_proof(argv[2], argv[3]);
   complete_plan_accounts_and_retains_only_reason();
+  isolated_symmetric_difference_resume();
+  isolated_removed_source_resume();
+  {
+    AffineMatrix matrix;
+    MatrixEvent event;
+    event_fixture(matrix, event);
+    AffineMatrixProofCache cache;
+    AffineMatrixTransaction transaction;
+    assert(prepare_affine_matrix_transaction(
+               matrix, 991, sources(), event, 10, 1000,
+               transaction_limits(), [](uint64_t) { return true; },
+               transaction, &cache, 0) == MatrixTransactionStatus::Prepared);
+    assert(transaction.proof_cache_insert());
+    assert(transaction.proof_cache_entry().tree.variable_count > 0);
+    assert(!transaction.proof_cache_entry().tree.variables.empty());
+  }
   implication_event_uses_the_same_general_bridge();
   root_unit_reuses_the_accumulated_clause();
   empty_root_conflict_is_a_publishable_reason();

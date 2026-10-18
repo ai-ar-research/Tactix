@@ -26,6 +26,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
                                          "DirectPhpRefutation",
                                          "Gf3GaussianConsequence",
                                          "Gf3GeneralRowConsequence",
+                                         "CardinalitySearch",
                                          "TseitinCycleBreaking",
                                          "AffineMatrixInitialize"};
 
@@ -48,6 +49,7 @@ static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "DirectPhpRefutation",
                                              "Gf3GaussianConsequence",
                                              "Gf3GeneralRowConsequence",
+                                             "CardinalitySearch",
                                              "TseitinCycleBreaking",
                                              "GraphIntervalEquivalence",
                                              "AffineMatrixInitialize"};
@@ -77,6 +79,15 @@ static void add_clause(tactix *s, const int *lits) {
   for (; *lits; lits++)
     tactix_add(s, *lits);
   tactix_add(s, 0);
+}
+
+static void cardinality_fixture(tactix *s) {
+  add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){-1, -2, 0});
+  add_clause(s, (const int[]){2, 3, 0});
+  add_clause(s, (const int[]){-2, -3, 0});
+  add_clause(s, (const int[]){1, 3, 0});
+  add_clause(s, (const int[]){-1, -3, 0});
 }
 
 static int compare_ints(const void *left, const void *right) {
@@ -220,7 +231,9 @@ static FILE *structural_records;
 static tactix *prepare(int id) {
   const char *name = tactix_rule_name(id);
   tactix *s = tactix_init();
-  if (!strcmp(name, "SemanticVariableAdvice"))
+  if (!strcmp(name, "CardinalitySearch"))
+    cardinality_fixture(s);
+  else if (!strcmp(name, "SemanticVariableAdvice"))
     exact_cover_fixture(s);
   else
     fixture(s);
@@ -234,6 +247,7 @@ static tactix *prepare(int id) {
       !strcmp(name, "NaryCspEquality") ||
       !strcmp(name, "Gf3GaussianConsequence") ||
       !strcmp(name, "Gf3GeneralRowConsequence") ||
+      !strcmp(name, "CardinalitySearch") ||
       !strcmp(name, "TseitinCycleBreaking") ||
       !strcmp(name, "GraphIntervalEquivalence") ||
       !strcmp(name, "SemanticVariableAdvice")) {
@@ -352,10 +366,54 @@ static void drive_theory_v5(tactix *s, int id, const char *name) {
   progressed += result.made_rule_progress;
 }
 
+static void drive_cardinality_v17(tactix *s, int id) {
+  uint64_t scalar = 0;
+  assert(tactix_rule_instances(s, id, &scalar, 1) == 1 &&
+         scalar == TACTIX_INSTANCE_CANONICAL);
+  assert(tactix_apply_instance(s, id, scalar) == 1 &&
+         "the canonical placeholder must not invent a bound system");
+  const int64_t first[] = {1, 2}, second[] = {2, 3}, third[] = {1, 3};
+  const tactix_online_cardinality_search_bound bounds[] = {
+      {first, 2, 1, 1}, {second, 2, 1, 1}, {third, 2, 1, 1}};
+  const tactix_online_cardinality_search_instance instance = {bounds, 3};
+  tactix_online_step_v17 step;
+  memset(&step, 0, sizeof step);
+  tactix_online_step *base = (tactix_online_step *)&step;
+  base->step_id = 3500;
+  base->rule_id = id;
+  base->parameters.kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
+  base->granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  base->post_application = TACTIX_ONLINE_POST_PROPAGATE;
+  base->repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  base->repeat_limit = 1;
+  base->work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  base->budget = 1;
+  step.cardinality_search =
+      (tactix_online_cardinality_search_parameters){
+          16, 16, 4096, 17, 1000000, 1000000, 10000, 100000,
+          1000000, 1024, 100000};
+  step.cardinality_search_instances = &instance;
+  step.cardinality_search_instance_count = 1;
+  const tactix_online_program_v17 program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure_v17(
+             s, &program, 3500, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  tactix_online_result result;
+  assert(tactix_online_advance(s, &result) == 0);
+  assert(result.rule_id == (uint32_t)id &&
+         result.status == TACTIX_ONLINE_UNSAT && result.applications == 1);
+  hit_structured[id] = 1;
+  progressed++;
+}
+
 /* Apply the entry, preferring a payload its own enumeration offered. */
 static void drive(tactix *s, int id) {
   uint64_t insts[NINST];
   const char *name = tactix_rule_name(id);
+  if (!strcmp(name, "CardinalitySearch")) {
+    drive_cardinality_v17(s, id);
+    return;
+  }
   if (!strcmp(name, "Gf3AffineConsequence") ||
       !strcmp(name, "DirectCspSupport")) {
     drive_theory_v5(s, id, name);

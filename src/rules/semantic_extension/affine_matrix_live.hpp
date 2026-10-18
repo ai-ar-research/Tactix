@@ -36,6 +36,7 @@ struct MatrixLiveRequest {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
+  bool compact_provenance = false;
   AffineMatrixProofCache *proof_cache = nullptr;
   // Optional exact per-equation checker-premise ownership. Absence preserves
   // the legacy live native-source authentication boundary.
@@ -64,6 +65,7 @@ struct MatrixLiveResult {
   bool propagation_pending = false;
   bool proof_cache_hit = false;
   bool proof_cache_insert = false;
+  bool proof_cache_resume = false;
   uint64_t installed_reason_id = 0;
 };
 
@@ -104,6 +106,8 @@ private:
   AffineLiveSnapshot owner_;
   std::vector<uint64_t> source_occurrences_;
   std::vector<uint64_t> source_clause_ids_;
+  std::vector<uint64_t> resume_source_occurrences_;
+  std::vector<uint64_t> resume_source_clause_ids_;
   std::vector<Lit> physical_reason_;
   AffineMatrixTransaction transaction_;
   std::string journal_;

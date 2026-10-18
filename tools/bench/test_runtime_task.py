@@ -749,6 +749,30 @@ with tempfile.TemporaryDirectory() as tmp:
                 manifest['pin_sha256']['pins/' + name] = 'h'
             validate_runtime_pin_contract(campaign, manifest)
 
+    def test_gf2_telemetry_profile_pin_only_for_controller_profile(self):
+        from runtime_task import validate_runtime_pin_contract
+        with tempfile.TemporaryDirectory() as directory:
+            campaign = Path(directory)
+            (campaign/'pins').mkdir()
+            names = ('checkmodel', 'modelcheck.py', 'tactix',
+                     'gf2_target_score.py', 'inspect_policy_feedback.py')
+            for name in names:
+                (campaign/'pins'/name).write_text('pin')
+            manifest = {
+                'arms': {'default-affine': {
+                    'path': 'pins/tactix', 'certificate': 'none',
+                    'arguments': ['--default-affine-search=on']}},
+                'gf2_telemetry': {'schema': 'test'},
+                'pin_sha256': {'pins/'+name: 'hash' for name in names}}
+            validate_runtime_pin_contract(campaign, manifest)
+            manifest['arms']['default-affine']['arguments'] = [
+                '--controller-gf2-affine-profile=profile']
+            with self.assertRaisesRegex(RuntimeError, 'gf2-affine.profile'):
+                validate_runtime_pin_contract(campaign, manifest)
+            (campaign/'pins/gf2-affine.profile').write_text('pin')
+            manifest['pin_sha256']['pins/gf2-affine.profile'] = 'hash'
+            validate_runtime_pin_contract(campaign, manifest)
+
     def test_automatic_pb_route_preserves_original_clauses_and_complete_pipeline(self):
         from unittest.mock import patch
         from runtime_task import check_unsat_proof

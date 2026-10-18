@@ -187,7 +187,7 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
       request.selection.residual_domain};
   std::sort(coordinates.begin(), coordinates.end());
   if (coordinates != std::array<uint32_t, 3>{0, 1, 2}) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = NaryCspEqualityLiveStatus::UnsupportedProof;
     return result;
   }

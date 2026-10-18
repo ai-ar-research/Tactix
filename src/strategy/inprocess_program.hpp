@@ -12,6 +12,7 @@
 #include "strategy/sweep_parameters.hpp"
 #include "strategy/vivify_parameters.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
+#include "rules/semantic_extension/cardinality_search_action.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -74,7 +75,8 @@ using ActionParameters =
                  Gf3GaussianConsequenceParameters,
                  Gf3GeneralRowConsequenceParameters,
                  TseitinCycleBreakingParameters,
-                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters, NaryCspEqualityTransitivityParameters, AffineMatrixInitializeParameters>;
+                 SemanticVariableAdviceParameters, DirectCspGuardedCoverParameters, NaryCspEqualityTransitivityParameters, AffineMatrixInitializeParameters,
+                 CardinalitySearchActionLimits>;
 
 // Compatibility name for the inprocessing scheduler. Online composition uses
 // the same typed parameter vocabulary for every registered action.
@@ -134,6 +136,7 @@ inline std::vector<InprocessStep> reference_inprocess_program() {
       {32, "Gf3GeneralRowConsequence", Probe, false},
       {33, "NaryCspEqualityAmo", Probe, false},
       {34, "NaryCspEqualityTransitivity", Probe, false},
+      {35, "CardinalitySearch", Probe, false},
       {2, "Substitute", Probe, true, true, AfterCongruence},
       {3, "HyperBinaryRes", Probe, false},
       {4, "Backbone", Probe, true, true, None},

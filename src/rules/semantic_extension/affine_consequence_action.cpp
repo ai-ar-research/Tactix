@@ -289,7 +289,7 @@ RuleEligibility affine_consequence_action_guard(const Kernel &kernel) {
             kernel.semantic_variable_publication != (UINT64_MAX >> 8))
       .fact("clausal-certificate",
             !kernel.proof ||
-                (!kernel.proof->lrat() && !kernel.proof->pb()));
+                (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 AffineConsequenceActionResult affine_consequence_action_apply(Kernel &kernel) {

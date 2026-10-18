@@ -118,7 +118,7 @@ RuleEligibility gf3_gaussian_action_guard(const Kernel &kernel) {
       .fact("action-id-available",
             kernel.structural_action_sequence != UINT64_MAX)
       .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 Gf3GaussianActionOfferResult gf3_gaussian_action_offer(

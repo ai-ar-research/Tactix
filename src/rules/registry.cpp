@@ -8,6 +8,7 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/semantic_extension/cardinality_search_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -125,6 +126,10 @@ ApplyResult gf3_general_row_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
 
+ApplyResult cardinality_search_canonical_noop(Kernel &) {
+  return ApplyResult::NoOp;
+}
+
 RuleEligibility gf3_general_row_registry_guard(const Kernel &kernel) {
   RuleEligibility result = gf3_general_row_action_guard(kernel);
   return result.fact("session-bound",
@@ -150,6 +155,9 @@ TACTIX_REGISTER_RULE(NaryCspEquality, RuleTier::Inprocess,
 TACTIX_REGISTER_RULE(Gf3GeneralRowConsequence, RuleTier::Inprocess,
                      gf3_general_row_registry_guard,
                      gf3_general_row_canonical_noop);
+TACTIX_REGISTER_RULE(CardinalitySearch, RuleTier::Inprocess,
+                     cardinality_search_action_guard,
+                     cardinality_search_canonical_noop);
 TACTIX_REGISTER_RULE(NaryCspEqualityTransitivity, RuleTier::Inprocess, nary_csp_equality_transitivity_registry_guard, nary_csp_equality_transitivity_canonical_noop);
 
 TACTIX_REGISTER_RULE(NaryCspEqualityAmo, RuleTier::Inprocess,
@@ -262,7 +270,8 @@ const std::vector<RuleVTable> &tactix_rules() {
         "Gf3GaussianConsequence", "TseitinCycleBreaking", nullptr, // Retired X17 registry ID 39.
         "GraphIntervalEquivalence", "AffineMatrixInitialize",
         "NaryCspEquality", "Gf3GeneralRowConsequence",
-        "NaryCspEqualityAmo", "NaryCspEqualityTransitivity"};
+        "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
+        "CardinalitySearch"};
     const auto &registered = mutable_rules();
     constexpr size_t count = sizeof names / sizeof *names;
     if (registered.size() + 1 != count) {

@@ -387,6 +387,9 @@ TABLE = {
                                         "drained before policy advances the watermark"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
+    "affine_matrix_provenance_compact":
+                                ("ENV", "--compact-affine-provenance; diagnostic "
+                                        "journal representation selected in main.cpp"),
     "bve_backward":            ("POLICY", "typed BVE backward-tail setting"),
     "bce_occ_limit":           ("POLICY", "typed BCE occurrence limit"),
     "midround_budget":         ("POLICY", "typed default forward scheduling and "

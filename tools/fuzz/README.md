@@ -11,7 +11,9 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   minimally inconsistent cycle; Direct CSP uses a disjoint Boolean component.
   Exact typed payloads must make an effective transition in every case, and
   seeded trace/replay is checked first. Ordinary random CNFs cannot supply these
-  payloads, so this supplements the default/random legs. Nightly selects 200,000.
+  payloads, so this supplements the default/random legs. The `v5` flag is a
+  historical fixture name; the trace currently binds action-space v8. Nightly
+  selects 200,000.
 - `run.sh --forced-ttf --quick --solver CMD` — 10,000 deterministic fixed-row
   cases: binary/guarded encodings, near misses, mutations, SAT/UNSAT validation
   poison and tight budgets. Positive cases must move the dedicated reach
@@ -36,7 +38,10 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   DRAT conversion to backward drat-trim and CakeLPR, plus a forward
   `drat-trim -f` every-lemma audit of that conversion), witnessed DSR
   (no-option `dsr-trim` to LSR to Trestle, plus a forward `dsr-trim -f`
-  every-lemma audit), explicit
+  every-lemma audit). If forward elaboration omits live singleton premises in
+  its final empty-clause RUP chain, the harness adds only those active unit
+  hint IDs and requires Trestle to verify the completed LSR against the same
+  CNF; no solver clause or proof lemma is waived. Explicit
   DRAT (`drat-trim`), explicit native LRAT (`cake_lpr`), differential verdict,
   and crash/I/O consistency. Legacy `lrat-check` is diagnostic only: it can
   accept an invalid empty lemma on a satisfiable input. Failed cases retain the
@@ -58,5 +63,6 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 - `retention.py` — reports which tracked per-job artifact is still cited as evidence (job id, id range, or name, never the basename), for this directory's `slurm-*.log` and `benchmarks/probes/*.out`. Report-only unless `--delete`; uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
 
 The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the recorded seed and each invocation gets a private artifact namespace. Cluster submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations use `failures/runs/local-<pid>/{seeded,controller-v5}/`. This prevents concurrent default, random-policy and typed legs with identical indices/seeds from replacing bundles or `nonterminating.json`.
+When the pinned Tactix executable is renamed so its basename is not `tactix`, include `--auto-proof` in the `--solver` command. The harness otherwise assumes an unknown executable emits DRAT; `--auto-proof` selects Tactix's normal automatic DSR/PBP mode and the matching independent oracle route. Do not substitute `--dsr` for this gate, because that disables startup PBP.
 Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir`; identifiers permit letters, digits, `.`, `_` and `-`.
 Failure bundles land in that private directory (untracked) and are promoted to the corpus manually once diagnosed. Immutable checker and replay-harness stores remain shared under `failures/checkers/` and `failures/harnesses/` because their directory names are content hashes.

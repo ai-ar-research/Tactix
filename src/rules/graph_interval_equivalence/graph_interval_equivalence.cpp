@@ -471,7 +471,7 @@ RuleEligibility graph_interval_equivalence_guard(const Kernel &kernel) {
       .fact("no-probe-transaction", !kernel.probing.recording)
       .fact("provenance-bound", kernel.structural_provenance != nullptr)
       .fact("action-id-available", kernel.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-proof", !kernel.proof || !kernel.proof->pb());
+      .fact("clausal-proof", !kernel.proof || !kernel.proof->terminal_pbp());
 }
 
 ApplyResult graph_interval_equivalence_apply(Kernel &kernel) {

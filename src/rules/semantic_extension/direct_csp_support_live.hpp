@@ -119,8 +119,9 @@ DirectCspSupportLiveResult direct_csp_support_live_preflight(
     Kernel &, const DirectCspSupportLiveRequest &);
 
 // Plan and atomically publish one selected support consequence at an
-// assignment-free propagated root. DSR, DRAT, and no-proof modes are accepted;
-// LRAT/PBP decline before mutation. Every recoverable failure is mutation-free.
+// assignment-free propagated root. DSR, DRAT, no-proof and streaming PBP are
+// accepted; LRAT and terminal-PBP decline before mutation. Every recoverable
+// failure is mutation-free.
 DirectCspSupportLiveResult direct_csp_support_live_apply(
     Kernel &, const DirectCspSupportLiveRequest &);
 

@@ -384,7 +384,7 @@ inline Result admit(Kernel &kernel, const Request &request, Admission &output) {
   Result result;
   if (!detail::valid(request))
     return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Status::UnsupportedProof;
     return result;
   }
@@ -472,7 +472,7 @@ inline Result prepare(Kernel &kernel, const Admission &admission,
     result.status = Status::Invalid;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Status::UnsupportedProof;
     return result;
   }
@@ -598,7 +598,7 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
     result.status = Status::Invalid;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Status::UnsupportedProof;
     return result;
   }

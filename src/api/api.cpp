@@ -2231,6 +2231,81 @@ bool online_program_v16(const tactix_online_program_v16 &source,
   return !validate || strategy::validate_online_strategy_program(target);
 }
 
+bool online_program_v17(const tactix_online_program_v17 &source,
+                        const Kernel &kernel,
+                        strategy::OnlineInprocessProgram &target) {
+  if (source.step_count < 0 || (source.step_count && !source.steps))
+    return false;
+  std::vector<tactix_online_step_v16> bases;
+  bases.reserve(static_cast<size_t>(source.step_count));
+  for (int i = 0; i < source.step_count; ++i)
+    bases.push_back(source.steps[i].base);
+  const tactix_online_program_v16 base{bases.data(), source.step_count,
+                                       source.repeat_mode, source.repeat_limit};
+  if (!online_program_v16(base, kernel, target, false)) return false;
+  for (int i = 0; i < source.step_count; ++i) {
+    const auto &input = source.steps[i];
+    const auto &p = input.cardinality_search;
+    auto &step = target.sequence[i];
+    if (step.rule != "CardinalitySearch") {
+      if (input.cardinality_search_instance_count ||
+          input.cardinality_search_instances ||
+          p.maximum_support_variables || p.maximum_constraints ||
+          p.maximum_source_clauses || p.maximum_reason_width ||
+          p.maximum_inspection_work || p.maximum_resolution_work ||
+          p.maximum_proof_additions || p.maximum_proof_literals ||
+          p.maximum_source_scan_work || p.maximum_arena_words ||
+          p.maximum_journal_bytes)
+        return false;
+      continue;
+    }
+    if (!std::holds_alternative<std::monostate>(step.parameters) ||
+        input.cardinality_search_instance_count != 1 ||
+        !input.cardinality_search_instances)
+      return false;
+    CardinalitySearchActionLimits limits;
+    limits.inspection = {p.maximum_support_variables, p.maximum_constraints,
+                         p.maximum_source_clauses, p.maximum_reason_width,
+                         p.maximum_inspection_work};
+    limits.resolution = {p.maximum_resolution_work,
+                         p.maximum_proof_additions, p.maximum_proof_literals};
+    limits.maximum_source_scan_work = p.maximum_source_scan_work;
+    limits.maximum_arena_words = p.maximum_arena_words;
+    limits.maximum_journal_bytes = p.maximum_journal_bytes;
+    if (!limits.valid()) return false;
+    const auto &instance = input.cardinality_search_instances[0];
+    if (instance.bound_count <= 0 ||
+        static_cast<uint32_t>(instance.bound_count) >
+            limits.inspection.maximum_constraints ||
+        !instance.bounds)
+      return false;
+    std::vector<CardinalitySearchBound> bounds;
+    bounds.reserve(static_cast<size_t>(instance.bound_count));
+    for (int b = 0; b < instance.bound_count; ++b) {
+      const auto &source_bound = instance.bounds[b];
+      if (source_bound.literal_count <= 0 ||
+          static_cast<uint32_t>(source_bound.literal_count) >
+              limits.inspection.maximum_support_variables ||
+          !source_bound.literals)
+        return false;
+      CardinalitySearchBound bound;
+      bound.lower = source_bound.lower;
+      bound.upper = source_bound.upper;
+      bound.literals.reserve(static_cast<size_t>(source_bound.literal_count));
+      for (int j = 0; j < source_bound.literal_count; ++j) {
+        const int64_t value = source_bound.literals[j];
+        if (value <= INT32_MIN || value > INT32_MAX || !value)
+          return false;
+        bound.literals.push_back(static_cast<int32_t>(value));
+      }
+      bounds.push_back(std::move(bound));
+    }
+    step.parameters = limits;
+    step.cardinality_search_instances.push_back(std::move(bounds));
+  }
+  return strategy::validate_online_strategy_program(target);
+}
+
 
 void online_result(const strategy::InvocationResult &source,
                    tactix_online_result &target) {
@@ -2342,6 +2417,9 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     break;
   case 5:
     f = ProofFormat::Automatic;
+    break;
+  case 6:
+    f = ProofFormat::PbpStreaming;
     break;
   default:
     return -1;
@@ -3187,6 +3265,31 @@ int tactix_online_configure_v16(tactix_solver *s,
     return -1;
   strategy::OnlineInprocessProgram program;
   if (!online_program_v16(*source, s->kernel, program)) return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = s->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode)) return -1;
+  if (replacement) s->online = std::move(replacement);
+  input_complete(s);
+  return 0;
+}
+
+int tactix_online_configure_v17(tactix_solver *s,
+                                const tactix_online_program_v17 *source,
+                                uint64_t revision, int reconfigure_mode) {
+  if (!s || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!online_program_v17(*source, s->kernel, program)) return -1;
   std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
   strategy::OnlineInprocessExecutor *executor = s->online.get();
   if (!executor) {

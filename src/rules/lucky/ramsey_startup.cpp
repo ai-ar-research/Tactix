@@ -101,7 +101,7 @@ RuleEligibility ramsey_startup_guard(const Kernel &k) {
     .fact("original-input-boundary",k.startup_certificate_open)
     .fact("quiescent-original-root",!k.level && !k.conflict_valid && !k.pending.valid &&
         k.trail.empty() && !k.dense && !k.probing.recording && k.large_watches_connected)
-    .fact("witness-format",!k.proof || k.proof->dsr());
+    .fact("witness-format",!k.proof || k.proof->supports_sr());
 }
 RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &requested) {
   RamseyStartupRequest request=requested;

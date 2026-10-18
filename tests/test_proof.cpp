@@ -718,10 +718,55 @@ void test_automatic_certificate_boundary() {
   assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
 }
 
+void test_streaming_pbp() {
+  const auto path = tmp_path("pbp-stream");
+  {
+    Proof p;
+    assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
+    const Lit first_input = internalize(10);
+    p.seed_population(1, &first_input, 1);
+    const Lit input = internalize(1);
+    p.seed_population(2, &input, 1);
+    p.finish_input_transaction();
+    const Lit unit = internalize(2);
+    p.add_rup(3, &unit, 1, nullptr, 0);
+    const Lit rat = internalize(-3);
+    p.add_rat(4, &rat, 1, nullptr, 0);
+    const Lit sr_clause = internalize(4);
+    const DsrLiteralMapping mapping{internalize(5), internalize(-6)};
+    assert(p.add_sr(5, &sr_clause, 1, nullptr, 0, &mapping, 1, 6));
+    const int32_t external_rup[] = {7, -8};
+    assert(p.add_external_rup(6, external_rup, 2));
+    const int32_t external_rat[] = {-9};
+    assert(p.add_external_rat(7, external_rat, 1));
+    p.del(9, 3, &unit, 1);
+    assert(p.del_external(10, 6, external_rup, 2));
+    p.add_empty(8, nullptr, 0);
+    p.flush();
+  }
+  expect(read_all(path),
+         "pseudo-Boolean proof version 3.0\n"
+         "f 2;\n"
+         "rup 1 x2 >= 1 ;\n"
+         "red 1 ~x3 >= 1 : x3 -> 0 ;\n"
+         "red 1 x4 >= 1 : x4 -> 1 x5 -> ~x6 ;\n"
+         "rup 1 x7 1 ~x8 >= 1 ;\n"
+         "red 1 ~x9 >= 1 : x9 -> 0 ;\n"
+         "del spec 1 x2 >= 1 ;\n"
+         "del spec 1 x7 1 ~x8 >= 1 ;\n"
+         "rup >= 1 ;\n"
+         "output NONE ;\n"
+         "conclusion UNSAT : -1 ;\n"
+         "end pseudo-Boolean proof ;\n",
+         "whole-run PBP stream");
+  std::remove(path.c_str());
+}
+
 static void test_all_formats_report_output_failure() {
   for (auto format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii,
                       ProofFormat::DratBinary, ProofFormat::DratAscii,
-                      ProofFormat::Lrat, ProofFormat::Automatic})
+                      ProofFormat::Lrat, ProofFormat::Automatic,
+                      ProofFormat::PbpStreaming})
     for (bool explicit_flush : {false, true}) {
       const pid_t child = fork();
       assert(child >= 0);
@@ -748,6 +793,7 @@ static void test_all_formats_report_output_failure() {
 int main() {
   test_all_formats_report_output_failure();
   test_automatic_certificate_boundary();
+  test_streaming_pbp();
   test_drat_binary_add();
   test_drat_binary_varint_boundary();
   test_drat_binary_delete();

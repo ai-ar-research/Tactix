@@ -602,7 +602,7 @@ void prepare_live_action(Kernel &kernel,
                          PreparedLiveAction &prepared) {
   DirectCspSupportLiveResult &result = prepared.result;
   if (!request_limits_valid(request)) return;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = DirectCspSupportLiveStatus::UnsupportedProof;
     return;
   }

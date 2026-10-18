@@ -47,7 +47,8 @@ class RuntimeTaskTest(unittest.TestCase):
             if omit_modelcheck:
                 del pin_sha256["pins/modelcheck.py"]
             manifest = dict(arms={arm: dict(path="pins/solver", arguments=[],
-                                           sha256="pin", certificate=certificate)},
+                                           sha256=runner.sha256(campaign / "pins/solver"),
+                                           certificate=certificate)},
                             input_sha256={"test.xz": runner.sha256(cache / "test.xz")},
                             pin_sha256=pin_sha256,
                             resource_contract={"solve_timeout": 1,

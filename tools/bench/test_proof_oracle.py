@@ -7,6 +7,31 @@ from proof_oracle import bridge_trivial_input_binary_lsr, proof_check_status
 
 
 class ProofOracleTests(unittest.TestCase):
+    def test_forward_final_unit_completion_preserves_clauses_and_needs_checker(self):
+        from proof_oracle import complete_final_empty_rup_units
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf, lsr, fixed = (work/name for name in ('in.cnf', 'in.lsr', 'fixed.lsr'))
+            cnf.write_text('p cnf 2 3\n1 0\n-2 0\n-1 2 0\n')
+            lsr.write_text('4 0 3 2 0\n')
+            self.assertEqual(complete_final_empty_rup_units(cnf, lsr, fixed), fixed)
+            self.assertEqual(fixed.read_text(), '4 0 1 3 2 0\n')
+            checker = Path(__file__).resolve().parents[2]/'tools/checkers/bin/srcheck'
+            if checker.is_file():
+                original = subprocess.run([str(checker), str(cnf), str(lsr)],
+                                          capture_output=True, text=True)
+                completed = subprocess.run([str(checker), str(cnf), str(fixed)],
+                                           capture_output=True, text=True)
+                self.assertIn('s INVALID', original.stdout)
+                self.assertIn('s VERIFIED UNSAT', completed.stdout)
+            lsr.write_text('4 0 99 0\n')
+            self.assertIsNone(complete_final_empty_rup_units(cnf, lsr, fixed))
+            self.assertFalse(fixed.exists())
+            lsr.write_text('4 d 1 0\n5 0 3 2 0\n')
+            self.assertIsNone(complete_final_empty_rup_units(cnf, lsr, fixed))
+            self.assertFalse(fixed.exists())
+
     def test_tier_runner_freezes_native_dsr_checker_bytes(self):
         import importlib.util
         from unittest.mock import patch
@@ -189,7 +214,7 @@ class ProofOracleTests(unittest.TestCase):
                 self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60,
                                                     route='pbp')[0])
                 proof.write_text(positive_pbp)
-                def fake_solve(argv, timeout):
+                def fake_solve(argv, timeout, *extra):
                     Path(argv[-1]).write_text(positive_pbp)
                     return 'UNSAT', .01, {}, 'c proof-route pbp\ns UNSATISFIABLE\n'
                 with patch.object(runner, 'solve_once', side_effect=fake_solve):
@@ -398,6 +423,18 @@ class ProofOracleTests(unittest.TestCase):
     def test_dsr_rejection(self):
         self.assertEqual(
             proof_check_status('dsr-trim', 1, '', 'Error: invalid witness\n'),
+            'rejected')
+
+    def test_veripb_rejections(self):
+        self.assertEqual(proof_check_status(
+            'veripb', 1,
+            'Running VeriPB version 3.0.2\n'
+            'Error: Verification error at proof.pbp:3\n\n'
+            'Caused by:\n\tConstraint not found in database.\n', ''),
+            'rejected')
+        self.assertEqual(proof_check_status(
+            'veripb', 1, '',
+            'Error: Syntax error while parsing proof file!\n'),
             'rejected')
 
     def test_rejection_precedes_success(self):

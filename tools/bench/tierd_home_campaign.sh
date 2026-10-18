@@ -4,7 +4,7 @@
 #   tierd_home_campaign.sh prepare <CAMPAIGN> <BINARY> <BINARY_SHA256> <SOURCE_TREE> <SOURCE_COMMIT> [--solver-argument=ARG]... [--instance=REL]...
 #   tierd_home_campaign.sh recheck CAMPAIGN SOURCE_CAMPAIGN [CLASSES]   (default CLASSES=memout; 64 GiB)
 #   tierd_home_campaign.sh validate CAMPAIGN
-#   tierd_home_campaign.sh submit CAMPAIGN [GOVERNOR_JOBS_JSON]
+#   tierd_home_campaign.sh submit CAMPAIGN [GOVERNOR_JOBS_JSON for partial runs]
 #   tierd_home_campaign.sh governor CAMPAIGN        (prepare a fallback governor; never submits)
 #   tierd_home_campaign.sh status CAMPAIGN
 #
@@ -22,7 +22,7 @@ R="$(cd "$(dirname "$0")/../.." && pwd)"
 T=$R/tools/bench/experimental_tierd.py
 GOVERNOR_JOBS=benchmarks/baselines/sc24-26-rerun-quota-governor/jobs.json
 THROTTLE=125
-THROTTLE_REASON="user-requested concurrency cap of 125 for the Tier D campaign (2026-10-09); certificates on the home quota under the 10-minute quota governor (hold pending above 750 GB, release below 700 GB)"
+THROTTLE_REASON="user-requested concurrency cap of 125 for the Tier D campaign (2026-10-09); certificates on the home quota under the 10-minute quota governor (hold pending above 750 GiB, release at most 40 held tasks per check below 750 GiB)"
 export PYTHONDONTWRITEBYTECODE=1
 usage() { sed -n '4,9p' "$R/tools/bench/tierd_home_campaign.sh"; exit 2; }
 new_campaign() {
@@ -77,6 +77,11 @@ validate)
   echo "wait for $R/$1/validation.json (\"passed\": true), then: $0 submit $1";;
 submit)
   campaign=$1 jobs=${2:-$GOVERNOR_JOBS}
+  if grep -qx "#SBATCH --array=0-1165%$THROTTLE" "$R/$campaign/array.sbatch"; then
+    python3 "$R/tools/slurm/submit_full_tierd.py" \
+      --campaign "$R/$campaign" --array-sbatch "$R/$campaign/array.sbatch"
+    exit 0
+  fi
   quota -s 2>/dev/null | tail -2 || true
   if [ "$jobs" = "$GOVERNOR_JOBS" ]; then
     # The shared governor re-reads jobs.json every tick; it must be running.
@@ -92,7 +97,7 @@ governor)
   mkdir "$g"
   cat "$R/tools/slurm/quota_governor.py" > "$g/quota_governor.py"
   chmod 0444 "$g/quota_governor.py"
-  printf '{\n  "jobs": [],\n  "expect_more": false,\n  "policy": "user 2026-10-08: every 600 s read home usage; above 750G scontrol hold PENDING tasks of these arrays; release only below 700G; never touch running jobs"\n}\n' > "$g/jobs.json"
+  printf '{\n  "jobs": [],\n  "expect_more": false,\n  "policy": "every 600 s read home usage; above 750 GiB hold owned PENDING tasks; below 750 GiB release at most 40 owned holds; never touch running jobs"\n}\n' > "$g/jobs.json"
   cat > "$g/governor.sbatch" <<EOF
 #!/usr/bin/env bash
 #SBATCH --partition=cpu-q
@@ -103,7 +108,7 @@ governor)
 #SBATCH --no-requeue
 #SBATCH --output=$g/governor.out
 export PYTHONDONTWRITEBYTECODE=1
-exec /cm/local/apps/python3/bin/python3 $g/quota_governor.py --dir $g --interval 600 --hold-above 750 --release-below 700
+exec /cm/local/apps/python3/bin/python3 $g/quota_governor.py --dir $g --interval 600 --hold-above 750 --release-below 750 --release-batch 40
 EOF
   sha256sum "$g/quota_governor.py" "$g/governor.sbatch" > "$g/governor.sha256"
   echo "prepared $g (not submitted): sbatch $g/governor.sbatch; then $0 submit $campaign ${campaign}/governor/jobs.json";;

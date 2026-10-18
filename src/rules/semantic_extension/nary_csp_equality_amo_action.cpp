@@ -155,7 +155,7 @@ RuleEligibility nary_csp_equality_amo_guard(const Kernel &kernel) {
       .fact("candidate-id-available",
             kernel.semantic_variable_publication != (UINT64_MAX >> 8))
       .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 bool nary_csp_equality_amo_selection_valid(
@@ -209,7 +209,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
     result.status = NaryCspEqualityAmoStatus::Inapplicable;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = NaryCspEqualityAmoStatus::UnsupportedProof;
     return result;
   }

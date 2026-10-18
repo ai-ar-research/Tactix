@@ -2044,7 +2044,8 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   // elaborated LSR loses that hint group.  Not gated on `k.level`: a forced
   // literal is stamped at its true level, and `kernel_emit_root_units` applies
   // the per-literal test.
-  if (k.proof && (k.proof->lrat() || k.proof->dsr()))
+  if (k.proof &&
+      (k.proof->lrat() || k.proof->dsr() || k.proof->streaming_pbp()))
     kernel_emit_root_units(k, assigned_before);
   return conflict;
 }
@@ -2245,7 +2246,8 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   // propagating and then replays the next equivalence.
   const size_t assigned_before = k.trail.size();
   const bool named_root_units =
-      k.proof && (k.proof->lrat() || k.proof->dsr());
+      k.proof && (k.proof->lrat() || k.proof->dsr() ||
+                  k.proof->streaming_pbp());
   bool conflict = false;
   kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
@@ -2294,7 +2296,8 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
     k.binary_only_head = k.propagate_head;
   const size_t assigned_before = k.trail.size();
   const bool named_root_units =
-      k.proof && (k.proof->lrat() || k.proof->dsr());
+      k.proof && (k.proof->lrat() || k.proof->dsr() ||
+                  k.proof->streaming_pbp());
   bool conflict = false;
   const uint32_t saved_propagate = k.propagate_head;
   uint64_t ticks = 0;
@@ -3965,7 +3968,8 @@ static void bind_dsr_root_table(Kernel &k) {
 }
 
 bool kernel_root_unit_table_stream(const Kernel &k) {
-  return k.proof && !k.proof->lrat() && !k.proof->pb() &&
+  return k.proof && !k.proof->lrat() &&
+         (!k.proof->pb() || k.proof->streaming_pbp()) &&
          k.proof->stream_identity();
 }
 
@@ -3981,7 +3985,7 @@ void kernel_note_dsr_root_unit(Kernel &k, Lit lit) {
 }
 
 void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
-  if (!k.proof || !k.proof->dsr())
+  if (!k.proof || !(k.proof->dsr() || k.proof->streaming_pbp()))
     return;
   const Var v = var_of(lit);
   assert(v < k.nvars);
@@ -3999,13 +4003,15 @@ void kernel_materialize_dsr_root_unit(Kernel &k, Lit lit) {
                                SolverClauseKind::Unit, id, &lit, 1);
 }
 
-// LRAT and DSR: every root-level propagation-derived literal becomes an
+// LRAT, DSR, and streaming PBP: every root-level propagation-derived literal
+// becomes an
 // explicit unit clause so it remains available after its reason is deleted.
 // Emitting in trail order makes each LRAT chain nameable; native DSR lets its
-// checker reconstruct the same RUP chain and therefore avoids the reason walk.
-// DSR publication deliberately does not populate `unit_ids`: that vector is
-// solver-semantic state (several rules distinguish asserted from implied root
-// units), so using it only to remember a proof line changes the default search.
+// checker reconstruct the same RUP chain and therefore avoids the reason walk;
+// streaming PBP has the same RUP property. DSR/PBP publication deliberately
+// does not populate `unit_ids`: that vector is solver-semantic state (several
+// rules distinguish asserted from implied root units), so using it only to
+// remember a proof line changes the default search.
 void kernel_emit_root_units(Kernel &k, size_t from) {
   for (size_t i = from; i < k.trail.size(); i++) {
     const Lit lit = k.trail[i];
@@ -4016,7 +4022,7 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
       continue; // asserted units got their ids at the source
     if (k.unit_ids[v])
       continue; // an asserted/named unit is already present in the proof
-    if (k.proof->dsr()) {
+    if (k.proof->dsr() || k.proof->streaming_pbp()) {
       kernel_materialize_dsr_root_unit(k, lit);
       continue;
     }

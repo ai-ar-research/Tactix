@@ -204,8 +204,11 @@ normally and writes nothing.
 | `TACTIX_PROOF_DSR_BINARY` | 3 | DSR (DRAT extended with substitution redundancy), binary; the canonical format |
 | `TACTIX_PROOF_DSR_ASCII` | 4 | DSR, text encoding, for inspection |
 | `TACTIX_PROOF_AUTOMATIC` | 5 | binary DSR, or a pseudo-Boolean (VeriPB) proof when a complete refutation is found before any other step |
+| `TACTIX_PROOF_PBP` | 6 | explicit whole-run pseudo-Boolean proof for VeriPB elaboration and independent CakePB checking |
 
 `TACTIX_PROOF_AUTOMATIC` is what the command-line solver uses by default.
+`TACTIX_PROOF_PBP` is additive: the DSR, DRAT and LRAT constants and automatic
+selection retain their existing behavior.
 [getting-started.md](getting-started.md) explains which checker verifies
 each kind of proof and how `tools/bench/proof_oracle.py` picks the route.
 

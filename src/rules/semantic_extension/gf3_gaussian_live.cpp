@@ -560,7 +560,7 @@ Result prepare_internal(Kernel &kernel, const Request &request,
                         Prepared &output, bool atomic) {
   Result result;
   if (!valid(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Status::UnsupportedProof;
     return result;
   }
@@ -729,7 +729,7 @@ Result publish_internal(Kernel &kernel, const Request &request,
     result.status = Status::AlreadyApplied;
     return result;
   }
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Status::UnsupportedProof;
     return result;
   }

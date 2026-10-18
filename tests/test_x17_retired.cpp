@@ -22,7 +22,7 @@ template<class T> tactix_online_step_v8 &v8(T &step) {
 }
 int main() {
   const auto &rules = tactix_rules();
-  assert(rules.size() == 46 && rules[39].retired);
+  assert(rules.size() == 47 && rules[39].retired);
   assert(tactix_rule_id("NaryCspPrefix") == -1);
   assert(tactix_rule_id("Retired39") == -1);
   assert(tactix_rule_id("GraphIntervalEquivalence") == 40);

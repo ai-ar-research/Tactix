@@ -168,6 +168,8 @@ bool parameter_matches(const OnlineInvocation &step) {
   if (std::holds_alternative<Gf3GeneralRowConsequenceParameters>(
           step.parameters))
     return step.rule == "Gf3GeneralRowConsequence";
+  if (std::holds_alternative<CardinalitySearchActionLimits>(step.parameters))
+    return step.rule == "CardinalitySearch";
   if (std::holds_alternative<TseitinCycleBreakingParameters>(step.parameters))
     return step.rule == "TseitinCycleBreaking";
   if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
@@ -1008,6 +1010,29 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.gf3_general_row_instances.empty() &&
         step.rule != "Gf3GeneralRowConsequence")
       return reject("GF3 general-row selections are attached to a different rule");
+    if (!step.cardinality_search_instances.empty() &&
+        step.rule != "CardinalitySearch")
+      return reject("cardinality search bounds are attached to a different rule");
+    if (step.rule == "CardinalitySearch") {
+      const auto *limits =
+          std::get_if<CardinalitySearchActionLimits>(&step.parameters);
+      if (!limits || !limits->valid() ||
+          step.cardinality_search_instances.size() != 1 ||
+          !step.instances.empty() ||
+          step.granularity != InvocationGranularity::OneInstance ||
+          step.post_application != PostApplication::Propagate)
+        return reject("cardinality search requires one typed bound system and Propagate follow-up");
+      const auto &bounds = step.cardinality_search_instances.front();
+      if (bounds.empty() ||
+          bounds.size() > limits->inspection.maximum_constraints)
+        return reject("cardinality search bound count exceeds limits");
+      for (const auto &bound : bounds) {
+        const auto constructed = cardinality_search::construct(
+            bound.literals, bound.lower, bound.upper, limits->inspection);
+        if (constructed.status != cardinality_search::ConstructStatus::Constructed)
+          return reject("cardinality search bound is malformed or exceeds limits");
+      }
+    }
     if (!step.tseitin_cycle_instances.empty() &&
         step.rule != "TseitinCycleBreaking")
       return reject("Tseitin cycle identities are attached to a different rule");
@@ -1219,6 +1244,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !step.nary_csp_equality_amo_instances.empty() +
         !step.gf3_gaussian_instances.empty() +
         !step.gf3_general_row_instances.empty() +
+        !step.cardinality_search_instances.empty() +
         !step.tseitin_cycle_instances.empty();
     if (structured_payload_kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
@@ -1264,7 +1290,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                                                                            ? step.gf3_gaussian_instances.size()
                                                                      : !step.gf3_general_row_instances.empty()
                                                                            ? step.gf3_general_row_instances.size()
-                                                                           : step.tseitin_cycle_instances.size();
+                                                                           : !step.cardinality_search_instances.empty()
+                                                                                 ? step.cardinality_search_instances.size()
+                                                                                 : step.tseitin_cycle_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured_payload_kinds && structured_size != 1) ||
@@ -1290,6 +1318,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "NaryCspEqualityAmo" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "Gf3GeneralRowConsequence" ||
+          step.rule == "CardinalitySearch" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action requires an explicit payload");
       if (!step.instances.empty() || structured_payload_kinds)
@@ -1304,6 +1333,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "NaryCspEqualityAmo" ||
           step.rule == "Gf3GaussianConsequence" ||
           step.rule == "Gf3GeneralRowConsequence" ||
+          step.rule == "CardinalitySearch" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured_payload_kinds)
@@ -1599,6 +1629,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         step.nary_csp_equality_amo_instances.empty() &&
         step.gf3_gaussian_instances.empty() &&
         step.gf3_general_row_instances.empty() &&
+        step.cardinality_search_instances.empty() &&
         step.tseitin_cycle_instances.empty()) {
       runtime.selection = step.instances;
     } else {
@@ -1628,7 +1659,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
                                                                   ? step.gf3_gaussian_instances.size()
                                                             : !step.gf3_general_row_instances.empty()
                                                                   ? step.gf3_general_row_instances.size()
-                                                                  : step.tseitin_cycle_instances.size();
+                                                                  : !step.cardinality_search_instances.empty()
+                                                                        ? step.cardinality_search_instances.size()
+                                                                        : step.tseitin_cycle_instances.size();
       runtime.selection.resize(size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
@@ -2163,6 +2196,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     std::optional<DirectPhpActionResult> direct_php_application;
     std::optional<Gf3GaussianActionResult> gf3_gaussian_application;
     std::optional<Gf3GeneralRowActionResult> gf3_general_row_application;
+    std::optional<CardinalitySearchActionResult> cardinality_search_application;
     std::optional<TseitinCycleBreakingResult> tseitin_cycle_application;
     std::optional<SemanticVariableCandidate> deferred_semantic_candidate;
     const uint64_t affine_budget_before = k.stats.affine_model_budget;
@@ -2473,6 +2507,14 @@ InvocationResult OnlineStrategyExecutor::advance(
                   record_gf3_general_row_action_feedback(
                       k, *gf3_general_row_application);
                   return gf3_general_row_application->result;
+                })
+          : !step.cardinality_search_instances.empty()
+              ? apply_rule_structured(rule, k, "cardinality-search", [&] {
+                  cardinality_search_application.emplace(
+                      cardinality_search_action_apply(
+                          k, step.cardinality_search_instances[payload],
+                          std::get<CardinalitySearchActionLimits>(step.parameters)));
+                  return cardinality_search_application->result;
                 })
           : !step.tseitin_cycle_instances.empty()
               ? apply_rule_structured_preserve_startup(
@@ -3025,6 +3067,29 @@ InvocationResult OnlineStrategyExecutor::advance(
           break;
         }
       }
+      if (cardinality_search_application) {
+        switch (cardinality_search_application->status) {
+        case CardinalitySearchActionStatus::Invalid:
+          out.status = InvocationStatus::InvalidRequest;
+          break;
+        case CardinalitySearchActionStatus::Inapplicable:
+        case CardinalitySearchActionStatus::UnsupportedProof:
+          out.status = InvocationStatus::Inapplicable;
+          break;
+        case CardinalitySearchActionStatus::ResourceExhausted:
+          out.status = InvocationStatus::ResourceExhausted;
+          retain_theory_selection();
+          break;
+        case CardinalitySearchActionStatus::Interrupted:
+          out.status = InvocationStatus::Interrupted;
+          retain_theory_selection();
+          break;
+        case CardinalitySearchActionStatus::NoSource:
+        case CardinalitySearchActionStatus::NoEvent:
+        case CardinalitySearchActionStatus::Applied:
+          break;
+        }
+      }
       if (tseitin_cycle_application) {
         switch (tseitin_cycle_application->status) {
         case TseitinCycleBreakingStatus::Invalid:
@@ -3304,7 +3369,8 @@ InvocationResult OnlineStrategyExecutor::advance(
         !step.nary_csp_equality_transitivity_instances.empty() ||
         !step.nary_csp_equality_amo_instances.empty() ||
         !step.gf3_gaussian_instances.empty() ||
-        !step.gf3_general_row_instances.empty())
+        !step.gf3_general_row_instances.empty() ||
+        !step.cardinality_search_instances.empty())
       runtime.selection_generation = k.arena_generation;
     runtime.consumed = saturated_add(runtime.consumed, out.work);
     runtime.pass_progress |= out.made_rule_progress;

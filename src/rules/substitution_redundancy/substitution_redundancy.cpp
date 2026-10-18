@@ -691,13 +691,14 @@ substitution_redundancy_apply_detailed_impl(
   // A fully validated tuple can be a no-op after root simplification. That
   // requires no SR line in any proof format, so classify it before refusing a
   // format that cannot serialize a formula-changing direct SR step.
-  if (k.proof && !certified_unique_literal_amo && !k.proof->dsr()) {
+  if (k.proof && !certified_unique_literal_amo &&
+      !k.proof->supports_sr()) {
     outcome.status =
         SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
     return outcome;
   }
   if (k.proof && certified_unique_literal_amo &&
-      (k.proof->lrat() || k.proof->pb())) {
+      (k.proof->lrat() || k.proof->terminal_pbp())) {
     outcome.status =
         SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat;
     return outcome;

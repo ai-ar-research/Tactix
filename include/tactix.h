@@ -70,6 +70,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
 #define TACTIX_PROOF_AUTOMATIC 5 /* startup PBP or canonical binary DSR */
+#define TACTIX_PROOF_PBP 6 /* explicit whole-run PBP for VeriPB + CakePB */
 
 /* read-only statistics ids; the list grows additively */
 #define TACTIX_STAT_CONFLICTS 0
@@ -171,7 +172,7 @@ int tactix_bind_structural_provenance(tactix *, FILE *);
 int tactix_add_checked(tactix *, int lit);
 void tactix_add(tactix *, int lit);
 
-/* Read a complete DIMACS CNF stream with the command-line parser, including
+/* Read a complete DIMACS stream with the command-line parser, including
  * its use of the advisory `p cnf` header, and close the input as the first
  * status, rule or solve query does. Legal only on a session without input;
  * attach a proof first. Returns 0; -1 without reading for a session that
@@ -1647,6 +1648,38 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v16;
 
+/* Explicit CDCL-time signed cardinality bounds. Every bound denotes
+ * lower <= sum(literals) <= upper; the full subset CNF must be physically
+ * present when the action runs. An instance is one jointly reasoned system. */
+typedef struct {
+  const int64_t *literals;
+  int literal_count;
+  uint32_t lower, upper;
+} tactix_online_cardinality_search_bound;
+typedef struct {
+  const tactix_online_cardinality_search_bound *bounds;
+  int bound_count;
+} tactix_online_cardinality_search_instance;
+typedef struct {
+  uint32_t maximum_support_variables, maximum_constraints;
+  uint32_t maximum_source_clauses, maximum_reason_width;
+  uint64_t maximum_inspection_work, maximum_resolution_work;
+  uint32_t maximum_proof_additions;
+  uint64_t maximum_proof_literals, maximum_source_scan_work;
+  uint64_t maximum_arena_words, maximum_journal_bytes;
+} tactix_online_cardinality_search_parameters;
+typedef struct {
+  tactix_online_step_v16 base;
+  tactix_online_cardinality_search_parameters cardinality_search;
+  const tactix_online_cardinality_search_instance *cardinality_search_instances;
+  int cardinality_search_instance_count;
+} tactix_online_step_v17;
+typedef struct {
+  const tactix_online_step_v17 *steps;
+  int step_count, repeat_mode;
+  uint64_t repeat_limit;
+} tactix_online_program_v17;
+
 #define TACTIX_ONLINE_COMPLETED 0
 #define TACTIX_ONLINE_SCOPED_FIXPOINT 1
 #define TACTIX_ONLINE_NO_CHANGE 2
@@ -1706,6 +1739,8 @@ int tactix_online_configure_v13(tactix *, const tactix_online_program_v13 *,
 int tactix_online_configure_v15(tactix *, const tactix_online_program_v15 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_configure_v16(tactix *, const tactix_online_program_v16 *,
+                                uint64_t revision, int reconfigure_mode);
+int tactix_online_configure_v17(tactix *, const tactix_online_program_v17 *,
                                 uint64_t revision, int reconfigure_mode);
 int tactix_online_advance(tactix *, tactix_online_result *);
 uint64_t tactix_online_step_consumed(tactix *, uint64_t step_id);

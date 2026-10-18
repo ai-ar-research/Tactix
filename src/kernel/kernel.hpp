@@ -1220,6 +1220,7 @@ struct Stats {
   uint64_t gf3_gaussian_session_identity_bytes = 0;
   uint64_t gf3_gaussian_units = 0, gf3_gaussian_conflicts = 0;
   uint64_t gf3_general_row_attempts = 0, gf3_general_row_applied = 0;
+  uint64_t cardinality_search_attempts = 0, cardinality_search_applied = 0;
   uint64_t gf3_general_row_invalid = 0, gf3_general_row_inapplicable = 0;
   uint64_t gf3_general_row_no_structure = 0;
   uint64_t gf3_general_row_no_consequence = 0;
@@ -2127,6 +2128,9 @@ struct Kernel {
   // Borrowed session stream. The owner keeps it open through all structural
   // actions; sequence IDs never reset on rebind or proof-mode changes.
   FILE *structural_provenance = nullptr;
+  // Opt-in journal encoding: authenticated matrix sources/reasons remain,
+  // duplicate per-step clausal proof-event telemetry is omitted.
+  bool affine_matrix_provenance_compact = false;
   uint64_t structural_action_sequence = 0;
   // Non-owning pointers to solver/controller-owned feature caches. They are
   // never serialized and may outlive online reconfiguration, but not Kernel.

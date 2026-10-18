@@ -607,6 +607,20 @@ def gf2_telemetry_contract(manifest):
     return contract
 
 
+def matrix_source_summary_contract(manifest):
+    contract = manifest.get("matrix_source_summary")
+    if contract is None:
+        return None
+    from matrix_source_summary import SCHEMA, MAXIMUM_BYTES
+    if (type(contract) is not dict or set(contract) != {"schema", "maximum_bytes"} or
+            contract.get("schema") != SCHEMA or
+            type(contract.get("maximum_bytes")) is not int or
+            not 0 < contract["maximum_bytes"] <= MAXIMUM_BYTES or
+            manifest.get("gf2_telemetry") is not None):
+        raise RuntimeError("invalid matrix source summary contract")
+    return contract
+
+
 def causal_preflight_contract(manifest):
     """Validate the counter-only discovery lane.
 
@@ -817,12 +831,21 @@ def validate_runtime_pin_contract(campaign, manifest):
         required.add("pins/directory_scratch.py")
     if manifest.get("gf2_telemetry") is not None:
         required.update({"pins/gf2_target_score.py",
-                         "pins/inspect_policy_feedback.py",
-                         "pins/gf2-affine.profile"})
+                         "pins/inspect_policy_feedback.py"})
+        if any(any(argument.startswith("--controller-gf2-affine-profile=")
+                   for argument in arm.get("arguments", []))
+               for arm in manifest.get("arms", {}).values()):
+            required.add("pins/gf2-affine.profile")
+    if manifest.get("matrix_source_summary") is not None:
+        required.add("pins/matrix_source_summary.py")
     hashes = manifest.get("pin_sha256", {})
     missing = sorted(rel for rel in required if rel not in hashes)
     if missing:
         raise RuntimeError(f"runtime pin contract omits {missing}")
+    for name, arm in manifest.get("arms", {}).items():
+        declared = arm.get("sha256")
+        if declared is not None and declared != hashes[arm["path"]]:
+            raise RuntimeError(f"runtime arm pin mismatch: {name}")
     absent = sorted(rel for rel in required if not (campaign / rel).is_file())
     if absent:
         raise RuntimeError(f"runtime pin files missing {absent}")
@@ -1219,22 +1242,26 @@ def main():
     binary = CAMPAIGN / arm["path"]
     scratch_root = Path(os.environ.get("SLURM_TMPDIR", tempfile.gettempdir()))
     telemetry_contract = gf2_telemetry_contract(manifest)
+    matrix_summary_contract = matrix_source_summary_contract(manifest)
     preflight_contract = causal_preflight_contract(manifest)
     capacity_contract = scratch_capacity_contract(manifest)
     result_schema = ("tactix-experimental-gf2-runtime-result-v1"
                      if telemetry_contract is not None else
+                     "tactix-matrix-source-diagnostic-result-v1"
+                     if matrix_summary_contract is not None else
                      "tactix-matched-slurm-memory-regression-result-v2")
     telemetry_local = None
     telemetry_payload = None
+    matrix_summary_payload = None
     telemetry_paths = None
-    if telemetry_contract is not None:
+    if telemetry_contract is not None or matrix_summary_contract is not None:
         telemetry_local = Path(tempfile.mkdtemp(
             prefix=f"tactix-gf2-telemetry-{task:03d}-", dir=scratch_root))
-        telemetry_paths = {
-            "feedback": telemetry_local / ("feedback.jsonl.gz" if
-                telemetry_contract["schema"].endswith("-v2") else "feedback.jsonl"),
-            "structural_provenance": telemetry_local / "provenance.jsonl",
-        }
+        telemetry_paths = {"structural_provenance": telemetry_local / "provenance.jsonl"}
+        if telemetry_contract is not None:
+            telemetry_paths["feedback"] = telemetry_local / (
+                "feedback.jsonl.gz" if telemetry_contract["schema"].endswith("-v2")
+                else "feedback.jsonl")
     anonymous = manifest.get("scratch_policy") == "anonymous-local-files-v1"
     home = manifest.get("scratch_policy") == HOME_SCRATCH_POLICY
     previous_term_handler = None
@@ -1366,10 +1393,9 @@ def main():
         affinity = sorted(os.sched_getaffinity(0))
         instrumentation = ()
         if telemetry_paths is not None:
-            instrumentation = (
-                f"--feedback={telemetry_paths['feedback']}",
-                f"--structural-provenance={telemetry_paths['structural_provenance']}",
-            )
+            instrumentation = ((f"--feedback={telemetry_paths['feedback']}",)
+                               if telemetry_contract is not None else ()) + (
+                f"--structural-provenance={telemetry_paths['structural_provenance']}",)
         command = ["taskset", "-c", str(affinity[0]),
                    *solver_command(binary, arm, cnf, proof, instrumentation)]
         context = None
@@ -1414,6 +1440,18 @@ def main():
                  "decompressed_input_sha256": decompressed_input_sha256,
                  "binary_sha256": arm["sha256"],
                  "checker_sha256": checker_hashes})
+        if matrix_summary_contract is not None:
+            from matrix_source_summary import summarize
+            try:
+                matrix_summary_payload = summarize(
+                    telemetry_paths["structural_provenance"],
+                    matrix_summary_contract["maximum_bytes"],
+                    decompressed_input_sha256)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                matrix_summary_payload = {
+                    "schema": matrix_summary_contract["schema"],
+                    "integrity_error": str(error),
+                }
         result = {
             "schema": result_schema,
             "task": task,
@@ -1445,6 +1483,8 @@ def main():
         }
         if telemetry_payload is not None:
             result["gf2_telemetry"] = telemetry_payload
+        if matrix_summary_payload is not None:
+            result["matrix_source_summary"] = matrix_summary_payload
         if preflight_payload is not None:
             result["causal_preflight"] = preflight_payload
         # Publish solver timing and verdict before potentially long proof
@@ -1589,6 +1629,11 @@ def main():
             "bindings": {"manifest_sha256": manifest_sha256},
             "sidecars": {},
             "integrity_error": "telemetry collection did not complete",
+        }
+    if matrix_summary_contract is not None and "matrix_source_summary" not in result:
+        result["matrix_source_summary"] = matrix_summary_payload or {
+            "schema": matrix_summary_contract["schema"],
+            "integrity_error": "matrix source collection did not complete",
         }
     if preflight_contract is not None and "causal_preflight" not in result:
         result["causal_preflight"] = preflight_payload or {

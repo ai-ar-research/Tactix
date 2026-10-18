@@ -98,7 +98,9 @@ recognized structure and proof transition.
 [proof-rule guide](proof-rules.html). "Root" means decision level 0 with no
 refutation; "propagated root" additionally requires no recorded conflict and
 completed root propagation. "Assignment-free" means no variable is assigned at
-the root.
+the root. In the table, `terminal-PBP` means the internal startup-only PBP
+route; explicit `--pbp` is the streaming route and accepts ordinary clausal
+RUP, RAT, SR and deletion events.
 
 | Id | Name | Kind | Calc. | When it can apply | What it does | Proof contribution | Instances |
 |---|---|---|---|---|---|---|---|
@@ -123,7 +125,7 @@ the root.
 | 18 | `Restart` | proof rule | S1 | any non-refuted state | Backtracks to a keep level, retaining learned clauses. | none; empty clause if a recorded conflict survives at the root | keep level |
 | 19 | `Strengthen` | proof rule | C2 | root | Self-subsuming resolution: removes one literal of a clause, or deletes the clause when subsumed outright. | RUP shortened clause, deletion | clause; semantic: one (clause, removed literal) |
 | 20 | `Substitute` | proof rule | V3 | root | Replaces literals equivalent through the binary implication graph by a representative; detects `x ≡ ¬x`. | RUP rewritten clauses (via temporary bridge binaries), deletions; reconstruction witnesses | SCC representative literal |
-| 21 | `SubstitutionRedundancy` | proof rule | X7 | root | Adds a clause justified by a substitution witness; the vehicle for symmetry breaking. | SR addition (DSR only) | typed: explicit (clause, pivot, substitution) tuples or a symmetry producer; canonical is a no-op |
+| 21 | `SubstitutionRedundancy` | proof rule | X7 | root | Adds a clause justified by a substitution witness; the vehicle for symmetry breaking. | SR addition (DSR or streaming PBP) | typed: explicit (clause, pivot, substitution) tuples or a symmetry producer; canonical is a no-op |
 | 22 | `SubsumeForward` | proof rule | C1 | root | Deletes clauses subsumed by a live irredundant clause. | deletion | clause; semantic: one fast-elimination occurrence check |
 | 23 | `Sweep` | proof rule | V5 | root | SAT sweeping: proves literal equivalences inside a bounded neighbourhood with an embedded sub-solver. | RUP equivalence binaries or units (with temporary derivation lemmas, deleted) | opaque seed from enumeration |
 | 24 | `SwitchMode` | policy op | S4 | any non-refuted state | Toggles between focused and stable search modes. | none | none |
@@ -131,26 +133,27 @@ the root.
 | 26 | `Vivify` | proof rule | C3 | root | Clause vivification (distillation): shortens a clause by propagating the negations of its literals. | RUP shortened clause, deletion | clause; semantic: any live large clause |
 | 27 | `Walk` | policy op | S6 | root | ProbSAT-style local search; installs the result as saved phases if it improves on them. | none | step budget |
 | 28 | `Condition` | proof rule | X5 | propagated root | Deletes a clause given a finite conditional-autarky witness cube. | deletion; reconstruction witness | `tactix_apply_condition(clause, cube)`; canonical is a no-op |
-| 29 | `ParityConsequence` | proof rule | X8 | propagated root, provenance stream, not LRAT/PBP | Sums recognized XOR constraints and publishes a short clausal consequence. | RAT helper definitions, RUP steps, helper deletion | typed: consequence ordinal and limits |
-| 30 | `AffineConsequence` | proof rule | X9 | propagated root, provenance stream, not LRAT/PBP | Reduces recognized GF(2) equations to a basis and publishes selected rows as clauses. | RUP clauses; RAT XOR definitions for wide rows | typed: selected row |
-| 31 | `ExactCoverExtension` | proof rule | X10 | assignment-free propagated root, provenance stream, not LRAT/PBP | Introduces one branchable variable per block of a recognized exact-cover encoding. | RAT definitions of fresh variables | canonical: all blocks at once |
-| 32 | `IndependentSetCover` | proof rule | X11 | assignment-free propagated root, provenance stream, not LRAT/PBP | Publishes a vertex cover entailed by a recognized independent-set counting encoding. | RUP cover clause; helper deletion | typed: sorted vertex set |
+| 29 | `ParityConsequence` | proof rule | X8 | propagated root, provenance stream, not LRAT/terminal-PBP | Sums recognized XOR constraints and publishes a short clausal consequence. | RAT helper definitions, RUP steps, helper deletion | typed: consequence ordinal and limits |
+| 30 | `AffineConsequence` | proof rule | X9 | propagated root, provenance stream, not LRAT/terminal-PBP | Reduces recognized GF(2) equations to a basis and publishes selected rows as clauses. | RUP clauses; RAT XOR definitions for wide rows | typed: selected row |
+| 31 | `ExactCoverExtension` | proof rule | X10 | assignment-free propagated root, provenance stream, not LRAT/terminal-PBP | Introduces one branchable variable per block of a recognized exact-cover encoding. | RAT definitions of fresh variables | canonical: all blocks at once |
+| 32 | `IndependentSetCover` | proof rule | X11 | assignment-free propagated root, provenance stream, not LRAT/terminal-PBP | Publishes a vertex cover entailed by a recognized independent-set counting encoding. | RUP cover clause; helper deletion | typed: sorted vertex set |
 | 33 | `SemanticVariableAdvice` | policy op | S9 | root, a current candidate | Raises the decision priority of theory variables published by a structural rule. | none | current candidate |
-| 34 | `Gf3AffineConsequence` | proof rule | X12 | assignment-free propagated root, provenance stream, not LRAT/PBP | Eliminates a shared domain between two recognized GF(3) equations and publishes the resultant. | RUP clauses | typed: equation pair |
+| 34 | `Gf3AffineConsequence` | proof rule | X12 | assignment-free propagated root, provenance stream, not LRAT/terminal-PBP | Eliminates a shared domain between two recognized GF(3) equations and publishes the resultant. | RUP clauses | typed: equation pair |
 | 35 | `DirectCspSupport` | proof rule | X13 | as Gf3AffineConsequence | Publishes a support clause of a recognized binary CSP constraint, or a guarded-cover tuple exclusion. | RUP clause; optional RAT definition | typed: domain pair and row, or guarded cover |
-| 36 | `DirectPhpRefutation` | proof rule | X15 | assignment-free propagated root, provenance stream, not LRAT/PBP | Recognizes a direct pigeonhole core and emits a complete refutation. | RAT definitions, RUP steps, deletions, empty clause | canonical (terminal) |
+| 36 | `DirectPhpRefutation` | proof rule | X15 | assignment-free propagated root, provenance stream, not LRAT/terminal-PBP | Recognizes a direct pigeonhole core and emits a complete refutation. | RAT definitions, RUP steps, deletions, empty clause | canonical (terminal) |
 | 37 | `Gf3GaussianConsequence` | proof rule | X14 | as DirectPhpRefutation | Publishes all unit and conflict consequences of Gaussian elimination over recognized GF(3) equations. | RUP units or empty clause | typed: batch identity |
-| 38 | `TseitinCycleBreaking` | proof rule | X16 | propagated root, provenance stream, native DSR or no proof | Fixes one edge of a cycle in a recognized odd-charge XOR component. | SR unit (DSR helper encoding) | typed: component payload |
+| 38 | `TseitinCycleBreaking` | proof rule | X16 | propagated root, provenance stream, native DSR, streaming PBP or no proof | Fixes one edge of a cycle in a recognized odd-charge XOR component. | SR unit | typed: component payload |
 | 39 | `Retired39` | retired | — | never | Reserved slot; formerly `NaryCspPrefix`. | — | — |
 | 40 | `GraphIntervalEquivalence` | proof rule | X18 | propagated root, provenance stream | Proves two interval-indicator variables of a recognized graph encoding equivalent. | RUP binaries | canonical: one group; n: up to n groups |
-| 41 | `AffineMatrixInitialize` | policy op | — (X9 text) | propagated root, provenance stream, not LRAT/PBP | Builds, refreshes or services a retained GF(2) matrix used for Gaussian reasoning at restart roots. | initialization: none; a service step adds one RUP reason clause with proof-only XOR helpers | installed profile (initialize, refresh, root maintenance, service step) |
-| 42 | `NaryCspEquality` | proof rule | — (X17 text) | propagated root, provenance stream, not LRAT/PBP | Introduces a variable meaning "two aligned domains take the same value" in a recognized ternary relation. | RAT definitions, RUP clauses | typed: domain pair and residual |
-| 43 | `Gf3GeneralRowConsequence` | proof rule | X19 | assignment-free propagated root, provenance stream, not LRAT/PBP | Publishes a clause excluding one tuple that violates a non-unit row of GF(3) Gaussian elimination. | RUP helpers and clause | typed: row and tuple |
+| 41 | `AffineMatrixInitialize` | policy op | — (X9 text) | root for initialize/refresh/maintenance; propagated CDCL fixpoint for `SearchStep`; provenance stream, not LRAT/terminal-PBP | Builds or refreshes a retained GF(2) matrix at root; a search step conditions it on the live trail and can certify a conditional reason. Search-time acceptance remains pending. | initialization: none; a service step adds one RUP reason clause with proof-only XOR helpers | installed profile (initialize, refresh, root maintenance, service step) |
+| 42 | `NaryCspEquality` | proof rule | — (X17 text) | propagated root, provenance stream, not LRAT/terminal-PBP | Introduces a variable meaning "two aligned domains take the same value" in a recognized ternary relation. | RAT definitions, RUP clauses | typed: domain pair and residual |
+| 43 | `Gf3GeneralRowConsequence` | proof rule | X19 | propagated root, or propagated search fixpoint with a retained root owner; provenance stream; not LRAT/terminal-PBP | Publishes a clause excluding one tuple that violates a non-unit row of GF(3) Gaussian elimination. | RUP helpers and clause | typed: row and tuple |
 | 44 | `NaryCspEqualityAmo` | proof rule | X20 | as NaryCspEquality | Adds the pairwise at-most-one clauses over three equality variables of one relation. | RUP helpers, binaries, helper deletion | typed: relation |
 | 45 | `NaryCspEqualityTransitivity` | proof rule | X21 | as Gf3GeneralRowConsequence | Adds transitivity clauses between equality variables of three aligned domains. | RUP bridges, three ternaries, helper deletion | typed: domain triple |
+| 46 | `CardinalitySearch` | proof rule | cardinality search | propagated CDCL fixpoint, provenance stream, not LRAT/terminal-PBP | Derives a trail-conditional conflict or implication from explicitly nominated signed unweighted bounds whose complete subset CNF is physically present. | bounded RUP resolution and final reason | C v17 typed bound system |
 
 Policy operations: Reorder, Rephase, LocalSearchGuidance, SwitchMode, Walk,
-SemanticVariableAdvice and AffineMatrixInitialize. The other 38 active entries
+SemanticVariableAdvice and AffineMatrixInitialize. The other 39 active entries
 are proof rules. Ids 0–27 were assigned in ASCII name order when the interface
 was first frozen; later ids are in order of addition.
 
@@ -401,6 +404,19 @@ resultant's forbidden tuples. **Gf3GaussianConsequence** (X14) runs Gaussian
 elimination over GF(3) and publishes, as one batch, every unit row (as unit
 clauses) or the contradiction. **Gf3GeneralRowConsequence** (X19) handles a
 non-unit row by excluding one concrete domain tuple that violates it.
+After a root application retains its exact owner, X19 can also publish an
+authenticated row clause at a propagated CDCL search fixpoint. If the new
+clause is unit or conflicting on the current trail, ordinary Boolean
+propagation consumes it. The source owner remains tied to physical clauses
+and proof IDs across decisions and is revalidated before publication.
+
+**CardinalitySearch** (ID 46) accepts one explicitly nominated system of
+signed lower/upper count bounds over existing literals. It matches every
+clause of each bound's complete subset encoding against the live formula,
+derives a bounded conditional RUP reason at a propagated search fixpoint,
+and lets ordinary CDCL propagation or conflict analysis consume it. A C v17
+online step carries the typed bounds and resource limits; DefaultPolicy
+scheduling remains disabled pending the algebraic campaign gates.
 
 **DirectCspSupport** (X13) works on two one-hot domains linked by a complete
 table of forbidden value pairs: for a value on the left it publishes the

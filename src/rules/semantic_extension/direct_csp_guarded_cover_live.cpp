@@ -249,7 +249,7 @@ namespace tactix {
       auto&out=p.result;
       if(!valid(r))return;
 
-      if(k.proof&&(k.proof->lrat()||k.proof->pb())){
+      if(k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())){
         out.status=Status::UnsupportedProof;
         return;
       }

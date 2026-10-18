@@ -1,9 +1,10 @@
-# Public action-space v5 controls
+# Typed controller controls (historical `controller-v5` fixture name)
 
 These are exact caller-owned controller requests, not generic discovery hints.
 `gf3.actions` selects two authenticated equation pairs; `direct-csp.actions`
 selects two rows over the fixed domains `{1,2,3}` and `{4,5,6,7}`. Both pin
-their complete semantic and resource parameters in the v5 replay format.
+their complete semantic and resource parameters. The current trace records
+action-space v8; the directory and CLI flag retain their historical names.
 
 `controller_v5.py` generates matching inputs. GF(3) recognition requires the
 whole source to be a complete forbidden-tuple affine encoding, so its SAT cases

@@ -230,10 +230,11 @@ void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix
   const auto pending_bytes=proof.premise_bytes();
   const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
   const auto consequence=affine_matrix_search_step(k,session);
-  assert(consequence.status==AffineMatrixServiceStatus::Inapplicable &&
-         consequence.installed_reason.empty() && session.enabled() && session.attached_to(k));
-  assert(session.owner_version()==pending_owner && k.next_clause_id==pending_id &&
-         proof.premise_bytes()==pending_bytes && k.trail==pending_trail &&
+  assert(consequence.status==AffineMatrixServiceStatus::Applied &&
+         consequence.installed_reason==std::vector<int32_t>({-1,signed_alias?5:-5}) &&
+         session.enabled() && session.attached_to(k));
+  assert(session.owner_version()==pending_owner && k.next_clause_id>pending_id &&
+         proof.premise_bytes()>=pending_bytes && k.trail==pending_trail &&
          !k.value(kernel_internalize(k,5)));
   const auto retraction_before_backtrack=k.affine_trail_retraction_epoch;
   kernel_backtrack(k,0);assert(propagate_apply(k)!=ApplyResult::Unsat);
@@ -302,11 +303,13 @@ void root_maintenance_after_sweep_refutes(ProofFormat format,const char *prefix)
   assert((initialized.status==AffineMatrixInitStatus::Applied ||
           initialized.status==AffineMatrixInitStatus::AppliedPartial) && initialized.equations>=3);
   assert(session.persistent() && !k.inconsistent && k.trail.empty());
-  // The theory service declines above the restart root without mutation.
+  // The theory service can inspect a propagated decision trail without
+  // changing this owner when no new conditional consequence exists.
   kernel_assign_decision(k,kernel_internalize(k,-6));
   assert(propagate_apply(k)!=ApplyResult::Unsat && k.value(kernel_internalize(k,5))>0);
   const auto above=affine_matrix_search_step(k,session);
-  assert(above.status==AffineMatrixServiceStatus::Inapplicable && session.enabled());
+  assert(above.status==AffineMatrixServiceStatus::NoEvent &&
+         above.installed_reason.empty() && session.enabled());
   kernel_backtrack(k,0);assert(propagate_apply(k)!=ApplyResult::Unsat && k.trail.empty());
   // Depth one keeps each environment to the seed's own clauses: satisfiable,
   // with the seed forced.

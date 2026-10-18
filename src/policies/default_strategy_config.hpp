@@ -339,11 +339,14 @@ struct DefaultStrategyConfig {
     double minimum_usefulness = 0.2;
     uint64_t autodisable_minimum_calls = 200;
     uint64_t autodisable_check_every = 1024;
-    // Zero inherits the explicit existing policy profile: preprocessing/search
-    // effort quantum, and affine_root_closure's accepted certificate byte cap.
+    // Zero inherits the existing preprocessing/search effort quantum. The
+    // retained-source cap covers the full authenticated matrix transaction;
+    // the 100 MB root certificate-journal cap is narrower than two checked
+    // CryptoMiniSat XOR families' 143--218 MB preflight requirements. This
+    // bounded opt-in dose is measured before any DefaultPolicy promotion.
     uint64_t maximum_initialization_work = 0;
     uint64_t maximum_service_work = 0;
-    uint64_t maximum_retained_bytes = 0;
+    uint64_t maximum_retained_bytes = 256'000'000;
   } affine_search;
 
   struct Inprocess {

@@ -40,8 +40,9 @@ ClauseKey canonical(ClauseKey clause) {
   return clause;
 }
 
-bool applicable(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.level && kernel.trail.empty() &&
+bool applicable(const Kernel &kernel, bool retained_owner) {
+  return !kernel.inconsistent &&
+         ((!kernel.level && kernel.trail.empty()) || retained_owner) &&
          !kernel.conflict_valid && !kernel.pending.valid && !kernel.dense &&
          !kernel.probing.recording && kernel.large_watches_connected &&
          kernel_propagation_fixpoint(kernel) &&
@@ -250,11 +251,11 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
   if (!request.limits.valid() || !request.action_id || !request.semantic_id ||
       !request.records)
     return output;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->pb())) {
+  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
     result.status = Gf3GeneralRowLiveStatus::UnsupportedProof;
     return output;
   }
-  if (!applicable(kernel)) {
+  if (!applicable(kernel, request.retained_owner != nullptr)) {
     result.status = kernel_terminating(kernel)
                         ? Gf3GeneralRowLiveStatus::Interrupted
                         : Gf3GeneralRowLiveStatus::Inapplicable;
@@ -595,11 +596,24 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
       kernel.proof->add_rup(id, internal.data(), internal.size(), nullptr, 0);
     result.proof_clause_ids.push_back(id);
     if (index + 1 != result.plan.events.size()) continue;
+    bool relevant_to_trail = false;
+    if (kernel.level) {
+      uint32_t unassigned = 0;
+      bool satisfied = false;
+      for (Lit literal : internal) {
+        const int8_t value = kernel.value(literal);
+        satisfied |= value > 0;
+        unassigned += value == 0;
+      }
+      relevant_to_trail = !satisfied && unassigned <= 1;
+    }
     if (internal.size() == 2)
       kernel_add_binary_clause(kernel, internal[0], internal[1], id);
     else
       kernel_add_large_clause(kernel, internal.data(), internal.size(), true,
                               internal.size(), id);
+    if (relevant_to_trail)
+      kernel_rearm_theory_clause(kernel, internal.data(), internal.size());
     result.installed_clause_id = id;
   }
   if (std::fwrite(prepared.journal.data(), 1, prepared.journal.size(),

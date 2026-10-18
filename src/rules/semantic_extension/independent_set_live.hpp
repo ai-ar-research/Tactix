@@ -126,8 +126,9 @@ IndependentSetOwnerCaptureResult independent_set_live_capture_owner_detailed(
 
 // At a fully propagated, assignment-free sparse root, recognize the exact live
 // owner encoding, certify the selected N-K+1 cover, and publish that clause for
-// continuing CDCL.  DSR/DRAT/no-proof are supported; LRAT/PBP decline before
-// mutation. Unit covers are conservatively declined until their propagation
+// continuing CDCL. DSR/DRAT/no-proof and streaming PBP are supported; LRAT
+// and terminal-PBP decline before mutation. Unit covers are conservatively
+// declined until their propagation
 // proof delta can be bounded. Every recoverable failure leaves kernel, proof,
 // and records unchanged while returning its status and bounded work. No new
 // semantic or branchable variable is made.

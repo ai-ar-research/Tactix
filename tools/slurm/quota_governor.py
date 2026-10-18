@@ -5,9 +5,10 @@ Policy (user, 2026-10-08): every ``--interval`` seconds read the user's home
 usage (the user's row of /home/.zfs-quota; ``quota -s`` as fallback).  Above
 ``--hold-above`` units, ``scontrol hold`` the PENDING tasks of the owned
 arrays.  While held, keep checking (and hold newly pending tasks of owned
-arrays); ``scontrol release`` only the tasks this governor held, and only once
-usage is below ``--release-below``.  Running tasks are never held, suspended or
-cancelled.  Usage values are in the units the quota tools print (G = 2**30 B).
+arrays); ``scontrol release`` only the tasks this governor held, at most
+``--release-batch`` per check, and only while usage is below
+``--release-below``. Running tasks are never held, suspended or cancelled.
+Usage values are in the units the quota tools print (G = 2**30 B).
 
 Owned arrays live in ``<dir>/jobs.json``: {"jobs": [{"id": "123", "label": ..}],
 "expect_more": bool}.  Campaign submitters append to it.  The governor exits
@@ -164,11 +165,20 @@ def cycle(directory, args, run=subprocess.run, usage_reader=None, now=None):
                        "hold_errors": errors[:20], "held_total": len(state["held"])})
     elif action == "release":
         pending = pending_tasks(job_ids, run)
-        targets = [t for t in state["held"] if t in pending and owns(t, job_ids)]
+        eligible = [t for t in state["held"]
+                    if t in pending and owns(t, job_ids)]
+        targets = eligible[:args.release_batch]
         done, errors = scontrol("release", targets, run) if targets else ([], [])
-        record.update({"released_now": len(done), "release_errors": errors[:20],
-                       "held_not_pending": len(set(state["held"]) - set(targets))})
-        state["held"] = []
+        record.update({"release_eligible": len(eligible),
+                       "released_now": len(done),
+                       "release_remaining": len(eligible) - len(done),
+                       "release_errors": errors[:20],
+                       "held_not_pending": len(set(state["held"]) - set(eligible))})
+        state["held"] = sorted(set(eligible) - set(done))
+        if state["held"]:
+            # Admit another bounded batch, or retry a failed release, on the
+            # next below-threshold tick.
+            new_state = "held"
     state["state"] = new_state
     live = {job: job_live(job, run) for job in job_ids}
     record["live_jobs"] = [j for j, v in live.items() if v is not False]
@@ -192,11 +202,14 @@ def main(argv=None):
     ap.add_argument("--interval", type=int, default=600)
     ap.add_argument("--hold-above", type=float, default=750.0)
     ap.add_argument("--release-below", type=float, default=700.0)
+    ap.add_argument("--release-batch", type=int, default=40)
     ap.add_argument("--user", default=getpass.getuser())
     ap.add_argument("--once", action="store_true")
     args = ap.parse_args(argv)
-    if args.release_below >= args.hold_above:
-        ap.error("--release-below must be below --hold-above")
+    if args.release_below > args.hold_above:
+        ap.error("--release-below must not exceed --hold-above")
+    if args.release_batch <= 0:
+        ap.error("--release-batch must be positive")
     while True:
         if cycle(args.dir, args) or args.once:
             return 0

@@ -14,7 +14,7 @@ RuleEligibility parity_consequence_guard(const Kernel &k) {
       .fact("no-probe-transaction", !k.probing.recording)
       .fact("provenance-bound", k.structural_provenance != nullptr)
       .fact("action-id-available", k.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate", !k.proof || (!k.proof->lrat() && !k.proof->pb()));
+      .fact("clausal-certificate", !k.proof || (!k.proof->lrat() && !k.proof->terminal_pbp()));
 }
 ApplyResult parity_consequence_apply(Kernel &k) {
   const auto &p = k.parity_consequence_parameters;

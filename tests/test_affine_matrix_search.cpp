@@ -6,7 +6,9 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <sstream>
@@ -437,8 +439,25 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
             {{1, 2, 3}, false}, {{1, 2, 3}, true}};
   for (const auto &[variables, rhs] : equations)
     add_equation(kernel, variables, rhs);
+  // The independently checked unit fixture has one extra original clause.
+  if (unit) ++kernel.next_clause_id;
   Proof proof;
   assert(proof.open(proof_path, format));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t input_id = 0;
+  for (const auto &[variables, rhs] : equations)
+    for (const auto &external : clausal_form(variables, rhs)) {
+      std::vector<Lit> clause;
+      for (int32_t literal : external) clause.push_back(internalize(literal));
+      proof.seed_population(++input_id, clause.data(), clause.size());
+    }
+  if (unit) {
+    const Lit closure = internalize(-5);
+    proof.seed_population(++input_id, &closure, 1);
+  }
+  assert(input_id == kernel.next_clause_id);
+  proof.finish_input_transaction();
   kernel.proof = &proof;
   assert(affine_matrix_search_initialize(kernel, session, parameters()).status ==
          AffineMatrixInitStatus::Applied);
@@ -474,12 +493,189 @@ static int root_proof_fixture(const char *cnf_path, const char *proof_path,
   return 0;
 }
 
+static int search_proof_fixture(const char *cnf_path, const char *proof_path,
+                                uint32_t seed = 0) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 4);
+  std::vector<int32_t> variables = {1, 2, 3, 4};
+  bool first_rhs = false, second_rhs = true, decision_positive = true;
+  if (seed) {
+    // Rename variables, change both row signs and branch in either phase.
+    // The XOR sum still forces the fourth variable from the first decision.
+    uint32_t state = seed;
+    const auto next = [&]() {
+      state ^= state << 13;
+      state ^= state >> 17;
+      state ^= state << 5;
+      return state;
+    };
+    for (size_t i = variables.size() - 1; i > 0; --i)
+      std::swap(variables[i], variables[next() % (i + 1)]);
+    first_rhs = (next() & 1) != 0;
+    second_rhs = (next() & 1) != 0;
+    decision_positive = (next() & 1) != 0;
+  }
+  std::vector<std::pair<std::vector<int32_t>, bool>> equations = {
+      {{variables[0], variables[1], variables[2]}, first_rhs},
+      {{variables[1], variables[2], variables[3]}, second_rhs}};
+  for (auto &[row, rhs] : equations) {
+    (void)rhs;
+    std::sort(row.begin(), row.end());
+  }
+  for (const auto &[variables, rhs] : equations)
+    add_equation(kernel, variables, rhs);
+  // The checker input has two additional unit clauses absent from this
+  // isolated service fixture; reserve their input IDs before proof additions.
+  kernel.next_clause_id += 2;
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  const auto initialized = affine_matrix_search_initialize(
+      kernel, session, parameters(),
+      AffineMatrixAdmission::AuthenticatedSubimage, persistence);
+  if (initialized.status != AffineMatrixInitStatus::Applied)
+    std::fprintf(stderr, "seed=%u init=%u vars=%d,%d,%d,%d rhs=%d%d\n",
+                 seed, static_cast<unsigned>(initialized.status), variables[0],
+                 variables[1], variables[2], variables[3], first_rhs, second_rhs);
+  assert(initialized.status == AffineMatrixInitStatus::Applied);
+  assert(affine_matrix_search_step(kernel, session).status ==
+         AffineMatrixServiceStatus::NoEvent);
+  const int32_t decision = decision_positive ? variables[0] : -variables[0];
+  const bool implied_positive = decision_positive ^ first_rhs ^ second_rhs;
+  const int32_t implied = implied_positive ? variables[3] : -variables[3];
+  kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto service = affine_matrix_search_step(kernel, session);
+  if (service.status != AffineMatrixServiceStatus::Applied ||
+      service.reason_width != 2 || !service.bcp_pending)
+    std::fprintf(stderr, "seed=%u status=%u reason_width=%zu bcp=%d vars=%d,%d,%d,%d rows=%d%d decision=%d before=%d\n",
+                 seed, static_cast<unsigned>(service.status),
+                 service.reason_width, service.bcp_pending,
+                 variables[0], variables[1], variables[2], variables[3],
+                 first_rhs, second_rhs, decision,
+                 kernel_external_value(kernel, internalize(implied)));
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.reason_width == 2 && service.bcp_pending);
+  assert(propagate_apply(kernel) == ApplyResult::Ok &&
+         kernel_external_value(kernel, internalize(implied)) > 0);
+  // The extra two clauses in the independently checked input make a complete
+  // refutation.  They are intentionally absent from the captured matrix.
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  kernel.proof = nullptr;
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf 4 10\n");
+  for (const auto &[variables, rhs] : equations)
+    for (const auto &clause : clausal_form(variables, rhs)) {
+      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
+      std::fprintf(cnf, "0\n");
+    }
+  std::fprintf(cnf, "%d 0\n%d 0\n", decision, -implied);
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
+static int search_chain_proof_fixture(const char *cnf_path,
+                                      const char *proof_path, uint32_t seed) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 7);
+  std::vector<int32_t> variables = {1, 2, 3, 4, 5, 6, 7};
+  std::array<bool, 4> rhs = {false, false, false, true};
+  bool decision_positive = true;
+  if (seed) {
+    uint32_t state = seed;
+    const auto next = [&]() {
+      state ^= state << 13;
+      state ^= state >> 17;
+      state ^= state << 5;
+      return state;
+    };
+    for (size_t i = variables.size() - 1; i > 0; --i)
+      std::swap(variables[i], variables[next() % (i + 1)]);
+    for (bool &sign : rhs) sign = (next() & 1) != 0;
+    decision_positive = (next() & 1) != 0;
+  }
+  std::vector<std::pair<std::vector<int32_t>, bool>> equations = {
+      {{variables[0], variables[1], variables[2]}, rhs[0]},
+      {{variables[1], variables[3], variables[4]}, rhs[1]},
+      {{variables[2], variables[3], variables[5]}, rhs[2]},
+      {{variables[4], variables[5], variables[6]}, rhs[3]}};
+  for (auto &[row, sign] : equations) {
+    (void)sign;
+    std::sort(row.begin(), row.end());
+  }
+  for (const auto &[row, sign] : equations) add_equation(kernel, row, sign);
+  kernel.next_clause_id += 2; // Two checker-only units.
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence).status ==
+         AffineMatrixInitStatus::Applied);
+  assert(affine_matrix_search_step(kernel, session).status ==
+         AffineMatrixServiceStatus::NoEvent);
+  const int32_t decision = decision_positive ? variables[0] : -variables[0];
+  bool implied_positive = decision_positive;
+  for (bool sign : rhs) implied_positive ^= sign;
+  const int32_t implied = implied_positive ? variables[6] : -variables[6];
+  kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto service = affine_matrix_search_step(kernel, session);
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.reason_width == 2 && service.bcp_pending &&
+         service.live.selected_sources == 4);
+  assert(propagate_apply(kernel) == ApplyResult::Ok &&
+         kernel_external_value(kernel, internalize(implied)) > 0);
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  kernel.proof = nullptr;
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf 7 18\n");
+  for (const auto &[row, sign] : equations)
+    for (const auto &clause : clausal_form(row, sign)) {
+      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
+      std::fprintf(cnf, "0\n");
+    }
+  std::fprintf(cnf, "%d 0\n%d 0\n", decision, -implied);
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
 } // namespace
 int main(int argc,char **argv){
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-unit"))return root_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-empty"))return root_proof_fixture(argv[2],argv[3],false);
   if(argc==4&&!std::strcmp(argv[1],"--proof"))return root_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-drat"))return root_proof_fixture(argv[2],argv[3],true,ProofFormat::DratAscii);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-pbp"))return root_proof_fixture(argv[2],argv[3],true,ProofFormat::PbpStreaming);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-search"))return search_proof_fixture(argv[2],argv[3]);
+  if(argc==5&&!std::strcmp(argv[1],"--proof-search-seed"))
+    return search_proof_fixture(argv[3],argv[4],
+                                static_cast<uint32_t>(std::stoul(argv[2])));
+  if(argc==5&&!std::strcmp(argv[1],"--proof-search-chain-seed"))
+    return search_chain_proof_fixture(argv[3],argv[4],
+                                      static_cast<uint32_t>(std::stoul(argv[2])));
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
   partial_admission_feedback_provenance_and_replay();

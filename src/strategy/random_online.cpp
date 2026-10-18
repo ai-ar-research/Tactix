@@ -921,6 +921,20 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_watch_words=v[14];
     p.maximum_preparation_bytes=v[15];
     parameters=p;
+  } else if (tuple(text, "cardinality-search1", v) && v.size() == 11) {
+    CardinalitySearchActionLimits p;
+    U32_AT(0, p.inspection.maximum_support_variables);
+    U32_AT(1, p.inspection.maximum_constraints);
+    U32_AT(2, p.inspection.maximum_source_clauses);
+    U32_AT(3, p.inspection.maximum_reason_width);
+    p.inspection.maximum_work = v[4];
+    p.resolution.maximum_work = v[5];
+    U32_AT(6, p.resolution.maximum_additions);
+    p.resolution.maximum_added_literals = v[7];
+    p.maximum_source_scan_work = v[8];
+    p.maximum_arena_words = v[9];
+    p.maximum_journal_bytes = v[10];
+    parameters = p;
   } else if (tuple(text, "nary-csp-equality-amo1", v) && v.size() == 11) {
     NaryCspEqualityAmoParameters p;
     p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
@@ -2107,6 +2121,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           std::string_view(rule.name) != "NaryCspEqualityAmo" &&
           std::string_view(rule.name) != "Gf3GaussianConsequence" &&
           std::string_view(rule.name) != "Gf3GeneralRowConsequence" &&
+          std::string_view(rule.name) != "CardinalitySearch" &&
           std::string_view(rule.name) != "TseitinCycleBreaking")
         available.push_back(static_cast<int>(rule.id));
   } else {
@@ -2121,6 +2136,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
           name != "NaryCspEqualityAmo" &&
           name != "Gf3GaussianConsequence" &&
           name != "Gf3GeneralRowConsequence" &&
+          name != "CardinalitySearch" &&
           name != "TseitinCycleBreaking")
         available.push_back(id);
     }
@@ -2499,6 +2515,16 @@ std::string serialize_online_strategy_program(
           << p->maximum_external_extent << ',' << p->maximum_session_keys << ')';
     else if (const auto *p = std::get_if<NaryCspEqualityTransitivityParameters>(&step.parameters))
       out << ":nary-csp-equality-transitivity1(" << p->maximum_source_clauses << ',' << p->maximum_source_literals << ',' << p->maximum_recognition_work << ',' << p->maximum_planning_work << ',' << p->maximum_domain_values << ',' << p->maximum_forbidden_tuples << ',' << p->maximum_proof_work << ',' << p->maximum_proof_additions << ',' << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ',' << p->maximum_external_extent << ',' << p->maximum_session_keys << ',' << p->maximum_session_bytes << ',' << p->maximum_arena_words << ',' << p->maximum_watch_words << ',' << p->maximum_preparation_bytes << ')';
+    else if (const auto *p = std::get_if<CardinalitySearchActionLimits>(&step.parameters))
+      out << ":cardinality-search1(" << p->inspection.maximum_support_variables
+          << ',' << p->inspection.maximum_constraints << ','
+          << p->inspection.maximum_source_clauses << ','
+          << p->inspection.maximum_reason_width << ','
+          << p->inspection.maximum_work << ',' << p->resolution.maximum_work
+          << ',' << p->resolution.maximum_additions << ','
+          << p->resolution.maximum_added_literals << ','
+          << p->maximum_source_scan_work << ',' << p->maximum_arena_words
+          << ',' << p->maximum_journal_bytes << ')';
     else if (const auto *p =
                  std::get_if<NaryCspEqualityAmoParameters>(&step.parameters))
       out << ":nary-csp-equality-amo1(" << p->maximum_source_clauses << ','
@@ -3069,6 +3095,17 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
+    if (!step.cardinality_search_instances.empty()) {
+      out << ":cardinality-search[";
+      const auto &bounds = step.cardinality_search_instances.front();
+      out << bounds.size();
+      for (const auto &bound : bounds) {
+        out << ',' << bound.literals.size() << ',' << bound.lower << ','
+            << bound.upper;
+        for (const int32_t literal : bound.literals) out << ',' << literal;
+      }
+      out << ']';
+    }
     if (!step.tseitin_cycle_instances.empty()) {
       out << ":tseitin-cycle-breaking[";
       for (size_t i = 0; i < step.tseitin_cycle_instances.size(); ++i) {
@@ -3408,6 +3445,59 @@ bool deserialize_online_strategy_program(const std::string &encoded,
         if (semicolon == std::string_view::npos) text = {};
         else text.remove_prefix(semicolon + 1);
       }
+    }
+    constexpr std::string_view cardinality_search_marker =
+        ":cardinality-search[";
+    if (text.starts_with(cardinality_search_marker) && text.back() == ']') {
+      text.remove_prefix(cardinality_search_marker.size());
+      text.remove_suffix(1);
+      std::vector<std::string_view> fields;
+      while (!text.empty()) {
+        const size_t comma = text.find(',');
+        fields.push_back(text.substr(0, comma));
+        if (comma == std::string_view::npos) text = {};
+        else text.remove_prefix(comma + 1);
+      }
+      if (fields.empty())
+        return reject("online replay cardinality bounds are malformed");
+      size_t at = 0;
+      uint64_t count = 0;
+      const auto *limits =
+          std::get_if<CardinalitySearchActionLimits>(&step.parameters);
+      if (!limits || !parse_u64(fields[at++], count) || !count ||
+          count > limits->inspection.maximum_constraints)
+        return reject("online replay cardinality bound count is malformed");
+      std::vector<CardinalitySearchBound> bounds;
+      bounds.reserve(static_cast<size_t>(count));
+      for (uint64_t b = 0; b < count; ++b) {
+        uint64_t width = 0, lower = 0, upper = 0;
+        if (fields.size() - at < 3 || !parse_u64(fields[at++], width) ||
+            !parse_u64(fields[at++], lower) ||
+            !parse_u64(fields[at++], upper) ||
+            !width || width > limits->inspection.maximum_support_variables ||
+            lower > UINT32_MAX ||
+            upper > UINT32_MAX || fields.size() - at < width)
+          return reject("online replay cardinality bound is malformed");
+        CardinalitySearchBound bound;
+        bound.lower = static_cast<uint32_t>(lower);
+        bound.upper = static_cast<uint32_t>(upper);
+        for (uint64_t j = 0; j < width; ++j) {
+          const auto value = fields[at++];
+          int64_t signed_literal = 0;
+          const auto parsed = std::from_chars(
+              value.data(), value.data() + value.size(), signed_literal);
+          if (parsed.ec != std::errc{} ||
+              parsed.ptr != value.data() + value.size() ||
+              signed_literal <= INT32_MIN || signed_literal > INT32_MAX ||
+              !signed_literal)
+            return reject("online replay cardinality literal is malformed");
+          bound.literals.push_back(static_cast<int32_t>(signed_literal));
+        }
+        bounds.push_back(std::move(bound));
+      }
+      if (at != fields.size())
+        return reject("online replay cardinality payload has extra fields");
+      step.cardinality_search_instances.push_back(std::move(bounds));
     }
     constexpr std::string_view tseitin_cycle_marker =
         ":tseitin-cycle-breaking[";

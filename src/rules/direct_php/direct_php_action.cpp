@@ -341,7 +341,7 @@ DirectPhpActionResult DirectPhpPreparedActionAccess::prepare_impl(
   // for proofless kernels.  apply/replay set proof_atomic and publish in the
   // same exclusive call.
   if (!proof_atomic && kernel.proof) {
-    const auto status = kernel.proof->lrat() || kernel.proof->pb()
+    const auto status = kernel.proof->lrat() || kernel.proof->terminal_pbp()
                             ? DirectPhpActionStatus::UnsupportedProof
                             : DirectPhpActionStatus::UnsupportedProofSplit;
     return stopped_result(status, request, effort);
@@ -431,7 +431,7 @@ RuleEligibility direct_php_action_guard(const Kernel &kernel) {
       .fact("sparse", !kernel.dense && kernel.large_watches_connected)
       .fact("no-probe-transaction", !kernel.probing.recording)
       .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->pb()));
+            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
 }
 
 DirectPhpActionResult direct_php_action_prepare(
