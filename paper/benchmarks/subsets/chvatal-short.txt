@@ -1,4 +1,0 @@
-# Reduced set: the three formulas with the shortest slowest solve.
-n7-111111101000.cnf.xz
-n7-111111001000100.cnf.xz
-n7-1111110011001.cnf.xz

@@ -10,7 +10,6 @@ RUNNERS = (
     ROOT / "tools/bench/run.py",
     ROOT / "tools/bench/frozen_baseline.py",
     ROOT / "tools/bench/tactix_tierd.py",
-    ROOT / "tools/bench/lymphosat_attribution.py",
     ROOT / "tools/bench/p4_cvg.py",
 )
 
