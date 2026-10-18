@@ -1464,8 +1464,8 @@ def main() -> int:
         ap.error("--tier and --solver are required")
     if args.slurm and args.tier == "D" and not args.dry_run:
         ap.error("full Tier-D arrays must be prepared with --dry-run, "
-                 "--partition cpu-q and --throttle 125, then submitted "
-                 "through tools/slurm/submit_full_tierd.py")
+                 "--partition cpu-q and --throttle no larger than 125, then "
+                 "submitted through tools/slurm/submit_full_tierd.py")
     if not args.slurm and not 1 <= args.jobs <= 8:
         sys.exit("error: --jobs must be 1..8 (plan §8.1)")
 

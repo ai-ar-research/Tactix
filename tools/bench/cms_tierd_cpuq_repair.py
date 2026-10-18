@@ -111,7 +111,7 @@ def prepare_continuation(repair, *, throttle=125,
     """Prepare one nonoverlapping retry of still-unpublished repair rows.
 
     The caller submits the generated script through submit_full_tierd.py with
-    --round-dir, which gives the retry its own storage governor.  No retry can
+    --round-dir, which gives the retry its own read-only storage monitor. No retry can
     coexist with an earlier array.
     """
     repair = repair.resolve()
@@ -178,7 +178,7 @@ def prepare_continuation(repair, *, throttle=125,
 #SBATCH --output={round_dir}/logs/task-%a.log
 export TACTIX_REPO_ROOT='{ROOT}'
 export PYTHONDONTWRITEBYTECODE=1
-export TMPDIR=/tmp
+export TMPDIR='{repair}/scratch'
 {workspace_cleanup_prologue(repair)}python3 '{runner}' --campaign '{repair}' --run-one "$SLURM_ARRAY_TASK_ID"
 """)
     record = {
@@ -210,7 +210,9 @@ def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
         raise RuntimeError(f"repair campaign already exists: {repair}")
     job = require_terminal(base)
     original = json.loads((base / "manifest.json").read_text())
-    if (original.get("kind") != "cryptominisat-tierd-cpuq-anonymous-baseline-v2" or
+    if (original.get("kind") not in {
+                "cryptominisat-tierd-cpuq-anonymous-baseline-v2",
+                "cryptominisat-tierd-cpuq-workspace-baseline-v1"} or
             len(original.get("instances", [])) != 1166 or
             len(original.get("tasks", [])) != 1166 or
             original.get("certificate_policy", {}).get("retention") != "none"):
@@ -256,15 +258,20 @@ def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
     missing = sorted(missing)
     if not missing:
         raise RuntimeError("base and prior repairs have no missing result rows")
-    for name in ("solver", "frat_xor", "cake_xlrup", "checkmodel",
+    pin_names = ["solver", "frat_xor", "cake_xlrup", "checkmodel",
                  "modelcheck.py", "libcadiback.so.0", "libcadical.so.3",
-                 "libcryptominisat5.so.5.14", "anonymous_scratch.py"):
+                 "libcryptominisat5.so.5.14"]
+    if "anonymous-scratch" in original.get("provenance", {}):
+        pin_names.append("anonymous_scratch.py")
+    for name in pin_names:
         source = base / "pins" / name
         if not source.is_file():
             raise RuntimeError(f"missing original pin: {name}")
-    pinned = [original["provenance"][name] for name in
-              ("solver-binary", "frat-xor", "cake-xlrup", "checkmodel",
-               "modelcheck.py", "anonymous-scratch", "frozen-baseline")]
+    provenance_names = ["solver-binary", "frat-xor", "cake-xlrup", "checkmodel",
+                        "modelcheck.py", "frozen-baseline"]
+    if "anonymous-scratch" in original.get("provenance", {}):
+        provenance_names.append("anonymous-scratch")
+    pinned = [original["provenance"][name] for name in provenance_names]
     pinned.extend(original["provenance"]["shared-libraries"])
     for pin in pinned:
         if sha256(base / pin["path"]) != pin["sha256"]:
@@ -311,8 +318,9 @@ def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
         manifest["slurm"]["node_scratch_participants"] = 1
     manifest["slurm"]["array_throttle"] = throttle
     # cpu-q caps allocations at 52 CPUs on 64-CPU nodes, so Slurm rejects
-    # --exclusive there. Workspace repairs use bounded governor admission;
-    # legacy anonymous repairs retain their one-participant scratch ledger.
+    # --exclusive there. Workspace repairs use the array throttle and
+    # campaign-local scratch; legacy anonymous repairs retain their
+    # one-participant scratch ledger.
     manifest["provenance"]["frozen-baseline"]["sha256"] = sha256(runner)
     manifest["provenance"]["cryptominisat-5.14.7"]["sha256"] = sha256(wrapper)
     atomic_json(repair / "manifest.json", manifest, exclusive=True)
@@ -333,7 +341,7 @@ def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
 #SBATCH --output={repair}/logs/task-%a.log
 export TACTIX_REPO_ROOT='{ROOT}'
 export PYTHONDONTWRITEBYTECODE=1
-export TMPDIR=/tmp
+export TMPDIR='{repair}/scratch'
 {cleanup}{launch}
 """)
     print(f"prepared {repair}: {len(missing)} missing rows; "

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Submit a full Tier-D array or its declared repair under a storage monitor."""
+"""Submit a full Tier-D array with bounded concurrency and read-only monitoring."""
 
 import argparse
 import datetime as dt
@@ -12,8 +12,7 @@ from pathlib import Path
 
 from quota_governor import read_usage
 
-ROOT = Path(__file__).resolve().parents[2]
-MONITOR = Path(__file__).with_name("quota_governor.py")
+MONITOR = Path(__file__).with_name("quota_monitor.py")
 
 
 def atomic_json(path, value):
@@ -66,6 +65,26 @@ def array_partition(script):
     return match.group(1)
 
 
+def workspace_contract(campaign, script, manifest):
+    """Require full-run transient files to live under the campaign tree."""
+    lowered = script.lower()
+    if ("/tmp" in lowered or "slurm_tmpdir" in lowered or
+            "scratchreserve" in lowered or "scratch-reserve" in lowered):
+        raise RuntimeError("full Tier-D array may not use node-local or scratch-reserve storage")
+    storage = manifest.get("certificate_policy", {}).get("storage")
+    declared = manifest.get("scratch_directory")
+    if storage == "workspace-ephemeral":
+        return
+    if declared:
+        scratch = Path(declared).resolve()
+        try:
+            scratch.relative_to(campaign)
+        except ValueError as error:
+            raise RuntimeError("scratch directory must be inside the campaign") from error
+        return
+    raise RuntimeError("full Tier-D campaign lacks a campaign-local scratch contract")
+
+
 def prior_job_is_live(job):
     check = subprocess.run(["squeue", "-h", "-j", str(job), "-o", "%i"],
                            capture_output=True, text=True, timeout=120)
@@ -102,16 +121,23 @@ def submit(campaign, array, round_dir=None):
         if sorted(declared - published) != expected_indices:
             raise RuntimeError("published result set changed after continuation preparation")
         launch = round_dir / "launch.json"
-        monitor = round_dir / "governor"
+        monitor = round_dir / "storage-monitor"
     else:
         launch = campaign / "launch.json"
-        monitor = campaign / "governor"
+        monitor = campaign / "storage-monitor"
     if launch.exists():
         raise RuntimeError(f"already submitted: {launch}")
     script = array.read_text()
     partition = array_partition(script)
     manifest = json.loads((campaign / "manifest.json").read_text())
+    if round_record is None and manifest.get("recheck_source"):
+        matrix = campaign / "matrix.tsv"
+        count = max(0, len(matrix.read_text().splitlines()) - 1)
+        if count == 0:
+            raise RuntimeError("Tier-D recheck campaign has no matrix rows")
+        expected_indices = list(range(count))
     indices = array_indices(script, manifest, expected_indices)
+    workspace_contract(campaign, script, manifest)
     if re.search(r"^#SBATCH --(?:nodelist|constraint|exclude)", script, re.M):
         raise RuntimeError("unexpected node placement constraint")
     usage, source = read_usage("hwu")
@@ -120,57 +146,53 @@ def submit(campaign, array, round_dir=None):
     if usage * 2**30 >= 700_000_000_000:
         raise RuntimeError(f"prelaunch 700 GB storage gate failed: {usage:.1f} GiB via {source}")
     if monitor.exists():
-        raise RuntimeError(f"governor already exists: {monitor}")
+        raise RuntimeError(f"storage monitor already exists: {monitor}")
     monitor.mkdir()
-    shutil.copy2(MONITOR, monitor / "quota_governor.py")
-    batch = monitor / "governor.sbatch"
+    shutil.copy2(MONITOR, monitor / "quota_monitor.py")
+    batch = monitor / "monitor.sbatch"
     batch.write_text(f"""#!/usr/bin/env bash
 #SBATCH --partition={partition}
 #SBATCH --job-name=tierd-storage-monitor
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=1
 #SBATCH --mem=2G
 #SBATCH --time=7-00:00:00
-#SBATCH --output={monitor}/governor.out
+#SBATCH --output={monitor}/monitor.out
 export PYTHONDONTWRITEBYTECODE=1
-exec python3 '{monitor}/quota_governor.py' --dir '{monitor}' --interval 600 --hold-above 750 --release-below 750 --release-batch 40 --user hwu
+exec python3 '{monitor}/quota_monitor.py' --dir '{monitor}' --interval 600 --job ARRAY_JOB_ID --user hwu
 """)
+    array_job = subprocess.run(["sbatch", "--parsable", str(array)],
+                               capture_output=True, text=True, check=True).stdout.strip().split(";")[0]
+    if not re.fullmatch(r"\d+", array_job):
+        raise RuntimeError(f"unexpected sbatch job ID: {array_job!r}")
+    batch.write_text(batch.read_text().replace("ARRAY_JOB_ID", array_job))
     pin_record = {
         "array.sbatch": sha256(array),
-        "governor.sbatch": sha256(batch),
-        "quota_governor.py": sha256(monitor / "quota_governor.py"),
+        "monitor.sbatch": sha256(batch),
+        "quota_monitor.py": sha256(monitor / "quota_monitor.py"),
         "manifest.json": sha256(campaign / "manifest.json")}
     if round_record is not None:
         pin_record["round.json"] = sha256(round_dir / "round.json")
     atomic_json(monitor / "pins.json", pin_record)
-    array_job = subprocess.run(["sbatch", "--parsable", "--hold", str(array)],
-                               capture_output=True, text=True, check=True).stdout.strip().split(";")[0]
-    if not re.fullmatch(r"\d+", array_job):
-        raise RuntimeError(f"unexpected sbatch job ID: {array_job!r}")
-    label = (f"{campaign.name}/round-{round_record['round']}"
-             if round_record is not None else campaign.name)
-    atomic_json(monitor / "jobs.json", {"jobs": [{"id": array_job, "label": label}],
-                                        "expect_more": False,
-                                        "policy": "every 600 s hold pending above 750 GiB; below 750 GiB release at most 40 owned holds per check"})
-    atomic_json(monitor / "state.json", {"state": "held", "held": [
-        f"{array_job}_{i}" for i in indices]})
     try:
         monitor_job = subprocess.run(["sbatch", "--parsable", str(batch)],
                                      capture_output=True, text=True, check=True).stdout.strip().split(";")[0]
         if not re.fullmatch(r"\d+", monitor_job):
             raise RuntimeError(f"unexpected monitor job ID: {monitor_job!r}")
     except Exception:
-        # The array was submitted with --hold and remains safely held.
         atomic_json(launch, {"array_job_id": array_job, "monitor_job_id": None,
-                             "state": "array-held-monitor-submission-failed"})
+                             "state": "array-submitted-monitor-submission-failed"})
         raise
     record = {"array_job_id": array_job, "job_id": array_job,
               "monitor_job_id": monitor_job,
-              "state": "array-held-awaiting-monitor-first-check",
+              "state": "submitted",
               "submitted_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
               "manifest_sha256": sha256(campaign / "manifest.json"),
               "prelaunch_usage_gib": usage, "prelaunch_usage_source": source,
               "array_sbatch": str(array.relative_to(campaign)),
-              "governor_sbatch": str(batch.relative_to(campaign))}
+              "monitor_sbatch": str(batch.relative_to(campaign)),
+              "task_count": len(indices), "partition": partition,
+              "concurrency_contract": "array throttle no larger than 125",
+              "monitor_contract": "read-only quota sample every 600 seconds"}
     atomic_json(launch, record)
     print(json.dumps(record, indent=2))
 
