@@ -710,8 +710,8 @@ accounting; it is the §8.4 hardcoded twin (`tactix-hardcoded`). The
 requires identical verdicts, certificate bytes, models and trajectory counters.
 It lists the ratchet's internal entries the fixtures reach and the actions the
 port runs statically (ratcheted; none apart from declared diagnostics);
-`tools/bench/port_overhead.py` measures
-StaticPort against HardcodedPort for the §8.4 bound.
+`paper/run/bench.py run interface` measures StaticPort against HardcodedPort
+for the §8.4 bound.
 
 Public forms the port uses beyond the registry, installs and supports:
 

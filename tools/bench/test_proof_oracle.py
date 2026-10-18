@@ -189,7 +189,7 @@ class ProofOracleTests(unittest.TestCase):
                 self.assertFalse(runner.check_proof('dsr', str(cnf), str(proof), 60,
                                                     route='pbp')[0])
                 proof.write_text(positive_pbp)
-                def fake_solve(argv, timeout):
+                def fake_solve(argv, timeout, file_size_limit=None):
                     Path(argv[-1]).write_text(positive_pbp)
                     return 'UNSAT', .01, {}, 'c proof-route pbp\ns UNSATISFIABLE\n'
                 with patch.object(runner, 'solve_once', side_effect=fake_solve):

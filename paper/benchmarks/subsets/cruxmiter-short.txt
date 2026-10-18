@@ -1,2 +1,0 @@
-# Reduced set: the fastest formula for all three configurations.
-cruxmiter32seed7.cnf

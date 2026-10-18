@@ -23,7 +23,8 @@ paper/
   data/                the CSV files the paper's tables and figures are drawn from
   scripts/             normalize.py, make_data.py, plot and table scripts, report.py
   benchmarks/          instance definitions: GBD hash lists, the Tier A,
-                       cruxmiter and Chvátal formulas, reduced subsets
+                       full cruxmiter and Chvátal sets, and reduced subsets
+                       for the general experiments
   run/                 setup.sh (build solvers and checkers), bench.py (run experiments)
   Dockerfile           image with everything built
   tactix.def           the same image for Apptainer/Singularity
@@ -84,22 +85,21 @@ image is read-only, so add `--out /tmp/results` to `bench.py` and
 paper/run/bench.py run smoke --jobs 4
 ```
 
-The smoke test solves the five formulas in `examples/cnf/` with Tactix and
-Kissat and checks every answer; it takes seconds. Expect `10 records, 10
-answered, 10 verified`. The records in `paper/run/results/smoke/records/`
-show all three routes of Tactix's proofs: `tactix-dsr` (dsr-trim and Trestle),
-`tactix-drat` (drat-trim and CakeLPR) and `tactix-pbp` (VeriPB and CakePB).
+The smoke test solves the three formulas in `examples/cnf/` with Tactix and
+Kissat and checks every answer; it takes seconds. Expect `6 records, 6
+answered, 6 verified`. The records in `paper/run/results/smoke/records/`
+exercise Tactix's substitution-redundancy and pseudo-Boolean proof routes.
 
-The reduced evaluation runs each experiment on its subset in
-`benchmarks/subsets/`. The instances are already in the image:
+The reduced evaluation runs the general experiments on their subsets in
+`benchmarks/subsets/`. Chvátal and cruxmiter are intentionally full-set only;
+run them with the Level 3 commands below. The reduced instances are already
+in the image:
 
 ```sh
 B=paper/run/bench.py
 $B run tierd      --subset short --jobs 4   # 30 formulas x 6 solvers            ~15 min
 $B run milestones --subset short --jobs 4   # 30 formulas x 6 Tactix versions    ~20 min
 $B run interface  --subset short --no-check # 333 formulas x 2, sequential       ~20 min
-$B run cruxmiter  --subset short --jobs 3   # seed 7 x 3 configurations          ~15 min
-$B run chvatal    --subset short --jobs 4   # 3 formulas x 5 configurations      ~40 min
 make -C paper LOGS=run/results DATA=run/results/data FIGURES=run/results/figures data figures report
 ```
 
@@ -108,13 +108,10 @@ prints the paper's tables for the rerun. Runtimes depend on the machine. What
 to expect:
 
 - every answer is correct and every certificate verifies (Tier D: `180
-  records, 180 answered, 180 verified`; cruxmiter: 3/3; Chvátal: 15/15);
+  records, 180 answered, 180 verified`);
 - the reduced Tier D and milestone sets consist of formulas that every
   configuration solved within 60 s in the paper's runs, so they exercise all
   solvers and checkers but do not show the ranking, which the full sets do;
-- the case studies show the paper's effect on their subsets: the cruxmiter
-  strategy solves seed 7 several times faster than default Tactix and Kissat,
-  and the Chvátal strategy is the fastest configuration on its three formulas;
 - the interface overhead stays within a few percent.
 
 ## Level 3: full evaluation
