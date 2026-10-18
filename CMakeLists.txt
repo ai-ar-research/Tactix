@@ -112,7 +112,7 @@ target_link_libraries(tactix PRIVATE tactix_lib)
 # DefaultPolicy over another action port (strategy/action_port.hpp): every
 # tactix object except the production default_policy.cpp, plus a translation
 # unit that recompiles it over that port. tactix-hardcoded is the §8.4
-# hardcoded twin (tools/bench/port_overhead.py).
+# hardcoded twin used by the paper's interface-overhead experiment.
 set(TACTIX_PORT_TWIN_OBJECTS
     "$<FILTER:$<TARGET_OBJECTS:tactix_lib>,EXCLUDE,/default_policy\\.cpp\\.o$>")
 function(tactix_port_usage target)
