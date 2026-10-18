@@ -19,6 +19,24 @@ original CNF. The new mode must cover every proof event a selected run can
 produce. It does not replace Automatic, DSR, DRAT, LRAT, Trestle, XLRUP or the
 bundle route, and cannot narrow the N1 action surface.
 
+## Frozen CG benchmark
+
+The [CG collection](../benchmarks/collections/CG/README.md) freezes 25
+independently checked CryptoMiniSat 5.14.7 solves from the pinned Tier-D rerun.
+It includes all 21 sub-600-second exclusive or at-least-10x wins found in the
+601 published rows, plus the strongest CMS-over-baseline row from four
+previously unrepresented families. The collection spans 14 families and binds
+each compressed input and checked result by SHA-256. Its long-form comparison
+records CMS and all seven saved baseline solve times and statuses for 200
+solver-instance rows.
+
+The rerun stopped at 601/1,166 after representative evidence was accepted, so
+CG is not a complete Tier-D census. It is the fixed mechanism and performance
+target: one instance-independent DefaultPolicy should solve every row within 2x
+the checked CMS time at matched resources. N1--N4, independent proof/model
+checking, held-out nonalgebraic coverage and the standing regression gates
+remain mandatory. No generated proof or expanded CNF is retained.
+
 **Search-time algebraic reasoning.** Extend the retained authenticated GF(2)
 matrix, existing GF(3) equations and exact unweighted cardinality constraints
 to reason over the live CDCL trail at propagated search fixpoints. Derive a
