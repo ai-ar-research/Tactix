@@ -569,10 +569,12 @@ def check_proof(man, campaign, solver, cnf, proof, work):
         stderr = work / f"checker-{number}.stderr"
         remaining = max(1, check_limit - int(time.monotonic() - started))
         actual_stdout = redirect[0] if redirect else stdout
-        stage_env = None
+        workspace = man.get("certificate_policy", {}).get("storage") == "workspace-ephemeral"
+        stage_env = (dict(os.environ, TMPDIR=str(Path(work) / "tmp"))
+                     if workspace else None)
         stage_environment = {}
         if name == "frat-xor" and fmt == "frat-xor" and frat_temp is not None:
-            stage_env = os.environ.copy()
+            stage_env = dict(stage_env or os.environ)
             stage_env["FRAT_XOR_TEMP_PATH"] = str(frat_temp)
             stage_environment = {"FRAT_XOR_TEMP_PATH": (
                 "anonymous-node-local" if isinstance(work, AnonymousWork)
@@ -582,7 +584,7 @@ def check_proof(man, campaign, solver, cnf, proof, work):
             # CakeML's shipped 4 GiB heap is smaller than the SC2026 32 GiB
             # process contract and can reject a valid large translated proof.
             # Keep 4 GiB for its default stack and further address-space slack.
-            stage_env = os.environ.copy()
+            stage_env = dict(stage_env or os.environ)
             stage_env["CML_HEAP_SIZE"] = "24576"  # MiB
             stage_environment = {"CML_HEAP_SIZE_MIB": 24576}
         measured_stage = measured(cmd, actual_stdout, stderr, remaining,
@@ -720,6 +722,7 @@ def run_one(campaign, index):
         work.mkdir(parents=True, exist_ok=False)
         if workspace:
             local = None
+            (work / "tmp").mkdir()
             cnf = work / "instance.cnf"
             previous_term_handler = signal.signal(signal.SIGTERM, task_terminated_signal)
             if "workspace_quota_stop_gib" in resource_contract:
@@ -752,8 +755,10 @@ def run_one(campaign, index):
             cmd = [executable, cnf, proof]
         else:
             cmd = [executable, cnf, proof_dir]
+        child_env = (dict(os.environ, TMPDIR=str(work / "tmp"))
+                     if workspace else None)
         solve = measured(cmd, stdout, stderr, solve_limit,
-                         work / "solve.time")
+                         work / "solve.time", child_env)
         answer = verdict(solve["exit_code"], stdout)
         result = {
             "task": index, "solver": solver["name"], "instance": inst["rel"],
@@ -783,7 +788,7 @@ def run_one(campaign, index):
             result["certificate_sha256"] = sha256(stdout)
             model_check = measured([campaign / man["checkers"]["checkmodel"], cnf, stdout],
                                    work / "model-check.stdout", work / "model-check.stderr",
-                                   600, work / "model-check.time")
+                                   600, work / "model-check.time", child_env)
             result["model_check"] = model_check
             result["model_protocol_ok"] = sat_output_protocol_ok(stdout)
             result["model_ok"] = (model_check["exit_code"] == 0 and

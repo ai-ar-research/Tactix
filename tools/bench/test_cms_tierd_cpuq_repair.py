@@ -85,7 +85,7 @@ class CpuqRepairTests(unittest.TestCase):
             self.assertFalse((workspace / "pins/workspace_quota.py").exists())
 
             # A successor keeps the prior checked rows without rerunning them,
-            # freezes their exact inventory, and uses the governor-only runner.
+            # freezes their exact inventory, and uses workspace cleanup.
             (workspace / "launch.json").write_text('{"array_job_id":"23456"}')
             (workspace / "results/00002.json").write_text('{"valid":true}')
             successor = root / "successor"

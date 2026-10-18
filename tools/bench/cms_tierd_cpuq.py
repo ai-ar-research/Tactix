@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare and summarize the pinned cpu-q CryptoMiniSat Tier-D rerun."""
+"""Prepare and summarize the pinned workspace-backed cpu-q CMS Tier-D rerun."""
 
 import argparse
 import csv
@@ -56,19 +56,15 @@ def prepare(campaign):
     shutil.copy2(ROOT / "tools/bench/frozen_baseline.py", runner)
     provenance["frozen-baseline"] = {
         "path": "pins/frozen_baseline.py", "sha256": sha256(runner)}
-    scratch_module = campaign / "pins/anonymous_scratch.py"
-    shutil.copy2(ROOT / "tools/bench/anonymous_scratch.py", scratch_module)
-    provenance["anonymous-scratch"] = {
-        "path": "pins/anonymous_scratch.py", "sha256": sha256(scratch_module)}
     checker_source = ROOT / "tools/checkers/frat-xor-855f3d0"
-    checker_patch = campaign / "pins/frat_xor_node_local_temp.patch"
+    checker_patch = campaign / "pins/frat_xor_temp_path.patch"
     checker_patch.write_bytes(subprocess.run(
         ["git", "-C", str(checker_source), "diff", "--", "src/elab.rs"],
         capture_output=True, check=True).stdout)
     if checker_patch.stat().st_size == 0:
-        raise RuntimeError("missing FRAT-XOR anonymous-temp source patch")
+        raise RuntimeError("missing FRAT-XOR explicit-temp-path source patch")
     provenance["frat-xor-source-patch"] = {
-        "path": "pins/frat_xor_node_local_temp.patch", "sha256": sha256(checker_patch)}
+        "path": "pins/frat_xor_temp_path.patch", "sha256": sha256(checker_patch)}
     wrapper = campaign / "pins/cms-wrapper"
     wrapper.write_text(
         "#!/usr/bin/env bash\nset -euo pipefail\n"
@@ -79,22 +75,22 @@ def prepare(campaign):
                                  "arguments": ["--zero-exit-status", "--verb", "0",
                                                "{cnf}", "{frat}"]}
     manifest = {
-        "schema": 1, "kind": "cryptominisat-tierd-cpuq-anonymous-baseline-v2",
+        "schema": 1, "kind": "cryptominisat-tierd-cpuq-workspace-baseline-v1",
         "campaign": campaign.name,
         "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "once_only": True, "requeue": False,
         "certificate_policy": {"retention": "none",
-                               "storage": "anonymous-node-local",
+                               "storage": "workspace-ephemeral",
                                "result_publication": "pending-journal-then-atomic-promotion",
                                "stage_cleanup": "delete-input-after-consuming-checker-stage",
-                               "terminal_cleanup": "close-anonymous-handles-before-result-publication"},
+                               "terminal_cleanup": "bounded-nfs-retry-in-finally-before-result-publication"},
         "limits": {"solve_wall_seconds": 5000, "checker_pipeline_wall_seconds": 45000,
                    "scheduler_memory_gib": 32, "memory_enforcement": "slurm_task_cgroup"},
         "slurm": {"partition": "cpu-q", "cpus_per_task": 4, "memory_gib": 32,
-                  "array_throttle": None},
+                  "array_throttle": 125},
         "source_commits": {"cryptominisat": "3c8e228e8a48e41276e8ab039f763daa08d61161",
                            "frat-xor": "855f3d0ae45fe37c3ad29e4a8ef56e62e1b5e4ad"},
-        "source_patches": {"frat-xor-elab-node-local-temp": sha256(
+        "source_patches": {"frat-xor-elab-explicit-temp-path": sha256(
             ROOT / "tools/checkers/frat-xor-855f3d0/src/elab.rs"),
                            "frat-xor-patch": provenance["frat-xor-source-patch"]},
         "instances_list_sha256": sha256(LIST),
@@ -113,7 +109,6 @@ def prepare(campaign):
                        "frat-xor": provenance["frat-xor"],
                        "cake-xlrup": provenance["cake-xlrup"],
                        "frozen-baseline": provenance["frozen-baseline"],
-                       "anonymous-scratch": provenance["anonymous-scratch"],
                        "solver-binary": provenance["solver"],
                        "shared-libraries": [provenance[n] for n in (
                            "libcadiback.so.0", "libcadical.so.3",
@@ -127,12 +122,12 @@ def prepare(campaign):
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=14:15:00
-#SBATCH --array=0-1165
+#SBATCH --array=0-1165%125
 #SBATCH --no-requeue
 #SBATCH --output={campaign}/logs/task-%a.log
 export TACTIX_REPO_ROOT='{ROOT}'
 export PYTHONDONTWRITEBYTECODE=1
-export TMPDIR=/tmp
+export TMPDIR='{campaign}/scratch'
 exec python3 '{runner}' --campaign '{campaign}' --run-one "$SLURM_ARRAY_TASK_ID"
 """)
     print(f"prepared {campaign}: {len(rows)} rows, frozen harness, zero retention")
@@ -193,7 +188,8 @@ def compatible_repair_policy(base, repair):
             "cryptominisat-tierd-cpuq-workspace-repair-v1",
             "cryptominisat-tierd-cpuq-workspace-repair-v2"}:
         return policy == base_policy
-    common = (base_policy.get("storage") == "anonymous-node-local" and
+    common = (base_policy.get("storage") in {
+                  "anonymous-node-local", "workspace-ephemeral"} and
               policy.get("storage") == "workspace-ephemeral" and
               all(policy.get(key) == base_policy.get(key) for key in
                   ("retention", "result_publication", "stage_cleanup")) and

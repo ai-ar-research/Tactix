@@ -4,8 +4,7 @@
 #   tierd_home_campaign.sh prepare <CAMPAIGN> <BINARY> <BINARY_SHA256> <SOURCE_TREE> <SOURCE_COMMIT> [--solver-argument=ARG]... [--instance=REL]...
 #   tierd_home_campaign.sh recheck CAMPAIGN SOURCE_CAMPAIGN [CLASSES]   (default CLASSES=memout; 64 GiB)
 #   tierd_home_campaign.sh validate CAMPAIGN
-#   tierd_home_campaign.sh submit CAMPAIGN [GOVERNOR_JOBS_JSON for partial runs]
-#   tierd_home_campaign.sh governor CAMPAIGN        (prepare a fallback governor; never submits)
+#   tierd_home_campaign.sh submit CAMPAIGN
 #   tierd_home_campaign.sh status CAMPAIGN
 #
 # Paths are relative to the repository root. prepare/recheck only write the new
@@ -14,15 +13,16 @@
 # (recheck 65536 MiB), 5000 s solve, 28800 s proof-check window, automatic proof
 # (PBP -> VeriPB/CakePB, witness-free DSR -> drat-trim/CakeLPR, witnessed DSR ->
 # long64-fixed dsr-trim/Trestle), named scratch in <campaign>/scratch deleted at
-# classification, array throttle %125 (user-requested), no node constraint.
+# classification and on timeout/SIGTERM, array throttle %125 (user-requested),
+# read-only quota monitoring every 10 minutes, no node-local scratch and no node
+# constraint.
 # Without --instance the prepared array must hold exactly 1,166 rows; with
 # --instance it is a smoke campaign of exactly those rows.
 set -euo pipefail
 R="$(cd "$(dirname "$0")/../.." && pwd)"
 T=$R/tools/bench/experimental_tierd.py
-GOVERNOR_JOBS=benchmarks/baselines/sc24-26-rerun-quota-governor/jobs.json
 THROTTLE=125
-THROTTLE_REASON="user-requested concurrency cap of 125 for the Tier D campaign (2026-10-09); certificates on the home quota under the 10-minute quota governor (hold pending above 750 GiB, release at most 40 held tasks per check below 750 GiB)"
+THROTTLE_REASON="user-requested maximum of 125 simultaneous instances for a full Tier D campaign"
 export PYTHONDONTWRITEBYTECODE=1
 usage() { sed -n '4,9p' "$R/tools/bench/tierd_home_campaign.sh"; exit 2; }
 new_campaign() {
@@ -76,42 +76,15 @@ validate)
   python3 "$T" --campaign "$R/$1" --validate
   echo "wait for $R/$1/validation.json (\"passed\": true), then: $0 submit $1";;
 submit)
-  campaign=$1 jobs=${2:-$GOVERNOR_JOBS}
-  if grep -qx "#SBATCH --array=0-1165%$THROTTLE" "$R/$campaign/array.sbatch"; then
+  campaign=$1
+  if grep -qx "#SBATCH --array=0-1165%$THROTTLE" "$R/$campaign/array.sbatch" ||
+      grep -q '"recheck_source"' "$R/$campaign/manifest.json"; then
     python3 "$R/tools/slurm/submit_full_tierd.py" \
       --campaign "$R/$campaign" --array-sbatch "$R/$campaign/array.sbatch"
     exit 0
   fi
   quota -s 2>/dev/null | tail -2 || true
-  if [ "$jobs" = "$GOVERNOR_JOBS" ]; then
-    # The shared governor re-reads jobs.json every tick; it must be running.
-    live=$(squeue -h -u "$USER" -n sc24-26-quota-governor -t R -o '%i %L')
-    [ -n "$live" ] || { echo "shared quota governor is not running; use: $0 governor $campaign" >&2; exit 3; }
-    echo "shared governor (job, time left): $live"
-  fi
-  python3 "$T" --campaign "$R/$campaign" --submit --governor-jobs "$R/$jobs"
-  echo "registered with $jobs";;
-governor)
-  campaign=$1 g=$R/$1/governor
-  [ -d "$R/$campaign" ] && [ ! -e "$g" ] || { echo "need a prepared campaign without a governor" >&2; exit 2; }
-  mkdir "$g"
-  cat "$R/tools/slurm/quota_governor.py" > "$g/quota_governor.py"
-  chmod 0444 "$g/quota_governor.py"
-  printf '{\n  "jobs": [],\n  "expect_more": false,\n  "policy": "every 600 s read home usage; above 750 GiB hold owned PENDING tasks; below 750 GiB release at most 40 owned holds; never touch running jobs"\n}\n' > "$g/jobs.json"
-  cat > "$g/governor.sbatch" <<EOF
-#!/usr/bin/env bash
-#SBATCH --partition=cpu-q
-#SBATCH --job-name=tierd-quota-governor
-#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=1
-#SBATCH --mem=2G
-#SBATCH --time=7-00:00:00
-#SBATCH --no-requeue
-#SBATCH --output=$g/governor.out
-export PYTHONDONTWRITEBYTECODE=1
-exec /cm/local/apps/python3/bin/python3 $g/quota_governor.py --dir $g --interval 600 --hold-above 750 --release-below 750 --release-batch 40
-EOF
-  sha256sum "$g/quota_governor.py" "$g/governor.sbatch" > "$g/governor.sha256"
-  echo "prepared $g (not submitted): sbatch $g/governor.sbatch; then $0 submit $campaign ${campaign}/governor/jobs.json";;
+  python3 "$T" --campaign "$R/$campaign" --submit;;
 status)
   python3 "$T" --campaign "$R/$1" --summarize;;
 *) usage;;
