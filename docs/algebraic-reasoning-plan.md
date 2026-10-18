@@ -259,8 +259,17 @@ raw input seed exactly once. The
 [repaired successor](../benchmarks/reports/2026-10-18-pbp-broad-fuzz-r2/README.md)
 passes 128 SAT models, 128 VeriPB+CakePB UNSAT proofs, 3,593 exact deletions,
 128 rejected source corruptions and 128 rejected elaborated-kernel corruptions,
-plus both focused reproducers. A fresh complete current-source gate is still
-required because the earlier 367/367 gate preceded these repairs.
+plus both focused reproducers. The immutable repaired-source gate
+[1791145 + 1791146](../benchmarks/reports/2026-10-18-pbp-current-source-full-gate-immutable/README.md)
+at `36ddc73d1` passes 367/367 Debug tests, Release `micro_proofs` 1/1,
+40 runtime-harness and 33 proof-oracle tests, the campaign/Slurm harnesses and
+all documentation/pin checks; final source/evidence hashes matched and the
+Release binary is `0b89d912...45197a1`. The focused supplement repaired a stale
+ignored checker symlink and explicitly forbids a skipped proof test. This
+closes the fresh-source prerequisite. B28+C5 job 1791147, Rank1–50 job
+1791148, WV100 job 1791149 and full Tier-D job 1791375 are active; proof-free
+four-core CMS Tier-D job 1791200 is a comparator, not PBP acceptance evidence.
+No performance gate or PBP promotion is claimed before those results pass.
 
 The full Tier-D rerun also owns adjacent CryptoMiniSat mechanisms needed by
 the one-policy CG target. A later causal replay refines the initial `mp1`
