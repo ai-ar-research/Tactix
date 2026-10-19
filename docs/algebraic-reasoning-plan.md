@@ -285,9 +285,16 @@ memory, per-instance limits and cleanup remain strict. The
 accept B28+C5 job 1791147 (+0.16%), Rank1–50 job 1791148 (+1.23%) and WV100
 job 1791149 (-2.10%). The paper's one Rank proof censor and three WV solver
 timeouts remain explicit inherited limitations, not independent verification.
-Full Tier-D job 1791375 remains active; proof-free four-core CMS Tier-D job
-1791200 is a comparator, not PBP acceptance evidence. No PBP promotion is
-claimed before full Tier D passes.
+Full Tier-D job 1791375 remains active; no PBP promotion is claimed before it
+passes. Proof-free four-core CMS screen 1791200 is terminal with all 1,166 rows
+published: 342 model-checked SAT, 296 unchecked UNSAT and 528 UNKNOWN, with no
+result or cleanup failures. Because its `--maxtime 5000` limit was aggregate
+CPU time, it remains screening evidence rather than the requested 5,000-second
+wall-time comparator. Completed handoff 1792280 hash-bound the result inventory
+and submitted corrected array 1792904. That exact continuation reuses 638 clean
+SAT/UNSAT rows and reruns all 528 UNKNOWN rows on four cores and 32 GiB, without
+proof production, under a monotonic 5,000-second wall limit. It waits behind
+`afterany:1791375`, so it cannot compete with the active Tier-D gate.
 Hash-checked terminal scorer 1792344 is dependency-blocked on all tasks in
 1791375 and writes the paper-target base score after the array exits. Any
 32 GiB checker memory failure still requires a source-bound 64 GiB recheck and
