@@ -277,6 +277,10 @@ timeouts remain explicit inherited limitations, not independent verification.
 Full Tier-D job 1791375 remains active; proof-free four-core CMS Tier-D job
 1791200 is a comparator, not PBP acceptance evidence. No PBP promotion is
 claimed before full Tier D passes.
+Hash-checked terminal scorer 1792344 is dependency-blocked on all tasks in
+1791375 and writes the paper-target base score after the array exits. Any
+32 GiB checker memory failure still requires a source-bound 64 GiB recheck and
+a second score before the full gate can pass.
 All of the user's Slurm work is observed by reusable storage governor 1791687.
 It samples global home usage every 600 seconds, dynamically discovers new jobs,
 holds only PENDING tasks above 750 GiB, and releases below 700 GiB only tasks it
