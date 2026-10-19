@@ -38,13 +38,14 @@ checking, held-out nonalgebraic coverage and the standing regression gates
 remain mandatory. No generated proof or expanded CNF is retained.
 
 After the corrected 5,000-wall-second proof-free CMS census is terminal,
-reassess rather than automatically enlarge CG. Keep 25 rows as the default
-development budget, but prefer a deliberately stratified representation over
-preserving the current rows. Select for family and mechanism breadth,
-SAT/UNSAT, exclusive/major-win status and runtime scale; avoid near-duplicates
-from a single prolific family. Normalize obvious family aliases and cap a
-family at three rows unless each excess row has a separately documented
-mechanism.
+reassess rather than automatically enlarge CG. Treat 25 rows as a soft
+development budget, not a quota: representation takes priority when a fixed
+count would omit a distinct family or mechanism, and the collection should not
+be padded with redundant rows merely to reach 25. Select for family and
+mechanism breadth, SAT/UNSAT, exclusive/major-win status and runtime scale;
+avoid near-duplicates from a single prolific family. Normalize obvious family
+aliases and cap a family at three rows unless each excess row has a separately
+documented mechanism.
 Replace a row only when the full census supplies a materially stronger or more
 representative target. Model-checked proof-free SAT rows may support selection
 directly. Proof-free UNSAT is discovery evidence only and must receive a
