@@ -289,20 +289,25 @@ memory, per-instance limits and cleanup remain strict. The
 accept B28+C5 job 1791147 (+0.16%), Rank1–50 job 1791148 (+1.23%) and WV100
 job 1791149 (-2.10%). The paper's one Rank proof censor and three WV solver
 timeouts remain explicit inherited limitations, not independent verification.
-Full Tier-D job 1791375 remains active; no PBP promotion is claimed before it
-passes. Proof-free four-core CMS screen 1791200 is terminal with all 1,166 rows
+Full Tier-D job 1791375 is terminal with all 1,166 rows published and no
+scratch residue: 483 verified SAT, 512 verified UNSAT, 156 solver timeouts, one
+solver memory-out, six checker timeouts and eight checker memory-outs. Its
+hash-pinned base scorer 1792344 confirms both raw and verified PAR-2 within the
+paper-plus-10% ceilings, but correctly rejects six newly lost independent proof
+checks. Validation job 1793967 passed, and source-bound eight-row 64 GiB recheck
+1793968 reruns every checker-memory row with the same binary, arguments and
+hash-bound source results. Final scorer 1793977 waits on every recheck task and
+writes a separate recheck-substituted score. No PBP promotion is claimed before
+that score passes. Proof-free four-core CMS screen 1791200 is terminal with all 1,166 rows
 published: 342 model-checked SAT, 296 unchecked UNSAT and 528 UNKNOWN, with no
 result or cleanup failures. Because its `--maxtime 5000` limit was aggregate
 CPU time, it remains screening evidence rather than the requested 5,000-second
 wall-time comparator. Completed handoff 1792280 hash-bound the result inventory
 and submitted corrected array 1792904. That exact continuation reuses 638 clean
 SAT/UNSAT rows and reruns all 528 UNKNOWN rows on four cores and 32 GiB, without
-proof production, under a monotonic 5,000-second wall limit. It waits behind
-`afterany:1791375`, so it cannot compete with the active Tier-D gate.
-Hash-checked terminal scorer 1792344 is dependency-blocked on all tasks in
-1791375 and writes the paper-target base score after the array exits. Any
-32 GiB checker memory failure still requires a source-bound 64 GiB recheck and
-a second score before the full gate can pass.
+proof production, under a monotonic 5,000-second wall limit. Its
+`afterany:1791375` dependency released only after base Tier D finished; it is
+now active independently of the proof recheck.
 All of the user's Slurm work is observed by reusable storage governor 1791687.
 It samples global home usage every 600 seconds, dynamically discovers new jobs,
 holds only PENDING tasks above 750 GiB, and releases below 700 GiB only tasks it
