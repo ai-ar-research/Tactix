@@ -8,8 +8,9 @@ were written for a single diagnostic pass or a completed campaign.
 
 - `experimental_tierd.py` and `tierd_home_campaign.sh` run the current Tier D
   experiments.
-- `fixed_runtime.py`, `controller_regression.py`, and `score_tierd_full.py`
-  provide the fixed-runtime and controller-regression gates and scoring.
+- `fixed_runtime.py`, `controller_regression.py`,
+  `freeze_paper_controller_baseline.py`, and `score_tierd_full.py` provide the
+  fixed-runtime and paper-target controller-regression gates and scoring.
 - `runtime_task.py`, `proof_oracle.py`, `dsr_transport.cpp`, and the scratch
   helpers implement shared execution, proof validation, and cleanup behavior.
 

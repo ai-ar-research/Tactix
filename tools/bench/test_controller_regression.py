@@ -5,7 +5,9 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 import controller_regression as regression
-from controller_regression import proof_disposition, proof_cost_comparison, score_row, candidate_arguments
+from controller_regression import (proof_disposition, proof_cost_comparison,
+                                   score_row, candidate_arguments,
+                                   within_runtime_target)
 
 
 def proof(elapsed, timeout=False):
@@ -67,6 +69,7 @@ class CandidateArgumentTests(unittest.TestCase):
                 pin_sha256={'pins/' + name: regression.sha(pins / name)
                             for name in ('checkmodel', 'modelcheck.py', *checkers)},
                 matrix_sha256=regression.sha(matrix), expected_rows=1,
+                acceptance_runtime_seconds=11.0,
                 resource_contract=dict(partition='fixture', cpus_per_task=2,
                                        memory_mib=8192, solve_timeout=10,
                                        one_solver_per_task=True))
@@ -77,6 +80,7 @@ class CandidateArgumentTests(unittest.TestCase):
                 source_commit='fixed-fixture', binaries={'tactix': regression.sha(release)})))
             baseline_before = baseline.read_bytes()
             with patch.object(regression, 'ROOT', root), patch.object(regression, 'BASELINE', baseline), \
+                 patch.object(regression, 'BASELINE_FREEZER', root / 'freeze.py'), \
                  patch.object(regression, 'CANONICAL_CHECKERS', checkers), \
                  patch.object(regression.subprocess, 'run') as verified:
                 for prefix, arguments in (('legacy', []),
@@ -95,6 +99,12 @@ class CandidateArgumentTests(unittest.TestCase):
 
 
 class RegressionGateTests(unittest.TestCase):
+    def test_paper_runtime_target_allows_exactly_ten_percent(self):
+        paper_seconds = 100.0
+        ceiling = paper_seconds * 1.10
+        self.assertTrue(within_runtime_target(ceiling, ceiling))
+        self.assertFalse(within_runtime_target(ceiling + 0.001, ceiling))
+
     def test_small_baseline_uses_twenty_seconds_and_equality_passes(self):
         self.assertEqual(proof_disposition(proof(30), proof(10)), ('verified', []))
         self.assertIn('significant', proof_disposition(proof(30.001), proof(10))[1][0])
@@ -175,13 +185,40 @@ class RegressionGateTests(unittest.TestCase):
     def test_saved_solver_timeout_exception_does_not_excuse_checker_error(self):
         row, accepted, contract = self.sample()
         accepted['require_solver_retention'] = False
-        row['solve']['timed_out'] = True
+        row['solve'].update(timed_out=True, wall_seconds=1200.005, exit_code=None)
+        row['verdict'] = 'UNKNOWN'
         row['proof_check']['stages'][0]['result'] = 'rejected'
         self.assertTrue(score_row(row, accepted, contract)[1])
         row['proof_check'] = None
         self.assertEqual(score_row(row, accepted, contract), ('solver-timeout', []))
         accepted['require_solver_retention'] = True
         self.assertIn('lost retained solve', score_row(row, accepted, contract)[1])
+
+    def test_paper_timeout_is_an_explicit_exception_but_new_timeout_fails(self):
+        row, accepted, contract = self.sample()
+        row['solve']['timed_out'] = True
+        row['solve']['wall_seconds'] = 1200.005
+        row['solve']['exit_code'] = None
+        row['verdict'] = 'UNKNOWN'
+        row['proof_check'] = None
+        accepted['require_solver_retention'] = False
+        self.assertEqual(score_row(row, accepted, contract), ('solver-timeout', []))
+        accepted['require_solver_retention'] = True
+        self.assertIn('lost retained solve', score_row(row, accepted, contract)[1])
+
+    def test_solver_timeout_evidence_still_obeys_per_instance_bound(self):
+        row, accepted, contract = self.sample()
+        accepted['require_solver_retention'] = False
+        row['solve'].update(timed_out=True, wall_seconds=1201.001, exit_code=None)
+        row['verdict'] = 'UNKNOWN'
+        row['proof_check'] = None
+        self.assertIn('invalid solver-timeout evidence',
+                      score_row(row, accepted, contract)[1])
+
+    def test_paper_censored_proof_has_no_invented_completion_target(self):
+        row, accepted, contract = self.sample()
+        accepted['proof_check'] = proof(1800, True)
+        self.assertEqual(score_row(row, accepted, contract), ('censored', []))
 
     def test_model_requires_independent_success(self):
         row, accepted, contract = self.sample()

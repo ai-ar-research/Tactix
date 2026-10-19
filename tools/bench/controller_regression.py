@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Prepare and score the four bounded-checker controller regression gates.
+"""Prepare and score the paper-target bounded controller regression gates.
 
-The frozen AM549 per-instance authority is read-only. Censored proof checking
-can satisfy this regression contract without becoming independent verification.
+The preserved paper release is the per-instance authority and aggregate solver
+time may be at most ten percent slower.  Censored paper outcomes remain explicit
+exceptions rather than becoming independent verification.
 """
 import argparse
 from collections import Counter
@@ -19,9 +20,35 @@ import subprocess
 from fixed_runtime import CANONICAL_CHECKERS, sha, require
 
 ROOT = Path(__file__).resolve().parents[2]
-BASELINE = ROOT / 'benchmarks/baselines/controller-foundations-v1/results.json'
-CEILINGS = {'rank1-50': 8521.52175, 'b28c5': 999.87615}
+BASELINE = ROOT / 'benchmarks/baselines/controller-paper-v1/results.json'
+BASELINE_FREEZER = ROOT / 'tools/bench/freeze_paper_controller_baseline.py'
 CHECK_TIMEOUT = 1800
+
+
+def within_runtime_target(total, ceiling):
+    """The paper target permits equality and no more than ten percent excess."""
+    return ceiling is None or total <= ceiling
+
+
+def score_target_path(path):
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path.resolve())
+
+
+def write_score(path, result, replace=False):
+    if path.exists():
+        require(replace, 'score output already exists')
+        prior = json.loads(path.read_text())
+        require(prior.get('schema') == result['schema'] and
+                prior.get('manifest_sha256') == result['manifest_sha256'] and
+                prior.get('target_baseline_sha256') == result['target_baseline_sha256'],
+                'refusing to replace score for a different campaign or target')
+    temporary = path.with_name('.' + path.name + '.tmp')
+    require(not temporary.exists(), 'temporary score output already exists')
+    temporary.write_text(json.dumps(result, indent=2) + '\n')
+    temporary.replace(path)
 
 
 def proof_cost_comparison(candidate, baseline):
@@ -55,7 +82,7 @@ def candidate_arguments(arguments=()):
     """Keep this Default-policy gate on its original certificate contract.
 
     Extensions are deliberately enumerated: arbitrary CLI policy/proof flags
-    would silently change what the four historical comparisons qualify.
+    would silently change what the historical comparisons qualify.
     """
     values = list(arguments)
     allowed = {
@@ -76,7 +103,7 @@ def prepare(prefix, release, solver_arguments=(), dsr_transport=None):
     pin = json.loads((release.parent / 'PIN.json').read_text())
     require(pin['build_type'] == 'Release', 'production Release required')
     require(sha(release) == pin['binaries']['tactix'], 'candidate pin changed')
-    subprocess.run(['python3', str(ROOT / 'tools/bench/freeze_controller_baseline.py'),
+    subprocess.run(['python3', str(BASELINE_FREEZER),
                     '--verify'], check=True)
     baseline = json.loads(BASELINE.read_text())
     campaigns = []
@@ -139,9 +166,9 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
             resource_contract=contract, input_sha256=accepted['input_sha256'],
             collect_runtime_context=old.get('collect_runtime_context', False),
             scratch_policy='anonymous-local-files-v1',
-            regression_contract='DEVELOPMENT_PLAN.md#84-flexibility',
-            limitation='Cross-window checkpoint comparison; clean censored proofs are not verified.',
-            acceptance_runtime_seconds=CEILINGS.get(name))
+            regression_contract='paper release plus ten percent aggregate solver time',
+            limitation='Paper-target comparison; clean censored proofs are not independently verified.',
+            acceptance_runtime_seconds=accepted['acceptance_runtime_seconds'])
         manifest['pin_sha256'] = {str(p.relative_to(campaign)): sha(p)
             for p in [*(campaign / 'pins').iterdir(), campaign / 'matrix.tsv', campaign / 'array.sbatch']}
         (campaign / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -190,6 +217,12 @@ def score_row(row, accepted, contract):
     solve = row.get('solve') or {}
     verdict = row.get('verdict')
     if solve.get('timed_out'):
+        elapsed = solve.get('wall_seconds')
+        if (verdict != 'UNKNOWN' or solve.get('exit_code') is not None or
+                not isinstance(elapsed, (int, float)) or
+                not math.isfinite(elapsed) or elapsed < 0 or
+                elapsed > contract['solve_timeout'] + 1):
+            errors.append('invalid solver-timeout evidence')
         if accepted['require_solver_retention']:
             errors.append('lost retained solve')
         # A saved solver-timeout exception may remain a clean timeout.
@@ -215,7 +248,7 @@ def score_row(row, accepted, contract):
     return disposition, errors + proof_errors
 
 
-def score(campaign):
+def score(campaign, target_baseline=None):
     manifest = json.loads((campaign / 'manifest.json').read_text())
     require(manifest['schema'] == 'tactix-controller-regression-v1', 'wrong manifest')
     require(len(manifest['arms']) == 1, 'candidate arm ambiguity')
@@ -226,8 +259,17 @@ def score(campaign):
             'candidate certificate/argument contract changed')
     for relative, digest in manifest['pin_sha256'].items():
         require(sha(campaign / relative) == digest, 'campaign pin changed: ' + relative)
-    require(sha(BASELINE) == manifest['baseline']['sha256'], 'baseline changed')
-    accepted = json.loads((campaign / 'pins/baseline.json').read_text())['sets'][manifest['set']]
+    if target_baseline is None:
+        baseline_path = campaign / 'pins/baseline.json'
+        require(sha(baseline_path) == manifest['baseline']['sha256'], 'campaign baseline changed')
+        baseline = json.loads(baseline_path.read_text())
+        target_kind = 'campaign-pinned'
+    else:
+        baseline_path = target_baseline
+        baseline = json.loads(baseline_path.read_text())
+        target_kind = 'paper-release-plus-10-percent'
+    require(manifest['set'] in baseline['sets'], 'set absent from target baseline')
+    accepted = baseline['sets'][manifest['set']]
     contract = manifest['resource_contract']
     require(contract['checker_timeout'] == CHECK_TIMEOUT and
             not contract.get('checker_timeout_overrides') and
@@ -238,6 +280,8 @@ def score(campaign):
     with (campaign / 'matrix.tsv').open() as stream:
         matrix = list(csv.DictReader(stream, delimiter='\t'))
     require(len(matrix) == accepted['expected_rows'], 'matrix row count')
+    require(sha(campaign / 'matrix.tsv') == accepted['matrix_sha256'], 'target matrix mismatch')
+    require(manifest['input_sha256'] == accepted['input_sha256'], 'target inputs mismatch')
     by_instance = {row['instance']: row for row in accepted['rows']}
     counts, failures, missing, times, comparisons = Counter(), [], [], [], []
     for task, expected in enumerate(matrix):
@@ -261,13 +305,19 @@ def score(campaign):
         if not row.get('solve', {}).get('timed_out') and isinstance(row.get('solve', {}).get('wall_seconds'), (int, float)):
             times.append(row['solve']['wall_seconds'])
     total = math.fsum(times)
-    ceiling = manifest['acceptance_runtime_seconds']
-    if ceiling is not None and not missing and total > ceiling:
+    ceiling = (manifest['acceptance_runtime_seconds'] if target_baseline is None
+               else accepted['acceptance_runtime_seconds'])
+    if not missing and not within_runtime_target(total, ceiling):
         failures.append(dict(errors=['aggregate solver-time ceiling exceeded']))
     require(len(list((campaign / 'results').glob('*.json'))) == len(matrix) - len(missing), 'unexpected result files')
     return dict(schema='tactix-controller-regression-score-v1', set=manifest['set'],
                 manifest_sha256=sha(campaign / 'manifest.json'),
                 scorer_sha256=sha(Path(__file__)),
+                target=target_kind, target_baseline_path=score_target_path(baseline_path),
+                target_baseline_sha256=sha(baseline_path),
+                target_source_commit=baseline.get('target_source_commit'),
+                runtime_tolerance_fraction=accepted.get('runtime_tolerance_fraction'),
+                target_solver_seconds=accepted.get('paper_solver_seconds'),
                 accepted=not missing and not failures, expected_rows=len(matrix),
                 dispositions=dict(counts), missing=missing, failures=failures,
                 solver_seconds=total, solver_seconds_ceiling=ceiling,
@@ -289,12 +339,27 @@ def main():
                    help='append a qualified Default affine-search or graph-labeling setting')
     s = commands.add_parser('score')
     s.add_argument('campaign', type=Path)
+    s.add_argument('--output', type=Path)
+    s.add_argument('--replace-output', action='store_true')
+    pscore = commands.add_parser('score-paper')
+    pscore.add_argument('campaign', type=Path)
+    pscore.add_argument('--output', type=Path)
+    pscore.add_argument('--replace-output', action='store_true')
     args = parser.parse_args()
     if args.command == 'prepare':
         require('/' not in args.prefix and args.prefix not in ('', '.', '..'), 'invalid prefix')
         print(json.dumps(prepare(args.prefix, args.release.resolve(), args.solver_argument, args.dsr_transport), indent=2))
-    else:
+    elif args.command == 'score':
         result = score(args.campaign.resolve())
+        if args.output:
+            write_score(args.output, result, args.replace_output)
+        print(json.dumps(result, indent=2))
+        return 0 if result['accepted'] else 1
+    else:
+        subprocess.run(['python3', str(BASELINE_FREEZER), '--verify'], check=True)
+        result = score(args.campaign.resolve(), BASELINE)
+        if args.output:
+            write_score(args.output, result, args.replace_output)
         print(json.dumps(result, indent=2))
         return 0 if result['accepted'] else 1
     return 0

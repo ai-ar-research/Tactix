@@ -266,10 +266,17 @@ at `36ddc73d1` passes 367/367 Debug tests, Release `micro_proofs` 1/1,
 all documentation/pin checks; final source/evidence hashes matched and the
 Release binary is `0b89d912...45197a1`. The focused supplement repaired a stale
 ignored checker symlink and explicitly forbids a skipped proof test. This
-closes the fresh-source prerequisite. B28+C5 job 1791147, Rank1–50 job
-1791148, WV100 job 1791149 and full Tier-D job 1791375 are active; proof-free
-four-core CMS Tier-D job 1791200 is a comparator, not PBP acceptance evidence.
-No performance gate or PBP promotion is claimed before those results pass.
+closes the fresh-source prerequisite. The preserved paper release
+`0f7c10174` is now the controller-regression target with a 10% aggregate
+solver-time allowance; correctness, retained solves, proof/model validation,
+memory, per-instance limits and cleanup remain strict. The
+[paper-target scores](../benchmarks/reports/2026-10-18-pbp-paper-target-regressions/README.md)
+accept B28+C5 job 1791147 (+0.16%), Rank1–50 job 1791148 (+1.23%) and WV100
+job 1791149 (-2.10%). The paper's one Rank proof censor and three WV solver
+timeouts remain explicit inherited limitations, not independent verification.
+Full Tier-D job 1791375 remains active; proof-free four-core CMS Tier-D job
+1791200 is a comparator, not PBP acceptance evidence. No PBP promotion is
+claimed before full Tier D passes.
 All of the user's Slurm work is observed by reusable storage governor 1791687.
 It samples global home usage every 600 seconds, dynamically discovers new jobs,
 holds only PENDING tasks above 750 GiB, and releases below 700 GiB only tasks it
