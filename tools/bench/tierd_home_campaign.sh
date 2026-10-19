@@ -2,7 +2,7 @@
 # Full Tier D Tactix campaign with certificates on the home quota.
 #
 #   tierd_home_campaign.sh prepare <CAMPAIGN> <BINARY> <BINARY_SHA256> <SOURCE_TREE> <SOURCE_COMMIT> [--solver-argument=ARG]... [--instance=REL]...
-#   tierd_home_campaign.sh recheck CAMPAIGN SOURCE_CAMPAIGN [CLASSES]   (default CLASSES=memout; 64 GiB)
+#   tierd_home_campaign.sh recheck CAMPAIGN SOURCE_CAMPAIGN [CLASSES [SOURCE_TASK...]]   (default CLASSES=memout; 64 GiB)
 #   tierd_home_campaign.sh validate CAMPAIGN
 #   tierd_home_campaign.sh submit CAMPAIGN
 #   tierd_home_campaign.sh status CAMPAIGN
@@ -64,10 +64,16 @@ prepare)
   echo "next: $0 validate $campaign";;
 recheck)
   [ $# -ge 2 ] || usage
-  campaign=$1 source=$2 classes=${3:-memout}
+  campaign=$1 source=$2 classes=${3:-memout}; shift 2
+  [ $# -eq 0 ] || shift
+  task_args=()
+  for task in "$@"; do
+    case "$task" in *[!0-9]*|'') echo "source task must be a nonnegative integer: $task" >&2; exit 2;; esac
+    task_args+=(--recheck-source-task "$task")
+  done
   new_campaign "$campaign"
   python3 "$T" --prepare --campaign "$R/$campaign" --recheck-from "$R/$source" \
-    --recheck-classes "$classes" --memory-mib 65536 "${common[@]}"
+    --recheck-classes "$classes" "${task_args[@]}" --memory-mib 65536 "${common[@]}"
   rows=$(($(wc -l < "$R/$campaign/matrix.tsv") - 1))
   check_array "$campaign" "$rows" 65536M
   echo "PREPARED $campaign ($rows $classes rows of $source at 64 GiB)"

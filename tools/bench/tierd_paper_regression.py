@@ -49,6 +49,15 @@ def verify_manifest(campaign):
     return manifest
 
 
+def recheck_campaigns(recheck):
+    """Normalize one or more direct rechecks in overlay order."""
+    if recheck is None:
+        return []
+    if isinstance(recheck, (str, Path)):
+        return [Path(recheck)]
+    return list(recheck)
+
+
 def checked_result(row, result, contract):
     """Return (status, solve seconds, errors) for one immutable result."""
     errors = []
@@ -144,7 +153,7 @@ def substituted_results(campaign, recheck=None):
                     result.get("binary_sha256") == arm["sha256"],
                     "base result solver identity mismatch")
             results[task] = result
-    if recheck is not None:
+    for recheck in recheck_campaigns(recheck):
         re_manifest = verify_manifest(recheck)
         authority = re_manifest.get("recheck_source") or {}
         require(authority.get("manifest_sha256") == sha(campaign / "manifest.json"),
@@ -165,15 +174,15 @@ def substituted_results(campaign, recheck=None):
             require(expected_hash and sha(source_path) == expected_hash,
                     "recheck source result changed")
             path = recheck / "results" / f"{local:03d}.json"
-            if path.is_file():
-                result = json.loads(path.read_text())
-                require(result.get("task") == local and
-                        result.get("instance") == row["instance"],
-                        "recheck result identity mismatch")
-                require(result.get("arm") == "tactix" and
-                        result.get("binary_sha256") == arm["sha256"],
-                        "recheck result solver identity mismatch")
-                results[source_task] = result
+            require(path.is_file(), f"recheck result missing: {recheck.name}/{local:03d}")
+            result = json.loads(path.read_text())
+            require(result.get("task") == local and
+                    result.get("instance") == row["instance"],
+                    "recheck result identity mismatch")
+            require(result.get("arm") == "tactix" and
+                    result.get("binary_sha256") == arm["sha256"],
+                    "recheck result solver identity mismatch")
+            results[source_task] = result
     return manifest, matrix, results
 
 
@@ -247,7 +256,8 @@ def load_verified_baseline(path=BASELINE):
 
 def score(campaign, recheck=None, baseline_path=BASELINE):
     baseline = load_verified_baseline(baseline_path)
-    manifest, matrix, results = substituted_results(campaign, recheck)
+    rechecks = recheck_campaigns(recheck)
+    manifest, matrix, results = substituted_results(campaign, rechecks)
     contract = manifest["resource_contract"]
     for key, value in (("partition", "cpu-q"), ("cpus_per_task", 4),
                        ("memory_mib", 32768), ("solve_timeout", 5000),
@@ -257,17 +267,18 @@ def score(campaign, recheck=None, baseline_path=BASELINE):
             "candidate Tier-D matrix differs from paper target")
     target = {row["task"]: row for row in baseline["rows"]}
     counts, failures, missing, raw, verified = Counter(), [], [], [], []
-    rechecked_sources = set()
-    if recheck is not None:
-        rechecked_sources = {int(row["source_task"]) for row in read_matrix(recheck)}
-        re_contract = json.loads((recheck / "manifest.json").read_text())["resource_contract"]
+    recheck_contracts = {}
+    for recheck_campaign in rechecks:
+        re_contract = json.loads((recheck_campaign / "manifest.json").read_text())["resource_contract"]
+        for recheck_row in read_matrix(recheck_campaign):
+            recheck_contracts[int(recheck_row["source_task"])] = re_contract
     for row in matrix:
         task = int(row["task"])
         if task not in results:
             missing.append(task)
             raw.append(10000); verified.append(10000)
             continue
-        row_contract = re_contract if task in rechecked_sources else contract
+        row_contract = recheck_contracts.get(task, contract)
         status, seconds, errors = checked_result(row, results[task], row_contract)
         counts[status] += 1
         solved = status.startswith(("verified-", "censored-"))
@@ -292,7 +303,9 @@ def score(campaign, recheck=None, baseline_path=BASELINE):
         "campaign": str(campaign.relative_to(ROOT)),
         "campaign_manifest_sha256": sha(campaign / "manifest.json"),
         "scorer_sha256": sha(Path(__file__)),
-        "recheck_campaign": str(recheck.relative_to(ROOT)) if recheck else None,
+        "recheck_campaign": (str(rechecks[0].relative_to(ROOT))
+                             if len(rechecks) == 1 else None),
+        "recheck_campaigns": [str(path.relative_to(ROOT)) for path in rechecks],
         "baseline_sha256": sha(baseline_path),
         "target_source_commit": baseline["target_source_commit"],
         "runtime_tolerance_fraction": 0.10,
@@ -318,7 +331,8 @@ def main():
     verify.add_argument("--baseline", type=Path, default=BASELINE)
     scoring = commands.add_parser("score")
     scoring.add_argument("campaign", type=Path)
-    scoring.add_argument("--recheck", type=Path)
+    scoring.add_argument("--recheck", type=Path, action="append", default=[],
+                         help="repeatable direct recheck; later campaigns override overlapping source tasks")
     scoring.add_argument("--baseline", type=Path, default=BASELINE)
     scoring.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -335,7 +349,7 @@ def main():
               f"verified PAR-2 {baseline['paper_verified_par2']:.3f}.")
         return 0
     result = score(args.campaign.resolve(),
-                   args.recheck.resolve() if args.recheck else None,
+                   [path.resolve() for path in args.recheck],
                    args.baseline.resolve())
     rendered = json.dumps(result, indent=2) + "\n"
     if args.output:

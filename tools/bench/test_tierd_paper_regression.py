@@ -1,8 +1,13 @@
 """Contract boundaries for the paper-target full Tier-D scorer."""
 
+import csv
+import hashlib
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
-from tierd_paper_regression import checked_result
+from tierd_paper_regression import checked_result, substituted_results
 
 
 def contract():
@@ -82,6 +87,63 @@ class TierdPaperContractTests(unittest.TestCase):
         result["solve"].update(timed_out=True, exit_code=20)
         self.assertIn("invalid solver-timeout evidence",
                       checked_result(row, result, contract())[2])
+
+    def test_multiple_direct_rechecks_overlay_in_argument_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base = root / "base"
+            base.joinpath("results").mkdir(parents=True)
+            rows = [{"task": str(i), "rank": str(i + 1), "arm": "tactix",
+                     "tier": "D", "instance": f"i{i}.cnf.xz", "expected": "UNSAT"}
+                    for i in range(1166)]
+            with base.joinpath("matrix.tsv").open("w", newline="") as out:
+                writer = csv.DictWriter(out, fieldnames=rows[0], delimiter="\t")
+                writer.writeheader(); writer.writerows(rows)
+            arm = {"path": "pins/tactix", "sha256": "a" * 64,
+                   "arguments": ["--auto-proof"], "certificate": "auto"}
+            base_manifest = {"pin_sha256": {}, "arms": {"tactix": arm}}
+            base.joinpath("manifest.json").write_text(json.dumps(base_manifest))
+            for task in (1, 2):
+                base.joinpath("results", f"{task:03d}.json").write_text(json.dumps(
+                    {"task": task, "rank": task + 1, "arm": "tactix",
+                     "binary_sha256": "a" * 64, "instance": f"i{task}.cnf.xz",
+                     "marker": "base"}))
+            base_manifest_sha = hashlib.sha256(base.joinpath("manifest.json").read_bytes()).hexdigest()
+
+            def make_recheck(name, source_tasks, marker):
+                campaign = root / name
+                campaign.joinpath("results").mkdir(parents=True)
+                matrix = []
+                selected = {}
+                for local, source_task in enumerate(source_tasks):
+                    matrix.append({"task": str(local), "source_task": str(source_task),
+                                   "instance": f"i{source_task}.cnf.xz"})
+                    source_path = base / "results" / f"{source_task:03d}.json"
+                    selected[f"results/{source_task:03d}.json"] = hashlib.sha256(
+                        source_path.read_bytes()).hexdigest()
+                    campaign.joinpath("results", f"{local:03d}.json").write_text(json.dumps(
+                        {"task": local, "arm": "tactix", "binary_sha256": "a" * 64,
+                         "instance": f"i{source_task}.cnf.xz", "marker": marker}))
+                with campaign.joinpath("matrix.tsv").open("w", newline="") as out:
+                    writer = csv.DictWriter(out, fieldnames=("task", "source_task", "instance"),
+                                            delimiter="\t")
+                    writer.writeheader(); writer.writerows(matrix)
+                campaign.joinpath("manifest.json").write_text(json.dumps({
+                    "pin_sha256": {}, "arms": {"tactix": arm},
+                    "resource_contract": {"memory_mib": 65536, "solve_timeout": 5000,
+                                          "checker_timeout": 28800},
+                    "recheck_source": {"manifest_sha256": base_manifest_sha,
+                                       "selected_result_sha256": selected}}))
+                return campaign
+
+            first = make_recheck("first", (1,), "first")
+            second = make_recheck("second", (1, 2), "second")
+            _, _, results = substituted_results(base, [first, second])
+            self.assertEqual(results[1]["marker"], "second")
+            self.assertEqual(results[2]["marker"], "second")
+            second.joinpath("results/001.json").unlink()
+            with self.assertRaisesRegex(ValueError, "recheck result missing: second/001"):
+                substituted_results(base, [first, second])
 
 
 if __name__ == "__main__":
