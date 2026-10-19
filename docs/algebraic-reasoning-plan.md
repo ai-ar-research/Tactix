@@ -37,6 +37,17 @@ the checked CMS time at matched resources. N1--N4, independent proof/model
 checking, held-out nonalgebraic coverage and the standing regression gates
 remain mandatory. No generated proof or expanded CNF is retained.
 
+After the corrected 5,000-wall-second proof-free CMS census is terminal,
+reassess rather than automatically enlarge CG. Keep 25 rows as the default
+development budget and select for family and mechanism breadth, SAT/UNSAT,
+exclusive/major-win status and runtime scale; avoid near-duplicates from a
+single prolific family. Replace a row only when the full census supplies a
+materially stronger or more representative target. Model-checked proof-free
+SAT rows may support selection directly. Proof-free UNSAT is discovery evidence
+only and must receive a targeted proof-producing independent check before it
+can enter CG. Any changed selection must regenerate and verify the manifest,
+input hashes, eight-arm runtime table, rationale and no-duplicate-input contract.
+
 **Search-time algebraic reasoning.** Extend the retained authenticated GF(2)
 matrix, existing GF(3) equations and exact unweighted cardinality constraints
 to reason over the live CDCL trail at propagated search fixpoints. Derive a
