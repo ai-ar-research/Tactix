@@ -11,6 +11,9 @@ were written for a single diagnostic pass or a completed campaign.
 - `fixed_runtime.py`, `controller_regression.py`,
   `freeze_paper_controller_baseline.py`, and `score_tierd_full.py` provide the
   fixed-runtime and paper-target controller-regression gates and scoring.
+- `tierd_paper_regression.py` freezes and scores the full 1,166-row Tier-D
+  gate against the paper release with its 64 GiB checker rechecks and a 10%
+  raw/verified PAR-2 allowance.
 - `runtime_task.py`, `proof_oracle.py`, `dsr_transport.cpp`, and the scratch
   helpers implement shared execution, proof validation, and cleanup behavior.
 
