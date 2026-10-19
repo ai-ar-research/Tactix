@@ -297,9 +297,15 @@ hash-pinned base scorer 1792344 confirms both raw and verified PAR-2 within the
 paper-plus-10% ceilings, but correctly rejects six newly lost independent proof
 checks. Validation job 1793967 passed, and source-bound eight-row 64 GiB recheck
 1793968 reruns every checker-memory row with the same binary, arguments and
-hash-bound source results. Final scorer 1793977 waits on every recheck task and
-writes a separate recheck-substituted score. No PBP promotion is claimed before
-that score passes. Proof-free four-core CMS screen 1791200 is terminal with all 1,166 rows
+hash-bound source results. Its first three terminal rows cleaned fully: inherited
+paper-censored task 664 again memory-exhausted, now at 66,866,788 KiB, while
+verification-critical tasks 509 and 895 timed out during deterministic proof
+regeneration at the unchanged 5,000-second solve limit. Reusable direct
+source-task filtering and ordered scorer overlays pass 17 focused tests.
+Validation 1794223 passed and strict direct-base retry 1794224 reruns only those
+two tasks under the identical contract. Replacement final scorer 1794228 waits
+on every task of both arrays; obsolete held scorer 1793977 never ran. No PBP
+promotion is claimed before the overlay-substituted score passes. Proof-free four-core CMS screen 1791200 is terminal with all 1,166 rows
 published: 342 model-checked SAT, 296 unchecked UNSAT and 528 UNKNOWN, with no
 result or cleanup failures. Because its `--maxtime 5000` limit was aggregate
 CPU time, it remains screening evidence rather than the requested 5,000-second

@@ -310,19 +310,30 @@ def result_failure_class(result, provisional):
         return 'unfinished'
     return None
 
-def recheck_selection(source, classes):
+def recheck_selection(source, classes, source_tasks=()):
     """[(matrix row, class)] of a finished campaign whose class is selected."""
+    requested=set(source_tasks)
     with (source/'matrix.tsv').open(newline='') as f:
         matrix=list(csv.DictReader(f,delimiter='\t'))
+    available={int(row['task']) for row in matrix}
+    unknown=requested-available
+    if unknown:
+        raise ValueError('unknown recheck source task(s): '+','.join(map(str,sorted(unknown))))
     chosen=[]
     for row in matrix:
         task=int(row['task'])
+        if requested and task not in requested:continue
         def load(directory):
             path=source/directory/f'{task:03d}.json'
             return json.loads(path.read_text()) if path.exists() else None
         cls=result_failure_class(load('results'),load('provisional'))
         if cls in classes:
             chosen.append((row,cls))
+    selected={int(row['task']) for row,_ in chosen}
+    incompatible=requested-selected
+    if incompatible:
+        raise ValueError('requested recheck source task(s) do not match selected classes: '
+                         +','.join(map(str,sorted(incompatible))))
     return chosen
 
 def source_array_live(source):
@@ -345,7 +356,8 @@ def recheck_rows(a):
     if list(arms)!=['tactix']:
         raise ValueError('recheck source must have exactly the tactix arm')
     classes=tuple(a.recheck_classes)
-    chosen=recheck_selection(source,classes)
+    source_tasks=tuple(a.recheck_source_task)
+    chosen=recheck_selection(source,classes,source_tasks)
     if not chosen:
         raise ValueError('recheck selection is empty')
     rows=[]
@@ -362,6 +374,7 @@ def recheck_rows(a):
                    classes=list(classes),counts=counts,selected_result_sha256=result_hashes,
                    rule='rows of the source campaign that reached SAT/UNSAT without a checked '
                         'result, by experimental_tierd.result_failure_class')
+    if source_tasks:authority['source_tasks']=sorted(source_tasks)
     return source,source_manifest,rows,authority
 
 def register_with_governor(jobs_file, job, label):
@@ -760,6 +773,8 @@ if __name__=='__main__':
                    help='prepare a recheck of a finished campaign: same pinned binary/arguments, rows selected by --recheck-classes')
     p.add_argument('--recheck-classes',default='memout',
                    help='comma list of '+','.join(RECHECK_CLASSES))
+    p.add_argument('--recheck-source-task',type=int,action='append',default=[],
+                   help='repeatable source-campaign task filter for a direct, class-matching retry')
     p.add_argument('--governor-jobs',type=Path,
                    help='with --submit: append the array job id to this quota-governor jobs.json')
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
@@ -809,6 +824,8 @@ if __name__=='__main__':
                            a.dsr_transport or a.dsr_checker_profile!='frozen' or
                            a.instance or a.selection_table or a.gf2_telemetry or a.causal_preflight):
         p.error('--recheck-from takes binary, source, arguments and rows from the source campaign')
+    if a.recheck_source_task and not a.recheck_from:
+        p.error('--recheck-source-task requires --recheck-from')
     if a.governor_jobs is not None and not a.submit:
         p.error('--governor-jobs is valid only with --submit')
     if a.cpus_per_task < 1:p.error('--cpus-per-task must be positive')

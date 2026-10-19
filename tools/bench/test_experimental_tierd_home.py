@@ -97,6 +97,13 @@ class FailureClasses(unittest.TestCase):
             chosen = et.recheck_selection(c, ('memout', 'timeout', 'unfinished'))
             self.assertEqual([cls for _, cls in chosen], ['memout', 'timeout', 'unfinished'])
 
+            chosen = et.recheck_selection(c, ('memout', 'timeout'), (1,))
+            self.assertEqual([(int(r['task']), cls) for r, cls in chosen], [(1, 'timeout')])
+            with self.assertRaisesRegex(ValueError, 'do not match selected classes: 1'):
+                et.recheck_selection(c, ('memout',), (1,))
+            with self.assertRaisesRegex(ValueError, 'unknown recheck source task.*99'):
+                et.recheck_selection(c, ('memout',), (99,))
+
 
 class GovernorRegistration(unittest.TestCase):
     def test_registered_array_is_held_by_the_next_governor_tick(self):
@@ -371,6 +378,25 @@ class RecheckPreparation(unittest.TestCase):
                 capture_output=True, text=True, timeout=120)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn('recheck selection is empty', again.stderr)
+
+            filtered = Path(directory) / 'filtered'
+            completed = subprocess.run(
+                [sys.executable, HERE / 'experimental_tierd.py', '--prepare',
+                 '--campaign', filtered, '--recheck-from', source,
+                 '--recheck-classes', 'timeout', '--recheck-source-task', '2',
+                 '--home-scratch', '--memory-mib', '65536', '--partition', 'cpu-q',
+                 '--cpus-per-task', '4', '--solve-timeout', '5000',
+                 '--checker-timeout', '28800'],
+                capture_output=True, text=True, timeout=600,
+                env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'))
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            fm = json.loads((filtered / 'manifest.json').read_text())
+            self.assertEqual(fm['recheck_source']['source_tasks'], [2])
+            self.assertEqual(fm['recheck_source']['counts'], {'timeout': 1})
+            with (filtered / 'matrix.tsv').open(newline='') as f:
+                filtered_rows = list(csv.DictReader(f, delimiter='\t'))
+            self.assertEqual([(r['task'], r['source_task'], r['source_class'])
+                              for r in filtered_rows], [('0', '2', 'timeout')])
 
 
 class CertificateNone(unittest.TestCase):

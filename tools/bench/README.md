@@ -13,7 +13,14 @@ were written for a single diagnostic pass or a completed campaign.
   fixed-runtime and paper-target controller-regression gates and scoring.
 - `tierd_paper_regression.py` freezes and scores the full 1,166-row Tier-D
   gate against the paper release with its 64 GiB checker rechecks and a 10%
-  raw/verified PAR-2 allowance.
+  raw/verified PAR-2 allowance. Its `score` command accepts repeated
+  `--recheck` arguments in overlay order, so a later strict retry can replace
+  only its overlapping source tasks without weakening direct base binding.
+- `tierd_home_campaign.sh recheck CAMPAIGN SOURCE CLASSES [SOURCE_TASK...]`
+  prepares a direct, immutable-source 64 GiB recheck. Optional source-task IDs
+  restrict retries without changing the source manifest, solver arguments, or
+  5,000-second solve contract; use this for transient regeneration timeouts
+  instead of nesting a recheck campaign.
 - `runtime_task.py`, `proof_oracle.py`, `dsr_transport.cpp`, and the scratch
   helpers implement shared execution, proof validation, and cleanup behavior.
 
