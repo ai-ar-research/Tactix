@@ -105,6 +105,9 @@ not meet its fixed 2x-CMS target; the Folkman SAT control also remains open.
 For ID 284, candidate production and public emitted byte-identical PBP proofs
 and passed VeriPB plus CakePB; public overhead was 0.66%. See the
 [pinned screen](../../runs/20261020-cg-mdp-direct-implication-screen/REPORT.md).
+The later retained-XOR-buffer checkpoint preserved that exact checked proof and
+trajectory in two paired draws, reducing mean wall time from 30.955 to 30.640
+seconds (1.02%). It remains far above the fixed 7.550-second closure target.
 
 ## Pattern
 

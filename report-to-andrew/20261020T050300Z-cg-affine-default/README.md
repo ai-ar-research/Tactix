@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 22:54 UTC
+Date updated: 2026-10-20 23:26 UTC
 Branch: `codex/cg-closures`  
-Current head: `e641f258a` (`update affine fixtures for direct implications`)
+Current solver commit: `70ff89e82` (`reuse affine dirty row xor buffers`)
 
 ## Outcome
 
@@ -208,6 +208,25 @@ overhead is 29.533 seconds. This is more than 3.90x faster than the
 predecessor's censored lower bound, but it deliberately changes the search
 trajectory and is not represented as another proof-format micro-optimization.
 
+Current-trajectory profile job `1795211` then moved the dominant samples into
+matrix maintenance: sorted row XOR was 15.14% of cycles, while allocator,
+free/consolidation and `memmove` symbols comprised another large block. Commit
+`70ff89e82` retains the two dirty-transaction XOR output buffers after bounded
+index admission, includes their actual capacities in the 256 MB retention
+accounting, and releases them with the index. It does not alter event order,
+work charges, policy, or proof production.
+
+Final same-allocation job `1795214` alternated two candidate and two exact
+predecessor runs on one node and CPU. Candidate wall times were 30.59 and
+30.69 seconds versus 30.95 and 30.96 seconds, a 1.02% mean reduction; affine
+overhead fell by 1.06%. All four runs matched at 19,303 conflicts, 27,891
+decisions, 1,683,943 propagations and every affine work/event counter. Each
+emitted the already VeriPB/CakePB-checked 39,899,363-byte proof SHA above, so
+checker evidence was reused. The current delta passes all 22 affine-matrix
+tests under ASan/UBSan and 23/23 focused Release tests including public
+DefaultPolicy correspondence. This is a micro-optimization checkpoint, not a
+5% release performance claim or a CG closure.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -215,7 +234,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles deleted expanded CNFs, PBP proofs, checker
+All causal screens and profiles, including jobs `1795211`--`1795214`, deleted expanded CNFs, PBP proofs, checker
 intermediates, and raw perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
 generated `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact in its campaign
@@ -228,10 +247,11 @@ The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
 CMS-relative target. Current production solves in 30.768 seconds, so ID 284 is
 no longer a 120-second timeout but is still not a new closure.
 
-The release gates are incomplete. The full current-source Debug coverage and
-current focused Release proof tests pass. The mixed-mode broad campaigns do
-not complete the paper-comparable performance gate, the current default-PBP
-operational baseline is incomplete, and the required 100,000-seed
+The release gates are incomplete. The full direct-implication Debug coverage
+and current focused sanitizer/Release proof tests pass, but the retained-buffer
+delta still needs the eventual full current-source gate. The mixed-mode broad
+campaigns do not complete the paper-comparable performance gate, the current
+default-PBP operational baseline is incomplete, and the required 100,000-seed
 DefaultPolicy and random-policy fuzz lacks independent owner completion.
 
 No additional broad regression rerun is planned. After the candidate is

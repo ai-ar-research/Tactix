@@ -24,9 +24,11 @@ competition compliance, and targeted VeriPB/CakePB checks. These checks do not
 erase the frozen aggregate performance risk or complete the missing
 paper-comparable measurement.
 
-The current head is `e641f258ae69485fe0049d89af55be75368454a6`. Its
-direct-implication delta passed the complete current-source Debug coverage,
-focused Release behavior/proof tests, and a checked target screen.
+The current solver commit is `70ff89e828512cd2155b1ffc8adcd869697edfeb`.
+The direct-implication source passed the complete Debug coverage. The later
+retained-XOR-buffer delta passes all 22 affected affine-matrix tests under
+ASan/UBSan and 23/23 focused Release tests including public correspondence,
+but has not yet had another complete 372-test run.
 
 ## PBP binary bookkeeping update
 
@@ -78,22 +80,30 @@ draw rather than the predeclared paired-median release gain, and 30.768 seconds
 does not meet the fixed 7.550-second CG closure target. It therefore changes
 neither the overall FAIL disposition nor the two retained CG closures.
 
+Profile job `1795211` identified sorted row XOR and allocator churn as the
+current trajectory's leading matrix costs. Matched job `1795214` measured the
+bounded retained-XOR-buffer implementation at 30.59/30.69 seconds versus the
+exact predecessor at 30.95/30.96 seconds on one node and CPU. Mean wall and
+affine overhead improved 1.02% and 1.06%; verdict, proof hash, trajectory and
+all affine work/event counters were identical. This is accepted development
+evidence but falls below the 5% threshold for a release performance claim.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | PASS | Current source ran all 372 tests in 2,052.64 s with ASan and UBSan: 367 passed immediately; the only five failures were stale affine fixture assertions, and after test-only repairs all five behavior/proof-model checks passed under the same sanitizers and in Release |
-| Full Release suite | INCOMPLETE for current delta | 372/372 at solver tree `9f0852545`; pre-delta proof/PBP slice 40/40; current direct-implication source passes 15/15 affected proof tests and 4/4 focused behavior/correspondence tests |
+| Full Debug suite | INCOMPLETE for current delta | Direct-implication source ran all 372 tests in 2,052.64 s with ASan and UBSan: 367 passed immediately and five stale fixture repairs passed; the later retained-buffer delta passes its complete 22-test affine-matrix sanitizer slice but still needs the eventual full rerun |
+| Full Release suite | INCOMPLETE for current delta | 372/372 at solver tree `9f0852545`; current retained-buffer source passes 23/23 affected Release tests including proof/model checks and public correspondence |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
 | Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; the stored 1.1615x, 1.2407x, and 1.5521x scorer ratios cannot be charged wholly to search, and WV2--89 also has a retention mismatch |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
-| Claimed performance improvement | FAIL as a release gate | Job `1795208` is a material one-draw causal win over a 120-second timeout, but no qualifying paired-median or PAR-2 gain has been established |
+| Claimed performance improvement | FAIL as a release gate | Job `1795208` is a material one-draw causal win over a 120-second timeout; job `1795214` adds a proof-identical 1.02% two-draw mean improvement, still below the predeclared 5% release threshold |
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 30.768 s but remains above its 7.550 s target |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows and all three job `1795208` rows report terminal cleanup; audits found no `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795214` report terminal cleanup; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact |
 
 ## Frozen campaign provenance
 

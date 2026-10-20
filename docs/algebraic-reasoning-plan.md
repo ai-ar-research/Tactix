@@ -89,6 +89,15 @@ proofs verified by VeriPB and CakePB; the exact predecessor timed out at
 decisions and 1,683,943 propagations, with zero public fallbacks or declines.
 This is a material causal checkpoint but not a CG closure: the fixed 2x-CMS
 target remains 7.550 seconds, and all N1--N4/release gates still apply.
+The follow-up current-trajectory profile put 15.14% of samples in sorted matrix
+row XOR and a large additional share in allocation/free/consolidation. The
+bounded retained-XOR-buffer checkpoint reuses two dirty-transaction output
+buffers while charging their actual capacities to the persistent index. In
+two alternating same-node draws it reduced mean ID 284 wall time from 30.955
+to 30.640 seconds (1.02%) and affine overhead by 1.06%, with identical proof
+hash, trajectory and work counters. This is accepted as a proof-identical
+micro-optimization, not the plan's 5% release performance claim; the 7.550 s
+closure target remains unchanged.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.
