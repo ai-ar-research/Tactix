@@ -1,9 +1,9 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 14:00 UTC
+Date updated: 2026-10-20 18:01 UTC
 Branch: `codex/cg-closures`  
-Reported development head: `e38553a11`
-Current solver change: `e38553a11` (`preserve native startup PBP certificates`)
+Reported development head: `9f0852545`
+Current solver change: `9f0852545` (`compact tracked PBP deletions`)
 
 ## Outcome
 
@@ -13,17 +13,15 @@ Whole-run PBP is still the default proof route. This is a pushed named-branch
 development checkpoint, not a promotion to `main`, version bump, tag, or
 release candidate.
 
-The focused Debug gate at the original checkpoint passed 4/4 under ASan/LSan,
-including proof/model and static/hardcoded/public trajectory correspondence.
-Subsequent proof-emission changes passed focused Release PBP tests, pinned
-VeriPB and CakePB checks, negative checker controls, proof-output failure tests,
-affine lifecycle/transaction tests, and `default_public_correspondence`.
-Head `5ab940004` passed fresh complete Debug and Release builds and all 372
-CTests in each configuration. Debug, with ASan/LSan active, passed in 2,224.73
-seconds; Release passed in 299.99 seconds. The later serializer and startup-PBP
-changes through `e38553a11` pass the 12 focused Release proof, API, startup,
-failure, transaction, fuzz-smoke, and public-correspondence tests. They have
-not yet repeated the complete 372-test gate.
+Head `9f0852545` passed fresh complete Debug and Release builds, immediate
+up-to-date rebuild checks, and all 372 CTests in each configuration. Debug,
+with AddressSanitizer and UBSan active and leak detection disabled only because
+the runner uses `ptrace`, passed in 2,081.37 seconds. Release passed in 268.42
+seconds. An explicit optimized `default_public_correspondence` rerun passed
+1/1, and the competition-compliance check passed with default PBP through the
+pinned VeriPB/CakePB pipeline. The proof tests include negative checker
+controls, output-failure handling, affine lifecycle/transaction coverage and
+the repaired direct affine live-proof fixture.
 
 ## Frozen release-regression evidence
 
@@ -61,15 +59,18 @@ the remaining B28+C5, Rank1--50 and WV2--89 gaps are not explained by startup
 certificates alone. Large ordinary streaming-PBP transcripts remain the main
 performance issue.
 
-Retention repair job `1795115` uses `cpu-q`, four cores, 32 GiB, a 5,000-second
-solver limit and a 1,800-second proof-check limit. At this checkpoint 12/18
-terminal result records are present and six tasks are still running. All
-terminal artifacts report cleanup complete. Three `bphp_p23_h22` proof checks
-are explicitly censored after exhausting the checker allowance; their solver
-runs must not be repeated merely to obtain another timing. A future repair may
-target only the missing checker evidence. The all-user governor `1791687`
-continues to observe every `hwu` job and controls pending work only; it never
-pauses a running job.
+Retention repair job `1795115` used `cpu-q`, four cores, 32 GiB, a 5,000-second
+solver limit and a 1,800-second proof-check limit. It is terminal with 18/18
+result records: 9 valid and 9 invalid. All three `Break_20_72` arms exhausted
+the solver limit without a solve; all three `bphp_p23_h22` arms and all three
+`FmlaEquivChain_4_8_8` arms solved UNSAT but exhausted the bounded checker
+allowance. Those are explicit censored cells, so this campaign fails the
+retention gate. Every result reports primary and derived artifact cleanup, and
+an audit found no retained `.cnf`, `.pbp`, `.proof`, `.opb` or `.lrat` file.
+Future work may target only missing checker evidence or otherwise incompatible
+cells; none of these completed solver experiments should be repeated merely
+to obtain another timing. The all-user governor `1791687` continues to observe
+every `hwu` job and controls pending work only; it never pauses a running job.
 
 ## Checked CG screen
 
@@ -134,6 +135,19 @@ One attempted 1 MiB stdio destination buffer regressed matched overhead by
 2.49% (34.630 s versus 33.789 s). It was reverted and recorded as rejected
 evidence rather than retained in the candidate.
 
+Head `9f0852545` also replaces canonical PBP deletion specifications with exact
+absolute constraint-ID deletion whenever identity is known. Ordinary input
+IDs remain implicit; exceptional live IDs use a sparse map. If any deletion
+identity is unavailable, emission permanently and safely falls back to
+canonical `del spec` for the rest of that proof, avoiding duplicate-clause
+identity drift. On the existing root-reason deletion fixture this reduced the
+proof from 847 to 551 bytes (35%); all ten deletions became `del id`, with no
+`del spec`. The fresh local checker test passed VeriPB 3.0.2 elaboration,
+CakePB verification and corruption rejection. This is proof-size evidence on
+an existing fixture, not a rerun of a regression experiment. Retaining exact
+PBP IDs can increase in-memory clause-ID metadata and remains subject to the
+ordinary release performance and memory gates.
+
 Every causal screen preserved the exact MDP affine trajectory:
 
 - initialization work: 3,270,469;
@@ -169,12 +183,12 @@ CMS-relative target. Current affine overhead alone remains around 32--34 s in
 matched unprofiled draws, so ID 284 is still far from the target and is not a
 new closure.
 
-The release gates are incomplete. The frozen broad regressions failed the
-paper performance ceiling, the retention repair is still live, the post-
-`5ab940004` commits have only focused—not complete—test coverage, and the
-required 100,000-seed DefaultPolicy and random-policy fuzz remains blocked by
-the independent Claude owner login having expired. That authentication problem
-is recorded as a blocker, not silently replaced by self-review.
+The release gates are incomplete. Current-head complete Debug and Release code
+tests pass, but the frozen broad regressions failed the paper performance
+ceiling, the terminal retention campaign failed 9/18 cells, and the required
+100,000-seed DefaultPolicy and random-policy fuzz remains blocked by the
+independent Claude owner login having expired. That authentication problem is
+recorded as a blocker, not silently replaced by self-review.
 
 No additional broad regression rerun is planned. After the candidate is
 stable, the regression controller must reuse compatible frozen cells and run
