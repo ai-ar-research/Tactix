@@ -1,9 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 18:01 UTC
+Date updated: 2026-10-20 20:47 UTC
 Branch: `codex/cg-closures`  
-Disposition parent head: `8f49b4f1c`
-Current solver change: `9f0852545` (`compact tracked PBP deletions`)
+Current head: `46053374d` (`compact PBP binary deletion tracking`)
 
 ## Outcome
 
@@ -18,24 +17,35 @@ The gate-by-gate decision and frozen campaign hashes are recorded in
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-Head `9f0852545` passed fresh complete Debug and Release builds, immediate
-up-to-date rebuild checks, and all 372 CTests in each configuration. Debug,
-with AddressSanitizer and UBSan active and leak detection disabled only because
-the runner uses `ptrace`, passed in 2,081.37 seconds. Release passed in 268.42
-seconds. An explicit optimized `default_public_correspondence` rerun passed
-1/1, and the competition-compliance check passed with default PBP through the
-pinned VeriPB/CakePB pipeline. The proof tests include negative checker
-controls, output-failure handling, affine lifecycle/transaction coverage and
-the repaired direct affine live-proof fixture.
+Current solver source passed all 372 Debug CTests in 2,052.72 seconds with
+AddressSanitizer and UBSan active and leak detection disabled only because the
+runner uses `ptrace`. The complete Release suite at `9f0852545` passed 372/372
+in 268.42 seconds; the current-source proof/PBP slice passes 40/40 in Release,
+and the strengthened serializer regression passes directly in both builds.
+`default_public_correspondence` and competition compliance pass. The proof
+tests include pinned VeriPB/CakePB checks, negative controls, output-failure
+handling, affine lifecycle/transaction coverage and the repaired direct affine
+live-proof fixture.
 
 ## Frozen release-regression evidence
 
-The four broad paper-target campaigns are terminal with 1,088/1,088 result
-records. Public, hard-coded and production arms preserve answer, certificate
-and trajectory parity. The frozen candidate nevertheless failed the paper
-performance ceiling: B28+C5 was 1.1615x paper, Rank1--50 was 1.2407x, WV100
-was 1.5521x under the release scorer, and WV2--89 was unqualified because of a
-retention mismatch. These are failures, not release exceptions.
+The four broad campaigns are terminal with 1,088/1,088 result records. Public,
+hard-coded and production arms preserve answer, certificate and trajectory
+parity. Their comparison with the paper arm is mixed-mode: the candidate arms
+use default whole-run PBP, while paper uses `--auto-proof`. B28+C5 was 1.1615x
+paper, Rank1--50 was 1.2407x, WV100 was 1.5521x under the scorer, and WV2--89
+had a retention mismatch, but those values are not a paper-comparable search
+regression measurement.
+
+Across the complete stored rows, candidate production wrote 3.89x, 3.61x,
+4.32x and 3.61x as many certificate bytes as paper and retired 1.24x, 1.44x,
+1.96x and 1.22x as many instructions. Persistent affine search serviced one
+B28+C5 row and no row in the other sets. Proof-format work therefore materially
+contributes to the mixed-mode ratios, although the evidence is not a causal
+same-binary proof-mode A/B. The paper +10% gate is **incomplete**, not failed.
+Under the clarified transition contract, 0.2.0 establishes the first
+default-PBP operational baseline; the later proof changes still need compatible
+complete characterization under predeclared caps.
 
 Old result cells are now reusable evidence. A later regression campaign must
 read compatible complete cells from the frozen records and schedule only
@@ -140,18 +150,16 @@ One attempted 1 MiB stdio destination buffer regressed matched overhead by
 2.49% (34.630 s versus 33.789 s). It was reverted and recorded as rejected
 evidence rather than retained in the candidate.
 
-Head `9f0852545` also replaces canonical PBP deletion specifications with exact
-absolute constraint-ID deletion whenever identity is known. Ordinary input
-IDs remain implicit; exceptional live IDs use a sparse map. If any deletion
-identity is unavailable, emission permanently and safely falls back to
-canonical `del spec` for the rest of that proof, avoiding duplicate-clause
-identity drift. On the existing root-reason deletion fixture this reduced the
-proof from 847 to 551 bytes (35%); all ten deletions became `del id`, with no
-`del spec`. The fresh local checker test passed VeriPB 3.0.2 elaboration,
-CakePB verification and corruption rejection. This is proof-size evidence on
-an existing fixture, not a rerun of a regression experiment. Retaining exact
-PBP IDs can increase in-memory clause-ID metadata and remains subject to the
-ordinary release performance and memory gates.
+Head `46053374d` keeps exact PBP `del id` emission for non-binary constraints
+while deleting ordinary binary constraints canonically with `del spec`.
+Streaming PBP now uses the existing four-bit-per-entry liveness index instead
+of retaining exact key-and-ID arrays for every binary clause; LRAT behavior is
+unchanged. The root-reason fixture verifies nine ID deletions plus one binary
+specification deletion, and a divergent-input regression proves that skipped
+binary IDs do not rebuild the proof-side archive or disrupt later exact unit
+deletions. The focused checker tests pass VeriPB 3.0.2 elaboration, CakePB
+verification and corruption rejection. This is current code evidence, not a
+rerun of a regression experiment.
 
 Every causal screen preserved the exact MDP affine trajectory:
 
@@ -188,12 +196,11 @@ CMS-relative target. Current affine overhead alone remains around 32--34 s in
 matched unprofiled draws, so ID 284 is still far from the target and is not a
 new closure.
 
-The release gates are incomplete. Current-head complete Debug and Release code
-tests pass, but the frozen broad regressions failed the paper performance
-ceiling, the terminal retention campaign failed 9/18 cells, and the required
-100,000-seed DefaultPolicy and random-policy fuzz remains blocked by the
-independent Claude owner login having expired. That authentication problem is
-recorded as a blocker, not silently replaced by self-review.
+The release gates are incomplete. Current solver-source Debug and focused
+Release proof tests pass, but the mixed-mode broad campaigns do not complete
+the paper-comparable performance gate, the current default-PBP operational
+baseline is incomplete, and the required 100,000-seed DefaultPolicy and
+random-policy fuzz lacks independent owner completion.
 
 No additional broad regression rerun is planned. After the candidate is
 stable, the regression controller must reuse compatible frozen cells and run

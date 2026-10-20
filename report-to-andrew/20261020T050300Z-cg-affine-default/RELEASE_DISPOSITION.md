@@ -22,7 +22,7 @@ focused current-source Release proof tests, `default_public_correspondence`,
 competition compliance, and targeted VeriPB/CakePB checks. The earlier full
 Release suite remains valid for the unchanged behavior outside the focused
 proof delta. Those checks do not erase the frozen aggregate performance
-failure.
+risk or complete the missing paper-comparable measurement.
 
 ## PBP binary bookkeeping update
 
@@ -41,12 +41,24 @@ the binary archive or disturb the following exact unit deletion. Both Debug and
 Release focused tests pass, including pinned VeriPB/CakePB checks and corruption
 controls.
 
-This change does not establish that PBP caused the frozen performance failure.
-The paper +10% ceiling remains a paper-comparable solver-time gate. Any default-
-PBP production overhead is a separate matched comparison of the same current
-solver with and without PBP; it cannot be used to relax or absorb a search
-regression. No such new performance experiment was launched for this
-disposition.
+The frozen four-arm manifests do not provide that paper-comparable comparison:
+production, public, and hardcoded ran the candidate's default PBP route, while
+the paper arm ran `--auto-proof`. Across the complete stored rows, production
+wrote 3.89x, 3.61x, 4.32x, and 3.61x as many certificate bytes as the paper arm
+on B28+C5, Rank1--50, WV100, and WV2--89, respectively. Its retired-instruction
+ratios were 1.24x, 1.44x, 1.96x, and 1.22x. Persistent affine search serviced
+one B28+C5 row and no row in the other three sets. This is strong evidence that
+proof-format cost materially contributes to the observed wall-time ratios, but
+it is not a causal same-binary proof-mode A/B and does not measure the later
+PBP formatting and deletion changes.
+
+The paper +10% ceiling therefore remains **incomplete**, not failed, for the
+current candidate. Under the clarified transition contract, 0.2.0 establishes
+the first default-PBP operational baseline rather than forcing PBP under a
+different proof route's +10% wall-time ceiling. This does not absorb a search
+regression or waive proof validity, complete records, cleanup, or predeclared
+resource caps. Per the approved one-time evidence reuse, no completed
+regression campaign was resubmitted for this disposition.
 
 ## Gate results
 
@@ -57,8 +69,9 @@ disposition.
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed with no fallback or decline; frozen production/public/hardcoded rows preserve verdict, certificate, and trajectory correspondence |
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
-| Paper regression ceiling | FAIL (reused) | Release scorer: B28+C5 1.1615x, Rank1--50 1.2407x, WV100 1.5521x; WV2--89 is unqualified because of a retention mismatch |
-| Claimed performance improvement | FAIL | No qualifying 5% paired-median or PAR-2 gain; the paper regression ceiling is already exceeded |
+| Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; the stored 1.1615x, 1.2407x, and 1.5521x scorer ratios cannot be charged wholly to search, and WV2--89 also has a retention mismatch |
+| Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
+| Claimed performance improvement | FAIL | No qualifying 5% paired-median or PAR-2 gain |
 | CG retained closure | PASS | IDs 83 and 609 are independently checked UNSAT closures within 2x matched CryptoMiniSat time |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
@@ -80,7 +93,7 @@ Together the campaigns contain 1,088/1,088 expected result records and all
 ## Publication consequence
 
 This candidate is not releasable. Do not merge or force-push it to `main`,
-create a version bump, or create a release tag. Further broad reruns of these
-completed cells are unnecessary for this decision; future work should change
-the candidate first and then target only evidence made incompatible by that
-change or cells that remain genuinely missing or censored.
+create a version bump, or create a release tag. The completed cells must not be
+resubmitted merely to recreate them. A future measurement, if authorized after
+another material candidate change, should add only the missing paper-comparable
+proof-mode arm or other genuinely incompatible, missing, or censored evidence.

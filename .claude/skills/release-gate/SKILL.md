@@ -41,10 +41,15 @@ Invoke the named project skills for their scopes:
   regression sets. Apply row retention, bounded proof checking, the paper +10%
   ceiling, and the declared performance threshold exactly as the release
   contract states. Measure the paper ceiling in the paper-comparable proof
-  mode. When PBP is the default, report its production overhead separately by
-  comparing the same current binary and inputs with and without PBP. Never
-  subtract PBP overhead from a candidate's paper regression or relax the 10%
-  ceiling without a separately approved contract change.
+  mode. For the initial 0.2.0 default-PBP baseline, characterize PBP production
+  and checking under predeclared resource caps without applying the paper +10%
+  wall-time ceiling to that different proof route. A timed-out row is a recorded
+  baseline outcome, not a proof failure; missing, invalid, corrupt, or
+  unchecked output still fails. For later releases, compare default PBP
+  like-for-like with the preceding default-PBP release and require solve
+  retention plus at most 10% aggregate production or checking-time regression.
+  Never subtract PBP overhead from a candidate's paper-comparable search
+  regression.
 - `compete`: run the current competition contract when packaging or command-line
   behavior changed.
 
