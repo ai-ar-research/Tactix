@@ -434,6 +434,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     return work.interrupted ? MatrixTransactionStatus::Interrupted
          : work.exhausted ? MatrixTransactionStatus::ResourceExhausted
                           : MatrixTransactionStatus::Stale;
+  const uint64_t authentication_work = work.used;
   if (!work.consume(1) || !work.consume(exact_sources.size()) ||
       !work.consume(event.reason.size()) ||
       !work.consume(event.row.source_equations.size()))
@@ -517,6 +518,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
 
   AffineMatrixTransaction candidate;
   candidate.owner_identity_ = expected_owner_identity;
+  candidate.authentication_work_ = authentication_work;
   candidate.source_equations_ = event.row.source_equations;
   if (!std::is_sorted(candidate.source_equations_.begin(),
                       candidate.source_equations_.end()) ||

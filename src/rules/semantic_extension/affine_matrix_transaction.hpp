@@ -91,6 +91,7 @@ public:
   uint32_t helper_extent() const { return helper_extent_; }
   uint64_t arena_words() const { return arena_words_; }
   uint64_t work() const { return work_; }
+  uint64_t authentication_work() const { return authentication_work_; }
   const std::vector<External> &reason() const { return reason_; }
   const std::vector<size_t> &source_equations() const {
     return source_equations_;
@@ -130,6 +131,7 @@ private:
   uint32_t helper_extent_ = 0;
   uint64_t arena_words_ = 0;
   uint64_t work_ = 0;
+  uint64_t authentication_work_ = 0;
   std::vector<External> reason_;
   std::vector<size_t> source_equations_;
   std::vector<Equation> source_identity_;

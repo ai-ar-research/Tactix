@@ -746,14 +746,18 @@ MatrixLiveResult publish_affine_matrix_live(
     // population again.  If the aggregate would cross the bound, replay the
     // old suffix so the terminal partial-work report remains exact.
     Work validation{0, request.maximum_revalidation_work, kernel};
-    if (!request.matrix->authenticates(
-            request.owner_identity, *request.exact_sources, *request.event,
-            [&](uint64_t amount) { return validation.charge(amount); })) {
-      result.revalidation_work = validation.used;
-      result.status = validation.interrupted
+    if (!validation.charge(prepared.transaction_.authentication_work())) {
+      Work replay{0, request.maximum_revalidation_work, kernel};
+      const bool authenticated = request.matrix->authenticates(
+          request.owner_identity, *request.exact_sources, *request.event,
+          [&](uint64_t amount) { return replay.charge(amount); });
+      result.revalidation_work = replay.used;
+      result.status = replay.interrupted
                           ? MatrixLiveStatus::Interrupted
-                      : validation.exhausted
+                      : replay.exhausted
                           ? MatrixLiveStatus::ResourceExhausted
+                      : authenticated
+                          ? MatrixLiveStatus::Invalid
                           : MatrixLiveStatus::Stale;
       return result;
     }
