@@ -738,6 +738,55 @@ MatrixLiveResult publish_affine_matrix_live(
         return result;
       }
     }
+  } else {
+    // Keep the historical publish-phase work currency exactly.  Preparation
+    // already established the selected-source identities and recorded their
+    // deterministic validation charge.  Re-authenticate the matrix event,
+    // then charge that recorded suffix without walking the same premise
+    // population again.  If the aggregate would cross the bound, replay the
+    // old suffix so the terminal partial-work report remains exact.
+    Work validation{0, request.maximum_revalidation_work, kernel};
+    if (!request.matrix->authenticates(
+            request.owner_identity, *request.exact_sources, *request.event,
+            [&](uint64_t amount) { return validation.charge(amount); })) {
+      result.revalidation_work = validation.used;
+      result.status = validation.interrupted
+                          ? MatrixLiveStatus::Interrupted
+                      : validation.exhausted
+                          ? MatrixLiveStatus::ResourceExhausted
+                          : MatrixLiveStatus::Stale;
+      return result;
+    }
+    const uint64_t selected_work = result.revalidation_work;
+    if (!validation.charge(selected_work)) {
+      Work replay{validation.used, request.maximum_revalidation_work, kernel};
+      std::vector<uint64_t> occurrences;
+      std::vector<uint64_t> clause_ids;
+      std::vector<uint64_t> resume_occurrences;
+      std::vector<uint64_t> resume_clause_ids;
+      const bool valid_sources = validate_selected_sources(
+          kernel, prepared.owner_, *request.exact_sources,
+          prepared.transaction_.source_equations(),
+          prepared.transaction_.source_identity(), replay,
+          request.premise_leases, occurrences, clause_ids) &&
+          (!prepared.transaction_.proof_cache_resume() ||
+           validate_selected_sources(
+               kernel, prepared.owner_, *request.exact_sources,
+               prepared.transaction_.resume_source_equations(),
+               prepared.transaction_.resume_source_identity(), replay,
+               request.premise_leases, resume_occurrences,
+               resume_clause_ids));
+      result.revalidation_work = replay.used;
+      result.status = replay.interrupted
+                          ? MatrixLiveStatus::Interrupted
+                      : replay.exhausted
+                          ? MatrixLiveStatus::ResourceExhausted
+                      : valid_sources
+                          ? MatrixLiveStatus::Invalid
+                          : MatrixLiveStatus::Stale;
+      return result;
+    }
+    result.revalidation_work = validation.used;
   }
   if (uint64_t(prepared.starting_extent_) +
               prepared.transaction_.helper_extent() >
