@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 21:46 UTC
+Date updated: 2026-10-20 22:54 UTC
 Branch: `codex/cg-closures`  
-Current head: `a2aa357da` (`consume affine implications without prefix rescan`)
+Current head: `e641f258a` (`update affine fixtures for direct implications`)
 
 ## Outcome
 
@@ -24,13 +24,15 @@ The gate-by-gate decision and frozen campaign hashes are recorded in
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-The pre-delta solver source passed all 372 Debug CTests in 2,052.72 seconds
-with AddressSanitizer and UBSan active and leak detection disabled only because
-the runner uses `ptrace`. The complete Release suite at `9f0852545` passed
-372/372 in 268.42 seconds. On the current direct-implication source, the four
-focused Release behavior/correspondence tests pass, the 15-test affine/PBP
-proof slice passes, and all 13 documentation/source-contract checks pass. A
-full current-source Debug rerun remains required before acceptance.
+The current direct-implication source exercised all 372 Debug CTests in
+2,052.64 seconds with AddressSanitizer and UBSan active and leak detection
+disabled only because the runner uses `ptrace`. Of those, 367 passed
+immediately and five affine fixtures exposed stale assertions that expected the
+old published-but-unassigned trail state. Only those test sources changed;
+their repaired behavior and proof/model checks then passed 5/5 under the same
+sanitizers and 5/5 in Release. The current-source 15-test affine/PBP proof
+slice and all 13 documentation/source-contract checks also pass. The complete
+pre-delta Release suite at `9f0852545` passed 372/372 in 268.42 seconds.
 
 ## Frozen release-regression evidence
 
@@ -226,12 +228,11 @@ The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
 CMS-relative target. Current production solves in 30.768 seconds, so ID 284 is
 no longer a 120-second timeout but is still not a new closure.
 
-The release gates are incomplete. The prior full Debug suite and current
-focused Release proof tests pass, but the direct-implication delta still needs
-a full current-source Debug run. The mixed-mode broad campaigns do not complete
-the paper-comparable performance gate, the current default-PBP operational
-baseline is incomplete, and the required 100,000-seed DefaultPolicy and
-random-policy fuzz lacks independent owner completion.
+The release gates are incomplete. The full current-source Debug coverage and
+current focused Release proof tests pass. The mixed-mode broad campaigns do
+not complete the paper-comparable performance gate, the current default-PBP
+operational baseline is incomplete, and the required 100,000-seed
+DefaultPolicy and random-policy fuzz lacks independent owner completion.
 
 No additional broad regression rerun is planned. After the candidate is
 stable, the regression controller must reuse compatible frozen cells and run

@@ -18,17 +18,15 @@ therefore reused only as historical correspondence and negative release
 evidence, not as measurements of the current binary, its current performance,
 memory use, proof bytes, or affected affine rows.
 
-Current proof behavior is covered by focused current-source Release proof
-tests, `default_public_correspondence`, competition compliance, and targeted
-VeriPB/CakePB checks. The earlier complete Debug and Release suites remain
-evidence for the unchanged behavior outside the focused delta, but do not
-replace a full current-source rerun. These checks do not erase the frozen
-aggregate performance risk or complete the missing paper-comparable
-measurement.
+Current proof behavior is covered by full current-source Debug coverage,
+focused current-source Release proof tests, `default_public_correspondence`,
+competition compliance, and targeted VeriPB/CakePB checks. These checks do not
+erase the frozen aggregate performance risk or complete the missing
+paper-comparable measurement.
 
-The current head is `a2aa357daac5a1f142979eb8e3c201ec41193312`. Its
-direct-implication delta passed focused Release behavior/proof tests and a
-checked target screen, but has not yet had a full current-source Debug rerun.
+The current head is `e641f258ae69485fe0049d89af55be75368454a6`. Its
+direct-implication delta passed the complete current-source Debug coverage,
+focused Release behavior/proof tests, and a checked target screen.
 
 ## PBP binary bookkeeping update
 
@@ -84,7 +82,7 @@ neither the overall FAIL disposition nor the two retained CG closures.
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | INCOMPLETE for current delta | Pre-delta source: 372/372 in 2,052.72 s with ASan and UBSan; current direct-implication source needs the full rerun |
+| Full Debug suite | PASS | Current source ran all 372 tests in 2,052.64 s with ASan and UBSan: 367 passed immediately; the only five failures were stale affine fixture assertions, and after test-only repairs all five behavior/proof-model checks passed under the same sanitizers and in Release |
 | Full Release suite | INCOMPLETE for current delta | 372/372 at solver tree `9f0852545`; pre-delta proof/PBP slice 40/40; current direct-implication source passes 15/15 affected proof tests and 4/4 focused behavior/correspondence tests |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
