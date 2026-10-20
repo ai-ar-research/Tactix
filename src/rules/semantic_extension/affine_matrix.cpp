@@ -66,23 +66,74 @@ struct CombineScratch {
 
 CombineStatus combine(MatrixRow &row, const MatrixRow &other,
                       const MatrixLimits &limits, Work &work,
-                      CombineScratch &scratch) {
+                      std::vector<External> &variable_scratch,
+                      std::vector<size_t> &source_scratch,
+                      bool retain_scratch = false) {
   if (!work.consume(1 + row.variables.size() + other.variables.size() +
                     row.source_equations.size() +
                     other.source_equations.size()))
     return work.interrupted ? CombineStatus::Interrupted
                             : CombineStatus::Exhausted;
-  xor_sorted(row.variables, other.variables, scratch.variables);
-  xor_sorted(row.source_equations, other.source_equations, scratch.sources);
-  if (scratch.variables.size() > limits.maximum_row_width ||
-      scratch.sources.size() > limits.maximum_sources)
+  xor_sorted(row.variables, other.variables, variable_scratch);
+  xor_sorted(row.source_equations, other.source_equations, source_scratch);
+  if (variable_scratch.size() > limits.maximum_row_width ||
+      source_scratch.size() > limits.maximum_sources)
     return CombineStatus::BoundedOut;
-  // Swapping retains the old row allocations as scratch for the next XOR.
-  // The row remains unchanged until both bounded results are complete.
-  row.variables.swap(scratch.variables);
-  row.source_equations.swap(scratch.sources);
+  // Local reductions swap so the old row allocation becomes the next XOR
+  // buffer. Persistent dirty updates keep their admitted output buffers and
+  // copy the bounded result into the private transaction row instead.
+  if (retain_scratch) {
+    row.variables.assign(variable_scratch.begin(), variable_scratch.end());
+    row.source_equations.assign(source_scratch.begin(), source_scratch.end());
+  } else {
+    row.variables.swap(variable_scratch);
+    row.source_equations.swap(source_scratch);
+  }
   row.rhs ^= other.rhs;
   return CombineStatus::Complete;
+}
+
+CombineStatus combine(MatrixRow &row, const MatrixRow &other,
+                      const MatrixLimits &limits, Work &work,
+                      CombineScratch &scratch) {
+  return combine(row, other, limits, work, scratch.variables,
+                 scratch.sources);
+}
+
+bool combine_scratch_bytes(const std::vector<External> &variables,
+                           const std::vector<size_t> &sources,
+                           uint64_t &bytes) {
+  const __uint128_t wide =
+      __uint128_t(variables.capacity()) * sizeof(External) +
+      __uint128_t(sources.capacity()) * sizeof(size_t);
+  if (wide > UINT64_MAX) return false;
+  bytes = uint64_t(wide);
+  return true;
+}
+
+bool prepare_persistent_combine_scratch(
+    const MatrixLimits &limits, uint64_t maximum,
+    const std::vector<External> &current_variables,
+    const std::vector<size_t> &current_sources,
+    std::vector<External> &candidate_variables,
+    std::vector<size_t> &candidate_sources, bool &replace,
+    uint64_t &bytes) {
+  const uint64_t variable_capacity = uint64_t(2) * limits.maximum_row_width;
+  const uint64_t source_capacity = uint64_t(2) * limits.maximum_sources;
+  replace = current_variables.capacity() < variable_capacity ||
+            current_sources.capacity() < source_capacity;
+  if (replace) {
+    const __uint128_t requested =
+        __uint128_t(variable_capacity) * sizeof(External) +
+        __uint128_t(source_capacity) * sizeof(size_t);
+    if (requested > maximum) return false;
+    candidate_variables.reserve(variable_capacity);
+    candidate_sources.reserve(source_capacity);
+  }
+  return combine_scratch_bytes(
+             replace ? candidate_variables : current_variables,
+             replace ? candidate_sources : current_sources, bytes) &&
+         bytes <= maximum;
 }
 
 MatrixStatus reduce(const std::vector<MatrixRow> &input,
@@ -428,6 +479,8 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
   admitted_variables_ = variable_union(admitted_rows_);
   rows_ = admitted_rows_; trail_.clear(); incremental_ready_ = false;
   index_ = {}; index_ready_ = false; index_reservation_ = 0;
+  dirty_variable_xor_scratch_ = {};
+  dirty_source_xor_scratch_ = {};
   predecessor_rows_.clear(); predecessor_trail_.clear(); predecessor_ready_ = false;
   work_ = work.used;
   return MatrixStatus::Complete;
@@ -504,11 +557,22 @@ MatrixStatus AffineMatrix::synchronize(
   if (predecessor_candidate && trail == predecessor_trail_) {
     RowIndex restored_index;
     uint64_t restored_reservation = index_reservation_;
+    std::vector<External> restored_variable_scratch;
+    std::vector<size_t> restored_source_scratch;
+    bool replace_scratch = false;
     if (incremental_limits) {
       const auto status = build_row_index(predecessor_rows_, [&](uint64_t n){ return work.consume(n); },
           incremental_limits->maximum_index_bytes, restored_index);
       if (status != MatrixStatus::Complete) return work.interrupted ? MatrixStatus::Interrupted : status;
-      const __uint128_t peak = __uint128_t(restored_index.bytes) * 4;
+      uint64_t scratch_bytes = 0;
+      if (!prepare_persistent_combine_scratch(limits_,
+              incremental_limits->maximum_index_bytes,
+              dirty_variable_xor_scratch_, dirty_source_xor_scratch_,
+              restored_variable_scratch, restored_source_scratch,
+              replace_scratch, scratch_bytes))
+        return MatrixStatus::Exhausted;
+      const __uint128_t peak =
+          __uint128_t(restored_index.bytes) * 4 + scratch_bytes;
       if (peak > UINT64_MAX) return MatrixStatus::Exhausted;
       restored_reservation = std::max(restored_reservation, uint64_t(peak));
       if (restored_reservation > incremental_limits->maximum_index_bytes) return MatrixStatus::Exhausted;
@@ -543,7 +607,15 @@ MatrixStatus AffineMatrix::synchronize(
     predecessor_ready_ = false;
     if (incremental_limits) {
       index_ = std::move(restored_index); index_ready_ = true; index_reservation_ = restored_reservation;
-    } else { index_ = {}; index_ready_ = false; index_reservation_ = 0; }
+      if (replace_scratch) {
+        dirty_variable_xor_scratch_ = std::move(restored_variable_scratch);
+        dirty_source_xor_scratch_ = std::move(restored_source_scratch);
+      }
+    } else {
+      index_ = {}; index_ready_ = false; index_reservation_ = 0;
+      dirty_variable_xor_scratch_ = {};
+      dirty_source_xor_scratch_ = {};
+    }
     last_dirty_update_ = false; last_dirty_rows_ = 0;
     incremental_ready_ = true;
     last_synchronization_incremental_ = false;
@@ -605,12 +677,23 @@ MatrixStatus AffineMatrix::synchronize(
 
   RowIndex candidate_index;
   uint64_t candidate_reservation = 0;
+  std::vector<External> candidate_variable_scratch;
+  std::vector<size_t> candidate_source_scratch;
+  bool replace_scratch = false;
   if (incremental_limits) {
     const auto index_status = build_row_index(rows, [&](uint64_t n){ return work.consume(n); },
         incremental_limits->maximum_index_bytes, candidate_index);
     if (index_status != MatrixStatus::Complete)
       return work.interrupted ? MatrixStatus::Interrupted : index_status;
-    const __uint128_t peak = __uint128_t(candidate_index.bytes) * 4;
+    uint64_t scratch_bytes = 0;
+    if (!prepare_persistent_combine_scratch(limits_,
+            incremental_limits->maximum_index_bytes,
+            dirty_variable_xor_scratch_, dirty_source_xor_scratch_,
+            candidate_variable_scratch, candidate_source_scratch,
+            replace_scratch, scratch_bytes))
+      return MatrixStatus::Exhausted;
+    const __uint128_t peak =
+        __uint128_t(candidate_index.bytes) * 4 + scratch_bytes;
     candidate_reservation = std::max(index_reservation_, peak > UINT64_MAX ? UINT64_MAX : uint64_t(peak));
     if (peak > UINT64_MAX || candidate_reservation > incremental_limits->maximum_index_bytes)
       return MatrixStatus::Exhausted;
@@ -663,7 +746,15 @@ MatrixStatus AffineMatrix::synchronize(
   rows_ = std::move(rows);
   if (incremental_limits) {
     index_ = std::move(candidate_index); index_ready_ = true; index_reservation_ = candidate_reservation;
-  } else { index_ = {}; index_ready_ = false; index_reservation_ = 0; }
+    if (replace_scratch) {
+      dirty_variable_xor_scratch_ = std::move(candidate_variable_scratch);
+      dirty_source_xor_scratch_ = std::move(candidate_source_scratch);
+    }
+  } else {
+    index_ = {}; index_ready_ = false; index_reservation_ = 0;
+    dirty_variable_xor_scratch_ = {};
+    dirty_source_xor_scratch_ = {};
+  }
   last_dirty_update_ = false; last_dirty_rows_ = 0;
   incremental_ready_ = status == MatrixStatus::Complete;
   last_synchronization_incremental_ = incremental;
@@ -927,6 +1018,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
       if (!step(1)) return pending();
       trail_=std::move(state.trail);rows_=std::move(state.rows);event=std::move(state.event);
       incremental_ready_=true;index_={};index_ready_=false;index_reservation_=0;
+      dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
       predecessor_ready_=false;predecessor_rows_.clear();predecessor_trail_.clear();
       last_dirty_update_=false;last_dirty_rows_=0;
       last_synchronization_incremental_=false;last_synchronization_restored_predecessor_=false;
@@ -1014,10 +1106,17 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   Work work{0,maximum_work,charge,false,&last_synchronization_work_exhausted_};
   auto declined=[&](){used=work.used;return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;};
   if(index_reservation_>maximum_bytes)return declined();
+  if(dirty_variable_xor_scratch_.capacity()<uint64_t(2)*limits_.maximum_row_width||
+     dirty_source_xor_scratch_.capacity()<uint64_t(2)*limits_.maximum_sources)
+    return declined();
+  uint64_t scratch_bytes=0;
+  if(!combine_scratch_bytes(dirty_variable_xor_scratch_,
+      dirty_source_xor_scratch_,scratch_bytes))return declined();
   uint64_t staging=0;
   auto memory=[&](uint64_t bytes){
-    if(bytes>maximum_bytes-std::min(index_.bytes,maximum_bytes) ||
-       staging>maximum_bytes-index_.bytes-bytes)return false;
+    if(scratch_bytes>maximum_bytes-std::min(index_.bytes,maximum_bytes))return false;
+    const uint64_t retained=index_.bytes+scratch_bytes;
+    if(bytes>maximum_bytes-retained||staging>maximum_bytes-retained-bytes)return false;
     staging+=bytes;return true;
   };
   const uint64_t comparisons=2*std::bit_width(uint64_t(std::max({limits_.maximum_rows,
@@ -1045,7 +1144,6 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   }
   std::map<size_t,MatrixRow> replacement;
   RowIndex additions;
-  CombineScratch combine_scratch;
   const uint64_t row_reserve=index_node_bytes<std::pair<const size_t,MatrixRow>>() +
       6 * (uint64_t(limits_.maximum_row_width)*sizeof(External) +
            uint64_t(limits_.maximum_sources)*sizeof(size_t));
@@ -1071,7 +1169,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
         if(retained!=index_.pivots.end()&&!dirty.contains(retained->second))other=&rows_[retained->second];
       }
       if(!other)break;
-      const auto status=combine(row,*other,limits_,work,combine_scratch);
+      const auto status=combine(row,*other,limits_,work,
+          dirty_variable_xor_scratch_,dirty_source_xor_scratch_,true);
       if(status!=CombineStatus::Complete)return declined();
     }
     if(!bounded(row,limits_))return declined();
@@ -1118,7 +1217,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
         dirty.insert(id);
       }
       const auto status=combine(staged->second,replacement.at(pivot_id),limits_,work,
-                                combine_scratch);
+          dirty_variable_xor_scratch_,dirty_source_xor_scratch_,true);
       if(status!=CombineStatus::Complete)return declined();
     }
   }
@@ -1187,7 +1286,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     if(old!=index_.occurrences.end())next_bytes-=occurrence_node+old->second.capacity()*sizeof(size_t);
     next_bytes+=occurrence_node+list.capacity()*sizeof(size_t);
   }
-  const __uint128_t reservation=__uint128_t(next_bytes)*4;
+  const __uint128_t reservation=__uint128_t(next_bytes)*4+scratch_bytes;
   if(reservation>UINT64_MAX||reservation>maximum_bytes)return declined();
   const uint64_t next_reservation=std::max(index_reservation_,uint64_t(reservation));
   if(next_reservation>maximum_bytes)return declined();

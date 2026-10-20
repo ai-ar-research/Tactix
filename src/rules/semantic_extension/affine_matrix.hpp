@@ -194,6 +194,10 @@ private:
       uint64_t, uint64_t, uint64_t &, MatrixEvent &);
   MatrixEvent indexed_event() const;
   RowIndex index_;
+  // Reused only by atomic dirty-row transactions.  Their capacities are
+  // admitted as part of index_reservation_ and released with the index.
+  std::vector<External> dirty_variable_xor_scratch_;
+  std::vector<size_t> dirty_source_xor_scratch_;
   uint64_t index_reservation_ = 0;
   bool index_ready_ = false, last_dirty_update_ = false;
   size_t last_dirty_rows_ = 0;
