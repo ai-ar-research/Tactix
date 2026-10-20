@@ -247,6 +247,7 @@ private:
   affine_semantic_extension::AffineMatrixProofCache proof_cache_;
   PbpParityBoundsCache pbp_proof_cache_;
   std::vector<std::string> published_;
+  uint64_t published_work_ = 0, published_capacity_bytes_ = 0;
   affine_semantic_extension::MatrixEvent cached_event_;
   uint64_t cached_event_owner_ = 0, cached_event_bytes_ = 0;
   bool cached_event_valid_ = false;

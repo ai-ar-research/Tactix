@@ -2012,13 +2012,20 @@ AffineMatrixServiceResult affine_matrix_search_step(
   const auto duplicate =
       std::lower_bound(session.published_.begin(), session.published_.end(),
                        result.event_identity);
-  for (const auto &key : session.published_)
-    if (!add(key.size() + 1, session.parameters_.maximum_session_work,
-             result.session_work)) {
-      result.status = AffineMatrixServiceStatus::ResourceExhausted;
-      record_service(kernel, result);
-      return result;
+  if (!add(session.published_work_, session.parameters_.maximum_session_work,
+           result.session_work)) {
+    // Preserve the exact historical partial charge on the one terminal
+    // exhaustion path without retaining the quadratic successful scan.
+    result.session_work = 0;
+    for (const auto &key : session.published_) {
+      if (!add(key.size() + 1, session.parameters_.maximum_session_work,
+               result.session_work))
+        break;
     }
+    result.status = AffineMatrixServiceStatus::ResourceExhausted;
+    record_service(kernel, result);
+    return result;
+  }
   if (duplicate != session.published_.end() &&
       *duplicate == result.event_identity) {
     result.status = AffineMatrixServiceStatus::Duplicate;
@@ -2057,9 +2064,15 @@ AffineMatrixServiceResult affine_matrix_search_step(
       result.status = AffineMatrixServiceStatus::ResourceExhausted;
       record_service(kernel, result); return result;
     }
-    uint64_t key_bytes = 2 * session.published_.capacity() * sizeof(std::string) +
-                         2 * (sizeof(std::string) + result.event_identity.size() + 1);
-    for (const auto &key : session.published_) key_bytes += 2 * (key.capacity() + 1);
+    const __uint128_t key_bytes_wide =
+        __uint128_t(2) * session.published_.capacity() * sizeof(std::string) +
+        2 * (sizeof(std::string) + result.event_identity.size() + 1) +
+        __uint128_t(2) * session.published_capacity_bytes_;
+    if (key_bytes_wide > UINT64_MAX) {
+      result.status = AffineMatrixServiceStatus::ResourceExhausted;
+      record_service(kernel, result); return result;
+    }
+    const uint64_t key_bytes = uint64_t(key_bytes_wide);
     if (key_bytes >= session.persistence_.maximum_retained_bytes - session.retained_bytes_) {
       result.status = AffineMatrixServiceStatus::ResourceExhausted;
       record_service(kernel, result); return result;
@@ -2080,10 +2093,15 @@ AffineMatrixServiceResult affine_matrix_search_step(
       result.status == AffineMatrixServiceStatus::Inapplicable)
     session.disable(kernel);
   if (result.status == AffineMatrixServiceStatus::Applied) {
-    std::vector<std::string> committed = session.published_;
-    committed.insert(committed.begin() + (duplicate - session.published_.begin()),
-                     result.event_identity);
-    session.published_.swap(committed);
+    const auto inserted = session.published_.insert(duplicate,
+                                                    result.event_identity);
+    const uint64_t work = inserted->size() + 1;
+    const uint64_t bytes = inserted->capacity() + 1;
+    if (work > UINT64_MAX - session.published_work_ ||
+        bytes > UINT64_MAX - session.published_capacity_bytes_)
+      std::abort();
+    session.published_work_ += work;
+    session.published_capacity_bytes_ += bytes;
     kernel.structural_action_sequence = action_id;
     if (!result.bcp_pending && result.result != ApplyResult::Unsat)
       std::abort();
