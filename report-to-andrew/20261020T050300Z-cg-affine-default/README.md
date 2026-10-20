@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 08:21 UTC  
+Date updated: 2026-10-20 09:49 UTC
 Branch: `codex/cg-closures`  
-Reported development head: `0fafbd9c68abed6527c63dda2d7ed79901a3936a`  
+Reported development head: `5ab940004e15f8086ab77236f83793ac2ed4ff96`
 Current solver change: `68af6bea9b41461ac385bd7c5077a144604a0193`
 
 ## Outcome
@@ -18,6 +18,10 @@ including proof/model and static/hardcoded/public trajectory correspondence.
 Subsequent proof-emission changes passed focused Release PBP tests, pinned
 VeriPB and CakePB checks, negative checker controls, proof-output failure tests,
 affine lifecycle/transaction tests, and `default_public_correspondence`.
+The final development head also passed fresh complete Debug and Release builds
+and all 372 CTests in each configuration. Debug, with ASan/LSan active, passed
+in 2,224.73 seconds; Release passed in 299.99 seconds. A focused Release rerun
+of `default_public_correspondence` passed in 0.46 seconds.
 
 ## Checked CG screen
 
@@ -117,8 +121,9 @@ CMS-relative target. Current affine overhead alone remains around 32--34 s in
 matched unprofiled draws, so ID 284 is still far from the target and is not a
 new closure.
 
-The full release gates are incomplete: full Debug and Release suites,
-100,000-seed DefaultPolicy and random-policy fuzz, all four fixed regression
-sets, full proof/model validation, public/static matched trajectory and
-overhead gates, and final Tier D scoring still remain. Until those pass, there
-will be no merge or force-push to `main`, no version bump, and no release tag.
+The local build and unit/integration-test gates are complete. The full release
+gates remain incomplete: fresh 100,000-seed DefaultPolicy and random-policy
+fuzz, all four fixed 4-core `cpu-q` regression sets, their full proof/model
+validation, public/static matched overhead gates, and final Tier D scoring
+still remain. Until those pass, there will be no merge or force-push to `main`,
+no version bump, and no release tag.
