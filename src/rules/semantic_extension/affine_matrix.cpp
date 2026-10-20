@@ -59,22 +59,28 @@ bool bounded(const MatrixRow &row, const MatrixLimits &limits) {
 
 enum class CombineStatus { Complete, BoundedOut, Exhausted, Interrupted };
 
+struct CombineScratch {
+  std::vector<External> variables;
+  std::vector<size_t> sources;
+};
+
 CombineStatus combine(MatrixRow &row, const MatrixRow &other,
-                      const MatrixLimits &limits, Work &work) {
+                      const MatrixLimits &limits, Work &work,
+                      CombineScratch &scratch) {
   if (!work.consume(1 + row.variables.size() + other.variables.size() +
                     row.source_equations.size() +
                     other.source_equations.size()))
     return work.interrupted ? CombineStatus::Interrupted
                             : CombineStatus::Exhausted;
-  std::vector<External> variables;
-  std::vector<size_t> sources;
-  xor_sorted(row.variables, other.variables, variables);
-  xor_sorted(row.source_equations, other.source_equations, sources);
-  if (variables.size() > limits.maximum_row_width ||
-      sources.size() > limits.maximum_sources)
+  xor_sorted(row.variables, other.variables, scratch.variables);
+  xor_sorted(row.source_equations, other.source_equations, scratch.sources);
+  if (scratch.variables.size() > limits.maximum_row_width ||
+      scratch.sources.size() > limits.maximum_sources)
     return CombineStatus::BoundedOut;
-  row.variables = std::move(variables);
-  row.source_equations = std::move(sources);
+  // Swapping retains the old row allocations as scratch for the next XOR.
+  // The row remains unchanged until both bounded results are complete.
+  row.variables.swap(scratch.variables);
+  row.source_equations.swap(scratch.sources);
   row.rhs ^= other.rhs;
   return CombineStatus::Complete;
 }
@@ -96,6 +102,7 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
   std::map<External, MatrixRow> basis;
   std::vector<MatrixRow> contradictions;
   std::set<External> admitted_variables;
+  CombineScratch combine_scratch;
   bool partial = false;
   for (const MatrixRow &seed : input) {
     if (precharge && !work.consume(1 + seed.variables.size() *
@@ -125,7 +132,7 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       const auto found = basis.find(row.variables.front());
       if (found == basis.end()) break;
       const CombineStatus combined =
-          combine(row, found->second, limits, work);
+          combine(row, found->second, limits, work, combine_scratch);
       if (combined == CombineStatus::Interrupted)
         return MatrixStatus::Interrupted;
       if (combined == CombineStatus::Exhausted) {
@@ -184,7 +191,8 @@ finished:
         const auto pivot = basis.find(row->second.variables[at]);
         if (pivot == basis.end()) { ++at; continue; }
         const CombineStatus combined =
-            combine(row->second, pivot->second, limits, work);
+            combine(row->second, pivot->second, limits, work,
+                    combine_scratch);
         if (combined == CombineStatus::Interrupted)
           return MatrixStatus::Interrupted;
         if (combined == CombineStatus::Exhausted) {
@@ -381,6 +389,7 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
   continuation_ = {};
   if (unavailable.empty()) return MatrixStatus::Complete;
   Work work{0, limits_.maximum_work, charge};
+  CombineScratch combine_scratch;
   for (const auto &row : admitted_rows_)
     if (!work.consume(1 + row.variables.size() + row.source_equations.size()))
       return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
@@ -399,7 +408,8 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
       if (!work.consume(1 + rows[i].variables.size()))
         return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
       if (i == pivot || !std::binary_search(rows[i].variables.begin(), rows[i].variables.end(), variable)) continue;
-      const auto status = combine(rows[i], rows[pivot], limits_, work);
+      const auto status =
+          combine(rows[i], rows[pivot], limits_, work, combine_scratch);
       if (status != CombineStatus::Complete)
         return status == CombineStatus::Interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
     }
@@ -1035,6 +1045,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   }
   std::map<size_t,MatrixRow> replacement;
   RowIndex additions;
+  CombineScratch combine_scratch;
   const uint64_t row_reserve=index_node_bytes<std::pair<const size_t,MatrixRow>>() +
       6 * (uint64_t(limits_.maximum_row_width)*sizeof(External) +
            uint64_t(limits_.maximum_sources)*sizeof(size_t));
@@ -1060,7 +1071,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
         if(retained!=index_.pivots.end()&&!dirty.contains(retained->second))other=&rows_[retained->second];
       }
       if(!other)break;
-      const auto status=combine(row,*other,limits_,work);
+      const auto status=combine(row,*other,limits_,work,combine_scratch);
       if(status!=CombineStatus::Complete)return declined();
     }
     if(!bounded(row,limits_))return declined();
@@ -1106,7 +1117,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
         staged=replacement.emplace(id,rows_[id]).first;
         dirty.insert(id);
       }
-      const auto status=combine(staged->second,replacement.at(pivot_id),limits_,work);
+      const auto status=combine(staged->second,replacement.at(pivot_id),limits_,work,
+                                combine_scratch);
       if(status!=CombineStatus::Complete)return declined();
     }
   }
