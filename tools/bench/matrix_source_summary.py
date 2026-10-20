@@ -38,8 +38,7 @@ def _intersection(left, right):
     return result
 
 
-def _row_signature(row, sources):
-    equations = row.get("sources")
+def _row_signature(equations, sources):
     if not isinstance(equations, list) or len(equations) != len(sources):
         raise ValueError("matrix reason lacks exact source equations")
     variables = set()
@@ -65,6 +64,7 @@ def summarize(path, maximum_bytes, input_sha256):
     digest = hashlib.sha256()
     prior = []
     cache = {}
+    retained = {}
     rows_seen = {}
     totals = Counter()
     source_widths = Counter()
@@ -88,6 +88,20 @@ def summarize(path, maximum_bytes, input_sha256):
             if kind == "affine-matrix-session":
                 totals["matrix_sessions"] += 1
                 continue
+            if kind == "affine-matrix-retained-sources":
+                owner = row.get("owner")
+                equations = row.get("sources")
+                if (type(owner) is not int or owner <= 0 or owner in retained or
+                        not isinstance(equations, list) or not equations or
+                        [equation.get("ordinal") for equation in equations] !=
+                        list(range(len(equations)))):
+                    raise ValueError("invalid retained matrix source table")
+                # Validate every equation now, even if this particular run
+                # never publishes a reason using it.
+                _row_signature(equations, tuple(range(len(equations))))
+                retained[owner] = equations
+                totals["retained_source_tables"] += 1
+                continue
             if kind != "affine-matrix-reason":
                 continue
             proof_cache = row.get("proof_cache", {})
@@ -106,7 +120,20 @@ def summarize(path, maximum_bytes, input_sha256):
                         raw != sorted(set(raw))):
                     raise ValueError("invalid matrix source ordinals")
                 sources = tuple(raw)
-                signature = _row_signature(row, sources)
+                equations = row.get("sources")
+                reference = row.get("sources_ref")
+                if equations is None and isinstance(reference, dict) and \
+                        "retained_owner" in reference:
+                    owner = reference.get("retained_owner")
+                    table = retained.get(owner)
+                    if (type(owner) is not int or table is None or
+                            sources[-1] >= len(table)):
+                        raise ValueError("matrix reason lacks retained source table")
+                    equations = [table[ordinal] for ordinal in sources]
+                    totals["retained_source_refs"] += 1
+                elif reference is not None:
+                    raise ValueError("invalid matrix source reference")
+                signature = _row_signature(equations, sources)
                 if status == "insert":
                     entry = proof_cache.get("entry_id")
                     if (type(entry) is not int or entry <= 0 or
@@ -214,6 +241,8 @@ def summarize(path, maximum_bytes, input_sha256):
         "same_row_different_sources": totals["same_row_different_sources"],
         "cache_hits": totals["cache_hits"],
         "cache_inserts": totals["cache_inserts"],
+        "retained_source_tables": totals["retained_source_tables"],
+        "retained_source_refs": totals["retained_source_refs"],
         "exact_repeat": totals["exact_repeat"],
         "total_sources": totals["sources"],
         "best_prefix_sources": totals["best_prefix_sources"],

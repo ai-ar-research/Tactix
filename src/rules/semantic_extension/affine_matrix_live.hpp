@@ -37,6 +37,7 @@ struct MatrixLiveRequest {
   uint64_t semantic_id = 0;
   FILE *records = nullptr;
   bool compact_provenance = false;
+  bool retained_source_provenance = false;
   AffineMatrixProofCache *proof_cache = nullptr;
   PbpParityBoundsCache *pbp_parity_cache = nullptr;
   // Optional exact per-equation checker-premise ownership. Absence preserves

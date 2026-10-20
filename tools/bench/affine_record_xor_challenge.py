@@ -101,8 +101,32 @@ def signed_xor(variables, rhs):
         signed[0] = -signed[0]
     return signed
 
+def resolve_retained_sources(record, retained):
+    if isinstance(record.get('sources'), list):
+        return record
+    reference = record.get('sources_ref')
+    ordinals = record.get('source_ordinals')
+    if (not isinstance(reference, dict) or
+            type(reference.get('retained_owner')) is not int or
+            not isinstance(ordinals, list)):
+        return record
+    if retained is None:
+        raise ValueError('retained source table required')
+    owner = reference['retained_owner']
+    table = retained.get('sources')
+    if (retained.get('kind') != 'affine-matrix-retained-sources' or
+            retained.get('owner') != owner or not isinstance(table, list) or
+            [source.get('ordinal') for source in table] !=
+            list(range(len(table))) or
+            any(type(ordinal) is not int or ordinal < 0 or
+                ordinal >= len(table) for ordinal in ordinals)):
+        raise ValueError('invalid retained source table')
+    resolved = dict(record)
+    resolved['sources'] = [table[ordinal] for ordinal in ordinals]
+    return resolved
+
 def convert(record, original, output, maximum_sources, maximum_arity,
-            record_sha256):
+            record_sha256, retained_sources_sha256=None):
     original_sha256 = digest(original)
     if record.get('kind') != 'affine-matrix-reason':
         raise ValueError('not an affine-matrix-reason record')
@@ -233,6 +257,8 @@ def convert(record, original, output, maximum_sources, maximum_arity,
                    'record_action_id':record.get('action_id'),
                    'record_semantic_id':record.get('semantic_id'),
                    'source_occurrences':len(occurrences)}
+        if retained_sources_sha256 is not None:
+            summary['retained_sources_sha256'] = retained_sources_sha256
         (staging/'summary.json').write_text(json.dumps(summary,indent=2,
                                                    sort_keys=True)+'\n')
         os.replace(staging, output)
@@ -245,6 +271,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--original', type=Path, required=True)
     parser.add_argument('--record', type=Path, required=True)
+    parser.add_argument('--retained-sources', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--maximum-sources', type=int, default=4096)
     parser.add_argument('--maximum-arity', type=int, default=8)
@@ -253,11 +280,17 @@ def main():
             not 1 <= args.maximum_arity <= 8):
         parser.error('invalid resource limits')
     record_bytes = args.record.read_bytes()
-    record = json.loads(record_bytes)
-    print(json.dumps(convert(record, args.original, args.output,
-                             args.maximum_sources, args.maximum_arity,
-                             hashlib.sha256(record_bytes).hexdigest()),
-                     sort_keys=True))
+    retained_bytes = (args.retained_sources.read_bytes()
+                      if args.retained_sources else None)
+    record = resolve_retained_sources(
+        json.loads(record_bytes),
+        json.loads(retained_bytes) if retained_bytes is not None else None)
+    result = convert(record, args.original, args.output,
+                     args.maximum_sources, args.maximum_arity,
+                     hashlib.sha256(record_bytes).hexdigest(),
+                     hashlib.sha256(retained_bytes).hexdigest()
+                     if retained_bytes is not None else None)
+    print(json.dumps(result, sort_keys=True))
 
 if __name__ == '__main__':
     main()

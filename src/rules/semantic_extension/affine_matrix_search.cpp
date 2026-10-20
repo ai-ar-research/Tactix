@@ -958,7 +958,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       if(!add(1+equation.premises.size(),parameters.maximum_session_work,result.premise_retention_work)) {
         result.status=AffineMatrixInitStatus::ResourceExhausted;record_init(kernel,result);return result;
       }
-      journal_reserve+=512;
+      journal_reserve+=512+__uint128_t(equation.variables.size())*12;
       for(const auto &clause:equation.premise_clauses)journal_reserve+=512+__uint128_t(clause.size())*12;
     }
     if(!proof_copies.empty())for(const auto &source:full_owner.sources) {
@@ -998,7 +998,12 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     for (size_t i = 0; journal_fits && i < image.equations.size(); ++i) {
       const auto &equation = image.equations[i];
       journal_fits = append((i ? "," : "") + std::string("{\"ordinal\":") +
-          std::to_string(i) + ",\"rhs\":" + std::to_string(equation.rhs) + ",\"premises\":[");
+          std::to_string(i) + ",\"variables\":[");
+      for(size_t j=0;journal_fits&&j<equation.variables.size();++j)
+        journal_fits &= append((j ? "," : "")+
+                               std::to_string(equation.variables[j]));
+      journal_fits &= append("],\"rhs\":" + std::to_string(equation.rhs) +
+                             ",\"premises\":[");
       for (size_t j = 0; journal_fits && j < equation.premises.size(); ++j) {
         const auto &source = owner.sources[equation.premises[j] - 1];
         journal_fits = append((j ? "," : "") + std::string("{\"occurrence\":") +
@@ -1162,6 +1167,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
 
   candidate.owner_ = &kernel;
   candidate.owner_version_ = owner_version;
+  candidate.retained_source_provenance_owner_ =
+      persistence.maximum_retained_bytes ? owner_version : 0;
   candidate.proof_ = kernel.proof;
   candidate.proof_stream_identity_ = kernel.proof ? kernel.proof->stream_identity() : 0;
   if (kernel.proof) candidate.proof_format_ = kernel.proof->format();
@@ -2056,6 +2063,8 @@ AffineMatrixServiceResult affine_matrix_search_step(
   request.semantic_id = session.owner_version_;
   request.records = session.records_;
   request.compact_provenance = kernel.affine_matrix_provenance_compact;
+  request.retained_source_provenance =
+      session.retained_source_provenance_owner_ == session.owner_version_;
   request.proof_cache = &session.proof_cache_;
   request.pbp_parity_cache = &session.pbp_proof_cache_;
   if (session.persistent()) {

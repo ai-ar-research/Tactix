@@ -447,12 +447,22 @@ static int proof_fixture(const char *cnf_path, const char *proof_path,
   kernel.proof = &proof;
   auto request = live_request(journal, owner, matrix, image.equations, event);
   PbpParityBoundsCache pbp_cache;
-  if (pbp) request.pbp_parity_cache = &pbp_cache;
+  if (pbp) {
+    request.pbp_parity_cache = &pbp_cache;
+    // Persistent search promises that this owner already has a complete
+    // affine-matrix-retained-sources record in the same journal.
+    request.retained_source_provenance = true;
+  }
   const auto result = apply_affine_matrix_live(kernel, request);
   assert(result.status == MatrixLiveStatus::Applied && result.conflict &&
          result.compact_pbp == pbp &&
          (!pbp || (result.deletions == 0 && pbp_cache.size() > 0)));
   if (pbp) {
+    const std::string provenance = records(journal);
+    assert(provenance.find("\"source_ordinals\":[") != std::string::npos &&
+           provenance.find("\"sources_ref\":{\"retained_owner\":991}") !=
+               std::string::npos &&
+           provenance.find("\"sources\":[") == std::string::npos);
     std::vector<PbpParityEquation> equations;
     for (const size_t ordinal : event.row.source_equations)
       equations.push_back({image.equations[ordinal].variables,

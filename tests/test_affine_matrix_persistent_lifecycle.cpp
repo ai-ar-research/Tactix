@@ -58,6 +58,13 @@ void alias_failure_atomicity() {
   auto bounded=parameters();bounded.basis_maximum_work=10000;bounded.maximum_clauses=original.size();
   assert(affine_matrix_search_initialize(k,session,bounded,
       AffineMatrixAdmission::AuthenticatedSubimage,{64*1024*1024}).status==AffineMatrixInitStatus::Applied);
+  assert(!std::fflush(journal));
+  const long initialized_journal_end=std::ftell(journal);assert(initialized_journal_end>0);
+  std::rewind(journal);std::string initialized_journal(static_cast<size_t>(initialized_journal_end),'\0');
+  assert(std::fread(initialized_journal.data(),1,initialized_journal.size(),journal)==initialized_journal.size());
+  assert(!std::fseek(journal,initialized_journal_end,SEEK_SET));
+  assert(initialized_journal.find("\"kind\":\"affine-matrix-retained-sources\"")!=std::string::npos &&
+         initialized_journal.find("\"variables\":[")!=std::string::npos);
   proof.flush();
   const auto arena=k.arena;const auto watches=k.watches.arena;
   const auto id=k.next_clause_id,version=session.owner_version(),bytes=proof.premise_bytes(),literals=proof.premise_literals();

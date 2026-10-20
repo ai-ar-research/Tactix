@@ -76,6 +76,8 @@ bool same_request(const MatrixLiveRequest &first,
          first.semantic_id == second.semantic_id &&
          first.records == second.records &&
          first.compact_provenance == second.compact_provenance &&
+         first.retained_source_provenance ==
+             second.retained_source_provenance &&
          first.proof_cache == second.proof_cache &&
          first.pbp_parity_cache == second.pbp_parity_cache &&
          first.premise_leases == second.premise_leases &&
@@ -262,6 +264,13 @@ bool make_journal(const MatrixLiveRequest &request,
                 ",\"proof_epoch\":" +
                 std::to_string(transaction.proof_cache_entry().proof_epoch) +
                 "}"))
+      return false;
+  } else if (transaction.compact_pbp() &&
+             request.retained_source_provenance) {
+    if (!append(",\"source_ordinals\":") ||
+        !list(transaction.source_equations()) ||
+        !append(",\"sources_ref\":{\"retained_owner\":" +
+                std::to_string(request.owner_identity) + "}"))
       return false;
   } else {
     if (!append(",\"source_ordinals\":") ||

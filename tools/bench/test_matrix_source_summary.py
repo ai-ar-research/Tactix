@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from matrix_source_summary import summarize
+from affine_record_xor_challenge import resolve_retained_sources
 from runtime_task import matrix_source_summary_contract
 
 
@@ -102,6 +103,48 @@ class MatrixSourceSummaryTest(unittest.TestCase):
         self.assertEqual(result["pbp_polynomial_constraints"], 95)
         self.assertEqual(result["rat_additions"], 0)
         self.assertEqual(result["rup_additions"], 0)
+
+    def test_resolves_retained_source_table(self):
+        path = self.write([
+            {"kind": "session", "version": 1, "input_file_sha256": INPUT},
+            {"kind": "affine-matrix-retained-sources", "owner": 41,
+             "sources": [equation(0, [1, 2]), equation(1, [2, 3], 1),
+                         equation(2, [3, 4])]},
+            {"kind": "affine-matrix-reason", "source_ordinals": [0, 2],
+             "sources_ref": {"retained_owner": 41},
+             "proof_cache": {"status": "disabled"},
+             "proof_mode": "pbp-polynomial", "proof_events": [],
+             "proof_additions": 12, "proof_deletions": 0},
+        ])
+        result = summarize(path, 100000, INPUT)
+        self.assertEqual(result["reasons"], 1)
+        self.assertEqual(result["retained_source_tables"], 1)
+        self.assertEqual(result["retained_source_refs"], 1)
+        self.assertEqual(result["distinct_row_signatures"], 1)
+
+    def test_rejects_missing_retained_source_table(self):
+        path = self.write([
+            {"kind": "session", "version": 1, "input_file_sha256": INPUT},
+            {"kind": "affine-matrix-reason", "source_ordinals": [0],
+             "sources_ref": {"retained_owner": 41},
+             "proof_cache": {"status": "disabled"},
+             "proof_mode": "pbp-polynomial", "proof_events": [],
+             "proof_additions": 1, "proof_deletions": 0},
+        ])
+        with self.assertRaisesRegex(ValueError, "lacks retained"):
+            summarize(path, 100000, INPUT)
+
+    def test_challenge_resolves_same_retained_owner(self):
+        record = {"source_ordinals": [0, 2],
+                  "sources_ref": {"retained_owner": 41}}
+        table = {"kind": "affine-matrix-retained-sources", "owner": 41,
+                 "sources": [equation(0, [1]), equation(1, [2]),
+                             equation(2, [3])]}
+        resolved = resolve_retained_sources(record, table)
+        self.assertEqual([source["ordinal"] for source in resolved["sources"]],
+                         [0, 2])
+        with self.assertRaisesRegex(ValueError, "invalid retained"):
+            resolve_retained_sources(record, {**table, "owner": 42})
 
     def test_rejects_wrong_input_and_missing_cache_source(self):
         path = self.write([

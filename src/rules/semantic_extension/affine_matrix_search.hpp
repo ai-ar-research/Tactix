@@ -228,6 +228,10 @@ private:
 
   const Kernel *owner_ = nullptr;
   uint64_t owner_version_ = 0;
+  // Owner whose complete exact source table was written to structural
+  // provenance.  Later owner refreshes must emit sources inline until a new
+  // retained table has been committed.
+  uint64_t retained_source_provenance_owner_ = 0;
   Proof *proof_ = nullptr;
   uint64_t proof_stream_identity_ = 0;
   ProofFormat proof_format_ = ProofFormat::DratAscii;
