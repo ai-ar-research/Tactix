@@ -7,15 +7,61 @@
 #include <atomic>
 #include <bit>
 #include <cassert>
+#include <charconv>
 #include <cinttypes>
 #include <cstdlib>
 #include <limits>
 #include <set>
+#include <string_view>
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
 #include <execinfo.h>
 #endif
 
 namespace tactix {
+
+namespace {
+
+class PbpTextWriter {
+public:
+  explicit PbpTextWriter(FILE *file) : file_(file) {
+    if (!file_)
+      std::abort();
+  }
+
+  void put(std::string_view text) {
+    while (!text.empty()) {
+      if (size_ == buffer_.size())
+        flush();
+      const size_t count = std::min(text.size(), buffer_.size() - size_);
+      std::copy_n(text.data(), count, buffer_.data() + size_);
+      size_ += count;
+      text.remove_prefix(count);
+    }
+  }
+
+  void put_uint(uint64_t value) {
+    std::array<char, 20> digits{};
+    const auto converted =
+        std::to_chars(digits.data(), digits.data() + digits.size(), value);
+    if (converted.ec != std::errc{})
+      std::abort();
+    put(std::string_view(
+        digits.data(), static_cast<size_t>(converted.ptr - digits.data())));
+  }
+
+  void flush() {
+    if (size_ && std::fwrite(buffer_.data(), 1, size_, file_) != size_)
+      std::abort();
+    size_ = 0;
+  }
+
+private:
+  FILE *file_;
+  std::array<char, 1 << 16> buffer_{};
+  size_t size_ = 0;
+};
+
+} // namespace
 
 uint64_t PbpParityBoundsCache::retained_bytes() const noexcept {
   if (entries_.empty())
@@ -1494,6 +1540,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   }
   const uint64_t derived_before = pbp_derived_constraints_;
   uint32_t fresh = plan.starting_external_extent;
+  PbpTextWriter text(file_);
   const auto constraint = [&]() {
     if (pbp_derived_constraints_ == UINT64_MAX ||
         pbp_original_constraints_ >
@@ -1505,16 +1552,20 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   const auto term = [&](uint32_t coefficient, int32_t literal) {
     if (!coefficient || !literal || literal == INT32_MIN)
       std::abort();
-    std::fprintf(file_, "%" PRIu32 " %sx%" PRIu32 " ", coefficient,
-                 literal < 0 ? "~" : "",
-                 static_cast<uint32_t>(literal < 0 ? -int64_t(literal)
-                                                    : int64_t(literal)));
+    text.put_uint(coefficient);
+    text.put(" ");
+    if (literal < 0)
+      text.put("~");
+    text.put("x");
+    text.put_uint(static_cast<uint32_t>(
+        literal < 0 ? -int64_t(literal) : int64_t(literal)));
+    text.put(" ");
   };
 
   const auto emit_bound = [&](const PbpParityEquation &equation,
                               const std::vector<int32_t> &carries,
                               bool lower) {
-    std::fputs("pbc ", file_);
+    text.put("pbc ");
     for (const int32_t variable : equation.variables)
       term(1, lower ? variable : -variable);
     for (const int32_t carry : carries)
@@ -1522,22 +1573,24 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     const uint32_t rhs = lower
         ? uint32_t(equation.rhs) + 2 * carries.size()
         : equation.variables.size() - uint32_t(equation.rhs);
-    std::fprintf(file_, ">= %" PRIu32 " : subproof\n", rhs);
+    text.put(">= ");
+    text.put_uint(rhs);
+    text.put(" : subproof\n");
     (void)constraint();
     const auto block = [&](auto &&self, uint32_t depth, uint32_t mask) -> void {
       if (depth + 1 < equation.variables.size()) {
         self(self, depth + 1, mask);
         self(self, depth + 1, mask | (uint32_t{1} << depth));
       }
-      std::fputs("rup ", file_);
+      text.put("rup ");
       for (uint32_t i = 0; i < depth; ++i)
         term(1, mask & (uint32_t{1} << i) ? -equation.variables[i]
                                           : equation.variables[i]);
-      std::fputs(">= 1 ;\n", file_);
+      text.put(">= 1 ;\n");
       (void)constraint();
     };
     block(block, 0, 0);
-    std::fputs("qed pbc : -1 ;\n", file_);
+    text.put("qed pbc : -1 ;\n");
     return constraint();
   };
 
@@ -1554,29 +1607,38 @@ bool Proof::add_prevalidated_pbp_parity_reason(
           std::abort();
         const int32_t carry = static_cast<int32_t>(++fresh);
         bounds.carries.push_back(carry);
-        std::fputs("red ", file_);
+        text.put("red ");
         for (const int32_t variable : equation.variables) term(1, variable);
         term(threshold, -carry);
-        std::fprintf(file_, ">= %" PRIu32 " : x%d -> 0 ;\n", threshold,
-                     carry);
+        text.put(">= ");
+        text.put_uint(threshold);
+        text.put(" : x");
+        text.put_uint(static_cast<uint32_t>(carry));
+        text.put(" -> 0 ;\n");
         const uint64_t first = constraint();
 
         const uint32_t complement =
             equation.variables.size() - threshold + 1;
-        std::fputs("red ", file_);
+        text.put("red ");
         for (const int32_t variable : equation.variables) term(1, -variable);
         term(complement, carry);
-        std::fprintf(file_, ">= %" PRIu32
-                            " : x%d -> 1 : subproof\n",
-                     complement, carry);
+        text.put(">= ");
+        text.put_uint(complement);
+        text.put(" : x");
+        text.put_uint(static_cast<uint32_t>(carry));
+        text.put(" -> 1 : subproof\n");
         const uint64_t negated_second = constraint();
-        std::fputs("proofgoal #1\nqed ;\n", file_);
+        text.put("proofgoal #1\nqed ;\n");
         (void)constraint();
-        std::fprintf(file_, "proofgoal %" PRIu64 "\n", first);
+        text.put("proofgoal ");
+        text.put_uint(first);
+        text.put("\n");
         const uint64_t negated_first = constraint();
-        std::fprintf(file_, "pol %" PRIu64 " %" PRIu64
-                            " + ;\nqed : -1 ;\nqed ;\n",
-                     negated_second, negated_first);
+        text.put("pol ");
+        text.put_uint(negated_second);
+        text.put(" ");
+        text.put_uint(negated_first);
+        text.put(" + ;\nqed : -1 ;\nqed ;\n");
         (void)constraint();
         (void)constraint();
       }
@@ -1597,30 +1659,51 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   };
   const auto sum_and_round = [&](const std::vector<uint64_t> &ids,
                                  bool lower_side) {
-    std::fprintf(file_, "pol %" PRIu64, ids.front());
-    for (size_t i = 1; i < ids.size(); ++i)
-      std::fprintf(file_, " %" PRIu64 " +", ids[i]);
+    text.put("pol ");
+    text.put_uint(ids.front());
+    for (size_t i = 1; i < ids.size(); ++i) {
+      text.put(" ");
+      text.put_uint(ids[i]);
+      text.put(" +");
+    }
     for (uint32_t i = 0; i < reason_size; ++i) {
       const int32_t literal = reason[i];
       const int32_t variable = literal < 0 ? -literal : literal;
       if (odd(variable) &&
-          ((lower_side && literal < 0) || (!lower_side && literal > 0)))
-        std::fprintf(file_, " %sx%d +", literal < 0 ? "~" : "", variable);
+          ((lower_side && literal < 0) || (!lower_side && literal > 0))) {
+        text.put(" ");
+        if (literal < 0)
+          text.put("~");
+        text.put("x");
+        text.put_uint(static_cast<uint32_t>(variable));
+        text.put(" +");
+      }
     }
-    std::fputs(" 2 d ;\n", file_);
+    text.put(" 2 d ;\n");
     return constraint();
   };
   const uint64_t lo = sum_and_round(lower, true);
   const uint64_t hi = sum_and_round(upper, false);
-  std::fprintf(file_, "pol %" PRIu64 " %" PRIu64 " +", lo, hi);
+  text.put("pol ");
+  text.put_uint(lo);
+  text.put(" ");
+  text.put_uint(hi);
+  text.put(" +");
   for (uint32_t i = 0; i < reason_size; ++i) {
     const int32_t literal = reason[i];
     const int32_t variable = literal < 0 ? -literal : literal;
-    if (!odd(variable))
-      std::fprintf(file_, " %sx%d +", literal < 0 ? "~" : "", variable);
+    if (!odd(variable)) {
+      text.put(" ");
+      if (literal < 0)
+        text.put("~");
+      text.put("x");
+      text.put_uint(static_cast<uint32_t>(variable));
+      text.put(" +");
+    }
   }
-  std::fputs(" ;\n", file_);
+  text.put(" ;\n");
   (void)constraint();
+  text.flush();
 
   if (fresh != plan.starting_external_extent + plan.helper_variables ||
       pbp_derived_constraints_ - derived_before != plan.proof_constraints ||

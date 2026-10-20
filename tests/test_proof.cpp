@@ -762,6 +762,49 @@ void test_streaming_pbp() {
   std::remove(path.c_str());
 }
 
+void test_streaming_pbp_parity_text_buffer_boundary() {
+  const auto path = tmp_path("pbp-parity-buffer-boundary");
+  {
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+    proof.finish_input_transaction();
+    const PbpParityEquation equation{{1, 2}, false};
+    const int32_t reason[] = {-1, 2};
+    PbpParityBoundsCache cache;
+    PbpParityReasonPlan first;
+    assert(proof.plan_pbp_parity_reason({equation}, reason, 2, 2, cache,
+                                        first));
+    assert(proof.add_prevalidated_pbp_parity_reason(
+        1, {equation}, reason, 2, cache, first));
+    proof.flush();
+    const std::string prefix = read_all(path);
+
+    constexpr size_t repetitions = 10001;
+    const std::vector<PbpParityEquation> equations(repetitions, equation);
+    PbpParityReasonPlan repeated;
+    assert(proof.plan_pbp_parity_reason(equations, reason, 2, 2, cache,
+                                        repeated));
+    assert(repeated.proof_constraints == 3 && !repeated.helper_variables);
+    assert(proof.add_prevalidated_pbp_parity_reason(
+        2, equations, reason, 2, cache, repeated));
+    proof.flush();
+
+    std::string expected = "pol 11";
+    expected.reserve(2 * repetitions * 6 + 64);
+    for (size_t i = 1; i < repetitions; ++i)
+      expected += " 11 +";
+    expected += " ~x1 + 2 d ;\npol 16";
+    for (size_t i = 1; i < repetitions; ++i)
+      expected += " 16 +";
+    expected += " x2 + 2 d ;\npol 20 21 + ;\n";
+    assert(expected.size() > 65536);
+    const std::string complete = read_all(path);
+    expect(complete.substr(prefix.size()), expected,
+           "streaming PBP parity text crosses the bounded flush boundary");
+  }
+  std::remove(path.c_str());
+}
+
 static void test_all_formats_report_output_failure() {
   for (auto format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii,
                       ProofFormat::DratBinary, ProofFormat::DratAscii,
@@ -794,6 +837,7 @@ int main() {
   test_all_formats_report_output_failure();
   test_automatic_certificate_boundary();
   test_streaming_pbp();
+  test_streaming_pbp_parity_text_buffer_boundary();
   test_drat_binary_add();
   test_drat_binary_varint_boundary();
   test_drat_binary_delete();
