@@ -3,8 +3,8 @@ set -euo pipefail
 
 solver=$1
 root=$2
-veripb=${VERIPB:-$root/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb}
-cakepb=${CAKE_PB_CNF:-$root/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf}
+veripb=${VERIPB:-$root/tools/checkers/bin/veripb}
+cakepb=${CAKE_PB_CNF:-$root/tools/checkers/bin/cake-pb-cnf}
 if [[ ! -x "$veripb" || ! -x "$cakepb" ]]; then
   exit 77
 fi
@@ -40,7 +40,7 @@ p cnf 6 24
 EOF
 
 set +e
-"$solver" --pbp "$tmp/input.cnf" "$tmp/proof.pbp" \
+"$solver" "$tmp/input.cnf" "$tmp/proof.pbp" \
   > "$tmp/solver.out" 2>&1
 status=$?
 set -e
@@ -52,6 +52,28 @@ if grep -q '^red ' "$tmp/proof.pbp"; then
   echo 'ordinary-clause fixture unexpectedly used a redundancy witness'
   exit 1
 fi
+
+# The retained explicit spelling must select the same deterministic stream as
+# the no-flag default.
+set +e
+"$solver" --pbp "$tmp/input.cnf" "$tmp/explicit.pbp" \
+  > "$tmp/explicit.out" 2>&1
+explicit_status=$?
+set -e
+[[ $explicit_status -eq 20 ]]
+grep -q '^c proof-route pbp$' "$tmp/explicit.out"
+cmp "$tmp/proof.pbp" "$tmp/explicit.pbp"
+
+# PBP is textual already: the legacy transport modifier must not silently
+# switch a no-flag run back to the former DSR default.
+set +e
+"$solver" --no-binary "$tmp/input.cnf" "$tmp/no-binary.pbp" \
+  > "$tmp/no-binary.out" 2>&1
+no_binary_status=$?
+set -e
+[[ $no_binary_status -eq 20 ]]
+grep -q '^c proof-route pbp$' "$tmp/no-binary.out"
+cmp "$tmp/proof.pbp" "$tmp/no-binary.pbp"
 
 "$veripb" -u --cnf --elaborate "$tmp/kernel.pbp" \
   "$tmp/input.cnf" "$tmp/proof.pbp" > "$tmp/veripb.out" 2>&1
@@ -88,4 +110,4 @@ if "$veripb" -u --cnf "$tmp/input.cnf" "$tmp/corrupt.pbp" \
   exit 1
 fi
 
-printf 'CLI whole-run PBP: clausal proof passed pinned VeriPB+CakePB; source and kernel corruptions rejected\n'
+printf 'CLI default whole-run PBP: no-flag, --pbp and --no-binary streams match; proof passed pinned VeriPB+CakePB; source and kernel corruptions rejected\n'

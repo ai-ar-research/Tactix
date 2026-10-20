@@ -50,7 +50,7 @@ assert all(runner.TIER_MEM_GB[tier] == 32
 assert runner.TIER_MEM_GB["D"] == 32
 assert [row[0] for row in runner.read_tier_list("P4A")] == [row[0] for row in p4a]
 assert [row[0] for row in runner.read_tier_list("P4B")] == [row[0] for row in p4b]
-assert runner.proof_format(["/pin/tactix"]) == "dsr"
+assert runner.proof_format(["/pin/tactix"]) == "pbp"
 assert runner.proof_format(["/pin/tactix", "--dsr"]) == "dsr"
 assert runner.proof_format(["/pin/tactix", "--drat"]) == "drat"
 assert runner.proof_format(["/pin/tactix", "--lrat"]) == "lrat"

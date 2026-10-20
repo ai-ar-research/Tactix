@@ -19,11 +19,14 @@ Two releases matter for the paper:
 
 | Release | Commit | Use |
 |---|---|---|
-| `v0.1.0-paper` | `0f7c10174`, the version evaluated in the paper | reproducing the paper's SAT Competition results |
-| `v0.1.0` (latest) | the newest version, with the library and documentation | everything else |
+| `v0.1.0-0f7c10174` | `0f7c10174`, the version evaluated in the paper | reproducing the paper's SAT Competition results |
+| `v0.2.0` (current source) | whole-run PBP by default and the validated algebraic increment | everything else |
+| `v0.1.0` | first public installable release | compatibility and historical comparison |
 
-The latest release's default strategy makes the same decisions and writes the
-same proofs as the paper's; the release notes record the comparison.
+The current source retains the validated paper-relative solver behavior. Its
+default certificate is now whole-run PBP; use `--auto-proof` to select the
+paper release's automatic startup-PBP/DSR format behavior. See the repository
+changelog for the full version history.
 
 ## The library
 

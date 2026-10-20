@@ -84,6 +84,8 @@ if [ "$FORCED_TTF" -eq 1 ]; then
         --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
 fi
 
+# This adds the LRAT cross-check only when the selected solver arm emits DRAT;
+# Tactix's default PBP arm continues through VeriPB and CakePB.
 [ "$NIGHTLY" -eq 0 ] || EXTRA+=(--lrat)
 
 echo "== regression corpus =="

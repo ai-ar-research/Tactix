@@ -9,6 +9,8 @@ This guide builds Tactix, solves a formula, and checks the answer.
 - zlib (development headers).
 - `gzip` and `xz` on the `PATH`, for `.gz` and `.xz` input.
 - Python 3.9+, for the proof-checking script.
+- x86-64 for the pinned VeriPB and verified CakePB binaries installed by the
+  checker setup (the solver itself is not restricted to x86-64).
 
 ## Build
 
@@ -42,12 +44,10 @@ proof path to solve without writing a proof.
 
 ## Proof formats
 
-By default (`--auto-proof`), Tactix writes its native **DSR** format in binary.
-DSR extends DRAT with substitution redundancy, which lets symmetry breaking and
-variable merging be stated as proof steps. A few complete refutations found
-before search (parity and counting arguments) are written instead as a
-**pseudo-Boolean** proof for VeriPB. On UNSAT, the solver prints which checker
-route applies:
+By default (with no proof-format flag), Tactix writes a whole-run
+**pseudo-Boolean proof (PBP)**. VeriPB elaborates it and CakePB independently
+checks the result against the original CNF. On UNSAT, the solver prints which
+checker route applies:
 
 | `c proof-route` | Format | Checked by |
 |---|---|---|
@@ -55,16 +55,18 @@ route applies:
 | `dsr-trestle` | DSR with substitution witnesses | dsr-trim, then Trestle |
 | `pbp` | pseudo-Boolean proof | VeriPB, then CakePB |
 
-Other formats can be requested explicitly: `--drat` (DRAT), `--lrat` (LRAT
-with hints), `--dsr` (always DSR), and `--pbp` (whole-run PBP covering ordinary
-CDCL and supported structured reasoning). `--no-binary` writes the textual
-variant of DSR or DRAT.
+`--pbp` is the explicit spelling of the default. Other formats can be requested
+explicitly: `--dsr` (native DSR, which extends DRAT with substitution
+redundancy), `--drat`, and `--lrat` (with hints). `--auto-proof` retains the
+former behavior: binary DSR unless a complete startup refutation selects PBP.
+With `--dsr` or `--drat`, `--no-binary` writes the textual variant. PBP and
+LRAT are already textual, so the option has no effect on those formats.
 
 ## Check a proof
 
-Build the checkers once. This clones drat-trim, cake_lpr, dsr-trim and Trestle
-at pinned commits next to the source tree and links them into
-`tools/checkers/bin/`. Building Trestle needs Lean's `lake`.
+Build the checkers once. This builds the clausal checkers plus the pinned
+VeriPB and CakePB used by the default PBP route. Building Trestle needs Lean's
+`lake`.
 
 ```sh
 tools/checkers/setup.sh
@@ -78,11 +80,10 @@ python3 tools/bench/proof_oracle.py check formula.cnf proof
 
 The script reads the proof, picks the route from the table above, and prints
 `s VERIFIED UNSAT` with exit code 0, or the failing stage and checker output
-with exit code 1. For a `pbp` route, install
-[VeriPB](https://gitlab.com/MIAOresearch/software/VeriPB) and
-[CakePB](https://gitlab.com/MIAOresearch/software/cakepb)
-and pass them with `--veripb` and `--cake-pb`; `paper/run/setup.sh checkers`
-builds both at the versions the paper used, into `paper/run/tools/bin/`.
+with exit code 1. The setup command installs pinned VeriPB and CakePB in
+`tools/checkers/bin/`, the proof oracle's default PBP-tool location.
+Alternative pinned binaries can be selected explicitly with `--veripb` and
+`--cake-pb`.
 
 To check a SAT answer, save the solver output and run the model checker,
 which confirms that the `v` lines satisfy every clause of the formula:
@@ -106,7 +107,7 @@ and runs the built-in default strategy:
 
 int main(int argc, char **argv) {
   tactix *solver = tactix_init();
-  tactix_proof(solver, "proof", TACTIX_PROOF_AUTOMATIC); /* optional */
+  tactix_proof(solver, "proof", TACTIX_PROOF_PBP); /* optional */
   FILE *in = fopen(argv[1], "r");
   if (!in || tactix_read_dimacs(solver, in) != 0) return 1;
   fclose(in);

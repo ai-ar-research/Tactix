@@ -13,11 +13,12 @@ consumer proof against exactly those lemmas. GF(2) may use XLRUP internally;
 cardinality and GF(3) retain clausal DSR fallback until equally strong native
 bindings exist. This is one user-facing certificate and acceptance decision,
 not independent proof modes whose conclusions are assumed by one another.
-Add whole-run PBP as an explicit additional mode: pinned VeriPB checks and
+Add whole-run PBP as a complete mode: pinned VeriPB checks and
 elaborates it, then verified CakePB checks the elaborated proof against the
 original CNF. The new mode must cover every proof event a selected run can
-produce. It does not replace Automatic, DSR, DRAT, LRAT, Trestle, XLRUP or the
-bundle route, and cannot narrow the N1 action surface.
+produce. After the completed gate it becomes the CLI default while Automatic,
+DSR, DRAT, LRAT, Trestle, XLRUP and the bundle route remain available. It
+cannot narrow the N1 action surface.
 
 ## Frozen CG benchmark
 
@@ -293,7 +294,8 @@ no missing rows or failures: 483 verified SAT, 519 verified UNSAT, 156 solver
 timeouts, one solver memory-out and seven inherited proof censors. Raw PAR-2
 2,026,921.093 and verified PAR-2 2,087,884.748 are both better than the paper
 values and below the paper-plus-10% ceilings. This closes the requested PBP
-gate without claiming a default-policy promotion.
+gate. Whole-run PBP was subsequently selected as the default proof format;
+that format promotion does not change DefaultPolicy's strategy schedule.
 
 Proof-free four-core CMS screen 1791200 and corrected wall-time continuation
 1792904 are terminal. Their hash-bound combined inventory covers all 1,166 rows

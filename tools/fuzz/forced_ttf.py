@@ -29,7 +29,7 @@ ACTION_PARAMETERS = (256, 8, 240, 70000, 24, 12379813812177893520, 64)
 TIGHT_PARAMETERS = (256, 8, 2, 3, 1, 12379813812177893520, 1)
 ACTION_PREFIX = (
     "sequence-repeat=once:1 "
-    "step=1:Lucky:0:once:1:0:unlimited:post(0):rulework(0,0):"
+    "step=1:Lucky:0:once:1:0:1:post(0):rulework(0,0):"
     "material(0,0):balanced-signature-model")
 ACTION_SUFFIX = ":instances[10]:grids[]:sr[]\n"
 BALANCE_RE = re.compile(
@@ -271,7 +271,10 @@ def interruption_control(solver, timeout, policy_seed):
         cnf = os.path.join(work, "case.cnf")
         write_dimacs(cnf, nvars, clauses)
         command = controller_command(solver, ACTION, policy_seed)
-        for period in (3, 5, 7, 11, 17, 31, 63, 127, 255, 511):
+        # PBP serialization adds deterministic stop polls at powers of two;
+        # retain the historical odd periods as controls for poll-placement
+        # drift in the underlying constructor.
+        for period in (1, 2, 3, 4, 5, 7, 8, 11, 16, 17, 31, 63, 127, 255, 511):
             outputs = []
             for run in range(2):
                 proof = os.path.join(work, f"interrupt-{period}-{run}.proof")
@@ -314,9 +317,13 @@ def main():
                                 "--controller-replay", "--controller-actions"))
            for argument in solver):
         parser.error("--solver must name the base solver without a policy/action file")
-    if "--lrat" in solver:
-        parser.error("forced-TTF actions require a clausal proof stream, not --lrat")
-    solver.append("--dsr")
+    if any(flag in solver for flag in ("--auto-proof", "--dsr", "--drat",
+                                       "--lrat")):
+        parser.error("forced-TTF fuzz uses the default streaming PBP proof route")
+    # Spell out PBP so the shared oracle selects VeriPB and CakePB even when
+    # the solver binary has been renamed by a pinned cluster snapshot.
+    if "--pbp" not in solver:
+        solver.append("--pbp")
     oracle = shlex.split(args.oracle) if args.oracle else None
     os.makedirs(args.outdir, exist_ok=True)
     generated_controls = os.path.join(args.outdir, "controls")

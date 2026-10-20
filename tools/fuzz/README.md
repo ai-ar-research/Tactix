@@ -3,8 +3,9 @@
 Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 
 - `run.sh --quick --solver CMD` — per-commit gate: regression corpus + 10,000
-  seeded cases; `--nightly` = 200,000 cases + LRAT chain. These counts are
-  owned by `run.sh`; keep this summary synchronized with its defaults.
+  seeded cases; `--nightly` = 200,000 cases. A no-flag Tactix command uses
+  whole-run PBP, and every UNSAT result must pass VeriPB and CakePB. These
+  counts are owned by `run.sh`; keep this summary synchronized with its defaults.
 - `run.sh --controller-v5 --quick --solver CMD` — 10,000 deterministic
   structure-preserving GF(3)/Direct CSP mutations across SAT/model and
   UNSAT/proof oracles. GF(3) stays a complete affine encoding, including a
@@ -33,7 +34,7 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   `--require-controller-applied` and `--require-controller-effective`; the
   latter rejects attempted structured actions that published nothing.
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
-  model (`checkmodel`), startup PBP (VeriPB elaboration then CakePB against the
+  model (`checkmodel`), whole-run PBP (VeriPB elaboration then CakePB against the
   original CNF, both required), witness-free native DSR (validated lossless
   DRAT conversion to backward drat-trim and CakeLPR, plus a forward
   `drat-trim -f` every-lemma audit of that conversion), witnessed DSR
@@ -63,6 +64,10 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 - `retention.py` — reports which tracked per-job artifact is still cited as evidence (job id, id range, or name, never the basename), for this directory's `slurm-*.log` and `benchmarks/probes/*.out`. Report-only unless `--delete`; uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
 
 The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the recorded seed and each invocation gets a private artifact namespace. Cluster submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations use `failures/runs/local-<pid>/{seeded,controller-v5}/`. This prevents concurrent default, random-policy and typed legs with identical indices/seeds from replacing bundles or `nonterminating.json`.
-When the pinned Tactix executable is renamed so its basename is not `tactix`, include `--auto-proof` in the `--solver` command. The harness otherwise assumes an unknown executable emits DRAT; `--auto-proof` selects Tactix's normal automatic DSR/PBP mode and the matching independent oracle route. Do not substitute `--dsr` for this gate, because that disables startup PBP.
+When the pinned Tactix executable is renamed so its basename is not `tactix`,
+include `--pbp` in the `--solver` command. The harness otherwise assumes an
+unknown executable emits DRAT; `--pbp` selects Tactix's default whole-run PBP
+mode and its VeriPB/CakePB oracle route. Use `--auto-proof` only for the
+retained startup-PBP/DSR compatibility gate.
 Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir`; identifiers permit letters, digits, `.`, `_` and `-`.
 Failure bundles land in that private directory (untracked) and are promoted to the corpus manually once diagnosed. Immutable checker and replay-harness stores remain shared under `failures/checkers/` and `failures/harnesses/` because their directory names are content hashes.

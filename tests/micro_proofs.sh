@@ -348,7 +348,7 @@ fi
 # control for the new proof-producing path.
 cnf="$T/signed-cardinality.cnf"
 proof="$T/signed-cardinality-reach.dsr"
-"$TACTIX" --no-binary "$cnf" "$proof" > "$T/signed-cardinality.out" \
+"$TACTIX" --dsr --no-binary "$cnf" "$proof" > "$T/signed-cardinality.out" \
   && rc=$? || rc=$?
 [ "$rc" -eq 20 ] \
   || { echo "FAIL: signed-cardinality fixture not UNSAT (rc=$rc)"; exit 1; }
@@ -723,9 +723,9 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
   for mode in binary ascii; do
     proof="$cnf.bve.$mode.dsr"
     if [ "$mode" = binary ]; then
-      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --dsr "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
     else
-      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --no-binary "$cnf" "$proof" > "$T/out" \
+      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --dsr --no-binary "$cnf" "$proof" > "$T/out" \
         && rc=$? || rc=$?
     fi
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE (rc=$rc)"; exit 1; }
@@ -756,7 +756,7 @@ for mode in binary ascii; do
   extra=""
   [ "$mode" = ascii ] && extra="--no-binary"
   # shellcheck disable=SC2086
-  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def $extra "$cnf" "$proof" \
+  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def --dsr $extra "$cnf" "$proof" \
     > "$T/out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT (rc=$rc)"; exit 1; }
   grep -qE '^c bve-gates .*[1-9][0-9]* definition' "$T/out" \
@@ -790,7 +790,7 @@ for mode in binary ascii; do
   extra=""
   [ "$mode" = ascii ] && extra="--no-binary"
   # shellcheck disable=SC2086
-  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def $extra "$cnf" "$proof" \
+  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def --dsr $extra "$cnf" "$proof" \
     > "$T/out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] || { echo "FAIL: bvedefunit not UNSAT (rc=$rc)"; exit 1; }
   grep -qE '^c bve-def .* [1-9][0-9]* units$' "$T/out" \
@@ -825,10 +825,10 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
   for mode in binary ascii; do
     proof="$cnf.fac.$mode.dsr"
     if [ "$mode" = binary ]; then
-      TACTIX_NO_BVE=1 "$TACTIX" -q "$cnf" "$proof" \
+      TACTIX_NO_BVE=1 "$TACTIX" -q --dsr "$cnf" "$proof" \
         > "$T/out" && rc=$? || rc=$?
     else
-      TACTIX_NO_BVE=1 "$TACTIX" -q --no-binary "$cnf" \
+      TACTIX_NO_BVE=1 "$TACTIX" -q --dsr --no-binary "$cnf" \
         "$proof" > "$T/out" && rc=$? || rc=$?
     fi
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor (rc=$rc)"; exit 1; }
@@ -1017,7 +1017,7 @@ fi
 if [ -x "$DSR_TRIM" ] && [ -x "$SR_CHECK" ]; then
   corpus="$ROOT/tools/fuzz/corpus/regressions/034-substitute-root-fixed-binary-image-unit/case.cnf"
   proof="$T/substitute-root-fixed-binary-image-unit.dsr"
-  "$TACTIX" -q --random-policy=296716882 "$corpus" "$proof" \
+  "$TACTIX" -q --random-policy=296716882 --dsr "$corpus" "$proof" \
     > "$T/substitute-root-fixed-binary-image-unit.out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] \
     || { echo "FAIL: Substitute root-fixed binary image (rc=$rc)"; exit 1; }

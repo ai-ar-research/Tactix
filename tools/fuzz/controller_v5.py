@@ -216,11 +216,13 @@ def main():
                            "--controller-replay", "--controller-actions"))
            for arg in solver):
         parser.error("--solver must name the base solver without a policy/action file")
-    if "--lrat" in solver:
-        parser.error("typed v5 actions require a clausal proof stream, not --lrat")
-    # The public actions deliberately reject the automatic startup-PB route.
-    # Pin this focused leg to Tactix's canonical clausal certificate.
-    solver.append("--dsr")
+    if any(flag in solver for flag in ("--auto-proof", "--dsr", "--drat",
+                                       "--lrat")):
+        parser.error("typed v5 fuzz uses the default streaming PBP proof route")
+    # These public actions support streaming PBP. Pin the spelling explicitly
+    # so a renamed or wrapped Tactix binary still takes the PBP oracle route.
+    if "--pbp" not in solver:
+        solver.append("--pbp")
     oracle = shlex.split(args.oracle) if args.oracle else None
     os.makedirs(args.outdir, exist_ok=True)
 

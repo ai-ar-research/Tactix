@@ -81,7 +81,7 @@ if [ -x "$DSR_TRIM" ] && [ -x "$SR_CHECK" ]; then
     proof="$T/$name.dsr"
     lsr="$T/$name.lsr"
     set +e
-    "$SOLVER" --no-binary --random-policy="$seed" \
+    "$SOLVER" --dsr --no-binary --random-policy="$seed" \
       "$ROOT/$cnf" "$proof" >"$T/$name.solver" 2>"$T/$name.stderr"
     solver_rc=$?
     set -e

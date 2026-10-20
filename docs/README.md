@@ -11,7 +11,7 @@
 | [rules.md](rules.md) | Every proof rule and policy operation a strategy can apply |
 | [proof-rules.html](proof-rules.html) | Interactive guide to the proof rules (open in a browser) |
 | [../examples/](../examples/) | Example strategies and small test formulas |
-| [../paper/README.md](../paper/README.md) | Reproducing the paper's evaluation |
+| [paper artifact](https://github.com/ai-ar-research/Tactix/tree/artifact/paper) | Reproducing the paper's evaluation |
 
 ## How Tactix works
 

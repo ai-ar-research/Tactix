@@ -1,8 +1,8 @@
 // tactix-public: the shipped DefaultPolicy as a command-line solver whose
 // actions leave through PublicPort (tests/default_public_port.hpp), i.e. as
 // tactix.h requests on a C session. Input ingestion and solver setup mirror
-// `tactix --auto-proof <cnf> [proof]` (src/main.cpp) so certificates and
-// trajectories are comparable with the production binary: the CLI parser
+// `tactix <cnf> [proof]` (src/main.cpp) so certificates and trajectories are
+// comparable with the production binary: the CLI parser
 // with its advisory header, Kissat's default BVE gates, deferred cold state,
 // and H attached by DefaultPolicy after the startup opportunity rather than
 // owned by the session. Setup is not a strategy action; only the policy's
@@ -72,8 +72,12 @@ void print_census() {
 
 int main(int argc, char **argv) {
   const char *cnf_path = nullptr, *proof_path = nullptr;
+  int proof_format = TACTIX_PROOF_PBP;
   for (int i = 1; i < argc; ++i) {
-    if (!std::strcmp(argv[i], "--auto-proof")) continue;
+    if (!std::strcmp(argv[i], "--auto-proof")) {
+      proof_format = TACTIX_PROOF_AUTOMATIC;
+      continue;
+    }
     if (argv[i][0] == '-' && argv[i][1]) {
       fprintf(stderr, "tactix-public: unsupported option '%s'\n", argv[i]);
       printf("s UNKNOWN\n");
@@ -112,7 +116,7 @@ int main(int argc, char **argv) {
     printf("s UNKNOWN\n");
     return 1;
   }
-  if (proof_path && tactix_proof(s, proof_path, TACTIX_PROOF_AUTOMATIC) != 0) {
+  if (proof_path && tactix_proof(s, proof_path, proof_format) != 0) {
     fprintf(stderr, "tactix-public: cannot write proof to '%s'\n", proof_path);
     printf("s UNKNOWN\n");
     return 1;
@@ -144,7 +148,7 @@ int main(int argc, char **argv) {
   port::PublicPort::session = nullptr;
   if (kernel.proof) kernel.proof->flush();
 
-  printf("c tactix-public 0.1.0\n");
+  printf("c tactix-public 0.2.0\n");
   printf("c conflicts %llu\n", static_cast<unsigned long long>(kernel.stats.conflicts));
   printf("c decisions %llu\n", static_cast<unsigned long long>(kernel.stats.decisions));
   printf("c propagations %llu\n", static_cast<unsigned long long>(kernel.stats.propagations));

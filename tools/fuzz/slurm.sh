@@ -102,9 +102,9 @@ pin_dsr_transport(sys.argv[2], sys.argv[3])
 PYTRANSPORT
 fi
 mkdir -p "$PIN_FUZZ/checkers"
-cp -a "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb" \
-      "$ROOT/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf" \
-      "$PIN_FUZZ/checkers/"
+cp -aL "$ROOT/tools/checkers/bin/veripb" "$PIN_FUZZ/checkers/veripb"
+cp -aL "$ROOT/tools/checkers/bin/cake-pb-cnf" \
+      "$PIN_FUZZ/checkers/cake-pb-cnf"
 CHECKERS_ROOT=""
 if [ -n "$CHECKERS" ]; then
     CHECKERS="$(cd "$CHECKERS" && pwd)"

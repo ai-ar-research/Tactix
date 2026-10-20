@@ -1422,7 +1422,7 @@ def _main(argv):
         description='check-dsr: the reference dsr-trim | dsr-compress -d | '
                     'Trestle diagnostic. check: witness-free DSR takes validated '
                     'DRAT/drat-trim/CakeLPR; witnessed DSR takes no-option '
-                    'dsr-trim/Trestle.')
+                    'dsr-trim/Trestle; PBP takes VeriPB/CakePB.')
     parser.add_argument('command', choices=['check-dsr', 'check'])
     parser.add_argument('cnf')
     parser.add_argument('proof')
@@ -1431,9 +1431,10 @@ def _main(argv):
     parser.add_argument('--srcheck', default=str(here / 'srcheck'))
     parser.add_argument('--drat-trim', default=str(here / 'drat-trim'))
     parser.add_argument('--cake-lpr', default=str(here / 'cake_lpr'))
-    # No unpinned fallback: callers explicitly select the frozen PB tools.
-    parser.add_argument('--veripb')
-    parser.add_argument('--cake-pb')
+    # The checker setup owns these pinned defaults; callers can still select
+    # a separately frozen pair explicitly.
+    parser.add_argument('--veripb', default=str(here / 'veripb'))
+    parser.add_argument('--cake-pb', default=str(here / 'cake-pb-cnf'))
     parser.add_argument('--workdir', default=None)
     parser.add_argument('--every-lemma', action='store_true',
                         help='also elaborate forward, checking every line')

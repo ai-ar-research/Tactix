@@ -31,8 +31,8 @@ target_link_libraries(test_sr_proof_encoding PRIVATE tactix_lib)
 add_test(NAME sr_proof_encoding COMMAND test_sr_proof_encoding)
 add_test(NAME streaming_pbp_check
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_streaming_pbp_check.py
                  $<TARGET_FILE:test_sr_proof_encoding>)
@@ -40,8 +40,8 @@ set_tests_properties(streaming_pbp_check PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME algebraic_pbp_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_SOURCE_DIR}/tests/algebraic_pbp_proofs.sh
                  $<TARGET_FILE:test_affine_matrix_search>
                  $<TARGET_FILE:test_gf3_general_row_public>
@@ -51,16 +51,16 @@ set_tests_properties(algebraic_pbp_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME cli_pbp_proof
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_SOURCE_DIR}/tests/cli_pbp_proof.sh
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 set_tests_properties(cli_pbp_proof PROPERTIES SKIP_RETURN_CODE 77)
 
 add_test(NAME pbp_fuzz
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tests/test_pbp_fuzz.py
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
@@ -147,12 +147,6 @@ if(TACTIX_DEVELOPER_CHECKS)
            COMMAND ${CMAKE_COMMAND} -E env python3
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
 endif()
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME kissat_journal_overlay_static
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_kissat_journal_overlay_static.py)
-endif()
-
 if(TACTIX_ENABLE_RULE_JOURNAL)
   add_executable(test_rule_journal test_rule_journal.cpp)
 else()
@@ -365,8 +359,8 @@ target_include_directories(test_api_pbp_fixture PRIVATE
                            ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_pbp_check
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb
-                 ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb
+                 ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tests/test_api_pbp_check.py
                  $<TARGET_FILE:test_api_pbp_fixture> ${CMAKE_SOURCE_DIR})
@@ -659,13 +653,13 @@ add_test(NAME public_theory_target_score
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_score.py)
 
 add_test(NAME startup_parity_check
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_startup_parity_check.py
                  $<TARGET_FILE:test_startup_parity> $<TARGET_FILE:tactix>)
 set_tests_properties(startup_parity_check PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME count_preservation_check
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb ${CMAKE_SOURCE_DIR}/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf --
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/veripb ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake-pb-cnf --
                  ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_count_preservation_check.py
                  $<TARGET_FILE:test_count_preservation> $<TARGET_FILE:tactix>)

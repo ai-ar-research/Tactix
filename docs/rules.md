@@ -80,10 +80,11 @@ payload).
 | reconstruction witness | record how to repair a model after an equisatisfiable deletion; writes no proof line |
 | pseudo-Boolean refutation | a complete VeriPB proof for a few refutations found before search |
 
-The default proof format, native DSR, contains all clausal events; DRAT and
-LRAT are compatibility formats. Rules that need an event a format cannot
-express decline before changing anything (for example, SR additions require
-DSR, and most structural rules decline under LRAT and PBP). Fresh variables
+The default proof format is whole-run streaming PBP. Native DSR, DRAT and LRAT
+remain explicit compatibility formats. Rules that need an event a format
+cannot express decline before changing anything (for example, SR additions
+require DSR or streaming PBP, and many structural rules decline under LRAT or
+the distinct startup-only terminal-PBP route). Fresh variables
 introduced by a rule are projected out of the reported model. Proof formats
 and checker routes are described in [architecture.md](architecture.md#proof-backend)
 and [getting-started.md](getting-started.md#proof-formats).
@@ -99,7 +100,7 @@ recognized structure and proof transition.
 refutation; "propagated root" additionally requires no recorded conflict and
 completed root propagation. "Assignment-free" means no variable is assigned at
 the root. In the table, `terminal-PBP` means the internal startup-only PBP
-route; explicit `--pbp` is the streaming route and accepts ordinary clausal
+route; the default route (also spelled `--pbp`) is streaming and accepts ordinary clausal
 RUP, RAT, SR and deletion events.
 
 | Id | Name | Kind | Calc. | When it can apply | What it does | Proof contribution | Instances |

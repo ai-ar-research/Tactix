@@ -14,8 +14,8 @@ def run(argv):
 def main():
     generator = pathlib.Path(sys.argv[1])
     root = pathlib.Path(__file__).resolve().parents[1]
-    veripb = root / "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb"
-    cakepb = root / "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf"
+    veripb = root / "tools/checkers/bin/veripb"
+    cakepb = root / "tools/checkers/bin/cake-pb-cnf"
     with tempfile.TemporaryDirectory(prefix="tactix-streaming-pbp-") as raw:
         work = pathlib.Path(raw)
         for negative in (0, 1):

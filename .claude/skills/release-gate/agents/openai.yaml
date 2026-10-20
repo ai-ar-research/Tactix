@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tactix Release Gate"
+  short_description: "Enforce Tactix release acceptance boundaries"
+  default_prompt: "Use $release-gate to evaluate this Tactix candidate for release."

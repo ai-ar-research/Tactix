@@ -84,8 +84,8 @@ def parse_model(output):
 def main():
     solver = pathlib.Path(sys.argv[1])
     root = pathlib.Path(sys.argv[2])
-    veripb = root / "benchmarks/baselines/sc24-26-32g-5000s/pins/veripb"
-    cakepb = root / "benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf"
+    veripb = root / "tools/checkers/bin/veripb"
+    cakepb = root / "tools/checkers/bin/cake-pb-cnf"
     rng = random.Random(0x504250)
     sat = unsat = corrupted = deletions = 0
     with tempfile.TemporaryDirectory(prefix="tactix-pbp-fuzz-") as raw:

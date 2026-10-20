@@ -53,10 +53,11 @@ jobs:
             cadical
             drat-trim
             cake_lpr
+            tools/checkers/src
           key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh') }}
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
-      - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
+      - name: Build checker toolchain (clausal + VeriPB/CakePB — pinned)
         run: tools/checkers/setup.sh
       - name: "Build tactix (debug: ASan/UBSan)"
         run: cmake --preset debug && cmake --build build/debug -j

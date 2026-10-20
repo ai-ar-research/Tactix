@@ -188,7 +188,7 @@ there is no incremental solving and no assumption interface.
 ### Attaching a proof
 
 ```c
-if (tactix_proof(s, "proof.dsr", TACTIX_PROOF_AUTOMATIC) != 0)
+if (tactix_proof(s, "proof.pbp", TACTIX_PROOF_PBP) != 0)
   /* late or duplicate attachment, unwritable path, or unknown format */;
 ```
 
@@ -203,12 +203,12 @@ normally and writes nothing.
 | `TACTIX_PROOF_LRAT` | 2 | LRAT with antecedent hints |
 | `TACTIX_PROOF_DSR_BINARY` | 3 | DSR (DRAT extended with substitution redundancy), binary; the canonical format |
 | `TACTIX_PROOF_DSR_ASCII` | 4 | DSR, text encoding, for inspection |
-| `TACTIX_PROOF_AUTOMATIC` | 5 | binary DSR, or a pseudo-Boolean (VeriPB) proof when a complete refutation is found before any other step |
-| `TACTIX_PROOF_PBP` | 6 | explicit whole-run pseudo-Boolean proof for VeriPB elaboration and independent CakePB checking |
+| `TACTIX_PROOF_AUTOMATIC` | 5 | retained compatibility route: binary DSR, or a pseudo-Boolean proof when a complete refutation is found before any other step |
+| `TACTIX_PROOF_PBP` | 6 | whole-run pseudo-Boolean proof for VeriPB elaboration and independent CakePB checking; the command-line default |
 
-`TACTIX_PROOF_AUTOMATIC` is what the command-line solver uses by default.
-`TACTIX_PROOF_PBP` is additive: the DSR, DRAT and LRAT constants and automatic
-selection retain their existing behavior.
+The command-line solver uses `TACTIX_PROOF_PBP` by default. The C API has no
+implicit proof format: callers select one when attaching a proof.
+`TACTIX_PROOF_AUTOMATIC`, DSR, DRAT and LRAT retain their existing behavior.
 [getting-started.md](getting-started.md) explains which checker verifies
 each kind of proof and how `tools/bench/proof_oracle.py` picks the route.
 
@@ -796,9 +796,9 @@ if (tactix_online_configure_v2(s, &program, ++revision,
 ```
 
 A wrong witness is not a soundness problem: the rule rejects the instance and
-nothing changes. A formula-changing substitution-redundancy step needs a DSR
-proof (`TACTIX_PROOF_DSR_*` or `TACTIX_PROOF_AUTOMATIC`); under other formats
-the rule declines.
+nothing changes. A formula-changing substitution-redundancy step needs native
+DSR (`TACTIX_PROOF_DSR_*`, or `TACTIX_PROOF_AUTOMATIC` after DSR commitment)
+or whole-run PBP (`TACTIX_PROOF_PBP`); under DRAT or LRAT it declines.
 
 ## 6. Tutorial: building a strategy
 
@@ -893,7 +893,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   tactix *s = tactix_init();
-  if (argc > 2 && tactix_proof(s, argv[2], TACTIX_PROOF_AUTOMATIC) != 0)
+  if (argc > 2 && tactix_proof(s, argv[2], TACTIX_PROOF_PBP) != 0)
     return 1;
   FILE *in = fopen(argv[1], "r");
   if (!in)
@@ -1087,11 +1087,11 @@ random:
   substituted and otherwise removed variables.
 
 Some rules support only some proof formats. Formula-changing
-substitution-redundancy steps need DSR; several structure-specific rules
-decline under LRAT or pseudo-Boolean output. A rule that cannot express its
-step in the attached format declines instead of writing an unverifiable
-step. Choose `TACTIX_PROOF_AUTOMATIC` or `TACTIX_PROOF_DSR_BINARY` unless you
-need a specific format.
+substitution-redundancy steps can use DSR or whole-run PBP but not DRAT or
+LRAT; other format restrictions are listed with the individual rules. A rule
+that cannot express its step in the attached format declines instead of
+writing an unverifiable step. Choose `TACTIX_PROOF_PBP` for the command-line
+default behavior, or select a compatibility format explicitly.
 
 The proof file is complete when an action returns 20 (it is flushed at that
 point) and is closed by `tactix_release`.

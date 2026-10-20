@@ -56,10 +56,10 @@ run_case() {
   note "$label: verdict $ra, $(grep -c '^p ' "$T/t1") typed programs, proof + counters identical, seed reproducible"
 }
 
-run_case "$T/unsat.cnf" 7  ""        "unsat/drat"
+run_case "$T/unsat.cnf" 7  ""        "unsat/pbp"
 run_case "$T/unsat.cnf" 7  "--lrat"  "unsat/lrat"
-run_case "$T/unsat.cnf" 23 ""        "unsat/drat seed 23"
-run_case "$T/sat.cnf"   11 ""        "sat/drat"
+run_case "$T/unsat.cnf" 23 ""        "unsat/pbp seed 23"
+run_case "$T/sat.cnf"   11 ""        "sat/pbp"
 run_case "$T/sat.cnf"   11 "--lrat"  "sat/lrat"
 
 # Parsing alone can complete a formula before RandomPolicy generates a

@@ -77,7 +77,9 @@ Provenance as_map(const std::vector<ProvenanceTerm> &terms) {
   for (const ProvenanceTerm &term : terms) {
     assert(term.source_id > previous);
     assert(term.coefficient == 1 || term.coefficient == 2);
-    assert(result.emplace(term.source_id, term.coefficient).second);
+    const bool inserted = result.emplace(term.source_id, term.coefficient).second;
+    assert(inserted);
+    (void)inserted;
     previous = term.source_id;
   }
   return result;
@@ -135,8 +137,11 @@ void replay_every_derivation(const std::vector<SourceRow> &source,
   assert(result.consumed.retained_plan_bytes ==
          independently_counted_bytes);
   std::map<uint64_t, SourceRow> originals;
-  for (const SourceRow &row : source)
-    assert(originals.emplace(row.source_id, row).second);
+  for (const SourceRow &row : source) {
+    const bool inserted = originals.emplace(row.source_id, row).second;
+    assert(inserted);
+    (void)inserted;
+  }
 
   struct Replayed {
     std::vector<Term> row;
@@ -205,12 +210,16 @@ void replay_every_derivation(const std::vector<SourceRow> &source,
     } else if (outcome.kind == RowOutcomeKind::Unit) {
       assert(row.row.size() == 1);
       assert(row.row.front().coefficient == 1);
-      assert(pivots.insert(row.row.front().variable).second);
+      const bool inserted = pivots.insert(row.row.front().variable).second;
+      assert(inserted);
+      (void)inserted;
     } else {
       assert(outcome.kind == RowOutcomeKind::Derived);
       assert(row.row.size() >= 2);
       assert(row.row.front().coefficient == 1);
-      assert(pivots.insert(row.row.front().variable).second);
+      const bool inserted = pivots.insert(row.row.front().variable).second;
+      assert(inserted);
+      (void)inserted;
     }
   }
   if (conflict) assert(result.plan.outcomes.size() == 1);

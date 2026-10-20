@@ -38,6 +38,41 @@ tools/fuzz/run.sh --quick --solver build/release/tactix
 `tools/fuzz/corpus/`; see [tools/fuzz/README.md](tools/fuzz/README.md) for the
 other modes. A formula that exposes a bug belongs in the regression corpus.
 
+## Release gates
+
+Beginning with the release after the 0.2.0 PBP-default baseline, every release
+candidate pins the preceding published release, immutable build and checker
+hashes, benchmark manifests, resources, and solver arguments. Pending,
+censored, or missing evidence does not pass a required gate.
+
+- A performance release predeclares its target and metric, then demonstrates at
+  least a 5% paired-median solver-time or PAR-2 improvement outside the measured
+  noise range, without losing an independently checked solve. During the
+  algebraic milestone it must also add at least one retained CG instance within
+  2x its matched CryptoMiniSat time. A functionality release need not claim a
+  gain, but must pass the preservation gates and must not be advertised as
+  faster.
+- Release fuzzing runs at least 100,000 fresh PBP cases under each of
+  DefaultPolicy and the controller-driven random policy, plus the retained
+  corpus and targeted action/configuration coverage. Every SAT model and UNSAT
+  proof is independently checked; any crash, sanitizer, invariant, verdict,
+  model, or proof failure rejects the candidate. Missing required reach is
+  incomplete, even when no generated case fails.
+- Regression acceptance requires the full Debug and Release suites, retained
+  rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
+  most 10% aggregate solver-time regression from the paper release. Correctness,
+  memory, cleanup, and per-instance limits remain strict.
+- Keep the complete DefaultPolicy implementation through the public port.
+  `default_public_correspondence` must report no fallback or declined request
+  and byte-identical proofs, models, verdicts, and trajectory counters against
+  production. In matched measurements the public port must remain within 5% of
+  production on each fixed regression set, and production must remain within
+  5% of the hardcoded twin.
+
+The project skill `.claude/skills/release-gate/` coordinates these checks and
+records one PASS, FAIL, or INCOMPLETE disposition. A version bump, tag, or
+release publication waits for every applicable gate to pass.
+
 ## Adding a rule or changing one
 
 A rule is the unit of soundness and of the public interface:

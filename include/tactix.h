@@ -69,8 +69,8 @@ typedef struct tactix_solver tactix;
 #define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints */
 #define TACTIX_PROOF_DSR_BINARY 3 /* canonical DSR stream */
 #define TACTIX_PROOF_DSR_ASCII 4  /* diagnostic DSR spelling */
-#define TACTIX_PROOF_AUTOMATIC 5 /* startup PBP or canonical binary DSR */
-#define TACTIX_PROOF_PBP 6 /* explicit whole-run PBP for VeriPB + CakePB */
+#define TACTIX_PROOF_AUTOMATIC 5 /* explicit legacy startup-PBP/DSR route */
+#define TACTIX_PROOF_PBP 6 /* whole-run PBP; the command-line default */
 
 /* read-only statistics ids; the list grows additively */
 #define TACTIX_STAT_CONFLICTS 0

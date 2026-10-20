@@ -136,9 +136,9 @@ DSR_COMPRESS = os.path.join(CHECKER_DIR, "dsr-compress")
 SR_CHECK = os.path.join(CHECKER_DIR, "srcheck")
 LRAT_CHECK = os.path.join(CHECKER_DIR, "lrat-check")
 CAKE_LPR = os.path.join(CHECKER_DIR, "cake_lpr")
-PB_PINS = (os.path.join(HERE, "checkers") if
-           os.path.isdir(os.path.join(HERE, "checkers")) else
-           os.path.join(ROOT, "benchmarks", "baselines", "sc24-26-32g-5000s", "pins"))
+FROZEN_PB_PINS = os.path.isdir(os.path.join(HERE, "checkers"))
+PB_PINS = (os.path.join(HERE, "checkers") if FROZEN_PB_PINS else
+           os.path.join(ROOT, "tools", "checkers", "bin"))
 VERIPB = os.path.join(PB_PINS, "veripb")
 CAKE_PB = os.path.join(PB_PINS, "cake-pb-cnf")
 
@@ -560,8 +560,9 @@ def substitute_workdir(cmd, workdir):
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
-    The default mode is startup PBP or native DSR. Explicit --drat or --lrat selects
-    the corresponding compatibility oracle. Native LRAT is checked directly
+    Tactix defaults to whole-run PBP. Explicit --auto-proof retains the former
+    startup-PBP/native-DSR route, while --drat or --lrat selects the
+    corresponding compatibility oracle. Native LRAT is checked directly
     with cake_lpr; legacy lrat-check is not an acceptance oracle because it
     accepts a non-conflicting empty-lemma chain on a SAT input."""
     solver = substitute_workdir(solver, workdir)
@@ -593,15 +594,19 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
         return status == "verified"
     native_lrat = "--lrat" in solver
     explicit_dsr = "--dsr" in solver
-    is_tactix = os.path.basename(solver[0]) == "tactix" or "--auto-proof" in solver
-    # Competition reference solvers still default to DRAT. Tactix's default is
-    # native DSR; --drat keeps a same-source compatibility/control lane.
+    basename_tactix = os.path.basename(solver[0]) == "tactix"
+    is_tactix = basename_tactix or "--auto-proof" in solver or "--pbp" in solver
+    default_pbp = (basename_tactix and not any(
+        flag in solver for flag in ("--auto-proof", "--dsr", "--drat", "--lrat")))
+    # Competition reference solvers still default to DRAT. Tactix's no-flag
+    # route is whole-run PBP; --auto-proof and --dsr retain clausal controls.
     explicit_drat = ("--drat" in solver or
                      (not native_lrat and not explicit_dsr and not is_tactix))
     native_dsr = not native_lrat and not explicit_drat
     proof = os.path.join(
         workdir, "proof.lrat" if native_lrat else
-        ("proof.drat" if explicit_drat else "proof.dsr"))
+        ("proof.drat" if explicit_drat else
+         ("proof.pbp" if "--pbp" in solver or default_pbp else "proof.dsr")))
     out.proof_artifacts.append(proof)
     if os.path.exists(proof):
         os.unlink(proof)
@@ -645,7 +650,8 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             if not os.path.exists(proof):
                 out.fail("proof", "no proof file produced")
         if os.path.exists(proof) and pb_proof_has_header(proof):
-            if native_lrat or explicit_drat or explicit_dsr or "--no-binary" in solver:
+            if (native_lrat or explicit_drat or explicit_dsr or
+                    ("--auto-proof" in solver and "--no-binary" in solver)):
                 out.fail("proof", "PBP emitted in an explicit clausal format mode")
             else:
                 kernel = os.path.join(workdir, "proof.kernel.pbp")

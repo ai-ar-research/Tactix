@@ -5,8 +5,8 @@ affine=$1
 gf3=$2
 cardinality=$3
 root=$4
-veripb=${VERIPB:-$root/benchmarks/baselines/sc24-26-32g-5000s/pins/veripb}
-cakepb=${CAKE_PB_CNF:-$root/benchmarks/baselines/sc24-26-32g-5000s/pins/cake-pb-cnf}
+veripb=${VERIPB:-$root/tools/checkers/bin/veripb}
+cakepb=${CAKE_PB_CNF:-$root/tools/checkers/bin/cake-pb-cnf}
 
 if [[ ! -x "$veripb" || ! -x "$cakepb" ]]; then
   exit 77

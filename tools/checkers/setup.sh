@@ -5,8 +5,11 @@
 #   cake_lpr    — formally verified LRAT/LPR checker (pre-verified CakeML asm)
 #   dsr-trim    — DSR checker + LSR elaborator
 #   srcheck     — Trestle's verified binary/textual-LSR checker
-# Clones live at the repo root, untracked (see .gitignore); binaries are
-# symlinked into tools/checkers/bin/.
+#   veripb      — pseudo-Boolean proof elaborator
+#   cake_pb_cnf — verified pseudo-Boolean kernel checker
+# Clausal-checker clones live at the repo root; PBP tools live under
+# tools/checkers/src/. Both are untracked, and their executables are symlinked
+# into tools/checkers/bin/.
 #
 # Pinned commits — bump deliberately, never implicitly:
 #   drat-trim  2e3b2dc0ecf938addbd779d42877b6ed69d9a985
@@ -15,6 +18,8 @@
 #              repository-pinned forward-elaboration and bitmask-growth repairs
 #   Trestle    03ac9418bc23d345fe0111533c198e8903362ed6 plus the
 #              repository-pinned binary-LSR parser
+#   CakePB     6edb2f3585f1c3e1b925964c4f33e133f7279d02
+#   VeriPB     3.0.2 x86-64 binary distributed with LymphoSAT SC2026
 #
 # Usage: tools/checkers/setup.sh
 
@@ -28,6 +33,7 @@ DRAT_TRIM_COMMIT=2e3b2dc0ecf938addbd779d42877b6ed69d9a985
 CAKE_LPR_COMMIT=a4323b203cc9ecd584ba7da9e3fff08135a09d5f
 DSR_TRIM_COMMIT=0b8cc0ef4d228c059994923cbc66abeb9a42ea14
 TRESTLE_COMMIT=03ac9418bc23d345fe0111533c198e8903362ed6
+CAKEPB_COMMIT=6edb2f3585f1c3e1b925964c4f33e133f7279d02
 DSR_TRIM_PATCH="$ROOT/tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch"
 TRESTLE_PATCH="$ROOT/tools/checkers/patches/trestle-03ac9418-binary-lsr.patch"
 
@@ -110,6 +116,30 @@ if [ ! -x "$SR_CHECK" ]; then
 fi
 ln -sf "$SR_CHECK" "$BIN/srcheck"
 
+echo "== CakePB =="
+if [ "$(uname -m)" != x86_64 ]; then
+    echo "the pinned CakePB and VeriPB binaries require x86-64" >&2
+    exit 1
+fi
+CAKEPB="$ROOT/tools/checkers/src/cakepb"
+clone_at_commit tools/checkers/src/cakepb \
+    https://gitlab.com/MIAOresearch/software/cakepb "$CAKEPB_COMMIT"
+if [ ! -x "$CAKEPB/cnf/cake_pb_cnf" ]; then
+    make -C "$CAKEPB/cnf"
+fi
+ln -sf "$CAKEPB/cnf/cake_pb_cnf" "$BIN/cake_pb_cnf"
+ln -sf "$CAKEPB/cnf/cake_pb_cnf" "$BIN/cake-pb-cnf"
+
+echo "== VeriPB =="
+VERIPB="$ROOT/tools/checkers/src/veripb"
+VERIPB_ARCHIVE="$ROOT/winners/lymphosat-sc2026/green/lymphosat-verified/src/third-party/veripb-3.0.2-linux-x86_64.tar.gz"
+if [ ! -x "$VERIPB/bin/veripb" ]; then
+    [ -f "$VERIPB_ARCHIVE" ] || "$ROOT/tools/solvers/fetch-winners.sh"
+    mkdir -p "$VERIPB"
+    tar -xzf "$VERIPB_ARCHIVE" -C "$VERIPB" --strip-components=1
+fi
+ln -sf "$VERIPB/bin/veripb" "$BIN/veripb"
+
 echo "== self-test: kissat -> DRAT -> drat-trim -> LRAT -> lrat-check + cake_lpr =="
 KISSAT="$ROOT/tools/solvers/bin/kissat"
 T="$(mktemp -d)"
@@ -128,6 +158,22 @@ if [ -x "$KISSAT" ]; then
 else
     echo "self-test skipped (run tools/solvers/setup.sh first)"
 fi
+
+echo "== self-test: PBP -> VeriPB -> CakePB =="
+printf 'p cnf 1 2\n1 0\n-1 0\n' > "$T/pb.cnf"
+cat > "$T/pb.pbp" <<'EOF'
+pseudo-Boolean proof version 3.0
+rup >= 1 ;
+output NONE ;
+conclusion UNSAT : -1 ;
+end pseudo-Boolean proof ;
+EOF
+"$BIN/veripb" -u --cnf --elaborate "$T/pb.kernel.pbp" \
+    "$T/pb.cnf" "$T/pb.pbp" > "$T/veripb.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSATISFIABLE$' "$T/veripb.out"
+"$BIN/cake-pb-cnf" "$T/pb.cnf" "$T/pb.kernel.pbp" > "$T/cakepb.out"
+grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/cakepb.out"
+echo "PBP self-test OK"
 
 echo "== self-test: DSR -> dsr-trim -> LSR -> Trestle =="
 cat > "$T/sr.cnf" <<'EOF'

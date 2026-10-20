@@ -12,7 +12,7 @@ import fuzz  # noqa: E402
 
 def main():
     stdout = """\
-c tactix 0.1.0
+c tactix 0.2.0
 c controller-rule Gf3AffineConsequence requests=2 applications=2 effective=1 exhausted=0 stale=0 interrupted=0 work=2 overshoot=0
 c controller-rule DirectCspSupport requests=1 applications=1 effective=0 exhausted=0 stale=0 interrupted=0 work=1 overshoot=0
 c controller-loop full-restarts=0 partial-restarts=0 configuration-changes=0 maximum-root-actions=3

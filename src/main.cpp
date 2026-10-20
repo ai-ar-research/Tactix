@@ -182,7 +182,10 @@ int main(int argc, char **argv) {
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
   enum class CliProofFamily { Automatic, Dsr, Drat, Lrat, Pbp };
-  CliProofFamily proof_family = CliProofFamily::Automatic;
+  // Whole-run PBP is the public default.  Automatic remains an explicit
+  // compatibility route: startup PBP when it can close before an ordinary
+  // proof event, otherwise canonical binary DSR.
+  CliProofFamily proof_family = CliProofFamily::Pbp;
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
@@ -223,7 +226,7 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     const char *a = argv[i];
     if (!strcmp(a, "--version")) {
-      puts("0.1.0");
+      puts("0.2.0");
       return 0;
     } else if (!strcmp(a, "-q") || !strcmp(a, "--quiet")) {
       quiet = true;
@@ -917,8 +920,8 @@ int main(int argc, char **argv) {
     kernel.structural_provenance = structural_records.get();
   }
   Proof proof;
-  // --no-binary remains an explicit ASCII diagnostic selection; only the
-  // automatic binary mode admits startup PBP, with or without an output file.
+  // Automatic admits its startup-PBP route only in binary mode. Whole-run
+  // streaming PBP is textual already, so --no-binary has no effect on it.
   kernel.startup_certificate_open = proof_format == ProofFormat::Automatic;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
@@ -1042,7 +1045,7 @@ int main(int argc, char **argv) {
     // reachability witness: a zero on the witness means the mechanism never
     // ran, so an A/B arm reading zero was skipped, not tested. Only counters
     // whose reading is non-obvious carry a comment below.
-    printf("c tactix 0.1.0\n");
+    printf("c tactix 0.2.0\n");
     if (!controller_selected && !random_policy && !stress_policy && !replay_path) {
       const auto &affine = default_policy.affine_search_diagnostics();
       // The persistent affine search block prints only when the service is

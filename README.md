@@ -9,9 +9,10 @@ Every UNSAT answer has a machine-checkable proof; every SAT answer has a model.
   and adds symmetry breaking and structure-aware reasoning.
 - **Your own strategy.** Strategies written against `include/tactix.h` drive
   operations one at a time with per-invocation settings; the default can too.
-- **Checked answers.** UNSAT proofs are written in DSR (DRAT extended with
-  substitution redundancy) by default. `--pbp` writes an explicit whole-run
-  pseudo-Boolean proof, checked first by VeriPB and then by CakePB.
+- **Checked answers.** UNSAT proofs are written as whole-run pseudo-Boolean
+  proofs by default, elaborated by VeriPB and then checked by CakePB. Native
+  DSR (DRAT extended with substitution redundancy) remains available with
+  `--dsr`; `--auto-proof` retains the earlier startup-PBP/DSR route.
 
 ## Quick start
 
@@ -46,8 +47,11 @@ strategies for binarized-neural-network and random 3-SAT encodings.
 
 ## Documentation and paper
 
-[docs/README.md](docs/README.md) indexes the guides; [paper/README.md](paper/README.md)
-covers the artifact, logs, figures, container image and runner.
+[docs/README.md](docs/README.md) indexes the guides. The
+[paper manuscript](https://github.com/wu-haoze/Tactix-paper) is maintained
+separately; the [artifact branch](https://github.com/ai-ar-research/Tactix/tree/artifact/paper)
+contains the logs, figures, container image, benchmarks and experiment runner.
+User-visible release changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Layout
 
@@ -60,7 +64,6 @@ tools/checkers/   proof-checker setup and patches
 tools/fuzz/       fuzzing harness with proof and model oracles
 tools/bench/      benchmark runner and proof-checking script
 benchmarks/       frozen tiers, reference data, campaigns and reports
-paper/            the paper's artifact: logs, analysis scripts, experiment runner
 docs/             user and developer documentation
 third_party/      DejaVu (graph automorphisms for symmetry breaking)
 ```

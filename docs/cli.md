@@ -33,7 +33,7 @@ is the formula, the second is the proof path; a third is an error. A lone `-`
 is treated as a file name, so standard input is not supported.
 
 `tactix -h` (or `--help`) prints a usage summary and exits with code 0.
-`tactix --version` prints the version (`0.1.0`) and exits with code 0.
+`tactix --version` prints the version (`0.2.0`) and exits with code 0.
 
 ## Options
 
@@ -61,7 +61,7 @@ Options that take a value use the form `--option=VALUE`; a separate argument
 ### Output control
 
 **`-q`, `--quiet`.** Suppresses the statistics block printed after solving
-(every `c` line from `c tactix 0.1.0` to the timing lines). The `s` and `v`
+(every `c` line from `c tactix 0.2.0` to the timing lines). The `s` and `v`
 lines, the `c proof-route` line and error messages are still printed. The
 research policies print a few `c` lines of their own that `-q` does not
 suppress.
@@ -97,11 +97,11 @@ argument. Without a proof path they have no visible effect (see
 
 | Option | Effect |
 |---|---|
-| `--auto-proof` | Default. Binary DSR; a complete refutation found before search is written as a pseudo-Boolean (PBP) proof instead. |
+| `--pbp` | Default. Whole-run pseudo-Boolean proof for ordinary CDCL and supported structured reasoning. |
+| `--auto-proof` | Retained compatibility route: binary DSR; a complete refutation found before search is written as PBP instead. |
 | `--dsr` | Always DSR. |
 | `--drat` | DRAT. |
 | `--lrat` | LRAT with hints. |
-| `--pbp` | Whole-run pseudo-Boolean proof for ordinary CDCL and supported structured reasoning. |
 | `--no-binary` | Write the text variant of DSR or DRAT instead of binary. |
 
 `--auto-proof`, `--dsr`, `--drat`, `--lrat` and `--pbp` select one format family; if
@@ -110,16 +110,16 @@ The resulting format is:
 
 | Flags | Proof written |
 |---|---|
-| none, or `--auto-proof` | binary DSR, or PBP |
-| `--no-binary` (alone or with `--auto-proof`) | text DSR (never PBP) |
+| none, or `--pbp` | text PBP (`--no-binary` has no effect) |
+| `--auto-proof` | binary DSR, or startup PBP |
+| `--auto-proof --no-binary` | text DSR (never PBP) |
 | `--dsr` | binary DSR |
 | `--dsr --no-binary` | text DSR |
 | `--drat` | binary DRAT |
 | `--drat --no-binary` | text DRAT |
 | `--lrat` | text LRAT (`--no-binary` has no effect) |
-| `--pbp` | text PBP (`--no-binary` has no effect) |
 
-Explicit PBP serializes RUP, RAT, substitution-redundancy and exact `del spec`
+Whole-run PBP serializes RUP, RAT, substitution-redundancy and exact `del spec`
 deletion events. DRAT and LRAT cannot
 express substitution-redundancy steps. With `--drat` or
 `--lrat`, techniques that need them (symmetry breaking and some structured
@@ -293,7 +293,7 @@ with `v`. Each line stays under 4096 characters, and the last line ends with
 ### Statistics
 
 Unless `-q` is given, the solver prints a statistics block after solving and
-before the `s` line. It starts with `c tactix 0.1.0`. Each line is `c`, a short
+before the `s` line. It starts with `c tactix 0.2.0`. Each line is `c`, a short
 keyword, and counters. The block covers:
 
 - **Search:** decisions, conflicts, propagations, learned clauses and their
@@ -536,11 +536,11 @@ build/release/tests/tactix-public [--auto-proof] <cnf> [proof]
 ```
 
 The default strategy with every operation issued through `tactix.h`. Proofs
-are always in the automatic format; `--auto-proof` is accepted and ignored,
-and any other option is an error. It prints `c proof-route` on UNSAT with a
-proof path, a short statistics block and `c public-port` counts of interface
-requests. It handles SIGINT, SIGTERM and SIGXCPU like `tactix`. It has no
-`--help`.
+use whole-run PBP by default; `--auto-proof` explicitly selects the retained
+automatic startup-PBP/DSR route. Any other option is an error. It prints
+`c proof-route` on UNSAT with a proof path, a short statistics block and
+`c public-port` counts of interface requests. It handles SIGINT, SIGTERM and
+SIGXCPU like `tactix`. It has no `--help`.
 
 ### tactix-cruxmiter-policy
 
@@ -571,7 +571,8 @@ substitution pass, and hands the formula to the default strategy.
   `--profile=backbone` with `TACTIX_FORCE_MODE=stable`, `TACTIX_REORDER=0`,
   `TACTIX_NO_BVE=1`, `TACTIX_CONFLICT_REUSE=0`,
   `TACTIX_SLOT_PERMILLE=Vivify:200`, `TACTIX_NO_FACTOR=1`, `TACTIX_NO_SWEEP=1`
-  and `TACTIX_SLOT_DISABLE=Backbone` (see `paper/run/experiments.py`).
+  and `TACTIX_SLOT_DISABLE=Backbone` (see the
+  [artifact configuration](https://github.com/ai-ar-research/Tactix/blob/artifact/paper/run/experiments.py)).
 - A line `c cruxmiter-policy profile=...` records the profile in use.
 - Schedule details can be adjusted with `TACTIX_CRUX_*` environment variables
   (`TACTIX_CRUX_RELUCTANT_PERIOD`, `TACTIX_CRUX_REDUCE_INTERVAL`,

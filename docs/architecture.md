@@ -213,11 +213,11 @@ reused.
 
 | Format | `tactix_proof` constant / CLI flag | Content |
 |---|---|---|
-| automatic (default) | `TACTIX_PROOF_AUTOMATIC` / `--auto-proof` | binary DSR, or PBP for a complete refutation found at the original-input boundary |
+| PBP (CLI default) | `TACTIX_PROOF_PBP` / `--pbp` | whole-run PBP; pinned VeriPB elaboration followed by verified CakePB checking |
+| automatic | `TACTIX_PROOF_AUTOMATIC` / `--auto-proof` | retained compatibility route: binary DSR, or PBP for a complete refutation found at the original-input boundary |
 | DSR | `TACTIX_PROOF_DSR_BINARY`, `_ASCII` / `--dsr` | DRAT plus SR additions; the native format |
 | DRAT | `TACTIX_PROOF_DRAT_BINARY`, `_ASCII` / `--drat` | compatibility; SR steps are unavailable |
 | LRAT | `TACTIX_PROOF_LRAT` / `--lrat` | compatibility, with antecedent hints |
-| PBP | `TACTIX_PROOF_PBP` / `--pbp` | explicit whole-run PBP; pinned VeriPB elaboration followed by verified CakePB checking |
 
 In automatic mode the backend stages the input-normalization steps privately.
 If a startup Lucky instance (XOR summation or count conservation) refutes the

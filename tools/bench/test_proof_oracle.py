@@ -180,7 +180,7 @@ class ProofOracleTests(unittest.TestCase):
                         checked = runner.check_proof('drat', str(cnf), str(proof), budget)
                     self.assertTrue(checked[0], checked)
 
-    def test_tier_runner_routes_automatic_pbp_and_witness_free_dsr(self):
+    def test_tier_runner_routes_default_pbp_and_witness_free_dsr(self):
         import importlib.util
         from unittest.mock import patch
         root = Path(__file__).resolve().parents[2]
@@ -191,7 +191,7 @@ class ProofOracleTests(unittest.TestCase):
         spec.loader.exec_module(runner)
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
-            cnf, proof = work/'input.cnf', work/'proof.dsr'
+            cnf, proof = work/'input.cnf', work/'proof.pbp'
             cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
             positive_pbp = ('pseudo-Boolean proof version 3.0\n'
                             'rup >= 1 ;\noutput NONE ;\n'
@@ -221,7 +221,7 @@ class ProofOracleTests(unittest.TestCase):
                     result = runner.run_instance(['tactix'], 'tiny.cnf', str(cnf),
                                                  'UNSAT', 30, True, str(work))
                 self.assertTrue(result['proof_ok'], result)
-                self.assertEqual(result['proof_format'], 'dsr')
+                self.assertEqual(result['proof_format'], 'pbp')
                 self.assertEqual(result['proof_route'], 'pbp')
                 proof.write_text('0\n')
                 self.assertEqual(runner.check_proof('dsr', str(cnf), str(proof), 60,

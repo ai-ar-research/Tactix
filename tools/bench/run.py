@@ -240,8 +240,9 @@ def parse_verdict(exitcode, stdout):
 def proof_format(cmd):
     """Which certificate this arm emits — the solver's own flag decides.
 
-    Tactix defaults to DSR. Explicit flags select compatibility formats or
-    whole-run PBP; external solvers retain their usual DRAT default."""
+    Tactix defaults to whole-run PBP. Explicit flags select its retained
+    automatic or compatibility formats; external solvers retain their usual
+    DRAT default."""
     if "--lrat" in cmd:
         return "lrat"
     if "--pbp" in cmd:
@@ -250,7 +251,7 @@ def proof_format(cmd):
         return "dsr"
     if "--drat" in cmd:
         return "drat"
-    return "dsr" if os.path.basename(cmd[0]) == "tactix" else "drat"
+    return "pbp" if os.path.basename(cmd[0]) == "tactix" else "drat"
 
 
 def checker_budget(timeout):

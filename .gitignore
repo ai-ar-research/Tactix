@@ -10,10 +10,13 @@ trestle/
 winners/
 /benchmarks/
 report-to-andrew/
+# The reproducibility package lives on the artifact branch.
+/paper/
 
 # Locally built third-party binaries (symlinks from tools/*/setup.sh)
 tools/solvers/bin/
 tools/checkers/bin/
+tools/checkers/src/
 
 # PATCHED/INSTRUMENTED reference builds (L14: a variant must not be built inside
 # the PINNED CLONE, because tools/solvers/bin/* symlink into it and a rebuild

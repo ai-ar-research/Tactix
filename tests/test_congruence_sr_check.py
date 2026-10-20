@@ -15,7 +15,7 @@ case = ROOT/'tools/fuzz/corpus/regressions/032-congruence-transient-sr'
 pins = ROOT/'benchmarks/runs/20260921-am333-lymphosat-models-wv100/pins'
 with tempfile.TemporaryDirectory(prefix='congruence-sr-check-') as directory:
     work = Path(directory)
-    for mode in ([], ['--dsr'], ['--no-binary']):
+    for mode in (['--dsr'], ['--dsr', '--no-binary']):
         for program in ('--random-policy=335110095', '--replay='+str(case/'min.trace')):
             proof = work/'proof.dsr'
             result = subprocess.run([sys.argv[1], *mode, program,
