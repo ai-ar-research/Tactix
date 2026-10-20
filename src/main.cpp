@@ -1070,6 +1070,7 @@ int main(int argc, char **argv) {
         {"root_services", affine.root_services},
         {"search_services", affine.search_services},
         {"reasons_published", affine.reasons_published},
+        {"implications_consumed", affine.implications_consumed},
         {"admitted_sources", affine.admitted_sources},
         {"active_sources", affine.active_sources},
       };

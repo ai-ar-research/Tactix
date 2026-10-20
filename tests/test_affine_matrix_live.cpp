@@ -132,7 +132,7 @@ static std::string records(FILE *file) {
   return result;
 }
 
-static void implication_is_consumed_by_ordinary_bcp() {
+static void implication_is_assigned_without_prefix_rescan() {
   Kernel kernel;
   install_implication_formula(kernel);
   decide(kernel, -1);
@@ -153,9 +153,11 @@ static void implication_is_consumed_by_ordinary_bcp() {
   const auto applied = publish_affine_matrix_live(kernel, request, prepared);
   assert(applied.status == MatrixLiveStatus::Applied &&
          applied.result == ApplyResult::Ok && applied.implication &&
-         applied.propagation_pending && !kernel.conflict_valid);
-  assert(!kernel.value(kernel_internalize(kernel, -5)) &&
-         kernel.propagate_head < old_head);
+         applied.implication_consumed && applied.propagation_pending &&
+         !kernel.conflict_valid);
+  assert(kernel.value(kernel_internalize(kernel, -5)) > 0 &&
+         kernel.propagate_head == old_head &&
+         kernel.propagate_head < kernel.trail.size());
   assert(!kernel_propagate(kernel));
   assert(kernel.value(kernel_internalize(kernel, -5)) > 0 &&
          kernel_propagation_fixpoint(kernel));
@@ -196,6 +198,7 @@ static void compact_provenance_keeps_authenticated_reason() {
          records(journal).empty());
   const auto applied = publish_affine_matrix_live(kernel, request, prepared);
   assert(applied.status == MatrixLiveStatus::Applied && applied.implication &&
+         applied.implication_consumed &&
          applied.preflight_additions > 0 && applied.journal_bytes > 0);
   assert(!kernel_propagate(kernel));
   assert(kernel.value(kernel_internalize(kernel, -5)) > 0);
@@ -710,7 +713,7 @@ int main(int argc, char **argv) {
     return resumed_proof_fixture(argv[2], argv[3]);
   if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
     return removed_source_proof_fixture(argv[2], argv[3]);
-  implication_is_consumed_by_ordinary_bcp();
+  implication_is_assigned_without_prefix_rescan();
   compact_provenance_keeps_authenticated_reason();
   conflict_is_consumed_by_ordinary_bcp();
   unit_above_root_declines();

@@ -414,7 +414,8 @@ bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,
 }
 
 bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
-                    uint64_t id) {
+                    uint64_t id, bool &implication_consumed) {
+  implication_consumed = false;
   if (physical.empty()) {
     kernel.inconsistent = true;
     return true;
@@ -425,12 +426,33 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
     kernel_assign_unit(kernel, physical[0]);
     return true;
   }
-  if (physical.size() == 2)
+  const bool consume_implication =
+      kernel.level && !kernel.value(physical[0]);
+  if (physical.size() == 2) {
     kernel_add_binary_clause(kernel, physical[0], physical[1], id);
-  else
-    kernel_add_large_clause(kernel, physical.data(), physical.size(), true, 0,
-                            id);
-  if (kernel.level)
+    if (consume_implication) {
+      if (kernel.value(physical[1]) >= 0) return false;
+      // The proof-visible clause is committed before this assignment. The
+      // reason is already unit at the propagated fixpoint, so consume it as
+      // the ordinary binary propagator would instead of rewinding and
+      // rescanning an otherwise unchanged trail prefix.
+      kernel_assign_binary(kernel, physical[0], physical[1]);
+      implication_consumed = true;
+    }
+  } else {
+    const Ref reason = kernel_add_large_clause(
+        kernel, physical.data(), physical.size(), true, 0, id);
+    if (consume_implication) {
+      for (size_t i = 1; i < physical.size(); ++i)
+        if (kernel.value(physical[i]) >= 0) return false;
+      // reason_order puts the unique open literal first. Direct assignment
+      // retains exactly the installed clause as its analysis reason and leaves
+      // only the new literal's watches for the next Propagate action.
+      kernel_assign_ref(kernel, physical[0], reason);
+      implication_consumed = true;
+    }
+  }
+  if (kernel.level && !implication_consumed)
     kernel_rearm_theory_clause(kernel, physical.data(), physical.size());
   return true;
 }
@@ -879,9 +901,12 @@ MatrixLiveResult publish_affine_matrix_live(
       retained != retained_support.size())
     std::abort();
   result.installed_reason_id = installed_id;
+  bool implication_consumed = false;
   if (!installed_id ||
-      !install_reason(kernel, prepared.physical_reason_, installed_id))
+      !install_reason(kernel, prepared.physical_reason_, installed_id,
+                      implication_consumed))
     std::abort();
+  result.implication_consumed = implication_consumed;
   if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
                   request.records) != prepared.journal_.size() ||
       std::fflush(request.records) || std::ferror(request.records))

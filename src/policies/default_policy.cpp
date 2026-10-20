@@ -3823,6 +3823,8 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
   if(result.status==AffineMatrixServiceStatus::Applied) {
     ++affine_search_diagnostics_.reasons_published;
+    affine_search_diagnostics_.implications_consumed +=
+        result.live.implication_consumed;
     affine_search_diagnostics_.widest_reason=std::max<uint64_t>(
         affine_search_diagnostics_.widest_reason,result.installed_reason.size());
     affine_search_diagnostics_.proof_additions+=result.live.additions;

@@ -239,10 +239,13 @@ void exercise(bool signed_alias,bool sweep,ProofFormat format,const char *prefix
   const auto consequence=affine_matrix_search_step(k,session);
   assert(consequence.status==AffineMatrixServiceStatus::Applied &&
          consequence.installed_reason==std::vector<int32_t>({-1,signed_alias?5:-5}) &&
+         consequence.live.implication_consumed && consequence.bcp_pending &&
          session.enabled() && session.attached_to(k));
+  const Lit implied=kernel_internalize(k,signed_alias?5:-5);
   assert(session.owner_version()==pending_owner && k.next_clause_id>pending_id &&
-         proof.premise_bytes()>=pending_bytes && k.trail==pending_trail &&
-         !k.value(kernel_internalize(k,5)));
+         proof.premise_bytes()>=pending_bytes &&
+         k.trail.size()==pending_trail.size()+1 && k.trail.back()==implied &&
+         k.value(implied)>0);
   const auto retraction_before_backtrack=k.affine_trail_retraction_epoch;
   kernel_backtrack(k,0);assert(propagate_apply(k)!=ApplyResult::Unsat);
   assert(k.affine_trail_retraction_epoch>retraction_before_backtrack);

@@ -67,7 +67,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t usefulness_resumptions = 0, paused_search_skips = 0;
   uint64_t root_services = 0, search_services = 0;
   uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
-  uint64_t reasons_published = 0;
+  uint64_t reasons_published = 0, implications_consumed = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;

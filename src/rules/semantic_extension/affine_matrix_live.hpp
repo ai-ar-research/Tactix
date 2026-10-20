@@ -64,6 +64,9 @@ struct MatrixLiveResult {
   uint64_t journal_bytes = 0;
   bool implication = false;
   bool conflict = false;
+  // A non-root implication is assigned immediately from its newly installed
+  // reason clause. Propagation remains pending for that literal's watch lists.
+  bool implication_consumed = false;
   bool propagation_pending = false;
   bool proof_cache_hit = false;
   bool proof_cache_insert = false;
@@ -123,8 +126,9 @@ private:
 };
 
 // Both phases are mutation-free until publish has revalidated every retained
-// identity and resource boundary. Publication emits the preflighted proof and
-// installs only its marked reason. Ordinary propagation remains pending.
+// identity and resource boundary. Publication emits the preflighted proof,
+// installs its marked reason, and directly consumes a non-root implication;
+// ordinary propagation remains pending for the new literal's watch lists.
 MatrixLiveResult prepare_affine_matrix_live(
     Kernel &, const MatrixLiveRequest &, AffineMatrixLivePrepared &);
 MatrixLiveResult publish_affine_matrix_live(
