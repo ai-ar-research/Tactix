@@ -89,9 +89,12 @@ private:
       Kernel &, const MatrixLiveRequest &, AffineMatrixLivePrepared &);
   friend MatrixLiveResult publish_affine_matrix_live(
       Kernel &, const MatrixLiveRequest &, AffineMatrixLivePrepared &);
+  friend MatrixLiveResult apply_affine_matrix_live(
+      Kernel &, const MatrixLiveRequest &);
 
   bool ready_ = false;
   bool spent_ = false;
+  bool immediate_ = false;
   MatrixLiveRequest request_;
   uint64_t starting_clause_id_ = 0;
   uint64_t arena_generation_ = 0;

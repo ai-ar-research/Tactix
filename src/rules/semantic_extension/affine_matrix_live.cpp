@@ -665,70 +665,78 @@ MatrixLiveResult publish_affine_matrix_live(
     return result;
   }
 
-  std::vector<MatrixAssignment> trail;
-  std::vector<uint32_t> levels;
-  if (!snapshot_trail(kernel, trail, levels) || trail != prepared.trail_ ||
-      levels != prepared.trail_levels_ || !same_event(*request.event, prepared.event_)) {
-    result.status = MatrixLiveStatus::Stale;
-    return result;
-  }
-  Work validation{0, request.maximum_revalidation_work, kernel};
-  std::vector<uint64_t> occurrences;
-  std::vector<uint64_t> clause_ids;
-  std::vector<uint64_t> resume_occurrences;
-  std::vector<uint64_t> resume_clause_ids;
-  if (!request.matrix->authenticates(
-          request.owner_identity, *request.exact_sources, *request.event,
-          [&](uint64_t amount) { return validation.charge(amount); }) ||
-      !validate_selected_sources(
-          kernel, prepared.owner_, *request.exact_sources,
-          prepared.transaction_.source_equations(),
-          prepared.transaction_.source_identity(), validation,
-          request.premise_leases, occurrences, clause_ids) ||
-      (prepared.transaction_.proof_cache_resume() &&
-       !validate_selected_sources(
-           kernel, prepared.owner_, *request.exact_sources,
-           prepared.transaction_.resume_source_equations(),
-           prepared.transaction_.resume_source_identity(), validation,
-           request.premise_leases, resume_occurrences, resume_clause_ids))) {
-    result.revalidation_work = validation.used;
-    result.status = validation.interrupted
-                        ? MatrixLiveStatus::Interrupted
-                    : validation.exhausted
-                        ? MatrixLiveStatus::ResourceExhausted
-                        : MatrixLiveStatus::Stale;
-    return result;
-  }
-  if (occurrences != prepared.source_occurrences_ ||
-      clause_ids != prepared.source_clause_ids_ ||
-      resume_occurrences != prepared.resume_source_occurrences_ ||
-      resume_clause_ids != prepared.resume_source_clause_ids_) {
-    result.status = MatrixLiveStatus::Stale;
-    return result;
-  }
-  result.revalidation_work = validation.used;
-  std::vector<Lit> physical;
-  if (!reason_order(kernel, prepared.event_, physical) ||
-      physical != prepared.physical_reason_) {
-    result.status = MatrixLiveStatus::Stale;
-    return result;
-  }
-  if (prepared.transaction_.compact_pbp()) {
-    PbpParityReasonPlan current;
-    if (!kernel.proof || !request.pbp_parity_cache ||
-        !kernel.proof->plan_pbp_parity_reason(
-            prepared.pbp_equations_,
-            prepared.event_.reason.empty() ? nullptr
-                                           : prepared.event_.reason.data(),
-            prepared.event_.reason.size(), prepared.starting_extent_,
-            *request.pbp_parity_cache, current) ||
-        current.stream_identity != prepared.pbp_plan_.stream_identity ||
-        current.cache_generation != prepared.pbp_plan_.cache_generation ||
-        current.proof_constraints != prepared.pbp_plan_.proof_constraints ||
-        current.retained_bytes != prepared.pbp_plan_.retained_bytes ||
-        current.helper_variables != prepared.pbp_plan_.helper_variables) {
+  // The one-shot apply helper enters publish on the same stack immediately
+  // after prepare, with no callback or mutation boundary between them.  Its
+  // prepared snapshots are therefore still current.  The separately callable
+  // two-phase API retains the complete stale-state audit.
+  if (!prepared.immediate_) {
+    std::vector<MatrixAssignment> trail;
+    std::vector<uint32_t> levels;
+    if (!snapshot_trail(kernel, trail, levels) || trail != prepared.trail_ ||
+        levels != prepared.trail_levels_ ||
+        !same_event(*request.event, prepared.event_)) {
       result.status = MatrixLiveStatus::Stale;
       return result;
+    }
+    Work validation{0, request.maximum_revalidation_work, kernel};
+    std::vector<uint64_t> occurrences;
+    std::vector<uint64_t> clause_ids;
+    std::vector<uint64_t> resume_occurrences;
+    std::vector<uint64_t> resume_clause_ids;
+    if (!request.matrix->authenticates(
+            request.owner_identity, *request.exact_sources, *request.event,
+            [&](uint64_t amount) { return validation.charge(amount); }) ||
+        !validate_selected_sources(
+            kernel, prepared.owner_, *request.exact_sources,
+            prepared.transaction_.source_equations(),
+            prepared.transaction_.source_identity(), validation,
+            request.premise_leases, occurrences, clause_ids) ||
+        (prepared.transaction_.proof_cache_resume() &&
+         !validate_selected_sources(
+             kernel, prepared.owner_, *request.exact_sources,
+             prepared.transaction_.resume_source_equations(),
+             prepared.transaction_.resume_source_identity(), validation,
+             request.premise_leases, resume_occurrences,
+             resume_clause_ids))) {
+      result.revalidation_work = validation.used;
+      result.status = validation.interrupted
+                          ? MatrixLiveStatus::Interrupted
+                      : validation.exhausted
+                          ? MatrixLiveStatus::ResourceExhausted
+                          : MatrixLiveStatus::Stale;
+      return result;
+    }
+    if (occurrences != prepared.source_occurrences_ ||
+        clause_ids != prepared.source_clause_ids_ ||
+        resume_occurrences != prepared.resume_source_occurrences_ ||
+        resume_clause_ids != prepared.resume_source_clause_ids_) {
+      result.status = MatrixLiveStatus::Stale;
+      return result;
+    }
+    result.revalidation_work = validation.used;
+    std::vector<Lit> physical;
+    if (!reason_order(kernel, prepared.event_, physical) ||
+        physical != prepared.physical_reason_) {
+      result.status = MatrixLiveStatus::Stale;
+      return result;
+    }
+    if (prepared.transaction_.compact_pbp()) {
+      PbpParityReasonPlan current;
+      if (!kernel.proof || !request.pbp_parity_cache ||
+          !kernel.proof->plan_pbp_parity_reason(
+              prepared.pbp_equations_,
+              prepared.event_.reason.empty() ? nullptr
+                                             : prepared.event_.reason.data(),
+              prepared.event_.reason.size(), prepared.starting_extent_,
+              *request.pbp_parity_cache, current) ||
+          current.stream_identity != prepared.pbp_plan_.stream_identity ||
+          current.cache_generation != prepared.pbp_plan_.cache_generation ||
+          current.proof_constraints != prepared.pbp_plan_.proof_constraints ||
+          current.retained_bytes != prepared.pbp_plan_.retained_bytes ||
+          current.helper_variables != prepared.pbp_plan_.helper_variables) {
+        result.status = MatrixLiveStatus::Stale;
+        return result;
+      }
     }
   }
   if (uint64_t(prepared.starting_extent_) +
@@ -839,6 +847,7 @@ MatrixLiveResult apply_affine_matrix_live(Kernel &kernel,
   AffineMatrixLivePrepared prepared;
   MatrixLiveResult result = prepare_affine_matrix_live(kernel, request, prepared);
   if (result.status != MatrixLiveStatus::Prepared) return result;
+  prepared.immediate_ = true;
   return publish_affine_matrix_live(kernel, request, prepared);
 }
 
