@@ -258,17 +258,6 @@ bool Proof::open(const char *path, ProofFormat format) {
       pbp_output_ = nullptr;
       return false;
     }
-    // The temporary input transaction and the eventual proof stream can both
-    // be large.  Configure the destination before its first write as well;
-    // otherwise publish_streaming_pbp_header() switches from the 1 MiB spool
-    // buffer below to the implementation's much smaller default FILE buffer.
-    if (std::setvbuf(pbp_output_, nullptr, _IOFBF, 1 << 20)) {
-      std::fclose(file_);
-      file_ = nullptr;
-      std::fclose(pbp_output_);
-      pbp_output_ = nullptr;
-      return false;
-    }
     input_transaction_ = true;
   }
   if (file_ && format == ProofFormat::Automatic) {
