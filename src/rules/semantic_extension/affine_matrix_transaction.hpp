@@ -3,6 +3,7 @@
 
 #include "rules/semantic_extension/affine_matrix.hpp"
 #include "rules/lucky/parity_certificate.hpp"
+#include "proof/proof.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -101,6 +102,8 @@ public:
   bool proof_cache_hit() const { return cache_hit_; }
   bool proof_cache_insert() const { return cache_insert_; }
   bool proof_cache_resume() const { return cache_resume_; }
+  bool compact_pbp() const { return compact_pbp_; }
+  const PbpParityReasonPlan &pbp_plan() const { return pbp_plan_; }
   uint64_t proof_cache_generation() const { return cache_generation_; }
   const MatrixProofCacheEntry &proof_cache_entry() const {
     return cache_entry_;
@@ -117,7 +120,8 @@ private:
       const AffineMatrix &, uint64_t, const std::vector<Equation> &,
       const MatrixEvent &, uint32_t, uint64_t,
       const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
-      AffineMatrixTransaction &, const AffineMatrixProofCache *, uint64_t);
+      AffineMatrixTransaction &, const AffineMatrixProofCache *, uint64_t,
+      const PbpParityReasonPlan *);
 
   bool ready_ = false;
   uint64_t owner_identity_ = 0;
@@ -137,6 +141,8 @@ private:
   bool cache_resume_ = false;
   uint64_t cache_generation_ = 0;
   MatrixProofCacheEntry cache_entry_;
+  bool compact_pbp_ = false;
+  PbpParityReasonPlan pbp_plan_;
 };
 
 // Validate an event against an exact matrix owner/source snapshot, then plan
@@ -151,6 +157,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
     AffineMatrixTransaction &output,
     const AffineMatrixProofCache *proof_cache = nullptr,
-    uint64_t proof_epoch = 0);
+    uint64_t proof_epoch = 0,
+    const PbpParityReasonPlan *pbp_plan = nullptr);
 
 } // namespace tactix::affine_semantic_extension

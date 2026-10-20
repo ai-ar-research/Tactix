@@ -2050,6 +2050,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
   request.records = session.records_;
   request.compact_provenance = kernel.affine_matrix_provenance_compact;
   request.proof_cache = &session.proof_cache_;
+  request.pbp_parity_cache = &session.pbp_proof_cache_;
   if (session.persistent()) {
     request.premise_leases = &session.premise_leases_;
     if (session.retained_bytes_ >= session.persistence_.maximum_retained_bytes) {

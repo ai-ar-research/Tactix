@@ -117,7 +117,20 @@ def summarize(path, maximum_bytes, input_sha256):
                 elif status != "disabled":
                     raise ValueError("invalid matrix cache status")
             events = row.get("proof_events")
-            if not isinstance(events, list):
+            proof_mode = row.get("proof_mode", "clausal-parity-tree")
+            if proof_mode not in ("clausal-parity-tree", "pbp-polynomial"):
+                raise ValueError("invalid matrix proof mode")
+            if proof_mode == "pbp-polynomial":
+                additions = row.get("proof_additions")
+                deletions = row.get("proof_deletions")
+                if (type(additions) is not int or additions <= 0 or
+                        deletions != 0 or
+                        (events is not None and events != [])):
+                    raise ValueError("invalid polynomial matrix proof counts")
+                rat = rup = added_literals = 0
+                totals["pbp_polynomial_constraints"] += additions
+                events = []
+            elif not isinstance(events, list):
                 raise ValueError("matrix reason omitted proof events")
             rat = rup = deletions = added_literals = 0
             for event in events:
@@ -138,7 +151,14 @@ def summarize(path, maximum_bytes, input_sha256):
                     added_literals += len(clause)
                 else:
                     deletions += 1
-            additions = rat + rup
+            if proof_mode != "pbp-polynomial":
+                additions = rat + rup
+                if (row.get("proof_additions") is not None and
+                        row.get("proof_additions") != additions):
+                    raise ValueError("matrix proof addition count mismatch")
+                if (row.get("proof_deletions") is not None and
+                        row.get("proof_deletions") != deletions):
+                    raise ValueError("matrix proof deletion count mismatch")
             totals["reasons"] += 1
             totals["sources"] += len(sources)
             totals["proof_additions"] += additions
@@ -209,6 +229,7 @@ def summarize(path, maximum_bytes, input_sha256):
         "proof_deletions": totals["proof_deletions"],
         "rat_additions": totals["rat_additions"],
         "rup_additions": totals["rup_additions"],
+        "pbp_polynomial_constraints": totals["pbp_polynomial_constraints"],
         "added_clause_literals": totals["added_clause_literals"],
         "maximum_reason_additions": totals["maximum_reason_additions"],
         "addition_size_buckets": dict(sorted(addition_size_buckets.items())),

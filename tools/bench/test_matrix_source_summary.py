@@ -87,6 +87,22 @@ class MatrixSourceSummaryTest(unittest.TestCase):
         self.assertEqual(result["distinct_row_signatures"], 1)
         self.assertEqual(result["same_row_different_sources"], 1)
 
+    def test_counts_compact_pbp_constraints_without_clausal_events(self):
+        path = self.write([
+            {"kind": "session", "version": 1, "input_file_sha256": INPUT},
+            {"kind": "affine-matrix-reason", "source_ordinals": [0, 1],
+             "sources": [equation(0, [1, 2]), equation(1, [2, 3], 1)],
+             "proof_cache": {"status": "disabled"},
+             "proof_mode": "pbp-polynomial", "proof_events": [],
+             "proof_additions": 95, "proof_deletions": 0},
+        ])
+        result = summarize(path, 100000, INPUT)
+        self.assertEqual(result["proof_additions"], 95)
+        self.assertEqual(result["proof_deletions"], 0)
+        self.assertEqual(result["pbp_polynomial_constraints"], 95)
+        self.assertEqual(result["rat_additions"], 0)
+        self.assertEqual(result["rup_additions"], 0)
+
     def test_rejects_wrong_input_and_missing_cache_source(self):
         path = self.write([
             {"kind": "session", "version": 1, "input_file_sha256": INPUT},

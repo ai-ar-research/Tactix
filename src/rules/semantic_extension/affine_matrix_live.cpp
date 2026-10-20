@@ -77,6 +77,7 @@ bool same_request(const MatrixLiveRequest &first,
          first.records == second.records &&
          first.compact_provenance == second.compact_provenance &&
          first.proof_cache == second.proof_cache &&
+         first.pbp_parity_cache == second.pbp_parity_cache &&
          first.premise_leases == second.premise_leases &&
          first.maximum_persistent_bytes == second.maximum_persistent_bytes;
 }
@@ -315,6 +316,12 @@ bool make_journal(const MatrixLiveRequest &request,
     }
     if (!append("]")) return false;
   }
+  if (!append(",\"proof_mode\":\"" +
+              std::string(transaction.compact_pbp()
+                              ? "pbp-polynomial"
+                              : "clausal-parity-tree") +
+              "\""))
+    return false;
   const char *cache_status = transaction.proof_cache_hit()
                                  ? "hit"
                              : transaction.proof_cache_resume()
@@ -347,7 +354,10 @@ bool make_journal(const MatrixLiveRequest &request,
               std::to_string(helper_first) + ",\"last\":" +
               std::to_string(helper_last) + ",\"count\":" +
               std::to_string(transaction.helper_extent()) +
-              ",\"meaning\":\"proof-only balanced-XOR identities; " +
+              ",\"meaning\":\"" +
+              std::string(transaction.compact_pbp()
+                              ? "proof-only PB threshold carries; "
+                              : "proof-only balanced-XOR identities; ") +
               (transaction.proof_cache_insert()
                    ? std::string("persistent cache support, never branchable")
                    : std::string("retired or previously cached, never branchable")) +
@@ -465,6 +475,43 @@ MatrixLiveResult prepare_affine_matrix_live(
     return result;
   }
 
+  const PbpParityReasonPlan *compact_plan = nullptr;
+  if (kernel.proof && kernel.proof->streaming_pbp() &&
+      request.pbp_parity_cache) {
+    bool complete = true;
+    candidate.pbp_equations_.reserve(
+        candidate.event_.row.source_equations.size());
+    for (const size_t ordinal : candidate.event_.row.source_equations) {
+      if (ordinal >= request.exact_sources->size()) {
+        complete = false;
+        break;
+      }
+      const Equation &source = (*request.exact_sources)[ordinal];
+      PbpParityEquation equation;
+      equation.variables.assign(source.variables.begin(),
+                                source.variables.end());
+      equation.rhs = source.rhs;
+      candidate.pbp_equations_.push_back(std::move(equation));
+    }
+    if (complete && kernel.proof->plan_pbp_parity_reason(
+                        candidate.pbp_equations_,
+                        candidate.event_.reason.empty()
+                            ? nullptr : candidate.event_.reason.data(),
+                        candidate.event_.reason.size(),
+                        candidate.starting_extent_,
+                        *request.pbp_parity_cache, candidate.pbp_plan_)) {
+      if (request.maximum_persistent_bytes &&
+          candidate.pbp_plan_.retained_bytes >
+              request.maximum_persistent_bytes) {
+        result.status = MatrixLiveStatus::ResourceExhausted;
+        return result;
+      }
+      compact_plan = &candidate.pbp_plan_;
+    } else {
+      candidate.pbp_equations_.clear();
+    }
+  }
+
   bool planner_interrupted = false;
   const MatrixTransactionStatus planned = prepare_affine_matrix_transaction(
       *request.matrix, request.owner_identity, *request.exact_sources,
@@ -474,8 +521,9 @@ MatrixLiveResult prepare_affine_matrix_live(
         if (kernel_terminating(kernel)) planner_interrupted = true;
         return !planner_interrupted;
       },
-      candidate.transaction_, request.proof_cache,
-      kernel.proof ? kernel.proof->persistent_external_epoch() : 0);
+      candidate.transaction_, compact_plan ? nullptr : request.proof_cache,
+      kernel.proof ? kernel.proof->persistent_external_epoch() : 0,
+      compact_plan);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.status = transaction_status(planned);
@@ -569,6 +617,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   result.proof_cache_hit = candidate.transaction_.proof_cache_hit();
   result.proof_cache_insert = candidate.transaction_.proof_cache_insert();
   result.proof_cache_resume = candidate.transaction_.proof_cache_resume();
+  result.compact_pbp = candidate.transaction_.compact_pbp();
   candidate.prepared_ = result;
   output = std::move(candidate);
   return result;
@@ -664,6 +713,24 @@ MatrixLiveResult publish_affine_matrix_live(
     result.status = MatrixLiveStatus::Stale;
     return result;
   }
+  if (prepared.transaction_.compact_pbp()) {
+    PbpParityReasonPlan current;
+    if (!kernel.proof || !request.pbp_parity_cache ||
+        !kernel.proof->plan_pbp_parity_reason(
+            prepared.pbp_equations_,
+            prepared.event_.reason.empty() ? nullptr
+                                           : prepared.event_.reason.data(),
+            prepared.event_.reason.size(), prepared.starting_extent_,
+            *request.pbp_parity_cache, current) ||
+        current.stream_identity != prepared.pbp_plan_.stream_identity ||
+        current.cache_generation != prepared.pbp_plan_.cache_generation ||
+        current.proof_constraints != prepared.pbp_plan_.proof_constraints ||
+        current.retained_bytes != prepared.pbp_plan_.retained_bytes ||
+        current.helper_variables != prepared.pbp_plan_.helper_variables) {
+      result.status = MatrixLiveStatus::Stale;
+      return result;
+    }
+  }
   if (uint64_t(prepared.starting_extent_) +
               prepared.transaction_.helper_extent() >
           request.maximum_external_extent ||
@@ -688,6 +755,19 @@ MatrixLiveResult publish_affine_matrix_live(
       prepared.transaction_.proof_cache_entry().support_ids.begin(),
       prepared.transaction_.proof_cache_entry().support_ids.end());
   size_t retained = 0;
+  if (prepared.transaction_.compact_pbp()) {
+    if (!request.pbp_parity_cache || kernel.next_clause_id == UINT64_MAX)
+      std::abort();
+    installed_id = ++kernel.next_clause_id;
+    if (kernel.proof &&
+        !kernel.proof->add_pbp_parity_reason(
+            installed_id, prepared.pbp_equations_,
+            prepared.event_.reason.empty() ? nullptr
+                                           : prepared.event_.reason.data(),
+            prepared.event_.reason.size(), *request.pbp_parity_cache,
+            prepared.transaction_.pbp_plan()))
+      std::abort();
+  }
   for (const MatrixProofEvent &event : prepared.transaction_.proof_events()) {
     if (event.kind == MatrixProofEvent::Kind::Delete) {
       if (event.id != kernel.next_clause_id) std::abort();

@@ -416,7 +416,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const MatrixTransactionLimits &limits,
     const std::function<bool(uint64_t)> &charge,
     AffineMatrixTransaction &output,
-    const AffineMatrixProofCache *proof_cache, uint64_t proof_epoch) {
+    const AffineMatrixProofCache *proof_cache, uint64_t proof_epoch,
+    const PbpParityReasonPlan *pbp_plan) {
   if (!expected_owner_identity || !charge || !limits.maximum_work ||
       !limits.maximum_proof_additions || !limits.maximum_proof_deletions ||
       !limits.maximum_helper_extent ||
@@ -544,6 +545,25 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     return MatrixTransactionStatus::ResourceExhausted;
   candidate.arena_words_ = arena_words;
   candidate.reason_ = event.reason;
+  if (pbp_plan) {
+    if (!pbp_plan->valid ||
+        pbp_plan->starting_external_extent != starting_external_extent ||
+        !pbp_plan->proof_constraints ||
+        pbp_plan->proof_constraints > limits.maximum_proof_additions ||
+        pbp_plan->helper_variables > limits.maximum_helper_extent ||
+        uint64_t(starting_external_extent) + pbp_plan->helper_variables >
+            static_cast<uint32_t>(INT32_MAX))
+      return MatrixTransactionStatus::ResourceExhausted;
+    candidate.compact_pbp_ = true;
+    candidate.pbp_plan_ = *pbp_plan;
+    candidate.additions_ = pbp_plan->proof_constraints;
+    candidate.deletions_ = 0;
+    candidate.helper_extent_ = pbp_plan->helper_variables;
+    candidate.work_ = work.used;
+    candidate.ready_ = true;
+    output = std::move(candidate);
+    return MatrixTransactionStatus::Prepared;
+  }
   if (proof_cache) {
     candidate.cache_generation_ = proof_cache->generation();
     candidate.cache_entry_.proof_epoch = proof_epoch;

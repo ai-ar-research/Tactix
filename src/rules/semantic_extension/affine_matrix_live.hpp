@@ -38,6 +38,7 @@ struct MatrixLiveRequest {
   FILE *records = nullptr;
   bool compact_provenance = false;
   AffineMatrixProofCache *proof_cache = nullptr;
+  PbpParityBoundsCache *pbp_parity_cache = nullptr;
   // Optional exact per-equation checker-premise ownership. Absence preserves
   // the legacy live native-source authentication boundary.
   const std::vector<uint64_t> *premise_leases = nullptr;
@@ -66,6 +67,7 @@ struct MatrixLiveResult {
   bool proof_cache_hit = false;
   bool proof_cache_insert = false;
   bool proof_cache_resume = false;
+  bool compact_pbp = false;
   uint64_t installed_reason_id = 0;
 };
 
@@ -109,6 +111,8 @@ private:
   std::vector<uint64_t> resume_source_occurrences_;
   std::vector<uint64_t> resume_source_clause_ids_;
   std::vector<Lit> physical_reason_;
+  std::vector<PbpParityEquation> pbp_equations_;
+  PbpParityReasonPlan pbp_plan_;
   AffineMatrixTransaction transaction_;
   std::string journal_;
   MatrixLiveResult prepared_;

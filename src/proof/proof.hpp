@@ -9,6 +9,7 @@
 #include "population/population_observer.hpp"
 
 #include <array>
+#include <compare>
 #include <functional>
 #include <map>
 #include <cstdio>
@@ -38,6 +39,54 @@ struct DsrWitnessPlan {
   DsrWitnessForm form = DsrWitnessForm::Direct;
   uint32_t pivot = 0;      // clause index of the emitted pivot
   Lit lemma = INVALID_LIT; // Lemma: open image appended to the clause
+};
+
+// One already-authenticated complete XOR encoding, named only by its semantic
+// equation.  Streaming PBP can turn the bounded CNF row into two persistent
+// cutting-planes bounds once, then combine cached bounds for later live
+// reasons.  Premise authentication and lifetime remain the caller's job.
+struct PbpParityEquation {
+  std::vector<int32_t> variables;
+  bool rhs = false;
+
+  friend bool operator==(const PbpParityEquation &,
+                         const PbpParityEquation &) = default;
+  friend std::strong_ordering operator<=>(const PbpParityEquation &first,
+                                           const PbpParityEquation &second) {
+    if (const auto order = first.variables <=> second.variables; order != 0)
+      return order;
+    return first.rhs <=> second.rhs;
+  }
+};
+
+struct PbpParityBounds {
+  uint64_t lower = 0;
+  uint64_t upper = 0;
+  std::vector<int32_t> carries;
+};
+
+class PbpParityBoundsCache {
+public:
+  uint64_t generation() const noexcept { return generation_; }
+  uint64_t stream_identity() const noexcept { return stream_identity_; }
+  size_t size() const noexcept { return entries_.size(); }
+  uint64_t retained_bytes() const noexcept;
+
+private:
+  friend class Proof;
+  uint64_t stream_identity_ = 0;
+  uint64_t generation_ = 0;
+  std::map<PbpParityEquation, PbpParityBounds> entries_;
+};
+
+struct PbpParityReasonPlan {
+  uint64_t stream_identity = 0;
+  uint64_t cache_generation = 0;
+  uint64_t proof_constraints = 0;
+  uint64_t retained_bytes = 0;
+  uint32_t starting_external_extent = 0;
+  uint32_t helper_variables = 0;
+  bool valid = false;
 };
 
 // `lits[0]` is the semantic pivot; `mappings` use positive sources.
@@ -155,6 +204,18 @@ public:
   // operations decline it before writing any bytes.
   bool add_external_rup(uint64_t id, const int32_t *lits, uint32_t size);
   bool add_external_rat(uint64_t id, const int32_t *lits, uint32_t size);
+  // Compact live GF(2) consequence for streaming PBP.  Planning is pure and
+  // bounded; publication rechecks the exact stream/cache generation before
+  // writing.  `reason` is one entailed clause (or the empty root conflict),
+  // and every equation's complete CNF premises must still be checker-visible.
+  bool plan_pbp_parity_reason(
+      const std::vector<PbpParityEquation> &, const int32_t *reason,
+      uint32_t reason_size, uint32_t starting_external_extent,
+      const PbpParityBoundsCache &, PbpParityReasonPlan &) const;
+  bool add_pbp_parity_reason(
+      uint64_t kernel_clause_id, const std::vector<PbpParityEquation> &,
+      const int32_t *reason, uint32_t reason_size,
+      PbpParityBoundsCache &, const PbpParityReasonPlan &);
   bool del_external(uint64_t line_id, uint64_t del_id,
                     const int32_t *lits, uint32_t size);
   // Keep an already-emitted proof-only clause available for later RUP steps.
@@ -326,6 +387,7 @@ private:
   bool has_sr_witness_ = false;
   bool streaming_pbp_finished_ = false;
   uint64_t pbp_original_constraints_ = 0;
+  uint64_t pbp_derived_constraints_ = 0;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;

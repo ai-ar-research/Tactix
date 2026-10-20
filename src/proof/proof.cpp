@@ -9,11 +9,28 @@
 #include <cassert>
 #include <cinttypes>
 #include <cstdlib>
+#include <limits>
+#include <set>
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
 #include <execinfo.h>
 #endif
 
 namespace tactix {
+
+uint64_t PbpParityBoundsCache::retained_bytes() const noexcept {
+  if (entries_.empty())
+    return 0;
+  uint64_t bytes = sizeof(*this);
+  for (const auto &[equation, bounds] : entries_) {
+    const uint64_t entry = sizeof(equation) + sizeof(bounds) +
+        equation.variables.capacity() * sizeof(int32_t) +
+        bounds.carries.capacity() * sizeof(int32_t);
+    if (entry > UINT64_MAX - bytes)
+      return UINT64_MAX;
+    bytes += entry;
+  }
+  return bytes;
+}
 
 CheckerRoute Proof::population_route() const noexcept {
   if (!file_ && !automatic_output_)
@@ -232,6 +249,7 @@ bool Proof::open(const char *path, ProofFormat format) {
   has_sr_witness_ = false;
   streaming_pbp_finished_ = false;
   pbp_original_constraints_ = 0;
+  pbp_derived_constraints_ = 0;
   if (file_ && format == ProofFormat::PbpStreaming) {
     pbp_output_ = file_;
     file_ = std::tmpfile();
@@ -678,6 +696,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
       std::abort();
     put_pbp_clause("rup", lits, size);
     std::fputs(" ;\n", file_);
+    if (pbp_derived_constraints_ == UINT64_MAX)
+      std::abort();
+    ++pbp_derived_constraints_;
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -778,6 +799,9 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                  static_cast<uint32_t>(external < 0 ? -int64_t(external)
                                                     : int64_t(external)),
                  external < 0 ? 0 : 1);
+    if (pbp_derived_constraints_ == UINT64_MAX)
+      std::abort();
+    ++pbp_derived_constraints_;
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -901,6 +925,9 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                                                 : int64_t(to)));
     }
     std::fputs(" ;\n", file_);
+    if (pbp_derived_constraints_ == UINT64_MAX)
+      std::abort();
+    ++pbp_derived_constraints_;
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -1266,6 +1293,9 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
       return false;
     put_pbp_external_clause("rup", lits, size);
     std::fputs(" ;\n", file_);
+    if (pbp_derived_constraints_ == UINT64_MAX)
+      std::abort();
+    ++pbp_derived_constraints_;
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     std::vector<Lit> external;
     external.reserve(size);
@@ -1331,6 +1361,9 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
                  static_cast<uint32_t>(pivot < 0 ? -int64_t(pivot)
                                                  : int64_t(pivot)),
                  pivot < 0 ? 0 : 1);
+    if (pbp_derived_constraints_ == UINT64_MAX)
+      std::abort();
+    ++pbp_derived_constraints_;
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::ExternalRat, id, id,
                     PopulationClauseView::external_lits(lits, size), true);
@@ -1343,6 +1376,277 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
   const bool result = add_external_rup(id, lits, size);
   population_role_ = saved;
   return result;
+}
+
+bool Proof::plan_pbp_parity_reason(
+    const std::vector<PbpParityEquation> &equations, const int32_t *reason,
+    uint32_t reason_size, uint32_t starting_external_extent,
+    const PbpParityBoundsCache &cache, PbpParityReasonPlan &output) const {
+  PbpParityReasonPlan plan;
+  if (!streaming_pbp() || !file_ || input_transaction_ || pbp_output_ ||
+      streaming_pbp_finished_ || equations.empty() ||
+      (!reason && reason_size) ||
+      starting_external_extent > static_cast<uint32_t>(INT32_MAX))
+    return false;
+
+  std::set<int32_t> odd;
+  std::set<PbpParityEquation> new_rows;
+  bool rhs = false;
+  const bool matching_cache = cache.stream_identity_ == stream_identity_;
+  uint64_t constraints = 3;
+  uint64_t retained = matching_cache ? cache.retained_bytes()
+                                     : sizeof(PbpParityBoundsCache);
+  uint64_t helpers = 0;
+  for (const PbpParityEquation &equation : equations) {
+    if (equation.variables.size() < 2 || equation.variables.size() > 8 ||
+        !std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
+        std::adjacent_find(equation.variables.begin(),
+                           equation.variables.end()) !=
+            equation.variables.end())
+      return false;
+    for (const int32_t variable : equation.variables) {
+      if (variable <= 0 ||
+          static_cast<uint32_t>(variable) > starting_external_extent)
+        return false;
+      const auto found = odd.find(variable);
+      if (found == odd.end()) odd.insert(variable);
+      else odd.erase(found);
+    }
+    rhs ^= equation.rhs;
+    const bool cached = matching_cache && cache.entries_.contains(equation);
+    if (cached || !new_rows.insert(equation).second)
+      continue;
+    const uint64_t carries = equation.variables.size() / 2;
+    const uint64_t bound_constraints =
+        (uint64_t{1} << equation.variables.size()) + 1;
+    const uint64_t row_constraints = 6 * carries + 2 * bound_constraints;
+    if (row_constraints > UINT64_MAX - constraints ||
+        carries > UINT64_MAX - helpers)
+      return false;
+    constraints += row_constraints;
+    helpers += carries;
+    const uint64_t bytes = 2 * (sizeof(PbpParityEquation) +
+        sizeof(PbpParityBounds) +
+        equation.variables.size() * sizeof(int32_t) +
+        carries * sizeof(int32_t));
+    if (bytes > UINT64_MAX - retained)
+      return false;
+    retained += bytes;
+  }
+  if (helpers > UINT32_MAX || helpers > INT32_MAX - starting_external_extent)
+    return false;
+  if (constraints > UINT64_MAX - pbp_derived_constraints_ ||
+      pbp_original_constraints_ >
+          UINT64_MAX - (pbp_derived_constraints_ + constraints))
+    return false;
+
+  std::map<int32_t, int32_t> target;
+  bool falsifying_parity = false;
+  for (uint32_t i = 0; i < reason_size; ++i) {
+    const int32_t literal = reason[i];
+    if (!literal || literal == INT32_MIN)
+      return false;
+    const int32_t variable = literal < 0 ? -literal : literal;
+    if (static_cast<uint32_t>(variable) > starting_external_extent ||
+        !target.emplace(variable, literal).second)
+      return false;
+    if (odd.contains(variable))
+      falsifying_parity ^= literal < 0;
+  }
+  for (const int32_t variable : odd)
+    if (!target.contains(variable))
+      return false;
+  if (falsifying_parity == rhs)
+    return false;
+
+  plan.stream_identity = stream_identity_;
+  plan.cache_generation = matching_cache ? cache.generation_ : 0;
+  plan.proof_constraints = constraints;
+  plan.retained_bytes = retained;
+  plan.starting_external_extent = starting_external_extent;
+  plan.helper_variables = static_cast<uint32_t>(helpers);
+  plan.valid = true;
+  output = plan;
+  return true;
+}
+
+bool Proof::add_pbp_parity_reason(
+    uint64_t kernel_clause_id,
+    const std::vector<PbpParityEquation> &equations, const int32_t *reason,
+    uint32_t reason_size, PbpParityBoundsCache &cache,
+    const PbpParityReasonPlan &plan) {
+  PbpParityReasonPlan current;
+  if (!plan.valid || plan.stream_identity != stream_identity_ ||
+      !plan_pbp_parity_reason(equations, reason, reason_size,
+                              plan.starting_external_extent, cache, current) ||
+      current.stream_identity != plan.stream_identity ||
+      current.cache_generation != plan.cache_generation ||
+      current.proof_constraints != plan.proof_constraints ||
+      current.retained_bytes != plan.retained_bytes ||
+      current.helper_variables != plan.helper_variables)
+    return false;
+
+  if (cache.stream_identity_ != stream_identity_) {
+    cache.entries_.clear();
+    cache.generation_ = 0;
+    cache.stream_identity_ = stream_identity_;
+  }
+  const uint64_t derived_before = pbp_derived_constraints_;
+  uint32_t fresh = plan.starting_external_extent;
+  const auto constraint = [&]() {
+    if (pbp_derived_constraints_ == UINT64_MAX ||
+        pbp_original_constraints_ >
+            UINT64_MAX - (pbp_derived_constraints_ + 1))
+      std::abort();
+    ++pbp_derived_constraints_;
+    return pbp_original_constraints_ + pbp_derived_constraints_;
+  };
+  const auto term = [&](uint32_t coefficient, int32_t literal) {
+    if (!coefficient || !literal || literal == INT32_MIN)
+      std::abort();
+    std::fprintf(file_, "%" PRIu32 " %sx%" PRIu32 " ", coefficient,
+                 literal < 0 ? "~" : "",
+                 static_cast<uint32_t>(literal < 0 ? -int64_t(literal)
+                                                    : int64_t(literal)));
+  };
+
+  const auto emit_bound = [&](const PbpParityEquation &equation,
+                              const std::vector<int32_t> &carries,
+                              bool lower) {
+    std::fputs("pbc ", file_);
+    for (const int32_t variable : equation.variables)
+      term(1, lower ? variable : -variable);
+    for (const int32_t carry : carries)
+      term(2, lower ? -carry : carry);
+    const uint32_t rhs = lower
+        ? uint32_t(equation.rhs) + 2 * carries.size()
+        : equation.variables.size() - uint32_t(equation.rhs);
+    std::fprintf(file_, ">= %" PRIu32 " : subproof\n", rhs);
+    (void)constraint();
+    const auto block = [&](auto &&self, uint32_t depth, uint32_t mask) -> void {
+      if (depth + 1 < equation.variables.size()) {
+        self(self, depth + 1, mask);
+        self(self, depth + 1, mask | (uint32_t{1} << depth));
+      }
+      std::fputs("rup ", file_);
+      for (uint32_t i = 0; i < depth; ++i)
+        term(1, mask & (uint32_t{1} << i) ? -equation.variables[i]
+                                          : equation.variables[i]);
+      std::fputs(">= 1 ;\n", file_);
+      (void)constraint();
+    };
+    block(block, 0, 0);
+    std::fputs("qed pbc : -1 ;\n", file_);
+    return constraint();
+  };
+
+  std::vector<uint64_t> lower, upper;
+  lower.reserve(equations.size());
+  upper.reserve(equations.size());
+  for (const PbpParityEquation &equation : equations) {
+    auto found = cache.entries_.find(equation);
+    if (found == cache.entries_.end()) {
+      PbpParityBounds bounds;
+      for (uint32_t threshold = 2;
+           threshold <= equation.variables.size(); threshold += 2) {
+        if (fresh == static_cast<uint32_t>(INT32_MAX))
+          std::abort();
+        const int32_t carry = static_cast<int32_t>(++fresh);
+        bounds.carries.push_back(carry);
+        std::fputs("red ", file_);
+        for (const int32_t variable : equation.variables) term(1, variable);
+        term(threshold, -carry);
+        std::fprintf(file_, ">= %" PRIu32 " : x%d -> 0 ;\n", threshold,
+                     carry);
+        const uint64_t first = constraint();
+
+        const uint32_t complement =
+            equation.variables.size() - threshold + 1;
+        std::fputs("red ", file_);
+        for (const int32_t variable : equation.variables) term(1, -variable);
+        term(complement, carry);
+        std::fprintf(file_, ">= %" PRIu32
+                            " : x%d -> 1 : subproof\n",
+                     complement, carry);
+        const uint64_t negated_second = constraint();
+        std::fputs("proofgoal #1\nqed ;\n", file_);
+        (void)constraint();
+        std::fprintf(file_, "proofgoal %" PRIu64 "\n", first);
+        const uint64_t negated_first = constraint();
+        std::fprintf(file_, "pol %" PRIu64 " %" PRIu64
+                            " + ;\nqed : -1 ;\nqed ;\n",
+                     negated_second, negated_first);
+        (void)constraint();
+        (void)constraint();
+      }
+      bounds.lower = emit_bound(equation, bounds.carries, true);
+      bounds.upper = emit_bound(equation, bounds.carries, false);
+      found = cache.entries_.emplace(equation, std::move(bounds)).first;
+      if (cache.generation_ == UINT64_MAX)
+        std::abort();
+      ++cache.generation_;
+    }
+    lower.push_back(found->second.lower);
+    upper.push_back(found->second.upper);
+  }
+
+  std::set<int32_t> odd;
+  for (const PbpParityEquation &equation : equations)
+    for (const int32_t variable : equation.variables) {
+      const auto found = odd.find(variable);
+      if (found == odd.end()) odd.insert(variable);
+      else odd.erase(found);
+    }
+  const auto sum_and_round = [&](const std::vector<uint64_t> &ids,
+                                 bool lower_side) {
+    std::fprintf(file_, "pol %" PRIu64, ids.front());
+    for (size_t i = 1; i < ids.size(); ++i)
+      std::fprintf(file_, " %" PRIu64 " +", ids[i]);
+    for (uint32_t i = 0; i < reason_size; ++i) {
+      const int32_t literal = reason[i];
+      const int32_t variable = literal < 0 ? -literal : literal;
+      if (odd.contains(variable) &&
+          ((lower_side && literal < 0) || (!lower_side && literal > 0)))
+        std::fprintf(file_, " %sx%d +", literal < 0 ? "~" : "", variable);
+    }
+    std::fputs(" 2 d ;\n", file_);
+    return constraint();
+  };
+  const uint64_t lo = sum_and_round(lower, true);
+  const uint64_t hi = sum_and_round(upper, false);
+  std::fprintf(file_, "pol %" PRIu64 " %" PRIu64 " +", lo, hi);
+  for (uint32_t i = 0; i < reason_size; ++i) {
+    const int32_t literal = reason[i];
+    const int32_t variable = literal < 0 ? -literal : literal;
+    if (!odd.contains(variable))
+      std::fprintf(file_, " %sx%d +", literal < 0 ? "~" : "", variable);
+  }
+  std::fputs(" ;\n", file_);
+  (void)constraint();
+
+  if (fresh != plan.starting_external_extent + plan.helper_variables ||
+      pbp_derived_constraints_ - derived_before != plan.proof_constraints ||
+      cache.retained_bytes() > plan.retained_bytes || std::ferror(file_))
+    std::abort();
+  proof_external_max_ = std::max(proof_external_max_, fresh);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  std::vector<Lit> external;
+  external.reserve(reason_size);
+  for (uint32_t i = 0; i < reason_size; ++i)
+    external.push_back(internalize(reason[i]));
+  const auto *saved = variable_map_;
+  variable_map_ = nullptr;
+  population_add(kernel_clause_id, external.data(), reason_size);
+  variable_map_ = saved;
+#endif
+  observe_checker(CheckerPopulationEventKind::Add,
+                  CheckerClauseRole::ExternalRup, kernel_clause_id,
+                  kernel_clause_id,
+                  PopulationClauseView::external_lits(reason, reason_size),
+                  true);
+  if (!reason_size)
+    finish_streaming_pbp_unsat();
+  return true;
 }
 
 namespace {

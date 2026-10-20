@@ -393,7 +393,8 @@ static void helper_namespace_is_monotone() {
   std::fclose(journal);
 }
 
-static int proof_fixture(const char *cnf_path, const char *proof_path) {
+static int proof_fixture(const char *cnf_path, const char *proof_path,
+                         bool pbp = false) {
   Kernel kernel;
   kernel_reserve_vars(kernel, 10);
   const std::vector<int32_t> first{1, 2, 3, 4, 9, 10};
@@ -421,14 +422,56 @@ static int proof_fixture(const char *cnf_path, const char *proof_path) {
   assert(event.kind == MatrixEventKind::Conflict);
 
   Proof proof;
-  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  assert(proof.open(proof_path, pbp ? ProofFormat::PbpStreaming
+                                    : ProofFormat::DsrAscii));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
+  if (pbp) {
+    uint64_t id = 0;
+    for (const auto &[variables, rhs] :
+         std::vector<std::pair<std::vector<int32_t>, bool>>{{first, false},
+                                                            {second, true}})
+      for (const auto &external : clausal_form(variables, rhs)) {
+        std::vector<Lit> clause;
+        for (const int32_t literal : external)
+          clause.push_back(kernel_internalize(kernel, literal));
+        proof.seed_population(++id, clause.data(), clause.size());
+      }
+    for (int32_t variable = 1; variable <= 8; ++variable) {
+      const Lit unit = kernel_internalize(kernel, -variable);
+      proof.seed_population(++id, &unit, 1);
+    }
+    assert(id == kernel.next_clause_id);
+    proof.finish_input_transaction();
+  }
   kernel.proof = &proof;
-  const auto request = live_request(journal, owner, matrix, image.equations,
-                                    event);
+  auto request = live_request(journal, owner, matrix, image.equations, event);
+  PbpParityBoundsCache pbp_cache;
+  if (pbp) request.pbp_parity_cache = &pbp_cache;
   const auto result = apply_affine_matrix_live(kernel, request);
-  assert(result.status == MatrixLiveStatus::Applied && result.conflict);
+  assert(result.status == MatrixLiveStatus::Applied && result.conflict &&
+         result.compact_pbp == pbp &&
+         (!pbp || (result.deletions == 0 && pbp_cache.size() > 0)));
+  if (pbp) {
+    std::vector<PbpParityEquation> equations;
+    for (const size_t ordinal : event.row.source_equations)
+      equations.push_back({image.equations[ordinal].variables,
+                           image.equations[ordinal].rhs});
+    PbpParityReasonPlan cached;
+    assert(proof.plan_pbp_parity_reason(
+               equations, event.reason.empty() ? nullptr : event.reason.data(),
+               event.reason.size(), kernel.external_to_internal.size(),
+               pbp_cache, cached) &&
+           cached.proof_constraints == 3 && !cached.helper_variables);
+    if (!event.reason.empty()) {
+      auto wrong = event.reason;
+      wrong.front() = -wrong.front();
+      PbpParityReasonPlan rejected;
+      assert(!proof.plan_pbp_parity_reason(
+          equations, wrong.data(), wrong.size(),
+          kernel.external_to_internal.size(), pbp_cache, rejected));
+    }
+  }
   assert(kernel_propagate(kernel) && kernel.conflict_valid);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
@@ -650,6 +693,8 @@ static int removed_source_proof_fixture(const char *cnf_path,
 int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--proof") == 0)
     return proof_fixture(argv[2], argv[3]);
+  if (argc == 4 && std::strcmp(argv[1], "--pbp-proof") == 0)
+    return proof_fixture(argv[2], argv[3], true);
   if (argc == 4 && std::strcmp(argv[1], "--resume-proof") == 0)
     return resumed_proof_fixture(argv[2], argv[3]);
   if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)

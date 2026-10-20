@@ -182,8 +182,12 @@ public:
     return slice_retry_ || matrix_.continuation_pending();
   }
   uint64_t retained_bytes() const {
-    const uint64_t extra=matrix_.continuation_bytes();
-    return extra>UINT64_MAX-retained_bytes_?UINT64_MAX:retained_bytes_+extra;
+    const uint64_t continuation = matrix_.continuation_bytes();
+    const uint64_t proof = pbp_proof_cache_.retained_bytes();
+    if (continuation > UINT64_MAX - retained_bytes_)
+      return UINT64_MAX;
+    const uint64_t base = retained_bytes_ + continuation;
+    return proof > UINT64_MAX - base ? UINT64_MAX : base + proof;
   }
   bool matches_profile(const strategy::AffineConsequenceParameters &basis,
       const AffineMatrixPersistenceLimits &limits) const {
@@ -241,6 +245,7 @@ private:
   affine_semantic_extension::Image image_;
   affine_semantic_extension::AffineMatrix matrix_;
   affine_semantic_extension::AffineMatrixProofCache proof_cache_;
+  PbpParityBoundsCache pbp_proof_cache_;
   std::vector<std::string> published_;
   affine_semantic_extension::MatrixEvent cached_event_;
   uint64_t cached_event_owner_ = 0, cached_event_bytes_ = 0;
