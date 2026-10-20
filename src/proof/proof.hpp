@@ -102,12 +102,16 @@ public:
 
   bool open(const char *path, ProofFormat format);
   uint64_t stream_identity() const noexcept { return stream_identity_; }
-  // Automatic output privately stages only input-normalization DSR events.
+  // Automatic and whole-run PBP output privately stage input normalization.
   // At the original-input action boundary the caller may commit a complete
-  // PB refutation. The first subsequent clausal event commits DSR instead.
-  // Neither choice can be undone, and no published prefix is overwritten.
+  // native PB refutation. The first subsequent clausal event commits the
+  // ordinary proof route instead. Neither choice can be undone, and no
+  // published prefix is overwritten.
   void finish_input_transaction();
-  bool startup_pb_available() const { return automatic_pending_ && !input_transaction_; }
+  bool startup_pb_available() const {
+    return !input_transaction_ &&
+           (automatic_pending_ || (streaming_pbp() && pbp_output_));
+  }
   bool commit_dsr();
   FILE *begin_pb();
   bool finish_pb();

@@ -187,7 +187,7 @@ void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
 }
 
 bool Proof::settle_population_observer() noexcept {
-  if (automatic_pending_)
+  if (automatic_pending_ || (streaming_pbp() && pbp_output_))
     return false;
   flush();
   return true;
@@ -207,8 +207,6 @@ void Proof::finish_input_transaction() {
   observe_checker(CheckerPopulationEventKind::InputFinished,
                   CheckerClauseRole::Input, 0, 0, {});
   input_transaction_ = false;
-  if (streaming_pbp())
-    publish_streaming_pbp_header();
 }
 
 DsrWitnessPlan plan_dsr_witness(const Lit *lits, uint32_t size,
@@ -351,6 +349,10 @@ bool Proof::open(const char *path, ProofFormat format) {
 }
 
 bool Proof::commit_dsr() {
+  if (streaming_pbp() && pbp_output_) {
+    publish_streaming_pbp_header();
+    return true;
+  }
   if (!automatic_pending_)
     return streaming_pbp() || !pb();
   // Preserve the ordinary binary serializer's unbuffered stdio contract:
@@ -384,7 +386,7 @@ bool Proof::commit_dsr() {
 FILE *Proof::begin_pb() {
   if (!startup_pb_available())
     return nullptr;
-  // The input DSR transaction was never published. Its facts are justified
+  // The staged input transaction was never published. Its facts are justified
   // afresh from original CNF by the complete, prevalidated PB derivation.
   observe_checker(CheckerPopulationEventKind::ClausalRouteDiscarded,
                   CheckerClauseRole::None, 0, 0, {});
@@ -399,8 +401,9 @@ FILE *Proof::begin_pb() {
   spooling_deletions_ = false;
   std::fclose(file_);
   binary_buffer_size_ = 0;
-  file_ = automatic_output_;
+  file_ = automatic_pending_ ? automatic_output_ : pbp_output_;
   automatic_output_ = nullptr;
+  pbp_output_ = nullptr;
   automatic_pending_ = false;
   format_ = ProofFormat::Pbp;
   observe_checker(CheckerPopulationEventKind::RouteCommitted,
@@ -2072,6 +2075,8 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 void Proof::flush() {
   if (automatic_pending_)
     commit_dsr();
+  if (streaming_pbp() && pbp_output_)
+    publish_streaming_pbp_header();
   flush_pending_dsr_units();
   if (file_) {
     flush_binary();

@@ -922,7 +922,9 @@ int main(int argc, char **argv) {
   Proof proof;
   // Automatic admits its startup-PBP route only in binary mode. Whole-run
   // streaming PBP is textual already, so --no-binary has no effect on it.
-  kernel.startup_certificate_open = proof_format == ProofFormat::Automatic;
+  kernel.startup_certificate_open =
+      proof_format == ProofFormat::Automatic ||
+      proof_format == ProofFormat::PbpStreaming;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
       fprintf(stderr, "tactix: cannot write proof to '%s'\n", proof_path);

@@ -2437,7 +2437,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     return 0;
   }
   s->kernel.proof = &s->proof;
-  if (f != ProofFormat::Automatic)
+  if (f != ProofFormat::Automatic && f != ProofFormat::PbpStreaming)
     s->kernel.close_startup_certificate();
   s->proof.bind_variable_map(&s->kernel.internal_to_external);
   s->proof.bind_external_variable_map(&s->kernel.external_to_internal);

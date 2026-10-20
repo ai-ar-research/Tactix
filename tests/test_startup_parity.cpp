@@ -86,11 +86,13 @@ int main(int argc, char **argv) {
         assert(input);
         assert(std::fwrite(cnf.data(), 1, cnf.size(), input) == cnf.size());
         std::fclose(input);
-        assert(proof.open((stem + ".pbp").c_str(), ProofFormat::Automatic));
+        assert(proof.open((stem + ".pbp").c_str(),
+                          ProofFormat::PbpStreaming));
         proof.bind_variable_map(&k.internal_to_external);
         k.proof = &proof;
       }
       parse(cnf, k);
+      assert(!k.proof || k.proof->startup_pb_available());
       assert(startup_parity_guard(k));
       const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
       uint64_t instances[32];

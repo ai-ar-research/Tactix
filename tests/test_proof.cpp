@@ -768,6 +768,9 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
     Proof proof;
     assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
+    assert(proof.startup_pb_available());
+    assert(proof.commit_dsr());
+    assert(!proof.startup_pb_available());
     const PbpParityEquation equation{{1, 2}, false};
     const int32_t reason[] = {-1, 2};
     PbpParityBoundsCache cache;
