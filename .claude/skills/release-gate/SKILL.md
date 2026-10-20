@@ -17,6 +17,14 @@ the owning skills and does not weaken or reinterpret either authority.
    the target set, metric and release threshold before seeing candidate results.
 3. Create immutable build pins. Never benchmark a mutable working tree, replace
    a frozen baseline, or omit an instance after results are known.
+4. Reuse an existing result cell when its immutable evidence matches the gate:
+   candidate/baseline commit and binary hashes, input and manifest hashes,
+   build mode, solver flags, checker pins, resource contract, timeout, and
+   required validation/cleanup fields. Record the reused evidence path and its
+   hashes in the new disposition. Schedule only missing, incompatible, corrupt,
+   or previously censored cells; do not rerun compatible completed experiments
+   merely to recreate a full matrix. A deliberate contract change invalidates
+   only the affected cells.
 
 ## Run the gates
 
