@@ -185,7 +185,7 @@ private:
     std::map<External, std::vector<size_t>> occurrences;
     std::map<External, size_t> pivots, singletons;
     std::set<size_t> conflicts;
-    uint64_t bytes = 0;
+    uint64_t bytes = 0, authentication_work = 0;
   };
   MatrixStatus build_row_index(const std::vector<MatrixRow> &,
       const std::function<bool(uint64_t)> &, uint64_t, RowIndex &);

@@ -944,11 +944,15 @@ MatrixStatus AffineMatrix::build_row_index(const std::vector<MatrixRow> &rows,
     const std::function<bool(uint64_t)> &charge, uint64_t maximum, RowIndex &out) {
   RowIndex candidate;
   candidate.bytes = sizeof(RowIndex);
+  __uint128_t authentication_work = 0;
   std::map<External,size_t> counts;
   const uint64_t comparisons = 2 * std::bit_width(uint64_t(std::max(limits_.maximum_rows, limits_.maximum_variables))) + 3;
   for (size_t id=0;id<rows.size();++id) {
     if (!charge(1)) return MatrixStatus::Exhausted;
     const auto &row=rows[id];
+    authentication_work += __uint128_t(1) + row.variables.size() +
+                           row.source_equations.size();
+    if (authentication_work > UINT64_MAX) return MatrixStatus::Exhausted;
     if (!charge(1 + row.variables.size() * comparisons)) return MatrixStatus::Exhausted;
     for (External variable:row.variables) {
       if (!counts.contains(variable)) {
@@ -979,6 +983,7 @@ MatrixStatus AffineMatrix::build_row_index(const std::vector<MatrixRow> &rows,
       if(row.variables.size()==1)candidate.singletons.emplace(row.variables.front(),id);
     }
   }
+  candidate.authentication_work = uint64_t(authentication_work);
   out=std::move(candidate);return MatrixStatus::Complete;
 }
 
@@ -1131,6 +1136,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     return &list;
   };
   uint64_t next_bytes=index_.bytes;
+  uint64_t next_authentication_work=index_.authentication_work;
   for(const auto &[id,row]:replacement){
     const auto &old=rows_[id];
     for(External variable:old.variables){
@@ -1145,6 +1151,23 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     }
     const auto metadata=[](const MatrixRow &r){return r.variables.empty()?(r.rhs?conflict_node:0):pivot_node+(r.variables.size()==1?pivot_node:0);};
     next_bytes-=metadata(old);next_bytes+=metadata(row);
+    const __uint128_t old_authentication_work_wide =
+        __uint128_t(1) + old.variables.size() + old.source_equations.size();
+    const __uint128_t row_authentication_work_wide =
+        __uint128_t(1) + row.variables.size() + row.source_equations.size();
+    if (old_authentication_work_wide > UINT64_MAX ||
+        row_authentication_work_wide > UINT64_MAX)
+      return declined();
+    const uint64_t old_authentication_work =
+        uint64_t(old_authentication_work_wide);
+    const uint64_t row_authentication_work =
+        uint64_t(row_authentication_work_wide);
+    if (old_authentication_work > next_authentication_work ||
+        row_authentication_work >
+            UINT64_MAX - (next_authentication_work - old_authentication_work))
+      return declined();
+    next_authentication_work = next_authentication_work -
+        old_authentication_work + row_authentication_work;
   }
   for(const auto &[variable,list]:lists){
     if(!work.consume(1+comparisons))return declined();
@@ -1215,7 +1238,9 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     else{auto node=lists.extract(it++);index_.occurrences.insert(std::move(node));}
   }
   index_.pivots.merge(additions.pivots);index_.singletons.merge(additions.singletons);index_.conflicts.merge(additions.conflicts);
-  index_.bytes=next_bytes;index_reservation_=next_reservation;
+  index_.bytes=next_bytes;
+  index_.authentication_work=next_authentication_work;
+  index_reservation_=next_reservation;
   // Dirty transactions do not copy the entire predecessor basis. Retraction
   // uses the bounded full rebuild; the old optional predecessor is released.
   predecessor_rows_.clear();predecessor_trail_.clear();predecessor_ready_=false;
@@ -1246,11 +1271,19 @@ bool AffineMatrix::authenticates(
       if (!charge(clause.size())) return false;
     if (!same_equation(exact_sources[i], sources_[i])) return false;
   }
-  if (!charge(1) || !charge(trail_.size()) || !charge(rows_.size()))
+  if (!charge(1) || !charge(trail_.size()))
     return false;
-  for (const MatrixRow &row : rows_)
-    if (!charge(row.variables.size() + row.source_equations.size()))
-      return false;
+  if (index_ready_) {
+    // The transactional index is rebuilt or updated with every row mutation.
+    // Preserve the exact historical work charge without rewalking a large,
+    // already-authenticated basis for every live reason.
+    if (!charge(index_.authentication_work)) return false;
+  } else {
+    if (!charge(rows_.size())) return false;
+    for (const MatrixRow &row : rows_)
+      if (!charge(row.variables.size() + row.source_equations.size()))
+        return false;
+  }
   MatrixEvent expected = index_ready_ ? indexed_event() : find_event(rows_);
   if (!charge(event.reason.size()) || !charge(event.row.variables.size()) ||
       !charge(event.row.source_equations.size()))
