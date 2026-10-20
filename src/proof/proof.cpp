@@ -1217,18 +1217,20 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     // numbering to Tactix clause IDs.
     if (streaming_pbp_finished_)
       return;
-    std::vector<int32_t> external;
-    external.reserve(size);
+    pbp_external_scratch_.clear();
+    pbp_external_scratch_.reserve(size);
     for (uint32_t i = 0; i < size; ++i) {
       Lit literal = lits[i];
       if (variable_map_)
         literal = make_lit((*variable_map_)[var_of(literal)], negated(literal));
-      external.push_back(externalize(literal));
+      pbp_external_scratch_.push_back(externalize(literal));
     }
-    std::vector<int32_t> canonical;
-    if (!canonical_pbp_deletion(external.data(), external.size(), canonical))
+    if (!canonical_pbp_deletion(pbp_external_scratch_.data(),
+                                pbp_external_scratch_.size(),
+                                pbp_canonical_scratch_))
       return;
-    put_pbp_external_clause("del spec", canonical.data(), canonical.size());
+    put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(),
+                            pbp_canonical_scratch_.size());
     std::fputs(" ;\n", file_);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_del(del_id, lits, size);
@@ -1987,10 +1989,10 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   if (streaming_pbp()) {
     if (streaming_pbp_finished_)
       return true;
-    std::vector<int32_t> canonical;
-    if (!canonical_pbp_deletion(lits, size, canonical))
+    if (!canonical_pbp_deletion(lits, size, pbp_canonical_scratch_))
       return true;
-    put_pbp_external_clause("del spec", canonical.data(), canonical.size());
+    put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(),
+                            pbp_canonical_scratch_.size());
     std::fputs(" ;\n", file_);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     std::vector<Lit> external;

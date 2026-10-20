@@ -390,6 +390,8 @@ private:
   bool streaming_pbp_finished_ = false;
   uint64_t pbp_original_constraints_ = 0;
   uint64_t pbp_derived_constraints_ = 0;
+  std::vector<int32_t> pbp_external_scratch_;
+  std::vector<int32_t> pbp_canonical_scratch_;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;
