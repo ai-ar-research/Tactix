@@ -818,6 +818,9 @@ tactix_port_twin(test_default_public_correspondence test_default_public_correspo
                  default_public_port.cpp)
 target_compile_definitions(test_default_public_correspondence PRIVATE
                            TACTIX_DEFAULT_POLICY_PUBLIC_PORT=1)
+add_dependencies(test_default_public_correspondence
+                 default_correspondence_static
+                 default_correspondence_hardcoded)
 add_test(NAME default_public_correspondence
          COMMAND test_default_public_correspondence
                  $<TARGET_FILE:default_correspondence_static>

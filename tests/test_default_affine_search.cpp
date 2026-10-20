@@ -415,7 +415,7 @@ int main(int argc,char **argv) {
   c=config(true);c.affine_root_closure.maximum_proof_deletions=0;
   assert(!default_affine_search_parameters(k,c));
   c=config(true);assert(c.serialize().find("affine_search.enabled=1")!=std::string::npos);
-  assert(!DefaultStrategyConfig{}.affine_search.enabled);
+  assert(DefaultStrategyConfig{}.affine_search.enabled);
   for(bool sat:{true,false}) {
     auto f=mixed(sat?4:6,5);std::string stem=argc==2?std::string(argv[1])+(sat?"/sat":"/unsat"):"";
     run(f,true,true,stem);

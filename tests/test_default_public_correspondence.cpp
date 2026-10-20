@@ -79,7 +79,7 @@ std::vector<Fixture> twin_fixtures() {
       for (int b : {n + 4, -(n + 4)}) search.dimacs.push_back({gate, a, b});
   search.configure = [](DefaultStrategyConfig &c, Kernel &) {
     without_startup_models(c);
-    c.affine_search.enabled = true;
+    assert(c.affine_search.enabled);
     c.affine_root_closure.enabled = false;
     // Keep the XOR sources through preprocessing for the startup
     // initialization (tests/test_default_affine_search.cpp's configuration).

@@ -395,7 +395,8 @@ one implied or conflicting clause as an ordinary learned clause, followed by
 a separate Propagate. The default strategy uses such a matrix once at startup
 to close the root under GF(2) reasoning when every live clause belongs to a
 recognized XOR system of manageable size. Servicing the matrix at every
-restart root during search is opt-in (`--default-affine-search=on`).
+restart root during search is enabled by default and can be disabled for a
+control run (`--default-affine-search=off`).
 
 ### GF(3) and finite-domain constraints
 

@@ -325,9 +325,11 @@ struct DefaultStrategyConfig {
   } affine_root_closure;
 
   struct AffineSearch {
-    // Qualification switch; ordinary Default enablement follows the independent
-    // lifecycle/proof, fuzz and regression gates. This is not a rule guard.
-    bool enabled = false;
+    // Production switch.  The service performs instance-independent bounded
+    // authentication and is still explicitly disableable for attribution and
+    // regression controls.  Promotion of this candidate remains subject to
+    // the proof, fuzz, performance and full regression gates.
+    bool enabled = true;
     // CryptoMiniSat src/solverconf.h GaussConf source defaults (its README
     // advertises older smaller dimensions), pinned at 2bf89cfb3e126e559d472388486327813f735f7e.
     // Tactix additionally caps retained

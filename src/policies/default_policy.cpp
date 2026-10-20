@@ -3582,7 +3582,12 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
 
 AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bool refresh,bool recognize) {
   AffineMatrixInitResult result;
-  if (!kernel.affine_matrix_search_session || kernel.level) {
+  // Schedule only a public-eligible persistent action.  In particular, the
+  // retained owner requires a live proof and provenance stream; asking the C
+  // port to decline and then falling back statically would violate trajectory
+  // identity even though both paths ultimately publish nothing.
+  if (!affine_matrix_initialize_guard(kernel) || !kernel.proof ||
+      kernel.model_extended) {
     result.status = AffineMatrixInitStatus::Inapplicable;
     return result;
   }

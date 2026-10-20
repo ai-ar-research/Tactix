@@ -135,7 +135,7 @@ rejected together with any other policy (see
 
 | Option | Default | Controls |
 |---|---|---|
-| `--default-affine-search=on\|off` | `off` | Gauss–Jordan elimination over XOR (GF(2)) constraints recognized in the formula, maintained during search in the style of CryptoMiniSat. Its statistics appear as `c affine-search` lines when it is enabled or active. |
+| `--default-affine-search=on\|off` | `on` | Gauss–Jordan elimination over XOR (GF(2)) constraints recognized in the formula, maintained during search in the style of CryptoMiniSat. Disable it for attribution or regression controls. Its statistics appear as `c affine-search` lines when it is enabled or active. |
 | `--default-graph-labeling=on\|off` | `on` | A model-construction routine for graph-labeling encodings, run at the initial root and at later full restarts. Statistics: `c graph-schedule`. |
 | `--default-structured-symmetry=on\|off` | `on` | The structured startup programs that use substitution-redundancy steps (symmetry breaking). With `off`, the other startup stages still run. |
 
