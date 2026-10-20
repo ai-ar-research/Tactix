@@ -1,9 +1,9 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 09:49 UTC
+Date updated: 2026-10-20 14:00 UTC
 Branch: `codex/cg-closures`  
-Reported development head: `5ab940004e15f8086ab77236f83793ac2ed4ff96`
-Current solver change: `68af6bea9b41461ac385bd7c5077a144604a0193`
+Reported development head: `e38553a11`
+Current solver change: `e38553a11` (`preserve native startup PBP certificates`)
 
 ## Outcome
 
@@ -18,10 +18,58 @@ including proof/model and static/hardcoded/public trajectory correspondence.
 Subsequent proof-emission changes passed focused Release PBP tests, pinned
 VeriPB and CakePB checks, negative checker controls, proof-output failure tests,
 affine lifecycle/transaction tests, and `default_public_correspondence`.
-The final development head also passed fresh complete Debug and Release builds
-and all 372 CTests in each configuration. Debug, with ASan/LSan active, passed
-in 2,224.73 seconds; Release passed in 299.99 seconds. A focused Release rerun
-of `default_public_correspondence` passed in 0.46 seconds.
+Head `5ab940004` passed fresh complete Debug and Release builds and all 372
+CTests in each configuration. Debug, with ASan/LSan active, passed in 2,224.73
+seconds; Release passed in 299.99 seconds. The later serializer and startup-PBP
+changes through `e38553a11` pass the 12 focused Release proof, API, startup,
+failure, transaction, fuzz-smoke, and public-correspondence tests. They have
+not yet repeated the complete 372-test gate.
+
+## Frozen release-regression evidence
+
+The four broad paper-target campaigns are terminal with 1,088/1,088 result
+records. Public, hard-coded and production arms preserve answer, certificate
+and trajectory parity. The frozen candidate nevertheless failed the paper
+performance ceiling: B28+C5 was 1.1615x paper, Rank1--50 was 1.2407x, WV100
+was 1.5521x under the release scorer, and WV2--89 was unqualified because of a
+retention mismatch. These are failures, not release exceptions.
+
+Old result cells are now reusable evidence. A later regression campaign must
+read compatible complete cells from the frozen records and schedule only
+missing, incompatible, corrupt or explicitly censored cells. It must not
+rerun an already compatible completed experiment. The 1,088-row campaign is
+the accepted one-time exception because it was already underway when this
+rule was adopted.
+
+Frozen row-level evidence isolated a proof-route regression. Default whole-run
+PBP had committed its streaming header before the original-input startup
+certificate decision, bypassing the compact certificate used by the paper
+release. Commit `e38553a11` keeps that decision open while preserving PBP as
+the public/default output format. Two targeted local checks reproduced the
+already independently verified paper artifacts byte-for-byte:
+
+| Instance | New wall time | Proof bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `FmlaEquivChain_4_6_6` | 0.70 s | 62,150,774 | `b8dcbfa6c9f2f02c137e989b056d57b80ceac0e6472f17f5c982041c40b4d2e8` |
+| `tseitin_grid_n400_m400` | 2.90 s | 273,035,686 | `8c5dbf1e8c9ae852ced4aff8d5639f89e4dcb664e933d7b8f6d6aaa26744674b` |
+
+Because both hashes exactly match frozen proofs that already passed pinned
+VeriPB and CakePB, their old verification evidence was reused; the expensive
+checkers were not rerun. Temporary expanded CNFs and proofs were removed.
+This repair is material for WV100, but frozen-result substitution shows that
+the remaining B28+C5, Rank1--50 and WV2--89 gaps are not explained by startup
+certificates alone. Large ordinary streaming-PBP transcripts remain the main
+performance issue.
+
+Retention repair job `1795115` uses `cpu-q`, four cores, 32 GiB, a 5,000-second
+solver limit and a 1,800-second proof-check limit. At this checkpoint 12/18
+terminal result records are present and six tasks are still running. All
+terminal artifacts report cleanup complete. Three `bphp_p23_h22` proof checks
+are explicitly censored after exhausting the checker allowance; their solver
+runs must not be repeated merely to obtain another timing. A future repair may
+target only the missing checker evidence. The all-user governor `1791687`
+continues to observe every `hwu` job and controls pending work only; it never
+pauses a running job.
 
 ## Checked CG screen
 
@@ -121,9 +169,16 @@ CMS-relative target. Current affine overhead alone remains around 32--34 s in
 matched unprofiled draws, so ID 284 is still far from the target and is not a
 new closure.
 
-The local build and unit/integration-test gates are complete. The full release
-gates remain incomplete: fresh 100,000-seed DefaultPolicy and random-policy
-fuzz, all four fixed 4-core `cpu-q` regression sets, their full proof/model
-validation, public/static matched overhead gates, and final Tier D scoring
-still remain. Until those pass, there will be no merge or force-push to `main`,
-no version bump, and no release tag.
+The release gates are incomplete. The frozen broad regressions failed the
+paper performance ceiling, the retention repair is still live, the post-
+`5ab940004` commits have only focused—not complete—test coverage, and the
+required 100,000-seed DefaultPolicy and random-policy fuzz remains blocked by
+the independent Claude owner login having expired. That authentication problem
+is recorded as a blocker, not silently replaced by self-review.
+
+No additional broad regression rerun is planned. After the candidate is
+stable, the regression controller must reuse compatible frozen cells and run
+only the exact affected or censored cells. Until every correctness, fuzz,
+performance, parity, cleanup and Tier D gate passes, there will be no merge or
+force-push to `main`, no version bump, no release tag and no releasability
+claim.
