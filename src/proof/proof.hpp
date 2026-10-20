@@ -374,8 +374,6 @@ private:
   void put_lit(Lit l);
   void put_external_lit(Lit l);
   void put_external_dimacs(int32_t literal);
-  void put_pbp_external_dimacs(int32_t literal);
-  void put_pbp_lit(Lit literal);
   void put_pbp_clause(const char *rule, const Lit *lits, uint32_t size);
   void put_pbp_external_clause(const char *rule, const int32_t *lits,
                                uint32_t size);

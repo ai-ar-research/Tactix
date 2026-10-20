@@ -57,9 +57,21 @@ public:
 
 private:
   FILE *file_;
-  std::array<char, 1 << 16> buffer_{};
+  std::array<char, 1 << 16> buffer_;
   size_t size_ = 0;
 };
+
+void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
+  if (!literal || literal == INT32_MIN)
+    std::abort();
+  text.put("1 ");
+  if (literal < 0)
+    text.put("~");
+  text.put("x");
+  text.put_uint(static_cast<uint32_t>(
+      literal < 0 ? -int64_t(literal) : int64_t(literal)));
+  text.put(" ");
+}
 
 } // namespace
 
@@ -498,37 +510,33 @@ void Proof::put_external_dimacs(int32_t e) {
   }
 }
 
-void Proof::put_pbp_external_dimacs(int32_t literal) {
-  assert(literal && literal != INT32_MIN);
-  std::fputs("1 ", file_);
-  if (literal < 0)
-    std::fputc('~', file_);
-  std::fprintf(file_, "x%" PRIu32 " ", static_cast<uint32_t>(
-      literal < 0 ? -int64_t(literal) : int64_t(literal)));
-}
-
-void Proof::put_pbp_lit(Lit literal) {
-  if (variable_map_) {
-    assert(var_of(literal) < variable_map_->size());
-    literal = make_lit((*variable_map_)[var_of(literal)], negated(literal));
-  }
-  put_pbp_external_dimacs(externalize(literal));
-}
-
 void Proof::put_pbp_clause(const char *rule, const Lit *lits,
                            uint32_t size) {
-  std::fprintf(file_, "%s ", rule);
-  for (uint32_t i = 0; i < size; ++i)
-    put_pbp_lit(lits[i]);
-  std::fputs(">= 1", file_);
+  PbpTextWriter text(file_);
+  text.put(rule);
+  text.put(" ");
+  for (uint32_t i = 0; i < size; ++i) {
+    Lit literal = lits[i];
+    if (variable_map_) {
+      assert(var_of(literal) < variable_map_->size());
+      literal = make_lit((*variable_map_)[var_of(literal)],
+                         negated(literal));
+    }
+    put_pbp_literal(text, externalize(literal));
+  }
+  text.put(">= 1");
+  text.flush();
 }
 
 void Proof::put_pbp_external_clause(const char *rule, const int32_t *lits,
                                     uint32_t size) {
-  std::fprintf(file_, "%s ", rule);
+  PbpTextWriter text(file_);
+  text.put(rule);
+  text.put(" ");
   for (uint32_t i = 0; i < size; ++i)
-    put_pbp_external_dimacs(lits[i]);
-  std::fputs(">= 1", file_);
+    put_pbp_literal(text, lits[i]);
+  text.put(">= 1");
+  text.flush();
 }
 
 // VeriPB's CNF reader drops tautological clauses and canonicalizes repeated
