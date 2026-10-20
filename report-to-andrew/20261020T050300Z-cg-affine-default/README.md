@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 20:47 UTC
+Date updated: 2026-10-20 21:46 UTC
 Branch: `codex/cg-closures`  
-Current head: `46053374d` (`compact PBP binary deletion tracking`)
+Current head: `a2aa357da` (`consume affine implications without prefix rescan`)
 
 ## Outcome
 
@@ -12,20 +12,25 @@ Whole-run PBP is still the default proof route. This is a pushed named-branch
 development checkpoint, not a promotion to `main`, version bump, tag, or
 release candidate.
 
+The current checkpoint consumes a certified non-root affine implication
+directly from its proof-visible installed clause, while leaving propagation of
+the new trail suffix to the ordinary Boolean engine. It does not bypass or
+weaken proof production. This changes the search trajectory materially and is
+therefore treated as a new causal candidate rather than folded into the older
+micro-optimization trajectory.
+
 The gate-by-gate decision and frozen campaign hashes are recorded in
 [`RELEASE_DISPOSITION.md`](RELEASE_DISPOSITION.md). Its overall disposition is
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-Current solver source passed all 372 Debug CTests in 2,052.72 seconds with
-AddressSanitizer and UBSan active and leak detection disabled only because the
-runner uses `ptrace`. The complete Release suite at `9f0852545` passed 372/372
-in 268.42 seconds; the current-source proof/PBP slice passes 40/40 in Release,
-and the strengthened serializer regression passes directly in both builds.
-`default_public_correspondence` and competition compliance pass. The proof
-tests include pinned VeriPB/CakePB checks, negative controls, output-failure
-handling, affine lifecycle/transaction coverage and the repaired direct affine
-live-proof fixture.
+The pre-delta solver source passed all 372 Debug CTests in 2,052.72 seconds
+with AddressSanitizer and UBSan active and leak detection disabled only because
+the runner uses `ptrace`. The complete Release suite at `9f0852545` passed
+372/372 in 268.42 seconds. On the current direct-implication source, the four
+focused Release behavior/correspondence tests pass, the 15-test affine/PBP
+proof slice passes, and all 13 documentation/source-contract checks pass. A
+full current-source Debug rerun remains required before acceptance.
 
 ## Frozen release-regression evidence
 
@@ -113,10 +118,11 @@ identical commit and binary without the redundant flag.
 
 ## MDP proof-cost work
 
-The selected MDP row, CG ID 284, remains a 120-second timeout. Development has
-therefore focused on lowering certified affine-reason cost without changing
-the matrix trajectory or proof semantics. All commits below are authored as
-`wu-haoze <hwu@amherst.edu>` and are pushed to the development branch.
+The selected MDP row, CG ID 284, now solves under the 120-second development
+screen but remains above its 7.550-second CG closure target. Development first
+lowered certified affine-reason cost without changing the matrix trajectory,
+then removed a redundant Boolean trail rescan. All commits below are authored
+as `wu-haoze <hwu@amherst.edu>` and are pushed to the development branch.
 
 Accepted changes:
 
@@ -128,7 +134,10 @@ Accepted changes:
   full source equations in each diagnostic reason record;
 - reuse affine row-XOR allocation buffers;
 - replace repeated affine PBP numeric `fprintf` calls with a byte-identical,
-  bounded 64 KiB `to_chars` writer.
+  bounded 64 KiB `to_chars` writer;
+- after proof-first installation, assign a non-root implication using the exact
+  new binary/arena reason instead of rewinding and rescanning the old propagated
+  trail prefix.
 
 The largest matched improvement came from retained-source provenance reuse:
 34.544 s affine overhead versus 38.758 s for its immediate predecessor, a
@@ -161,7 +170,8 @@ deletions. The focused checker tests pass VeriPB 3.0.2 elaboration, CakePB
 verification and corruption rejection. This is current code evidence, not a
 rerun of a regression experiment.
 
-Every causal screen preserved the exact MDP affine trajectory:
+Every earlier micro-optimization screen preserved the old MDP affine
+trajectory:
 
 - initialization work: 3,270,469;
 - search services: 57,662;
@@ -170,12 +180,31 @@ Every causal screen preserved the exact MDP affine trajectory:
 - proof additions: 120,995;
 - resource declines: 1.
 
-The latest aggregate profile, job `1794815`, retained no raw perf data. It
-shows Boolean propagation as the dominant cost (38.74% of sampled cycles). The
-largest remaining affine-specific hotspot is symmetric difference of source
-ordinals (4.02%). `vfprintf` remains 2.08% globally, so the formatter did not
-materially move total formatting cost. The next investigation is the bounded
-provenance-XOR representation, not another stdio-buffer adjustment.
+Aggregate profile job `1794815` retained no raw perf data and showed Boolean
+propagation as the dominant cost (38.74% of sampled cycles). Inspection found
+that each certified implication installed its clause and then rewound BCP over
+an already propagated prefix merely to rediscover the known open literal.
+Commit `a2aa357da` preserves proof-first clause publication and exact analysis
+reasons, assigns that literal directly, and leaves the new suffix for ordinary
+propagation.
+
+Pinned `cpu-q` job `1795208` used four cores, 32 GiB, a 120-second solve bound,
+and VeriPB plus CakePB checking:
+
+| Arm | Solve wall | Verdict | Certificate |
+| --- | ---: | --- | --- |
+| direct production | 30.768 s | UNSAT | checked PBP |
+| direct public | 30.970 s | UNSAT | checked PBP |
+| exact predecessor | 120.006 s | UNKNOWN | solver timeout |
+
+Production and public match at 19,303 conflicts, 27,891 decisions and
+1,683,943 propagations, and emitted the same 39,899,363-byte proof with SHA-256
+`96e97463e4941e545bae0c90ca92a99e141496afb3666b95f54b2454f7e5b621`.
+Public overhead is 0.66%, with zero fallbacks and zero declines. Production
+directly consumed 27,359 of 28,397 published affine reasons; its affine
+overhead is 29.533 seconds. This is more than 3.90x faster than the
+predecessor's censored lower bound, but it deliberately changes the search
+trajectory and is not represented as another proof-format micro-optimization.
 
 ## Storage and safety
 
@@ -185,19 +214,21 @@ requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
 All causal screens and profiles deleted expanded CNFs, PBP proofs, checker
-intermediates, and raw perf data at terminal cleanup. The retained records are
-bounded manifests, result JSON, aggregate symbol reports, and durable decision
-reports.
+intermediates, and raw perf data at terminal cleanup. Job `1795208` reports
+primary and derived cleanup on all three rows, and a post-run audit found no
+generated `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact in its campaign
+tree. The retained records are bounded manifests, result JSON, aggregate
+symbol reports, and durable decision reports.
 
 ## Release status and next work
 
 The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
-CMS-relative target. Current affine overhead alone remains around 32--34 s in
-matched unprofiled draws, so ID 284 is still far from the target and is not a
-new closure.
+CMS-relative target. Current production solves in 30.768 seconds, so ID 284 is
+no longer a 120-second timeout but is still not a new closure.
 
-The release gates are incomplete. Current solver-source Debug and focused
-Release proof tests pass, but the mixed-mode broad campaigns do not complete
+The release gates are incomplete. The prior full Debug suite and current
+focused Release proof tests pass, but the direct-implication delta still needs
+a full current-source Debug run. The mixed-mode broad campaigns do not complete
 the paper-comparable performance gate, the current default-PBP operational
 baseline is incomplete, and the required 100,000-seed DefaultPolicy and
 random-policy fuzz lacks independent owner completion.

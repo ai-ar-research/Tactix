@@ -11,18 +11,24 @@ reuse of old results for the current release decision.
 
 The four fixed-set campaigns measured candidate commit
 `68af6bea9b41461ac385bd7c5077a144604a0193`. This disposition was first recorded
-at `d97fae8ce`; the current solver change compacts ordinary PBP binary-deletion
-tracking without changing the strategy trajectory. The old campaigns are
-therefore reused for trajectory correspondence and as negative release
-evidence. They are not presented as measurements of the current binary, its
-current memory use, or its current proof bytes.
+at `d97fae8ce`; later proof-only changes compacted ordinary PBP binary-deletion
+tracking without changing the strategy trajectory. The current direct affine
+implication change does alter applicable trajectories. The old campaigns are
+therefore reused only as historical correspondence and negative release
+evidence, not as measurements of the current binary, its current performance,
+memory use, proof bytes, or affected affine rows.
 
-Current proof behavior is covered separately by the complete Debug suite,
-focused current-source Release proof tests, `default_public_correspondence`,
-competition compliance, and targeted VeriPB/CakePB checks. The earlier full
-Release suite remains valid for the unchanged behavior outside the focused
-proof delta. Those checks do not erase the frozen aggregate performance
-risk or complete the missing paper-comparable measurement.
+Current proof behavior is covered by focused current-source Release proof
+tests, `default_public_correspondence`, competition compliance, and targeted
+VeriPB/CakePB checks. The earlier complete Debug and Release suites remain
+evidence for the unchanged behavior outside the focused delta, but do not
+replace a full current-source rerun. These checks do not erase the frozen
+aggregate performance risk or complete the missing paper-comparable
+measurement.
+
+The current head is `a2aa357daac5a1f142979eb8e3c201ec41193312`. Its
+direct-implication delta passed focused Release behavior/proof tests and a
+checked target screen, but has not yet had a full current-source Debug rerun.
 
 ## PBP binary bookkeeping update
 
@@ -60,22 +66,36 @@ regression or waive proof validity, complete records, cleanup, or predeclared
 resource caps. Per the approved one-time evidence reuse, no completed
 regression campaign was resubmitted for this disposition.
 
+## Direct affine-implication checkpoint
+
+Pinned `cpu-q` job `1795208` compared current production, current public, and
+the exact predecessor on CG ID 284. Production and public solved UNSAT in
+30.768 and 30.970 seconds and emitted byte-identical 39,899,363-byte PBP proofs;
+both passed VeriPB and CakePB. They match at 19,303 conflicts, 27,891 decisions
+and 1,683,943 propagations, with zero public fallbacks or declines. The exact
+predecessor timed out at 120.006 seconds.
+
+This is decisive causal evidence for the implementation change, but it is one
+draw rather than the predeclared paired-median release gain, and 30.768 seconds
+does not meet the fixed 7.550-second CG closure target. It therefore changes
+neither the overall FAIL disposition nor the two retained CG closures.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | PASS | Current source: 372/372 in 2,052.72 s; ASan and UBSan enabled |
-| Full Release suite | PASS | 372/372 at solver tree `9f0852545`; current-source focused proof/PBP slice 40/40 |
+| Full Debug suite | INCOMPLETE for current delta | Pre-delta source: 372/372 in 2,052.72 s with ASan and UBSan; current direct-implication source needs the full rerun |
+| Full Release suite | INCOMPLETE for current delta | 372/372 at solver tree `9f0852545`; pre-delta proof/PBP slice 40/40; current direct-implication source passes 15/15 affected proof tests and 4/4 focused behavior/correspondence tests |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
-| Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed with no fallback or decline; frozen production/public/hardcoded rows preserve verdict, certificate, and trajectory correspondence |
+| Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
 | Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; the stored 1.1615x, 1.2407x, and 1.5521x scorer ratios cannot be charged wholly to search, and WV2--89 also has a retention mismatch |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
-| Claimed performance improvement | FAIL | No qualifying 5% paired-median or PAR-2 gain |
-| CG retained closure | PASS | IDs 83 and 609 are independently checked UNSAT closures within 2x matched CryptoMiniSat time |
+| Claimed performance improvement | FAIL as a release gate | Job `1795208` is a material one-draw causal win over a 120-second timeout, but no qualifying paired-median or PAR-2 gain has been established |
+| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 30.768 s but remains above its 7.550 s target |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows report terminal cleanup; retention audit found no `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact |
+| Artifact cleanup | PASS | All fixed-set rows and all three job `1795208` rows report terminal cleanup; audits found no `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact |
 
 ## Frozen campaign provenance
 

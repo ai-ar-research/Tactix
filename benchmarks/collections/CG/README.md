@@ -87,6 +87,25 @@ Times are seconds. `S✓` and `U✓` are independently checked SAT and UNSAT. CM
 | 482 | `stable` | 62.149 S✓ | 2045.211 S✓ | 1964.937 S✓ | 743.956 S✓ | 1980.499 S✓ | 1845.744 S✓ | 777.476 S✓ | 2101.569 S✓ |
 | 625 | `p160` | 100.875 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
 
+## Targeted development status
+
+This is commit-scoped progress evidence, not a replacement for the frozen
+eight-arm table or a coherent release regression. Default affine search has
+independently checked closures for the two selected Lights Out rows. The
+current direct-implication candidate materially improves the MDP row but does
+not meet its fixed 2x-CMS target; the Folkman SAT control also remains open.
+
+| ID | Family | Checked Tactix | 2x CMS target | Status |
+| ---: | --- | ---: | ---: | --- |
+| 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
+| 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
+| 284 | `mdp` | 30.768 U✓ | 7.550 | open; predecessor exceeded 120 s |
+| 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
+
+For ID 284, candidate production and public emitted byte-identical PBP proofs
+and passed VeriPB plus CakePB; public overhead was 0.66%. See the
+[pinned screen](../../runs/20261020-cg-mdp-direct-implication-screen/REPORT.md).
+
 ## Pattern
 
 The collection has 6 CMS-exclusive checked solves, 13 at-least-10× wins, and 4 diversity rows. The completed census adds `p160`, `pcmax`, `st`, and `stable`; normalizes `vdw` into `vanderwaerden`; and excludes a second `mp1` row as a near-duplicate.

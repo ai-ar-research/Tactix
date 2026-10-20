@@ -78,6 +78,17 @@ million proof additions. The original-CNF scratch was deleted.
 A proof-free same-binary diagnostic admitted no GF(2) sources because the
 service requires a live proof owner, so it cannot isolate proof cost; retain
 the measured 107.7-second affine overhead as the valid bottleneck evidence.
+The later [direct-implication screen](../benchmarks/runs/20261020-cg-mdp-direct-implication-screen/REPORT.md)
+removed a different Boolean-side duplication: after proof-first installation
+of a certified non-root affine reason, Tactix now assigns its unique open
+literal from that exact clause and propagates only the new trail suffix instead
+of rewinding across the old fixpoint. On ID 284, pinned production and public
+arms solved UNSAT in 30.768 and 30.970 seconds with byte-identical 39.9 MB PBP
+proofs verified by VeriPB and CakePB; the exact predecessor timed out at
+120.006 seconds. The two candidate arms match at 19,303 conflicts, 27,891
+decisions and 1,683,943 propagations, with zero public fallbacks or declines.
+This is a material causal checkpoint but not a CG closure: the fixed 2x-CMS
+target remains 7.550 seconds, and all N1--N4/release gates still apply.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.
