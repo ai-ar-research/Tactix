@@ -345,7 +345,8 @@ struct DefaultStrategyConfig {
     // retained-source cap covers the full authenticated matrix transaction;
     // the 100 MB root certificate-journal cap is narrower than two checked
     // CryptoMiniSat XOR families' 143--218 MB preflight requirements. This
-    // bounded opt-in dose is measured before any DefaultPolicy promotion.
+    // bounded dose was measured opt-in before this default-on candidate; the
+    // full release gates still decide promotion.
     uint64_t maximum_initialization_work = 0;
     uint64_t maximum_service_work = 0;
     uint64_t maximum_retained_bytes = 256'000'000;
