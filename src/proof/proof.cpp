@@ -1465,25 +1465,26 @@ bool Proof::plan_pbp_parity_reason(
   plan.retained_bytes = retained;
   plan.starting_external_extent = starting_external_extent;
   plan.helper_variables = static_cast<uint32_t>(helpers);
+  plan.odd_variables.assign(odd.begin(), odd.end());
   plan.valid = true;
   output = plan;
   return true;
 }
 
-bool Proof::add_pbp_parity_reason(
+bool Proof::add_prevalidated_pbp_parity_reason(
     uint64_t kernel_clause_id,
     const std::vector<PbpParityEquation> &equations, const int32_t *reason,
     uint32_t reason_size, PbpParityBoundsCache &cache,
     const PbpParityReasonPlan &plan) {
-  PbpParityReasonPlan current;
+  const bool matching_cache = cache.stream_identity_ == stream_identity_;
   if (!plan.valid || plan.stream_identity != stream_identity_ ||
-      !plan_pbp_parity_reason(equations, reason, reason_size,
-                              plan.starting_external_extent, cache, current) ||
-      current.stream_identity != plan.stream_identity ||
-      current.cache_generation != plan.cache_generation ||
-      current.proof_constraints != plan.proof_constraints ||
-      current.retained_bytes != plan.retained_bytes ||
-      current.helper_variables != plan.helper_variables)
+      !streaming_pbp() || !file_ || input_transaction_ || pbp_output_ ||
+      streaming_pbp_finished_ || equations.empty() ||
+      (!reason && reason_size) ||
+      (matching_cache ? cache.generation_ : 0) != plan.cache_generation ||
+      plan.proof_constraints > UINT64_MAX - pbp_derived_constraints_ ||
+      pbp_original_constraints_ >
+          UINT64_MAX - (pbp_derived_constraints_ + plan.proof_constraints))
     return false;
 
   if (cache.stream_identity_ != stream_identity_) {
@@ -1590,13 +1591,10 @@ bool Proof::add_pbp_parity_reason(
     upper.push_back(found->second.upper);
   }
 
-  std::set<int32_t> odd;
-  for (const PbpParityEquation &equation : equations)
-    for (const int32_t variable : equation.variables) {
-      const auto found = odd.find(variable);
-      if (found == odd.end()) odd.insert(variable);
-      else odd.erase(found);
-    }
+  const auto odd = [&](int32_t variable) {
+    return std::binary_search(plan.odd_variables.begin(),
+                              plan.odd_variables.end(), variable);
+  };
   const auto sum_and_round = [&](const std::vector<uint64_t> &ids,
                                  bool lower_side) {
     std::fprintf(file_, "pol %" PRIu64, ids.front());
@@ -1605,7 +1603,7 @@ bool Proof::add_pbp_parity_reason(
     for (uint32_t i = 0; i < reason_size; ++i) {
       const int32_t literal = reason[i];
       const int32_t variable = literal < 0 ? -literal : literal;
-      if (odd.contains(variable) &&
+      if (odd(variable) &&
           ((lower_side && literal < 0) || (!lower_side && literal > 0)))
         std::fprintf(file_, " %sx%d +", literal < 0 ? "~" : "", variable);
     }
@@ -1618,7 +1616,7 @@ bool Proof::add_pbp_parity_reason(
   for (uint32_t i = 0; i < reason_size; ++i) {
     const int32_t literal = reason[i];
     const int32_t variable = literal < 0 ? -literal : literal;
-    if (!odd.contains(variable))
+    if (!odd(variable))
       std::fprintf(file_, " %sx%d +", literal < 0 ? "~" : "", variable);
   }
   std::fputs(" ;\n", file_);

@@ -86,6 +86,7 @@ struct PbpParityReasonPlan {
   uint64_t retained_bytes = 0;
   uint32_t starting_external_extent = 0;
   uint32_t helper_variables = 0;
+  std::vector<int32_t> odd_variables;
   bool valid = false;
 };
 
@@ -212,7 +213,10 @@ public:
       const std::vector<PbpParityEquation> &, const int32_t *reason,
       uint32_t reason_size, uint32_t starting_external_extent,
       const PbpParityBoundsCache &, PbpParityReasonPlan &) const;
-  bool add_pbp_parity_reason(
+  // Commit a plan whose exact equations/reason and stream/cache generation
+  // were validated by the caller immediately before its mutation boundary.
+  // This deliberately does not repeat the allocation-heavy pure planner.
+  bool add_prevalidated_pbp_parity_reason(
       uint64_t kernel_clause_id, const std::vector<PbpParityEquation> &,
       const int32_t *reason, uint32_t reason_size,
       PbpParityBoundsCache &, const PbpParityReasonPlan &);

@@ -817,7 +817,7 @@ MatrixLiveResult publish_affine_matrix_live(
       std::abort();
     installed_id = ++kernel.next_clause_id;
     if (kernel.proof &&
-        !kernel.proof->add_pbp_parity_reason(
+        !kernel.proof->add_prevalidated_pbp_parity_reason(
             installed_id, prepared.pbp_equations_,
             prepared.event_.reason.empty() ? nullptr
                                            : prepared.event_.reason.data(),
