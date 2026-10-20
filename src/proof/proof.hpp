@@ -123,8 +123,11 @@ public:
   // accept subsequent typed clause events.  Explicit streaming PBP can.
   bool terminal_pbp() const { return format_ == ProofFormat::Pbp; }
   bool streaming_pbp() const { return format_ == ProofFormat::PbpStreaming; }
-  bool needs_clause_ids() const { return lrat() || streaming_pbp(); }
-  void declare_exact_clause_ids() { pbp_exact_clause_ids_ = true; }
+  // Only LRAT needs every binary clause identity in the hot solver state.
+  // Streaming PBP can delete binary constraints by specification while still
+  // deleting non-binary constraints by their exact tracked identity.
+  bool needs_clause_ids() const { return lrat(); }
+  void declare_exact_binary_ids() { pbp_exact_binary_ids_ = true; }
   bool lrat() const { return format_ == ProofFormat::Lrat; }
   ProofFormat format() const { return format_; }
   bool dsr() const {
@@ -383,8 +386,8 @@ private:
   void put_pbp_clause(const char *rule, const Lit *lits, uint32_t size);
   void put_pbp_external_clause(const char *rule, const int32_t *lits,
                                uint32_t size);
-  void track_pbp_original_constraint(uint64_t id);
-  void track_pbp_derived_constraint(uint64_t id);
+  void track_pbp_original_constraint(uint64_t id, uint32_t clause_size);
+  void track_pbp_derived_constraint(uint64_t id, uint32_t clause_size);
   bool put_pbp_deletion_id(uint64_t id);
   void abandon_pbp_id_deletions();
   void finish_streaming_pbp_unsat();
@@ -409,7 +412,7 @@ private:
   uint64_t pbp_identity_prefix_ = 0;
   bool pbp_input_ids_diverged_ = false;
   bool pbp_id_deletions_enabled_ = true;
-  bool pbp_exact_clause_ids_ = false;
+  bool pbp_exact_binary_ids_ = false;
   std::vector<int32_t> pbp_external_scratch_;
   std::vector<int32_t> pbp_canonical_scratch_;
   ProofFormat format_ = ProofFormat::DsrBinary;

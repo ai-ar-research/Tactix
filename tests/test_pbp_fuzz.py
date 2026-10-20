@@ -149,8 +149,8 @@ def main():
         solved = run([solver, "-q", "--pbp", cnf, proof])
         assert solved.returncode == 20, solved.stdout
         proof_text = proof.read_text()
-        assert proof_text.count("del id ") == 10 and \
-            "del spec " not in proof_text, proof_text
+        assert proof_text.count("del id ") == 9 and \
+            proof_text.count("del spec ") == 1, proof_text
         kernel = directory / "root-reason-deletion.kernel.pbp"
         checked = run([veripb, "-u", "--cnf", "--elaborate", kernel,
                        cnf, proof])

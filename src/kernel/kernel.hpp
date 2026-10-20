@@ -59,17 +59,17 @@ void rule_journal_note_variable_status(const Kernel &, uint32_t,
 // Binary clauses are numerous enough that std::unordered_map's one allocation
 // per entry is both a parse-time and a memory bottleneck.  This table has the
 // deliberately narrow interface the kernel needs.  Native LRAT retains exact
-// keys and latest proof ids; DRAT file mode uses the watch lists as its exact
-// membership authority and keeps only the size-monotone addition count.
+// keys and latest proof ids; DRAT and ordinary PBP use the watch lists as the
+// exact membership authority and keep only the size-monotone addition count.
 // Open addressing in the identity-bearing mode also matches the dense
 // representation used by the reference solver more closely than a node-based
 // container.
 class BinaryIdMap {
   static constexpr uint64_t EMPTY = UINT64_MAX;
   // Keep keys and proof ids in separate arrays.  Native LRAT needs both;
-  // DRAT names deletions by literals and ignores antecedent ids, so file
-  // parsing can omit the value array while retaining the identical key table
-  // used for binary deduplication and membership.
+  // DRAT and ordinary PBP name binary deletions by literals and ignore binary
+  // antecedent ids, so file parsing can omit the value array while retaining
+  // the identical key table used for binary deduplication and membership.
   std::vector<uint64_t> keys_;
   std::vector<uint64_t> values_;
   size_t size_ = 0;
@@ -119,8 +119,8 @@ public:
 
   void discard_storage() {
     // The exact pair count is a monotone scheduling watermark independent of
-    // the optional key/id archive.  DRAT can therefore release the import-time
-    // deduplication table after the input is complete while preserving size_.
+    // the optional key/id archive. DRAT and ordinary PBP can therefore release
+    // the import-time deduplication table after input while preserving size_.
     track_keys_ = false;
     track_values_ = false;
     keys_.clear();

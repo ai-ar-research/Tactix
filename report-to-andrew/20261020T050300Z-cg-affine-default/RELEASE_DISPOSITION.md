@@ -10,27 +10,52 @@ reuse of old results for the current release decision.
 ## Evidence boundary
 
 The four fixed-set campaigns measured candidate commit
-`68af6bea9b41461ac385bd7c5077a144604a0193`. This disposition's parent head is
-`8f49b4f1c0e6c220bff37bd433547050f4c2d395`; its last solver change is
-`9f0852545`. The intervening solver commits change PBP startup, formatting,
-bookkeeping, and deletion emission, but not the strategy trajectory. The old
-campaigns are therefore reused for trajectory correspondence and as negative
-release evidence. They are not presented as measurements of the current
-binary or its current proof bytes.
+`68af6bea9b41461ac385bd7c5077a144604a0193`. This disposition was first recorded
+at `d97fae8ce`; the current solver change compacts ordinary PBP binary-deletion
+tracking without changing the strategy trajectory. The old campaigns are
+therefore reused for trajectory correspondence and as negative release
+evidence. They are not presented as measurements of the current binary, its
+current memory use, or its current proof bytes.
 
-Current-head proof behavior is covered separately by the complete Debug and
-Release suites, `default_public_correspondence`, competition compliance, and
-targeted VeriPB/CakePB checks. Those checks do not erase the frozen aggregate
-performance failure.
+Current proof behavior is covered separately by the complete Debug suite,
+focused current-source Release proof tests, `default_public_correspondence`,
+competition compliance, and targeted VeriPB/CakePB checks. The earlier full
+Release suite remains valid for the unchanged behavior outside the focused
+proof delta. Those checks do not erase the frozen aggregate performance
+failure.
+
+## PBP binary bookkeeping update
+
+Ordinary whole-run PBP no longer retains the exact key-and-ID arrays for every
+binary clause. It uses the existing no-false-negative binary liveness index
+(four bits per entry, rounded to whole power-of-two blocks, or the bounded exact
+bitmap where selected) and emits canonical `del spec` records for binary
+constraints. Non-binary constraints continue to use exact `del id` records.
+LRAT still retains exact binary IDs, and a late-attached API PBP proof can use
+them when they already exist.
+
+The root-reason regression now checks a mixed stream with nine exact ID
+deletions and one binary specification deletion. A second serializer regression
+forces divergent input IDs and verifies that a binary deletion does not rebuild
+the binary archive or disturb the following exact unit deletion. Both Debug and
+Release focused tests pass, including pinned VeriPB/CakePB checks and corruption
+controls.
+
+This change does not establish that PBP caused the frozen performance failure.
+The paper +10% ceiling remains a paper-comparable solver-time gate. Any default-
+PBP production overhead is a separate matched comparison of the same current
+solver with and without PBP; it cannot be used to relax or absorb a search
+regression. No such new performance experiment was launched for this
+disposition.
 
 ## Gate results
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | PASS | 372/372 at solver tree `9f0852545`; ASan and UBSan enabled |
-| Full Release suite | PASS | 372/372 at solver tree `9f0852545` |
-| Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed |
-| Public DefaultPolicy functional correspondence | PASS | Current-head correspondence test passed with no fallback or decline; frozen production/public/hardcoded rows preserve verdict, certificate, and trajectory correspondence |
+| Full Debug suite | PASS | Current source: 372/372 in 2,052.72 s; ASan and UBSan enabled |
+| Full Release suite | PASS | 372/372 at solver tree `9f0852545`; current-source focused proof/PBP slice 40/40 |
+| Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
+| Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed with no fallback or decline; frozen production/public/hardcoded rows preserve verdict, certificate, and trajectory correspondence |
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
 | Paper regression ceiling | FAIL (reused) | Release scorer: B28+C5 1.1615x, Rank1--50 1.2407x, WV100 1.5521x; WV2--89 is unqualified because of a retention mismatch |
 | Claimed performance improvement | FAIL | No qualifying 5% paired-median or PAR-2 gain; the paper regression ceiling is already exceeded |

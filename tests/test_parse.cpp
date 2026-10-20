@@ -202,6 +202,26 @@ static void test_native_lrat_retains_binary_ids() {
   assert(std::remove(path.c_str()) == 0);
 }
 
+static void test_streaming_pbp_uses_compact_binary_filter() {
+  Kernel k;
+  const std::string path = "/tmp/tactix-test-parse-pbp-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".proof";
+  {
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+    k.proof = &proof;
+    FILE *file = dimacs_file("p cnf 3 3\n1 -2 0\n2 3 0\n1 -2 0\n");
+    assert(parse_dimacs(file, k) == nullptr);
+    std::fclose(file);
+    assert(!k.binary_ids.tracks_keys());
+    assert(!k.binary_ids.tracks_values());
+    assert(k.binary_ids.size() == 2);
+    k.proof = nullptr;
+  }
+  assert(std::remove(path.c_str()) == 0);
+}
+
 // Independently replay the literal-addressed import delta over the raw input.
 // After shortening and binary deduplication, later SR must see exactly the
 // represented clause population, including when a duplicate itself shrinks.
@@ -503,6 +523,7 @@ static void test_discarded_only_variables_are_not_search_variables() {
 int main() {
   test_compact_input_filter_grows_and_deduplicates_exactly();
   test_native_lrat_retains_binary_ids();
+  test_streaming_pbp_uses_compact_binary_filter();
   test_literal_proof_import_retires_raw_replacements();
   test_tumble_preserves_file_literal_order();
   test_root_units_normalize_later_input_clauses();

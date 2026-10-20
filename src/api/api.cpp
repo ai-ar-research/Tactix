@@ -2392,7 +2392,7 @@ static void input_complete(tactix_solver *s) {
   }
   if (s->kernel.proof && s->kernel.proof->streaming_pbp() &&
       s->kernel.binary_ids.tracks_values())
-    s->kernel.proof->declare_exact_clause_ids();
+    s->kernel.proof->declare_exact_binary_ids();
   finish_input(s->kernel);
   s->input_completed = true;
 }

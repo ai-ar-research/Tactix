@@ -976,10 +976,12 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         if (k.input_binary_order_captured)
           k.input_binary_order.reserve(static_cast<size_t>(clauses));
         k.input_clause_tail.reserve(Kernel::INPUT_CLAUSE_TAIL_CAPACITY);
-        // Native LRAT and streaming PBP retain exact binary proof identities.
+        // Native LRAT retains exact binary proof identities. Streaming PBP,
         // DRAT and proofless solving instead use a compact no-false-negative
         // filter backed by exact mirrored-watch confirmation during input.
-        // The filter grows by load, never by formula identity or a size gate.
+        // PBP deletes binaries by specification and retains exact identities
+        // only for non-binary clauses. The filter grows by load, never by
+        // formula identity or a size gate.
         if ((!k.proof || !k.proof->needs_clause_ids()) &&
             !k.replay_lrat_input) {
           k.binary_ids.discard_storage();
@@ -1023,7 +1025,7 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   memory_trace.emit(k, "finish-begin");
   if (k.proof && k.proof->streaming_pbp() &&
       k.binary_ids.tracks_values())
-    k.proof->declare_exact_clause_ids();
+    k.proof->declare_exact_binary_ids();
   finish_input(k);
   if (deferred_lrat)
     attach_replayed_input_proof(k, *deferred_lrat);

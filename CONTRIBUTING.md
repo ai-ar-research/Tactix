@@ -60,8 +60,11 @@ censored, or missing evidence does not pass a required gate.
   incomplete, even when no generated case fails.
 - Regression acceptance requires the full Debug and Release suites, retained
   rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
-  most 10% aggregate solver-time regression from the paper release. Correctness,
-  memory, cleanup, and per-instance limits remain strict.
+  most 10% aggregate solver-time regression from the paper release. Measure
+  that ceiling in the paper-comparable proof mode; default-PBP production
+  overhead is a separate matched current-solver measurement and cannot be used
+  to relax or absorb a search regression. Correctness, memory, cleanup, and
+  per-instance limits remain strict.
 - Keep the complete DefaultPolicy implementation through the public port.
   `default_public_correspondence` must report no fallback or declined request
   and byte-identical proofs, models, verdicts, and trajectory counters against

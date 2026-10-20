@@ -754,13 +754,50 @@ void test_streaming_pbp() {
          "rup 1 x7 1 ~x8 >= 1 ;\n"
          "red 1 ~x9 >= 1 : x9 -> 0 ;\n"
          "del id 3 ;\n"
-         "del id 6 ;\n"
-         "del spec 1 x10 >= 1 ;\n"
+         "del spec 1 x7 1 ~x8 >= 1 ;\n"
+         "del id 1 ;\n"
          "rup >= 1 ;\n"
          "output NONE ;\n"
          "conclusion UNSAT : -1 ;\n"
          "end pseudo-Boolean proof ;\n",
          "whole-run PBP stream");
+  std::remove(path.c_str());
+}
+
+void test_streaming_pbp_does_not_archive_divergent_binary_ids() {
+  const auto path = tmp_path("pbp-stream-binary-divergence");
+  {
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+    const Lit binary[] = {internalize(10), internalize(-11)};
+    const Lit unit = internalize(12);
+    // The deliberately non-consecutive internal identities force the input
+    // suffix onto the explicit identity-map path.
+    proof.seed_population(100, binary, 2);
+    proof.seed_population(101, &unit, 1);
+    proof.finish_input_transaction();
+    proof.del(102, 100, binary, 2);
+    // Reusing the retired binary's internal ID must not collide with a stale
+    // binary entry in the proof-side identity map. Such a collision would
+    // abandon exact deletion for both this derived unit and the input unit.
+    proof.add_rup(100, &unit, 1, nullptr, 0);
+    proof.del(103, 100, &unit, 1);
+    proof.del(104, 101, &unit, 1);
+    proof.add_empty(105, nullptr, 0);
+    proof.flush();
+  }
+  expect(read_all(path),
+         "pseudo-Boolean proof version 3.0\n"
+         "f 2;\n"
+         "del spec 1 x10 1 ~x11 >= 1 ;\n"
+         "rup 1 x12 >= 1 ;\n"
+         "del id 3 ;\n"
+         "del id 2 ;\n"
+         "rup >= 1 ;\n"
+         "output NONE ;\n"
+         "conclusion UNSAT : -1 ;\n"
+         "end pseudo-Boolean proof ;\n",
+         "divergent binary PBP identity");
   std::remove(path.c_str());
 }
 
@@ -842,6 +879,7 @@ int main() {
   test_all_formats_report_output_failure();
   test_automatic_certificate_boundary();
   test_streaming_pbp();
+  test_streaming_pbp_does_not_archive_divergent_binary_ids();
   test_streaming_pbp_parity_text_buffer_boundary();
   test_drat_binary_add();
   test_drat_binary_varint_boundary();

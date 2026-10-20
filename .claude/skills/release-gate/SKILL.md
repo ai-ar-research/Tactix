@@ -40,7 +40,11 @@ Invoke the named project skills for their scopes:
 - `benchmarks` and `slurm-jobs`: run matched performance and all four fixed
   regression sets. Apply row retention, bounded proof checking, the paper +10%
   ceiling, and the declared performance threshold exactly as the release
-  contract states.
+  contract states. Measure the paper ceiling in the paper-comparable proof
+  mode. When PBP is the default, report its production overhead separately by
+  comparing the same current binary and inputs with and without PBP. Never
+  subtract PBP overhead from a candidate's paper regression or relax the 10%
+  ceiling without a separately approved contract change.
 - `compete`: run the current competition contract when packaging or command-line
   behavior changed.
 
