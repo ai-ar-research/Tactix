@@ -626,13 +626,12 @@ void finish_input(Kernel &k) {
   k.input_restatements.clear();
   k.input_restate_lits.clear();
   k.input_restate_units.clear();
-  // Native LRAT needs an exact live proof id for every binary pair.  DRAT
-  // names clauses by literals and proofless solving has no clause identities,
-  // so their key archive has no consumer after import deduplication.  Release
-  // it for every such input, independent of formula size or shape; size_ is
-  // retained as the monotone material watermark and later exact liveness
-  // checks use the mirrored watch lists.
-  if ((!k.proof || !k.proof->lrat()) && !k.replay_lrat_input)
+  // Native LRAT and streaming PBP need an exact live proof id for every
+  // binary pair. DRAT names clauses by literals and proofless solving has no
+  // clause identities, so their key archive has no consumer after import
+  // deduplication. Release it for every such input, independent of formula
+  // size or shape; size_ remains the monotone material watermark.
+  if ((!k.proof || !k.proof->needs_clause_ids()) && !k.replay_lrat_input)
     k.binary_ids.discard_storage();
   if (k.proof && k.proof->population_shadow_available())
     k.proof->arm_population_shadow();
@@ -684,6 +683,9 @@ void finish_input(Kernel &k) {
 
 void attach_replayed_input_proof(Kernel &current, Proof &proof) {
   assert(!current.proof && current.startup_certificate_open);
+  // A proof attached after proofless input cannot reconstruct the discarded
+  // binary-ID archive. Streaming PBP remains sound by falling back to
+  // deletion-by-specification when it encounters that sentinel.
   assert(!proof.lrat() || current.binary_ids.tracks_values());
   // Replay the checker's exact input, not the clauses left after eager
   // proofless unit propagation. The C API may keep adding original clauses
@@ -974,11 +976,12 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
         if (k.input_binary_order_captured)
           k.input_binary_order.reserve(static_cast<size_t>(clauses));
         k.input_clause_tail.reserve(Kernel::INPUT_CLAUSE_TAIL_CAPACITY);
-        // Native LRAT retains exact binary proof identities. DRAT and
-        // proofless solving instead use a compact no-false-negative filter
-        // backed by exact mirrored-watch confirmation during input.  The
-        // filter grows by load, never by formula identity or a size gate.
-        if ((!k.proof || !k.proof->lrat()) && !k.replay_lrat_input) {
+        // Native LRAT and streaming PBP retain exact binary proof identities.
+        // DRAT and proofless solving instead use a compact no-false-negative
+        // filter backed by exact mirrored-watch confirmation during input.
+        // The filter grows by load, never by formula identity or a size gate.
+        if ((!k.proof || !k.proof->needs_clause_ids()) &&
+            !k.replay_lrat_input) {
           k.binary_ids.discard_storage();
           input_liveness.arm(static_cast<size_t>(predicted_binaries),
                              2 * k.nvars, clauses);
@@ -1018,6 +1021,9 @@ const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
   if (!scratch.empty()) // tolerate a missing final 0
     ingest_clause(k, scratch);
   memory_trace.emit(k, "finish-begin");
+  if (k.proof && k.proof->streaming_pbp() &&
+      k.binary_ids.tracks_values())
+    k.proof->declare_exact_clause_ids();
   finish_input(k);
   if (deferred_lrat)
     attach_replayed_input_proof(k, *deferred_lrat);

@@ -443,6 +443,7 @@ static int proof_fixture(const char *cnf_path, const char *proof_path,
     }
     assert(id == kernel.next_clause_id);
     proof.finish_input_transaction();
+    assert(proof.commit_dsr());
   }
   kernel.proof = &proof;
   auto request = live_request(journal, owner, matrix, image.equations, event);

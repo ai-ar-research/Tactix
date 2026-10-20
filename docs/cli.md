@@ -119,8 +119,8 @@ The resulting format is:
 | `--drat --no-binary` | text DRAT |
 | `--lrat` | text LRAT (`--no-binary` has no effect) |
 
-Whole-run PBP serializes RUP, RAT, substitution-redundancy and exact `del spec`
-deletion events. DRAT and LRAT cannot
+Whole-run PBP serializes RUP, RAT, substitution-redundancy and exact tracked-ID
+deletions with canonical `del spec` fallback. DRAT and LRAT cannot
 express substitution-redundancy steps. With `--drat` or
 `--lrat`, techniques that need them (symmetry breaking and some structured
 techniques) are declined, so the solver can take a different path than with

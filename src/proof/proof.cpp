@@ -306,6 +306,11 @@ bool Proof::open(const char *path, ProofFormat format) {
   streaming_pbp_finished_ = false;
   pbp_original_constraints_ = 0;
   pbp_derived_constraints_ = 0;
+  pbp_constraint_ids_.clear();
+  pbp_identity_prefix_ = 0;
+  pbp_input_ids_diverged_ = false;
+  pbp_id_deletions_enabled_ = true;
+  pbp_exact_clause_ids_ = false;
   if (file_ && format == ProofFormat::PbpStreaming) {
     pbp_output_ = file_;
     file_ = std::tmpfile();
@@ -542,6 +547,97 @@ void Proof::put_pbp_external_clause(const char *rule, const int32_t *lits,
   text.flush();
 }
 
+namespace {
+constexpr uint64_t PBP_DERIVED_ORDINAL = uint64_t{1} << 63;
+}
+
+void Proof::abandon_pbp_id_deletions() {
+  pbp_id_deletions_enabled_ = false;
+  pbp_constraint_ids_.clear();
+}
+
+void Proof::track_pbp_original_constraint(uint64_t id) {
+  if (!id || !pbp_id_deletions_enabled_)
+    return;
+  if (!pbp_input_ids_diverged_ && id == pbp_original_constraints_) {
+    pbp_identity_prefix_ = id;
+    return;
+  }
+  pbp_input_ids_diverged_ = true;
+  const auto [_, inserted] =
+      pbp_constraint_ids_.emplace(id, pbp_original_constraints_);
+  if (!inserted)
+    abandon_pbp_id_deletions();
+}
+
+void Proof::track_pbp_derived_constraint(uint64_t id) {
+  if (!id || !pbp_id_deletions_enabled_)
+    return;
+  // A normalized replacement deliberately reuses its deleted input identity
+  // to preserve the proofless trajectory.  A tombstone proves that rebinding
+  // is injective; otherwise root-unit publication may be colliding with a
+  // still-live input constraint and exact ID deletion is unsafe.
+  if (id <= pbp_identity_prefix_) {
+    const auto retired = pbp_constraint_ids_.find(id);
+    if (retired == pbp_constraint_ids_.end() || retired->second) {
+      abandon_pbp_id_deletions();
+      return;
+    }
+    pbp_constraint_ids_.erase(retired);
+  }
+  uint64_t constraint = 0;
+  if (input_transaction_) {
+    pbp_input_ids_diverged_ = true;
+    if (pbp_derived_constraints_ >= PBP_DERIVED_ORDINAL) {
+      abandon_pbp_id_deletions();
+      return;
+    }
+    constraint = PBP_DERIVED_ORDINAL | pbp_derived_constraints_;
+  } else {
+    if (pbp_original_constraints_ >
+        UINT64_MAX - pbp_derived_constraints_) {
+      abandon_pbp_id_deletions();
+      return;
+    }
+    constraint = pbp_original_constraints_ + pbp_derived_constraints_;
+  }
+  const auto [_, inserted] = pbp_constraint_ids_.emplace(id, constraint);
+  if (!inserted)
+    abandon_pbp_id_deletions();
+}
+
+bool Proof::put_pbp_deletion_id(uint64_t id) {
+  // Non-LRAT binary storage intentionally returns 1 as a liveness sentinel
+  // instead of retaining the clause's proof ID.  Treat 1 as untracked even
+  // when the first input constraint itself happens to own that identity.
+  if (!id || !pbp_id_deletions_enabled_ ||
+      (id == 1 && !pbp_exact_clause_ids_))
+    return false;
+  uint64_t constraint = 0;
+  auto found = pbp_constraint_ids_.find(id);
+  if (found != pbp_constraint_ids_.end()) {
+    constraint = found->second;
+    if (!constraint)
+      return false;
+    if (constraint & PBP_DERIVED_ORDINAL) {
+      if (input_transaction_)
+        return false;
+      const uint64_t ordinal = constraint & ~PBP_DERIVED_ORDINAL;
+      if (pbp_original_constraints_ > UINT64_MAX - ordinal)
+        return false;
+      constraint = pbp_original_constraints_ + ordinal;
+    }
+    pbp_constraint_ids_.erase(found);
+  } else if (id <= pbp_identity_prefix_) {
+    constraint = id;
+    pbp_constraint_ids_.emplace(id, 0);
+  } else {
+    return false;
+  }
+  std::fprintf(file_, "del id %" PRIu64 " ;\n", constraint);
+  return true;
+}
+
 // VeriPB's CNF reader drops tautological clauses and canonicalizes repeated
 // literals before populating the initial constraint database.  A `del spec`
 // must name that canonical constraint, rather than the raw DIMACS spelling
@@ -756,6 +852,7 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     if (pbp_derived_constraints_ == UINT64_MAX)
       std::abort();
     ++pbp_derived_constraints_;
+    track_pbp_derived_constraint(id);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -859,6 +956,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
     if (pbp_derived_constraints_ == UINT64_MAX)
       std::abort();
     ++pbp_derived_constraints_;
+    track_pbp_derived_constraint(id);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -985,6 +1083,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
     if (pbp_derived_constraints_ == UINT64_MAX)
       std::abort();
     ++pbp_derived_constraints_;
+    track_pbp_derived_constraint(id);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     population_add(id, lits, size);
 #endif
@@ -1216,10 +1315,21 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     return;
   if (streaming_pbp()) {
     // RUP is monotone under retained constraints, but RAT/SR redundancy is
-    // not. Delete one exact matching constraint without coupling PBP's own
-    // numbering to Tactix clause IDs.
+    // not. Prefer the exact tracked PBP identity. Once an untracked deletion
+    // requires literal matching, abandon ID deletion for the rest of the
+    // stream so a duplicate selected by `del spec` cannot drift the map.
     if (streaming_pbp_finished_)
       return;
+    if (put_pbp_deletion_id(del_id)) {
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+      population_del(del_id, lits, size);
+#endif
+      observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                      CheckerClauseRole::None, line_id, del_id,
+                      PopulationClauseView::internal_lits(lits, size,
+                                                           variable_map_));
+      return;
+    }
     pbp_external_scratch_.clear();
     pbp_external_scratch_.reserve(size);
     for (uint32_t i = 0; i < size; ++i) {
@@ -1232,6 +1342,7 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
                                 pbp_external_scratch_.size(),
                                 pbp_canonical_scratch_))
       return;
+    abandon_pbp_id_deletions();
     put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(),
                             pbp_canonical_scratch_.size());
     std::fputs(" ;\n", file_);
@@ -1355,6 +1466,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
     if (pbp_derived_constraints_ == UINT64_MAX)
       std::abort();
     ++pbp_derived_constraints_;
+    track_pbp_derived_constraint(id);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
     std::vector<Lit> external;
     external.reserve(size);
@@ -1423,6 +1535,7 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
     if (pbp_derived_constraints_ == UINT64_MAX)
       std::abort();
     ++pbp_derived_constraints_;
+    track_pbp_derived_constraint(id);
     observe_checker(CheckerPopulationEventKind::Add,
                     CheckerClauseRole::ExternalRat, id, id,
                     PopulationClauseView::external_lits(lits, size), true);
@@ -1722,6 +1835,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       pbp_derived_constraints_ - derived_before != plan.proof_constraints ||
       cache.retained_bytes() > plan.retained_bytes || std::ferror(file_))
     std::abort();
+  track_pbp_derived_constraint(kernel_clause_id);
   proof_external_max_ = std::max(proof_external_max_, fresh);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
   std::vector<Lit> external;
@@ -1992,8 +2106,25 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   if (streaming_pbp()) {
     if (streaming_pbp_finished_)
       return true;
+    if (put_pbp_deletion_id(del_id)) {
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+      std::vector<Lit> external;
+      external.reserve(size);
+      for (uint32_t i = 0; i < size; ++i)
+        external.push_back(internalize(lits[i]));
+      const auto *saved = variable_map_;
+      variable_map_ = nullptr;
+      population_del(del_id, external.data(), size);
+      variable_map_ = saved;
+#endif
+      observe_checker(CheckerPopulationEventKind::DeleteRequested,
+                      CheckerClauseRole::None, line_id, del_id,
+                      PopulationClauseView::external_lits(lits, size), true);
+      return true;
+    }
     if (!canonical_pbp_deletion(lits, size, pbp_canonical_scratch_))
       return true;
+    abandon_pbp_id_deletions();
     put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(),
                             pbp_canonical_scratch_.size());
     std::fputs(" ;\n", file_);
@@ -2166,8 +2297,10 @@ void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
   // ids can therefore make later raw-input ids non-contiguous.  Count each
   // raw seed exactly once instead of inferring the input population from its
   // internal identity namespace.
-  if (streaming_pbp() && input_transaction_)
+  if (streaming_pbp() && input_transaction_) {
     ++pbp_original_constraints_;
+    track_pbp_original_constraint(id);
+  }
   observe_checker(CheckerPopulationEventKind::InputSeed,
                   CheckerClauseRole::Input, id, id,
                   PopulationClauseView::internal_lits(lits, size,

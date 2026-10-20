@@ -109,7 +109,8 @@ def main():
                 sat += 1
                 continue
             proof_text = proof.read_text()
-            deletions += proof_text.count("del spec ")
+            deletions += proof_text.count("del spec ") + \
+                proof_text.count("del id ")
             kernel = directory / f"case-{index}.kernel.pbp"
             checked = run([veripb, "-u", "--cnf", "--elaborate", kernel,
                            cnf, proof])
@@ -147,6 +148,9 @@ def main():
                 stream.write(" ".join(map(str, clause)) + " 0\n")
         solved = run([solver, "-q", "--pbp", cnf, proof])
         assert solved.returncode == 20, solved.stdout
+        proof_text = proof.read_text()
+        assert proof_text.count("del id ") == 10 and \
+            "del spec " not in proof_text, proof_text
         kernel = directory / "root-reason-deletion.kernel.pbp"
         checked = run([veripb, "-u", "--cnf", "--elaborate", kernel,
                        cnf, proof])

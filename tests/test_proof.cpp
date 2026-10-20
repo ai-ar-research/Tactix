@@ -741,6 +741,7 @@ void test_streaming_pbp() {
     assert(p.add_external_rat(7, external_rat, 1));
     p.del(9, 3, &unit, 1);
     assert(p.del_external(10, 6, external_rup, 2));
+    p.del(11, 1, &first_input, 1);
     p.add_empty(8, nullptr, 0);
     p.flush();
   }
@@ -752,8 +753,9 @@ void test_streaming_pbp() {
          "red 1 x4 >= 1 : x4 -> 1 x5 -> ~x6 ;\n"
          "rup 1 x7 1 ~x8 >= 1 ;\n"
          "red 1 ~x9 >= 1 : x9 -> 0 ;\n"
-         "del spec 1 x2 >= 1 ;\n"
-         "del spec 1 x7 1 ~x8 >= 1 ;\n"
+         "del id 3 ;\n"
+         "del id 6 ;\n"
+         "del spec 1 x10 >= 1 ;\n"
          "rup >= 1 ;\n"
          "output NONE ;\n"
          "conclusion UNSAT : -1 ;\n"
