@@ -21,37 +21,27 @@ bundle route, and cannot narrow the N1 action surface.
 
 ## Frozen CG benchmark
 
-The [CG collection](../benchmarks/collections/CG/README.md) freezes 25
-independently checked CryptoMiniSat 5.14.7 solves from the pinned Tier-D rerun.
-It includes all 21 sub-600-second exclusive or at-least-10x wins found in the
-601 published rows, plus the strongest CMS-over-baseline row from four
-previously unrepresented families. The collection spans 14 families and binds
-each compressed input and checked result by SHA-256. Its long-form comparison
-records CMS and all seven saved baseline solve times and statuses for 200
-solver-instance rows.
+The [CG collection](../benchmarks/collections/CG/README.md) freezes 23
+independently checked CryptoMiniSat 5.14.7 solves selected from the complete
+pinned 1,166-row proof-free, four-core, 5,000-wall-second Tier-D census.
+Twenty-five is a soft development budget rather than a quota. The collection
+spans 16 normalized families, caps each family at three rows, and covers 18
+model-checked SAT plus five independently proved UNSAT instances across
+exclusive/major-win, diversity and runtime-scale strata. It adds `p160`,
+`pcmax`, `st` and `stable`, normalizes `vdw` into `vanderwaerden`, and retains
+one `mdp` representative at each of sizes 28, 32 and 36 rather than seven
+near-duplicates. The second `mp1` win is explicitly excluded as redundant.
 
-The rerun stopped at 601/1,166 after representative evidence was accepted, so
-CG is not a complete Tier-D census. It is the fixed mechanism and performance
-target: one instance-independent DefaultPolicy should solve every row within 2x
-the checked CMS time at matched resources. N1--N4, independent proof/model
-checking, held-out nonalgebraic coverage and the standing regression gates
-remain mandatory. No generated proof or expanded CNF is retained.
-
-After the corrected 5,000-wall-second proof-free CMS census is terminal,
-reassess rather than automatically enlarge CG. Treat 25 rows as a soft
-development budget, not a quota: representation takes priority when a fixed
-count would omit a distinct family or mechanism, and the collection should not
-be padded with redundant rows merely to reach 25. Select for family and
-mechanism breadth, SAT/UNSAT, exclusive/major-win status and runtime scale;
-avoid near-duplicates from a single prolific family. Normalize obvious family
-aliases and cap a family at three rows unless each excess row has a separately
-documented mechanism.
-Replace a row only when the full census supplies a materially stronger or more
-representative target. Model-checked proof-free SAT rows may support selection
-directly. Proof-free UNSAT is discovery evidence only and must receive a
-targeted proof-producing independent check before it can enter CG. Any changed
-selection must regenerate and verify the manifest, input hashes, eight-arm
-runtime table, rationale and no-duplicate-input contract.
+Every performance time binds the complete proof-free census. SAT rows bind
+their model check directly. An unchecked proof-free UNSAT report enters CG only
+when a separately hash-bound proof-producing result verifies the identical
+compressed input; all five selected UNSAT rows meet that rule. The manifest,
+23 input hashes, 184-row eight-arm runtime table, selection rationale and
+no-duplicate/family-cap contracts verify reproducibly. CG remains the fixed
+mechanism and performance target: one instance-independent DefaultPolicy should
+solve every row within 2x the checked CMS time at matched resources. N1--N4,
+held-out nonalgebraic coverage and the standing regression gates remain
+mandatory. No generated proof, model or expanded CNF is retained.
 
 **Search-time algebraic reasoning.** Extend the retained authenticated GF(2)
 matrix, existing GF(3) equations and exact unweighted cardinality constraints
@@ -290,31 +280,34 @@ memory, per-instance limits and cleanup remain strict. The
 accept B28+C5 job 1791147 (+0.16%), Rank1–50 job 1791148 (+1.23%) and WV100
 job 1791149 (-2.10%). The paper's one Rank proof censor and three WV solver
 timeouts remain explicit inherited limitations, not independent verification.
-Full Tier-D job 1791375 is terminal with all 1,166 rows published and no
-scratch residue: 483 verified SAT, 512 verified UNSAT, 156 solver timeouts, one
-solver memory-out, six checker timeouts and eight checker memory-outs. Its
-hash-pinned base scorer 1792344 confirms both raw and verified PAR-2 within the
-paper-plus-10% ceilings, but correctly rejects six newly lost independent proof
-checks. Validation job 1793967 passed, and source-bound eight-row 64 GiB recheck
-1793968 reruns every checker-memory row with the same binary, arguments and
-hash-bound source results. Its first three terminal rows cleaned fully: inherited
-paper-censored task 664 again memory-exhausted, now at 66,866,788 KiB, while
-verification-critical tasks 509 and 895 timed out during deterministic proof
-regeneration at the unchanged 5,000-second solve limit. Reusable direct
-source-task filtering and ordered scorer overlays pass 17 focused tests.
-Validation 1794223 passed and strict direct-base retry 1794224 reruns only those
-two tasks under the identical contract. Replacement final scorer 1794228 waits
-on every task of both arrays; obsolete held scorer 1793977 never ran. No PBP
-promotion is claimed before the overlay-substituted score passes. Proof-free four-core CMS screen 1791200 is terminal with all 1,166 rows
-published: 342 model-checked SAT, 296 unchecked UNSAT and 528 UNKNOWN, with no
-result or cleanup failures. Because its `--maxtime 5000` limit was aggregate
-CPU time, it remains screening evidence rather than the requested 5,000-second
-wall-time comparator. Completed handoff 1792280 hash-bound the result inventory
-and submitted corrected array 1792904. That exact continuation reuses 638 clean
-SAT/UNSAT rows and reruns all 528 UNKNOWN rows on four cores and 32 GiB, without
-proof production, under a monotonic 5,000-second wall limit. Its
-`afterany:1791375` dependency released only after base Tier D finished; it is
-now active independently of the proof recheck.
+Full Tier-D job 1791375 published all 1,166 rows with no scratch residue. Its
+base score was inside both runtime ceilings but correctly rejected six newly
+lost independent proof checks. Source-bound 64 GiB recheck 1793968 and strict
+direct-base retry 1794224 are terminal. Their ordered overlay verifies tasks
+272, 345, 509, 568, 895, 1003 and 1159; source task 664 remains the explicit
+inherited checker-memory censor. Retry solves 509 and 895 completed in
+4,738.464 and 4,794.422 seconds after the first regenerations reached the
+unchanged 5,000-second limit. Every CNF, certificate, derived artifact and
+scratch directory was removed. Final scorer 1794228 accepts all 1,166 rows with
+no missing rows or failures: 483 verified SAT, 519 verified UNSAT, 156 solver
+timeouts, one solver memory-out and seven inherited proof censors. Raw PAR-2
+2,026,921.093 and verified PAR-2 2,087,884.748 are both better than the paper
+values and below the paper-plus-10% ceilings. This closes the requested PBP
+gate without claiming a default-policy promotion.
+
+Proof-free four-core CMS screen 1791200 and corrected wall-time continuation
+1792904 are terminal. Their hash-bound combined inventory covers all 1,166 rows
+with 395 model-checked SAT, 366 explicitly unchecked UNSAT, 383 wall timeouts,
+21 killed solver processes and one other crash/unknown. The corrected contract
+used `cpu-q`, four cores, 32 GiB, no proof production and a monotonic
+5,000-second wall limit; all expanded CNFs and scratch were removed. The CG
+refresh therefore keeps 23 rows across 16 normalized families under the soft
+25-row budget: at most three per family, 18 model-checked SAT and five UNSAT
+rows with separately bound FRAT-XOR/Cake-XLRUP verification. It adds `p160`,
+`pcmax`, `st` and `stable`, replaces the Van der Waerden target with stronger
+normalized `vdw`, covers `mdp` sizes 28/32/36, and excludes redundant or
+nonreproducing rows. The manifest, 23 input hashes, 184-row comparison table,
+family cap and no-duplicate contract verify reproducibly.
 All of the user's Slurm work is observed by reusable storage governor 1791687.
 It samples global home usage every 600 seconds, dynamically discovers new jobs,
 holds only PENDING tasks above 750 GiB, and releases below 700 GiB only tasks it

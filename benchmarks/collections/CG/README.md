@@ -1,65 +1,95 @@
 # CG: CryptoMiniSat-guided benchmark collection
 
-CG contains 25 independently checked Tier D instances selected from the pinned CryptoMiniSat 5.14.7 rerun. It is a development target for bringing one instance-independent Tactix DefaultPolicy within 2× the checked CMS solve time.
+CG contains 23 independently checked Tier-D instances selected from the complete pinned CryptoMiniSat 5.14.7 four-core, 5,000-wall-second census. It is a representation-first development target for bringing one instance-independent Tactix DefaultPolicy within 2× the checked CMS time.
 
-The rerun was stopped after 601 of 1,166 rows because the user accepted a representative collection. The set contains every checked exclusive or at-least-10× win below 600 seconds in that snapshot (21 rows), then adds the best CMS-over-baseline row from four previously unrepresented families. This is a frozen representative sample, not a complete Tier D census. N1–N4 remain required for solver promotion.
+Twenty-five is a soft budget, not a quota. The refresh removes redundant rows and keeps 23 instances spanning 16 normalized families. No family contributes more than three rows; the three `mdp` rows represent sizes 28, 32, and 36. The set covers 18 model-checked SAT and five independently proved UNSAT instances, major/exclusive wins and useful diversity cases, and sub-second through 100+ second CMS targets.
 
-No CNF is duplicated here. `instances.list` and `manifest.json` reference the compressed files in `benchmarks/cache/tierD24-26`; all generated proofs and expanded CNFs were deleted after checking.
+All performance rows come from the proof-free census. SAT models were checked in that run. Proof-free UNSAT reports were admitted only where a separately hash-bound proof-producing CMS result independently verified the same compressed input. The qualitative mechanism labels are selection strata, not claims about CryptoMiniSat's internal causal owner.
+
+No CNF is duplicated here. `instances.list` and `manifest.json` reference compressed files in `benchmarks/cache/tierD24-26`; generated proofs, models, and expanded CNFs were deleted after checking.
 
 ## Family coverage
 
 | Family | Rows |
 | --- | ---: |
-| `mdp` | 7 |
 | `folkman` | 3 |
+| `mdp` | 3 |
 | `par32` | 3 |
 | `lightsout` | 2 |
-| `1x1x13` | 1 |
 | `bp4` | 1 |
-| `case11` | 1 |
 | `crusti` | 1 |
 | `dltm` | 1 |
 | `mp1` | 1 |
 | `nb13t165` | 1 |
+| `p160` | 1 |
+| `pcmax` | 1 |
 | `ptn` | 1 |
+| `st` | 1 |
+| `stable` | 1 |
 | `vanderwaerden` | 1 |
 | `x9` | 1 |
 
+## Representation strata
+
+| ID | Family | Outcome | Stratum | Selection reason |
+| ---: | --- | --- | --- | --- |
+| 1107 | `dltm` | SAT | social-network/graph SAT search | retained distinct family or capped family representative |
+| 550 | `folkman` | SAT | Folkman graph coloring | retained distinct family or capped family representative |
+| 103 | `folkman` | SAT | Folkman graph coloring | retained distinct family or capped family representative |
+| 974 | `folkman` | SAT | Folkman graph coloring | retained distinct family or capped family representative |
+| 83 | `lightsout` | UNSAT | GF(2) linear-system UNSAT | lightsout random instance |
+| 609 | `lightsout` | UNSAT | GF(2) linear-system UNSAT | lightsout corner instance; exclusive solve |
+| 284 | `mdp` | UNSAT | GF(2) matrix UNSAT | mdp size-28 representative |
+| 330 | `mdp` | UNSAT | GF(2) matrix UNSAT | mdp size-32 representative; exclusive solve |
+| 123 | `mdp` | UNSAT | GF(2) matrix UNSAT | mdp size-36 representative; exclusive solve |
+| 898 | `mp1` | SAT | propagation/watch-pose-sensitive SAT | retained distinct family or capped family representative |
+| 649 | `nb13t165` | SAT | family-distinct structured SAT | retained distinct family or capped family representative |
+| 478 | `par32` | SAT | parity-heavy SAT | par32 shuffled-c variant |
+| 162 | `par32` | SAT | parity-heavy SAT | par32 shuffled variant |
+| 62 | `par32` | SAT | parity-heavy SAT | par32 SAT03-shuffled variant |
+| 378 | `vanderwaerden` | SAT | Van der Waerden coloring | stronger full-census replacement for the old Van der Waerden row |
+| 525 | `x9` | SAT | sub-second structured SAT sentinel | retained distinct family or capped family representative |
+| 1122 | `ptn` | SAT | family-distinct structured SAT | retained distinct family or capped family representative |
+| 723 | `bp4` | SAT | family-distinct combinatorial SAT | retained distinct family or capped family representative |
+| 353 | `crusti` | SAT | family-distinct structured SAT | retained distinct family or capped family representative |
+| 234 | `st` | SAT | phase/local-search-sensitive SAT | new family; phase/local-search-sensitive witness |
+| 256 | `pcmax` | SAT | scheduling/cardinality SAT | new family; exclusive scheduling instance |
+| 482 | `stable` | SAT | stable-set graph SAT | new family discovered only by the completed wall-time continuation |
+| 625 | `p160` | SAT | dense p160-family SAT | new family; exclusive dense instance |
+
 ## Solve-wall-time comparison
 
-Times are seconds. `S✓` and `U✓` are independently verified SAT and UNSAT; `S?`/`U?` are unverified answers; `TO` is a timeout. CMS used the pinned `cpu-q` campaign with 32 GiB and a 5,000-second solve cap. The other seven columns are saved historical arms and are included for the requested general pattern; their placement, proof configuration, and some resource details differ, so small timing differences are not causal comparisons.
+Times are seconds. `S✓` and `U✓` are independently checked SAT and UNSAT. CMS used four cores, 32 GiB, no proof production, and a true 5,000-second wall limit. The seven saved arms have differing placement/proof details, so small differences are not causal comparisons.
 
 | ID | Family | CMS | Tactix | Tactix no-MAB | Kissat 4 | Kissat SC24 | AE-Kissat | Satsuma | Lymphosat |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 240 | `case11` | 23.866 S✓ | 362.453 S✓ | 1188.123 S✓ | 714.204 S✓ | 799.941 S✓ | 266.033 S✓ | 767.721 S✓ | 1014.830 S✓ |
-| 1107 | `dltm` | 5.422 S✓ | 948.622 S✓ | 773.705 S✓ | 263.870 S✓ | 690.997 S✓ | 94.667 S✓ | 239.983 S✓ | 679.091 S✓ |
-| 550 | `folkman` | 1.722 S✓ | 50.797 S✓ | 23.497 S✓ | 54.303 S✓ | 38.269 S✓ | 18.495 S✓ | 75.619 S✓ | 41.381 S✓ |
-| 103 | `folkman` | 1.886 S✓ | 138.096 S✓ | 47.925 S✓ | 39.075 S✓ | 131.874 S✓ | 128.507 S✓ | 76.267 S✓ | 148.740 S✓ |
-| 974 | `folkman` | 2.291 S✓ | 132.992 S✓ | 47.928 S✓ | 123.397 S✓ | 42.191 S✓ | 112.777 S✓ | 62.154 S✓ | 41.827 S✓ |
-| 83 | `lightsout` | 7.425 U✓ | 1422.376 U✓ | 509.063 U✓ | 1291.277 U✓ | 1311.214 U✓ | 2276.353 U✓ | 1344.007 U✓ | 1306.645 U✓ |
-| 609 | `lightsout` | 7.626 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 284 | `mdp` | 7.225 U✓ | 978.051 U✓ | 984.730 U✓ | 880.360 U✓ | 920.494 U✓ | 1182.049 U✓ | 967.437 U✓ | 928.817 U✓ |
-| 114 | `mdp` | 8.476 U✓ | 1100.658 U✓ | 966.690 U✓ | 760.623 U✓ | 1172.141 U✓ | 1565.204 U✓ | 826.660 U✓ | 1182.978 U✓ |
-| 253 | `mdp` | 12.581 U✓ | 562.368 U✓ | 500.004 U✓ | 499.090 U✓ | 515.246 U✓ | 1249.052 U✓ | 569.592 U✓ | 543.698 U✓ |
-| 330 | `mdp` | 44.827 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 183 | `mdp` | 74.464 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 159 | `mdp` | 86.443 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 388 | `mdp` | 102.699 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 898 | `mp1` | 1.668 S✓ | 62.705 S✓ | 5000 TO | 5000 TO | 5000 TO | 61.001 S✓ | 93.570 S✓ | 2176.517 S✓ |
-| 649 | `nb13t165` | 5.575 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 478 | `par32` | 7.626 S✓ | 1631.867 S✓ | 5000 TO | 5000 TO | 3409.725 S✓ | 5000 TO | 5000 TO | 3831.064 S✓ |
-| 162 | `par32` | 22.650 S✓ | 5000 TO | 974.857 S✓ | 5000 TO | 390.120 S✓ | 5000 TO | 5000 TO | 403.233 S✓ |
-| 62 | `par32` | 38.412 S✓ | 3215.042 S✓ | 5000 TO | 1267.464 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
-| 352 | `vanderwaerden` | 273.532 S✓ | 4342.405 S✓ | 4099.237 S✓ | 4944.290 S✓ | 4852.435 S✓ | 5000 TO | 4990.221 S✓ | 74.924 S? |
-| 525 | `x9` | 0.034 S✓ | 0.518 S✓ | 0.518 S✓ | 0.416 S✓ | 0.416 S✓ | 0.566 S✓ | 0.467 S✓ | 0.466 S✓ |
-| 799 | `1x1x13` | 69.214 S✓ | 587.097 S✓ | 1771.917 S✓ | 787.873 S✓ | 1370.378 S✓ | 1350.125 S✓ | 2099.380 S✓ | 785.633 S✓ |
-| 1122 | `ptn` | 2.872 S✓ | 37.315 S✓ | 374.340 S✓ | 236.415 S✓ | 63.459 S✓ | 23.450 S✓ | 268.911 S✓ | 15.489 S✓ |
-| 723 | `bp4` | 160.915 S✓ | 2347.471 S✓ | 3535.483 S✓ | 777.803 S✓ | 1727.963 S✓ | 2643.612 S✓ | 2532.963 S✓ | 1756.985 S✓ |
-| 353 | `crusti` | 10.632 S✓ | 202.277 S✓ | 205.063 S✓ | 45.340 S✓ | 327.135 S✓ | 311.079 S✓ | 49.647 S✓ | 294.503 S✓ |
+| 1107 | `dltm` | 84.057 S✓ | 948.622 S✓ | 773.705 S✓ | 263.870 S✓ | 690.997 S✓ | 94.667 S✓ | 239.983 S✓ | 679.091 S✓ |
+| 550 | `folkman` | 1.519 S✓ | 50.797 S✓ | 23.497 S✓ | 54.303 S✓ | 38.269 S✓ | 18.495 S✓ | 75.619 S✓ | 41.381 S✓ |
+| 103 | `folkman` | 1.619 S✓ | 138.096 S✓ | 47.925 S✓ | 39.075 S✓ | 131.874 S✓ | 128.507 S✓ | 76.267 S✓ | 148.740 S✓ |
+| 974 | `folkman` | 1.770 S✓ | 132.992 S✓ | 47.928 S✓ | 123.397 S✓ | 42.191 S✓ | 112.777 S✓ | 62.154 S✓ | 41.827 S✓ |
+| 83 | `lightsout` | 6.280 U✓ | 1422.376 U✓ | 509.063 U✓ | 1291.277 U✓ | 1311.214 U✓ | 2276.353 U✓ | 1344.007 U✓ | 1306.645 U✓ |
+| 609 | `lightsout` | 5.482 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
+| 284 | `mdp` | 3.775 U✓ | 978.051 U✓ | 984.730 U✓ | 880.360 U✓ | 920.494 U✓ | 1182.049 U✓ | 967.437 U✓ | 928.817 U✓ |
+| 330 | `mdp` | 12.290 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
+| 123 | `mdp` | 85.165 U✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
+| 898 | `mp1` | 1.872 S✓ | 62.705 S✓ | 5000 TO | 5000 TO | 5000 TO | 61.001 S✓ | 93.570 S✓ | 2176.517 S✓ |
+| 649 | `nb13t165` | 3.774 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
+| 478 | `par32` | 6.475 S✓ | 1631.867 S✓ | 5000 TO | 5000 TO | 3409.725 S✓ | 5000 TO | 5000 TO | 3831.064 S✓ |
+| 162 | `par32` | 7.030 S✓ | 5000 TO | 974.857 S✓ | 5000 TO | 390.120 S✓ | 5000 TO | 5000 TO | 403.233 S✓ |
+| 62 | `par32` | 4.577 S✓ | 3215.042 S✓ | 5000 TO | 1267.464 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
+| 378 | `vanderwaerden` | 28.919 S✓ | 1688.011 S✓ | 1614.275 S✓ | 3525.185 S✓ | 3836.743 S✓ | 5000 TO | 1571.293 S✓ | 3731.679 S✓ |
+| 525 | `x9` | 0.018 S✓ | 0.518 S✓ | 0.518 S✓ | 0.416 S✓ | 0.416 S✓ | 0.566 S✓ | 0.467 S✓ | 0.466 S✓ |
+| 1122 | `ptn` | 2.772 S✓ | 37.315 S✓ | 374.340 S✓ | 236.415 S✓ | 63.459 S✓ | 23.450 S✓ | 268.911 S✓ | 15.489 S✓ |
+| 723 | `bp4` | 87.945 S✓ | 2347.471 S✓ | 3535.483 S✓ | 777.803 S✓ | 1727.963 S✓ | 2643.612 S✓ | 2532.963 S✓ | 1756.985 S✓ |
+| 353 | `crusti` | 4.628 S✓ | 202.277 S✓ | 205.063 S✓ | 45.340 S✓ | 327.135 S✓ | 311.079 S✓ | 49.647 S✓ | 294.503 S✓ |
+| 234 | `st` | 93.140 S✓ | 5000 TO | 3292.618 S✓ | 2327.932 S✓ | 2875.503 S✓ | 5000 TO | 5000 TO | 3052.159 S✓ |
+| 256 | `pcmax` | 132.285 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
+| 482 | `stable` | 62.149 S✓ | 2045.211 S✓ | 1964.937 S✓ | 743.956 S✓ | 1980.499 S✓ | 1845.744 S✓ | 777.476 S✓ | 2101.569 S✓ |
+| 625 | `p160` | 100.875 S✓ | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO | 5000 TO |
 
 ## Pattern
 
-The collection has 6 CMS-exclusive checked solves, 15 rows where CMS is at least 10× faster than the fastest verified saved arm, and 4 diversity rows where CMS is 4.26×–8.48× faster. The strongest clusters are `mdp`, `par32`, `lightsout`, and `folkman`; the remaining families test whether the policy generalizes beyond those clusters.
+The collection has 6 CMS-exclusive checked solves, 13 at-least-10× wins, and 4 diversity rows. The completed census adds `p160`, `pcmax`, `st`, and `stable`; normalizes `vdw` into `vanderwaerden`; and excludes a second `mp1` row as a near-duplicate.
 
 ## Reproduce and verify
 
@@ -68,4 +98,4 @@ python3 benchmarks/collections/CG/build.py
 python3 benchmarks/collections/CG/verify.py --hash-inputs
 ```
 
-`baseline-runtimes.csv` contains the exact long-form values, statuses, provenance campaigns, and comparison caveat for all 200 solver-instance rows.
+`baseline-runtimes.csv` contains all 184 solver-instance rows and their provenance caveat.
