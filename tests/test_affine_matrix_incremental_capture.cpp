@@ -65,8 +65,10 @@ void capture() {
   const auto conditioned_trail=std::vector<Lit>(k.trail.begin(),k.trail.end());
   const auto conditioned=affine_matrix_search_step(k,session);
   assert(conditioned.status==AffineMatrixServiceStatus::Applied &&
-         conditioned.installed_reason.size()==2 && conditioned.bcp_pending &&
-         k.trail==conditioned_trail);
+         conditioned.installed_reason.size()==2 &&
+         conditioned.live.implication_consumed && conditioned.bcp_pending &&
+         k.trail.size()==conditioned_trail.size()+1 &&
+         k.trail.back()==kernel_internalize(k,-4));
   assert(propagate_apply(k)==ApplyResult::Ok && kernel_external_value(k,internalize(4))<0);
   kernel_backtrack(k,0);
   assert(affine_matrix_search_step(k,session).status==AffineMatrixServiceStatus::NoEvent);
@@ -75,7 +77,9 @@ void capture() {
   kernel_assign_decision(k,kernel_internalize(k,-1));assert(propagate_apply(k)==ApplyResult::Ok);
   auto negative=affine_matrix_search_step(k,session);
   assert(negative.status==AffineMatrixServiceStatus::Applied &&
-         negative.installed_reason.size()==2 && negative.bcp_pending && session.enabled());
+         negative.installed_reason.size()==2 &&
+         negative.live.implication_consumed && negative.bcp_pending &&
+         k.trail.back()==kernel_internalize(k,4) && session.enabled());
   assert(propagate_apply(k)==ApplyResult::Ok && kernel_external_value(k,internalize(4))>0);
   kernel_backtrack(k,0);assert(!kernel_external_value(k,internalize(1)) && !kernel_external_value(k,internalize(4)));
   auto rooted=affine_matrix_search_step(k,session);assert(rooted.status==AffineMatrixServiceStatus::NoEvent);

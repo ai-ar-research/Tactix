@@ -66,10 +66,13 @@ static void exercise(ProofFormat format,const char *prefix){
  const std::vector<Lit> propagated_trail(k.trail.begin(),k.trail.end());
  const auto used=DefaultAffineSearchTestAccess::step(policy,k);
  assert(used.status==AffineMatrixServiceStatus::Applied&&
-        used.installed_reason==std::vector<int32_t>({-1,-4})&&session.enabled());
+        used.installed_reason==std::vector<int32_t>({-1,-4})&&
+        used.live.implication_consumed&&used.bcp_pending&&session.enabled());
  assert(session.owner_version()==pending_owner&&session.basis_rank()==pending_rank&&session.attached_to(k));
- assert(k.next_clause_id>pending_id&&k.trail==propagated_trail&&
-        !k.value(kernel_internalize(k,4)));
+ const Lit implied=kernel_internalize(k,-4);
+ assert(k.next_clause_id>pending_id&&
+        k.trail.size()==propagated_trail.size()+1&&k.trail.back()==implied&&
+        k.value(implied)>0);
  kernel_backtrack(k,0);assert(!k.value(kernel_internalize(k,1))&&!k.value(kernel_internalize(k,4)));
  assert(DefaultAffineSearchTestAccess::step(policy,k).status==AffineMatrixServiceStatus::NoEvent);
  // Verify a complete model of the original gated input, including signed root.
