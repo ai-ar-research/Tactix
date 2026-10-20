@@ -2,7 +2,7 @@
 
 Date updated: 2026-10-20 18:01 UTC
 Branch: `codex/cg-closures`  
-Reported development head: `9f0852545`
+Disposition parent head: `8f49b4f1c`
 Current solver change: `9f0852545` (`compact tracked PBP deletions`)
 
 ## Outcome
@@ -12,6 +12,11 @@ The bounded 256 MB persistent GF(2) service remains enabled in ordinary
 Whole-run PBP is still the default proof route. This is a pushed named-branch
 development checkpoint, not a promotion to `main`, version bump, tag, or
 release candidate.
+
+The gate-by-gate decision and frozen campaign hashes are recorded in
+[`RELEASE_DISPOSITION.md`](RELEASE_DISPOSITION.md). Its overall disposition is
+**FAIL**; it reads the completed regression records without resubmitting any
+benchmark task.
 
 Head `9f0852545` passed fresh complete Debug and Release builds, immediate
 up-to-date rebuild checks, and all 372 CTests in each configuration. Debug,
