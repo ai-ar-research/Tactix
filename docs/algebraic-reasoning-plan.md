@@ -238,6 +238,12 @@ It preserved proof, trajectory, work counters, RSS, and cleanup, but candidate
 mean wall time was 17.800 seconds versus 17.795 seconds for the predecessor.
 The overlay was reverted under the predeclared 3% gate; do not infer that
 production premise ordering is the measured authentication bottleneck.
+Job `1795265` next used the matrix's own immutable authenticated source image
+only for same-stack compact-PBP planning, leaving the two-phase caller snapshot
+checks intact and adding no retained memory. It preserved the exact proof,
+trajectory, deterministic work, RSS, and cleanup. Mean affine overhead improved
+3.065%, but mean wall time improved only 2.843% (17.940 to 17.430 seconds), so
+the complete overlay was reverted under the predeclared 3% wall-time gate.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

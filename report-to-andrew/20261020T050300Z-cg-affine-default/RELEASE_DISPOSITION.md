@@ -219,6 +219,13 @@ cleanup, but its 17.800-second candidate mean did not improve on the
 17.795-second predecessor mean. It failed the predeclared 3% criterion and was
 reverted.
 
+Job `1795265` used the matrix-owned immutable source image only on same-stack
+compact-PBP planning and retained complete caller-snapshot checks on the
+two-phase path. It matched the exact proof, trajectory, deterministic work,
+45,836 KiB peak RSS, and cleanup. Mean affine overhead improved 3.065%, but
+mean wall time improved only 2.843%, from 17.940 to 17.430 seconds. It failed
+the predeclared 3% wall criterion and was reverted.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -234,7 +241,7 @@ reverted.
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 17.790 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795261` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795265` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

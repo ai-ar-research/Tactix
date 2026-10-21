@@ -165,6 +165,11 @@ reverted, so 17.790 seconds remains the representative result.
 Job `1795261` subsequently tested canonical-order premise-authentication fast
 paths with exact fallback. Its 17.800-second candidate mean did not improve on
 the 17.795-second predecessor mean, so it too was reverted.
+Job `1795265` then tested same-stack compact-PBP planning from the matrix-owned
+authenticated source image. It preserved exact proof, trajectory, work
+counters, 45,836 KiB peak RSS, and cleanup, but its 17.430-second mean improved
+on 17.940 seconds by only 2.843%. It missed the predeclared 3% wall gate and was
+reverted; 17.790 seconds remains the representative accepted result.
 
 ## Pattern
 
