@@ -884,6 +884,43 @@ static void gauss_jordan_completeness_oracle() {
   }
 }
 
+static void packed_provenance_crosses_words() {
+  std::vector<Equation> input;
+  input.reserve(130);
+  for (size_t source = 0; source < 130; ++source) {
+    Equation equation;
+    equation.variables = {1, 2};
+    equation.rhs = source != 0;
+    input.push_back(std::move(equation));
+  }
+  auto roomy = limits();
+  roomy.maximum_rows = 256;
+  roomy.maximum_variables = 256;
+  roomy.maximum_row_width = 256;
+  roomy.maximum_sources = 256;
+  roomy.maximum_assignments = 256;
+  roomy.maximum_work = 10000000;
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 5150, roomy,
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  std::vector<bool> seen(130, false);
+  for (const MatrixRow &row : matrix.rows()) {
+    if (!row.variables.empty()) {
+      assert((row.variables == std::vector<External>{1, 2}) && !row.rhs &&
+             row.source_equations == std::vector<size_t>{0});
+      continue;
+    }
+    assert(row.rhs && row.source_equations.size() == 2 &&
+           row.source_equations.front() == 0 &&
+           row.source_equations.back() < seen.size());
+    seen[row.source_equations.back()] = true;
+  }
+  assert(!seen[0]);
+  for (size_t source = 1; source < seen.size(); ++source)
+    assert(seen[source]);
+}
+
 int main() {
   sliced_reduction_controls();
   derived_implication_conflict_and_backtrack();
@@ -899,6 +936,7 @@ int main() {
   bounded_predecessor_restore();
   nonmatching_predecessor_failure_is_atomic();
   gauss_jordan_completeness_oracle();
+  packed_provenance_crosses_words();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "
             "backtrack, and transactional bounds PASS");
 }

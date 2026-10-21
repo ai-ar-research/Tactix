@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <climits>
 #include <bit>
+#include <cstdlib>
 #include <limits>
 #include <map>
 #include <set>
@@ -63,6 +64,44 @@ struct CombineScratch {
   std::vector<External> variables;
   std::vector<size_t> sources;
 };
+
+struct ReductionRow {
+  std::vector<External> variables;
+  std::vector<uint64_t> source_words;
+  size_t source_count = 0;
+  bool rhs = false;
+};
+
+struct ReductionScratch {
+  std::vector<External> variables;
+  std::vector<uint64_t> source_words;
+};
+
+CombineStatus combine_reduction(ReductionRow &row,
+                                const ReductionRow &other,
+                                const MatrixLimits &limits, Work &work,
+                                ReductionScratch &scratch) {
+  if (!work.consume(1 + row.variables.size() + other.variables.size() +
+                    row.source_count + other.source_count))
+    return work.interrupted ? CombineStatus::Interrupted
+                            : CombineStatus::Exhausted;
+  xor_sorted(row.variables, other.variables, scratch.variables);
+  scratch.source_words.resize(row.source_words.size());
+  size_t source_count = 0;
+  for (size_t i = 0; i < row.source_words.size(); ++i) {
+    scratch.source_words[i] =
+        row.source_words[i] ^ other.source_words[i];
+    source_count += std::popcount(scratch.source_words[i]);
+  }
+  if (scratch.variables.size() > limits.maximum_row_width ||
+      source_count > limits.maximum_sources)
+    return CombineStatus::BoundedOut;
+  row.variables.swap(scratch.variables);
+  row.source_words.swap(scratch.source_words);
+  row.source_count = source_count;
+  row.rhs ^= other.rhs;
+  return CombineStatus::Complete;
+}
 
 CombineStatus combine(MatrixRow &row, const MatrixRow &other,
                       const MatrixLimits &limits, Work &work,
@@ -150,18 +189,49 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       return MatrixStatus::Invalid;
   }
 
-  std::map<External, MatrixRow> basis;
-  std::vector<MatrixRow> contradictions;
+  size_t source_population = 0;
+  for (const MatrixRow &row : input) {
+    if (row.source_equations.size() > SIZE_MAX - source_population)
+      return MatrixStatus::Exhausted;
+    source_population += row.source_equations.size();
+  }
+  std::vector<size_t> source_coordinates;
+  source_coordinates.reserve(source_population);
+  for (const MatrixRow &row : input)
+    source_coordinates.insert(source_coordinates.end(),
+                              row.source_equations.begin(),
+                              row.source_equations.end());
+  std::sort(source_coordinates.begin(), source_coordinates.end());
+  source_coordinates.erase(
+      std::unique(source_coordinates.begin(), source_coordinates.end()),
+      source_coordinates.end());
+  const size_t source_words = source_coordinates.size() / 64 +
+                              !!(source_coordinates.size() % 64);
+
+  std::map<External, ReductionRow> basis;
+  std::vector<ReductionRow> contradictions;
   std::set<External> admitted_variables;
-  CombineScratch combine_scratch;
+  ReductionScratch combine_scratch;
   bool partial = false;
   for (const MatrixRow &seed : input) {
     if (precharge && !work.consume(1 + seed.variables.size() *
         (2 * std::bit_width(uint64_t(trail.size())) + 2) + seed.source_equations.size()))
       return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-    MatrixRow row;
+    ReductionRow row;
     row.rhs = seed.rhs;
-    row.source_equations = seed.source_equations;
+    row.source_words.assign(source_words, 0);
+    for (const size_t source : seed.source_equations) {
+      const auto found = std::lower_bound(source_coordinates.begin(),
+                                          source_coordinates.end(), source);
+      if (found == source_coordinates.end() || *found != source)
+        return MatrixStatus::Invalid;
+      const size_t coordinate = found - source_coordinates.begin();
+      const uint64_t bit = uint64_t{1} << (coordinate % 64);
+      uint64_t &word = row.source_words[coordinate / 64];
+      if (word & bit) return MatrixStatus::Invalid;
+      word |= bit;
+      ++row.source_count;
+    }
     for (External variable : seed.variables) {
       const auto found = assignments.find(variable);
       if (found == assignments.end())
@@ -174,7 +244,8 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       partial = true;
       break;
     }
-    if (!bounded(row, limits)) {
+    if (row.variables.size() > limits.maximum_row_width ||
+        row.source_count > limits.maximum_sources) {
       partial = true;
       continue;
     }
@@ -183,7 +254,8 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       const auto found = basis.find(row.variables.front());
       if (found == basis.end()) break;
       const CombineStatus combined =
-          combine(row, found->second, limits, work, combine_scratch);
+          combine_reduction(row, found->second, limits, work,
+                            combine_scratch);
       if (combined == CombineStatus::Interrupted)
         return MatrixStatus::Interrupted;
       if (combined == CombineStatus::Exhausted) {
@@ -193,11 +265,11 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       if (combined == CombineStatus::BoundedOut) {
         partial = true;
         row.variables.clear();
-        row.source_equations.clear();
+        row.source_count = 0;
         break;
       }
     }
-    if (row.source_equations.empty()) continue;
+    if (!row.source_count) continue;
     if (row.variables.empty()) {
       if (row.rhs) {
         if (contradictions.size() + basis.size() == limits.maximum_rows) {
@@ -242,8 +314,8 @@ finished:
         const auto pivot = basis.find(row->second.variables[at]);
         if (pivot == basis.end()) { ++at; continue; }
         const CombineStatus combined =
-            combine(row->second, pivot->second, limits, work,
-                    combine_scratch);
+            combine_reduction(row->second, pivot->second, limits, work,
+                              combine_scratch);
         if (combined == CombineStatus::Interrupted)
           return MatrixStatus::Interrupted;
         if (combined == CombineStatus::Exhausted) {
@@ -265,10 +337,28 @@ reduced:
   if (coefficient_rank) *coefficient_rank = basis.size();
   output.clear();
   output.reserve(contradictions.size() + basis.size());
-  for (MatrixRow &row : contradictions) output.push_back(std::move(row));
+  const auto append = [&](ReductionRow &packed) {
+    MatrixRow row;
+    row.variables = std::move(packed.variables);
+    row.rhs = packed.rhs;
+    row.source_equations.reserve(packed.source_count);
+    for (size_t word = 0; word < packed.source_words.size(); ++word) {
+      uint64_t bits = packed.source_words[word];
+      while (bits) {
+        const unsigned bit = std::countr_zero(bits);
+        const size_t coordinate = word * 64 + bit;
+        if (coordinate >= source_coordinates.size()) std::abort();
+        row.source_equations.push_back(source_coordinates[coordinate]);
+        bits &= bits - 1;
+      }
+    }
+    if (row.source_equations.size() != packed.source_count) std::abort();
+    output.push_back(std::move(row));
+  };
+  for (ReductionRow &row : contradictions) append(row);
   for (auto &[pivot, row] : basis) {
     (void)pivot;
-    output.push_back(std::move(row));
+    append(row);
   }
   return partial ? MatrixStatus::Partial : MatrixStatus::Complete;
 }
