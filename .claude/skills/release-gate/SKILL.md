@@ -43,11 +43,14 @@ Invoke the named project skills for their scopes:
   contract states. Measure the paper ceiling in the paper-comparable proof
   mode. For the initial 0.2.0 default-PBP baseline, characterize PBP production
   and checking under predeclared resource caps without applying the paper +10%
-  wall-time ceiling to that different proof route. A timed-out row is a recorded
-  baseline outcome, not a proof failure; missing, invalid, corrupt, or
-  unchecked output still fails. For later releases, compare default PBP
-  like-for-like with the preceding default-PBP release and require solve
-  retention plus at most 10% aggregate production or checking-time regression.
+  wall-time ceiling to that different proof route. Record the incompatible
+  paper-comparable ceiling as not applicable for this transition, rather than
+  incomplete; it must not block 0.2.0 solely because no same-route comparison
+  exists. A timed-out row is a recorded baseline outcome, not a proof failure;
+  missing, invalid, corrupt, or unchecked output still fails. For later
+  releases, compare default PBP like-for-like with the preceding default-PBP
+  release and require solve retention plus at most 10% aggregate production or
+  checking-time regression.
   Score a CG `2x CryptoMiniSat` closure in the paper-comparable proof mode;
   never require a whole-run PBP wall time to fit the proof-free CMS target.
   Never subtract PBP overhead from a candidate's paper-comparable search

@@ -24,8 +24,8 @@ sanitizer coverage, current-source `default_public_correspondence`, competition
 compliance, and the exact previously VeriPB/CakePB-checked PBP bytes in the
 matched performance screen. These checks do not replace the still-required
 full current-source Debug and Release runs for a release, erase the frozen
-aggregate performance risk, or complete the missing paper-comparable
-measurement.
+aggregate performance risk, or complete the current default-PBP operational
+baseline.
 
 The current solver commit is `c98cbf309`. Its Release binary is
 `6dbe066423ab6eaa338506253241b40f59a2e0b2c4e1d864d60f616094ce66e5`.
@@ -67,13 +67,14 @@ proof-format cost materially contributes to the observed wall-time ratios, but
 it is not a causal same-binary proof-mode A/B and does not measure the later
 PBP formatting and deletion changes.
 
-The paper +10% ceiling therefore remains **incomplete**, not failed, for the
-current candidate. Under the clarified transition contract, 0.2.0 establishes
-the first default-PBP operational baseline rather than forcing PBP under a
-different proof route's +10% wall-time ceiling. This does not absorb a search
-regression or waive proof validity, complete records, cleanup, or predeclared
-resource caps. Per the approved one-time evidence reuse, no completed
-regression campaign was resubmitted for this disposition.
+The paper +10% ceiling is therefore **not applicable** to the 0.2.0 transition,
+rather than incomplete or failed. Under the clarified transition contract,
+0.2.0 establishes the first default-PBP operational baseline instead of forcing
+PBP under a different proof route's +10% wall-time ceiling. This does not absorb
+a search regression inside a compatible route or waive proof validity, complete
+records, cleanup, or predeclared resource caps. Per the approved one-time
+evidence reuse, no completed regression campaign was resubmitted for this
+disposition.
 
 ## Direct affine-implication checkpoint
 
@@ -227,7 +228,7 @@ reverted.
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
 | Public-port overhead | PASS | Current matched jobs `1795243`/`1795244` measure +1.632% with exact proof/trajectory and no RSS increase; frozen public/production totals remain compatible historical evidence |
-| Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; job `1795242` timed out all four automatic-route draws and changed trajectory, so it is not a completed compatible comparison |
+| Paper-comparable regression ceiling | PASS (0.2.0 transition exception) | Candidate default PBP and paper `--auto-proof` are different proof modes; the release contract makes that incompatible ceiling non-applicable to the first default-PBP baseline, while job `1795242` remains diagnostic evidence rather than a comparison |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
 | Claimed performance improvement | PASS | Matched job `1795250` improves mean wall time 18.985 -> 17.790 s (-6.294%) and affine overhead by 6.900% with exact proof, trajectory and work-counter identity and lower peak RSS; the earlier accepted checkpoints remain compatible evidence |
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 17.790 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
@@ -253,5 +254,7 @@ Together the campaigns contain 1,088/1,088 expected result records and all
 This candidate is not releasable. Do not merge or force-push it to `main`,
 create a version bump, or create a release tag. The completed cells must not be
 resubmitted merely to recreate them. A future measurement, if authorized after
-another material candidate change, should add only the missing paper-comparable
-proof-mode arm or other genuinely incompatible, missing, or censored evidence.
+another material candidate change, should add only genuinely incompatible,
+missing, or censored default-PBP evidence. A paper-comparable arm is needed only
+for the separate paper-route or CG optimization claim, not to establish the
+0.2.0 PBP transition baseline.

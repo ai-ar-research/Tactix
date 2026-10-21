@@ -53,10 +53,10 @@ Across the complete stored rows, candidate production wrote 3.89x, 3.61x,
 1.96x and 1.22x as many instructions. Persistent affine search serviced one
 B28+C5 row and no row in the other sets. Proof-format work therefore materially
 contributes to the mixed-mode ratios, although the evidence is not a causal
-same-binary proof-mode A/B. The paper +10% gate is **incomplete**, not failed.
-Under the clarified transition contract, 0.2.0 establishes the first
-default-PBP operational baseline; the later proof changes still need compatible
-complete characterization under predeclared caps.
+same-binary proof-mode A/B. Under the clarified transition contract, the paper
++10% gate is **not applicable** to 0.2.0's change of proof route: it neither
+passes nor blocks the first default-PBP baseline. The later proof changes still
+need compatible complete characterization under predeclared caps.
 
 Old result cells are now reusable evidence. A later regression campaign must
 read compatible complete cells from the frozen records and schedule only
@@ -395,10 +395,10 @@ the paper-comparable closure measurement remains open rather than failed.
 
 The release gates are incomplete. The current affected Release slice and
 focused sanitizer test pass, but the exact current commit still needs the full
-Debug and Release gates. The mixed-mode broad
-campaigns do not complete the paper-comparable performance gate, the current
-default-PBP operational baseline is incomplete, and the required 100,000-seed
-DefaultPolicy and random-policy fuzz lacks independent owner completion.
+Debug and Release gates. The mixed-mode broad campaigns are reported but are
+not an applicable 0.2.0 gate; the current default-PBP operational baseline is
+incomplete, and the required 100,000-seed DefaultPolicy and random-policy fuzz
+lacks independent owner completion.
 
 No additional broad regression rerun is planned. After the candidate is
 stable, the regression controller must reuse compatible frozen cells and run

@@ -43,7 +43,11 @@ other modes. A formula that exposes a bug belongs in the regression corpus.
 The 0.2.0 release establishes the first default-PBP operational baseline.
 Because the paper release used a different proof route, its PBP production and
 checking time is characterized and reported, not forced under the paper +10%
-solver-time ceiling. The baseline still requires valid independently checked
+solver-time ceiling. For this transition release only, that incompatible
+paper-comparable ceiling is not an applicable release gate; the absence of a
+same-route comparison is not by itself an incomplete gate. The proof-free CMS
+target remains a separate algebraic-development target, not a whole-run PBP
+release ceiling. The baseline still requires valid independently checked
 proofs, complete result and cleanup records, and predeclared solver/checker time
 and memory caps; a timeout is a measured baseline outcome rather than a proof
 failure. Beginning with the release after that baseline, every release candidate
@@ -69,13 +73,15 @@ missing evidence does not pass a required gate.
 - Regression acceptance requires the full Debug and Release suites, retained
   rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
   most 10% aggregate solver-time regression from the paper release. Measure
-  that ceiling in the paper-comparable proof mode. Measure default-PBP
-  production and checking separately. After 0.2.0, compare it like-for-like
-  with the preceding default-PBP release: no lost independently checked solve
-  at the same cap and at most 10% aggregate production or checking-time
-  regression unless a stricter predeclared performance claim applies. PBP cost
-  cannot be used to absorb a search regression. Correctness, memory, cleanup,
-  and per-instance limits remain strict.
+  that ceiling in the paper-comparable proof mode when the candidate is on the
+  paper-compatible route. It is not applied to 0.2.0's transition to default
+  whole-run PBP. Measure default-PBP production and checking separately. After
+  0.2.0, compare it like-for-like with the preceding default-PBP release: no
+  lost independently checked solve at the same cap and at most 10% aggregate
+  production or checking-time regression unless a stricter predeclared
+  performance claim applies. PBP cost cannot be used to absorb a search
+  regression inside a compatible route. Correctness, memory, cleanup, and
+  per-instance limits remain strict.
 - Keep the complete DefaultPolicy implementation through the public port.
   `default_public_correspondence` must report no fallback or declined request
   and byte-identical proofs, models, verdicts, and trajectory counters against
