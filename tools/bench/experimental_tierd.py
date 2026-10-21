@@ -640,7 +640,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission, contention, ENOSPC, or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
                 if capacity_profile else
-                'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no home-quota certificate storage or failure retention.'),
+                'If the entire job dies, its result may be missing; never interpret missing as timeout or checked. Local disk may fill during a live run; no ordinary home-quota certificate storage.'),
         pin_sha256={str(p.relative_to(c)):sha(p) for p in [*(c/'pins').iterdir(),c/'matrix.tsv',c/'array.sbatch',c/'validate.sbatch']})
     if checker_provenance is not None:
         m['dsr_checker_provenance']=checker_provenance
