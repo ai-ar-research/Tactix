@@ -162,6 +162,9 @@ variants in jobs `1795256`, `1795258`, and `1795259` preserved the exact proof,
 trajectory, and work counters and improved wall time by 4.51--4.76%, but each
 raised peak RSS. All three were rejected under the unchanged memory gate and
 reverted, so 17.790 seconds remains the representative result.
+Job `1795261` subsequently tested canonical-order premise-authentication fast
+paths with exact fallback. Its 17.800-second candidate mean did not improve on
+the 17.795-second predecessor mean, so it too was reverted.
 
 ## Pattern
 

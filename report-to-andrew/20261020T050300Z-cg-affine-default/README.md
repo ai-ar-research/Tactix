@@ -365,6 +365,12 @@ alone. Jobs `1795256`, `1795258`, and `1795259` improved wall time by 4.506%,
 1,536, and 13,036 KiB. Every candidate failed the same no-RSS-increase gate;
 the entire overlay was reverted.
 
+Job `1795261` tested canonical-order fast paths inside the 6.01% premise-
+authentication profile while preserving exact fallbacks. Candidate mean wall
+time was 17.800 seconds versus 17.795 seconds, with exact proof, trajectory,
+work counters, unchanged RSS, and complete cleanup. It missed the predeclared
+3% threshold and was reverted.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -372,7 +378,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795259`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795261`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no

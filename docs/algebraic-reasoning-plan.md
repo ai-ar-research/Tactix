@@ -232,6 +232,12 @@ the complete overlay was reverted. Do not revisit retained-coordinate reuse
 without a demonstrated memory model; the next candidate should address the
 larger authentication/validation path without restoring the already rejected
 leased-premise identity shortcut.
+Job `1795261` then tested allocation-free canonical-order fast paths inside
+premise authentication while retaining the exact arbitrary-order fallback.
+It preserved proof, trajectory, work counters, RSS, and cleanup, but candidate
+mean wall time was 17.800 seconds versus 17.795 seconds for the predecessor.
+The overlay was reverted under the predeclared 3% gate; do not infer that
+production premise ordering is the measured authentication bottleneck.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

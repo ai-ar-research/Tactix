@@ -212,6 +212,12 @@ and cleanup. Peak RSS nevertheless increased by 8,868, 1,536, and 13,036 KiB,
 respectively. All three failed the unchanged memory gate and were reverted;
 they do not replace the 17.790-second accepted checkpoint.
 
+Job `1795261` tested exact-fallback canonical-order shortcuts in premise
+authentication. It preserved proof, trajectory, work counters, RSS, and
+cleanup, but its 17.800-second candidate mean did not improve on the
+17.795-second predecessor mean. It failed the predeclared 3% criterion and was
+reverted.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -227,7 +233,7 @@ they do not replace the 17.790-second accepted checkpoint.
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 17.790 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795259` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795261` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 
