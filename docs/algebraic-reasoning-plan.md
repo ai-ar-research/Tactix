@@ -218,6 +218,20 @@ reducing mean wall time from 18.985 to 17.790 seconds (6.294%), affine time by
 five-test ASan/UBSan slice pass. Expanded CNFs, proofs, and raw streams were
 deleted. This becomes the representative accepted PBP checkpoint; the
 paper-comparable 7.550-second target remains a separate open measurement.
+Profile job `1795254` then attributed 47.98% of cycles to matrix
+synchronization and 37.61% to immediate publication preparation. The largest
+publication subpaths were transaction preparation at 17.43% (including 7.52%
+matrix authentication and 6.01% premise authentication) and selected-source
+validation at 11.75%; full matrix reduction was 17.76%, including 2.54% in
+rebuilding and sorting source coordinates. Jobs `1795256`, `1795258`, and
+`1795259` tested three bounded ways to reuse or rebuild those coordinates
+without sorting. They improved paired mean wall time by 4.506%, 4.696%, and
+4.758%, respectively, and preserved exact proof, trajectory, work counters,
+and cleanup, but every binary increased peak RSS. All three were rejected and
+the complete overlay was reverted. Do not revisit retained-coordinate reuse
+without a demonstrated memory model; the next candidate should address the
+larger authentication/validation path without restoring the already rejected
+leased-premise identity shortcut.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

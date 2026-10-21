@@ -355,6 +355,16 @@ seconds (6.294%), affine time by 6.900%, and peak RSS from 47,372 to 45,836
 KiB. The affected Release tests and five focused ASan/UBSan tests pass. This is
 the new representative accepted whole-run-PBP checkpoint.
 
+Profile job `1795254` reproduced that proof and trajectory and attributed
+47.98% of cycles to matrix synchronization and 37.61% to immediate publication
+preparation. Transaction preparation used 17.43%, selected-source validation
+11.75%, dirty synchronization 26.38%, and full reduction 17.76%. Three
+coordinate-sort follow-ups were then tested rather than accepted on timing
+alone. Jobs `1795256`, `1795258`, and `1795259` improved wall time by 4.506%,
+4.696%, and 4.758% with exact proof/trajectory, but raised peak RSS by 8,868,
+1,536, and 13,036 KiB. Every candidate failed the same no-RSS-increase gate;
+the entire overlay was reverted.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -362,7 +372,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795250`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795259`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no

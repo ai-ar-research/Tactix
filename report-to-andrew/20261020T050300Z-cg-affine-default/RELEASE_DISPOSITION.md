@@ -204,6 +204,14 @@ reduced paired mean wall time from 18.985 to 17.790 seconds (6.294%), affine
 time by 6.900%, and peak RSS from 47,372 to 45,836 KiB. The affected Release
 slice and five focused ASan/UBSan tests pass.
 
+Profile job `1795254` identified source-coordinate sorting inside full
+reduction as a smaller removable cost. Jobs `1795256`, `1795258`, and `1795259`
+tested retained, exact-union, and inline-bitmap forms. Their paired wall gains
+were 4.506%, 4.696%, and 4.758%, with exact proof, trajectory, work counters,
+and cleanup. Peak RSS nevertheless increased by 8,868, 1,536, and 13,036 KiB,
+respectively. All three failed the unchanged memory gate and were reverted;
+they do not replace the 17.790-second accepted checkpoint.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -219,7 +227,7 @@ slice and five focused ASan/UBSan tests pass.
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 17.790 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795250` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795259` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

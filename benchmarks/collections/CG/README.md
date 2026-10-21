@@ -156,6 +156,12 @@ time from 18.985 to 17.790 seconds (6.294%), and lowered peak RSS to 45,836
 KiB. Thus 17.790 seconds is the representative checked PBP result. It is judged
 against the like-for-like PBP baseline, not against the proof-free 7.550-second
 CMS-derived target.
+Profile job `1795254` put 47.98% of cycles in matrix synchronization and 37.61%
+in immediate publication preparation. Three subsequent source-coordinate
+variants in jobs `1795256`, `1795258`, and `1795259` preserved the exact proof,
+trajectory, and work counters and improved wall time by 4.51--4.76%, but each
+raised peak RSS. All three were rejected under the unchanged memory gate and
+reverted, so 17.790 seconds remains the representative result.
 
 ## Pattern
 
