@@ -4,6 +4,8 @@
 #include "rules/lucky/parity_certificate.hpp"
 
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <climits>
 #include <cstdlib>
 #include <iterator>
@@ -313,16 +315,10 @@ MatrixTransactionStatus failure(const Work &work, const PlanningSink &sink) {
   return MatrixTransactionStatus::UnsupportedProof;
 }
 
-std::vector<std::vector<External>> canonical_clauses(
-    std::vector<std::vector<External>> clauses) {
-  for (std::vector<External> &clause : clauses)
-    std::sort(clause.begin(), clause.end());
-  std::sort(clauses.begin(), clauses.end());
-  return clauses;
-}
-
 bool authenticate_premises(const Equation &equation,
-                           std::set<uint64_t> &occurrences, Work &work) {
+                           std::vector<uint64_t> &occurrences, Work &work) {
+  if (equation.variables.empty() || equation.variables.size() > 8)
+    return false;
   const uint64_t expected_clauses =
       uint64_t{1} << (equation.variables.size() - 1);
   if (!work.consume(3) || !work.consume(equation.premises.size()) ||
@@ -332,16 +328,49 @@ bool authenticate_premises(const Equation &equation,
     return false;
   for (const std::vector<External> &clause : equation.premise_clauses)
     if (!work.consume(1) || !work.consume(clause.size())) return false;
-  const auto expected = clausal_form(equation.variables, equation.rhs);
-  if (equation.premises.size() != expected.size() ||
-      equation.premise_clauses.size() != expected.size() ||
-      canonical_clauses(equation.premise_clauses) !=
-          canonical_clauses(expected))
+  if (equation.premises.size() != expected_clauses ||
+      equation.premise_clauses.size() != expected_clauses)
     return false;
-  for (uint64_t occurrence : equation.premises)
-    if (!work.consume(1) || !occurrence ||
-        !occurrences.insert(occurrence).second)
+
+  // An arity-n XOR has exactly the 2^(n-1) full-width clauses whose
+  // falsifying sign masks have parity different from the equation RHS.
+  // Check that bounded truth table directly.  This accepts the same arbitrary
+  // clause/literal order as the former canonical-copy comparison, without
+  // rebuilding and sorting two nested vector populations for every reason.
+  std::array<uint64_t, 4> seen{};
+  for (const std::vector<External> &clause : equation.premise_clauses) {
+    if (clause.size() != equation.variables.size()) return false;
+    uint32_t coordinates = 0;
+    uint32_t negative = 0;
+    for (const External literal : clause) {
+      if (!literal || literal == INT32_MIN) return false;
+      const External variable = literal < 0 ? -literal : literal;
+      const auto found = std::lower_bound(equation.variables.begin(),
+                                          equation.variables.end(), variable);
+      if (found == equation.variables.end() || *found != variable)
+        return false;
+      const uint32_t bit = uint32_t{1}
+                           << static_cast<uint32_t>(found -
+                                                    equation.variables.begin());
+      if (coordinates & bit) return false;
+      coordinates |= bit;
+      if (literal < 0) negative |= bit;
+    }
+    if ((std::popcount(negative) & 1u) == unsigned(equation.rhs))
       return false;
+    uint64_t &word = seen[negative / 64];
+    const uint64_t bit = uint64_t{1} << (negative % 64);
+    if (word & bit) return false;
+    word |= bit;
+  }
+  for (uint64_t occurrence : equation.premises) {
+    if (!work.consume(1) || !occurrence)
+      return false;
+    const auto at = std::lower_bound(occurrences.begin(), occurrences.end(),
+                                     occurrence);
+    if (at != occurrences.end() && *at == occurrence) return false;
+    occurrences.insert(at, occurrence);
+  }
   return true;
 }
 
@@ -443,9 +472,17 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
 
   std::vector<External> variables;
   std::vector<parity_certificate::Equation> equations;
-  std::set<uint64_t> occurrences;
-  for (size_t source : event.row.source_equations) {
+  std::vector<uint64_t> occurrences;
+  size_t occurrence_capacity = 0;
+  for (const size_t source : event.row.source_equations) {
     if (source >= exact_sources.size()) return MatrixTransactionStatus::Stale;
+    const size_t count = exact_sources[source].premises.size();
+    if (count > SIZE_MAX - occurrence_capacity)
+      return MatrixTransactionStatus::ResourceExhausted;
+    occurrence_capacity += count;
+  }
+  occurrences.reserve(occurrence_capacity);
+  for (size_t source : event.row.source_equations) {
     const Equation &input = exact_sources[source];
     if (input.variables.empty() ||
         input.variables.size() > parity_certificate::Equation{}.variables.size())
@@ -668,7 +705,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   if (resume) {
     AffineMatrixTransaction attempt = candidate;
     attempt.cache_entry_.parent_entry_id = resume->entry_id;
-    std::set<uint64_t> removed_occurrences;
+    std::vector<uint64_t> removed_occurrences;
     bool usable = true;
     for (size_t ordinal : resume_removed) {
       const Equation &input = exact_sources[ordinal];

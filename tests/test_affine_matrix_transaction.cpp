@@ -454,6 +454,40 @@ static void incomplete_or_forged_premises_are_unsupported() {
   auto duplicate = sources();
   duplicate[1].premises[0] = duplicate[0].premises[0];
   reject(std::move(duplicate));
+  auto duplicate_clause = sources();
+  duplicate_clause[0].premise_clauses[1] =
+      duplicate_clause[0].premise_clauses[0];
+  reject(std::move(duplicate_clause));
+  auto duplicate_coordinate = sources();
+  duplicate_coordinate[0].premise_clauses[0][1] =
+      duplicate_coordinate[0].premise_clauses[0][0];
+  reject(std::move(duplicate_coordinate));
+
+  // Authentication is set-based: arbitrary clause and literal order remains
+  // accepted exactly as it was by the canonical-copy implementation.
+  auto reordered = sources();
+  for (auto &source : reordered) {
+    std::reverse(source.premises.begin(), source.premises.end());
+    std::reverse(source.premise_clauses.begin(),
+                 source.premise_clauses.end());
+    for (auto &clause : source.premise_clauses)
+      std::reverse(clause.begin(), clause.end());
+  }
+  AffineMatrix matrix;
+  assert(build_affine_matrix(reordered, 818, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  std::vector<MatrixAssignment> trail;
+  for (External variable = 1; variable <= 8; ++variable)
+    trail.push_back({variable, false});
+  MatrixEvent event;
+  assert(matrix.synchronize(trail, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  AffineMatrixTransaction output;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 818, reordered, event, 10, 1000, transaction_limits(),
+             [](uint64_t) { return true; }, output) ==
+         MatrixTransactionStatus::Prepared);
 }
 
 static int write_proof(const char *cnf_path, const char *proof_path,
