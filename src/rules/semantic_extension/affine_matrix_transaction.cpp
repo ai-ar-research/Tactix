@@ -57,6 +57,37 @@ struct Work {
   }
 };
 
+bool account_source_identity(const Equation &identity, Work &work) {
+  if (!work.consume(3) || !work.consume(identity.variables.size()) ||
+      !work.consume(identity.premises.size()) ||
+      !work.consume(identity.premise_clauses.size()))
+    return false;
+  for (const std::vector<External> &clause : identity.premise_clauses)
+    if (!work.consume(1) || !work.consume(clause.size())) return false;
+  return true;
+}
+
+[[gnu::noinline]] bool retain_source_identities(
+    const std::vector<Equation> &exact_sources,
+    const std::vector<size_t> &ordinals, Work &work,
+    std::vector<Equation> &output) {
+  output.reserve(ordinals.size());
+  for (const size_t source : ordinals) {
+    const Equation &identity = exact_sources[source];
+    if (!account_source_identity(identity, work)) return false;
+    output.push_back(identity);
+  }
+  return true;
+}
+
+[[gnu::noinline]] bool charge_source_identities(
+    const std::vector<Equation> &exact_sources,
+    const std::vector<size_t> &ordinals, Work &work) {
+  for (const size_t source : ordinals)
+    if (!account_source_identity(exact_sources[source], work)) return false;
+  return true;
+}
+
 struct PlanningSink {
   std::vector<MatrixProofEvent> &events;
   uint64_t &next_id;
@@ -446,7 +477,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const std::function<bool(uint64_t)> &charge,
     AffineMatrixTransaction &output,
     const AffineMatrixProofCache *proof_cache, uint64_t proof_epoch,
-    const PbpParityReasonPlan *pbp_plan) {
+    const PbpParityReasonPlan *pbp_plan, bool retain_source_identity) {
   if (!expected_owner_identity || !charge || !limits.maximum_work ||
       !limits.maximum_proof_additions || !limits.maximum_proof_deletions ||
       !limits.maximum_helper_extent ||
@@ -563,20 +594,14 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
                          candidate.source_equations_.end()) !=
           candidate.source_equations_.end())
     return MatrixTransactionStatus::Stale;
-  candidate.source_identity_.reserve(event.row.source_equations.size());
-  for (size_t source : event.row.source_equations) {
-    const Equation &identity = exact_sources[source];
-    if (!work.consume(3) || !work.consume(identity.variables.size()) ||
-        !work.consume(identity.premises.size()) ||
-        !work.consume(identity.premise_clauses.size()))
-      return work.interrupted ? MatrixTransactionStatus::Interrupted
-                              : MatrixTransactionStatus::ResourceExhausted;
-    for (const std::vector<External> &clause : identity.premise_clauses)
-      if (!work.consume(1) || !work.consume(clause.size()))
-        return work.interrupted ? MatrixTransactionStatus::Interrupted
-                                : MatrixTransactionStatus::ResourceExhausted;
-    candidate.source_identity_.push_back(exact_sources[source]);
-  }
+  const bool identities_ready = retain_source_identity
+      ? retain_source_identities(exact_sources, candidate.source_equations_,
+                                 work, candidate.source_identity_)
+      : charge_source_identities(exact_sources, candidate.source_equations_,
+                                 work);
+  if (!identities_ready)
+    return work.interrupted ? MatrixTransactionStatus::Interrupted
+                            : MatrixTransactionStatus::ResourceExhausted;
   const uint64_t arena_words = event.reason.size() > 2
                                    ? event.reason.size() + CLAUSE_HEADER_WORDS
                                    : 0;
@@ -603,6 +628,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     output = std::move(candidate);
     return MatrixTransactionStatus::Prepared;
   }
+  if (!retain_source_identity)
+    return MatrixTransactionStatus::Invalid;
   if (proof_cache) {
     candidate.cache_generation_ = proof_cache->generation();
     candidate.cache_entry_.proof_epoch = proof_epoch;

@@ -134,14 +134,17 @@ bool validate_selected_sources(
     const std::vector<uint64_t> *leases, std::vector<uint64_t> &occurrences, std::vector<uint64_t> &clause_ids) {
   occurrences.clear();
   clause_ids.clear();
-  if (source_equations.size() != source_identity.size())
+  const bool identity_retained =
+      source_equations.size() == source_identity.size();
+  if (!identity_retained && !source_identity.empty())
     return false;
   std::set<uint64_t> unique;
   for (size_t at = 0; at < source_equations.size(); ++at) {
     if (!work.charge(1)) return false;
     const size_t ordinal = source_equations[at];
     if (ordinal >= current_sources.size()) return false;
-    const Equation &identity = source_identity[at];
+    const Equation &identity = identity_retained ? source_identity[at]
+                                                  : current_sources[ordinal];
     if (leases) {
       if (!work.charge(1 + identity.premise_clauses.size())) return false;
       for (const auto &clause : identity.premise_clauses)
@@ -232,6 +235,10 @@ bool make_journal(const MatrixLiveRequest &request,
                   uint32_t level, uint32_t starting_extent,
                   std::string &journal,
                   uint64_t &journal_work) {
+  if (transaction.source_identity().empty() &&
+      !transaction.source_equations().empty() &&
+      (!transaction.compact_pbp() || !request.retained_source_provenance))
+    return false;
   journal.clear();
   journal_work = 0;
   const auto append = [&](const std::string &text) {
@@ -564,7 +571,9 @@ MatrixLiveResult prepare_affine_matrix_live(
       },
       candidate.transaction_, compact_plan ? nullptr : request.proof_cache,
       kernel.proof ? kernel.proof->persistent_external_epoch() : 0,
-      compact_plan);
+      compact_plan,
+      !(candidate.immediate_ && compact_plan &&
+        request.retained_source_provenance));
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.status = transaction_status(planned);

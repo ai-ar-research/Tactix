@@ -75,6 +75,29 @@ static AffineMatrixTransaction prepared() {
   return transaction;
 }
 
+static void compact_one_shot_may_borrow_source_identity() {
+  AffineMatrix matrix;
+  MatrixEvent event;
+  event_fixture(matrix, event);
+  tactix::PbpParityReasonPlan plan;
+  plan.valid = true;
+  plan.starting_external_extent = 10;
+  plan.proof_constraints = 1;
+  AffineMatrixTransaction borrowed;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, sources(), event, 10, 1000, transaction_limits(),
+             [](uint64_t) { return true; }, borrowed, nullptr, 0, &plan,
+             false) == MatrixTransactionStatus::Prepared);
+  assert(borrowed.compact_pbp() && borrowed.source_identity().empty());
+  AffineMatrixTransaction retained;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, sources(), event, 10, 1000, transaction_limits(),
+             [](uint64_t) { return true; }, retained, nullptr, 0, &plan) ==
+         MatrixTransactionStatus::Prepared);
+  assert(retained.compact_pbp() &&
+         retained.source_identity().size() == event.row.source_equations.size());
+}
+
 static void complete_plan_accounts_and_retains_only_reason() {
   const auto transaction = prepared();
   assert(transaction.ready());
@@ -601,6 +624,7 @@ int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
     return write_removed_proof(argv[2], argv[3]);
   complete_plan_accounts_and_retains_only_reason();
+  compact_one_shot_may_borrow_source_identity();
   isolated_symmetric_difference_resume();
   isolated_removed_source_resume();
   {
