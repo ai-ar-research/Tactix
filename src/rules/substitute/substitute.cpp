@@ -1967,6 +1967,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                a == negate(b)};
   };
   bool refuted = false;
+  // Streaming PBP closes the proof as soon as the pending unit batch derives
+  // the empty clause.  The physical binary rewrite still has to finish its
+  // transaction, but no later image in that batch may append another proof
+  // addition.  DRAT/LRAT do not have this terminal-stream restriction.
+  const auto pbp_proof_finished = [&] {
+    return refuted && k.proof && k.proof->streaming_pbp();
+  };
   // Canonical substitution edits watches directly rather than using the
   // binary-delete primitive. Retain each disappearing physical copy until
   // the binary-unit batch reaches root closure, then publish removal advice
@@ -2101,7 +2108,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             // Add the unit while the source pair is still live (its RUP cites
             // the source), then delete the source -- the image path's
             // add-pass-then-delete-pass order.
-            if (is_owner && !seen_contains(repr_lit)) {
+            if (is_owner && !seen_contains(repr_lit) &&
+                !pbp_proof_finished()) {
               seen_mark(repr_lit);
               touched_units.push_back(repr_lit);
               const uint64_t id = ++k.next_clause_id;
@@ -2121,7 +2129,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           }
           // Genuine surviving rewrite to (repr_lit, repr_other).
           changed = true;
-          if (is_owner && k.proof) {
+          if (is_owner && k.proof && !pbp_proof_finished()) {
             const Lit lits2[2] = {repr_lit, repr_other};
             k.proof->add_rup(0, lits2, 2, nullptr, 0);
           }
@@ -2284,6 +2292,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       if (image.target_a == image.target_b) {
         if (!first_emitted_unit(image.target_a))
           continue;
+        if (pbp_proof_finished())
+          continue;
         const uint64_t id = ++k.next_clause_id;
         if (k.proof)
           k.proof->add_rup(0, &image.target_a, 1, nullptr, 0);
@@ -2292,7 +2302,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         continue;
       }
 
-      if (changed_image && k.proof) {
+      if (changed_image && k.proof && !pbp_proof_finished()) {
         const Lit lits2[2] = {image.target_a, image.target_b};
         k.proof->add_rup(0, lits2, 2, nullptr, 0);
       }

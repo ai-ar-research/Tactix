@@ -129,6 +129,25 @@ def main():
                     "VERIFIED UNSATISFIABLE" not in rejected.stdout
                 corrupted += 1
 
+        # Regression for a Sweep substitution batch that derives opposite
+        # collapsed units before visiting another rewritten binary.  The
+        # empty clause terminates streaming PBP, so the remaining physical
+        # rewrite must not append a clausal suffix to the closed proof.
+        cnf = root / "tests" / "fixtures" / "pbp-substitute-terminal.cnf"
+        proof = directory / "pbp-substitute-terminal.pbp"
+        solved = run([solver, "-q", "--pbp", cnf, proof])
+        assert solved.returncode == 20, solved.stdout
+        assert "s UNSATISFIABLE" in solved.stdout
+        kernel = directory / "pbp-substitute-terminal.kernel.pbp"
+        checked = run([veripb, "-u", "--cnf", "--elaborate", kernel,
+                       cnf, proof])
+        assert checked.returncode == 0 and \
+            "VERIFIED UNSATISFIABLE" in checked.stdout, checked.stdout
+        independent = run([cakepb, cnf, kernel])
+        assert independent.returncode == 0 and \
+            "VERIFIED UNSAT" in independent.stdout, independent.stdout
+        unsat += 1
+
         # Regression for a propagated root whose binary reason is deleted by
         # simplification. Streaming PBP must publish the implied unit before
         # the exact deletion; otherwise the following vivification RUPs are
