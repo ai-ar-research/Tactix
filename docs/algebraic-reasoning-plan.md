@@ -180,6 +180,25 @@ synchronization is the largest remaining matrix path at 24.89%, including
 6.53% in sparse source-provenance XOR. The earlier persistent packed dirty-row
 cache remains rejected and must not be restored without a different bounded
 representation and new causal evidence.
+Public-interface jobs `1795243` and `1795244` then measured 20.220 seconds for
+production and 20.550 seconds for the corrected public arm (+1.632%) on the
+same node and CPU, with the exact checked proof, search counters, and no RSS
+increase. The first harness's invalid public rows are retained; only those
+missing rows were reissued. Current-source correspondence separately asserts
+zero fallback and decline because the reissue summary regex omitted that line.
+Paper-route diagnostic `1795242` timed out in all four `--auto-proof` draws at
+120.33 seconds and produced only rejected partial DSR artifacts. That route
+changes the trajectory and is much slower than default PBP on this row, so it
+does not justify charging PBP against the proof-free CMS target or claim a
+paper-comparable closure. All expanded CNFs, proofs, raw streams, and checker
+scratch from these jobs were deleted.
+A different bounded dirty-update representation was also tested and rejected,
+not absorbed by the relaxed PBP gate. Job `1795245` used a transient 64-word
+scratch only when its dense scan was no larger than the sparse merge. It kept
+the exact proof, trajectory, RSS, and cleanup contract, but improved paired
+mean wall time only from 19.015 to 18.460 seconds (2.919%), just below the
+predeclared 3% criterion. The overlay was reverted; 19.035 seconds remains the
+representative accepted PBP checkpoint.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

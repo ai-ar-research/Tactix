@@ -314,6 +314,30 @@ persistent packed dirty-row cache is not being revived without a different
 bounded representation and new causal evidence. The job deleted its expanded
 CNF, proof, raw streams and `perf.data`.
 
+Public-interface jobs `1795243` and `1795244` measured 20.36/20.08 seconds for
+production (20.220-second mean) and 20.53/20.57 seconds for the corrected
+public arm (20.550-second mean), or +1.632%. All valid draws match the checked
+proof and exact trajectory, and public peak RSS did not increase. The first
+harness's redundant `--pbp` option made only its public rows invalid, so the
+reissue ran only those missing rows. Its summary regex omitted the public-port
+counter line; zero fallback/decline is asserted by the current-source
+correspondence test, not reconstructed by another benchmark run.
+
+Paper-route diagnostic `1795242` timed out all four `--auto-proof` draws at
+120.33 seconds, returning `UNKNOWN` with 385--391 MB incomplete DSR artifacts.
+The pinned checker rejected the partial proof, as required. Production and
+public followed materially different trajectories, and this route is much
+slower than whole-run PBP on ID 284. It therefore neither establishes that PBP
+is intrinsically slower nor closes the paper-comparable target. Its trap
+deleted the CNF, proofs, raw streams, timing files, and checker scratch.
+
+The next bounded dirty-row word-scratch candidate was rejected under its own
+predeclared criterion. Job `1795245` measured 18.45/18.47 seconds for the
+candidate and 19.06/18.97 seconds for `c98cbf309`: means of 18.460 and 19.015
+seconds, a 2.919% gain below the required 3%. Affine overhead improved 3.260%,
+and exact proof, trajectory, RSS, and cleanup all passed, but those facts do
+not override the wall-time rule. The overlay was reverted.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -321,7 +345,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795240`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795245`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no

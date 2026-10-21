@@ -129,6 +129,19 @@ counters and peak-RSS gate while reducing paired mean wall time from 21.440 to
 19.035 seconds (11.22%) and affine overhead by 11.77%. Thus 19.035 seconds is
 the current representative checked PBP result; it still does not decide the
 paper-comparable closure measurement.
+The matched public-interface follow-up measured a 20.220-second production
+mean and 20.550-second public mean (+1.632%), with exact proof and trajectory
+identity and no RSS increase. Its corrected reissue ran only the initially
+invalid public rows. A separate `--auto-proof` diagnostic timed out all four
+draws at 120.33 seconds with incomplete DSR output, demonstrating that this
+automatic route is neither a substitute for the default-PBP baseline nor a
+completed paper-comparable measurement. Both campaigns deleted their expanded
+CNFs, proofs, raw streams, and checker scratch.
+A follow-up bounded dirty-row word scratch preserved exact proof, trajectory,
+RSS, and cleanup, but job `1795245` improved paired mean wall time only from
+19.015 to 18.460 seconds (2.919%), missing its predeclared 3% threshold. It was
+reverted rather than accepted by relaxing the criterion after measurement.
+The representative accepted PBP result therefore remains 19.035 seconds.
 
 ## Pattern
 

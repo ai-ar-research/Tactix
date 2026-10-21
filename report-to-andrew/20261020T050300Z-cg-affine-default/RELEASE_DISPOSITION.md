@@ -168,6 +168,27 @@ dirty synchronization is the largest remaining matrix path at 24.89%. The
 profile retained only aggregate reports and deleted its expanded CNF, proof,
 raw streams and `perf.data`.
 
+Jobs `1795243` and `1795244` give current, matched public-interface evidence:
+production mean 20.220 seconds, corrected public mean 20.550 seconds
+(+1.632%), exact checked proof and trajectory, and no peak-RSS increase. Only
+the two initially invalid public cells were reissued. The job summary omitted
+the public-port counter line, so zero fallback/decline comes from the passing
+current-source correspondence test rather than a repeated benchmark.
+
+Diagnostic job `1795242` does not complete the paper-comparable gate. All four
+`--auto-proof` draws timed out at 120.33 seconds with `UNKNOWN` and incomplete
+DSR output; the checker rejected the partial proof. The route materially
+changes trajectory and is slower than default PBP on this row. Its only valid
+conclusion is that automatic proof selection cannot stand in for a compatible
+paper-route measurement. Cleanup was complete.
+
+Job `1795245` tested a distinct bounded dirty-update word scratch. It preserved
+the exact checked proof, trajectory, work counters, RSS, and cleanup, but its
+18.460-second candidate mean improved on the 19.015-second baseline by only
+2.919%. That misses the predeclared 3% whole-run criterion, so the overlay was
+reverted. The route-specific PBP gate does not authorize accepting a failed
+micro-optimization screen.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -176,14 +197,14 @@ raw streams and `perf.data`.
 | Full Release suite | INCOMPLETE for exact current commit | Exact predecessor `317748a0b` passed 372/372 serially; the current affected proof/search/public-correspondence slice passes, but no full current-source run is claimed |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
-| Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
-| Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; the stored 1.1615x, 1.2407x, and 1.5521x scorer ratios cannot be charged wholly to search, and WV2--89 also has a retention mismatch |
+| Public-port overhead | PASS | Current matched jobs `1795243`/`1795244` measure +1.632% with exact proof/trajectory and no RSS increase; frozen public/production totals remain compatible historical evidence |
+| Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; job `1795242` timed out all four automatic-route draws and changed trajectory, so it is not a completed compatible comparison |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
 | Claimed performance improvement | PASS | Matched job `1795240` improves mean wall time 21.440 -> 19.035 s (-11.22%) and affine overhead by 11.77% with exact proof, trajectory and work-counter identity; jobs `1795235` and `1795237` independently passed their declared thresholds |
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 19.035 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795240` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795245` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 
