@@ -189,6 +189,12 @@ the exact checked proof, trajectory, work counters, RSS, and cleanup, but its
 reverted. The route-specific PBP gate does not authorize accepting a failed
 micro-optimization screen.
 
+Job `1795246` tested allocation-free retained-premise identity checks. It
+preserved exact proof, trajectory, and work counters, but improved mean wall
+time only from 19.035 to 18.800 seconds (1.235%) and raised peak RSS from
+47,372 to 49,420 KiB. It failed the predeclared 3% wall and no-RSS-increase
+criteria and was reverted.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -204,7 +210,7 @@ micro-optimization screen.
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 19.035 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795245` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795246` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

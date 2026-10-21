@@ -199,6 +199,13 @@ the exact proof, trajectory, RSS, and cleanup contract, but improved paired
 mean wall time only from 19.015 to 18.460 seconds (2.919%), just below the
 predeclared 3% criterion. The overlay was reverted; 19.035 seconds remains the
 representative accepted PBP checkpoint.
+An allocation-free leased-premise identity check was likewise tested rather
+than assumed beneficial. Job `1795246` preserved the exact proof, trajectory,
+and work counters, but improved paired mean wall time only from 19.035 to
+18.800 seconds (1.235%) and increased peak RSS from 47,372 to 49,420 KiB.
+It failed both its 3% wall criterion and no-RSS-increase criterion and was
+reverted. Future work should target a larger remaining path instead of
+repackaging this clause-key comparison.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

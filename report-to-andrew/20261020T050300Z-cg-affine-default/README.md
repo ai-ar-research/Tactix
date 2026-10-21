@@ -338,6 +338,13 @@ seconds, a 2.919% gain below the required 3%. Affine overhead improved 3.260%,
 and exact proof, trajectory, RSS, and cleanup all passed, but those facts do
 not override the wall-time rule. The overlay was reverted.
 
+The following leased-premise identity experiment was also rejected. Job
+`1795246` replaced repeated clause-key allocation and sorting with a
+duplicate-sensitive permutation comparison, but candidate mean wall time was
+18.800 seconds versus 19.035 seconds (1.235% improvement), and peak RSS rose
+from 47,372 to 49,420 KiB. Exact proof, trajectory, work counters, and cleanup
+passed; the 3% wall and no-RSS-increase gates did not. The overlay was reverted.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -345,7 +352,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795245`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795246`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no

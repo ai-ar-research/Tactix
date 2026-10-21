@@ -142,6 +142,11 @@ RSS, and cleanup, but job `1795245` improved paired mean wall time only from
 19.015 to 18.460 seconds (2.919%), missing its predeclared 3% threshold. It was
 reverted rather than accepted by relaxing the criterion after measurement.
 The representative accepted PBP result therefore remains 19.035 seconds.
+Job `1795246` then tested allocation-free identity checks for leased premise
+clauses. Exact proof, trajectory, counters, and cleanup passed, but the paired
+wall gain was only 1.235% and peak RSS increased 2,048 KiB. The candidate was
+reverted under its predeclared 3% and no-RSS-increase gates. It does not change
+the representative result.
 
 ## Pattern
 
