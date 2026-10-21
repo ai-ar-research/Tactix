@@ -240,6 +240,34 @@ propagations. Each public draw issued 221,993 requests with zero fallback and
 zero decline. The initial public cells exited on a production-only CLI option
 and were not treated as solver measurements.
 
+## Default-PBP retention recovery
+
+The old 18-cell retention campaign remains immutable: its six completed UNSAT
+solves reached the bounded checker deadline and their exact proof bytes are not
+relabeled verified. They reduce to two unique hard instances across production,
+public and hardcoded arms. Current-source job `1795275` therefore ran one
+production cell per unique instance rather than repeating the old matrix.
+
+`FmlaEquivChain_4_8_8` produced a 388,840,230-byte PBP and passed VeriPB and
+CakePB at 32 GiB. `bphp_p23_h22` produced a 7,718,733,237-byte PBP with SHA-256
+`da1c20c038b9140e64f69dd969e3a9d04ff229480a4f16da8043267700110f47`.
+VeriPB accepted it and produced a 6,329,645,188-byte kernel proof, while CakePB
+failed only because its 24 GiB heap was exhausted. The exact original proof was
+retained for checker-only recovery.
+
+Job `1795277` reran no solver. It used four `cpu-q` cores, a 64 GiB Slurm
+allocation, a 56 GiB CakeML heap and the same pinned input, proof and checkers.
+VeriPB again verified in 2,988.185 seconds with 7,928,244 KiB peak RSS; CakePB
+then verified in 1,027.349 seconds with 58,724,292 KiB peak RSS. The proof hash
+was unchanged before and after checking. The retained proof was deleted only
+after both stages passed, all anonymous scratch handles were released, and an
+artifact audit found no generated CNF, PBP, proof, OPB, LRAT or DSR file. This
+passes the current representative hard-case retention recovery; it does not
+verify the old proof bytes or by itself complete the broad operational baseline.
+The recovery campaign manifest, two original result records and terminal
+checker-only record have SHA-256 digests `3cc93fd52e`, `5dd5019791`,
+`652a4e1505` and `07daf68025`, respectively.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -250,12 +278,12 @@ and were not treated as solver measurements.
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; jobs `1795270`/`1795271` match proof hash, conflicts, decisions and propagations, with 221,993 public requests and zero fallback or decline per draw |
 | Public-port overhead | PASS | Current matched jobs `1795270`/`1795271` measure +0.855%, inside the 5% ceiling, with exact proof and trajectory |
 | Paper-comparable regression ceiling | PASS (0.2.0 transition exception) | Candidate default PBP and paper `--auto-proof` are different proof modes; the release contract makes that incompatible ceiling non-applicable to the first default-PBP baseline, while job `1795242` remains diagnostic evidence rather than a comparison |
-| Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
+| Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts and three completed solver timeouts; jobs `1795275`/`1795277` close the two current representative checker censors, but later PBP changes still lack a compatible complete four-set operational baseline |
 | Claimed performance improvement | PASS | Matched job `1795268` improves mean wall time 17.735 -> 16.820 s (-5.159%) and affine overhead by 5.521% with exact proof, trajectory and work-counter identity and lower peak RSS; earlier accepted checkpoints remain compatible evidence |
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 16.820 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
-| Retention repair | FAIL | 9 verified solves or models and 3 bounded solver timeouts are completed 0.2.0 baseline outcomes; six solved UNSAT proofs exhausted the checker cap and remain unverified |
+| Retention repair | PASS (current representative recovery) | The immutable old campaign contains six censored proof records; current-source job `1795275` covers their two unique hard instances, and checker-only job `1795277` verifies the retained 7.72 GB PBP without rerunning the solver, then completes cleanup |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795271` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795271` report terminal cleanup; jobs `1795275`/`1795277` deleted the recovered proof and all anonymous derivatives; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, `.dsr`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

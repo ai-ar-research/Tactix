@@ -2,7 +2,7 @@
 
 Date updated: 2026-10-21
 Branch: `codex/cg-closures`  
-Current solver commit: `c98cbf309` (`pack affine reduction provenance`)
+Current solver commit: `2688ab132` (`prevalidate retained affine proof sources`)
 
 ## Outcome
 
@@ -14,29 +14,25 @@ release candidate. The latest commits have not been pushed.
 
 The current checkpoint consumes a certified non-root affine implication
 directly from its proof-visible installed clause, while leaving propagation of
-the new trail suffix to the ordinary Boolean engine. It does not bypass or
-weaken proof production. This changes the search trajectory materially and is
-therefore treated as a new causal candidate rather than folded into the older
-micro-optimization trajectory.
+the new trail suffix to the ordinary Boolean engine. It also retains the
+subsequent proof-preserving matrix and premise-authentication optimizations
+listed below. None bypasses or weakens proof production. The direct implication
+changed the search trajectory materially; every later accepted optimization
+preserves its exact trajectory and checked PBP bytes.
 
 The gate-by-gate decision and frozen campaign hashes are recorded in
 [`RELEASE_DISPOSITION.md`](RELEASE_DISPOSITION.md). Its overall disposition is
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-The exact predecessor passed 372/372 serial Release CTests in 257.76 seconds,
-including `default_public_correspondence`, PBP proof checks and model checks.
-The current affected Release proof/search/public-correspondence slice and
-focused Debug live-publication test pass. The current Release binary has
-SHA-256
-`6dbe066423ab6eaa338506253241b40f59a2e0b2c4e1d864d60f616094ce66e5`.
-The earlier focused Debug transaction binary
-`62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
-passes AddressSanitizer and UBSan with leak detection disabled only because the
-runner uses `ptrace`. Commit `1f6a1f40d` and Debug binary
-`9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`
-remain the last complete 372/372 Debug checkpoint; a full Debug run is still
-required before release.
+Current source passes the complete 372/372 serial Release suite and the
+complete 372/372 Debug suite under AddressSanitizer and UBSan. LeakSanitizer
+alone is unavailable because the test runner uses `ptrace`. The current
+Release binary has SHA-256
+`ac074c9897066189371482685664b6835a105eb6434eca887dcaa49e9c3bfc4f`.
+Both suites include `default_public_correspondence`, PBP proof checks and model
+checks; the matched public-port campaign additionally preserves exact proof
+bytes and trajectory at +0.855% wall overhead with zero fallback or decline.
 
 ## Frozen release-regression evidence
 
@@ -90,16 +86,26 @@ solver limit and a 1,800-second proof-check limit. It is terminal with 18/18
 result records: 9 verified solves or models, 3 bounded solver-timeout outcomes,
 and 6 solved-but-unverified UNSAT outcomes. All three `Break_20_72` arms
 exhausted the solver limit without a solve; under the 0.2.0 transition contract
-these are completed baseline outcomes, not proof failures. All three
-`bphp_p23_h22` arms and all three `FmlaEquivChain_4_8_8` arms solved UNSAT but
-exhausted the bounded checker allowance. Those six unchecked proofs keep the
-retention gate failed. Every result reports primary and derived artifact
-cleanup, and an audit found no retained `.cnf`, `.pbp`, `.proof`, `.opb` or
-`.lrat` file. Future work may target only the missing checker evidence or
-otherwise incompatible cells; none of these completed solver experiments
-should be repeated merely to obtain another timing. The all-user governor
-`1791687` continues to observe every `hwu` job and controls pending work only;
-it never pauses a running job.
+these are completed baseline outcomes, not proof failures. The six checker
+censors reduce to two unique instances, `bphp_p23_h22` and
+`FmlaEquivChain_4_8_8`. The exact old proof bytes are not relabeled verified.
+
+Current-source recovery job `1795275` ran only one production cell for each of
+those two unique hard instances; it did not rerun any old regression cell.
+`FmlaEquivChain_4_8_8` produced a 388,840,230-byte PBP and passed VeriPB plus
+CakePB under 32 GiB. `bphp_p23_h22` produced a 7,718,733,237-byte PBP; VeriPB
+accepted it, but CakePB exhausted its 24 GiB heap rather than rejecting the
+proof. The exact proof was retained for checker-only recovery. Job `1795277`
+then reran no solver: under a 64 GiB Slurm allocation and 56 GiB CakeML heap,
+VeriPB reproduced the 6,329,645,188-byte elaboration in 2,988.185 seconds and
+CakePB verified it in 1,027.349 seconds with a 58,724,292 KiB peak. The retained
+proof hash remained
+`da1c20c038b9140e64f69dd969e3a9d04ff229480a4f16da8043267700110f47`
+and the file was deleted after verification. The current representative
+retention recovery therefore passes with complete cleanup. It closes the two
+current hard-instance checks, not the still-incomplete broad operational
+baseline. The all-user governor `1791687` continues to observe every `hwu` job
+and controls pending work only; it never pauses a running job.
 
 ## Checked CG screen
 
@@ -407,12 +413,14 @@ conflicts, 27,891 decisions, and 1,683,943 propagations. Each public draw issued
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
 only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
-altered. Home storage is 12% used with about 390 TiB available.
+altered. Home storage is 12% used with about 391 TiB available.
 
 All causal screens and profiles, including jobs `1795211`--`1795271`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
-perf data at terminal cleanup. Job `1795208` reports
-primary and derived cleanup on all three rows, and a post-run audit found no
+perf data at terminal cleanup. Recovery jobs `1795275`/`1795277` likewise left
+no generated CNF, PBP, proof, OPB, LRAT or DSR file; the one retained 7.72 GB
+proof was deleted only after both pinned checkers accepted it. Job `1795208`
+reports primary and derived cleanup on all three rows, and a post-run audit found no
 generated `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact in its campaign
 tree. The retained records are bounded manifests, result JSON, aggregate
 symbol reports, and durable decision reports.
@@ -431,8 +439,9 @@ pass, then both non-solver failures passed isolated compatible reruns after an
 empty scratch-race residue was removed and the ignored local development plan
 was compacted from 751 to its 750-line budget. The mixed-mode broad campaigns
 are reported but are not an applicable 0.2.0 gate; the current default-PBP
-operational baseline is incomplete, and the required 100,000-seed DefaultPolicy
-and random-policy fuzz lacks independent owner completion.
+operational baseline remains incomplete despite the completed representative
+hard-case recovery, and the required 100,000-seed DefaultPolicy and
+random-policy fuzz lacks independent owner completion.
 
 No additional broad regression rerun is planned. After the candidate is
 stable, the regression controller must reuse compatible frozen cells and run
