@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-20 23:26 UTC
+Date updated: 2026-10-21 00:57 UTC
 Branch: `codex/cg-closures`  
-Current solver commit: `70ff89e82` (`reuse affine dirty row xor buffers`)
+Current solver commit: `1f6a1f40d` (`record affine xor buffer screen`)
 
 ## Outcome
 
@@ -24,15 +24,16 @@ The gate-by-gate decision and frozen campaign hashes are recorded in
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-The current direct-implication source exercised all 372 Debug CTests in
-2,052.64 seconds with AddressSanitizer and UBSan active and leak detection
-disabled only because the runner uses `ptrace`. Of those, 367 passed
-immediately and five affine fixtures exposed stale assertions that expected the
-old published-but-unassigned trail state. Only those test sources changed;
-their repaired behavior and proof/model checks then passed 5/5 under the same
-sanitizers and 5/5 in Release. The current-source 15-test affine/PBP proof
-slice and all 13 documentation/source-contract checks also pass. The complete
-pre-delta Release suite at `9f0852545` passed 372/372 in 268.42 seconds.
+The exact current checkpoint passed 372/372 Debug CTests in 2,022.57 seconds
+with AddressSanitizer and UBSan active and leak detection disabled only because
+the runner uses `ptrace`. It also passed 372/372 Release CTests in 267.97
+seconds. `default_public_correspondence` passed in both builds. The tested
+Debug and Release binaries have SHA-256
+`9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`
+and `9e087d4050c04374a83340ee2643e33b06d373b8f4dcef140a91af8a36f3482d`,
+respectively. The earlier complete Debug run found five affine fixtures whose
+assertions still expected the old published-but-unassigned trail state; those
+fixtures were repaired before this coherent current-source pass.
 
 ## Frozen release-regression evidence
 

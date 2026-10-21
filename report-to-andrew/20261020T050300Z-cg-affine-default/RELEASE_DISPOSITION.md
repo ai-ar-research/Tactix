@@ -1,6 +1,6 @@
 # Release disposition
 
-Date: 2026-10-20
+Date: 2026-10-21
 Overall disposition: **FAIL**
 
 This disposition reads the completed regression campaigns in place. No
@@ -18,17 +18,20 @@ therefore reused only as historical correspondence and negative release
 evidence, not as measurements of the current binary, its current performance,
 memory use, proof bytes, or affected affine rows.
 
-Current proof behavior is covered by full current-source Debug coverage,
-focused current-source Release proof tests, `default_public_correspondence`,
-competition compliance, and targeted VeriPB/CakePB checks. These checks do not
-erase the frozen aggregate performance risk or complete the missing
-paper-comparable measurement.
+Current proof behavior is covered by full current-source Debug and Release
+coverage, `default_public_correspondence` in both builds, competition
+compliance, and targeted VeriPB/CakePB checks. These checks do not erase the
+frozen aggregate performance risk or complete the missing paper-comparable
+measurement.
 
-The current solver commit is `70ff89e828512cd2155b1ffc8adcd869697edfeb`.
-The direct-implication source passed the complete Debug coverage. The later
-retained-XOR-buffer delta passes all 22 affected affine-matrix tests under
-ASan/UBSan and 23/23 focused Release tests including public correspondence,
-but has not yet had another complete 372-test run.
+The current solver commit is
+`1f6a1f40d1587ad2d305c3a6ab166fb24ad0f763`. Its Debug binary is
+`9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`;
+its Release binary is
+`9e087d4050c04374a83340ee2643e33b06d373b8f4dcef140a91af8a36f3482d`.
+The exact source passed 372/372 Debug tests with ASan/UBSan in 2,022.57 seconds
+and 372/372 Release tests in 267.97 seconds. Leak detection alone was disabled
+for Debug because the session runner uses `ptrace`.
 
 ## PBP binary bookkeeping update
 
@@ -88,12 +91,20 @@ affine overhead improved 1.02% and 1.06%; verdict, proof hash, trajectory and
 all affine work/event counters were identical. This is accepted development
 evidence but falls below the 5% threshold for a release performance claim.
 
+A follow-up packed dirty-row cache was deliberately rejected rather than
+absorbed by the relaxed PBP gate. Job `1795216` alternated two candidate and
+two exact-predecessor runs on one node and CPU. Every run produced the checked
+39,899,363-byte proof with SHA-256 `96e97463e4941e545bae0c90ca92a99e141496afb3666b95f54b2454f7e5b621`,
+and all trajectory and affine work/event counters matched, but candidate mean
+wall time was 31.220 seconds versus 30.705 seconds (+1.68%). The experiment was
+reverted; it is not part of the current commit or binaries.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | INCOMPLETE for current delta | Direct-implication source ran all 372 tests in 2,052.64 s with ASan and UBSan: 367 passed immediately and five stale fixture repairs passed; the later retained-buffer delta passes its complete 22-test affine-matrix sanitizer slice but still needs the eventual full rerun |
-| Full Release suite | INCOMPLETE for current delta | 372/372 at solver tree `9f0852545`; current retained-buffer source passes 23/23 affected Release tests including proof/model checks and public correspondence |
+| Full Debug suite | PASS | Exact commit `1f6a1f40d` passed 372/372 in 2,022.57 s with ASan and UBSan; leak detection alone was disabled for the `ptrace` runner; public correspondence passed |
+| Full Release suite | PASS | Exact commit `1f6a1f40d` passed 372/372 in 267.97 s, including proof/model checks and public correspondence |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
@@ -103,7 +114,7 @@ evidence but falls below the 5% threshold for a release performance claim.
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 30.768 s but remains above its 7.550 s target |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795214` report terminal cleanup; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795216` report terminal cleanup; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

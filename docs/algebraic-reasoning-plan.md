@@ -98,6 +98,15 @@ to 30.640 seconds (1.02%) and affine overhead by 1.06%, with identical proof
 hash, trajectory and work counters. This is accepted as a proof-identical
 micro-optimization, not the plan's 5% release performance claim; the 7.550 s
 closure target remains unchanged.
+A packed dirty-row cache was then tested rather than assumed beneficial. In
+four alternating same-node/CPU draws, it preserved the exact checked proof,
+trajectory and work counters but increased mean wall time from 30.705 to
+31.220 seconds (+1.68%). The candidate was reverted. Do not repeat that whole-
+row packed-cache design without a new cost argument; the next matrix candidate
+must remove measured transaction/index allocation or asymptotic work rather
+than add a parallel representation. Exact current commit `1f6a1f40d` passes
+372/372 Debug tests under ASan/UBSan and 372/372 Release tests, including the
+public/static DefaultPolicy correspondence gate.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.
