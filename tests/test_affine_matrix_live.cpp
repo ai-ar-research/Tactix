@@ -350,6 +350,45 @@ static void resource_and_interruption_are_atomic() {
     std::fclose(journal);
   }
 
+  // The immediate adapter does not retain the owner snapshot, but its bounded
+  // publish replay must still validate against the live owner on the same
+  // stack and preserve the historical partial-work result.
+  {
+    Kernel replay_kernel;
+    install_implication_formula(replay_kernel);
+    decide(replay_kernel, -1);
+    decide(replay_kernel, -2);
+    FILE *replay_journal = std::tmpfile();
+    assert(replay_journal);
+    Fixture replay_fixture;
+    recognize_and_synchronize(replay_kernel, replay_journal, replay_fixture);
+    auto replay_request = live_request(
+        replay_journal, replay_fixture.owner, replay_fixture.matrix,
+        replay_fixture.image.equations, replay_fixture.event);
+    AffineMatrixLivePrepared measured;
+    const auto measurement =
+        prepare_affine_matrix_live(replay_kernel, replay_request, measured);
+    assert(measurement.status == MatrixLiveStatus::Prepared &&
+           measurement.revalidation_work &&
+           measured.transaction().authentication_work());
+    replay_request.maximum_revalidation_work =
+        std::max(measurement.revalidation_work,
+                 measured.transaction().authentication_work());
+    const uint64_t replay_id = replay_kernel.next_clause_id;
+    const auto replay_extent = replay_kernel.external_to_internal.size();
+    const auto replay_arena = replay_kernel.arena.size();
+    const auto replayed =
+        apply_affine_matrix_live(replay_kernel, replay_request);
+    assert(replayed.status == MatrixLiveStatus::ResourceExhausted &&
+           replayed.revalidation_work ==
+               replay_request.maximum_revalidation_work &&
+           replay_kernel.next_clause_id == replay_id &&
+           replay_kernel.external_to_internal.size() == replay_extent &&
+           replay_kernel.arena.size() == replay_arena &&
+           std::ftell(replay_journal) == 0);
+    std::fclose(replay_journal);
+  }
+
   Kernel kernel;
   install_implication_formula(kernel);
   decide(kernel, -1);

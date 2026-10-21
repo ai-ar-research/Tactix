@@ -86,11 +86,11 @@ bool same_request(const MatrixLiveRequest &first,
 
 bool snapshot_trail(const Kernel &kernel,
                     std::vector<MatrixAssignment> &assignments,
-                    std::vector<uint32_t> &levels) {
+                    std::vector<uint32_t> *levels) {
   assignments.clear();
-  levels.clear();
+  if (levels) levels->clear();
   assignments.reserve(kernel.trail.size());
-  levels.reserve(kernel.trail.size());
+  if (levels) levels->reserve(kernel.trail.size());
   for (Lit literal : kernel.trail) {
     const int32_t external = kernel_externalize(kernel, literal);
     if (!external || external == INT32_MIN) return false;
@@ -98,7 +98,7 @@ bool snapshot_trail(const Kernel &kernel,
     assignments.push_back({variable, external > 0});
     const Assigned &assigned = kernel.assigned[var_of(literal)];
     if (assigned.trail + 1 != assignments.size()) return false;
-    levels.push_back(assigned.level);
+    if (levels) levels->push_back(assigned.level);
   }
   return true;
 }
@@ -475,6 +475,11 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
 
   AffineMatrixLivePrepared candidate;
+  // The one-shot adapter marks its private output before entering prepare.
+  // It publishes on this same stack without an intervening mutation boundary,
+  // so snapshots used only by a later, separately callable publish are not
+  // retained or copied on that path.
+  candidate.immediate_ = output.immediate_;
   candidate.request_ = request;
   candidate.starting_clause_id_ = kernel.next_clause_id;
   candidate.arena_generation_ = kernel.arena_generation;
@@ -491,7 +496,9 @@ MatrixLiveResult prepare_affine_matrix_live(
   candidate.records_position_ = std::ftell(request.records);
   std::vector<MatrixAssignment> support_trail;
   if (candidate.records_position_ < 0 ||
-      !snapshot_trail(kernel, candidate.trail_, candidate.trail_levels_) ||
+      !snapshot_trail(kernel, candidate.trail_,
+                      candidate.immediate_ ? nullptr
+                                           : &candidate.trail_levels_) ||
       !snapshot_support(kernel, request.matrix->admitted_variables(),
                         support_trail) ||
       (candidate.trail_ != request.matrix->trail() &&
@@ -500,7 +507,7 @@ MatrixLiveResult prepare_affine_matrix_live(
     return result;
   }
   candidate.event_ = *request.event;
-  candidate.owner_ = *request.owner;
+  if (!candidate.immediate_) candidate.owner_ = *request.owner;
   if (!reason_order(kernel, candidate.event_, candidate.physical_reason_)) {
     result.status = MatrixLiveStatus::UnsupportedOutcome;
     return result;
@@ -592,14 +599,16 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
   Work validation{0, request.maximum_revalidation_work, kernel};
   if (!validate_selected_sources(
-          kernel, candidate.owner_, *request.exact_sources,
+          kernel, candidate.immediate_ ? *request.owner : candidate.owner_,
+          *request.exact_sources,
           candidate.transaction_.source_equations(),
           candidate.transaction_.source_identity(), validation,
           request.premise_leases, candidate.source_occurrences_,
           candidate.source_clause_ids_) ||
       (candidate.transaction_.proof_cache_resume() &&
        !validate_selected_sources(
-           kernel, candidate.owner_, *request.exact_sources,
+           kernel, candidate.immediate_ ? *request.owner : candidate.owner_,
+           *request.exact_sources,
            candidate.transaction_.resume_source_equations(),
            candidate.transaction_.resume_source_identity(), validation,
            request.premise_leases, candidate.resume_source_occurrences_,
@@ -703,7 +712,7 @@ MatrixLiveResult publish_affine_matrix_live(
   if (!prepared.immediate_) {
     std::vector<MatrixAssignment> trail;
     std::vector<uint32_t> levels;
-    if (!snapshot_trail(kernel, trail, levels) || trail != prepared.trail_ ||
+    if (!snapshot_trail(kernel, trail, &levels) || trail != prepared.trail_ ||
         levels != prepared.trail_levels_ ||
         !same_event(*request.event, prepared.event_)) {
       result.status = MatrixLiveStatus::Stale;
@@ -800,13 +809,15 @@ MatrixLiveResult publish_affine_matrix_live(
       std::vector<uint64_t> resume_occurrences;
       std::vector<uint64_t> resume_clause_ids;
       const bool valid_sources = validate_selected_sources(
-          kernel, prepared.owner_, *request.exact_sources,
+          kernel, prepared.immediate_ ? *request.owner : prepared.owner_,
+          *request.exact_sources,
           prepared.transaction_.source_equations(),
           prepared.transaction_.source_identity(), replay,
           request.premise_leases, occurrences, clause_ids) &&
           (!prepared.transaction_.proof_cache_resume() ||
            validate_selected_sources(
-               kernel, prepared.owner_, *request.exact_sources,
+               kernel, prepared.immediate_ ? *request.owner : prepared.owner_,
+               *request.exact_sources,
                prepared.transaction_.resume_source_equations(),
                prepared.transaction_.resume_source_identity(), replay,
                request.premise_leases, resume_occurrences,
@@ -932,9 +943,9 @@ MatrixLiveResult publish_affine_matrix_live(
 MatrixLiveResult apply_affine_matrix_live(Kernel &kernel,
                                           const MatrixLiveRequest &request) {
   AffineMatrixLivePrepared prepared;
+  prepared.immediate_ = true;
   MatrixLiveResult result = prepare_affine_matrix_live(kernel, request, prepared);
   if (result.status != MatrixLiveStatus::Prepared) return result;
-  prepared.immediate_ = true;
   return publish_affine_matrix_live(kernel, request, prepared);
 }
 
