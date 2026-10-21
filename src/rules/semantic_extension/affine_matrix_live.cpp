@@ -117,9 +117,13 @@ bool snapshot_support(const Kernel &kernel,
   return true;
 }
 
-std::vector<int32_t> clause_key(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
+bool same_clause_body(const std::vector<int32_t> &first,
+                      const std::vector<int32_t> &second) {
+  // A prepared matrix transaction accepts only bounded parity equations, so
+  // comparing their premise clauses directly avoids two heap copies and sorts
+  // per live premise while retaining exact multiset identity.
+  return first.size() == second.size() &&
+         std::is_permutation(first.begin(), first.end(), second.begin());
 }
 
 bool validate_selected_sources(
@@ -157,8 +161,7 @@ bool validate_selected_sources(
         return false;
       const AffineLiveSource &source = owner.sources[occurrence - 1];
       if (source.occurrence != occurrence || !source.clause_id ||
-          clause_key(source.clause) !=
-              clause_key(identity.premise_clauses[i]))
+          !same_clause_body(source.clause, identity.premise_clauses[i]))
         return false;
       occurrences.push_back(occurrence);
       clause_ids.push_back(source.clause_id);

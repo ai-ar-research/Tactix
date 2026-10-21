@@ -212,6 +212,26 @@ static void compact_provenance_keeps_authenticated_reason() {
   std::fclose(journal);
 }
 
+static void source_clause_order_is_not_identity() {
+  Kernel kernel;
+  install_implication_formula(kernel);
+  decide(kernel, -1);
+  decide(kernel, -2);
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  Fixture fixture;
+  recognize_and_synchronize(kernel, journal, fixture);
+  for (AffineLiveSource &source : fixture.owner.sources)
+    std::reverse(source.clause.begin(), source.clause.end());
+  const auto request = live_request(journal, fixture.owner, fixture.matrix,
+                                    fixture.image.equations, fixture.event);
+  const auto applied = apply_affine_matrix_live(kernel, request);
+  assert(applied.status == MatrixLiveStatus::Applied &&
+         applied.implication && applied.implication_consumed);
+  assert(!kernel_propagate(kernel));
+  std::fclose(journal);
+}
+
 static void conflict_is_consumed_by_ordinary_bcp() {
   Kernel kernel;
   install_implication_formula(kernel);
@@ -754,6 +774,7 @@ int main(int argc, char **argv) {
     return removed_source_proof_fixture(argv[2], argv[3]);
   implication_is_assigned_without_prefix_rescan();
   compact_provenance_keeps_authenticated_reason();
+  source_clause_order_is_not_identity();
   conflict_is_consumed_by_ordinary_bcp();
   unit_above_root_declines();
   stale_publication_boundaries();
