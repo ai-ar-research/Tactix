@@ -28,8 +28,8 @@ aggregate performance risk, or complete the missing paper-comparable
 measurement.
 
 The current solver commit is
-`e1094fcffcd77d7d0477961b40e238d92edd6744`. Its Release binary is
-`fbb1047a9d3e0e871741c3bfdc63c788d1a651f9ff49ebdf55720837f837823e`.
+`070faf50ce28080be1f4db651648519057b1da45`. Its Release binary is
+`c9f654e825ad38ffe1687e4587228a3633172848023de6658ff048ca9a0fa88c`.
 Its exact predecessor `317748a0b` passed 372/372 serial Release tests in 257.76
 seconds, including proof/model checks and public correspondence. The current
 affected Release proof/search/public-correspondence slice and focused Debug
@@ -142,6 +142,15 @@ KiB. All four runs emitted the exact previously checked proof and matched all
 trajectory and deterministic work counters. Temporary CNFs, proofs and raw
 streams were deleted. The fixed 7.550-second closure target remains open.
 
+Commit `070faf50c` next replaces two copied-and-sorted selected premise-clause
+keys with an exact allocation-free multiset comparison. The successful parity
+transaction bounds clause arity, and the new regression explicitly preserves
+literal-order independence. Matched job `1795237` measured 21.54 and 21.60
+seconds for the candidate versus 22.85 and 22.84 seconds for its exact
+predecessor. Mean wall time improved from 22.845 to 21.570 seconds (-5.58%) and
+mean affine overhead from 21.521 to 20.286 seconds (-5.74%). Proof hash,
+trajectory, deterministic work counters, peak RSS and cleanup all matched.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -153,11 +162,11 @@ streams were deleted. The fixed 7.550-second closure target remains open.
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
 | Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; the stored 1.1615x, 1.2407x, and 1.5521x scorer ratios cannot be charged wholly to search, and WV2--89 also has a retention mismatch |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
-| Claimed performance improvement | PASS | Exact-final matched job `1795235` improves mean wall time 28.885 -> 22.860 s (-20.86%) and affine overhead 27.584 -> 21.537 s (-21.92%) with exact proof, trajectory and work-counter identity |
-| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 22.860 s but remains above its 7.550 s target |
+| Claimed performance improvement | PASS | Matched job `1795237` improves mean wall time 22.845 -> 21.570 s (-5.58%) and affine overhead 21.521 -> 20.286 s (-5.74%) with exact proof, trajectory and work-counter identity; job `1795235` independently improved its predecessor by 20.86% |
+| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 21.570 s but remains above its 7.550 s target |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795235` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795237` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

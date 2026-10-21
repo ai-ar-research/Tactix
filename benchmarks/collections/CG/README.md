@@ -99,7 +99,7 @@ not meet its fixed 2x-CMS target; the Folkman SAT control also remains open.
 | ---: | --- | ---: | ---: | --- |
 | 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
 | 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
-| 284 | `mdp` | 22.860 U✓ | 7.550 | open; exact-proof paired mean |
+| 284 | `mdp` | 21.570 U✓ | 7.550 | open; exact-proof paired mean |
 | 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
 
 For ID 284, candidate production and public emitted byte-identical PBP proofs
@@ -113,7 +113,13 @@ and unused one-shot publication snapshots. Exact-final job `1795235` preserved
 the same checked 39,899,363-byte PBP proof and all search/work counters while
 reducing paired mean wall time from 28.885 to 22.860 seconds (20.86%) with no
 peak-RSS increase. ID 284 therefore remains open against the fixed 7.550-second
-target, but 22.860 seconds is the representative current checked result.
+target; 22.860 seconds was the representative result at that checkpoint.
+The following bounded-clause identity checkpoint removed per-premise heap
+copies and sorts while preserving unordered multiset identity. Job `1795237`
+again preserved the exact proof and all counters, reducing paired mean wall
+time from 22.845 to 21.570 seconds (5.58%) with unchanged peak RSS. Thus 21.570
+seconds is now the representative checked result; the 7.550-second target
+remains open.
 
 ## Pattern
 

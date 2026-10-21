@@ -2,7 +2,7 @@
 
 Date updated: 2026-10-21
 Branch: `codex/cg-closures`  
-Current solver commit: `e1094fcff` (`avoid unused affine publication snapshots`)
+Current solver commit: `070faf50c` (`avoid allocating affine clause identity keys`)
 
 ## Outcome
 
@@ -29,7 +29,7 @@ including `default_public_correspondence`, PBP proof checks and model checks.
 The current affected Release proof/search/public-correspondence slice and
 focused Debug live-publication test pass. The current Release binary has
 SHA-256
-`fbb1047a9d3e0e871741c3bfdc63c788d1a651f9ff49ebdf55720837f837823e`.
+`c9f654e825ad38ffe1687e4587228a3633172848023de6658ff048ca9a0fa88c`.
 The earlier focused Debug transaction binary
 `62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
 passes AddressSanitizer and UBSan with leak detection disabled only because the
@@ -271,6 +271,21 @@ Wall time improved 20.86% and affine overhead improved 21.92%, with unchanged
 39,899,363-byte PBP proof and matched 19,303 conflicts, 27,891 decisions,
 1,683,943 propagations and every affine event/work counter.
 
+Commit `070faf50c` then replaces two copied-and-sorted premise-clause keys with
+an exact allocation-free multiset comparison. Successfully prepared affine
+transactions bound these clauses to parity arity, and a new regression proves
+that reordered source literals remain the same identity. Job `1795237`
+alternated candidate/baseline/baseline/candidate on node004 CPU 39:
+
+| Arm | Draws | Mean wall | Mean affine overhead |
+| --- | --- | ---: | ---: |
+| direct clause identity | 21.54, 21.60 s | 21.570 s | 20.286 s |
+| exact predecessor | 22.85, 22.84 s | 22.845 s | 21.521 s |
+
+Wall time improved 5.58% and affine overhead improved 5.74%. Proof bytes,
+proof hash, search trajectory, work counters, and 47,376 KiB peak RSS were
+unchanged.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -278,7 +293,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795235`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795237`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
@@ -289,7 +304,7 @@ symbol reports, and durable decision reports.
 ## Release status and next work
 
 The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
-CMS-relative target. Current production's matched mean is 22.860 seconds, so
+CMS-relative target. Current production's matched mean is 21.570 seconds, so
 ID 284 is no longer a 120-second timeout but is still not a new closure.
 
 The release gates are incomplete. The current affected Release slice and

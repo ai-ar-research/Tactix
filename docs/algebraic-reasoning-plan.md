@@ -146,6 +146,19 @@ ASan/UBSan test pass; prior compatible full-suite and regression results are
 reused. Expanded CNFs, proofs and raw streams were deleted. This is another
 material checkpoint, but 22.860 seconds remains above the fixed 7.550-second
 CG closure target.
+Commit `070faf50c` removes the next measured validation allocation without
+changing the identity boundary. Selected premise clauses are bounded by the
+successfully prepared parity transaction; direct multiset comparison therefore
+preserves arbitrary literal order and duplicate sensitivity while avoiding two
+heap copies and sorts per premise. Job `1795237` alternated two candidate and
+two exact-predecessor draws on one node and CPU. Candidate mean wall time was
+21.570 seconds versus 22.845 seconds (-5.58%), and mean affine overhead was
+20.286 versus 21.521 seconds (-5.74%), with unchanged 47,376 KiB peak RSS.
+Every draw emitted the same checked proof and matched every trajectory and
+deterministic work counter. Focused Release proof/search/public-correspondence
+and Debug ASan/UBSan tests pass, including a new clause-order-independence
+regression. Expanded CNFs, proofs and raw streams were deleted. ID 284 remains
+open against 7.550 seconds.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.
