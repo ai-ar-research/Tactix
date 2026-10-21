@@ -571,6 +571,12 @@ def failed_proof_retention_contract(manifest):
     return contract
 
 
+def retained_proof_filename(task, certificate):
+    if certificate not in ("pbp", "dsr"):
+        raise RuntimeError("failed-proof retention supports only PBP or DSR")
+    return f"{task:03d}.{certificate}"
+
+
 def gf2_telemetry_contract(manifest):
     contract = manifest.get("gf2_telemetry")
     if contract is None:
@@ -1550,7 +1556,8 @@ def main():
             relative = Path(directory)
             size = proof.stat().st_size
             if size <= maximum:
-                destination = CAMPAIGN / relative / f"{task:03d}.dsr"
+                destination = CAMPAIGN / relative / retained_proof_filename(
+                    task, certificate)
                 if destination.exists():
                     raise RuntimeError("retained proof path already exists")
                 atomic_retain(proof, destination, maximum)

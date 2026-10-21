@@ -18,6 +18,12 @@ with patch.object(sys, "argv", ["runtime_task.py", str(ROOT / "benchmarks/runs/t
 
 
 class RuntimeTaskTest(unittest.TestCase):
+    def test_retained_proof_name_matches_explicit_format(self):
+        self.assertEqual(runner.retained_proof_filename(7, "pbp"), "007.pbp")
+        self.assertEqual(runner.retained_proof_filename(12, "dsr"), "012.dsr")
+        with self.assertRaisesRegex(RuntimeError, "only PBP or DSR"):
+            runner.retained_proof_filename(0, "auto")
+
     def run_case(self, arm, verdict="SAT", solver_exit=10, checker_exit=0,
                  checker_text="s VERIFIED\n", tampered=False,
                  omit_modelcheck=False, certificate="drat"):
