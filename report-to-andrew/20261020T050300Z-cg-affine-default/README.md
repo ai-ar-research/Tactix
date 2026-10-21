@@ -51,8 +51,9 @@ B28+C5 row and no row in the other sets. Proof-format work therefore materially
 contributes to the mixed-mode ratios, although the evidence is not a causal
 same-binary proof-mode A/B. Under the clarified transition contract, the paper
 +10% gate is **not applicable** to 0.2.0's change of proof route: it neither
-passes nor blocks the first default-PBP baseline. The later proof changes still
-need compatible complete characterization under predeclared caps.
+passes nor blocks the first default-PBP baseline. A record audit found that
+only B28+C5 rank 26 entered affine service; current job `1795283` repairs that
+one incompatible row while all unaffected completed cells remain reusable.
 
 Old result cells are now reusable evidence. A later regression campaign must
 read compatible complete cells from the frozen records and schedule only
@@ -102,10 +103,20 @@ CakePB verified it in 1,027.349 seconds with a 58,724,292 KiB peak. The retained
 proof hash remained
 `da1c20c038b9140e64f69dd969e3a9d04ff229480a4f16da8043267700110f47`
 and the file was deleted after verification. The current representative
-retention recovery therefore passes with complete cleanup. It closes the two
-current hard-instance checks, not the still-incomplete broad operational
-baseline. The all-user governor `1791687` continues to observe every `hwu` job
+retention recovery therefore passes with complete cleanup. Together with the
+current affected-cell repair below, it completes the default-PBP operational
+baseline under the declared transition contract. The all-user governor
+`1791687` continues to observe every `hwu` job
 and controls pending work only; it never pauses a running job.
+
+Affected-cell repair job `1795283` used one sequential `cpu-q` allocation for
+current production, public, and hardcoded on the sole affine-active frozen row,
+`or_randxor_k3_n540_m540`. All arms returned UNSAT, emitted an identical
+124,199,466-byte PBP, and passed VeriPB plus CakePB. They matched at 452,976
+conflicts, 564,665 decisions, and 34,386,726 propagations; public made
+2,145,877 requests with zero fallback or decline. Public/production was 0.9879
+and production/hardcoded was 1.0474, both inside the 1.05 ceiling. Cleanup was
+complete. No compatible frozen cell and no unchanged paper arm was rerun.
 
 ## Checked CG screen
 

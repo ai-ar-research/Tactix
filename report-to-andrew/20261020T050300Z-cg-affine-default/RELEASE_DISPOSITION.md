@@ -13,16 +13,18 @@ The four fixed-set campaigns measured candidate commit
 `68af6bea9b41461ac385bd7c5077a144604a0193`. This disposition was first recorded
 at `d97fae8ce`; later proof-only changes compacted ordinary PBP binary-deletion
 tracking without changing the strategy trajectory. The current direct affine
-implication change does alter applicable trajectories. The old campaigns are
-therefore reused only as historical correspondence and negative release
-evidence, not as measurements of the current binary, its current performance,
-memory use, proof bytes, or affected affine rows.
+implication change alters only rows that enter affine service. An audit of all
+1,088 frozen records found exactly one such row, B28+C5 rank 26. The completed
+records are reused for every unaffected cell; job `1795283` repairs production,
+public, and hardcoded evidence for that one affected row. The preserved paper
+arm is unchanged and is reused from the frozen campaign.
 
 Current proof behavior is covered by complete current-source Debug and Release
 suites, current-source `default_public_correspondence`, competition compliance,
 and the exact previously VeriPB/CakePB-checked PBP bytes in the matched
-performance screen. These checks do not erase the frozen aggregate performance
-risk or complete the current default-PBP operational baseline.
+performance screen. Together with the affected-cell repair and representative
+retention recovery below, these checks complete the initial default-PBP
+operational baseline without rerunning compatible rows.
 
 The current solver commit is `2688ab132`. Its Release binary is
 `ac074c9897066189371482685664b6835a105eb6434eca887dcaa49e9c3bfc4f`.
@@ -268,6 +270,27 @@ The recovery campaign manifest, two original result records and terminal
 checker-only record have SHA-256 digests `3cc93fd52e`, `5dd5019791`,
 `652a4e1505` and `07daf68025`, respectively.
 
+## Current affected-cell four-set repair
+
+The frozen four-set audit searched every result for nonzero affine root
+services, search services, or published reasons. Only B28+C5 rank 26,
+`or_randxor_k3_n540_m540`, exercised the changed path. Job `1795283` therefore
+ran only the current production, public, and hardcoded binaries for that row in
+one sequential `cpu-q` allocation; it did not repeat any compatible cell or the
+unchanged paper arm.
+
+All three arms returned UNSAT, emitted the same 124,199,466-byte PBP with
+SHA-256 `820c0a5b301002819b3781c2932e0c5a9aefe31e1de8333a3ed1eb062d8a802d`,
+and passed VeriPB plus CakePB. They match at 452,976 conflicts, 564,665
+decisions, and 34,386,726 propagations. Production and hardcoded normalized
+terminal statistics are exact after excluding wall-clock-only fields; public
+made 2,145,877 requests with zero fallback or decline. Solve times were 16.535
+seconds production, 16.335 public, and 15.786 hardcoded. Public/production is
+0.9879 and production/hardcoded is 1.0474, both within the 1.05 ceiling. Every
+task completed artifact and derived-artifact deletion, and the terminal audit
+found no generated CNF or proof file. This closes the only current-incompatible
+cell in the frozen four-set baseline.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -278,12 +301,12 @@ checker-only record have SHA-256 digests `3cc93fd52e`, `5dd5019791`,
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; jobs `1795270`/`1795271` match proof hash, conflicts, decisions and propagations, with 221,993 public requests and zero fallback or decline per draw |
 | Public-port overhead | PASS | Current matched jobs `1795270`/`1795271` measure +0.855%, inside the 5% ceiling, with exact proof and trajectory |
 | Paper-comparable regression ceiling | PASS (0.2.0 transition exception) | Candidate default PBP and paper `--auto-proof` are different proof modes; the release contract makes that incompatible ceiling non-applicable to the first default-PBP baseline, while job `1795242` remains diagnostic evidence rather than a comparison |
-| Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts and three completed solver timeouts; jobs `1795275`/`1795277` close the two current representative checker censors, but later PBP changes still lack a compatible complete four-set operational baseline |
+| Default-PBP baseline characterization | PASS | The 1,088 frozen records are reused for unaffected rows; job `1795283` repairs the sole affine-active row with current production/public/hardcoded binaries and dual-checked identical PBP, while jobs `1795275`/`1795277` close the two representative current hard-case checker censors under declared caps |
 | Claimed performance improvement | PASS | Matched job `1795268` improves mean wall time 17.735 -> 16.820 s (-5.159%) and affine overhead by 5.521% with exact proof, trajectory and work-counter identity and lower peak RSS; earlier accepted checkpoints remain compatible evidence |
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 16.820 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | PASS (current representative recovery) | The immutable old campaign contains six censored proof records; current-source job `1795275` covers their two unique hard instances, and checker-only job `1795277` verifies the retained 7.72 GB PBP without rerunning the solver, then completes cleanup |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795271` report terminal cleanup; jobs `1795275`/`1795277` deleted the recovered proof and all anonymous derivatives; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, `.dsr`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795271` report terminal cleanup; jobs `1795275`/`1795277` deleted the recovered proof and all anonymous derivatives; job `1795283` deleted every affected-cell CNF, PBP and checker intermediate; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, `.dsr`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 
@@ -306,4 +329,6 @@ resubmitted merely to recreate them. A future measurement, if authorized after
 another material candidate change, should add only genuinely incompatible,
 missing, or censored default-PBP evidence. A paper-comparable arm is needed only
 for the separate paper-route or CG optimization claim, not to establish the
-0.2.0 PBP transition baseline.
+0.2.0 PBP transition baseline. The remaining release blocker is the fresh,
+independently owned 100,000-case DefaultPolicy plus 100,000-case random-policy
+fuzz gate.
