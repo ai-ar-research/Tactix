@@ -1,6 +1,6 @@
 # CG: CryptoMiniSat-guided benchmark collection
 
-CG contains 23 independently checked Tier-D instances selected from the complete pinned CryptoMiniSat 5.14.7 four-core, 5,000-wall-second census. It is a representation-first development target for bringing one instance-independent Tactix DefaultPolicy within 2× the checked CMS time.
+CG contains 23 independently checked Tier-D instances selected from the complete pinned CryptoMiniSat 5.14.7 four-core, 5,000-wall-second census. It is a representation-first development target for bringing one instance-independent Tactix DefaultPolicy within 2× the checked CMS time in the paper-comparable proof mode. Whole-run PBP wall time is evaluated separately against a verified like-for-like PBP baseline, not directly against the proof-free CMS time.
 
 Twenty-five is a soft budget, not a quota. The refresh removes redundant rows and keeps 23 instances spanning 16 normalized families. No family contributes more than three rows; the three `mdp` rows represent sizes 28, 32, and 36. The set covers 18 model-checked SAT and five independently proved UNSAT instances, major/exclusive wins and useful diversity cases, and sub-second through 100+ second CMS targets.
 
@@ -92,14 +92,15 @@ Times are seconds. `S✓` and `U✓` are independently checked SAT and UNSAT. CM
 This is commit-scoped progress evidence, not a replacement for the frozen
 eight-arm table or a coherent release regression. Default affine search has
 independently checked closures for the two selected Lights Out rows. The
-current direct-implication candidate materially improves the MDP row but does
-not meet its fixed 2x-CMS target; the Folkman SAT control also remains open.
+current direct-implication candidate materially improves the MDP row in
+whole-run PBP mode; its paper-comparable 2x-CMS measurement and the Folkman SAT
+control remain open.
 
 | ID | Family | Checked Tactix | 2x CMS target | Status |
 | ---: | --- | ---: | ---: | --- |
 | 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
 | 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
-| 284 | `mdp` | 21.570 U✓ | 7.550 | open; exact-proof paired mean |
+| 284 | `mdp` | 21.570 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
 | 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
 
 For ID 284, candidate production and public emitted byte-identical PBP proofs
@@ -107,19 +108,20 @@ and passed VeriPB plus CakePB; public overhead was 0.66%. See the
 [pinned screen](../../runs/20261020-cg-mdp-direct-implication-screen/REPORT.md).
 The later retained-XOR-buffer checkpoint preserved that exact checked proof and
 trajectory in two paired draws, reducing mean wall time from 30.955 to 30.640
-seconds (1.02%). It remains far above the fixed 7.550-second closure target.
+seconds (1.02%). This whole-run PBP measurement does not decide the fixed
+7.550-second paper-comparable closure target.
 Two subsequent exact-proof checkpoints removed repeated premise-set rebuilding
 and unused one-shot publication snapshots. Exact-final job `1795235` preserved
 the same checked 39,899,363-byte PBP proof and all search/work counters while
 reducing paired mean wall time from 28.885 to 22.860 seconds (20.86%) with no
-peak-RSS increase. ID 284 therefore remains open against the fixed 7.550-second
-target; 22.860 seconds was the representative result at that checkpoint.
+peak-RSS increase. The paper-comparable 7.550-second measurement remains open;
+22.860 seconds was the representative PBP result at that checkpoint.
 The following bounded-clause identity checkpoint removed per-premise heap
 copies and sorts while preserving unordered multiset identity. Job `1795237`
 again preserved the exact proof and all counters, reducing paired mean wall
 time from 22.845 to 21.570 seconds (5.58%) with unchanged peak RSS. Thus 21.570
-seconds is now the representative checked result; the 7.550-second target
-remains open.
+seconds is now the representative checked PBP result; the paper-comparable
+7.550-second measurement remains open.
 
 ## Pattern
 

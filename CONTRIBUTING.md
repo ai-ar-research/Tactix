@@ -55,9 +55,11 @@ missing evidence does not pass a required gate.
   least a 5% paired-median solver-time or PAR-2 improvement outside the measured
   noise range, without losing an independently checked solve. During the
   algebraic milestone it must also add at least one retained CG instance within
-  2x its matched CryptoMiniSat time. A functionality release need not claim a
-  gain, but must pass the preservation gates and must not be advertised as
-  faster.
+  2x its matched CryptoMiniSat time in the paper-comparable proof mode.
+  Whole-run PBP wall time is not compared directly with that proof-free CMS
+  target; it passes the separate verified-completion and like-for-like PBP gate
+  below. A functionality release need not claim a gain, but must pass the
+  preservation gates and must not be advertised as faster.
 - Release fuzzing runs at least 100,000 fresh PBP cases under each of
   DefaultPolicy and the controller-driven random policy, plus the retained
   corpus and targeted action/configuration coverage. Every SAT model and UNSAT

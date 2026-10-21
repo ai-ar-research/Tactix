@@ -33,16 +33,18 @@ exclusive/major-win, diversity and runtime-scale strata. It adds `p160`,
 one `mdp` representative at each of sizes 28, 32 and 36 rather than seven
 near-duplicates. The second `mp1` win is explicitly excluded as redundant.
 
-Every performance time binds the complete proof-free census. SAT rows bind
+Every CMS target time binds the complete proof-free census. SAT rows bind
 their model check directly. An unchecked proof-free UNSAT report enters CG only
 when a separately hash-bound proof-producing result verifies the identical
 compressed input; all five selected UNSAT rows meet that rule. The manifest,
 23 input hashes, 184-row eight-arm runtime table, selection rationale and
 no-duplicate/family-cap contracts verify reproducibly. CG remains the fixed
 mechanism and performance target: one instance-independent DefaultPolicy should
-solve every row within 2x the checked CMS time at matched resources. N1--N4,
-held-out nonalgebraic coverage and the standing regression gates remain
-mandatory. No generated proof, model or expanded CNF is retained.
+solve every row within 2x the checked CMS time at matched resources in the
+paper-comparable proof mode. Whole-run PBP wall time is reported against its
+own verified, like-for-like baseline and is not required to fit a proof-free
+CMS target. N1--N4, held-out nonalgebraic coverage and the standing regression
+gates remain mandatory. No generated proof, model or expanded CNF is retained.
 
 **Search-time algebraic reasoning.** Extend the retained authenticated GF(2)
 matrix, existing GF(3) equations and exact unweighted cardinality constraints
@@ -87,8 +89,9 @@ arms solved UNSAT in 30.768 and 30.970 seconds with byte-identical 39.9 MB PBP
 proofs verified by VeriPB and CakePB; the exact predecessor timed out at
 120.006 seconds. The two candidate arms match at 19,303 conflicts, 27,891
 decisions and 1,683,943 propagations, with zero public fallbacks or declines.
-This is a material causal checkpoint but not a CG closure: the fixed 2x-CMS
-target remains 7.550 seconds, and all N1--N4/release gates still apply.
+This is a material causal checkpoint, not a CG closure measurement: 30.768
+seconds is whole-run PBP wall time, while the 7.550-second 2x-CMS target applies
+to the paper-comparable proof mode. All N1--N4/release gates still apply.
 The follow-up current-trajectory profile put 15.14% of samples in sorted matrix
 row XOR and a large additional share in allocation/free/consolidation. The
 bounded retained-XOR-buffer checkpoint reuses two dirty-transaction output
@@ -96,8 +99,8 @@ buffers while charging their actual capacities to the persistent index. In
 two alternating same-node draws it reduced mean ID 284 wall time from 30.955
 to 30.640 seconds (1.02%) and affine overhead by 1.06%, with identical proof
 hash, trajectory and work counters. This is accepted as a proof-identical
-micro-optimization, not the plan's 5% release performance claim; the 7.550 s
-closure target remains unchanged.
+micro-optimization, not the plan's 5% release performance claim; it does not
+measure the paper-comparable 7.550-second closure target.
 A packed dirty-row cache was then tested rather than assumed beneficial. In
 four alternating same-node/CPU draws, it preserved the exact checked proof,
 trajectory and work counters but increased mean wall time from 30.705 to
@@ -125,9 +128,10 @@ transaction test passes ASan/UBSan with leak detection disabled only because
 the runner uses `ptrace`. The preceding exact source `1f6a1f40d` remains the
 last 372/372 full-Debug checkpoint. This clears the declared 5% matched
 performance-improvement threshold but remains a checkpoint, not CG closure:
-28.525 seconds is still above the fixed 7.550-second target. The next material
-candidate must address the 3,522 full rebuilds or another measured asymptotic
-cost while preserving the exact public/production trajectory.
+28.525 seconds is a whole-run PBP result and does not decide the
+paper-comparable 7.550-second target. The next material candidate must address
+the 3,522 full rebuilds or another measured asymptotic cost while preserving
+the exact public/production trajectory.
 The next profile-guided checkpoint removes a separate per-publication copy:
 the one-shot live adapter used to clone the complete affine source snapshot and
 decision-level vector for two-phase stale checking, although it publishes on
@@ -144,8 +148,8 @@ reasons, 98,627 proof additions and deterministic service work. The affected
 Release proof/search/public-correspondence slice and the focused Debug
 ASan/UBSan test pass; prior compatible full-suite and regression results are
 reused. Expanded CNFs, proofs and raw streams were deleted. This is another
-material checkpoint, but 22.860 seconds remains above the fixed 7.550-second
-CG closure target.
+material whole-run PBP checkpoint; it does not decide the paper-comparable
+7.550-second CG closure target.
 Commit `070faf50c` removes the next measured validation allocation without
 changing the identity boundary. Selected premise clauses are bounded by the
 successfully prepared parity transaction; direct multiset comparison therefore
@@ -157,8 +161,8 @@ two exact-predecessor draws on one node and CPU. Candidate mean wall time was
 Every draw emitted the same checked proof and matched every trajectory and
 deterministic work counter. Focused Release proof/search/public-correspondence
 and Debug ASan/UBSan tests pass, including a new clause-order-independence
-regression. Expanded CNFs, proofs and raw streams were deleted. ID 284 remains
-open against 7.550 seconds.
+regression. Expanded CNFs, proofs and raw streams were deleted. ID 284's
+paper-comparable 7.550-second closure measurement remains open.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

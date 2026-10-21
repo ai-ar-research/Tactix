@@ -48,6 +48,8 @@ Invoke the named project skills for their scopes:
   unchecked output still fails. For later releases, compare default PBP
   like-for-like with the preceding default-PBP release and require solve
   retention plus at most 10% aggregate production or checking-time regression.
+  Score a CG `2x CryptoMiniSat` closure in the paper-comparable proof mode;
+  never require a whole-run PBP wall time to fit the proof-free CMS target.
   Never subtract PBP overhead from a candidate's paper-comparable search
   regression.
 - `compete`: run the current competition contract when packaging or command-line
