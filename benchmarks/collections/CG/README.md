@@ -100,7 +100,7 @@ control remain open.
 | ---: | --- | ---: | ---: | --- |
 | 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
 | 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
-| 284 | `mdp` | 21.570 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
+| 284 | `mdp` | 19.035 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
 | 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
 
 For ID 284, candidate production and public emitted byte-identical PBP proofs
@@ -122,6 +122,13 @@ again preserved the exact proof and all counters, reducing paired mean wall
 time from 22.845 to 21.570 seconds (5.58%) with unchanged peak RSS. Thus 21.570
 seconds is now the representative checked PBP result; the paper-comparable
 7.550-second measurement remains open.
+The next checkpoint packs source provenance only inside full Gaussian
+reduction while retaining the public sparse rows and persistent dirty-update
+representation. Job `1795240` preserved the exact proof, trajectory, work
+counters and peak-RSS gate while reducing paired mean wall time from 21.440 to
+19.035 seconds (11.22%) and affine overhead by 11.77%. Thus 19.035 seconds is
+the current representative checked PBP result; it still does not decide the
+paper-comparable closure measurement.
 
 ## Pattern
 

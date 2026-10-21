@@ -163,6 +163,23 @@ deterministic work counter. Focused Release proof/search/public-correspondence
 and Debug ASan/UBSan tests pass, including a new clause-order-independence
 regression. Expanded CNFs, proofs and raw streams were deleted. ID 284's
 paper-comparable 7.550-second closure measurement remains open.
+Commit `c98cbf309` then replaces sparse source-vector symmetric differences
+with transient packed words inside full Gaussian reduction. Public matrix rows,
+persistent dirty updates, deterministic work accounting and materialized source
+order remain unchanged; a 130-source regression crosses multiple packed words.
+Job `1795240` alternated candidate/baseline/baseline/candidate on one node and
+CPU. Candidate mean wall time was 19.035 seconds versus 21.440 seconds
+(-11.22%), and affine overhead fell 11.77%, with no peak-RSS increase. Every
+draw emitted the same checked proof and matched every trajectory and work
+counter; scratch cleanup was complete. This is a retained PBP optimization,
+not the still-open paper-comparable 7.550-second closure measurement.
+Exact profile job `1795241` reproduced the checked proof and trajectory and
+deleted its CNF, PBP, raw streams and `perf.data`. Full reduction now accounts
+for 16.22% of sampled cycles, down from 25.47% in the preceding profile; dirty
+synchronization is the largest remaining matrix path at 24.89%, including
+6.53% in sparse source-provenance XOR. The earlier persistent packed dirty-row
+cache remains rejected and must not be restored without a different bounded
+representation and new causal evidence.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

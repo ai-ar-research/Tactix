@@ -2,15 +2,15 @@
 
 Date updated: 2026-10-21
 Branch: `codex/cg-closures`  
-Current solver commit: `070faf50c` (`avoid allocating affine clause identity keys`)
+Current solver commit: `c98cbf309` (`pack affine reduction provenance`)
 
 ## Outcome
 
 The bounded 256 MB persistent GF(2) service remains enabled in ordinary
 `DefaultPolicy`; `--default-affine-search=off` remains the explicit control.
-Whole-run PBP is still the default proof route. This is a pushed named-branch
+Whole-run PBP is still the default proof route. This is a local named-branch
 development checkpoint, not a promotion to `main`, version bump, tag, or
-release candidate.
+release candidate. The latest commits have not been pushed.
 
 The current checkpoint consumes a certified non-root affine implication
 directly from its proof-visible installed clause, while leaving propagation of
@@ -29,7 +29,7 @@ including `default_public_correspondence`, PBP proof checks and model checks.
 The current affected Release proof/search/public-correspondence slice and
 focused Debug live-publication test pass. The current Release binary has
 SHA-256
-`c9f654e825ad38ffe1687e4587228a3633172848023de6658ff048ca9a0fa88c`.
+`6dbe066423ab6eaa338506253241b40f59a2e0b2c4e1d864d60f616094ce66e5`.
 The earlier focused Debug transaction binary
 `62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
 passes AddressSanitizer and UBSan with leak detection disabled only because the
@@ -125,10 +125,12 @@ identical commit and binary without the redundant flag.
 ## MDP proof-cost work
 
 The selected MDP row, CG ID 284, now solves under the 120-second development
-screen but remains above its 7.550-second CG closure target. Development first
-lowered certified affine-reason cost without changing the matrix trajectory,
-then removed a redundant Boolean trail rescan. All commits below are authored
-as `wu-haoze <hwu@amherst.edu>` and are pushed to the development branch.
+screen. Its current timings are whole-run PBP checkpoints; under the separated
+gate they do not decide the paper-comparable 7.550-second CG closure target.
+Development first lowered certified affine-reason cost without changing the
+matrix trajectory, then removed a redundant Boolean trail rescan. All commits
+below are authored as `wu-haoze <hwu@amherst.edu>` and remain local on the
+development branch pending an explicitly authorized branch push.
 
 Accepted changes:
 
@@ -147,7 +149,9 @@ Accepted changes:
   new binary/arena reason instead of rewinding and rescanning the old propagated
   trail prefix;
 - avoid cloning the complete source snapshot and decision-level vector in the
-  private one-shot publisher while retaining full two-phase stale checking.
+  private one-shot publisher while retaining full two-phase stale checking;
+- pack source provenance transiently inside full Gaussian reduction while
+  preserving public sparse rows and persistent dirty-update state.
 
 The largest matched improvement came from retained-source provenance reuse:
 34.544 s affine overhead versus 38.758 s for its immediate predecessor, a
@@ -251,8 +255,8 @@ alternated candidate/baseline/baseline/candidate on one node and CPU:
 Wall time improved 6.81% and affine overhead improved 7.07%, clearing the
 declared 5% matched improvement threshold. All four runs emitted the exact
 previously checked 39,899,363-byte proof and matched all solver trajectory,
-event and deterministic work counters. The fixed 7.550-second closure target
-still remains open.
+event and deterministic work counters. The paper-comparable 7.550-second
+closure measurement remains open.
 
 Profile-guided commit `e1094fcff` removes source-owner and decision-level
 snapshots that only the separately callable two-phase publisher can observe.
@@ -286,6 +290,30 @@ Wall time improved 5.58% and affine overhead improved 5.74%. Proof bytes,
 proof hash, search trajectory, work counters, and 47,376 KiB peak RSS were
 unchanged.
 
+Commit `c98cbf309` then packs provenance only inside full Gaussian reduction.
+The public `MatrixRow` representation, persistent dirty-update path,
+deterministic work charges and materialized source order are unchanged. A new
+regression crosses two 64-bit word boundaries with 130 source equations. Job
+`1795240` alternated candidate/baseline/baseline/candidate on node004 CPU 39:
+
+| Arm | Draws | Mean wall | Mean affine overhead |
+| --- | --- | ---: | ---: |
+| packed reducer | 19.27, 18.80 s | 19.035 s | 17.775 s |
+| exact predecessor | 21.45, 21.43 s | 21.440 s | 20.147 s |
+
+Wall time improved 11.22% and affine overhead improved 11.77%, with no peak-RSS
+increase. All four draws emitted the exact checked proof and matched every
+trajectory and work counter. The job removed its expanded CNF, proof, raw
+streams, timing files and scratch directory.
+
+Exact post-change profile job `1795241` reproduced the checked proof and
+trajectory. Full reduction fell from 25.47% of sampled cycles in the preceding
+profile to 16.22%; dirty synchronization is now the largest matrix path at
+24.89%, including 6.53% in sparse provenance XOR. The previously rejected
+persistent packed dirty-row cache is not being revived without a different
+bounded representation and new causal evidence. The job deleted its expanded
+CNF, proof, raw streams and `perf.data`.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -293,7 +321,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795237`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795240`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
@@ -303,9 +331,10 @@ symbol reports, and durable decision reports.
 
 ## Release status and next work
 
-The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
-CMS-relative target. Current production's matched mean is 21.570 seconds, so
-ID 284 is no longer a 120-second timeout but is still not a new closure.
+The paper-comparable target for ID 284 remains 7.550 seconds. Current
+production's matched whole-run PBP mean is 19.035 seconds. The separated gate
+does not compare that PBP wall time directly with the proof-free CMS target, so
+the paper-comparable closure measurement remains open rather than failed.
 
 The release gates are incomplete. The current affected Release slice and
 focused sanitizer test pass, but the exact current commit still needs the full
