@@ -18,20 +18,25 @@ therefore reused only as historical correspondence and negative release
 evidence, not as measurements of the current binary, its current performance,
 memory use, proof bytes, or affected affine rows.
 
-Current proof behavior is covered by full current-source Debug and Release
-coverage, `default_public_correspondence` in both builds, competition
-compliance, and targeted VeriPB/CakePB checks. These checks do not erase the
-frozen aggregate performance risk or complete the missing paper-comparable
-measurement.
+Current proof behavior is covered by a full current-source Release run,
+focused current-source Debug sanitizer coverage, current-source
+`default_public_correspondence`, competition compliance, and the exact
+previously VeriPB/CakePB-checked PBP bytes in the matched performance screen.
+These checks do not erase the frozen aggregate performance risk, replace the
+still-required full current-source Debug run, or complete the missing
+paper-comparable measurement.
 
 The current solver commit is
-`1f6a1f40d1587ad2d305c3a6ab166fb24ad0f763`. Its Debug binary is
-`9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`;
-its Release binary is
-`9e087d4050c04374a83340ee2643e33b06d373b8f4dcef140a91af8a36f3482d`.
-The exact source passed 372/372 Debug tests with ASan/UBSan in 2,022.57 seconds
-and 372/372 Release tests in 267.97 seconds. Leak detection alone was disabled
-for Debug because the session runner uses `ptrace`.
+`317748a0bb926e02ed5ee8aa518aea67c6c0c3c3`. Its Release binary is
+`c6338b70bc344d9cc354e1116dfb7d497d93413dd857b8126312822af933e606`.
+The exact source passed 372/372 serial Release tests in 257.76 seconds,
+including proof/model checks and public correspondence. Its focused Debug
+transaction binary
+`62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
+passes ASan/UBSan; leak detection alone is unavailable because the runner uses
+`ptrace`. Commit `1f6a1f40d1587ad2d305c3a6ab166fb24ad0f763` and Debug binary
+`9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`
+remain the last full 372/372 Debug checkpoint.
 
 ## PBP binary bookkeeping update
 
@@ -99,22 +104,45 @@ and all trajectory and affine work/event counters matched, but candidate mean
 wall time was 31.220 seconds versus 30.705 seconds (+1.68%). The experiment was
 reverted; it is not part of the current commit or binaries.
 
+Call-graph job `1795223` and exact-counter job `1795225` made the remaining
+multiplicity explicit. The accepted predecessor performed 37,739 services,
+including 34,217 incremental synchronizations, 3,522 full rebuilds (3,154
+backtracks and 368 reassignments), and 28,397 proof publications. The hottest
+per-publication authentication path rebuilt and sorted complete parity-clause
+populations and allocated one RB-tree node per premise occurrence.
+
+Commit `317748a0b` instead authenticates each bounded XOR premise set directly
+as the complete unique set of falsifying sign masks and uses one sorted flat
+occurrence set. It does not skip a clause, occurrence, owner, live-source or
+proof check. Matched job `1795226` alternated candidate/baseline/baseline/
+candidate on node004 CPU 33. Candidate wall times were 28.42 and 28.63 seconds
+versus 30.44 and 30.78 seconds, so means improved from 30.610 to 28.525 seconds
+(-6.81%). Mean affine overhead improved from 29.378 to 27.301 seconds (-7.07%).
+All four outputs were the same previously checked 39,899,363-byte PBP proof
+with SHA-256
+`96e97463e4941e545bae0c90ca92a99e141496afb3666b95f54b2454f7e5b621`.
+The four deterministic summaries are byte-identical after excluding only the
+wall-clock overhead field, including 19,303 conflicts, 27,891 decisions,
+1,683,943 propagations and every affine event/work counter. This passes the
+declared 5% matched performance-improvement threshold but does not meet the
+7.550-second CG closure target.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | PASS | Exact commit `1f6a1f40d` passed 372/372 in 2,022.57 s with ASan and UBSan; leak detection alone was disabled for the `ptrace` runner; public correspondence passed |
-| Full Release suite | PASS | Exact commit `1f6a1f40d` passed 372/372 in 267.97 s, including proof/model checks and public correspondence |
+| Full Debug suite | INCOMPLETE for current commit | Focused current-source transaction test passes ASan/UBSan; `1f6a1f40d` remains the last 372/372 full-Debug checkpoint |
+| Full Release suite | PASS | Exact commit `317748a0b` passed 372/372 serially in 257.76 s, including proof/model checks and public correspondence |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
 | Public-port overhead | PASS (reused) | Frozen public/production totals differ by +1.42%, -0.22%, -0.94%, and -0.32%; production/hardcoded totals differ by -0.55%, +1.10%, +1.30%, and +1.00% |
 | Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; the stored 1.1615x, 1.2407x, and 1.5521x scorer ratios cannot be charged wholly to search, and WV2--89 also has a retention mismatch |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
-| Claimed performance improvement | FAIL as a release gate | Job `1795208` is a material one-draw causal win over a 120-second timeout; job `1795214` adds a proof-identical 1.02% two-draw mean improvement, still below the predeclared 5% release threshold |
-| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 30.768 s but remains above its 7.550 s target |
+| Claimed performance improvement | PASS | Matched job `1795226` improves mean wall time 30.610 -> 28.525 s (-6.81%) and affine overhead 29.378 -> 27.301 s (-7.07%) with exact proof, trajectory and work-counter identity |
+| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 improved to checked 28.525 s but remains above its 7.550 s target |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795216` report terminal cleanup; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795226` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

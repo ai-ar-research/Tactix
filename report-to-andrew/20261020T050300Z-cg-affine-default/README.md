@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-21 00:57 UTC
+Date updated: 2026-10-21 01:34 UTC
 Branch: `codex/cg-closures`  
-Current solver commit: `1f6a1f40d` (`record affine xor buffer screen`)
+Current solver commit: `317748a0b` (`avoid rebuilding parity premise clauses`)
 
 ## Outcome
 
@@ -24,16 +24,17 @@ The gate-by-gate decision and frozen campaign hashes are recorded in
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-The exact current checkpoint passed 372/372 Debug CTests in 2,022.57 seconds
-with AddressSanitizer and UBSan active and leak detection disabled only because
-the runner uses `ptrace`. It also passed 372/372 Release CTests in 267.97
-seconds. `default_public_correspondence` passed in both builds. The tested
-Debug and Release binaries have SHA-256
+The exact current checkpoint passed 372/372 serial Release CTests in 257.76
+seconds, including `default_public_correspondence`, PBP proof checks and model
+checks. Its Release binary has SHA-256
+`c6338b70bc344d9cc354e1116dfb7d497d93413dd857b8126312822af933e606`.
+The focused current-source Debug transaction binary
+`62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
+passes AddressSanitizer and UBSan with leak detection disabled only because the
+runner uses `ptrace`. Commit `1f6a1f40d` and Debug binary
 `9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`
-and `9e087d4050c04374a83340ee2643e33b06d373b8f4dcef140a91af8a36f3482d`,
-respectively. The earlier complete Debug run found five affine fixtures whose
-assertions still expected the old published-but-unassigned trail state; those
-fixtures were repaired before this coherent current-source pass.
+remain the last complete 372/372 Debug checkpoint; a full Debug run is still
+required before release.
 
 ## Frozen release-regression evidence
 
@@ -136,6 +137,8 @@ Accepted changes:
 - reference the already-published retained-source table instead of repeating
   full source equations in each diagnostic reason record;
 - reuse affine row-XOR allocation buffers;
+- authenticate complete bounded XOR clause sets by fixed sign masks and use a
+  flat premise-occurrence set instead of rebuilding nested vectors/RB trees;
 - replace repeated affine PBP numeric `fprintf` calls with a byte-identical,
   bounded 64 KiB `to_chars` writer;
 - after proof-first installation, assign a non-root implication using the exact
@@ -228,6 +231,25 @@ tests under ASan/UBSan and 23/23 focused Release tests including public
 DefaultPolicy correspondence. This is a micro-optimization checkpoint, not a
 5% release performance claim or a CG closure.
 
+Call-graph job `1795223` and deterministic-counter job `1795225` then measured
+37,739 services: 34,217 incremental synchronizations, 3,522 full rebuilds
+(3,154 backtracks and 368 reassignments), and 28,397 proof publications. The
+hottest per-publication path rebuilt and sorted complete parity-clause sets and
+allocated one tree node per premise occurrence. Commit `317748a0b` replaces
+that representation without skipping any authentication. Matched job `1795226`
+alternated candidate/baseline/baseline/candidate on one node and CPU:
+
+| Arm | Draws | Mean wall | Mean affine overhead |
+| --- | --- | ---: | ---: |
+| premise-mask candidate | 28.42, 28.63 s | 28.525 s | 27.301 s |
+| exact predecessor | 30.44, 30.78 s | 30.610 s | 29.378 s |
+
+Wall time improved 6.81% and affine overhead improved 7.07%, clearing the
+declared 5% matched improvement threshold. All four runs emitted the exact
+previously checked 39,899,363-byte proof and matched all solver trajectory,
+event and deterministic work counters. The fixed 7.550-second closure target
+still remains open.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -235,8 +257,9 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795214`, deleted expanded CNFs, PBP proofs, checker
-intermediates, and raw perf data at terminal cleanup. Job `1795208` reports
+All causal screens and profiles, including jobs `1795211`--`1795226`, deleted
+expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
+perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
 generated `.cnf`, `.pbp`, `.proof`, `.opb`, or `.lrat` artifact in its campaign
 tree. The retained records are bounded manifests, result JSON, aggregate
@@ -245,12 +268,12 @@ symbol reports, and durable decision reports.
 ## Release status and next work
 
 The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
-CMS-relative target. Current production solves in 30.768 seconds, so ID 284 is
-no longer a 120-second timeout but is still not a new closure.
+CMS-relative target. Current production's matched mean is 28.525 seconds, so
+ID 284 is no longer a 120-second timeout but is still not a new closure.
 
-The release gates are incomplete. The full direct-implication Debug coverage
-and current focused sanitizer/Release proof tests pass, but the retained-buffer
-delta still needs the eventual full current-source gate. The mixed-mode broad
+The release gates are incomplete. Current focused sanitizer and full Release
+proof/model tests pass, but the current commit still needs the eventual full
+Debug gate. The mixed-mode broad
 campaigns do not complete the paper-comparable performance gate, the current
 default-PBP operational baseline is incomplete, and the required 100,000-seed
 DefaultPolicy and random-policy fuzz lacks independent owner completion.

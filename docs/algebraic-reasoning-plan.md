@@ -104,9 +104,30 @@ trajectory and work counters but increased mean wall time from 30.705 to
 31.220 seconds (+1.68%). The candidate was reverted. Do not repeat that whole-
 row packed-cache design without a new cost argument; the next matrix candidate
 must remove measured transaction/index allocation or asymptotic work rather
-than add a parallel representation. Exact current commit `1f6a1f40d` passes
-372/372 Debug tests under ASan/UBSan and 372/372 Release tests, including the
-public/static DefaultPolicy correspondence gate.
+than add a parallel representation. Exact counter run `1795225` then measured
+37,739 services: 34,217 incremental synchronizations, 3,522 full rebuilds
+(3,154 backtracks and 368 reassignments), and 28,397 proof publications. This
+separates the remaining backtrack-rebuild cost from the per-publication proof
+authentication cost.
+
+Commit `317748a0b` removes the latter path's measured nested-vector and RB-tree
+allocation without trusting less input: each arity-at-most-eight XOR premise
+set is authenticated directly as the complete unique set of falsifying sign
+masks, and premise occurrences use one sorted flat set. The accepted
+same-node/CPU job `1795226` alternated two candidate and two predecessor draws.
+Candidate mean wall time was 28.525 seconds versus 30.610 seconds (-6.81%), and
+mean affine overhead was 27.301 versus 29.378 seconds (-7.07%). Every draw
+emitted the byte-identical previously VeriPB/CakePB-checked 39,899,363-byte PBP
+proof and matched all trajectory, event and deterministic work counters. The
+current source passes 372/372 serial Release tests, including PBP proof/model
+checks and public/static DefaultPolicy correspondence; the focused Debug
+transaction test passes ASan/UBSan with leak detection disabled only because
+the runner uses `ptrace`. The preceding exact source `1f6a1f40d` remains the
+last 372/372 full-Debug checkpoint. This clears the declared 5% matched
+performance-improvement threshold but remains a checkpoint, not CG closure:
+28.525 seconds is still above the fixed 7.550-second target. The next material
+candidate must address the 3,522 full rebuilds or another measured asymptotic
+cost while preserving the exact public/production trajectory.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.
