@@ -25,6 +25,12 @@ assert all(path.is_file() for path in auto.values())
 for name in ("dsr-trim", "dsr-compress", "srcheck"):
     assert TIERD.sha(auto[name]) == TIERD.FROZEN_DSR_HASHES[name]
 
+pbp = TIERD.checker_sources(REFERENCE, baseline, "pbp")
+assert set(pbp) == {
+    "checkmodel", "modelcheck.py", "veripb", "cake-pb-cnf",
+}
+assert all(path.is_file() for path in pbp.values())
+
 dsr = TIERD.checker_sources(REFERENCE, baseline, "dsr")
 assert set(dsr) == set(auto) - {"veripb", "cake-pb-cnf"}
 try:
@@ -50,6 +56,7 @@ assert TIERD.solver_arguments("dsr", [
     "--controller-families=TseitinCycleBreaking",
 ]
 assert TIERD.solver_arguments("auto", []) == ["--auto-proof"]
+assert TIERD.solver_arguments("pbp", []) == []
 assert TIERD.solver_arguments("dsr", [
     "--controller-policy=2",
     "--controller-families=NaryCspPrefix",
@@ -71,7 +78,7 @@ try:
     raise AssertionError("causal preflight accepted full GF2 telemetry")
 except ValueError:
     pass
-for invalid in ([""], ["--dsr"], ["--auto-proof"], ["--drat"], ["--lrat"]):
+for invalid in ([""], ["--pbp"], ["--dsr"], ["--auto-proof"], ["--drat"], ["--lrat"]):
     try:
         TIERD.solver_arguments("dsr", invalid)
         raise AssertionError("invalid extra solver argument was accepted")

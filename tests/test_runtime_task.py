@@ -174,19 +174,23 @@ class RuntimeTaskTest(unittest.TestCase):
             proof.write_text('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
                              'output NONE ;\nconclusion UNSAT : -1 ;\n'
                              'end pseudo-Boolean proof ;\n')
-            result = runner.check_unsat_proof(campaign, 'auto', cnf, proof,
-                                               scratch, 60, 'pbp')
-            self.assertEqual(result['result'], 'verified', result)
-            self.assertEqual(result['checker_input']['original_sha256'],
-                             runner.sha256(cnf))
-            self.assertEqual(cnf.read_text(), original)
-            self.assertEqual((scratch / 'checker.cnf').read_text(),
-                             'p cnf 1 2\n1 0\n-1 0\n')
-            self.assertEqual([stage['result'] for stage in result['stages']],
-                             ['verified', 'verified'])
+            for certificate in ('pbp', 'auto'):
+                result = runner.check_unsat_proof(
+                    campaign, certificate, cnf, proof, scratch, 60, 'pbp')
+                self.assertEqual(result['result'], 'verified', result)
+                self.assertEqual(result['checker_input']['original_sha256'],
+                                 runner.sha256(cnf))
+                self.assertEqual(cnf.read_text(), original)
+                self.assertEqual((scratch / 'checker.cnf').read_text(),
+                                 'p cnf 1 2\n1 0\n-1 0\n')
+                self.assertEqual(
+                    [stage['result'] for stage in result['stages']],
+                    ['verified', 'verified'])
             cnf.write_text('p cnf 1 1\n1 0\n')
-            self.assertEqual(runner.check_unsat_proof(
-                campaign, 'auto', cnf, proof, scratch, 60, 'pbp')['result'], 'not-verified')
+            for certificate in ('pbp', 'auto'):
+                self.assertEqual(runner.check_unsat_proof(
+                    campaign, certificate, cnf, proof, scratch, 60,
+                    'pbp')['result'], 'not-verified')
         finally:
             scratch.close()
         self.assertFalse(scratch.exists())

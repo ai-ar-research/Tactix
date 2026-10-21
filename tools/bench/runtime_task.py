@@ -817,6 +817,8 @@ def validate_runtime_pin_contract(campaign, manifest):
         certificate = arm.get("certificate", "drat")
         if certificate == "drat":
             required.add("pins/drat-trim")
+        elif certificate == "pbp":
+            required.update({"pins/veripb", "pins/cake-pb-cnf"})
         elif certificate in ("dsr", "auto"):
             required.update({"pins/dsr-trim", "pins/dsr-compress",
                              "pins/srcheck", "pins/drat-trim",
@@ -1092,7 +1094,7 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
             if stages[-1]['result'] != 'verified':
                 break
 
-    if certificate in ("dsr", "auto") and reported_route not in REPORTED_DSR_ROUTES:
+    if certificate in ("pbp", "dsr", "auto") and reported_route not in REPORTED_DSR_ROUTES:
         message = 'missing or invalid solver-reported proof route'
         stage = dict(name='route', result='rejected', exit_code=None,
                      timed_out=False, output_tail=message)
@@ -1102,7 +1104,7 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
                     exit_code=None, timed_out=False, output_tail=message, stages=stages)
     route = REPORTED_DSR_ROUTES.get(reported_route)
     try:
-        audited_route = certificate_route(proof) if certificate in ("dsr", "auto") else None
+        audited_route = certificate_route(proof) if certificate in ("pbp", "dsr", "auto") else None
         if route != audited_route:
             raise DSRFormatError('solver-reported route disagrees with certificate content')
     except DSRFormatError as error:
@@ -1116,6 +1118,8 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
                     stages=stages)
     if certificate == "dsr" and route == "pbp":
         raise RuntimeError("explicit DSR arm emitted a PBP certificate")
+    if certificate == "pbp" and route != "pbp":
+        raise RuntimeError("explicit PBP arm emitted a non-PBP certificate")
     if certificate == "drat":
         command = [campaign / "pins/drat-trim", checker_cnf, proof]
         if release_intermediates:
@@ -1124,7 +1128,7 @@ def check_unsat_proof_until_deadline(campaign, certificate, cnf, proof, scratch,
             scratch, "drat-trim", command, remaining(),
             input_has_empty_clause=spelling['first_empty_clause'] is not None))
         pipeline = "drat-trim"
-    elif certificate == "auto" and route == "pbp":
+    elif certificate in ("pbp", "auto") and route == "pbp":
         kernel = scratch / "proof.kernel.pbp"
         if kernel.exists():
             # AnonymousScratch returns an already-open /proc/PID/fd/N path:
@@ -1266,7 +1270,8 @@ def main():
     home = manifest.get("scratch_policy") == HOME_SCRATCH_POLICY
     previous_term_handler = None
     cnf_name = "input.cnf"
-    proof_name = ("proof.out" if certificate == "auto" else
+    proof_name = ("proof.pbp" if certificate == "pbp" else
+                  "proof.out" if certificate == "auto" else
                   "proof.dsr" if certificate == "dsr" else "proof.drat")
     scratch = None
     previous_xfsz_handler = None
@@ -1281,8 +1286,8 @@ def main():
         validate_runtime_pin_contract(CAMPAIGN, manifest)
         CAKE_HEAP_MIB = cake_heap_mib(manifest)
         retention_contract = failed_proof_retention_contract(manifest)
-        if retention_contract is not None and certificate != "dsr":
-            raise RuntimeError("failed-proof retention requires explicit DSR")
+        if retention_contract is not None and certificate not in ("pbp", "dsr"):
+            raise RuntimeError("failed-proof retention requires explicit PBP or DSR")
         if anonymous:
             from anonymous_scratch import AnonymousScratch
             # User-authorized node-local scratch. The repository filesystem
