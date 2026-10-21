@@ -1,8 +1,8 @@
 # CG affine-default checkpoint for Andrew
 
-Date updated: 2026-10-21 01:34 UTC
+Date updated: 2026-10-21
 Branch: `codex/cg-closures`  
-Current solver commit: `317748a0b` (`avoid rebuilding parity premise clauses`)
+Current solver commit: `e1094fcff` (`avoid unused affine publication snapshots`)
 
 ## Outcome
 
@@ -24,11 +24,13 @@ The gate-by-gate decision and frozen campaign hashes are recorded in
 **FAIL**; it reads the completed regression records without resubmitting any
 benchmark task.
 
-The exact current checkpoint passed 372/372 serial Release CTests in 257.76
-seconds, including `default_public_correspondence`, PBP proof checks and model
-checks. Its Release binary has SHA-256
-`c6338b70bc344d9cc354e1116dfb7d497d93413dd857b8126312822af933e606`.
-The focused current-source Debug transaction binary
+The exact predecessor passed 372/372 serial Release CTests in 257.76 seconds,
+including `default_public_correspondence`, PBP proof checks and model checks.
+The current affected Release proof/search/public-correspondence slice and
+focused Debug live-publication test pass. The current Release binary has
+SHA-256
+`fbb1047a9d3e0e871741c3bfdc63c788d1a651f9ff49ebdf55720837f837823e`.
+The earlier focused Debug transaction binary
 `62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
 passes AddressSanitizer and UBSan with leak detection disabled only because the
 runner uses `ptrace`. Commit `1f6a1f40d` and Debug binary
@@ -143,7 +145,9 @@ Accepted changes:
   bounded 64 KiB `to_chars` writer;
 - after proof-first installation, assign a non-root implication using the exact
   new binary/arena reason instead of rewinding and rescanning the old propagated
-  trail prefix.
+  trail prefix;
+- avoid cloning the complete source snapshot and decision-level vector in the
+  private one-shot publisher while retaining full two-phase stale checking.
 
 The largest matched improvement came from retained-source provenance reuse:
 34.544 s affine overhead versus 38.758 s for its immediate predecessor, a
@@ -250,6 +254,23 @@ previously checked 39,899,363-byte proof and matched all solver trajectory,
 event and deterministic work counters. The fixed 7.550-second closure target
 still remains open.
 
+Profile-guided commit `e1094fcff` removes source-owner and decision-level
+snapshots that only the separately callable two-phase publisher can observe.
+The public two-phase API remains unchanged, and a new regression covers the
+one-shot resource-exhaustion replay against the live owner. Exact-final job
+`1795235` alternated two candidate and two predecessor draws on one node and
+CPU:
+
+| Arm | Draws | Mean wall | Mean affine overhead |
+| --- | --- | ---: | ---: |
+| snapshot-elision candidate | 22.96, 22.76 s | 22.860 s | 21.537 s |
+| exact predecessor | 28.97, 28.80 s | 28.885 s | 27.584 s |
+
+Wall time improved 20.86% and affine overhead improved 21.92%, with unchanged
+47,376 KiB peak RSS. Every run emitted the exact previously checked
+39,899,363-byte PBP proof and matched 19,303 conflicts, 27,891 decisions,
+1,683,943 propagations and every affine event/work counter.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -257,7 +278,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795226`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795235`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
@@ -268,12 +289,12 @@ symbol reports, and durable decision reports.
 ## Release status and next work
 
 The paper-screen target for ID 284 is at most 7.550 s, within 10% of the paper's
-CMS-relative target. Current production's matched mean is 28.525 seconds, so
+CMS-relative target. Current production's matched mean is 22.860 seconds, so
 ID 284 is no longer a 120-second timeout but is still not a new closure.
 
-The release gates are incomplete. Current focused sanitizer and full Release
-proof/model tests pass, but the current commit still needs the eventual full
-Debug gate. The mixed-mode broad
+The release gates are incomplete. The current affected Release slice and
+focused sanitizer test pass, but the exact current commit still needs the full
+Debug and Release gates. The mixed-mode broad
 campaigns do not complete the paper-comparable performance gate, the current
 default-PBP operational baseline is incomplete, and the required 100,000-seed
 DefaultPolicy and random-policy fuzz lacks independent owner completion.

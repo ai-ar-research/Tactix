@@ -99,7 +99,7 @@ not meet its fixed 2x-CMS target; the Folkman SAT control also remains open.
 | ---: | --- | ---: | ---: | --- |
 | 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
 | 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
-| 284 | `mdp` | 30.768 U✓ | 7.550 | open; predecessor exceeded 120 s |
+| 284 | `mdp` | 22.860 U✓ | 7.550 | open; exact-proof paired mean |
 | 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
 
 For ID 284, candidate production and public emitted byte-identical PBP proofs
@@ -108,6 +108,12 @@ and passed VeriPB plus CakePB; public overhead was 0.66%. See the
 The later retained-XOR-buffer checkpoint preserved that exact checked proof and
 trajectory in two paired draws, reducing mean wall time from 30.955 to 30.640
 seconds (1.02%). It remains far above the fixed 7.550-second closure target.
+Two subsequent exact-proof checkpoints removed repeated premise-set rebuilding
+and unused one-shot publication snapshots. Exact-final job `1795235` preserved
+the same checked 39,899,363-byte PBP proof and all search/work counters while
+reducing paired mean wall time from 28.885 to 22.860 seconds (20.86%) with no
+peak-RSS increase. ID 284 therefore remains open against the fixed 7.550-second
+target, but 22.860 seconds is the representative current checked result.
 
 ## Pattern
 

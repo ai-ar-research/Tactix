@@ -119,7 +119,7 @@ Candidate mean wall time was 28.525 seconds versus 30.610 seconds (-6.81%), and
 mean affine overhead was 27.301 versus 29.378 seconds (-7.07%). Every draw
 emitted the byte-identical previously VeriPB/CakePB-checked 39,899,363-byte PBP
 proof and matched all trajectory, event and deterministic work counters. The
-current source passes 372/372 serial Release tests, including PBP proof/model
+checkpoint source passed 372/372 serial Release tests, including PBP proof/model
 checks and public/static DefaultPolicy correspondence; the focused Debug
 transaction test passes ASan/UBSan with leak detection disabled only because
 the runner uses `ptrace`. The preceding exact source `1f6a1f40d` remains the
@@ -128,6 +128,24 @@ performance-improvement threshold but remains a checkpoint, not CG closure:
 28.525 seconds is still above the fixed 7.550-second target. The next material
 candidate must address the 3,522 full rebuilds or another measured asymptotic
 cost while preserving the exact public/production trajectory.
+The next profile-guided checkpoint removes a separate per-publication copy:
+the one-shot live adapter used to clone the complete affine source snapshot and
+decision-level vector for two-phase stale checking, although it publishes on
+the same stack with no intervening mutation boundary. The public two-phase API
+still retains and revalidates both snapshots; the one-shot path now validates
+the live owner directly, including the bounded resource-exhaustion replay.
+Exact-final job `1795235` alternated two candidate and two predecessor draws on
+one node and CPU. Candidate mean wall time was 22.860 seconds versus 28.885
+seconds (-20.86%), and mean affine overhead was 21.537 versus 27.584 seconds
+(-21.92%), with unchanged 47,376 KiB peak RSS. All four draws emitted the same
+previously checked 39,899,363-byte PBP proof and matched 27,891 decisions,
+19,303 conflicts, 1,683,943 propagations, 37,738 services, 28,397 published
+reasons, 98,627 proof additions and deterministic service work. The affected
+Release proof/search/public-correspondence slice and the focused Debug
+ASan/UBSan test pass; prior compatible full-suite and regression results are
+reused. Expanded CNFs, proofs and raw streams were deleted. This is another
+material checkpoint, but 22.860 seconds remains above the fixed 7.550-second
+CG closure target.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.
