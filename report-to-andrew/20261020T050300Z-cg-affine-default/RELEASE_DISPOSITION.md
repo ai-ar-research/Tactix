@@ -253,7 +253,7 @@ and were not treated as solver measurements.
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
 | Claimed performance improvement | PASS | Matched job `1795268` improves mean wall time 17.735 -> 16.820 s (-5.159%) and affine overhead by 5.521% with exact proof, trajectory and work-counter identity and lower peak RSS; earlier accepted checkpoints remain compatible evidence |
 | CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 16.820 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
-| Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
+| Retention repair | FAIL | 9 verified solves or models and 3 bounded solver timeouts are completed 0.2.0 baseline outcomes; six solved UNSAT proofs exhausted the checker cap and remain unverified |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
 | Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795271` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 

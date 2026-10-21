@@ -87,16 +87,19 @@ performance issue.
 
 Retention repair job `1795115` used `cpu-q`, four cores, 32 GiB, a 5,000-second
 solver limit and a 1,800-second proof-check limit. It is terminal with 18/18
-result records: 9 valid and 9 invalid. All three `Break_20_72` arms exhausted
-the solver limit without a solve; all three `bphp_p23_h22` arms and all three
-`FmlaEquivChain_4_8_8` arms solved UNSAT but exhausted the bounded checker
-allowance. Those are explicit censored cells, so this campaign fails the
-retention gate. Every result reports primary and derived artifact cleanup, and
-an audit found no retained `.cnf`, `.pbp`, `.proof`, `.opb` or `.lrat` file.
-Future work may target only missing checker evidence or otherwise incompatible
-cells; none of these completed solver experiments should be repeated merely
-to obtain another timing. The all-user governor `1791687` continues to observe
-every `hwu` job and controls pending work only; it never pauses a running job.
+result records: 9 verified solves or models, 3 bounded solver-timeout outcomes,
+and 6 solved-but-unverified UNSAT outcomes. All three `Break_20_72` arms
+exhausted the solver limit without a solve; under the 0.2.0 transition contract
+these are completed baseline outcomes, not proof failures. All three
+`bphp_p23_h22` arms and all three `FmlaEquivChain_4_8_8` arms solved UNSAT but
+exhausted the bounded checker allowance. Those six unchecked proofs keep the
+retention gate failed. Every result reports primary and derived artifact
+cleanup, and an audit found no retained `.cnf`, `.pbp`, `.proof`, `.opb` or
+`.lrat` file. Future work may target only the missing checker evidence or
+otherwise incompatible cells; none of these completed solver experiments
+should be repeated merely to obtain another timing. The all-user governor
+`1791687` continues to observe every `hwu` job and controls pending work only;
+it never pauses a running job.
 
 ## Checked CG screen
 
