@@ -379,6 +379,26 @@ matched. Mean affine overhead improved 3.065%, but mean wall time improved only
 2.843% (17.940 to 17.430 seconds). It missed the predeclared 3% wall threshold,
 so the entire overlay was reverted.
 
+Commit `2688ab132` closes the soundness gap before reusing that path. Matrix
+construction sets one bit only after every immutable source passes the exact,
+order-independent XOR clausal-form validator. Repeated same-stack compact-PBP
+transactions retain their historical deterministic work charge but omit that
+completed truth-table scan; caller-owned, malformed, and separately callable
+two-phase sources retain full validation. Job `1795268` improved paired mean
+wall time from 17.735 to 16.820 seconds (5.159%) and affine overhead by 5.521%.
+The exact checked proof, trajectory and work counters matched, peak RSS fell
+from 45,836 to 45,832 KiB, and cleanup completed. The affected Release slice
+passed 27/27 and the ASan/UBSan slice passed 4/4, so this is the representative
+accepted whole-run-PBP checkpoint.
+
+Jobs `1795270`/`1795271` enforce the public-interface rule on that exact commit.
+The first job's production cells were valid, while its public cells used a
+production-only option and exited before solving; only those two public cells
+were reissued. Production mean was 16.950 seconds and public mean was 17.095
+seconds (+0.855%). Both paths emitted the exact proof and matched 19,303
+conflicts, 27,891 decisions, and 1,683,943 propagations. Each public draw issued
+221,993 requests with zero fallback and zero decline.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -386,7 +406,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795265`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795271`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
@@ -397,7 +417,7 @@ symbol reports, and durable decision reports.
 ## Release status and next work
 
 The paper-comparable target for ID 284 remains 7.550 seconds. Current
-production's matched whole-run PBP mean is 17.790 seconds. The separated gate
+production's matched whole-run PBP mean is 16.820 seconds. The separated gate
 does not compare that PBP wall time directly with the proof-free CMS target, so
 the paper-comparable closure measurement remains open rather than failed.
 

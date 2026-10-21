@@ -244,6 +244,19 @@ checks intact and adding no retained memory. It preserved the exact proof,
 trajectory, deterministic work, RSS, and cleanup. Mean affine overhead improved
 3.065%, but mean wall time improved only 2.843% (17.940 to 17.430 seconds), so
 the complete overlay was reverted under the predeclared 3% wall-time gate.
+Commit `2688ab132` adds the missing soundness certificate instead of trusting
+the shortcut: matrix construction records one bit only after every immutable
+source passes the exact, order-independent XOR clausal-form validator.
+Caller-owned or malformed images retain full validation, and deterministic
+work charges are unchanged. Matched job `1795268` improved mean wall time from
+17.735 to 16.820 seconds (5.159%) and affine overhead by 5.521%, with the exact
+checked proof, trajectory and work counters, 4 KiB lower peak RSS, and complete
+cleanup. This is the representative accepted whole-run PBP checkpoint.
+Matched jobs `1795270`/`1795271` then enforced the public-port contract on the
+same commit. Production mean was 16.950 seconds and the completely public
+strategy mean was 17.095 seconds (+0.855%). Both emitted the exact proof and
+matched 19,303 conflicts, 27,891 decisions, and 1,683,943 propagations; each
+public draw issued 221,993 requests with zero fallback and zero decline.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

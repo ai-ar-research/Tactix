@@ -100,7 +100,7 @@ control remain open.
 | ---: | --- | ---: | ---: | --- |
 | 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
 | 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
-| 284 | `mdp` | 17.790 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
+| 284 | `mdp` | 16.820 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
 | 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
 
 For ID 284, candidate production and public emitted byte-identical PBP proofs
@@ -170,6 +170,17 @@ authenticated source image. It preserved exact proof, trajectory, work
 counters, 45,836 KiB peak RSS, and cleanup, but its 17.430-second mean improved
 on 17.940 seconds by only 2.843%. It missed the predeclared 3% wall gate and was
 reverted; 17.790 seconds remains the representative accepted result.
+Commit `2688ab132` then adds a one-bit matrix certificate set only after every
+immutable source passes the exact XOR clausal-form validator. Job `1795268`
+measured 16.820 seconds versus 17.735 seconds (5.159% faster), with 5.521%
+lower affine overhead, the exact checked proof and trajectory/work counters,
+and peak RSS decreasing from 45,836 to 45,832 KiB. It passes the predeclared
+wall and memory gates, so 16.820 seconds is the representative checked PBP
+result. The paper-comparable 7.550-second target remains separate and open.
+Matched jobs `1795270`/`1795271` measured the fully public strategy at 17.095
+seconds versus 16.950 seconds for production (+0.855%). Proof bytes and the
+19,303-conflict, 27,891-decision, 1,683,943-propagation trajectory were exact;
+221,993 public requests reported zero fallback and zero decline.
 
 ## Pattern
 

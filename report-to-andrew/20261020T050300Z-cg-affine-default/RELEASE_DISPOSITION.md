@@ -27,8 +27,8 @@ full current-source Debug and Release runs for a release, erase the frozen
 aggregate performance risk, or complete the current default-PBP operational
 baseline.
 
-The current solver commit is `c98cbf309`. Its Release binary is
-`6dbe066423ab6eaa338506253241b40f59a2e0b2c4e1d864d60f616094ce66e5`.
+The current solver commit is `2688ab132`. Its Release binary is
+`ac074c9897066189371482685664b6835a105eb6434eca887dcaa49e9c3bfc4f`.
 Its exact predecessor `317748a0b` passed 372/372 serial Release tests in 257.76
 seconds, including proof/model checks and public correspondence. The current
 affected Release proof/search/public-correspondence slice and focused Debug
@@ -226,6 +226,24 @@ two-phase path. It matched the exact proof, trajectory, deterministic work,
 mean wall time improved only 2.843%, from 17.940 to 17.430 seconds. It failed
 the predeclared 3% wall criterion and was reverted.
 
+Commit `2688ab132` adds a one-bit matrix certificate set only after every
+immutable source passes the exact order-independent XOR clausal-form validator.
+It preserves full validation for caller-owned, malformed, and separately
+callable two-phase sources while retaining all historical deterministic work
+charges. Matched job `1795268` improved mean wall time from 17.735 to 16.820
+seconds (5.159%) and affine overhead by 5.521%. It emitted the exact checked
+proof, matched trajectory and work counters, reduced peak RSS by 4 KiB, and
+completed cleanup. The affected Release slice passed 27/27 and the ASan/UBSan
+slice passed 4/4.
+
+Jobs `1795270`/`1795271` enforce current public-port parity. The two valid
+production draws averaged 16.950 seconds and the corrected two-cell public
+reissue averaged 17.095 seconds (+0.855%). Every valid draw emitted the exact
+checked proof and matched 19,303 conflicts, 27,891 decisions, and 1,683,943
+propagations. Each public draw issued 221,993 requests with zero fallback and
+zero decline. The initial public cells exited on a production-only CLI option
+and were not treated as solver measurements.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -233,15 +251,15 @@ the predeclared 3% wall criterion and was reverted.
 | Full Debug suite | INCOMPLETE for current commit | Focused current-source transaction test passes ASan/UBSan; `1f6a1f40d` remains the last 372/372 full-Debug checkpoint |
 | Full Release suite | INCOMPLETE for exact current commit | Exact predecessor `317748a0b` passed 372/372 serially; the current affected proof/search/public-correspondence slice passes, but no full current-source run is claimed |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
-| Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; job `1795208` production/public match verdict, proof hash, conflicts, decisions and propagations with zero fallback or decline |
-| Public-port overhead | PASS | Current matched jobs `1795243`/`1795244` measure +1.632% with exact proof/trajectory and no RSS increase; frozen public/production totals remain compatible historical evidence |
+| Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; jobs `1795270`/`1795271` match proof hash, conflicts, decisions and propagations, with 221,993 public requests and zero fallback or decline per draw |
+| Public-port overhead | PASS | Current matched jobs `1795270`/`1795271` measure +0.855%, inside the 5% ceiling, with exact proof and trajectory |
 | Paper-comparable regression ceiling | PASS (0.2.0 transition exception) | Candidate default PBP and paper `--auto-proof` are different proof modes; the release contract makes that incompatible ceiling non-applicable to the first default-PBP baseline, while job `1795242` remains diagnostic evidence rather than a comparison |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
-| Claimed performance improvement | PASS | Matched job `1795250` improves mean wall time 18.985 -> 17.790 s (-6.294%) and affine overhead by 6.900% with exact proof, trajectory and work-counter identity and lower peak RSS; the earlier accepted checkpoints remain compatible evidence |
-| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 17.790 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
+| Claimed performance improvement | PASS | Matched job `1795268` improves mean wall time 17.735 -> 16.820 s (-5.159%) and affine overhead by 5.521% with exact proof, trajectory and work-counter identity and lower peak RSS; earlier accepted checkpoints remain compatible evidence |
+| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 16.820 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795265` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795271` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 
