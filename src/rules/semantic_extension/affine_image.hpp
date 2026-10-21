@@ -68,6 +68,10 @@ Status recognize(const std::vector<Premise> &, const Limits &,
 std::vector<std::vector<External>> clausal_form(
     const std::vector<External> &variables, bool rhs);
 
+// Exact, order-independent validation of an equation's full XOR clausal form.
+// Premise occurrence identity is checked at the live publication boundary.
+bool authenticates_clausal_form(const Equation &);
+
 struct ProofEvent {
   bool addition = true;
   parity_certificate::SmallClause clause;

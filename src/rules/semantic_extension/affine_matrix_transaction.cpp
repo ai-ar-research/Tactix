@@ -4,8 +4,6 @@
 #include "rules/lucky/parity_certificate.hpp"
 
 #include <algorithm>
-#include <array>
-#include <bit>
 #include <climits>
 #include <cstdlib>
 #include <iterator>
@@ -347,7 +345,8 @@ MatrixTransactionStatus failure(const Work &work, const PlanningSink &sink) {
 }
 
 bool authenticate_premises(const Equation &equation,
-                           std::vector<uint64_t> &occurrences, Work &work) {
+                           std::vector<uint64_t> &occurrences, Work &work,
+                           bool structure_authenticated = false) {
   if (equation.variables.empty() || equation.variables.size() > 8)
     return false;
   const uint64_t expected_clauses =
@@ -363,37 +362,11 @@ bool authenticate_premises(const Equation &equation,
       equation.premise_clauses.size() != expected_clauses)
     return false;
 
-  // An arity-n XOR has exactly the 2^(n-1) full-width clauses whose
-  // falsifying sign masks have parity different from the equation RHS.
-  // Check that bounded truth table directly.  This accepts the same arbitrary
-  // clause/literal order as the former canonical-copy comparison, without
-  // rebuilding and sorting two nested vector populations for every reason.
-  std::array<uint64_t, 4> seen{};
-  for (const std::vector<External> &clause : equation.premise_clauses) {
-    if (clause.size() != equation.variables.size()) return false;
-    uint32_t coordinates = 0;
-    uint32_t negative = 0;
-    for (const External literal : clause) {
-      if (!literal || literal == INT32_MIN) return false;
-      const External variable = literal < 0 ? -literal : literal;
-      const auto found = std::lower_bound(equation.variables.begin(),
-                                          equation.variables.end(), variable);
-      if (found == equation.variables.end() || *found != variable)
-        return false;
-      const uint32_t bit = uint32_t{1}
-                           << static_cast<uint32_t>(found -
-                                                    equation.variables.begin());
-      if (coordinates & bit) return false;
-      coordinates |= bit;
-      if (literal < 0) negative |= bit;
-    }
-    if ((std::popcount(negative) & 1u) == unsigned(equation.rhs))
-      return false;
-    uint64_t &word = seen[negative / 64];
-    const uint64_t bit = uint64_t{1} << (negative % 64);
-    if (word & bit) return false;
-    word |= bit;
-  }
+  // The matrix can certify this immutable structure once at build time.
+  // Historical work is still charged above; only repeated CPU validation is
+  // omitted. Arbitrary caller-owned source snapshots take the complete path.
+  if (!structure_authenticated && !authenticates_clausal_form(equation))
+    return false;
   for (uint64_t occurrence : equation.premises) {
     if (!work.consume(1) || !occurrence)
       return false;
@@ -495,6 +468,9 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
          : work.exhausted ? MatrixTransactionStatus::ResourceExhausted
                           : MatrixTransactionStatus::Stale;
   const uint64_t authentication_work = work.used;
+  const bool authenticated_matrix_sources =
+      &exact_sources == &matrix.authenticated_sources() &&
+      matrix.proof_sources_authenticated();
   if (!work.consume(1) || !work.consume(exact_sources.size()) ||
       !work.consume(event.reason.size()) ||
       !work.consume(event.row.source_equations.size()))
@@ -518,7 +494,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     if (input.variables.empty() ||
         input.variables.size() > parity_certificate::Equation{}.variables.size())
       return MatrixTransactionStatus::UnsupportedProof;
-    if (!authenticate_premises(input, occurrences, work))
+    if (!authenticate_premises(input, occurrences, work,
+                               authenticated_matrix_sources))
       return work.interrupted ? MatrixTransactionStatus::Interrupted
            : work.exhausted ? MatrixTransactionStatus::ResourceExhausted
                             : MatrixTransactionStatus::UnsupportedProof;
@@ -736,7 +713,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     bool usable = true;
     for (size_t ordinal : resume_removed) {
       const Equation &input = exact_sources[ordinal];
-      if (!authenticate_premises(input, removed_occurrences, work)) {
+      if (!authenticate_premises(input, removed_occurrences, work,
+                                 authenticated_matrix_sources)) {
         usable = false;
         break;
       }

@@ -153,7 +153,8 @@ bool validate_selected_sources(
     if (leases && (!kernel.proof || ordinal >= leases->size() ||
         !kernel.proof->premise_group_matches((*leases)[ordinal], identity.premise_clauses)))
       return false;
-    if (!same_equation(current_sources[ordinal], identity) ||
+    if ((&current_sources[ordinal] != &identity &&
+         !same_equation(current_sources[ordinal], identity)) ||
         identity.premises.size() != identity.premise_clauses.size())
       return false;
     for (size_t i = 0; i < identity.premises.size(); ++i) {
@@ -523,6 +524,11 @@ MatrixLiveResult prepare_affine_matrix_live(
     return result;
   }
 
+  const bool same_stack_retained_sources =
+      candidate.immediate_ && request.retained_source_provenance;
+  const std::vector<Equation> &planning_sources =
+      same_stack_retained_sources ? request.matrix->authenticated_sources()
+                                  : *request.exact_sources;
   const PbpParityReasonPlan *compact_plan = nullptr;
   if (kernel.proof && kernel.proof->streaming_pbp() &&
       request.pbp_parity_cache) {
@@ -530,11 +536,11 @@ MatrixLiveResult prepare_affine_matrix_live(
     candidate.pbp_equations_.reserve(
         candidate.event_.row.source_equations.size());
     for (const size_t ordinal : candidate.event_.row.source_equations) {
-      if (ordinal >= request.exact_sources->size()) {
+      if (ordinal >= planning_sources.size()) {
         complete = false;
         break;
       }
-      const Equation &source = (*request.exact_sources)[ordinal];
+      const Equation &source = planning_sources[ordinal];
       PbpParityEquation equation;
       equation.variables.assign(source.variables.begin(),
                                 source.variables.end());
@@ -561,8 +567,12 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
 
   bool planner_interrupted = false;
+  const std::vector<Equation> &transaction_sources =
+      compact_plan && same_stack_retained_sources
+          ? request.matrix->authenticated_sources()
+          : *request.exact_sources;
   const MatrixTransactionStatus planned = prepare_affine_matrix_transaction(
-      *request.matrix, request.owner_identity, *request.exact_sources,
+      *request.matrix, request.owner_identity, transaction_sources,
       candidate.event_, candidate.starting_extent_, candidate.starting_clause_id_,
       request.transaction,
       [&](uint64_t) {
@@ -612,7 +622,7 @@ MatrixLiveResult prepare_affine_matrix_live(
   Work validation{0, request.maximum_revalidation_work, kernel};
   if (!validate_selected_sources(
           kernel, candidate.immediate_ ? *request.owner : candidate.owner_,
-          *request.exact_sources,
+          transaction_sources,
           candidate.transaction_.source_equations(),
           candidate.transaction_.source_identity(), validation,
           request.premise_leases, candidate.source_occurrences_,

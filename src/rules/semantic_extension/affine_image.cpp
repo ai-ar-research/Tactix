@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/affine_image.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <climits>
 #include <map>
@@ -96,6 +97,50 @@ std::vector<std::vector<External>> clausal_form(
     clauses.push_back(std::move(clause));
   }
   return clauses;
+}
+
+bool authenticates_clausal_form(const Equation &equation) {
+  if (equation.variables.empty() || equation.variables.size() > 8)
+    return false;
+  if (!std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
+      std::adjacent_find(equation.variables.begin(), equation.variables.end()) !=
+          equation.variables.end() ||
+      std::any_of(equation.variables.begin(), equation.variables.end(),
+                  [](External variable) { return variable <= 0; }))
+    return false;
+  const uint64_t expected_clauses =
+      uint64_t{1} << (equation.variables.size() - 1);
+  if (equation.premises.size() != expected_clauses ||
+      equation.premise_clauses.size() != expected_clauses)
+    return false;
+
+  std::array<uint64_t, 4> seen{};
+  for (const std::vector<External> &clause : equation.premise_clauses) {
+    if (clause.size() != equation.variables.size()) return false;
+    uint32_t coordinates = 0;
+    uint32_t negative = 0;
+    for (const External literal : clause) {
+      if (!literal || literal == INT32_MIN) return false;
+      const External variable = literal < 0 ? -literal : literal;
+      const auto found = std::lower_bound(equation.variables.begin(),
+                                          equation.variables.end(), variable);
+      if (found == equation.variables.end() || *found != variable)
+        return false;
+      const uint32_t bit = uint32_t{1}
+                           << static_cast<uint32_t>(found -
+                                                    equation.variables.begin());
+      if (coordinates & bit) return false;
+      coordinates |= bit;
+      if (literal < 0) negative |= bit;
+    }
+    if ((std::popcount(negative) & 1u) == unsigned(equation.rhs))
+      return false;
+    uint64_t &word = seen[negative / 64];
+    const uint64_t bit = uint64_t{1} << (negative % 64);
+    if (word & bit) return false;
+    word |= bit;
+  }
+  return true;
 }
 
 Status recognize(const std::vector<Premise> &input, const Limits &limits,

@@ -513,6 +513,49 @@ static void incomplete_or_forged_premises_are_unsupported() {
          MatrixTransactionStatus::Prepared);
 }
 
+static void matrix_source_authentication_certificate_is_exact() {
+  const auto valid = sources();
+  AffineMatrix matrix;
+  assert(build_affine_matrix(valid, 991, matrix_limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  assert(matrix.proof_sources_authenticated());
+  std::vector<MatrixAssignment> trail;
+  for (External variable = 1; variable <= 8; ++variable)
+    trail.push_back({variable, false});
+  MatrixEvent event;
+  assert(matrix.synchronize(trail, [](uint64_t) { return true; }, event) ==
+         MatrixStatus::Complete);
+  AffineMatrixTransaction copied, retained;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, valid, event, 10, 1000, transaction_limits(),
+             [](uint64_t) { return true; }, copied) ==
+         MatrixTransactionStatus::Prepared);
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, matrix.authenticated_sources(), event, 10, 1000,
+             transaction_limits(), [](uint64_t) { return true; }, retained) ==
+         MatrixTransactionStatus::Prepared);
+  assert(copied.work() == retained.work());
+  assert(copied.proof_events() == retained.proof_events());
+
+  auto malformed = valid;
+  malformed[0].premise_clauses[0][0] =
+      -malformed[0].premise_clauses[0][0];
+  AffineMatrix invalid;
+  assert(build_affine_matrix(malformed, 992, matrix_limits(),
+                             [](uint64_t) { return true; }, invalid) ==
+         MatrixStatus::Complete);
+  assert(!invalid.proof_sources_authenticated());
+  MatrixEvent invalid_event;
+  assert(invalid.synchronize(trail, [](uint64_t) { return true; },
+                             invalid_event) == MatrixStatus::Complete);
+  AffineMatrixTransaction rejected;
+  assert(prepare_affine_matrix_transaction(
+             invalid, 992, invalid.authenticated_sources(), invalid_event, 10,
+             1000, transaction_limits(), [](uint64_t) { return true; },
+             rejected) == MatrixTransactionStatus::UnsupportedProof);
+}
+
 static int write_proof(const char *cnf_path, const char *proof_path,
                        bool with_cache = false) {
   AffineMatrixTransaction transaction;
@@ -646,5 +689,6 @@ int main(int argc, char **argv) {
   empty_root_conflict_is_a_publishable_reason();
   exact_identity_and_atomic_failure();
   incomplete_or_forged_premises_are_unsupported();
+  matrix_source_authentication_certificate_is_exact();
   std::puts("test_affine_matrix_transaction: passed");
 }

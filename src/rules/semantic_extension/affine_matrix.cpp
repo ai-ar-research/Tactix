@@ -499,6 +499,8 @@ MatrixStatus build_affine_matrix(
   candidate.complete_admission_ = status == MatrixStatus::Complete;
   candidate.limits_ = limits;
   candidate.sources_ = input;
+  candidate.proof_sources_authenticated_ =
+      std::all_of(input.begin(), input.end(), authenticates_clausal_form);
   candidate.admitted_rows_ = rows;
   candidate.admitted_sources_ = source_union(rows);
   __uint128_t source_support=0;
@@ -1462,6 +1464,7 @@ bool AffineMatrix::authenticates(
       owner_identity != owner_identity_ ||
       exact_sources.size() != sources_.size())
     return false;
+  const bool retained_sources = &exact_sources == &sources_;
   for (size_t i = 0; i < sources_.size(); ++i) {
     const Equation &source = sources_[i];
     if (!charge(3) || !charge(source.variables.size()) ||
@@ -1470,7 +1473,8 @@ bool AffineMatrix::authenticates(
       return false;
     for (const std::vector<External> &clause : source.premise_clauses)
       if (!charge(clause.size())) return false;
-    if (!same_equation(exact_sources[i], sources_[i])) return false;
+    if (!retained_sources && !same_equation(exact_sources[i], sources_[i]))
+      return false;
   }
   if (!charge(1) || !charge(trail_.size()))
     return false;

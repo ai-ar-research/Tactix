@@ -132,6 +132,14 @@ public:
   const std::vector<size_t> &admitted_sources() const {
     return admitted_sources_;
   }
+  // Immutable source image copied when the matrix is built. Same-stack proof
+  // planning may consume this owner instead of comparing a session duplicate.
+  const std::vector<Equation> &authenticated_sources() const {
+    return sources_;
+  }
+  bool proof_sources_authenticated() const {
+    return proof_sources_authenticated_;
+  }
   // Sorted external variables that can affect any admitted row. Search-time
   // capture need not inspect assignments outside this exact support.
   const std::vector<External> &admitted_variables() const {
@@ -210,6 +218,7 @@ private:
   uint64_t owner_identity_ = 0;
   uint64_t work_ = 0;
   bool complete_admission_ = false;
+  bool proof_sources_authenticated_ = false;
   MatrixLimits limits_;
   std::vector<Equation> sources_;
   // Immutable sound row space admitted at initialization.  Search-time
