@@ -195,6 +195,15 @@ time only from 19.035 to 18.800 seconds (1.235%) and raised peak RSS from
 47,372 to 49,420 KiB. It failed the predeclared 3% wall and no-RSS-increase
 criteria and was reverted.
 
+Job `1795248` then tested borrowing already authenticated source identities
+during same-stack immediate compact-PBP publication. Its wall gain passed, but
+peak RSS rose by 2,048 KiB, so that exact binary was rejected. The factored
+reissue in job `1795250` retained full snapshots for the separately callable
+and two-phase APIs, preserved exact proof, trajectory, and work counters, and
+reduced paired mean wall time from 18.985 to 17.790 seconds (6.294%), affine
+time by 6.900%, and peak RSS from 47,372 to 45,836 KiB. The affected Release
+slice and five focused ASan/UBSan tests pass.
+
 ## Gate results
 
 | Gate | Disposition | Evidence |
@@ -206,11 +215,11 @@ criteria and was reverted.
 | Public-port overhead | PASS | Current matched jobs `1795243`/`1795244` measure +1.632% with exact proof/trajectory and no RSS increase; frozen public/production totals remain compatible historical evidence |
 | Paper-comparable regression ceiling | INCOMPLETE | Candidate default PBP and paper `--auto-proof` are different proof modes; job `1795242` timed out all four automatic-route draws and changed trajectory, so it is not a completed compatible comparison |
 | Default-PBP baseline characterization | INCOMPLETE | The frozen records quantify larger certificates and instruction counts, three solver timeouts, and checker censors, but later PBP changes lack compatible complete operational-baseline evidence |
-| Claimed performance improvement | PASS | Matched job `1795240` improves mean wall time 21.440 -> 19.035 s (-11.22%) and affine overhead by 11.77% with exact proof, trajectory and work-counter identity; jobs `1795235` and `1795237` independently passed their declared thresholds |
-| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 19.035 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
+| Claimed performance improvement | PASS | Matched job `1795250` improves mean wall time 18.985 -> 17.790 s (-6.294%) and affine overhead by 6.900% with exact proof, trajectory and work-counter identity and lower peak RSS; the earlier accepted checkpoints remain compatible evidence |
+| CG retained closure | PASS | IDs 83 and 609 remain the independently checked UNSAT closures; ID 284 has a checked 17.790 s PBP checkpoint while its paper-comparable 7.550 s measurement remains open |
 | Retention repair | FAIL | 9/18 valid; three solver timeouts and six proof-checker timeouts remain explicit censored outcomes |
 | Release fuzzing | INCOMPLETE | Required fresh 100,000-case DefaultPolicy and 100,000-case random-policy campaigns lack independent owner completion |
-| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795246` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
+| Artifact cleanup | PASS | All fixed-set rows, all three job `1795208` rows and profile/screen jobs `1795211`--`1795250` report terminal cleanup; exact-counter job `1795225` also deleted its full trace; audits found no generated `.cnf`, `.pbp`, `.proof`, `.opb`, `.lrat`, or raw `perf.data` artifact from those campaigns |
 
 ## Frozen campaign provenance
 

@@ -345,6 +345,16 @@ duplicate-sensitive permutation comparison, but candidate mean wall time was
 from 47,372 to 49,420 KiB. Exact proof, trajectory, work counters, and cleanup
 passed; the 3% wall and no-RSS-increase gates did not. The overlay was reverted.
 
+The next experiment removed deep source-identity copies only from same-stack
+immediate compact-PBP publication; the separately callable/two-phase API keeps
+its full snapshot. Job `1795248` improved mean wall time by 5.762% but raised
+peak RSS by 2,048 KiB, so that exact binary was rejected. The factored reissue,
+job `1795250`, preserved the checked 39,899,363-byte proof and every trajectory
+and work counter while reducing paired mean wall time from 18.985 to 17.790
+seconds (6.294%), affine time by 6.900%, and peak RSS from 47,372 to 45,836
+KiB. The affected Release tests and five focused ASan/UBSan tests pass. This is
+the new representative accepted whole-run-PBP checkpoint.
+
 ## Storage and safety
 
 Governor job `1791687` is active and monitors all jobs owned by `hwu`, excluding
@@ -352,7 +362,7 @@ only itself. It holds or releases pending work only and never pauses, suspends,
 requeues, or cancels a running job. Interactive job `1791142` has not been
 altered. Home storage is 12% used with about 390 TiB available.
 
-All causal screens and profiles, including jobs `1795211`--`1795246`, deleted
+All causal screens and profiles, including jobs `1795211`--`1795250`, deleted
 expanded CNFs, PBP proofs, checker intermediates, full feedback traces, and raw
 perf data at terminal cleanup. Job `1795208` reports
 primary and derived cleanup on all three rows, and a post-run audit found no
@@ -363,7 +373,7 @@ symbol reports, and durable decision reports.
 ## Release status and next work
 
 The paper-comparable target for ID 284 remains 7.550 seconds. Current
-production's matched whole-run PBP mean is 19.035 seconds. The separated gate
+production's matched whole-run PBP mean is 17.790 seconds. The separated gate
 does not compare that PBP wall time directly with the proof-free CMS target, so
 the paper-comparable closure measurement remains open rather than failed.
 

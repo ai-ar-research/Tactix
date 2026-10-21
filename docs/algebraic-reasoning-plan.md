@@ -206,6 +206,18 @@ and work counters, but improved paired mean wall time only from 19.035 to
 It failed both its 3% wall criterion and no-RSS-increase criterion and was
 reverted. Future work should target a larger remaining path instead of
 repackaging this clause-key comparison.
+The following same-stack compact-PBP change removes deep source-identity copies
+only when the authenticated sources remain borrowed through immediate
+publication. Separately callable and two-phase transactions retain their full
+identity snapshots. The first binary, job `1795248`, improved paired mean wall
+time by 5.762% but increased peak RSS by 2,048 KiB and was rejected. After
+factoring the retained and charge-only paths, reissue job `1795250` preserved
+the exact checked proof, trajectory, and deterministic work counters while
+reducing mean wall time from 18.985 to 17.790 seconds (6.294%), affine time by
+6.900%, and peak RSS from 47,372 to 45,836 KiB. The affected Release slice and
+five-test ASan/UBSan slice pass. Expanded CNFs, proofs, and raw streams were
+deleted. This becomes the representative accepted PBP checkpoint; the
+paper-comparable 7.550-second target remains a separate open measurement.
 The [matched nine-task screen](../benchmarks/runs/20261017-affine-live-resume-performance/analysis.json)
 now makes the gap concrete: old opt-in, row-resume opt-in and new default all
 timed out at 120 seconds on checked CMS `mdp`, `par32` and `lightsout` rows.

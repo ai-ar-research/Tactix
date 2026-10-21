@@ -100,7 +100,7 @@ control remain open.
 | ---: | --- | ---: | ---: | --- |
 | 83 | `lightsout` | 1.569 U✓ | 12.560 | closed |
 | 609 | `lightsout` | 1.720 U✓ | 10.964 | closed |
-| 284 | `mdp` | 19.035 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
+| 284 | `mdp` | 17.790 U✓ | 7.550 | PBP checkpoint; paper-comparable closure unmeasured |
 | 550 | `folkman` | 61.452 S✓ | 3.038 | open SAT control |
 
 For ID 284, candidate production and public emitted byte-identical PBP proofs
@@ -126,9 +126,9 @@ The next checkpoint packs source provenance only inside full Gaussian
 reduction while retaining the public sparse rows and persistent dirty-update
 representation. Job `1795240` preserved the exact proof, trajectory, work
 counters and peak-RSS gate while reducing paired mean wall time from 21.440 to
-19.035 seconds (11.22%) and affine overhead by 11.77%. Thus 19.035 seconds is
-the current representative checked PBP result; it still does not decide the
-paper-comparable closure measurement.
+19.035 seconds (11.22%) and affine overhead by 11.77%. Thus 19.035 seconds was
+the representative checked PBP result at that checkpoint; it still does not
+decide the paper-comparable closure measurement.
 The matched public-interface follow-up measured a 20.220-second production
 mean and 20.550-second public mean (+1.632%), with exact proof and trajectory
 identity and no RSS increase. Its corrected reissue ran only the initially
@@ -141,12 +141,21 @@ A follow-up bounded dirty-row word scratch preserved exact proof, trajectory,
 RSS, and cleanup, but job `1795245` improved paired mean wall time only from
 19.015 to 18.460 seconds (2.919%), missing its predeclared 3% threshold. It was
 reverted rather than accepted by relaxing the criterion after measurement.
-The representative accepted PBP result therefore remains 19.035 seconds.
+The representative accepted PBP result therefore remained 19.035 seconds.
 Job `1795246` then tested allocation-free identity checks for leased premise
 clauses. Exact proof, trajectory, counters, and cleanup passed, but the paired
 wall gain was only 1.235% and peak RSS increased 2,048 KiB. The candidate was
 reverted under its predeclared 3% and no-RSS-increase gates. It does not change
 the representative result.
+Job `1795248` next removed deep source-identity copies from the immediate
+compact-PBP path. Its 5.762% wall gain passed, but its 2,048 KiB peak-RSS
+increase did not, so that binary was rejected. The factored reissue in job
+`1795250` kept separately callable/two-phase identity snapshots, preserved the
+exact checked proof, trajectory, and work counters, reduced paired mean wall
+time from 18.985 to 17.790 seconds (6.294%), and lowered peak RSS to 45,836
+KiB. Thus 17.790 seconds is the representative checked PBP result. It is judged
+against the like-for-like PBP baseline, not against the proof-free 7.550-second
+CMS-derived target.
 
 ## Pattern
 
