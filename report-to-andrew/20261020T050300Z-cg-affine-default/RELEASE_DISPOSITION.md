@@ -18,26 +18,22 @@ therefore reused only as historical correspondence and negative release
 evidence, not as measurements of the current binary, its current performance,
 memory use, proof bytes, or affected affine rows.
 
-Current proof behavior is covered by the compatible full predecessor Release
-run, the affected current-source Release slice, focused current-source Debug
-sanitizer coverage, current-source `default_public_correspondence`, competition
-compliance, and the exact previously VeriPB/CakePB-checked PBP bytes in the
-matched performance screen. These checks do not replace the still-required
-full current-source Debug and Release runs for a release, erase the frozen
-aggregate performance risk, or complete the current default-PBP operational
-baseline.
+Current proof behavior is covered by complete current-source Debug and Release
+suites, current-source `default_public_correspondence`, competition compliance,
+and the exact previously VeriPB/CakePB-checked PBP bytes in the matched
+performance screen. These checks do not erase the frozen aggregate performance
+risk or complete the current default-PBP operational baseline.
 
 The current solver commit is `2688ab132`. Its Release binary is
 `ac074c9897066189371482685664b6835a105eb6434eca887dcaa49e9c3bfc4f`.
-Its exact predecessor `317748a0b` passed 372/372 serial Release tests in 257.76
-seconds, including proof/model checks and public correspondence. The current
-affected Release proof/search/public-correspondence slice and focused Debug
-live-publication test pass. The earlier focused Debug transaction binary
-`62ab4da663fc6c676fda1f63f4b1c891c579e0ba99d37c988ed4300941bf0229`
-passes ASan/UBSan; leak detection alone is unavailable because the runner uses
-`ptrace`. Commit `1f6a1f40d1587ad2d305c3a6ab166fb24ad0f763` and Debug binary
-`9c1df01df10d363997a33d3d3208509254cc5e6c342b0247baa252349fb56cc5`
-remain the last full 372/372 Debug checkpoint.
+Current source passes the complete 372/372 Debug suite under ASan/UBSan in
+1,922.93 seconds; leak detection alone is unavailable because the runner uses
+`ptrace`. Release produced 370/372 in one 261.33-second pass. The two failures
+were non-solver cells: an empty-directory cleanup race in the compacted-model
+negative control and the ignored local development plan exceeding its line
+budget by one. After removing only the empty residue and compacting one prose
+line, both cells passed isolated compatible reruns, completing 372/372 Release
+coverage without rebuilding the binary.
 
 ## PBP binary bookkeeping update
 
@@ -248,8 +244,8 @@ and were not treated as solver measurements.
 
 | Gate | Disposition | Evidence |
 | --- | --- | --- |
-| Full Debug suite | INCOMPLETE for current commit | Focused current-source transaction test passes ASan/UBSan; `1f6a1f40d` remains the last 372/372 full-Debug checkpoint |
-| Full Release suite | INCOMPLETE for exact current commit | Exact predecessor `317748a0b` passed 372/372 serially; the current affected proof/search/public-correspondence slice passes, but no full current-source run is claimed |
+| Full Debug suite | PASS | Current source passed 372/372 under ASan/UBSan in 1,922.93 s; LeakSanitizer alone is unavailable under the runner's `ptrace` |
+| Full Release suite | PASS | Current source has 372/372 compatible coverage: 370 cells passed in the 261.33 s full run and the two non-solver hygiene cells passed isolated reruns after their local conditions were repaired |
 | Default PBP and competition compliance | PASS | Pinned VeriPB and CakePB pipeline passed; `tools/compete/check.sh` reports `COMPLIANCE OK` |
 | Public DefaultPolicy functional correspondence | PASS | Current-source correspondence test passed; jobs `1795270`/`1795271` match proof hash, conflicts, decisions and propagations, with 221,993 public requests and zero fallback or decline per draw |
 | Public-port overhead | PASS | Current matched jobs `1795270`/`1795271` measure +0.855%, inside the 5% ceiling, with exact proof and trajectory |

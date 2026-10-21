@@ -421,12 +421,15 @@ production's matched whole-run PBP mean is 16.820 seconds. The separated gate
 does not compare that PBP wall time directly with the proof-free CMS target, so
 the paper-comparable closure measurement remains open rather than failed.
 
-The release gates are incomplete. The current affected Release slice and
-focused sanitizer test pass, but the exact current commit still needs the full
-Debug and Release gates. The mixed-mode broad campaigns are reported but are
-not an applicable 0.2.0 gate; the current default-PBP operational baseline is
-incomplete, and the required 100,000-seed DefaultPolicy and random-policy fuzz
-lacks independent owner completion.
+The release gates are incomplete. Current source passes the complete 372/372
+Debug suite under ASan/UBSan in 1,922.93 seconds; LeakSanitizer alone is disabled
+because the runner uses `ptrace`. Release produced 370/372 in one 261.33-second
+pass, then both non-solver failures passed isolated compatible reruns after an
+empty scratch-race residue was removed and the ignored local development plan
+was compacted from 751 to its 750-line budget. The mixed-mode broad campaigns
+are reported but are not an applicable 0.2.0 gate; the current default-PBP
+operational baseline is incomplete, and the required 100,000-seed DefaultPolicy
+and random-policy fuzz lacks independent owner completion.
 
 No additional broad regression rerun is planned. After the candidate is
 stable, the regression controller must reuse compatible frozen cells and run
