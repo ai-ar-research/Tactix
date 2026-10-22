@@ -2,15 +2,23 @@
 """Run the paper's experiments, locally or as a SLURM array.
 
     paper/run/bench.py list
-    paper/run/bench.py run EXPERIMENT [selection] [--jobs N] [--out DIR]
-    paper/run/bench.py slurm EXPERIMENT [selection] --partition P [--out DIR]
-    paper/run/bench.py fetch EXPERIMENT [selection]
+    paper/run/bench.py run EXPERIMENT [--profile P] [selection] [--jobs N] [--out DIR]
+    paper/run/bench.py slurm EXPERIMENT [--profile P] [selection] --partition P [--out DIR]
+    paper/run/bench.py fetch EXPERIMENT [--profile P] [selection]
     paper/run/bench.py collect [--out DIR]
 
-Selection options narrow an experiment: --configurations A,B (names as in
-`list`), --sets S (interface only), --subset short (the reduced instance set in
-paper/benchmarks/subsets/), --limit N (the first N instances), and
---seconds S (a different time limit). --no-check skips certificate checking.
+--profile chooses the instances and resource limits: full (the paper's, the
+default), reduced (the artifact-evaluation subsets and limits) or smoke (a few
+quick instances); see experiments.py. Selection options narrow it further:
+--configurations A,B (names as in `list`), --sets S (interface only),
+--subset NAME (paper/benchmarks/subsets/EXPERIMENT-NAME.txt), --limit N (the
+first N instances), and --seconds S (a different time limit). --no-check skips
+certificate checking.
+
+Every run is limited in wall-clock time and in memory: the resident memory of
+the solver (or of the whole checking pipeline) and all its child processes is
+sampled several times a second, and the run is stopped when it exceeds the
+limit (reported as a memory-out).
 
 Each run writes one JSON record per (configuration, instance) to
 DIR/EXPERIMENT/records/. `collect` turns them into DIR/EXPERIMENT/results.csv,
@@ -50,7 +58,7 @@ BIN = TOOLS / "bin"
 CACHE = HERE / "instances"
 DEFAULT_OUT = HERE / "results"
 GBD_URL = "https://benchmark-database.de/file/{}"
-PENALTY = 10000
+PAGE_KB = os.sysconf("SC_PAGE_SIZE") // 1024
 
 
 # --- instances ----------------------------------------------------------------
@@ -133,20 +141,49 @@ def decompress(source: Path, target: Path) -> None:
 
 # --- measured execution -------------------------------------------------------
 
-def measured(command, stdout: Path, stderr: Path, seconds: float, env=None) -> dict:
-    """Run in a new process group; wall time, peak RSS (KiB), exit code, timeout."""
+def session_rss_kb(session: int) -> int:
+    """Resident memory (KiB) of every process in a session."""
+    total = 0
+    for entry in os.scandir("/proc"):
+        if not entry.name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry.name}/stat", "rb") as stream:
+                data = stream.read()
+        except OSError:
+            continue
+        fields = data[data.rindex(b")") + 2:].split()  # fields 3.. of proc(5)
+        if int(fields[3]) == session:
+            total += int(fields[21]) * PAGE_KB
+    return total
+
+
+def measured(command, stdout: Path, stderr: Path, seconds: float, env=None,
+             memory_gib: float | None = None, session: bool = True) -> dict:
+    """Run under a time and memory limit; wall time, peak RSS (KiB), exit code,
+    timeout, memory-out. With session=True the command gets a session of its own
+    and the memory limit covers it and all its descendants; otherwise it gets a
+    process group (inside a caller that is itself measured)."""
     started = time.monotonic()
-    timed_out = False
+    timed_out = memout = False
+    limit_kb = memory_gib * 1024 * 1024 if memory_gib else None
+    sampled_kb = 0
+    next_sample = started
     with stdout.open("wb") as out, stderr.open("wb") as err:
-        process = subprocess.Popen([str(c) for c in command], stdout=out, stderr=err,
-                                   start_new_session=True, env=env)
+        process = subprocess.Popen([str(c) for c in command], stdout=out, stderr=err, env=env,
+                                   **({"start_new_session": True} if session else {"process_group": 0}))
         deadline = started + seconds
         while True:
             pid, status, usage = os.wait4(process.pid, os.WNOHANG)
             if pid:
                 break
-            if time.monotonic() > deadline:
-                timed_out = True
+            now = time.monotonic()
+            if session and now >= next_sample:
+                next_sample = now + 0.2
+                sampled_kb = max(sampled_kb, session_rss_kb(process.pid))
+                memout = limit_kb is not None and sampled_kb > limit_kb
+            if now > deadline or memout:
+                timed_out = not memout
                 os.killpg(process.pid, signal.SIGTERM)
                 for _ in range(100):
                     pid, status, usage = os.wait4(process.pid, os.WNOHANG)
@@ -163,9 +200,10 @@ def measured(command, stdout: Path, stderr: Path, seconds: float, env=None) -> d
         os.killpg(process.pid, signal.SIGKILL)  # stray descendants
     except ProcessLookupError:
         pass
-    return {"exit_code": None if timed_out else process.returncode,
+    return {"exit_code": None if timed_out or memout else process.returncode,
             "wall_seconds": round(time.monotonic() - started, 3),
-            "peak_rss_kb": usage.ru_maxrss, "timed_out": timed_out}
+            "peak_rss_kb": max(usage.ru_maxrss, sampled_kb), "timed_out": timed_out,
+            "memout": memout}
 
 
 def answer(stdout: Path) -> str:
@@ -200,9 +238,16 @@ def _stage_ok(name: str, code, text: str) -> bool:
             "dsr-compress": "ERROR" not in text and "not supported" not in text}[name]
 
 
+def cake_heap_mib(memory_gib: float) -> int:
+    """CakeML heap for cake_lpr and cake_pb: the 24 GiB the paper's checks used
+    (with 64 GB), or three quarters of a smaller memory limit."""
+    return int(min(24576, memory_gib * 1024 * 3 // 4))
+
+
 def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float,
                    memory_gib: float) -> dict:
-    """Check an UNSAT certificate; returns {result, pipeline, wall_seconds, stages}."""
+    """Check an UNSAT certificate; returns {result, pipeline, wall_seconds, stages}.
+    Runs inside `bench.py check`, whose memory the caller limits as a whole."""
     started = time.monotonic()
     if kind == "satsuma":  # the verified SR pipeline the paper's runs used for Satsuma
         from proof_oracle import check_dsr
@@ -231,15 +276,14 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
     else:
         raise ValueError(kind)
     env = dict(os.environ)
-    if memory_gib >= 32:  # CakeML's default 4 GiB heap rejects large valid proofs
-        from proof_oracle import CAKE_LPR_ENVIRONMENT
-        env.update(CAKE_LPR_ENVIRONMENT)
+    from proof_oracle import CAKE_LPR_ENVIRONMENT
+    env.update(CAKE_LPR_ENVIRONMENT)
     log = []
     for number, (name, command, redirect) in enumerate(stages, 1):
         out = redirect or work / f"check-{number}.out"
         err = work / f"check-{number}.err"
         remaining = max(1.0, seconds - (time.monotonic() - started))
-        run = measured(command, out, err, remaining, env)
+        run = measured(command, out, err, remaining, env, session=False)
         text = ("" if redirect else out.read_text(errors="replace")) + err.read_text(errors="replace")
         ok = _stage_ok(name, run["exit_code"], text)
         log.append({"name": name, **run, "result": "verified" if ok else "not-verified"})
@@ -251,23 +295,58 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
             "timed_out": any(s["timed_out"] for s in log), "stages": log}
 
 
+def checked(kind: str, cnf: Path, proof: Path, work: Path, limits: dict) -> dict:
+    """Run check_pipeline in a child process under the memory limit."""
+    check_work = work / "check"
+    check_work.mkdir()
+    env = dict(os.environ, TACTIX_CAKE_HEAP_MIB=str(cake_heap_mib(limits["memory_gib"])))
+    run = measured([sys.executable, Path(__file__).resolve(), "check", kind, cnf, proof, check_work,
+                    str(limits["check_seconds"]), str(limits["memory_gib"])],
+                   work / "check.json", work / "check.err", limits["check_seconds"] + 60, env,
+                   limits["memory_gib"])
+    try:
+        result = json.loads((work / "check.json").read_text())
+    except ValueError:
+        failure = ("memory-out" if run["memout"] else "timeout" if run["timed_out"]
+                   else (work / "check.err").read_text(errors="replace")[-500:])
+        result = {"result": "not-verified", "pipeline": kind, "failure": failure}
+    result.update(wall_seconds=run["wall_seconds"], peak_rss_kb=run["peak_rss_kb"],
+                  memout=run["memout"], timed_out=run["timed_out"] or result.get("timed_out", False))
+    return result
+
+
 # --- one task -------------------------------------------------------------------
+
+def _subset(items: list[dict], path: Path) -> list[dict]:
+    keep = [line.split()[0] for line in path.read_text().splitlines()
+            if line.strip() and not line.startswith("#")]
+    wanted = set(keep)
+    chosen = [i for i in items if i["instance"] in wanted or Path(i["instance"]).name in wanted
+              or i.get("file") in wanted]
+    found = {key for i in chosen for key in (i["instance"], Path(i["instance"]).name, i.get("file"))}
+    missing = wanted - found
+    if missing:
+        sys.exit(f"{path}: not in the experiment: {', '.join(sorted(missing)[:5])}")
+    return chosen
+
 
 def plan(name: str, args) -> list[dict]:
     experiment = EXPERIMENTS[name]
     items = instances(name, experiment["instances"])
+    profile_name = getattr(args, "profile", None) or "full"
+    if profile_name != "full" and profile_name not in experiment.get("profiles", {}):
+        sys.exit(f"experiment {name} has no profile {profile_name}")
+    profile = experiment.get("profiles", {}).get(profile_name, {})
+    if "subset" in profile:
+        items = _subset(items, ROOT / profile["subset"])
     if getattr(args, "sets", None):
         wanted = set(args.sets.split(","))
         items = [i for i in items if i["set"] in wanted]
     if getattr(args, "subset", None):
-        subset = ROOT / "paper/benchmarks/subsets" / f"{name}-{args.subset}.txt"
-        keep = {line.strip() for line in subset.read_text().splitlines()
-                if line.strip() and not line.startswith("#")}
-        items = [i for i in items if i["instance"] in keep or Path(i["instance"]).name in keep
-                 or i.get("file") in keep]
+        items = _subset(items, ROOT / "paper/benchmarks/subsets" / f"{name}-{args.subset}.txt")
     if getattr(args, "limit", None):
         items = items[:args.limit]
-    configurations = list(experiment["configurations"])
+    configurations = list(profile.get("configurations", experiment["configurations"]))
     if getattr(args, "configurations", None):
         configurations = args.configurations.split(",")
         unknown = set(configurations) - set(experiment["configurations"])
@@ -276,11 +355,18 @@ def plan(name: str, args) -> list[dict]:
     tasks = []
     for item in items:  # instance-major, so both arms of a pair run close together
         for configuration in configurations:
-            limits = dict(experiment["limits"], **item.get("limits", {}))
+            if "limits" in profile:
+                limits = dict(profile["limits"], **profile.get("sets", {}).get(item["set"], {}))
+            else:
+                limits = dict(experiment["limits"], **item.get("limits", {}))
             if getattr(args, "seconds", None):
                 limits["seconds"] = args.seconds
-            tasks.append({"experiment": name, "configuration": configuration, **item,
-                          "limits": limits, "check": not getattr(args, "no_check", False)})
+            task = {"experiment": name, "configuration": configuration, **item,
+                    "limits": limits, "check": not getattr(args, "no_check", False),
+                    "profile": profile_name}
+            if profile.get("current_without_proof") and configuration == "Current":
+                task["without_proof"] = True
+            tasks.append(task)
     return tasks
 
 
@@ -289,6 +375,9 @@ def run_task(task: dict, out: Path, index: int) -> dict:
     if record_path.exists():
         return json.loads(record_path.read_text())
     spec = EXPERIMENTS[task["experiment"]]["configurations"][task["configuration"]]
+    if task.get("without_proof"):  # the same binary, run like the proof-free versions
+        spec = dict(spec, proof="none",
+                    command=[c for c in spec["command"] if c not in ("--auto-proof", "{proof}")])
     limits = task["limits"]
     work = Path(tempfile.mkdtemp(prefix="tactix-bench-"))
     try:
@@ -300,26 +389,25 @@ def run_task(task: dict, out: Path, index: int) -> dict:
         command[0] = str(HERE / command[0]) if not Path(command[0]).is_absolute() else command[0]
         env = dict(os.environ, **spec.get("environment", {}))
         stdout, stderr = work / "solver.out", work / "solver.err"
-        solve = measured(command, stdout, stderr, limits["seconds"], env)
+        solve = measured(command, stdout, stderr, limits["seconds"], env, limits["memory_gib"])
         verdict = answer(stdout)
         certificate = proof if "{proof}" in spec["command"] else proof_dir / "proof.out"
         record = {**{k: task[k] for k in ("experiment", "configuration", "set", "instance")},
+                  "profile": task.get("profile", "full"),
                   "competition": task.get("competition", ""), "verdict": verdict, "solve": solve,
                   "limits": limits, "proof_kind": spec["proof"], "certificate_bytes": None,
                   "check": None, "model_ok": None, "build": spec.get("build"),
                   "host": os.uname().nodename,
                   "solver_stdout_tail": stdout.read_text(errors="replace").splitlines()[-12:]}
         if verdict == "SAT":
-            model = measured([BIN / "checkmodel", cnf, stdout], work / "model.out", work / "model.err", 600)
+            model = measured([BIN / "checkmodel", cnf, stdout], work / "model.out", work / "model.err", 600,
+                             memory_gib=limits["memory_gib"])
             record["model_ok"] = model["exit_code"] == 0 and sat_protocol_ok(stdout)
         elif verdict == "UNSAT" and spec["proof"] != "none":
             if certificate.is_file():
                 record["certificate_bytes"] = certificate.stat().st_size
                 if task["check"]:
-                    check_work = work / "check"
-                    check_work.mkdir()
-                    record["check"] = check_pipeline(spec["proof"], cnf, certificate, check_work,
-                                                     limits["check_seconds"], limits["memory_gib"])
+                    record["check"] = checked(spec["proof"], cnf, certificate, work, limits)
             else:
                 record["check"] = {"result": "not-verified", "failure": "no certificate written"}
     finally:
@@ -354,6 +442,8 @@ def _row(record: dict) -> dict:
         status = "unsat-unchecked" if proof_free or not check else "unverified"
     elif solve["timed_out"]:
         status = "timeout"
+    elif solve.get("memout"):
+        status = "memory-out"
     else:
         status = f"no-answer (exit {solve['exit_code']})"
     wall = solve["wall_seconds"]
@@ -364,7 +454,11 @@ def _row(record: dict) -> dict:
             "counted": counted, "proof_mode": "none" if proof_free else "proof",
             "proof_check_result": check.get("result") or "", "check_seconds": check.get("wall_seconds", ""),
             "proof_bytes": record.get("certificate_bytes") or "",
-            "par2_seconds": round(wall, 3) if (counted if proof_free else verified) else PENALTY,
+            "par2_seconds": (round(wall, 3) if (counted if proof_free else verified)
+                             else 2 * record["limits"]["seconds"]),
+            "solve_limit_seconds": record["limits"]["seconds"],
+            "check_limit_seconds": record["limits"]["check_seconds"],
+            "memory_limit_gib": record["limits"]["memory_gib"],
             "solved_checked": answered and verified, "kissat_screen_seconds": record.get("kissat_screen_seconds", ""),
             "rechecked": False}
 
@@ -397,6 +491,7 @@ def collect(out: Path) -> None:
 
 def _selection(parser):
     parser.add_argument("experiment", choices=sorted(EXPERIMENTS))
+    parser.add_argument("--profile", choices=("full", "reduced", "smoke"), default="full")
     parser.add_argument("--configurations")
     parser.add_argument("--sets")
     parser.add_argument("--subset")
@@ -423,6 +518,9 @@ def main() -> None:
     task.add_argument("index", type=int)
     prefetch = commands.add_parser("fetch", help="download the selected instances for offline runs")
     _selection(prefetch)
+    check = commands.add_parser("check", help="(internal) check one certificate, print JSON")
+    for name in ("kind", "cnf", "proof", "work", "seconds", "memory_gib"):
+        check.add_argument(name)
     gather = commands.add_parser("collect")
     gather.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
@@ -432,11 +530,24 @@ def main() -> None:
             print(f"{name:11} {experiment['description']}")
             items = instances(name, experiment["instances"])
             limits = experiment["limits"]
-            print(f"{'':11} {len(items)} instances, {limits['seconds']:g} s, {limits['memory_gib']} GiB, "
-                  f"{limits['cpus']} CPUs; configurations: {', '.join(experiment['configurations'])}")
+            print(f"{'':11} full:    {len(items)} instances, {limits['seconds']:g} s, "
+                  f"{limits['memory_gib']} GiB, {limits['cpus']} CPUs; "
+                  f"configurations: {', '.join(experiment['configurations'])}")
+            for profile, spec in experiment.get("profiles", {}).items():
+                tasks = plan(name, argparse.Namespace(profile=profile))
+                runs = len(tasks)
+                limits = spec["limits"]
+                print(f"{'':11} {profile + ':':8} {len({t['instance'] for t in tasks})} instances, "
+                      f"{runs} runs, {limits['seconds']:g} s solve, {limits['check_seconds']:g} s check, "
+                      f"{limits['memory_gib']} GiB")
         return
     if args.command == "collect":
         collect(args.out)
+        return
+    if args.command == "check":
+        result = check_pipeline(args.kind, Path(args.cnf), Path(args.proof), Path(args.work),
+                                float(args.seconds), float(args.memory_gib))
+        print(json.dumps(result))
         return
     if args.command == "task":
         tasks = json.loads(args.plan.read_text())

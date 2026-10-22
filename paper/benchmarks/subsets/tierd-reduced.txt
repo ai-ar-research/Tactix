@@ -1,0 +1,16 @@
+# Tier D reduced set (also the milestones'): see paper/run/select_subsets.py
+09c1b79b1cfe3522364fe60aef780703-x9-12092.sat.sanitized.cnf.xz
+a552a058e6376a36b1f1b2724f228364-IBM_FV_2004_rule_batch_1_31_1_SAT_dat.k40.debugged.cnf.xz
+c69c5163c9087ffe770743bd4cdafcc9-tseitin_d3_n162.sanitized.cnf.xz
+eddd68e14d69cce7190b99f4e7abdafb-x9-10098.sat.sanitized.cnf.xz
+f86dad4ba35369eb720a0c9ddc45037a-combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2.cnf.xz
+16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz
+3a1f1b4b9a521737cc760017fe9d8b43-MVRoundRobin_n16_d10_v3.cnf.xz
+9da32436de386f3b4f8e6ec1db552349-HCP-529-420.cnf.xz
+d672bdbca3b1fb26d585e78add79537e-velev-pipe-o-uns-1.1-6.cnf.xz
+fab2022deb130fe3ad1136a5c71b4109-case9.cnf.xz
+15e666a42158e3304fc3979de28a5e44-adv_gc_n200_k12_UNSAT_s42.sanitized.cnf.xz
+365a02a7d781d655bb2a64d2273a2d0c-Medium-result_b10.af_252.sanitized.cnf.xz
+727ebce936c010888c7f71f00885e643-count_p2_M25.sanitized.cnf.xz
+87dbc3302b82c09e19c55059fb943191-ntil-90d-38.sanitized.cnf.xz
+b023ea0eb9adbd9182c01d7e2d443289-mp1-tri_ali_s11_c35_bail_UNS.cnf.xz

@@ -12,8 +12,20 @@ Proof kinds decide how an UNSAT answer is checked:
   satsuma  Satsuma's DSR: dsr-trim, dsr-compress -d, Trestle
   pbp      VeriPB elaboration + CakePB
   none     no certificate (UNSAT is not checked)
+
+Every experiment can be run under three profiles that differ only in the
+instances and the resource limits (bench.py --profile):
+  full     the paper's instance sets and limits (the default)
+  reduced  the artifact-evaluation subsets (paper/benchmarks/subsets/*-reduced.txt)
+           with smaller limits, sized for a 4-core, 16 GB virtual machine
+  smoke    a few quick instances of the same subsets with short limits, to
+           check that every solver and checker runs on each experiment's
+           benchmarks
+A profile may also replace the limits of an instance set ("sets") and, for
+the milestones, run the current version without proofs like the others.
 """
 
+SUB = "paper/benchmarks/subsets"
 T = "tools/tactix"  # Tactix builds, one directory per entry of BUILDS
 S = "tools/solvers"
 
@@ -38,6 +50,11 @@ CRUX_DEFAULT_OPTIONS = [
     "TACTIX_SLOT_DISABLE=Backbone",
 ]
 
+# Limits of the reduced and smoke profiles. At most three runs execute at the
+# same time (bench.py --jobs 3), so 3 x 4 GiB fit the evaluation VM.
+REDUCED_MEMORY_GIB = 4
+SMOKE = {"seconds": 60, "memory_gib": 4, "cpus": 1, "check_seconds": 120}
+
 EXPERIMENTS = {
     "smoke": {
         "description": "The example formulas: every solver path and proof route, in about a minute",
@@ -53,6 +70,12 @@ EXPERIMENTS = {
         "instances": {"kind": "gbd", "list": "paper/benchmarks/tierd.sources",
                       "years": "paper/benchmarks/tierd-years.tsv"},
         "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800},
+        "profiles": {
+            "reduced": {"subset": f"{SUB}/tierd-reduced.txt",
+                        "limits": {"seconds": 600, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
+                                   "check_seconds": 600}},
+            "smoke": {"subset": f"{SUB}/tierd-smoke.txt", "limits": SMOKE},
+        },
         "configurations": {
             "Tactix": {"command": [f"{T}/paper-tierd/tactix", "--auto-proof", "{cnf}", "{proof}"],
                        "proof": "tactix"},
@@ -64,6 +87,14 @@ EXPERIMENTS = {
         "instances": {"kind": "gbd", "list": "paper/benchmarks/tierd.sources",
                       "years": "paper/benchmarks/tierd-years.tsv"},
         "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800},
+        "profiles": {
+            # Same formulas as the reduced Tier D set; every version without proofs.
+            "reduced": {"subset": f"{SUB}/tierd-reduced.txt", "current_without_proof": True,
+                        "limits": {"seconds": 300, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
+                                   "check_seconds": 600}},
+            "smoke": {"subset": f"{SUB}/tierd-smoke.txt", "current_without_proof": True,
+                      "limits": SMOKE},
+        },
         "configurations": {
             **{f"Milestone {m}": {"command": [f"{T}/paper-milestone-{m.lower()}/tactix", "{cnf}"],
                                   "proof": "none", "build": f"paper-milestone-{m.lower()}"}
@@ -83,6 +114,14 @@ EXPERIMENTS = {
             "WV100": {"kind": "gbd", "list": "paper/benchmarks/interface-wv100.sources"},
         }},
         "limits": {"seconds": 1200, "memory_gib": 32, "cpus": 12, "check_seconds": 1800},
+        "profiles": {
+            "reduced": {"subset": f"{SUB}/interface-reduced.txt",
+                        "limits": {"seconds": 300, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
+                                   "check_seconds": 600},
+                        "sets": {"Tier A": {"seconds": 30}}},
+            "smoke": {"subset": f"{SUB}/interface-smoke.txt", "limits": SMOKE,
+                      "sets": {"Tier A": {"seconds": 30}}},
+        },
         "configurations": {
             "C interface": {"command": [f"{T}/paper-interface/tactix-public", "--auto-proof", "{cnf}",
                                         "{proof}"], "proof": "tactix"},
@@ -94,6 +133,12 @@ EXPERIMENTS = {
         "description": "Case study: the cruxmiter strategy on the ten size-32 cruxmiter formulas",
         "instances": {"kind": "files", "glob": "paper/benchmarks/cruxmiter/cruxmiter32seed*.cnf"},
         "limits": {"seconds": 43200, "memory_gib": 48, "cpus": 12, "check_seconds": 259200},
+        "profiles": {
+            "reduced": {"subset": f"{SUB}/cruxmiter-reduced.txt",
+                        "limits": {"seconds": 1200, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
+                                   "check_seconds": 2400}},
+            "smoke": {"subset": f"{SUB}/cruxmiter-smoke.txt", "limits": SMOKE},
+        },
         "configurations": {
             "Default Tactix": {"command": [f"{T}/paper-cruxmiter/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
@@ -110,6 +155,16 @@ EXPERIMENTS = {
         "instances": {"kind": "files", "glob": "paper/benchmarks/chvatal/*.cnf.xz",
                       "selection": "paper/logs/chvatal/paper-hard.json"},
         "limits": {"seconds": 5000, "memory_gib": 16, "cpus": 4, "check_seconds": 7200},
+        "profiles": {
+            "reduced": {"subset": f"{SUB}/chvatal-reduced.txt",
+                        "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",
+                                           "Satsuma+Kissat"],
+                        "limits": {"seconds": 900, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
+                                   "check_seconds": 1800}},
+            "smoke": {"subset": f"{SUB}/chvatal-smoke.txt", "limits": SMOKE,
+                      "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",
+                                         "Satsuma+Kissat"]},
+        },
         "configurations": {
             "Chvatal Tactix": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy", "--twins", "--dsr",
                                            "{cnf}", "{proof}"], "proof": "tactix"},

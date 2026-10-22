@@ -1,0 +1,2 @@
+# Cruxmiter reduced set: the three cheapest seeds in the paper's runs (smoke: a quick part of it)
+cruxmiter32seed7.cnf

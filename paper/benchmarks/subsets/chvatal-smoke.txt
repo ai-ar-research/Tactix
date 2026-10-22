@@ -1,0 +1,2 @@
+# Chvatal reduced set: the two cheapest of the 23 subproblems in the paper's runs (smoke: a quick part of it)
+n7-111111101000.cnf.xz

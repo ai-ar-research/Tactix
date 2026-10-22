@@ -884,8 +884,12 @@ def dsr_proof_as_drat(proof, drat):
 def _cake_heap_mib():
     """CakeML heap for CakeLPR and CakePB: 24 GiB, the size large proofs need,
     capped at three quarters of physical memory, since on a smaller machine the
-    kernel refuses the reservation and the checker fails before reading."""
+    kernel refuses the reservation and the checker fails before reading.
+    TACTIX_CAKE_HEAP_MIB, when set, replaces the 24 GiB (the paper's runner
+    sets it from a run's memory limit)."""
     import os
+    if os.environ.get('TACTIX_CAKE_HEAP_MIB'):
+        return int(os.environ['TACTIX_CAKE_HEAP_MIB'])
     try:
         physical = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // 2**20
     except (ValueError, OSError):

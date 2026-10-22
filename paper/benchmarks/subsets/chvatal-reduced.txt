@@ -1,0 +1,3 @@
+# Chvatal reduced set: the two cheapest of the 23 subproblems in the paper's runs
+n7-1111110010100.cnf.xz
+n7-111111101000.cnf.xz

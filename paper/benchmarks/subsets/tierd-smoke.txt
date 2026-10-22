@@ -1,0 +1,3 @@
+# Tier D reduced set (also the milestones'): see paper/run/select_subsets.py (smoke: a quick part of it)
+69f6dd335626a9b71bfc6f2332f52b9d-Break_04_04.xml.cnf.xz
+09d7add3bf3b75c5d1023a92e752989a-Break_unsat_04_03.xml.cnf.xz
