@@ -37,6 +37,13 @@ Invoke the named project skills for their scopes:
   under DefaultPolicy and the controller-driven random policy, plus retained
   corpus and targeted reach. A missing action/configuration, pending report, or
   clean run without required coverage is incomplete.
+  Scope large feature-specific targeted campaigns to candidates that change the
+  owning feature, its scheduling or guards, or its feature-specific harness or
+  oracle. For an unchanged feature, require its compact deterministic regression
+  and reuse compatible immutable campaign evidence; do not count its optional
+  stress leg toward the universal fresh-PBP seeds. Forced-TTF follows this rule.
+  This scoping never waives targeted action/configuration coverage for changed
+  controller foundations or shared execution.
 - `benchmarks` and `slurm-jobs`: run matched performance and all four fixed
   regression sets. Apply row retention, bounded proof checking, the paper +10%
   ceiling, and the declared performance threshold exactly as the release

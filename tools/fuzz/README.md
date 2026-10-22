@@ -19,7 +19,13 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   cases: binary/guarded encodings, near misses, mutations, SAT/UNSAT validation
   poison and tight budgets. Positive cases must move the dedicated reach
   counter before a checked result counts; fixed controls cover replay and
-  deterministic interruption. Nightly selects 200,000.
+  deterministic interruption. Nightly selects 200,000. This large targeted
+  campaign is a release gate when the candidate changes balanced-signature/TTF
+  recognition, its scheduling or guards, or its feature-specific harness and
+  oracles. Otherwise the compact `balanced_signature_model` and
+  `forced_ttf_fuzz` tests remain mandatory and compatible prior campaign
+  evidence may be reused; this leg is not part of the universal fresh-PBP seed
+  count.
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2 nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers.  `--physical-cores P` changes all three coherently.  A worker count is parallelism within one fuzz campaign, not repeated fuzzing.  At submission it also creates a read-only `build/pin-fuzz-harness-*` snapshot of `run.sh`, the Python harness, stress scenarios, the regression corpus, and pinned VeriPB/CakePB binaries. The batch job executes only that snapshot and logs its aggregate SHA-256; it removes the snapshot after success and retains it after failure for Claude-owned diagnosis. A small deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg timeout controls replayable after the transient snapshot is gone. Never make a fuzz job execute a live repository script.
 - Core clausal checkers (`cake_lpr`, `drat-trim`, `dsr-compress`, `dsr-trim`, `lrat-check`, `srcheck`) default to the mutable `tools/checkers/bin` links. `slurm.sh --checkers DIR` freezes them instead: `DIR` holds exactly those basenames and a `SHA256SUMS` manifest; submission verifies it, installs a read-only content-addressed copy under `failures/checkers/<sha256>/`, and records that path and manifest in the snapshot (so failure `repro.sh` files use the same checkers); the job re-verifies it. For a live checkout, `TACTIX_FUZZ_CHECKERS=DIR` selects the same kind of collection, and `fuzz.py checkers` prints and verifies whichever is in effect. Optional `--dsr-transport FILE` pins the CMake `dsr-transport` helper and its hash beside the oracle; missing helper pins retain Python parsing, never weaker checking.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**

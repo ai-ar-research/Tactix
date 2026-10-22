@@ -50,6 +50,9 @@ def main():
     assert classes[6][1] == "SAT" and "validation-poison" in classes[6][0]
     assert classes[7][1] == "UNSAT" and "validation-poison" in classes[7][0]
     assert classes[8][3] is True
+    _, _, shuffled, _, reached, _ = FORCED.mutate(7, 9)
+    assert reached
+    assert shuffled[:7] == [[-1], [-5], [-9], [-10], [-14], [-18], [43]]
 
     exact = """\
 c balance    9 calls, 8 recognized, 7 forced TTF, 6 candidates, 5 restarts, 4 steps, 3 completion rounds, 2 SAT, 1 interrupted

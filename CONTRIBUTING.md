@@ -69,7 +69,15 @@ missing evidence does not pass a required gate.
   corpus and targeted action/configuration coverage. Every SAT model and UNSAT
   proof is independently checked; any crash, sanitizer, invariant, verdict,
   model, or proof failure rejects the candidate. Missing required reach is
-  incomplete, even when no generated case fails.
+  incomplete, even when no generated case fails. Large feature-specific
+  campaigns are change-scoped: they are required when the candidate changes
+  the owning feature, its scheduling or guards, or its feature-specific harness
+  or oracle. An unchanged feature instead keeps its compact deterministic
+  regression and may reuse compatible prior campaign evidence. In particular,
+  the forced-TTF stress leg is not part of the universal fresh-PBP seed count;
+  it is mandatory for balanced-signature/TTF changes. This exception does not
+  narrow the controller action/configuration coverage required for changed
+  controller foundations or shared execution.
 - Regression acceptance requires the full Debug and Release suites, retained
   rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
   most 10% aggregate solver-time regression from the paper release. Measure

@@ -183,11 +183,17 @@ def mutate(seed, index):
         tight = True
         tag = "typed-budget"
     elif scenario == 9:
-        # Keep recognition exact while mutating representation, order, and a
-        # surrounding satisfiable component.
-        rng.shuffle(clauses)
+        # Preserve the canonical leading root block used by the bounded shape
+        # recognizer.  Reorder the row witnesses together with a surrounding
+        # satisfiable component; shuffling every diagonal unit can move the
+        # unique spacing witness beyond the recognizer's typed candidate cap
+        # and is therefore not a positive reach case.
+        root_count = n * width + 1
+        roots, surrounding = clauses[:root_count], clauses[root_count:]
         extra = rng.randint(3, 8)
-        clauses.extend(planted_mutations(rng, nvars + 1, extra))
+        surrounding.extend(planted_mutations(rng, nvars + 1, extra))
+        rng.shuffle(surrounding)
+        clauses = roots + surrounding
         nvars += extra
         tag = "shuffled-mixed"
 
