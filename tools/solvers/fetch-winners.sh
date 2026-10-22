@@ -8,6 +8,10 @@
 # are grouped by submitting author and may contain more than one solver.
 #
 # Usage: tools/solvers/fetch-winners.sh
+#
+# With TACTIX_THIRD_PARTY=DIR, archives are taken from DIR (the artifact's
+# vendored copies: the competition archives under their original names and
+# kissat-sc2024.tar.gz) instead of being downloaded.
 
 set -euo pipefail
 
@@ -92,8 +96,13 @@ fetch_tar () { # destination-name source-url
     archive="$(mktemp "$DIR/.${name}.archive.XXXXXX")"
     repairs="$(mktemp "$DIR/.${name}.repairs.XXXXXX")"
     stage="$(mktemp -d "$DIR/.${name}.stage.XXXXXX")"
-    curl --fail --location --silent --show-error --retry 3 \
-        --output "$archive" "$url"
+    local vendored="${TACTIX_THIRD_PARTY:-}/$(basename "$url")"
+    if [ -n "${TACTIX_THIRD_PARTY:-}" ] && [ -f "$vendored" ]; then
+        cp "$vendored" "$archive"
+    else
+        curl --fail --location --silent --show-error --retry 3 \
+            --output "$archive" "$url"
+    fi
     xz --test "$archive"
     validate_tar "$archive" "$repairs"
     tar --extract --xz --file "$archive" --directory "$stage" \
@@ -111,19 +120,29 @@ fetch_tar () { # destination-name source-url
     repairs=""
 }
 
-fetch_git_tag () { # destination-name repository tag
+fetch_git_tag () { # destination-name repository tag commit
     local name="$1" repository="$2" tag="$3"
     if [ -d "$DIR/$name" ]; then
         echo "== $name: already present =="
         return
     fi
 
-    echo "== $name: cloning tag $tag =="
     stage="$(mktemp -d "$DIR/.${name}.stage.XXXXXX")"
-    git clone --depth 1 --branch "$tag" "$repository" "$stage/source"
+    local vendored="${TACTIX_THIRD_PARTY:-}/$name.tar.gz"
+    if [ -n "${TACTIX_THIRD_PARTY:-}" ] && [ -f "$vendored" ]; then
+        # GitHub's archive of the tag: the same tree, without .git
+        echo "== $name: unpacking $vendored =="
+        mkdir "$stage/source"
+        tar -xzf "$vendored" -C "$stage/source" --strip-components=1 --no-same-owner
+        printf '%s\n' "${3:?}" > "$stage/source/SOURCE_REF"
+        printf '%s\n' "${4:?}" > "$stage/source/SOURCE_COMMIT"
+    else
+        echo "== $name: cloning tag $tag =="
+        git clone --depth 1 --branch "$tag" "$repository" "$stage/source"
+        printf '%s\n' "$tag" > "$stage/source/SOURCE_REF"
+        git -C "$stage/source" rev-parse HEAD > "$stage/source/SOURCE_COMMIT"
+    fi
     printf '%s\n' "$repository" > "$stage/source/SOURCE_URL"
-    printf '%s\n' "$tag" > "$stage/source/SOURCE_REF"
-    git -C "$stage/source" rev-parse HEAD > "$stage/source/SOURCE_COMMIT"
     mv -- "$stage/source" "$DIR/$name"
     rmdir -- "$stage"
     stage=""
@@ -131,7 +150,7 @@ fetch_git_tag () { # destination-name repository tag
 
 # The SC2024 downloads page was left as "tbd".  The winning source is
 # available as the upstream Kissat repository's sc2024 tag.
-fetch_git_tag kissat-sc2024 "$KISSAT_REPO" sc2024
+fetch_git_tag kissat-sc2024 "$KISSAT_REPO" sc2024 1e56df6c9bd2e43b8d313df462fb792b0a5eb891
 
 fetch_tar AE_kissat2025_MAB \
     "$SC25/AE_kissat2025_MAB.tar.xz"
