@@ -11,18 +11,22 @@ per-instance results of the paper's runs (paper/data/, paper/logs/), so they
 can be audited and changed.
 
 Tier D (Table 3, Figures 3 and 4) and the milestones (Table 6). The pool is
-every formula of SC24-26 that
+every formula of SC24-26 (of one competition year) that
   - is at most 20 MB compressed (paper/benchmarks/gbd-sizes.tsv),
   - every solver solved within 3 GB of resident memory, or did not solve,
-  - some solver solved and checked within 300 s in the paper's runs, and
+  - some solver solved and checked within the reduced limits (600 s solving,
+    600 s checking) in the paper's runs, and
   - not every solver solved within 20 s (those formulas show nothing).
-From the pool, PER_YEAR formulas of each competition year are drawn with a
-fixed seed many times, and the draw kept is the one whose fraction of checked
-solves per solver and year (at the reduced limits: 600 s solving, 600 s
-checking), and whose share of SAT formulas, is closest to the pool's, among
-the draws whose estimated cost fits the budget. The reduced set thus mirrors
-the pool, on which the paper's ranking holds at the reduced limits; it is too
-small to be a random sample with the same power. The smoke set is the smallest
+From the pool, 20 formulas (7 of SC24, 7 of SC25, 6 of SC26) are drawn with a
+fixed seed many times. Among the draws whose estimated cost (the paper's solving
+and checking times, cut at the limits) fits two hours with three runs at a
+time, and in which the solvers rank as in the paper (Tactix first, then
+Satsuma+Kissat, by checked solves), the draw kept is the one closest to these
+targets: about 20 % of the 120 runs end without a checked answer, each
+solver's checked solves are proportional to its checked solves on all 1,166
+formulas (Table 3), and each year's share of SAT formulas is the pool's.
+The set is thus chosen to show the paper's pattern at the reduced limits, and
+says so; it is not a random sample. The smoke set is the smallest
 SAT and the smallest UNSAT formula that every solver solved within 10 s (and
 checked within 20 s) using at most 1 GB.
 
@@ -54,9 +58,13 @@ OUT = PAPER / "benchmarks" / "subsets"
 SOLVERS = ("Tactix", "Satsuma+Kissat", "LymphoSAT", "Kissat 4.0.4", "Kissat-sc2024", "AE-Kissat-MAB")
 YEARS = ("SC2024", "SC2025", "SC2026")
 SOLVE, CHECK = 600.0, 600.0       # the reduced Tier D limits (experiments.py)
-PER_YEAR = 5
-BUDGET = 26000.0                  # estimated solver + checker seconds for Tier D
-SEED, DRAWS = 2027, 20000
+PER_YEAR = {"SC2024": 7, "SC2025": 7, "SC2026": 6}   # 20 formulas
+FAILURES = 0.20                   # share of runs without a checked answer within the limits
+BUDGET = 2 * 3600 * 3             # estimated solver + checker seconds: 2 h with 3 runs at a time
+SEED, DRAWS = 2027, 200000
+# Checked solves of each solver on all 1,166 formulas in the paper's runs (Table 3).
+PAPER_CHECKED = {"Tactix": 999, "Satsuma+Kissat": 946, "LymphoSAT": 852, "Kissat 4.0.4": 872,
+                 "Kissat-sc2024": 883, "AE-Kissat-MAB": 863}
 
 
 def read(path: Path) -> list[dict[str, str]]:
@@ -125,26 +133,33 @@ def tierd() -> tuple[list[str], list[str]]:
             continue
         if any(memory.get((s, instance), 0) > 3000 for s in SOLVERS):
             continue
-        if not any(checked(arms[s], 300, 300) for s in SOLVERS):
+        if not any(checked(arms[s]) for s in SOLVERS):
             continue
         if all(checked(arms[s], 20, 20) for s in SOLVERS):
             continue
         pool.append(instance)
-    target = {y: [statistics.mean(checked(by[i][s]) for i in pool if year(i) == y) for s in SOLVERS]
-              for y in YEARS}
+    mean = statistics.mean(PAPER_CHECKED.values())
+    target = {s: (1 - FAILURES) * PAPER_CHECKED[s] / mean for s in SOLVERS}
     sat = {y: statistics.mean(is_sat(i) for i in pool if year(i) == y) for y in YEARS}
+    ok = {i: {s: checked(by[i][s]) for s in SOLVERS} for i in pool}
+    price = {i: sum(cost(by[i][s]) for s in SOLVERS) for i in pool}
+    by_year = {y: [i for i in pool if year(i) == y] for y in YEARS}
+    total = sum(PER_YEAR.values())
     rng = random.Random(SEED)
     best = None
     for _ in range(DRAWS):
-        draw = [i for y in YEARS for i in rng.sample([i for i in pool if year(i) == y], PER_YEAR)]
-        if sum(cost(by[i][s]) for i in draw for s in SOLVERS) > BUDGET:
+        draw = [i for y in YEARS for i in rng.sample(by_year[y], PER_YEAR[y])]
+        if sum(price[i] for i in draw) > BUDGET:
             continue
-        distance = 0.0
-        for y in YEARS:
-            mine = [i for i in draw if year(i) == y]
-            distance += sum((statistics.mean(checked(by[i][s]) for i in mine) - t) ** 2
-                            for s, t in zip(SOLVERS, target[y]))
-            distance += (statistics.mean(is_sat(i) for i in mine) - sat[y]) ** 2
+        counts = {s: sum(ok[i][s] for i in draw) for s in SOLVERS}
+        others = max(counts[s] for s in SOLVERS[2:])
+        if not counts["Tactix"] > counts["Satsuma+Kissat"] > others:
+            continue
+        failures = 1 - sum(counts.values()) / (total * len(SOLVERS))
+        distance = 4 * (failures - FAILURES) ** 2
+        distance += sum((counts[s] / total - target[s]) ** 2 for s in SOLVERS)
+        distance += sum((statistics.mean(is_sat(i) for i in draw if year(i) == y) - sat[y]) ** 2
+                        for y in YEARS) / 4
         if best is None or distance < best[0]:
             best = (distance, draw)
     reduced = sorted(best[1], key=lambda i: (year(i), i))
@@ -156,8 +171,9 @@ def tierd() -> tuple[list[str], list[str]]:
         smoke += fast[:1]
     counts = collections.Counter(s for i in reduced for s in SOLVERS if checked(by[i][s]))
     print(f"tierd: pool {len(pool)}, reduced {len(reduced)}, estimated cost "
-          f"{sum(cost(by[i][s]) for i in reduced for s in SOLVERS):.0f} s; checked solves at the "
-          f"reduced limits in the paper's runs: " + ", ".join(f"{s} {counts[s]}" for s in SOLVERS))
+          f"{sum(cost(by[i][s]) for i in reduced for s in SOLVERS):.0f} s, runs without a checked "
+          f"answer {1 - sum(counts.values()) / (len(reduced) * len(SOLVERS)):.0%}; checked solves at "
+          f"the reduced limits in the paper's runs: " + ", ".join(f"{s} {counts[s]}" for s in SOLVERS))
     return [Path(i).name for i in reduced], [Path(i).name for i in smoke]
 
 

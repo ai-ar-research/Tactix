@@ -21,8 +21,9 @@ instances and the resource limits (bench.py --profile):
   smoke    a few quick instances of the same subsets with short limits, to
            check that every solver and checker runs on each experiment's
            benchmarks
-A profile may also replace the limits of an instance set ("sets") and, for
-the milestones, run the current version without proofs like the others.
+A profile may also replace the limits of an instance set ("sets") and run
+only some configurations; the reduced and smoke milestones take the current
+version's runs from the Tier D experiment, as the paper did.
 """
 
 SUB = "paper/benchmarks/subsets"
@@ -88,12 +89,15 @@ EXPERIMENTS = {
                       "years": "paper/benchmarks/tierd-years.tsv"},
         "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800},
         "profiles": {
-            # Same formulas as the reduced Tier D set; every version without proofs.
-            "reduced": {"subset": f"{SUB}/tierd-reduced.txt", "current_without_proof": True,
-                        "limits": {"seconds": 300, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
+            # The Tier D formulas and limits; the current version's runs are
+            # the Tier D experiment's Tactix runs (compare.py takes them from
+            # there), as in the paper.
+            "reduced": {"subset": f"{SUB}/tierd-reduced.txt", "current_from_tierd": True,
+                        "configurations": [f"Milestone {m}" for m in "ABCDE"],
+                        "limits": {"seconds": 600, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
                                    "check_seconds": 600}},
-            "smoke": {"subset": f"{SUB}/tierd-smoke.txt", "current_without_proof": True,
-                      "limits": SMOKE},
+            "smoke": {"subset": f"{SUB}/tierd-smoke.txt", "current_from_tierd": True,
+                      "configurations": [f"Milestone {m}" for m in "ABCDE"], "limits": SMOKE},
         },
         "configurations": {
             **{f"Milestone {m}": {"command": [f"{T}/paper-milestone-{m.lower()}/tactix", "{cnf}"],

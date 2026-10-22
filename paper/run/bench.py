@@ -366,8 +366,6 @@ def plan(name: str, args) -> list[dict]:
             task = {"experiment": name, "configuration": configuration, **item,
                     "limits": limits, "check": not getattr(args, "no_check", False),
                     "profile": profile_name}
-            if profile.get("current_without_proof") and configuration == "Current":
-                task["without_proof"] = True
             tasks.append(task)
     return tasks
 
@@ -377,9 +375,6 @@ def run_task(task: dict, out: Path, index: int) -> dict:
     if record_path.exists():
         return json.loads(record_path.read_text())
     spec = EXPERIMENTS[task["experiment"]]["configurations"][task["configuration"]]
-    if task.get("without_proof"):  # the same binary, run like the proof-free versions
-        spec = dict(spec, proof="none",
-                    command=[c for c in spec["command"] if c not in ("--auto-proof", "{proof}")])
     limits = task["limits"]
     work = Path(tempfile.mkdtemp(prefix="tactix-bench-"))
     try:
@@ -493,7 +488,7 @@ def collect(out: Path) -> None:
 # --- command line -----------------------------------------------------------------
 
 def _selection(parser):
-    parser.add_argument("experiment", choices=sorted(EXPERIMENTS))
+    parser.add_argument("experiments", nargs="+", choices=sorted(EXPERIMENTS), metavar="EXPERIMENT")
     parser.add_argument("--profile", choices=("full", "reduced", "smoke"), default="full")
     parser.add_argument("--configurations")
     parser.add_argument("--sets")
@@ -514,7 +509,8 @@ def main() -> None:
     slurm = commands.add_parser("slurm")
     _selection(slurm)
     slurm.add_argument("--partition", required=True)
-    slurm.add_argument("--sbatch", default="", help="extra sbatch options")
+    slurm.add_argument("--sbatch", default="", help="extra sbatch options, e.g. an account")
+    slurm.add_argument("--concurrency", type=int, help="at most this many array tasks at a time")
     slurm.add_argument("--dry-run", action="store_true")
     task = commands.add_parser("task")
     task.add_argument("plan", type=Path)
@@ -557,60 +553,81 @@ def main() -> None:
         run_task(tasks[args.index], args.plan.parent.parent, args.index)
         return
 
-    tasks = plan(args.experiment, args)
     if args.command == "fetch":
-        seen = set()
-        for task in tasks:
-            if task["instance"] not in seen:
-                seen.add(task["instance"])
-                fetch(task)
-        print(f"{args.experiment}: {len(seen)} instances in {CACHE}")
+        for name in args.experiments:
+            seen = set()
+            for task in plan(name, args):
+                if task["instance"] not in seen:
+                    seen.add(task["instance"])
+                    fetch(task)
+            print(f"{name}: {len(seen)} instances in {CACHE}")
         return
-    directory = args.out / args.experiment
-    directory.mkdir(parents=True, exist_ok=True)
-    plan_path = directory / "plan.json"
-    # Records are indexed by position, so a resumed run must select the same
-    # runs in the same order with the same limits.
-    identity = lambda ts: [(t["configuration"], t["set"], t["instance"], t["limits"], t["check"]) for t in ts]
-    if plan_path.exists() and identity(json.loads(plan_path.read_text())) != identity(tasks):
-        sys.exit(f"{plan_path} holds a different selection; use another --out or remove it")
-    plan_path.write_text(json.dumps(tasks, indent=1) + "\n")
-    print(f"{args.experiment}: {len(tasks)} tasks -> {directory}")
+    plans = {}
+    for name in args.experiments:
+        tasks = plan(name, args)
+        directory = args.out / name
+        directory.mkdir(parents=True, exist_ok=True)
+        plan_path = directory / "plan.json"
+        # Records are indexed by position, so a resumed run must select the same
+        # runs in the same order with the same limits.
+        identity = lambda ts: [(t["configuration"], t["set"], t["instance"], t["limits"], t["check"]) for t in ts]
+        if plan_path.exists() and identity(json.loads(plan_path.read_text())) != identity(tasks):
+            sys.exit(f"{plan_path} holds a different selection; use another --out or remove it")
+        plan_path.write_text(json.dumps(tasks, indent=1) + "\n")
+        plans[name] = (tasks, plan_path)
+        print(f"{name}: {len(tasks)} tasks -> {directory}")
     if args.command == "run":
+        # One pool for all selected experiments; their longest runs start first
+        # (case studies, then Tier D, ...), so that short runs fill the tail.
+        order = {name: rank for rank, name in enumerate(("chvatal", "cruxmiter", "tierd", "milestones",
+                                                          "interface", "smoke"))}
+        work = [(task, index) for name in sorted(plans, key=order.get)
+                for index, task in enumerate(plans[name][0])]
         failed = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-            futures = {pool.submit(run_task, t, args.out, i): t for i, t in enumerate(tasks)}
+            futures = {pool.submit(run_task, t, args.out, i): t for t, i in work}
             for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
                 task = futures[future]
-                name = Path(task["instance"]).name[:48]
+                name = Path(task["instance"]).name[:44]
+                label = f"{task['experiment']}/{task['configuration']}"
                 try:
                     record = future.result()
                 except Exception as error:  # reported; not recorded, so a rerun retries it
                     failed += 1
-                    print(f"[{done}/{len(tasks)}] {task['configuration']:24} {name:48} ERROR   {error}",
-                          flush=True)
+                    print(f"[{done}/{len(work)}] {label:36} {name:44} ERROR   {error}", flush=True)
                     continue
                 check = (record.get("check") or {}).get("result", "")
                 if record["verdict"] == "SAT":
                     check = "model ok" if record.get("model_ok") else "MODEL REJECTED"
-                print(f"[{done}/{len(tasks)}] {record['configuration']:24} {name:48} "
+                elif record["solve"].get("memout"):
+                    check = "memory-out"
+                print(f"[{done}/{len(work)}] {label:36} {name:44} "
                       f"{record['verdict']:7} {record['solve']['wall_seconds']:9.2f} s {check}", flush=True)
         collect(args.out)
         if failed:
             sys.exit(f"{failed} task(s) failed to run; rerun the same command to retry them")
         return
-    # slurm: one array task per (configuration, instance); full width
+    for name, (tasks, plan_path) in plans.items():
+        submit(args, name, tasks, plan_path)
+
+
+def submit(args, name: str, tasks: list[dict], plan_path: Path) -> None:
+    """One SLURM array per experiment: one array task per run, with the
+    experiment's cores, memory and time limit (as the paper's runs). The job
+    gets 1 GB more than the run's limit, for the runner itself; the runner
+    enforces the limit on the solver and checkers."""
+    directory = plan_path.parent
     limits = tasks[0]["limits"]
     longest = max(t["limits"]["seconds"] + (t["limits"]["check_seconds"] if t["check"] else 0) for t in tasks)
     hours = int(longest // 3600) + 1
     script = directory / "array.sbatch"
     script.write_text(f"""#!/usr/bin/env bash
-#SBATCH -J tactix-{args.experiment}
+#SBATCH -J tactix-{name}
 #SBATCH -p {args.partition}
 #SBATCH -c {limits['cpus']}
-#SBATCH --mem={limits['memory_gib']}G
+#SBATCH --mem={limits['memory_gib'] + 1}G
 #SBATCH -t {hours}:00:00
-#SBATCH -a 0-{len(tasks) - 1}
+#SBATCH -a 0-{len(tasks) - 1}{f"%{args.concurrency}" if args.concurrency else ""}
 #SBATCH -o {directory}/logs/%A_%a.log
 {args.sbatch and '#SBATCH ' + args.sbatch}
 exec python3 {Path(__file__).resolve()} task {plan_path} "$SLURM_ARRAY_TASK_ID"

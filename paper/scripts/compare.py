@@ -125,6 +125,23 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
     return pairs
 
 
+def current_from_tierd(logs: Path) -> None:
+    """The milestones' current version is the Tier D experiment's Tactix (the
+    same build and command), as in the paper: the reduced and smoke profiles
+    run only the five earlier versions, and the current version's rows are
+    taken from the Tier D runs on the same formulas."""
+    milestones, tierd = logs / "milestones/results.csv", logs / "tierd/results.csv"
+    if not milestones.exists() or not tierd.exists():
+        return
+    rows = read(milestones)
+    if any(r["configuration"] == "Current" for r in rows):
+        return
+    formulas = {key(r["instance"]) for r in rows}
+    current = [dict(r, configuration="Current", commit="0f7c10174") for r in read(tierd)
+               if r["configuration"] == "Tactix" and key(r["instance"]) in formulas]
+    write(milestones, rows + current)
+
+
 def build(logs: Path, base: Path) -> None:
     """data/ and figures/ from logs/, with the paper's Makefile."""
     subprocess.run(["make", "-s", "-C", str(PAPER), f"LOGS={logs}", f"DATA={base / 'data'}",
@@ -156,6 +173,7 @@ def main() -> None:
         if (run / name / "results.csv").exists():
             (out / "artifact/logs" / name).mkdir(parents=True, exist_ok=True)
             shutil.copy(run / name / "results.csv", out / "artifact/logs" / name / "results.csv")
+    current_from_tierd(out / "artifact/logs")
     pairs = paper_view(out / "artifact/logs", out / "paper-logs/logs")
     if not pairs:
         sys.exit(f"no results.csv under {run}; run bench.py first")
