@@ -12,8 +12,8 @@ default), reduced (the artifact-evaluation subsets and limits) or smoke (a few
 quick instances); see experiments.py. Selection options narrow it further:
 --configurations A,B (names as in `list`), --sets S (interface only),
 --subset NAME (paper/benchmarks/subsets/EXPERIMENT-NAME.txt), --limit N (the
-first N instances), and --seconds S (a different time limit). --no-check skips
-certificate checking.
+first N instances), and --seconds, --check-seconds, --memory-gib, --cpus
+(different limits). --no-check skips certificate checking.
 
 Every run is limited in wall-clock time and in memory: the resident memory of
 the solver (or of the whole checking pipeline) and all its child processes is
@@ -361,8 +361,10 @@ def plan(name: str, args) -> list[dict]:
                 limits = dict(profile["limits"], **profile.get("sets", {}).get(item["set"], {}))
             else:
                 limits = dict(experiment["limits"], **item.get("limits", {}))
-            if getattr(args, "seconds", None):
-                limits["seconds"] = args.seconds
+            for option, key in (("seconds", "seconds"), ("check_seconds", "check_seconds"),
+                                ("memory_gib", "memory_gib"), ("cpus", "cpus")):
+                if getattr(args, option, None):
+                    limits[key] = getattr(args, option)
             task = {"experiment": name, "configuration": configuration, **item,
                     "limits": limits, "check": not getattr(args, "no_check", False),
                     "profile": profile_name}
@@ -494,7 +496,10 @@ def _selection(parser):
     parser.add_argument("--sets")
     parser.add_argument("--subset")
     parser.add_argument("--limit", type=int)
-    parser.add_argument("--seconds", type=float)
+    parser.add_argument("--seconds", type=float, help="solving limit per run (s)")
+    parser.add_argument("--check-seconds", type=float, help="checking limit per run (s)")
+    parser.add_argument("--memory-gib", type=float, help="memory limit per run (GiB)")
+    parser.add_argument("--cpus", type=int, help="cores reserved per run (SLURM -c)")
     parser.add_argument("--no-check", action="store_true")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
 
