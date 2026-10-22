@@ -438,8 +438,8 @@ def interface_scatter(rows: list[dict[str, str]], output: Path) -> None:
                 linewidths=0.55,
                 alpha=0.72,
             )
-        ratios = [float(row["c_api_seconds"]) / float(row["cpp_seconds"]) for row in members]
-        median = statistics.median(ratios)
+        ratios = [float(row["c_api_seconds"]) / max(float(row["cpp_seconds"]), 1e-3) for row in members]
+        median = statistics.median(ratios) if ratios else None
         axis.plot([0.005, 2_000], [0.005, 2_000], color="#4b5563", linewidth=0.7, zorder=0)
         axis.set_xscale("log")
         axis.set_yscale("log")
@@ -450,8 +450,8 @@ def interface_scatter(rows: list[dict[str, str]], output: Path) -> None:
         axis.spines[["top", "right"]].set_visible(False)
         axis.set_title({"Rank 1-50": "Tier R", "WV100": "Tier W"}.get(name, name),
                        fontweight="bold", pad=3)
-        axis.text(0.04, 0.96, f"median {100 * (median - 1):+.1f}%", transform=axis.transAxes,
-                  ha="left", va="top")
+        axis.text(0.04, 0.96, "no formula" if median is None else f"median {100 * (median - 1):+.1f}%",
+                  transform=axis.transAxes, ha="left", va="top")
         axis.set_xlabel("C++ (s)")
     axes[0].set_ylabel("C interface (s)")
     handles = [

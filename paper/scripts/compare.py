@@ -103,6 +103,10 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
                 print(f"{name}: no archived result for {run['configuration']} on {run['instance']}",
                       file=sys.stderr)
                 continue
+            if run.get("proof_mode") == "none" and paper.get("proof_mode") == "proof":
+                # the rerun ran this configuration without proofs (milestones' Current)
+                paper = dict(paper, proof_mode="none", proof_check_result="",
+                             counted=str(paper["verdict"] in ("SAT", "UNSAT")))
             censored = censor(paper, run)
             censored["instance"] = run["instance"]  # the rerun's spelling, so the tables align
             rows.append(censored)

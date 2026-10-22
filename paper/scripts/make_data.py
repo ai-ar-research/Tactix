@@ -69,6 +69,8 @@ def tierd(logs: Path, out: Path) -> None:
             })
 
     def summarize(rows, benchmark=None):
+        if not rows:  # a reduced or smoke run may have no formula of a year
+            return None
         solved = [r for r in rows if r["solved"]]
         accepted = [r for r in rows if r["accepted"]]
         result = {
@@ -79,7 +81,8 @@ def tierd(logs: Path, out: Path) -> None:
             "sat": sum(r["verdict"] == "SAT" for r in solved),
             "unsat": sum(r["verdict"] == "UNSAT" for r in solved),
             "unsat_verified": sum(r["verdict"] == "UNSAT" for r in accepted),
-            "accepted_solve_mean_s": f'{total(float(r["solve_seconds"]) for r in accepted) / len(accepted):.3f}',
+            "accepted_solve_mean_s": (f'{total(float(r["solve_seconds"]) for r in accepted) / len(accepted):.3f}'
+                                      if accepted else "nan"),
             "par2_mean_s": f'{total(float(r["par2_seconds"]) for r in rows) / len(rows):.3f}',
         }
         return {"benchmark": benchmark, **result} if benchmark is not None else result
@@ -93,6 +96,8 @@ def tierd(logs: Path, out: Path) -> None:
                                              "unsat_verified", "accepted", "par2_mean_s")})
         for year in YEARS:
             result = summarize([r for r in rows if r[year]], year.replace("SC20", "SC"))
+            if result is None:
+                continue
             annual.append({k: result[k] for k in ("benchmark", "configuration", "instances", "solved",
                                                   "sat", "unsat", "unsat_verified", "accepted",
                                                   "par2_mean_s")})
@@ -100,7 +105,9 @@ def tierd(logs: Path, out: Path) -> None:
     for benchmark, year in (("SC24", "SC2024"), ("SC25", "SC2025"), ("SC26", "SC2026"), ("All", None)):
         for configuration in TABLE:
             rows = by[configuration]
-            table.append(summarize(rows if year is None else [r for r in rows if r[year]], benchmark))
+            result = summarize(rows if year is None else [r for r in rows if r[year]], benchmark)
+            if result is not None:
+                table.append(result)
     write(out / "tierd-times.csv", detail, "\r\n")
     write(out / "tierd-summary.csv", annual, "\r\n")
     write(out / "tierd-union-summary.csv", union, "\r\n")
@@ -168,8 +175,8 @@ def cruxmiter(logs: Path, out: Path) -> None:
              "seed": int(Path(r["instance"]).stem.replace("cruxmiter32seed", "")),
              "verdict": r["verdict"],
              "solve_seconds": f'{float(r["solve_seconds"]):.3f}',
-             "check_seconds": f'{float(r["check_seconds"]):.3f}',
-             "proof_bytes": int(r["proof_bytes"]),
+             "check_seconds": f'{float(r["check_seconds"]):.3f}' if r["check_seconds"] else "",
+             "proof_bytes": int(r["proof_bytes"]) if r["proof_bytes"] else "",
              "verified": int(true(r["verified"]))}
             for r in read(logs / "cruxmiter/results.csv")]
     write(out / "crux-results.csv", rows, "\r\n")
