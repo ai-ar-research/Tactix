@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -51,7 +52,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default=Path(__file__).resolve().parents[1] / "data/chvatal-results.csv")
     parser.add_argument("--output", default=Path(__file__).resolve().parents[1] / "figures/chvatal-scatter.pdf")
+    parser.add_argument("--limits", type=Path, help="limits.json of the run (make_data.py)")
     args = parser.parse_args()
+    global SOLVE_LIMIT, CHECK_LIMIT
+    if args.limits and args.limits.exists():
+        limits = json.loads(args.limits.read_text()).get("chvatal", {})
+        SOLVE_LIMIT = float(limits.get("seconds", SOLVE_LIMIT))
+        CHECK_LIMIT = float(limits.get("check_seconds", CHECK_LIMIT))
     setup()
     rows = list(csv.DictReader(Path(args.data).open(newline="", encoding="utf-8")))
     by = {(r["configuration"], r["node"]): r for r in rows}
@@ -71,8 +78,8 @@ def main() -> None:
         axis.axvline(limit, color="#9ca3af", linestyle=":", linewidth=0.55)
         axis.set_xscale("log"); axis.set_yscale("log")
         axis.set_xlim(low, high); axis.set_ylim(low, high)
-        ticks = [100, 1000, limit]
-        tick_labels = ["100", "1000", str(int(limit))]
+        ticks = [t for t in (100, 1000) if t < limit / 1.5] + [limit]
+        tick_labels = [str(int(t)) for t in ticks]
         axis.set_xticks(ticks, tick_labels)
         axis.set_yticks(ticks, tick_labels)
         axis.set_aspect("equal")

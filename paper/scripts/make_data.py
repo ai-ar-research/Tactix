@@ -191,6 +191,36 @@ def chvatal(logs: Path, out: Path) -> None:
     write(out / "chvatal-results.csv", rows)
 
 
+# The paper's limits, for logs that do not record them (the archived campaigns).
+PAPER_LIMITS = {"tierd": {"seconds": 5000, "check_seconds": 28800},
+                "milestones": {"seconds": 5000, "check_seconds": 28800},
+                "interface": {"seconds": 1200, "check_seconds": 1800},
+                "cruxmiter": {"seconds": 43200, "check_seconds": 259200},
+                "chvatal": {"seconds": 5000, "check_seconds": 7200}}
+
+
+def limits(logs: Path, out: Path) -> None:
+    """limits.json: each experiment's solving and checking limits and the
+    profile of the run, for the figures' axes and the PAR-2 penalties."""
+    import json
+    result = {"profile": "full"}
+    for name, default in PAPER_LIMITS.items():
+        path = logs / name / "results.csv"
+        if not path.exists():
+            continue
+        rows = read(path)
+        if rows and rows[0].get("solve_limit_seconds"):
+            # Interface Tier A has its own, shorter limit; report the main one.
+            result[name] = {"seconds": max(float(r["solve_limit_seconds"]) for r in rows),
+                            "check_seconds": max(float(r["check_limit_seconds"]) for r in rows),
+                            "memory_gib": max(float(r["memory_limit_gib"]) for r in rows)}
+            if rows[0].get("profile", "full") != "full":
+                result["profile"] = rows[0]["profile"]
+        else:
+            result[name] = dict(default)
+    (out / "limits.json").write_text(json.dumps(result, indent=1) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -203,6 +233,7 @@ def main() -> None:
         if (args.logs / name / "results.csv").exists():
             step(args.logs, args.out)
             print(f"{name}: done")
+    limits(args.logs, args.out)
 
 
 if __name__ == "__main__":

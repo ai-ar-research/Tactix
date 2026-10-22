@@ -55,7 +55,9 @@ from experiments import EXPERIMENTS  # noqa: E402
 
 TOOLS = HERE / "tools"
 BIN = TOOLS / "bin"
-CACHE = HERE / "instances"
+# Downloaded instances (TACTIX_INSTANCES overrides; the artifact ships the
+# reduced sets there, so they run offline).
+CACHE = Path(os.environ.get("TACTIX_INSTANCES", HERE / "instances"))
 DEFAULT_OUT = HERE / "results"
 GBD_URL = "https://benchmark-database.de/file/{}"
 PAGE_KB = os.sysconf("SC_PAGE_SIZE") // 1024
@@ -456,6 +458,7 @@ def _row(record: dict) -> dict:
             "proof_bytes": record.get("certificate_bytes") or "",
             "par2_seconds": (round(wall, 3) if (counted if proof_free else verified)
                              else 2 * record["limits"]["seconds"]),
+            "profile": record.get("profile", "full"),
             "solve_limit_seconds": record["limits"]["seconds"],
             "check_limit_seconds": record["limits"]["check_seconds"],
             "memory_limit_gib": record["limits"]["memory_gib"],

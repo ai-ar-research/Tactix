@@ -12,7 +12,7 @@ can be audited and changed.
 
 Tier D (Table 3, Figures 3 and 4) and the milestones (Table 6). The pool is
 every formula of SC24-26 that
-  - is at most 20 MB compressed (paper/benchmarks/tierd-sizes.tsv),
+  - is at most 20 MB compressed (paper/benchmarks/gbd-sizes.tsv),
   - every solver solved within 3 GB of resident memory, or did not solve,
   - some solver solved and checked within 300 s in the paper's runs, and
   - not every solver solved within 20 s (those formulas show nothing).
@@ -27,8 +27,9 @@ SAT and the smallest UNSAT formula that every solver solved within 10 s (and
 checked within 20 s) using at most 1 GB.
 
 Interface (Figure 5). All 200 Tier A formulas (each under 30 s), and of each
-other set, up to 15 formulas that both builds solved within 120 s in the
-paper's runs, spread evenly over that range of solving times.
+other set, up to 15 formulas of at most 20 MB compressed that both builds
+solved within 120 s in the paper's runs, spread evenly over that range of
+solving times.
 
 Cruxmiter (Table 4). The three seeds (of ten) with the smallest total solving
 plus checking time over the three configurations in the paper's runs.
@@ -95,7 +96,7 @@ def tierd() -> tuple[list[str], list[str]]:
     by = collections.defaultdict(dict)
     for row in rows:
         by[row["instance"]][row["configuration"]] = row
-    size = {r["hash"]: int(r["bytes"]) for r in csv.DictReader((PAPER / "benchmarks/tierd-sizes.tsv").open(),
+    size = {r["hash"]: int(r["bytes"]) for r in csv.DictReader((PAPER / "benchmarks/gbd-sizes.tsv").open(),
                                                                 delimiter="\t")}
     memory = solve_memory()
 
@@ -164,10 +165,19 @@ def tierd() -> tuple[list[str], list[str]]:
 
 def interface() -> tuple[list[str], list[str]]:
     rows = read(PAPER / "data/interface-overhead.csv")
+    size = {r["hash"]: int(r["bytes"]) for r in csv.DictReader((PAPER / "benchmarks/gbd-sizes.tsv").open(),
+                                                                delimiter="\t")}
+    content_hash = {}
+    for sources in PAPER.glob("benchmarks/interface-*.sources"):
+        for line in sources.read_text().splitlines():
+            if line.strip() and not line.startswith("#"):
+                fields = line.split()
+                content_hash[fields[1]] = fields[0]
     chosen = [r["instance"] for r in rows if r["set"] == "Tier A"]
     smoke = []
     for name in ("B28+C5", "Rank 1-50", "WV100"):
         candidates = sorted((r for r in rows if r["set"] == name
+                             and size[content_hash[r["instance"]]] <= 20e6
                              and max(float(r["cpp_seconds"]), float(r["c_api_seconds"])) <= 120),
                             key=lambda r: float(r["cpp_seconds"]))
         count = min(15, len(candidates))

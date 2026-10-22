@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Draw the Tier-D and CruxMiter figures used in the paper."""
+"""Draw the Tier-D and CruxMiter figures used in the paper.
+
+With --limits (the limits.json that make_data.py writes next to the data),
+the axes follow the time limits of the run being drawn, e.g. a reduced rerun;
+without it they use the paper's limits."""
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import statistics
 from pathlib import Path
 
@@ -12,7 +17,9 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 
-SOLVE_LIMIT = 5_000.0
+SOLVE_LIMIT = 5_000.0      # Tier D solving limit (replaced by --limits)
+MILESTONE_LIMIT = 5_000.0
+PAPER_SCALE = True         # the paper's fixed axis ranges; False for other runs
 ORDER = (
     "Tactix",
     "Satsuma+Kissat",
@@ -58,12 +65,13 @@ def setup() -> None:
     )
 
 
-def cumulative_counts(times: list[float], limit: float = 5000.0) -> tuple[list[float], list[int]]:
+def cumulative_counts(times: list[float], limit: float | None = None) -> tuple[list[float], list[int]]:
     """Step coordinates for the number of solves completed by each time.
 
     Extend the final plateau to the limit, so every curve exposes its coverage
     at the same deadline. Counts stay unnormalized, as requested for the paper.
     """
+    limit = SOLVE_LIMIT if limit is None else limit
     completed = sorted(time for time in times if 0 <= time <= limit)
     return [0.0, *completed, limit], [0, *range(1, len(completed) + 1), len(completed)]
 
@@ -71,6 +79,9 @@ def cumulative_counts(times: list[float], limit: float = 5000.0) -> tuple[list[f
 def cactus(rows: list[dict[str, str]], output: Path) -> None:
     """Draw cumulative checked-solve counts (legacy output/CLI name retained)."""
     fig, axes = plt.subplots(1, 3, figsize=(7.15, 2.35), sharey=True)
+    top = 400 if PAPER_SCALE else max(1, max(
+        sum(row["configuration"] == "Tactix" and row["SC20" + y[-2:]] == "1" for row in rows)
+        for y in ("SC24", "SC25", "SC26")))
     for axis, year in zip(axes, ("SC24", "SC25", "SC26")):
         flag = "SC20" + year[-2:]
         for name in ORDER:
@@ -88,8 +99,8 @@ def cactus(rows: list[dict[str, str]], output: Path) -> None:
         axis.set_title(year, pad=3, fontweight="bold")
         axis.set_xlabel("solve time (s)")
         axis.set_xscale("log")
-        axis.set_xlim(0.02, 5000)
-        axis.set_ylim(0, 400)
+        axis.set_xlim(0.02, SOLVE_LIMIT)
+        axis.set_ylim(0, top)
         axis.grid(which="major", color="#d9dee3", linewidth=0.45)
         axis.spines[["top", "right"]].set_visible(False)
     axes[0].set_ylabel("instances solved (checked)")
@@ -159,8 +170,8 @@ def scatter(
         axis.set_yscale("log")
         axis.set_xlim(0.02, SOLVE_LIMIT * 1.35)
         axis.set_ylim(0.02, SOLVE_LIMIT * 1.35)
-        ticks = [0.1, 1, 10, 100, SOLVE_LIMIT]
-        tick_labels = ["0.1", "1", "10", "100", "5000"]
+        ticks = [t for t in (0.1, 1, 10, 100) if t < SOLVE_LIMIT / 2] + [SOLVE_LIMIT]
+        tick_labels = [f"{t:g}" for t in ticks]
         axis.set_xticks(ticks, tick_labels)
         axis.set_yticks(ticks, tick_labels)
         axis.set_aspect("equal")
@@ -327,6 +338,9 @@ def milestones(rows: list[dict[str, str]], output: Path) -> None:
     colors = ["#6b7280", "#8b5cf6", "#2563a6", "#d97706", "#be185d", "#005f73"]
     styles = [":", "--", "-.", (0, (5, 1, 1, 1)), (0, (1, 1)), "-"]
     fig, axes = plt.subplots(1, 2, figsize=(7.15, 2.65), sharex=True, sharey=True)
+    top = 550 if PAPER_SCALE else max(1, max(
+        sum(row["label"] == label and row["verdict"] == verdict for row in rows)
+        for label in labels for verdict in ("SAT", "UNSAT")) + 1)
     for axis, verdict in zip(axes, ("SAT", "UNSAT")):
         for number, (label, color, style) in enumerate(zip(labels, colors, styles), 1):
             display_label = "Current" if label == "Current" else f"Version {number}"
@@ -336,14 +350,14 @@ def milestones(rows: list[dict[str, str]], output: Path) -> None:
                 if row["label"] == label and row["verdict"] == verdict
             )
             axis.step(
-                *cumulative_counts(times), where="post", label=display_label,
+                *cumulative_counts(times, MILESTONE_LIMIT), where="post", label=display_label,
                 color=color, linestyle=style,
                 linewidth=1.4 if label == "Current" else 1.0,
             )
         axis.set_title(verdict, pad=3, fontweight="bold")
         axis.set_xlabel("solving time (s)")
-        axis.set_xlim(0, 5000)
-        axis.set_ylim(0, 550)
+        axis.set_xlim(0, MILESTONE_LIMIT)
+        axis.set_ylim(0, top)
         axis.grid(color="#d9dee3", linewidth=0.45)
         axis.spines[["top", "right"]].set_visible(False)
     axes[0].set_ylabel("instances solved")
@@ -466,7 +480,14 @@ def main() -> None:
     parser.add_argument("--crux", type=Path)
     parser.add_argument("--interface-data", type=Path)
     parser.add_argument("--interface", type=Path)
+    parser.add_argument("--limits", type=Path, help="limits.json of the run (make_data.py)")
     args = parser.parse_args()
+    global SOLVE_LIMIT, MILESTONE_LIMIT, PAPER_SCALE
+    if args.limits and args.limits.exists():
+        limits = json.loads(args.limits.read_text())
+        PAPER_SCALE = limits.get("profile", "full") == "full"
+        SOLVE_LIMIT = float(limits.get("tierd", {}).get("seconds", SOLVE_LIMIT))
+        MILESTONE_LIMIT = float(limits.get("milestones", {}).get("seconds", MILESTONE_LIMIT))
     setup()
     rows = read_rows(args.data)
     if args.cactus:
