@@ -164,7 +164,7 @@ EXPERIMENTS = {
                         "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",
                                            "Satsuma+Kissat"],
                         "limits": {"seconds": 900, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
-                                   "check_seconds": 1800}},
+                                   "check_seconds": 2400}},
             "smoke": {"subset": f"{SUB}/chvatal-smoke.txt", "limits": SMOKE,
                       "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",
                                          "Satsuma+Kissat"]},
