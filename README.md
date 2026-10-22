@@ -50,10 +50,23 @@ strategies for binarized-neural-network and random 3-SAT encodings.
 ## Documentation and paper
 
 [docs/README.md](docs/README.md) indexes the guides. The
-[paper manuscript](https://github.com/wu-haoze/Tactix-paper) is maintained
-separately; the [artifact branch](https://github.com/ai-ar-research/Tactix/tree/artifact/paper)
+[Tactix paper](https://arxiv.org/abs/2610.24369) describes the solver and its
+programmable strategy interface. The
+[artifact branch](https://github.com/ai-ar-research/Tactix/tree/artifact/paper)
 contains the logs, figures, container image, benchmarks and experiment runner.
 User-visible release changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+```bibtex
+@misc{wu2026tactixprogrammablestrategyinterface,
+  title={Tactix: Towards a Programmable Strategy Interface for Flexible SAT Solving},
+  author={Haoze Wu and André Schidler and Armin Biere and Nina Narodytska},
+  year={2026},
+  eprint={2610.24369},
+  archivePrefix={arXiv},
+  primaryClass={cs.LO},
+  url={https://arxiv.org/abs/2610.24369}
+}
+```
 
 ## Layout
 
