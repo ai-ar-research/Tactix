@@ -215,6 +215,12 @@ if(TACTIX_DEVELOPER_CHECKS)
   add_test(NAME fuzz_slurm_snapshot
            COMMAND ${CMAKE_COMMAND} -E env python3
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
+  add_test(NAME fuzz_slurm_sharding
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_sharding.py)
+  add_test(NAME fuzz_shard_aggregate
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_shard_aggregate.py)
 endif()
 add_test(NAME fuzz_reachability
          COMMAND ${CMAKE_COMMAND} -E env python3

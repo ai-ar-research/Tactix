@@ -11,6 +11,7 @@ cases count only when the solver's dedicated ``forced TTF`` counter moves.
 import argparse
 import concurrent.futures
 import itertools
+import json
 import os
 import random
 import re
@@ -306,6 +307,8 @@ def main():
     parser.add_argument("--oracle", default=None)
     parser.add_argument("--n", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=20261005)
+    parser.add_argument("--index-offset", type=int, default=0,
+                        help="first global case index (for deterministic sharding)")
     parser.add_argument("--policy-seed", type=int, default=2)
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--jobs", type=int,
@@ -314,6 +317,8 @@ def main():
                         default=os.path.join(HERE, "failures", "forced-ttf"))
     parser.add_argument("--max-failures", type=int, default=20)
     parser.add_argument("--minimum-verdicts", type=int, default=0)
+    parser.add_argument("--defer-requirements", action="store_true",
+                        help=argparse.SUPPRESS)
     parser.add_argument("--skip-controls", action="store_true")
     args = parser.parse_args()
 
@@ -413,13 +418,14 @@ def main():
 
     jobs = max(1, args.jobs)
     if jobs == 1:
-        for index in range(args.n):
+        for index in range(args.index_offset, args.index_offset + args.n):
             if stop.is_set():
                 break
             one(index)
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
-            list(pool.map(one, range(args.n)))
+            indices = range(args.index_offset, args.index_offset + args.n)
+            list(pool.map(one, indices))
 
     verdicts = counts["SAT"] + counts["UNSAT"]
     print("forced-ttf: "
@@ -431,17 +437,32 @@ def main():
           f"forced-reached={counts['forced_reached']}/"
           f"{counts['forced_expected']} negative-controls="
           f"{counts['negative_controls']} typed-budget={counts['tight_cases']}")
-    if counts["forced_reached"] != counts["forced_expected"]:
+    with open(os.path.join(args.outdir, "summary.json"), "w") as output:
+        json.dump({
+            "schema": 1,
+            "runner": "forced-ttf",
+            "generator": {"seed": args.seed,
+                          "policy_seed": args.policy_seed},
+            "range": {"offset": args.index_offset, "count": args.n},
+            "counts": counts,
+            "requirements": {"minimum_verdicts": args.minimum_verdicts},
+        }, output, indent=2, sort_keys=True)
+        output.write("\n")
+    incomplete_forced = counts["forced_reached"] != counts["forced_expected"]
+    if incomplete_forced:
         print("forced-ttf: REQUIRED FORCED-TTF REACH INCOMPLETE")
-        return 1
-    if not counts["negative_controls"] or not counts["tight_cases"]:
+    missing_controls = (not counts["negative_controls"] or
+                        not counts["tight_cases"])
+    if missing_controls:
         print("forced-ttf: REQUIRED CONTROL CLASS MISSING")
-        return 1
-    if verdicts < args.minimum_verdicts:
+    below_verdict_minimum = verdicts < args.minimum_verdicts
+    if below_verdict_minimum:
         print(f"forced-ttf: verdict coverage {verdicts} below required "
               f"minimum {args.minimum_verdicts}")
-        return 1
-    return 1 if counts["failures"] else 0
+    requirements_failed = (incomplete_forced or missing_controls or
+                           below_verdict_minimum)
+    return 1 if (counts["failures"] or (requirements_failed and
+                 not args.defer_requirements)) else 0
 
 
 if __name__ == "__main__":

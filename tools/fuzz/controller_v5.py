@@ -10,6 +10,7 @@ checked SAT model or UNSAT proof counts.
 
 import argparse
 import concurrent.futures
+import json
 import os
 import random
 import shlex
@@ -198,6 +199,8 @@ def main():
     parser.add_argument("--oracle", default=None)
     parser.add_argument("--n", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=20261004)
+    parser.add_argument("--index-offset", type=int, default=0,
+                        help="first global case index (for deterministic sharding)")
     parser.add_argument("--policy-seed", type=int, default=2,
                         help="controller seed; must select the typed action before search")
     parser.add_argument("--timeout", type=float, default=10.0)
@@ -207,6 +210,8 @@ def main():
                         default=os.path.join(HERE, "failures", "controller-v5"))
     parser.add_argument("--max-failures", type=int, default=20)
     parser.add_argument("--minimum-verdicts", type=int, default=0)
+    parser.add_argument("--defer-requirements", action="store_true",
+                        help=argparse.SUPPRESS)
     parser.add_argument("--skip-trace-controls", action="store_true")
     args = parser.parse_args()
 
@@ -299,13 +304,14 @@ def main():
 
     jobs = max(1, args.jobs)
     if jobs == 1:
-        for index in range(args.n):
+        for index in range(args.index_offset, args.index_offset + args.n):
             if stop.is_set():
                 break
             one(index)
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
-            list(pool.map(one, range(args.n)))
+            indices = range(args.index_offset, args.index_offset + args.n)
+            list(pool.map(one, indices))
 
     verdicts = counts["SAT"] + counts["UNSAT"]
     print("controller-v5: "
@@ -316,14 +322,28 @@ def main():
           f"differential-checked={counts['differential_checked']}; "
           f"effective GF3={counts['gf3_effective']} "
           f"DirectCSP={counts['direct_effective']}")
-    if counts["gf3_effective"] == 0 or counts["direct_effective"] == 0:
+    with open(os.path.join(args.outdir, "summary.json"), "w") as output:
+        json.dump({
+            "schema": 1,
+            "runner": "controller-v5",
+            "generator": {"seed": args.seed,
+                          "policy_seed": args.policy_seed},
+            "range": {"offset": args.index_offset, "count": args.n},
+            "counts": counts,
+            "requirements": {"minimum_verdicts": args.minimum_verdicts},
+        }, output, indent=2, sort_keys=True)
+        output.write("\n")
+    missing_typed = (counts["gf3_effective"] == 0 or
+                     counts["direct_effective"] == 0)
+    if missing_typed:
         print("controller-v5: REQUIRED TYPED ACTION FAMILY NEVER EFFECTIVE")
-        return 1
-    if verdicts < args.minimum_verdicts:
+    below_verdict_minimum = verdicts < args.minimum_verdicts
+    if below_verdict_minimum:
         print(f"controller-v5: verdict coverage {verdicts} below required "
               f"minimum {args.minimum_verdicts}")
-        return 1
-    return 1 if counts["failures"] else 0
+    requirements_failed = missing_typed or below_verdict_minimum
+    return 1 if (counts["failures"] or (requirements_failed and
+                 not args.defer_requirements)) else 0
 
 
 if __name__ == "__main__":

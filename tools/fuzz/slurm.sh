@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Submit a fuzz leg as ONE multi-core SLURM job (see the slurm-jobs skill):
-# partition cpu-dense-hwulab-q, 8,000 MiB/physical core, and one harness worker
-# per physical core.  These SMT-2 nodes require two allocated logical CPUs to
-# reserve one physical core.  Results are identical at any worker count — only
-# wall-clock changes.
+# Submit a fuzz leg as one multi-core SLURM job or as a deterministic wide
+# array (see the slurm-jobs skill).  The default cpu-dense-hwulab-q nodes use
+# SMT-2, 8,000 MiB/physical core, and one harness worker per physical core.
+# `--cpu-q-wide` instead splits one logical campaign over 50 array tasks of 10
+# single-threaded workers: 500 eligible CPUs, the project-wide safety ceiling.
+# Slurm places whatever the shared partition can admit.
+# Results are identical at any worker/shard count; only wall-clock changes.
 #
-#   slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] [--wait] -- <run.sh args...>
+#   slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P]
+#            [--threads-per-core T] [--time T] [--name NAME]
+#            [--checkers DIR] [--dsr-transport FILE] [--wait] -- <run.sh args...>
 #
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
@@ -32,6 +36,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 
 PHYSICAL_CORES=50 # cluster scale
 THREADS_PER_CORE=2
+SHARDS=1
 MEM_MIB_PER_PHYSICAL_CORE=8000
 TIME=24:00:00
 NAME=fuzz
@@ -42,6 +47,15 @@ DSR_TRANSPORT=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --physical-cores) PHYSICAL_CORES="$2"; shift 2 ;;
+        --threads-per-core) THREADS_PER_CORE="$2"; shift 2 ;;
+        --shards) SHARDS="$2"; shift 2 ;;
+        --cpu-q-wide)
+            PARTITION=cpu-q
+            PHYSICAL_CORES=10
+            THREADS_PER_CORE=1
+            SHARDS=50
+            shift
+            ;;
         --time) TIME="$2"; shift 2 ;;
         --name) NAME="$2"; shift 2 ;;
         --partition) PARTITION="$2"; shift 2 ;;
@@ -49,7 +63,7 @@ while [ $# -gt 0 ]; do
         --dsr-transport) DSR_TRANSPORT="$2"; shift 2 ;;
         --wait) WAIT=1; shift ;;
         --) shift; break ;;
-        *) echo "usage: slurm.sh [--physical-cores P] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
+        *) echo "usage: slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P] [--threads-per-core T] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
     esac
 done
 [ $# -gt 0 ] || { echo "error: no run.sh args after --" >&2; exit 2; }
@@ -60,6 +74,50 @@ esac
     echo "error: --physical-cores must be between 1 and 96" >&2
     exit 2
 }
+case "$THREADS_PER_CORE" in
+    ''|*[!0-9]*) echo "error: --threads-per-core must be an integer" >&2; exit 2 ;;
+esac
+[ "$THREADS_PER_CORE" -ge 1 ] && [ "$THREADS_PER_CORE" -le 4 ] || {
+    echo "error: --threads-per-core must be between 1 and 4" >&2
+    exit 2
+}
+case "$SHARDS" in
+    ''|*[!0-9]*) echo "error: --shards must be an integer" >&2; exit 2 ;;
+esac
+[ "$SHARDS" -ge 1 ] && [ "$SHARDS" -le 1024 ] || {
+    echo "error: --shards must be between 1 and 1024" >&2
+    exit 2
+}
+
+RUN_ARGS=("$@")
+TOTAL_CASES=10000
+if [ "$SHARDS" -gt 1 ]; then
+    for ((arg_index = 0; arg_index < ${#RUN_ARGS[@]}; ++arg_index)); do
+        case "${RUN_ARGS[$arg_index]}" in
+            --quick) TOTAL_CASES=10000 ;;
+            --nightly) TOTAL_CASES=200000 ;;
+            --n)
+                arg_index=$((arg_index + 1))
+                [ "$arg_index" -lt "${#RUN_ARGS[@]}" ] || {
+                    echo "error: --n is missing its value" >&2
+                    exit 2
+                }
+                TOTAL_CASES="${RUN_ARGS[$arg_index]}"
+                ;;
+            --outdir)
+                echo "error: sharded fuzz owns per-task output directories; do not pass --outdir" >&2
+                exit 2
+                ;;
+        esac
+    done
+    case "$TOTAL_CASES" in
+        ''|*[!0-9]*) echo "error: fuzz case count must be an integer" >&2; exit 2 ;;
+    esac
+    [ "$TOTAL_CASES" -ge "$SHARDS" ] || {
+        echo "error: fuzz case count must be at least the shard count" >&2
+        exit 2
+    }
+fi
 # NAME becomes both a log filename component and the private artifact leg.
 # Reject shell/path punctuation before interpolating it into the batch script.
 python3 "$HERE/artifact_layout.py" "$HERE/failures" validation "$NAME" \
@@ -67,6 +125,16 @@ python3 "$HERE/artifact_layout.py" "$HERE/failures" validation "$NAME" \
 
 ALLOC_CPUS=$((PHYSICAL_CORES * THREADS_PER_CORE))
 MEM_MIB=$((PHYSICAL_CORES * MEM_MIB_PER_PHYSICAL_CORE))
+if [ "$PARTITION" = cpu-q ]; then
+    [ "$ALLOC_CPUS" -le 52 ] || {
+        echo "error: cpu-q permits at most 52 CPUs per node/task" >&2
+        exit 2
+    }
+    [ "$((ALLOC_CPUS * SHARDS))" -le 500 ] || {
+        echo "error: cpu-q fuzz submissions may request at most 500 total cores" >&2
+        exit 2
+    }
+fi
 
 # Re-quote the run.sh args so compound --solver strings survive the batch script.
 ARGS=$(printf '%q ' "$@")
@@ -80,14 +148,18 @@ case "$PIN_ROOT" in
     "$ROOT"/build/pin-fuzz-harness-*) ;;
     *) echo "error: unsafe fuzz harness pin path: $PIN_ROOT" >&2; exit 2 ;;
 esac
-cleanup_unsubmitted_pin() { rm -rf "$PIN_ROOT"; }
+cleanup_unsubmitted_pin() {
+    chmod -R u+w "$PIN_ROOT" 2>/dev/null || true
+    rm -rf "$PIN_ROOT"
+}
 trap cleanup_unsubmitted_pin EXIT
 PIN_FUZZ="$PIN_ROOT/fuzz"
 mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
       "$HERE/controller_v5.py" "$HERE/forced_ttf.py" \
-      "$HERE/artifact_layout.py" "$HERE/corpus" \
+      "$HERE/artifact_layout.py" "$HERE/shard.py" "$HERE/aggregate.py" \
+      "$HERE/corpus" \
       "$HERE/stress-scenarios" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/controls"
 cp -a "$HERE/controls/controller-v5" "$PIN_FUZZ/controls/"
@@ -171,9 +243,10 @@ if [ ! -d "$REPLAY_ROOT/fuzz" ]; then
     fi
 fi
 
-JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
-       --cpus-per-task="$ALLOC_CPUS" --mem="${MEM_MIB}M" --time="$TIME" \
-       --job-name="fuzz-$NAME" --output="$HERE/slurm-$NAME-%j.log" <<EOF
+if [ "$SHARDS" -eq 1 ]; then
+    JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
+           --cpus-per-task="$ALLOC_CPUS" --mem="${MEM_MIB}M" --time="$TIME" \
+           --job-name="fuzz-$NAME" --output="$HERE/slurm-$NAME-%j.log" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$ROOT"
@@ -204,13 +277,114 @@ trap cleanup_fuzz_job EXIT
 echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
 "$PIN_FUZZ/run.sh" $ARGS --jobs "$PHYSICAL_CORES"
 EOF
+    )
+    trap - EXIT
+    echo "submitted: $JID"
+    echo "log: $HERE/slurm-$NAME-$JID.log"
+    echo "harness: $HARNESS_SHA ($PIN_ROOT)"
+    echo "core checkers: ${CHECKERS_ROOT:-tools/checkers/bin (unfrozen)}"
+    if [ "$WAIT" -eq 1 ]; then
+        exec python3 "$ROOT/tools/slurm/wait.py" --job "$JID" \
+             --log "$HERE/slurm-$NAME-$JID.log"
+    fi
+    exit 0
+fi
+
+ARRAY_LAST=$((SHARDS - 1))
+JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
+       --cpus-per-task="$ALLOC_CPUS" --mem="${MEM_MIB}M" --time="$TIME" \
+       --array="0-$ARRAY_LAST" --job-name="fuzz-$NAME" \
+       --output="$HERE/slurm-$NAME-%A_%a.log" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$ROOT"
+TASK_ID=\${SLURM_ARRAY_TASK_ID:?missing array task id}
+read -r INDEX_OFFSET CASE_COUNT < <(
+    python3 "$PIN_FUZZ/shard.py" "$TOTAL_CASES" "$SHARDS" "\$TASK_ID"
+)
+export TMPDIR=\$(mktemp -d /tmp/fuzz-\${SLURM_ARRAY_JOB_ID}-\${TASK_ID}-XXXXXX)
+export TACTIX_REPO_ROOT="$ROOT"
+export TACTIX_FUZZ_OUTPUT_ROOT="$HERE/failures"
+export TACTIX_FUZZ_RUN_ID="slurm-\$SLURM_ARRAY_JOB_ID"
+export TACTIX_FUZZ_LEG_ID="$NAME-shard-\$TASK_ID"
+export TACTIX_FUZZ_REPLAY_HARNESS="$REPLAY_ROOT/fuzz"
+export TACTIX_FUZZ_HARNESS_SHA256="$HARNESS_SHA"
+STATE_ROOT="$HERE/failures/runs/slurm-\$SLURM_ARRAY_JOB_ID/.array-$NAME"
+if [ -f "$PIN_FUZZ/core-checkers" ]; then
+    (cd "$CHECKERS_ROOT" && sha256sum --strict -c "$PIN_FUZZ/core-checkers.sha256")
+fi
+cleanup_fuzz_shard() {
+    status=\$?
+    trap - EXIT
+    rm -rf "\$TMPDIR"
+    mkdir -p "\$STATE_ROOT" || status=1
+    marker="\$STATE_ROOT/\${TASK_ID}.status.tmp.\$\$"
+    if ! printf '%s\n' "\$status" > "\$marker" ||
+       ! mv "\$marker" "\$STATE_ROOT/\${TASK_ID}.status"; then
+        status=1
+    fi
+    exit "\$status"
+}
+trap cleanup_fuzz_shard EXIT
+SHARD_ARGS=()
+if [ "\$TASK_ID" -ne 0 ]; then
+    SHARD_ARGS+=(--skip-corpus --skip-fixed-controls)
+fi
+echo "== fuzz array \$SLURM_ARRAY_JOB_ID task \$TASK_ID: node=\$SLURMD_NODENAME cpus=\$SLURM_CPUS_PER_TASK workers=$PHYSICAL_CORES cases=\$CASE_COUNT offset=\$INDEX_OFFSET total=$TOTAL_CASES shards=$SHARDS mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
+"$PIN_FUZZ/run.sh" $ARGS --n "\$CASE_COUNT" \
+    --index-offset "\$INDEX_OFFSET" "\${SHARD_ARGS[@]}" \
+    --defer-requirements \
+    --jobs "$PHYSICAL_CORES"
+EOF
 )
 trap - EXIT
-echo "submitted: $JID"
-echo "log: $HERE/slurm-$NAME-$JID.log"
+
+STATE_ROOT="$HERE/failures/runs/slurm-$JID/.array-$NAME"
+FINAL_LOG="$HERE/slurm-$NAME-finalize-%j.log"
+FINAL_JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
+       --cpus-per-task=1 --mem=2000M --time=00:10:00 \
+       --dependency="afterany:$JID" --job-name="fuzz-$NAME-finalize" \
+       --output="$FINAL_LOG" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+failed=0
+for ((task = 0; task < $SHARDS; ++task)); do
+    marker="$STATE_ROOT/\${task}.status"
+    if [ ! -f "\$marker" ]; then
+        echo "missing shard status: \$task"
+        failed=1
+        continue
+    fi
+    status=\$(<"\$marker")
+    if [ "\$status" -ne 0 ]; then
+        echo "failed shard: \$task exit=\$status"
+        failed=1
+    fi
+done
+if [ "\$failed" -ne 0 ]; then
+    echo "retained incomplete/failed array harness pin: $PIN_ROOT"
+    exit 1
+fi
+python3 "$PIN_FUZZ/aggregate.py" \
+    --root "$HERE/failures/runs/slurm-$JID" \
+    --prefix "$NAME-shard-" --shards "$SHARDS" --total "$TOTAL_CASES" || {
+    echo "retained array harness pin after aggregate qualification failure: $PIN_ROOT"
+    exit 1
+}
+chmod -R u+w "$PIN_ROOT"
+rm -rf "$PIN_ROOT"
+echo "fuzz array PASS: $SHARDS/$SHARDS shards, $TOTAL_CASES deterministic cases"
+EOF
+)
+
+echo "submitted array: $JID (0-$ARRAY_LAST, $SHARDS shards)"
+echo "array logs: $HERE/slurm-$NAME-${JID}_<task>.log"
+echo "submitted finalizer: $FINAL_JID"
+echo "finalizer log: $HERE/slurm-$NAME-finalize-$FINAL_JID.log"
+echo "resources: partition=$PARTITION workers-per-shard=$PHYSICAL_CORES logical-cpus-per-shard=$ALLOC_CPUS total-eligible-workers=$((PHYSICAL_CORES * SHARDS))"
 echo "harness: $HARNESS_SHA ($PIN_ROOT)"
 echo "core checkers: ${CHECKERS_ROOT:-tools/checkers/bin (unfrozen)}"
 if [ "$WAIT" -eq 1 ]; then
-    exec python3 "$ROOT/tools/slurm/wait.py" --job "$JID" \
-         --log "$HERE/slurm-$NAME-$JID.log"
+    exec python3 "$ROOT/tools/slurm/wait.py" --job "$FINAL_JID" \
+         --log "$HERE/slurm-$NAME-finalize-$FINAL_JID.log"
 fi

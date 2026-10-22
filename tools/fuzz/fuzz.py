@@ -1046,13 +1046,14 @@ def cmd_run(args):
 
     jobs = max(1, args.jobs)
     if jobs == 1:
-        for i in range(args.n):
+        for i in range(args.index_offset, args.index_offset + args.n):
             if stop.is_set():
                 break
             one_case(i)
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
-            list(ex.map(one_case, range(args.n)))
+            indices = range(args.index_offset, args.index_offset + args.n)
+            list(ex.map(one_case, indices))
     # verdict distribution = oracle coverage: only SAT/UNSAT cases exercise
     # the differential/model/proof oracles — a TIMEOUT is sanitizer-only
     vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
@@ -1139,10 +1140,41 @@ def cmd_run(args):
     if below_verdict_minimum:
         print(f"fuzz: verdict coverage {effective} is below required "
               f"minimum {args.minimum_verdicts}")
-    return 1 if (nfail or missing_spec or unreached or missing_controller
-                 or below_target_minimum
-                 or over_budget
-                 or below_verdict_minimum) else 0
+    summary = {
+        "schema": 1,
+        "runner": "seeded",
+        "generator": {"seed": args.seed},
+        "range": {"offset": args.index_offset, "count": args.n},
+        "counts": {
+            "failures": nfail,
+            "cases_run": ran,
+            "nonterminating": nnon,
+            "effective": effective,
+            "stats_cases": stats_cases,
+            "stress_target_fires": stress_fires,
+        },
+        "reach_rules": reach_rules,
+        "reach_spec_seen": reach_spec_seen,
+        "controller": controller,
+        "requirements": {
+            "require_reached": args.require_reached or [],
+            "require_controller_applied":
+                args.require_controller_applied or [],
+            "require_controller_effective":
+                args.require_controller_effective or [],
+            "minimum_target_fires": args.minimum_target_fires,
+            "max_nonterminating_frac": args.max_nonterminating_frac,
+            "minimum_verdicts": args.minimum_verdicts,
+        },
+    }
+    with open(os.path.join(outdir, "summary.json"), "w") as output:
+        json.dump(summary, output, indent=2, sort_keys=True)
+        output.write("\n")
+    requirements_failed = (missing_spec or unreached or missing_controller
+                           or below_target_minimum or over_budget
+                           or below_verdict_minimum)
+    return 1 if (nfail or (requirements_failed and
+                           not args.defer_requirements)) else 0
 
 
 def cmd_check_one(args):
@@ -1312,6 +1344,8 @@ def main() -> int:
     controller_requirements(p)
     p.add_argument("--n", type=int, default=1000)
     p.add_argument("--seed", type=int, default=20260709)
+    p.add_argument("--index-offset", type=int, default=0,
+                   help="first global case index (for deterministic sharding)")
     p.add_argument("--outdir", default=os.path.join(HERE, "failures"))
     p.add_argument("--max-failures", type=int, default=20)
     p.add_argument("--no-shrink", action="store_true")
@@ -1336,6 +1370,8 @@ def main() -> int:
     p.add_argument("--minimum-target-fires", type=int, default=0,
                    help="fail unless the stress driver reports this many "
                         "preferred-rule applications")
+    p.add_argument("--defer-requirements", action="store_true",
+                   help=argparse.SUPPRESS)
     p.add_argument("--jobs", type=int,
                    default=int(os.environ.get("SLURM_CPUS_PER_TASK", 8)),
                    help="parallel fuzz workers (correctness testing, not "

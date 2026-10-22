@@ -24,6 +24,8 @@ HAS_OUTDIR=0
 CONTROLLER_V5=0
 FORCED_TTF=0
 NIGHTLY=0
+SKIP_CORPUS=0
+SKIP_FIXED_CONTROLS=0
 # The corpus replays whole entries under the leg's own solver command, so a
 # schedule that starves M1 can leave one of them without a verdict. That is
 # fatal by default (a replay that reaches no verdict runs no oracle); the
@@ -36,6 +38,8 @@ while [ $# -gt 0 ]; do
         --n)       N="$2"; shift 2 ;;
         --controller-v5) CONTROLLER_V5=1; shift ;;
         --forced-ttf) FORCED_TTF=1; shift ;;
+        --skip-corpus) SKIP_CORPUS=1; shift ;;
+        --skip-fixed-controls) SKIP_FIXED_CONTROLS=1; shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
         --outdir)  HAS_OUTDIR=1; EXTRA+=("$1" "$2"); shift 2 ;;
@@ -73,12 +77,14 @@ if [ -z "$ORACLE" ]; then
 fi
 
 if [ "$CONTROLLER_V5" -eq 1 ]; then
+    [ "$SKIP_FIXED_CONTROLS" -eq 0 ] || EXTRA+=(--skip-trace-controls)
     echo "== controller v5 typed fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
     exec python3 "$HERE/controller_v5.py" --solver "$SOLVER" --oracle "$ORACLE" \
         --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
 fi
 
 if [ "$FORCED_TTF" -eq 1 ]; then
+    [ "$SKIP_FIXED_CONTROLS" -eq 0 ] || EXTRA+=(--skip-controls)
     echo "== forced TTF targeted fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
     exec python3 "$HERE/forced_ttf.py" --solver "$SOLVER" --oracle "$ORACLE" \
         --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
@@ -88,16 +94,20 @@ fi
 # Tactix's default PBP arm continues through VeriPB and CakePB.
 [ "$NIGHTLY" -eq 0 ] || EXTRA+=(--lrat)
 
-echo "== regression corpus =="
-# The corpus gets a REAL budget, not the 5 s case default: its entries are
-# shrunk-but-not-tiny (the largest is ~900 clauses) and a sanitized build is
-# slow, and since a replay that does not reach a verdict re-runs no oracle,
-# fuzz.py counts that as a failure rather than a pass. Raise this, or pass
-# --allow-nonterminating with a reason, before weakening either side.
-# A corpus failure must not hide the seeded phase: run both, then fail.
 CORPUS_STATUS=0
-python3 "$HERE/fuzz.py" corpus --solver "$SOLVER" --oracle "$ORACLE" \
-    --timeout 60 ${CORPUS_EXTRA[@]+"${CORPUS_EXTRA[@]}"} || CORPUS_STATUS=$?
+if [ "$SKIP_CORPUS" -eq 0 ]; then
+    echo "== regression corpus =="
+    # The corpus gets a REAL budget, not the 5 s case default: its entries are
+    # shrunk-but-not-tiny (the largest is ~900 clauses) and a sanitized build is
+    # slow, and since a replay that does not reach a verdict re-runs no oracle,
+    # fuzz.py counts that as a failure rather than a pass. Raise this, or pass
+    # --allow-nonterminating with a reason, before weakening either side.
+    # A corpus failure must not hide the seeded phase: run both, then fail.
+    python3 "$HERE/fuzz.py" corpus --solver "$SOLVER" --oracle "$ORACLE" \
+        --timeout 60 ${CORPUS_EXTRA[@]+"${CORPUS_EXTRA[@]}"} || CORPUS_STATUS=$?
+else
+    echo "== regression corpus skipped by sharded runner =="
+fi
 
 echo "== fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
 RUN_STATUS=0
