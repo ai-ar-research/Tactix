@@ -1,137 +1,65 @@
-# Artifact: Tactix — Towards a Programmable Strategy Interface for Flexible SAT-Solving
+# Paper evaluation: logs, runner and analysis
 
-This folder reproduces the evaluation of the paper. It contains the logs of
-every experiment, the scripts that turn them into the paper's tables and
-figures, and a runner that repeats the experiments from scratch.
-
-There are three levels of reproduction:
-
-| Level | What it does | Time |
-|---|---|---|
-| 1. Analysis | Regenerate every table and figure from the archived logs | seconds |
-| 2. Smoke test and reduced evaluation | Run the solvers and checkers on small instances and on a reduced instance set of each experiment | seconds / about two hours |
-| 3. Full evaluation | Rerun all experiments | thousands of CPU-hours; needs a cluster |
-
-## Contents
+This directory reproduces the evaluation of *Tactix: Towards a Programmable
+Strategy Interface for Flexible SAT Solving*. The TACAS 2027 artifact wraps it
+in one-command scripts for the TACAS virtual machine (`install.sh`,
+`smoke-test.sh`, `run-experiments.sh`, `regenerate-from-logs.sh`); its README
+is the guide for artifact evaluation. This file documents the pieces.
 
 ```
 paper/
-  README.md            this file
-  Makefile             analysis: logs -> data -> figures and printed tables
-  logs/                archived campaigns of every experiment (raw/*.tar.xz) and
-                       one normalized results.csv per experiment
-  data/                the CSV files the paper's tables and figures are drawn from
-  scripts/             normalize.py, make_data.py, plot and table scripts, report.py
-  benchmarks/          instance definitions: GBD hash lists, the Tier A,
-                       full cruxmiter and Chvátal sets, and reduced subsets
-                       for the general experiments
-  run/                 setup.sh (build solvers and checkers), bench.py (run experiments)
-  Dockerfile           image with everything built
-  tactix.def           the same image for Apptainer/Singularity
-  install-deps.sh      system packages for Ubuntu 24.04
+  logs/          archived campaigns of every experiment (raw/*.tar.xz, with each
+                 run's command, limits, outputs and checker results) and one
+                 normalized results.csv per experiment
+  data/          the CSV files the paper's tables and figures are drawn from
+  scripts/       normalize.py      raw campaigns -> logs/*/results.csv (merge rules)
+                 make_data.py      results.csv -> data/*.csv and limits.json
+                 report.py         prints every table of the paper from data/
+                 compare.py        a rerun next to the paper's logs on the same runs
+                 plot_*.py, table_chvatal.py   the figures and Table 5's LaTeX
+                 analyze_milestone_activity.py Table 6's activity columns (git history)
+  benchmarks/    instance definitions: GBD content hashes of SC 2024-2026 and the
+                 interface sets, Tier A, the cruxmiter and Chvatal formulas, and
+                 the reduced and smoke subsets (subsets/, chosen by run/select_subsets.py)
+  run/           experiments.py   every experiment: instances, limits, the command of
+                                  each configuration, profiles full/reduced/smoke
+                 bench.py         runs an experiment locally or as a SLURM array
+                 setup.sh         builds checkers, reference solvers and Tactix at the
+                                  11 commits the paper evaluated
+  Makefile       logs -> data -> figures and printed tables
 ```
 
-## Claims and where they come from
-
-| Paper | Claim | Data | Produced by |
-|---|---|---|---|
-| §4.1, Table "Results on the SC'24-26 benchmark sets" | Tactix solves and checks more formulas than Satsuma+Kissat, LymphoSAT and three Kissat versions on every year and overall | `data/tierd-table.csv` | `make report` (Tier D section) |
-| §4.1, cactus and scatter figures; appendix scatter figures | per-instance comparison with the references | `data/tierd-times.csv` | `figures/tierd-*.pdf` |
-| §4.1, proof statistics | number, size and checking time of Tactix's UNSAT proofs; Tactix vs Satsuma+Kissat ratios | `data/tierd-times.csv` | `make report` |
-| §4.2, Figure "interface overhead" | the default strategy through the C interface has a median slowdown of at most a few percent | `data/interface-overhead.csv` | `figures/interface-overhead.pdf`, `make report` |
-| §4.3, Table "cruxmiter" | the cruxmiter strategy is faster than default Tactix and Kissat, with smaller proofs | `data/crux-results.csv` | `make report` |
-| §4.4, Table and Figure "Chvátal" | the Chvátal strategy halves the solving time of default Tactix | `data/chvatal-results.csv` | `figures/chvatal-table.tex`, `figures/chvatal-scatter.pdf`, `make report` |
-| §5, milestone ladder and development activity | solved counts and code activity across development milestones | `data/milestone-*.csv` | `figures/milestone-ladder.pdf`, `figures/development-roadmap.pdf`, `make report` |
-
-## Requirements
-
-- **Level 1:** Python 3.9+ with matplotlib, and `xz`. Nothing else.
-- **Levels 2–3:** Linux on x86-64 and either Docker (or Apptainer), or an
-  Ubuntu 24.04 machine with the packages from `install-deps.sh`. Building
-  everything takes about 20 minutes on 16 cores (longer on fewer) and 10 GB of
-  disk; it downloads the solver and checker sources. The reduced evaluation
-  needs 4 cores and 16 GB of memory.
-  The paper's experiments used 4–12 cores and 16–48 GB per run (listed by
-  `paper/run/bench.py list`).
-
-## Level 1: regenerate the paper's tables and figures (seconds)
+## Analysis
 
 ```sh
-make -C paper check      # rebuild data/ from the raw logs; every file must be identical
-make -C paper            # data, figures in paper/figures/, and the tables printed
+make -C paper check     # rebuild data/ from the raw logs; every file must be identical
+make -C paper           # data, figures in paper/figures/, tables printed
+make -C paper compare RUN=paper/run/results OUT=/tmp/comparison   # a rerun vs the logs
 ```
 
-`make check` unpacks the archived campaigns, applies each experiment's merge
-rule (`scripts/normalize.py`), recomputes the data files (`scripts/make_data.py`),
-and compares them byte for byte with `data/`. `make` then draws the figures and
-prints every table of the paper with the section it belongs to; compare it with
-the paper.
-
-## Level 2: smoke test and reduced evaluation
-
-Build the image (or run `install-deps.sh` and `paper/run/setup.sh all` on
-Ubuntu 24.04):
+## Running experiments
 
 ```sh
-docker build -f paper/Dockerfile -t tactix-artifact .
-docker run --rm -it tactix-artifact
+paper/run/setup.sh all                                  # build everything
+paper/run/bench.py list                                 # experiments and profiles
+paper/run/bench.py run tierd --profile reduced --jobs 3 # one experiment
+paper/run/bench.py slurm tierd --profile full --partition P   # on a cluster
+paper/run/bench.py collect                              # records -> results.csv
 ```
 
-Inside the container (`/tactix`). With Apptainer (`paper/tactix.def`) the
-image is read-only, so add `--out /tmp/results` to `bench.py` and
-`CHECK=/tmp/check`, `FIGURES=/tmp/figures`, `DATA=/tmp/data` to `make`.
+A profile selects instances and limits; the commands are the same in every
+profile. `full` is the paper's setting (sets and limits in
+`run/experiments.py`), `reduced` the artifact-evaluation subsets with smaller
+limits, `smoke` a few quick instances. Every run is limited in time and in
+resident memory (of the solver or checking pipeline and all its children).
+Each run writes a JSON record with the command, limits, solver output tail,
+and each checker stage's result; an interrupted run resumes.
 
-```sh
-paper/run/bench.py run smoke --jobs 4
-```
-
-The smoke test solves the three formulas in `examples/cnf/` with Tactix and
-Kissat and checks every answer; it takes seconds. Expect `6 records, 6
-answered, 6 verified`. The records in `paper/run/results/smoke/records/`
-exercise Tactix's substitution-redundancy and pseudo-Boolean proof routes.
-
-The reduced evaluation runs the general experiments on their subsets in
-`benchmarks/subsets/`. Chvátal and cruxmiter are intentionally full-set only;
-run them with the Level 3 commands below. The reduced instances are already
-in the image:
-
-```sh
-B=paper/run/bench.py
-$B run tierd      --subset short --jobs 4   # 30 formulas x 6 solvers            ~15 min
-$B run milestones --subset short --jobs 4   # 30 formulas x 6 Tactix versions    ~20 min
-$B run interface  --subset short --no-check # 333 formulas x 2, sequential       ~20 min
-make -C paper LOGS=run/results DATA=run/results/data FIGURES=run/results/figures data figures report
-```
-
-Each command prints one line per run and ends with a summary; `make` then
-prints the paper's tables for the rerun. Runtimes depend on the machine. What
-to expect:
-
-- every answer is correct and every certificate verifies (Tier D: `180
-  records, 180 answered, 180 verified`);
-- the reduced Tier D and milestone sets consist of formulas that every
-  configuration solved within 60 s in the paper's runs, so they exercise all
-  solvers and checkers but do not show the ranking, which the full sets do;
-- the interface overhead stays within a few percent.
-
-## Level 3: full evaluation
-
-The same commands without `--subset` run the full experiments. Their cost in
-the paper's runs:
-
-| Experiment | Runs | Solving + checking (CPU-core hours) |
-|---|---|---|
-| tierd | 1,166 × 6 | ~20,600 |
-| milestones | 1,166 × 6 | ~13,500 |
-| interface | 383 × 2 | ~100 |
-| cruxmiter | 10 × 3 | ~440 |
-| chvatal | 23 × 5 | ~330 |
-
-On a SLURM cluster, `bench.py slurm EXPERIMENT --partition P` submits one
-array task per run with the experiment's CPU, memory and time limits, and
-`bench.py collect` gathers the records when it finishes. The paper's runs
-used the same commands, limits and checker pipelines; the archived manifests
-record the exact binaries (`logs/*/raw/*/manifest.json`).
+How each answer is checked: a SAT model against the formula
+(`tools/fuzz/checkmodel`); an UNSAT certificate by the pipeline of its format:
+DRAT with drat-trim (to LRAT) and cake_lpr; DSR with dsr-trim (to LSR) and
+Trestle; PBP with VeriPB (elaboration) and CakePB. Tactix's certificates are
+routed by content (`tools/bench/proof_oracle.py`).
 
 ## Notes on the archived runs
 
@@ -142,35 +70,19 @@ record the exact binaries (`logs/*/raw/*/manifest.json`).
   `CORRECTNESS-BUG` note about two CakeLPR crashes; the recheck campaigns
   verified both certificates, and the paper uses the rechecked outcome.
 - **Commits.** Each Tactix configuration was built from a commit of this
-  repository; `BUILDS` in `run/experiments.py` lists them by full hash, and
-  `run/setup.sh tactix` builds each one. Three of them are not on `main`; the
-  `paper-commits` branch keeps them (`setup.sh` fetches it when needed).
+  repository; `BUILDS` in `run/experiments.py` lists them by full hash. Three
+  of them are not on `main`; the `paper-commits` branch keeps them.
 - **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
   drives its opening through `tactix.h` and then hands over to the built-in
-  default strategy, configured through `tactix_set_default_option` (stable
-  mode, inprocessing limited to vivification; the settings are in
-  `run/experiments.py`). The paper's runs passed the same settings through the
-  environment, before the call existed; the artifact runs the strategy at
-  commit `b8b550aae` (build `paper-cruxmiter-public`), which uses the call and writes byte-identical
-  proofs (checked on seed 7: same SHA-256, and the same size as the paper's
-  proof).
-- **Tested environments.** The complete pipeline (setup, smoke test, reduced
-  evaluation, analysis) was run from a fresh clone on Rocky Linux 9 with
-  GCC 13 and CMake 4, and the container recipe was built and run with
-  Apptainer from the same Ubuntu 24.04 base as the Dockerfile, which shares
-  its installation script.
+  default strategy, configured through `tactix_set_default_option`. The
+  paper's runs passed the same settings through the environment, before the
+  call existed; the artifact runs the strategy at commit `b8b550aae`
+  (build `paper-cruxmiter-public`), which uses the call and writes
+  byte-identical proofs (checked on seed 7).
 - **Reference solvers** are built from their SAT Competition sources
   (`tools/solvers/fetch-winners.sh` records the URLs and archive hashes).
   LymphoSAT's competition binaries require an Ice Lake CPU; it is rebuilt for
   generic x86-64 without changing its algorithms (`run/build_lymphosat.py`).
-- **Checkers.** drat-trim, CakeLPR, dsr-trim, Trestle, VeriPB and CakePB are
-  built at pinned commits by `tools/checkers/setup.sh` and `run/setup.sh`.
-  Satsuma's DSR certificates are checked like Tactix's: dsr-trim, then
-  `dsr-compress -d`, then Trestle, the pipeline the paper's runs used for them.
-
-## Beyond the paper
-
-Tactix is a general solver: see the main [README](../README.md),
-[docs/getting-started.md](../docs/getting-started.md) for building, solving
-and checking, and `examples/` for strategies written against the C
-interface.
+- **Checkers.** drat-trim, CakeLPR, dsr-trim, Trestle, VeriPB and CakePB at
+  pinned commits (`run/setup.sh`). Satsuma's DSR certificates are checked like
+  Tactix's: dsr-trim, then `dsr-compress -d`, then Trestle.
