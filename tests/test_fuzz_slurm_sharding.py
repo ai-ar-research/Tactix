@@ -88,11 +88,11 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         subprocess.run(["bash", "-n", str(temp / "batch-1.sh")], check=True)
 
         assert "--partition=cpu-q" in array_args
-        assert "--cpus-per-task=10" in array_args
-        assert "--mem=80000M" in array_args
-        assert "--array=0-49" in array_args
+        assert "--cpus-per-task=13" in array_args
+        assert "--mem=104000M" in array_args
+        assert "--array=0-63%16" in array_args
         assert "%A_%a" in array_args
-        assert f'python3 "{pin}/fuzz/shard.py" "130" "50"' in array_batch
+        assert f'python3 "{pin}/fuzz/shard.py" "130" "64"' in array_batch
         assert '--index-offset "$INDEX_OFFSET"' in array_batch
         assert "--defer-requirements" in array_batch
         assert "SHARD_ARGS+=(--skip-corpus --skip-fixed-controls)" in array_batch
@@ -102,28 +102,14 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         assert "--cpus-per-task=1" in final_args
         assert "missing shard status" in final_batch
         assert f'python3 "{pin}/fuzz/aggregate.py"' in final_batch
-        assert "50/50 shards, 130 deterministic cases" in final_batch
+        assert "64/64 shards, 130 deterministic cases" in final_batch
         assert "submitted finalizer: 424243" in result.stdout
-        assert "total-eligible-workers=500" in result.stdout
+        assert "total-eligible-workers=832" in result.stdout
+        assert "max-concurrent-workers=208" in result.stdout
     finally:
         if pin.exists():
             make_writable(pin)
             shutil.rmtree(pin)
-
-    over_cap = subprocess.run(
-        [
-            str(SLURM), "--partition", "cpu-q", "--shards", "51",
-            "--physical-cores", "10", "--threads-per-core", "1", "--",
-            "--n", "10000", "--solver", "build/debug/tactix --pbp",
-        ],
-        cwd=ROOT,
-        env=env,
-        check=False,
-        text=True,
-        capture_output=True,
-    )
-    assert over_cap.returncode == 2
-    assert "at most 500 total cores" in over_cap.stderr
 
     over_node = subprocess.run(
         [

@@ -2,47 +2,12 @@
 
 Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 
-- `run.sh --quick --solver CMD` — per-commit gate: regression corpus + 10,000
-  seeded cases; `--nightly` = 200,000 cases. A no-flag Tactix command uses
-  whole-run PBP, and every UNSAT result must pass VeriPB and CakePB. These
-  counts are owned by `run.sh`; keep this summary synchronized with its defaults.
-- `run.sh --controller-v5 --quick --solver CMD` — 10,000 deterministic
-  structure-preserving GF(3)/Direct CSP mutations across SAT/model and
-  UNSAT/proof oracles. GF(3) stays a complete affine encoding, including a
-  minimally inconsistent cycle; Direct CSP uses a disjoint Boolean component.
-  Exact typed payloads must make an effective transition in every case, and
-  seeded trace/replay is checked first. Ordinary random CNFs cannot supply these
-  payloads, so this supplements the default/random legs. The `v5` flag is a
-  historical fixture name; the trace currently binds action-space v8. Nightly
-  selects 200,000.
-- `run.sh --forced-ttf --quick --solver CMD` — 10,000 deterministic fixed-row
-  cases: binary/guarded encodings, near misses, mutations, SAT/UNSAT validation
-  poison and tight budgets. Positive cases must move the dedicated reach
-  counter before a checked result counts; fixed controls cover replay and
-  deterministic interruption. Nightly selects 200,000. This large targeted
-  campaign is a release gate when the candidate changes balanced-signature/TTF
-  recognition, its scheduling or guards, or its feature-specific harness and
-  oracles. Otherwise the compact `balanced_signature_model` and
-  `forced_ttf_fuzz` tests remain mandatory and compatible prior campaign
-  evidence may be reused; this leg is not part of the universal fresh-PBP seed
-  count.
+- `run.sh --quick --solver CMD` — per-commit regression corpus plus 10,000 seeded cases; `--nightly` selects 200,000. Default Tactix uses whole-run PBP, and every UNSAT result must pass VeriPB and CakePB. These counts are owned by `run.sh`.
+- `run.sh --controller-v5 --quick --solver CMD` — 10,000 deterministic structure-preserving GF(3)/Direct CSP mutations across SAT/model and UNSAT/proof oracles. Every typed payload must make an effective transition, and seeded trace/replay runs first. Ordinary random CNFs cannot supply these payloads. The historical `v5` fixture currently binds action-space v8; nightly selects 200,000.
+- `run.sh --forced-ttf --quick --solver CMD` — 10,000 deterministic fixed-row positives, near misses, mutations, poison cases and tight budgets, with checked reach, replay and interruption. Nightly selects 200,000. The large campaign gates changes to balanced-signature/TTF recognition, scheduling, guards, harness or oracles; otherwise compact `balanced_signature_model` and `forced_ttf_fuzz` remain mandatory and compatible immutable campaign evidence may be reused. This leg is not part of the universal fresh-PBP seed count.
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2 nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers.  `--physical-cores P` changes all three coherently.  A worker count is parallelism within one fuzz campaign, not repeated fuzzing.  At submission it also creates a read-only `build/pin-fuzz-harness-*` snapshot of `run.sh`, the Python harness, stress scenarios, the regression corpus, and pinned VeriPB/CakePB binaries. The batch job executes only that snapshot and logs its aggregate SHA-256; it removes the snapshot after success and retains it after failure for Claude-owned diagnosis. A small deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg timeout controls replayable after the transient snapshot is gone. Never make a fuzz job execute a live repository script.
-- `slurm.sh --cpu-q-wide` maps one campaign deterministically over a wide
-  50-task array. Each task owns 10 single-threaded workers and a disjoint global
-  case-index interval, for at most 500 workers across `cpu-q`. This 500-core
-  ceiling is enforced for every `cpu-q` fuzz layout, including custom ones.
-  Slurm admits tasks according to shared availability; no
-  array throttle or node constraint is added. Shard zero runs the retained
-  corpus and typed/forced fixed controls once. Every shard gets an isolated
-  artifact leg, and an `afterany` finalizer removes the shared immutable pin
-  only when all shard status markers are successful. Failed, canceled, or
-  missing shards retain the pin. Custom
-  layouts use `--shards`, `--physical-cores`, `--threads-per-core`, and
-  `--partition`; `--index-offset` keeps the generated cases identical to the
-  corresponding unsharded global indices. Per-shard correctness failures stay
-  fatal; the finalizer aggregates coverage and reachability before applying the
-  campaign-wide thresholds, so dense and wide modes grade the same case set by
-  the same requirements.
+- `slurm.sh --cpu-q-wide` maps one campaign over 64 array tasks × 13 single-threaded workers and throttles it to 16 concurrent tasks (208 CPUs per campaign). Submit independent campaigns together; Slurm shares partition capacity. Shards own disjoint global indices, while shard zero alone runs the corpus and fixed controls. Isolated artifacts and an `afterany` aggregate finalizer retain the shared immutable pin on any failed, canceled or missing shard.
+  Custom layouts use `--shards`, `--physical-cores`, `--threads-per-core`, `--array-concurrency` and `--partition`. `--index-offset` preserves unsharded cases; aggregate coverage/reach requirements preserve grading.
 - Core clausal checkers (`cake_lpr`, `drat-trim`, `dsr-compress`, `dsr-trim`, `lrat-check`, `srcheck`) default to the mutable `tools/checkers/bin` links. `slurm.sh --checkers DIR` freezes them instead: `DIR` holds exactly those basenames and a `SHA256SUMS` manifest; submission verifies it, installs a read-only content-addressed copy under `failures/checkers/<sha256>/`, and records that path and manifest in the snapshot (so failure `repro.sh` files use the same checkers); the job re-verifies it. For a live checkout, `TACTIX_FUZZ_CHECKERS=DIR` selects the same kind of collection, and `fuzz.py checkers` prints and verifies whichever is in effect. Optional `--dsr-transport FILE` pins the CMake `dsr-transport` helper and its hash beside the oracle; missing helper pins retain Python parsing, never weaker checking.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
