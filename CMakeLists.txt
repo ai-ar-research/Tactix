@@ -75,16 +75,21 @@ add_library(tactix_lib OBJECT
   src/policies/strategy_settings.cpp
   src/policies/progress.cpp
   src/policies/structured_root_strategy.cpp
-  src/policies/random_policy.cpp
-  src/policies/random_controller_policy.cpp
-  src/policies/controller_trace.cpp
-  src/policies/trace.cpp
-  src/policies/stress_registry.cpp
   ${TACTIX_STRATEGY_SOURCES}
   src/frontend/parse.cpp
   src/api/api.cpp
   src/api/api_work.cpp
 )
+
+# Historical controller machinery is retained only as structured-action test
+# support. It is deliberately absent from tactix_lib, the production binary,
+# and both public qualification clients.
+if(TACTIX_BUILD_TESTS)
+  add_library(tactix_controller_test_support OBJECT
+    src/policies/random_controller_policy.cpp
+    src/policies/controller_trace.cpp)
+  target_include_directories(tactix_controller_test_support PRIVATE src include)
+endif()
 
 # Proof export can copy a huge learned core. Only this translation unit may
 # catch allocation failure; `SubSolver::derivation` is noexcept to callers.

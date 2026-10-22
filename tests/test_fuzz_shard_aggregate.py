@@ -35,9 +35,9 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-aggregate-") as tmp:
     campaign = Path(tmp)
     requirements = {
         "require_reached": ["BCE"],
-        "require_controller_applied": ["Lucky"],
-        "require_controller_effective": ["Lucky"],
-        "minimum_target_fires": 2,
+        "require_policy_applied": ["Lucky"],
+        "require_policy_effective": ["Lucky"],
+        "require_policy_counter": ["full-restarts"],
         "max_nonterminating_frac": 0.25,
         "minimum_verdicts": 4,
     }
@@ -50,14 +50,16 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-aggregate-") as tmp:
             "counts": {
                 "failures": 0, "cases_run": count, "nonterminating": 0,
                 "effective": count, "stats_cases": count,
-                "stress_target_fires": 1,
             },
             "reach_rules": {"BCE": int(shard == 0)},
             "reach_spec_seen": {"BCE": count},
-            "controller": {"rule": {"Lucky": {"sum": {
-                "applications": int(shard == 0),
-                "effective": int(shard == 1),
-            }}}},
+            "policy": {
+                "rule": {"Lucky": {"sum": {
+                    "applications": int(shard == 0),
+                    "effective": int(shard == 1),
+                }}},
+                "loop": {"sum": {"full-restarts": int(shard == 1)}},
+            },
             "requirements": requirements,
         })
     result = run(campaign, 2, 5)
@@ -71,44 +73,5 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-aggregate-") as tmp:
     result = run(campaign, 2, 5)
     assert result.returncode == 1
     assert "different qualification requirements" in result.stdout
-
-    typed = campaign / "typed"
-    typed_requirements = {"minimum_verdicts": 5}
-    for shard, offset, count in ((0, 0, 2), (1, 2, 3)):
-        write(typed, shard, {
-            "schema": 1,
-            "runner": "controller-v5",
-            "generator": {"seed": 20261004, "policy_seed": 2},
-            "range": {"offset": offset, "count": count},
-            "counts": {
-                "done": count, "failures": 0, "SAT": count, "UNSAT": 0,
-                "gf3_effective": int(shard == 0),
-                "direct_effective": int(shard == 1),
-            },
-            "requirements": typed_requirements,
-        })
-    result = run(typed, 2, 5)
-    assert result.returncode == 0, (result.stdout, result.stderr)
-    assert "PASS: controller-v5" in result.stdout
-
-    forced = campaign / "forced"
-    forced_requirements = {"minimum_verdicts": 5}
-    for shard, offset, count in ((0, 0, 2), (1, 2, 3)):
-        write(forced, shard, {
-            "schema": 1,
-            "runner": "forced-ttf",
-            "generator": {"seed": 20261005, "policy_seed": 2},
-            "range": {"offset": offset, "count": count},
-            "counts": {
-                "done": count, "failures": 0, "SAT": 0, "UNSAT": count,
-                "forced_expected": count, "forced_reached": count,
-                "negative_controls": int(shard == 0),
-                "tight_cases": int(shard == 1),
-            },
-            "requirements": forced_requirements,
-        })
-    result = run(forced, 2, 5)
-    assert result.returncode == 0, (result.stdout, result.stderr)
-    assert "PASS: forced-ttf" in result.stdout
 
 print("fuzz shard aggregate qualification: PASS")

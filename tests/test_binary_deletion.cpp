@@ -191,6 +191,53 @@ static void test_dsr_deletes_each_physical_copy() {
   }
 }
 
+// Streaming PBP, like DSR, represents duplicate input clauses as a physical
+// multiset. Removing one kernel copy must remove one checker copy immediately;
+// otherwise the stale duplicate can invalidate a later RED witness.
+static void test_streaming_pbp_deletes_each_physical_copy() {
+  for (const unsigned copies : {2u, 3u, 5u}) {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    char path[] = "/tmp/tactix-copy-pbp-XXXXXX";
+    const int fd = mkstemp(path);
+    assert(fd >= 0);
+    close(fd);
+    Proof proof;
+    assert(proof.open(path, ProofFormat::PbpStreaming));
+    k.proof = &proof;
+    const Lit a = internalize(1), b = internalize(2);
+    const Lit clause[2] = {a, b};
+    for (unsigned i = 0; i < copies; ++i) {
+      const uint64_t id = ++k.next_clause_id;
+      proof.seed_population(id, clause, 2);
+      kernel_add_binary_clause(k, a, b, id);
+    }
+    proof.finish_input_transaction();
+    const uint64_t retained_id = kernel_binary_id(k, a, b);
+    for (unsigned removed = 1; removed <= copies; ++removed) {
+      assert(kernel_delete_binary_one_copy(k, a, b));
+      assert(kernel_binary_copies(k, a, b) == copies - removed);
+      assert(kernel_binary_id(k, a, b) == retained_id);
+      proof.flush();
+      FILE *input = std::fopen(path, "rb");
+      assert(input);
+      std::string bytes;
+      for (int c; (c = std::fgetc(input)) != EOF;)
+        bytes.push_back(static_cast<char>(c));
+      assert(!std::ferror(input));
+      std::fclose(input);
+      size_t deletions = 0, at = 0;
+      while ((at = bytes.find("del ", at)) != std::string::npos)
+        ++deletions, at += 4;
+      assert(deletions == removed);
+      if (removed < copies)
+        assert(bytes.find("del spec 1 x1 1 x2 >= 1 ;") != std::string::npos);
+      kernel_check_invariants(k);
+    }
+    assert(std::remove(path) == 0);
+  }
+}
+
 static void test_delete_one_duplicate_copy_keeps_pair_named() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -371,6 +418,7 @@ int main() {
   test_publish_rebuilt_binary_does_not_rearm_added_material();
   test_duplicate_pair_refused();
   test_dsr_deletes_each_physical_copy();
+  test_streaming_pbp_deletes_each_physical_copy();
   test_delete_one_duplicate_copy_keeps_pair_named();
   test_delete_idempotent();
   test_reason_binary_retired_to_unit();

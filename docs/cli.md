@@ -37,9 +37,8 @@ is treated as a file name, so standard input is not supported.
 
 ## Options
 
-Options marked **research** select alternative policies or record data for
-experiments and testing. They are not needed for ordinary solving, and their
-details may change between releases.
+Options marked **research** record data for experiments and testing. They are
+not needed for ordinary solving, and their details may change between releases.
 
 | Option | Use | Section |
 |---|---|---|
@@ -51,9 +50,7 @@ details may change between releases.
 | `--default-graph-labeling=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
 | `--default-structured-symmetry=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
 | `--bve-gates=...` | normal (tuning) | [Variable elimination gates](#variable-elimination-gates) |
-| `--random-policy[=SEED]`, `--stress-policy[=SEED]`, `--no-heuristics` | research | [Randomized policies](#randomized-policies) |
-| `--controller-*` | research | [Random controller](#random-controller) |
-| `--trace`, `--replay`, `--feedback`, `--feedback-replay`, `--structural-provenance` | research | [Recording and replay](#recording-and-replay) |
+| `--feedback`, `--feedback-replay`, `--structural-provenance` | research | [Recording and replay](#recording-and-replay) |
 
 Options that take a value use the form `--option=VALUE`; a separate argument
 (`--option VALUE`) is not accepted. An unknown option is an error.
@@ -62,9 +59,7 @@ Options that take a value use the form `--option=VALUE`; a separate argument
 
 **`-q`, `--quiet`.** Suppresses the statistics block printed after solving
 (every `c` line from `c tactix 0.2.0` to the timing lines). The `s` and `v`
-lines, the `c proof-route` line and error messages are still printed. The
-research policies print a few `c` lines of their own that `-q` does not
-suppress.
+lines, the `c proof-route` line and error messages are still printed.
 
 **`-v`, `--verbose`.** Prints progress while the default strategy searches:
 a header, then a line at most about once per second at restarts and clause
@@ -154,76 +149,21 @@ variable elimination (BVE) looks for. `LIST` is a comma-separated subset of:
 
 Default: `equiv,andor,ite,def` (Kissat's gate set; `xor` off). Every setting
 is sound: a disabled gate type only makes BVE fall back to the full set of
-resolvents. An unknown name is an error. The default strategy uses this
-setting; other policies may choose their own gate set per invocation.
+resolvents. An unknown name is an error.
 
-### Randomized policies
-
-**Research.** These replace the default strategy with randomized schedules
-over the same proof rules. They exist to test soundness: every UNSAT answer
-still carries a checkable proof and every SAT answer a valid model, but they
-are much slower than the default strategy.
-
-| Option | Effect |
-|---|---|
-| `--random-policy[=SEED]` | Generates random sequences of applicable rules with random parameters and applies them until SAT or UNSAT. Deterministic for a given seed. Default seed: `20260710`. |
-| `--stress-policy[=SEED]` | The same randomized scheduler, used for targeted stress runs: set `TACTIX_STRESS_RULES` (see [Environment variables](#environment-variables)) to favour particular rules. Cannot record `--trace`. |
-| `--no-heuristics` | Runs without the heuristic state (variable scores, saved phases). Requires `--random-policy` and no `--stress-policy`. Not listed in `--help`. |
-
-If both `--random-policy` and `--stress-policy` are given, `--stress-policy`
-runs.
-
-### Random controller
-
-**Research.** `--controller-policy` selects a seeded random controller. At the
-root, after each full restart, it chooses inprocessing and structured actions
-and a search configuration (branching, restart and phase heuristics), then
-resumes search. It is the reference user of the online configuration
-interface that external, for example learned, controllers program against.
-[controller-interface.md](controller-interface.md) specifies the action space,
-the file formats and the transcript.
-
-| Option | Default | Effect |
-|---|---|---|
-| `--controller-policy[=SEED]` | seed `20260710` | Selects the controller. |
-| `--controller-effort=N` | `10000000` | Native work ceiling for one action. `0` is allowed and means zero work. |
-| `--controller-restart-period=N` | `1024` | Base period of the reluctant (Luby) restart schedule. `N` must be positive. |
-| `--controller-trail-retention=ranked-prefix\|full` | `ranked-prefix` | `ranked-prefix` keeps a valid prefix of the trail on restart; `full` always restarts to the root. |
-| `--controller-search-configurations=all\|LIST` | `all` | Restricts the search configurations the controller may choose. `LIST` is comma-separated `branching/restart/phase` names (below). Repeated options accumulate; duplicates and unknown names are errors. |
-| `--controller-families=all\|LIST` | `all` | Restricts the root actions to the listed rule names (comma-separated). `Decide`, `ConflictAnalysis`, `Restart` and `SwitchMode` are not root actions and are rejected. |
-| `--controller-actions=FILE` | none | Reads a serialized strategy program and offers its steps, with their parameters, as the action collection. Cannot be combined with `--controller-families`. |
-| `--controller-native-producers=all\|none\|LIST` | `none` | Enables the controller's own discovery of structured actions. `LIST` is comma-separated: `gf2-affine`, `gf3-affine`, `direct-csp`, `nary-csp-equality`, `nary-csp-equality-amo`, `gf3-gaussian`, `gf3-general-row`, `tseitin-cycle`. |
-| `--controller-startup-prefix=FILE` | none | An ordered list of actions to run once at startup before random selection begins. |
-| `--controller-gf2-affine-profile=FILE` | none | Limits and allowances for the `gf2-affine` producer. Requires that producer to be enabled and `AffineConsequence` to be an allowed action. |
-| `--controller-direct-csp-profile=FILE` | none | Limits and allowances for the `direct-csp` producer. |
-| `--controller-guarded-cover-profile=FILE` | none | Profile for guarded-cover discovery. Must be given together with the next option. |
-| `--controller-guarded-cover-limits=FILE` | none | Limits for guarded-cover discovery. |
-| `--controller-trace=FILE` | none | Records a transcript of the controller's configuration, requests and outcomes. Requires `--controller-policy`. |
-| `--controller-replay=FILE` | none | Replays a transcript and verifies every deterministic event and the final answer. Selects the controller by itself (the seed comes from the transcript); cannot be combined with `--controller-policy` or `--controller-trace`. Use the same build, input and controller settings as the recorded run. |
-
-Search configuration names have the form `branching/restart/phase`, for
-example `evsids/reluctant/target`:
-
-| Component | Choices |
-|---|---|
-| branching | `vmtf`, `evsids` |
-| restart | `adaptive-glue`, `reluctant` |
-| phase | `saved`, `target`, `positive`, `negative`, `focused-rotation` |
-
-All `--controller-*` settings other than `--controller-policy` and
-`--controller-replay` require one of those two. A file that fails to parse or
-validate is an error, reported on stderr before solving starts.
+The production `tactix` frontend runs DefaultPolicy only. Random qualification
+is performed by the external public-API client `tactix-public-random`, built
+with the tests. It accepts `--random-policy=SEED` and ordinary proof/input
+options. That option is intentionally rejected by `tactix`; see
+[the fuzz harness](../tools/fuzz/README.md) for the campaign contract.
 
 ### Recording and replay
 
-**Research.** These options record what a policy did, so that a run can be
-reproduced or analysed.
+**Research.** These options record or verify DefaultPolicy feedback.
 
 | Option | Effect |
 |---|---|
-| `--trace=FILE` | Records every program `--random-policy` applies, and the final answer. Requires `--random-policy`. |
-| `--replay=FILE` | Applies exactly the programs recorded by `--trace` and checks that the run ends with the recorded answer. If the trace is malformed or the run diverges, prints `s UNKNOWN` and exits with code 1. Cannot be combined with another policy or with `--trace`. |
-| `--feedback=FILE` | Records the per-action feedback stream of the default strategy or the random controller. |
+| `--feedback=FILE` | Records the per-action feedback stream of DefaultPolicy. |
 | `--feedback-replay=FILE` | Re-runs the same policy, seed and configuration and verifies the regenerated feedback stream against `FILE`. |
 | `--structural-provenance=NEW_FILE` | Writes the provenance records of structured techniques to `NEW_FILE` as JSON lines. |
 
@@ -231,7 +171,7 @@ Feedback files start with provenance metadata: SHA-256 hashes of the running
 executable and the input file, the policy, seed, configuration, proof mode,
 BVE gate mask, and the values of solver environment variables that are set.
 `--feedback` and `--feedback-replay` are mutually exclusive, need a non-empty
-path, and work only with the default strategy or the random controller. A
+path, and work only with DefaultPolicy. A
 feedback error does not change the solver's answer or proof: the run finishes
 normally, then the error is reported on stderr and the exit code is 1.
 `tools/bench/inspect_policy_feedback.py` validates and summarizes a feedback
@@ -240,8 +180,8 @@ file.
 `--structural-provenance` creates `NEW_FILE` exclusively, so the file must not
 exist. Its first line is a session record with the SHA-256 hash of the input.
 Without this option the records go to an anonymous temporary file. Neither the
-feedback path nor the provenance path may name the same file as the input,
-the proof or a transcript.
+feedback path nor the provenance path may name the same file as the input or
+the proof.
 
 ## Rejected combinations
 
@@ -251,24 +191,11 @@ these prints a message on stderr and exits with code 1:
 
 | Combination | Reason |
 |---|---|
-| A `--default-*` toggle with `--random-policy`, `--stress-policy`, `--controller-policy`, `--controller-replay`, `--replay` or `--no-heuristics` | The toggles configure only the default strategy. |
 | `--feedback` together with `--feedback-replay` | Choose one. |
-| `--feedback` or `--feedback-replay` with `--random-policy`, `--stress-policy`, `--replay` or `--no-heuristics`, or with an empty path | Feedback exists only for the default strategy and the controller. |
-| A feedback path that names the input, proof or a transcript file | It would overwrite that file. |
+| `--feedback` or `--feedback-replay` with an empty path | A file name is required. |
+| A feedback path that names the input or proof file | It would overwrite that file. |
 | `--structural-provenance` naming any other input or output file | It would overwrite that file. |
-| The controller with `--random-policy`, `--stress-policy`, `--replay`, `--no-heuristics` or `--trace` | One policy at a time; `--trace` is for `--random-policy` only. |
-| `--controller-replay` with `--controller-policy` or `--controller-trace` | Replay selects the controller and its seed itself. |
-| `--controller-trace` without `--controller-policy` | Nothing to record. |
-| Any other `--controller-*` setting without `--controller-policy` or `--controller-replay` | The setting would be ignored. |
-| `--controller-actions` with `--controller-families` | Both select the action collection. |
-| Only one of `--controller-guarded-cover-profile` and `--controller-guarded-cover-limits` | Both are needed. |
-| `--trace` without `--random-policy` | Only the random policy's schedule can be recorded. |
-| `--replay` with `--trace`, `--random-policy` or `--stress-policy` | Replay runs the recorded schedule. |
-| `--no-heuristics` without `--random-policy`, or with `--stress-policy` | Other policies need the heuristic state. |
-
-When several policies are selected and no check applies, the precedence is
-`--replay`, then the controller, then `--stress-policy`, then
-`--random-policy`, then the default strategy.
+| Any retired random, stress, controller, trace or replay option | Alternative production policies were removed; use the public qualification client. |
 
 ## Output
 
@@ -346,13 +273,10 @@ explains which checkers each route uses.
 | 10 | Satisfiable. |
 | 20 | Unsatisfiable. |
 | 0 | Unknown: interrupted by a signal, or the policy stopped without an answer. Also the exit code of `--help` and `--version`. |
-| 1 | Error: unknown option, bad option value, rejected combination, no input file, too many arguments, unreadable input, parse error, proof file that cannot be created, a `--replay` that diverged, or a feedback error (in that last case the answer, model and proof are still written). |
+| 1 | Error: unknown option, bad option value, rejected combination, no input file, too many arguments, unreadable input, parse error, proof file that cannot be created, or a feedback error (in that last case the answer, model and proof are still written). |
 
-Most errors also print `s UNKNOWN` on standard output. Some print only the
-message on stderr: invalid values of `--controller-families`,
-`--controller-native-producers`, `--controller-search-configurations`,
-`--controller-trail-retention`, `--controller-restart-period` and
-`--controller-effort`, and `--structural-provenance` errors.
+Most errors also print `s UNKNOWN` on standard output. Structural-provenance
+path errors print only the message on stderr.
 
 An invalid value in a `TACTIX_ORDER_*` environment variable, or a strategy
 configuration that fails validation, aborts the process (SIGABRT).
@@ -509,9 +433,6 @@ by every policy.
 | `TACTIX_SLOT_STATS` | set | Print a per-step report of the inprocessing scheduler. |
 | `TACTIX_SLOT_TRACE` | set | Trace inprocessing steps on stderr. |
 | `TACTIX_SR_TRACE` | `1` or `2` | Trace symmetry breaking on stderr; `2` is more detailed. |
-| `TACTIX_TRACE` | set | Trace each rule application of the randomized policies on stderr. |
-| `TACTIX_STRESS_RULES` | `Rule,Rule,...` | Randomized policies favour these rules. |
-| `TACTIX_STRESS_NORMAL_EVERY` | N (default 8) | With `TACTIX_STRESS_RULES`, every N-th program is an ordinary random one. |
 | `TACTIX_STOP_FUZZ` | N | Testing only: make stop checks fire at random (about one in N), to exercise interruption paths. |
 | `TACTIX_EVENT_TRACE` | FILE | Event trace. Only in builds configured with `-DTACTIX_ENABLE_EVENT_TRACE=ON`. |
 | `TACTIX_RULE_JOURNAL` | FILE | Rule journal. Only in builds configured with `-DTACTIX_ENABLE_RULE_JOURNAL=ON`. |
@@ -541,6 +462,20 @@ automatic startup-PBP/DSR route. Any other option is an error. It prints
 `c proof-route` on UNSAT with a proof path, a short statistics block and
 `c public-port` counts of interface requests. It handles SIGINT, SIGTERM and
 SIGXCPU like `tactix`. It has no `--help`.
+
+### tactix-public-random
+
+```
+build/release/tests/tactix-public-random --pbp --random-policy=SEED <cnf> [proof]
+```
+
+This qualification client is the only random strategy. It includes only
+`tactix.h`, chooses one eligible public action at a time, and re-observes the
+solver after every action. Its seeded profiles generate varied root action
+sequences, CDCL intervals, partial and full restarts, and canonical, instance,
+semantic and online application forms. It prints `c public-random` coverage
+lines consumed by the fuzz harness. It is a test client, not a production
+`tactix` policy.
 
 ### tactix-cruxmiter-policy
 

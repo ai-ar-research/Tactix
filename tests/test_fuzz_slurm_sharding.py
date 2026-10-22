@@ -31,7 +31,7 @@ for total, shards in ((1, 1), (10, 3), (130, 64), (100000, 64)):
     assert max(count for _, count in ranges) - min(
         count for _, count in ranges) <= 1
 
-for runner in ("fuzz.py", "controller_v5.py", "forced_ttf.py"):
+for runner in ("fuzz.py",):
     source = (ROOT / "tools" / "fuzz" / runner).read_text(encoding="utf-8")
     assert "range(args.index_offset, args.index_offset + args.n)" in source
 
@@ -98,7 +98,7 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         assert f'python3 "{pin}/fuzz/shard.py" "130" "64"' in array_batch
         assert '--index-offset "$INDEX_OFFSET"' in array_batch
         assert "--defer-requirements" in array_batch
-        assert "SHARD_ARGS+=(--skip-corpus --skip-fixed-controls)" in array_batch
+        assert "SHARD_ARGS+=(--skip-corpus)" in array_batch
         assert f'"{pin}/fuzz/run.sh"' in array_batch
 
         assert "--dependency=afterany:424242" in final_args

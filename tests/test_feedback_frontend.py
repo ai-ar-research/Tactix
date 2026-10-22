@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/bench'))
@@ -38,8 +39,15 @@ def main():
             args = [str(binary), '-q', '--drat', '--no-binary', *options, str(cnf)]
             if proof is not None:
                 args.append(str(proof))
-            return subprocess.run(args, env=environment if env is None else env,
-                                  capture_output=True, text=True, timeout=30)
+            started = time.monotonic()
+            result = subprocess.run(args,
+                                    env=environment if env is None else env,
+                                    capture_output=True, text=True, timeout=30)
+            elapsed = time.monotonic() - started
+            if elapsed > 2:
+                print(f'slow frontend solve ({elapsed:.2f}s): {options}',
+                      file=sys.stderr, flush=True)
+            return result
 
         def oracle(result, cnf, proof, name):
             if result.returncode == 10:
@@ -73,30 +81,30 @@ def main():
             return fields
 
         saved = saved_solver_output = saved_certificate = None
-        for policy, options in [('default', []), ('controller', ['--controller-policy=7'])]:
-            for cnf, expected in [(sat, 10), (unsat, 20)]:
-                name = policy + '-' + cnf.stem
-                records = work / f'{name}.jsonl'
-                before = run(cnf, options, proof=work / f'{name}-off.drat')
-                recorded = run(cnf, [*options, f'--feedback={records}'], proof=work / f'{name}-on.drat')
-                replayed = run(cnf, [*options, f'--feedback-replay={records}'], proof=work / f'{name}-replay.drat')
-                assert before.returncode == recorded.returncode == replayed.returncode == expected
-                assert before.stdout == recorded.stdout == replayed.stdout
-                certificates = [(work / f'{name}-{arm}.drat').read_bytes() for arm in ('off', 'on', 'replay')]
-                assert certificates[0] == certificates[1] == certificates[2]
-                summary = inspector.inspect(records)
-                assert summary['terminal']['verdict'] == expected
-                fields = metadata_fields(summary['metadata'])
-                assert fields['build-sha256'] == hashlib.sha256(binary.read_bytes()).hexdigest()
-                assert fields['input-sha256'] == hashlib.sha256(cnf.read_bytes()).hexdigest()
-                assert fields['policy'] == ('default' if policy == 'default' else 'random-controller')
-                if policy == 'controller':
-                    assert fields['seed'] == '7'
-                oracle(recorded, cnf, work / f'{name}-on.drat', name)
-                if policy == 'default' and cnf == sat:
-                    saved = records.read_text()
-                    saved_solver_output = recorded.stdout
-                    saved_certificate = certificates[1]
+        for cnf, expected in [(sat, 10), (unsat, 20)]:
+            name = 'default-' + cnf.stem
+            options = []
+            records = work / f'{name}.jsonl'
+            before = run(cnf, options, proof=work / f'{name}-off.drat')
+            recorded = run(cnf, [*options, f'--feedback={records}'], proof=work / f'{name}-on.drat')
+            replayed = run(cnf, [*options, f'--feedback-replay={records}'], proof=work / f'{name}-replay.drat')
+            assert before.returncode == recorded.returncode == replayed.returncode == expected, (
+                name, before.returncode, recorded.returncode, replayed.returncode,
+                before.stderr, recorded.stderr, replayed.stderr)
+            assert before.stdout == recorded.stdout == replayed.stdout
+            certificates = [(work / f'{name}-{arm}.drat').read_bytes() for arm in ('off', 'on', 'replay')]
+            assert certificates[0] == certificates[1] == certificates[2]
+            summary = inspector.inspect(records)
+            assert summary['terminal']['verdict'] == expected
+            fields = metadata_fields(summary['metadata'])
+            assert fields['build-sha256'] == hashlib.sha256(binary.read_bytes()).hexdigest()
+            assert fields['input-sha256'] == hashlib.sha256(cnf.read_bytes()).hexdigest()
+            assert fields['policy'] == 'default'
+            oracle(recorded, cnf, work / f'{name}-on.drat', name)
+            if cnf == sat:
+                saved = records.read_text()
+                saved_solver_output = recorded.stdout
+                saved_certificate = certificates[1]
 
         records = work / 'negative.jsonl'
         records.write_text(saved)
@@ -168,26 +176,15 @@ def main():
         missing_replay = run(options=[f'--feedback-replay={work / "nonexistent-record"}'])
         assert missing_replay.returncode == 1 and missing_replay.stdout == saved_solver_output
 
-        # Existing controller transcript and new feedback stay independent.
-        transcript, feedback = work / 'controller.trace', work / 'controller-feedback.jsonl'
-        outcome = run(options=['--controller-policy=17', f'--controller-trace={transcript}',
-                               f'--feedback={feedback}'])
-        assert outcome.returncode == 10, outcome.stderr
-        replay = run(options=[f'--controller-replay={transcript}', f'--feedback-replay={feedback}'])
-        assert replay.returncode == 10 and replay.stdout == outcome.stdout, replay.stderr
-        assert run(options=['--controller-policy=17', f'--controller-trace={transcript}',
-                            f'--feedback={transcript}']).returncode == 1
-
         # Actual frontend interruption decisions are invariant under feedback.
-        for policy in ([], ['--controller-policy=17']):
-            for period in ('1', '7', '31'):
-                env = dict(environment, TACTIX_STOP_FUZZ=period)
-                baseline = run(unsat, policy, env=env)
-                observed = run(unsat, [*policy, f'--feedback={work / "interruption.jsonl"}'], env=env)
-                assert baseline.returncode == observed.returncode and baseline.stdout == observed.stdout
-                inspector.inspect(work / 'interruption.jsonl')
-        assert verified == {'proofs': 2, 'models': 2}
-        print('Both-policy frontend purity/replay and rejection controls passed; 2 proofs + 2 models checked.')
+        for period in ('1', '7', '31'):
+            env = dict(environment, TACTIX_STOP_FUZZ=period)
+            baseline = run(unsat, env=env)
+            observed = run(unsat, [f'--feedback={work / "interruption.jsonl"}'], env=env)
+            assert baseline.returncode == observed.returncode and baseline.stdout == observed.stdout
+            inspector.inspect(work / 'interruption.jsonl')
+        assert verified == {'proofs': 1, 'models': 1}
+        print('Default frontend purity/replay and rejection controls passed; proof + model checked.')
 
 
 if __name__ == '__main__':

@@ -301,29 +301,6 @@ def input_restated(stdout):
     return int(m.group(1)) if m else 0
 
 
-_STRESS_FIRES_RE = re.compile(r"^c stress-target-fires\s+(\d+)", re.M)
-
-
-def stress_target_fires(stdout):
-    """Return the driver's direct count of preferred-rule applications."""
-    return sum(int(m.group(1)) for m in
-               _STRESS_FIRES_RE.finditer(stdout or ""))
-
-
-_DENSE_RE = re.compile(r"^c stress-dense\s+(\d+)", re.M)
-
-
-def stress_dense_connected(stdout):
-    """Did this case walk with the dense occurrence index attached?
-
-    random_solve derives that from the POLICY seed's low bit, so a leg that
-    passes one fixed seed reaches only one half of the schedule space and its
-    dense-gated tails (BveBackward, VariableCompaction) read as never-fired.
-    Counted at the source, like every other reach number here."""
-    m = _DENSE_RE.search(stdout or "")
-    return m is not None and m.group(1) != "0"
-
-
 # --- per-rule reachability, counted at the source -------------------------
 # One row per registry entry (rule or policy op): the label, and a regex whose
 # group(1) is a counter that is non-zero iff that entry's apply actually ran on
@@ -453,30 +430,29 @@ _REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
 _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)
 
 
-# Restart-controller coverage (docs/controller-interface.md): the policy prints
-# one line per root family, one per named search configuration and one loop
-# summary at every terminal, so requests, applications, effective changes,
-# stop outcomes and search intervals are read at the source.
-_CONTROLLER_LINE_RE = re.compile(
-    r"^c controller-(?:(rule|search) (\S+)|(loop)) ((?:\S+=\d+ ?)+)$", re.M)
+# The qualification client prints one line per exercised public rule plus
+# transition and application-form summaries at every terminal.  Read these
+# counters at the source instead of inferring coverage from the seed count.
+_PUBLIC_RANDOM_LINE_RE = re.compile(
+    r"^c public-random (?:(rule) (\S+)|(transitions|forms)) "
+    r"((?:\S+=\d+ ?)+)$", re.M)
 
 
-def controller_coverage(stdout):
-    """{'rule': {name: fields}, 'search': {name: fields}, 'loop': fields}, or
-    None when the case printed no controller coverage."""
+def policy_coverage(stdout):
+    """Return public-random source counters, or None when none were printed."""
     found = None
-    for m in _CONTROLLER_LINE_RE.finditer(stdout or ""):
+    for m in _PUBLIC_RANDOM_LINE_RE.finditer(stdout or ""):
         found = found or {"rule": {}, "search": {}, "loop": {}}
         fields = {key: int(value) for key, value in
                   (item.split("=") for item in m.group(4).split())}
-        if m.group(3):
-            found["loop"] = fields
+        if m.group(1):
+            found["rule"][m.group(2)] = fields
         else:
-            found[m.group(1)][m.group(2)] = fields
+            found["loop"].update(fields)
     return found
 
 
-def merge_controller_coverage(total, case, verdict):
+def merge_policy_coverage(total, case, verdict):
     """Accumulate field sums and the number of cases with a non-zero field."""
     total["cases"] += 1
     total["verdicts"][verdict] = total["verdicts"].get(verdict, 0) + 1
@@ -492,20 +468,19 @@ def merge_controller_coverage(total, case, verdict):
         loop["cases"][key] = loop["cases"].get(key, 0) + (value > 0)
         loop["max"][key] = max(loop["max"].get(key, 0), value)
     loop["cases_root_sequence_ge2"] += (
-        case["loop"].get("maximum-root-actions", 0) >= 2)
+        max(case["loop"].get("maximum-root-actions", 0),
+            case["loop"].get("root-actions", 0)) >= 2)
 
 
-def missing_controller_requirements(coverage, applications=(), effective=()):
-    """Return requested controller rows whose aggregate source counter is zero.
+def missing_policy_requirements(coverage, applications=(), effective=()):
+    """Return requested public-policy rows whose source counter is zero.
 
-    The controller prints all root families at every terminal, including
-    structured families that were unavailable because no typed witness was
-    offered.  Merely seeing a row therefore proves nothing.  Keep application
-    and effective-transition requirements distinct: an attempted semantic
-    action can consume one application and still publish no constraint.
+    Keep application and effective-transition requirements distinct: an
+    attempted semantic action can consume one application and still publish
+    no constraint.
 
-    ``coverage`` may be one case from :func:`controller_coverage` or the
-    aggregate written to controller-coverage.json; both use the same nested
+    ``coverage`` may be one case from :func:`policy_coverage` or the aggregate
+    written to policy-coverage.json; both use the same nested
     ``rule`` field and differ only in whether counters live directly in the
     row or under ``sum``.
     """
@@ -519,6 +494,13 @@ def missing_controller_requirements(coverage, applications=(), effective=()):
             if values.get(field, 0) == 0:
                 missing.append(f"{name}:{field}")
     return missing
+
+
+def missing_policy_counters(coverage, required=()):
+    """Return required public-random transition/form counters that are zero."""
+    loop = coverage.get("loop", {}) if coverage else {}
+    values = loop.get("sum", loop)
+    return [name for name in required if values.get(name, 0) == 0]
 
 
 def rule_reachability(stdout):
@@ -539,12 +521,10 @@ def rule_reachability(stdout):
     return True, counts, seen
 
 
-# A leg's solver command may carry `{seed}` where a policy seed belongs
-# (`--random-policy={seed}`, `--stress-policy={seed}`). `run` fills in each
-# case's own seed; the single-CNF entry points below pin CORPUS_SEED so a
-# replay is reproducible. Odd, because random_solve connects the dense
-# occurrence index on odd seeds and the dense-gated rules are the ones a
-# corpus entry is most likely to be protecting.
+# A leg's solver command may carry `{seed}` where the public qualification
+# client's `--random-policy={seed}` belongs. `run` fills in each case's own
+# seed; the single-CNF entry points below pin CORPUS_SEED so a replay is
+# reproducible.
 CORPUS_SEED = 1
 
 
@@ -928,21 +908,20 @@ def cmd_run(args):
     # for the frontend's input-normalization path, so tally how many cases had
     # a normalized input clause and report it next to the pass/fail counts. Add
     # a line here for any other path whose coverage a leg must demonstrate.
-    reach = {"restated_cases": 0, "restated_unsat": 0, "dense_cases": 0}
+    reach = {"restated_cases": 0, "restated_unsat": 0}
     # per-rule reachability (the same principle, generalised): cases in which
     # each registry entry actually fired, plus the spec-miss guard.
     reach_rules = {label: 0 for label, _ in REACH_SPECS}
     reach_spec_seen = {label: 0 for label, _ in REACH_SPECS}
     stats_cases = 0
-    stress_fires = 0
-    controller = {"cases": 0, "verdicts": {}, "rule": {}, "search": {},
-                  "loop": {"sum": {}, "cases": {}, "max": {},
-                           "cases_root_sequence_ge2": 0}}
+    policy = {"cases": 0, "verdicts": {}, "rule": {}, "search": {},
+              "loop": {"sum": {}, "cases": {}, "max": {},
+                       "cases_root_sequence_ge2": 0}}
     # Non-termination is lost coverage and must be as visible as a failure: a
     # case that reaches no verdict exercises no semantic oracle (model, proof
     # and differential all need SAT or UNSAT), so "N cases, 0 failures" really
-    # means "N minus the non-terminating population". Weak-solver legs
-    # (--random-policy above all) lose a double-digit percentage this way.
+    # means "N minus the non-terminating population". A deliberately varied
+    # public schedule can lose cases this way and must report that loss.
     nonterm = []  # [{index, seed, generator, nvars, nclauses, verdict}]
     saved_nonterm = [0]  # CNFs written to outdir/nonterminating/ (capped)
     skips_count = {}  # oracle -> cases where it was deliberately not applied
@@ -955,12 +934,12 @@ def cmd_run(args):
         # worker runs it or in what order — results are the same at any
         # --jobs level, only wall-clock changes (the work is subprocess-
         # bound, so threads parallelize it fine)
-        nonlocal nfail, done, stats_cases, stress_fires
+        nonlocal nfail, done, stats_cases
         if stop.is_set():
             return
         seed = args.seed + i
         name, nvars, clauses = generate(seed, i)
-        # size cap (weak-solver legs, e.g. --random-policy: a random
+        # size cap (weak-solver legs, e.g. the public random client: a varied
         # schedule cannot finish big instances within the timeout, and
         # the semantic oracles only fire on a verdict): deterministically
         # re-roll oversized cases. The fixed edge degeneracies (name prefix
@@ -973,8 +952,8 @@ def cmd_run(args):
             attempt += 1
             name, nvars, clauses = generate(seed + 7919 * attempt, i)
         # `{seed}` in the solver command becomes this case's seed, so a policy
-        # whose schedule is seed-derived (--random-policy / --stress-policy)
-        # varies with the case instead of replaying one walk per leg. The
+        # whose schedule is seed-derived varies with the case instead of
+        # replaying one walk per leg. The
         # substituted command is what the bundle records, so a failure still
         # reproduces exactly.
         case_solver = substitute_seed(solver, seed)
@@ -1000,14 +979,11 @@ def cmd_run(args):
                     save_nonterminating(outdir, i, seed, name, cnf, outcome,
                                         case_solver, args.timeout)
         restated = input_restated(outcome.solver_out)
-        dense = stress_dense_connected(outcome.solver_out)
-        target_fires = stress_target_fires(outcome.solver_out)
         stats_present, rcounts, rseen = rule_reachability(outcome.solver_out)
-        controller_case = controller_coverage(outcome.solver_out)
+        policy_case = policy_coverage(outcome.solver_out)
         with lock:
-            if controller_case:
-                merge_controller_coverage(controller, controller_case,
-                                          outcome.verdict)
+            if policy_case:
+                merge_policy_coverage(policy, policy_case, outcome.verdict)
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
             if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
                 nonterm.append({"index": i, "seed": seed, "generator": name,
@@ -1018,9 +994,6 @@ def cmd_run(args):
                 reach["restated_cases"] += 1
                 if outcome.verdict == "UNSAT":
                     reach["restated_unsat"] += 1
-            if dense:
-                reach["dense_cases"] += 1
-            stress_fires += target_fires
             if stats_present:
                 stats_cases += 1
                 for label in reach_rules:
@@ -1066,7 +1039,6 @@ def cmd_run(args):
           + f" | coverage: {effective}/{ran} cases reached a verdict"
           + f" | reached: input-restated {reach['restated_cases']} cases"
             f" ({reach['restated_unsat']} UNSAT)"
-          + f", dense-connected {reach['dense_cases']} cases"
           + (f" | oracles skipped: {skips_count}" if skips_count else ""))
     if nnon:
         pct = 100.0 * nnon / ran if ran else 0.0
@@ -1094,28 +1066,33 @@ def cmd_run(args):
             for label, _ in REACH_SPECS)
         print(f"fuzz: reached (cases firing each rule, of {stats_cases} with "
               f"stats; ! = never fired, ? = counter line missing): {cols}")
-    if controller["cases"]:
-        with open(os.path.join(outdir, "controller-coverage.json"), "w") as f:
-            json.dump(controller, f, indent=2, sort_keys=True)
+    if policy["cases"]:
+        with open(os.path.join(outdir, "policy-coverage.json"), "w") as f:
+            json.dump(policy, f, indent=2, sort_keys=True)
         def zero(kind, key):
-            return sorted(name for name, entry in controller[kind].items()
+            return sorted(name for name, entry in policy[kind].items()
                           if not entry["cases"].get(key, 0))
-        print(f"fuzz: controller coverage over {controller['cases']} cases "
-              f"{controller['verdicts']}: families never applied "
+        print(f"fuzz: public-random coverage over {policy['cases']} cases "
+              f"{policy['verdicts']}: families never applied "
               f"{zero('rule', 'applications')}, never effective "
               f"{zero('rule', 'effective')}; configurations without an "
               f"interval {zero('search', 'intervals')}, without a decision "
               f"{zero('search', 'decisions')}; loop "
-              f"{controller['loop']['cases']} root-sequence>=2 in "
-              f"{controller['loop']['cases_root_sequence_ge2']} cases "
-              f"(detail: controller-coverage.json)")
-    missing_controller = missing_controller_requirements(
-        controller,
-        args.require_controller_applied or (),
-        args.require_controller_effective or ())
-    if missing_controller:
-        print("fuzz: REQUIRED CONTROLLER COVERAGE MISSING: "
-              f"{missing_controller}")
+              f"{policy['cases']} cases; root-actions>=2 in "
+              f"{policy['loop']['cases_root_sequence_ge2']} cases "
+              f"(detail: policy-coverage.json)")
+    missing_policy = missing_policy_requirements(
+        policy,
+        args.require_policy_applied or (),
+        args.require_policy_effective or ())
+    missing_policy_counter = missing_policy_counters(
+        policy, args.require_policy_counter or ())
+    if missing_policy:
+        print("fuzz: REQUIRED RANDOM-POLICY COVERAGE MISSING: "
+              f"{missing_policy}")
+    if missing_policy_counter:
+        print("fuzz: REQUIRED RANDOM-POLICY COUNTERS MISSING: "
+              f"{missing_policy_counter}")
     missing_spec = [label for label, _ in REACH_SPECS
                     if stats_cases and reach_spec_seen[label] == 0]
     if missing_spec:
@@ -1126,11 +1103,6 @@ def cmd_run(args):
                  if reach_rules.get(label, 0) == 0]
     if unreached:
         print(f"fuzz: REQUIRED RULES NEVER FIRED: {unreached}")
-    below_target_minimum = stress_fires < args.minimum_target_fires
-    print(f"fuzz: stress target applications={stress_fires}")
-    if below_target_minimum:
-        print(f"fuzz: stress target applications {stress_fires} is below "
-              f"required minimum {args.minimum_target_fires}")
     over_budget = (args.max_nonterminating_frac is not None and ran
                    and nnon / ran > args.max_nonterminating_frac)
     if over_budget:
@@ -1151,18 +1123,15 @@ def cmd_run(args):
             "nonterminating": nnon,
             "effective": effective,
             "stats_cases": stats_cases,
-            "stress_target_fires": stress_fires,
         },
         "reach_rules": reach_rules,
         "reach_spec_seen": reach_spec_seen,
-        "controller": controller,
+        "policy": policy,
         "requirements": {
             "require_reached": args.require_reached or [],
-            "require_controller_applied":
-                args.require_controller_applied or [],
-            "require_controller_effective":
-                args.require_controller_effective or [],
-            "minimum_target_fires": args.minimum_target_fires,
+            "require_policy_applied": args.require_policy_applied or [],
+            "require_policy_effective": args.require_policy_effective or [],
+            "require_policy_counter": args.require_policy_counter or [],
             "max_nonterminating_frac": args.max_nonterminating_frac,
             "minimum_verdicts": args.minimum_verdicts,
         },
@@ -1170,8 +1139,9 @@ def cmd_run(args):
     with open(os.path.join(outdir, "summary.json"), "w") as output:
         json.dump(summary, output, indent=2, sort_keys=True)
         output.write("\n")
-    requirements_failed = (missing_spec or unreached or missing_controller
-                           or below_target_minimum or over_budget
+    requirements_failed = (missing_spec or unreached or missing_policy or
+                           missing_policy_counter
+                           or over_budget
                            or below_verdict_minimum)
     return 1 if (nfail or (requirements_failed and
                            not args.defer_requirements)) else 0
@@ -1183,13 +1153,19 @@ def cmd_check_one(args):
     with tempfile.TemporaryDirectory(prefix="fuzz-check-") as workdir:
         outcome = run_case(args.cnf, solver, oracle, args.timeout,
                            args.lrat, workdir)
-    missing_controller = missing_controller_requirements(
-        controller_coverage(outcome.solver_out),
-        args.require_controller_applied or (),
-        args.require_controller_effective or ())
-    if missing_controller:
-        outcome.fail("coverage", "required controller coverage missing: " +
-                     ", ".join(missing_controller))
+    missing_policy = missing_policy_requirements(
+        policy_coverage(outcome.solver_out),
+        args.require_policy_applied or (),
+        args.require_policy_effective or ())
+    if missing_policy:
+        outcome.fail("coverage", "required public-policy coverage missing: " +
+                     ", ".join(missing_policy))
+    missing_counter = missing_policy_counters(
+        policy_coverage(outcome.solver_out),
+        args.require_policy_counter or ())
+    if missing_counter:
+        outcome.fail("coverage", "required public-policy counters missing: " +
+                     ", ".join(missing_counter))
     kinds = {k for k, _ in outcome.failures}
     print(f"verdict={outcome.verdict} oracle={outcome.oracle_verdict} "
           f"failures={outcome.failures}"
@@ -1199,8 +1175,10 @@ def cmd_check_one(args):
     return 0 if kinds else 1
 
 
-LEGACY_POLICY_ARGS = ("--random-policy", "--stress-policy", "--replay=",
-                      "--trace=", "--no-heuristics")
+RETIRED_ENTRY_ARGS = ("--random-policy", "--stress-policy", "--replay=",
+                      "--trace=", "--no-heuristics", "--controller-",
+                      "--auto-proof", "--dsr", "--drat", "--lrat",
+                      "--no-binary")
 
 
 def cmd_corpus(args):
@@ -1234,15 +1212,12 @@ def cmd_corpus(args):
                     meta = json.load(f)
             entry_args = list(meta.get("solver_args", []))
             entry_env = meta.get("solver_env") or {}
-            if args.replace_entry_policy:
-                # The leg's own policy replaces an entry's legacy schedule
-                # (the CLI rejects combining two policies); proof-format
-                # arguments stay, and the legacy replay belongs to the
-                # DefaultPolicy leg, which applies solver_args unchanged.
-                entry_args = [a for a in entry_args
-                              if not a.startswith(LEGACY_POLICY_ARGS)]
-                entry_env = {k: v for k, v in entry_env.items()
-                             if not k.startswith("TACTIX_STRESS_")}
+            # Corpus formulas outlive the policy that first exposed them.
+            # Replay every entry under the selected current leg.
+            entry_args = [a for a in entry_args
+                          if not a.startswith(RETIRED_ENTRY_ARGS)]
+            entry_env = {k: v for k, v in entry_env.items()
+                         if not k.startswith("TACTIX_STRESS_")}
             entry_solver = solver + entry_args
             saved = {k: os.environ.get(k) for k in entry_env}
             os.environ.update({k: str(v) for k, v in entry_env.items()})
@@ -1328,20 +1303,24 @@ def main() -> int:
                         "with cake_lpr (native DSR always runs its required "
                         "proof pipeline)")
 
-    def controller_requirements(p):
-        p.add_argument("--require-controller-applied", default=None,
+    def policy_requirements(p):
+        p.add_argument("--require-policy-applied", default=None,
                        type=lambda s: [x for x in s.split(",") if x],
-                       help="comma-separated controller root families that "
+                       help="comma-separated public-random rule families that "
                             "must execute at least one application")
-        p.add_argument("--require-controller-effective", default=None,
+        p.add_argument("--require-policy-effective", default=None,
                        type=lambda s: [x for x in s.split(",") if x],
-                       help="comma-separated controller root families that "
+                       help="comma-separated public-random rule families that "
                             "must make at least one effective solver-state "
                             "transition")
+        p.add_argument("--require-policy-counter", default=None,
+                       type=lambda s: [x for x in s.split(",") if x],
+                       help="comma-separated public-random transition/form "
+                            "counters that must be nonzero")
 
     p = sub.add_parser("run")
     common(p)
-    controller_requirements(p)
+    policy_requirements(p)
     p.add_argument("--n", type=int, default=1000)
     p.add_argument("--seed", type=int, default=20260709)
     p.add_argument("--index-offset", type=int, default=0,
@@ -1367,9 +1346,6 @@ def main() -> int:
                         "repro) under <outdir>/nonterminating/")
     p.add_argument("--minimum-verdicts", type=int, default=0,
                    help="fail unless this many cases reach SAT or UNSAT")
-    p.add_argument("--minimum-target-fires", type=int, default=0,
-                   help="fail unless the stress driver reports this many "
-                        "preferred-rule applications")
     p.add_argument("--defer-requirements", action="store_true",
                    help=argparse.SUPPRESS)
     p.add_argument("--jobs", type=int,
@@ -1382,7 +1358,7 @@ def main() -> int:
 
     p = sub.add_parser("check-one")
     common(p)
-    controller_requirements(p)
+    policy_requirements(p)
     p.add_argument("cnf")
     p.add_argument("--fail-kind", default=None,
                    choices=["crash", "io", "model", "proof", "differential",
@@ -1394,10 +1370,6 @@ def main() -> int:
     p.add_argument("--allow-nonterminating", type=int, default=0,
                    help="entries allowed to not reach a verdict (they replay "
                         "no oracle); default 0 = any is fatal")
-    p.add_argument("--replace-entry-policy", action="store_true",
-                   help="drop an entry's legacy policy arguments/stress "
-                        "environment so the leg's own policy (e.g. "
-                        "--controller-policy) replays it")
     p.set_defaults(func=cmd_corpus)
 
     p = sub.add_parser("checkers",

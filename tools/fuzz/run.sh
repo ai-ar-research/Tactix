@@ -2,10 +2,9 @@
 # Fuzzing entry point (plan §8.2; fuzz skill). Wraps fuzz.py:
 #   run.sh --quick  --solver CMD     ~10k cases + regression corpus (per commit)
 #   run.sh --nightly --solver CMD    ~200k cases + full proof cross-checks
-#   run.sh --controller-v5 --quick --solver CMD
-#                                      10k typed GF3/DirectCSP mutations
-#   run.sh --forced-ttf --quick --solver CMD
-#                                      10k balanced fixed-row mutations
+#   run.sh --public-random --quick --solver \
+#     'build/release/tactix-public-random --pbp --random-policy={seed}'
+#                                      same cases through the public API
 #   run.sh [fuzz.py args...]         pass-through
 # Sizes are the cluster scale (10x the workstation defaults); submit
 # via tools/fuzz/slurm.sh (50 physical cores/workers), never in the session shell.
@@ -21,25 +20,23 @@ EXTRA=()
 SOLVER=""
 ORACLE=""
 HAS_OUTDIR=0
-CONTROLLER_V5=0
-FORCED_TTF=0
+PUBLIC_RANDOM=0
 NIGHTLY=0
 SKIP_CORPUS=0
-SKIP_FIXED_CONTROLS=0
 # The corpus replays whole entries under the leg's own solver command, so a
 # schedule that starves M1 can leave one of them without a verdict. That is
 # fatal by default (a replay that reaches no verdict runs no oracle); the
 # allowance is pre-registered per leg and has to reach BOTH phases.
+# Corpus formulas survive policy retirement. Replay each under the selected
+# current leg and discard historical random/stress/controller arguments.
 CORPUS_EXTRA=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --quick)   N=10000;   shift ;;
         --nightly) N=200000; NIGHTLY=1; shift ;;
         --n)       N="$2"; shift 2 ;;
-        --controller-v5) CONTROLLER_V5=1; shift ;;
-        --forced-ttf) FORCED_TTF=1; shift ;;
+        --public-random) PUBLIC_RANDOM=1; shift ;;
         --skip-corpus) SKIP_CORPUS=1; shift ;;
-        --skip-fixed-controls) SKIP_FIXED_CONTROLS=1; shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
         --outdir)  HAS_OUTDIR=1; EXTRA+=("$1" "$2"); shift 2 ;;
@@ -47,9 +44,6 @@ while [ $# -gt 0 ]; do
         # with --max-nonterminating-frac instead, and rejects this flag
         --allow-nonterminating)
             CORPUS_EXTRA+=("$1" "$2"); shift 2 ;;
-        # corpus-only: the leg's policy replaces entries' legacy schedules
-        --replace-entry-policy)
-            CORPUS_EXTRA+=("$1"); shift ;;
         *) EXTRA+=("$1"); shift ;;
     esac
 done
@@ -58,10 +52,8 @@ done
     RUN_ID="${TACTIX_FUZZ_RUN_ID:-local-$$}"
     if [ -n "${TACTIX_FUZZ_LEG_ID:-}" ]; then
         LEG_ID="$TACTIX_FUZZ_LEG_ID"
-    elif [ "$CONTROLLER_V5" -eq 1 ]; then
-        LEG_ID=controller-v5
-    elif [ "$FORCED_TTF" -eq 1 ]; then
-        LEG_ID=forced-ttf
+    elif [ "$PUBLIC_RANDOM" -eq 1 ]; then
+        LEG_ID=public-random
     else
         LEG_ID=seeded
     fi
@@ -76,18 +68,14 @@ if [ -z "$ORACLE" ]; then
     case "$SOLVER" in *kissat*) ORACLE="$ROOT/tools/solvers/bin/cadical" ;; esac
 fi
 
-if [ "$CONTROLLER_V5" -eq 1 ]; then
-    [ "$SKIP_FIXED_CONTROLS" -eq 0 ] || EXTRA+=(--skip-trace-controls)
-    echo "== controller v5 typed fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
-    exec python3 "$HERE/controller_v5.py" --solver "$SOLVER" --oracle "$ORACLE" \
-        --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
-fi
-
-if [ "$FORCED_TTF" -eq 1 ]; then
-    [ "$SKIP_FIXED_CONTROLS" -eq 0 ] || EXTRA+=(--skip-controls)
-    echo "== forced TTF targeted fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
-    exec python3 "$HERE/forced_ttf.py" --solver "$SOLVER" --oracle "$ORACLE" \
-        --n "$N" ${EXTRA[@]+"${EXTRA[@]}"}
+if [ "$PUBLIC_RANDOM" -eq 1 ]; then
+    case "$SOLVER" in
+        *tactix-public-random*'--random-policy={seed}'*) ;;
+        *)
+            echo "error: --public-random requires tactix-public-random and --random-policy={seed}" >&2
+            exit 2
+            ;;
+    esac
 fi
 
 # This adds the LRAT cross-check only when the selected solver arm emits DRAT;

@@ -1,0 +1,9 @@
+{
+  "seed": 2632196069,
+  "failure": "proof",
+  "solver_args": ["--pbp"],
+  "solver_env": {},
+  "found_by": "Claude-owned PBP qualification fuzz, dense job 1795641 and wide job 1795796 shard 61, global case 96069",
+  "diagnosis": "Root sparse collection shortens (-3 -4 1) under unit 4 to a second physical copy of input binary (1 -3). BVE removes one copy, but streaming PBP did not emit its literal-named deletion, leaving a stale checker constraint that invalidates the later RED witness for ~x1.",
+  "fix": "Emit one streaming-PBP deletion for every physical duplicate binary copy removed, as DSR already does. DRAT and LRAT retain their existing optional-deletion behavior."
+}

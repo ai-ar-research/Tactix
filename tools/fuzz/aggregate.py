@@ -74,13 +74,16 @@ def main():
     if runner == "seeded":
         reach_rules = {}
         reach_spec_seen = {}
-        controller_fields = {}
+        policy_fields = {}
+        policy_counters = {}
         for item in summaries:
             add_counts(reach_rules, item.get("reach_rules", {}))
             add_counts(reach_spec_seen, item.get("reach_spec_seen", {}))
-            for name, row in item.get("controller", {}).get("rule", {}).items():
-                fields = controller_fields.setdefault(name, {})
+            for name, row in item.get("policy", {}).get("rule", {}).items():
+                fields = policy_fields.setdefault(name, {})
                 add_counts(fields, row.get("sum", row))
+            add_counts(policy_counters,
+                       item.get("policy", {}).get("loop", {}).get("sum", {}))
         if counts.get("stats_cases", 0):
             missing = [name for name, seen in reach_spec_seen.items()
                        if not seen]
@@ -90,34 +93,22 @@ def main():
                    if not reach_rules.get(name, 0)]
         if missing:
             errors.append(f"required rules never fired: {missing}")
-        for field, key in (("applications", "require_controller_applied"),
-                           ("effective", "require_controller_effective")):
+        for field, key in (("applications", "require_policy_applied"),
+                           ("effective", "require_policy_effective")):
             missing = [name for name in requirements[key]
-                       if not controller_fields.get(name, {}).get(field, 0)]
+                       if not policy_fields.get(name, {}).get(field, 0)]
             if missing:
-                errors.append(f"controller {field} missing: {missing}")
-        if counts.get("stress_target_fires", 0) < \
-                requirements["minimum_target_fires"]:
-            errors.append("stress target minimum not met")
+                errors.append(f"random policy {field} missing: {missing}")
+        missing = [name for name in requirements.get(
+                       "require_policy_counter", [])
+                   if not policy_counters.get(name, 0)]
+        if missing:
+            errors.append(f"random policy counters missing: {missing}")
         maximum = requirements["max_nonterminating_frac"]
         if maximum is not None and args.total and \
                 counts.get("nonterminating", 0) / args.total > maximum:
             errors.append("non-terminating fraction exceeds maximum")
         if counts.get("effective", 0) < requirements["minimum_verdicts"]:
-            errors.append("verdict minimum not met")
-    elif runner == "controller-v5":
-        if not counts.get("gf3_effective") or not counts.get("direct_effective"):
-            errors.append("required typed action family never effective")
-        if counts.get("SAT", 0) + counts.get("UNSAT", 0) < \
-                requirements["minimum_verdicts"]:
-            errors.append("verdict minimum not met")
-    elif runner == "forced-ttf":
-        if counts.get("forced_reached") != counts.get("forced_expected"):
-            errors.append("forced-TTF reach incomplete")
-        if not counts.get("negative_controls") or not counts.get("tight_cases"):
-            errors.append("required control class missing")
-        if counts.get("SAT", 0) + counts.get("UNSAT", 0) < \
-                requirements["minimum_verdicts"]:
             errors.append("verdict minimum not met")
     else:
         return fail(f"unknown runner {runner!r}")

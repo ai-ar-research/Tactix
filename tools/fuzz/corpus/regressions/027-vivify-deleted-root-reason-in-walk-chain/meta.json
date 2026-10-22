@@ -3,11 +3,6 @@
   "index": 756,
   "generator": "mut-n20-m112 (ddmin-shrunk under the proof-rejection predicate)",
   "failure": "proof",
-  "solver_args": ["--stress-policy=20260710", "--lrat"],
-  "solver_env": {
-    "TACTIX_STRESS_RULES": "Substitute",
-    "TACTIX_STRESS_NORMAL_EVERY": "6"
-  },
   "found_by": "current-HEAD Substitute stress native-LRAT leg, 2026-08-23 (job 1641326, source 97e1447); second independent witness seed 20265342 (index 4633) preserved in the same run's failures directory.",
   "diagnosis": "lrat-check: 'ERROR: using DELETED hint clause 90' on a run answering UNSATISFIABLE. Same family as corpus 003/024 through a third door: the stress-normal interleave let V4 Vivify run between Substitute rounds, its satisfied-candidate check (vivify_one, kissat's mark-garbage-on-root-satisfaction) deleted a clause that was still the recorded reason of a root-fixed trail literal, and a later vivification's reason walk put the dropped id into its chain. The corpus-024 repair guarded the Walk and Sweep DELETION sites with kernel_retire_root_reason but left the CITING side unguarded, so every deletion site had to individually remember the invariant. Fixed 2026-08-23 in kernel_reason_walk itself: a level-0 variable is a named unit clause in the proof by the time any rule walks reasons (every propagation wrapper runs kernel_emit_root_units before returning), so the walk now cites unit_ids[v] and stops instead of re-walking the retained reason clause -- the scheme analyze's chain_record_root and the reference solvers already use. This closes the family for every current and future deletion site; only root-level reasons can go stale, because a probe-level assignment antecededed by a clause cannot survive the root reset that fixes the satisfying literal."
 }

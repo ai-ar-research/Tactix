@@ -25,13 +25,15 @@ solver:
 - every SAT answer must satisfy the original formula (`tools/fuzz/checkmodel`).
 
 `tools/fuzz/` is a differential fuzzer that generates formulas, runs Tactix
-under its default and randomized strategies, and checks every answer against a
-reference solver and the proof checkers:
+through its public DefaultPolicy and public-random clients, and checks every
+answer against a reference solver and the proof checkers:
 
 ```sh
 tools/checkers/setup.sh          # proof checkers
 tools/solvers/setup.sh           # reference solvers (Kissat, CaDiCaL)
-tools/fuzz/run.sh --quick --solver build/release/tactix
+tools/fuzz/run.sh --quick --solver 'build/release/tests/tactix-public --pbp'
+tools/fuzz/run.sh --public-random --quick \
+  --solver 'build/release/tests/tactix-public-random --pbp --random-policy={seed}'
 ```
 
 `--quick` runs about 10,000 cases plus the regression corpus in
@@ -65,7 +67,7 @@ missing evidence does not pass a required gate.
   below. A functionality release need not claim a gain, but must pass the
   preservation gates and must not be advertised as faster.
 - Release fuzzing runs at least 100,000 fresh PBP cases under each of
-  DefaultPolicy and the controller-driven random policy, plus the retained
+  DefaultPolicy and the public-interface random policy, plus the retained
   corpus and targeted action/configuration coverage. Every SAT model and UNSAT
   proof is independently checked; any crash, sanitizer, invariant, verdict,
   model, or proof failure rejects the candidate. Missing required reach is
@@ -73,11 +75,9 @@ missing evidence does not pass a required gate.
   campaigns are change-scoped: they are required when the candidate changes
   the owning feature, its scheduling or guards, or its feature-specific harness
   or oracle. An unchanged feature instead keeps its compact deterministic
-  regression and may reuse compatible prior campaign evidence. In particular,
-  the forced-TTF stress leg is not part of the universal fresh-PBP seed count;
-  it is mandatory for balanced-signature/TTF changes. This exception does not
-  narrow the controller action/configuration coverage required for changed
-  controller foundations or shared execution.
+  regression and may reuse compatible prior campaign evidence. Retired one-off
+  controller/stress scripts are not release legs; promote stable failures into
+  the corpus or compact deterministic tests.
 - Regression acceptance requires the full Debug and Release suites, retained
   rows and aggregate limits on B28+C5, Rank 1--50, WV100, and WV2--89, and at
   most 10% aggregate solver-time regression from the paper release. Measure

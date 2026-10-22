@@ -728,12 +728,13 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   }
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
-  // DSR must track every physical copy: a stale checker clause imposes an
-  // extra substitution obligation after the last live copy disappears. DSR
-  // names copies by literals, so retiring one leaves the surviving reason.
-  // DRAT/LRAT retain their optional-deletion behavior; without per-copy LRAT
-  // ids, deleting the current id could invalidate a later reason.
-  if (k.proof && k.proof->dsr()) {
+  // DSR and streaming PBP must track every physical copy: a stale checker
+  // clause imposes an extra substitution obligation after the last live copy
+  // disappears. Both formats can retire one literal-named copy while leaving
+  // the surviving reason. DRAT/LRAT retain their optional-deletion behavior;
+  // without per-copy LRAT ids, deleting the current id could invalidate a
+  // later reason.
+  if (k.proof && (k.proof->dsr() || k.proof->streaming_pbp())) {
     const Lit clause[2] = {a, b};
     k.proof->del(k.next_clause_id, 0, clause, 2);
   }

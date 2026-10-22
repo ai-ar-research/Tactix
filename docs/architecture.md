@@ -153,14 +153,10 @@ touch rule internals; rules never push scheduling state.
   `DefaultStrategyConfig` (`default_strategy_config.hpp`), including the
   inprocessing program and the structured startup program
   (`structured_root_strategy.cpp`).
-- **Random and stress policies** (`random_policy.*`, `stress_registry.*`)
-  generate broad or targeted rule schedules for fuzzing; soundness must hold
-  under every schedule they produce.
-- **Restart controller** (`restart_controller.hpp`,
-  `random_controller_policy.*`) runs a root-window action loop: at each full
-  restart it observes the state, selects eligible root actions or resumes
-  search with a chosen search configuration. Its interface is specified in
-  [controller-interface.md](controller-interface.md).
+- **Public random qualification client** (`tools/fuzz/public_random_main.cpp`)
+  is external to the production frontend and includes only `tactix.h`. It
+  generates varied one-action-at-a-time root/search/restart trajectories and
+  reports source coverage to the fuzz harness.
 
 The typed execution layer (`src/strategy/`) sits between policies and rules.
 It defines request types for every rule and support transition, per-rule
@@ -251,8 +247,8 @@ clause) is shared with `tactix_add`. On SAT the solver reconstructs a model of
 the original variables from the reconstruction stack, dropping extension
 variables, and prints `v` lines; on UNSAT it flushes the proof before
 printing the verdict. SIGINT, SIGTERM and SIGXCPU stop the run with
-`s UNKNOWN`. Other options select an alternative policy (random, controller,
-replay) or change default-strategy switches.
+`s UNKNOWN`. The production frontend runs DefaultPolicy only; other options
+change its switches or recording/proof behaviour.
 
 ## Life of a rule application
 
@@ -383,7 +379,7 @@ parameters.
 | Path | Responsibility |
 |---|---|
 | `include/tactix.h` | The public C interface. |
-| `src/main.cpp` | Command-line solver: options, signal handling, output, policy selection. |
+| `src/main.cpp` | Command-line solver: options, signal handling, output, DefaultPolicy dispatch. |
 | `src/frontend/` | Streaming DIMACS parser and shared clause finalization. |
 | `src/api/` | Implementation of `tactix.h`. |
 | `src/kernel/` | Solver state: clause arena, watch and occurrence arenas, trail, propagation, reconstruction stack, identity maps, root-unit publication, invariant checks. |
@@ -394,7 +390,7 @@ parameters.
 | `src/rules/lucky/` | Lucky probes, model constructors, startup certificates, and TseitinCycleBreaking. |
 | `src/rules/semantic_extension/` | Recognition, certificate planning and publication for the GF(2), GF(3), CSP, exact-cover and independent-set rules. |
 | `src/rules/direct_php/` | Direct pigeonhole refutation action. |
-| `src/policies/` | Policy interface, DefaultPolicy and its configuration, heuristic state H, random/stress policies, restart controller. |
+| `src/policies/` | DefaultPolicy, its configuration and heuristic state H; retained internal fixtures support structured-action unit tests. |
 | `src/policies/ops/<name>/` | Policy operations: Rephase, SwitchMode, Reorder, Walk, LocalSearchGuidance, SemanticVariableAdvice. |
 | `src/strategy/` | Typed execution layer: requests, per-rule parameters, budgets, online program executor, DefaultPolicy's action port, feedback records. |
 | `src/proof/` | Proof writer and serializers; certificate planners (pigeonhole, cardinality, Ramsey). |
@@ -415,7 +411,7 @@ parameters.
 | [calculus.md](calculus.md) | Authoritative semantics: preconditions, effects, proof steps, soundness. |
 | [proof-rules.html](proof-rules.html) | Interactive guide with worked examples per rule. |
 | [implementation-notes.md](implementation-notes.md) | Implemented guards, engineering deviations, representation invariants, proof-backend contract. |
-| [controller-interface.md](controller-interface.md) | Versioned root-window controller interface: action identities, parameters, observations, feedback. |
+| [controller-interface.md](controller-interface.md) | Public-interface random qualification grammar and coverage contract. |
 | [scheduling-parity-ledger.md](scheduling-parity-ledger.md) | Per-mechanism comparison of the default schedule with Kissat, CaDiCaL and Satsuma. |
 | [c-api.md](c-api.md), [cli.md](cli.md) | Library and command-line usage. |
 | [getting-started.md](getting-started.md) | Build, solve, check a proof. |

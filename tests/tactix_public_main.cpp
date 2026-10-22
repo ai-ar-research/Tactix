@@ -74,6 +74,10 @@ int main(int argc, char **argv) {
   const char *cnf_path = nullptr, *proof_path = nullptr;
   int proof_format = TACTIX_PROOF_PBP;
   for (int i = 1; i < argc; ++i) {
+    if (!std::strcmp(argv[i], "--pbp")) {
+      proof_format = TACTIX_PROOF_PBP;
+      continue;
+    }
     if (!std::strcmp(argv[i], "--auto-proof")) {
       proof_format = TACTIX_PROOF_AUTOMATIC;
       continue;

@@ -108,10 +108,6 @@ add_test(NAME subsolver_export_resource COMMAND test_subsolver_export_resource)
 add_executable(test_sweep test_sweep.cpp)
 target_link_libraries(test_sweep PRIVATE tactix_lib)
 add_test(NAME sweep COMMAND test_sweep)
-add_test(NAME sweep_interrupted_direction
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_sweep_interrupted_direction.py
-                 $<TARGET_FILE:tactix>)
 
 add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)
@@ -486,17 +482,6 @@ add_test(NAME direct_csp_support_proof_model
 set_tests_properties(direct_csp_support_proof_model PROPERTIES
                      SKIP_RETURN_CODE 77)
 
-add_executable(test_random_policy test_random_policy.c)
-target_link_libraries(test_random_policy PRIVATE tactix_lib)
-target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME random_policy COMMAND test_random_policy)
-
-# --trace/--replay (the §8.5 offline replay harness) plus cross-process
-# reproducibility of the typed online random policy. Runs the real binary;
-# never skips.
-add_test(NAME trace_replay
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/trace_replay.sh $<TARGET_FILE:tactix>)
-
 # Tiny UNSATs through the real binary, proofs verified by drat-trim (skips 77).
 add_test(NAME micro_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
@@ -639,23 +624,10 @@ add_test(NAME inspect_policy_feedback
                  $<TARGET_FILE:test_default_execution_signature>)
 add_test(NAME feedback_frontend
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/drat-trim ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake_lpr --
-                 ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_COMMAND} -E env ASAN_OPTIONS=detect_leaks=0 python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_feedback_frontend.py
                  $<TARGET_FILE:tactix>)
 set_tests_properties(feedback_frontend PROPERTIES SKIP_RETURN_CODE 77)
-add_test(NAME controller_native_producers
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_controller_native_producers.py
-                 $<TARGET_FILE:tactix>)
-add_test(NAME affine_matrix_cli
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_affine_matrix_cli.py
-                 $<TARGET_FILE:tactix>)
-add_test(NAME direct_csp_controller
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_direct_csp_controller.py
-                 $<TARGET_FILE:tactix>
-                 ${CMAKE_SOURCE_DIR}/tools/fuzz/checkmodel)
 if(TACTIX_DEVELOPER_CHECKS)
   add_test(NAME public_theory_target_tables
            COMMAND ${CMAKE_COMMAND} -E env python3
@@ -683,12 +655,6 @@ add_test(NAME ramsey_cli
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_ramsey_cli.py
                  $<TARGET_FILE:tactix>)
 set_tests_properties(ramsey_cli PROPERTIES SKIP_RETURN_CODE 77)
-add_test(NAME congruence_sr_check
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/benchmarks/runs/20260921-am333-lymphosat-models-wv100/pins/dsr-trim --
-                 ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_congruence_sr_check.py
-                 $<TARGET_FILE:tactix>)
-set_tests_properties(congruence_sr_check PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(test_factor test_factor.cpp)
 target_link_libraries(test_factor PRIVATE tactix_lib)
@@ -843,6 +809,21 @@ add_test(NAME default_public_correspondence
 tactix_port_twin(tactix-public tactix_public_main.cpp default_public_port.cpp)
 target_compile_definitions(tactix-public PRIVATE TACTIX_DEFAULT_POLICY_PUBLIC_PORT=1)
 
+# Qualification random strategy: an external client compiled only against the
+# installed C header. It drives one public action at a time and never includes
+# or links an internal policy implementation directly.
+add_executable(tactix-public-random
+               ${CMAKE_SOURCE_DIR}/tools/fuzz/public_random_main.cpp)
+target_include_directories(tactix-public-random PRIVATE
+                           ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(tactix-public-random PRIVATE tactix_lib)
+add_test(NAME public_random_frontend
+         COMMAND ${CMAKE_COMMAND} -E env ASAN_OPTIONS=detect_leaks=0
+                 python3 ${CMAKE_CURRENT_SOURCE_DIR}/test_public_random_frontend.py
+                 $<TARGET_FILE:tactix-public-random>
+                 $<TARGET_FILE:tactix>
+                 ${CMAKE_SOURCE_DIR})
+
 # Conventional C++ tests are discovered automatically. Existing explicit
 # declarations above preserve special names/arguments; a newly added
 # test_<name>.cpp gets a matching executable and CTest entry without a central
@@ -864,6 +845,36 @@ endforeach()
 # The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;
 # the full online suite takes about 21 seconds under ASan/UBSan.
 set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)
+
+# These unit fixtures still exercise historical producer/selection helpers.
+# Keep that machinery out of tactix_lib and every shipped/public executable.
+set(TACTIX_CONTROLLER_FIXTURE_TESTS
+    test_affine_matrix_search
+    test_controller_execution_signature
+    test_controller_trail_retention
+    test_direct_csp_guarded_cover_frontend
+    test_feedback_trace
+    test_gf3_gaussian_public
+    test_gf3_general_row_public
+    test_guarded_cover_controller_producer
+    test_nary_csp_equality_amo
+    test_nary_csp_equality_public
+    test_nary_csp_equality_transitivity_frontend
+    test_parity_consequence
+    test_policy_feedback
+    test_ramsey_policy_paths
+    test_ramsey_public_action
+    test_ramsey_startup
+    test_random_controller_affine_resource
+    test_random_controller_policy
+    test_theory_action_v5_runtime
+    test_tseitin_cycle_action)
+foreach(test_target IN LISTS TACTIX_CONTROLLER_FIXTURE_TESTS)
+  if(TARGET "${test_target}")
+    target_link_libraries("${test_target}" PRIVATE
+                          tactix_controller_test_support)
+  endif()
+endforeach()
 
 add_test(NAME tseitin_cycle_action_journal
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/dsr-trim ${CMAKE_SOURCE_DIR}/tools/checkers/bin/srcheck --

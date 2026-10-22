@@ -3,8 +3,6 @@
   "index": 15,
   "generator": "mut-n25 (ddmin-shrunk to 60 clauses under the crash predicate)",
   "failure": "crash",
-  "solver_args": ["--stress-policy"],
-  "solver_env": {"TACTIX_STRESS_RULES": "Factor", "TACTIX_STRESS_NORMAL_EVERY": "6"},
   "found_by": "N1-audit stress legs on the 3fdaf95 pins, 2026-08-12; surfaced after corpus 019 and 020 stopped masking it.",
   "diagnosis": "`kernel_check_invariants` aborted with 'clause not watched on a watched literal' on a LIVE, root-satisfied clause after a Reduce whose sparse root collect had just fixed two literals. The state is the ported contract, not a defect: the sparse collect sweeps only from its watermark while its watch flush drops every large entry of a fixed literal (kissat collect.c flush_watched_clauses_by_literal, `if (!lit_fixed)`), so a clause in the unswept prefix stays live and singly watched until a whole-arena collect reclaims it, and the dropped entry can never fire again because the literal keeps its root value. tests/test_kernel.cpp::test_sparse_collection_flushes_fixed_prefix_watch already asserted exactly that flush, but the debug invariant was stricter than the code it checked, so the checker aborted every assertions-on run that reached the state. Fixed 2026-08-12 in the checker: a missing entry is admitted only on a root-assigned watched literal, and losing an entry on an unassigned one is still fatal. This case is retained because it is the reachable witness for that boundary -- re-tightening the invariant aborts here again."
 }

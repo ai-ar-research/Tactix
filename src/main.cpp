@@ -3,19 +3,11 @@
 // 10/20/other, proof to argv[2], SIGTERM/SIGINT/SIGXCPU -> flush proof,
 // print `s UNKNOWN`, exit cleanly.
 #include "frontend/parse.hpp"
-#include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
-#include "policies/random_policy.hpp"
-#include "policies/random_controller_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/feedback_provenance.hpp"
-#include "strategy/guarded_cover_offer_profile.hpp"
 #include "diagnostics/rule_journal.hpp"
-#include "policies/trace.hpp"
-// The stress policies reach `main` only as a StressSolveFn from this table, so
-// none of their headers is included here.
-#include "policies/stress_registry.hpp"
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
@@ -42,7 +34,6 @@
 #include <optional>
 #include <utility>
 #include <vector>
-#include <fstream>
 
 #include <csignal>
 #include <cstdlib>
@@ -53,20 +44,6 @@ using namespace tactix;
 
 static volatile sig_atomic_t caught_signal = 0;
 static void handle_signal(int) { caught_signal = 1; }
-
-static std::string read_stream_text(std::ifstream &input) {
-  std::string text;
-  if (!input) return text;
-  char buffer[4096];
-  do {
-    input.read(buffer, sizeof buffer);
-    text.append(buffer, static_cast<size_t>(input.gcount()));
-  } while (input);
-  // A complete final chunk is ordinary EOF, not a file-load failure.
-  // Preserve genuine read errors for the existing caller checks.
-  if (input.eof() && !input.bad()) input.clear();
-  return text;
-}
 
 static FILE *open_input(const char *path, bool *piped) {
   const size_t n = strlen(path);
@@ -127,16 +104,13 @@ static void print_model(const Kernel &k) {
 
 // Build provenance only when feedback is requested. File content identities
 // permit relocated immutable inputs/builds; destination paths are not choices.
-static bool feedback_metadata(const char *input, bool controller,
-                              uint64_t seed, uint32_t bve_gates,
+static bool feedback_metadata(const char *input, uint32_t bve_gates,
                               ProofFormat format, bool have_proof,
                               const DefaultStrategyConfig &default_config,
-                              const RandomControllerConfig &controller_config,
                               std::string &metadata) {
-  using namespace strategy::controller;
   std::string build_sha, input_sha;
-  if (!feedback_file_sha256("/proc/self/exe", build_sha) ||
-      !feedback_file_sha256(input, input_sha)) return false;
+  if (!strategy::controller::feedback_file_sha256("/proc/self/exe", build_sha) ||
+      !strategy::controller::feedback_file_sha256(input, input_sha)) return false;
   metadata = "tactix-frontend-feedback-v1\n";
   const auto field = [&](std::string_view name, std::string_view value) {
     metadata += std::string(name) + '=' + std::to_string(value.size()) + ':' +
@@ -144,13 +118,11 @@ static bool feedback_metadata(const char *input, bool controller,
   };
   field("build-sha256", build_sha);
   field("input-sha256", input_sha);
-  field("policy", controller ? "random-controller" : "default");
-  if (controller) field("seed", std::to_string(seed));
+  field("policy", "default");
   field("bve-gates", std::to_string(bve_gates));
   field("proof-format", std::to_string(static_cast<unsigned>(format)));
   field("proof-enabled", have_proof ? "1" : "0");
-  field("configuration", controller ? controller_configuration(controller_config)
-                                    : default_config.serialize());
+  field("configuration", default_config.serialize());
   static constexpr const char *environment[] = {
 #define TACTIX_FEEDBACK_RUNTIME_ENVIRONMENT
 #define TACTIX_FEEDBACK_ENVIRONMENT(name) #name,
@@ -191,37 +163,11 @@ int main(int argc, char **argv) {
   std::optional<bool> default_affine_search;
   std::optional<bool> default_graph_labeling;
   std::optional<bool> default_structured_symmetry;
-  bool random_policy = false;
-  bool controller_policy = false;
-  bool controller_effort_set = false;
-  bool controller_period_set = false;
-  bool controller_retention_set = false;
-  bool controller_native_producers_set = false;
-  bool controller_families_set = false;
-  bool controller_search_configurations_set = false;
-  const char *controller_actions_path = nullptr;
-  const char *controller_startup_prefix_path = nullptr;
-  const char *controller_gf2_affine_profile_path = nullptr;
-  const char *controller_direct_csp_profile_path = nullptr;
-  const char *controller_guarded_cover_profile_path = nullptr;
-  const char *controller_guarded_cover_limits_path = nullptr;
-  const char *controller_trace_path = nullptr;
-  const char *controller_replay_path = nullptr;
   const char *structural_provenance_path = nullptr;
   bool compact_affine_provenance = false;
   const char *feedback_path = nullptr;
   const char *feedback_replay_path = nullptr;
-  RandomControllerConfig controller_config;
-  // EVERY stress policy lives in stress_registry.cpp's table, so it reaches
-  // `main` as this one pointer: one parse branch, one dispatch arm, and one
-  // thing for the `--replay` / `--no-heuristics` guards to test. Each policy is
-  // documented by its own header.
-  StressSolveFn stress_policy = nullptr;
-  bool no_heuristics = false; // run with H detached (unguided)
-  const char *trace_path = nullptr;  // --trace=FILE: record the rule sequence
-  const char *replay_path = nullptr; // --replay=FILE: apply exactly that one
   uint32_t bve_gate_mask = BVE_GATE_KISSAT_DEFAULT;
-  unsigned long long random_seed = 20260710;
 
   for (int i = 1; i < argc; i++) {
     const char *a = argv[i];
@@ -269,176 +215,6 @@ int main(int argc, char **argv) {
         printf("s UNKNOWN\n");
         return 1;
       }
-    } else if (!strcmp(a, "--controller-policy") ||
-               !strncmp(a, "--controller-policy=", 20)) {
-      controller_policy = true;
-      if (a[19] == '=')
-        random_seed = strtoull(a + 20, nullptr, 10);
-    } else if (!strncmp(a, "--controller-trace=", 19)) {
-      controller_trace_path = a + 19;
-    } else if (!strncmp(a, "--controller-replay=", 20)) {
-      controller_replay_path = a + 20;
-    } else if (!strncmp(a, "--controller-actions=", 21)) {
-      controller_actions_path = a + 21;
-    } else if (!strncmp(a, "--controller-startup-prefix=", 28)) {
-      controller_startup_prefix_path = a + 28;
-    } else if (!strncmp(a, "--controller-gf2-affine-profile=", 32)) {
-      controller_gf2_affine_profile_path = a + 32;
-    } else if (!strncmp(a, "--controller-direct-csp-profile=", 32)) {
-      controller_direct_csp_profile_path = a + 32;
-    } else if (!strncmp(a, "--controller-guarded-cover-profile=", 35)) {
-      controller_guarded_cover_profile_path = a + 35;
-    } else if (!strncmp(a, "--controller-guarded-cover-limits=", 34)) {
-      controller_guarded_cover_limits_path = a + 34;
-    } else if (!strncmp(a, "--controller-families=", 22)) {
-      const char *value = a + 22;
-      if (!strcmp(value, "all")) {
-        controller_config.parameters.rules.clear();
-      } else {
-        const std::string list(value);
-        bool valid = !list.empty();
-        for (size_t begin = 0; valid && begin <= list.size();) {
-          const size_t end = list.find(',', begin);
-          const std::string name = list.substr(begin, end - begin);
-          const int id = tactix_rule_id(name.c_str());
-          if (name.empty() || id < 0 ||
-              !strategy::controller::root_exclusion(tactix_rules()[id]).empty()) {
-            valid = false;
-          } else if (std::find(controller_config.parameters.rules.begin(),
-                               controller_config.parameters.rules.end(),
-                               name) == controller_config.parameters.rules.end()) {
-            controller_config.parameters.rules.push_back(name);
-          }
-          if (end == std::string::npos) break;
-          begin = end + 1;
-        }
-        if (!valid) {
-          fprintf(stderr, "tactix: invalid --controller-families value '%s'\n",
-                  value);
-          return 1;
-        }
-      }
-      controller_families_set = true;
-    } else if (!strncmp(a, "--controller-native-producers=", 30)) {
-      const char *value = a + 30;
-      const auto set_all = [&](bool enabled) {
-        controller_config.affine_basis_action_producer.enabled = enabled;
-        controller_config.gf3_action_producer.enabled = enabled;
-        controller_config.direct_csp_action_producer.enabled = enabled;
-        controller_config.nary_csp_equality_action_producer.enabled = enabled;
-        controller_config.nary_csp_equality_amo_producer.enabled = enabled;
-        controller_config.gf3_gaussian_action_producer.enabled = enabled;
-        controller_config.gf3_general_row_action_producer.enabled = enabled;
-        controller_config.tseitin_cycle_action_producer.enabled = enabled;
-      };
-      if (!strcmp(value, "all")) {
-        set_all(true);
-      } else if (!strcmp(value, "none")) {
-        set_all(false);
-      } else {
-        const std::string list(value);
-        bool valid = !list.empty();
-        for (size_t begin = 0; valid && begin <= list.size();) {
-          const size_t end = list.find(',', begin);
-          const std::string name = list.substr(begin, end - begin);
-          if (name == "gf2-affine")
-            controller_config.affine_basis_action_producer.enabled = true;
-          else if (name == "gf3-affine")
-            controller_config.gf3_action_producer.enabled = true;
-          else if (name == "direct-csp")
-            controller_config.direct_csp_action_producer.enabled = true;
-          else if (name == "nary-csp-equality")
-            controller_config.nary_csp_equality_action_producer.enabled = true;
-          else if (name == "nary-csp-equality-amo")
-            controller_config.nary_csp_equality_amo_producer.enabled = true;
-          else if (name == "gf3-gaussian")
-            controller_config.gf3_gaussian_action_producer.enabled = true;
-          else if (name == "gf3-general-row")
-            controller_config.gf3_general_row_action_producer.enabled = true;
-          else if (name == "tseitin-cycle")
-            controller_config.tseitin_cycle_action_producer.enabled = true;
-          else
-            valid = false;
-          if (end == std::string::npos) break;
-          begin = end + 1;
-        }
-        if (!valid) {
-          fprintf(stderr,
-                  "tactix: invalid --controller-native-producers value '%s'\n",
-                  value);
-          return 1;
-        }
-      }
-      controller_native_producers_set = true;
-    } else if (!strncmp(a, "--controller-search-configurations=", 35)) {
-      const char *value = a + 35;
-      if (!strcmp(value, "all")) {
-        controller_config.search_configurations.clear();
-      } else {
-        const std::string list(value);
-        std::vector<strategy::controller::SearchConfiguration> parsed =
-            controller_search_configurations_set
-                ? controller_config.search_configurations
-                : std::vector<strategy::controller::SearchConfiguration>{};
-        bool valid = !list.empty();
-        for (size_t begin = 0; valid && begin <= list.size();) {
-          const size_t end = list.find(',', begin);
-          const std::string name = list.substr(begin, end - begin);
-          strategy::controller::SearchConfiguration configuration;
-          if (name.empty() ||
-              !strategy::controller::parse_search_configuration(name,
-                                                                  configuration) ||
-              std::find(parsed.begin(), parsed.end(), configuration) !=
-                  parsed.end()) {
-            valid = false;
-          } else {
-            parsed.push_back(configuration);
-          }
-          if (end == std::string::npos) break;
-          begin = end + 1;
-        }
-        std::string error;
-        if (!valid ||
-            !controller_config.configure_search_configurations(parsed, &error)) {
-          fprintf(stderr,
-                  "tactix: invalid --controller-search-configurations value '%s'\n",
-                  value);
-          return 1;
-        }
-      }
-      controller_search_configurations_set = true;
-    } else if (!strncmp(a, "--controller-trail-retention=", 29)) {
-      const char *value = a + 29;
-      if (!strcmp(value, "full"))
-        controller_config.reuse_search_trail = false;
-      else if (!strcmp(value, "ranked-prefix"))
-        controller_config.reuse_search_trail = true;
-      else {
-        fprintf(stderr, "tactix: invalid --controller-trail-retention\n");
-        return 1;
-      }
-      controller_retention_set = true;
-    } else if (!strncmp(a, "--controller-restart-period=", 28)) {
-      const char *value = a + 28;
-      uint64_t amount = 0;
-      const auto parsed = std::from_chars(value, value + strlen(value), amount);
-      if (parsed.ec != std::errc() || *parsed.ptr || !amount) {
-        fprintf(stderr, "tactix: invalid --controller-restart-period\n");
-        return 1;
-      }
-      controller_config.search.restart.reluctant_period = amount;
-      controller_period_set = true;
-    } else if (!strncmp(a, "--controller-effort=", 20)) {
-      const char *value = a + 20;
-      uint64_t amount = 0;
-      const auto parsed = std::from_chars(value, value + strlen(value), amount);
-      if (parsed.ec != std::errc() || *parsed.ptr) {
-        fprintf(stderr, "tactix: invalid --controller-effort\n");
-        return 1;
-      }
-      controller_config.default_allowance.native = {
-          strategy::RuleWorkBudgetMode::Bounded, amount};
-      controller_effort_set = true;
     } else if (!strncmp(a, "--structural-provenance=", 24)) {
       structural_provenance_path = a + 24;
     } else if (!strcmp(a, "--compact-affine-provenance")) {
@@ -447,19 +223,6 @@ int main(int argc, char **argv) {
       feedback_path = a + 11;
     } else if (!strncmp(a, "--feedback-replay=", 18)) {
       feedback_replay_path = a + 18;
-    } else if (!strncmp(a, "--random-policy", 15)) {
-      random_policy = true;
-      if (a[15] == '=')
-        random_seed = strtoull(a + 16, nullptr, 10);
-    } else if (!strncmp(a, "--trace=", 8)) {
-      // Record the (rule, instance) sequence for --replay; see trace.hpp.
-      trace_path = a + 8;
-    } else if (!strncmp(a, "--replay=", 9)) {
-      replay_path = a + 9;
-    } else if (!strcmp(a, "--no-heuristics")) {
-      // Detach `H` (an unguided solver): sound but slow, and DefaultPolicy
-      // needs `H`, so pair with --random-policy.
-      no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
       // Comma list of {equiv,andor,ite,xor,def}, or all / none. A performance
       // knob: a disabled gate type only falls BVE back to the cross product.
@@ -495,38 +258,15 @@ int main(int argc, char **argv) {
           }
         }
       }
-    } else if (StressSolveFn fn = stress_policy_flag(a, &random_seed)) {
-      stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat|--pbp] [--no-binary] "
              "[--default-affine-search=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
-             "[--random-policy[=SEED]] "
-             "[--controller-policy[=SEED] [--controller-effort=N]] "
-             "[--controller-trace=FILE | --controller-replay=FILE] "
-             "[--controller-actions=FILE | --controller-families=LIST] "
-             "[--controller-startup-prefix=FILE] "
-             "[--controller-native-producers=all|none|LIST] "
-             "[--controller-search-configurations=all|LIST] "
-             "[--controller-gf2-affine-profile=FILE] "
-             "[--controller-direct-csp-profile=FILE] "
-             "[--controller-guarded-cover-profile=FILE --controller-guarded-cover-limits=FILE] "
-             "[--controller-restart-period=N] "
-             "[--controller-trail-retention=full|ranked-prefix] "
              "[--feedback=FILE | --feedback-replay=FILE] "
              "[--structural-provenance=NEW_FILE] [--compact-affine-provenance] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
-             "[--trace=FILE] [--replay=FILE] %s "
-             "<cnf[.xz|.gz]> [proof]\n",
-             stress_policy_flags());
-      puts("  native producer LIST: gf2-affine,gf3-affine,direct-csp,"
-           "nary-csp-equality,nary-csp-equality-amo,gf3-gaussian,"
-           "gf3-general-row,tseitin-cycle");
-      puts("  controller family LIST: comma-separated canonical root-action "
-           "names, or all");
-      puts("  controller search configuration LIST: comma-separated "
-           "branching/restart/phase names, or all");
+             "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -567,50 +307,16 @@ int main(int argc, char **argv) {
   signal(SIGXCPU, handle_signal);
 #endif
 
-  // Combination checks. A knob that cannot take effect must fail rather than be
-  // ignored, since an arm that silently does nothing is the vacuous-experiment
-  // failure mode. They gate on the selected policy, not the flag alone, because
-  // the dispatch below is a precedence chain with the stress policies above
-  // random_policy — the only policy that tolerates a null H and, with replay,
-  // the only one expressible as a (rule, instance) sequence (trace.hpp).
-  const bool controller_selected = controller_policy || controller_replay_path;
-  if (default_affine_search &&
-      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
-    fprintf(stderr, "tactix: --default-affine-search requires DefaultPolicy\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (default_graph_labeling &&
-      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
-    fprintf(stderr, "tactix: --default-graph-labeling requires DefaultPolicy\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (default_structured_symmetry &&
-      (controller_selected || random_policy || stress_policy || replay_path || no_heuristics)) {
-    fprintf(stderr, "tactix: --default-structured-symmetry requires DefaultPolicy\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
   if ((feedback_path && feedback_replay_path) ||
-      ((feedback_path || feedback_replay_path) &&
-       (random_policy || stress_policy || replay_path || no_heuristics)) ||
       (feedback_path && !*feedback_path) ||
       (feedback_replay_path && !*feedback_replay_path)) {
-    fprintf(stderr, "tactix: feedback requires DefaultPolicy or the random controller; "
-                    "choose one nonempty recording or replay path\n");
+    fprintf(stderr, "tactix: choose one nonempty feedback recording or replay path\n");
     printf("s UNKNOWN\n");
     return 1;
   }
   if (structural_provenance_path) {
-    for (const char *other : {cnf_path, proof_path, controller_trace_path,
-           controller_replay_path, trace_path, replay_path, feedback_path,
-           feedback_replay_path, controller_actions_path,
-           controller_startup_prefix_path,
-           controller_gf2_affine_profile_path,
-           controller_direct_csp_profile_path,
-           controller_guarded_cover_profile_path,
-           controller_guarded_cover_limits_path}) {
+    for (const char *other : {cnf_path, proof_path, feedback_path,
+                              feedback_replay_path}) {
       if (!other) continue;
       std::error_code a, b, c;
       if ((std::filesystem::weakly_canonical(structural_provenance_path, a) ==
@@ -622,149 +328,21 @@ int main(int argc, char **argv) {
     }
   }
   if (feedback_path || feedback_replay_path) {
-    // A feedback destination must never truncate an input, proof or transcript.
+    // A feedback destination must never truncate an input or proof.
     // Replay input must likewise survive opening the requested proof output.
     const char *record = feedback_path ? feedback_path : feedback_replay_path;
-    for (const char *other : {cnf_path, proof_path, controller_trace_path,
-                              controller_replay_path, trace_path, replay_path}) {
+    for (const char *other : {cnf_path, proof_path}) {
       if (!other) continue;
       std::error_code first_error, second_error, equivalent_error;
       const auto first = std::filesystem::weakly_canonical(record, first_error);
       const auto second = std::filesystem::weakly_canonical(other, second_error);
       if ((!first_error && !second_error && first == second) ||
           std::filesystem::equivalent(record, other, equivalent_error)) {
-        fprintf(stderr, "tactix: feedback path aliases input, proof or transcript\n");
+        fprintf(stderr, "tactix: feedback path aliases input or proof\n");
         printf("s UNKNOWN\n");
         return 1;
       }
     }
-  }
-  if ((controller_selected &&
-       (random_policy || stress_policy || replay_path || no_heuristics || trace_path)) ||
-      (controller_replay_path && (controller_policy || controller_trace_path)) ||
-      (controller_trace_path && !controller_policy) ||
-      ((controller_effort_set || controller_period_set || controller_retention_set ||
-        controller_native_producers_set || controller_families_set ||
-        controller_search_configurations_set ||
-        controller_actions_path || controller_startup_prefix_path ||
-        controller_gf2_affine_profile_path ||
-        controller_direct_csp_profile_path || controller_guarded_cover_profile_path ||
-        controller_guarded_cover_limits_path) &&
-       !controller_selected)) {
-    fprintf(stderr, "tactix: --controller-policy selects an attached controller "
-                    "and cannot be combined with another policy or legacy trace; "
-                    "controller settings require it\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (controller_actions_path && controller_families_set) {
-    fprintf(stderr, "tactix: --controller-actions and --controller-families "
-                    "select the same action collection\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (controller_actions_path) {
-    std::ifstream input(controller_actions_path);
-    strategy::OnlineStrategyProgram program;
-    std::string error;
-    const std::string source = read_stream_text(input);
-    if (!input || !strategy::deserialize_online_strategy_program(source, program, &error) ||
-        !controller_config.configure_actions(program, &error)) {
-      fprintf(stderr, "tactix: invalid controller action collection '%s': %s\n",
-              controller_actions_path, error.c_str());
-      printf("s UNKNOWN\n");
-      return 1;
-    }
-  }
-  if (controller_startup_prefix_path) {
-    std::ifstream input(controller_startup_prefix_path);
-    strategy::OnlineStrategyProgram program;
-    std::string error;
-    const std::string source = read_stream_text(input);
-    if (!input ||
-        !strategy::deserialize_online_strategy_program(source, program,
-                                                        &error, false, true) ||
-        !controller_config.configure_startup_prefix(program, &error)) {
-      fprintf(stderr, "tactix: invalid controller startup prefix '%s': %s\n",
-              controller_startup_prefix_path, error.c_str());
-      printf("s UNKNOWN\n");
-      return 1;
-    }
-  }
-  if (controller_gf2_affine_profile_path) {
-    std::ifstream input(controller_gf2_affine_profile_path);
-    strategy::OnlineStrategyProgram program;
-    std::string error;
-    const std::string source = read_stream_text(input);
-    if (!input ||
-        !strategy::deserialize_online_strategy_program(source, program, &error) ||
-        !controller_config.configure_affine_basis_producer_profile(program,
-                                                                   &error)) {
-      fprintf(stderr, "tactix: invalid GF2 affine producer profile '%s': %s\n",
-              controller_gf2_affine_profile_path, error.c_str());
-      printf("s UNKNOWN\n");
-      return 1;
-    }
-  }
-  if (controller_direct_csp_profile_path) {
-    std::ifstream input(controller_direct_csp_profile_path);
-    strategy::OnlineStrategyProgram program;
-    std::string error;
-    const std::string source = read_stream_text(input);
-    if (!input ||
-        !strategy::deserialize_online_strategy_program(source, program,
-                                                        &error, true) ||
-        !controller_config.configure_direct_csp_producer_profile(program,
-                                                                 &error)) {
-      fprintf(stderr, "tactix: invalid DirectCSP producer profile '%s': %s\n",
-              controller_direct_csp_profile_path, error.c_str());
-      printf("s UNKNOWN\n");
-      return 1;
-    }
-  }
-  if (bool(controller_guarded_cover_profile_path) != bool(controller_guarded_cover_limits_path)) {
-    fprintf(stderr, "tactix: guarded-cover discovery requires both profile and limits files\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (controller_guarded_cover_profile_path) {
-    std::ifstream profile_input(controller_guarded_cover_profile_path);
-    std::ifstream limits_input(controller_guarded_cover_limits_path);
-    strategy::OnlineStrategyProgram program;
-    DirectCspGuardedCoverOfferLimits limits;
-    std::string error;
-    const std::string profile = read_stream_text(profile_input);
-    const std::string bounds = read_stream_text(limits_input);
-    if (!profile_input || !limits_input ||
-        !strategy::parse_guarded_cover_offer_limits(bounds, limits, &error) ||
-        !strategy::deserialize_online_strategy_program(profile, program, &error, false, true) ||
-        !controller_config.configure_guarded_cover_producer_profile(program, limits, &error)) {
-      fprintf(stderr, "tactix: invalid guarded-cover producer profile or limits: %s\n", error.c_str());
-      printf("s UNKNOWN\n");
-      return 1;
-    }
-  }
-  if (trace_path && !random_policy) {
-    fprintf(stderr, "tactix: --trace requires --random-policy; DefaultPolicy's "
-                    "schedule is not a (rule, instance) sequence (trace.hpp)\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  if (replay_path && (trace_path || random_policy || stress_policy)) {
-    fprintf(stderr, "tactix: --replay selects the recorded schedule, so it "
-                    "cannot be combined with another policy or with --trace\n");
-    printf("s UNKNOWN\n");
-    return 1;
-  }
-  // Every stress policy needs `H`, and one omitted from this test would run
-  // with `k.h == nullptr`. That is why the set is a table and not a list here:
-  // this guard and --replay's above once drifted apart, and the enumeration is
-  // now the same single pointer for both.
-  if (no_heuristics && (!random_policy || stress_policy)) {
-    fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
-                    "(no DefaultPolicy / stress policy); those need H\n");
-    printf("s UNKNOWN\n");
-    return 1;
   }
   Kernel kernel;
   kernel.affine_matrix_provenance_compact = compact_affine_provenance;
@@ -802,25 +380,11 @@ int main(int argc, char **argv) {
   kernel.direct_php_action_session = &direct_php_action_session;
   kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
   kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;
-  const bool default_frontend =
-      !random_policy && !controller_selected && !stress_policy && !replay_path;
-  if (default_frontend)
-    kernel_defer_cold_state(kernel);
-  Heuristics heuristics; // the session owns H, the kernel holds a non-owning
-                         // pointer. --no-heuristics leaves it unattached, so
-                         // the whole run is H-free.
-  // DefaultPolicy can finish during startup propagation or early Lucky.  It
-  // owns and attaches H after that opportunity fails; random/replay/stress
-  // policies still require their session-wide H before parsing.
-  if (!no_heuristics && !default_frontend) {
-    kernel.h = &heuristics;
-    kernel.saved_phases = &heuristics.saved;
-  }
+  kernel_defer_cold_state(kernel);
   kernel.bve_gate_mask = bve_gate_mask;
   // Each env knob below poses one `Kernel` config field; that field documents
   // its default and soundness class. They are read here rather than in
-  // DefaultPolicy so they apply under every policy — the regression bed replays
-  // under --random-policy, and a knob it cannot toggle is not a usable A/B arm.
+  // DefaultPolicy so configuration is posed before it owns the session.
   if (const char *ol = getenv("TACTIX_BCE_OCC_LIMIT"))
     kernel.bce_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   if (const char *ol = getenv("TACTIX_TERNARY_OCC_LIMIT"))
@@ -963,12 +527,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  tactix::RuleTrace trace;
-  if (trace_path && !trace.open(trace_path, "random", random_seed)) {
-    fprintf(stderr, "tactix: cannot write trace '%s'\n", trace_path);
-    printf("s UNKNOWN\n");
-    return 1;
-  }
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
@@ -978,29 +536,12 @@ int main(int argc, char **argv) {
     default_config.inprocess.structured_root_symmetry_enabled =
         *default_structured_symmetry;
   DefaultPolicy default_policy(default_config);
-  ControllerTrace controller_transcript;
-  ControllerTrace *controller_trace = nullptr;
-  if (controller_trace_path || controller_replay_path) {
-    const auto configuration = controller_configuration(controller_config);
-    const bool opened = controller_trace_path
-        ? controller_transcript.write(controller_trace_path, random_seed, configuration)
-        : controller_transcript.replay(controller_replay_path, configuration);
-    if (!opened) {
-      fprintf(stderr, "tactix: %s\n", controller_transcript.error().c_str());
-      printf("s UNKNOWN\n");
-      return 1;
-    }
-    controller_trace = &controller_transcript;
-  }
-  RandomControllerPolicy random_controller(random_seed, controller_config, controller_trace);
   std::optional<strategy::controller::FeedbackTrace> feedback;
   std::string feedback_setup_error;
   if (feedback_path || feedback_replay_path) {
     std::string metadata;
-    if (!feedback_metadata(cnf_path, controller_selected,
-            controller_replay_path ? controller_transcript.seed() : random_seed,
-            bve_gate_mask, proof_format, proof_path != nullptr,
-            default_config, controller_config, metadata)) {
+    if (!feedback_metadata(cnf_path, bve_gate_mask, proof_format,
+                           proof_path != nullptr, default_config, metadata)) {
       feedback_setup_error = "cannot read immutable feedback build/input provenance";
     } else {
       metadata += std::string("structural-provenance=1:") +
@@ -1012,28 +553,12 @@ int main(int argc, char **argv) {
       // must not steer the selected policy or suppress its certificate/verdict.
       if (feedback_path) (void)feedback->write(feedback_path, metadata);
       else (void)feedback->replay(feedback_replay_path, metadata);
-      if (controller_selected) random_controller.set_feedback(&*feedback);
-      else default_policy.set_feedback(&*feedback);
+      default_policy.set_feedback(&*feedback);
     }
   }
-  const int res =
-      replay_path
-          ? replay_solve(kernel, replay_path, &caught_signal)
-      : controller_selected ? random_controller.solve(kernel, &caught_signal)
-      : stress_policy ? stress_policy(kernel, random_seed, &caught_signal)
-      : random_policy
-          ? random_solve(kernel, random_seed, &caught_signal,
-                         trace_path ? &trace : nullptr)
-          : default_policy.solve(kernel, &caught_signal);
+  const int res = default_policy.solve(kernel, &caught_signal);
   kernel.stats.solve_nanos = tactix::now_nanos() - solve_t0;
-  trace.close();
   rule_journal_close();
-  if (res == -1) { // a replay that could not be replayed: see trace.cpp
-    proof.flush(); // N2: whatever WAS derived is still on disk, as on any exit
-    printf("s UNKNOWN\n");
-    fflush(stdout);
-    return 1;
-  }
 
   proof.flush();
   const bool feedback_failed = !feedback_setup_error.empty() ||
@@ -1048,7 +573,7 @@ int main(int argc, char **argv) {
     // ran, so an A/B arm reading zero was skipped, not tested. Only counters
     // whose reading is non-obvious carry a comment below.
     printf("c tactix 0.2.0\n");
-    if (!controller_selected && !random_policy && !stress_policy && !replay_path) {
+    {
       const auto &affine = default_policy.affine_search_diagnostics();
       // The persistent affine search block prints only when the service is
       // enabled or one of its counters moved; each line keeps its format.
@@ -1554,10 +1079,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sr_singleton_forcing_rows_declined);
     // Residual search handoff is off by default; print it only when enabled
     // or when it ran.
-    const bool default_selected =
-        !controller_selected && !random_policy && !stress_policy && !replay_path;
-    if ((default_selected &&
-         default_config.inprocess.structured_root_residual_search_handoff) ||
+    if (default_config.inprocess.structured_root_residual_search_handoff ||
         kernel.stats.residual_handoff_calls ||
         kernel.stats.residual_handoff_variables ||
         kernel.stats.residual_handoff_nanos)
@@ -2097,8 +1619,7 @@ int main(int argc, char **argv) {
       printf("c timing        %-16s %9.0f ms (%5.1f%%)\n", "(unattributed)",
              slot_ms - charged_ms, pct(slot_ms - charged_ms));
     }
-    if (!controller_selected && !random_policy && !stress_policy &&
-        !replay_path) {
+    {
       if (std::getenv("TACTIX_STRATEGY_CONFIG"))
         printf("c strategy-config %s\n",
                default_policy.strategy_config_snapshot().c_str());

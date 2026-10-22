@@ -1,1 +1,0 @@
-sequence-repeat=once:1 step=1:Gf3AffineConsequence:1:once:1:0:2:post(1):rulework(0,0):material(0,0):gf3-affine-consequence1(2000,20000,100,100,6,1000,8,10000,1000,10000,1000000,1000000,1000000,1000000,100000,1000,10000,10000,1000000,100,100,10000):instances[]:grids[]:gf3-affine-consequence[0,1;1,2]

@@ -1288,8 +1288,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // (substitute.c:294-363): wholesale edits of the physical watch lists that
   // bypass the kernel add/delete primitives.  Kissat never substitutes under
   // a dense image, but a free N1 schedule can keep Eliminate's mixed stream
-  // attached across this call (random_policy.cpp attaches one for the whole
-  // walk), and BVE consumes that stream, so a stale binary entry there is a
+  // attached across this call, and BVE consumes that stream, so a stale
+  // binary entry there is a
   // phantom clause.  Republish the image from the canonical physical result
   // at the rule boundary, the same representation boundary Congruence closes
   // in kernel_canonicalize_binary_watches.  The Sweep session path owns its

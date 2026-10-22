@@ -446,9 +446,14 @@ SC2024 startup fast elimination is a typed composition after initial Probe: the 
 Historical rank-by-rank validation is owned by the dated reports linked from [the runtime
 review](../benchmarks/reports/2026-09-07-runtime-review.md); the pre-compaction text is recoverable from Git commit `96e894c`.
 
-## 23. Online random execution and replay
+## 23. Public random qualification
 
-`--random-policy` generates typed `OnlineStrategyProgram` values and executes them through `OnlineStrategyExecutor`; the former direct rule scheduler is retired. Random programs vary parameters, order, granularity, repetitions, budgets, material settings, phases and complete or noncanonical instances. Generated fixpoint repeats have finite ceilings and generation polls the same external stop source as execution. Trace v3 records each complete serialized program before applying it; replay restores that request through the executor. Historical v1/v2 action traces remain readable for saved fuzz failures.
+`tactix-public-random` is an external client built only against `tactix.h`. It
+chooses one action at a time, re-observes after each action, and mixes
+canonical, instance, semantic and one-step online application. Seeded profiles
+vary parameters, effort, root sequences, search intervals and restart placement.
+The production random/stress/controller frontends and their trace formats are
+retired; stable failures live in the regression corpus instead.
 ## 24. Direct substitution redundancy
 An explicit SR payload gives a nonempty candidate clause, its first-literal pivot, true-mapped witnesses, and a finite polarity-preserving substitution. Invalid, contradictory, retired-variable, duplicate-source, identity, and non-DSR payloads fail before mutation. The rule snapshots the live root formula and checks the substituted candidate itself and every changed existing-clause image by unit propagation under the negated candidate. Preserving the old formula alone is insufficient when an explicit pivot mapping overrides its default true value. Validation, proof-id reservation, and `add_sr` finish before insertion, so interruption, exhaustion, or inapplicability leaves state unchanged.
 The lazy cursor enumerates every candidate clause/pivot, witness assignment, and finite literal mapping over non-retired variables.

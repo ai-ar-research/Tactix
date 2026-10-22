@@ -14,8 +14,8 @@
 #
 # Examples (default: 50 physical cores, 100 logical CPUs, 50 workers):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
-#   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy"
-#   slurm.sh --name forced-ttf -- --forced-ttf --quick --solver build/debug/tactix
+#   slurm.sh --cpu-q-wide --name public-random -- --public-random --nightly \
+#     --solver "build/release/tactix-public-random --pbp --random-policy={seed}"
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
 # --checkers DIR freezes the core clausal checkers: DIR holds exactly
@@ -152,14 +152,10 @@ trap cleanup_unsubmitted_pin EXIT
 PIN_FUZZ="$PIN_ROOT/fuzz"
 mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
-      "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
-      "$HERE/controller_v5.py" "$HERE/forced_ttf.py" \
+      "$HERE/modelcheck.py" "$HERE/shrink.py" \
       "$HERE/artifact_layout.py" "$HERE/shard.py" "$HERE/aggregate.py" \
-      "$HERE/corpus" \
-      "$HERE/stress-scenarios" "$PIN_FUZZ/"
+      "$HERE/corpus" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/controls"
-cp -a "$HERE/controls/controller-v5" "$PIN_FUZZ/controls/"
-cp -a "$HERE/controls/forced-ttf" "$PIN_FUZZ/controls/"
 cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
 if [ -n "$DSR_TRANSPORT" ]; then
     python3 - "$ROOT/tools/bench" "$DSR_TRANSPORT" "$PIN_FUZZ" <<'PYTRANSPORT'
@@ -325,7 +321,7 @@ cleanup_fuzz_shard() {
 trap cleanup_fuzz_shard EXIT
 SHARD_ARGS=()
 if [ "\$TASK_ID" -ne 0 ]; then
-    SHARD_ARGS+=(--skip-corpus --skip-fixed-controls)
+    SHARD_ARGS+=(--skip-corpus)
 fi
 echo "== fuzz array \$SLURM_ARRAY_JOB_ID task \$TASK_ID: node=\$SLURMD_NODENAME cpus=\$SLURM_CPUS_PER_TASK workers=$PHYSICAL_CORES cases=\$CASE_COUNT offset=\$INDEX_OFFSET total=$TOTAL_CASES shards=$SHARDS mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
 "$PIN_FUZZ/run.sh" $ARGS --n "\$CASE_COUNT" \

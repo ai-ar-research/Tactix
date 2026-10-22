@@ -1563,7 +1563,7 @@ static void test_sweep_duplicate_literal_pose() {
 }
 
 // A free N1 schedule can keep Eliminate's mixed dense stream attached across a
-// canonical Substitute (random_policy.cpp attaches one for the whole walk).
+// canonical Substitute.
 // The in-place stable-watch rewrite and the directed mirror moves bypass the
 // kernel add/delete primitives, so the rule republishes the image at its
 // boundary; the dense oracle in kernel_check_invariants is the acceptance test
