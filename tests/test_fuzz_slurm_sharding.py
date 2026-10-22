@@ -90,7 +90,10 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         assert "--partition=cpu-q" in array_args
         assert "--cpus-per-task=13" in array_args
         assert "--mem=104000M" in array_args
-        assert "--array=0-63%16" in array_args
+        assert "--array=0-63" in array_args
+        assert "%" not in next(
+            arg for arg in array_args.splitlines() if arg.startswith("--array=")
+        )
         assert "%A_%a" in array_args
         assert f'python3 "{pin}/fuzz/shard.py" "130" "64"' in array_batch
         assert '--index-offset "$INDEX_OFFSET"' in array_batch
@@ -105,7 +108,7 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         assert "64/64 shards, 130 deterministic cases" in final_batch
         assert "submitted finalizer: 424243" in result.stdout
         assert "total-eligible-workers=832" in result.stdout
-        assert "max-concurrent-workers=208" in result.stdout
+        assert "max-concurrent-workers=832" in result.stdout
     finally:
         if pin.exists():
             make_writable(pin)

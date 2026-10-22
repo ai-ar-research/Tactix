@@ -3,12 +3,12 @@
 # array (see the slurm-jobs skill).  The default cpu-dense-hwulab-q nodes use
 # SMT-2, 8,000 MiB/physical core, and one harness worker per physical core.
 # `--cpu-q-wide` instead splits one logical campaign over 64 array tasks of 13
-# single-threaded workers and throttles it to 16 concurrent tasks (208 CPUs).
-# Independent campaigns may be queued together; Slurm shares partition capacity.
+# single-threaded workers.  Every shard is eligible immediately; Slurm shares
+# partition capacity among independently submitted campaigns.
 # Results are identical at any worker/shard count; only wall-clock changes.
 #
 #   slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P]
-#            [--threads-per-core T] [--array-concurrency C]
+#            [--threads-per-core T]
 #            [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE]
 #            [--wait] -- <run.sh args...>
 #
@@ -38,7 +38,6 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 PHYSICAL_CORES=50 # cluster scale
 THREADS_PER_CORE=2
 SHARDS=1
-ARRAY_CONCURRENCY=0
 MEM_MIB_PER_PHYSICAL_CORE=8000
 TIME=24:00:00
 NAME=fuzz
@@ -51,13 +50,11 @@ while [ $# -gt 0 ]; do
         --physical-cores) PHYSICAL_CORES="$2"; shift 2 ;;
         --threads-per-core) THREADS_PER_CORE="$2"; shift 2 ;;
         --shards) SHARDS="$2"; shift 2 ;;
-        --array-concurrency) ARRAY_CONCURRENCY="$2"; shift 2 ;;
         --cpu-q-wide)
             PARTITION=cpu-q
             PHYSICAL_CORES=13
             THREADS_PER_CORE=1
             SHARDS=64
-            ARRAY_CONCURRENCY=16
             shift
             ;;
         --time) TIME="$2"; shift 2 ;;
@@ -67,7 +64,7 @@ while [ $# -gt 0 ]; do
         --dsr-transport) DSR_TRANSPORT="$2"; shift 2 ;;
         --wait) WAIT=1; shift ;;
         --) shift; break ;;
-        *) echo "usage: slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P] [--threads-per-core T] [--array-concurrency C] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
+        *) echo "usage: slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P] [--threads-per-core T] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
     esac
 done
 [ $# -gt 0 ] || { echo "error: no run.sh args after --" >&2; exit 2; }
@@ -92,14 +89,6 @@ esac
     echo "error: --shards must be between 1 and 1024" >&2
     exit 2
 }
-case "$ARRAY_CONCURRENCY" in
-    ''|*[!0-9]*) echo "error: --array-concurrency must be an integer" >&2; exit 2 ;;
-esac
-[ "$ARRAY_CONCURRENCY" -le "$SHARDS" ] || {
-    echo "error: --array-concurrency cannot exceed the shard count" >&2
-    exit 2
-}
-
 RUN_ARGS=("$@")
 TOTAL_CASES=10000
 if [ "$SHARDS" -gt 1 ]; then
@@ -299,9 +288,6 @@ fi
 
 ARRAY_LAST=$((SHARDS - 1))
 ARRAY_SPEC="0-$ARRAY_LAST"
-if [ "$ARRAY_CONCURRENCY" -gt 0 ]; then
-    ARRAY_SPEC="$ARRAY_SPEC%$ARRAY_CONCURRENCY"
-fi
 JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
        --cpus-per-task="$ALLOC_CPUS" --mem="${MEM_MIB}M" --time="$TIME" \
        --array="$ARRAY_SPEC" --job-name="fuzz-$NAME" \
@@ -392,7 +378,7 @@ echo "submitted array: $JID (0-$ARRAY_LAST, $SHARDS shards)"
 echo "array logs: $HERE/slurm-$NAME-${JID}_<task>.log"
 echo "submitted finalizer: $FINAL_JID"
 echo "finalizer log: $HERE/slurm-$NAME-finalize-$FINAL_JID.log"
-echo "resources: partition=$PARTITION workers-per-shard=$PHYSICAL_CORES logical-cpus-per-shard=$ALLOC_CPUS total-eligible-workers=$((PHYSICAL_CORES * SHARDS)) max-concurrent-workers=$((PHYSICAL_CORES * (ARRAY_CONCURRENCY > 0 ? ARRAY_CONCURRENCY : SHARDS)))"
+echo "resources: partition=$PARTITION workers-per-shard=$PHYSICAL_CORES logical-cpus-per-shard=$ALLOC_CPUS total-eligible-workers=$((PHYSICAL_CORES * SHARDS)) max-concurrent-workers=$((PHYSICAL_CORES * SHARDS))"
 echo "harness: $HARNESS_SHA ($PIN_ROOT)"
 echo "core checkers: ${CHECKERS_ROOT:-tools/checkers/bin (unfrozen)}"
 if [ "$WAIT" -eq 1 ]; then
