@@ -1809,6 +1809,8 @@ bool RandomControllerSelector::choose(
     if (offered.status == Gf3AffineActionOfferStatus::Interrupted ||
         offered.status == Gf3AffineActionOfferStatus::ResourceExhausted) {
       gf3_discovery_.reconfiguration_required = true;
+      if (offered.status == Gf3AffineActionOfferStatus::Interrupted)
+        error = "controller selection interrupted";
       return false;
     }
     if (offered.status != Gf3AffineActionOfferStatus::Ready) {
@@ -1909,6 +1911,8 @@ bool RandomControllerSelector::choose(
         offered.status ==
             DirectCspSupportActionOfferStatus::ResourceExhausted) {
       direct_csp_discovery_.reconfiguration_required = true;
+      if (offered.status == DirectCspSupportActionOfferStatus::Interrupted)
+        error = "controller selection interrupted";
       return false;
     }
     if (offered.status != DirectCspSupportActionOfferStatus::Ready) {
@@ -2004,6 +2008,8 @@ bool RandomControllerSelector::choose(
     if (offered.status == NaryCspEqualityActionOfferStatus::Interrupted ||
         offered.status == NaryCspEqualityActionOfferStatus::ResourceExhausted) {
       nary_csp_equality_discovery_.reconfiguration_required = true;
+      if (offered.status == NaryCspEqualityActionOfferStatus::Interrupted)
+        error = "controller selection interrupted";
       return false;
     }
     if (offered.status != NaryCspEqualityActionOfferStatus::Ready) {
@@ -2166,6 +2172,8 @@ bool RandomControllerSelector::choose(
     if (offered.status == Gf3GaussianActionStatus::Interrupted ||
         offered.status == Gf3GaussianActionStatus::ResourceExhausted) {
       gf3_gaussian_discovery_.reconfiguration_required = true;
+      if (offered.status == Gf3GaussianActionStatus::Interrupted)
+        error = "controller selection interrupted";
       return false;
     }
     if (offered.status != Gf3GaussianActionStatus::Applied ||
@@ -2248,6 +2256,8 @@ bool RandomControllerSelector::choose(
     if (offered.status == Gf3GeneralRowActionStatus::Interrupted ||
         offered.status == Gf3GeneralRowActionStatus::ResourceExhausted) {
       gf3_general_row_discovery_.reconfiguration_required = true;
+      if (offered.status == Gf3GeneralRowActionStatus::Interrupted)
+        error = "controller selection interrupted";
       return false;
     }
     if (offered.status != Gf3GeneralRowActionStatus::Applied) {
@@ -2385,7 +2395,10 @@ bool RandomControllerSelector::choose(
     d.session_keys = actions->committed_keys();
     if (result.status == DirectCspGuardedCoverOfferStatus::Interrupted ||
         result.status == DirectCspGuardedCoverOfferStatus::ResourceExhausted) {
-      d.reconfiguration_required = true; return false;
+      d.reconfiguration_required = true;
+      if (result.status == DirectCspGuardedCoverOfferStatus::Interrupted)
+        error = "controller selection interrupted";
+      return false;
     }
     if (result.status != DirectCspGuardedCoverOfferStatus::Offered &&
         result.status != DirectCspGuardedCoverOfferStatus::NoOffer) return false;
@@ -3073,8 +3086,12 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       }
     ActionRequest request;
     std::string error;
+    const uint64_t stop_fuzz_fires_before = k.stats.stop_fuzz_fires;
     const bool selected =
         selection.choose(k, observation, config_, request, error, stop);
+    const bool selection_interrupted =
+        (stop && *stop) ||
+        k.stats.stop_fuzz_fires != stop_fuzz_fires_before;
     for (const auto &effort : request.producer_effort) {
       auto &counts = coverage_.rules[effort.family];
       ++counts.producer_calls;
@@ -3090,9 +3107,10 @@ int RandomControllerPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                    : counts.producer_offers + effort.offers;
     }
     if (!selected) {
-      if (!(stop && *stop))
+      if (!selection_interrupted)
         std::fprintf(stderr, "c ERROR: controller selection: %s\n", error.c_str());
-      return finish(0, stop && *stop ? StopReason::Interrupted : StopReason::Error);
+      return finish(0, selection_interrupted ? StopReason::Interrupted
+                                             : StopReason::Error);
     }
     if (trace_ && !emit(request_record(request)))
       return -1;

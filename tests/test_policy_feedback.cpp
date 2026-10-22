@@ -201,6 +201,16 @@ struct InvalidSelection final : ControllerSelection {
   }
 };
 
+struct FuzzInterruptedSelection final : ControllerSelection {
+  bool choose(Kernel &k, const Observation &,
+              const RandomControllerConfig &, ActionRequest &,
+              std::string &error, volatile sig_atomic_t *) override {
+    assert(kernel_terminating(k));
+    error = "controller selection interrupted";
+    return false;
+  }
+};
+
 static void test_stop_and_execution_error() {
   for (bool interrupted : {false, true}) {
     Kernel k;
@@ -217,6 +227,19 @@ static void test_stop_and_execution_error() {
     assert(capture.intervals.empty());
     kernel_check_invariants(k);
   }
+
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  k.stop_fuzz = 1;
+  Capture capture;
+  FuzzInterruptedSelection selector;
+  RandomControllerPolicy policy(1, {}, nullptr, &selector, &capture);
+  assert(policy.solve(k) == 0);
+  assert(k.stats.stop_fuzz_fires == 1);
+  assert(capture.ended == 1 && capture.verdict == 0 &&
+         capture.stop == StopReason::Interrupted);
+  assert(capture.actions.empty() && capture.intervals.empty());
+  kernel_check_invariants(k);
 }
 
 static void test_native_effort_and_interruption() {

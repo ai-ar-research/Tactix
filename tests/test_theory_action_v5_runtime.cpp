@@ -710,6 +710,25 @@ void dynamic_gf3_pagination_reaches_terminal_without_reoffering() {
   std::fclose(records);
 }
 
+void dynamic_gf3_selection_interruption_is_terminal() {
+  Kernel kernel = parse_text(gf3_dimacs());
+  FILE *records = std::tmpfile();
+  assert(records);
+  Gf3AffineActionSession session;
+  kernel.structural_provenance = records;
+  kernel.gf3_affine_action_session = &session;
+  kernel.stop_fuzz = 1;
+  const auto config = dynamic_gf3_config();
+  RandomControllerSelector selector(1);
+  controller::ActionRequest request;
+  std::string error;
+  assert(!selector.choose(kernel, controller::observe_kernel(kernel), config,
+                          request, error));
+  assert(error == "controller selection interrupted");
+  assert(kernel.stats.stop_fuzz_fires == 1);
+  std::fclose(records);
+}
+
 void native_execution_outcomes_obey_pending_lifecycle() {
   Kernel kernel = parse_text(gf3_dimacs());
   FILE *records = std::tmpfile();
@@ -1061,6 +1080,7 @@ int main() {
   static_structured_offer_precedes_native_discovery();
   dynamic_theory_offers_are_exact_deterministic_and_applicable();
   dynamic_gf3_pagination_reaches_terminal_without_reoffering();
+  dynamic_gf3_selection_interruption_is_terminal();
   native_execution_outcomes_obey_pending_lifecycle();
   public_c_api_executes_productive_v5_actions();
   random_policy_solves_after_executing_offered_v5_action();

@@ -32,6 +32,10 @@ semantic versioning; the public C API remains source-compatible within the
   deleted.
 - The PBP `f` header counts original input constraints rather than using the
   largest interleaved internal clause identifier.
+- Controller-native discovery interruption now terminates cleanly instead of
+  reporting a selection error.
+- Affine publication now completes an UNSAT proof when a derived unit opposes
+  an existing root unit instead of aborting.
 
 ### Validation
 

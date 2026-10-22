@@ -693,14 +693,20 @@ bool install_clause(Kernel &kernel, const Event &event) {
   clause.reserve(event.clause.size());
   for (int32_t external : event.clause) {
     const Lit literal = kernel_internalize(kernel, external);
-    if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
+    if (literal == INVALID_LIT ||
+        (kernel_var_retired(kernel, var_of(literal)) &&
+         (event.clause.size() != 1 || !kernel.value(literal))))
       return false;
     clause.push_back(literal);
   }
   if (clause.empty()) {
     kernel.inconsistent = true;
   } else if (clause.size() == 1) {
-    if (kernel.value(clause[0]) < 0) return false;
+    if (kernel.value(clause[0]) < 0) {
+      kernel_emit_empty_from_pair(
+          kernel, event.id, kernel.unit_ids[var_of(clause[0])]);
+      return true;
+    }
     if (!kernel.value(clause[0])) {
       kernel.unit_ids[var_of(clause[0])] = event.id;
       kernel_assign_unit(kernel, clause[0]);
@@ -1506,6 +1512,7 @@ AffineBasisLiveResult publish_affine_basis_live(
       std::fflush(request.records) || std::ferror(request.records))
     std::abort();
   result.status = AffineBasisLiveStatus::Applied;
+  result.contradiction = transaction.contradiction_ || kernel.inconsistent;
   result.result = kernel.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
   result.additions = transaction.additions_;
   result.deletions = transaction.deletions_;

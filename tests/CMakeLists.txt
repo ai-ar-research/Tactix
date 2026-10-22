@@ -343,6 +343,13 @@ add_test(NAME bve_invocation COMMAND test_bve_invocation)
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)
+add_test(NAME lucky_late_parallel
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_lucky_parallel.py
+                 $<TARGET_FILE:test_lucky>)
+# The runner launches its three isolated solver modes concurrently.  Account
+# for those children so a parallel CTest run does not oversubscribe its budget.
+set_tests_properties(lucky_late_parallel PROPERTIES PROCESSORS 3)
 
 add_executable(test_lucky_terminal test_lucky_terminal.cpp)
 target_link_libraries(test_lucky_terminal PRIVATE tactix_lib)

@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cassert>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
@@ -16,9 +17,10 @@
 using namespace tactix;
 
 // These reference-lifecycle controls isolate the two Kissat Lucky calls.
-static int solve_reference_startup(Kernel &k) {
+static int solve_reference_startup(Kernel &k, bool late_lucky = true) {
   DefaultStrategyConfig config;
   config.inprocess.structured_root_before_lucky = false;
+  config.rephase.late_lucky = late_lucky;
   return DefaultPolicy(config).solve(k);
 }
 
@@ -300,59 +302,75 @@ static bool model_satisfies(Kernel &k, const std::vector<Ternary> &formula) {
 
 // Formula classification has no scheduling consumers in Kissat, so it cannot
 // withdraw the search-time Probe pipeline or late Lucky.
-static void test_late_call_is_formula_shape_invariant() {
+static void build_lucky_resistant(Kernel &k,
+                                  const std::vector<Ternary> &formula,
+                                  uint32_t vars) {
+  kernel_reserve_vars(k, vars);
+  for (const Ternary &triple : formula) {
+    const Lit lits[3] = {internalize(triple[0]), internalize(triple[1]),
+                         internalize(triple[2])};
+    kernel_add_large_clause(k, lits, 3, false, 0);
+  }
+}
+
+static void print_late_lucky_result(const char *mode, const Kernel &k) {
+  std::printf("LATE_LUCKY_RESULT mode=%s early=%llu late=%llu decisions=%llu "
+              "conflicts=%llu propagations=%llu\n",
+              mode,
+              static_cast<unsigned long long>(k.stats.lucky_early_calls),
+              static_cast<unsigned long long>(k.stats.lucky_late_calls),
+              static_cast<unsigned long long>(k.stats.decisions),
+              static_cast<unsigned long long>(k.stats.conflicts),
+              static_cast<unsigned long long>(k.stats.propagations));
+}
+
+static void test_late_call_mode(const char *mode) {
   const uint32_t blocks = 57;
   const uint32_t vars = blocks * 16;
   const uint64_t clauses = uint64_t{blocks} * 16;
-
-  DefaultPolicy policy;
-  const auto &profiled = policy.strategy_config();
-  assert(!profiled.inprocess.preprocess_only &&
-         profiled.branching.random_sequences && profiled.rephase.late_lucky);
-
   const std::vector<Ternary> formula = lucky_resistant_formula(blocks);
   assert(formula.size() == clauses);
-  const auto build = [&](Kernel &k) {
-    kernel_reserve_vars(k, vars);
-    for (const Ternary &triple : formula) {
-      const Lit lits[3] = {internalize(triple[0]), internalize(triple[1]),
-                           internalize(triple[2])};
-      kernel_add_large_clause(k, lits, 3, false, 0);
-    }
-  };
 
-  Kernel on;
-  ScopedHeuristics _hg_on(on);
-  build(on);
-  assert(solve_reference_startup(on) == 10);
-  assert(on.stats.lucky_early_calls == 1 && on.stats.lucky_late_calls == 1);
-  assert(model_satisfies(on, formula));
+  if (!std::strcmp(mode, "eager")) {
+    DefaultPolicy policy;
+    const auto &profiled = policy.strategy_config();
+    assert(!profiled.inprocess.preprocess_only &&
+           profiled.branching.random_sequences && profiled.rephase.late_lucky);
 
-  // The shipped frontend leaves H unattached until early Lucky fails.  Its
-  // parser-retained activation order must reproduce the eager H trajectory.
-  Kernel deferred;
-  build(deferred);
-  assert(!deferred.h && !deferred.saved_phases);
-  assert(solve_reference_startup(deferred) == 10);
-  assert(!deferred.h && !deferred.saved_phases);
-  assert(deferred.stats.lucky_early_calls == on.stats.lucky_early_calls);
-  assert(deferred.stats.lucky_late_calls == on.stats.lucky_late_calls);
-  assert(deferred.stats.decisions == on.stats.decisions);
-  assert(deferred.stats.conflicts == on.stats.conflicts);
-  assert(deferred.stats.propagations == on.stats.propagations);
-  assert(model_satisfies(deferred, formula));
+    Kernel k;
+    ScopedHeuristics heuristics(k);
+    build_lucky_resistant(k, formula, vars);
+    assert(solve_reference_startup(k) == 10);
+    assert(k.stats.lucky_early_calls == 1 && k.stats.lucky_late_calls == 1);
+    assert(model_satisfies(k, formula));
+    print_late_lucky_result(mode, k);
+    return;
+  }
 
+  if (!std::strcmp(mode, "deferred")) {
+    // The shipped frontend leaves H unattached until early Lucky fails.  Its
+    // parser-retained activation order must reproduce the eager H trajectory.
+    Kernel k;
+    build_lucky_resistant(k, formula, vars);
+    assert(!k.h && !k.saved_phases);
+    assert(solve_reference_startup(k) == 10);
+    assert(!k.h && !k.saved_phases);
+    assert(k.stats.lucky_early_calls == 1 && k.stats.lucky_late_calls == 1);
+    assert(model_satisfies(k, formula));
+    print_late_lucky_result(mode, k);
+    return;
+  }
+
+  assert(!std::strcmp(mode, "disabled"));
   // The same fixture with the opportunity declined: without this arm the
-  // assertion above could hold for a fixture the late call never reaches.
-  Kernel off;
-  ScopedHeuristics _hg_off(off);
-  build(off);
-  assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
-  const int off_result = solve_reference_startup(off);
-  assert(unsetenv("TACTIX_LUCKY_LATE") == 0);
-  assert(off_result == 10);
-  assert(off.stats.lucky_early_calls == 1 && off.stats.lucky_late_calls == 0);
-  assert(model_satisfies(off, formula));
+  // enabled assertions could hold for a fixture the late call never reaches.
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  build_lucky_resistant(k, formula, vars);
+  assert(solve_reference_startup(k, false) == 10);
+  assert(k.stats.lucky_early_calls == 1 && k.stats.lucky_late_calls == 0);
+  assert(model_satisfies(k, formula));
+  print_late_lucky_result(mode, k);
 }
 
 static void test_registry_surface() {
@@ -419,7 +437,12 @@ static void test_sat_constructors_do_not_refute_root_conflicts() {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc == 3 && !std::strcmp(argv[1], "--late-mode")) {
+    test_late_call_mode(argv[2]);
+    return 0;
+  }
+  assert(argc == 1);
   test_all_true();
   test_default_early_lucky_keeps_cold_state_deferred();
   test_cold_state_materialization_preserves_first_round_predicates();
@@ -429,7 +452,6 @@ int main() {
   test_unsat_probes_commit_root_consequences();
   test_backward_sweep_skips_retired_identity();
   test_constant_scan_skips_inactive_binary_endpoint();
-  test_late_call_is_formula_shape_invariant();
   test_registry_surface();
   test_guard_needs_quiescent_root();
   test_sat_constructors_do_not_refute_root_conflicts();

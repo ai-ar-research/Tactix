@@ -356,6 +356,19 @@ def main():
                        "Gf3GaussianConsequence", "TseitinCycleBreaking"):
             assert f'producer "{family}"' not in none_configuration
 
+        affine_unit_conflict = Path(__file__).parent / "fixtures" / \
+            "controller-affine-unit-conflict.cnf"
+        affine_unit_conflict_proof = work / "controller-affine-unit-conflict.pbp"
+        affine_unit_conflict_result = subprocess.run(
+            [str(binary), "--pbp", "--controller-policy=2622420367",
+             "--controller-native-producers=tseitin-cycle,gf2-affine",
+             str(affine_unit_conflict), str(affine_unit_conflict_proof)],
+            capture_output=True, text=True, timeout=30)
+        assert affine_unit_conflict_result.returncode == 20, (
+            affine_unit_conflict_result.stdout,
+            affine_unit_conflict_result.stderr)
+        assert affine_unit_conflict_proof.stat().st_size
+
         for argument in ("--controller-native-producers=nary-csp",
                          "--controller-families=NaryCspPrefix",
                          "--controller-nary-csp-census"):
