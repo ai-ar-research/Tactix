@@ -25,18 +25,18 @@ class FixedRuntimeTests(unittest.TestCase):
         rows = f.candidate_rows(self.ref)
         self.assertEqual([r['task'] for r in rows], list(range(80)))
         self.assertEqual({r['arm'] for r in rows},
-                         {'tactix-auto', 'tactix-drat'})
+                         {'tactix-pbp', 'tactix-drat'})
         self.assertEqual([r['rank'] for r in rows[::2]], list(range(1,41)))
         self.assertEqual([r['rank'] for r in rows[1::2]], list(range(1,41)))
 
-    def test_automatic_only_matrix(self):
-        rows = f.candidate_rows(self.ref, ('tactix-auto',))
+    def test_pbp_only_matrix(self):
+        rows = f.candidate_rows(self.ref, ('tactix-pbp',))
         self.assertEqual(len(rows), 40)
         self.assertEqual([r['task'] for r in rows], list(range(40)))
-        self.assertEqual({r['arm'] for r in rows}, {'tactix-auto'})
+        self.assertEqual({r['arm'] for r in rows}, {'tactix-pbp'})
         self.assertEqual([r['rank'] for r in rows], list(range(1,41)))
 
-    def test_prepared_automatic_bundle_satisfies_runtime_contract(self):
+    def test_prepared_pbp_bundle_satisfies_runtime_contract(self):
         real_root = f.ROOT
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -84,9 +84,9 @@ class FixedRuntimeTests(unittest.TestCase):
                 self.assertEqual(manifest['pin_sha256']['pins/dsr-transport'], f.sha(transport))
                 self.assertIn('pins/dsr-transport.sha256', manifest['pin_sha256'])
                 rt.validate_runtime_pin_contract(campaign, manifest)
-                self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v6')
-                self.assertEqual(manifest['arms']['tactix-auto']['certificate'], 'auto')
-                self.assertEqual(manifest['arms']['tactix-auto']['arguments'], ['--auto-proof'])
+                self.assertEqual(manifest['schema'], 'tactix-fixed-reference-runtime-v7')
+                self.assertEqual(manifest['arms']['tactix-pbp']['certificate'], 'pbp')
+                self.assertEqual(manifest['arms']['tactix-pbp']['arguments'], [])
                 self.assertEqual(manifest['checker_authority']['sha256'],
                                  checker_hashes)
                 (root / 'checker-pins/dsr-trim').write_bytes(b'changed')
@@ -124,28 +124,22 @@ class FixedRuntimeTests(unittest.TestCase):
         self.assertTrue(f.score_records(ref, rows, 'tactix-dsr',
                                         require_canonical_dsr=True)['runtime_target_met'])
 
-    def test_automatic_score_requires_each_approved_proof_route(self):
+    def test_pbp_score_requires_the_approved_proof_route(self):
         ref, rows = copy.deepcopy(self.ref), copy.deepcopy(self.records)
-        for index, (pipeline, route, stages) in enumerate((
-                ('veripb-cake-pb', 'pbp', ('veripb', 'cake-pb-cnf')),
-                ('dsr-trim-dsr-compress-trestle', 'dsr-trestle',
-                 ('dsr-trim', 'dsr-compress', 'srcheck')),
-                ('dsr-as-drat-drat-trim-cake_lpr', 'dsr-cake_lpr',
-                 ('drat-trim', 'cake_lpr')))):
-            ref['records'][index]['expected'] = rows[index]['expected'] = 'UNSAT'
-            rows[index].update(verdict='UNSAT', valid=True, expected_match=True,
-                               proof_check=dict(result='verified', pipeline=pipeline,
-                                   solver_reported_route=route,
-                                   stages=[dict(name=name, result='verified')
-                                           for name in stages]))
-            rows[index]['solve']['exit_code'] = 20
+        ref['records'][0]['expected'] = rows[0]['expected'] = 'UNSAT'
+        rows[0].update(verdict='UNSAT', valid=True, expected_match=True,
+                       proof_check=dict(result='verified',
+                           pipeline='veripb-cake-pb', solver_reported_route='pbp',
+                           stages=[dict(name=name, result='verified')
+                                   for name in ('veripb', 'cake-pb-cnf')]))
+        rows[0]['solve']['exit_code'] = 20
         for row in rows:
-            row['arm'] = 'tactix-auto'
-        self.assertTrue(f.score_records(ref, rows, 'tactix-auto',
-            require_automatic_routes=True)['runtime_target_met'])
-        rows[2]['proof_check']['pipeline'] = 'unapproved-shortcut'
-        with self.assertRaisesRegex(ValueError, 'plan section 5'):
-            f.score_records(ref, rows, 'tactix-auto', require_automatic_routes=True)
+            row['arm'] = 'tactix-pbp'
+        self.assertTrue(f.score_records(ref, rows, 'tactix-pbp',
+            require_pbp_route=True)['runtime_target_met'])
+        rows[0]['proof_check']['pipeline'] = 'unapproved-shortcut'
+        with self.assertRaisesRegex(ValueError, 'whole-run PBP'):
+            f.score_records(ref, rows, 'tactix-pbp', require_pbp_route=True)
 
     def test_complete_pending_score_not_verified(self):
         r = f.score_records(self.ref,self.records)

@@ -19,14 +19,14 @@ def proof(elapsed, timeout=False):
 
 
 class CandidateArgumentTests(unittest.TestCase):
-    def test_legacy_command_unchanged_and_profile_exact(self):
-        self.assertEqual(candidate_arguments(), ['--auto-proof'])
+    def test_default_pbp_command_and_profile_are_exact(self):
+        self.assertEqual(candidate_arguments(), [])
         for family in ('affine-search', 'graph-labeling'):
             for mode in ('on', 'off'):
                 argument = '--default-' + family + '=' + mode
-                self.assertEqual(candidate_arguments([argument]), ['--auto-proof', argument])
+                self.assertEqual(candidate_arguments([argument]), [argument])
         combined = ['--default-affine-search=off', '--default-graph-labeling=on']
-        self.assertEqual(candidate_arguments(combined), ['--auto-proof', *combined])
+        self.assertEqual(candidate_arguments(combined), combined)
 
     def test_rejects_empty_proof_policy_and_conflicting_overrides(self):
         for arguments in ([''], ['--drat'], ['--auto-proof'], ['--lrat'],
@@ -88,7 +88,7 @@ class CandidateArgumentTests(unittest.TestCase):
                     campaigns = regression.prepare(prefix, release, arguments)
                     manifest = json.loads((Path(campaigns[0]) / 'manifest.json').read_text())
                     self.assertEqual(manifest['arms']['tactix']['arguments'],
-                                     ['--auto-proof', *arguments])
+                                     arguments)
                     self.assertEqual(manifest['resource_contract']['throttle'], None)
                     self.assertEqual(manifest['baseline']['sha256'], regression.sha(baseline))
                 self.assertEqual(verified.call_count, 2)

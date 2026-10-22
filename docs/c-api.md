@@ -203,12 +203,12 @@ normally and writes nothing.
 | `TACTIX_PROOF_LRAT` | 2 | LRAT with antecedent hints |
 | `TACTIX_PROOF_DSR_BINARY` | 3 | DSR (DRAT extended with substitution redundancy), binary; the canonical format |
 | `TACTIX_PROOF_DSR_ASCII` | 4 | DSR, text encoding, for inspection |
-| `TACTIX_PROOF_AUTOMATIC` | 5 | retained compatibility route: binary DSR, or a pseudo-Boolean proof when a complete refutation is found before any other step |
+| *(reserved)* | 5 | retired proof mode; rejected by `tactix_proof` |
 | `TACTIX_PROOF_PBP` | 6 | whole-run pseudo-Boolean proof for VeriPB elaboration and independent CakePB checking; the command-line default |
 
 The command-line solver uses `TACTIX_PROOF_PBP` by default. The C API has no
 implicit proof format: callers select one when attaching a proof.
-`TACTIX_PROOF_AUTOMATIC`, DSR, DRAT and LRAT retain their existing behavior.
+DSR, DRAT and LRAT retain their existing behavior.
 [getting-started.md](getting-started.md) explains which checker verifies
 each kind of proof and how `tools/bench/proof_oracle.py` picks the route.
 
@@ -797,8 +797,8 @@ if (tactix_online_configure_v2(s, &program, ++revision,
 
 A wrong witness is not a soundness problem: the rule rejects the instance and
 nothing changes. A formula-changing substitution-redundancy step needs native
-DSR (`TACTIX_PROOF_DSR_*`, or `TACTIX_PROOF_AUTOMATIC` after DSR commitment)
-or whole-run PBP (`TACTIX_PROOF_PBP`); under DRAT or LRAT it declines.
+DSR (`TACTIX_PROOF_DSR_*`) or whole-run PBP (`TACTIX_PROOF_PBP`); under DRAT or
+LRAT it declines.
 
 ## 6. Tutorial: building a strategy
 
@@ -1055,10 +1055,10 @@ Two complete strategies follow this pattern:
   profiles keep the search loop for themselves, with their own branching rule
   and restart schedule.
 
-A note on proof formats: with `TACTIX_PROOF_AUTOMATIC`, a few complete
-refutations that the default strategy can find before any other step (parity
-and counting arguments) are written as pseudo-Boolean proofs. An opening that
-applies rules first closes that window, and the proof is DSR throughout.
+A few complete refutations that the default strategy can find before any other
+step (parity and counting arguments) use the default PBP stream's startup
+certificate boundary. An opening that applies rules first closes that window
+and continues with whole-run streaming PBP.
 
 ## 7. Proofs and what a strategy can and cannot break
 

@@ -491,7 +491,8 @@ add_test(NAME micro_proofs
                  $<TARGET_FILE:test_restart_reduce>
                  $<TARGET_FILE:test_factor_n1>
                  $<TARGET_FILE:test_online_inprocess>
-                 $<TARGET_FILE:test_ulc_rat>)
+                 $<TARGET_FILE:test_ulc_rat>
+                 $<TARGET_FILE:tactix-public-random>)
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 
@@ -595,7 +596,7 @@ set_tests_properties(cardinality_search_live_proof PROPERTIES SKIP_RETURN_CODE 7
 # after the sub-solver -> kernel translation. Skips 77 without a checker.
 add_test(NAME sweep_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh ${CMAKE_SOURCE_DIR}
-                 $<TARGET_FILE:tactix>
+                 $<TARGET_FILE:tactix-public-random>
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
@@ -605,7 +606,7 @@ set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME sweep_retarget_lrat
          COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh ${CMAKE_SOURCE_DIR}/tools/checkers/bin/cake_lpr --
                  ${CMAKE_SOURCE_DIR}/tests/sweep_retarget_lrat.sh
-                 ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix>)
+                 ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix-public-random>)
 set_tests_properties(sweep_retarget_lrat PROPERTIES SKIP_RETURN_CODE 77)
 
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,

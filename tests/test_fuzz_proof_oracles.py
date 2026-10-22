@@ -31,7 +31,7 @@ class FuzzProofOracles(unittest.TestCase):
         for prefix in ('\n', ' \t\r\n', 'c leading comment\n\n'):
             for valid in (False, True):
                 raw = prefix + ('p cnf 1 2\n1 0\n-1 0\n' if valid else 'p cnf 1 1\n1 0\n')
-                result = self.fixture(raw, text, auto=True)
+                result = self.fixture(raw, text, pbp=True)
                 self.assertEqual(not result.failures, valid, result.failures)
                 for stage in result.checker_runs:
                     self.assertIn('checker.cnf', str(stage['command']))
@@ -490,7 +490,7 @@ class FuzzProofOracles(unittest.TestCase):
                                    cake_pb=pins/'cake-pb-cnf')[0])
 
     def fixture(self, cnf_text, proof_text, lrat=True, checker_response=None,
-                convert=False, dsr=False, auto=False):
+                convert=False, dsr=False, pbp=False):
         with tempfile.TemporaryDirectory(prefix='fuzz-oracle-fixed-') as directory:
             work = Path(directory); cnf = work/'input.cnf'; cnf.write_text(cnf_text)
             actual = fuzz.run_cmd
@@ -501,7 +501,7 @@ class FuzzProofOracles(unittest.TestCase):
                 if checker_response is not None: return checker_response
                 return actual(command, timeout, **kwargs)
             solver = ['fixed-proof-emitter'] + (
-                ['--auto-proof'] if auto else ['--dsr', '--no-binary'] if dsr else
+                ['--pbp'] if pbp else ['--dsr', '--no-binary'] if dsr else
                 (['--lrat'] if lrat else ['--drat']))
             with patch.object(fuzz, 'run_cmd', side_effect=run):
                 result = fuzz.run_case(str(cnf), solver, None, 10, convert, str(work))
@@ -510,18 +510,18 @@ class FuzzProofOracles(unittest.TestCase):
             if result.failures:
                 bundle = Path(fuzz.save_bundle(str(work/'failures'), 0, 0, 'fixed-checker-control',
                                               str(cnf), result, solver, None, 10, convert, False))
-                proof_name = ('proof.dsr' if dsr or auto else
+                proof_name = ('proof.pbp' if pbp else 'proof.dsr' if dsr else
                               ('proof.lrat' if lrat else 'proof.drat'))
                 self.assertEqual((bundle/proof_name).read_text(), proof_text)
                 self.assertEqual(json.loads((bundle/'meta.json').read_text())['checker_runs'], result.checker_runs)
             return result
 
-    def test_fuzz_automatic_pb_and_strict_formats(self):
+    def test_fuzz_pbp_and_strict_formats(self):
         proof = ('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
                  'output NONE ;\nconclusion UNSAT : -1 ;\n'
                  'end pseudo-Boolean proof ;\n')
         cnf = 'p cnf 1 2\n1 0\n-1 0\n'
-        accepted = self.fixture(cnf, proof, auto=True)
+        accepted = self.fixture(cnf, proof, pbp=True)
         self.assertFalse(accepted.failures, accepted.failures)
         self.assertEqual([Path(run['command'][0]).name for run in accepted.checker_runs],
                          ['veripb', 'cake-pb-cnf'])
@@ -529,8 +529,8 @@ class FuzzProofOracles(unittest.TestCase):
             rejected = self.fixture(cnf, proof, **options)
             self.assertTrue(rejected.failures)
             self.assertFalse(rejected.checker_runs)
-        self.assertTrue(self.fixture('p cnf 1 1\n1 0\n', proof, auto=True).failures)
-        self.assertTrue(self.fixture(cnf, proof.split('conclusion')[0], auto=True).failures)
+        self.assertTrue(self.fixture('p cnf 1 1\n1 0\n', proof, pbp=True).failures)
+        self.assertTrue(self.fixture(cnf, proof.split('conclusion')[0], pbp=True).failures)
 
     def test_native_nonconflicting_empty_lemma_rejected(self):
         r = self.fixture('p cnf 1 1\n1 0\n', '2 0 1 0\n')

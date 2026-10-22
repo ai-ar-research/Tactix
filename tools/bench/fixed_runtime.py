@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Prepare candidate-only automatic-proof measurements or score a frozen reference.
+"""Prepare candidate-only whole-run-PBP measurements or score a frozen reference.
 
 This tool never reruns a reference solver. Candidate gates use plan §5's
-automatic PBP/DSR route through anonymous scratch. An explicit-DRAT control is
+whole-run PBP route through anonymous scratch. An explicit-DRAT control is
 available only when a proof-backend comparison specifically requires it.
 """
 import argparse
@@ -70,7 +70,7 @@ def reference(path=REFERENCE):
     return ref
 
 
-def candidate_rows(ref, arms=('tactix-auto', 'tactix-drat')):
+def candidate_rows(ref, arms=('tactix-pbp', 'tactix-drat')):
     rows = []
     for r in sorted(ref['records'], key=lambda r:r['rank']):
         for arm in arms:
@@ -121,7 +121,7 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
                 'copied canonical checker changed: ' + name)
     shutil.copy2(release, campaign / 'pins/tactix')
     shutil.copy2(authority / 'cumulative.patch', campaign / 'pins/candidate-source.patch')
-    selected_arms = ('tactix-auto', 'tactix-drat') if include_drat else ('tactix-auto',)
+    selected_arms = ('tactix-pbp', 'tactix-drat') if include_drat else ('tactix-pbp',)
     rows = candidate_rows(ref, selected_arms)
     with (campaign / 'matrix.tsv').open('x', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=rows[0], delimiter='\t', lineterminator='\n')
@@ -129,7 +129,7 @@ def prepare(campaign, authority, release, bc, reference_path=REFERENCE,
         writer.writerows(rows)
     array = f'0-{len(rows)-1}'
     batch = f'''#!/usr/bin/env bash
-#SBATCH --job-name=tactix-auto-gate
+#SBATCH --job-name=tactix-pbp-gate
 #SBATCH --partition=cpu-dense-hwulab-q
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
@@ -146,11 +146,11 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
     arm = dict(path='pins/tactix', sha256=sha(release), source_commit=a['production'],
         source_build=str(release.parent.relative_to(ROOT)), arguments=[],
         source_patch='pins/candidate-source.patch', source_patch_sha256=sha(authority / 'cumulative.patch'))
-    arms = {'tactix-auto': dict(arm, arguments=['--auto-proof'], certificate='auto')}
+    arms = {'tactix-pbp': dict(arm, arguments=[], certificate='pbp')}
     if include_drat:
         arms['tactix-drat'] = dict(arm, arguments=['--drat'], certificate='drat')
-    proof_mode = ('automatic PBP/DSR plus same-source DRAT' if include_drat
-                  else 'automatic PBP/DSR')
+    proof_mode = ('whole-run PBP plus same-source DRAT' if include_drat
+                  else 'whole-run PBP')
     contract = dict(partition='cpu-dense-hwulab-q', cpus_per_task=12,
                     memory_mib=32768, array=array, throttle=None,
                     node_constraint=None, proof_mode=proof_mode,
@@ -159,7 +159,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
     if runtime_target_seconds is not None:
         require(math.isfinite(runtime_target_seconds) and
                 runtime_target_seconds > 0, 'runtime target')
-    manifest = dict(schema='tactix-fixed-reference-runtime-v6', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    manifest = dict(schema='tactix-fixed-reference-runtime-v7', created_at=dt.datetime.now(dt.timezone.utc).isoformat(),
         arms=arms, input_sha256={r['instance']:r['input_sha256'] for r in ref['records']},
         resource_contract=contract, collect_runtime_context=True,
         scratch_policy='anonymous-local-files-v1',
@@ -168,12 +168,12 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
         checker_authority=dict(path=str(checker_pins.relative_to(ROOT)),
                                sha256=CANONICAL_CHECKERS),
         fixed_reference=dict(path=str(reference_path.relative_to(ROOT)),sha256=sha(reference_path)),
-        purpose=(f'{len(ref["records"])} automatic-proof solves against the retained reference vector; '
+        purpose=(f'{len(ref["records"])} whole-run-PBP solves against the retained reference vector; '
                  + ('same-source DRAT controls included; ' if include_drat else '')
                  + 'no reference solver rerun.'),
         test_consideration=(a['test_consideration'] +
             ' Current runtime protocol checks routed PBP/DSR certificates, task identity and anonymous cleanup.'),
-        validation=f'Plan §5 routes startup PBP to VeriPB/CakePB, witness-free DSR through validated DRAT/drat-trim/CakeLPR, and witnessed DSR through no-option dsr-trim/Trestle; every stage must verify. Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
+        validation=f'Whole-run PBP is elaborated by VeriPB and checked by CakePB; every stage must verify. Expected solves allow provisional development; all {len(rows)} candidate results, retained reference certificates, the companion B28+C5 gate, memory and Claude fuzz are required for acceptance.',
         limitation='Cross-window fixed reference; not isolated unit-cost attribution or promotion.')
     if runtime_target_seconds is not None:
         manifest['acceptance_runtime_seconds'] = runtime_target_seconds
@@ -228,7 +228,8 @@ def submit(campaign):
 
 
 def score_records(ref, records, arm='tactix', runtime_target_seconds=None,
-                  require_canonical_dsr=False, require_automatic_routes=False):
+                  require_canonical_dsr=False, require_automatic_routes=False,
+                  require_pbp_route=False):
     expected = {r['rank']:r for r in ref['records']}
     seen = set()
     total = 0.0
@@ -277,6 +278,15 @@ def score_records(ref, records, arm='tactix', runtime_target_seconds=None,
                     names == routes.get(check.get('pipeline')) and
                     all(stage.get('result') == 'verified' for stage in check['stages']),
                     'automatic proof route differs from plan section 5')
+        if require_pbp_route and arm == 'tactix-pbp' and base['expected'] == 'UNSAT' and r.get('valid'):
+            check = r.get('proof_check') or {}
+            require(check.get('result') == 'verified' and
+                    check.get('solver_reported_route') == 'pbp' and
+                    check.get('pipeline') == 'veripb-cake-pb' and
+                    [stage.get('name') for stage in check.get('stages', [])] ==
+                    ['veripb', 'cake-pb-cnf'] and
+                    all(stage.get('result') == 'verified' for stage in check['stages']),
+                    'whole-run PBP route differs from the release contract')
         ok = r['expected_match'] and not s['timed_out'] and s['exit_code'] == {'SAT':10,'UNSAT':20}[base['expected']]
         solved += ok
         checked += bool(r.get('valid') and r.get('artifact_deleted') and r.get('derived_artifacts_deleted') and not r.get('cleanup_pending'))
@@ -320,13 +330,16 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
                   'tactix-fixed-reference-runtime-v3',
                   'tactix-fixed-reference-runtime-v4',
                   'tactix-fixed-reference-runtime-v5',
-                  'tactix-fixed-reference-runtime-v6'):
+                  'tactix-fixed-reference-runtime-v6',
+                  'tactix-fixed-reference-runtime-v7'):
         expected_arms = tuple(m['arms'])
         automatic = schema == 'tactix-fixed-reference-runtime-v6'
-        main_arm = 'tactix-auto' if automatic else 'tactix-dsr'
+        pbp = schema == 'tactix-fixed-reference-runtime-v7'
+        main_arm = 'tactix-pbp' if pbp else 'tactix-auto' if automatic else 'tactix-dsr'
         require(expected_arms in ((main_arm,), (main_arm, 'tactix-drat')),
                 'arm mismatch')
-        proof_mode = (('automatic PBP/DSR' if automatic else 'native DSR') +
+        proof_mode = (('whole-run PBP' if pbp else
+                       'automatic PBP/DSR' if automatic else 'native DSR') +
                       (' plus same-source DRAT' if len(expected_arms) == 2 else ''))
         required = dict(partition='cpu-dense-hwulab-q', cpus_per_task=12,
                         memory_mib=32768, solve_timeout=1200,
@@ -340,7 +353,7 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
                     'canonical DSR gate requirement missing')
         require(m.get('scratch_policy') == 'anonymous-local-files-v1',
                 'scratch policy mismatch')
-        require(m['arms'][main_arm].get('certificate') == ('auto' if automatic else 'dsr') and
+        require(m['arms'][main_arm].get('certificate') == ('pbp' if pbp else 'auto' if automatic else 'dsr') and
                 m['arms'][main_arm].get('arguments') ==
                 (['--auto-proof'] if automatic else []), 'main proof arm mismatch')
         if len(expected_arms) == 2:
@@ -386,13 +399,15 @@ def score(campaign, comparison_reference=None, runtime_target_seconds=None):
         ref, [record for (record_arm, _), record in records.items()
               if record_arm == arm], arm, target,
         require_canonical_dsr=(schema == 'tactix-fixed-reference-runtime-v5'),
-        require_automatic_routes=(schema == 'tactix-fixed-reference-runtime-v6'))
+        require_automatic_routes=(schema == 'tactix-fixed-reference-runtime-v6'),
+        require_pbp_route=(schema == 'tactix-fixed-reference-runtime-v7'))
         for arm in expected_arms}
     output = arm_scores[expected_arms[0]]
     if len(expected_arms) == 2:
         main = arm_scores[expected_arms[0]]
         drat = arm_scores['tactix-drat']
-        ratio_name = ('auto_to_drat_ratio' if schema == 'tactix-fixed-reference-runtime-v6'
+        ratio_name = ('pbp_to_drat_ratio' if schema == 'tactix-fixed-reference-runtime-v7'
+                      else 'auto_to_drat_ratio' if schema == 'tactix-fixed-reference-runtime-v6'
                       else 'dsr_to_drat_ratio')
         output = dict(main, arms=arm_scores,
                       **{ratio_name: (main['candidate_par2'] /
@@ -441,7 +456,7 @@ def main():
     p.add_argument('--same-source-drat', action='store_true')
     p.add_argument('--runtime-target-seconds', type=float)
     p.add_argument('--checker-pins', type=Path, required=True,
-                   help='frozen automatic PBP/DSR/DRAT checker bundle')
+                   help='frozen PBP/DRAT checker bundle')
     p = sub.add_parser('score')
     p.add_argument('campaign', type=Path)
     p.add_argument('--reference', type=Path)

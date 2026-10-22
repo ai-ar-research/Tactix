@@ -485,9 +485,10 @@ instances 0–5.
 
 Instances 19, 20 and 22 belong to the original-input boundary: they are only
 available before any other action has been taken, and selecting any other
-action closes that boundary. In automatic proof mode, a successful 19 or 20
-writes a pseudo-Boolean proof (checked by VeriPB and CakePB; Bogaerts et al.
-2023) instead of DSR. The default strategy tries them first.
+action closes that boundary. With the default whole-run PBP writer, a
+successful 19 or 20 writes a pseudo-Boolean proof checked by VeriPB and CakePB
+(Bogaerts et al. 2023). The default strategy tries them first. Instance 22 is
+available with the explicit DSR writer.
 
 ### Walk and LocalSearchGuidance
 

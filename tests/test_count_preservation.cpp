@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
         FILE *f = std::fopen((stem + ".cnf").c_str(), "wb");
         assert(f && std::fwrite(text.data(), 1, text.size(), f) == text.size());
         std::fclose(f);
-        assert(proof.open((stem + ".pbp").c_str(), ProofFormat::Automatic));
+        assert(proof.open((stem + ".pbp").c_str(), ProofFormat::PbpStreaming));
         proof.bind_variable_map(&k.internal_to_external);
         k.proof = &proof;
       }

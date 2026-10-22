@@ -648,12 +648,12 @@ void test_population_membership_uses_exact_drat_multiset() {
 
 } // namespace
 
-void test_automatic_certificate_boundary() {
+void test_startup_pbp_certificate_boundary() {
   const Lit unit = internalize(1);
-  const auto path = tmp_path("auto");
+  const auto path = tmp_path("startup-pbp");
   {
     Proof p;
-    assert(p.open(path.c_str(), ProofFormat::Automatic));
+    assert(p.open(path.c_str(), ProofFormat::PbpStreaming));
     assert(!p.startup_pb_available());
     p.add_rup(1, &unit, 1, nullptr, 0);
     assert(read_all(path).empty()); // input prefix is private
@@ -663,20 +663,10 @@ void test_automatic_certificate_boundary() {
     assert(out && p.pb() && !p.startup_pb_available());
     std::fputs("pseudo-Boolean proof version 3.0\n", out);
     assert(p.finish_pb());
-    assert(!p.commit_dsr());
+    assert(!p.commit_clause_stream());
     assert(!p.begin_pb());
   }
   expect(read_all(path), "pseudo-Boolean proof version 3.0\n", "atomic PB selection");
-  {
-    Proof p;
-    assert(p.open(path.c_str(), ProofFormat::Automatic));
-    p.add_rup(1, &unit, 1, nullptr, 0);
-    p.finish_input_transaction();
-    p.add_empty(2, nullptr, 0);
-    assert(!p.startup_pb_available() && !p.begin_pb());
-    p.flush();
-  }
-  expect(read_all(path), std::string("\1\2\0\1\0", 5), "atomic DSR fallback");
   std::remove(path.c_str());
   Proof strict;
   assert(strict.open(path.c_str(), ProofFormat::DsrAscii));
@@ -688,7 +678,7 @@ void test_automatic_certificate_boundary() {
   assert(pb_child >= 0);
   if (!pb_child) {
     Proof failed_output;
-    assert(failed_output.open("/dev/full", ProofFormat::Automatic));
+    assert(failed_output.open("/dev/full", ProofFormat::PbpStreaming));
     failed_output.finish_input_transaction();
     FILE *full = failed_output.begin_pb();
     assert(full);
@@ -699,23 +689,6 @@ void test_automatic_certificate_boundary() {
   int pb_status = 0;
   assert(waitpid(pb_child, &pb_status, 0) == pb_child);
   assert(WIFEXITED(pb_status) && !WEXITSTATUS(pb_status));
-  const pid_t child = fork();
-  assert(child >= 0);
-  if (!child) {
-    const struct rlimit no_core = {0, 0};
-    assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
-    assert(prctl(PR_SET_DUMPABLE, 0) == 0);
-    Proof failed_dsr;
-    assert(failed_dsr.open("/dev/full", ProofFormat::Automatic));
-    failed_dsr.add_empty(1, nullptr, 0);
-    failed_dsr.finish_input_transaction();
-    failed_dsr.commit_dsr();
-    failed_dsr.flush();
-    _exit(0); // the regression used to report successful publication
-  }
-  int status = 0;
-  assert(waitpid(child, &status, 0) == child);
-  assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
 }
 
 void test_streaming_pbp() {
@@ -808,7 +781,7 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
     assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
     assert(proof.startup_pb_available());
-    assert(proof.commit_dsr());
+    assert(proof.commit_clause_stream());
     assert(!proof.startup_pb_available());
     const PbpParityEquation equation{{1, 2}, false};
     const int32_t reason[] = {-1, 2};
@@ -850,8 +823,7 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
 static void test_all_formats_report_output_failure() {
   for (auto format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii,
                       ProofFormat::DratBinary, ProofFormat::DratAscii,
-                      ProofFormat::Lrat, ProofFormat::Automatic,
-                      ProofFormat::PbpStreaming})
+                      ProofFormat::Lrat, ProofFormat::PbpStreaming})
     for (bool explicit_flush : {false, true}) {
       const pid_t child = fork();
       assert(child >= 0);
@@ -877,7 +849,7 @@ static void test_all_formats_report_output_failure() {
 
 int main() {
   test_all_formats_report_output_failure();
-  test_automatic_certificate_boundary();
+  test_startup_pbp_certificate_boundary();
   test_streaming_pbp();
   test_streaming_pbp_does_not_archive_divergent_binary_ids();
   test_streaming_pbp_parity_text_buffer_boundary();

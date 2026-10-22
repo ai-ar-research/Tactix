@@ -94,7 +94,7 @@ def binary(lines):
 def grade(cnf, certificate, workdir):
     case = os.path.join(workdir, "case")
     os.makedirs(case)
-    return fuzz.run_case(cnf, [WRAPPER, "--auto-proof", certificate], None,
+    return fuzz.run_case(cnf, [WRAPPER, "--dsr", certificate], None,
                          30, False, case)
 
 

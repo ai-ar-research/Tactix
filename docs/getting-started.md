@@ -57,8 +57,7 @@ checker route applies:
 
 `--pbp` is the explicit spelling of the default. Other formats can be requested
 explicitly: `--dsr` (native DSR, which extends DRAT with substitution
-redundancy), `--drat`, and `--lrat` (with hints). `--auto-proof` retains the
-former behavior: binary DSR unless a complete startup refutation selects PBP.
+redundancy), `--drat`, and `--lrat` (with hints).
 With `--dsr` or `--drat`, `--no-binary` writes the textual variant. PBP and
 LRAT are already textual, so the option has no effect on those formats.
 

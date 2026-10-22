@@ -7,8 +7,8 @@ were written for a single diagnostic pass or a completed campaign.
 ## Current campaign
 
 - `experimental_tierd.py` and `tierd_home_campaign.sh` run the current Tier D
-  experiments. Select `--certificate pbp` for the no-option default whole-run
-  PBP route; `auto` intentionally means the legacy `--auto-proof` route.
+  experiments. The default `--certificate pbp` selects the solver's no-option
+  whole-run PBP route; `--certificate dsr` is the explicit native-DSR route.
 - `fixed_runtime.py`, `controller_regression.py`,
   `freeze_paper_controller_baseline.py`, and `score_tierd_full.py` provide the
   fixed-runtime and paper-target controller-regression gates and scoring.

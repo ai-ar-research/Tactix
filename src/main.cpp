@@ -153,10 +153,8 @@ int main(int argc, char **argv) {
   const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  enum class CliProofFamily { Automatic, Dsr, Drat, Lrat, Pbp };
-  // Whole-run PBP is the public default.  Automatic remains an explicit
-  // compatibility route: startup PBP when it can close before an ordinary
-  // proof event, otherwise canonical binary DSR.
+  enum class CliProofFamily { Dsr, Drat, Lrat, Pbp };
+  // Whole-run PBP is the public default.
   CliProofFamily proof_family = CliProofFamily::Pbp;
   bool binary_proof = true;
   bool quiet = false;
@@ -172,7 +170,7 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     const char *a = argv[i];
     if (!strcmp(a, "--version")) {
-      puts("0.2.0");
+      puts("0.2.1");
       return 0;
     } else if (!strcmp(a, "-q") || !strcmp(a, "--quiet")) {
       quiet = true;
@@ -183,8 +181,6 @@ int main(int argc, char **argv) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
       proof_family = CliProofFamily::Dsr;
-    } else if (!strcmp(a, "--auto-proof")) {
-      proof_family = CliProofFamily::Automatic;
     } else if (!strcmp(a, "--drat")) {
       proof_family = CliProofFamily::Drat;
     } else if (!strcmp(a, "--lrat")) {
@@ -259,7 +255,7 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--drat|--lrat|--pbp] [--no-binary] "
+      printf("usage: tactix [-q|-v] [--dsr|--drat|--lrat|--pbp] [--no-binary] "
              "[--default-affine-search=on|off] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
@@ -284,9 +280,7 @@ int main(int argc, char **argv) {
   }
 
   const ProofFormat proof_format =
-      proof_family == CliProofFamily::Automatic && binary_proof
-          ? ProofFormat::Automatic
-          : proof_family == CliProofFamily::Pbp
+      proof_family == CliProofFamily::Pbp
           ? ProofFormat::PbpStreaming
           : proof_family == CliProofFamily::Lrat
           ? ProofFormat::Lrat
@@ -484,11 +478,11 @@ int main(int argc, char **argv) {
     kernel.structural_provenance = structural_records.get();
   }
   Proof proof;
-  // Automatic admits its startup-PBP route only in binary mode. Whole-run
-  // streaming PBP is textual already, so --no-binary has no effect on it.
+  // Whole-run streaming PBP is textual, so --no-binary has no effect on it.
   kernel.startup_certificate_open =
-      proof_format == ProofFormat::Automatic ||
-      proof_format == ProofFormat::PbpStreaming;
+      proof_format == ProofFormat::PbpStreaming ||
+      proof_format == ProofFormat::DsrBinary ||
+      proof_format == ProofFormat::DsrAscii;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
       fprintf(stderr, "tactix: cannot write proof to '%s'\n", proof_path);
@@ -572,7 +566,7 @@ int main(int argc, char **argv) {
     // reachability witness: a zero on the witness means the mechanism never
     // ran, so an A/B arm reading zero was skipped, not tested. Only counters
     // whose reading is non-obvious carry a comment below.
-    printf("c tactix 0.2.0\n");
+    printf("c tactix 0.2.1\n");
     {
       const auto &affine = default_policy.affine_search_diagnostics();
       // The persistent affine search block prints only when the service is

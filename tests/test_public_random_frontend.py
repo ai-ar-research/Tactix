@@ -52,9 +52,22 @@ def main():
         assert result.returncode == 10, (result.stdout, result.stderr)
         assert "s SATISFIABLE" in result.stdout and re.search(r"^v .* 0$", result.stdout, re.M)
 
+        lrat = work / "unsat.lrat"
+        result = run(public_random, "--random-policy=1", "--lrat", unsat, lrat)
+        assert result.returncode == 20, (result.stdout, result.stderr)
+        assert lrat.is_file() and lrat.stat().st_size
+        assert "c proof-route lrat" in result.stdout
+
         retired = run(production, "--random-policy=5", sat)
         assert retired.returncode == 1
         assert "unknown option '--random-policy=5'" in retired.stderr
+
+        retired = run(production, "--auto-proof", sat)
+        assert retired.returncode == 1
+        assert "unknown option '--auto-proof'" in retired.stderr
+        retired = run(public_random, "--auto-proof", sat)
+        assert retired.returncode == 1
+        assert "unsupported option '--auto-proof'" in retired.stderr
 
     print("public random frontend profiles/forms and production-policy purge PASS")
 

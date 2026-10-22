@@ -350,7 +350,7 @@ void unsupported_proofs_decline_cleanly() {
     Proof proof;
     std::remove(path);
     if (format == ProofFormat::Pbp) {
-      assert(proof.open(path, ProofFormat::Automatic));
+      assert(proof.open(path, ProofFormat::PbpStreaming));
       proof.finish_input_transaction();
       assert(proof.begin_pb());
     } else {

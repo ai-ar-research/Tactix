@@ -21,7 +21,7 @@ static int rule(const char *name) {
 int main() {
   for (int format : {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                      TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                     TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_AUTOMATIC})
+                     TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP})
     for (int entry = 0; entry < 5; ++entry) {
       const pid_t child = fork();
       assert(child >= 0);

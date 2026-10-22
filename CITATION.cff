@@ -9,8 +9,8 @@ abstract: >-
   the artifact of the paper "Tactix: Towards a Programmable Strategy
   Interface for Flexible SAT-Solving".
 type: software
-version: 0.2.0
-date-released: 2026-10-20
+version: 0.2.1
+date-released: 2026-10-22
 license: MIT
 repository-code: "https://github.com/ai-ar-research/Tactix"
 keywords:

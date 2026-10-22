@@ -21,7 +21,7 @@
 namespace tactix {
 
 enum class ProofFormat { DsrBinary, DsrAscii, DratBinary, DratAscii, Lrat,
-                         Automatic, Pbp, PbpStreaming };
+                         Pbp, PbpStreaming };
 
 struct DsrLiteralMapping {
   Lit from = INVALID_LIT;
@@ -102,17 +102,14 @@ public:
 
   bool open(const char *path, ProofFormat format);
   uint64_t stream_identity() const noexcept { return stream_identity_; }
-  // Automatic and whole-run PBP output privately stage input normalization.
-  // At the original-input action boundary the caller may commit a complete
-  // native PB refutation. The first subsequent clausal event commits the
-  // ordinary proof route instead. Neither choice can be undone, and no
-  // published prefix is overwritten.
+  // Whole-run PBP privately stages input normalization. At the original-input
+  // action boundary the caller may commit a complete native PB refutation.
+  // The first subsequent clausal event publishes the streaming-PBP header.
   void finish_input_transaction();
   bool startup_pb_available() const {
-    return !input_transaction_ &&
-           (automatic_pending_ || (streaming_pbp() && pbp_output_));
+    return !input_transaction_ && streaming_pbp() && pbp_output_;
   }
-  bool commit_dsr();
+  bool commit_clause_stream();
   FILE *begin_pb();
   bool finish_pb();
   bool pb() const {
@@ -153,9 +150,8 @@ public:
   }
   void bind_population_observer(PopulationObserver *) noexcept;
   // Settle only a route whose bytes already have a committed destination.
-  // Automatic must remain undecided; callers learn that its staged stream was
-  // incomplete through ObserverUnboundIncomplete instead of accidentally
-  // selecting DSR while merely removing an observer.
+  // An unpublished streaming-PBP prefix is incomplete until a clausal event
+  // commits its header.
   bool settle_population_observer() noexcept;
   PopulationObserver *population_observer() const noexcept {
     return population_observer_;
@@ -395,9 +391,7 @@ private:
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
-  FILE *automatic_output_ = nullptr;
   FILE *pbp_output_ = nullptr;
-  bool automatic_pending_ = false;
   bool input_transaction_ = false;
   bool has_sr_witness_ = false;
   bool streaming_pbp_finished_ = false;

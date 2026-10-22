@@ -100,7 +100,7 @@ class TierdPaperContractTests(unittest.TestCase):
                 writer = csv.DictWriter(out, fieldnames=rows[0], delimiter="\t")
                 writer.writeheader(); writer.writerows(rows)
             arm = {"path": "pins/tactix", "sha256": "a" * 64,
-                   "arguments": ["--auto-proof"], "certificate": "auto"}
+                   "arguments": [], "certificate": "pbp"}
             base_manifest = {"pin_sha256": {}, "arms": {"tactix": arm}}
             base.joinpath("manifest.json").write_text(json.dumps(base_manifest))
             for task in (1, 2):

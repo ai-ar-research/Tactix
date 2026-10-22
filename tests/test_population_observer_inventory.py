@@ -95,13 +95,12 @@ for signature in (
     "void Proof::del(",
     "bool Proof::add_external_rup(",
     "bool Proof::del_external(",
-    "bool Proof::commit_dsr()",
     "FILE *Proof::begin_pb()",
     "bool Proof::open(",
 ):
     require(proof_cpp, signature, "observe_checker(")
 require(proof_cpp, "bool Proof::settle_population_observer()",
-        "automatic_pending_", "flush()")
+        "streaming_pbp() && pbp_output_", "flush()")
 require(proof_cpp, "bool Proof::open(",
         "CheckerPopulationEventKind::RouteOpened")
 require(proof_cpp, "void Proof::bind_population_observer(",

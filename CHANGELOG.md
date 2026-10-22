@@ -4,6 +4,21 @@ All notable user-visible changes are recorded here. The project follows
 semantic versioning; the public C API remains source-compatible within the
 0.x release line unless a change is called out explicitly.
 
+## [0.2.1] - 2026-10-22
+
+### Removed
+
+- Removed the legacy `--auto-proof` option and
+  `TACTIX_PROOF_AUTOMATIC`. Proof-format value 5 remains reserved and is
+  rejected. Use the default whole-run PBP route or request DSR explicitly.
+
+### Fixed
+
+- Public clients can select LRAT before `tactix_read_dimacs`; the deferred
+  input replay is now attached when file ingestion completes.
+- Explicit DSR keeps the startup-certificate boundary open for native startup
+  refutations instead of disabling those proof-producing paths prematurely.
+
 ## [0.2.0] - 2026-10-20
 
 ### Changed
@@ -52,5 +67,6 @@ semantic versioning; the public C API remains source-compatible within the
 - Added progress output, installable CMake and pkg-config metadata, and robust
   compressed-input error reporting while preserving the paper strategy.
 
+[0.2.1]: https://github.com/ai-ar-research/Tactix/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ai-ar-research/Tactix/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ai-ar-research/Tactix/releases/tag/v0.1.0

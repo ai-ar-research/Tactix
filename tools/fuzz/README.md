@@ -65,7 +65,7 @@ The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/
 When the pinned Tactix executable is renamed so its basename is not `tactix`,
 include `--pbp` in the `--solver` command. The harness otherwise assumes an
 unknown executable emits DRAT; `--pbp` selects Tactix's default whole-run PBP
-mode and its VeriPB/CakePB oracle route. Use `--auto-proof` only for the
-retained startup-PBP/DSR compatibility gate.
+mode and its VeriPB/CakePB oracle route. Use `--dsr` only for an explicit
+native-DSR campaign.
 Set `TACTIX_FUZZ_RUN_ID` and `TACTIX_FUZZ_LEG_ID` for a stable custom namespace, or pass `--outdir`; identifiers permit letters, digits, `.`, `_` and `-`.
 Failure bundles land in that private directory (untracked) and are promoted to the corpus manually once diagnosed. Immutable checker and replay-harness stores remain shared under `failures/checkers/` and `failures/harnesses/` because their directory names are content hashes.

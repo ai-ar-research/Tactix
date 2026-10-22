@@ -34,9 +34,8 @@ ScopedPopulationObserverBinding::ScopedPopulationObserverBinding(
 ScopedPopulationObserverBinding::~ScopedPopulationObserverBinding() {
   if (!kernel_)
     return;
-  // Proof::~Proof also flushes, but Automatic's route decision is semantic:
-  // removing an observer must never select DSR. Explicit routes can settle
-  // their pending transaction before the non-owning observer disappears.
+  // Proof::~Proof also flushes. Settle any pending explicit-route transaction
+  // before the non-owning observer disappears.
   if (kernel_->proof)
     kernel_->proof->settle_population_observer();
   kernel_bind_population_observer(*kernel_, previous_);

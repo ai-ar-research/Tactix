@@ -12,7 +12,7 @@ Every UNSAT answer has a machine-checkable proof; every SAT answer has a model.
 - **Checked answers.** UNSAT proofs are written as whole-run pseudo-Boolean
   proofs by default, elaborated by VeriPB and then checked by CakePB. Native
   DSR (DRAT extended with substitution redundancy) remains available with
-  `--dsr`; `--auto-proof` retains the earlier startup-PBP/DSR route.
+  `--dsr`.
 
 ## Quick start
 
@@ -70,18 +70,10 @@ User-visible release changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Layout
 
-```
-include/tactix.h  the public C interface
-src/              solver kernel, proof rules, default strategy, proof output
-examples/         strategies written against the C interface
-tests/            unit, API, and proof tests (ctest)
-tools/checkers/   proof-checker setup and patches
-tools/fuzz/       fuzzing harness with proof and model oracles
-tools/bench/      benchmark runner and proof-checking script
-benchmarks/       frozen tiers, reference data, campaigns and reports
-docs/             user and developer documentation
-third_party/      DejaVu (graph automorphisms for symmetry breaking)
-```
+`include/tactix.h` is the public C interface; `src/` contains the solver.
+`examples/` contains client strategies, while `tests/` and `tools/` contain
+the test, checker, fuzzing and benchmark infrastructure. Frozen datasets live
+under `benchmarks/`; guides under `docs/`; vendored code under `third_party/`.
 
 ## License
 

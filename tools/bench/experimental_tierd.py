@@ -57,7 +57,8 @@ FIXED_LONG_DSR_PROVENANCE={
             FIXED_LONG_DSR_HASHES['dsr-compress'],
     },
 }
-PROOF_ARGUMENTS={'--pbp','--auto-proof','--dsr','--drat','--lrat'}
+PROOF_ARGUMENTS={'--pbp','--dsr','--drat','--lrat'}
+RETIRED_PROOF_ARGUMENTS={'--auto-proof'}
 GF2_TELEMETRY_ARGUMENTS=('--feedback','--feedback-replay','--structural-provenance',
                          '--controller-gf2-affine-profile')
 CAUSAL_PREFLIGHT_ARTIFACT_ARGUMENTS=('--feedback','--feedback-replay',
@@ -170,14 +171,14 @@ def dsr_checker_provenance(dsr_profile):
     return json.loads(json.dumps(FIXED_LONG_DSR_PROVENANCE))
 
 def checker_sources(reference, baseline, certificate, dsr_profile='frozen'):
-    if certificate not in ('pbp','dsr','auto','none'):
+    if certificate not in ('pbp','dsr','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    if dsr_profile not in ('frozen','long64','long64-fixed'):
+    if certificate == 'dsr' and dsr_profile not in ('frozen','long64','long64-fixed'):
         raise ValueError('unsupported DSR checker profile: '+dsr_profile)
     names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
-    if certificate in ('dsr','auto'):
+    if certificate == 'dsr':
         names.update({'drat-trim':'drat-trim','cake_lpr':'cake-lpr'})
-    if certificate in ('pbp','auto'):
+    if certificate == 'pbp':
         names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
     if certificate=='none':
         names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
@@ -212,10 +213,11 @@ def slurm_time(seconds):
 
 def solver_arguments(certificate, extra, gf2_telemetry=False,
                      causal_preflight=False):
-    if certificate not in ('pbp','dsr','auto','none'):
+    if certificate not in ('pbp','dsr','none'):
         raise ValueError('unsupported certificate mode: '+certificate)
-    proof={'pbp':[],'auto':['--auto-proof'],'dsr':['--dsr'],'none':[]}[certificate]
-    if any(not value or value in PROOF_ARGUMENTS for value in extra):
+    proof={'pbp':[],'dsr':['--dsr'],'none':[]}[certificate]
+    if any(not value or value in PROOF_ARGUMENTS or
+           value in RETIRED_PROOF_ARGUMENTS for value in extra):
         raise ValueError('extra solver arguments must be nonempty and may not override the certificate mode')
     if gf2_telemetry and any(
             value == reserved or value.startswith(reserved+'=')
@@ -236,8 +238,8 @@ def selected_scratch_capacity(a, selection_authority, rows):
         raise ValueError('unsupported scratch capacity profile')
     if (selection_authority != FIXED44_SELECTION or len(rows)!=44 or
             a.cpus_per_task!=4 or a.partition!='cpu-q' or
-            a.array_throttle is not None or a.certificate!='auto'):
-        raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and automatic proof')
+            a.array_throttle is not None or a.certificate!='pbp'):
+        raise ValueError('fixed44 scratch capacity requires the exact 44-row selection authority, cpu-q, 4 CPUs, no throttle, and whole-run PBP')
     if a.gf2_telemetry or a.retain_failed_proof or a.causal_preflight:
         raise ValueError('fixed44 scratch capacity forbids telemetry, proof retention, and causal preflight')
     if profile=='fixed44-shared-floor-v1':
@@ -479,9 +481,11 @@ def prepare(a):
             raise ValueError('uncommitted source in build tree')
     manifest=json.loads((ref/'manifest.json').read_text())
     assert sha(ref/'manifest.json')==json.loads((ref/'launch.json').read_text())['manifest_sha256']
-    dsr_profile=getattr(a,'dsr_checker_profile','frozen')
+    dsr_profile=(getattr(a,'dsr_checker_profile','frozen')
+                 if a.certificate=='dsr' else None)
     checkers=checker_sources(ref,manifest,a.certificate,dsr_profile)
-    checker_provenance=dsr_checker_provenance(dsr_profile)
+    checker_provenance=(dsr_checker_provenance(dsr_profile)
+                        if a.certificate=='dsr' else None)
     assert sha(ref/'cache.sha256')==manifest['cache_manifest_sha256']
     inputs=dict((rel,digest) for digest,rel in (line.split() for line in (ref/'cache.sha256').read_text().splitlines()))
     source_rows=[dict(rank=i+1,arm='tactix',tier='D',instance=r['rel'],expected=r['expected']) for i,r in enumerate(manifest['instances'])]
@@ -634,8 +638,6 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
                         if a.certificate=='none' else
                         'Default whole-run PBP, elaborated by pinned VeriPB and independently checked by CakePB against the original CNF.'
                         if a.certificate=='pbp' else
-                        'Automatic PBP / witnessed DSR / witness-free DSR routed by pinned VeriPB+CakePB, no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'
-                        if a.certificate=='auto' else
                         'Explicit native DSR uses pinned no-option dsr-trim→Trestle for witnessed SR, or validated DSR→DRAT→drat-trim→CakeLPR for witness-free DSR against the original CNF.'),
         cleanup_contract='O_TMPFILE on /tmp for input, DSR, LSR, model and checker scratch; no directory entries ever. Kernel releases storage at last close, including SIGKILL/OOM. Fail closed if unsupported. Only bounded JSON metadata and scheduler logs persist; core dumps disabled.',
         caveat=('If the entire job dies, its result may be missing; never interpret missing as timeout or checked. A declared scratch admission, contention, ENOSPC, or file/handle limit is incomplete infrastructure evidence, never a proof rejection, timeout, or closure.'
@@ -781,7 +783,7 @@ if __name__=='__main__':
     p.add_argument('--governor-jobs',type=Path,
                    help='with --submit: append the array job id to this quota-governor jobs.json')
     p.add_argument('--afterany',type=int,help='submit only after this SLURM job or array terminates')
-    p.add_argument('--certificate',choices=['pbp','dsr','auto','none'],default='dsr',
+    p.add_argument('--certificate',choices=['pbp','dsr','none'],default='pbp',
                    help='none: no proof path, UNSAT unchecked and never valid; SAT models checked')
     p.add_argument('--verified-certificate-reference',type=Path,action='append',default=[],
                    help='repeatable campaign directory; an UNSAT certificate byte-identical to one it '

@@ -78,10 +78,6 @@ int main(int argc, char **argv) {
       proof_format = TACTIX_PROOF_PBP;
       continue;
     }
-    if (!std::strcmp(argv[i], "--auto-proof")) {
-      proof_format = TACTIX_PROOF_AUTOMATIC;
-      continue;
-    }
     if (argv[i][0] == '-' && argv[i][1]) {
       fprintf(stderr, "tactix-public: unsupported option '%s'\n", argv[i]);
       printf("s UNKNOWN\n");
@@ -90,12 +86,12 @@ int main(int argc, char **argv) {
     if (!cnf_path) cnf_path = argv[i];
     else if (!proof_path) proof_path = argv[i];
     else {
-      fprintf(stderr, "usage: tactix-public [--auto-proof] <cnf> [proof]\n");
+      fprintf(stderr, "usage: tactix-public [--pbp] <cnf> [proof]\n");
       return 1;
     }
   }
   if (!cnf_path) {
-    fprintf(stderr, "usage: tactix-public [--auto-proof] <cnf> [proof]\n");
+    fprintf(stderr, "usage: tactix-public [--pbp] <cnf> [proof]\n");
     printf("s UNKNOWN\n");
     return 1;
   }
@@ -152,7 +148,7 @@ int main(int argc, char **argv) {
   port::PublicPort::session = nullptr;
   if (kernel.proof) kernel.proof->flush();
 
-  printf("c tactix-public 0.2.0\n");
+  printf("c tactix-public 0.2.1\n");
   printf("c conflicts %llu\n", static_cast<unsigned long long>(kernel.stats.conflicts));
   printf("c decisions %llu\n", static_cast<unsigned long long>(kernel.stats.decisions));
   printf("c propagations %llu\n", static_cast<unsigned long long>(kernel.stats.propagations));

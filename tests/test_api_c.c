@@ -447,8 +447,7 @@ static void test_stepwise_unsat(void) {
 static void test_late_input_proof(void) {
   const int formats[] = {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                          TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
-                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_AUTOMATIC,
-                         TACTIX_PROOF_PBP};
+                         TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP};
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];
     snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-late-%ld-%u.proof",
@@ -470,6 +469,14 @@ static void test_late_input_proof(void) {
     assert(ftell(file) > 0);
     assert(fclose(file) == 0);
     assert(remove(proof_path) == 0);
+  }
+  {
+    char proof_path[96];
+    snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-retired-%ld.proof",
+             (long)getpid());
+    tactix *s = tactix_init();
+    assert(tactix_proof(s, proof_path, 5) == -1);
+    tactix_release(s);
   }
   for (unsigned i = 0; i < sizeof formats / sizeof formats[0]; ++i) {
     char proof_path[96];

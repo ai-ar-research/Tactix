@@ -616,7 +616,7 @@ void proof_route_transition_is_precommit() {
   const std::string path = temporary_path();
   Kernel kernel = triangle();
   Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::Automatic));
+  assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;

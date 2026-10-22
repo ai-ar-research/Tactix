@@ -121,7 +121,6 @@ struct RawInputPopulationEvent {
 
 enum class CheckerRoute : uint8_t {
   None,
-  AutomaticPending,
   Dsr,
   Drat,
   Lrat,
@@ -243,8 +242,8 @@ PopulationObserver *kernel_bind_population_observer(
 void kernel_sync_population_observer(Kernel &) noexcept;
 
 // Settles pending transactions for an already-selected proof route while the
-// observer is still alive, then restores the previous binding. Automatic
-// remains undecided and reports an incomplete unbind. Construct this after
+// observer is still alive, then restores the previous binding. An unpublished
+// streaming-PBP prefix reports an incomplete unbind. Construct this after
 // both Kernel and Proof when their destruction order does not already
 // guarantee that Proof dies before the observer.
 class ScopedPopulationObserverBinding {

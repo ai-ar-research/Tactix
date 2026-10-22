@@ -10,9 +10,9 @@
 # Paths are relative to the repository root. prepare/recheck only write the new
 # campaign; validate and submit call sbatch. Contract (user, 2026-10-09): all
 # 1,166 rows of benchmarks/baselines/sc24-26-32g-5000s, cpu-q, 4 CPUs, 32768 MiB
-# (recheck 65536 MiB), 5000 s solve, 28800 s proof-check window, automatic proof
-# (PBP -> VeriPB/CakePB, witness-free DSR -> drat-trim/CakeLPR, witnessed DSR ->
-# long64-fixed dsr-trim/Trestle), named scratch in <campaign>/scratch deleted at
+# (recheck 65536 MiB), 5000 s solve, 28800 s proof-check window, whole-run PBP
+# (VeriPB elaboration followed by CakePB checking), named scratch in
+# <campaign>/scratch deleted at
 # classification and on timeout/SIGTERM, array throttle %125 (user-requested),
 # read-only quota monitoring every 10 minutes, no node-local scratch and no node
 # constraint.
@@ -55,7 +55,7 @@ prepare)
   done
   python3 "$T" --prepare --campaign "$R/$campaign" --binary "$R/$binary" \
     --source "$R/$source" --binary-source-commit "$commit" \
-    --certificate auto --dsr-checker-profile long64-fixed "${common[@]}" "$@"
+    --certificate pbp "${common[@]}" "$@"
   rows=$([ "$smoke" -gt 0 ] && echo "$smoke" || echo 1166)
   check_array "$campaign" "$rows" 32768M
   pinned=$(sha256sum "$R/$campaign/pins/tactix" | cut -d' ' -f1)

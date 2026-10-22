@@ -208,7 +208,7 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         arguments = SimpleNamespace(
             scratch_capacity_profile='fixed44-whole-memory-v2',
             cpus_per_task=4, partition='cpu-q', array_throttle=None,
-            certificate='auto', gf2_telemetry=False,
+            certificate='pbp', gf2_telemetry=False,
             retain_failed_proof=False, causal_preflight=False)
         rows = [dict(task=index) for index in range(44)]
         selected = builder.selected_scratch_capacity(
@@ -253,7 +253,7 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         arguments = SimpleNamespace(
             scratch_capacity_profile='fixed44-cooperative-v1',
             cpus_per_task=4, partition='cpu-q', array_throttle=None,
-            certificate='auto', gf2_telemetry=False,
+            certificate='pbp', gf2_telemetry=False,
             retain_failed_proof=False, causal_preflight=False)
         rows = [dict(task=index) for index in range(44)]
         selected = builder.selected_scratch_capacity(
@@ -306,10 +306,10 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                                 FROZEN_DSR_HASHES=frozen_hashes,
                                 LONG_DSR_HASHES=long_hashes,
                                 FIXED_LONG_DSR_HASHES=fixed_hashes):
-                original = builder.checker_sources(reference, baseline, 'auto')
-                selected = builder.checker_sources(reference, baseline, 'auto', 'long64')
+                original = builder.checker_sources(reference, baseline, 'dsr')
+                selected = builder.checker_sources(reference, baseline, 'dsr', 'long64')
                 repaired = builder.checker_sources(
-                    reference, baseline, 'auto', 'long64-fixed')
+                    reference, baseline, 'dsr', 'long64-fixed')
                 self.assertEqual(original['dsr-trim'], frozen / 'dsr-trim')
                 self.assertEqual(selected['dsr-trim'], long / 'dsr-trim')
                 self.assertEqual(selected['dsr-compress'], long / 'compress')
@@ -323,22 +323,22 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                     saved = path.read_bytes()
                     path.write_bytes(b'tampered')
                     with self.assertRaisesRegex(ValueError, 'pin mismatch'):
-                        builder.checker_sources(reference, baseline, 'auto', 'long64')
+                        builder.checker_sources(reference, baseline, 'dsr', 'long64')
                     path.write_bytes(saved)
                 (long / 'compress').unlink()
                 with self.assertRaisesRegex(ValueError, 'pin mismatch'):
-                    builder.checker_sources(reference, baseline, 'auto', 'long64')
+                    builder.checker_sources(reference, baseline, 'dsr', 'long64')
                 for name in ('dsr-trim', 'dsr-compress'):
                     path = fixed / name
                     saved = path.read_bytes()
                     path.write_bytes(b'tampered')
                     with self.assertRaisesRegex(ValueError, 'pin mismatch'):
                         builder.checker_sources(
-                            reference, baseline, 'auto', 'long64-fixed')
+                            reference, baseline, 'dsr', 'long64-fixed')
                     path.write_bytes(saved)
-                self.assertEqual(builder.checker_sources(reference, baseline, 'auto'), original)
+                self.assertEqual(builder.checker_sources(reference, baseline, 'dsr'), original)
                 with self.assertRaisesRegex(ValueError, 'unsupported DSR checker profile'):
-                    builder.checker_sources(reference, baseline, 'auto', 'unqualified')
+                    builder.checker_sources(reference, baseline, 'dsr', 'unqualified')
 
     def test_fixed_long_profile_provenance_is_hash_bound(self):
         import experimental_tierd as builder

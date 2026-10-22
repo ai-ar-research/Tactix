@@ -555,7 +555,6 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     const char *arg = argv[i];
     if (!std::strcmp(arg, "--pbp")) proof_format = TACTIX_PROOF_PBP;
-    else if (!std::strcmp(arg, "--auto-proof")) proof_format = TACTIX_PROOF_AUTOMATIC;
     else if (!std::strcmp(arg, "--dsr")) proof_format = TACTIX_PROOF_DSR_BINARY;
     else if (!std::strcmp(arg, "--drat")) proof_format = TACTIX_PROOF_DRAT_BINARY;
     else if (!std::strcmp(arg, "--lrat")) proof_format = TACTIX_PROOF_LRAT;
@@ -582,7 +581,7 @@ int main(int argc, char **argv) {
     else if (!proof_path) proof_path = arg;
     else {
       std::fprintf(stderr, "usage: tactix-public-random [--random-policy=SEED] "
-                           "[--pbp|--auto-proof|--dsr|--drat|--lrat] CNF [PROOF]\n");
+                           "[--pbp|--dsr|--drat|--lrat] CNF [PROOF]\n");
       return 1;
     }
   }
@@ -628,7 +627,15 @@ int main(int argc, char **argv) {
     std::puts("s SATISFIABLE");
     print_model(solver, variables);
   } else if (result == 20) {
-    std::puts("c proof-route pbp");
+    if (proof_path) {
+      const char *route = proof_format == TACTIX_PROOF_PBP ? "pbp" :
+                          proof_format == TACTIX_PROOF_LRAT ? "lrat" :
+                          proof_format == TACTIX_PROOF_DSR_BINARY ||
+                                  proof_format == TACTIX_PROOF_DSR_ASCII
+                              ? "dsr-trestle"
+                              : "drat";
+      std::printf("c proof-route %s\n", route);
+    }
     std::puts("s UNSATISFIABLE");
   } else {
     std::puts("s UNKNOWN");

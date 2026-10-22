@@ -156,19 +156,16 @@ void format_boundaries(){
  {Proof p;assert(p.open(path.c_str(),ProofFormat::Lrat));std::vector<uint64_t> handles{77};
   assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   assert(handles==std::vector<uint64_t>{77} && !p.premise_bytes());}
- {Proof p;assert(p.open(path.c_str(),ProofFormat::Automatic));p.finish_input_transaction();
+ {Proof p;assert(p.open(path.c_str(),ProofFormat::PbpStreaming));p.finish_input_transaction();
   assert(p.begin_pb() && p.pb());std::vector<uint64_t> handles{77};
   assert(!p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   const int32_t source[]={1,2};assert(!p.del_external(1,0,source,2));
   assert(handles==std::vector<uint64_t>{77} && !p.premise_bytes());}
- {Proof p;assert(p.open(path.c_str(),ProofFormat::Automatic));p.finish_input_transaction();
+ {Proof p;assert(p.open(path.c_str(),ProofFormat::DsrBinary));
   const Lit source[]={internalize(1),internalize(2)};p.seed_population(1,source,2);p.arm_population_shadow();
   std::vector<uint64_t> handles;
   assert(p.retain_premise_groups({{{1,2}}},8,100,100000,[](uint64_t){return true;},handles));
   p.del(2,1,source,2);
-  // Leased native deletion is a clausal ownership boundary. PB cannot discard
-  // the checker population while those retained premises remain live.
-  assert(!p.startup_pb_available() || !p.begin_pb());
   assert(p.dsr());p.release_premise_groups(handles,3);p.flush();assert(!p.unbacked_deletions());}
  std::remove(path.c_str());
 }

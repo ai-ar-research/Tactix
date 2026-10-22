@@ -79,7 +79,7 @@ def proof_cost_comparison(candidate, baseline):
 
 
 def candidate_arguments(arguments=()):
-    """Keep this Default-policy gate on its original certificate contract.
+    """Keep this Default-policy gate on the current default PBP contract.
 
     Extensions are deliberately enumerated: arbitrary CLI policy/proof flags
     would silently change what the historical comparisons qualify.
@@ -94,7 +94,7 @@ def candidate_arguments(arguments=()):
     families = [value.split('=', 1)[0] for value in values]
     require(len(families) == len(set(families)),
             'duplicate or conflicting qualified Default argument')
-    return ['--auto-proof', *values]
+    return values
 
 
 def prepare(prefix, release, solver_arguments=(), dsr_transport=None):
@@ -162,7 +162,7 @@ exec python3 {shlex.quote(str(campaign / 'pins/runtime_task.py'))} {shlex.quote(
             baseline_manifest=dict(path=str(source.relative_to(ROOT)), sha256=sha(source)),
             arms={arm_name: dict(path='pins/tactix', sha256=sha(release),
                 source_commit=pin['source_commit'], source_build=str(release.parent.relative_to(ROOT)),
-                arguments=arguments, certificate='auto')},
+                arguments=arguments, certificate='pbp')},
             resource_contract=contract, input_sha256=accepted['input_sha256'],
             collect_runtime_context=old.get('collect_runtime_context', False),
             scratch_policy='anonymous-local-files-v1',
@@ -254,8 +254,8 @@ def score(campaign, target_baseline=None):
     require(len(manifest['arms']) == 1, 'candidate arm ambiguity')
     arm = next(iter(manifest['arms'].values()))
     wire = arm.get('arguments')
-    require(isinstance(wire, list) and wire and wire[0] == '--auto-proof' and
-            wire == candidate_arguments(wire[1:]) and arm.get('certificate') == 'auto',
+    require(isinstance(wire, list) and
+            wire == candidate_arguments(wire) and arm.get('certificate') == 'pbp',
             'candidate certificate/argument contract changed')
     for relative, digest in manifest['pin_sha256'].items():
         require(sha(campaign / relative) == digest, 'campaign pin changed: ' + relative)

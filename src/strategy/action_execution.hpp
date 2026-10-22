@@ -15,7 +15,7 @@ struct CloseStartupCertificateRequest {};
 inline void execute_action(Kernel &k, CloseStartupCertificateRequest) {
   k.close_startup_certificate();
   if (k.proof && k.proof->startup_pb_available())
-    k.proof->commit_dsr();
+    k.proof->commit_clause_stream();
 }
 
 // Per-solve lifecycle releases. None changes the formula or the assignment;

@@ -377,7 +377,7 @@ void test_duplicate_unit_and_large_input_classification() {
   assert(large_adds == 2);
 }
 
-void test_proof_route_lifecycle_and_automatic_unbind() {
+void test_proof_route_lifecycle_and_streaming_pbp_unbind() {
   {
     Proof proof;
     Recorder recorder;
@@ -436,37 +436,12 @@ void test_proof_route_lifecycle_and_automatic_unbind() {
   }
 
   {
-    Kernel kernel;
     Recorder recorder;
-    const std::string path = proof_path("automatic-unbind");
+    const std::string path = proof_path("startup-pbp");
     {
       Proof proof;
       proof.bind_population_observer(&recorder);
-      assert(proof.open(path.c_str(), ProofFormat::Automatic));
-      kernel.proof = &proof;
-      {
-        ScopedPopulationObserverBinding binding(kernel, recorder);
-        const Lit unit = lit(1);
-        proof.add_derived_unit(1, unit, nullptr, 0);
-      }
-      assert(recorder.checker_count(
-                 CheckerPopulationEventKind::RouteCommitted) == 0);
-      assert(recorder.checker_count(
-                 CheckerPopulationEventKind::PendingCommitBegin) == 0);
-      assert(recorder.checker_count(
-                 CheckerPopulationEventKind::ObserverUnboundIncomplete) == 1);
-      kernel.proof = nullptr;
-    }
-    assert(std::remove(path.c_str()) == 0);
-  }
-
-  {
-    Recorder recorder;
-    const std::string path = proof_path("automatic-pbp");
-    {
-      Proof proof;
-      proof.bind_population_observer(&recorder);
-      assert(proof.open(path.c_str(), ProofFormat::Automatic));
+      assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
       proof.finish_input_transaction();
       assert(proof.begin_pb());
       assert(recorder.checker_count(
@@ -1268,7 +1243,7 @@ int main() {
   test_no_proof_raw_and_solver_population();
   test_raw_empty_and_long_tautology_classification();
   test_duplicate_unit_and_large_input_classification();
-  test_proof_route_lifecycle_and_automatic_unbind();
+  test_proof_route_lifecycle_and_streaming_pbp_unbind();
   test_explicit_route_rebind_settles_the_original_observer();
   test_nested_scoped_rebind_settles_each_observer();
   test_dsr_checker_transactions_and_exact_clauses();

@@ -16,7 +16,7 @@ not independent proof modes whose conclusions are assumed by one another.
 Add whole-run PBP as a complete mode: pinned VeriPB checks and
 elaborates it, then verified CakePB checks the elaborated proof against the
 original CNF. The new mode must cover every proof event a selected run can
-produce. After the completed gate it becomes the CLI default while Automatic,
+produce. After the completed gate it becomes the CLI default while explicit
 DSR, DRAT, LRAT, Trestle, XLRUP and the bundle route remain available. It
 cannot narrow the N1 action surface.
 
@@ -186,7 +186,7 @@ same node and CPU, with the exact checked proof, search counters, and no RSS
 increase. The first harness's invalid public rows are retained; only those
 missing rows were reissued. Current-source correspondence separately asserts
 zero fallback and decline because the reissue summary regex omitted that line.
-Paper-route diagnostic `1795242` timed out in all four `--auto-proof` draws at
+Paper-route diagnostic `1795242` timed out in all four legacy automatic-mode draws at
 120.33 seconds and produced only rejected partial DSR artifacts. That route
 changes the trajectory and is much slower than default PBP on this row, so it
 does not justify charging PBP against the proof-free CMS target or claim a

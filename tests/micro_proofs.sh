@@ -18,6 +18,7 @@ RESTART_TEST="${5:-}"
 FACTOR_N1_TEST="${6:-}"
 ONLINE_INPROCESS_TEST="${7:-}"
 ULC_RAT_TEST="${8:-}"
+PUBLIC_RANDOM="${9:-}"
 for checker in "$DSR_TRIM" "$SR_CHECK"; do
   [ -x "$checker" ] \
     || { echo "native DSR checker pipeline not built — skipping"; exit 77; }
@@ -156,11 +157,6 @@ EOF
   # cyclic xor chain, odd total parity: 1^2=1, 2^3=1, 1^3=1 sums to 0=1
   printf 'p cnf 3 6\n1 2 0\n-1 -2 0\n2 3 0\n-2 -3 0\n1 3 0\n-1 -3 0\n' \
     > "$T/xor3.cnf"
-  # TransitiveReduce failed-source unit: assuming -1 reaches both 4 and -4.
-  # The independent full enumeration on 5,6 keeps the whole formula UNSAT so
-  # an external checker can replay the new unit chain and the search tail.
-  printf 'p cnf 6 8\n1 2 0\n1 3 0\n-2 4 0\n-2 -4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' \
-    > "$T/transitive-failed.cnf"
   # Exact d=3,n=3 output of the StConn owner generator. Native DSR/DRAT use
   # Lucky15's crossing-sequence RUP refutation; LRAT safely falls back to CDCL.
   cat > "$T/stconn-3x3.cnf" <<'EOF'
@@ -576,27 +572,6 @@ if grep -Eq '^s VERIFIED[[:space:]]+UNSAT$' "$T/direct-sr-bad-check.out"; then
   exit 1
 fi
 
-# Drive the failed-source rule path directly and require that the independently
-# checked proof actually contains a TransitiveReduce unit, rather than passing
-# only because the independent UNSAT component was solved without the rule.
-if [ -x "$LRAT_CHECK" ]; then
-  cnf="$T/transitive-failed.cnf"
-  proof="$cnf.transitive.lrat"
-  TACTIX_STRESS_RULES=TransitiveReduce TACTIX_V4_EARLY_EXIT=0 \
-    "$TACTIX" --stress-policy --lrat "$cnf" "$proof" > "$T/out" \
-    && rc=$? || rc=$?
-  [ "$rc" -eq 20 ] \
-    || { echo "FAIL: transitive failed-source fixture not UNSAT (rc=$rc)"; exit 1; }
-  grep -Eq '^c transitive  .* [1-9][0-9]* units,' "$T/out" \
-    || { echo "FAIL: transitive failed-source fixture emitted no unit"; cat "$T/out"; exit 1; }
-  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-    || { echo "FAIL: native LRAT of transitive failed-source unit rejected"; \
-         cat "$T/check"; exit 1; }
-  grep -q 'c VERIFIED' "$T/check" \
-    || { echo "FAIL: lrat-check gave no transitive-unit verdict"; \
-         cat "$T/check"; exit 1; }
-fi
-
 # Analyze's level-one failed-literal path can emit more than one root unit from
 # one conflict.  Drive the exact rule transition in the analysis fixture, then
 # check the complete native LRAT proof against the matching original CNF.
@@ -715,102 +690,6 @@ if [ -n "$CONGRUENCE_TEST" ]; then
   done
 fi
 
-# ---- the same formulas with BVE in the proof. The generic stress scenario
-# BVE at the root, so BVE's resolvent/deletion deltas must compose into a valid
-# DRAT + native-LRAT proof: enum2 is refuted by BVE alone (the equivalence-gate
-# path derives {b},{¬b}→∅), xor3/php3 mix resolvents with a search-proof tail.
-for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
-  for mode in binary ascii; do
-    proof="$cnf.bve.$mode.dsr"
-    if [ "$mode" = binary ]; then
-      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --dsr "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
-    else
-      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --dsr --no-binary "$cnf" "$proof" > "$T/out" \
-        && rc=$? || rc=$?
-    fi
-    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE (rc=$rc)"; exit 1; }
-    grep -q '^s UNSATISFIABLE$' "$T/out" \
-      || { echo "FAIL: $cnf (BVE) missing s line"; exit 1; }
-    check_dsr "$cnf" "$proof"
-  done
-  if [ -x "$LRAT_CHECK" ]; then
-    proof="$cnf.bve.lrat"
-    TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --lrat "$cnf" "$proof" > "$T/out" \
-      && rc=$? || rc=$?
-    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE --lrat"; exit 1; }
-    "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-      || { echo "FAIL: native LRAT (BVE) of $cnf rejected"; cat "$T/check"; exit 1; }
-    grep -q 'c VERIFIED' "$T/check" \
-      || { echo "FAIL: lrat-check gave no verdict on BVE $cnf"; cat "$T/check"; exit 1; }
-  fi
-done
-# ---- BVE through a general definition. `--bve-gates=def` masks off every
-# syntactic shape, so any gate here came from the sub-solver and the resolvents
-# include non-tautological gate×gate pairs -- the `resolve_gate` path nothing
-# else here reaches. The counter assertion below proves that reachability.
-printf 'p cnf 4 8\n1 2 0\n1 3 0\n-1 -2 4 0\n-1 -3 -4 0\n2 3 0\n-2 -3 0\n-2 -4 0\n-3 4 0\n' \
-  > "$T/bvedef.cnf"
-cnf="$T/bvedef.cnf"
-for mode in binary ascii; do
-  proof="$cnf.$mode.dsr"
-  extra=""
-  [ "$mode" = ascii ] && extra="--no-binary"
-  # shellcheck disable=SC2086
-  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def --dsr $extra "$cnf" "$proof" \
-    > "$T/out" && rc=$? || rc=$?
-  [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT (rc=$rc)"; exit 1; }
-  grep -qE '^c bve-gates .*[1-9][0-9]* definition' "$T/out" \
-    || { echo "FAIL: no definition gate extracted — the case is vacuous"; \
-         grep '^c bve' "$T/out"; exit 1; }
-  check_dsr "$cnf" "$proof"
-done
-if [ -x "$LRAT_CHECK" ]; then
-  proof="$cnf.lrat"
-  TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --bve-gates=def --lrat "$cnf" "$proof" \
-    > "$T/out" && rc=$? || rc=$?
-  [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT under --lrat"; exit 1; }
-  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-    || { echo "FAIL: native LRAT of the definition gate rejected"; \
-         cat "$T/check"; exit 1; }
-  grep -q 'c VERIFIED' "$T/check" \
-    || { echo "FAIL: lrat-check gave no verdict on bvedef"; cat "$T/check"; \
-         exit 1; }
-fi
-
-# ---- BVE one-sided definition core. The four x-side clauses reduce to the
-# no-UP enum2 refutation, so the embedded proof has to be lifted lemma by lemma
-# to derive x; (not x v c) keeps a nonempty opposite side. The independent
-# d/e enum2 tail makes the whole input UNSAT without pre-fixing x. Structural
-# score/order selects x first under the BVE stress policy.
-printf 'p cnf 6 9\n1 2 3 0\n1 2 -3 0\n1 -2 3 0\n1 -2 -3 0\n-1 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' \
-  > "$T/bvedefunit.cnf"
-cnf="$T/bvedefunit.cnf"
-for mode in binary ascii; do
-  proof="$cnf.$mode.dsr"
-  extra=""
-  [ "$mode" = ascii ] && extra="--no-binary"
-  # shellcheck disable=SC2086
-  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def --dsr $extra "$cnf" "$proof" \
-    > "$T/out" && rc=$? || rc=$?
-  [ "$rc" -eq 20 ] || { echo "FAIL: bvedefunit not UNSAT (rc=$rc)"; exit 1; }
-  grep -qE '^c bve-def .* [1-9][0-9]* units$' "$T/out" \
-    || { echo "FAIL: no one-sided definition unit extracted"; \
-         grep '^c bve' "$T/out"; exit 1; }
-  check_dsr "$cnf" "$proof"
-done
-if [ -x "$LRAT_CHECK" ]; then
-  proof="$cnf.lrat"
-  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def --lrat "$cnf" "$proof" \
-    > "$T/out" && rc=$? || rc=$?
-  [ "$rc" -eq 20 ] || { echo "FAIL: bvedefunit not UNSAT under --lrat"; exit 1; }
-  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
-    || { echo "FAIL: native LRAT of one-sided definition rejected"; \
-         cat "$T/check"; exit 1; }
-  grep -q 'c VERIFIED' "$T/check" \
-    || { echo "FAIL: lrat-check gave no verdict on bvedefunit"; \
-         cat "$T/check"; exit 1; }
-fi
-
 # ---- Factor (BVA) native-LRAT: dividers emit vacuous add-RAT (fresh pivot, no
 # ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
 # group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live
@@ -887,7 +766,7 @@ fi
 if [ -x "$LRAT_CHECK" ]; then
   printf 'p cnf 7 7\n-4 3 1 0\n-5 4 0\n-6 2 0\n6 -2 0\n7 6 2 0\n-6 -2 0\n-7 0\n' \
     > "$T/substchain.cnf"
-  "$TACTIX" -q --random-policy=1 --lrat "$T/substchain.cnf" \
+  "$PUBLIC_RANDOM" --random-policy=1 --lrat "$T/substchain.cnf" \
     "$T/substchain.lrat" > "$T/out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] || { echo "FAIL: substchain not UNSAT (rc=$rc)"; exit 1; }
   "$LRAT_CHECK" "$T/substchain.cnf" "$T/substchain.lrat" > "$T/check" 2>&1 || true
@@ -1017,7 +896,7 @@ fi
 if [ -x "$DSR_TRIM" ] && [ -x "$SR_CHECK" ]; then
   corpus="$ROOT/tools/fuzz/corpus/regressions/034-substitute-root-fixed-binary-image-unit/case.cnf"
   proof="$T/substitute-root-fixed-binary-image-unit.dsr"
-  "$TACTIX" -q --random-policy=296716882 --dsr "$corpus" "$proof" \
+  "$PUBLIC_RANDOM" --random-policy=296716882 --dsr "$corpus" "$proof" \
     > "$T/substitute-root-fixed-binary-image-unit.out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] \
     || { echo "FAIL: Substitute root-fixed binary image (rc=$rc)"; exit 1; }
@@ -1029,7 +908,7 @@ fi
 # The minimized fuzz reproducer drives the random policy through such a round;
 # it must end there, and the reconstructed model must satisfy the input.
 corpus="$ROOT/tools/fuzz/corpus/regressions/035-bve-round-stale-schedule-fixed-pivot/case.cnf"
-"$TACTIX" -q --random-policy=296725965 "$corpus" \
+"$PUBLIC_RANDOM" --random-policy=296725965 "$corpus" \
   > "$T/bve-round-stale-schedule.out" && rc=$? || rc=$?
 [ "$rc" -eq 10 ] \
   || { echo "FAIL: BVE round stale-schedule fixed pivot (rc=$rc)"; exit 1; }

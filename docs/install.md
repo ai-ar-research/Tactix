@@ -15,18 +15,17 @@ tactix-VERSION-linux-x86_64/bin/tactix formula.cnf proof
 `SHA256SUMS` in the release lists the checksum of every file; check a
 download with `sha256sum -c SHA256SUMS --ignore-missing`.
 
-Two releases matter for the paper:
+Three releases matter for the paper and current development:
 
 | Release | Commit | Use |
 |---|---|---|
 | `v0.1.0-0f7c10174` | `0f7c10174`, the version evaluated in the paper | reproducing the paper's SAT Competition results |
-| `v0.2.0` (current source) | whole-run PBP by default and the validated algebraic increment | everything else |
+| `v0.2.1` (current source) | whole-run PBP by default, without the retired automatic proof selector | everything else |
 | `v0.1.0` | first public installable release | compatibility and historical comparison |
 
-The current source retains the validated paper-relative solver behavior. Its
-default certificate is now whole-run PBP; use `--auto-proof` to select the
-paper release's automatic startup-PBP/DSR format behavior. See the repository
-changelog for the full version history.
+The current source uses whole-run PBP by default. The paper release and its
+original proof-mode behavior remain reproducible from its versioned artifact.
+See the repository changelog for the full version history.
 
 ## The library
 

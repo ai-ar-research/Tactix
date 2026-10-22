@@ -540,9 +540,8 @@ def substitute_workdir(cmd, workdir):
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
-    Tactix defaults to whole-run PBP. Explicit --auto-proof retains the former
-    startup-PBP/native-DSR route, while --drat or --lrat selects the
-    corresponding compatibility oracle. Native LRAT is checked directly
+    Tactix defaults to whole-run PBP. Explicit --dsr, --drat, or --lrat selects
+    the corresponding compatibility oracle. Native LRAT is checked directly
     with cake_lpr; legacy lrat-check is not an acceptance oracle because it
     accepts a non-conflicting empty-lemma chain on a SAT input."""
     solver = substitute_workdir(solver, workdir)
@@ -575,11 +574,11 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     native_lrat = "--lrat" in solver
     explicit_dsr = "--dsr" in solver
     basename_tactix = os.path.basename(solver[0]) == "tactix"
-    is_tactix = basename_tactix or "--auto-proof" in solver or "--pbp" in solver
+    is_tactix = basename_tactix or "--pbp" in solver
     default_pbp = (basename_tactix and not any(
-        flag in solver for flag in ("--auto-proof", "--dsr", "--drat", "--lrat")))
+        flag in solver for flag in ("--dsr", "--drat", "--lrat")))
     # Competition reference solvers still default to DRAT. Tactix's no-flag
-    # route is whole-run PBP; --auto-proof and --dsr retain clausal controls.
+    # route is whole-run PBP; --dsr retains the native clausal controls.
     explicit_drat = ("--drat" in solver or
                      (not native_lrat and not explicit_dsr and not is_tactix))
     native_dsr = not native_lrat and not explicit_drat
@@ -630,8 +629,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             if not os.path.exists(proof):
                 out.fail("proof", "no proof file produced")
         if os.path.exists(proof) and pb_proof_has_header(proof):
-            if (native_lrat or explicit_drat or explicit_dsr or
-                    ("--auto-proof" in solver and "--no-binary" in solver)):
+            if native_lrat or explicit_drat or explicit_dsr:
                 out.fail("proof", "PBP emitted in an explicit clausal format mode")
             else:
                 kernel = os.path.join(workdir, "proof.kernel.pbp")
@@ -642,7 +640,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                         VERIPB, CAKE_PB, cnf_path, proof, kernel,
                         checker_cnf=checker_cnf):
                     if not check(command):
-                        out.fail("proof", name + " did not verify startup PBP")
+                        out.fail("proof", name + " did not verify PBP")
                         break
                     if name == "veripb" and (not os.path.isfile(kernel) or
                                              os.path.getsize(kernel) == 0):
@@ -1177,8 +1175,7 @@ def cmd_check_one(args):
 
 RETIRED_ENTRY_ARGS = ("--random-policy", "--stress-policy", "--replay=",
                       "--trace=", "--no-heuristics", "--controller-",
-                      "--auto-proof", "--dsr", "--drat", "--lrat",
-                      "--no-binary")
+                      "--dsr", "--drat", "--lrat", "--no-binary")
 
 
 def cmd_corpus(args):

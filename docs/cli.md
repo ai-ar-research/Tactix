@@ -33,7 +33,7 @@ is the formula, the second is the proof path; a third is an error. A lone `-`
 is treated as a file name, so standard input is not supported.
 
 `tactix -h` (or `--help`) prints a usage summary and exits with code 0.
-`tactix --version` prints the version (`0.2.0`) and exits with code 0.
+`tactix --version` prints the version (`0.2.1`) and exits with code 0.
 
 ## Options
 
@@ -45,7 +45,7 @@ not needed for ordinary solving, and their details may change between releases.
 | `-q`, `--quiet` | normal | [Output control](#output-control) |
 | `-v`, `--verbose` | normal | [Output control](#output-control) |
 | `--version`, `-h`, `--help` | normal | [Synopsis](#synopsis) |
-| `--auto-proof`, `--dsr`, `--drat`, `--lrat`, `--pbp`, `--no-binary` | normal | [Proof format](#proof-format) |
+| `--dsr`, `--drat`, `--lrat`, `--pbp`, `--no-binary` | normal | [Proof format](#proof-format) |
 | `--default-affine-search=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
 | `--default-graph-labeling=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
 | `--default-structured-symmetry=on\|off` | normal | [Default strategy toggles](#default-strategy-toggles) |
@@ -58,7 +58,7 @@ Options that take a value use the form `--option=VALUE`; a separate argument
 ### Output control
 
 **`-q`, `--quiet`.** Suppresses the statistics block printed after solving
-(every `c` line from `c tactix 0.2.0` to the timing lines). The `s` and `v`
+(every `c` line from `c tactix 0.2.1` to the timing lines). The `s` and `v`
 lines, the `c proof-route` line and error messages are still printed.
 
 **`-v`, `--verbose`.** Prints progress while the default strategy searches:
@@ -93,21 +93,18 @@ argument. Without a proof path they have no visible effect (see
 | Option | Effect |
 |---|---|
 | `--pbp` | Default. Whole-run pseudo-Boolean proof for ordinary CDCL and supported structured reasoning. |
-| `--auto-proof` | Retained compatibility route: binary DSR; a complete refutation found before search is written as PBP instead. |
 | `--dsr` | Always DSR. |
 | `--drat` | DRAT. |
 | `--lrat` | LRAT with hints. |
 | `--no-binary` | Write the text variant of DSR or DRAT instead of binary. |
 
-`--auto-proof`, `--dsr`, `--drat`, `--lrat` and `--pbp` select one format family; if
+`--dsr`, `--drat`, `--lrat` and `--pbp` select one format family; if
 several are given, the last one wins. `--no-binary` combines with any of them.
 The resulting format is:
 
 | Flags | Proof written |
 |---|---|
 | none, or `--pbp` | text PBP (`--no-binary` has no effect) |
-| `--auto-proof` | binary DSR, or startup PBP |
-| `--auto-proof --no-binary` | text DSR (never PBP) |
 | `--dsr` | binary DSR |
 | `--dsr --no-binary` | text DSR |
 | `--drat` | binary DRAT |
@@ -220,7 +217,7 @@ with `v`. Each line stays under 4096 characters, and the last line ends with
 ### Statistics
 
 Unless `-q` is given, the solver prints a statistics block after solving and
-before the `s` line. It starts with `c tactix 0.2.0`. Each line is `c`, a short
+before the `s` line. It starts with `c tactix 0.2.1`. Each line is `c`, a short
 keyword, and counters. The block covers:
 
 - **Search:** decisions, conflicts, propagations, learned clauses and their
@@ -299,19 +296,15 @@ There are no time or memory limit options. Use the environment, for example
 - Binary DRAT is drat-trim's binary format. Binary DSR is a separate binary
   format; `tools/bench/proof_oracle.py` reads it and converts it as needed
   for the checkers. LRAT and PBP are always text.
-- The automatic mode can switch to PBP only when the whole refutation is
-  found before search (parity and counting arguments). Once any clausal proof
-  step is written, the proof stays DSR.
 - The `c proof-route` line tells which checker pipeline applies.
   [getting-started.md](getting-started.md) describes the routes and the
   `tools/bench/proof_oracle.py check` script that runs them. A `--drat` proof
   can also be checked directly with drat-trim, and an `--lrat` proof with
   cake_lpr.
 
-Automatic startup PBP is possible only in automatic binary mode, so
-`--no-binary`, `--dsr`, `--drat` and `--lrat` disable startup techniques that
-require that terminal route, even when no proof is written. Explicit `--pbp`
-uses the whole-run streaming route instead.
+Startup PBP is part of the default whole-run PBP route. Explicit `--dsr`,
+`--drat` and `--lrat` disable startup techniques that require a terminal PBP
+certificate, even when no proof is written.
 
 ## Input
 
@@ -453,12 +446,11 @@ and `tests/`.
 ### tactix-public
 
 ```
-build/release/tests/tactix-public [--auto-proof] <cnf> [proof]
+build/release/tests/tactix-public [--pbp] <cnf> [proof]
 ```
 
 The default strategy with every operation issued through `tactix.h`. Proofs
-use whole-run PBP by default; `--auto-proof` explicitly selects the retained
-automatic startup-PBP/DSR route. Any other option is an error. It prints
+use whole-run PBP by default. Any other option is an error. It prints
 `c proof-route` on UNSAT with a proof path, a short statistics block and
 `c public-port` counts of interface requests. It handles SIGINT, SIGTERM and
 SIGXCPU like `tactix`. It has no `--help`.
@@ -562,4 +554,4 @@ work from any directory.
 
 `run.sh` exits with code 2 if it does not get exactly two arguments.
 Otherwise it replaces itself with the solver, so its output and exit code are
-the solver's. The proof uses the default automatic format.
+the solver's. The proof uses the default whole-run PBP format.

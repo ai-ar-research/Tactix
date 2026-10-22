@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(tactix VERSION 0.2.0 LANGUAGES CXX C)
+project(tactix VERSION 0.2.1 LANGUAGES CXX C)
 
 # A fully static executable (glibc, libstdc++, zlib), for binary releases.
 option(TACTIX_STATIC_BINARY "Link the tactix executable statically" OFF)

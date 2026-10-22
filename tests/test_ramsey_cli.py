@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix="ramsey-cli-") as directory:
     work = Path(directory)
     cnf, proof = work / "ramsey-18.cnf", work / "ramsey-18.proof"
     cnf.write_text(ramsey_44(18))
-    result = subprocess.run([sys.argv[1], "--auto-proof", str(cnf), str(proof)],
+    result = subprocess.run([sys.argv[1], "--dsr", str(cnf), str(proof)],
                             capture_output=True, text=True, timeout=60)
     assert result.returncode == 20, result
     assert "s UNSATISFIABLE" in result.stdout

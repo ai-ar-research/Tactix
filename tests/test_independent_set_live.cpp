@@ -566,7 +566,7 @@ void negative_boundaries() {
     load(kernel, encoding);
     Proof proof;
     assert(proof.open("/tmp/independent-set-live-decline.pbp",
-                      ProofFormat::Automatic));
+                      ProofFormat::PbpStreaming));
     proof.finish_input_transaction();
     assert(proof.begin_pb());
     kernel.proof = &proof;

@@ -331,8 +331,8 @@ class RecheckPreparation(unittest.TestCase):
                 unsat(stage('drat-trim', None, timed_out=True))))
             (source / 'manifest.json').write_text(json.dumps(dict(
                 arms={'tactix': dict(path='pins/tactix', sha256=sha(binary),
-                                     arguments=['--auto-proof', '--default-graph-labeling=on'],
-                                     certificate='auto')},
+                                     arguments=['--default-graph-labeling=on'],
+                                     certificate='pbp')},
                 source_commit=commit, source_tree=str(REPO / 'missing-source-tree'),
                 source_files={'src/x.cpp': '0' * 64}, dsr_checker_profile='long64-fixed',
                 pin_sha256={'pins/tactix': sha(binary)})))
@@ -354,10 +354,10 @@ class RecheckPreparation(unittest.TestCase):
             self.assertEqual(m['scratch_policy'], 'home-directory-files-v1')
             self.assertEqual(m['scratch_directory'], str(campaign / 'scratch'))
             self.assertEqual(m['arms']['tactix']['arguments'],
-                             ['--auto-proof', '--default-graph-labeling=on'])
+                             ['--default-graph-labeling=on'])
             self.assertEqual(m['arms']['tactix']['sha256'], sha(binary))
             self.assertEqual(m['source_commit'], commit)
-            self.assertEqual(m['dsr_checker_profile'], 'long64-fixed')
+            self.assertIsNone(m['dsr_checker_profile'])
             with (campaign / 'matrix.tsv').open(newline='') as f:
                 matrix = list(csv.DictReader(f, delimiter='\t'))
             self.assertEqual([(r['task'], r['rank'], r['source_task'], r['source_class'])
@@ -368,7 +368,7 @@ class RecheckPreparation(unittest.TestCase):
             self.assertIn('#SBATCH --time=09:45:00', array)
             self.assertIn('pins/test_directory_scratch.py',
                           (campaign / 'validate.sbatch').read_text())
-            for rel in ('pins/directory_scratch.py', 'pins/srcheck', 'pins/veripb'):
+            for rel in ('pins/directory_scratch.py', 'pins/veripb', 'pins/cake-pb-cnf'):
                 self.assertIn(rel, m['pin_sha256'])
             # Nothing selectable is refused rather than prepared empty.
             again = subprocess.run(
@@ -405,7 +405,7 @@ class CertificateNone(unittest.TestCase):
     def test_solver_gets_no_proof_path_or_flag(self):
         self.assertEqual(et.solver_arguments('none', []), [])
         self.assertEqual(et.solver_arguments('dsr', []), ['--dsr'])
-        self.assertEqual(et.solver_arguments('auto', ['--x']), ['--auto-proof', '--x'])
+        self.assertEqual(et.solver_arguments('pbp', ['--x']), ['--x'])
         arm = dict(arguments=[], certificate='none')
         self.assertEqual(runtime_task.solver_command('b', arm, 'f.cnf', 'p'), ['b', 'f.cnf'])
         arm = dict(arguments=['--dsr'], certificate='dsr')

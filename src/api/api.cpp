@@ -2346,10 +2346,17 @@ int tactix_bind_structural_provenance(tactix_solver *s, FILE *stream) {
 // The CLI's ingestion into a fresh session. parse_dimacs calls finish_input,
 // which must run exactly once, so the session's own boundary is marked closed.
 int tactix_read_dimacs(tactix_solver *s, FILE *in) {
-  if (!s || !in || s->input_completed || s->pending_input_proof ||
-      !s->scratch.empty() || s->kernel.nvars || s->kernel.next_clause_id)
+  if (!s || !in || s->input_completed || !s->scratch.empty() ||
+      s->kernel.nvars || s->kernel.next_clause_id)
     return -1;
   const char *err = parse_dimacs(in, s->kernel);
+  // LRAT selected before file ingestion is deliberately deferred until all
+  // original clause ids exist. parse_dimacs has now crossed that boundary, so
+  // attach the replay before marking this API session complete.
+  if (!err && s->pending_input_proof) {
+    attach_replayed_input_proof(s->kernel, s->proof);
+    s->pending_input_proof = false;
+  }
   s->input_completed = true;
   external_state_change(s);
   return err ? -1 : 0;
@@ -2419,8 +2426,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     f = ProofFormat::DsrAscii;
     break;
   case 5:
-    f = ProofFormat::Automatic;
-    break;
+    return -1; // retired proof-format value; public values are never reused
   case 6:
     f = ProofFormat::PbpStreaming;
     break;
@@ -2440,7 +2446,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
     return 0;
   }
   s->kernel.proof = &s->proof;
-  if (f != ProofFormat::Automatic && f != ProofFormat::PbpStreaming)
+  if (f != ProofFormat::PbpStreaming)
     s->kernel.close_startup_certificate();
   s->proof.bind_variable_map(&s->kernel.internal_to_external);
   s->proof.bind_external_variable_map(&s->kernel.external_to_internal);
@@ -4007,7 +4013,7 @@ int tactix_decide(tactix_solver *s, int elit) {
   // This legacy convenience call bypasses registry dispatch, but consumes the
   // same original-input action boundary as the typed Decide rule.
   s->kernel.close_startup_certificate();
-  if (s->kernel.proof && !s->kernel.proof->commit_dsr())
+  if (s->kernel.proof && !s->kernel.proof->commit_clause_stream())
     return -1;
   const int ok = decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;
   if (!ok)

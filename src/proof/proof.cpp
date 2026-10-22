@@ -91,10 +91,8 @@ uint64_t PbpParityBoundsCache::retained_bytes() const noexcept {
 }
 
 CheckerRoute Proof::population_route() const noexcept {
-  if (!file_ && !automatic_output_)
+  if (!file_)
     return CheckerRoute::None;
-  if (automatic_pending_)
-    return CheckerRoute::AutomaticPending;
   switch (format_) {
   case ProofFormat::DsrBinary:
   case ProofFormat::DsrAscii:
@@ -107,8 +105,6 @@ CheckerRoute Proof::population_route() const noexcept {
   case ProofFormat::Pbp:
   case ProofFormat::PbpStreaming:
     return CheckerRoute::Pbp;
-  case ProofFormat::Automatic:
-    return CheckerRoute::AutomaticPending;
   }
   return CheckerRoute::None;
 }
@@ -117,8 +113,7 @@ CheckerNaming Proof::population_naming() const noexcept {
   const CheckerRoute route = population_route();
   if (route == CheckerRoute::Lrat)
     return CheckerNaming::Id;
-  if (route == CheckerRoute::Dsr || route == CheckerRoute::Drat ||
-      route == CheckerRoute::AutomaticPending)
+  if (route == CheckerRoute::Dsr || route == CheckerRoute::Drat)
     return CheckerNaming::LiteralMultiset;
   return CheckerNaming::None;
 }
@@ -165,8 +160,8 @@ void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
     // Finish it while the observer that saw the StageAdd/StageDelete events is
     // alive.  Otherwise a direct replacement (or a nested scoped binding)
     // gives the old observer an apparently clean unbind and the new observer a
-    // commit for stages it never saw.  Automatic is deliberately not settled:
-    // merely changing an observer must not choose DSR over PB.
+    // commit for stages it never saw. An unpublished streaming-PBP prefix is
+    // deliberately not settled merely by changing observers.
     const bool complete = settle_population_observer();
     CheckerPopulationEvent event;
     event.kind = !complete
@@ -187,7 +182,7 @@ void Proof::bind_population_observer(PopulationObserver *observer) noexcept {
 }
 
 bool Proof::settle_population_observer() noexcept {
-  if (automatic_pending_ || (streaming_pbp() && pbp_output_))
+  if (streaming_pbp() && pbp_output_)
     return false;
   flush();
   return true;
@@ -298,7 +293,7 @@ uint64_t next_proof_stream_identity() noexcept {
 }
 bool Proof::open(const char *path, ProofFormat format) {
   stream_identity_=0; // Failed opens cannot lend cached-unit authority.
-  if (file_ || automatic_output_ || pbp_output_ || format == ProofFormat::Pbp)
+  if (file_ || pbp_output_ || format == ProofFormat::Pbp)
     return false;
   file_ = fopen(path, "wb");
   format_ = format;
@@ -321,24 +316,12 @@ bool Proof::open(const char *path, ProofFormat format) {
     }
     input_transaction_ = true;
   }
-  if (file_ && format == ProofFormat::Automatic) {
-    automatic_output_ = file_;
-    file_ = std::tmpfile();
-    if (!file_) {
-      std::fclose(automatic_output_);
-      automatic_output_ = nullptr;
-      return false;
-    }
-    format_ = ProofFormat::DsrBinary;
-    automatic_pending_ = input_transaction_ = true;
-  }
   if(file_) {
     stream_identity_=next_proof_stream_identity();
     if(!stream_identity_) {
       std::fclose(file_);file_=nullptr;
-      if(automatic_output_){std::fclose(automatic_output_);automatic_output_=nullptr;}
       if(pbp_output_){std::fclose(pbp_output_);pbp_output_=nullptr;}
-      automatic_pending_=input_transaction_=false;return false;
+      input_transaction_=false;return false;
     }
   }
   if (file_)
@@ -346,46 +329,18 @@ bool Proof::open(const char *path, ProofFormat format) {
   if (file_) {
     observe_checker(CheckerPopulationEventKind::RouteOpened,
                     CheckerClauseRole::None, 0, 0, {});
-    if (!automatic_pending_)
-      observe_checker(CheckerPopulationEventKind::RouteCommitted,
-                      CheckerClauseRole::None, 0, 0, {});
+    observe_checker(CheckerPopulationEventKind::RouteCommitted,
+                    CheckerClauseRole::None, 0, 0, {});
   }
   return file_ != nullptr;
 }
 
-bool Proof::commit_dsr() {
+bool Proof::commit_clause_stream() {
   if (streaming_pbp() && pbp_output_) {
     publish_streaming_pbp_header();
     return true;
   }
-  if (!automatic_pending_)
-    return streaming_pbp() || !pb();
-  // Preserve the ordinary binary serializer's unbuffered stdio contract:
-  // binary_buffer_ owns buffering and every fwrite must observe I/O failure.
-  // The destination has not yet received any bytes, so setvbuf is still legal.
-  if (std::setvbuf(automatic_output_, nullptr, _IONBF, 0))
-    std::abort();
-  flush_binary();
-  if (std::fflush(file_) || std::fseek(file_, 0, SEEK_SET))
-    std::abort();
-  std::array<unsigned char, 65536> bytes{};
-  for (;;) {
-    const size_t count = std::fread(bytes.data(), 1, bytes.size(), file_);
-    if (count && std::fwrite(bytes.data(), 1, count, automatic_output_) != count)
-      std::abort();
-    if (count < bytes.size()) {
-      if (std::ferror(file_))
-        std::abort();
-      break;
-    }
-  }
-  std::fclose(file_);
-  file_ = automatic_output_;
-  automatic_output_ = nullptr;
-  automatic_pending_ = input_transaction_ = false;
-  observe_checker(CheckerPopulationEventKind::RouteCommitted,
-                  CheckerClauseRole::None, 0, 0, {});
-  return true;
+  return streaming_pbp() || !pb();
 }
 
 FILE *Proof::begin_pb() {
@@ -406,10 +361,8 @@ FILE *Proof::begin_pb() {
   spooling_deletions_ = false;
   std::fclose(file_);
   binary_buffer_size_ = 0;
-  file_ = automatic_pending_ ? automatic_output_ : pbp_output_;
-  automatic_output_ = nullptr;
+  file_ = pbp_output_;
   pbp_output_ = nullptr;
-  automatic_pending_ = false;
   format_ = ProofFormat::Pbp;
   observe_checker(CheckerPopulationEventKind::RouteCommitted,
                   CheckerClauseRole::None, 0, 0, {});
@@ -824,7 +777,7 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
                     const uint64_t *chain, uint32_t nchain) {
   const CheckerClauseRole role = population_role_;
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     std::abort(); // a terminal PB stream cannot accept a clausal suffix
   // A new unit extends a consecutive batch. A deletion block or a nonunit
   // addition ends it, so later RUP checks still see the earlier units.
@@ -934,7 +887,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
     invalidate_premises_for_sr(id, lits, 1, nullptr, 0, nullptr, 0);
     flush_persistent_external(id);
   }
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     std::abort();
   flush_pending_dsr_units();
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -1014,7 +967,7 @@ bool Proof::add_sr(uint64_t id, const Lit *lits, uint32_t size,
                    const Lit *true_lits, uint32_t ntrue,
                    const DsrLiteralMapping *mappings, uint32_t nmappings,
                    uint32_t external_variables, bool propagates) {
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     return false;
 #ifndef TACTIX_ENABLE_PROOF_SHADOW
   (void)id;
@@ -1318,7 +1271,7 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     }
     if (defer_leased_deletion(external.data(), size)) return;
   }
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     std::abort();
   if (!file_)
     return;
@@ -1461,7 +1414,7 @@ bool Proof::add_external_rup(uint64_t id, const int32_t *lits,
       population_role_ == CheckerClauseRole::ExternalRat
           ? CheckerClauseRole::ExternalRat
           : CheckerClauseRole::ExternalRup;
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     return false;
   if (lrat())
     return false;
@@ -1534,7 +1487,7 @@ bool Proof::add_external_rat(uint64_t id, const int32_t *lits,
     variable_map_ = saved;
     if (premise_epoch_ != before) flush_persistent_external(id);
   }
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     return false;
   if (streaming_pbp()) {
     if (!size || !lits || streaming_pbp_finished_)
@@ -1946,9 +1899,9 @@ bool Proof::retain_premise_groups(const std::vector<PremiseGroup> &groups,
     candidate.push_back(++next);
     retained.emplace(next, std::move(canonical));
   }
-  // Durable clausal ownership commits an Automatic route only after every
-  // resource/identity check has passed. No lease can survive a PB transition.
-  if (input_transaction_ || !commit_dsr()) return false;
+  // Publish the clausal stream only after every resource and identity check
+  // has passed. No lease can survive a terminal PB transition.
+  if (input_transaction_ || !commit_clause_stream()) return false;
   leased_premises_.swap(premises); premise_groups_.swap(retained);
   next_premise_group_ = next; premise_literals_ = literals; premise_bytes_ = bytes;
   for (const auto &group : groups)
@@ -2111,7 +2064,7 @@ void Proof::flush_persistent_external(uint64_t line_id) {
 bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                          const int32_t *lits, uint32_t size) {
   if (defer_leased_deletion(lits, size)) return true;
-  if (!input_transaction_ && !commit_dsr())
+  if (!input_transaction_ && !commit_clause_stream())
     return false;
   assert(!size || lits);
   if (!file_)
@@ -2219,8 +2172,6 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
 }
 
 void Proof::flush() {
-  if (automatic_pending_)
-    commit_dsr();
   if (streaming_pbp() && pbp_output_)
     publish_streaming_pbp_header();
   flush_pending_dsr_units();

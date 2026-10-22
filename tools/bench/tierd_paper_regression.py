@@ -134,9 +134,9 @@ def substituted_results(campaign, recheck=None):
     require(list(manifest.get("arms", {})) == ["tactix"],
             "campaign must contain exactly the tactix arm")
     arm = manifest["arms"]["tactix"]
-    require(arm.get("arguments") == ["--auto-proof"] and
-            arm.get("certificate") == "auto",
-            "candidate automatic proof contract changed")
+    require(arm.get("arguments") == [] and
+            arm.get("certificate") == "pbp",
+            "candidate whole-run PBP contract changed")
     matrix = read_matrix(campaign)
     require(len(matrix) == 1166, "full Tier D must contain 1,166 rows")
     require([int(row["task"]) for row in matrix] == list(range(1166)),

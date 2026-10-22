@@ -210,16 +210,16 @@ reused.
 | Format | `tactix_proof` constant / CLI flag | Content |
 |---|---|---|
 | PBP (CLI default) | `TACTIX_PROOF_PBP` / `--pbp` | whole-run PBP; pinned VeriPB elaboration followed by verified CakePB checking |
-| automatic | `TACTIX_PROOF_AUTOMATIC` / `--auto-proof` | retained compatibility route: binary DSR, or PBP for a complete refutation found at the original-input boundary |
 | DSR | `TACTIX_PROOF_DSR_BINARY`, `_ASCII` / `--dsr` | DRAT plus SR additions; the native format |
 | DRAT | `TACTIX_PROOF_DRAT_BINARY`, `_ASCII` / `--drat` | compatibility; SR steps are unavailable |
 | LRAT | `TACTIX_PROOF_LRAT` / `--lrat` | compatibility, with antecedent hints |
 
-In automatic mode the backend stages the input-normalization steps privately.
-If a startup Lucky instance (XOR summation or count conservation) refutes the
-original formula, the run emits a pseudo-Boolean proof; otherwise the first
-ordinary action commits the staged DSR prefix and the format is fixed. A rule
-whose proof step a format cannot express declines before mutating anything.
+Whole-run PBP stages input normalization privately until the original-input
+boundary. If a startup Lucky instance (XOR summation or count conservation)
+refutes the original formula, it emits the complete pseudo-Boolean refutation;
+otherwise the first ordinary action publishes the streaming-PBP header. A rule
+whose proof step a selected explicit format cannot express declines before
+mutating anything.
 
 After an UNSAT answer the solver prints the checker route:
 
@@ -260,8 +260,8 @@ A call `tactix_apply_instance(solver, rule_id, instance)` proceeds as follows.
    the rule's guard must hold; otherwise the call returns `-1`. A
    non-canonical payload for a rule without an instance surface is rejected.
 3. **Startup boundary.** Unless the instance belongs to the original-input
-   boundary (Lucky 19, 20, 22), dispatch closes that boundary; in automatic
-   proof mode this commits the DSR format.
+   boundary (Lucky 19, 20, 22), dispatch closes that boundary. For the default
+   streaming-PBP route, this publishes the proof header.
 4. **Dispatch.** The registry wrapper charges the call to the rule's call and
    time counters, advances the strategy epoch that controllers observe, and
    stages any theory-variable candidate the rule publishes for

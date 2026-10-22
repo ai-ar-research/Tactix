@@ -18,7 +18,9 @@ using namespace tactix::execution;
 static std::string read_file(const std::string &path) {
   std::ifstream input(path, std::ios::binary);
   assert(input);
-  return {std::istreambuf_iterator<char>(input), {}};
+  std::ostringstream output;
+  output << input.rdbuf();
+  return output.str();
 }
 
 static void parse(Kernel &k, const char *cnf) {
@@ -48,7 +50,7 @@ static void test_certificate_boundary() {
     {
       Kernel k;
       Proof proof;
-      assert(proof.open(path.c_str(), ProofFormat::Automatic));
+      assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
       k.proof = &proof;
       proof.bind_variable_map(&k.internal_to_external);
       parse(k, "p cnf 2 1\n1 2 0\n");
@@ -76,13 +78,14 @@ static void test_certificate_boundary() {
         break;
       }
       assert(!k.startup_certificate_open && k.startup_input.empty());
-      assert(!proof.startup_pb_available() && !proof.pb());
-      assert(proof.dsr() && !proof.begin_pb());
+      assert(!proof.startup_pb_available() && proof.streaming_pbp());
+      assert(!proof.begin_pb());
       execute_action(k, CloseStartupCertificateRequest{}); // idempotent
       assert(!k.startup_certificate_open);
       kernel_check_invariants(k);
     }
-    assert(read_file(path).empty()); // no clausal event was invented
+    const std::string output = read_file(path);
+    assert(output.starts_with("pseudo-Boolean proof version 3.0\nf "));
     assert(std::remove(path.c_str()) == 0);
   }
   Kernel proofless;
