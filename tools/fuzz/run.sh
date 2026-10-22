@@ -22,6 +22,7 @@ ORACLE=""
 HAS_OUTDIR=0
 PUBLIC_RANDOM=0
 NIGHTLY=0
+ACCEPTANCE=()
 SKIP_CORPUS=0
 # The corpus replays whole entries under the leg's own solver command, so a
 # schedule that starves M1 can leave one of them without a verdict. That is
@@ -80,7 +81,12 @@ fi
 
 # This adds the LRAT cross-check only when the selected solver arm emits DRAT;
 # Tactix's default PBP arm continues through VeriPB and CakePB.
-[ "$NIGHTLY" -eq 0 ] || EXTRA+=(--lrat)
+if [ "$NIGHTLY" -eq 1 ]; then
+    EXTRA+=(--lrat)
+    # Defaults precede explicit EXTRA arguments so deliberate overrides win.
+    # These are campaign-wide requirements, including for sharded runs.
+    ACCEPTANCE=(--minimum-verdicts 100000 --max-nonterminating-frac 0.05)
+fi
 
 CORPUS_STATUS=0
 if [ "$SKIP_CORPUS" -eq 0 ]; then
@@ -100,6 +106,7 @@ fi
 echo "== fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
 RUN_STATUS=0
 python3 "$HERE/fuzz.py" run --solver "$SOLVER" --oracle "$ORACLE" --n "$N" \
+    ${ACCEPTANCE[@]+"${ACCEPTANCE[@]}"} \
     ${EXTRA[@]+"${EXTRA[@]}"} || RUN_STATUS=$?
 echo "== corpus status $CORPUS_STATUS, fuzz status $RUN_STATUS =="
 [ "$CORPUS_STATUS" -eq 0 ] && [ "$RUN_STATUS" -eq 0 ]

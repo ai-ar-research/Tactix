@@ -2,6 +2,15 @@
 
 Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 
+Both `--nightly` arms default to at least 100,000 independently checked verdicts
+and at most 5% nonterminating cases, with zero correctness failures. Explicit
+`--minimum-verdicts` and `--max-nonterminating-frac` arguments override these
+campaign-wide defaults. Coverage and corpus requirements remain mandatory.
+To regrade saved shards after an intentional threshold change, pass those
+options to `aggregate.py` together with `--regrade-reason`. It prints the old
+and revised thresholds, preserves the saved summaries, and still checks every
+other requirement. Retain the regrade output alongside the original result.
+
 - `run.sh --quick --solver 'build/release/tactix-public --pbp'` runs the regression corpus plus 10,000 seeded cases through DefaultPolicy's public-interface twin; `--nightly` selects 200,000.
 - `run.sh --public-random --quick --solver 'build/release/tactix-public-random --pbp --random-policy={seed}'` runs the same generated cases through the sole random qualification strategy. It chooses one public action at a time, re-observes the solver after every action, and varies root work, CDCL intervals, full/partial restarts, application forms and eligible algebraic actions. Each case receives its own reproducible policy seed.
 - Both legs use whole-run PBP. Every UNSAT result must pass VeriPB and CakePB against the original CNF; every SAT model is independently checked. Historical production random/stress/controller frontends and their one-off campaign scripts are retired.

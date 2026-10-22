@@ -49,7 +49,7 @@ client; one crash-only entry remained a nonverdict at its 30-second limit.
 
 | Arm | Array / finalizer | Generated | Independently checked | Nonterminating | Failures | Result |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| Default | `1795957` / `1795958` | 200,000 | 199,849 | 151 (0.0755%) | 0 | documented gate met; see caveat |
+| Default | `1795957` / `1795958` | 200,000 | 199,849 | 151 (0.0755%) | 0 | revised aggregate PASS; original FAIL retained |
 | Public random | `1795966` / `1795967` | 200,000 | 196,597 | 3,403 (1.7015%) | 0 | aggregate PASS |
 
 The public-random aggregate passed all 64 shards. Its coverage included 145,134
@@ -76,7 +76,35 @@ At the terminal check, quota use was 373 GiB of 1 TiB. The Default artifacts
 used 5.3 MiB, public-random artifacts 35 MiB, and the two pinned binaries 11
 MiB. The storage governor held no jobs and reported no control errors.
 
-The new public-interface random strategy is therefore part of the normal PBP
-fuzzing pipeline and its full aggregate gate passed. The candidate should not
-be merged to `main` without explicitly accepting the Default finalizer caveat;
-no additional broad rerun is needed to interpret the completed evidence.
+The new public-interface random strategy is part of the normal PBP fuzzing
+pipeline and its full aggregate gate passed.
+
+## Acceptance correction
+
+Following Andrew's request to change the acceptance threshold, both nightly
+arms now default to at least 100,000 independently checked verdicts and at most
+5% nonterminating generated cases, with zero correctness failures. Explicit
+submission overrides remain available. Coverage and corpus checks are unchanged.
+This correction is documented in `CONTRIBUTING.md` and `tools/fuzz/README.md`.
+
+The existing Default summaries were regraded without rerunning the solver or
+editing any saved shard. The original finalizer FAIL remains historical evidence;
+the revised acceptance result is PASS. The command was:
+
+```sh
+python3 tools/fuzz/aggregate.py \
+  --root tools/fuzz/failures/runs/slurm-1795957 \
+  --prefix pbp-default-5b9075e1d-shard- --shards 64 --total 200000 \
+  --minimum-verdicts 100000 --max-nonterminating-frac 0.05 \
+  --regrade-reason 'User requested correction to shared nightly acceptance: 100000 checked verdicts, at most 5% nontermination, zero correctness failures'
+```
+
+The regrader reported original thresholds of 200,000 verdicts / 0% nontermination,
+revised thresholds of 100,000 / 5%, and:
+
+```text
+fuzz aggregate: PASS: seeded, 200000 deterministic cases, 64 shards
+```
+
+Both fuzz arms now pass their applicable acceptance criteria. This disposition
+addresses fuzzing only; other release gates retain their own evidence requirements.

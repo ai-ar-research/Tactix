@@ -27,7 +27,24 @@ def main():
     parser.add_argument("--prefix", required=True)
     parser.add_argument("--shards", required=True, type=int)
     parser.add_argument("--total", required=True, type=int)
+    parser.add_argument("--minimum-verdicts", type=int,
+                        help="explicit regrade override; preserves saved summaries")
+    parser.add_argument("--max-nonterminating-frac", type=float,
+                        help="explicit regrade override; preserves saved summaries")
+    parser.add_argument("--regrade-reason",
+                        help="required explanation when overriding saved thresholds")
     args = parser.parse_args()
+    overrides = {key: value for key, value in {
+        "minimum_verdicts": args.minimum_verdicts,
+        "max_nonterminating_frac": args.max_nonterminating_frac,
+    }.items() if value is not None}
+    if overrides and not (args.regrade_reason or "").strip():
+        parser.error("threshold overrides require --regrade-reason")
+    if args.minimum_verdicts is not None and args.minimum_verdicts < 0:
+        parser.error("--minimum-verdicts must be nonnegative")
+    if args.max_nonterminating_frac is not None and not (
+            0 <= args.max_nonterminating_frac <= 1):
+        parser.error("--max-nonterminating-frac must be between 0 and 1")
 
     summaries = []
     for shard in range(args.shards):
@@ -56,6 +73,13 @@ def main():
         return fail("shards used different generator seeds")
     if any(item.get("requirements") != requirements for item in summaries):
         return fail("shards used different qualification requirements")
+    if overrides:
+        print("fuzz aggregate: REGRADE: " + json.dumps({
+            "reason": args.regrade_reason,
+            "original": {key: requirements[key] for key in overrides},
+            "revised": overrides,
+        }, sort_keys=True))
+        requirements = {**requirements, **overrides}
 
     counts = {}
     for item in summaries:

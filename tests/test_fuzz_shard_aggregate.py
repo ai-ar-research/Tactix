@@ -12,11 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 AGGREGATE = ROOT / "tools" / "fuzz" / "aggregate.py"
 
 
-def run(root, shards, total):
+def run(root, shards, total, *extra):
     return subprocess.run(
         [sys.executable, str(AGGREGATE), "--root", str(root),
          "--prefix", "leg-shard-",
-         "--shards", str(shards), "--total", str(total)],
+         "--shards", str(shards), "--total", str(total), *extra],
         cwd=ROOT,
         check=False,
         text=True,
@@ -73,5 +73,32 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-aggregate-") as tmp:
     result = run(campaign, 2, 5)
     assert result.returncode == 1
     assert "different qualification requirements" in result.stdout
+
+    # Regrading must not conceal inconsistent shard contracts.
+    override = ("--minimum-verdicts", "4", "--max-nonterminating-frac",
+                "0.25", "--regrade-reason", "Correct submission thresholds")
+    assert run(campaign, 2, 5, *override).returncode == 1
+    first_path = campaign / "leg-shard-0" / "summary.json"
+    first = json.loads(first_path.read_text())
+    first["requirements"]["minimum_verdicts"] = 6
+    write(campaign, 0, first)
+    assert run(campaign, 2, 5).returncode == 1
+    before = [path.read_bytes() for path in (first_path, summary_path)]
+    result = run(campaign, 2, 5, *override)
+    assert result.returncode == 0, result.stdout
+    assert "REGRADE" in result.stdout and '"minimum_verdicts": 6' in result.stdout
+    assert before == [path.read_bytes() for path in (first_path, summary_path)]
+    assert run(campaign, 2, 5, "--minimum-verdicts", "4").returncode == 2
+    first["counts"]["failures"] = 1
+    write(campaign, 0, first)
+    assert run(campaign, 2, 5, *override).returncode == 1
+    first["counts"]["failures"] = 0
+    first["counts"]["nonterminating"] = 2
+    first["counts"]["effective"] = 0
+    write(campaign, 0, first)
+    result = run(campaign, 2, 5, *override)
+    assert result.returncode == 1
+    assert "non-terminating fraction exceeds maximum" in result.stdout
+    assert "verdict minimum not met" in result.stdout
 
 print("fuzz shard aggregate qualification: PASS")
