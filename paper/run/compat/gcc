@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# C compiler wrapper for building the third-party solvers and checkers with a
+# recent GCC (14+, Ubuntu 26.04 has 15). These older C sources rely on what
+# GCC 13 and earlier accepted: implicit function declarations, implicit int,
+# loose pointer conversions, and pre-C23 semantics when no -std is given. Keep
+# that behaviour; the code is not changed. C++ compilations pass through.
+self_dir="$(cd "$(dirname "$0")" && pwd)"
+real=""
+IFS=: read -ra dirs <<< "$PATH"
+for d in "${dirs[@]}"; do
+    [ "$(cd "$d" 2>/dev/null && pwd)" = "$self_dir" ] && continue
+    if [ -x "$d/$(basename "$0")" ]; then real="$d/$(basename "$0")"; break; fi
+done
+[ -n "$real" ] || { echo "compat: no real $(basename "$0") on PATH" >&2; exit 127; }
+for arg in "$@"; do
+    case "$arg" in *.cpp|*.cc|*.cxx|*.C|-xc++|c++) exec "$real" "$@" ;; esac
+done
+exec "$real" -std=gnu17 -Wno-error=implicit-function-declaration -Wno-error=implicit-int \
+    -Wno-error=incompatible-pointer-types -Wno-error=int-conversion -Wno-error=return-mismatch \
+    -Wno-error=declaration-missing-parameter-type "$@"

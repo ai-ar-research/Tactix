@@ -35,6 +35,8 @@ export CMAKE_POLICY_VERSION_MINIMUM=3.5
 # Archives keep their owners only when that is possible.
 export TAR_OPTIONS="${TAR_OPTIONS:---no-same-owner}"
 mkdir -p "$BIN" "$SOLVERS" "$SRC"
+# Third-party C sources predate GCC 14/15's stricter defaults (compat/gcc).
+THIRD_PARTY_PATH="$ROOT/paper/run/compat:$PATH"
 
 DRAT_TRIM=(drat-trim https://github.com/marijnheule/drat-trim 2e3b2dc0ecf938addbd779d42877b6ed69d9a985)
 CAKE_LPR=(cake_lpr https://github.com/tanyongkiam/cake_lpr a4323b203cc9ecd584ba7da9e3fff08135a09d5f)
@@ -63,6 +65,7 @@ unpack () {
 }
 
 checkers () {
+    local PATH="$THIRD_PARTY_PATH"
     log "drat-trim"
     unpack "${DRAT_TRIM[@]}"
     [ -x "$SRC/drat-trim/drat-trim" ] || make -C "$SRC/drat-trim" drat-trim >/dev/null
@@ -124,6 +127,7 @@ winners () {
 }
 
 references () {
+    local PATH="$THIRD_PARTY_PATH"
     winners
     log "Kissat 4.0.4"
     unpack "${KISSAT4[@]}"
