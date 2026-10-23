@@ -1,4 +1,3 @@
-# Cruxmiter reduced set: the three cheapest seeds in the paper's runs
+# Cruxmiter reduced set: the two cheapest seeds in the paper's runs
 cruxmiter32seed2.cnf
-cruxmiter32seed6.cnf
 cruxmiter32seed7.cnf

@@ -35,8 +35,10 @@ other set, up to 15 formulas of at most 20 MB compressed that both builds
 solved within 120 s in the paper's runs, spread evenly over that range of
 solving times.
 
-Cruxmiter (Table 4). The three seeds (of ten) with the smallest total solving
-plus checking time over the three configurations in the paper's runs.
+Cruxmiter (Table 4). The two seeds (of ten) with the smallest total solving
+plus checking time over the three configurations in the paper's runs (seeds 7
+and 2). Kissat's seed-2 certificate (1.5 GB) needs more than the reduced
+4 GB to check; the reduced run reports that check as a memory-out.
 
 Chvatal (Table 5, Figure 6). The two subproblems (of 23) with the smallest
 total solving plus checking time over the four configurations.
@@ -208,7 +210,7 @@ def cruxmiter() -> tuple[list[str], list[str]]:
     total = collections.Counter()
     for row in read(PAPER / "data/crux-results.csv"):
         total[int(row["seed"])] += float(row["solve_seconds"]) + float(row["check_seconds"])
-    seeds = sorted(total, key=total.get)[:3]
+    seeds = sorted(total, key=total.get)[:2]
     return [f"cruxmiter32seed{s}.cnf" for s in sorted(seeds)], [f"cruxmiter32seed{seeds[0]}.cnf"]
 
 
@@ -224,7 +226,7 @@ def chvatal() -> tuple[list[str], list[str]]:
 HEADER = {
     "tierd": "Tier D reduced set (also the milestones'): see paper/run/select_subsets.py",
     "interface": "Interface reduced set: all of Tier A, up to 15 formulas per other set solved within 120 s",
-    "cruxmiter": "Cruxmiter reduced set: the three cheapest seeds in the paper's runs",
+    "cruxmiter": "Cruxmiter reduced set: the two cheapest seeds in the paper's runs",
     "chvatal": "Chvatal reduced set: the two cheapest of the 23 subproblems in the paper's runs",
 }
 
