@@ -25,8 +25,8 @@ and library use, and [installation](docs/install.md) for release binaries.
 |---|---|---|
 | `tactix-public` | `tests/tactix_public_main.cpp` | The default strategy with every operation issued through `tactix.h`; it makes the same decisions and writes the same proofs as `tactix`. |
 | `tactix-public-random` | `tools/fuzz/public_random_main.cpp` | The sole random qualification strategy; it generates varied one-action-at-a-time trajectories exclusively through `tactix.h`. |
-| `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | The paper's multiplier-miter strategy: four bounded congruence/substitution rounds, Backbone, then the fixed stable default search with vivification as its only inprocessing. |
-| `tactix-chvatal-policy` | `examples/chvatal_policy.c` | The paper's Chvátal strategy: merge duplicated totalizer counters with bidirectional substitution-redundancy steps, collapse after each round, then run the default strategy with a DSR proof. |
+| `tactix-cruxmiter-policy` | `examples/cruxmiter_policy.c` | A strategy developed for a set of multiplier-miter benchmarks: four bounded congruence/substitution rounds, Backbone, then the fixed stable default search with vivification as its only inprocessing. |
+| `tactix-chvatal-policy` | `examples/chvatal_policy.c` | A strategy developed for tackling sub-problems of the Chvátal's conjectures: merge duplicated totalizer counters with bidirectional substitution-redundancy steps, collapse after each round, then run the default strategy with a DSR proof. |
 
 ```sh
 build/release/tests/tactix-public formula.cnf proof
