@@ -70,15 +70,14 @@ routed by content (`tools/bench/proof_oracle.py`).
   `CORRECTNESS-BUG` note about two CakeLPR crashes; the recheck campaigns
   verified both certificates, and the paper uses the rechecked outcome.
 - **Commits.** Each Tactix configuration was built from a commit of this
-  repository; `BUILDS` in `run/experiments.py` lists them by full hash. Three
-  of them are not on `main`; the `paper-commits` branch keeps them.
+  repository; `BUILDS` in `run/experiments.py` lists them by full hash. Some
+  of them are not on `main`; the `artifact` and `paper-commits` branches keep
+  them (the artifact's clone of this repository has both).
 - **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
-  drives its opening through `tactix.h` and then hands over to the built-in
-  default strategy, configured through `tactix_set_default_option`. The
-  paper's runs passed the same settings through the environment, before the
-  call existed; the artifact runs the strategy at commit `b8b550aae`
-  (build `paper-cruxmiter-public`), which uses the call and writes
-  byte-identical proofs (checked on seed 7).
+  drives its opening through `tactix.h`, then hands over to the built-in stable
+  default strategy with reordering, BVE, conflict reuse, Factor, Sweep and the
+  default Backbone slot disabled and Vivify as its only inprocessing slot.
+  These fixed settings are part of the strategy implementation.
 - **Reference solvers** are built from their SAT Competition sources
   (`tools/solvers/fetch-winners.sh` records the URLs and archive hashes).
   LymphoSAT's competition binaries require an Ice Lake CPU; it is rebuilt for
