@@ -27,17 +27,6 @@ REFERENCES = {
     "LymphoSAT": {"command": [f"{S}/lymphosat/run.sh", "{cnf}", "{proof_dir}"], "proof": "pbp"},
 }
 
-# The cruxmiter strategy as evaluated. It configures the default strategy it
-# hands over to through tactix_set_default_option (its --default-option flag);
-# the paper's runs passed the same settings through the environment, which
-# writes byte-identical proofs. TACTIX_CRUX_CS_ROUNDS is the program's own
-# schedule setting.
-CRUX_DEFAULT_OPTIONS = [
-    "TACTIX_FORCE_MODE=stable", "TACTIX_REORDER=0", "TACTIX_NO_BVE=1", "TACTIX_CONFLICT_REUSE=0",
-    "TACTIX_SLOT_PERMILLE=Vivify:200", "TACTIX_NO_FACTOR=1", "TACTIX_NO_SWEEP=1",
-    "TACTIX_SLOT_DISABLE=Backbone",
-]
-
 EXPERIMENTS = {
     "smoke": {
         "description": "The example formulas: every solver path and proof route, in about a minute",
@@ -91,17 +80,14 @@ EXPERIMENTS = {
         },
     },
     "cruxmiter": {
-        "description": "Case study: the cruxmiter strategy on the ten size-32 cruxmiter formulas",
+        "description": "Case study: the cruxmiter strategy on the paper's benchmark set",
         "instances": {"kind": "files", "glob": "paper/benchmarks/cruxmiter/cruxmiter32seed*.cnf"},
         "limits": {"seconds": 43200, "memory_gib": 48, "cpus": 12, "check_seconds": 259200},
         "configurations": {
             "Default Tactix": {"command": [f"{T}/paper-cruxmiter/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
             "Public policy": {"command": [f"{T}/paper-cruxmiter-public/tactix-cruxmiter-policy",
-                                          "--profile=backbone",
-                                          *[f"--default-option={o}" for o in CRUX_DEFAULT_OPTIONS],
-                                          "--drat", "{cnf}", "{proof}"],
-                              "environment": {"TACTIX_CRUX_CS_ROUNDS": "4"}, "proof": "drat"},
+                                          "{cnf}", "{proof}"], "proof": "drat"},
             "Kissat 4.0.4": KISSAT,
         },
     },
@@ -111,10 +97,10 @@ EXPERIMENTS = {
                       "selection": "paper/logs/chvatal/paper-hard.json"},
         "limits": {"seconds": 5000, "memory_gib": 16, "cpus": 4, "check_seconds": 7200},
         "configurations": {
-            "Chvatal Tactix": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy", "--twins", "--dsr",
+            "Chvatal Tactix": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy",
                                            "{cnf}", "{proof}"], "proof": "tactix"},
-            "Chvatal Tactix (stable)": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy", "--twins",
-                                                    "--dsr", "{cnf}", "{proof}"],
+            "Chvatal Tactix (stable)": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy",
+                                                    "{cnf}", "{proof}"],
                                         "environment": {"TACTIX_FORCE_MODE": "stable"}, "proof": "tactix"},
             "Default Tactix": {"command": [f"{T}/paper-chvatal-default/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
@@ -136,7 +122,7 @@ BUILDS = {
     "paper-milestone-d": "f50e46c0c45b049325e365b9afb17b3d9debaca4",
     "paper-milestone-e": "0a90633874488baeffc5ab4d3630017f6f46e71e",
     "paper-cruxmiter": "5d2bab3228805f10dfc965836740b463b015acfd",
-    "paper-cruxmiter-public": "b8b550aaec40706041a365816dabd5a5b163be63",
-    "paper-chvatal": "4dc8e673db4ca8de0a64a745c7da08fac24c175f",
+    "paper-cruxmiter-public": "74e2317d425ae68075c63e10b7254c1b569c8123",
+    "paper-chvatal": "74e2317d425ae68075c63e10b7254c1b569c8123",
     "paper-chvatal-default": "903ec8bb4bd1c5518a64a367a05dc07d039b0070",
 }
