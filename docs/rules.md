@@ -3,9 +3,8 @@
 This is the catalogue of every operation a Tactix strategy can apply. Each
 entry is registered once in [`src/rules/registry.cpp`](../src/rules/registry.cpp)
 and exposed through the C interface in [`include/tactix.h`](../include/tactix.h).
-The formal semantics (preconditions, effects, proof steps and soundness
-arguments) are in [calculus.md](calculus.md); the interactive
-[proof-rule guide](proof-rules.html) has worked examples for most proof rules.
+The interactive [proof-rule guide](proof-rules.html) has worked examples for
+most proof rules.
 How to call the operations from C is described in [c-api.md](c-api.md).
 
 ## Concepts
@@ -95,8 +94,7 @@ recognized structure and proof transition.
 
 ## All registered operations
 
-"Calc." is the rule's label in [calculus.md](calculus.md) and in the
-[proof-rule guide](proof-rules.html). "Root" means decision level 0 with no
+"Calc." is the rule's label in the [proof-rule guide](proof-rules.html). "Root" means decision level 0 with no
 refutation; "propagated root" additionally requires no recorded conflict and
 completed root propagation. "Assignment-free" means no variable is assigned at
 the root. In the table, `terminal-PBP` means the internal startup-only PBP
