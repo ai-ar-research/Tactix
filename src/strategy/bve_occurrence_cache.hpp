@@ -38,7 +38,7 @@ public:
       }
       const StateVersion current = state_version(k);
       const auto &image = cache.image_;
-      if (!image || !image.unique() || image->owner != &k ||
+      if (!image || image.use_count() != 1 || image->owner != &k ||
           image->version.arena_generation != current.arena_generation ||
           image->version.touch_epoch != current.touch_epoch ||
           image->version.strategy_epoch != current.strategy_epoch) {
