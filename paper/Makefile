@@ -21,7 +21,7 @@ PLOT = $(PYTHON) scripts/plot_final_results.py --data $(DATA)/tierd-times.csv $(
 FIGURE_FILES = $(FIGURES)/tierd-cactus.pdf $(FIGURES)/tierd-scatter.pdf \
 	$(FIGURES)/tierd-scatter-satsuma.pdf $(FIGURES)/tierd-scatter-lympho.pdf \
 	$(FIGURES)/interface-overhead.pdf $(FIGURES)/milestone-ladder.pdf \
-	$(FIGURES)/development-roadmap.pdf $(FIGURES)/chvatal-scatter.pdf \
+	$(FIGURES)/chvatal-scatter.pdf \
 	$(FIGURES)/chvatal-table.tex
 
 .PHONY: all normalize data figures report check clean compare activity
@@ -58,14 +58,10 @@ $(FIGURES)/interface-overhead.pdf: $(DATA)/interface-overhead.csv
 	$(PLOT) --interface-data $< --interface $@
 $(FIGURES)/milestone-ladder.pdf: $(DATA)/milestone-times.csv
 	$(PLOT) --milestone-data $< --milestones $@
-# Development activity comes from git history (scripts/analyze_milestone_activity.py),
-# not from solver runs, so it is always read from data/.
-$(FIGURES)/development-roadmap.pdf: data/milestone-activity.csv
-	$(PYTHON) scripts/plot_development_roadmap.py --data $< --output $@
 $(FIGURES)/chvatal-scatter.pdf: $(DATA)/chvatal-results.csv
 	$(PYTHON) scripts/plot_chvatal.py --data $< --output $@ $(LIMITS)
 $(FIGURES)/chvatal-table.tex: $(DATA)/chvatal-results.csv
-	$(PYTHON) scripts/table_chvatal.py --data $< --output $@ $(LIMITS) >/dev/null
+	$(PYTHON) scripts/table_chvatal.py --data $< --output $@ >/dev/null
 
 check:
 	rm -rf $(CHECK) && mkdir -p $(CHECK)/logs $(CHECK)/data

@@ -389,9 +389,8 @@ def run_task(task: dict, out: Path, index: int) -> dict:
         substitutions = {"{cnf}": str(cnf), "{proof}": str(proof), "{proof_dir}": str(proof_dir)}
         command = [substitutions.get(part, part) for part in spec["command"]]
         command[0] = str(HERE / command[0]) if not Path(command[0]).is_absolute() else command[0]
-        env = dict(os.environ, **spec.get("environment", {}))
         stdout, stderr = work / "solver.out", work / "solver.err"
-        solve = measured(command, stdout, stderr, limits["seconds"], env, limits["memory_gib"])
+        solve = measured(command, stdout, stderr, limits["seconds"], None, limits["memory_gib"])
         verdict = answer(stdout)
         certificate = proof if "{proof}" in spec["command"] else proof_dir / "proof.out"
         record = {**{k: task[k] for k in ("experiment", "configuration", "set", "instance")},
@@ -462,7 +461,7 @@ def _row(record: dict) -> dict:
             "solve_limit_seconds": record["limits"]["seconds"],
             "check_limit_seconds": record["limits"]["check_seconds"],
             "memory_limit_gib": record["limits"]["memory_gib"],
-            "solved_checked": answered and verified, "kissat_screen_seconds": record.get("kissat_screen_seconds", "")}
+            "kissat_screen_seconds": record.get("kissat_screen_seconds", "")}
 
 
 def collect(out: Path) -> None:
@@ -474,7 +473,7 @@ def collect(out: Path) -> None:
             for record in records:
                 record["kissat_screen_seconds"] = screen.get(Path(record["instance"]).name.removesuffix(".xz"), "")
         for record in records:
-            build = record.get("build") or record.get("commit_tag")
+            build = record.get("build")
             if build and (TOOLS / "tactix" / build / "COMMIT").exists():
                 record["commit"] = (TOOLS / "tactix" / build / "COMMIT").read_text().strip()[:9]
         rows = [_row(r) for r in records]
@@ -587,7 +586,7 @@ def main() -> None:
         print(f"{name}: {len(tasks)} tasks -> {directory}")
     if args.command == "run":
         # One pool for all selected experiments; their longest runs start first
-        # (case studies, then Tier D, ...), so that short runs fill the tail.
+        # (case studies, then tierd, ...), so that short runs fill the tail.
         order = {name: rank for rank, name in enumerate(("chvatal", "cruxmiter", "tierd", "milestones",
                                                           "interface", "smoke"))}
         work = [(task, index) for name in sorted(plans, key=order.get)

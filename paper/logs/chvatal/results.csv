@@ -1,116 +1,93 @@
-configuration,instance,verdict,solve_seconds,verified,solved_checked,check_seconds,proof_bytes,kissat_screen_seconds
-Default Tactix,corpus/chvatal/population/n7-1111001.cnf,UNSAT,1604.69,True,True,3757.829,2093249689,1656.085
-Kissat 4.0.4,corpus/chvatal/population/n7-1111001.cnf,UNSAT,1619.097,True,True,2770.607,2153224690,1656.085
-Default Tactix,corpus/chvatal/population/n7-11110011.cnf,UNSAT,1627.838,True,True,3637.029,2093250025,1664.257
-Kissat 4.0.4,corpus/chvatal/population/n7-11110011.cnf,UNSAT,1619.37,True,True,2767.715,2153225026,1664.257
-Default Tactix,corpus/chvatal/population/n7-111100110.cnf,UNSAT,890.844,True,True,2088.584,1169505199,1145.657
-Kissat 4.0.4,corpus/chvatal/population/n7-111100110.cnf,UNSAT,1152.961,True,True,2020.121,1558616409,1145.657
-Default Tactix,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,869.295,True,True,1967.474,1169503539,1145.486
-Kissat 4.0.4,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,1149.852,True,True,1844.253,1558616409,1145.486
-Default Tactix,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,1211.077,True,True,2504.528,1602104983,1664.253
-Kissat 4.0.4,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,1678.649,True,True,2583.863,2240782741,1664.253
-Default Tactix,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,1126.54,True,True,2387.001,1522777393,1187.495
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,1204.985,True,True,1928.259,1637919459,1187.495
-Default Tactix,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,1115.671,True,True,2229.668,1522775701,1189.181
-Kissat 4.0.4,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,1196.154,True,True,1850.484,1637919459,1189.181
-Default Tactix,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,410.772,True,True,903.342,574693000,455.762
-Kissat 4.0.4,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,459.64,True,True,753.83,662320372,455.762
-Default Tactix,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,547.265,True,True,1183.898,796562194,713.067
-Kissat 4.0.4,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,725.209,True,True,1085.0,1022638619,713.067
-Default Tactix,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,418.678,True,True,951.432,603025335,495.137
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,491.012,True,True,706.55,677390762,495.137
-Default Tactix,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,304.502,True,True,730.165,443090367,499.689
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,503.082,True,True,869.064,753597219,499.689
-Default Tactix,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,1104.937,True,True,2428.2,1485233866,1124.945
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,1138.935,True,True,1838.634,1525533299,1124.945
-Default Tactix,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,669.535,True,True,1426.766,938644656,876.981
-Kissat 4.0.4,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,865.435,True,True,1304.801,1193257507,876.981
-Default Tactix,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,771.677,True,True,1726.25,1017886143,840.41
-Kissat 4.0.4,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,837.558,True,True,1180.407,1104685555,840.41
-Default Tactix,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,732.347,True,True,1616.353,1025920650,804.405
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,798.816,True,True,1216.91,1120820803,804.405
-Default Tactix,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,729.381,True,True,1627.619,1025919378,800.428
-Kissat 4.0.4,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,799.827,True,True,1257.168,1120820803,800.428
-Default Tactix,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,1320.787,True,True,2973.177,1787990933,1438.624
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,1438.004,True,True,2125.708,1869739026,1438.624
-Default Tactix,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,577.992,True,True,1271.942,777718868,706.059
-Kissat 4.0.4,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,718.739,True,True,1004.187,957850972,706.059
-Default Tactix,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,571.648,True,True,1272.676,777718012,719.269
-Kissat 4.0.4,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,717.534,True,True,1127.589,957850972,719.269
-Default Tactix,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,439.925,True,True,949.114,623325169,487.409
-Kissat 4.0.4,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,485.617,True,True,748.663,641505165,487.409
-Default Tactix,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,423.762,True,True,917.146,590298692,537.253
-Kissat 4.0.4,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,528.028,True,True,812.253,706787568,537.253
-Default Tactix,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,954.675,True,True,2053.946,1238639774,1228.405
-Kissat 4.0.4,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,1221.519,True,True,1755.489,1639293626,1228.405
-Default Tactix,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,374.828,True,True,752.473,484413543,431.941
-Kissat 4.0.4,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,441.447,True,True,599.692,591425505,431.941
-Satsuma+Kissat,corpus/chvatal/population/n7-1111001.cnf,UNSAT,1432.622,True,True,5876.21,1968212613,1656.085
-Satsuma+Kissat,corpus/chvatal/population/n7-11110011.cnf,UNSAT,1434.912,True,True,6061.695,1968212949,1664.257
-Satsuma+Kissat,corpus/chvatal/population/n7-111100110.cnf,UNSAT,1114.474,True,True,4223.172,1493067311,1145.657
-Satsuma+Kissat,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,1098.304,True,True,4027.168,1493067315,1145.486
-Satsuma+Kissat,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,1634.424,True,True,6108.479,2068745062,1664.253
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,1789.765,True,True,6467.094,2125912796,1187.495
-Satsuma+Kissat,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,1672.522,True,True,6319.353,2125912800,1189.181
-Satsuma+Kissat,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,417.941,True,True,1656.158,643315800,455.762
-Satsuma+Kissat,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,629.9,True,True,2315.173,851852534,713.067
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,550.395,True,True,2154.443,787613522,495.137
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,486.054,True,True,1996.921,717970163,499.689
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,1158.868,True,True,4567.77,1622354364,1124.945
-Satsuma+Kissat,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,839.332,True,True,3172.982,1092201427,876.981
-Satsuma+Kissat,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,903.695,True,True,3390.906,1220393817,840.41
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,834.079,True,True,3200.805,1156397238,804.405
-Satsuma+Kissat,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,824.358,True,True,3185.95,1156397242,800.428
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,1772.413,True,True,6735.561,2233037486,1438.624
-Satsuma+Kissat,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,592.902,True,True,2362.425,792824788,706.059
-Satsuma+Kissat,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,569.573,True,True,2255.747,792824792,719.269
-Satsuma+Kissat,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,473.086,True,True,1878.125,689596193,487.409
-Satsuma+Kissat,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,488.829,True,True,1889.386,692114475,537.253
-Satsuma+Kissat,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,996.534,True,True,3771.458,1321261963,1228.405
-Satsuma+Kissat,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,406.478,True,True,1548.409,540738124,431.941
-Chvatal Tactix,corpus/chvatal/population/n7-1111001.cnf,UNSAT,524.526,True,True,1804.57,759234720,1656.085
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111001.cnf,UNSAT,396.304,True,True,1726.254,720094925,1656.085
-Chvatal Tactix,corpus/chvatal/population/n7-11110011.cnf,UNSAT,528.436,True,True,1819.381,759235056,1664.257
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11110011.cnf,UNSAT,396.663,True,True,1718.557,720095261,1664.257
-Chvatal Tactix,corpus/chvatal/population/n7-111100110.cnf,UNSAT,343.954,True,True,1163.369,477425509,1145.657
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111100110.cnf,UNSAT,298.18,True,True,1128.333,495866973,1145.657
-Chvatal Tactix,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,339.963,True,True,1123.991,477424105,1145.486
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111001100.cnf,UNSAT,305.61,True,True,1162.096,495865569,1145.486
-Chvatal Tactix,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,510.765,True,True,1790.024,698338720,1664.253
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111111001000.cnf,UNSAT,602.352,True,True,2525.483,998518856,1664.253
-Chvatal Tactix,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,514.568,True,True,1789.89,698342492,1187.495
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,601.373,True,True,2550.882,998522628,1187.495
-Chvatal Tactix,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,515.475,True,True,1810.595,698341060,1189.181
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,603.313,True,True,2551.89,998521196,1189.181
-Chvatal Tactix,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,253.458,True,True,691.264,303865765,455.762
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,223.29,True,True,814.358,350778533,455.762
-Chvatal Tactix,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,260.96,True,True,693.52,305136496,713.067
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111111001001.cnf,UNSAT,256.536,True,True,891.216,391411723,713.067
-Chvatal Tactix,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,245.561,True,True,673.709,297602845,495.137
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,210.863,True,True,738.699,306062742,495.137
-Chvatal Tactix,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,182.588,True,True,424.864,197103527,499.689
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,209.206,True,True,663.475,308931726,499.689
-Chvatal Tactix,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,444.985,True,True,1421.277,598694759,1124.945
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,373.995,True,True,1526.884,674835835,1124.945
-Chvatal Tactix,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,317.093,True,True,937.343,398781738,876.981
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,287.669,True,True,1039.581,419044989,876.981
-Chvatal Tactix,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,314.698,True,True,947.044,398790450,840.41
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,286.226,True,True,1102.408,419053701,840.41
-Chvatal Tactix,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,314.436,True,True,941.208,398801110,804.405
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,287.231,True,True,1054.473,419064361,804.405
-Chvatal Tactix,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,313.066,True,True,936.852,398800034,800.428
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,287.065,True,True,1057.683,419063285,800.428
-Chvatal Tactix,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,573.09,True,True,1940.676,821264658,1438.624
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110011.cnf,UNSAT,658.917,True,True,2664.168,1332833443,1438.624
-Chvatal Tactix,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,300.203,True,True,837.517,381321251,706.059
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11111100110.cnf,UNSAT,345.798,True,True,1248.89,602506971,706.059
-Chvatal Tactix,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,295.748,True,True,837.699,381320527,719.269
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111111001100.cnf,UNSAT,344.187,True,True,1271.474,602506247,719.269
-Chvatal Tactix,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,299.275,True,True,801.204,376830921,487.409
-Chvatal Tactix (stable),corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,343.673,True,True,1204.064,638243234,487.409
-Chvatal Tactix,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,298.45,True,True,795.532,376834345,537.253
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,345.176,True,True,1204.757,638246658,537.253
-Chvatal Tactix,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,525.026,True,True,1684.723,711910171,1228.405
-Chvatal Tactix (stable),corpus/chvatal/population/n7-11111110100.cnf,UNSAT,511.681,True,True,2232.686,729400030,1228.405
-Chvatal Tactix,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,246.634,True,True,696.134,325715709,431.941
-Chvatal Tactix (stable),corpus/chvatal/population/n7-111111101000.cnf,UNSAT,225.33,True,True,832.367,340790151,431.941
+configuration,instance,verdict,solve_seconds,verified,check_seconds,proof_bytes,kissat_screen_seconds
+Default Tactix,corpus/chvatal/population/n7-1111001.cnf,UNSAT,1604.69,True,3757.829,2093249689,1656.085
+Kissat 4.0.4,corpus/chvatal/population/n7-1111001.cnf,UNSAT,1619.097,True,2770.607,2153224690,1656.085
+Default Tactix,corpus/chvatal/population/n7-11110011.cnf,UNSAT,1627.838,True,3637.029,2093250025,1664.257
+Kissat 4.0.4,corpus/chvatal/population/n7-11110011.cnf,UNSAT,1619.37,True,2767.715,2153225026,1664.257
+Default Tactix,corpus/chvatal/population/n7-111100110.cnf,UNSAT,890.844,True,2088.584,1169505199,1145.657
+Kissat 4.0.4,corpus/chvatal/population/n7-111100110.cnf,UNSAT,1152.961,True,2020.121,1558616409,1145.657
+Default Tactix,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,869.295,True,1967.474,1169503539,1145.486
+Kissat 4.0.4,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,1149.852,True,1844.253,1558616409,1145.486
+Default Tactix,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,1211.077,True,2504.528,1602104983,1664.253
+Kissat 4.0.4,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,1678.649,True,2583.863,2240782741,1664.253
+Default Tactix,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,1126.54,True,2387.001,1522777393,1187.495
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,1204.985,True,1928.259,1637919459,1187.495
+Default Tactix,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,1115.671,True,2229.668,1522775701,1189.181
+Kissat 4.0.4,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,1196.154,True,1850.484,1637919459,1189.181
+Default Tactix,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,410.772,True,903.342,574693000,455.762
+Kissat 4.0.4,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,459.64,True,753.83,662320372,455.762
+Default Tactix,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,547.265,True,1183.898,796562194,713.067
+Kissat 4.0.4,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,725.209,True,1085.0,1022638619,713.067
+Default Tactix,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,418.678,True,951.432,603025335,495.137
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,491.012,True,706.55,677390762,495.137
+Default Tactix,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,304.502,True,730.165,443090367,499.689
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,503.082,True,869.064,753597219,499.689
+Default Tactix,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,1104.937,True,2428.2,1485233866,1124.945
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,1138.935,True,1838.634,1525533299,1124.945
+Default Tactix,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,669.535,True,1426.766,938644656,876.981
+Kissat 4.0.4,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,865.435,True,1304.801,1193257507,876.981
+Default Tactix,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,771.677,True,1726.25,1017886143,840.41
+Kissat 4.0.4,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,837.558,True,1180.407,1104685555,840.41
+Default Tactix,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,732.347,True,1616.353,1025920650,804.405
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,798.816,True,1216.91,1120820803,804.405
+Default Tactix,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,729.381,True,1627.619,1025919378,800.428
+Kissat 4.0.4,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,799.827,True,1257.168,1120820803,800.428
+Default Tactix,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,1320.787,True,2973.177,1787990933,1438.624
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,1438.004,True,2125.708,1869739026,1438.624
+Default Tactix,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,577.992,True,1271.942,777718868,706.059
+Kissat 4.0.4,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,718.739,True,1004.187,957850972,706.059
+Default Tactix,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,571.648,True,1272.676,777718012,719.269
+Kissat 4.0.4,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,717.534,True,1127.589,957850972,719.269
+Default Tactix,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,439.925,True,949.114,623325169,487.409
+Kissat 4.0.4,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,485.617,True,748.663,641505165,487.409
+Default Tactix,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,423.762,True,917.146,590298692,537.253
+Kissat 4.0.4,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,528.028,True,812.253,706787568,537.253
+Default Tactix,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,954.675,True,2053.946,1238639774,1228.405
+Kissat 4.0.4,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,1221.519,True,1755.489,1639293626,1228.405
+Default Tactix,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,374.828,True,752.473,484413543,431.941
+Kissat 4.0.4,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,441.447,True,599.692,591425505,431.941
+Satsuma+Kissat,corpus/chvatal/population/n7-1111001.cnf,UNSAT,1432.622,True,5876.21,1968212613,1656.085
+Satsuma+Kissat,corpus/chvatal/population/n7-11110011.cnf,UNSAT,1434.912,True,6061.695,1968212949,1664.257
+Satsuma+Kissat,corpus/chvatal/population/n7-111100110.cnf,UNSAT,1114.474,True,4223.172,1493067311,1145.657
+Satsuma+Kissat,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,1098.304,True,4027.168,1493067315,1145.486
+Satsuma+Kissat,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,1634.424,True,6108.479,2068745062,1664.253
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,1789.765,True,6467.094,2125912796,1187.495
+Satsuma+Kissat,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,1672.522,True,6319.353,2125912800,1189.181
+Satsuma+Kissat,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,417.941,True,1656.158,643315800,455.762
+Satsuma+Kissat,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,629.9,True,2315.173,851852534,713.067
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,550.395,True,2154.443,787613522,495.137
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,486.054,True,1996.921,717970163,499.689
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,1158.868,True,4567.77,1622354364,1124.945
+Satsuma+Kissat,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,839.332,True,3172.982,1092201427,876.981
+Satsuma+Kissat,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,903.695,True,3390.906,1220393817,840.41
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,834.079,True,3200.805,1156397238,804.405
+Satsuma+Kissat,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,824.358,True,3185.95,1156397242,800.428
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,1772.413,True,6735.561,2233037486,1438.624
+Satsuma+Kissat,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,592.902,True,2362.425,792824788,706.059
+Satsuma+Kissat,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,569.573,True,2255.747,792824792,719.269
+Satsuma+Kissat,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,473.086,True,1878.125,689596193,487.409
+Satsuma+Kissat,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,488.829,True,1889.386,692114475,537.253
+Satsuma+Kissat,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,996.534,True,3771.458,1321261963,1228.405
+Satsuma+Kissat,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,406.478,True,1548.409,540738124,431.941
+Chvatal Tactix,corpus/chvatal/population/n7-1111001.cnf,UNSAT,524.526,True,1804.57,759234720,1656.085
+Chvatal Tactix,corpus/chvatal/population/n7-11110011.cnf,UNSAT,528.436,True,1819.381,759235056,1664.257
+Chvatal Tactix,corpus/chvatal/population/n7-111100110.cnf,UNSAT,343.954,True,1163.369,477425509,1145.657
+Chvatal Tactix,corpus/chvatal/population/n7-1111001100.cnf,UNSAT,339.963,True,1123.991,477424105,1145.486
+Chvatal Tactix,corpus/chvatal/population/n7-111111001000.cnf,UNSAT,510.765,True,1790.024,698338720,1664.253
+Chvatal Tactix,corpus/chvatal/population/n7-1111110010001.cnf,UNSAT,514.568,True,1789.89,698342492,1187.495
+Chvatal Tactix,corpus/chvatal/population/n7-11111100100010.cnf,UNSAT,515.475,True,1810.595,698341060,1189.181
+Chvatal Tactix,corpus/chvatal/population/n7-111111001000100.cnf,UNSAT,253.458,True,691.264,303865765,455.762
+Chvatal Tactix,corpus/chvatal/population/n7-111111001001.cnf,UNSAT,260.96,True,693.52,305136496,713.067
+Chvatal Tactix,corpus/chvatal/population/n7-1111110010010.cnf,UNSAT,245.561,True,673.709,297602845,495.137
+Chvatal Tactix,corpus/chvatal/population/n7-1111110010100.cnf,UNSAT,182.588,True,424.864,197103527,499.689
+Chvatal Tactix,corpus/chvatal/population/n7-1111110010101.cnf,UNSAT,444.985,True,1421.277,598694759,1124.945
+Chvatal Tactix,corpus/chvatal/population/n7-11111100101010.cnf,UNSAT,317.093,True,937.343,398781738,876.981
+Chvatal Tactix,corpus/chvatal/population/n7-111111001010101.cnf,UNSAT,314.698,True,947.044,398790450,840.41
+Chvatal Tactix,corpus/chvatal/population/n7-1111110010101011.cnf,UNSAT,314.436,True,941.208,398801110,804.405
+Chvatal Tactix,corpus/chvatal/population/n7-11111100101010110.cnf,UNSAT,313.066,True,936.852,398800034,800.428
+Chvatal Tactix,corpus/chvatal/population/n7-1111110011.cnf,UNSAT,573.09,True,1940.676,821264658,1438.624
+Chvatal Tactix,corpus/chvatal/population/n7-11111100110.cnf,UNSAT,300.203,True,837.517,381321251,706.059
+Chvatal Tactix,corpus/chvatal/population/n7-111111001100.cnf,UNSAT,295.748,True,837.699,381320527,719.269
+Chvatal Tactix,corpus/chvatal/population/n7-1111110011001.cnf,UNSAT,299.275,True,801.204,376830921,487.409
+Chvatal Tactix,corpus/chvatal/population/n7-11111100110011.cnf,UNSAT,298.45,True,795.532,376834345,537.253
+Chvatal Tactix,corpus/chvatal/population/n7-11111110100.cnf,UNSAT,525.026,True,1684.723,711910171,1228.405
+Chvatal Tactix,corpus/chvatal/population/n7-111111101000.cnf,UNSAT,246.634,True,696.134,325715709,431.941

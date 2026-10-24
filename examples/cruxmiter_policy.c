@@ -1,8 +1,13 @@
-/* Public-API strategy used by the paper's cruxmiter experiment.
+/* Public-API strategy for miter formulas: two circuits over the same inputs
+ * whose outputs are asked to differ, so many signals of one circuit are
+ * equivalent to signals of the other.
  *
- * The opening alternates congruence detection and substitution for at most
+ * The opening alternates congruence detection (equivalent gates) and
+ * substitution (replacing each signal by its representative) for at most
  * four rounds, applies Backbone, then hands the reduced formula to the
- * built-in default strategy with the exact settings used by the artifact.
+ * built-in default strategy in a fixed configuration: stable mode; no
+ * reordering, bounded variable elimination, conflict reuse, Factor or Sweep;
+ * Vivify as the only inprocessing slot (configure_default_strategy).
  */
 #include "tactix.h"
 

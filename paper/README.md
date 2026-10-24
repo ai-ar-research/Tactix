@@ -19,12 +19,16 @@ paper/
                  compare.py        a rerun next to the paper's logs on the same runs
                  plot_*.py, table_chvatal.py   the figures and Table 5's LaTeX
                  analyze_milestone_activity.py Table 6's activity columns (git history)
-  benchmarks/    instance definitions: GBD content hashes of SC 2024-2026 and the
-                 interface sets, Tier A, the cruxmiter and Chvatal formulas, and
-                 the reduced and smoke subsets (subsets/, chosen by run/select_subsets.py)
+  benchmarks/    instance definitions: the SAT Competition 2024-2026 formulas and
+                 the interface sets by their Global Benchmark Database (GBD)
+                 identifier, a hash of the formula's content (with the GBD family
+                 of each competition formula); Tier A, the cruxmiter and Chvatal
+                 formulas; the reduced and smoke subsets (subsets/, chosen by
+                 run/select_subsets.py)
   run/           experiments.py   every experiment: instances, limits, the command of
                                   each configuration, profiles full/reduced/smoke
-                 bench.py         runs an experiment locally or as a SLURM array
+                 bench.py         runs an experiment locally or as a SLURM (cluster
+                                  scheduler) array job
                  setup.sh         builds checkers, reference solvers and the Tactix
                                   builds the paper evaluated (BUILDS)
   Makefile       logs -> data -> figures and printed tables
@@ -56,11 +60,12 @@ resident memory (of the solver or checking pipeline and all its children).
 Each run writes a JSON record with the command, limits, solver output tail,
 and each checker stage's result; an interrupted run resumes.
 
-How each answer is checked: a SAT model against the formula
-(`tools/fuzz/checkmodel`); an UNSAT certificate by the pipeline of its format:
-DRAT with drat-trim (to LRAT) and cake_lpr; DSR with dsr-trim (to LSR) and
-Trestle; PBP with VeriPB (elaboration) and CakePB. Tactix's certificates are
-routed by content (`tools/bench/proof_oracle.py`).
+How each answer is checked: a satisfying assignment against the formula
+(`tools/fuzz/checkmodel`); an unsatisfiability proof by the checkers of its
+format: DRAT (clausal proofs) with drat-trim and cake_lpr; DSR (DRAT with
+substitution steps) with dsr-trim and Trestle; pseudo-Boolean proofs with
+VeriPB and CakePB. Tactix's proofs are sent to the right checkers by their
+content (`tools/bench/proof_oracle.py`).
 
 ## Notes
 
@@ -68,9 +73,10 @@ routed by content (`tools/bench/proof_oracle.py`).
   repository; `BUILDS` in `run/experiments.py` lists them by full hash, and all
   of them are in this branch's history.
 - **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
-  drives its opening through `tactix.h`, then hands over to the built-in stable
-  default strategy with reordering, BVE, conflict reuse, Factor, Sweep and the
-  default Backbone slot disabled and Vivify as its only inprocessing slot.
+  drives its opening through `tactix.h`, then hands over to the built-in
+  default strategy in stable mode, with reordering, bounded variable
+  elimination, conflict reuse, Factor, Sweep and the default Backbone slot
+  disabled, and Vivify as its only inprocessing slot.
   These fixed settings are part of the strategy implementation.
 - **Reference solvers** are built from their SAT Competition sources
   (`tools/solvers/fetch-winners.sh` records the URLs and archive hashes).

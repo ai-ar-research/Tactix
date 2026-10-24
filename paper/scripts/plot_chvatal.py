@@ -5,7 +5,7 @@ Panels: solve time of Chvatal Tactix against Default Tactix, solve time against
 Satsuma+Kissat, and proof-checking time against Satsuma+Kissat.  A run without
 an answer is drawn on the solving-limit border; a certificate whose check did
 not succeed is drawn on the checking-limit border.  Points below the diagonal
-favour Chvatal Tactix. Crosses denote UNSAT results.
+are formulas on which Chvatal Tactix took less time. Crosses denote UNSAT results.
 """
 from __future__ import annotations
 

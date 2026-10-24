@@ -5,9 +5,7 @@
 
 Each archive holds one configuration's runs (runs/<formula>.json: the run's
 record, in the layout of the harness version that ran it) and the metadata of
-the campaigns they came from (campaigns/<name>/). Where a check that ran out
-of memory or time was redone with more resources, the run's record is the
-recheck's and `replaces` notes the original outcome.
+the campaigns they came from (campaigns/<name>/).
 
 Writes paper/logs/<experiment>/results.csv with one row per (configuration,
 instance) and the common columns
@@ -51,7 +49,7 @@ def write(experiment: str, rows: list[dict]) -> None:
     print(f"{experiment:11} {len(rows):6d} rows")
 
 
-# --- Tier D: SAT Competition 2024-2026 main tracks --------------------------
+# --- tierd: SAT Competition 2024-2026 main tracks --------------------------
 #
 # A SAT answer counts when its model checks (and, for the reference solvers,
 # the output follows the competition protocol); an UNSAT answer counts when
@@ -102,8 +100,7 @@ def _tierd_row(record):
     return dict(verdict=record.get("verdict"), solve_seconds=wall, status=status, verified=ok,
                 check_seconds=check.get("wall_seconds"),
                 proof_bytes=record.get("certificate_bytes"),
-                par2_seconds=round(wall, 3) if ok else PENALTY,
-                proof_pipeline=check.get("pipeline"))
+                par2_seconds=round(wall, 3) if ok else PENALTY)
 
 
 def tierd():
@@ -114,26 +111,17 @@ def tierd():
 
 # --- Milestone ladder ---------------------------------------------------------
 #
-# The first commit that met each development milestone, run on Tier D without
-# proofs (SAT models are checked, UNSAT answers are not), beside the current
-# version's proof-checked Tier D run.
+# The first commit that met each development milestone, run on the tierd formulas, beside
+# the current version's tierd run; Table 6 and Figure 7 count the answers.
 
 
 def milestones():
     rows = []
     for entry in runs("milestones"):
-        record, proof_free = entry["record"], entry["configuration"] != "Current"
-        solve = record.get("solve") or {}
-        counted = _answered(record) and ((record["verdict"] == "UNSAT" and proof_free)
-                                         or bool(record.get("valid")))
+        record = entry["record"]
         rows.append(dict(configuration=entry["configuration"], commit=entry["commit"],
                          instance=entry["instance"], verdict=record.get("verdict"),
-                         solve_seconds=solve.get("wall_seconds"),
-                         proof_mode="none" if proof_free else "proof",
-                         counted=counted,
-                         proof_check_result=(record.get("proof_check") or {}).get("result"),
-                         check_seconds=(record.get("proof_check") or {}).get("wall_seconds"),
-                         par2_seconds=round(solve["wall_seconds"], 3) if counted else PENALTY))
+                         solve_seconds=(record.get("solve") or {}).get("wall_seconds")))
     write("milestones", rows)
 
 
@@ -151,22 +139,12 @@ def interface():
             rows.append(dict(set="Tier A", configuration=entry["configuration"],
                              instance=entry["instance"], verdict=record["verdict"],
                              solve_seconds=record["time"],
-                             timed_out=record["verdict"] not in ("SAT", "UNSAT"),
-                             proof_bytes=record.get("proof_bytes"),
-                             certificate_sha256=None, instructions=None))
+                             timed_out=record["verdict"] not in ("SAT", "UNSAT")))
             continue
         solve = record["solve"]
-        instructions = None
-        for line in (record.get("runtime_context") or {}).get("perf_statistics", []):
-            fields = line.split("\t")
-            if len(fields) > 2 and fields[2] == "instructions":
-                instructions = int(fields[0])
         rows.append(dict(set=entry["set"], configuration=entry["configuration"],
                          instance=entry["instance"], verdict=record["verdict"],
-                         solve_seconds=solve["wall_seconds"], timed_out=bool(solve.get("timed_out")),
-                         proof_bytes=record.get("certificate_bytes"),
-                         certificate_sha256=record.get("certificate_sha256"),
-                         instructions=instructions))
+                         solve_seconds=solve["wall_seconds"], timed_out=bool(solve.get("timed_out"))))
     write("interface", rows)
 
 
@@ -196,11 +174,9 @@ def chvatal():
     rows = []
     for entry in runs("chvatal", skip=("Kissat 4.0.4 (screening)",)):
         record, rel = entry["record"], entry["instance"]
-        answered = record["verdict"] in ("SAT", "UNSAT") and not record.get("mismatch")
         rows.append(dict(configuration=entry["configuration"], instance=rel,
                          verdict=record["verdict"], solve_seconds=record["time"],
                          verified=bool(record.get("proof_ok")),
-                         solved_checked=answered and bool(record.get("proof_ok")),
                          check_seconds=record.get("proof_check_time"),
                          proof_bytes=record.get("proof_bytes"),
                          kissat_screen_seconds=screen[rel]))

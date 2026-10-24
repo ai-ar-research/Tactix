@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,11 +40,6 @@ def read(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
-def limits(data: Path) -> dict:
-    path = data / "limits.json"
-    return json.loads(path.read_text()) if path.exists() else {}
-
-
 def tierd(data: Path) -> list[Table]:
     rows = [[r["benchmark"], r["configuration"], r["instances"], r["solved"], r["accepted"], r["sat"],
              r["unsat"], r["unsat_verified"], f'{float(r["accepted_solve_mean_s"]):.1f}',
@@ -53,22 +47,14 @@ def tierd(data: Path) -> list[Table]:
     times = read(data / "tierd-times.csv")
     by = {(r["configuration"], r["instance"]): r for r in times}
     instances = sorted({r["instance"] for r in times})
-    common = [i for i in instances
-              if by[("Tactix", i)]["accepted"] == "1" and by[("Satsuma+Kissat", i)]["accepted"] == "1"]
-    only_t = sum(by[("Tactix", i)]["accepted"] == "1" and by[("Satsuma+Kissat", i)]["accepted"] != "1"
-                 for i in instances)
-    only_s = sum(by[("Satsuma+Kissat", i)]["accepted"] == "1" and by[("Tactix", i)]["accepted"] != "1"
-                 for i in instances)
     portfolio = sum(any(by[(c, i)]["accepted"] == "1" for c in ("Satsuma+Kissat", "LymphoSAT"))
                     for i in instances)
     summary = [["Tactix", "checked", str(sum(by[("Tactix", i)]["accepted"] == "1" for i in instances))],
-               ["SK+Lym portfolio", "checked", str(portfolio)],
-               ["Tactix only", "vs Satsuma+Kissat", str(only_t)],
-               ["Satsuma+Kissat only", "vs Tactix", str(only_s)],
-               ["Both", "checked", str(len(common))]]
-    return [Table("table3", "Table 3: results on the SC'24-26 benchmark sets (Tier D)",
+               ["Satsuma+Kissat or LymphoSAT", "checked", str(portfolio)]]
+    return [Table("table3", "Table 3: results on the SC'24-26 benchmark sets (SAT Competition 2024-2026 main tracks)",
                   ["Set", "Configuration", "Instances", "Solved", "Solved (checked)", "SAT", "UNSAT",
-                   "UNSAT (checked)", "Avg runtime, checked (s)", "Avg PAR-2 (s)"], rows),
+                   "UNSAT (checked)", "Avg runtime, checked (s)", "Avg PAR-2 (s)"], rows,
+                  notes=["PAR-2: the solving time of a checked answer, twice the solving limit otherwise."]),
             Table("figure4", "Figure 4: Tactix against the virtual portfolio of Satsuma+Kissat and LymphoSAT",
                   ["Count", "", "Formulas"], summary)]
 
@@ -112,7 +98,6 @@ def cruxmiter(data: Path) -> list[Table]:
 
 def chvatal(data: Path) -> list[Table]:
     rows = read(data / "chvatal-results.csv")
-    limit = float(limits(data).get("chvatal", {}).get("seconds", 5000))
     nodes = sorted({r["node"] for r in rows})
     by = {(r["configuration"], r["node"]): r for r in rows}
     out = []
@@ -122,15 +107,12 @@ def chvatal(data: Path) -> list[Table]:
             continue
         answered = [r for r in mine if r["verdict"] in ("SAT", "UNSAT")]
         checked = [r for r in answered if r["verified"] == "1"]
-        par2 = (sum(float(r["solve_seconds"]) for r in checked)
-                + 2 * limit * (len(nodes) - len(checked))) / len(nodes)
         out.append([configuration, "", f"{len(answered)}/{len(nodes)}",
                     f'{sum(float(r["solve_seconds"]) for r in answered):,.0f}',
                     f"{len(checked)}/{len(nodes)}",
-                    f'{sum(float(r["check_seconds"]) for r in checked if r["check_seconds"]):,.0f}',
-                    f"{par2:,.1f}"])
+                    f'{sum(float(r["check_seconds"]) for r in checked if r["check_seconds"]):,.0f}'])
     return [Table("table5", "Table 5: Chvatal subproblems",
-                  ["Configuration", "", "Solved", "Runtime (s)", "Checked", "Check time (s)", "PAR-2 (s)"], out)]
+                  ["Configuration", "", "Solved", "Runtime (s)", "Checked", "Check time (s)"], out)]
 
 
 def milestones(data: Path) -> list[Table]:
@@ -148,18 +130,17 @@ def milestones(data: Path) -> list[Table]:
 
     out = []
     for (label, version), row in zip(MILESTONES, activity):
-        solved = ladder.get(label, {}).get("raw_solved", "-")
+        solved = ladder.get(label, {}).get("solved", "-")
         out.append([version, row["revision"][:5], row["end_day"], solved, f'{int(row["commits"]):,}',
                     lines(row["interval"], ("solver", "public_api")),
                     lines(row["interval"], ("tests_fuzz_code",))])
-    ladder_rows = [[r["label"], r["commit"], r["sat_checked"], r["unsat_verified"], r["unsat_unchecked"],
-                    r["raw_solved"]] for r in ladder.values()]
+    ladder_rows = [[r["label"], r["commit"], r["sat"], r["unsat"], r["solved"]] for r in ladder.values()]
     return [Table("table6", "Table 6: performance and implementation activity of the evaluated versions "
                   "(Solved from the runs; activity columns from the git history)",
                   ["Version", "Commit", "Day", "Solved", "Commits", "Solver/API lines +/-",
                    "Test/fuzzing lines +/-"], out),
             Table("figure7", "Figure 7: SAT and UNSAT answers of each version (milestone ladder)",
-                  ["Version", "Commit", "SAT", "UNSAT checked", "UNSAT unchecked", "Solved"], ladder_rows)]
+                  ["Version", "Commit", "SAT", "UNSAT", "Solved"], ladder_rows)]
 
 
 SECTIONS = ((tierd, "tierd-table.csv"), (interface, "interface-overhead.csv"),

@@ -18,9 +18,6 @@ PAPER = Path(__file__).resolve().parents[1]
 YEARS = ("SC2024", "SC2025", "SC2026")
 TIERD = ("Tactix", "Satsuma+Kissat", "Kissat 4.0.4", "Kissat-sc2024", "AE-Kissat-MAB", "LymphoSAT")
 TABLE = ("Tactix", "Satsuma+Kissat", "Kissat 4.0.4", "LymphoSAT", "Kissat-sc2024", "AE-Kissat-MAB")
-MILESTONE_DATES = {"Milestone A": "2026-07-14", "Milestone B": "2026-07-20",
-                   "Milestone C": "2026-08-12", "Milestone D": "2026-09-18",
-                   "Milestone E": "2026-09-27", "Current": "2026-10-10"}
 
 
 def read(path: Path) -> list[dict[str, str]]:
@@ -68,12 +65,13 @@ def tierd(logs: Path, out: Path) -> None:
                 "par2_seconds": row["par2_seconds"],
             })
 
-    def summarize(rows, benchmark=None):
+    def summarize(rows, benchmark):
         if not rows:  # a reduced or smoke run may have no formula of a year
             return None
         solved = [r for r in rows if r["solved"]]
         accepted = [r for r in rows if r["accepted"]]
-        result = {
+        return {
+            "benchmark": benchmark,
             "configuration": rows[0]["configuration"],
             "instances": len(rows),
             "solved": len(solved),
@@ -85,22 +83,8 @@ def tierd(logs: Path, out: Path) -> None:
                                       if accepted else "nan"),
             "par2_mean_s": f'{total(float(r["par2_seconds"]) for r in rows) / len(rows):.3f}',
         }
-        return {"benchmark": benchmark, **result} if benchmark is not None else result
 
     by = {c: [r for r in detail if r["configuration"] == c] for c in TIERD}
-    union, annual = [], []
-    for configuration in TIERD:
-        rows = by[configuration]
-        result = summarize(rows)
-        union.append({k: result[k] for k in ("configuration", "instances", "solved", "sat", "unsat",
-                                             "unsat_verified", "accepted", "par2_mean_s")})
-        for year in YEARS:
-            result = summarize([r for r in rows if r[year]], year.replace("SC20", "SC"))
-            if result is None:
-                continue
-            annual.append({k: result[k] for k in ("benchmark", "configuration", "instances", "solved",
-                                                  "sat", "unsat", "unsat_verified", "accepted",
-                                                  "par2_mean_s")})
     table = []
     for benchmark, year in (("SC24", "SC2024"), ("SC25", "SC2025"), ("SC26", "SC2026"), ("All", None)):
         for configuration in TABLE:
@@ -109,8 +93,6 @@ def tierd(logs: Path, out: Path) -> None:
             if result is not None:
                 table.append(result)
     write(out / "tierd-times.csv", detail, "\r\n")
-    write(out / "tierd-summary.csv", annual, "\r\n")
-    write(out / "tierd-union-summary.csv", union, "\r\n")
     write(out / "tierd-table.csv", table)
 
 
@@ -125,16 +107,10 @@ def milestones(logs: Path, out: Path) -> None:
                       "verdict": r["verdict"], "solve_seconds": r["solve_seconds"]} for r in rows)
         solved = [r for r in rows if r["verdict"] in {"SAT", "UNSAT"}]
         solved_sets.append({r["instance"]: r["verdict"] for r in solved})
-        unsat = sum(r["verdict"] == "UNSAT" for r in solved)
-        unsat_verified = sum(r["verdict"] == "UNSAT" and r["proof_check_result"] == "verified" for r in rows)
-        proof = rows[0]["proof_mode"]
-        ladder.append({"label": label, "commit": commit, "date": MILESTONE_DATES[label],
-                       "proof_mode": proof,
-                       "sat_checked": sum(r["verdict"] == "SAT" for r in solved),
-                       "unsat_verified": unsat_verified, "unsat_unchecked": unsat - unsat_verified,
-                       "raw_solved": len(solved),
-                       "validated": sum(true(r["counted"]) for r in rows) if proof == "proof" else "",
-                       "par2_sum_s": round(total(float(r["par2_seconds"]) for r in rows))})
+        ladder.append({"label": label, "commit": commit,
+                       "sat": sum(r["verdict"] == "SAT" for r in solved),
+                       "unsat": sum(r["verdict"] == "UNSAT" for r in solved),
+                       "solved": len(solved)})
     transitions = []
     for index, (before, after) in enumerate(zip(solved_sets, solved_sets[1:])):
         gained = {k: v for k, v in after.items() if k not in before}
@@ -190,7 +166,6 @@ def chvatal(logs: Path, out: Path) -> None:
              "check_seconds": "" if r["check_seconds"] == "" else f'{float(r["check_seconds"]):.3f}',
              "proof_bytes": r["proof_bytes"],
              "verified": int(true(r["verified"])),
-             "solved_checked": int(true(r["solved_checked"])),
              "kissat_screen_seconds": r["kissat_screen_seconds"]}
             for r in read(logs / "chvatal/results.csv")]
     rows.sort(key=lambda r: (r["node"], r["configuration"]))

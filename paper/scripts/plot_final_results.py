@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw the Tier-D and CruxMiter figures used in the paper.
+"""Draw the paper's tierd, interface and milestone figures.
 
 With --limits (the limits.json that make_data.py writes next to the data),
 the axes follow the time limits of the run being drawn, e.g. a reduced rerun;
@@ -14,10 +14,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
 
 
-SOLVE_LIMIT = 5_000.0      # Tier D solving limit (replaced by --limits)
+SOLVE_LIMIT = 5_000.0      # tierd solving limit (replaced by --limits)
 MILESTONE_LIMIT = 5_000.0
 PAPER_SCALE = True         # the paper's fixed axis ranges; False for other runs
 ORDER = (
@@ -191,146 +190,6 @@ def scatter(
     plt.close(fig)
 
 
-def validation(rows: list[dict[str, str]], output: Path) -> None:
-    """Show validation loss across solvers and checking cost for Tactix UNSAT proofs."""
-    fig, axes = plt.subplots(1, 2, figsize=(7.15, 2.55))
-
-    accepted = []
-    unaccepted = []
-    for name in ORDER:
-        selected = [row for row in rows if row["configuration"] == name]
-        solved = sum(row["solved"] == "1" for row in selected)
-        checked = sum(row["accepted"] == "1" for row in selected)
-        accepted.append(checked)
-        unaccepted.append(solved - checked)
-    positions = list(range(len(ORDER)))
-    axes[0].barh(positions, accepted, color="#005f73", label="validated")
-    axes[0].barh(positions, unaccepted, left=accepted, color="#cbd5e1", label="answer not validated")
-    axes[0].set_yticks(positions, ORDER)
-    axes[0].invert_yaxis()
-    axes[0].set_xlabel("instances")
-    axes[0].set_title("Answers and validation", fontweight="bold", pad=3)
-    axes[0].grid(axis="x", color="#d9dee3", linewidth=0.45)
-    axes[0].spines[["top", "right"]].set_visible(False)
-    axes[0].legend(
-        frameon=False,
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.18),
-        ncol=2,
-        fontsize=6.8,
-    )
-
-    tactix = [
-        row
-        for row in rows
-        if row["configuration"] == "Tactix"
-        and row["verdict"] == "UNSAT"
-        and row["accepted"] == "1"
-        and row["check_seconds"]
-    ]
-    solve = [float(row["solve_seconds"]) for row in tactix]
-    check = [float(row["check_seconds"]) for row in tactix]
-    axes[1].scatter(solve, check, s=9, color="#005f73", alpha=0.58, linewidths=0)
-    lo, hi = 0.01, 100_000
-    axes[1].plot([lo, hi], [lo, hi], color="#4b5563", linewidth=0.7, linestyle="--")
-    axes[1].set_xscale("log")
-    axes[1].set_yscale("log")
-    axes[1].set_xlim(lo, 10_000)
-    axes[1].set_ylim(lo, hi)
-    axes[1].set_xlabel("solve time (s)")
-    axes[1].set_ylabel("proof-check time (s)")
-    axes[1].set_title("Tactix verified UNSAT", fontweight="bold", pad=3)
-    axes[1].grid(which="major", color="#d9dee3", linewidth=0.45)
-    axes[1].spines[["top", "right"]].set_visible(False)
-    ratios = [y / x for x, y in zip(solve, check) if x > 0]
-    axes[1].text(
-        0.04,
-        0.94,
-        f"median check/solve = {statistics.median(ratios):.2f}",
-        transform=axes[1].transAxes,
-        va="top",
-        fontsize=6.8,
-    )
-    fig.tight_layout(rect=(0, 0.08, 1, 1), w_pad=1.25)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, bbox_inches="tight")
-    plt.close(fig)
-
-
-def coverage(rows: list[dict[str, str]], output: Path) -> None:
-    """Decompose Tactix/Satsuma coverage and their mean PAR-2 difference."""
-    by_key = {(row["configuration"], row["instance"]): row for row in rows}
-    instances = [
-        row["instance"] for row in rows if row["configuration"] == "Tactix"
-    ]
-    both = tactix_only = satsuma_only = neither = 0
-    common_delta = tactix_only_delta = satsuma_only_delta = 0.0
-    for instance in instances:
-        tactix = by_key[("Tactix", instance)]
-        satsuma = by_key[("Satsuma+Kissat", instance)]
-        ta = tactix["accepted"] == "1"
-        sa = satsuma["accepted"] == "1"
-        if ta and sa:
-            both += 1
-            common_delta += float(satsuma["par2_seconds"]) - float(tactix["par2_seconds"])
-        elif ta:
-            tactix_only += 1
-            tactix_only_delta += float(satsuma["par2_seconds"]) - float(tactix["par2_seconds"])
-        elif sa:
-            satsuma_only += 1
-            satsuma_only_delta += float(satsuma["par2_seconds"]) - float(tactix["par2_seconds"])
-        else:
-            neither += 1
-
-    fig, axes = plt.subplots(1, 2, figsize=(7.15, 2.65))
-    labels = ["both", "Tactix only", "Satsuma only", "neither"]
-    values = [both, tactix_only, satsuma_only, neither]
-    colors = ["#005f73", "#0ea5a4", "#d97706", "#cbd5e1"]
-    positions = list(range(len(labels)))
-    axes[0].barh(positions, values, color=colors)
-    axes[0].set_yticks(positions, labels)
-    axes[0].invert_yaxis()
-    axes[0].set_xlabel("formulas")
-    axes[0].set_title("Validated coverage", fontweight="bold", pad=3)
-    axes[0].grid(axis="x", color="#d9dee3", linewidth=0.45)
-    axes[0].spines[["top", "right"]].set_visible(False)
-    for position, value in zip(positions, values):
-        axes[0].text(value + 12, position, str(value), va="center", fontsize=7)
-    axes[0].set_xlim(0, max(values) * 1.12)
-
-    count = len(instances)
-    contributions = [
-        common_delta / count,
-        tactix_only_delta / count,
-        satsuma_only_delta / count,
-    ]
-    names = ["shared solves", "Tactix only", "Satsuma only"]
-    bar_colors = ["#005f73", "#0ea5a4", "#d97706"]
-    axes[1].bar(range(3), contributions, color=bar_colors, width=0.65)
-    axes[1].axhline(0, color="#4b5563", linewidth=0.7)
-    net = sum(contributions)
-    axes[1].axhline(net, color="#4b5563", linestyle="--", linewidth=0.8)
-    axes[1].text(2.48, net + 8, f"net {net:.1f} s", ha="right", va="bottom", fontsize=7)
-    axes[1].set_xticks(range(3), names, rotation=15, ha="right")
-    axes[1].set_ylabel("mean PAR-2 contribution (s)")
-    axes[1].set_title("Source of Tactix advantage", fontweight="bold", pad=3)
-    axes[1].grid(axis="y", color="#d9dee3", linewidth=0.45)
-    axes[1].spines[["top", "right"]].set_visible(False)
-    for position, value in enumerate(contributions):
-        axes[1].text(
-            position,
-            value + (8 if value >= 0 else -8),
-            f"{value:+.1f}",
-            ha="center",
-            va="bottom" if value >= 0 else "top",
-            fontsize=7,
-        )
-    fig.tight_layout(w_pad=1.5)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, bbox_inches="tight")
-    plt.close(fig)
-
-
 def milestones(rows: list[dict[str, str]], output: Path) -> None:
     """Plot cumulative solver-answer counts separately for SAT and UNSAT."""
     # Preserve archived CSV keys; display the evaluated versions as 1--5.
@@ -365,53 +224,6 @@ def milestones(rows: list[dict[str, str]], output: Path) -> None:
     fig.legend(handles, legend_labels, loc="lower center", ncol=6,
                frameon=False, handlelength=2.6, columnspacing=1.3)
     fig.tight_layout(rect=(0, 0.12, 1, 1), w_pad=1.5)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, bbox_inches="tight")
-    plt.close(fig)
-
-
-def crux(rows: list[dict[str, str]], output: Path) -> None:
-    by_key = {(row["configuration"], int(row["seed"])): row for row in rows}
-    seeds = list(range(10))
-    default_speedup = [
-        float(by_key[("Default Tactix", seed)]["solve_seconds"])
-        / float(by_key[("Public policy", seed)]["solve_seconds"])
-        for seed in seeds
-    ]
-    kissat_speedup = [
-        float(by_key[("Kissat 4.0.4", seed)]["solve_seconds"])
-        / float(by_key[("Public policy", seed)]["solve_seconds"])
-        for seed in seeds
-    ]
-    default_proof = [
-        float(by_key[("Default Tactix", seed)]["proof_bytes"])
-        / float(by_key[("Public policy", seed)]["proof_bytes"])
-        for seed in seeds
-    ]
-    kissat_proof = [
-        float(by_key[("Kissat 4.0.4", seed)]["proof_bytes"])
-        / float(by_key[("Public policy", seed)]["proof_bytes"])
-        for seed in seeds
-    ]
-
-    fig, axes = plt.subplots(1, 2, figsize=(7.15, 2.35), sharex=True)
-    width = 0.36
-    positions = list(range(10))
-    for axis, first, second, ylabel in (
-        (axes[0], default_speedup, kissat_speedup, "solve-time ratio to policy"),
-        (axes[1], default_proof, kissat_proof, "proof-size ratio to policy"),
-    ):
-        axis.bar([x - width / 2 for x in positions], first, width, color="#005f73", label="Default Tactix / policy")
-        axis.bar([x + width / 2 for x in positions], second, width, color="#d97706", label="Kissat / policy")
-        axis.axhline(1.0, color="#4b5563", linewidth=0.7)
-        axis.set_xticks(positions, [str(seed) for seed in seeds])
-        axis.set_xlabel("CruxMiter seed")
-        axis.set_ylabel(ylabel)
-        axis.grid(axis="y", color="#d9dee3", linewidth=0.45)
-        axis.spines[["top", "right"]].set_visible(False)
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=2, frameon=False, bbox_to_anchor=(0.5, 1.03))
-    fig.tight_layout(rect=(0, 0, 1, 0.88), w_pad=1.1)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, bbox_inches="tight")
     plt.close(fig)
@@ -472,12 +284,8 @@ def main() -> None:
     parser.add_argument("--scatter", type=Path)
     parser.add_argument("--scatter-satsuma", type=Path)
     parser.add_argument("--scatter-lympho", type=Path)
-    parser.add_argument("--validation", type=Path)
-    parser.add_argument("--coverage", type=Path)
     parser.add_argument("--milestone-data", type=Path)
     parser.add_argument("--milestones", type=Path)
-    parser.add_argument("--crux-data", type=Path)
-    parser.add_argument("--crux", type=Path)
     parser.add_argument("--interface-data", type=Path)
     parser.add_argument("--interface", type=Path)
     parser.add_argument("--limits", type=Path, help="limits.json of the run (make_data.py)")
@@ -503,14 +311,8 @@ def main() -> None:
         scatter(rows, args.scatter_satsuma, ("Satsuma+Kissat",), "Satsuma+Kissat")
     if args.scatter_lympho:
         scatter(rows, args.scatter_lympho, ("LymphoSAT",), "LymphoSAT")
-    if args.validation:
-        validation(rows, args.validation)
-    if args.coverage:
-        coverage(rows, args.coverage)
     if args.milestone_data and args.milestones:
         milestones(read_rows(args.milestone_data), args.milestones)
-    if args.crux_data and args.crux:
-        crux(read_rows(args.crux_data), args.crux)
     if args.interface_data and args.interface:
         interface_scatter(read_rows(args.interface_data), args.interface)
 

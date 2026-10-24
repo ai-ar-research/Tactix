@@ -1,7 +1,7 @@
-label,commit,date,proof_mode,sat_checked,unsat_verified,unsat_unchecked,raw_solved,validated,par2_sum_s
-Milestone A,dcc3ecbd6,2026-07-14,none,313,0,312,625,,5906120
-Milestone B,546298924,2026-07-20,none,372,0,363,735,,4873735
-Milestone C,6f44f23d6,2026-08-12,none,433,0,385,818,,4021024
-Milestone D,f50e46c0c,2026-09-18,none,459,0,518,977,,2331993
-Milestone E,0a9063387,2026-09-27,none,483,0,496,979,,2277101
-Current,0f7c10174,2026-10-10,proof,481,518,7,1006,999,2110652
+label,commit,sat,unsat,solved
+Milestone A,dcc3ecbd6,313,312,625
+Milestone B,546298924,372,363,735
+Milestone C,6f44f23d6,433,385,818
+Milestone D,f50e46c0c,459,518,977
+Milestone E,0a9063387,483,496,979
+Current,0f7c10174,481,525,1006

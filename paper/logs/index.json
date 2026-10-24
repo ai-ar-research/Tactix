@@ -1,13 +1,6 @@
 [
  {
   "experiment": "chvatal",
-  "archive": "logs/chvatal/Chvatal-Tactix-stable.tar.xz",
-  "runs": 23,
-  "sha256": "340ce2661b11460a8acb1199e063a5bff55c57f0d8fb9526523394b885b210ae",
-  "bytes": 9328
- },
- {
-  "experiment": "chvatal",
   "archive": "logs/chvatal/Chvatal-Tactix.tar.xz",
   "runs": 23,
   "sha256": "5dfd9214b673ff746d1432aa8261331dcfb3ff173cdf31c9f7a8f81950d80a2d",

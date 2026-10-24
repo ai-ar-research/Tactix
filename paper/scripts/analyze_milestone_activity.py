@@ -24,12 +24,12 @@ import subprocess
 
 
 MILESTONES = [
-    ("A", "dcc3ecbd6", 625),
-    ("B", "546298924", 735),
-    ("C", "6f44f23d6", 818),
-    ("D", "f50e46c0c", 977),
-    ("E", "0a9063387", 979),
-    ("Current", "0f7c10174", 1006),
+    ("A", "dcc3ecbd6"),
+    ("B", "546298924"),
+    ("C", "6f44f23d6"),
+    ("D", "f50e46c0c"),
+    ("E", "0a9063387"),
+    ("Current", "0f7c10174"),
 ]
 ROOT = "30a812e30"
 CODE_SUFFIXES = {".c", ".cc", ".cpp", ".h", ".hpp", ".py", ".sh", ".bash", ".sbatch", ".slurm", ".cmake"}
@@ -91,8 +91,8 @@ def main():
     args = parser.parse_args()
     start = dt.datetime.fromisoformat(git(args.repo, "show", "-s", "--format=%cI", ROOT).strip()).date()
     summary, categories = [], []
-    previous, previous_name, previous_day, previous_solved = None, "Start", 0, None
-    for name, revision, solved in MILESTONES:
+    previous, previous_name, previous_day = None, "Start", 0
+    for name, revision in MILESTONES:
         full_revision = git(args.repo, "rev-parse", revision).strip()
         commit_date = dt.datetime.fromisoformat(git(args.repo, "show", "-s", "--format=%cI", revision).strip()).date()
         day = (commit_date - start).days
@@ -107,8 +107,7 @@ def main():
         interval = f"{previous_name}-{name}"
         row = dict(interval=interval, revision=full_revision, start_day=previous_day,
                    end_day=day, interval_days=day-previous_day, commits=commits,
-                   merge_commits=merges, nonmerge_commits=commits-merges,
-                   solved=solved, solved_gain="" if previous_solved is None else solved-previous_solved)
+                   merge_commits=merges, nonmerge_commits=commits-merges)
         for measure, groups in [("cumulative", cumulative), ("endpoint", endpoint)]:
             row[f"{measure}_added"] = sum(v[0] for v in groups.values())
             row[f"{measure}_deleted"] = sum(v[1] for v in groups.values())
@@ -117,7 +116,7 @@ def main():
                 categories.append(dict(interval=interval, measure=measure, category=label,
                                        added=added, deleted=deleted, binary_changes=binaries))
         summary.append(row)
-        previous, previous_name, previous_day, previous_solved = revision, name, day, solved
+        previous, previous_name, previous_day = revision, name, day
         print(interval, "day", day, "commits", commits, "merges", merges,
               "cumulative", row["cumulative_added"], row["cumulative_deleted"], flush=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)

@@ -70,19 +70,18 @@ def censor(row: dict, run: dict) -> dict:
                check_limit_seconds=run["check_limit_seconds"],
                memory_limit_gib=run["memory_limit_gib"], profile=run.get("profile", ""),
                set=row.get("set") or run.get("set", ""))
+    def update(**values):  # only the columns the experiment's table has
+        row.update({k: v for k, v in values.items() if k in row})
+
     answered = row["verdict"] in ("SAT", "UNSAT")
     seconds = float(row["solve_seconds"])
     if not answered or seconds > solve_limit:
-        row.update(verdict="UNKNOWN", solve_seconds=f"{min(seconds, solve_limit):.3f}", status="timeout",
-                   timed_out="True", verified="False", counted="False", solved_checked="False",
-                   check_seconds="", proof_check_result="", par2_seconds=2 * solve_limit)
+        update(verdict="UNKNOWN", solve_seconds=f"{min(seconds, solve_limit):.3f}", status="timeout",
+               timed_out="True", verified="False", check_seconds="", par2_seconds=2 * solve_limit)
         return row
     if row["verdict"] == "UNSAT" and row.get("check_seconds") and float(row["check_seconds"]) > check_limit:
-        row.update(verified="False", solved_checked="False", status="check-timeout",
-                   proof_check_result="not-verified")
-    checked = true(row.get("verified")) or (row.get("proof_mode") == "none" and true(row.get("counted")))
-    if "par2_seconds" in row:
-        row["par2_seconds"] = row["solve_seconds"] if checked else 2 * solve_limit
+        update(verified="False", status="check-timeout")
+    update(par2_seconds=row["solve_seconds"] if true(row.get("verified")) else 2 * solve_limit)
     return row
 
 
@@ -103,10 +102,6 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
                 print(f"{name}: no archived result for {run['configuration']} on {run['instance']}",
                       file=sys.stderr)
                 continue
-            if run.get("proof_mode") == "none" and paper.get("proof_mode") == "proof":
-                # the rerun ran this configuration without proofs (milestones' Current)
-                paper = dict(paper, proof_mode="none", proof_check_result="",
-                             counted=str(paper["verdict"] in ("SAT", "UNSAT")))
             censored = censor(paper, run)
             censored["instance"] = run["instance"]  # the rerun's spelling, so the tables align
             rows.append(censored)
@@ -126,10 +121,10 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
 
 
 def current_from_tierd(logs: Path) -> None:
-    """The milestones' current version is the Tier D experiment's Tactix (the
+    """The milestones' current version is the tierd experiment's Tactix (the
     same build and command), as in the paper: the reduced and smoke profiles
     run only the five earlier versions, and the current version's rows are
-    taken from the Tier D runs on the same formulas."""
+    taken from the tierd runs on the same formulas."""
     milestones, tierd = logs / "milestones/results.csv", logs / "tierd/results.csv"
     if not milestones.exists() or not tierd.exists():
         return

@@ -1,2 +1,2 @@
-# Chvatal reduced set: the cheapest of the 23 subproblems in the paper's runs (smoke: a quick part of it)
+# chvatal smoke set: see paper/run/select_subsets.py
 n7-111111101000.cnf.xz

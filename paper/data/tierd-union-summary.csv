@@ -1,7 +1,0 @@
-configuration,instances,solved,sat,unsat,unsat_verified,accepted,par2_mean_s
-Tactix,1166,1006,481,525,518,999,1810.165
-Satsuma+Kissat,1166,965,449,516,497,946,2259.662
-Kissat 4.0.4,1166,881,444,437,428,872,2891.593
-Kissat-sc2024,1166,890,450,440,433,883,2829.956
-AE-Kissat-MAB,1166,875,462,413,401,863,2940.202
-LymphoSAT,1166,947,478,469,442,852,3002.804

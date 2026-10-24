@@ -4,31 +4,24 @@
     python3 paper/run/select_subsets.py [--check]
 
 Writes paper/benchmarks/subsets/<experiment>-{reduced,smoke}.txt (with --check:
-compares with the committed files instead). The reduced sets are what an
-artifact evaluation can afford on a 4-core, 16 GB virtual machine (about five
-hours with three runs at a time); the rules below decide them from the
-per-instance results of the paper's runs (paper/data/, paper/logs/), so they
-can be audited and changed.
+compares with the committed files instead). The reduced sets fit 4 cores and
+16 GB in about four hours with three runs at a time; the rules below decide
+them from the per-instance results of the paper's runs (paper/data/,
+paper/logs/).
 
-Tier D (Table 3, Figures 3 and 4) and the milestones (Table 6). The pool is
+tierd (Table 3, Figures 3 and 4) and the milestones (Table 6). The pool is
 every formula of SC24-26 (of one competition year) that
   - is at most 20 MB compressed (paper/benchmarks/gbd-sizes.tsv),
   - every solver solved within 3 GB of resident memory, or did not solve,
   - some solver solved and checked within the reduced limits (600 s solving,
     600 s checking) in the paper's runs, and
-  - not every solver solved within 20 s (those formulas show nothing).
-From the pool, 20 formulas (7 of SC24, 7 of SC25, 6 of SC26) are drawn with a
-fixed seed many times. Among the draws whose estimated cost (the paper's solving
-and checking times, cut at the limits) fits two hours with three runs at a
-time, and in which the solvers rank as in the paper (Tactix first, then
-Satsuma+Kissat, by checked solves), the draw kept is the one closest to these
-targets: about 20 % of the 120 runs end without a checked answer, each
-solver's checked solves are proportional to its checked solves on all 1,166
-formulas (Table 3), and each year's share of SAT formulas is the pool's.
-The set is thus chosen to show the paper's pattern at the reduced limits, and
-says so; it is not a random sample. The smoke set is the smallest
-SAT and the smallest UNSAT formula that every solver solved within 10 s (and
-checked within 20 s) using at most 1 GB.
+  - not every solver solved within 20 s.
+From the pool, 20 formulas (7 of SC24, 7 of SC25, 6 of SC26) from 20 different
+benchmark families (paper/benchmarks/tierd-families.tsv) are drawn at random
+with a fixed seed; the first draw whose estimated cost (the paper's solving and
+checking times, cut at the limits) fits two hours with three runs at a time is
+kept. The smoke set is the smallest SAT and the smallest UNSAT formula that
+every solver solved within 10 s (and checked within 20 s) using at most 1 GB.
 
 Interface (Figure 5). All 200 Tier A formulas (each under 30 s), and of each
 other set, up to 15 formulas of at most 20 MB compressed that both builds
@@ -48,7 +41,6 @@ import collections
 import csv
 import json
 import random
-import statistics
 import sys
 import tarfile
 from pathlib import Path
@@ -57,14 +49,10 @@ PAPER = Path(__file__).resolve().parents[1]
 OUT = PAPER / "benchmarks" / "subsets"
 SOLVERS = ("Tactix", "Satsuma+Kissat", "LymphoSAT", "Kissat 4.0.4", "Kissat-sc2024", "AE-Kissat-MAB")
 YEARS = ("SC2024", "SC2025", "SC2026")
-SOLVE, CHECK = 600.0, 600.0       # the reduced Tier D limits (experiments.py)
+SOLVE, CHECK = 600.0, 600.0       # the reduced tierd limits (experiments.py)
 PER_YEAR = {"SC2024": 7, "SC2025": 7, "SC2026": 6}   # 20 formulas
-FAILURES = 0.20                   # share of runs without a checked answer within the limits
 BUDGET = 2 * 3600 * 3             # estimated solver + checker seconds: 2 h with 3 runs at a time
-SEED, DRAWS = 2027, 200000
-# Checked solves of each solver on all 1,166 formulas in the paper's runs (Table 3).
-PAPER_CHECKED = {"Tactix": 999, "Satsuma+Kissat": 946, "LymphoSAT": 852, "Kissat 4.0.4": 872,
-                 "Kissat-sc2024": 883, "AE-Kissat-MAB": 863}
+SEED = 2027
 
 
 def read(path: Path) -> list[dict[str, str]]:
@@ -72,10 +60,10 @@ def read(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
-# --- Tier D ----------------------------------------------------------------------
+# --- tierd ----------------------------------------------------------------------
 
 def solve_memory() -> dict[tuple[str, str], int]:
-    """Peak resident memory (MB) of every Tier D solver run, from the paper's logs."""
+    """Peak resident memory (MB) of every tierd solver run, from the paper's logs."""
     memory = {}
     for path in sorted((PAPER / "logs/tierd").glob("*.tar.xz")):
         with tarfile.open(path) as archive:
@@ -96,6 +84,8 @@ def tierd() -> tuple[list[str], list[str]]:
     size = {r["hash"]: int(r["bytes"]) for r in csv.DictReader((PAPER / "benchmarks/gbd-sizes.tsv").open(),
                                                                 delimiter="\t")}
     memory = solve_memory()
+    lines = [line for line in (PAPER / "benchmarks/tierd-families.tsv").open() if not line.startswith("#")]
+    family = {r["hash"]: r["family"] for r in csv.DictReader(lines, delimiter="\t")}
 
     def checked(row, solve=SOLVE, check=CHECK):
         return (row["accepted"] == "1" and float(row["solve_seconds"]) <= solve
@@ -127,42 +117,39 @@ def tierd() -> tuple[list[str], list[str]]:
         if all(checked(arms[s], 20, 20) for s in SOLVERS):
             continue
         pool.append(instance)
-    mean = statistics.mean(PAPER_CHECKED.values())
-    target = {s: (1 - FAILURES) * PAPER_CHECKED[s] / mean for s in SOLVERS}
-    sat = {y: statistics.mean(is_sat(i) for i in pool if year(i) == y) for y in YEARS}
-    ok = {i: {s: checked(by[i][s]) for s in SOLVERS} for i in pool}
     price = {i: sum(cost(by[i][s]) for s in SOLVERS) for i in pool}
     by_year = {y: [i for i in pool if year(i) == y] for y in YEARS}
-    total = sum(PER_YEAR.values())
+
+    def fam(instance):
+        return family[Path(instance).name.split("-")[0]]
+
+    def draw():
+        """PER_YEAR formulas of each year, no two from the same family."""
+        chosen, used = [], set()
+        for y in YEARS:
+            order = list(by_year[y])
+            rng.shuffle(order)
+            picks = []
+            for instance in order:
+                if fam(instance) not in used and len(picks) < PER_YEAR[y]:
+                    picks.append(instance)
+                    used.add(fam(instance))
+            chosen += picks
+        return chosen
+
     rng = random.Random(SEED)
-    best = None
-    for _ in range(DRAWS):
-        draw = [i for y in YEARS for i in rng.sample(by_year[y], PER_YEAR[y])]
-        if sum(price[i] for i in draw) > BUDGET:
-            continue
-        counts = {s: sum(ok[i][s] for i in draw) for s in SOLVERS}
-        others = max(counts[s] for s in SOLVERS[2:])
-        if not counts["Tactix"] > counts["Satsuma+Kissat"] > others:
-            continue
-        failures = 1 - sum(counts.values()) / (total * len(SOLVERS))
-        distance = 4 * (failures - FAILURES) ** 2
-        distance += sum((counts[s] / total - target[s]) ** 2 for s in SOLVERS)
-        distance += sum((statistics.mean(is_sat(i) for i in draw if year(i) == y) - sat[y]) ** 2
-                        for y in YEARS) / 4
-        if best is None or distance < best[0]:
-            best = (distance, draw)
-    reduced = sorted(best[1], key=lambda i: (year(i), i))
+    reduced = draw()
+    while sum(price[i] for i in reduced) > BUDGET:
+        reduced = draw()
+    reduced = sorted(reduced, key=lambda i: (year(i), i))
     smoke = []
     for want_sat in (True, False):
         fast = [i for i in sorted(by, key=lambda i: size[Path(i).name.split("-")[0]])
                 if year(i) and is_sat(i) == want_sat and all(checked(by[i][s], 10, 20) for s in SOLVERS)
                 and all(memory.get((s, i), 0) <= 1000 for s in SOLVERS)]
         smoke += fast[:1]
-    counts = collections.Counter(s for i in reduced for s in SOLVERS if checked(by[i][s]))
-    print(f"tierd: pool {len(pool)}, reduced {len(reduced)}, estimated cost "
-          f"{sum(cost(by[i][s]) for i in reduced for s in SOLVERS):.0f} s, runs without a checked "
-          f"answer {1 - sum(counts.values()) / (len(reduced) * len(SOLVERS)):.0%}; checked solves at "
-          f"the reduced limits in the paper's runs: " + ", ".join(f"{s} {counts[s]}" for s in SOLVERS))
+    print(f"tierd: pool {len(pool)}, reduced {len(reduced)} from {len({fam(i) for i in reduced})} "
+          f"families, estimated cost {sum(price[i] for i in reduced):.0f} s")
     return [Path(i).name for i in reduced], [Path(i).name for i in smoke]
 
 
@@ -211,7 +198,7 @@ def chvatal() -> tuple[list[str], list[str]]:
 
 
 HEADER = {
-    "tierd": "Tier D reduced set (also the milestones'): see paper/run/select_subsets.py",
+    "tierd": "tierd reduced set (also the milestones'): 20 formulas from different families",
     "interface": "Interface reduced set: all of Tier A, up to 15 formulas per other set solved within 120 s",
     "cruxmiter": "Cruxmiter reduced set: the cheapest seed in the paper's runs",
     "chvatal": "Chvatal reduced set: the cheapest of the 23 subproblems in the paper's runs",
@@ -227,7 +214,8 @@ def main() -> None:
                          ("chvatal", chvatal)):
         reduced, smoke = choose()
         for kind, items in (("reduced", reduced), ("smoke", smoke)):
-            text = f"# {HEADER[name]}" + (" (smoke: a quick part of it)" if kind == "smoke" else "") + "\n"
+            text = (f"# {HEADER[name]}" if kind == "reduced"
+                    else f"# {name} smoke set: see paper/run/select_subsets.py") + "\n"
             text += "".join(f"{item}\n" for item in items)
             path = OUT / f"{name}-{kind}.txt"
             if args.check:

@@ -17,13 +17,13 @@ Every experiment can be run under three profiles that differ only in the
 instances and the resource limits (bench.py --profile):
   full     the paper's instance sets and limits (the default)
   reduced  the artifact-evaluation subsets (paper/benchmarks/subsets/*-reduced.txt)
-           with smaller limits, sized for a 4-core, 16 GB virtual machine
+           with smaller limits, sized for 4 cores and 16 GB
   smoke    a few quick instances of the same subsets with short limits, to
            check that every solver and checker runs on each experiment's
            benchmarks
 A profile may also replace the limits of an instance set ("sets") and run
 only some configurations; the reduced and smoke milestones take the current
-version's runs from the Tier D experiment, as the paper did.
+version's runs from the tierd experiment, as the paper did.
 """
 
 SUB = "paper/benchmarks/subsets"
@@ -41,7 +41,7 @@ REFERENCES = {
 }
 
 # Limits of the reduced and smoke profiles. At most three runs execute at the
-# same time (bench.py --jobs 3), so 3 x 4 GiB fit the evaluation VM.
+# same time (bench.py --jobs 3), so 3 x 4 GiB fit in 16 GB.
 REDUCED_MEMORY_GIB = 4
 SMOKE = {"seconds": 60, "memory_gib": 4, "cpus": 1, "check_seconds": 120}
 
@@ -74,13 +74,13 @@ EXPERIMENTS = {
         },
     },
     "milestones": {
-        "description": "Tactix at the first commit of each development milestone, on Tier D, without proofs",
+        "description": "Tactix at the first commit of each development milestone, on the tierd formulas, without proofs",
         "instances": {"kind": "gbd", "list": "paper/benchmarks/tierd.sources",
                       "years": "paper/benchmarks/tierd-years.tsv"},
         "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800},
         "profiles": {
-            # The Tier D formulas and limits; the current version's runs are
-            # the Tier D experiment's Tactix runs (compare.py takes them from
+            # The tierd formulas and limits; the current version's runs are
+            # the tierd experiment's Tactix runs (compare.py takes them from
             # there), as in the paper.
             "reduced": {"subset": f"{SUB}/tierd-reduced.txt", "current_from_tierd": True,
                         "configurations": [f"Milestone {m}" for m in "ABCDE"],
@@ -151,20 +151,13 @@ EXPERIMENTS = {
                    "check_memory_gib": 64},
         "profiles": {
             "reduced": {"subset": f"{SUB}/chvatal-reduced.txt",
-                        "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",
-                                           "Satsuma+Kissat"],
                         "limits": {"seconds": 900, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
                                    "check_seconds": 2400}},
-            "smoke": {"subset": f"{SUB}/chvatal-smoke.txt", "limits": SMOKE,
-                      "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",
-                                         "Satsuma+Kissat"]},
+            "smoke": {"subset": f"{SUB}/chvatal-smoke.txt", "limits": SMOKE},
         },
         "configurations": {
             "Chvatal Tactix": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy",
                                            "{cnf}", "{proof}"], "proof": "tactix"},
-            "Chvatal Tactix (stable)": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy",
-                                                    "{cnf}", "{proof}"],
-                                        "environment": {"TACTIX_FORCE_MODE": "stable"}, "proof": "tactix"},
             "Default Tactix": {"command": [f"{T}/paper-tierd/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
             "Kissat 4.0.4": KISSAT,
