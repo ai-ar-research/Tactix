@@ -146,14 +146,10 @@ record the exact binaries (`logs/*/raw/*/manifest.json`).
   `run/setup.sh tactix` builds each one. Three of them are not on `main`; the
   `paper-commits` branch keeps them (`setup.sh` fetches it when needed).
 - **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
-  drives its opening through `tactix.h` and then hands over to the built-in
-  default strategy, configured through `tactix_set_default_option` (stable
-  mode, inprocessing limited to vivification; the settings are in
-  `run/experiments.py`). The paper's runs passed the same settings through the
-  environment, before the call existed; the artifact runs the strategy at
-  commit `b8b550aae` (build `paper-cruxmiter-public`), which uses the call and writes byte-identical
-  proofs (checked on seed 7: same SHA-256, and the same size as the paper's
-  proof).
+  drives its opening through `tactix.h`, then hands over to the built-in stable
+  default strategy with reordering, BVE, conflict reuse, Factor, Sweep and the
+  default Backbone slot disabled and Vivify as its only inprocessing slot.
+  These fixed settings are part of the strategy implementation.
 - **Tested environments.** The complete pipeline (setup, smoke test, reduced
   evaluation, analysis) was run from a fresh clone on Rocky Linux 9 with
   GCC 13 and CMake 4, and the container recipe was built and run with
