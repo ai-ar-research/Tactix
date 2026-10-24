@@ -70,9 +70,8 @@ routed by content (`tools/bench/proof_oracle.py`).
   `CORRECTNESS-BUG` note about two CakeLPR crashes; the recheck campaigns
   verified both certificates, and the paper uses the rechecked outcome.
 - **Commits.** Each Tactix configuration was built from a commit of this
-  repository; `BUILDS` in `run/experiments.py` lists them by full hash. Some
-  of them are not on `main`; the `artifact` and `paper-commits` branches keep
-  them (the artifact's clone of this repository has both).
+  repository; `BUILDS` in `run/experiments.py` lists them by full hash. All of
+  them are in the history of the `artifact` branch (several are not on `main`).
 - **Cruxmiter settings.** The cruxmiter strategy (`examples/cruxmiter_policy.c`)
   drives its opening through `tactix.h`, then hands over to the built-in stable
   default strategy with reordering, BVE, conflict reuse, Factor, Sweep and the

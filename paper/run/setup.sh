@@ -171,9 +171,10 @@ for name, commit in BUILDS.items():
     while read -r name commit; do
         local out="$TOOLS/tactix/$name"
         [ -x "$out/tactix" ] && continue
-        # Three of the paper's commits live only on the paper-commits branch.
+        # Every commit is in this branch's history; a shallow or partial clone
+        # fetches what it lacks.
         git -C "$ROOT" cat-file -e "$commit^{commit}" 2>/dev/null ||
-            git -C "$ROOT" fetch -q origin paper-commits
+            git -C "$ROOT" fetch -q origin "$commit"
         log "Tactix $name (${commit:0:9})"
         local src="$SRC/tactix-$name"
         rm -rf "$src" && mkdir -p "$src"
