@@ -132,6 +132,7 @@ def milestones():
                          proof_mode="none" if proof_free else "proof",
                          counted=counted,
                          proof_check_result=(record.get("proof_check") or {}).get("result"),
+                         check_seconds=(record.get("proof_check") or {}).get("wall_seconds"),
                          par2_seconds=round(solve["wall_seconds"], 3) if counted else PENALTY))
     write("milestones", rows)
 
