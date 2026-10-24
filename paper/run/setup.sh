@@ -82,7 +82,7 @@ checkers () {
     fi
     ln -sf "$SRC/cake_lpr/cake_lpr" "$BIN/cake_lpr"
 
-    log "dsr-trim (with the repository's pinned repairs)"
+    log "dsr-trim"
     unpack "${DSR_TRIM[@]}"
     if [ ! -f "$SRC/dsr-trim/.patched" ]; then
         patch -d "$SRC/dsr-trim" -p1 --quiet \
@@ -105,7 +105,7 @@ checkers () {
     [ -x "$SRC/cakepb/cnf/cake_pb_cnf" ] || make -C "$SRC/cakepb/cnf" >/dev/null
     ln -sf "$SRC/cakepb/cnf/cake_pb_cnf" "$BIN/cake_pb_cnf"
 
-    log "VeriPB 3.0.2 (the binary release shipped with LymphoSAT)"
+    log "VeriPB 3.0.2"
     winners
     if [ ! -d "$SRC/veripb" ]; then
         mkdir -p "$SRC/veripb"
@@ -114,7 +114,7 @@ checkers () {
     fi
     ln -sf "$(find "$SRC/veripb" -name veripb -type f -perm -u+x | head -1)" "$BIN/veripb"
 
-    log "model checker and DSR transport"
+    log "checkmodel and dsr-transport"
     ln -sf "$ROOT/tools/fuzz/checkmodel" "$BIN/checkmodel"
     if [ ! -x "$ROOT/tools/bench/dsr-transport" ]; then
         g++ -O2 -std=c++17 -o "$ROOT/tools/bench/dsr-transport" "$ROOT/tools/bench/dsr_transport.cpp"
@@ -153,7 +153,7 @@ references () {
     fi
     ln -sfn "$s" "$SOLVERS/satsuma-kissat"
 
-    log "LymphoSAT (portable rebuild)"
+    log "LymphoSAT"
     local l="$ROOT/winners/lymphosat-sc2026/green/lymphosat/src"
     [ -f "$TOOLS/lymphosat-build.json" ] || \
         LYMPHOSAT_BUILD_REPORT="$TOOLS/lymphosat-build.json" python3 "$ROOT/paper/run/build_lymphosat.py"
