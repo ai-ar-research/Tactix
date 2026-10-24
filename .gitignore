@@ -128,3 +128,7 @@ adversarial-review/
 /docs/development-map.md
 /tools/fuzz/slurm-*.log
 /corpus/
+
+# Built by paper/run/setup.sh from tools/bench/dsr_transport.cpp
+tools/bench/dsr-transport
+tools/bench/dsr-transport.sha256
