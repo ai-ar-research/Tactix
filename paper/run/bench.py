@@ -12,7 +12,8 @@ default), reduced (the artifact-evaluation subsets and limits) or smoke (a few
 quick instances); see experiments.py. Selection options narrow it further:
 --configurations A,B (names as in `list`), --sets S (interface only),
 --subset NAME (paper/benchmarks/subsets/EXPERIMENT-NAME.txt), --limit N (the
-first N instances), and --seconds, --check-seconds, --memory-gib, --cpus
+first N instances), and --seconds, --check-seconds, --memory-gib,
+--check-memory-gib, --cpus
 (different limits). --no-check skips certificate checking.
 
 Every run is limited in wall-clock time and in memory: the resident memory of
@@ -301,11 +302,11 @@ def checked(kind: str, cnf: Path, proof: Path, work: Path, limits: dict) -> dict
     """Run check_pipeline in a child process under the memory limit."""
     check_work = work / "check"
     check_work.mkdir()
-    env = dict(os.environ, TACTIX_CAKE_HEAP_MIB=str(cake_heap_mib(limits["memory_gib"])))
+    memory = limits.get("check_memory_gib", limits["memory_gib"])
+    env = dict(os.environ, TACTIX_CAKE_HEAP_MIB=str(cake_heap_mib(memory)))
     run = measured([sys.executable, Path(__file__).resolve(), "check", kind, cnf, proof, check_work,
-                    str(limits["check_seconds"]), str(limits["memory_gib"])],
-                   work / "check.json", work / "check.err", limits["check_seconds"] + 60, env,
-                   limits["memory_gib"])
+                    str(limits["check_seconds"]), str(memory)],
+                   work / "check.json", work / "check.err", limits["check_seconds"] + 60, env, memory)
     try:
         result = json.loads((work / "check.json").read_text())
     except ValueError:
@@ -362,7 +363,8 @@ def plan(name: str, args) -> list[dict]:
             else:
                 limits = dict(experiment["limits"], **item.get("limits", {}))
             for option, key in (("seconds", "seconds"), ("check_seconds", "check_seconds"),
-                                ("memory_gib", "memory_gib"), ("cpus", "cpus")):
+                                ("memory_gib", "memory_gib"), ("check_memory_gib", "check_memory_gib"),
+                                ("cpus", "cpus")):
                 if getattr(args, option, None):
                     limits[key] = getattr(args, option)
             task = {"experiment": name, "configuration": configuration, **item,
@@ -460,8 +462,7 @@ def _row(record: dict) -> dict:
             "solve_limit_seconds": record["limits"]["seconds"],
             "check_limit_seconds": record["limits"]["check_seconds"],
             "memory_limit_gib": record["limits"]["memory_gib"],
-            "solved_checked": answered and verified, "kissat_screen_seconds": record.get("kissat_screen_seconds", ""),
-            "rechecked": False}
+            "solved_checked": answered and verified, "kissat_screen_seconds": record.get("kissat_screen_seconds", "")}
 
 
 def collect(out: Path) -> None:
@@ -500,6 +501,8 @@ def _selection(parser):
     parser.add_argument("--seconds", type=float, help="solving limit per run (s)")
     parser.add_argument("--check-seconds", type=float, help="checking limit per run (s)")
     parser.add_argument("--memory-gib", type=float, help="memory limit per run (GiB)")
+    parser.add_argument("--check-memory-gib", type=float,
+                        help="memory limit of the checking pipeline (GiB; default: --memory-gib)")
     parser.add_argument("--cpus", type=int, help="cores reserved per run (SLURM -c)")
     parser.add_argument("--no-check", action="store_true")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
@@ -631,7 +634,7 @@ def submit(args, name: str, tasks: list[dict], plan_path: Path) -> None:
 #SBATCH -J tactix-{name}
 #SBATCH -p {args.partition}
 #SBATCH -c {limits['cpus']}
-#SBATCH --mem={limits['memory_gib'] + 1}G
+#SBATCH --mem={max(limits['memory_gib'], limits.get('check_memory_gib', 0)) + 1}G
 #SBATCH -t {hours}:00:00
 #SBATCH -a 0-{len(tasks) - 1}{f"%{args.concurrency}" if args.concurrency else ""}
 #SBATCH -o {directory}/logs/%A_%a.log

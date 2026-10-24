@@ -1,6 +1,6 @@
 """The paper's experiments: instances, limits, and the command of every configuration.
 
-Each configuration was copied from the archived campaign in paper/logs/, with
+Each configuration was copied from its campaign manifest in paper/logs/, with
 binaries replaced by their paper/run/tools/ builds. In a command, {cnf} is the
 decompressed formula, {proof} the certificate path and {proof_dir} a directory
 for solvers that choose their own certificate name (they write proof.out).
@@ -59,7 +59,8 @@ EXPERIMENTS = {
         "description": "SAT Competition 2024-2026 main tracks (1,166 formulas), six solvers",
         "instances": {"kind": "gbd", "list": "paper/benchmarks/tierd.sources",
                       "years": "paper/benchmarks/tierd-years.tsv"},
-        "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800},
+        "limits": {"seconds": 5000, "memory_gib": 32, "cpus": 4, "check_seconds": 28800,
+                   "check_memory_gib": 64},
         "profiles": {
             "reduced": {"subset": f"{SUB}/tierd-reduced.txt",
                         "limits": {"seconds": 600, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
@@ -146,7 +147,8 @@ EXPERIMENTS = {
         "description": "Case study: the Chvatal strategy on 23 subproblems of case n = 7",
         "instances": {"kind": "files", "glob": "paper/benchmarks/chvatal/*.cnf.xz",
                       "selection": "paper/logs/chvatal/paper-hard.json"},
-        "limits": {"seconds": 5000, "memory_gib": 16, "cpus": 4, "check_seconds": 7200},
+        "limits": {"seconds": 5000, "memory_gib": 16, "cpus": 4, "check_seconds": 7200,
+                   "check_memory_gib": 64},
         "profiles": {
             "reduced": {"subset": f"{SUB}/chvatal-reduced.txt",
                         "configurations": ["Chvatal Tactix", "Default Tactix", "Kissat 4.0.4",

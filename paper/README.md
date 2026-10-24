@@ -8,11 +8,12 @@ is the guide for artifact evaluation. This file documents the pieces.
 
 ```
 paper/
-  logs/          archived campaigns of every experiment (raw/*.tar.xz, with each
-                 run's command, limits, outputs and checker results) and one
+  logs/          the logs of every experiment: one <configuration>.tar.xz per
+                 configuration (each run's record: command, limits, outputs and
+                 checker results; and the campaign manifests) and one
                  normalized results.csv per experiment
   data/          the CSV files the paper's tables and figures are drawn from
-  scripts/       normalize.py      raw campaigns -> logs/*/results.csv (merge rules)
+  scripts/       normalize.py      logs/*/*.tar.xz -> logs/*/results.csv
                  make_data.py      results.csv -> data/*.csv and limits.json
                  report.py         prints every table of the paper from data/
                  compare.py        a rerun next to the paper's logs on the same runs
@@ -32,7 +33,7 @@ paper/
 ## Analysis
 
 ```sh
-make -C paper check     # rebuild data/ from the raw logs; every file must be identical
+make -C paper check     # rebuild data/ from the logs; every file must be identical
 make -C paper           # data, figures in paper/figures/, tables printed
 make -C paper compare RUN=paper/run/results OUT=/tmp/comparison   # a rerun vs the logs
 ```
@@ -61,14 +62,8 @@ DRAT with drat-trim (to LRAT) and cake_lpr; DSR with dsr-trim (to LSR) and
 Trestle; PBP with VeriPB (elaboration) and CakePB. Tactix's certificates are
 routed by content (`tools/bench/proof_oracle.py`).
 
-## Notes on the archived runs
+## Notes
 
-- **Which runs count.** Where an archived campaign was rechecked with more
-  memory or a longer checking window, the merge rule in
-  `scripts/normalize.py` takes the recheck only when it verifies (Tier D) or
-  only after a resource failure (Chvátal). One Chvátal campaign carries a
-  `CORRECTNESS-BUG` note about two CakeLPR crashes; the recheck campaigns
-  verified both certificates, and the paper uses the rechecked outcome.
 - **Commits.** Each Tactix configuration was built from a commit of this
   repository; `BUILDS` in `run/experiments.py` lists them by full hash, and all
   of them are in this branch's history.

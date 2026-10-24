@@ -4,7 +4,7 @@
     python3 paper/scripts/make_data.py [--logs paper/logs] [--out paper/data]
 
 Reads <logs>/<experiment>/results.csv (written by normalize.py from the
-archived campaigns, or by run.py from a new run) and writes the CSV files
+paper's logs, or by bench.py from a new run) and writes the CSV files
 under <out>/ that the tables and figures of the paper are drawn from.
 """
 from __future__ import annotations
@@ -191,8 +191,7 @@ def chvatal(logs: Path, out: Path) -> None:
              "proof_bytes": r["proof_bytes"],
              "verified": int(true(r["verified"])),
              "solved_checked": int(true(r["solved_checked"])),
-             "kissat_screen_seconds": r["kissat_screen_seconds"],
-             "rechecked": int(true(r["rechecked"]))}
+             "kissat_screen_seconds": r["kissat_screen_seconds"]}
             for r in read(logs / "chvatal/results.csv")]
     rows.sort(key=lambda r: (r["node"], r["configuration"]))
     write(out / "chvatal-results.csv", rows)

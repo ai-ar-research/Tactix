@@ -75,27 +75,16 @@ def read(path: Path) -> list[dict[str, str]]:
 # --- Tier D ----------------------------------------------------------------------
 
 def solve_memory() -> dict[tuple[str, str], int]:
-    """Peak resident memory (MB) of every solver run, from the raw campaigns."""
-    names = {"tactix-0f7c10174": "Tactix", "satsuma-kissat": "Satsuma+Kissat",
-             "kissat-sc2024": "Kissat-sc2024", "kissat-4.0.4": "Kissat 4.0.4",
-             "ae-kissat-mab": "AE-Kissat-MAB", "lymphosat": "LymphoSAT"}
+    """Peak resident memory (MB) of every Tier D solver run, from the paper's logs."""
     memory = {}
-    for campaign, solver in (("20261010-tierd-fastel", "Tactix"),
-                             ("sc24-26-satsuma-fixed64-32g-8h", "Satsuma+Kissat"),
-                             ("sc24-26-32g-5000s", None)):
-        with tarfile.open(PAPER / "logs/tierd/raw" / f"{campaign}.tar.xz") as archive:
+    for path in sorted((PAPER / "logs/tierd").glob("*.tar.xz")):
+        with tarfile.open(path) as archive:
             for member in archive:
-                name = member.name.split("/", 1)[-1]
-                if not member.isfile() or not (name.startswith("results/") or name == "results.json"):
-                    continue
-                data = json.loads(archive.extractfile(member).read())
-                for record in data["results"] if name == "results.json" else [data]:
-                    configuration = solver or names.get(record.get("solver"))
-                    if configuration is None or (solver is None and configuration == "Satsuma+Kissat"):
-                        continue
-                    rss = (record.get("solve") or {}).get("peak_rss_kb")
+                if member.isfile() and "/runs/" in member.name:
+                    entry = json.loads(archive.extractfile(member).read())
+                    rss = (entry["record"].get("solve") or {}).get("peak_rss_kb")
                     if rss:
-                        memory[(configuration, record["instance"])] = rss // 1024
+                        memory[(entry["configuration"], entry["instance"])] = rss // 1024
     return memory
 
 

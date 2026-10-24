@@ -1,7 +1,6 @@
 # SLURM scripts of the paper's runs
 
-Extracted from the archived campaigns (`paper/logs/*/raw/`) by
-`paper/scripts/extract_slurm.py`; each script is in `<experiment>/<campaign>/`.
+Each script is in `<experiment>/<campaign>/`.
 `array` runs one task per (configuration, formula); `validate` and `aggregate`
 check the campaign's records and collect them. `pins/X.py` is the campaign's
 frozen copy of `tools/bench/X.py`; `runner/X.py` likewise.

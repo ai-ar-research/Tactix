@@ -1,212 +1,163 @@
 [
  {
-  "experiment": "tierd",
-  "archive": "logs/tierd/raw/20261010-tierd-fastel.tar.xz",
-  "source": "benchmarks/runs/20261010-tierd-fastel",
-  "sha256": "172878958c93ab5726525b0c21469252c6b50728a0b027ff0aeab1b5f359e221",
-  "bytes": 1245800
+  "experiment": "chvatal",
+  "archive": "logs/chvatal/Chvatal-Tactix-stable.tar.xz",
+  "runs": 23,
+  "sha256": "340ce2661b11460a8acb1199e063a5bff55c57f0d8fb9526523394b885b210ae",
+  "bytes": 9328
  },
  {
-  "experiment": "tierd",
-  "archive": "logs/tierd/raw/20261011-tierd-fastel-recheck-64g.tar.xz",
-  "source": "benchmarks/runs/20261011-tierd-fastel-recheck-64g",
-  "sha256": "3ca7f11a1cf60d574f35bf6287e6ddc597cd35f6a2ff4bfaf95e714e06d05fe6",
-  "bytes": 35664
+  "experiment": "chvatal",
+  "archive": "logs/chvatal/Chvatal-Tactix.tar.xz",
+  "runs": 23,
+  "sha256": "5dfd9214b673ff746d1432aa8261331dcfb3ff173cdf31c9f7a8f81950d80a2d",
+  "bytes": 9328
  },
  {
-  "experiment": "tierd",
-  "archive": "logs/tierd/raw/sc24-26-32g-5000s.tar.xz",
-  "source": "benchmarks/baselines/sc24-26-32g-5000s",
-  "sha256": "f5bde822f1f6de0a9c10b2ea75fe94469ac587602d70d91c769038b91e0fd578",
-  "bytes": 1099652
+  "experiment": "chvatal",
+  "archive": "logs/chvatal/Default-Tactix.tar.xz",
+  "runs": 23,
+  "sha256": "a626278b828b209dee1a1d5bcd9ab828002504abfb3dc3a4e110ab91bdffab6e",
+  "bytes": 11924
  },
  {
-  "experiment": "tierd",
-  "archive": "logs/tierd/raw/sc24-26-satsuma-fixed64-32g-8h.tar.xz",
-  "source": "benchmarks/baselines/sc24-26-satsuma-fixed64-32g-8h",
-  "sha256": "d1aec0c6a9639deae182b404a989118e2ec1e89841fbed4bd3640dcc15c6696e",
-  "bytes": 457588
+  "experiment": "chvatal",
+  "archive": "logs/chvatal/Kissat-4.0.4-screening.tar.xz",
+  "runs": 889,
+  "sha256": "a32da79a3a58c5912f16823e3d773cc2faaeb5161f25a3af8e4611e8ef80de3c",
+  "bytes": 64148
  },
  {
-  "experiment": "tierd",
-  "archive": "logs/tierd/raw/sc24-26-recheck-64g-8h.tar.xz",
-  "source": "benchmarks/baselines/sc24-26-recheck-64g-8h",
-  "sha256": "eb00401f6f04c9296e18a6b224c957c8854bc93d632f1be0a673aedd814bddad",
-  "bytes": 53628
+  "experiment": "chvatal",
+  "archive": "logs/chvatal/Kissat-4.0.4.tar.xz",
+  "runs": 23,
+  "sha256": "f99b88d7551f7a6f2d15f3eb2a51f149fedc8f9b836498d3fb1b302c333be867",
+  "bytes": 8980
  },
  {
-  "experiment": "tierd",
-  "archive": "logs/tierd/raw/sc24-26-satsuma-recheck-64g-8h.tar.xz",
-  "source": "benchmarks/baselines/sc24-26-satsuma-recheck-64g-8h",
-  "sha256": "635b1190cbfda313d075f30125f8d698635b666dec2af9c6c6cd91c307cbf939",
-  "bytes": 49044
- },
- {
-  "experiment": "milestones",
-  "archive": "logs/milestones/raw/20261011-tierd-noproof-1-tierA-dcc3ecbd6.tar.xz",
-  "source": "benchmarks/runs/20261011-tierd-noproof-1-tierA-dcc3ecbd6",
-  "sha256": "9b898d9e1fa3d104cc022ded94f985975320cf05602641f6f574ceb4492735f9",
-  "bytes": 240520
- },
- {
-  "experiment": "milestones",
-  "archive": "logs/milestones/raw/20261011-tierd-noproof-2-tierB14-546298924.tar.xz",
-  "source": "benchmarks/runs/20261011-tierd-noproof-2-tierB14-546298924",
-  "sha256": "75de0dd57053c74733b02a4cb338cff8f30c944a0f41bc7c8df5f0bf6a1d123f",
-  "bytes": 262564
- },
- {
-  "experiment": "milestones",
-  "archive": "logs/milestones/raw/20261011-tierd-noproof-3-tierC-6f44f23d6.tar.xz",
-  "source": "benchmarks/runs/20261011-tierd-noproof-3-tierC-6f44f23d6",
-  "sha256": "0c562cd8b168a397122c6759e6b8a2311339d5dc4cdf3b90f2764563df61cd15",
-  "bytes": 817836
- },
- {
-  "experiment": "milestones",
-  "archive": "logs/milestones/raw/20261011-tierd-noproof-4-rank1-50-f50e46c0c.tar.xz",
-  "source": "benchmarks/runs/20261011-tierd-noproof-4-rank1-50-f50e46c0c",
-  "sha256": "cfdc0153fc8e78dbaf637512bb3e6f6f4fa2decfec283e01d8d88f1405fae1e9",
-  "bytes": 908396
- },
- {
-  "experiment": "milestones",
-  "archive": "logs/milestones/raw/20261011-tierd-noproof-5-wv100-0a9063387.tar.xz",
-  "source": "benchmarks/runs/20261011-tierd-noproof-5-wv100-0a9063387",
-  "sha256": "90efdb528d6996601f3843923e5aa975439258cfe4d8508e159b346a4e62a453",
-  "bytes": 940464
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-120822-A-tactix-public.tar.xz",
-  "source": "benchmarks/runs/20261015-120822-A-tactix-public",
-  "sha256": "831dcc03d6483ab3fa11e10eb6c1f3437f6f32d9e74a744dae4d0323acc1b1d9",
-  "bytes": 34424
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-public-port-v3-regression-b28c5.tar.xz",
-  "source": "benchmarks/runs/20261015-public-port-v3-regression-b28c5",
-  "sha256": "400ae8bd67f14be395adfd22ab6dce40eaffd44332fe14c5dde9490b5c141cf2",
-  "bytes": 20560
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-prod-samewindow-regression-b28c5.tar.xz",
-  "source": "benchmarks/runs/20261015-prod-samewindow-regression-b28c5",
-  "sha256": "361fb543fa9ffe14bf64a1af95ce8de04ece6fba06d28fc8a1d3001c69598c7a",
-  "bytes": 48612
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-public-port-v3-regression-rank1-50.tar.xz",
-  "source": "benchmarks/runs/20261015-public-port-v3-regression-rank1-50",
-  "sha256": "ebb83bec59b679d7c6ba639f9a3281e70ab1723f733b9601db574f980f2d34fa",
-  "bytes": 28116
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-prod-samewindow-regression-rank1-50.tar.xz",
-  "source": "benchmarks/runs/20261015-prod-samewindow-regression-rank1-50",
-  "sha256": "f741fcc7d29872f705fef0c39c392ad967814361ae888733f59ddc86bed93285",
-  "bytes": 65904
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-public-port-v3-regression-wv100.tar.xz",
-  "source": "benchmarks/runs/20261015-public-port-v3-regression-wv100",
-  "sha256": "cd8adfd03b9c78c063d398697d072886893b239d1f2fcedd30eb37f9d44d5592",
-  "bytes": 49988
- },
- {
-  "experiment": "interface",
-  "archive": "logs/interface/raw/20261015-prod-samewindow-regression-wv100.tar.xz",
-  "source": "benchmarks/runs/20261015-prod-samewindow-regression-wv100",
-  "sha256": "871eeb87c532cd16495dca3a0200b362bce748bcc9892f9a19eff4dd1a143902",
-  "bytes": 72608
+  "experiment": "chvatal",
+  "archive": "logs/chvatal/Satsuma-plus-Kissat.tar.xz",
+  "runs": 23,
+  "sha256": "188280333b58e2b6a949289bce644933de73cdaf82b777db8b179a54e0ce435b",
+  "bytes": 6140
  },
  {
   "experiment": "cruxmiter",
-  "archive": "logs/cruxmiter/raw/20261010-213743-crux-fixed-family-verify.tar.xz",
-  "source": "benchmarks/runs/20261010-213743-crux-fixed-family-verify",
-  "sha256": "c190c2013809008e5cb687d7b3d24ecf1ae841f47a7dfa5087d07590de471e8b",
-  "bytes": 8532
+  "archive": "logs/cruxmiter/Default-Tactix.tar.xz",
+  "runs": 10,
+  "sha256": "37124ddfd38225d5aadf61759fe587d4d39a24857918e681d4f183bdc883e2af",
+  "bytes": 5588
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-141329-chvatal-population-kissat.tar.xz",
-  "source": "benchmarks/runs/20261015-141329-chvatal-population-kissat",
-  "sha256": "be58c1f53393274a615dba3d047ab68f571a88c61c1490730d4cf7f6e5a4e1fb",
-  "bytes": 78308
+  "experiment": "cruxmiter",
+  "archive": "logs/cruxmiter/Kissat-4.0.4.tar.xz",
+  "runs": 10,
+  "sha256": "42e351db50210f1dd17225ab6bd401f0f1b8791b6138c0cae07e86d69a602d7e",
+  "bytes": 4456
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-144648-chvatal-band-baselines.tar.xz",
-  "source": "benchmarks/runs/20261015-144648-chvatal-band-baselines",
-  "sha256": "e738231ffc3aa614c28ae3ed6e35a2dc291cb3f658018363cbdaffcb01d4c71c",
-  "bytes": 36872
+  "experiment": "cruxmiter",
+  "archive": "logs/cruxmiter/Public-policy.tar.xz",
+  "runs": 10,
+  "sha256": "91a98a44d117f57a019d6d824a3af4ac1faeb1ca77d7e7224c4a3250423a6c88",
+  "bytes": 4472
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-144649-chvatal-band-satsuma.tar.xz",
-  "source": "benchmarks/runs/20261015-144649-chvatal-band-satsuma",
-  "sha256": "8f3ed1ace22b77cf8f6d83a6d702a53c73916e2d7f97e4bff6dc418dbeaa86c5",
-  "bytes": 9528
+  "experiment": "interface",
+  "archive": "logs/interface/C-interface.tar.xz",
+  "runs": 383,
+  "sha256": "e94f0c53abf1eefabe971ed548666052de102468030ae89e207875e5e808fb7d",
+  "bytes": 99888
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-145107-chvatal-band-candidates.tar.xz",
-  "source": "benchmarks/runs/20261015-145107-chvatal-band-candidates",
-  "sha256": "1c376ca933c1baf0c27c5c13eb07c306452c1a99f29cc2a6e73a31eafadcb3f7",
-  "bytes": 18260
+  "experiment": "interface",
+  "archive": "logs/interface/C-plus--plus-.tar.xz",
+  "runs": 383,
+  "sha256": "99911c3867d903fb98420c77d31a68213ce643931302b35a0e690682f98f516a",
+  "bytes": 185948
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-150949-chvatal-band-recheck48-1.tar.xz",
-  "source": "benchmarks/runs/20261015-150949-chvatal-band-recheck48-1",
-  "sha256": "da781cd5ee9cebfa9b8326022157c9baadaa64a086c91fc382e98caa0327c5f6",
-  "bytes": 6068
+  "experiment": "milestones",
+  "archive": "logs/milestones/Current.tar.xz",
+  "runs": 1166,
+  "sha256": "be2536e9a1559ccdaf52b42ef095e171ea64c505e90f7019b5e2f675029c0e08",
+  "bytes": 1272820
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-160036-chvatal-hard-recheck48-2.tar.xz",
-  "source": "benchmarks/runs/20261015-160036-chvatal-hard-recheck48-2",
-  "sha256": "e6635601cdcfa6171bc0d8562a30dcf4fb470510fdea369e9f5276c6ec8f2fce",
-  "bytes": 6476
+  "experiment": "milestones",
+  "archive": "logs/milestones/Milestone-A.tar.xz",
+  "runs": 1166,
+  "sha256": "ccd43ed5274844ab844bda979fefd0237187833eef363c7b70bc8e84f73fa416",
+  "bytes": 246364
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-171709-chvatal-hard-recheck48-3.tar.xz",
-  "source": "benchmarks/runs/20261015-171709-chvatal-hard-recheck48-3",
-  "sha256": "29f4729605c9d340c4ecb93fdc7d240abd69a479fbda33d47313f22455ac9803",
-  "bytes": 3472
+  "experiment": "milestones",
+  "archive": "logs/milestones/Milestone-B.tar.xz",
+  "runs": 1166,
+  "sha256": "b487b9bfd9fce97ceeb5bed504c53a77f475d15783bc2ed96e025538e808ffcb",
+  "bytes": 266684
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/raw/20261015-173818-chvatal-hard-satsuma-recheck64.tar.xz",
-  "source": "benchmarks/runs/20261015-173818-chvatal-hard-satsuma-recheck64",
-  "sha256": "d96ba83e4eca8710ca313dc97246204d1d3584bb95607641e4b36f1d2f519865",
-  "bytes": 1212
+  "experiment": "milestones",
+  "archive": "logs/milestones/Milestone-C.tar.xz",
+  "runs": 1166,
+  "sha256": "ca3bb8dbad9e7043667b6561b3fe0ecf0c09a143a40ffac23e0b6bc355dbdc77",
+  "bytes": 830076
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/paper-hard.json",
-  "source": "corpus/chvatal/paper-hard.json",
-  "sha256": "b19d97032efe2a1043a8cae255a1c94cf6852540159517f9ab425c31ec5ad44a",
-  "bytes": 6706
+  "experiment": "milestones",
+  "archive": "logs/milestones/Milestone-D.tar.xz",
+  "runs": 1166,
+  "sha256": "ee53bae195c4d04f37f327b5793dca0032ab7f47e41c218ede051efbfdae637a",
+  "bytes": 928196
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/paper-band.json",
-  "source": "corpus/chvatal/paper-band.json",
-  "sha256": "a2e4c288d2f09169e57bdf939f8627610bed41026e517f983a3afa1fb5656ca5",
-  "bytes": 28331
+  "experiment": "milestones",
+  "archive": "logs/milestones/Milestone-E.tar.xz",
+  "runs": 1166,
+  "sha256": "69b99f1479ed837900f9ef1ef47830545072479cb00e7c2f6e9ddae540bfa515",
+  "bytes": 960620
  },
  {
-  "experiment": "chvatal",
-  "archive": "logs/chvatal/population.json",
-  "source": "corpus/chvatal/population.json",
-  "sha256": "bc91918e70c8cdc18cbe9fc089f0bcf084995648aac82d0fa57c756527449e30",
-  "bytes": 226822
+  "experiment": "tierd",
+  "archive": "logs/tierd/AE-Kissat-MAB.tar.xz",
+  "runs": 1166,
+  "sha256": "e9e9c051d0f3772adba0d0f7babbfeb177b6cea55e5b740cb4e3a97e152cc54a",
+  "bytes": 280300
+ },
+ {
+  "experiment": "tierd",
+  "archive": "logs/tierd/Kissat-4.0.4.tar.xz",
+  "runs": 1166,
+  "sha256": "c1c09807221533382c630b510559cdcafa11500367a802fe509acb87f86f3d71",
+  "bytes": 282908
+ },
+ {
+  "experiment": "tierd",
+  "archive": "logs/tierd/Kissat-sc2024.tar.xz",
+  "runs": 1166,
+  "sha256": "12b06af6a23d46d39509860ac27b0c4e9fb3d6022eed877d26438d0a2b6db205",
+  "bytes": 284032
+ },
+ {
+  "experiment": "tierd",
+  "archive": "logs/tierd/LymphoSAT.tar.xz",
+  "runs": 1166,
+  "sha256": "a011d0f0c24a68110a9ec0bc75609330b3e213f9b82f1e86fffac58f769f3ca0",
+  "bytes": 261500
+ },
+ {
+  "experiment": "tierd",
+  "archive": "logs/tierd/Satsuma-plus-Kissat.tar.xz",
+  "runs": 1166,
+  "sha256": "e1365711e0e92f4f22e8986d25be14e0e14e15e212c366daf83d6d14e0f3dda1",
+  "bytes": 342080
+ },
+ {
+  "experiment": "tierd",
+  "archive": "logs/tierd/Tactix.tar.xz",
+  "runs": 1166,
+  "sha256": "6d9ef00e53a5a4e6042b8a055d92d0de9e510883946b7397013cf8b7d20a49d9",
+  "bytes": 1273488
  }
 ]
