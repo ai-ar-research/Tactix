@@ -2,7 +2,7 @@
 
 This directory reproduces the evaluation of *Tactix: Towards a Programmable
 Strategy Interface for Flexible SAT Solving*. The TACAS 2027 artifact wraps it
-in one-command scripts for the TACAS virtual machine (`install.sh`,
+in a Docker image (Ubuntu 26.04) and one-command scripts (`install.sh`,
 `smoke-test.sh`, `run-experiments.sh`, `regenerate-from-logs.sh`); its README
 is the guide for artifact evaluation. This file documents the pieces.
 
