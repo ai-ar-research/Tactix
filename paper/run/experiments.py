@@ -172,8 +172,7 @@ EXPERIMENTS = {
 }
 
 # The Tactix commits the paper evaluated, by build name; setup.sh builds each
-# one into tools/tactix/<name>/. All of them are in the history of this branch
-# (the artifact branch), several of them not on main.
+# one into tools/tactix/<name>/. All of them are in the history of this branch.
 BUILDS = {
     "paper-tierd": "0f7c10174faa13e41e3ab60654bf8fc3322f4041",
     "paper-interface": "984a72441a5f46528ec63546869bbea56b82e753",
