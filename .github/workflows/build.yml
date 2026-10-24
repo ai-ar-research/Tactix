@@ -25,7 +25,7 @@ jobs:
           - macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -38,4 +38,4 @@ jobs:
           -DTACTIX_BUILD_TESTS=OFF
 
       - name: Build Tactix
-        run: cmake --build build/ci --parallel --target tactix tactix_archive
+        run: cmake --build build/ci --parallel 2 --target tactix tactix_archive
