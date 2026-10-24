@@ -1,18 +1,10 @@
 # Tactix — A Programmable Strategy Interface for Flexible SAT Solving
 
-Tactix is a CDCL SAT solver whose strategy you can replace. Propagation,
-decisions, conflict analysis, restarts and inprocessing rules are exposed
-through a C interface. A strategy chooses applicable rules and their settings.
-Every UNSAT answer has a machine-checkable proof; every SAT answer has a model.
+We are exploring a paradigm shift from SAT solvers as black boxes to SAT solvers as libraries. To this end, we introduce Tactix, a CDCL SAT solver with a public strategy interface that enables users to define custom solving strategies for orchestrating search and inprocessing rules.
 
-- **A strong default strategy.** It reimplements Kissat and CaDiCaL scheduling
-  and adds symmetry breaking and structure-aware reasoning.
-- **Your own strategy.** Strategies written against `include/tactix.h` drive
-  operations one at a time with per-invocation settings; the default can too.
-- **Checked answers.** UNSAT proofs are written as whole-run pseudo-Boolean
-  proofs by default, elaborated by VeriPB and then checked by CakePB. Native
-  DSR (DRAT extended with substitution redundancy) remains available with
-  `--dsr`.
+Tactix incorporates a wide range of techniques from existing SAT solvers and exposes them through a public interface where the user can define specialized solving strategies by writing a program that iteratively selects particular techniques, observes their effects, and decides the next strategy to apply.
+
+Tactix binary also comes with a default strategy that achieves competitive performance against state-of-the-art solvers.
 
 ## Quick start
 
