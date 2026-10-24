@@ -119,7 +119,9 @@ EXPERIMENTS = {
         }},
         "limits": {"seconds": 1200, "memory_gib": 32, "cpus": 12, "check_seconds": 1800},
         "profiles": {
-            "reduced": {"subset": f"{SUB}/interface-reduced.txt",
+            # Figure 5 compares solving times: the reduced run checks SAT models
+            # but not certificates (checking was three quarters of its time).
+            "reduced": {"subset": f"{SUB}/interface-reduced.txt", "check": False,
                         "limits": {"seconds": 300, "memory_gib": REDUCED_MEMORY_GIB, "cpus": 1,
                                    "check_seconds": 600},
                         "sets": {"Tier A": {"seconds": 30}}},

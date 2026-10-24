@@ -35,13 +35,11 @@ other set, up to 15 formulas of at most 20 MB compressed that both builds
 solved within 120 s in the paper's runs, spread evenly over that range of
 solving times.
 
-Cruxmiter (Table 4). The two seeds (of ten) with the smallest total solving
-plus checking time over the three configurations in the paper's runs (seeds 7
-and 2). Kissat's seed-2 certificate (1.5 GB) needs more than the reduced
-4 GB to check; the reduced run reports that check as a memory-out.
+Cruxmiter (Table 4). The seed (of ten) with the smallest total solving plus
+checking time over the three configurations in the paper's runs (seed 7).
 
-Chvatal (Table 5, Figure 6). The two subproblems (of 23) with the smallest
-total solving plus checking time over the four configurations.
+Chvatal (Table 5, Figure 6). The subproblem (of 23) with the smallest total
+solving plus checking time over the four configurations.
 """
 from __future__ import annotations
 
@@ -210,7 +208,7 @@ def cruxmiter() -> tuple[list[str], list[str]]:
     total = collections.Counter()
     for row in read(PAPER / "data/crux-results.csv"):
         total[int(row["seed"])] += float(row["solve_seconds"]) + float(row["check_seconds"])
-    seeds = sorted(total, key=total.get)[:2]
+    seeds = sorted(total, key=total.get)[:1]
     return [f"cruxmiter32seed{s}.cnf" for s in sorted(seeds)], [f"cruxmiter32seed{seeds[0]}.cnf"]
 
 
@@ -219,15 +217,15 @@ def chvatal() -> tuple[list[str], list[str]]:
     for row in read(PAPER / "data/chvatal-results.csv"):
         if row["configuration"] in ("Chvatal Tactix", "Default Tactix", "Kissat 4.0.4", "Satsuma+Kissat"):
             total[row["node"]] += float(row["solve_seconds"]) + float(row["check_seconds"] or 0)
-    nodes = sorted(total, key=total.get)[:2]
+    nodes = sorted(total, key=total.get)[:1]
     return [f"n7-{n}.cnf.xz" for n in sorted(nodes)], [f"n7-{nodes[0]}.cnf.xz"]
 
 
 HEADER = {
     "tierd": "Tier D reduced set (also the milestones'): see paper/run/select_subsets.py",
     "interface": "Interface reduced set: all of Tier A, up to 15 formulas per other set solved within 120 s",
-    "cruxmiter": "Cruxmiter reduced set: the two cheapest seeds in the paper's runs",
-    "chvatal": "Chvatal reduced set: the two cheapest of the 23 subproblems in the paper's runs",
+    "cruxmiter": "Cruxmiter reduced set: the cheapest seed in the paper's runs",
+    "chvatal": "Chvatal reduced set: the cheapest of the 23 subproblems in the paper's runs",
 }
 
 

@@ -366,7 +366,8 @@ def plan(name: str, args) -> list[dict]:
                 if getattr(args, option, None):
                     limits[key] = getattr(args, option)
             task = {"experiment": name, "configuration": configuration, **item,
-                    "limits": limits, "check": not getattr(args, "no_check", False),
+                    "limits": limits,
+                    "check": not getattr(args, "no_check", False) and profile.get("check", True),
                     "profile": profile_name}
             tasks.append(task)
     return tasks
