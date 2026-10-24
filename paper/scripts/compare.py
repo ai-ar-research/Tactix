@@ -11,13 +11,14 @@ its checking limit as unchecked, and PAR-2 uses twice the rerun's limit. (The
 memory limit cannot be applied to the archived runs; their memory was larger.)
 Both are then turned into the paper's tables and figures by the same scripts:
 
+  DIR/<experiment>.md                  the paper's claim, how to check it, a
+                                       per-formula table and the paper's tables
+  DIR/<experiment>-per-instance.csv    each run next to the archived one
+  DIR/comparison.md                    all of the above
   DIR/artifact/{logs,data,figures}     the rerun
   DIR/paper-logs/{logs,data,figures}   the paper's logs on the same runs
-  DIR/comparison.md                    every table, each cell "rerun (paper logs)"
-  DIR/per-instance.csv                 each run's outcome next to the archived one
 
-Runtimes depend on the machine, so compare trends (rankings, who solves what,
-ratios) rather than seconds.
+    --show EXPERIMENT...   print only these experiments (all are written)
 """
 from __future__ import annotations
 
@@ -34,6 +35,8 @@ HERE = Path(__file__).resolve().parent
 PAPER = HERE.parent
 sys.path.insert(0, str(HERE))
 import report  # noqa: E402
+sys.path.insert(0, str(PAPER / "run"))
+from experiments import EXPERIMENTS as FULL  # noqa: E402  (the paper's limits)
 
 EXPERIMENTS = ("tierd", "milestones", "interface", "cruxmiter", "chvatal")
 
@@ -107,11 +110,15 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
             rows.append(censored)
             pairs.append({
                 "experiment": name, "set": run.get("set", ""), "configuration": run["configuration"],
-                "instance": key(run["instance"]),
-                "rerun_verdict": run["verdict"], "rerun_seconds": run["solve_seconds"],
-                "rerun_status": run["status"],
-                "paper_verdict": paper["verdict"], "paper_seconds": paper["solve_seconds"],
-                "paper_status_at_rerun_limits": censored.get("status", censored["verdict"]),
+                "formula": key(run["instance"]),
+                "rerun_verdict": run["verdict"], "rerun_solve_seconds": run["solve_seconds"],
+                "rerun_check_seconds": run.get("check_seconds", ""), "rerun_status": run.get("status", ""),
+                "rerun_verified": run.get("verified", ""),
+                "paper_verdict": paper["verdict"], "paper_solve_seconds": paper["solve_seconds"],
+                "paper_check_seconds": paper.get("check_seconds", ""), "paper_status": paper.get("status", ""),
+                "paper_verified": paper.get("verified", ""),
+                "solve_limit_seconds": run["solve_limit_seconds"],
+                "check_limit_seconds": run["check_limit_seconds"],
                 "same_outcome": (run["verdict"] in ("SAT", "UNSAT")) == (censored["verdict"] in ("SAT", "UNSAT"))
                 and (run["verdict"] == censored["verdict"] or censored["verdict"] == "UNKNOWN"),
             })
@@ -156,10 +163,130 @@ def merge(rerun: report.Table, paper: report.Table | None) -> report.Table:
                         rerun.notes + ["Each cell: rerun (paper's logs on the same runs, at the rerun's limits)."])
 
 
+READING = """\
+How to read: values are from the rerun; "Paper" columns, and values in parentheses, are from the
+paper's archived run of the same configuration on the same formula. Times depend on the machine, so
+compare which formulas are answered and how the configurations rank, not the seconds.
+The paper's tables apply the rerun's limits to the paper's runs. The per-formula tables show the
+paper's times as recorded: * marks a time above the rerun's limit, which the paper's tables count as
+unsolved or unchecked. timeout: no answer within the limit; >N: checking stopped after N s;
+rejected: a checker did not accept the certificate; -: no answer, or not checked in this experiment."""
+
+# Per experiment: title, the paper's claim, how to check it, the configuration
+# column's name, whether certificates are checked, the paper's tables, figures.
+GUIDE = {
+    "tierd": ("tierd: SAT Competition 2024-2026 main-track formulas (Table 3, Figures 3 and 4)",
+              "Tactix's default strategy is competitive with the winners of the 2024-2026 SAT Competitions.",
+              "Tactix's Solved, Solved (checked) and PAR-2 in Table 3 should be within the range of the "
+              "other solvers', as in the parentheses. On 20 formulas, a count can differ from the paper's "
+              "logs by a formula that finished close to a limit.",
+              "Solver", True, ("table3", "figure4"),
+              ("tierd-cactus.pdf (Figure 3)", "tierd-scatter.pdf (Figure 4)",
+               "tierd-scatter-satsuma.pdf, tierd-scatter-lympho.pdf (appendix)")),
+    "milestones": ("milestones: earlier versions of Tactix on the tierd formulas (Table 6, Figure 7)",
+                   "Later versions of Tactix solve more formulas.",
+                   "The Solved column of Table 6 should rise from version 1 to the current version, as in "
+                   "the parentheses. On 20 formulas, the last versions can all solve every formula.",
+                   "Version", False, ("table6", "figure7"), ("milestone-ladder.pdf (Figure 7)",)),
+    "interface": ("interface: the default strategy through the C interface and in C++ (Figure 5)",
+                  "Running the default strategy through the public C interface adds little overhead.",
+                  "The slowdowns below should be small, as in the parentheses. On formulas solved in "
+                  "under a second, start-up time dominates the per-formula ratio.",
+                  "Configuration", False, ("figure5",), ("interface-overhead.pdf (Figure 5)",)),
+    "cruxmiter": ("cruxmiter: case study 1, arithmetic circuit verification (Table 4)",
+                  "On these formulas, the strategy designed with an AI agent (configuration \"Public "
+                  "policy\") solves faster, with proofs that check faster, than default Tactix and Kissat 4.0.4.",
+                  "Compare the runtimes and check times of the three configurations; their order should "
+                  "match the paper's columns.",
+                  "Configuration", True, ("table4",), ()),
+    "chvatal": ("chvatal: case study 2, subproblems of Chvatal's conjecture (Table 5, Figure 6)",
+                "On these subproblems, the strategy designed with an AI agent (\"Chvatal Tactix\") solves "
+                "faster than default Tactix, Satsuma+Kissat and Kissat 4.0.4.",
+                "Compare the runtimes of the four configurations; their order should match the paper's column.",
+                "Configuration", True, ("table5",),
+                ("chvatal-scatter.pdf (Figure 6)", "chvatal-table.tex (Table 5 in LaTeX)")),
+}
+ORDER = {"tierd": report.TIERD_ORDER, "cruxmiter": report.CRUX_ORDER, "chvatal": report.CHVATAL_ORDER,
+         "milestones": tuple(m for m, _ in report.MILESTONES)}
+VERSION = {m: ("Current" if v == "Now" else f"Version {v}") for m, v in report.MILESTONES}
+
+
+def solve_cell(verdict: str, seconds: str, status: str, limit: float) -> str:
+    if verdict in ("SAT", "UNSAT"):
+        return f"{float(seconds):.1f}" + ("*" if float(seconds) > limit else "")
+    return "memory-out" if "memout" in status or "memory" in status else \
+        "timeout" if status in ("timeout", "") else "no answer"
+
+
+def check_cell(verdict: str, seconds: str, status: str, verified: str, limit: float,
+               stop: float) -> str:
+    """limit: the rerun's checking limit (* above it); stop: the limit the run was checked with."""
+    if verdict == "SAT":
+        return "model ok" if true(verified) else \
+            "nonstandard output" if "nonprotocol" in status or "nonstandard" in status else "rejected"
+    if verdict != "UNSAT" or not seconds:
+        return "-"
+    if true(verified):
+        return f"{float(seconds):.1f}" + ("*" if float(seconds) > limit else "")
+    return f">{stop:g}" if float(seconds) >= 0.98 * stop else "rejected"
+
+
+def per_formula(name: str, pairs: list[dict]) -> report.Table:
+    _, _, _, label, checks, _, _ = GUIDE[name]
+    order = ORDER.get(name, ())
+    pairs = sorted(pairs, key=lambda p: (p["formula"], order.index(p["configuration"])
+                                         if p["configuration"] in order else len(order)))
+    header = ["Formula", label, "Verdict", "Runtime (s)", "Paper runtime (s)"]
+    header += ["Check (s)", "Paper check (s)"] if checks else []
+    paper_check = FULL[name]["limits"]["check_seconds"]
+    rows, previous = [], None
+    for p in pairs:
+        solve, check = float(p["solve_limit_seconds"]), float(p["check_limit_seconds"])
+        verdict = p["rerun_verdict"] if p["rerun_verdict"] in ("SAT", "UNSAT") else "-"
+        formula = p["formula"].removesuffix(".cnf")
+        row = [(formula if len(formula) <= 40 else formula[:37] + "...") if p["formula"] != previous else "",
+               VERSION.get(p["configuration"], p["configuration"]), verdict,
+               solve_cell(p["rerun_verdict"], p["rerun_solve_seconds"], p["rerun_status"], solve),
+               solve_cell(p["paper_verdict"], p["paper_solve_seconds"], p["paper_status"], float("inf"))
+               if p["paper_verdict"] not in ("SAT", "UNSAT") else
+               solve_cell(p["paper_verdict"], p["paper_solve_seconds"], p["paper_status"], solve)]
+        if checks:
+            row += [check_cell(p["rerun_verdict"], p["rerun_check_seconds"], p["rerun_status"],
+                               p["rerun_verified"], check, check),
+                    check_cell(p["paper_verdict"], p["paper_check_seconds"], p["paper_status"],
+                               p["paper_verified"], check, paper_check)]
+        rows.append(row)
+        previous = p["formula"]
+    limits = f"limits: {solve:g} s to solve" + (f", {check:g} s to check" if checks else "")
+    return report.Table(f"{name}-per-formula", f"Per formula ({limits})", header, rows, keys=3)
+
+
+def section(name: str, pairs: list[dict], tables: dict[str, report.Table], out: Path,
+            markdown: bool) -> str:
+    title, claim, check, _, _, names, figures = GUIDE[name]
+    shown = ([per_formula(name, pairs)] if name != "interface" else []) + \
+        [tables[t] for t in names if t in tables]
+    figure_lines = [f"{out / side / 'figures' / f}" for f in figures for side in ("artifact",)]
+    if markdown:
+        text = [f"## {title}", "", f"**Claim:** {claim}", "", f"**How to check:** {check}", ""]
+        text += [report.render(t, True) for t in shown]
+        if figures:
+            text += ["**Figures:** " + "; ".join(figures) + " in artifact/figures/ (the rerun) and "
+                     "paper-logs/figures/ (the paper's logs on the same runs).", ""]
+        return "\n".join(text)
+    text = [f"\n== {title}", f"Claim: {claim}", f"How to check: {check}"]
+    text += [report.render(t) for t in shown]
+    if figures:
+        text += ["", "Figures (rerun; the paper's logs in paper-logs/figures/): " + "; ".join(figures),
+                 f"  in {out / 'artifact/figures'}"]
+    return "\n".join(text)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", type=Path, default=PAPER / "run/results")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--show", nargs="*", choices=EXPERIMENTS, help="experiments to print (default: all)")
     args = parser.parse_args()
     run, out = args.run.resolve(), args.out.resolve()
     for side in ("artifact", "paper-logs"):
@@ -172,25 +299,32 @@ def main() -> None:
     pairs = paper_view(out / "artifact/logs", out / "paper-logs/logs")
     if not pairs:
         sys.exit(f"no results.csv under {run}; run bench.py first")
-    write(out / "per-instance.csv", pairs)
     for side in ("artifact", "paper-logs"):
         build(out / side / "logs", out / side)
     rerun = report.tables(out / "artifact/data")
     paper = {t.name: t for t in report.tables(out / "paper-logs/data")}
-    merged = [merge(t, paper.get(t.name)) for t in rerun]
-    same = sum(p["same_outcome"] for p in pairs)
+    tables = {t.name: merge(t, paper.get(t.name)) for t in rerun}
     limits = json.loads((out / "artifact/data/limits.json").read_text())
+    present = [n for n in EXPERIMENTS if any(p["experiment"] == n for p in pairs)]
+    same = sum(p["same_outcome"] for p in pairs)
     header = (f"# Rerun next to the paper's logs ({limits.get('profile', 'full')} profile)\n\n"
-              f"Each cell shows the rerun's value and, in parentheses, the value computed from the "
-              f"paper's archived logs for the same configurations and formulas, cut off at the "
-              f"rerun's limits. Same outcome (answered or not) on {same} of {len(pairs)} runs; "
-              f"see per-instance.csv. Figures: artifact/figures/ and paper-logs/figures/.\n")
-    (out / "comparison.md").write_text(header + "\n" + "\n".join(report.render(t, True) for t in merged))
+              f"Same outcome (answered or not) as the paper's logs on {same} of {len(pairs)} runs.\n\n"
+              f"{READING}\n")
+    documents = []
+    for name in present:
+        mine = [p for p in pairs if p["experiment"] == name]
+        write(out / f"{name}-per-instance.csv", mine)
+        document = section(name, mine, tables, out, True)
+        (out / f"{name}.md").write_text(f"{header}\n{document}")
+        documents.append(document)
+    (out / "per-instance.csv").unlink(missing_ok=True)  # replaced by <experiment>-per-instance.csv
+    (out / "comparison.md").write_text(header + "\n" + "\n".join(documents))
     print(header)
-    for table in merged:
-        print(report.render(table))
-    print(f"\nwrote {out / 'comparison.md'}, {out / 'per-instance.csv'}, "
-          f"{out / 'artifact/figures'}, {out / 'paper-logs/figures'}")
+    for name in present:
+        if args.show is None or name in args.show:
+            print(section(name, [p for p in pairs if p["experiment"] == name], tables, out, False))
+    print(f"\nwrote {out}/: <experiment>.md (claim, how to check, tables), <experiment>-per-instance.csv, "
+          f"comparison.md (all experiments), artifact/figures/, paper-logs/figures/")
 
 
 if __name__ == "__main__":

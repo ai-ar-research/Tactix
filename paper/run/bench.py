@@ -403,7 +403,11 @@ def run_task(task: dict, out: Path, index: int) -> dict:
         if verdict == "SAT":
             model = measured([BIN / "checkmodel", cnf, stdout], work / "model.out", work / "model.err", 600,
                              memory_gib=limits["memory_gib"])
-            record["model_ok"] = model["exit_code"] == 0 and sat_protocol_ok(stdout)
+            # Counted only if the assignment satisfies the formula and is printed
+            # in the competition format (one final 0), as in the paper.
+            record["model_satisfies"] = model["exit_code"] == 0
+            record["model_format_ok"] = sat_protocol_ok(stdout)
+            record["model_ok"] = record["model_satisfies"] and record["model_format_ok"]
         elif verdict == "UNSAT" and spec["proof"] != "none":
             if certificate.is_file():
                 record["certificate_bytes"] = certificate.stat().st_size
@@ -438,7 +442,7 @@ def _row(record: dict) -> dict:
     if verified:
         status = "verified"
     elif verdict == "SAT":
-        status = "model-rejected"
+        status = "model-nonstandard-output" if record.get("model_format_ok") is False else "model-rejected"
     elif verdict == "UNSAT":
         status = "unsat-unchecked" if proof_free or not check else "unverified"
     elif solve["timed_out"]:
@@ -606,7 +610,9 @@ def main() -> None:
                     continue
                 check = (record.get("check") or {}).get("result", "")
                 if record["verdict"] == "SAT":
-                    check = "model ok" if record.get("model_ok") else "MODEL REJECTED"
+                    check = ("model ok" if record.get("model_ok") else
+                             "model in nonstandard output format (not counted)"
+                             if record.get("model_format_ok") is False else "MODEL REJECTED")
                 elif record["solve"].get("memout"):
                     check = "memory-out"
                 print(f"[{done}/{len(work)}] {label:36} {name:44} "
