@@ -135,7 +135,7 @@ EXPERIMENTS = {
             "smoke": {"subset": f"{SUB}/cruxmiter-smoke.txt", "limits": SMOKE},
         },
         "configurations": {
-            "Default Tactix": {"command": [f"{T}/paper-cruxmiter/tactix", "--dsr", "{cnf}", "{proof}"],
+            "Default Tactix": {"command": [f"{T}/paper-tierd/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
             "Public policy": {"command": [f"{T}/paper-cruxmiter-public/tactix-cruxmiter-policy",
                                           "{cnf}", "{proof}"], "proof": "drat"},
@@ -163,7 +163,7 @@ EXPERIMENTS = {
             "Chvatal Tactix (stable)": {"command": [f"{T}/paper-chvatal/tactix-chvatal-policy",
                                                     "{cnf}", "{proof}"],
                                         "environment": {"TACTIX_FORCE_MODE": "stable"}, "proof": "tactix"},
-            "Default Tactix": {"command": [f"{T}/paper-chvatal-default/tactix", "--dsr", "{cnf}", "{proof}"],
+            "Default Tactix": {"command": [f"{T}/paper-tierd/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
             "Kissat 4.0.4": KISSAT,
             "Satsuma+Kissat": REFERENCES["Satsuma+Kissat"],
@@ -173,6 +173,9 @@ EXPERIMENTS = {
 
 # The Tactix commits the paper evaluated, by build name; setup.sh builds each
 # one into tools/tactix/<name>/. All of them are in the history of this branch.
+# The paper's Default Tactix runs in the case studies used commits 5d2bab322
+# and 903ec8bb4; their command-line solver is the same as paper-tierd's (they
+# differ only in examples and in C-interface-only paths), so it is used here.
 BUILDS = {
     "paper-tierd": "0f7c10174faa13e41e3ab60654bf8fc3322f4041",
     "paper-interface": "984a72441a5f46528ec63546869bbea56b82e753",
@@ -181,8 +184,6 @@ BUILDS = {
     "paper-milestone-c": "6f44f23d6f1b32126d7def74ad3918b3b9705a83",
     "paper-milestone-d": "f50e46c0c45b049325e365b9afb17b3d9debaca4",
     "paper-milestone-e": "0a90633874488baeffc5ab4d3630017f6f46e71e",
-    "paper-cruxmiter": "5d2bab3228805f10dfc965836740b463b015acfd",
     "paper-cruxmiter-public": "74e2317d425ae68075c63e10b7254c1b569c8123",
     "paper-chvatal": "74e2317d425ae68075c63e10b7254c1b569c8123",
-    "paper-chvatal-default": "903ec8bb4bd1c5518a64a367a05dc07d039b0070",
 }

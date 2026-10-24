@@ -24,8 +24,8 @@ paper/
   run/           experiments.py   every experiment: instances, limits, the command of
                                   each configuration, profiles full/reduced/smoke
                  bench.py         runs an experiment locally or as a SLURM array
-                 setup.sh         builds checkers, reference solvers and Tactix at the
-                                  11 commits the paper evaluated
+                 setup.sh         builds checkers, reference solvers and the Tactix
+                                  builds the paper evaluated (BUILDS)
   Makefile       logs -> data -> figures and printed tables
 ```
 
