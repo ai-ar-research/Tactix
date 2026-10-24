@@ -1,9 +1,9 @@
 /* Public-API policy for symbreak's Chvatal-conjecture SAT subproblems.
  *
- * The CNF encodes seven cardinality constraints with independent totalizers
- * that all count the same y-literals in the same order, so most auxiliary
- * counter variables exist in seven structurally identical copies.  Clause
- * learning about one copy never transfers to the others.
+ * The benchmark family uses independent totalizers that count the same
+ * literals in the same order, so auxiliary counter variables occur in
+ * structurally identical copies. Clause learning about one copy does not
+ * automatically transfer to the others.
  *
  * The policy finds such "twins" generically and merges them before handing
  * the smaller formula to the shipped DefaultPolicy:
@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 struct formula {
   int *literals;       /* all clause literals, clause after clause */
@@ -253,8 +252,6 @@ done:
 
 /* Adds both directions of every twin equivalence with SubstitutionRedundancy
  * and returns the number of accepted instances (-1 on an API error). */
-static int forward_only;
-
 static long long merge_twins(tactix *solver, const struct pair *pairs,
                              size_t pair_count, const unsigned *pair_round) {
   const size_t count = 2 * pair_count;
@@ -277,7 +274,7 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
     while (begin < pair_count) {
       size_t end = begin, j;
       while (end < pair_count && pair_round[end] == pair_round[begin]) ++end;
-      for (int direction = 0; direction < 2 - forward_only; ++direction)
+      for (int direction = 0; direction < 2; ++direction)
         for (j = begin; j < end; ++j) {
           const int a = pairs[j].representative, b = pairs[j].twin;
           int *c = storage + 3 * out;
@@ -294,10 +291,8 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
     }
   }
   {
-    const size_t used = forward_only ? pair_count : count;
     static uint64_t revision = 1;
-    uint64_t failures = 0;
-    for (i = 0; i < used; ++i) {
+    for (i = 0; i < count; ++i) {
       memset(&step, 0, sizeof step);
       step.base.step_id = 1;
       step.base.rule_id = rule_id("SubstitutionRedundancy");
@@ -326,11 +321,7 @@ static long long merge_twins(tactix *solver, const struct pair *pairs,
         break;
       }
       if (result.made_rule_progress) ++accepted;
-      else if (result.status != TACTIX_ONLINE_NO_CHANGE) ++failures;
     }
-    if (getenv("CHVATAL_DEBUG"))
-      fprintf(stderr, "merge batch used=%zu accepted=%lld failures=%" PRIu64
-              "\n", used, accepted, failures);
   }
   free(instances);
   free(storage);
@@ -358,7 +349,7 @@ static int saturate(tactix *solver, int rule, int propagate, unsigned cap) {
 static int collapse(tactix *solver, int propagate) {
   int result = saturate(solver, rule_id("Substitute"), propagate, 64);
   if (terminal(result) || result == 2) return result;
-  if (!getenv("CHVATAL_NO_SUBSUME")) {
+  {
     const int subsumed = tactix_apply(solver, rule_id("SubsumeForward"));
     if (terminal(subsumed)) return subsumed;
   }
@@ -411,34 +402,18 @@ static void print_model(tactix *solver, int maximum_variable) {
 }
 
 int main(int argc, char **argv) {
-  const char *cnf = NULL, *proof = NULL;
-  int twins = 1, format = TACTIX_PROOF_DSR_BINARY, arg, result = 0;
-  int per_round_off = getenv("CHVATAL_ONE_COLLAPSE") != NULL;
-  int witnessed = 0;
+  const char *cnf, *proof = NULL;
+  int result = 0;
   struct formula f;
   tactix *solver;
-  for (arg = 1; arg < argc; ++arg) {
-    const char *a = argv[arg];
-    if (!strcmp(a, "--default")) twins = 0;
-    else if (!strcmp(a, "--twins")) twins = 1;
-    else if (!strcmp(a, "--forward")) twins = forward_only = 1;
-    else if (!strcmp(a, "--dsr")) format = TACTIX_PROOF_DSR_BINARY;
-    else if (!strcmp(a, "--drat")) format = TACTIX_PROOF_DRAT_BINARY;
-    else if (a[0] == '-' && a[1]) {
-      fprintf(stderr, "tactix-chvatal-policy: unknown option '%s'\n", a);
-      return 1;
-    } else if (!cnf) cnf = a;
-    else if (!proof) proof = a;
-    else return 1;
-  }
-  if (!cnf) {
-    fprintf(stderr,
-            "usage: tactix-chvatal-policy [--twins|--default] [--dsr|--drat] "
-            "CNF [PROOF]\n");
+  if (argc < 2 || argc > 3) {
+    fprintf(stderr, "usage: tactix-chvatal-policy CNF [PROOF]\n");
     return 1;
   }
+  cnf = argv[1];
+  if (argc == 3) proof = argv[2];
   solver = tactix_init();
-  if (proof && tactix_proof(solver, proof, format)) {
+  if (proof && tactix_proof(solver, proof, TACTIX_PROOF_DSR_BINARY)) {
     fprintf(stderr, "tactix-chvatal-policy: cannot create proof '%s'\n", proof);
     return 1;
   }
@@ -448,7 +423,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   if (tactix_status(solver) == 20) result = 20;
-  if (!result && twins) {
+  if (!result) {
     size_t pair_count;
     unsigned rounds, *pair_round = NULL;
     struct pair *pairs = find_twins(&f, &pair_count, &rounds, &pair_round);
@@ -470,20 +445,12 @@ int main(int argc, char **argv) {
         result = tactix_apply(solver, propagate);
         if (result == 2)
           result = tactix_apply(solver, rule_id("ConflictAnalysis"));
-        if (!terminal(result) && !per_round_off)
+        if (!terminal(result))
           result = collapse(solver, propagate);
         if (result == 2)
           result = tactix_apply(solver, rule_id("ConflictAnalysis"));
-        if (getenv("CHVATAL_DEBUG"))
-          fprintf(stderr, "round %u pairs=%zu accepted=%lld irredundant=%"
-                  PRIu64 " substituted=%" PRIu64 " clock=%.1f\n",
-                  pair_round[begin], end - begin, round_accepted,
-                  tactix_stat(solver, TACTIX_STAT_IRREDUNDANT_CLAUSES),
-                  tactix_stat(solver, TACTIX_STAT_SUBSTITUTE_VARS),
-                  (double)clock() / CLOCKS_PER_SEC);
         begin = end;
       }
-      witnessed = accepted > 0;
       printf("c chvatal-twins pairs=%zu rounds=%u accepted=%lld\n",
              pair_count, rounds, accepted);
       fflush(stdout);
@@ -499,7 +466,6 @@ int main(int argc, char **argv) {
     free(pair_round);
     if (!terminal(result)) result = 0;
   }
-  if (getenv("CHVATAL_MERGE_ONLY")) return 0;
   if (!result) result = tactix_solve(solver);
 
   printf("c conflicts %" PRIu64 "\n",
@@ -515,10 +481,9 @@ int main(int argc, char **argv) {
   tactix_release(solver);
   /* Report the checker route from the certificate's own content, after the
    * session has flushed and closed it. */
-  if (result == 20 && proof && format == TACTIX_PROOF_DSR_BINARY) {
+  if (result == 20 && proof) {
     const int has = dsr_has_witness(proof);
     if (has >= 0) printf("c proof-route %s\n", has ? "dsr-trestle" : "dsr-cake_lpr");
-    (void)witnessed;
   }
   fflush(stdout);
   free(f.literals);

@@ -66,7 +66,7 @@ a header, then a line at most about once per second at restarts and clause
 database reductions, and a last line when it stops.
 
 ```
-c progress: seconds conflicts decisions restarts reductions mode fixed-variables irredundant-clauses (of 570 variables)
+c progress: seconds conflicts decisions restarts reductions mode fixed-variables irredundant-clauses
 c *     0.00            0             0        0      0 focused        1        526
 c r     1.01        65451        154813     2893     21 stable        20        788
 c r     2.01       126150        272111     4803     33 focused       20        836
@@ -472,49 +472,20 @@ lines consumed by the fuzz harness. It is a test client, not a production
 ### tactix-cruxmiter-policy
 
 ```
-build/release/examples/tactix-cruxmiter-policy [--profile=NAME] [--default-option=NAME=VALUE]... [--drat] <cnf> [proof]
+build/release/examples/tactix-cruxmiter-policy <cnf> [proof]
 ```
 
-A strategy for multiplier-equivalence miters. In the default profile, `full`,
-it repeats hyper-binary resolution, congruence closure and equivalent-literal
-substitution (at most two rounds), then applies vivification, strengthening,
-subsumption, BVE and transitive reduction, a final congruence and
-substitution pass, and hands the formula to the default strategy.
-
-- The proof is always binary DRAT. `--drat` is accepted for runner
-  compatibility and changes nothing. No `c proof-route` line is printed.
-- `--profile=NAME` selects an alternative experimental schedule. Accepted
-  names: `full` (default), `search`, `positive`, `saved`, `gate-search`,
-  `backbone-search`, `backbone-close-search`, `taco-warmup`, `input-ranked`,
-  `input-saved`, `input-ascending`, `input-descending`, `gate`, `binary`,
-  `backbone`, `backbone-negative`, `backbone-positive`, `backbone-fixpoint`,
-  `backbone-first`, `backbone-close`, `backbone-heavy`, `symmetry-backbone`,
-  `backbone-symmetry`, `backbone-symmetry-scan`, `symmetry-sandwich`, `sweep`,
-  `deep-sweep`, `bdd-bve`, `kissat-order`, `kissat-order-negative`. The
-  `input-*` profiles require the size-32 cruxmiter formula (570 variables).
-- `--default-option=NAME=VALUE` (repeatable) sets a `TACTIX_*` setting of the
-  default strategy that the program hands over to, through
-  `tactix_set_default_option` in the C interface. The paper's configuration is
-  `--profile=backbone` with `TACTIX_FORCE_MODE=stable`, `TACTIX_REORDER=0`,
-  `TACTIX_NO_BVE=1`, `TACTIX_CONFLICT_REUSE=0`,
-  `TACTIX_SLOT_PERMILLE=Vivify:200`, `TACTIX_NO_FACTOR=1`, `TACTIX_NO_SWEEP=1`
-  and `TACTIX_SLOT_DISABLE=Backbone` (see the
-  [artifact configuration](https://github.com/ai-ar-research/Tactix/blob/artifact/paper/run/experiments.py)).
-- A line `c cruxmiter-policy profile=...` records the profile in use.
-- Schedule details can be adjusted with `TACTIX_CRUX_*` environment variables
-  (`TACTIX_CRUX_RELUCTANT_PERIOD`, `TACTIX_CRUX_REDUCE_INTERVAL`,
-  `TACTIX_CRUX_INPROCESS_INTERVAL`, `TACTIX_CRUX_FOCUS_CONFLICTS`,
-  `TACTIX_CRUX_WARMUP_CONFLICTS`, `TACTIX_CRUX_CS_ROUNDS`,
-  `TACTIX_CRUX_CS_FORCE`, `TACTIX_CRUX_SWEEP_DEPTH`,
-  `TACTIX_CRUX_INPUT_ORDER`, `TACTIX_CRUX_BVE_INPUT_ORDER`,
-  `TACTIX_CRUX_BVE_CUTOFF`, `TACTIX_CRUX_BVE_PROGRESS`); see the source.
-- It installs no signal handlers, so an interrupt ends the process without an
-  `s` line.
+The paper's fixed multiplier-equivalence-miter strategy. It runs at most four
+congruence/substitution rounds, applies Backbone, and hands the formula to the
+stable default strategy configured exactly as in the artifact: reordering,
+BVE, conflict reuse, Factor, Sweep and the default Backbone slot are disabled,
+and Vivify is the only enabled inprocessing slot. The optional proof is always
+binary DRAT. There are no alternative profiles or tuning environment variables.
 
 ### tactix-chvatal-policy
 
 ```
-build/release/examples/tactix-chvatal-policy [--twins|--default] [--dsr|--drat] <cnf> [proof]
+build/release/examples/tactix-chvatal-policy <cnf> [proof]
 ```
 
 A strategy for Chvátal-conjecture subproblems. It finds counter variables that
@@ -522,23 +493,14 @@ the formula's totalizers duplicate ("twins"), merges each pair with
 substitution-redundancy steps, collapses the resulting equivalences, and then
 runs the default strategy.
 
-| Option | Effect |
-|---|---|
-| `--twins` | Default. Merge twins first. |
-| `--default` | Skip twin merging and run the default strategy directly. |
-| `--dsr` | Default. Binary DSR proof. |
-| `--drat` | Binary DRAT proof. The merge steps cannot be written in DRAT, so the solver declines them. |
-| `--forward` | Not in the usage line. Adds only one direction of each twin equivalence; for experiments. |
+This is the paper's fixed strategy: it adds both directions of every twin
+equivalence, collapses the formula after each discovery round, and then runs
+the default strategy. The optional proof is always binary DSR. After an UNSAT
+run with a proof, it prints `c proof-route`; it also prints `c chvatal-twins`
+statistics. There are no comparison modes or tuning environment variables.
 
-With a DSR proof, it prints `c proof-route` after the `s UNSATISFIABLE` line
-(by scanning the finished proof). It prints `c chvatal-twins` lines with the
-number of twin pairs found and accepted. The environment variables
-`CHVATAL_DEBUG`, `CHVATAL_ONE_COLLAPSE`, `CHVATAL_NO_SUBSUME` and
-`CHVATAL_MERGE_ONLY` (stop after merging, without an answer) are for
-experiments. It installs no signal handlers.
-
-`examples/` also contains smaller strategies (`tactix-crux-fallback-policy`,
-`tactix-eevbnn-policy`, `tactix-random3sat-policy` and the `demo*` programs);
+`examples/` also contains smaller strategies (`tactix-eevbnn-policy`,
+`tactix-random3sat-policy` and the `demo*` programs);
 see their sources for usage. [../examples/cnf/](../examples/cnf/) has small
 test formulas.
 

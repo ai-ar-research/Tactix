@@ -240,9 +240,9 @@ The names and values are the `TACTIX_*` settings that the command line reads
 from the environment (listed in [cli.md](cli.md#environment-variables)); a
 session's setting takes precedence over the environment while it solves, and
 a `NULL` value removes it. This is how a strategy that hands over to
-`tactix_solve` after its own opening tailors the rest of the search; the
-cruxmiter strategy in `examples/cruxmiter_policy.c` does so with its
-`--default-option=NAME=VALUE` flag.
+`tactix_solve` after its own opening tailors the rest of the search. The
+cruxmiter strategy in `examples/cruxmiter_policy.c` installs the paper
+artifact's fixed settings this way before reading the formula.
 
 ### Status and model
 
@@ -340,7 +340,7 @@ Encodings, from the header:
 | Rule | Instance payload |
 |---|---|
 | `Decide`, `Probe`, `Backbone`, `TransitiveReduce` | a DIMACS literal, encoded with `TACTIX_LIT_INSTANCE(lit)` |
-| `BVE` | the enumerated values are `TACTIX_LIT_INSTANCE(v)` for the candidate variables `v` (the cruxmiter example eliminates chosen variables this way) |
+| `BVE` | the enumerated values are `TACTIX_LIT_INSTANCE(v)` for the candidate variables `v` |
 | `Restart` | the decision level to keep; 0 is a full restart |
 | `Reduce` | the number of learned clauses to delete, ranked by the reduction order; larger values are clamped to all deletable clauses |
 | `ConflictAnalysis` | the backjump level, `0..level-1` |
@@ -723,12 +723,6 @@ as Vivify's band ledger are rejected by an install), or the simpler
 `tactix_set_vivify_parameters` and `tactix_set_work_budget`, followed by
 `tactix_apply(s, vivify)`.
 
-[`cruxmiter_policy.c`](../examples/cruxmiter_policy.c) has two larger
-examples: a graph-symmetry pass of `SubstitutionRedundancy` with its producer,
-graph limits and symmetry-chain options, and a deep `Sweep` pass with an
-explicit depth, environment size and tick limits. Both use
-`TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS` with `TACTIX_ONLINE_POST_PROPAGATE`.
-
 ### Explicit structured instances: versioned programs
 
 Some rules take instances that do not fit in 64 bits, such as a clause with a
@@ -989,9 +983,7 @@ still uses the solver's defaults. To see what the doses bought, compare
 (effort) before and after each one.
 
 The same structure takes any root-level rule: replace the Vivify step with a
-BVE step under a BVE-tick budget, a Probe pass, or a multi-step program. The
-cruxmiter strategy's search profiles restart to level 0 every 10,000
-conflicts and run a fixed sequence of structural rules there.
+BVE step under a BVE-tick budget, a Probe pass, or a multi-step program.
 
 ### (c) A custom opening, then the default strategy
 
@@ -999,14 +991,14 @@ The last stage keeps the custom part short and lets the default strategy do
 the rest. This opening alternates congruence closure (`Congruence`, which
 finds gates with equal inputs) and equivalent-literal substitution
 (`Substitute`) at the root for as long as either still finds something, then
-calls `tactix_solve`.
+applies Backbone and calls `tactix_solve`.
 
 ```c
 /* Sketch, after examples/cruxmiter_policy.c. */
 static int opening(tactix *s) {
   const int propagate = rule_id("Propagate");
   const int rules[2] = {rule_id("Congruence"), rule_id("Substitute")};
-  for (int round = 0; round < 8; round++) {
+  for (int round = 0; round < 4; round++) {
     const uint64_t merged = tactix_stat(s, TACTIX_STAT_CONGRUENCE_MERGES);
     const uint64_t substituted = tactix_stat(s, TACTIX_STAT_SUBSTITUTE_VARS);
     for (int i = 0; i < 2; i++) {
@@ -1023,7 +1015,7 @@ static int opening(tactix *s) {
         tactix_stat(s, TACTIX_STAT_SUBSTITUTE_VARS) == substituted)
       break;                               /* neither found anything new */
   }
-  return 0;
+  return tactix_apply(s, rule_id("Backbone"));
 }
 
 /* in main(), after reading the input: */
@@ -1048,12 +1040,9 @@ Two complete strategies follow this pattern:
   `SubstitutionRedundancy` instances (section 5), collapses the equivalences
   with `Substitute`, `SubsumeForward` and garbage collection, and then calls
   `tactix_solve`.
-- [`cruxmiter_policy.c`](../examples/cruxmiter_policy.c), in its default
-  profile, runs a structural root pipeline (congruence and substitution
-  rounds, hyper-binary resolution, vivification, strengthening, subsumption,
-  bounded BVE, transitive reduction) and then calls `tactix_solve`. Its other
-  profiles keep the search loop for themselves, with their own branching rule
-  and restart schedule.
+- [`cruxmiter_policy.c`](../examples/cruxmiter_policy.c) runs four bounded
+  congruence/substitution rounds, applies Backbone, installs the paper
+  artifact's fixed default-strategy settings, and then calls `tactix_solve`.
 
 A few complete refutations that the default strategy can find before any other
 step (parity and counting arguments) use the default PBP stream's startup
