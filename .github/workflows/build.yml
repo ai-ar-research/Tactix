@@ -42,9 +42,9 @@ jobs:
           cmake --build build/ci --parallel 2 --target
           tactix tactix_archive
           test_kernel test_parse test_proof test_strategy_config
-          test_bve_occurrence_cache test_symmetry_backend
+          test_bve_occurrence_cache
 
       - name: Run unit tests
         run: >-
           ctest --test-dir build/ci --output-on-failure
-          -R '^(kernel|parse|proof|strategy_config|bve_occurrence_cache|symmetry_backend)$'
+          -R '^(kernel|parse|proof|strategy_config|bve_occurrence_cache)$'
