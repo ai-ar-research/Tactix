@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tactix:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes zlib1g-dev
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build/ci
+          -DCMAKE_BUILD_TYPE=Release
+          -DTACTIX_BUILD_TESTS=OFF
+
+      - name: Build Tactix
+        run: cmake --build build/ci --parallel --target tactix tactix_archive
