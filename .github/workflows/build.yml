@@ -35,7 +35,16 @@ jobs:
         run: >-
           cmake -S . -B build/ci
           -DCMAKE_BUILD_TYPE=Release
-          -DTACTIX_BUILD_TESTS=OFF
+          -DTACTIX_BUILD_TESTS=ON
 
       - name: Build Tactix
-        run: cmake --build build/ci --parallel 2 --target tactix tactix_archive
+        run: >-
+          cmake --build build/ci --parallel 2 --target
+          tactix tactix_archive
+          test_kernel test_parse test_proof test_strategy_config
+          test_bve_occurrence_cache test_symmetry_backend
+
+      - name: Run unit tests
+        run: >-
+          ctest --test-dir build/ci --output-on-failure
+          -R '^(kernel|parse|proof|strategy_config|bve_occurrence_cache|symmetry_backend)$'
