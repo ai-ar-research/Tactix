@@ -145,6 +145,10 @@ def build(logs: Path, base: Path) -> None:
         subprocess.run(make + targets, check=True, stdout=subprocess.DEVNULL)
 
 
+# Tables printed without their title: the section header already names them.
+UNTITLED = ("figure5",)
+
+
 @dataclass
 class Paired:
     """A paper table with, next to each value column, the same column from the
@@ -199,7 +203,8 @@ def render(table: Paired, markdown: bool) -> str:
                                 for i, c in enumerate(cells))
     head = "  " + "  ".join(label.rjust(sum(width[first:first + n]) + 2 * (n - 1))
                             for (first, n), label in zip(groups, top))
-    text = [f"\n{table.title}\n", head.rstrip(), line(sub, table.keys),
+    title = [""] if table.name in UNTITLED else [f"\n{table.title}\n"]
+    text = title + [head.rstrip(), line(sub, table.keys),
             "  " + "  ".join("-" * w for w in width)]
     text += [line(r, table.keys) for r in table.rows]
     return "\n".join(text + [f"  {n}" for n in table.notes])
