@@ -30,10 +30,11 @@ that every solver answered within 130 s and checked within 350 s in the paper's
 runs, and whose test-run times were 0.67 to 0.95 times the paper's. The smoke set is the smallest SAT and the smallest UNSAT formula that
 every solver solved within 10 s (and checked within 20 s) using at most 1 GB.
 
-Interface (Figure 5). All 200 Tier A formulas (each under 30 s), and of each
-other set, up to 15 formulas of at most 20 MB compressed that both builds
-solved within 120 s in the paper's runs, spread evenly over that range of
-solving times.
+Interface (Figure 5). The 20 Tier A formulas (of 200, each under 30 s) that
+took longest in the paper's runs, and of each other set, 5 formulas of at most
+20 MB compressed that both builds solved in 10 to 250 s in the paper's runs,
+spread evenly over that range of solving times (most formulas of these sets
+take under a second, which measures start-up rather than solving).
 
 Cruxmiter (Table 4). The seed (of ten) with the smallest total solving plus
 checking time over the three configurations in the paper's runs (seed 7).
@@ -186,18 +187,18 @@ def interface() -> tuple[list[str], list[str]]:
             if line.strip() and not line.startswith("#"):
                 fields = line.split()
                 content_hash[fields[1]] = fields[0]
-    chosen = [r["instance"] for r in rows if r["set"] == "Tier A"]
+    seconds = lambda r: max(float(r["cpp_seconds"]), float(r["c_api_seconds"]))
+    tier_a = sorted((r for r in rows if r["set"] == "Tier A"), key=lambda r: -float(r["cpp_seconds"]))
+    chosen = sorted(r["instance"] for r in tier_a[:20])
     smoke = []
     for name in ("B28+C5", "Rank 1-50", "WV100"):
-        candidates = sorted((r for r in rows if r["set"] == name
-                             and size[content_hash[r["instance"]]] <= 20e6
-                             and max(float(r["cpp_seconds"]), float(r["c_api_seconds"])) <= 120),
-                            key=lambda r: float(r["cpp_seconds"]))
-        count = min(15, len(candidates))
+        small = sorted((r for r in rows if r["set"] == name and size[content_hash[r["instance"]]] <= 20e6),
+                       key=lambda r: float(r["cpp_seconds"]))
+        candidates = sorted((r for r in small if 10 <= seconds(r) <= 250), key=seconds)
+        count = min(5, len(candidates))
         picks = [candidates[round(k * (len(candidates) - 1) / max(1, count - 1))] for k in range(count)]
         chosen += list(dict.fromkeys(r["instance"] for r in picks))
-        smoke.append(candidates[0]["instance"])
-    tier_a = sorted((r for r in rows if r["set"] == "Tier A"), key=lambda r: -float(r["cpp_seconds"]))
+        smoke.append(small[0]["instance"])
     return chosen, [tier_a[0]["instance"], *smoke[:1]]
 
 
@@ -220,7 +221,7 @@ def chvatal() -> tuple[list[str], list[str]]:
 
 HEADER = {
     "tierd": "tierd reduced set (also the milestones'): 20 formulas from different families",
-    "interface": "Interface reduced set: all of Tier A, up to 15 formulas per other set solved within 120 s",
+    "interface": "Interface reduced set: the 20 longest Tier A formulas, 5 per other set solved in 10 to 250 s",
     "cruxmiter": "Cruxmiter reduced set: the cheapest seed in the paper's runs",
     "chvatal": "Chvatal reduced set: the cheapest of the 23 subproblems in the paper's runs",
 }
