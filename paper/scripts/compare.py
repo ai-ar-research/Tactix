@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -34,7 +35,7 @@ import report  # noqa: E402
 sys.path.insert(0, str(PAPER / "run"))
 from experiments import EXPERIMENTS as FULL  # noqa: E402  (the paper's limits)
 
-EXPERIMENTS = ("tierd", "milestones", "interface", "cruxmiter", "chvatal")
+EXPERIMENTS = ("tierd", "interface", "cruxmiter", "chvatal", "milestones")
 
 
 def read(path: Path) -> list[dict[str, str]]:
@@ -137,21 +138,81 @@ def build(logs: Path, base: Path) -> None:
         subprocess.run(make + targets, check=True, stdout=subprocess.DEVNULL)
 
 
-def merge(rerun: report.Table, paper: report.Table | None) -> report.Table:
+# Columns shown once: the same for the rerun and the paper's runs (the formula
+# counts, and Table 6's columns from the git history).
+UNPAIRED = {"table3": {"Instances"},
+            "table6": {"Commit", "Day", "Commits", "Solver/API lines +/-", "Test/fuzzing lines +/-"}}
+
+
+@dataclass
+class Paired:
+    """A paper table with, next to each value column, the same column from the
+    paper's runs of the same formulas."""
+    name: str
+    title: str
+    header: list[str]               # the key columns, then the value columns
+    keys: int
+    paired: list[bool]              # per value column
+    rows: list[list[str]]           # keys, then per value column one cell, or two if paired
+    notes: list[str]
+
+
+def pair(rerun: report.Table, paper: report.Table | None) -> Paired:
     lookup = {tuple(r[:rerun.keys]): r for r in (paper.rows if paper else [])}
+    keep = UNPAIRED.get(rerun.name, set())
+    paired = [h not in keep for h in rerun.header[rerun.keys:]]
     rows = []
     for row in rerun.rows:
         other = lookup.get(tuple(row[:rerun.keys]))
-        rows.append(row[:rerun.keys] + [
-            cell if other is None else f"{cell} ({other[i]})"
-            for i, cell in enumerate(row) if i >= rerun.keys])
-    return report.Table(rerun.name, rerun.title, rerun.header, rows, rerun.keys,
-                        rerun.notes + ["Each cell: rerun (the paper's run of the same formulas, at the paper's limits)."])
+        line = row[:rerun.keys]
+        for i, both in enumerate(paired, rerun.keys):
+            line += [row[i], other[i] if other else "-"] if both else [row[i]]
+        rows.append(line)
+    return Paired(rerun.name, rerun.title, rerun.header, rerun.keys, paired, rows, rerun.notes)
+
+
+def render(table: Paired, markdown: bool) -> str:
+    """Markdown: one header row ("Solved", "Paper solved"). Text: the paper's
+    column names above a Rerun and a Paper column each."""
+    keys, values = table.header[:table.keys], table.header[table.keys:]
+    if markdown:
+        header = keys + [c for h, both in zip(values, table.paired)
+                         for c in ([h, paper_header(h)] if both else [h])]
+        return report.render(report.Table(table.name, table.title, header, table.rows, table.keys,
+                                          table.notes), True)
+    top, sub = [""] * len(keys), list(keys)
+    groups = [(i, 1) for i in range(len(keys))]  # (first cell, cells) per printed group
+    cell = len(keys)
+    for h, both in zip(values, table.paired):
+        if both:
+            top += [h]; sub += ["Rerun", "Paper"]; groups.append((cell, 2)); cell += 2
+        else:
+            top += [""]; sub += [h]; groups.append((cell, 1)); cell += 1
+    width = [max(len(r[i]) for r in [sub] + table.rows) for i in range(len(sub))]
+    for (first, n), label in zip(groups, top):  # a group is as wide as its label
+        extra = len(label) - (width[first] + 2 + width[first + 1]) if n == 2 else 0
+        if extra > 0:
+            width[first] += extra // 2
+            width[first + 1] += extra - extra // 2
+    def line(cells, left):
+        return "  " + "  ".join(c.ljust(width[i]) if i < left else c.rjust(width[i])
+                                for i, c in enumerate(cells))
+    head = "  " + "  ".join(label.rjust(sum(width[first:first + n]) + 2 * (n - 1))
+                            for (first, n), label in zip(groups, top))
+    text = [f"\n{table.title}\n", head.rstrip(), line(sub, table.keys),
+            "  " + "  ".join("-" * w for w in width)]
+    text += [line(r, table.keys) for r in table.rows]
+    return "\n".join(text + [f"  {n}" for n in table.notes])
+
+
+def paper_header(header: str) -> str:
+    first = header.split()[0]
+    return "Paper " + (header if first.isupper() else header[0].lower() + header[1:])
 
 
 READING = """\
-Values: the rerun. "Paper" columns and values in parentheses: the paper's runs of the same
-configurations and formulas, as recorded, at the paper's limits (README.md, section 3.2).
+Values: the rerun. "Paper" columns: the paper's runs of the same configurations and formulas,
+as recorded, at the paper's limits (README.md, section 3.2).
 *: a paper time above the rerun's limit. timeout: no answer within the limit.
 >N: checking stopped after N s. rejected: a checker did not accept the certificate.
 nonstandard: an assignment printed in a nonstandard format, not counted (as in the paper).
@@ -237,13 +298,13 @@ def section(name: str, pairs: list[dict], tables: dict[str, report.Table], out: 
         [tables[t] for t in names if t in tables]
     if markdown:
         text = [f"## {title}", ""]
-        text += [report.render(t, True) for t in shown]
+        text += [render(t, True) if isinstance(t, Paired) else report.render(t, True) for t in shown]
         if figures:
             text += ["**Figures:** " + "; ".join(figures) + " in artifact/figures/ (the rerun) and "
                      "paper-logs/figures/ (the paper's logs on the same runs).", ""]
         return "\n".join(text)
     text = [f"\n== {title}"]
-    text += [report.render(t) for t in shown]
+    text += [render(t, False) if isinstance(t, Paired) else report.render(t) for t in shown]
     if figures:
         text += ["", "Figures (rerun; the paper's logs in paper-logs/figures/): " + "; ".join(figures),
                  f"  in {out / 'artifact/figures'}"]
@@ -271,7 +332,7 @@ def main() -> None:
         build(out / side / "logs", out / side)
     rerun = report.tables(out / "artifact/data")
     paper = {t.name: t for t in report.tables(out / "paper-logs/data")}
-    tables = {t.name: merge(t, paper.get(t.name)) for t in rerun}
+    tables = {t.name: pair(t, paper.get(t.name)) for t in rerun}
     limits = json.loads((out / "artifact/data/limits.json").read_text())
     present = [n for n in EXPERIMENTS if any(p["experiment"] == n for p in pairs)]
     same = sum(p["same_outcome"] for p in pairs)
