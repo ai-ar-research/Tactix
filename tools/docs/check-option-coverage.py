@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SCHED-A3: every REFERENCE option must be accounted for by the parity ledger.
 
-WHY THIS EXISTS. The scheduling-parity ledger (`docs/implementation-notes.md`
+WHY THIS EXISTS. The scheduling-parity ledger (`docs/dev/implementation-notes.md`
 §13) is only as good as the set it was generated from. Pass 1 enumerated OUR
 rule families, so it could not surface a mechanism we never knew to look for.
 Pass 2 (SCHED-A3) regenerated the row list from the REFERENCE's option sets —
@@ -57,11 +57,11 @@ import sys
 from source_root import source_root
 
 ROOT = source_root(__file__)
-NOTES = os.path.join(ROOT, "docs", "implementation-notes.md")
+NOTES = os.path.join(ROOT, "docs", "dev", "implementation-notes.md")
 # The parity ledger was section 13 of the notes until it grew to half that
 # file. Its headings, row ids and markers moved verbatim, so only the path
 # changed here.
-LEDGER = os.path.join(ROOT, "docs", "scheduling-parity-ledger.md")
+LEDGER = os.path.join(ROOT, "docs", "dev", "scheduling-parity-ledger.md")
 SCHED_TRACK_ARCHIVE = os.path.join(
     ROOT, "docs", "log", "2026-09-19-pre-am311-progress.md")
 AUDIT = os.path.join(ROOT, "docs", "design",

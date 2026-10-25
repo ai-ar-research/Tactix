@@ -31,7 +31,7 @@ See the repository changelog for the full version history.
 
 The library is a static archive, `libtactix.a`, with the public header
 `tactix.h`. Strategies written in C or C++ link against it (see
-[c-api.md](c-api.md)).
+[c-api-reference.md](c-api-reference.md)).
 
 ### From a release
 
@@ -60,7 +60,7 @@ cmake --build build --parallel --target tactix tactix_archive
 cmake --install build --prefix $HOME/.local
 ```
 
-Requirements are those of [getting-started.md](getting-started.md): a C++20
+Requirements are those of [cli.md](../cli.md): a C++20
 compiler, CMake 3.25 or newer, and zlib. `-DTACTIX_STATIC_BINARY=ON` links the
 `tactix` executable statically, as the release binaries are.
 
@@ -87,4 +87,4 @@ program never names, and those rules would then be missing at run time.
 
 Alternatively, add the source tree to a CMake project with
 `add_subdirectory(path/to/tactix)` and link `tactix_lib`
-([getting-started.md](getting-started.md#use-tactix-as-a-library)).
+([c-api.md](../c-api.md)).

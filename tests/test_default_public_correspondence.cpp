@@ -1,5 +1,5 @@
 // DefaultPolicy static/public twin test (plan §5.6 acceptance, §8.4
-// correspondence gate; docs/controller-interface.md). One source, three
+// correspondence gate; docs/dev/controller-interface.md). One source, three
 // executables over the static, hardcoded and public action ports. The public
 // executable runs the other two with --emit and requires identical verdicts,
 // certificate bytes, models and trajectory counters on every replayable

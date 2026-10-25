@@ -6,7 +6,7 @@
 // Proof delta: `del` + `push-witness`. Nothing is added, so there is no chain
 // and no format-specific hazard; blockedness is a solver-soundness obligation
 // discharged by the test, not a proof obligation.
-// Precondition, effect, soundness: `docs/calculus.md` §X1. Reference: cadical
+// Precondition, effect, soundness: `docs/dev/calculus.md` §X1. Reference: cadical
 // `block.cpp` (kissat 4 has no BCE); Eén-Biere is the source result.
 #pragma once
 
@@ -37,7 +37,7 @@ void bce_literals(const Kernel &, std::vector<Lit> &out);
 // unit is already propagated into the formula). A pure literal needs no fast
 // path: with no `¬l`-occurrence the "for every `¬l`-clause" quantifier is
 // vacuous, so BCE subsumes pure-literal elimination here. Within-rule scope
-// choices and the ledger rows: `docs/implementation-notes.md` §1 (X1 row).
+// choices and the ledger rows: `docs/dev/implementation-notes.md` §1 (X1 row).
 ApplyResult bce_try(Kernel &, Lit blocking);
 ApplyResult bce_apply(Kernel &); // canonical: the full round
 

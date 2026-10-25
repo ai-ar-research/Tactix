@@ -82,7 +82,7 @@ void build_index(const Kernel &k, BceIndex &idx) {
 }
 
 // Binaries live in the watch lists, not the arena; all of them are irredundant
-// in this kernel (`docs/implementation-notes.md` §14).
+// in this kernel (`docs/dev/implementation-notes.md` §14).
 void collect_binaries(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
   for (const WatchEntry w : k.watches.entries(l)) {
     if (!w.binary())

@@ -2,7 +2,7 @@
 // smaller live clause implies literal-for-literal, modulo root-falsified
 // literals. Proof delta: `del` only; self-subsuming resolution is C2's
 // add-RUP + delete territory.
-// Precondition, effect, soundness: `docs/calculus.md` §C1. The round is cadical
+// Precondition, effect, soundness: `docs/dev/calculus.md` §C1. The round is cadical
 // `subsume.cpp subsume_round` transliterated; kissat forward.c presupposes
 // dense mode, a kernel-wide watch replacement this kernel does not have.
 #pragma once
@@ -35,7 +35,7 @@ void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out,
 // can be forgotten. Only a rule giving binaries a redundant lifecycle would
 // make the check mandatory, at all three binary-subsumer sites (here,
 // `subsumed_by_binary`, strengthen.cpp's fused branch).
-// Argument: `docs/implementation-notes.md` §14.
+// Argument: `docs/dev/implementation-notes.md` §14.
 ApplyResult subsume_forward_try(Kernel &, Ref candidate);
 
 // Policy-internal SC2024 fast-elimination form for a clause start obtained from

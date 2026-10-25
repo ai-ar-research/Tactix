@@ -3,7 +3,7 @@
 // except exactly one in opposite phase (f), resolving on f yields c ∖ {f},
 // which replaces c. Proof delta: add-RUP of the shortened clause, LRAT chain
 // [absorbed units..., d, c], plus delete of the original.
-// Precondition, effect, soundness: `docs/calculus.md` §C2. The fused
+// Precondition, effect, soundness: `docs/dev/calculus.md` §C2. The fused
 // subsume-or-strengthen check is cadical `subsume.cpp subsume_check`
 // transliterated: candidate literals are marked phase-aware, a partner with
 // every literal marked subsumes and one with exactly one flipped strengthens.
@@ -31,7 +31,7 @@ void strengthen_candidates(const Kernel &, std::vector<Ref> &out,
 // must be irredundant — the subsumed branch needs it, since the partner
 // justifies a deletion, and the check stays uniform because the branch is
 // decided after the partner is found. A binary partner carries no redundancy
-// check (subsume_forward.hpp; `docs/implementation-notes.md` §14). Victims are
+// check (subsume_forward.hpp; `docs/dev/implementation-notes.md` §14). Victims are
 // wider, any redundancy, and redundant survivors are never indexed as partners,
 // so widening the victim set leaves the partner set alone.
 ApplyResult strengthen_try(Kernel &, Ref candidate);

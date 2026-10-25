@@ -12,7 +12,7 @@
 namespace tactix {
 
 RuleEligibility propagate_guard(const Kernel &k) {
-  // Pure abstract precondition (docs/calculus.md §3 M1): not refuted, no
+  // Pure abstract precondition (docs/dev/calculus.md §3 M1): not refuted, no
   // unresolved conflict, propagation work remains. No ¬pending.valid conjunct:
   // with Analyze+Backjump fused, `pending` never crosses a rule boundary, so
   // the state it would exclude is unrepresentable (D-SPLIT-1 closed).

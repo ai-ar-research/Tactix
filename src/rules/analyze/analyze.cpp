@@ -853,7 +853,7 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
 // `forced` at `jump2` with this clause as reason, that is the only true
 // literal, so the other watch must be a literal at exactly jump2 — otherwise a
 // backtrack below jump2 unassigns `forced`, nothing rescans, and the clause
-// sits unit at a claimed fixpoint. docs/implementation-notes.md §12.
+// sits unit at a claimed fixpoint. docs/dev/implementation-notes.md §12.
 static uint32_t repair_conflict_watches(Kernel &k, Ref ref, uint32_t alevel) {
   const uint32_t size = clause_at(k.arena, ref)->size;
   if (size <= 2)
@@ -903,7 +903,7 @@ static uint32_t conflict_reuse_target(Kernel &k, uint32_t jump) {
 // Transliterated from kissat learn.c:70-187 (MIT). Not a registered rule: the
 // clauses it deletes are redundant, so S2 Reduce's unconditional Forget
 // licenses the deletion and the subsumption test only selects victims. A
-// sub-step of M3; see docs/implementation-notes.md §15.
+// sub-step of M3; see docs/dev/implementation-notes.md §15.
 
 // Is `c` the reason of a trail literal? Kissat does not ask; this kernel must,
 // or a garbage reason dangles for kernel_collect_garbage and a deleted id
@@ -1252,7 +1252,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     // chronological-gap target, including a root implication when jump2==0.
     // Canonicalize watches first because even a declined conflict can survive
     // the backtrack and its pose controls its next observation. Repeat this at
-    // every OTFS pass. See docs/implementation-notes.md §12.
+    // every OTFS pass. See docs/dev/implementation-notes.md §12.
     if (alevel > 0 && k.conflict_ref != INVALID_REF &&
         repair_conflict_watches(k, k.conflict_ref, alevel))
       k.stats.conflict_watch_repaired++;
@@ -1675,7 +1675,7 @@ ApplyResult analyze_apply_chrono(Kernel &k, uint32_t *chosen) {
   return analyze_apply_internal<false>(k, 0, installed_retier(k), chosen);
 }
 
-// ConflictAnalysis — the atomic learn+backjump rule (docs/calculus.md §3 M3).
+// ConflictAnalysis — the atomic learn+backjump rule (docs/dev/calculus.md §3 M3).
 // One transition from a recorded conflict: derive and emit the learned clause,
 // then, unless that was a root refutation, assert it by backjumping. Fusing
 // the two removes the `pending` control state that was observable at a rule

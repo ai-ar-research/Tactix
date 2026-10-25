@@ -38,8 +38,8 @@ from source_root import source_root
 
 ROOT = source_root(__file__)
 DOCS = ["PROGRESS.md", "DEVELOPMENT_PLAN.md", "CLAUDE.md",
-        "docs/implementation-notes.md", "docs/calculus.md", "docs/README.md",
-        "docs/scheduling-parity-ledger.md"]
+        "docs/dev/implementation-notes.md", "docs/dev/calculus.md", "docs/README.md",
+        "docs/dev/scheduling-parity-ledger.md"]
 OURS = ["src", "tools", "tests", "include", "benchmarks/probes"]
 REFS = ["kissat", "cadical", "glucose", "cryptominisat", "winners"]
 

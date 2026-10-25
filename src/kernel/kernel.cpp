@@ -172,7 +172,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     k.dsr_root_values.resize(nvars, 0);
   // BVE retry filter: a brand-new variable has never been attempted, so it
   // starts retry-worthy (kissat activate_variable marks it removed+added). A
-  // derived index, not `H` (docs/implementation-notes.md §6) — kernel-side.
+  // derived index, not `H` (docs/dev/implementation-notes.md §6) — kernel-side.
   if (!k.cold_state_deferred)
     k.bve_retry.resize(nvars, 1);
   k.factor_marks.resize(2 * nvars, 0);
@@ -1078,7 +1078,7 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
   // (kissat backtrack.c:156). Snapshotting here would let the high-water mark
   // include the conflict level's own literals, so later genuinely-longer
   // trails would fail to update it and the target phases would go stale.
-  // Compacting backtrack (docs/implementation-notes.md, D-LEVEL-2): true-level
+  // Compacting backtrack (docs/dev/implementation-notes.md, D-LEVEL-2): true-level
   // assignment leaves the trail unsorted by level, so it cannot be truncated by
   // position. Scan the suffix above the target frame and KEEP every literal
   // whose true level <= target, unassigning only those above it. Inert while
@@ -2602,7 +2602,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // prefix cannot copy them; live replacements receive separate forwarding.
   // With no aliases, every clause owns its position and this scan is inert.
   // Sentinels die with the old arena, preserving proof ids and live cursors
-  // (docs/implementation-notes.md §5).
+  // (docs/dev/implementation-notes.md §5).
   if (sparse_collection && !k.clause_position_alias.empty())
     for (Ref ref = 0; ref < k.arena.size();) {
       Clause *const c = clause_at(k.arena, ref);
@@ -3308,7 +3308,7 @@ static void kernel_compact_dense_entry_watches(
   // stays and every later copy is deleted as a clause (`kissat_delete_binary`
   // from the smaller literal: proof, statistics, marks, scores).  Dropping
   // only the watch entries would leave the copy count and the position of a
-  // later re-added copy behind (docs/scheduling-parity-ledger.md).  Values are never
+  // later re-added copy behind (docs/dev/scheduling-parity-ledger.md).  Values are never
   // inspected here: like the null-stack `watch.c` path, root-satisfied
   // binaries stay, which Sweep and Factor rely on; the value-aware
   // `dense.c` path is modelled by each rule's own root collection.
@@ -4496,7 +4496,7 @@ void kernel_extend_model(Kernel &k, bool materialize_internal) {
   // reads a value-0 variable as false in BOTH polarities, which voids the
   // tautological-resolvent exclusion behind both-sides witness pushes — a
   // pos- and a neg-side window of one pivot can then both look unsatisfied
-  // and the reverse walk double-flips the pivot (docs/calculus.md, extend_ρ
+  // and the reverse walk double-flips the pivot (docs/dev/calculus.md, extend_ρ
   // total-assignment premise). Retired variables can reach this point
   // unassigned, and they occur in no live clause, so completing every
   // value-0 variable to a definite default keeps the active formula

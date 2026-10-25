@@ -24,7 +24,7 @@ namespace {
 // 1 + one tick per 128 bytes touched, so a walk over `words` uint32_t watch
 // entries costs 1 + (4·words)/128. The apply-local stream retains unique
 // binary partners and large-clause occurrences, like Kissat's dense watches
-// (`docs/scheduling-parity-ledger.md` §13).
+// (`docs/dev/scheduling-parity-ledger.md` §13).
 inline uint64_t factor_cache_lines(uint64_t watches) {
   return watches ? (watches + 31) >> 5 : 0;
 }
@@ -1786,7 +1786,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       // while this pass re-scans and reserves only against g. Grid-choice
       // fidelity only — the grid and its delta are built from the matched
       // columns, and only g's selection reads `bestc`. Deviation and repair:
-      // docs/implementation-notes.md §5, Factor next-factor matching.
+      // docs/dev/implementation-notes.md §5, Factor next-factor matching.
       new_grid_refs.assign(grid_refs.size() + 1, {});
       for (size_t row = 0; row < grid_refs.size(); row++) {
         new_grid_refs[row].reserve(matched_columns.size());
@@ -1981,7 +1981,7 @@ ApplyResult factor_apply(Kernel &k) {
   return factor_apply_seeded(k, INVALID_LIT);
 }
 
-// `N1-FACTOR-INSTANCES` (disposition: docs/implementation-notes.md §5 Factor).
+// `N1-FACTOR-INSTANCES` (disposition: docs/dev/implementation-notes.md §5 Factor).
 // E2's atom is one factoring, and the choice a policy owns is the seed literal,
 // so that is the payload: every unassigned, unretired literal is offered,
 // whatever DefaultPolicy's touch filter or heap score would schedule. The grid

@@ -170,7 +170,7 @@ registered functions directly (production) or to the public C interface (the
 ### C API
 
 `include/tactix.h`, implemented in `src/api/`, is the only public surface.
-See [c-api.md](c-api.md) for usage. Its groups:
+See [c-api-reference.md](c-api-reference.md) for usage. Its groups:
 
 - **Input and proof**: `tactix_add`, `tactix_read_dimacs`, `tactix_proof`.
   Input closes at the first reasoning call; a proof writer must be attached
@@ -230,7 +230,7 @@ After an UNSAT answer the solver prints the checker route:
 | `pbp` | pseudo-Boolean startup or explicit whole-run refutation | pinned VeriPB elaboration, then verified CakePB against the original CNF |
 
 `tools/bench/proof_oracle.py` runs these pipelines against the original CNF;
-see [getting-started.md](getting-started.md#check-a-proof). The proof
+see [cli.md](../cli.md#solve-and-check-the-answer). The proof
 discipline that keeps kernel and checker views consistent (root units
 published before reason deletion, temporary lemmas deleted before later SR
 steps, no witnessed line closing the refutation) is part of the calculus and
@@ -238,7 +238,7 @@ of [implementation-notes.md](implementation-notes.md) §1.
 
 ### Front end and parser
 
-`src/main.cpp` is the command-line solver (options in [cli.md](cli.md)). It
+`src/main.cpp` is the command-line solver (options in [cli-reference.md](cli-reference.md)). It
 reads DIMACS CNF through the streaming parser in `src/frontend/parse.cpp`,
 which accepts comments anywhere and arbitrary whitespace, treats the `p cnf`
 header as advisory, and reads `.gz` (zlib) and `.xz` (external `xz`) input.
@@ -413,5 +413,5 @@ parameters.
 | [implementation-notes.md](implementation-notes.md) | Implemented guards, engineering deviations, representation invariants, proof-backend contract. |
 | [controller-interface.md](controller-interface.md) | Public-interface random qualification grammar and coverage contract. |
 | [scheduling-parity-ledger.md](scheduling-parity-ledger.md) | Per-mechanism comparison of the default schedule with Kissat, CaDiCaL and Satsuma. |
-| [c-api.md](c-api.md), [cli.md](cli.md) | Library and command-line usage. |
-| [getting-started.md](getting-started.md) | Build, solve, check a proof. |
+| [c-api-reference.md](c-api-reference.md), [cli-reference.md](cli-reference.md) | Library and command-line usage. |
+| [cli.md](../cli.md) | Build, solve, check a proof. |

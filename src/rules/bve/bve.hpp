@@ -1,4 +1,4 @@
-// BVE, rule E1 (docs/calculus.md §6b): eliminate a variable x by replacing
+// BVE, rule E1 (docs/dev/calculus.md §6b): eliminate a variable x by replacing
 // every clause on x with the bounded non-tautological resolvents Occ⁺⊗Occ⁻,
 // pushing the removed clauses onto the reconstruction stack ρ. Proof delta:
 // add-RUP + delete + push-witness, RUP-only since a resolvent is RUP from its
@@ -74,7 +74,7 @@ uint32_t bve_schedule_occurrence_count(const Kernel &, Lit);
 // surface has one instance per candidate variable and does not consult retry
 // (`Kernel::bve_retry`) even though this rule maintains that bit: reading it
 // here would narrow the instance surface a policy enumerates, and "when to
-// retry" is scheduling. See docs/implementation-notes.md §6.
+// retry" is scheduling. See docs/dev/implementation-notes.md §6.
 void bve_schedule(Kernel &, std::vector<Var> &out);
 void bve_schedule_from_occurrences(const Kernel &, const BveOccurrences &,
                                    std::vector<Var> &out);

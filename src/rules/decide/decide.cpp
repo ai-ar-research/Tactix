@@ -2,7 +2,7 @@
 
 namespace tactix {
 
-// Pure precondition (docs/calculus.md §3 M2): no conflict, not refuted,
+// Pure precondition (docs/dev/calculus.md §3 M2): no conflict, not refuted,
 // some variable unassigned. No propagation-fixpoint conjunct (D-LEVEL-1), so a
 // policy may take several decisions in a row — the N1 capability a learned
 // policy reasons over. Off-fixpoint deciding is made safe by the

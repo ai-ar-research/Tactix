@@ -23,7 +23,7 @@ from source_root import source_root
 
 ROOT = source_root(__file__)
 PLAN = os.path.join(ROOT, "DEVELOPMENT_PLAN.md")
-NOTES = os.path.join(ROOT, "docs", "implementation-notes.md")
+NOTES = os.path.join(ROOT, "docs", "dev", "implementation-notes.md")
 SECTION = "## 17. The rule-inventory disposition table"
 
 # §5.2's catalog rows: "| X6 | `HyperBinaryRes` (...) | ... | ... | 3 |"

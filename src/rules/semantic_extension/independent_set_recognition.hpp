@@ -81,7 +81,7 @@ struct Image {
 };
 
 // Recognize the complete historical layered exact-count encoding. The exact
-// clause grammar and soundness argument live in docs/calculus.md; recognition
+// clause grammar and soundness argument live in docs/dev/calculus.md; recognition
 // accepts no unclassified source clause and leaves `out` empty on any doubt.
 bool recognize(const std::vector<Premise> &source,
                uint32_t external_variables, const Limits &limits,

@@ -1332,7 +1332,7 @@ void build_clause_index(const Kernel &k, ClauseIndex &index,
 
 // A size-s clause group over {v0..v_{s-1}} is the XOR relation v0⊕…⊕v_{s-1} = c
 // only when all 2^{s-1} clauses of one fixed sign parity are present; less is
-// not the relation, and the gate would be unsound (`docs/calculus.md` V6). It
+// not the relation, and the gate would be unsound (`docs/dev/calculus.md` V6). It
 // yields s gates, one per output vᵢ, with the other variables as inputs.
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
                             const ClauseIndex &sorted,
@@ -1433,7 +1433,7 @@ void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
 
 // What canonicalizing a gate under the current representatives yielded. A
 // degenerate gate is not a dead end: each degeneracy is itself an inference
-// over F (`docs/calculus.md` V6).
+// over F (`docs/dev/calculus.md` V6).
 enum class Canon {
   Ok,    // `key` + `out_lit` valid — file the gate in the table
   Unit,  // the gate forces `out_lit` to a constant: the root unit is ¬out_lit
@@ -1797,7 +1797,7 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
 }
 
 // Degeneracy proof chain for one XOR gate (kissat's
-// add_xor_shrinking_proof_chain; `docs/calculus.md` V6). A collapsed canonical
+// add_xor_shrinking_proof_chain; `docs/dev/calculus.md` V6). A collapsed canonical
 // key forces the gate's output, and that conclusion is not RUP on its own — the
 // parity clauses propagate nothing until all but one literal is assigned — so
 // the ladder is not optional. For size = |cancelled| … 1 it emits every sign
@@ -2402,8 +2402,8 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
 // ternary/binary strengthening pass. Units are batched until the scan ends.
 // Strengthening derives `(b ∨ c)` from `(a ∨ b ∨ c)` and `(¬a ∨ b)` before gate
 // extraction. Only entry binaries act as antecedents; new pairs are deduplicated
-// without recursively seeding the pass. See `docs/calculus.md` V6a and
-// `docs/scheduling-parity-ledger.md` §13.3 for placement and proof obligations.
+// without recursively seeding the pass. See `docs/dev/calculus.md` V6a and
+// `docs/dev/scheduling-parity-ledger.md` §13.3 for placement and proof obligations.
 static bool find_congruence_binary_candidates(
     Kernel &k, std::vector<std::pair<Lit, Lit>> &candidates) {
   candidates.clear();
@@ -3110,7 +3110,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // caller's `work_budget` is an engineering restriction on the gate phase
   // alone, so its round-local accounting begins only now: the pre-pass is
   // never cut, matching the mandatory binary-unit sweep
-  // (docs/implementation-notes.md, Congruence budget).  The inclusive
+  // (docs/dev/implementation-notes.md, Congruence budget).  The inclusive
   // `congruence_ticks` counter is unaffected and stays exact for reporting.
   BudgetScope budget_scope(k);
 
@@ -3158,7 +3158,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // on literals: merge the outputs of two gates that canonicalize to the same
   // (kind, key), then re-process only the gates whose inputs contain the merged
   // literal, so the collapse propagates through the circuit layers in one apply
-  // (`docs/calculus.md` V6).
+  // (`docs/dev/calculus.md` V6).
   congruence_stage_trace(k, "closure-repr-begin", gates.size(), nlits);
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
@@ -3630,7 +3630,7 @@ ApplyResult congruence_apply(Kernel &k) {
       // An independently cancelled XOR pair keeps the forced input from being
       // RUP directly — the parity clauses propagate nothing until all but one
       // literal is assigned — so the conclusion needs the cancellation ladder,
-      // exactly like the Canon::Unit form (`docs/calculus.md` V6,
+      // exactly like the Canon::Unit form (`docs/dev/calculus.md` V6,
       // `implementation-notes.md` D-CONG-INPUT-UNIT). A direct input unit
       // instead replays as its own admission test: admission must answer the
       // same in DRAT, LRAT, and proofless runs, and only LRAT reads the chain.
@@ -3759,7 +3759,7 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     if (ci == Canon::Merge) {
       // value(out_lit) = ⊕key = key[0], so out_lit ≡ key[0]: the unary-gate
-      // merge, with no second gate needed (`docs/calculus.md` V6).
+      // merge, with no second gate needed (`docs/dev/calculus.md` V6).
       const Lit other = key[0];
       if (find(out_i) == find(other))
         continue; // already known

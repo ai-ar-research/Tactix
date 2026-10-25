@@ -1,6 +1,6 @@
 #pragma once
 
-// DefaultPolicy's action port (docs/controller-interface.md, native search
+// DefaultPolicy's action port (docs/dev/controller-interface.md, native search
 // configuration and action port; plan §5.6, §8.4). default_policy.cpp leaves
 // its translation unit only through `port::` funnels: execute_action,
 // complete_action, apply_rule*, propagate_apply, InprocessPhase,

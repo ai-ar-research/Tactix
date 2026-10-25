@@ -3,7 +3,7 @@
 // along other binaries. Proof delta: chain-free `del` for redundancy; when the
 // same walk reaches both polarities, add the RUP unit {src} using the BFS's
 // binary-reason order. Precondition, effect, and soundness:
-// `docs/calculus.md` §V4; binary lifecycle: `docs/implementation-notes.md` §14.
+// `docs/dev/calculus.md` §V4; binary lifecycle: `docs/dev/implementation-notes.md` §14.
 #pragma once
 
 #include "rules/registry.hpp"

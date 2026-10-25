@@ -3,7 +3,7 @@
 // tier3 bands; the rule side must admit a tier3 candidate at 0 and 5, and the
 // setter must store 3/4/5 rather than substitute a band. A removed capability
 // is not the carve-out, which only lets the built-in policy decline a choice.
-// See docs/implementation-notes.md (`vivify_scope`).
+// See docs/dev/implementation-notes.md (`vivify_scope`).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"

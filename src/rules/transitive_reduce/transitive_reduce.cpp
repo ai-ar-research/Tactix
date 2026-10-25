@@ -19,7 +19,7 @@ namespace tactix {
 
 RuleEligibility transitive_reduce_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
-  // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
+  // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
       .fact("root-level", k.level == 0);

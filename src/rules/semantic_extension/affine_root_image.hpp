@@ -51,7 +51,7 @@ enum class RootImageStatus { Prepared, NoStructure, Invalid, ResourceExhausted,
 // on Prepared or completed NoStructure. Census is nomination, not proof.
 // Admitted populations are excluded; unresolved scopes retry on exact body
 // changes. Input/output census memory shares maximum_bytes. Lifecycle and
-// certification obligations: docs/calculus.md, docs/implementation-notes.md.
+// certification obligations: docs/dev/calculus.md, docs/dev/implementation-notes.md.
 RootImageStatus prepare_affine_root_image(
     const std::vector<AffineLiveSource> &sources,
     const std::vector<External> &requested_root_facts,

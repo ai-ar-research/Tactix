@@ -1,6 +1,6 @@
 // CCE unit tests. Two properties are unreachable from BCE's suite: a clause
 // blocked only once a covered literal is added, and model reconstruction over
-// a sequence of witness segments. docs/calculus.md §X3.
+// a sequence of witness segments. docs/dev/calculus.md §X3.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"

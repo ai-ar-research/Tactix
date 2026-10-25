@@ -1464,7 +1464,7 @@ enum class VarStatus : uint8_t { Active = 0, Substituted, Eliminated };
 // internal boundary and Reduce's retier recomputes one mode's snapshot from
 // it; neither changes F, R or the proof. Callers own it: a native request
 // carries it by value and receives the updated copy, a public session
-// installs it into `Kernel::retier_schedule` (docs/calculus.md §3 M3).
+// installs it into `Kernel::retier_schedule` (docs/dev/calculus.md §3 M3).
 struct RetierSchedule {
   bool enabled = false;
   uint64_t next_conflicts = 0, interval = 0, max_interval = 0;

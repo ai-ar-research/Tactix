@@ -82,7 +82,7 @@ inline void substitute_stage_trace(const Kernel &, const char *, size_t = 0,
 
 RuleEligibility substitute_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
-  // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
+  // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
       .fact("root-level", k.level == 0);
@@ -342,7 +342,7 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
 
 namespace {
 
-// x ≡ ¬x: emit the refutation (`docs/calculus.md` V3).
+// x ≡ ¬x: emit the refutation (`docs/dev/calculus.md` V3).
 // {¬x} is RUP (assume x; the path x -> ¬x propagates ¬x) and {x} likewise via
 // ¬x -> x, and the two resolve to the empty clause. Uses add_rup rather than
 // add_derived_unit, which emits nothing in DRAT, because these are
@@ -2549,7 +2549,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         if (watch.binary()) {
           if (watch.other() == old_other) {
             // Preserve the first physical copy's position and leave later
-            // duplicates untouched (docs/implementation-notes.md §5).
+            // duplicates untouched (docs/dev/implementation-notes.md §5).
             kernel_rearm_binary_clause(k, stable, new_other);
             *p = binary_watch(new_other).raw;
             rewritten = true;

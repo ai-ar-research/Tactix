@@ -2,7 +2,7 @@
 // assertion level, then assert its UIP literal with the learned clause as
 // reason. Owns all trail (τ) changes of the conflict-analysis pair.
 // Proof delta: none. Not a registered rule — fused into M3 ConflictAnalysis;
-// see docs/calculus.md §3 and docs/implementation-notes.md §4.
+// see docs/dev/calculus.md §3 and docs/dev/implementation-notes.md §4.
 #pragma once
 
 #include "rules/registry.hpp"

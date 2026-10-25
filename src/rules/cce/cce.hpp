@@ -7,7 +7,7 @@
 // final segment; an ATA exit with no CLA step in front of it pushes nothing.
 // Nothing is added, so there is no chain and no format-specific hazard.
 // Precondition, the ALA-closure lemma and the full reconstruction argument:
-// `docs/calculus.md` §X3. Reference: cadical `cover.cpp` (kissat has no CCE);
+// `docs/dev/calculus.md` §X3. Reference: cadical `cover.cpp` (kissat has no CCE);
 // Heule-Järvisalo-Biere is the source result.
 #pragma once
 
@@ -49,7 +49,7 @@ inline uint64_t cce_binary_instance(Lit first, Lit second) {
 // irredundant clauses only, because the ALA-closure lemma needs the justifying
 // clause satisfied when `ρ` replays, and S2 Reduce drops a redundant clause
 // with no witness. Candidate scope and the rest of the within-rule choices:
-// `docs/implementation-notes.md` §1 (X3 row) and ledger rows D-CCE-*.
+// `docs/dev/implementation-notes.md` §1 (X3 row) and ledger rows D-CCE-*.
 ApplyResult cce_try(Kernel &, Lit l);
 ApplyResult cce_apply(Kernel &); // canonical: the full round
 

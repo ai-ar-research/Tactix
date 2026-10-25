@@ -4,7 +4,7 @@
 // so C may be replaced by the strictly shorter D.
 // Proof delta: add-RUP (D) + delete (C), C2 Strengthen's pair — no witness, no
 // new primitive. Precondition, effect and the reason D is RUP against F alone:
-// `docs/calculus.md` §X4.
+// `docs/dev/calculus.md` §X4.
 // Reference: cadical `instantiate.cpp` (kissat has no instantiation rule).
 // Value: the removed literal's variable occurs at most INST_OCCLIM times in
 // that polarity, so removing it tends to make the variable pure or nearly

@@ -21,7 +21,7 @@ solver:
 
 - every UNSAT answer must come with a proof that the external checkers accept
   (`tools/bench/proof_oracle.py check`, see
-  [docs/getting-started.md](docs/getting-started.md));
+  [docs/cli.md](docs/cli.md));
 - every SAT answer must satisfy the original formula (`tools/fuzz/checkmodel`).
 
 `tools/fuzz/` is a differential fuzzer that generates formulas, runs Tactix
@@ -107,19 +107,19 @@ release publication waits for every applicable gate to pass.
 A rule is the unit of soundness and of the public interface:
 
 1. Its semantics (precondition, effect, proof step) go in
-   [docs/calculus.md](docs/calculus.md), and implementation-specific guards in
-   [docs/implementation-notes.md](docs/implementation-notes.md).
+   [docs/dev/calculus.md](docs/dev/calculus.md), and implementation-specific guards in
+   [docs/dev/implementation-notes.md](docs/dev/implementation-notes.md).
 2. Register it in `src/rules/registry.cpp`. Rule ids are append-only; never
    renumber or reuse a retired slot, since external strategies refer to ids.
 3. Make it reachable through `include/tactix.h` (the interface only grows; see
-   [docs/c-api.md](docs/c-api.md)).
+   [docs/dev/c-api-reference.md](docs/dev/c-api-reference.md)).
 4. Every effect on the clause database must be logged to the proof, and the
    proof must check with the routes in
-   [docs/getting-started.md](docs/getting-started.md).
+   [docs/dev/cli-reference.md](docs/dev/cli-reference.md#proof-route).
 5. Add unit tests under `tests/` and run the fuzzer with the rule enabled.
 
 The default strategy follows Kissat and CaDiCaL;
-[docs/scheduling-parity-ledger.md](docs/scheduling-parity-ledger.md) records,
+[docs/dev/scheduling-parity-ledger.md](docs/dev/scheduling-parity-ledger.md) records,
 mechanism by mechanism, how its scheduling corresponds to theirs. A change to
 the default strategy's scheduling should name the reference behavior it
 follows or the reason it departs from it.

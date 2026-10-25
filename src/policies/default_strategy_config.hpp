@@ -31,7 +31,7 @@ enum class DefaultReorderTarget : uint8_t {
 // representation and diagnostics deliberately do not belong here.
 //
 // Defaults cite Kissat 4.0.4 unless a comment says otherwise.  The executable
-// call-site evidence is maintained in docs/implementation-notes.md.
+// call-site evidence is maintained in docs/dev/implementation-notes.md.
 struct DefaultStrategyConfig {
   static strategy::OnlineStrategyProgram reference_structured_root_program();
   static std::vector<strategy::OnlineStrategyStage>
@@ -298,7 +298,7 @@ struct DefaultStrategyConfig {
     // and in natural full-restart root windows; the service never requests a
     // restart. The interval follows the shared Kissat-derived root service
     // schedule; each run spends the owner's full stage doses
-    // (docs/implementation-notes.md, S5 Lucky).
+    // (docs/dev/implementation-notes.md, S5 Lucky).
   } graph_labeling_model;
   struct RamseyStartup {
     bool enabled = true;

@@ -1,5 +1,5 @@
 // V6 Congruence: two gates of the same kind over the same inputs have
-// equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). docs/calculus.md.
+// equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). docs/dev/calculus.md.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
@@ -272,7 +272,7 @@ static void test_kind_isolation() {
 }
 
 // --- the binary-resolution unit channel (V6a) --------------------------------
-// (l∨o) and (l∨¬o) resolve on o to {l}, no gate involved. docs/calculus.md.
+// (l∨o) and (l∨¬o) resolve on o to {l}, no gate involved. docs/dev/calculus.md.
 static void test_binary_resolution_unit() {
   Kernel k;
   kernel_reserve_vars(k, 5);

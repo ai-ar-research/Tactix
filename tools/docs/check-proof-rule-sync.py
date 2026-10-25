@@ -6,8 +6,8 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-CALCULUS = ROOT / "docs/calculus.md"
-GUIDE = ROOT / "docs/proof-rules.html"
+CALCULUS = ROOT / "docs/dev/calculus.md"
+GUIDE = ROOT / "docs/dev/proof-rules.html"
 
 
 def duplicates(items):

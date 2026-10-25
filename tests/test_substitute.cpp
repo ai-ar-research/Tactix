@@ -1,6 +1,6 @@
 // V3 Substitute: SCC detection over the binary implication graph, the round,
 // the instance surface, and model reconstruction through ρ. A binary (¬p ∨ q)
-// is the implication p → q. See docs/calculus.md §V3.
+// is the implication p → q. See docs/dev/calculus.md §V3.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"

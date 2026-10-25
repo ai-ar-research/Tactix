@@ -6,7 +6,7 @@
 // Units are replayed at root after the round and the schedule repeats to a
 // bounded fixpoint.  This is the chained binary-UIP algorithm in Kissat
 // `backbone.c` and CaDiCaL `backbone.cpp`, not independent failed-literal scans.
-// Precondition, effect, soundness: `docs/calculus.md` §V2; references and the
+// Precondition, effect, soundness: `docs/dev/calculus.md` §V2; references and the
 // lineage split: `docs/design/independent-lineage-survey.md`.
 #pragma once
 

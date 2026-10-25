@@ -176,7 +176,7 @@ bool ala_propagate(Kernel &k, const CceIndex &idx, Coveror &cv, Lit l,
     k.stats.cce_ala++;
   }
   // Binaries live in the watch lists, not the arena; all of them are
-  // irredundant in this kernel (`docs/implementation-notes.md` §14).
+  // irredundant in this kernel (`docs/dev/implementation-notes.md` §14).
   for (const WatchEntry w : k.watches.entries(l)) {
     if (!w.binary())
       continue;
@@ -384,7 +384,7 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv,
   const bool eliminated = ata || blocked;
   if (eliminated) {
     // `ρ` in push order; kernel_extend_model replays it in reverse, the order
-    // `docs/calculus.md` §X3 unwinds the CLA steps in. An ATA exit reached with
+    // `docs/dev/calculus.md` §X3 unwinds the CLA steps in. An ATA exit reached with
     // no CLA step in front of it needs no segment: the extension is then pure
     // unit propagation of ¬C over F∖{C}, so C is RUP there.
     const auto record_witnesses = [&] {

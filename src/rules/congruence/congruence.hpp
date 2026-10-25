@@ -2,8 +2,8 @@
 // with the same canonical inputs have equivalent outputs, so add the two
 // equivalence binaries. It does not substitute; V3 Substitute, run next in the
 // phase, collapses the equivalences. Precondition, effect, proof delta and
-// soundness: `docs/calculus.md` V6 (and V6a for the binary-resolution unit
-// channel); deviations: `docs/implementation-notes.md` §2; transliterated from
+// soundness: `docs/dev/calculus.md` V6 (and V6a for the binary-resolution unit
+// channel); deviations: `docs/dev/implementation-notes.md` §2; transliterated from
 // kissat congruence.c (MIT).
 #pragma once
 
@@ -131,7 +131,7 @@ private:
   uint32_t capacity_ = INLINE_CAPACITY;
 };
 
-// Extracted gate, output = f(inputs) per kind (`docs/calculus.md` V6 gives each
+// Extracted gate, output = f(inputs) per kind (`docs/dev/calculus.md` V6 gives each
 // kind's defining clauses). Storage conventions the closure relies on:
 //   And: `inputs` sorted, `input_bin_ids` the (¬output ∨ inputᵢ) ids, parallel.
 //   Xor: `inputs` sorted and all-positive — the clause parity is absorbed into

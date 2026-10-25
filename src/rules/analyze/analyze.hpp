@@ -1,4 +1,4 @@
-// Analyze (docs/calculus.md §3 M3): first-UIP conflict analysis with recursive
+// Analyze (docs/dev/calculus.md §3 M3): first-UIP conflict analysis with recursive
 // minimization, all-UIP block shrinking and on-the-fly subsumption. Learns the
 // clause, emits its add-RUP proof delta, stores it in the arena (F/R/π), and
 // hands the trail change to Backjump via kernel.pending (τ is Backjump's).
@@ -16,7 +16,7 @@ namespace tactix {
 
 // Additive v2 semantic ConflictAnalysis payload (high bit, as Reduce's
 // REDUCE_CLAUSE_INSTANCE): the backjump target is chosen after learning, the
-// chronological target on every path (docs/calculus.md §3 M3). The frozen v1
+// chronological target on every path (docs/dev/calculus.md §3 M3). The frozen v1
 // surface keeps its level payloads.
 constexpr uint64_t ANALYZE_TARGET_CHRONO = uint64_t{1} << 63;
 
@@ -25,7 +25,7 @@ constexpr uint64_t ANALYZE_TARGET_CHRONO = uint64_t{1} << 63;
 // path. Chrono: conflict_reuse_target on every path; the learned clause's
 // target is reported to the caller. Advised: chronological on the reuse
 // paths, the learned clause's target left to the caller (DefaultPolicy
-// issues Chrono only, docs/implementation-notes.md).
+// issues Chrono only, docs/dev/implementation-notes.md).
 enum class AnalysisTarget : uint8_t { Explicit, Chrono, Advised };
 
 RuleEligibility analyze_guard(const Kernel &);
@@ -51,7 +51,7 @@ ApplyResult analyze_apply_native(Kernel &, AnalysisTarget mode,
 // `del`, but called from `backjump_apply_to` once the trail is back at the
 // target, because until then the subsumed candidates are still reasons.
 // A no-op unless `Kernel::eager_subsume` is nonzero and a clause is pending.
-// Why it is a sub-step and not a rule: docs/implementation-notes.md §15.
+// Why it is a sub-step and not a rule: docs/dev/implementation-notes.md §15.
 void analyze_eager_subsume(Kernel &);
 
 // Complete OTFS's delayed replacement after Backjump has unassigned every

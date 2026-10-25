@@ -16,7 +16,7 @@ separate development or reduced copies of those families.
 
 ## Try them
 
-From the repository root, after building (see `docs/getting-started.md`):
+From the repository root, after building (see `docs/cli.md`):
 
 ```sh
 build/release/tactix examples/cnf/random3sat-sat.cnf > out.txt

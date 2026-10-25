@@ -1,4 +1,4 @@
-// C3 Vivify (docs/calculus.md §5 C3): clause distillation by unit propagation.
+// C3 Vivify (docs/dev/calculus.md §5 C3): clause distillation by unit propagation.
 // Assume the negations of a candidate's literals one level at a time; an
 // implied literal, an implied negation or a probe conflict proves a strictly
 // stronger clause, which replaces the candidate. Proof delta: add-RUP (the
@@ -9,7 +9,7 @@
 // CaDiCaL vivify.cpp, MIT). Instance payload = candidate arena Ref; canonical
 // = the full round; guard = quiescent root. Trail reuse and its invariants:
 // docs/design/2026-08-05-vivify-trail-reuse.md; open deviations:
-// docs/implementation-notes.md row D-VIVIFY-SCHED.
+// docs/dev/implementation-notes.md row D-VIVIFY-SCHED.
 #pragma once
 
 #include "rules/registry.hpp"

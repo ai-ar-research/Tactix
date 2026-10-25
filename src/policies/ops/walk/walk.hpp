@@ -20,7 +20,7 @@ namespace tactix {
 // Explicit payloads, including zero, give exact occurrence-scan allowances.
 // Seeded imports must improve the same current-CNF objective; incomplete,
 // stale or interrupted work preserves phase memories. FullCurrentCnf separates
-// preparation and search doses; see docs/controller-interface.md (Walk).
+// preparation and search doses; see docs/dev/controller-interface.md (Walk).
 
 RuleEligibility walk_guard(const Kernel &);
 ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round

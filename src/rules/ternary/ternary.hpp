@@ -4,7 +4,7 @@
 // Adding it needs no witness — a resolvent is entailed by its two parents.
 // Proof delta: add-RUP with chain [id(C), id(D)], the two-parent chain BVE also
 // emits, so no new proof primitive. Precondition, effect and soundness:
-// `docs/calculus.md` §X2. Reference: cadical `ternary.cpp`
+// `docs/dev/calculus.md` §X2. Reference: cadical `ternary.cpp`
 // (`hyper_ternary_resolve`), the same resolvent walk with the same three
 // rejections; kissat dropped hyper ternary resolution before 4.0.
 #pragma once
@@ -41,7 +41,7 @@ uint64_t ternary_percent_limit(uint64_t base, uint32_t percent);
 // (glue = size) so Reduce can retire them, since adding an entailed consequence
 // irredundant would grow the formula monotonically with no reclamation path;
 // binary resolvents are the exception, having an irredundant lifecycle
-// (`docs/implementation-notes.md` §14). Antecedents are not subsumed away — a
+// (`docs/dev/implementation-notes.md` §14). Antecedents are not subsumed away — a
 // rule owns one proof delta, and mixing `del` in would duplicate C1's
 // occurrence bookkeeping (cadical does it at ternary.cpp:215).
 ApplyResult ternary_try(Kernel &, Lit pivot);

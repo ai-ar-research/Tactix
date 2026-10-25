@@ -15,7 +15,7 @@
 
 namespace tactix {
 
-// Deviations from kissat, ledgered in docs/implementation-notes.md §S7:
+// Deviations from kissat, ledgered in docs/dev/implementation-notes.md §S7:
 //  (1) `kissat_reordering` also requires `!solver->level`, a convenience of its
 //      call site rather than a precondition; N1 requires keeping it out of the
 //      guard, and a mid-trail reorder yields a different but still sound rank.

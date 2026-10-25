@@ -655,7 +655,7 @@ bool default_should_run_fast_elimination_after_structured(
   // runs no startup fast elimination.  When structured symmetry breaking has
   // fixed roots, follow that pipeline and skip FastEliminate; clause-only
   // structured progress composes with it.  Accepted deviation, see
-  // docs/implementation-notes.md (FastEliminate after structured roots).
+  // docs/dev/implementation-notes.md (FastEliminate after structured roots).
   return !structured_root_grew_trail;
 }
 
@@ -4222,7 +4222,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   // Solve-entry root normalization must retire an externally recorded conflict,
   // not only discard its decision trail. S1 Restart owns that transition
-  // (docs/calculus.md §4); startup inprocessing requires !conflict_valid.
+  // (docs/dev/calculus.md §4); startup inprocessing requires !conflict_valid.
   if (k.level || k.conflict_valid) {
     if (port::complete_action(completion_, FeedbackKind::Support, "Restart", 0,
             [&] { return execution::native_rule_feedback(k, "Restart", 0,
@@ -5208,7 +5208,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return finish(20);
       // The retained root services (persistent affine search, graph
       // labeling) run only in the root window of a natural full restart and
-      // never request a restart themselves (docs/implementation-notes.md).
+      // never request a restart themselves (docs/dev/implementation-notes.md).
       if (!k.level) {
         auto *session = k.affine_matrix_search_session;
         const bool affine_candidate = config_.affine_search.enabled &&

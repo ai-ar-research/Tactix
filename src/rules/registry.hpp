@@ -22,7 +22,7 @@ enum class RuleTier { Micro, Macro, Inprocess };
 
 // ActionKind (plan §4): a registry entry is either a proof rule — its effect on
 // σ = ⟨F,R,τ,ρ,π⟩ is non-trivial, so it carries a proof obligation and a
-// docs/calculus.md entry — or a policy operation: H-only search guidance
+// docs/dev/calculus.md entry — or a policy operation: H-only search guidance
 // (Rephase, SwitchMode, Walk, Reorder), a sub-policy with no proof delta. Both
 // live in this one append-only ID registry so ids never split; splitting into
 // two id spaces would renumber the frozen v1 API. The kind is metadata only: the

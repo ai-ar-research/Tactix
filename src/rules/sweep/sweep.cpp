@@ -200,7 +200,7 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
 // Add one clause of F with its root-false literals removed — justified, not
 // assumed: `C \ {l}` follows from `C` and the root unit `{¬l}`, whose id travels
 // in `SweepEnv::strip_ids` for emission to cite ahead of `C`. An unjustifiable
-// removal is not made (`docs/calculus.md` V5).
+// removal is not made (`docs/dev/calculus.md` V5).
 void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
                     uint64_t key, uint64_t id, uint32_t depth,
                     const SweepLimits &lim, uint64_t *ticks,
@@ -2026,7 +2026,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   return result;
 }
 
-// ---- emission: the RUP fast path (`docs/calculus.md` V5, strategy (a)) -----
+// ---- emission: the RUP fast path (`docs/dev/calculus.md` V5, strategy (a)) -----
 // Entailment is not a proof line, so the main formula is asked the same
 // question in the one form a checker accepts, via Congruence's replay
 // primitive. A non-RUP equivalence is declined (`sweep_not_rup`) and the
@@ -2058,7 +2058,7 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
   return true;
 }
 
-// Emission, the general path (`docs/calculus.md` V5, strategy (b)): replay the
+// Emission, the general path (`docs/dev/calculus.md` V5, strategy (b)): replay the
 // sub-solver's refutation into the main proof, each lemma its own line in
 // derivation order, antecedents translated to main-formula proof ids. The final
 // lemma is the target binary, by which point the checker has seen every

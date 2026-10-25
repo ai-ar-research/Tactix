@@ -67,7 +67,7 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   // candidate is still a trail reason and gets skipped. Running it before the
   // assert is equivalent to kissat's position, since asserting the UIP can
   // only make the pending clause a reason and that clause is not a candidate.
-  // Mechanism in analyze.cpp; rationale in docs/implementation-notes.md §15.
+  // Mechanism in analyze.cpp; rationale in docs/dev/implementation-notes.md §15.
   event_trace_detail(k, "analysis_tail_eager_begin", p.lits.size());
   analyze_eager_subsume(k);
   event_trace_detail(k, "analysis_tail_eager_end", p.lits.size());
@@ -134,7 +134,7 @@ ApplyResult backjump_apply(Kernel &k) {
 }
 
 // Not a registered rule: Analyze + Backjump are fused into the atomic
-// ConflictAnalysis rule (docs/implementation-notes.md §4). These stay as
+// ConflictAnalysis rule (docs/dev/implementation-notes.md §4). These stay as
 // internal step functions, driven by conflictanalysis_apply and, white-box, by
 // DefaultPolicy's micro-loop and the analyze unit tests.
 

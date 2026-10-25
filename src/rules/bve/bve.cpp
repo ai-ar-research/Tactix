@@ -154,7 +154,7 @@ void bve_schedule_from_occurrences(const Kernel &k, const BveOccurrences &occ,
   for (Var v = 0; v < k.nvars; v++) {
     // The retry bitmap (Kernel::bve_retry) is deliberately not consulted here:
     // this rule maintains the advice, the policy reads it. See bve.hpp and
-    // docs/implementation-notes.md §6.
+    // docs/dev/implementation-notes.md §6.
     const Lit pl = make_lit(v, false);
     if (k.values[pl] != 0) // assigned variable: not an elimination candidate
       continue;
@@ -319,7 +319,7 @@ struct BveDefScratch {
 // ---- gate detection (equivalence, AND/OR, ITE, XOR, general definition) ----
 // Mark the clauses of a functional gate defining x in pos_gate/neg_gate
 // (1 = gate, 0 = antecedent). Every detector must establish condition (★) of
-// docs/calculus.md §6b E1 exactly; a false gate drops needed resolvents. Only
+// docs/dev/calculus.md §6b E1 exactly; a false gate drops needed resolvents. Only
 // The definition type and a shortened ITE set `resolve_gate`: their gate×gate
 // resolvents are real.  The ITE matcher below follows Kissat's
 // `ifthenelse.c`, including its binary/root-shortened opposite-side clauses.
@@ -991,7 +991,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
 // SUBSUMER over the occurrence list of its least-occurring literal: a victim
 // `d ⊇ c` is deleted, one resolving with `c` on a single literal is shortened,
 // and shortened victims re-enter the queue so a pivot reaches a fixpoint.
-// kissat has no analogue; see `docs/implementation-notes.md`'s BVE section.
+// kissat has no analogue; see `docs/dev/implementation-notes.md`'s BVE section.
 
 // Direction is the easy thing to invert: C1/C2's `check_marked` answers "does
 // the partner subsume the candidate", the reverse of what is needed here.
@@ -1006,7 +1006,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
   // The candidate gather/resolution pass has already restored this persistent
   // literal image. Reuse it and clear only each subsumer's touched literals:
   // allocating and zeroing 2*nvars bytes once per successful elimination can
-  // dominate its local work; see docs/implementation-notes.md section 18.
+  // dominate its local work; see docs/dev/implementation-notes.md section 18.
   assert(marks.size() >= 2 * static_cast<size_t>(k.nvars));
   // Per-call working sets; BVE is not re-entrant and one elimination phase
   // calls this once per eliminated variable.

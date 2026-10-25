@@ -16,8 +16,8 @@ tools/checkers/setup.sh                       # once: build the proof checkers
 python3 tools/bench/proof_oracle.py check formula.cnf proof
 ```
 
-See [getting started](docs/getting-started.md) for requirements, proof checks
-and library use, and [installation](docs/install.md) for release binaries.
+See [docs/cli.md](docs/cli.md) for requirements and checking answers, and
+[docs/strategies.md](docs/strategies.md) for writing your own strategy.
 
 ## Example strategies
 
@@ -65,7 +65,8 @@ User-visible release changes are listed in [CHANGELOG.md](CHANGELOG.md).
 `include/tactix.h` is the public C interface; `src/` contains the solver.
 `examples/` contains client strategies, while `tests/` and `tools/` contain
 the test, checker, fuzzing and benchmark infrastructure. Frozen datasets live
-under `benchmarks/`; guides under `docs/`; vendored code under `third_party/`.
+under `benchmarks/`; guides under `docs/` (developer references in
+`docs/dev/`); vendored code under `third_party/`.
 
 ## License
 

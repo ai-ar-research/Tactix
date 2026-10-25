@@ -8,7 +8,7 @@
 // a unique closest common dominator `d` and `d → l₀` already, giving
 // `(¬d ∨ l₀)`. Proof delta: add-RUP — negating the resolvent, `d` propagates
 // every `¬lᵢ` by dominance, so `C` becomes unit on `l₀`.
-// Precondition, effect, soundness: `docs/calculus.md` §X6. Reference: cadical
+// Precondition, effect, soundness: `docs/dev/calculus.md` §X6. Reference: cadical
 // `probe.cpp` (`hyper_binary_resolve` :218, `probe_dominator` :149).
 
 #include "kernel/kernel.hpp"
@@ -39,7 +39,7 @@ ApplyResult hyperbinary_apply(Kernel &k);
 // so the replay both tests RUP and builds the chain, and a replay that fails
 // DECLINES the resolvent — V5 Sweep's discipline. Every resolvent is a
 // permanent binary, since binaries carry no redundancy bit
-// (`docs/implementation-notes.md` §14), the stricter side of cadical's split.
+// (`docs/dev/implementation-notes.md` §14), the stricter side of cadical's split.
 ApplyResult hyperbinary_try(Kernel &k, Lit p);
 
 // The round's candidate roots, in the policy-visible order (see

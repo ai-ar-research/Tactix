@@ -1,34 +1,31 @@
 # Documentation
 
-## Using Tactix
+| Document | Contents |
+|---|---|
+| [cli.md](cli.md) | Build Tactix and run it on your formulas, with or without checking the answers |
+| [c-api.md](c-api.md) | An overview of the C interface, `include/tactix.h` |
+| [strategies.md](strategies.md) | Example strategies, and how to write, compile and run your own |
+| [ai-strategy-prompt.md](ai-strategy-prompt.md) | An example prompt for designing a strategy with an AI agent |
+| [../examples/](../examples/) | Example strategies and small formulas |
+
+The [artifact branch](https://github.com/ai-ar-research/Tactix/tree/artifact/paper)
+reproduces the paper's evaluation.
+
+## For developers
+
+`dev/` holds the detailed references and the notes on how Tactix works:
 
 | Document | Contents |
 |---|---|
-| [getting-started.md](getting-started.md) | Build, solve a formula, check its proof, call Tactix from C |
-| [install.md](install.md) | Release binaries, and installing Tactix as a library (CMake, pkg-config) |
-| [cli.md](cli.md) | Every command-line option, the output format, the example strategy programs |
-| [strategies.md](strategies.md) | A guided tour of writing strategies: DPLL, the cruxmiter case study, online programs, an exercise |
-| [ai-strategy-prompt.md](ai-strategy-prompt.md) | A reusable example prompt for AI strategy design and evaluation |
-| [c-api.md](c-api.md) | The C interface: writing your own strategy, per-invocation rule settings, a tutorial |
-| [rules.md](rules.md) | Every proof rule and policy operation a strategy can apply |
-| [proof-rules.html](proof-rules.html) | Interactive guide to the proof rules (open in a browser) |
-| [../examples/](../examples/) | Example strategies and small test formulas |
-| [paper artifact](https://github.com/ai-ar-research/Tactix/tree/artifact/paper) | Reproducing the paper's evaluation |
+| [dev/cli-reference.md](dev/cli-reference.md) | Every command-line option, output line and `TACTIX_*` setting |
+| [dev/c-api-reference.md](dev/c-api-reference.md) | The complete C interface, with a tutorial |
+| [dev/rules.md](dev/rules.md) | Every rule a strategy can apply; [dev/proof-rules.html](dev/proof-rules.html) is an interactive version |
+| [dev/install.md](dev/install.md) | Release binaries, and installing the library (CMake, pkg-config) |
+| [dev/architecture.md](dev/architecture.md) | The solver's components and the source tree |
+| [dev/calculus.md](dev/calculus.md) | The proof rules, formally |
+| [dev/implementation-notes.md](dev/implementation-notes.md) | Guards and design decisions in the implementation |
+| [dev/scheduling-parity-ledger.md](dev/scheduling-parity-ledger.md) | How the built-in strategy's scheduling follows Kissat and CaDiCaL |
+| [dev/controller-interface.md](dev/controller-interface.md) | The interface used by external controllers |
+| [dev/algebraic-reasoning-plan.md](dev/algebraic-reasoning-plan.md), [dev/algebraic-proof-bundle.md](dev/algebraic-proof-bundle.md) | Algebraic reasoning and its proofs |
 
-## How Tactix works
-
-| Document | Contents |
-|---|---|
-| [architecture.md](architecture.md) | Kernel, rules, policies, proof backend, and the source tree |
-| [implementation-notes.md](implementation-notes.md) | Guards and design decisions in the implementation |
-| [controller-interface.md](controller-interface.md) | The contract of the online configuration interface used by external controllers |
-| [scheduling-parity-ledger.md](scheduling-parity-ledger.md) | How the default strategy's scheduling follows Kissat and CaDiCaL, mechanism by mechanism |
-| [algebraic-reasoning-plan.md](algebraic-reasoning-plan.md) | CDCL-time GF(2), GF(3) and cardinality integration gates and current proof/performance evidence |
-| [algebraic-proof-bundle.md](algebraic-proof-bundle.md) | One public certificate bundle for batched algebraic lemmas and the canonical DSR search proof |
-
-The development reference documents use
-some internal terminology and cross-reference each other.
-
-## Contributing
-
-See [../CONTRIBUTING.md](../CONTRIBUTING.md).
+See also [../CONTRIBUTING.md](../CONTRIBUTING.md).

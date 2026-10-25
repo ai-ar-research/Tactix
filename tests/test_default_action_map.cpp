@@ -15,7 +15,7 @@
 using namespace action_map;
 
 // No internal entries remain (gap plan Step 7); the declared entries are the
-// two non-actions of docs/implementation-notes.md.
+// two non-actions of docs/dev/implementation-notes.md.
 static const std::set<std::string> EXPECTED_INTERNAL = {};
 static const std::set<std::string> EXPECTED_DECLARED = {"materialize-cold-state",
                                                         "attach-heuristics"};

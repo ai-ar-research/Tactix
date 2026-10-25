@@ -9,7 +9,7 @@ the sentence looks wrong.
 
 Rules:
   * `§X` / `§X.Y` with no document named before it must match a heading in the
-    SAME file. Cross-document refs must name their file (`docs/calculus.md §6`,
+    SAME file. Cross-document refs must name their file (`docs/dev/calculus.md §6`,
     `implementation-notes.md §13.3`) and are checked against that file.
   * Ranges (`§5.2–§5.6`, `§3–§5`) and lists (`§1.1, §9`) are each checked.
 
@@ -32,14 +32,14 @@ DOCS = {
     "docs/winner-integration-plan.md": "docs/winner-integration-plan.md",
     "PROGRESS.md": "PROGRESS.md",
     "CLAUDE.md": "CLAUDE.md",
-    "docs/implementation-notes.md": "docs/implementation-notes.md",
-    "docs/calculus.md": "docs/calculus.md",
-    "docs/scheduling-parity-ledger.md": "docs/scheduling-parity-ledger.md",
+    "docs/dev/implementation-notes.md": "docs/dev/implementation-notes.md",
+    "docs/dev/calculus.md": "docs/dev/calculus.md",
+    "docs/dev/scheduling-parity-ledger.md": "docs/dev/scheduling-parity-ledger.md",
 }
 # The parity ledger left implementation-notes with only a §13 stub, so a
 # historical `implementation-notes.md §13.x` -- including citations in FROZEN
 # designs and logs, which must not be edited -- resolves against the ledger.
-REDIRECT = {("docs/implementation-notes.md", "13"): "docs/scheduling-parity-ledger.md"}
+REDIRECT = {("docs/dev/implementation-notes.md", "13"): "docs/dev/scheduling-parity-ledger.md"}
 # Resolution order for a bare `§X.Y`: the document it appears in, THEN the plan.
 # That is how these docs actually read -- implementation-notes defines §13.3 of
 # its own and also cites plan §5.2 without qualifying it -- and it still catches

@@ -1,11 +1,11 @@
 # Proof rules and policy operations
 
 This is the catalogue of every operation a Tactix strategy can apply. Each
-entry is registered once in [`src/rules/registry.cpp`](../src/rules/registry.cpp)
-and exposed through the C interface in [`include/tactix.h`](../include/tactix.h).
+entry is registered once in [`src/rules/registry.cpp`](../../src/rules/registry.cpp)
+and exposed through the C interface in [`include/tactix.h`](../../include/tactix.h).
 The interactive [proof-rule guide](proof-rules.html) has worked examples for
 most proof rules.
-How to call the operations from C is described in [c-api.md](c-api.md).
+How to call the operations from C is described in [c-api-reference.md](c-api-reference.md).
 
 ## Concepts
 
@@ -86,7 +86,7 @@ require DSR or streaming PBP, and many structural rules decline under LRAT or
 the distinct startup-only terminal-PBP route). Fresh variables
 introduced by a rule are projected out of the reported model. Proof formats
 and checker routes are described in [architecture.md](architecture.md#proof-backend)
-and [getting-started.md](getting-started.md#proof-formats).
+and [getting-started.md](cli-reference.md#proof-route).
 
 Several structural rules additionally require a bound provenance stream
 (`tactix_bind_structural_provenance`), to which they write a record of each

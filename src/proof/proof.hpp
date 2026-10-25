@@ -32,7 +32,7 @@ struct DsrLiteralMapping {
 // and Trestle. Classify images relative to !C: an unmapped pivot is Direct,
 // a true image permits Repivot, all-false images permit Rup, one open image
 // permits Lemma, and multiple open images use a temporary Extension.
-// Every form preserves the X7 application; see docs/calculus.md section 6d.
+// Every form preserves the X7 application; see docs/dev/calculus.md section 6d.
 enum class DsrWitnessForm : uint8_t { Direct, Repivot, Rup, Lemma, Extension };
 
 struct DsrWitnessPlan {
@@ -189,7 +189,7 @@ public:
   // the external literal representation, before emitting any clause.
   // `propagates`: the clause is unit at the root. No witnessed line may
   // propagate when read, so it takes the general encoding and enters by RUP
-  // (docs/implementation-notes.md, native DSR checking).
+  // (docs/dev/implementation-notes.md, native DSR checking).
   bool add_sr(uint64_t id, const Lit *lits, uint32_t size,
               const Lit *true_lits, uint32_t ntrue,
               const DsrLiteralMapping *mappings, uint32_t nmappings,

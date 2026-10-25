@@ -349,7 +349,7 @@ def main():
         print("A source comment states the invariant plus a reference pointer:")
         print("what must hold, and where the evidence lives. Not how it was")
         print("found out, not an internal ticket id, not a wall of prose that")
-        print("restates docs/calculus.md. Standing user directive, given three")
+        print("restates docs/dev/calculus.md. Standing user directive, given three")
         print("times. History belongs in PROGRESS.md, in a report under")
         print("benchmarks/reports/, or in the commit message: cite the path.")
         return 1
