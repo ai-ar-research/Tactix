@@ -17,7 +17,7 @@
 | [dev/cli-reference.md](dev/cli-reference.md) | Every command-line option, output line and `TACTIX_*` setting |
 | [dev/c-api-reference.md](dev/c-api-reference.md) | The complete C interface, with a tutorial |
 | [dev/rules.md](dev/rules.md) | Every rule a strategy can apply; [dev/proof-rules.html](dev/proof-rules.html) is an interactive version |
-| [dev/install.md](dev/install.md) | Release binaries, and installing the library (CMake, pkg-config) |
+| [dev/install.md](dev/install.md) | A static solver binary, and installing the library (CMake, pkg-config) |
 | [dev/architecture.md](dev/architecture.md) | The solver's components and the source tree |
 | [dev/calculus.md](dev/calculus.md) | The proof rules, formally |
 | [dev/implementation-notes.md](dev/implementation-notes.md) | Guards and design decisions in the implementation |

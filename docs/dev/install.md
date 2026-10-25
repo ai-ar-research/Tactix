@@ -2,55 +2,16 @@
 
 ## The solver binary
 
-Each [release](https://github.com/ai-ar-research/Tactix/releases) has a
-statically linked `tactix` for Linux on x86-64. It needs no libraries and runs
-on any x86-64 Linux distribution; `gzip` and `xz` on the `PATH` are needed only
-for compressed input.
-
-```sh
-tar -xzf tactix-VERSION-linux-x86_64.tar.gz
-tactix-VERSION-linux-x86_64/bin/tactix formula.cnf proof
-```
-
-`SHA256SUMS` in the release lists the checksum of every file; check a
-download with `sha256sum -c SHA256SUMS --ignore-missing`.
-
-Three releases matter for the paper and current development:
-
-| Release | Commit | Use |
-|---|---|---|
-| `v0.1.0-0f7c10174` | `0f7c10174`, the version evaluated in the paper | reproducing the paper's SAT Competition results |
-| `v0.2.1` (current source) | whole-run PBP by default, without the retired automatic proof selector | everything else |
-| `v0.1.0` | first public installable release | compatibility and historical comparison |
-
-The current source uses whole-run PBP by default. The paper release and its
-original proof-mode behavior remain reproducible from its versioned artifact.
-See the repository changelog for the full version history.
+Build it from source as in [cli.md](../cli.md). With
+`-DTACTIX_STATIC_BINARY=ON` the `tactix` executable is linked statically: it
+then needs no libraries and runs on any x86-64 Linux distribution (`gzip` and
+`xz` on the `PATH` are needed only for compressed input).
 
 ## The library
 
 The library is a static archive, `libtactix.a`, with the public header
 `tactix.h`. Strategies written in C or C++ link against it (see
 [c-api-reference.md](c-api-reference.md)).
-
-### From a release
-
-The release package contains
-
-```
-bin/tactix
-include/tactix.h
-lib/libtactix.a
-lib/cmake/Tactix/        CMake package
-lib/pkgconfig/tactix.pc  pkg-config file
-```
-
-Unpack it anywhere, for example to `$HOME/.local` (a build from source may
-use `lib64` or `lib/x86_64-linux-gnu` instead of `lib`).
-The library was built on Ubuntu 24.04 with GCC 13: link it with GCC 13 or newer
-(or a Clang that uses libstdc++ 13 or newer) on a system with glibc 2.38 or
-newer (Ubuntu 24.04, Debian 13, Fedora 39 and later). On older systems, build
-it from source as below. The static `tactix` binary has no such requirement.
 
 ### From source
 
@@ -61,8 +22,7 @@ cmake --install build --prefix $HOME/.local
 ```
 
 Requirements are those of [cli.md](../cli.md): a C++20
-compiler, CMake 3.25 or newer, and zlib. `-DTACTIX_STATIC_BINARY=ON` links the
-`tactix` executable statically, as the release binaries are.
+compiler, CMake 3.25 or newer, and zlib.
 
 ### Using it
 

@@ -13,9 +13,7 @@ cmake --build --preset release --parallel
 ```
 
 This builds the solver, `build/release/tactix`, and the example strategies in
-`build/release/examples/`. Each
-[release](https://github.com/ai-ar-research/Tactix/releases) also has a
-prebuilt `tactix` for Linux on x86-64.
+`build/release/examples/`.
 
 ## Solve a formula
 
