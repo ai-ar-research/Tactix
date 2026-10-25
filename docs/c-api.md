@@ -56,7 +56,7 @@ The solver does nothing on its own: only the rules the strategy applies run.
 A common pattern is a short specialized opening that exploits the structure of
 a family of formulas, followed by `tactix_solve`.
 
-## Answers are always checkable
+## Proof production
 
 Before applying a rule, the solver checks that the rule is sound in the
 current state, and refuses it (returning -1) otherwise. Every applied rule
@@ -69,8 +69,6 @@ slow or never finish, but it cannot produce a wrong answer.
 
 - [strategies.md](strategies.md): example strategies, and how to compile and
   run your own.
-- [dev/c-api-reference.md](dev/c-api-reference.md): the complete guide, with
-  a tutorial and every function.
-- [dev/rules.md](dev/rules.md): every rule, when it applies and what it does.
-- [`include/tactix.h`](../include/tactix.h): the exact contract of each
-  function.
+- [dev/c-api-reference.md](dev/c-api-reference.md): documentation of each function in the public interface.
+- [dev/rules.md](dev/rules.md): documentation of the techniques supported by Tactix.
+- [`include/tactix.h`](../include/tactix.h): the header file of the public interface.
