@@ -2,7 +2,7 @@
 
 ## Build
 
-Tactix needs Linux, a C++20 compiler (GCC 13 or newer), CMake 3.25 or newer
+Tactix requires a C++20 compiler (GCC 13 or newer), CMake 3.25 or newer
 and zlib. Checking proofs also needs Python 3.9 or newer.
 
 ```sh
