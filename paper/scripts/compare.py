@@ -4,12 +4,9 @@
     python3 paper/scripts/compare.py --run paper/run/results --out DIR
 
 For every experiment in the rerun (bench.py's output directory), the paper's
-archived results (paper/logs/) are restricted to the same configurations and
-instances and cut off at the rerun's limits: an answer that took longer than
-the rerun's solving limit counts as a timeout, a certificate check longer than
-its checking limit as unchecked, and PAR-2 uses twice the rerun's limit. (The
-memory limit cannot be applied to the archived runs; their memory was larger.)
-Both are then turned into the paper's tables and figures by the same scripts:
+archived results (paper/logs/) for the same configurations and formulas are
+taken as recorded, at the paper's limits (no cut-off at the rerun's limits).
+Both go through the paper's analysis scripts:
 
   DIR/<experiment>.md                  the paper's claim, how to check it, a
                                        per-formula table and the paper's tables
@@ -65,32 +62,9 @@ def true(value) -> bool:
     return str(value) == "True"
 
 
-def censor(row: dict, run: dict) -> dict:
-    """An archived result as it would have been under the rerun's limits."""
-    solve_limit = float(run["solve_limit_seconds"])
-    check_limit = float(run["check_limit_seconds"])
-    row = dict(row, solve_limit_seconds=run["solve_limit_seconds"],
-               check_limit_seconds=run["check_limit_seconds"],
-               memory_limit_gib=run["memory_limit_gib"], profile=run.get("profile", ""),
-               set=row.get("set") or run.get("set", ""))
-    def update(**values):  # only the columns the experiment's table has
-        row.update({k: v for k, v in values.items() if k in row})
-
-    answered = row["verdict"] in ("SAT", "UNSAT")
-    seconds = float(row["solve_seconds"])
-    if not answered or seconds > solve_limit:
-        update(verdict="UNKNOWN", solve_seconds=f"{min(seconds, solve_limit):.3f}", status="timeout",
-               timed_out="True", verified="False", check_seconds="", par2_seconds=2 * solve_limit)
-        return row
-    if row["verdict"] == "UNSAT" and row.get("check_seconds") and float(row["check_seconds"]) > check_limit:
-        update(verified="False", status="check-timeout")
-    update(par2_seconds=row["solve_seconds"] if true(row.get("verified")) else 2 * solve_limit)
-    return row
-
-
 def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
-    """Write the censored archived results for every rerun experiment; return
-    the per-instance comparison rows."""
+    """Write the archived results of the rerun's configurations and formulas;
+    return the per-instance comparison rows."""
     pairs = []
     for name in EXPERIMENTS:
         run_path = run_logs / name / "results.csv"
@@ -105,9 +79,9 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
                 print(f"{name}: no archived result for {run['configuration']} on {run['instance']}",
                       file=sys.stderr)
                 continue
-            censored = censor(paper, run)
-            censored["instance"] = run["instance"]  # the rerun's spelling, so the tables align
-            rows.append(censored)
+            # As recorded; the rerun's spelling of the instance, so the tables align.
+            rows.append(dict(paper, instance=run["instance"]))
+            answered = {side: row["verdict"] in ("SAT", "UNSAT") for side, row in (("run", run), ("paper", paper))}
             pairs.append({
                 "experiment": name, "set": run.get("set", ""), "configuration": run["configuration"],
                 "formula": key(run["instance"]),
@@ -119,8 +93,8 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
                 "paper_verified": paper.get("verified", ""),
                 "solve_limit_seconds": run["solve_limit_seconds"],
                 "check_limit_seconds": run["check_limit_seconds"],
-                "same_outcome": (run["verdict"] in ("SAT", "UNSAT")) == (censored["verdict"] in ("SAT", "UNSAT"))
-                and (run["verdict"] == censored["verdict"] or censored["verdict"] == "UNKNOWN"),
+                "same_outcome": answered["run"] == answered["paper"]
+                and (not answered["run"] or run["verdict"] == paper["verdict"]),
             })
         if rows:
             write(out_logs / name / "results.csv", rows)
@@ -160,16 +134,16 @@ def merge(rerun: report.Table, paper: report.Table | None) -> report.Table:
             cell if other is None else f"{cell} ({other[i]})"
             for i, cell in enumerate(row) if i >= rerun.keys])
     return report.Table(rerun.name, rerun.title, rerun.header, rows, rerun.keys,
-                        rerun.notes + ["Each cell: rerun (paper's logs on the same runs, at the rerun's limits)."])
+                        rerun.notes + ["Each cell: rerun (the paper's run of the same formulas, at the paper's limits)."])
 
 
 READING = """\
-How to read: values are from the rerun; "Paper" columns, and values in parentheses, are from the
-paper's archived run of the same configuration on the same formula. Times depend on the machine, so
-compare which formulas are answered and how the configurations rank, not the seconds.
-The paper's tables apply the rerun's limits to the paper's runs. The per-formula tables show the
-paper's times as recorded: * marks a time above the rerun's limit, which the paper's tables count as
-unsolved or unchecked. timeout: no answer within the limit; >N: checking stopped after N s;
+How to read: values are from the rerun; "Paper" columns, and values in parentheses, are the paper's
+archived runs of the same configurations on the same formulas, as recorded, at the paper's limits
+(for example 5,000 s to solve on tierd). Times depend on the machine and the limits differ, so
+compare which formulas are answered and how the configurations rank, not the seconds; PAR-2 counts
+an unsolved formula as twice the limit of its own run. In the per-formula tables, * marks a paper
+time above the rerun's limit. timeout: no answer within the limit; >N: checking stopped after N s;
 rejected: a checker did not accept the certificate; -: no answer, or not checked in this experiment."""
 
 # Per experiment: title, the paper's claim, how to check it, the configuration
@@ -177,21 +151,21 @@ rejected: a checker did not accept the certificate; -: no answer, or not checked
 GUIDE = {
     "tierd": ("tierd: SAT Competition 2024-2026 main-track formulas (Table 3, Figures 3 and 4)",
               "Tactix's default strategy is competitive with the winners of the 2024-2026 SAT Competitions.",
-              "Tactix's Solved, Solved (checked) and PAR-2 in Table 3 should be within the range of the "
-              "other solvers', as in the parentheses. On 20 formulas, a count can differ from the paper's "
-              "logs by a formula that finished close to a limit.",
+              "In Table 3, Tactix's Solved, Solved (checked) and PAR-2 should be within the range of the "
+              "other solvers', in the rerun as in the parentheses. The paper's runs had longer limits, so "
+              "they can answer and check more formulas.",
               "Solver", True, ("table3", "figure4"),
               ("tierd-cactus.pdf (Figure 3)", "tierd-scatter.pdf (Figure 4)",
                "tierd-scatter-satsuma.pdf, tierd-scatter-lympho.pdf (appendix)")),
     "milestones": ("milestones: earlier versions of Tactix on the tierd formulas (Table 6, Figure 7)",
                    "Later versions of Tactix solve more formulas.",
-                   "The Solved column of Table 6 should rise from version 1 to the current version, as in "
-                   "the parentheses. On 20 formulas, the last versions can all solve every formula.",
+                   "The Solved column of Table 6 should rise from version 1 to the current version, in the "
+                   "rerun as in the parentheses. On 20 formulas, the last versions can all solve every formula.",
                    "Version", False, ("table6", "figure7"), ("milestone-ladder.pdf (Figure 7)",)),
     "interface": ("interface: the default strategy through the C interface and in C++ (Figure 5)",
                   "Running the default strategy through the public C interface adds little overhead.",
-                  "The slowdowns below should be small, as in the parentheses. On formulas solved in "
-                  "under a second, start-up time dominates the per-formula ratio.",
+                  "The slowdowns below should be small, in the rerun as in the parentheses. On formulas "
+                  "solved in under a second, start-up time dominates the per-formula ratio.",
                   "Configuration", False, ("figure5",), ("interface-overhead.pdf (Figure 5)",)),
     "cruxmiter": ("cruxmiter: case study 1, arithmetic circuit verification (Table 4)",
                   "On these formulas, the strategy designed with an AI agent (configuration \"Public "
