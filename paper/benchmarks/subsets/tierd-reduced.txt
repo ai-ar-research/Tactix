@@ -1,21 +1,21 @@
 # tierd reduced set (also the milestones'): 20 formulas from different families
 02066c116dbacc40ec5cca2067db26c0-mrpp_4x4#12_12.cnf.xz
 05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz
-1ea68d0008f01c50a1e4fec77dd0775e-REGRandom-K4-L1-Seed30.sanitized.cnf.xz
+79b9e24dd9af185dbec18c9b0a32b1e2-g2-slp-synthesis-aes-top30.cnf.xz
 9d9c4fa425282759eb9e98b82fb5f56e-x9-12087.sat.sanitized.cnf.xz
-b68ae7866df5e852c3acb97a46da2faf-circuit_48in64out_with_1000gates_4in4out_dist128_seed4.sanitized.cnf.xz
+bd8bc25be2b36c64b38459c17e815814-pcmax-scheduling-m11-1517-6802-UNSAT.sanitized.cnf.xz
 e06be7a69dbd6d6866a2799cd40c4bfe-hwmcc20miters-iso-mul7.sanitized.cnf.xz
 f50eaf02a8041510b64104998cc81d2f-sted5_0x24204-50.cnf.xz
 0e36fa2e12f32cde67937803299fb57b-6s268r_Iter94.cnf.xz
+2241a1fb5bdbac0c1a3c1980ed8b332d-crusti_g2io_225_0.1_31_25.normalised.cnf.xz
 5ff5e9d5aab95667d3d2bd50e1e6792a-b21.cnf.xz
 6f40bd5ac85e2a53b392d8f0369e7f1f-harder-fphp-016-015.sat05-1230.reshuffled-07.cnf.xz
 918d9e7c2e197312517736421d728958-SCPC-500-1.cnf.xz
-c033577c6f5f9a1545537518af964305-reconf10_73_queen13_2.cnf.xz
 c569d4b2b2e90a1a70bd23a1169355ef-oddball_13_5_ttf.normalised.cnf.xz
 ed6d842f96d10f3400bce251f9e95bfb-battleship-16-31-sat.cnf.xz
-166e1e5a9f63fcf94ddae8533fa2a090-mp1-squ_any_s09x07_c27_abix_UNS.cnf.xz
 65ee6b49612eccb7d213e4d950f23677-lightsout_sat_22_unbounded_direct_planted150_4_sat.sanitized.cnf.xz
 a7e5d03892a17e51e22b688f51cf0aab-mexam_20_18_2.sanitized.cnf.xz
+ae48df6541d190c096b1e5ba22d1b534-korf-17.cnf.xz
 ba14be209c2fc064726025f017cef17a-schooltt-5-7-12-2-4-1.4-2.6-0.8-0.9-seed2.sanitized.cnf.xz
 e8ccbfaa2762cd0fc22b0ab05bacf529-ntil-90d-36.sanitized.cnf.xz
 fbbfbee9e6cba8bca18fbcfc23dcfcb6-adv_gc_n100_k11_UNSAT_s42.sanitized.cnf.xz

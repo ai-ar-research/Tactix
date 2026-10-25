@@ -20,7 +20,14 @@ From the pool, 20 formulas (7 of SC24, 7 of SC25, 6 of SC26) from 20 different
 benchmark families (paper/benchmarks/tierd-families.tsv) are drawn at random
 with a fixed seed; the first draw whose estimated cost (the paper's solving and
 checking times, cut at the limits) fits two hours with three runs at a time is
-kept. The smoke set is the smallest SAT and the smallest UNSAT formula that
+kept. Four drawn formulas were then replaced (REPLACE below) after a test run
+of the set in the reviewer environment differed from the paper's runs: on two,
+the paper's checkers took 1,000 to 4,500 s, beyond the 600 s checking limit; on
+two satisfiable ones, solving times differed by a factor of 2 to 20 (how soon a
+satisfying assignment is found varies between machines). Each replacement is a
+pool formula of the same year and answer, from a family not yet in the set,
+that every solver answered within 130 s and checked within 350 s in the paper's
+runs, and whose test-run times were 0.67 to 0.95 times the paper's. The smoke set is the smallest SAT and the smallest UNSAT formula that
 every solver solved within 10 s (and checked within 20 s) using at most 1 GB.
 
 Interface (Figure 5). All 200 Tier A formulas (each under 30 s), and of each
@@ -53,6 +60,16 @@ SOLVE, CHECK = 600.0, 600.0       # the reduced tierd limits (experiments.py)
 PER_YEAR = {"SC2024": 7, "SC2025": 7, "SC2026": 6}   # 20 formulas
 BUDGET = 2 * 3600 * 3             # estimated solver + checker seconds: 2 h with 3 runs at a time
 SEED = 2027
+REPLACE = {  # drawn formula -> replacement (see above)
+    "1ea68d0008f01c50a1e4fec77dd0775e-REGRandom-K4-L1-Seed30.sanitized.cnf.xz":
+        "bd8bc25be2b36c64b38459c17e815814-pcmax-scheduling-m11-1517-6802-UNSAT.sanitized.cnf.xz",
+    "b68ae7866df5e852c3acb97a46da2faf-circuit_48in64out_with_1000gates_4in4out_dist128_seed4.sanitized.cnf.xz":
+        "79b9e24dd9af185dbec18c9b0a32b1e2-g2-slp-synthesis-aes-top30.cnf.xz",
+    "c033577c6f5f9a1545537518af964305-reconf10_73_queen13_2.cnf.xz":
+        "2241a1fb5bdbac0c1a3c1980ed8b332d-crusti_g2io_225_0.1_31_25.normalised.cnf.xz",
+    "166e1e5a9f63fcf94ddae8533fa2a090-mp1-squ_any_s09x07_c27_abix_UNS.cnf.xz":
+        "ae48df6541d190c096b1e5ba22d1b534-korf-17.cnf.xz",
+}
 
 
 def read(path: Path) -> list[dict[str, str]]:
@@ -141,6 +158,10 @@ def tierd() -> tuple[list[str], list[str]]:
     reduced = draw()
     while sum(price[i] for i in reduced) > BUDGET:
         reduced = draw()
+    by_name = {Path(i).name: i for i in pool}
+    reduced = [by_name.get(REPLACE.get(Path(i).name), i) for i in reduced]
+    assert all(Path(i).name not in REPLACE for i in reduced), "a replacement is not in the pool"
+    assert len({fam(i) for i in reduced}) == len(reduced), "two formulas of one family"
     reduced = sorted(reduced, key=lambda i: (year(i), i))
     smoke = []
     for want_sat in (True, False):
