@@ -623,7 +623,7 @@ def main() -> None:
                 check = (record.get("check") or {}).get("result", "")
                 if record["verdict"] == "SAT":
                     check = ("model ok" if record.get("model_ok") else
-                             "model in nonstandard output format (not counted)"
+                             "model not ok"
                              if record.get("model_format_ok") is False else "MODEL REJECTED")
                 elif record["solve"].get("memout"):
                     check = "memory-out"

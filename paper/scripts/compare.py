@@ -219,7 +219,7 @@ Values: the rerun. "Paper" columns: the paper's runs of the same configurations 
 as recorded, at the paper's limits (README.md, section 3.2).
 *: a paper time above the rerun's limit. timeout: no answer within the limit.
 >N: checking stopped after N s. rejected: a checker did not accept the certificate.
-nonstandard: an assignment printed in a nonstandard format, not counted (as in the paper).
+model not ok: an assignment printed in a nonstandard format, not counted (as in the paper).
 -: no answer, or not checked."""
 
 # Per experiment: title, the configuration column's name, whether certificates
@@ -257,7 +257,7 @@ def check_cell(verdict: str, seconds: str, status: str, verified: str, limit: fl
     """limit: the rerun's checking limit (* above it); stop: the limit the run was checked with."""
     if verdict == "SAT":
         return "model ok" if true(verified) else \
-            "nonstandard" if "nonprotocol" in status or "nonstandard" in status else "rejected"
+            "model not ok" if "nonprotocol" in status or "nonstandard" in status else "rejected"
     if verdict != "UNSAT" or not seconds:
         return "-"
     if true(verified):
