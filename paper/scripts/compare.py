@@ -23,7 +23,6 @@ import csv
 import json
 import re
 import shutil
-import statistics
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -296,45 +295,19 @@ def per_formula(name: str, pairs: list[dict]) -> report.Table:
     return report.Table(f"{name}-per-formula", f"Per formula ({limits})", header, rows, keys=3)
 
 
-def ratios(pairs: list[dict]) -> str:
-    """How the rerun's times compare with the paper's, run by run."""
-    answered = lambda v: v in ("SAT", "UNSAT")
-    def describe(values, what):
-        if not values:
-            return ""
-        values = sorted(values)
-        low, high = (statistics.quantiles(values, n=20)[0], statistics.quantiles(values, n=20)[-1]) \
-            if len(values) > 1 else (values[0], values[0])
-        middle = f", middle 90% {low:.2f} to {high:.2f}" if len(values) >= 10 else \
-            f", from {values[0]:.2f} to {values[-1]:.2f}"
-        return f"{what} median {statistics.median(values):.2f}{middle} ({len(values)} runs)"
-    solve = [float(p["rerun_solve_seconds"]) / float(p["paper_solve_seconds"]) for p in pairs
-             if answered(p["rerun_verdict"]) and answered(p["paper_verdict"])
-             and float(p["paper_solve_seconds"]) >= 1]
-    check = [float(p["rerun_check_seconds"]) / float(p["paper_check_seconds"]) for p in pairs
-             if true(p["rerun_verified"]) and true(p["paper_verified"]) and p["rerun_check_seconds"]
-             and p["paper_check_seconds"] and float(p["paper_check_seconds"]) >= 1]
-    parts = [x for x in (describe(solve, "runtime"), describe(check, "check time")) if x]
-    return ("Rerun / paper, on runs both answered (paper time at least 1 s): " + "; ".join(parts) + "."
-            if parts else "")
-
-
 def section(name: str, pairs: list[dict], tables: dict[str, report.Table], out: Path,
             markdown: bool) -> str:
     title, _, _, names, figures = GUIDE[name]
     shown = ([per_formula(name, pairs)] if name != "interface" else []) + \
         [tables[t] for t in names if t in tables]
-    summary = ratios(pairs)
     if markdown:
         text = [f"## {title}", ""]
-        if summary:
-            text += [summary, ""]
         text += [render(t, True) if isinstance(t, Paired) else report.render(t, True) for t in shown]
         if figures:
             text += ["**Figures:** " + "; ".join(figures) + " in artifact/figures/ (the rerun) and "
                      "paper-logs/figures/ (the paper's logs on the same runs).", ""]
         return "\n".join(text)
-    text = [f"\n== {title}"] + ([summary] if summary else [])
+    text = [f"\n== {title}"]
     text += [render(t, False) if isinstance(t, Paired) else report.render(t) for t in shown]
     if figures:
         text += ["", "Figures (rerun; the paper's logs in paper-logs/figures/): " + "; ".join(figures),
