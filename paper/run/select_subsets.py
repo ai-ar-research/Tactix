@@ -36,8 +36,9 @@ took longest in the paper's runs, and of each other set, 5 formulas of at most
 spread evenly over that range of solving times (most formulas of these sets
 take under a second, which measures start-up rather than solving).
 
-Cruxmiter (Table 4). The seed (of ten) with the smallest total solving plus
-checking time over the three configurations in the paper's runs (seed 7).
+Cruxmiter (Table 4). The two seeds (of ten) with the smallest total solving
+plus checking time over the three configurations in the paper's runs (seeds 2
+and 7); the smoke set is the cheaper one.
 
 Chvatal (Table 5, Figure 6). The subproblem (of 23) with the smallest total
 solving plus checking time over the four configurations.
@@ -206,7 +207,7 @@ def cruxmiter() -> tuple[list[str], list[str]]:
     total = collections.Counter()
     for row in read(PAPER / "data/crux-results.csv"):
         total[int(row["seed"])] += float(row["solve_seconds"]) + float(row["check_seconds"])
-    seeds = sorted(total, key=total.get)[:1]
+    seeds = sorted(total, key=total.get)[:2]
     return [f"cruxmiter32seed{s}.cnf" for s in sorted(seeds)], [f"cruxmiter32seed{seeds[0]}.cnf"]
 
 
@@ -222,7 +223,7 @@ def chvatal() -> tuple[list[str], list[str]]:
 HEADER = {
     "tierd": "tierd reduced set (also the milestones'): 20 formulas from different families",
     "interface": "Interface reduced set: the 20 longest Tier A formulas, 5 per other set solved in 10 to 250 s",
-    "cruxmiter": "Cruxmiter reduced set: the cheapest seed in the paper's runs",
+    "cruxmiter": "Cruxmiter reduced set: the two cheapest seeds in the paper's runs",
     "chvatal": "Chvatal reduced set: the cheapest of the 23 subproblems in the paper's runs",
 }
 
