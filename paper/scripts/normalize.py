@@ -26,6 +26,9 @@ from pathlib import Path
 LOGS = Path(__file__).resolve().parents[1] / "logs"
 OUT = LOGS
 PENALTY = 10000
+# The cruxmiter campaign named the cruxmiter strategy "Public policy"; the
+# artifact calls it Cruxmiter Tactix (paper/logs/cruxmiter/Public-policy.tar.xz).
+RENAME = {"Public policy": "Cruxmiter Tactix"}
 
 
 def runs(experiment: str, skip: tuple[str, ...] = ()) -> list[dict]:
@@ -35,6 +38,8 @@ def runs(experiment: str, skip: tuple[str, ...] = ()) -> list[dict]:
         with tarfile.open(path, "r:xz") as archive:
             out += [json.load(archive.extractfile(member)) for member in archive
                     if member.isfile() and "/runs/" in member.name]
+    for entry in out:
+        entry["configuration"] = RENAME.get(entry["configuration"], entry["configuration"])
     return sorted((entry for entry in out if entry["configuration"] not in skip),
                   key=lambda entry: entry["order"])
 

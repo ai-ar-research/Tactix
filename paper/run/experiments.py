@@ -138,7 +138,7 @@ EXPERIMENTS = {
         "configurations": {
             "Default Tactix": {"command": [f"{T}/paper-tierd/tactix", "--dsr", "{cnf}", "{proof}"],
                                "proof": "tactix"},
-            "Public policy": {"command": [f"{T}/paper-cruxmiter-public/tactix-cruxmiter-policy",
+            "Cruxmiter Tactix": {"command": [f"{T}/paper-cruxmiter-public/tactix-cruxmiter-policy",
                                           "{cnf}", "{proof}"], "proof": "drat"},
             "Kissat 4.0.4": KISSAT,
         },

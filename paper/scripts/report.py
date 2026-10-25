@@ -17,7 +17,7 @@ from pathlib import Path
 
 PAPER = Path(__file__).resolve().parents[1]
 TIERD_ORDER = ("Tactix", "Satsuma+Kissat", "Kissat 4.0.4", "LymphoSAT", "Kissat-sc2024", "AE-Kissat-MAB")
-CRUX_ORDER = ("Default Tactix", "Public policy", "Kissat 4.0.4")
+CRUX_ORDER = ("Default Tactix", "Cruxmiter Tactix", "Kissat 4.0.4")
 CHVATAL_ORDER = ("Chvatal Tactix", "Default Tactix", "Satsuma+Kissat", "Kissat 4.0.4")
 INTERFACE_SETS = ("Tier A", "B28+C5", "Rank 1-50", "WV100")
 MILESTONES = (("Milestone A", "1"), ("Milestone B", "2"), ("Milestone C", "3"),
@@ -90,7 +90,7 @@ def cruxmiter(data: Path) -> list[Table]:
                      f'{float(r["check_seconds"]):.1f}' if checked and r["check_seconds"] else "-",
                      f'{int(r["proof_bytes"] or 0) / 1e9:.2f}']
         out.append(line)
-    return [Table("table4", "Table 4: cruxmiter (T = Tactix, Tmi = cruxmiter strategy, K = Kissat 4.0.4; "
+    return [Table("table4", "Table 4: cruxmiter (T = Tactix, Tmi = Cruxmiter Tactix, K = Kissat 4.0.4; "
                   "solve s, check s, proof GB; '-' = no answer or check failed)",
                   ["Seed", "", "T solve", "T check", "T GB", "Tmi solve", "Tmi check", "Tmi GB",
                    "K solve", "K check", "K GB"], out)]
