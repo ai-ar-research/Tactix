@@ -8,6 +8,7 @@
 | [install.md](install.md) | Release binaries, and installing Tactix as a library (CMake, pkg-config) |
 | [cli.md](cli.md) | Every command-line option, the output format, the example strategy programs |
 | [strategies.md](strategies.md) | A guided tour of writing strategies: DPLL, the cruxmiter case study, online programs, an exercise |
+| [ai-strategy-prompt.md](ai-strategy-prompt.md) | A reusable example prompt for AI strategy design and evaluation |
 | [c-api.md](c-api.md) | The C interface: writing your own strategy, per-invocation rule settings, a tutorial |
 | [rules.md](rules.md) | Every proof rule and policy operation a strategy can apply |
 | [proof-rules.html](proof-rules.html) | Interactive guide to the proof rules (open in a browser) |
