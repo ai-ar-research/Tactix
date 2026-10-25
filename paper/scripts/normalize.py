@@ -97,10 +97,15 @@ def _tierd_row(record):
     else:
         status = f"no-answer (exit {solve.get('exit_code')})"
     wall = solve.get("wall_seconds")
+    # The Tactix campaign's check time also covers preparing the checker's input;
+    # check_stage_seconds is the checkers' own time, as the other solvers record.
+    stages = check.get("stages") or []
     return dict(verdict=record.get("verdict"), solve_seconds=wall, status=status, verified=ok,
                 check_seconds=check.get("wall_seconds"),
                 proof_bytes=record.get("certificate_bytes"),
-                par2_seconds=round(wall, 3) if ok else PENALTY)
+                par2_seconds=round(wall, 3) if ok else PENALTY,
+                check_stage_seconds=round(sum(s.get("wall_seconds") or 0 for s in stages), 3)
+                if stages else "")
 
 
 def tierd():

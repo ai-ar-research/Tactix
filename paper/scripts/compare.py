@@ -87,10 +87,15 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
                 "experiment": name, "set": run.get("set", ""), "configuration": run["configuration"],
                 "formula": key(run["instance"]),
                 "rerun_verdict": run["verdict"], "rerun_solve_seconds": run["solve_seconds"],
-                "rerun_check_seconds": run.get("check_seconds", ""), "rerun_status": run.get("status", ""),
+                # a verified check: the checkers' own time, as the paper's records give it
+                "rerun_check_seconds": run.get("checker_seconds") if true(run.get("verified"))
+                and run.get("checker_seconds") else run.get("check_seconds", ""),
+                "rerun_status": run.get("status", ""),
                 "rerun_verified": run.get("verified", ""),
                 "paper_verdict": paper["verdict"], "paper_solve_seconds": paper["solve_seconds"],
-                "paper_check_seconds": paper.get("check_seconds", ""), "paper_status": paper.get("status", ""),
+                # the checkers' own time where the campaign also timed its input preparation
+                "paper_check_seconds": paper.get("check_stage_seconds") or paper.get("check_seconds", ""),
+                "paper_status": paper.get("status", ""),
                 "paper_verified": paper.get("verified", ""),
                 "solve_limit_seconds": run["solve_limit_seconds"],
                 "check_limit_seconds": run["check_limit_seconds"],

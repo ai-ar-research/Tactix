@@ -252,21 +252,31 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
     """Check an UNSAT certificate; returns {result, pipeline, wall_seconds, stages}.
     Runs inside `bench.py check`, whose memory the caller limits as a whole."""
     started = time.monotonic()
+    if kind in ("satsuma", "tactix"):
+        # checker_seconds: the time spent in the checkers themselves (every one
+        # runs through proof_oracle.run_captured), without the routing around them.
+        import proof_oracle  # tools/bench/proof_oracle.py
+        spent, run_captured = [], proof_oracle.run_captured
+        def timed(*args, **kwargs):
+            begun = time.monotonic()
+            try:
+                return run_captured(*args, **kwargs)
+            finally:
+                spent.append(time.monotonic() - begun)
+        proof_oracle.run_captured = timed
     if kind == "satsuma":  # the verified SR pipeline the paper's runs used for Satsuma
-        from proof_oracle import check_dsr
-        verified, stage, output = check_dsr(BIN / "dsr-trim", BIN / "dsr-compress", BIN / "srcheck",
-                                            cnf, proof, work, seconds)
+        verified, stage, output = proof_oracle.check_dsr(BIN / "dsr-trim", BIN / "dsr-compress",
+                                                         BIN / "srcheck", cnf, proof, work, seconds)
         return {"result": "verified" if verified else "not-verified", "pipeline": "satsuma-dsr",
-                "wall_seconds": round(time.monotonic() - started, 3),
+                "wall_seconds": round(time.monotonic() - started, 3), "checker_seconds": round(sum(spent), 3),
                 "failure": None if verified else f"{stage}: {output[-500:]}"}
     if kind == "tactix":
-        from proof_oracle import check_routed  # tools/bench/proof_oracle.py
-        verified, stage, output, route = check_routed(
+        verified, stage, output, route = proof_oracle.check_routed(
             BIN / "dsr-trim", BIN / "dsr-compress", BIN / "srcheck", BIN / "drat-trim",
             BIN / "cake_lpr", cnf, proof, work, seconds,
             veripb=BIN / "veripb", cake_pb=BIN / "cake_pb_cnf")
         return {"result": "verified" if verified else "not-verified", "pipeline": f"tactix-{route}",
-                "wall_seconds": round(time.monotonic() - started, 3),
+                "wall_seconds": round(time.monotonic() - started, 3), "checker_seconds": round(sum(spent), 3),
                 "failure": None if verified else f"{stage}: {output[-500:]}"}
     lrat = work / "proof.lrat"
     if kind == "drat":
@@ -295,6 +305,7 @@ def check_pipeline(kind: str, cnf: Path, proof: Path, work: Path, seconds: float
     verified = len(log) == len(stages) and all(s["result"] == "verified" for s in log)
     return {"result": "verified" if verified else "not-verified", "pipeline": kind,
             "wall_seconds": round(time.monotonic() - started, 3),
+            "checker_seconds": round(sum(s["wall_seconds"] for s in log), 3),
             "timed_out": any(s["timed_out"] for s in log), "stages": log}
 
 
@@ -458,6 +469,7 @@ def _row(record: dict) -> dict:
             "timed_out": solve["timed_out"], "status": status, "verified": verified,
             "counted": counted, "proof_mode": "none" if proof_free else "proof",
             "proof_check_result": check.get("result") or "", "check_seconds": check.get("wall_seconds", ""),
+            "checker_seconds": check.get("checker_seconds", ""),
             "proof_bytes": record.get("certificate_bytes") or "",
             "par2_seconds": (round(wall, 3) if (counted if proof_free else verified)
                              else 2 * record["limits"]["seconds"]),
