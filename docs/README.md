@@ -8,9 +8,6 @@
 | [ai-strategy-prompt.md](ai-strategy-prompt.md) | An example prompt for designing a strategy with an AI agent |
 | [../examples/](../examples/) | Example strategies and small formulas |
 
-The [artifact branch](https://github.com/ai-ar-research/Tactix/tree/artifact/paper)
-reproduces the paper's evaluation.
-
 ## For developers
 
 `dev/` holds the detailed references and the notes on how Tactix works:
