@@ -219,6 +219,7 @@ READING = """\
 Values: the rerun. "Paper" columns: the paper's runs of the same configurations and formulas,
 as recorded, at the paper's limits (README.md, section 3.2).
 *: a paper time above the rerun's limit. timeout: no answer within the limit.
+memory-out: the solver, or a checker, exceeded the memory limit.
 >N: checking stopped after N s. rejected: a checker did not accept the certificate.
 model not ok: an assignment printed in a nonstandard format, not counted (as in the paper).
 -: no answer, or not checked."""
@@ -264,6 +265,8 @@ def check_cell(verdict: str, seconds: str, status: str, verified: str, limit: fl
         return "-"
     if true(verified):
         return f"{float(seconds):.1f}" + ("*" if float(seconds) > limit else "")
+    if "memory" in status:
+        return "memory-out"
     return f">{stop:g}" if float(seconds) >= 0.98 * stop else "rejected"
 
 

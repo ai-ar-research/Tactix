@@ -455,7 +455,8 @@ def _row(record: dict) -> dict:
     elif verdict == "SAT":
         status = "model-nonstandard-output" if record.get("model_format_ok") is False else "model-rejected"
     elif verdict == "UNSAT":
-        status = "unsat-unchecked" if proof_free or not check else "unverified"
+        status = ("unsat-unchecked" if proof_free or not check else
+                  "check-memory-out" if check.get("memout") else "unverified")
     elif solve["timed_out"]:
         status = "timeout"
     elif solve.get("memout"):
@@ -627,6 +628,8 @@ def main() -> None:
                              if record.get("model_format_ok") is False else "MODEL REJECTED")
                 elif record["solve"].get("memout"):
                     check = "memory-out"
+                elif (record.get("check") or {}).get("memout"):
+                    check = "check memory-out"
                 print(f"[{done}/{len(work)}] {label:36} {name:44} "
                       f"{record['verdict']:7} {record['solve']['wall_seconds']:9.2f} s {check}", flush=True)
         collect(args.out)
