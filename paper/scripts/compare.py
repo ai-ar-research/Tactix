@@ -91,11 +91,13 @@ def paper_view(run_logs: Path, out_logs: Path) -> list[dict]:
                 and run.get("checker_seconds") else run.get("check_seconds", ""),
                 "rerun_status": run.get("status", ""),
                 "rerun_verified": run.get("verified", ""),
+                "rerun_proof_bytes": run.get("proof_bytes", ""),
                 "paper_verdict": paper["verdict"], "paper_solve_seconds": paper["solve_seconds"],
                 # the checkers' own time where the campaign also timed its input preparation
                 "paper_check_seconds": paper.get("check_stage_seconds") or paper.get("check_seconds", ""),
                 "paper_status": paper.get("status", ""),
                 "paper_verified": paper.get("verified", ""),
+                "paper_proof_bytes": paper.get("proof_bytes", ""),
                 "solve_limit_seconds": run["solve_limit_seconds"],
                 "check_limit_seconds": run["check_limit_seconds"],
                 "same_outcome": answered["run"] == answered["paper"]
@@ -143,11 +145,6 @@ def build(logs: Path, base: Path) -> None:
         subprocess.run(make + targets, check=True, stdout=subprocess.DEVNULL)
 
 
-# Columns shown once: the same for the rerun and the paper's runs (Table 6's
-# columns from the git history).
-UNPAIRED = {"table6": {"Commit", "Day", "Commits", "Solver/API lines +/-", "Test/fuzzing lines +/-"}}
-
-
 @dataclass
 class Paired:
     """A paper table with, next to each value column, the same column from the
@@ -163,8 +160,7 @@ class Paired:
 
 def pair(rerun: report.Table, paper: report.Table | None) -> Paired:
     lookup = {tuple(r[:rerun.keys]): r for r in (paper.rows if paper else [])}
-    keep = UNPAIRED.get(rerun.name, set())
-    paired = [h not in keep for h in rerun.header[rerun.keys:]]
+    paired = [True] * (len(rerun.header) - rerun.keys)
     rows = []
     for row in rerun.rows:
         other = lookup.get(tuple(row[:rerun.keys]))
@@ -231,15 +227,16 @@ GUIDE = {
               ("tierd-cactus.pdf (Figure 3)", "tierd-scatter.pdf (Figure 4)",
                "tierd-scatter-satsuma.pdf, tierd-scatter-lympho.pdf (appendix)")),
     "milestones": ("milestones: earlier versions of Tactix on the tierd formulas (Table 6, Figure 7)",
-                   "Version", False, ("table6", "figure7"), ("milestone-ladder.pdf (Figure 7)",)),
+                   "Version", False, (), ("milestone-ladder.pdf (Figure 7)",)),
     "interface": ("interface: the default strategy through the C interface and in C++ (Figure 5)",
                   "Configuration", False, ("figure5",), ("interface-overhead.pdf (Figure 5)",)),
     "cruxmiter": ("cruxmiter: case study 1, arithmetic circuit verification (Table 4)",
-                  "Configuration", True, ("table4",), ()),
+                  "Configuration", True, (), ()),
     "chvatal": ("chvatal: case study 2, subproblems of Chvatal's conjecture (Table 5, Figure 6)",
-                "Configuration", True, ("table5",),
+                "Configuration", True, (),
                 ("chvatal-scatter.pdf (Figure 6)", "chvatal-table.tex (Table 5 in LaTeX)")),
 }
+PROOF_SIZE = ("cruxmiter",)  # Table 4 also reports certificate sizes
 ORDER = {"tierd": report.TIERD_ORDER, "cruxmiter": report.CRUX_ORDER, "chvatal": report.CHVATAL_ORDER,
          "milestones": tuple(m for m, _ in report.MILESTONES)}
 VERSION = {m: ("Current" if v == "Now" else f"Version {v}") for m, v in report.MILESTONES}
@@ -272,6 +269,7 @@ def per_formula(name: str, pairs: list[dict]) -> report.Table:
                                          if p["configuration"] in order else len(order)))
     header = ["Formula", label, "Verdict", "Runtime (s)", "Paper runtime (s)"]
     header += ["Check (s)", "Paper check (s)"] if checks else []
+    header += ["Proof (GB)", "Paper proof (GB)"] if name in PROOF_SIZE else []
     paper_check = FULL[name]["limits"]["check_seconds"]
     rows, previous = [], None
     for p in pairs:
@@ -289,6 +287,10 @@ def per_formula(name: str, pairs: list[dict]) -> report.Table:
                                p["rerun_verified"], check, check),
                     check_cell(p["paper_verdict"], p["paper_check_seconds"], p["paper_status"],
                                p["paper_verified"], check, paper_check)]
+        if name in PROOF_SIZE:
+            row += [f"{int(b) / 1e9:.2f}" if v == "UNSAT" and b else "-"
+                    for v, b in ((p["rerun_verdict"], p["rerun_proof_bytes"]),
+                                 (p["paper_verdict"], p["paper_proof_bytes"]))]
         rows.append(row)
         previous = p["formula"]
     limits = f"limits: {solve:g} s to solve" + (f", {check:g} s to check" if checks else "")
