@@ -118,11 +118,24 @@ def current_from_tierd(logs: Path) -> None:
     write(milestones, rows + current)
 
 
+# The paper's figures, by the data file they are drawn from.
+FIGURES = {"tierd-times.csv": ("tierd-cactus.pdf", "tierd-scatter.pdf", "tierd-scatter-satsuma.pdf",
+                               "tierd-scatter-lympho.pdf"),
+           "interface-overhead.csv": ("interface-overhead.pdf",),
+           "milestone-times.csv": ("milestone-ladder.pdf",),
+           "chvatal-results.csv": ("chvatal-scatter.pdf", "chvatal-table.tex")}
+
+
 def build(logs: Path, base: Path) -> None:
-    """data/ and figures/ from logs/, with the paper's Makefile."""
-    subprocess.run(["make", "-s", "-C", str(PAPER), f"LOGS={logs}", f"DATA={base / 'data'}",
-                    f"FIGURES={base / 'figures'}", "data", "figures"], check=True,
-                   stdout=subprocess.DEVNULL)
+    """data/ from logs/, then the figures of the experiments that have data,
+    with the paper's Makefile."""
+    make = ["make", "-s", "-C", str(PAPER), f"LOGS={logs}", f"DATA={base / 'data'}",
+            f"FIGURES={base / 'figures'}"]
+    subprocess.run(make + ["data"], check=True, stdout=subprocess.DEVNULL)
+    targets = [str(base / "figures" / f) for data, figures in FIGURES.items()
+               if (base / "data" / data).exists() for f in figures]
+    if targets:
+        subprocess.run(make + targets, check=True, stdout=subprocess.DEVNULL)
 
 
 def merge(rerun: report.Table, paper: report.Table | None) -> report.Table:

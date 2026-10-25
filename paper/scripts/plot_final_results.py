@@ -297,7 +297,8 @@ def main() -> None:
         SOLVE_LIMIT = float(limits.get("tierd", {}).get("seconds", SOLVE_LIMIT))
         MILESTONE_LIMIT = float(limits.get("milestones", {}).get("seconds", MILESTONE_LIMIT))
     setup()
-    rows = read_rows(args.data)
+    tierd_figures = (args.cactus, args.scatter, args.scatter_satsuma, args.scatter_lympho)
+    rows = read_rows(args.data) if any(tierd_figures) else []  # needed only by the tierd figures
     if args.cactus:
         cactus(rows, args.cactus)
     if args.scatter:
