@@ -1,6 +1,6 @@
 # Tactix — A Programmable Strategy Interface for Flexible SAT Solving
 
-We are exploring a paradigm shift from *solvers as black boxes* to *solvers as libraries*. The goal is to unleash the full potential of the rich, growing repertoire of techniques that have been actively developed for decades. To this end, we introduce Tactix, a CDCL SAT solver with a public strategy interface that enables users to define custom solving strategies for orchestrating search and inprocessing rules.
+We are exploring a paradigm shift from *solvers as black boxes* to *solvers as libraries*. The goal is to unleash the full potential of the rich, growing repertoire of techniques that have been actively developed for decades. To this end, we introduce Tactix, an inprocessing CDCL SAT solver with a public strategy interface that enables users to define custom solving strategies for orchestrating search and inprocessing rules.
 
 Tactix incorporates a wide range of techniques from existing SAT solvers and exposes them through a public interface where the user can define specialized solving strategies by writing a program that iteratively selects particular techniques, observes their effects, and decides the next strategy to apply.
 
