@@ -8,24 +8,21 @@ Design and implement a Tactix strategy for [application / benchmark family].
 Aim for [performance target] against default Tactix and [external baseline].
 Treat this as a research target, not a required positive result.
 
+[Add human knowledge about the structure of the benchmark].
+
 Read the repository guidance, strategy examples, and public API documentation.
 Use the public interface; consider adaptive combinations of search, restarts,
 simplification, structural reasoning, and local search. Respect each operation's
 preconditions, bound unproductive work, and provide a fallback to default search.
 
-Before tuning, freeze grouped training, validation, and final-test sets. Keep
-related instances, seeds, and parameter variants together. Previously tuned
-cases belong in training. If data is insufficient, report that limitation.
-
-Profile and develop on training only. Explain each hypothesis, test it, and
-check counters to confirm the intended operations ran and had an effect.
-Use ablations to justify added complexity. Do not branch on instance names,
-known answers, or benchmark identities.
+Split the given instances into training and validation sets. Profile and develop
+on training only. Explain each hypothesis, test it, and check counters to confirm
+the intended operations ran and had an effect. Use ablations to justify added
+complexity. Do not branch on instance names, known answers, or benchmark identities.
 
 Freeze a small candidate shortlist and selection metric before validation.
 Use validation to select among those candidates, then freeze the winner for
-final testing. Do not tune on final-test results. Revisions after validation
-require fresh validation data; retain and report earlier results.
+final testing.
 
 Check SAT models and UNSAT proofs independently. Exercise strategy transitions
 and fallback paths on small tests before expensive experiments. Preserve the
