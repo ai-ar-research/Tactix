@@ -178,6 +178,7 @@ add_test(NAME p4_fixtures
 add_test(NAME campaign_certificate_cleanup
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_campaign_certificate_cleanup.py)
+set_tests_properties(campaign_certificate_cleanup PROPERTIES SKIP_RETURN_CODE 77)
 if(TACTIX_DEVELOPER_CHECKS)
   add_test(NAME tierd_campaign_pinning
            COMMAND ${CMAKE_COMMAND} -E env python3
@@ -841,6 +842,9 @@ foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
     add_test(NAME "${test_name}" COMMAND "${test_target}")
   endif()
 endforeach()
+
+# The full-device failure fixture is unavailable on platforms without /dev/full.
+set_tests_properties(proof_output_failure PROPERTIES SKIP_RETURN_CODE 77)
 
 # Bound the empty-scope interruption regression if stop polling regresses.
 # The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;

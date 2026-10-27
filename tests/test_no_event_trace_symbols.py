@@ -25,6 +25,19 @@ for candidate in (b"conflict=\0", b"victims=\0", b"keep-level=\0"):
 
 symbols = subprocess.run(["nm", "-C", str(binary)], text=True,
                          capture_output=True, check=True).stdout
+# Darwin's BSD-style nm output reports weak definitions as T. Read the Mach-O
+# attributes separately, then normalize only addresses explicitly marked weak.
+if sys.platform == "darwin":
+    attributes = subprocess.run(["nm", "-m", str(binary)], text=True,
+                                capture_output=True, check=True).stdout
+    weak_addresses = {
+        line.split()[0] for line in attributes.splitlines()
+        if re.search(r"\bweak (?:private )?external\b", line)
+    }
+    symbols = "\n".join(
+        re.sub(r"^(\S+\s+)T(\s+)", r"\1W\2", line)
+        if line.split() and line.split()[0] in weak_addresses else line
+        for line in symbols.splitlines())
 # Optimized runtime builds retain the original zero-symbol requirement.
 # At -O0 the disabled header's empty inline methods have weak out-of-line
 # definitions. Permit only that explicit inventory, never arbitrary weak

@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -83,7 +85,9 @@ static void test_late_input_add_rejected(void) {
     if (!child) {
       const struct rlimit no_core = {0, 0};
       assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+#ifdef __linux__
       assert(prctl(PR_SET_DUMPABLE, 0) == 0);
+#endif
       tactix *s = tactix_init();
       add_clause(s, (const int[]){3, 0});
       finalize_with_query(s, query);

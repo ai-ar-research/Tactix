@@ -1,6 +1,7 @@
 // V6 Congruence: two gates of the same kind over the same inputs have
 // equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). docs/dev/calculus.md.
 #undef NDEBUG
+#include "temporary_file.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -1122,7 +1123,8 @@ static void test_canonical_literal_form_xor_ite_refutations() {
 // under ~(1 v -2), literal 2 is an assumption, not a propagation. The
 // remaining two clauses still give a complete ordered LRAT refutation.
 static void test_lrat_replay_omits_root_unit_in_initial_cube() {
-  FILE *input = std::tmpfile(), *sink = std::tmpfile();
+  TemporaryFile proof_file;
+  FILE *input = std::tmpfile(), *sink = proof_file.stream;
   assert(input && sink);
   // Put the unit last: input normalization must not strip -2 from the
   // earlier ternary, or its root reason never enters the replay walk.
@@ -1130,7 +1132,7 @@ static void test_lrat_replay_omits_root_unit_in_initial_cube() {
   std::rewind(input);
   Kernel k;
   Proof proof;
-  assert(proof.open(("/proc/self/fd/" + std::to_string(fileno(sink))).c_str(),
+  assert(proof.open(proof_file.path.c_str(),
                     ProofFormat::Lrat));
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
@@ -1147,7 +1149,6 @@ static void test_lrat_replay_omits_root_unit_in_initial_cube() {
   assert((chain == std::vector<uint64_t>{1, 2}));
   k.proof = nullptr;
   std::fclose(input);
-  std::fclose(sink);
 }
 
 static int semantic_proof_witness(const char *input_path,

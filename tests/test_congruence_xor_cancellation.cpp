@@ -2,6 +2,7 @@
 // Check every emitted RUP step, including unused lemmas, against a tiny
 // independent clause-multiset oracle (not the kernel's propagation routine).
 #undef NDEBUG
+#include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
@@ -106,7 +107,8 @@ int main(int argc, char **argv) {
       if (model) { ++models; assert(value(a) == value(b)); }
     }
     assert(clash ? models == 0 : models > 0);
-    FILE *input = std::tmpfile(), *output = std::tmpfile();
+    TemporaryFile proof_file;
+    FILE *input = std::tmpfile(), *output = proof_file.stream;
     assert(input && output);
     std::fprintf(input, "p cnf 8 %zu\n", rows.size());
     std::map<Row, unsigned> population;
@@ -123,7 +125,7 @@ int main(int argc, char **argv) {
     if (mode) {
       const auto format = mode == 1 ? ProofFormat::DsrAscii :
                           mode == 2 ? ProofFormat::DratAscii : ProofFormat::Lrat;
-      assert(proof.open(("/proc/self/fd/" + std::to_string(fileno(output))).c_str(), format));
+      assert(proof.open(proof_file.path.c_str(), format));
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
     }
@@ -205,7 +207,6 @@ int main(int argc, char **argv) {
     }
     k.proof = nullptr;
     std::fclose(input);
-    std::fclose(output);
     ++cases;
   }
   std::printf("XOR cancelled-input proofs: %u fixed cases\n", cases);

@@ -1,5 +1,6 @@
 // Temporary Congruence clauses must disappear in every clausal backend.
 #undef NDEBUG
+#include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "rules/congruence/congruence.hpp"
 #include <algorithm>
@@ -43,7 +44,8 @@ int main() {
         and_gate(rows, 4, 1, 2);
         xor_gate(rows, 5, 3, 4);
       }
-      FILE *input = std::tmpfile(), *output = std::tmpfile();
+      TemporaryFile proof_file;
+      FILE *input = std::tmpfile(), *output = proof_file.stream;
       assert(input && output);
       std::fprintf(input, "p cnf 5 %zu\n", rows.size());
       std::map<Row, int> population;
@@ -56,7 +58,7 @@ int main() {
       std::rewind(input);
       Kernel k;
       Proof proof;
-      assert(proof.open(("/proc/self/fd/" + std::to_string(fileno(output))).c_str(), format));
+      assert(proof.open(proof_file.path.c_str(), format));
       proof.bind_variable_map(&k.internal_to_external);
       k.proof = &proof;
       assert(!parse_dimacs(input, k));
@@ -104,6 +106,5 @@ int main() {
         assert(live && "proof-only ladder survived Congruence");
       }
       std::fclose(input);
-      std::fclose(output);
     }
 }

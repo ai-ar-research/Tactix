@@ -34,8 +34,9 @@ add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 # project that adds it with add_subdirectory gets only the solver and library.
 option(TACTIX_BUILD_TESTS "Build the tests and example strategies" ${PROJECT_IS_TOP_LEVEL})
 
-# Bounded certificate transport; the independent checkers still decide validity.
-if(TACTIX_BUILD_TESTS)
+# Bounded certificate transport requires Linux O_TMPFILE and /proc/self/fd.
+# The Python proof oracle remains available on other platforms.
+if(TACTIX_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_executable(dsr-transport tools/bench/dsr_transport.cpp)
 endif()
 
@@ -93,8 +94,11 @@ endif()
 
 # Proof export can copy a huge learned core. Only this translation unit may
 # catch allocation failure; `SubSolver::derivation` is noexcept to callers.
+# Keep this island optimized in Debug too (as in the debug preset). Apple
+# Clang 15 can otherwise coalesce libc++ vector constructors with copies from
+# -fno-exceptions objects and bypass the allocation-failure handler.
 set_source_files_properties(src/engine/subsolver_proof_export.cpp PROPERTIES
-  COMPILE_OPTIONS -fexceptions)
+  COMPILE_OPTIONS "-fexceptions;$<$<CONFIG:Debug>:-O1>")
 if(TACTIX_ENABLE_EVENT_TRACE)
   target_sources(tactix_lib PRIVATE src/diagnostics/event_trace.cpp)
   target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_EVENT_TRACE=1)
@@ -169,8 +173,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tactix.pc
 
 if(TACTIX_BUILD_TESTS)
   enable_testing()
-  add_test(NAME dsr_transport COMMAND python3
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
+  if(TARGET dsr-transport)
+    add_test(NAME dsr_transport COMMAND python3
+      ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/test_dsr_transport.py $<TARGET_FILE:dsr-transport>)
+  endif()
   add_subdirectory(tests)
   add_subdirectory(examples)
 endif()

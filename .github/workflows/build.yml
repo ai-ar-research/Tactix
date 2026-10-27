@@ -14,15 +14,37 @@ concurrency:
 
 jobs:
   tactix:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        include:
+          - name: Linux latest
+            os: ubuntu-latest
+            compiler_package: ""
+            cc: ""
+            cxx: ""
+            compiler_major: ""
+          - name: Linux / minimum Clang
+            os: ubuntu-24.04
+            compiler_package: clang-18
+            cc: /usr/bin/clang-18
+            cxx: /usr/bin/clang++-18
+            compiler_major: 18
+          - name: macOS 15
+            os: macos-15
+            compiler_package: ""
+            cc: ""
+            cxx: ""
+            compiler_major: ""
+          - name: macOS latest
+            os: macos-latest
+            compiler_package: ""
+            cc: ""
+            cxx: ""
+            compiler_major: ""
 
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +52,22 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes zlib1g-dev
+
+      # Exercise the oldest supported upstream Clang frontend with the runner's
+      # system libstdc++. Apple Clang has its own 15+ floor; reproducing its
+      # oldest supported SDK pairing requires a matching Xcode installation.
+      - name: Install minimum compiler
+        if: matrix.compiler_package != ''
+        run: |
+          sudo apt-get install --yes "${{ matrix.compiler_package }}"
+          echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+          echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+
+      - name: Verify minimum compiler
+        if: matrix.compiler_package != ''
+        run: |
+          test "$($CXX -dumpversion | cut -d. -f1)" = "${{ matrix.compiler_major }}"
+          $CXX --version
 
       - name: Configure release build
         run: >-
@@ -39,7 +77,7 @@ jobs:
 
       - name: Build Tactix release
         run: >-
-          cmake --build build/ci-release --parallel 2
+          cmake --build build/ci-release --parallel 8
           --target tactix tactix_archive
 
       - name: Configure unit tests
@@ -49,11 +87,9 @@ jobs:
           -DTACTIX_BUILD_TESTS=ON
 
       - name: Build unit tests
-        run: >-
-          cmake --build build/ci-tests --parallel 2 --target
-          test_parse test_strategy_config test_bve_occurrence_cache
+        run: cmake --build build/ci-tests --parallel 8
 
       - name: Run unit tests
         run: >-
           ctest --test-dir build/ci-tests --output-on-failure
-          -R '^(parse|strategy_config|bve_occurrence_cache)$'
+          --parallel 8 --timeout 900 --no-tests=error

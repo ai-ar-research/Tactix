@@ -66,7 +66,8 @@ void run(size_t n,const char *output){
  NaryCspEqualityTransitivityOfferWindow w;w.maximum_candidates=100;w.maximum_offers=100;w.maximum_enumeration_work=1000000;
  auto offered=nary_csp_equality_transitivity_offer(k,equality,session,l,w);
  assert(offered.status==Status::Ready&&offered.complete&&offered.offers.size()==1&&offered.offers[0]==selection);
- const auto extent=k.external_to_internal.size(),id=k.next_clause_id;
+ const auto extent=k.external_to_internal.size();
+ const auto id=k.next_clause_id;
  auto applied=nary_csp_equality_transitivity_apply(k,relations,equality,session,l,selection,journal);
  assert(applied.status==Status::Applied&&applied.result==ApplyResult::Ok&&applied.proof_additions==3*n+3&&applied.proof_deletions==3*n&&applied.proof_literal_occurrences==24*n+9);
  assert(k.external_to_internal.size()==extent&&k.next_clause_id==id+6*n+3&&applied.published_consequences.size()==3);

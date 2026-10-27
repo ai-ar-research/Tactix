@@ -31,7 +31,12 @@ int main() {
         const Ref ref = kernel_add_large_clause(k, lits.data(), size,
             (i % 3) == 0, i % 8, ++id);
         assert(ref == expected && k.arena.size() == capacity_oracle.size());
+        // ReallocWords preserves libstdc++'s growth policy. libc++ may choose
+        // different capacities; the size, contents and GC checks still apply.
+#ifdef __GLIBCXX__
         assert(k.arena.capacity() == capacity_oracle.capacity());
+#endif
+        assert(k.arena.capacity() >= k.arena.size());
         const Clause *c = clause_at(k.arena, ref);
         assert(c->id() == id && c->size == size);
         assert(std::equal(c->begin(), c->end(), lits.begin()));

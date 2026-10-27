@@ -7,6 +7,8 @@ import json
 import lzma
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tempfile
 
 
@@ -15,6 +17,14 @@ SPEC = importlib.util.spec_from_file_location(
     "frozen_baseline", ROOT / "tools/bench/frozen_baseline.py")
 FROZEN = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FROZEN)
+
+# The campaign runner invokes GNU time with -f and -o. macOS /usr/bin/time
+# has a different interface; this integration fixture needs the real runner.
+time_version = subprocess.run([str(FROZEN.TIME), "--version"],
+                              capture_output=True, text=True)
+if time_version.returncode or "GNU" not in time_version.stdout:
+    print("SKIP: campaign runner requires GNU time at", FROZEN.TIME)
+    sys.exit(77)
 
 
 def executable(path, body):

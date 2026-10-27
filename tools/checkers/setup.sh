@@ -21,9 +21,17 @@
 #   CakePB     6edb2f3585f1c3e1b925964c4f33e133f7279d02
 #   VeriPB     3.0.2 x86-64 binary distributed with LymphoSAT SC2026
 #
-# Usage: tools/checkers/setup.sh
+# Usage: tools/checkers/setup.sh (complete toolchain: Linux x86-64)
+# External checkers are optional; building Tactix and generating proofs do not
+# require this script. Individual upstream checkers may support other platforms.
 
 set -euo pipefail
+
+if [ "$(uname -s)" != Linux ] || [ "$(uname -m)" != x86_64 ]; then
+    echo "The complete proof-checker setup currently requires Linux x86-64." >&2
+    echo "Tactix can still generate proofs here; check them with the original CNF on a supported platform." >&2
+    exit 1
+fi
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BIN="$ROOT/tools/checkers/bin"
@@ -117,10 +125,6 @@ fi
 ln -sf "$SR_CHECK" "$BIN/srcheck"
 
 echo "== CakePB =="
-if [ "$(uname -m)" != x86_64 ]; then
-    echo "the pinned CakePB and VeriPB binaries require x86-64" >&2
-    exit 1
-fi
 CAKEPB="$ROOT/tools/checkers/src/cakepb"
 clone_at_commit tools/checkers/src/cakepb \
     https://gitlab.com/MIAOresearch/software/cakepb "$CAKEPB_COMMIT"

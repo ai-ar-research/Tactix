@@ -1,4 +1,5 @@
 #undef NDEBUG
+#include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/count_preservation.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -118,17 +119,14 @@ int main(int argc, char **argv) {
   }
   for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DratBinary, ProofFormat::Lrat}) {
     Kernel k;
+    TemporaryFile proof_file;
     Proof proof;
-    FILE *file = std::tmpfile();
-    assert(file);
-    // Use a descriptor path so the test leaves no persistent output.
-    assert(proof.open(("/proc/self/fd/" + std::to_string(fileno(file))).c_str(), format));
+    assert(proof.open(proof_file.path.c_str(), format));
     proof.bind_variable_map(&k.internal_to_external);
     k.proof = &proof;
     parse(cnf, k);
     assert(count_preservation_apply(k) == ApplyResult::NoOp);
     assert(!k.inconsistent && !proof.pb());
-    std::fclose(file);
   }
   for (bool ordinary : {false, true}) {
     tactix_handle *solver = tactix_init();
