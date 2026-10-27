@@ -532,6 +532,7 @@ int main() {
   assert(defaults.inprocess.bve_definition_budget == 1000000);
   assert(defaults.inprocess.bve_definition_cores == 2);
   assert(defaults.inprocess.bve_definition_core_budget_multiplier == 10);
+  assert(defaults.inprocess.bve_on_the_fly_strengthening);
   assert(defaults.inprocess.initial_fast_elimination);
   assert(defaults.inprocess.initial_fast_elimination_rounds == 4);
   const auto &fastel =
@@ -669,6 +670,7 @@ int main() {
   {
     DefaultStrategyConfig typed = defaults;
     typed.inprocess.bve_backward = true;
+    typed.inprocess.bve_on_the_fly_strengthening = false;
     typed.inprocess.bce_parameters.occurrence_limit = 11;
     typed.inprocess.ternary_parameters = {12, 13};
     typed.inprocess.factor_parameters = {4, 5, 6, true, false};
@@ -679,7 +681,8 @@ int main() {
     kernel_reserve_vars(posed, 1);
     DefaultPolicy typed_policy(typed);
     typed_policy.inprocess().build(posed);
-    assert(posed.bve_backward && posed.bce_occ_limit == 11);
+    assert(posed.bve_backward && !posed.bve_on_the_fly_strengthening &&
+           posed.bce_occ_limit == 11);
     assert(posed.ternary_occ_limit == 12 &&
            posed.ternary_max_add_percent == 13);
     assert(posed.factor_size == 4 && posed.factor_bound == 5 &&

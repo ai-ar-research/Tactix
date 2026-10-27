@@ -398,7 +398,24 @@ or reconstruction witnesses, not a no-op. This does not add isolated variables t
 effect of an already-enumerated instance after earlier candidates mutate its occurrences.
 
 The typed BVE candidate scope selects all active variables or snapshots the current nonempty one-sided variables for a generated complete pass, matching Satsuma's simultaneous pure-literal predecessor through BVE's proof and reconstruction path. One-instance and selected-batch calls retain every legal pivot. Replay writes
-`bve3`; historical `bve` and `bve2` tuples restore all candidates and an unlimited absolute resolvent cap. Default structured stages repeat pure passes to scoped fixpoint before symmetry discovery; retired variables make closure finite. The reference structured profile keeps one pure pass.
+`bve5`; historical `bve` through `bve4` restore the behavior represented by
+their older field sets, including generation-time strengthening off. Default
+structured stages repeat pure passes to scoped fixpoint before symmetry
+discovery; retired variables make closure finite. The reference structured
+profile keeps one pure pass.
+
+Ordinary DefaultPolicy BVE enables CaDiCaL's on-the-fly self-subsuming
+resolution during its boundedness scan (`elim.cpp:409-447`). A non-unit
+resolvent that strictly subsumes an antecedent is published in that parent's
+literal order, with the two-parent LRAT chain written before source deletion;
+the double case replaces the first parent and deletes the second. The pair is
+not charged to the bounded resolvent population. Logical parent identities
+remove tentative resolvents made stale by either replacement without relying
+on proof hints. The typed/public `on_the_fly_strengthening` switch and
+`TACTIX_BVE_ON_THE_FLY=0` retain an explicit off arm; custom zero-initialized
+public steps preserve the earlier off behavior. This generation-time rule is
+independent of both the optional post-elimination backward pass and SC2024's
+raw-cross-product FastEliminate feasibility scan.
 
 SC2024 startup fast elimination is a typed composition after initial Probe: the owner's incomplete, record-high-marked occurrence-local SubsumeForward instance, then BVE with occurrence/antecedent caps 100 and absolute resolvent cap eight. Up to four productive rounds follow the owner's `flags.eliminate` lifecycle on the kernel image `bve_retry`: a round gathers, in import order (the gather flush mutates, so its order decides which clause of a subsuming pair dies), every active variable whose flag is set; every attempt, including one rejected by the occurrence caps when it is popped, clears the pivot's flag afterwards (`TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE`); any removal of a clause containing a variable sets the flag again; and the pass ends by setting every flag (`RescheduleBveCandidates`). Stable order preserves the owner's twice-positive occurrence score. Candidate discovery must inspect every live variable before that radix order is known, so its live-domain lower bound and subsequent resolution ticks share one standard preprocessing BVE effort dose derived from the typed initial reference and BVE permille. Admission also reserves one transformation tick per discovered live variable; a domain that cannot fit this balanced discovery/work lower bound declines before allocation or formula mutation. After complete first-round discovery, a strict candidate majority admits the owner pass; a minority preserves ordinary elimination. Later rounds of an admitted pass gather their re-armed candidates without this admission test. When the raw cross product exceeds the absolute cap, its feasibility traversal may add a two-parent RUP resolvent that strictly subsumes a large parent before counting the pair. As in `fastel.c`, the resolvent is a NEW irredundant clause (end of the arena and of every occurrence list, no inherited logical position), the subsumed parents are then deleted (re-arming all of their literals), and a mixed binary/large resolvent keeps the large parent's literal order without the pivot; linear literal marks authenticate size-at-least-two containment, logical parent identities prune stale tentative resolvents in every proof mode, and the checked edit survives a later decline. A mixed binary/large result collapsed to a unit is likewise published before its large source is deleted and counts one strengthening; the reference's collapsed large/large path keeps both parents and has no strengthening count. At or below the raw cap, ordinary resolution runs without this strengthening. The resolution attempt owns that bounded scan's work tick. This application-coverage and work feedback is formula-derived and contains no size, family, rank, benchmark or elapsed-time predicate. The schedule adds no separate proof vocabulary and does not replay ordinary Eliminate.
 

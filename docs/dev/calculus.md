@@ -379,7 +379,21 @@ root closure at apply entry. V1/V2 Probe/Backbone additionally require `!conflic
   explicit legal variable remains applicable under either setting. A strategy
   may also impose an absolute cap on non-tautological resolvents in addition to
   the ordinary growth bound; exceeding either cap returns `NoOp` before the
-  pivot deletion. FastEliminate's feasibility scan, entered only when the raw cross product exceeds its absolute cap, may first add a two-parent RUP resolvent that strictly shortens a large antecedent and delete that parent; a mixed binary/large result that collapses to a unit is published before the large source is deleted, while a collapsed large/large result keeps both sources. Each standalone strengthening survives a later capped decline. Otherwise the cap changes admission only, not the proof transition.
+  pivot deletion. A strategy may enable generation-time self-subsuming
+  resolution while checking that bound: if a non-unit resolvent is a strict
+  subclause of either antecedent, add it by two-parent RUP and delete the
+  subsumed antecedent before continuing; if it subsumes both, the first is
+  replaced and the second is deleted. That pair is not counted as an ordinary
+  resolvent. Any earlier tentative resolvent naming a replaced parent is
+  discarded, while the checked strengthening survives a later capped decline.
+  This is C2 composed inside E1's admission scan and needs no reconstruction
+  witness. FastEliminate's distinct feasibility scan, entered only when the raw
+  cross product exceeds its absolute cap, may likewise add a two-parent RUP
+  resolvent that strictly shortens a large antecedent and delete that parent; a
+  mixed binary/large result that collapses to a unit is published before the
+  large source is deleted, while a collapsed large/large result keeps both
+  sources. Each standalone strengthening survives a later capped decline.
+  Otherwise the cap changes admission only, not the proof transition.
 - **Gate reduction:** the resolvent set above is the *full* cross product; when a subset of `x`'s clauses is a **gate** — writing
   them `(x∨Cᵢ)` for `i∈P`, `(¬x∨Dⱼ)` for `j∈N`, with marked subsets `G⁺⊆P`, `G⁻⊆N` — the *antecedent×antecedent* resolvents are
   dropped. Marking is legal exactly when

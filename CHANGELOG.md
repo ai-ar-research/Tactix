@@ -4,6 +4,19 @@ All notable user-visible changes are recorded here. The project follows
 semantic versioning; the public C API remains source-compatible within the
 0.x release line unless a change is called out explicitly.
 
+## [Unreleased]
+
+### Changed
+
+- Default bounded variable elimination now performs CaDiCaL-style
+  generation-time self-subsuming resolution before charging a pair against
+  the resolvent bound.
+
+### Added
+
+- The public BVE parameter surface exposes generation-time strengthening, and
+  public statistics report its strengthening and double-subsumption counts.
+
 ## [0.2.1] - 2026-10-22
 
 ### Removed

@@ -299,9 +299,11 @@ more than a bound (Eén & Biere 2005). When the clauses contain a gate
 (equivalence, AND/OR, ITE, XOR, or a general definition extracted with the
 sub-solver, as in Fleury & Biere 2022), resolvents between two non-gate
 clauses are skipped. `tactix_set_bve_gates` selects the gate kinds; every
-setting is sound. A fast-elimination traversal with an absolute resolvent cap
-follows Kissat's 2024 fast elimination. Removed clauses become reconstruction
-witnesses.
+setting is sound. The default ordinary traversal performs CaDiCaL's
+generation-time self-subsuming resolution before charging a pair against the
+bounded resolvent population. A fast-elimination traversal with an absolute
+resolvent cap follows Kissat's 2024 fast elimination. Removed pivot clauses
+become reconstruction witnesses; generation-time strengthenings do not.
 
 **Factor** (E2, [guide](proof-rules.html#E2)) is bounded variable addition
 (Manthey, Heule & Biere 2012), the inverse of BVE, transliterated from Kissat's

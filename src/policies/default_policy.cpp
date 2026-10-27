@@ -1007,6 +1007,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   bve.definition_cores = ip.bve_definition_cores;
   bve.definition_core_budget_multiplier =
       ip.bve_definition_core_budget_multiplier;
+  bve.on_the_fly_strengthening = ip.bve_on_the_fly_strengthening;
   if (!bve.valid())
     return reject("inprocessing BVE parameters are invalid");
   if (!ip.initial_fast_elimination_parameters.valid())
@@ -1627,6 +1628,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.bve_definition_core_budget_multiplier="
       << inprocess.bve_definition_core_budget_multiplier
       << " inprocess.bve_backward=" << inprocess.bve_backward
+      << " inprocess.bve_on_the_fly_strengthening="
+      << inprocess.bve_on_the_fly_strengthening
       << " inprocess.factor_decade_round_cap="
       << inprocess.factor_decade_round_cap
       << " inprocess.factor_decade_cap=" << inprocess.factor_decade_cap
@@ -1740,7 +1743,8 @@ std::string DefaultStrategyConfig::serialize() const {
           << p->definition_core_budget_multiplier << ',' << p->backward << ','
           << static_cast<unsigned>(p->candidate_scope) << ','
           << p->resolvent_count_limit << ','
-          << static_cast<unsigned>(p->traversal) << ')';
+          << static_cast<unsigned>(p->traversal) << ','
+          << p->on_the_fly_strengthening << ')';
     } else if (const auto *p =
                    std::get_if<strategy::SubsumeForwardParameters>(
                        &step.parameters)) {
@@ -3048,6 +3052,8 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         static_cast<uint32_t>(std::strtoul(dm, nullptr, 10));
   if (const char *value = strategy_setting("TACTIX_BVE_BACKWARD"))
     config_.inprocess.bve_backward = *value != '0';
+  if (const char *value = strategy_setting("TACTIX_BVE_ON_THE_FLY"))
+    config_.inprocess.bve_on_the_fly_strengthening = *value != '0';
   if (const char *value = strategy_setting("TACTIX_BCE_OCC_LIMIT"))
     config_.inprocess.bce_parameters.occurrence_limit =
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10));
@@ -3328,6 +3334,7 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
   bve.definition_cores = config().bve_definition_cores;
   bve.definition_core_budget_multiplier = config().bve_definition_core_budget_multiplier;
   bve.backward = config().bve_backward;
+  bve.on_the_fly_strengthening = config().bve_on_the_fly_strengthening;
   port::execute_action(k, execution::ParameterInstallationRequest{bve}, completion, "BVE");
 }
 

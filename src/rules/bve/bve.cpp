@@ -1854,6 +1854,14 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
       k.bve_fastel_traversal && !neg.empty() &&
       pos.size() > static_cast<size_t>(k.bve_resolvent_count_limit) /
                        neg.size();
+  // CaDiCaL checks self-subsuming resolution while counting the ordinary
+  // elimination resolvents.  FastEliminate has its own established mutating
+  // feasibility semantics when its raw cross product exceeds the absolute
+  // cap; do not layer the two transformations on the same pair scan.
+  const bool otf_feasibility =
+      k.bve_on_the_fly_strengthening && !fastel_feasibility;
+  const bool deferred_resolvent_count =
+      fastel_feasibility || otf_feasibility;
   bool oversized = false; // configured resolvent-size limit was exceeded
   bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
   bool immediate_unsat = false;
@@ -2035,7 +2043,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         // resolvent count.
         // Defer that traversal's count until after the checked strengthening
         // below (fastel.c::can_fast_resolve_large_large).
-        if (!fastel_feasibility && ++resolved > gen_limit) {
+        if (!deferred_resolvent_count && ++resolved > gen_limit) {
           def->resolvent_lits.resize(lits_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                c.ref, c.id, d.active.data(), d.active.size(),
@@ -2115,6 +2123,94 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             break;
           }
           continue;
+        }
+        if (otf_feasibility &&
+            (c.ref != INVALID_REF || d.ref != INVALID_REF)) {
+          // Han--Somenzi/CaDiCaL generation-time self-subsuming resolution:
+          // if the resolvent is a strict subclause of an antecedent, publish
+          // it as that antecedent without the pivot and do not count this pair
+          // as an elimination resolvent.  Root-false literals are absent from
+          // both CaDiCaL's effective antecedent size and the new clause.
+          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
+            seen[def->resolvent_lits[i]] |= 2;
+          const auto subsumes_parent = [&](const MClause &parent) {
+            if (parent.ref == INVALID_REF)
+              return false;
+            const Clause *live = clause_at(k.arena, parent.ref);
+            if (live->garbage())
+              return false;
+            size_t active_size = 0;
+            size_t contained = 0;
+            for (const Lit l : parent.active) {
+              if (k.value(l) < 0)
+                continue;
+              active_size++;
+              contained += !!(seen[l] & 2);
+            }
+            return lits_size < active_size && contained == lits_size;
+          };
+          const bool c_subsumed = subsumes_parent(c);
+          const bool d_subsumed = subsumes_parent(d);
+          for (size_t i = lits_begin; i < def->resolvent_lits.size(); ++i)
+            seen[def->resolvent_lits[i]] &= 1;
+          if (c_subsumed || d_subsumed) {
+            event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                                 c.ref, c.id, d.active.data(), d.active.size(),
+                                 d.ref, d.id, "otf-strengthened");
+
+            // CaDiCaL materializes the first strengthened antecedent in that
+            // clause's own literal order.  In the double case it strengthens
+            // `c` and subsumes `d` with the same new clause.
+            const MClause &victim = c_subsumed ? c : d;
+            const Lit victim_pivot = c_subsumed ? first_pivot : second_pivot;
+            def->resolvent_lits.resize(lits_begin);
+            for (const Lit l : victim.active)
+              if (l != victim_pivot && k.value(l) == 0)
+                def->resolvent_lits.push_back(l);
+            assert(def->resolvent_lits.size() - lits_begin == lits_size);
+
+            const uint64_t id = ++k.next_clause_id;
+            const Lit *const lits = def->resolvent_lits.data() + lits_begin;
+            if (k.proof) {
+              if (lrat)
+                k.proof->add_rup(id, lits, static_cast<uint32_t>(lits_size),
+                                 def->resolvent_chains.data() + chain_begin,
+                                 chain_size);
+              else
+                k.proof->add_rup(0, lits, static_cast<uint32_t>(lits_size),
+                                 nullptr, 0);
+            }
+
+            prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
+                                     d_subsumed ? d.ref : INVALID_REF);
+            assert(lits_size >= 2);
+            if (lits_size == 2)
+              kernel_add_binary_clause(k, lits[0], lits[1], id);
+            else
+              kernel_add_large_clause(k, lits,
+                                      static_cast<uint32_t>(lits_size),
+                                      /*redundant=*/false, 0, id);
+            for (const Ref antecedent :
+                 {c_subsumed ? c.ref : INVALID_REF,
+                  d_subsumed ? d.ref : INVALID_REF}) {
+              if (antecedent == INVALID_REF)
+                continue;
+              Clause *const clause = clause_at(k.arena, antecedent);
+              if (!clause->garbage())
+                kernel_delete_clause(k, clause, true, "bve-otf-strengthen");
+            }
+            k.stats.strengthened++;
+            k.stats.bve_otf_strengthened++;
+            if (c_subsumed && d_subsumed)
+              k.stats.bve_otf_subsumed++;
+            def->resolvent_lits.resize(lits_begin);
+            def->resolvent_chains.resize(chain_begin);
+            if (c_subsumed) {
+              first_satisfied = true;
+              break;
+            }
+            continue;
+          }
         }
         if (fastel_feasibility &&
             (c.ref != INVALID_REF || d.ref != INVALID_REF)) {
@@ -2213,7 +2309,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             continue;
           }
         }
-        if (fastel_feasibility && ++resolved > gen_limit) {
+        if (deferred_resolvent_count && ++resolved > gen_limit) {
           def->resolvent_lits.resize(lits_begin);
           def->resolvent_chains.resize(chain_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),

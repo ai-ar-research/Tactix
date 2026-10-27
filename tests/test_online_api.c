@@ -248,6 +248,51 @@ static void canonical_bve_reaches_a_real_fixpoint(void) {
   }
 }
 
+static void bve_otf_strengthening_is_public_and_observable(void) {
+  tactix *solver = tactix_init();
+  clause(solver, (const int[]){1, 2, 3, 0});
+  clause(solver, (const int[]){-1, 2, 0});
+
+  tactix_online_step step;
+  memset(&step, 0, sizeof step);
+  step.step_id = 102;
+  step.rule_id = rule("BVE");
+  step.parameters.kind = TACTIX_ONLINE_PARAMETERS_BVE;
+  step.parameters.value.bve.growth_bound = 0;
+  step.parameters.value.bve.occurrence_limit = UINT32_MAX;
+  step.parameters.value.bve.clause_size_limit = UINT32_MAX;
+  step.parameters.value.bve.xor_arity_limit = 2;
+  step.parameters.value.bve.resolvent_size_limit = UINT32_MAX;
+  step.parameters.value.bve.backward_occurrence_limit = UINT32_MAX;
+  step.parameters.value.bve.definition_cores = 1;
+  step.parameters.value.bve.resolvent_count_limit = 1;
+  step.parameters.value.bve.on_the_fly_strengthening = 1;
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  const uint64_t pivot = TACTIX_LIT_INSTANCE(1);
+  step.instances = &pivot;
+  step.instance_count = 1;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_BVE_TICKS;
+  step.budget_unlimited = 1;
+  const tactix_online_program program = {
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(tactix_online_configure(solver, &program, 23,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  while (!tactix_online_complete(solver)) {
+    tactix_online_result result;
+    assert(tactix_online_advance(solver, &result) == 0);
+  }
+  assert(tactix_stat(solver, TACTIX_STAT_BVE_ELIMINATED) == 1);
+  assert(tactix_stat(solver, TACTIX_STAT_BVE_OTF_STRENGTHENED) == 1);
+  assert(tactix_stat(solver, TACTIX_STAT_BVE_OTF_SUBSUMED) == 0);
+  assert(tactix_solve(solver) == 10);
+  assert(tactix_value(solver, 1) == 1 || tactix_value(solver, 2) == 2 ||
+         tactix_value(solver, 3) == 3);
+  assert(tactix_value(solver, -1) == -1 || tactix_value(solver, 2) == 2);
+  tactix_release(solver);
+}
+
 static void status_reconstructs_bve_models_and_refreshes_after_restart(void) {
   for (int signs = 0; signs < 4; ++signs) {
     tactix *solver = tactix_init();
@@ -1457,6 +1502,7 @@ int main(void) {
   condition_cube_v3_is_atomic_and_copied();
   late_lrat_root_refutation_is_terminal();
   canonical_bve_reaches_a_real_fixpoint();
+  bve_otf_strengthening_is_public_and_observable();
   status_reconstructs_bve_models_and_refreshes_after_restart();
   affine_model_parameters_require_instance_eight();
   balanced_signature_parameters_are_public_and_validated();

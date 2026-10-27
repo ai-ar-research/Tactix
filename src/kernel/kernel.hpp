@@ -1301,7 +1301,9 @@ struct Stats {
   uint64_t factor_ticks = 0;   // Factor's budget currency (kissat
   uint64_t bve_rounds = 0;         // BVE canonical-apply calls (a policy that
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
-  uint64_t bve_resolutions = 0;    // resolvents attempted — BVE's unit of work
+  uint64_t bve_resolutions = 0;    // resolution pairs attempted — BVE work
+  uint64_t bve_otf_strengthened = 0; // antecedents shortened during BVE scan
+  uint64_t bve_otf_subsumed = 0;    // second antecedents deleted by double SSR
   uint64_t fastel_rounds = 0;      // startup owner-pass admission checks
   uint64_t fastel_candidates = 0;  // candidates in those checked domains
   uint64_t fastel_active = 0;      // active variables at those checks
@@ -1889,6 +1891,9 @@ struct Kernel {
   // its next forward pass; that reference-aligned strategy is the default,
   // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.
   bool bve_backward = false;
+  // CaDiCaL's generation-time self-subsuming resolution.  Strategies pose
+  // this independently from the post-generation backward pass above.
+  bool bve_on_the_fly_strengthening = false;
   // Physical traversal profile posed by the typed BVE invocation. Logical
   // BVE semantics are unchanged; startup fastel uses its owner's insertion
   // order while ordinary Eliminate retains Kissat's canonical order.

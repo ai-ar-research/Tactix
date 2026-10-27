@@ -72,6 +72,10 @@ struct BveParameters {
   uint32_t definition_core_budget_multiplier =
       DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
   bool backward = false;
+  // CaDiCaL-style self-subsuming resolution while checking whether a pivot's
+  // resolvents fit the elimination bound.  The strengthened antecedent is
+  // published immediately and that pair is not counted as a resolvent.
+  bool on_the_fly_strengthening = false;
   // This filters only policy-generated complete passes. Explicit one-instance
   // and selected-batch requests retain the complete legal BVE surface.
   BveCandidateScope candidate_scope = BveCandidateScope::All;
@@ -90,6 +94,7 @@ struct BveParameters {
             k.bve_definition_cores,
             k.bve_definition_core_budget_multiplier,
             k.bve_backward,
+            k.bve_on_the_fly_strengthening,
             BveCandidateScope::All,
             k.bve_resolvent_count_limit,
             k.bve_fastel_traversal ? BveTraversal::FastEliminate
@@ -263,6 +268,7 @@ inline void install_rule_parameters(Kernel &k, const BveParameters &p) {
   k.bve_definition_cores = p.definition_cores;
   k.bve_definition_core_budget_multiplier = p.definition_core_budget_multiplier;
   k.bve_backward = p.backward;
+  k.bve_on_the_fly_strengthening = p.on_the_fly_strengthening;
   k.bve_fastel_traversal = p.traversal == BveTraversal::FastEliminate;
 }
 

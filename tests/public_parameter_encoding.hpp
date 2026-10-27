@@ -61,6 +61,7 @@ inline bool encode_one(const strategy::BveParameters &p, Encoded &e) {
   c.definition_core_budget_multiplier = p.definition_core_budget_multiplier;
   c.definition_budget = p.definition_budget;
   c.backward = p.backward;
+  c.on_the_fly_strengthening = p.on_the_fly_strengthening;
   c.candidate_scope = static_cast<int>(p.candidate_scope);
   // Zero means unlimited in C; an explicit zero cap has no C form.
   if (!p.resolvent_count_limit) return false;

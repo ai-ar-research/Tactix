@@ -156,6 +156,8 @@ typedef struct tactix_solver tactix;
 /* ConflictAnalysis steps that ended in a backjump with a learned clause
  * (stale or not); reuse and level-one unit batches do not count. */
 #define TACTIX_STAT_BACKJUMPS 61
+#define TACTIX_STAT_BVE_OTF_STRENGTHENED 62 /* generation-time SSR rewrites */
+#define TACTIX_STAT_BVE_OTF_SUBSUMED 63 /* second parents deleted by double SSR */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -608,6 +610,8 @@ typedef struct {
   uint32_t resolvent_count_limit;
   /* Appended physical traversal profile. Zero retains ordinary Eliminate. */
   int traversal;
+  /* Appended CaDiCaL-style generation-time self-subsuming resolution. */
+  int on_the_fly_strengthening;
 } tactix_online_bve_parameters;
 typedef struct {
   uint32_t clause_size_limit, large_occurrence_limit;

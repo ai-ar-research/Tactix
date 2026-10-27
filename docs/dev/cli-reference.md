@@ -392,6 +392,7 @@ Rule names are those printed in the `c timing` lines (for example `BVE`,
 |---|---|---|---|
 | `TACTIX_BVE_RAMP_MAX` | N | 16 | Largest clause-growth bound BVE ramps up to. |
 | `TACTIX_BVE_BACKWARD` | 0/1 | 0 | Backward subsumption during BVE. |
+| `TACTIX_BVE_ON_THE_FLY` | 0/1 | 1 | Self-subsuming resolution while BVE counts resolvents. |
 | `TACTIX_BVE_DEF_TICKS` | N | 1000000 | Work budget for finding general definitions. |
 | `TACTIX_BVE_DEF_CORES` | 1–100 | 2 | Number of unsatisfiable cores tried per definition. |
 | `TACTIX_BVE_DEF_CORE_MULTIPLIER` | N | 10 | Budget multiplier per core. |
@@ -413,7 +414,7 @@ Rule names are those printed in the `c timing` lines (for example `BVE`,
 | `TACTIX_SWEEP_STRIP`, `TACTIX_SWEEP_PARTITION`, `TACTIX_SWEEP_RESUME`, `TACTIX_SWEEP_CLOSURE`, `TACTIX_SWEEP_FORCE_GENERAL` | 0/1 | 1, 1, 1, 0, 0 | SAT-sweeping switches. |
 
 Some of these (`TACTIX_BCE_OCC_LIMIT`, `TACTIX_TERNARY_*`, the
-`TACTIX_BVE_DEF_*` and `TACTIX_BVE_BACKWARD`, `TACTIX_FACTOR_*` except
+`TACTIX_BVE_DEF_*`, `TACTIX_BVE_BACKWARD`, `TACTIX_BVE_ON_THE_FLY`, `TACTIX_FACTOR_*` except
 `INIT_TICKS` and `COUPLE`, `TACTIX_V4_*`, `TACTIX_TRANSITIVE_LIVE_METER`,
 `TACTIX_VIVIFY_*`, `TACTIX_SUBST_DEMOTE`, `TACTIX_EAGER_SUBSUME`,
 `TACTIX_NO_EXT_REASON_BUMP`, `TACTIX_CONFLICT_REUSE`, `TACTIX_JUMP_REASONS`,

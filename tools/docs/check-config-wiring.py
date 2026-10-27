@@ -203,7 +203,9 @@ PARTIAL_PROFILES = [
         "bve_definition_budget": ("definition_budget", "config().bve_definition_budget"),
         "bve_definition_cores": ("definition_cores", "config().bve_definition_cores"),
         "bve_definition_core_budget_multiplier": ("definition_core_budget_multiplier", "config().bve_definition_core_budget_multiplier"),
-        "bve_backward": ("backward", "config().bve_backward")}),
+        "bve_backward": ("backward", "config().bve_backward"),
+        "bve_on_the_fly_strengthening":
+            ("on_the_fly_strengthening", "config().bve_on_the_fly_strengthening")}),
     ("analysis", "src/strategy/analyze_parameters.cpp", {
         "conflict_reuse_chrono_levels": ("chronological_levels", "chrono_levels"),
         "conflict_reuse": ("conflict_reuse", "config_.analysis.conflict_reuse"),
@@ -391,6 +393,9 @@ TABLE = {
                                 ("ENV", "--compact-affine-provenance; diagnostic "
                                         "journal representation selected in main.cpp"),
     "bve_backward":            ("POLICY", "typed BVE backward-tail setting"),
+    "bve_on_the_fly_strengthening":
+                                ("POLICY", "typed generation-time BVE "
+                                           "self-subsuming-resolution setting"),
     "bce_occ_limit":           ("POLICY", "typed BCE occurrence limit"),
     "midround_budget":         ("POLICY", "typed default forward scheduling and "
                                            "per-invocation bounded rule-work pose"),

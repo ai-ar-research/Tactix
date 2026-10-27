@@ -391,6 +391,8 @@ int main(int argc, char **argv) {
     kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
   if (const char *bw = getenv("TACTIX_BVE_BACKWARD"))
     kernel.bve_backward = (*bw != '0');
+  if (const char *otf = getenv("TACTIX_BVE_ON_THE_FLY"))
+    kernel.bve_on_the_fly_strengthening = (*otf != '0');
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (const char *dc = getenv("TACTIX_BVE_DEF_CORES"))
@@ -1089,6 +1091,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
            (unsigned long long)kernel.stats.bve_resolutions);
+    printf("c bve-otf     %llu strengthened, %llu subsumed\n",
+           (unsigned long long)kernel.stats.bve_otf_strengthened,
+           (unsigned long long)kernel.stats.bve_otf_subsumed);
     printf("c fastel      %llu checks, %llu candidates / %llu active, "
            "%llu discovery ticks, %llu budget stops, %llu minority declines, "
            "%llu root-suppressed, %llu eliminated, "

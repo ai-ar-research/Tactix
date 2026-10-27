@@ -119,6 +119,10 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     p.definition_core_budget_multiplier = inclusive_u32(
         state, config.maximum_bve_definition_core_budget_multiplier);
     p.backward = bounded(state, OPTIONAL_CHOICES) != 0;
+    // Keep every established draw stable while giving the new independent
+    // switch both fuzz arms.
+    uint64_t otf_state = state ^ 0x4f54464256455353ull;
+    p.on_the_fly_strengthening = bounded(otf_state, OPTIONAL_CHOICES) != 0;
     p.candidate_scope = static_cast<BveCandidateScope>(bounded(state, 2));
     p.traversal = static_cast<BveTraversal>(bounded(state, 2));
     // A derived stream: the draws above and every later one stay unchanged.
@@ -737,7 +741,8 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
   } else if ((tuple(text, "bve", v) && v.size() == 11) ||
              (tuple(text, "bve2", v) && v.size() == 12) ||
              (tuple(text, "bve3", v) && v.size() == 13) ||
-             (tuple(text, "bve4", v) && v.size() == 14)) {
+             (tuple(text, "bve4", v) && v.size() == 14) ||
+             (tuple(text, "bve5", v) && v.size() == 15)) {
     BveParameters p;
     U32_AT(0, p.gate_mask); U32_AT(1, p.growth_bound);
     U32_AT(2, p.occurrence_limit); U32_AT(3, p.clause_size_limit);
@@ -755,6 +760,12 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       U32_AT(12, p.resolvent_count_limit);
     if (v.size() == 14) {
       if (v[13] > static_cast<uint64_t>(BveTraversal::FastEliminate))
+        return false;
+      p.traversal = static_cast<BveTraversal>(v[13]);
+    }
+    if (v.size() == 15) {
+      if (v[13] > static_cast<uint64_t>(BveTraversal::FastEliminate) ||
+          !boolean(v[14], p.on_the_fly_strengthening))
         return false;
       p.traversal = static_cast<BveTraversal>(v[13]);
     }
@@ -2376,7 +2387,7 @@ std::string serialize_online_strategy_program(
           << p->jump_reasons_bigbig << ',' << p->shrink_glue_promote << ','
           << p->bump_extension_reasons << ')';
     else if (const auto *p = std::get_if<BveParameters>(&step.parameters))
-      out << ":bve4(" << p->gate_mask << ',' << p->growth_bound << ','
+      out << ":bve5(" << p->gate_mask << ',' << p->growth_bound << ','
           << p->occurrence_limit << ',' << p->clause_size_limit << ','
           << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
           << p->backward_occurrence_limit << ',' << p->definition_budget << ','
@@ -2384,7 +2395,8 @@ std::string serialize_online_strategy_program(
           << p->definition_core_budget_multiplier << ',' << p->backward << ','
           << static_cast<unsigned>(p->candidate_scope) << ','
           << p->resolvent_count_limit << ','
-          << static_cast<unsigned>(p->traversal) << ')';
+          << static_cast<unsigned>(p->traversal) << ','
+          << p->on_the_fly_strengthening << ')';
     else if (const auto *p =
                  std::get_if<SubsumeForwardParameters>(&step.parameters))
       out << ":c1(" << p->clause_size_limit << ','

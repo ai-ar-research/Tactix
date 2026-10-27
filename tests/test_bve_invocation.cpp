@@ -94,6 +94,8 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   legacy.bve_definition_core_budget_multiplier =
       configured.bve_definition_core_budget_multiplier = 43;
   legacy.bve_backward = configured.bve_backward = false;
+  legacy.bve_on_the_fly_strengthening =
+      configured.bve_on_the_fly_strengthening = true;
 
   const uint64_t pivot = lit_instance(internalize(1));
   const ApplyResult expected = apply_rule_instance(bve_rule(), legacy, pivot);
@@ -131,6 +133,8 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   assert(restored.definition_core_budget_multiplier ==
          saved.definition_core_budget_multiplier);
   assert(restored.backward == saved.backward);
+  assert(restored.on_the_fly_strengthening ==
+         saved.on_the_fly_strengthening);
   assert(restored.traversal == saved.traversal);
   kernel_check_invariants(configured);
 }
@@ -195,6 +199,135 @@ static InvocationResult invoke_fastel(Kernel &k, uint32_t pivot,
                                selected, 0};
   InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
   return invoke_bve(bve_rule(), k, request, budget);
+}
+
+static InvocationResult invoke_otf(Kernel &k, uint32_t pivot, bool enabled,
+                                   uint32_t resolvent_limit = 0) {
+  BveParameters parameters = BveParameters::from_kernel(k);
+  parameters.gate_mask = 0;
+  parameters.growth_bound = UINT32_MAX;
+  parameters.resolvent_count_limit = resolvent_limit;
+  parameters.resolvent_size_limit = UINT32_MAX;
+  parameters.backward = false;
+  parameters.on_the_fly_strengthening = enabled;
+  parameters.traversal = BveTraversal::Eliminate;
+  const uint64_t selected[] = {lit_instance(k, internalize(pivot))};
+  BveInvocationRequest request{parameters, InvocationGranularity::OneInstance,
+                               selected, 0};
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  return invoke_bve(bve_rule(), k, request, budget);
+}
+
+static void test_otf_single_strengthening_precedes_resolvent_cap() {
+  Kernel disabled, enabled;
+  for (Kernel *k : {&disabled, &enabled}) {
+    kernel_reserve_vars(*k, 3);
+    const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(*k, positive, 3, false, 0);
+    kernel_add_binary_clause(*k, internalize(-1), internalize(2));
+  }
+
+  const InvocationResult off = invoke_otf(disabled, 1, false);
+  assert(off.status == InvocationStatus::NoChange);
+  assert(!kernel_var_retired(disabled, var_of(internalize(1))));
+  assert(disabled.stats.bve_otf_strengthened == 0);
+
+  const InvocationResult on = invoke_otf(enabled, 1, true);
+  assert(on.status == InvocationStatus::Completed);
+  assert(on.rule_result == ApplyResult::Ok);
+  assert(kernel_var_retired(enabled, var_of(internalize(1))));
+  assert(kernel_binary_live(enabled, internalize(2), internalize(3)));
+  assert(enabled.stats.bve_resolutions == 1);
+  assert(enabled.stats.bve_otf_strengthened == 1);
+  assert(enabled.stats.bve_otf_subsumed == 0);
+  assert(enabled.stats.strengthened == 1);
+  assert(!enabled.bve_on_the_fly_strengthening &&
+         "the invocation must restore the caller's BVE pose");
+  kernel_check_invariants(disabled);
+  kernel_check_invariants(enabled);
+}
+
+static void test_otf_double_strengthening_subsumes_both_parents() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit negative[3] = {internalize(-1), internalize(2), internalize(3)};
+  const Ref positive_ref =
+      kernel_add_large_clause(k, positive, 3, false, 0);
+  const Ref negative_ref =
+      kernel_add_large_clause(k, negative, 3, false, 0);
+
+  const InvocationResult result = invoke_otf(k, 1, true);
+  assert(result.status == InvocationStatus::Completed);
+  assert(kernel_var_retired(k, var_of(internalize(1))));
+  assert(clause_at(k.arena, positive_ref)->garbage());
+  assert(clause_at(k.arena, negative_ref)->garbage());
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(k.stats.bve_resolutions == 1);
+  assert(k.stats.bve_otf_strengthened == 1);
+  assert(k.stats.bve_otf_subsumed == 1);
+  assert(k.stats.strengthened == 1);
+  kernel_check_invariants(k);
+}
+
+static void test_otf_lrat_add_precedes_parent_deletes() {
+  const std::string path = "/tmp/tactix-bve-otf-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit negative[3] = {internalize(-1), internalize(2), internalize(3)};
+  const Ref positive_ref = kernel_add_large_clause(
+      k, positive, 3, false, 0, ++k.next_clause_id);
+  const Ref negative_ref = kernel_add_large_clause(
+      k, negative, 3, false, 0, ++k.next_clause_id);
+  const uint64_t positive_id = clause_at(k.arena, positive_ref)->id();
+  const uint64_t negative_id = clause_at(k.arena, negative_ref)->id();
+
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  assert(invoke_otf(k, 1, true).status == InvocationStatus::Completed);
+  const uint64_t replacement_id = k.next_clause_id;
+  proof.flush();
+  k.proof = nullptr;
+
+  std::ifstream input(path);
+  std::string line;
+  size_t line_number = 0, addition_line = 0;
+  size_t positive_deletion_line = 0, negative_deletion_line = 0;
+  while (std::getline(input, line)) {
+    ++line_number;
+    std::istringstream fields(line);
+    uint64_t line_id = 0;
+    assert(fields >> line_id);
+    fields >> std::ws;
+    if (fields.peek() == 'd') {
+      char deletion = 0;
+      uint64_t deleted_id = 0;
+      fields >> deletion >> deleted_id;
+      assert(deletion == 'd');
+      if (deleted_id == positive_id)
+        positive_deletion_line = line_number;
+      if (deleted_id == negative_id)
+        negative_deletion_line = line_number;
+      continue;
+    }
+    if (line_id == replacement_id) {
+      int first = 0, second = 0, terminator = -1;
+      fields >> first >> second >> terminator;
+      if (first == 2 && second == 3 && terminator == 0)
+        addition_line = line_number;
+    }
+  }
+  assert(addition_line && positive_deletion_line && negative_deletion_line);
+  assert(addition_line < positive_deletion_line &&
+         addition_line < negative_deletion_line &&
+         "the OTF RUP clause must precede both antecedent deletions");
+  std::remove(path.c_str());
+  kernel_check_invariants(k);
 }
 
 static void test_fastel_self_strengthening_precedes_resolvent_cap() {
@@ -876,6 +1009,9 @@ int main(int argc, char **argv) {
   test_one_instance_matches_legacy_and_restores_parameters();
   test_per_call_bound_is_effective_and_scoped();
   test_absolute_resolvent_cap_is_effective_and_scoped();
+  test_otf_single_strengthening_precedes_resolvent_cap();
+  test_otf_double_strengthening_subsumes_both_parents();
+  test_otf_lrat_add_precedes_parent_deletes();
   test_fastel_self_strengthening_precedes_resolvent_cap();
   test_fastel_at_raw_cap_skips_feasibility_strengthening();
   test_fastel_collapsed_binary_large_deletes_source_on_decline();

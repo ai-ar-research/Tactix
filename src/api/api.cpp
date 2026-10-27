@@ -564,6 +564,8 @@ bool online_parameters(const tactix_online_parameters &source,
     converted.definition_core_budget_multiplier =
         p.definition_core_budget_multiplier;
     converted.backward = p.backward != 0;
+    converted.on_the_fly_strengthening =
+        p.on_the_fly_strengthening != 0;
     converted.candidate_scope =
         static_cast<strategy::BveCandidateScope>(p.candidate_scope);
     converted.resolvent_count_limit =
@@ -3477,6 +3479,10 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.parity_consequence_published;
   case 61: // TACTIX_STAT_BACKJUMPS
     return k.stats.backjumps;
+  case 62: // TACTIX_STAT_BVE_OTF_STRENGTHENED
+    return k.stats.bve_otf_strengthened;
+  case 63: // TACTIX_STAT_BVE_OTF_SUBSUMED
+    return k.stats.bve_otf_subsumed;
 
   default:
     return UINT64_MAX;
