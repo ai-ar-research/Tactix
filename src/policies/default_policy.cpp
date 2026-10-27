@@ -5794,6 +5794,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         // completely legal and unfiltered.
         if (kernel_is_solver_extension(k, variable)) {
           ++k.stats.fastel_extensions_protected;
+          // The owner has completed this startup consideration. Clear the
+          // retry flag exactly as after an attempted pivot so an unchanged
+          // helper is not rediscovered in every bounded round; neighbouring
+          // clause removal can still re-arm it through the normal lifecycle.
+          port::execute_action(
+              k, execution::RetireBveCandidateRequest{variable});
           continue;
         }
       }
