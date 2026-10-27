@@ -649,23 +649,6 @@ bool default_fast_elimination_discovery_admissible(uint64_t active,
   return active && active <= remaining / 2;
 }
 
-bool default_should_run_fast_elimination_after_structured(
-    bool structured_root_grew_trail, uint64_t structured_root_applied,
-    uint64_t structured_root_witness_literals) {
-  // Satsuma's pipeline hands its symmetry-broken formula to a Kissat that
-  // runs no startup fast elimination.  Preserve that handoff after a
-  // non-trivial substitution witness: the previously tested unconditional
-  // composition can destroy the useful search pose.  A root clause whose SR
-  // witness contains only its mandatory pivot literal is ordinary certified
-  // root closure, however, and composes with CaDiCaL's startup FastEliminate.
-  // Every non-AMO applied SR clause contributes at least one witness literal,
-  // so equality proves that the whole applied batch is trivial; helper AMOs
-  // contribute none and conservatively keep the pass suppressed.
-  return !structured_root_grew_trail ||
-         (structured_root_applied &&
-          structured_root_witness_literals == structured_root_applied);
-}
-
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
@@ -4559,8 +4542,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "exact_one_refutation_end", "unknown");
   }
   bool structured_root_grew_trail = false;
-  uint64_t structured_root_applied = 0;
-  uint64_t structured_root_witness_literals = 0;
   uint64_t structured_root_amo_binaries_added = 0;
   bool structured_root_graph_root_progress = false;
   std::vector<Var> residual_import_order;
@@ -4579,8 +4560,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         k.stats.sr_post_amo_nonhelper_applied;
     const uint64_t post_amo_graph_root_units_before =
         k.stats.sr_post_amo_graph_root_units;
-    const uint64_t sr_applied_before = k.stats.sr_applied;
-    const uint64_t sr_witness_literals_before = k.stats.sr_witness_literals;
     const size_t structured_trail_before = k.trail.size();
     const uint64_t structured_started = now_nanos();
     const int structured_result = inprocess_.run_structured_root(k, stop, completion_);
@@ -4588,9 +4567,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     k.stats.structured_root_nanos += structured_elapsed;
     k.stats.inprocess_nanos += structured_elapsed;
     structured_root_grew_trail = k.trail.size() > structured_trail_before;
-    structured_root_applied = k.stats.sr_applied - sr_applied_before;
-    structured_root_witness_literals =
-        k.stats.sr_witness_literals - sr_witness_literals_before;
     if (structured_result == 10 || structured_result == 20)
       return finish(structured_result);
     if ((stop && *stop) || (k.stop && *k.stop))
@@ -4800,18 +4776,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
-  if (config_.inprocess.initial_fast_elimination &&
-      default_should_run_fast_elimination_after_structured(
-          structured_root_grew_trail, structured_root_applied,
-          structured_root_witness_literals)) {
+  if (config_.inprocess.initial_fast_elimination) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
         inprocess_.run_initial_fast_elimination(k, stop, completion_);
     event_trace.macro(k, "initial_fast_eliminate_end");
     if (phase_result == 10 || phase_result == 20)
       return finish(phase_result);
-  } else if (config_.inprocess.initial_fast_elimination) {
-    ++k.stats.fastel_root_suppressed;
   }
   event_trace.macro(k, "preprocess_end");
   startup = default_propagate(k, "post-preprocess", completion_);
@@ -5810,6 +5781,19 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             neg > parameters.occurrence_limit ||
             pos + neg > parameters.occurrence_limit) {
           port::execute_action(k, execution::RetireBveCandidateRequest{variable});
+          continue;
+        }
+        // Structured reasoning can introduce compact extension definitions
+        // immediately before this startup pass. Eliminating those helpers
+        // expands Factor's m+n representation back toward its m*n clause
+        // matrix and can perturb the first CDCL trajectory even when the
+        // variable count falls. Preserve the owner's discovery and local
+        // cleanup above, but defer application on solver-created variables to
+        // ordinary later BVE. Permanent external identity makes this test
+        // stable across compaction; explicit/public BVE instances remain
+        // completely legal and unfiltered.
+        if (kernel_is_solver_extension(k, variable)) {
+          ++k.stats.fastel_extensions_protected;
           continue;
         }
       }

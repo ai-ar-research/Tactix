@@ -225,6 +225,32 @@ static void test_variable_identity_maps() {
   assert(kernel_num_output_vars(k) == 3);
   assert(kernel_externalize(k, make_lit(4, false)) == 5);
   assert(kernel_internalize(k, 5) == make_lit(4, false));
+  assert(!kernel_is_solver_extension(k, 0));
+  assert(!kernel_is_solver_extension(k, 2));
+  assert(kernel_is_solver_extension(k, 3));
+  assert(kernel_is_solver_extension(k, 4));
+}
+
+static void test_solver_extension_identity_survives_compaction() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  assert(kernel_new_extension_vars(k, 2) == 3);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, 1);
+  --k.unassigned_active;
+  assert(kernel_compact_variables(k, true));
+
+  const Lit surviving_original = kernel_internalize(k, 3);
+  const Lit first_extension = kernel_internalize(k, 4);
+  const Lit second_extension = kernel_internalize(k, 5);
+  assert(surviving_original != INVALID_LIT);
+  assert(first_extension != INVALID_LIT && second_extension != INVALID_LIT);
+  assert(!kernel_is_solver_extension(k, var_of(surviving_original)));
+  assert(kernel_is_solver_extension(k, var_of(first_extension)));
+  assert(kernel_is_solver_extension(k, var_of(second_extension)));
+  kernel_check_invariants(k);
 }
 
 static void test_import_order_survives_compaction_linearly() {
@@ -2473,6 +2499,7 @@ int main() {
   test_reserved_trail_stack_contract();
   test_conflicting_propagation_consumes_trail_literal();
   test_variable_identity_maps();
+  test_solver_extension_identity_survives_compaction();
   test_import_order_survives_compaction_linearly();
   test_variable_compaction();
   test_compaction_collapses_root_fixed_admission_and_rewatches();

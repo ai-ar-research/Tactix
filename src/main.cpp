@@ -1096,7 +1096,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_otf_subsumed);
     printf("c fastel      %llu checks, %llu candidates / %llu active, "
            "%llu discovery ticks, %llu budget stops, %llu minority declines, "
-           "%llu root-suppressed, %llu eliminated, "
+           "%llu root-suppressed, %llu extensions protected, %llu eliminated, "
            "%llu resolutions, "
            "%.3f seconds\n",
            (unsigned long long)kernel.stats.fastel_rounds,
@@ -1106,6 +1106,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.fastel_budget_stops,
            (unsigned long long)kernel.stats.fastel_declined,
            (unsigned long long)kernel.stats.fastel_root_suppressed,
+           (unsigned long long)kernel.stats.fastel_extensions_protected,
            (unsigned long long)kernel.stats.fastel_eliminated,
            (unsigned long long)kernel.stats.fastel_resolutions,
            kernel.stats.fastel_nanos / 1e9);

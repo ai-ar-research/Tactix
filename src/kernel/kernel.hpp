@@ -1310,7 +1310,11 @@ struct Stats {
   uint64_t fastel_discovery_ticks = 0; // live variables inspected by admission
   uint64_t fastel_budget_stops = 0; // domains exceeding the shared effort dose
   uint64_t fastel_declined = 0;    // domains where the owner pass was minority
-  uint64_t fastel_root_suppressed = 0; // structured roots skipped startup fastel
+  // Legacy compatibility counter: current DefaultPolicy never suppresses the
+  // complete startup pass after structured reasoning.
+  uint64_t fastel_root_suppressed = 0;
+  // Startup candidates whose solver-created identity deferred application.
+  uint64_t fastel_extensions_protected = 0;
   uint64_t fastel_eliminated = 0;  // eliminations committed by startup fastel
   uint64_t fastel_resolutions = 0; // BVE work committed by startup fastel
   uint64_t fastel_nanos = 0;       // complete startup fastel phase time
@@ -2299,6 +2303,17 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
 
 inline uint32_t kernel_num_original_internal_vars(const Kernel &k) {
   return k.first_extension_var == UINT32_MAX ? k.nvars : k.first_extension_var;
+}
+
+// Solver-created variables have permanent external identities at or beyond
+// the input-model boundary. Unlike `first_extension_var`, this predicate is
+// stable across internal-variable compaction and does not assume extensions
+// remain a contiguous internal suffix.
+inline bool kernel_is_solver_extension(const Kernel &k, Var variable) {
+  assert(variable < k.nvars);
+  assert(variable < k.internal_to_external.size());
+  return k.original_external_vars != UINT32_MAX &&
+         k.internal_to_external[variable] >= k.original_external_vars;
 }
 
 inline Lit kernel_external_lit(const Kernel &k, Lit l) {

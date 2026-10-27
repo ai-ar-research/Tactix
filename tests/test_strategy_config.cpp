@@ -311,14 +311,10 @@ int main() {
   assert(!default_fast_elimination_discovery_admissible(0, 10));
   assert(default_fast_elimination_discovery_admissible(4, 8));
   assert(!default_fast_elimination_discovery_admissible(5, 8));
-  assert(default_should_run_fast_elimination_after_structured(false, 0, 0));
-  assert(default_should_run_fast_elimination_after_structured(true, 8, 8));
-  assert(!default_should_run_fast_elimination_after_structured(true, 1, 2));
-  assert(!default_should_run_fast_elimination_after_structured(true, 0, 0));
   {
-    // Exercise the policy call site, not only the predicate.  A checked SR
-    // unit fixes a root with only the mandatory one-literal SR witness, so it
-    // composes with startup FastEl rather than suppressing it.
+    // A checked SR unit composes with startup FastEl. Structured progress no
+    // longer suppresses the whole pass; its extension-variable applications
+    // are protected at the candidate boundary instead.
     DefaultStrategyConfig config = defaults;
     strategy::OnlineInvocation fixing;
     fixing.id = 112;
@@ -360,9 +356,8 @@ int main() {
     assert(productive.stats.fastel_root_suppressed == 0);
   }
   {
-    // A checked SR clause that does not grow the root trail must still compose
-    // with FastEl.  This guards against treating every SR application as a
-    // reason to suppress the owning baseline's elimination pass.
+    // A checked SR clause that does not grow the root trail also composes with
+    // FastEl, guarding the formula-neutral startup schedule.
     DefaultStrategyConfig config = defaults;
     strategy::OnlineInvocation clause_only;
     clause_only.id = 113;
@@ -418,6 +413,11 @@ int main() {
     assert(enabled.stats.sr_post_amo_nonhelper_applied > 0);
     assert(enabled.stats.sr_post_amo_graph_root_units > 0);
     assert(enabled.stats.bce_deleted == disabled.stats.bce_deleted);
+    // This fixture can terminate through the post-structured Lucky model
+    // before preprocessing reaches FastEl; it must no longer record policy
+    // suppression merely because graph symmetry fixed a root.
+    assert(enabled.stats.fastel_root_suppressed == 0 &&
+           disabled.stats.fastel_root_suppressed == 0);
   }
   {
     // Completion with no later SR consequence is itself the structured
@@ -443,6 +443,9 @@ int main() {
     program.sequence = {completion};
     config.inprocess.structured_root_stages = {
         {program, strategy::BudgetExhaustionPolicy::Continue}};
+    // This fixture owns only the conditional ULC cleanup contract. Keep the
+    // independent startup elimination composition out of its postconditions.
+    config.inprocess.initial_fast_elimination = false;
     assert(DefaultPolicy(config).solve(helper_only) == 10);
     assert(helper_only.stats.sr_unique_literal_amo_binaries == 3);
     assert(helper_only.stats.sr_applied == 3);

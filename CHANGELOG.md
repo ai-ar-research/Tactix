@@ -8,14 +8,21 @@ semantic versioning; the public C API remains source-compatible within the
 
 ### Changed
 
-- Default bounded variable elimination now performs CaDiCaL-style
-  clause-size-ordered generation-time self-subsuming resolution before
-  charging a pair against the resolvent bound.
+- Bounded variable elimination can perform CaDiCaL-style, clause-size-ordered
+  generation-time self-subsuming resolution before charging a pair against
+  the resolvent bound; the mechanism remains opt-in after its Common-set
+  structural screen.
+- Startup FastEliminate now composes with structured symmetry reasoning. It
+  retains occurrence cleanup but defers elimination of solver-created
+  extension variables to ordinary later BVE, preserving their compact
+  extended-resolution representation for the first CDCL trajectory.
 
 ### Added
 
 - The public BVE parameter surface exposes generation-time strengthening, and
   public statistics report its strengthening and double-subsumption counts.
+- Public statistics report how many solver-created extension candidates the
+  startup FastEliminate schedule protected.
 
 ### Fixed
 

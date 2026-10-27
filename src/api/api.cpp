@@ -3483,6 +3483,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.bve_otf_strengthened;
   case 63: // TACTIX_STAT_BVE_OTF_SUBSUMED
     return k.stats.bve_otf_subsumed;
+  case 64: // TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED
+    return k.stats.fastel_extensions_protected;
 
   default:
     return UINT64_MAX;

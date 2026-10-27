@@ -158,6 +158,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_BACKJUMPS 61
 #define TACTIX_STAT_BVE_OTF_STRENGTHENED 62 /* generation-time SSR rewrites */
 #define TACTIX_STAT_BVE_OTF_SUBSUMED 63 /* second parents deleted by double SSR */
+#define TACTIX_STAT_FASTEL_EXTENSIONS_PROTECTED 64 /* deferred startup helpers */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);

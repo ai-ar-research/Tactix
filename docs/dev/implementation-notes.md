@@ -271,7 +271,20 @@ DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
 AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
 it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
 suppressed admission was rejected, so the working policy has no MAB branch.
-**FastEliminate after structured roots (certificate admission).** Clause-only progress and root clauses whose applied SR records contain exactly the mandatory one-literal witness compose with startup FastEliminate. A helper AMO or any non-trivial substitution witness retains the Satsuma handoff: FastEliminate is skipped and counted in `fastel_root_suppressed`. This formula-general boundary preserves the fixed-suite evidence that rejected unconditional composition ([snw attribution](../../benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md), [c2.2](../../benchmarks/reports/2026-10-09-candidate-c2.2/README.md)) while permitting ordinary certified root closure to use CaDiCaL's default startup pass.
+**FastEliminate after structured roots (extension preservation).** Structured
+symmetry reasoning and startup FastEliminate both run. FastEliminate retains
+its complete discovery, occurrence cleanup, candidate order and effort
+accounting, but DefaultPolicy defers BVE application on solver-created
+variables during this startup pass. The predicate uses each variable's
+permanent external identity relative to `original_external_vars`, so it
+survives internal compaction; import rank, compact position and a raw internal
+ceiling are deliberately not used. Ordinary later BVE and every explicit
+public BVE instance remain unrestricted. The legacy `fastel_root_suppressed`
+counter stays zero; `fastel_extensions_protected` records every deferred
+startup candidate. This replaces the coarse structured-root suppression that
+protected good trajectories but also withheld elimination of original
+variables. The causal investigation and compact Factor/BVE inverse are
+documented in the [Andrew report](../../report-to-andrew/20261027T160623Z-symmetry-fastel-trajectory/report.pdf).
 ## 10. Reorder
 
 Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). Its target, maximum clause size, clause-decay, binary weight, and

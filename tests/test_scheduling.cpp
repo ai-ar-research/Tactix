@@ -1817,6 +1817,41 @@ static void test_initial_fast_elimination_budgets_discovery_before_mutation(void
   std::printf("  fastel discovery: mandatory scan declines before mutation\n");
 }
 
+static void test_initial_fast_elimination_defers_solver_extensions(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  ScopedHeuristics heuristics(k);
+  const Var extension = kernel_new_extension_vars(k, 1);
+  assert(extension == 4 && kernel_is_solver_extension(k, extension));
+
+  // A compact 2x2 definition: eliminating the helper reconstructs its four
+  // pairwise resolvents. The original variables are pure, so startup FastEl
+  // still has useful ordinary work and eventually leaves the helper isolated.
+  const Lit x = make_lit(extension, false);
+  kernel_add_binary_clause(k, x, internalize(1));
+  kernel_add_binary_clause(k, x, internalize(2));
+  kernel_add_binary_clause(k, negate(x), internalize(3));
+  kernel_add_binary_clause(k, negate(x), internalize(4));
+
+  DefaultPolicy policy;
+  policy.inprocess().build(k);
+  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
+  assert(k.stats.fastel_rounds > 0);
+  assert(k.stats.fastel_extensions_protected > 0);
+  assert(k.stats.fastel_eliminated > 0 &&
+         "protecting extensions must not disable ordinary startup BVE");
+  assert(!kernel_var_retired(k, extension));
+
+  // The protection is a DefaultPolicy startup choice, not an N1 restriction:
+  // the same extension remains directly addressable by the public proof rule.
+  const RuleVTable *bve = find_rule("BVE");
+  assert(bve && bve->guard(k));
+  assert(bve->apply_instance(k, lit_instance(k, x)) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, extension));
+  kernel_check_invariants(k);
+  std::printf("  fastel extensions: startup defers, explicit BVE remains legal\n");
+}
+
 static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
   Kernel k;
   kernel_reserve_vars(k, 10);
@@ -2176,6 +2211,7 @@ int main() {
   test_preprocess_is_reduced_and_bounded();
   test_initial_fast_elimination_composes_only_proof_rules();
   test_initial_fast_elimination_budgets_discovery_before_mutation();
+  test_initial_fast_elimination_defers_solver_extensions();
   test_initial_fast_elimination_keeps_owner_candidate_order();
   test_preprocess_followup_truth_table();
   test_preprocess_final_followup_is_observed();
