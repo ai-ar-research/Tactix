@@ -29,10 +29,10 @@ jobs:
             compiler_major: ""
           - name: Linux / minimum Clang
             os: ubuntu-24.04
-            compiler_package: clang-15
-            cc: /usr/bin/clang-15
-            cxx: /usr/bin/clang++-15
-            compiler_major: 15
+            compiler_package: clang-18
+            cc: /usr/bin/clang-18
+            cxx: /usr/bin/clang++-18
+            compiler_major: 18
           - name: macOS 15
             os: macos-15
             compiler_package: ""
@@ -53,9 +53,9 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes zlib1g-dev
 
-      # Exercise the oldest supported Clang frontend with matching system
-      # headers. The exact Apple Clang 15 + macOS 14.4 SDK combination requires
-      # a self-hosted runner now that GitHub's macOS 14 image is being retired.
+      # Exercise the oldest supported upstream Clang frontend with the runner's
+      # system libstdc++. Apple Clang has its own 15+ floor; reproducing its
+      # oldest supported SDK pairing requires a matching Xcode installation.
       - name: Install minimum compiler
         if: matrix.compiler_package != ''
         run: |

@@ -2,7 +2,8 @@
 
 ## Build
 
-Tactix requires a C++20 compiler (GCC 13 or newer, or Apple Clang 15 or newer),
+Tactix requires a C++20 compiler (GCC 13 or newer, Clang 18 or newer, or Apple
+Clang 15 or newer),
 CMake 3.25 or newer and zlib.
 
 ```sh
