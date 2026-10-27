@@ -492,8 +492,9 @@ struct DefaultStrategyConfig {
         strategy::BveParameters::DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
     bool bve_backward = false;
     // CaDiCaL elim.cpp generation-time self-subsuming resolution.  This can
-    // reduce the bounded resolvent population and expose additional pivots.
-    bool bve_on_the_fly_strengthening = true;
+    // reduce the bounded resolvent population and expose additional pivots,
+    // but remains opt-in until it passes the fixed no-loss regression gates.
+    bool bve_on_the_fly_strengthening = false;
     uint32_t factor_decade_round_cap = 14;
     uint32_t factor_decade_cap = 19;
     uint32_t factor_decade_offset = 5;

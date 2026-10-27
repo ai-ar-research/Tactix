@@ -271,7 +271,7 @@ DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
 AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
 it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
 suppressed admission was rejected, so the working policy has no MAB branch.
-**FastEliminate after structured roots (accepted deviation).** When structured symmetry breaking fixes a root (`default_should_run_fast_elimination_after_structured`), startup FastEliminate is skipped and counted in `fastel_root_suppressed`; clause-only structured progress composes with it. Kissat-sc2024 always runs startup fast elimination, while Satsuma's pipeline hands its output to a Kissat whose `fastel` defaults to 0. User decision 2026-10-09 reverses the earlier never-suppress decision ([snw attribution](../../benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md)): with the guard, noL-11-10 verifies SAT in 44.8 s and noL-11-0 solves in 292 s, both lost by never-suppress, while snw_16_9_CCSpre stays lost either way ([c2.2](../../benchmarks/reports/2026-10-09-candidate-c2.2/README.md)). Remove when a general trajectory explanation makes never-suppress pass the same gates.
+**FastEliminate after structured roots (certificate admission).** Clause-only progress and root clauses whose applied SR records contain exactly the mandatory one-literal witness compose with startup FastEliminate. A helper AMO or any non-trivial substitution witness retains the Satsuma handoff: FastEliminate is skipped and counted in `fastel_root_suppressed`. This formula-general boundary preserves the fixed-suite evidence that rejected unconditional composition ([snw attribution](../../benchmarks/reports/2026-10-07-fastel-suppression-removal/README.md), [c2.2](../../benchmarks/reports/2026-10-09-candidate-c2.2/README.md)) while permitting ordinary certified root closure to use CaDiCaL's default startup pass.
 ## 10. Reorder
 
 Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). Its target, maximum clause size, clause-decay, binary weight, and
@@ -404,16 +404,16 @@ structured stages repeat pure passes to scoped fixpoint before symmetry
 discovery; retired variables make closure finite. The reference structured
 profile keeps one pure pass.
 
-Ordinary DefaultPolicy BVE enables CaDiCaL's on-the-fly self-subsuming
+Ordinary DefaultPolicy BVE exposes CaDiCaL's on-the-fly self-subsuming
 resolution during its boundedness scan (`elim.cpp:409-447`), after stably sorting both occurrence sides by physical clause size as in `elim.cpp:714-718`. A non-unit
-resolvent that strictly subsumes an antecedent is published in that parent's
+resolution as an opt-in typed/public mechanism. A non-unit resolvent that strictly subsumes an antecedent is published in that parent's
 literal order, with the two-parent LRAT chain written before source deletion;
 the double case replaces the first parent and deletes the second. Parent membership leaves live occurrence accounting immediately, and every active non-pivot variable—but not the pivot under test—is rescheduled. The pair is
 not charged to the bounded resolvent population. Logical parent identities
 remove tentative resolvents made stale by either replacement without relying
-on proof hints. The typed/public `on_the_fly_strengthening` switch and
-`TACTIX_BVE_ON_THE_FLY=0` retain an explicit off arm; custom zero-initialized
-public steps preserve the earlier off behavior. This generation-time rule is
+on proof hints. The default and custom zero-initialized steps keep it off;
+`on_the_fly_strengthening` or `TACTIX_BVE_ON_THE_FLY=1` enables it explicitly.
+This generation-time rule is
 independent of both the optional post-elimination backward pass and SC2024's
 raw-cross-product FastEliminate feasibility scan.
 
