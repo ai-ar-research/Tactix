@@ -405,7 +405,7 @@ discovery; retired variables make closure finite. The reference structured
 profile keeps one pure pass.
 
 Ordinary DefaultPolicy BVE enables CaDiCaL's on-the-fly self-subsuming
-resolution during its boundedness scan (`elim.cpp:409-447`). A non-unit
+resolution during its boundedness scan (`elim.cpp:409-447`), after stably sorting both occurrence sides by physical clause size as in `elim.cpp:714-718`. A non-unit
 resolvent that strictly subsumes an antecedent is published in that parent's
 literal order, with the two-parent LRAT chain written before source deletion;
 the double case replaces the first parent and deletes the second. Parent membership leaves live occurrence accounting immediately, and every active non-pivot variable—but not the pivot under test—is rescheduled. The pair is

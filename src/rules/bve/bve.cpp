@@ -1714,6 +1714,23 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
     std::swap(px, nx);
   }
 
+  // CaDiCaL sorts both occurrence lists by physical clause size before gate
+  // detection and the boundedness scan (elim.cpp:714-718).  That ordering is
+  // essential to its generation-time strengthening: a short antecedent can
+  // remove a later pair before an earlier large pair exhausts the resolvent
+  // cap.  Couple the ordering to the CaDiCaL OTF pose so the historical
+  // Kissat traversal remains byte-for-byte selected by the explicit off arm.
+  if (k.bve_on_the_fly_strengthening && !k.bve_fastel_traversal) {
+    const auto physical_size = [&](const MClause &m) {
+      return m.ref == INVALID_REF ? 2u : clause_at(k.arena, m.ref)->size;
+    };
+    const auto smaller = [&](const MClause &a, const MClause &b) {
+      return physical_size(a) < physical_size(b);
+    };
+    std::stable_sort(pos.begin(), pos.end(), smaller);
+    std::stable_sort(neg.begin(), neg.end(), smaller);
+  }
+
   // Kissat resolve.c::kissat_generate_resolvents treats a candidate with an
   // empty polarity as pure and commits it immediately, before gate detection.
   // This includes a candidate whose last occurrence disappeared after it was

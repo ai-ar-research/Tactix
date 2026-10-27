@@ -9,8 +9,8 @@ semantic versioning; the public C API remains source-compatible within the
 ### Changed
 
 - Default bounded variable elimination now performs CaDiCaL-style
-  generation-time self-subsuming resolution before charging a pair against
-  the resolvent bound.
+  clause-size-ordered generation-time self-subsuming resolution before
+  charging a pair against the resolvent bound.
 
 ### Added
 

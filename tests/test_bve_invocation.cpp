@@ -248,6 +248,32 @@ static void test_otf_single_strengthening_precedes_resolvent_cap() {
   kernel_check_invariants(enabled);
 }
 
+static void test_otf_size_order_reaches_short_parent_before_cap() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit large_first[4] = {internalize(1), internalize(2),
+                              internalize(3), internalize(4)};
+  const Lit short_second[3] = {internalize(1), internalize(5),
+                               internalize(6)};
+  kernel_add_large_clause(k, large_first, 4, false, 0);
+  const Ref shortened =
+      kernel_add_large_clause(k, short_second, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(5));
+
+  OccIndex index;
+  execution::OccurrenceSession occurrences(
+      k, execution::OccurrenceSessionRequest{
+             index, execution::OccurrenceAttachment::Build, true});
+  const InvocationResult result = invoke_otf(k, 1, true, 0);
+  assert(result.status == InvocationStatus::Completed);
+  assert(!kernel_var_retired(k, var_of(internalize(1))));
+  assert(k.stats.bve_otf_strengthened == 1);
+  assert(clause_at(k.arena, shortened)->garbage());
+  assert(kernel_binary_live(k, internalize(5), internalize(6)));
+  occurrences.close();
+  kernel_check_invariants(k);
+}
+
 static void test_otf_replacement_updates_live_schedule_without_pivot_retry() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -1065,6 +1091,7 @@ int main(int argc, char **argv) {
   test_per_call_bound_is_effective_and_scoped();
   test_absolute_resolvent_cap_is_effective_and_scoped();
   test_otf_single_strengthening_precedes_resolvent_cap();
+  test_otf_size_order_reaches_short_parent_before_cap();
   test_otf_replacement_updates_live_schedule_without_pivot_retry();
   test_otf_double_strengthening_subsumes_both_parents();
   test_otf_lrat_add_precedes_parent_deletes();
