@@ -1818,6 +1818,24 @@ static void test_initial_fast_elimination_budgets_discovery_before_mutation(void
 }
 
 static void test_initial_fast_elimination_defers_solver_extensions(void) {
+  {
+    Kernel plain;
+    kernel_reserve_vars(plain, 4);
+    ScopedHeuristics heuristics(plain);
+    const Var extension = kernel_new_extension_vars(plain, 1);
+    const Lit x = make_lit(extension, false);
+    kernel_add_binary_clause(plain, x, internalize(1));
+    kernel_add_binary_clause(plain, x, internalize(2));
+    kernel_add_binary_clause(plain, negate(x), internalize(3));
+    kernel_add_binary_clause(plain, negate(x), internalize(4));
+    DefaultPolicy policy;
+    policy.inprocess().build(plain);
+    assert(policy.inprocess().run_initial_fast_elimination(plain, nullptr) == 0);
+    assert(!plain.stats.fastel_extensions_protected &&
+           "extensions are not protected when structured SR made no progress");
+    kernel_check_invariants(plain);
+  }
+
   Kernel k;
   kernel_reserve_vars(k, 4);
   ScopedHeuristics heuristics(k);
@@ -1832,6 +1850,9 @@ static void test_initial_fast_elimination_defers_solver_extensions(void) {
   kernel_add_binary_clause(k, x, internalize(2));
   kernel_add_binary_clause(k, negate(x), internalize(3));
   kernel_add_binary_clause(k, negate(x), internalize(4));
+  // Startup deferral is specifically the symmetry/FastEl composition policy,
+  // not a blanket ban on every solver-created variable.
+  k.stats.sr_applied = 1;
 
   DefaultPolicy policy;
   policy.inprocess().build(k);

@@ -5792,7 +5792,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         // ordinary later BVE. Permanent external identity makes this test
         // stable across compaction; explicit/public BVE instances remain
         // completely legal and unfiltered.
-        if (kernel_is_solver_extension(k, variable)) {
+        if (k.stats.sr_applied && kernel_is_solver_extension(k, variable)) {
           ++k.stats.fastel_extensions_protected;
           // The owner has completed this startup consideration. Clear the
           // retry flag exactly as after an attempted pivot so an unchanged
