@@ -53,6 +53,9 @@ template <class Parameters> struct ParameterInstallationRequest {
   const Parameters &parameters;
 };
 template <class Parameters>
+ParameterInstallationRequest(const Parameters &)
+    -> ParameterInstallationRequest<Parameters>;
+template <class Parameters>
 void execute_action(Kernel &k,
                     const ParameterInstallationRequest<Parameters> &request) {
   strategy::install_rule_parameters(k, request.parameters);

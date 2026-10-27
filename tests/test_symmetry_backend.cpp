@@ -535,7 +535,7 @@ void sparse_cut_checks_match_the_dense_predicate() {
   }
   assert(accepted && moved_base && orbit_escape);
 
-  const std::array<CutOrbitMember, 0> none;
+  const std::array<CutOrbitMember, 0> none{};
   const CutOrbitIndex empty(none);
   for (const auto &permutation : permutations)
     assert(empty.preserves(permutation.sparse, UINT32_MAX));

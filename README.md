@@ -11,13 +11,37 @@ Tactix binary also comes with a default strategy that achieves competitive perfo
 ```sh
 cmake --preset release
 cmake --build --preset release --parallel
-build/release/tactix formula.cnf proof       # s SATISFIABLE / s UNSATISFIABLE
-tools/checkers/setup.sh                       # once: build the proof checkers
-python3 tools/bench/proof_oracle.py check formula.cnf proof
+build/release/tactix formula.cnf             # s SATISFIABLE / s UNSATISFIABLE
 ```
 
 See [docs/cli.md](docs/cli.md) for requirements and checking answers, and
 [docs/strategies.md](docs/strategies.md) for writing your own strategy.
+
+To generate an UNSAT proof, supply an output file:
+
+```sh
+build/release/tactix formula.cnf proof.pbp
+```
+
+Tactix generates pseudo-Boolean proofs by default on Linux and macOS.
+Building Tactix, solving formulas, and generating proofs do not require external
+proof checkers.
+
+<details>
+<summary>Optional: install proof checkers and verify a proof</summary>
+
+```sh
+tools/checkers/setup.sh                     # install the external checker toolchain
+python3 tools/bench/proof_oracle.py check formula.cnf proof.pbp
+```
+
+The current setup script targets Linux x86-64 for the complete checker
+toolchain. Some individual checkers support other platforms, but the script
+does not provide a complete native macOS installation. Proofs generated on
+macOS can be checked on a supported platform together with the original CNF.
+See [the checking guide](docs/cli.md#optional-proof-checking) for details.
+
+</details>
 
 ## Example strategies
 

@@ -14,15 +14,22 @@ concurrency:
 
 jobs:
   tactix:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        include:
+          - name: Linux latest
+            os: ubuntu-latest
+            compatibility: false
+          - name: macOS 15 / LLVM 15
+            os: macos-15
+            compatibility: true
+          - name: macOS latest
+            os: macos-latest
+            compatibility: false
 
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +37,25 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes zlib1g-dev
+
+      # Exercise the oldest supported Clang frontend on Apple Silicon. The
+      # exact Apple Clang 15 + macOS 14.4 SDK combination requires a self-hosted
+      # runner now that GitHub's macOS 14 image is being retired.
+      - name: Install macOS compatibility compiler
+        if: matrix.compatibility
+        run: |
+          brew install llvm@15
+          llvm_prefix="$(brew --prefix llvm@15)"
+          echo "CC=$llvm_prefix/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+
+      - name: Verify macOS compatibility environment
+        if: matrix.compatibility
+        run: |
+          test "$(uname -m)" = arm64
+          test "$($CXX -dumpversion | cut -d. -f1)" = 15
+          $CXX --version
+          xcrun --sdk macosx --show-sdk-version
 
       - name: Configure release build
         run: >-
@@ -49,11 +75,9 @@ jobs:
           -DTACTIX_BUILD_TESTS=ON
 
       - name: Build unit tests
-        run: >-
-          cmake --build build/ci-tests --parallel 2 --target
-          test_parse test_strategy_config test_bve_occurrence_cache
+        run: cmake --build build/ci-tests --parallel 2
 
       - name: Run unit tests
         run: >-
           ctest --test-dir build/ci-tests --output-on-failure
-          -R '^(parse|strategy_config|bve_occurrence_cache)$'
+          --parallel 2 --timeout 900 --no-tests=error

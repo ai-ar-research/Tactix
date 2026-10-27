@@ -11,7 +11,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
 #include <sys/resource.h>
 #include <sys/wait.h>
 
@@ -674,6 +676,10 @@ void test_startup_pbp_certificate_boundary() {
   assert(!strict.startup_pb_available() && !strict.begin_pb());
   std::remove(path.c_str());
   // A completed derivation is not a successful publication on a full device.
+  if (access("/dev/full", W_OK)) {
+    std::puts("SKIP: full-device PB publication check (/dev/full unavailable)");
+    return;
+  }
   const pid_t pb_child = fork();
   assert(pb_child >= 0);
   if (!pb_child) {
@@ -821,6 +827,10 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
 }
 
 static void test_all_formats_report_output_failure() {
+  if (access("/dev/full", W_OK)) {
+    std::puts("SKIP: full-device output failure checks (/dev/full unavailable)");
+    return;
+  }
   for (auto format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii,
                       ProofFormat::DratBinary, ProofFormat::DratAscii,
                       ProofFormat::Lrat, ProofFormat::PbpStreaming})
@@ -830,7 +840,9 @@ static void test_all_formats_report_output_failure() {
       if (!child) {
         const struct rlimit no_core = {0, 0};
         assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+#ifdef __linux__
         assert(prctl(PR_SET_DUMPABLE, 0) == 0);
+#endif
         {
           Proof failed;
           assert(failed.open("/dev/full", format));

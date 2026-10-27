@@ -1,5 +1,6 @@
 // Root values do not justify erasing an independently cancelled XOR pair.
 #undef NDEBUG
+#include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
@@ -116,7 +117,8 @@ int main(int argc, char **argv) {
       if (model) { ++models; assert(value(6) == value(expected)); }
     }
     assert(shape ? models == 0 : models > 0);
-    FILE *input = std::tmpfile(), *sink = std::tmpfile();
+    TemporaryFile proof_file;
+    FILE *input = std::tmpfile(), *sink = proof_file.stream;
     assert(input && sink);
     std::fprintf(input, "p cnf 6 %zu\n", rows.size());
     std::map<Row, unsigned> population;
@@ -132,7 +134,7 @@ int main(int argc, char **argv) {
     if (mode) {
       const auto format = mode == 1 ? ProofFormat::DsrAscii :
                           mode == 2 ? ProofFormat::DratAscii : ProofFormat::Lrat;
-      assert(proof.open(("/proc/self/fd/" + std::to_string(fileno(sink))).c_str(), format));
+      assert(proof.open(proof_file.path.c_str(), format));
       proof.bind_variable_map(&k.internal_to_external); k.proof = &proof;
     }
     assert(!parse_dimacs(input, k));
@@ -215,7 +217,7 @@ int main(int argc, char **argv) {
         }
       }
     }
-    k.proof = nullptr; std::fclose(input); std::fclose(sink); ++cases;
+    k.proof = nullptr; std::fclose(input); ++cases;
   }
   std::printf("Unary XOR cancellation: %u fixed cases, every RUP/deletion/LRAT hint checked\n", cases);
 }

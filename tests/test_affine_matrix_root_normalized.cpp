@@ -55,7 +55,8 @@ static void exercise(ProofFormat format,const char *prefix){
  // A dose before propagation reaches its fixpoint must not destroy durable
  // authentication; after propagation, the retained owner can now reason at
  // this decision level and install an ordinary conditional clause.
- const auto pending_owner=session.owner_version(),pending_rank=session.basis_rank();
+ const auto pending_owner=session.owner_version();
+ const auto pending_rank=session.basis_rank();
  const auto pending_bytes=proof.premise_bytes(),pending_epoch=proof.premise_epoch();
  const auto pending_id=k.next_clause_id;const std::vector<Lit> pending_trail(k.trail.begin(),k.trail.end());
  const auto premature=affine_matrix_search_step(k,session);

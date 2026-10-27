@@ -38,7 +38,12 @@ struct MovingAllocator {
 
 template <class T> static void equal(const ReallocWords<T> &a,
                                     const std::vector<T> &b) {
-  assert(a.size() == b.size() && a.capacity() == b.capacity());
+  assert(a.size() == b.size());
+  // Capacity parity is specifically a libstdc++ compatibility contract.
+#ifdef __GLIBCXX__
+  assert(a.capacity() == b.capacity());
+#endif
+  assert(a.capacity() >= a.size());
   assert(a.empty() == b.empty());
   assert(std::equal(a.begin(), a.end(), b.begin(), b.end()));
 }
@@ -48,7 +53,9 @@ static void deterministic_operations() {
   for (size_t initial = 0; initial != 65; ++initial) {
     ReallocWords<uint32_t> a;
     std::vector<uint32_t> b;
+#ifdef __GLIBCXX__
     assert(a.max_size() == b.max_size());
+#endif
     a.reserve(initial); b.reserve(initial); equal(a,b);
     for (size_t i = 0; i != 257; ++i) {
       const size_t size = (i * 67 + initial * 11) % 193;
@@ -91,7 +98,7 @@ static void deterministic_operations() {
       }
     }
   }
-  std::printf("realloc-words operations=%zu exact size/capacity/value replay\n", operations);
+  std::printf("realloc-words operations=%zu size/value replay (capacity parity on libstdc++)\n", operations);
 }
 
 static void moved_growth_and_failure() {

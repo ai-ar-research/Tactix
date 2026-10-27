@@ -287,7 +287,9 @@ Status recognize(const std::vector<Premise> &source, const Limits &limits,
 
   Image recognized;
   uint64_t image_count = 0;
-  for (auto &[holes, candidates] : rows_by_width) {
+  for (auto &entry : rows_by_width) {
+    const auto holes = entry.first;
+    auto &candidates = entry.second;
     if (candidates.size() < uint64_t(holes) + 1)
       continue;
     std::sort(candidates.begin(), candidates.end(),

@@ -6,7 +6,9 @@
 #include <cstring>
 #include <cstdio>
 #include <initializer_list>
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -19,6 +21,10 @@ static int rule(const char *name) {
 }
 
 int main() {
+  if (access("/dev/full", W_OK)) {
+    std::puts("SKIP: /dev/full is unavailable");
+    return 77;
+  }
   for (int format : {TACTIX_PROOF_DRAT_BINARY, TACTIX_PROOF_DRAT_ASCII,
                      TACTIX_PROOF_LRAT, TACTIX_PROOF_DSR_BINARY,
                      TACTIX_PROOF_DSR_ASCII, TACTIX_PROOF_PBP})
@@ -29,8 +35,10 @@ int main() {
         const struct rlimit no_core = {0, 0};
         if (setrlimit(RLIMIT_CORE, &no_core))
           _exit(102);
+#ifdef __linux__
         if (prctl(PR_SET_DUMPABLE, 0))
           _exit(107);
+#endif
         tactix *solver = tactix_init();
         if (tactix_proof(solver, "/dev/full", format))
           _exit(103);
