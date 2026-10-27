@@ -1924,8 +1924,9 @@ static void test_initial_fast_elimination_keeps_owner_candidate_order(void) {
     if (entry.group == SlotGroup::Eliminate &&
         !std::strcmp(rules[entry.rule].name, "BVE"))
       assert(entry.limit == config.inprocess.preprocess_initial_ticks *
-                                config.inprocess.bve_permille / 1000 &&
-             "startup fastel must use the ordinary typed BVE effort dose");
+                                config.inprocess.initial_fast_elimination_bve_permille /
+                                1000 &&
+             "startup fastel must use its bounded typed BVE effort dose");
   kernel_check_invariants(k);
   std::printf("  fastel candidate order: owner score survives BVE dispatch\n");
 }

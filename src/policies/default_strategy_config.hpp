@@ -504,6 +504,9 @@ struct DefaultStrategyConfig {
     uint64_t factor_active_ceiling = 0;
 
     uint32_t bve_permille = 100;
+    // Startup FastEl has a separate bounded dose. Its complete owner scan is
+    // charged to this allowance; ordinary scheduled BVE retains bve_permille.
+    uint32_t initial_fast_elimination_bve_permille = 125;
     uint32_t probe_permille = 8;
     uint32_t hyper_binary_permille = 8;
     uint32_t backbone_permille = 20;

@@ -1019,7 +1019,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     threshold *= ip.factor_decade_base;
   }
   const uint32_t permilles[] = {
-      ip.bve_permille,          ip.probe_permille,
+      ip.bve_permille, ip.initial_fast_elimination_bve_permille,
+      ip.probe_permille,
       ip.hyper_binary_permille, ip.backbone_permille,
       ip.transitive_permille,   ip.vivify_permille,
       ip.strengthen_permille,   ip.subsume_forward_permille,
@@ -1627,6 +1628,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.factor_decade_base=" << inprocess.factor_decade_base
       << " inprocess.factor_active_ceiling=" << inprocess.factor_active_ceiling
       << " inprocess.bve_permille=" << inprocess.bve_permille
+      << " inprocess.initial_fast_elimination_bve_permille="
+      << inprocess.initial_fast_elimination_bve_permille
       << " inprocess.probe_permille=" << inprocess.probe_permille
       << " inprocess.hyper_binary_permille="
       << inprocess.hyper_binary_permille
@@ -7133,7 +7136,13 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
     reference = config().preprocess_initial_ticks;
   else if (!substitute && reference < config().minimum_effort_ticks)
     reference = config().minimum_effort_ticks;
-  const uint64_t delta = scale_permille(reference, e.permille);
+  const bool startup_fast_bve =
+      initial_fast_elimination_active_ &&
+      !std::strcmp(rules[e.rule].name, "BVE");
+  const uint32_t effective_permille =
+      startup_fast_bve ? config().initial_fast_elimination_bve_permille
+                       : e.permille;
+  const uint64_t delta = scale_permille(reference, effective_permille);
   e.limit = e.meter(k) + delta;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   e.journal_reference = reference;
@@ -7144,7 +7153,7 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
                  "permille=%u delta=%llu meter=%llu\n",
                  rules[e.rule].name, (unsigned long long)now,
                  (unsigned long long)clock.anchor,
-                 (unsigned long long)reference, e.permille,
+                 (unsigned long long)reference, effective_permille,
                  (unsigned long long)delta,
                  (unsigned long long)e.meter(k));
   if (e.meter == meter_forward_pair) {
