@@ -239,8 +239,10 @@ public:
   bool want_phase(const Kernel &, SlotGroup);
   int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop,
                 execution::PolicyCompletion *completion = nullptr);
-  int run_initial_fast_elimination(Kernel &, volatile sig_atomic_t *stop,
-                                  execution::PolicyCompletion *completion = nullptr);
+  int run_initial_fast_elimination(
+      Kernel &, volatile sig_atomic_t *stop,
+      execution::PolicyCompletion *completion = nullptr,
+      bool suppress_if_structured_extension_candidate = false);
   int run_structured_root(Kernel &, volatile sig_atomic_t *,
                           execution::PolicyCompletion *completion = nullptr);
   void update_limit(const Kernel &, SlotGroup);
@@ -316,6 +318,7 @@ private:
   bool preprocess_followups_ = true;
   bool preprocess_only_ = false;
   bool initial_fast_elimination_active_ = false;
+  bool initial_fast_elimination_suppress_on_extensions_ = false;
   uint64_t initial_fast_elimination_discovery_ticks_ = 0;
   bool initial_fast_elimination_budget_exhausted_ = false;
   bool initial_fast_elimination_admitted_ = false;

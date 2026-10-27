@@ -649,14 +649,15 @@ bool default_fast_elimination_discovery_admissible(uint64_t active,
   return active && active <= remaining / 2;
 }
 
-bool default_should_run_fast_elimination_after_structured(
-    bool structured_root_grew_trail) {
-  // Satsuma hands its root-changing symmetry result to a Kissat process that
-  // does not run startup FastEliminate.  Preserve that ownership boundary:
-  // root-changing structured progress already defines the first-search pose,
-  // while clause-only progress can still compose with bounded FastEl.  The
-  // startup extension guard remains relevant in that clause-only case.
-  return !structured_root_grew_trail;
+bool default_should_suppress_fast_elimination_after_structured(
+    bool structured_root_grew_trail, uint64_t extension_candidates) {
+  // A root change alone is not enough to prove that FastEl competes with the
+  // structured representation: large clausal formulas can gain incidental
+  // roots yet have no eliminable structured helper.  Preserve the Satsuma to
+  // Kissat ownership boundary only when both effects meet in the same startup
+  // candidate domain.  Clause-only SR and root growth without an eligible
+  // helper still compose with bounded FastEl.
+  return structured_root_grew_trail && extension_candidates;
 }
 
 namespace {
@@ -4789,17 +4790,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
-  if (config_.inprocess.initial_fast_elimination &&
-      default_should_run_fast_elimination_after_structured(
-          structured_root_grew_trail)) {
+  if (config_.inprocess.initial_fast_elimination) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
-        inprocess_.run_initial_fast_elimination(k, stop, completion_);
+        inprocess_.run_initial_fast_elimination(
+            k, stop, completion_, structured_root_grew_trail);
     event_trace.macro(k, "initial_fast_eliminate_end");
     if (phase_result == 10 || phase_result == 20)
       return finish(phase_result);
-  } else if (config_.inprocess.initial_fast_elimination) {
-    ++k.stats.fastel_root_suppressed;
   }
   event_trace.macro(k, "preprocess_end");
   startup = default_propagate(k, "post-preprocess", completion_);
@@ -5718,6 +5716,21 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             {payloads_[j], pos + neg, import_position(variable)});
       }
       k.stats.fastel_candidates += candidates.size();
+      if (initial_fast_elimination_suppress_on_extensions_) {
+        uint64_t extension_candidates = 0;
+        for (const Candidate &candidate : candidates) {
+          Lit literal;
+          if (lit_of_instance(k, candidate.payload, &literal) &&
+              kernel_is_solver_extension(k, var_of(literal)))
+            ++extension_candidates;
+        }
+        if (default_should_suppress_fast_elimination_after_structured(
+                true, extension_candidates)) {
+          ++k.stats.fastel_root_suppressed;
+          ctx.eliminate_limit_reached = true;
+          return SlotStep::Next;
+        }
+      }
       // Admission decides whether the owner pass runs at all; its later
       // rounds (fastel.c) gather the re-armed variables unconditionally.
       if (!initial_fast_elimination_admitted_ &&
@@ -6673,10 +6686,13 @@ int DefaultInprocessScheduler::run_structured_root(
 }
 
 int DefaultInprocessScheduler::run_initial_fast_elimination(
-    Kernel &k, volatile sig_atomic_t *stop, PolicyCompletion *completion) {
+    Kernel &k, volatile sig_atomic_t *stop, PolicyCompletion *completion,
+    bool suppress_if_structured_extension_candidate) {
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
   initial_fast_elimination_active_ = true;
+  initial_fast_elimination_suppress_on_extensions_ =
+      suppress_if_structured_extension_candidate;
   initial_fast_elimination_discovery_ticks_ = 0;
   initial_fast_elimination_budget_exhausted_ = false;
   initial_fast_elimination_admitted_ = false;
@@ -6691,6 +6707,7 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
   k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
   initial_fast_elimination_marks_.clear();
+  initial_fast_elimination_suppress_on_extensions_ = false;
   initial_fast_elimination_active_ = false;
   return result;
 }

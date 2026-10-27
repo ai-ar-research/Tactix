@@ -311,12 +311,14 @@ int main() {
   assert(!default_fast_elimination_discovery_admissible(0, 10));
   assert(default_fast_elimination_discovery_admissible(4, 8));
   assert(!default_fast_elimination_discovery_admissible(5, 8));
-  assert(default_should_run_fast_elimination_after_structured(false));
-  assert(!default_should_run_fast_elimination_after_structured(true));
+  assert(!default_should_suppress_fast_elimination_after_structured(false, 0));
+  assert(!default_should_suppress_fast_elimination_after_structured(false, 1));
+  assert(!default_should_suppress_fast_elimination_after_structured(true, 0));
+  assert(default_should_suppress_fast_elimination_after_structured(true, 1));
   {
-    // A checked SR unit grows the root trail. Preserve the structured owner's
-    // first-search pose instead of immediately starting a second elimination
-    // trajectory.
+    // A checked SR unit grows the root trail without leaving a structured
+    // helper in FastEl's candidate domain. Root growth alone must not suppress
+    // the bounded pass.
     DefaultStrategyConfig config = defaults;
     strategy::OnlineInvocation fixing;
     fixing.id = 112;
@@ -331,7 +333,8 @@ int main() {
     program.sequence = {fixing};
     config.inprocess.structured_root_stages = {
         {program, strategy::BudgetExhaustionPolicy::Continue}};
-    config.inprocess.program.clear();
+    config.inprocess.program = {
+        {15, "BVE", strategy::InprocessPhase::Eliminate, true}};
     config.inprocess.append_unlisted_rules = false;
     config.parity_model.enabled = false;
     config.onehot_model.enabled = false;
@@ -351,8 +354,8 @@ int main() {
     assert(DefaultPolicy(config).solve(productive) == 20);
     assert(productive.stats.sr_applications > 0);
     assert(productive.stats.sr_unique_literal_amo_binaries == 0);
-    assert(productive.stats.fastel_rounds == 0);
-    assert(productive.stats.fastel_root_suppressed == 1);
+    assert(productive.stats.fastel_rounds > 0);
+    assert(productive.stats.fastel_root_suppressed == 0);
   }
   {
     // A checked SR clause that does not grow the root trail also composes with

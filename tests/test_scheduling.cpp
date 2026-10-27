@@ -1870,6 +1870,28 @@ static void test_initial_fast_elimination_defers_solver_extensions(void) {
   assert(bve->apply_instance(k, lit_instance(k, x)) == ApplyResult::Ok);
   assert(kernel_var_retired(k, extension));
   kernel_check_invariants(k);
+
+  {
+    Kernel rooted;
+    kernel_reserve_vars(rooted, 4);
+    ScopedHeuristics rooted_heuristics(rooted);
+    const Var rooted_extension = kernel_new_extension_vars(rooted, 1);
+    const Lit rooted_x = make_lit(rooted_extension, false);
+    kernel_add_binary_clause(rooted, rooted_x, internalize(1));
+    kernel_add_binary_clause(rooted, rooted_x, internalize(2));
+    kernel_add_binary_clause(rooted, negate(rooted_x), internalize(3));
+    kernel_add_binary_clause(rooted, negate(rooted_x), internalize(4));
+    rooted.stats.sr_applied = 1;
+    DefaultPolicy rooted_policy;
+    rooted_policy.inprocess().build(rooted);
+    assert(rooted_policy.inprocess().run_initial_fast_elimination(
+               rooted, nullptr, nullptr, true) == 0);
+    assert(rooted.stats.fastel_rounds > 0);
+    assert(rooted.stats.fastel_root_suppressed == 1);
+    assert(rooted.stats.fastel_eliminated == 0);
+    assert(!kernel_var_retired(rooted, rooted_extension));
+    kernel_check_invariants(rooted);
+  }
   std::printf("  fastel extensions: startup defers, explicit BVE remains legal\n");
 }
 
