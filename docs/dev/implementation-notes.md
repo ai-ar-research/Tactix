@@ -408,7 +408,7 @@ Ordinary DefaultPolicy BVE enables CaDiCaL's on-the-fly self-subsuming
 resolution during its boundedness scan (`elim.cpp:409-447`). A non-unit
 resolvent that strictly subsumes an antecedent is published in that parent's
 literal order, with the two-parent LRAT chain written before source deletion;
-the double case replaces the first parent and deletes the second. The pair is
+the double case replaces the first parent and deletes the second. Parent membership leaves live occurrence accounting immediately, and every active non-pivot variable—but not the pivot under test—is rescheduled. The pair is
 not charged to the bounded resolvent population. Logical parent identities
 remove tentative resolvents made stale by either replacement without relying
 on proof hints. The typed/public `on_the_fly_strengthening` switch and

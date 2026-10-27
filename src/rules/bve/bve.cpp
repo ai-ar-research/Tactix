@@ -1936,6 +1936,36 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
         kernel_notify_bve_score(k, var_of(l), true);
   };
 
+  // CaDiCaL's elim_update_removed_clause(c, pivot) removes a strengthened
+  // antecedent from live occurrence accounting immediately, updates every
+  // other active variable, and deliberately does not reinsert the pivot that
+  // is currently being tested.  A plain kernel_delete_clause would instead
+  // leave the garbage ref in the physical dense stream until a later scan and
+  // would reinsert the pivot.  That makes every OTF replacement temporarily
+  // over-count its non-pivot literals (the replacement was already added) and
+  // perturbs the mutable BVE heap.  Retire the physical memberships now and
+  // spell the non-pivot semantic notifications explicitly.
+  const auto delete_otf_parent = [&](const MClause &m, Lit pivot) {
+    assert(m.ref != INVALID_REF);
+    Clause *clause = clause_at(k.arena, m.ref);
+    if (clause->garbage())
+      return;
+    if (k.dense) {
+      for (const Lit l : *clause) {
+        kernel_dense_remove_large_occurrence(k, l, m.ref);
+        kernel_bve_occurrence_remove(k, l);
+      }
+    }
+    kernel_delete_clause(k, clause, false, "bve-otf-strengthen");
+    for (const Lit l : *clause) {
+      if (l == pivot || k.value(l) != 0)
+        continue;
+      kernel_mark_bve_retry(k, var_of(l), "bve-otf-strengthen", clause);
+      kernel_removed_var(k, var_of(l));
+      kernel_notify_bve_score(k, var_of(l), true);
+    }
+  };
+
   const auto append_resolution_chain = [&](const MClause &c, Lit c_pivot,
                                            const MClause &d, Lit d_pivot) {
     const size_t begin = def->resolvent_chains.size();
@@ -2190,15 +2220,10 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
               kernel_add_large_clause(k, lits,
                                       static_cast<uint32_t>(lits_size),
                                       /*redundant=*/false, 0, id);
-            for (const Ref antecedent :
-                 {c_subsumed ? c.ref : INVALID_REF,
-                  d_subsumed ? d.ref : INVALID_REF}) {
-              if (antecedent == INVALID_REF)
-                continue;
-              Clause *const clause = clause_at(k.arena, antecedent);
-              if (!clause->garbage())
-                kernel_delete_clause(k, clause, true, "bve-otf-strengthen");
-            }
+            if (c_subsumed)
+              delete_otf_parent(c, first_pivot);
+            if (d_subsumed)
+              delete_otf_parent(d, second_pivot);
             k.stats.strengthened++;
             k.stats.bve_otf_strengthened++;
             if (c_subsumed && d_subsumed)

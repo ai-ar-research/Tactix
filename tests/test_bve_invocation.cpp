@@ -3,6 +3,7 @@
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp"
 #include "strategy/bve_invocation.hpp"
+#include "strategy/occurrence_execution.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -245,6 +246,60 @@ static void test_otf_single_strengthening_precedes_resolvent_cap() {
          "the invocation must restore the caller's BVE pose");
   kernel_check_invariants(disabled);
   kernel_check_invariants(enabled);
+}
+
+static void test_otf_replacement_updates_live_schedule_without_pivot_retry() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  const Lit first_negative[3] = {internalize(-1), internalize(2),
+                                 internalize(4)};
+  const Lit second_negative[3] = {internalize(-1), internalize(4),
+                                  internalize(5)};
+  const Ref strengthened =
+      kernel_add_large_clause(k, first_negative, 3, false, 0);
+  kernel_add_large_clause(k, second_negative, 3, false, 0);
+
+  OccIndex index;
+  execution::OccurrenceSession occurrences(
+      k, execution::OccurrenceSessionRequest{
+             index, execution::OccurrenceAttachment::Build, true});
+  k.bve_retry.assign(k.nvars, 1);
+  BveParameters parameters = BveParameters::from_kernel(k);
+  parameters.gate_mask = 0;
+  parameters.growth_bound = UINT32_MAX;
+  parameters.resolvent_count_limit = 0;
+  parameters.resolvent_size_limit = UINT32_MAX;
+  parameters.on_the_fly_strengthening = true;
+  InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::unlimited());
+  const uint64_t pivot = lit_instance(k, internalize(1));
+  {
+    BveInvocationSession session(bve_rule(), k, parameters, budget);
+    session.order_by_score_heap(&pivot, 1);
+    assert(session.next_ordered() == pivot && session.ordering_empty());
+    const InvocationResult result = session.apply_one(pivot);
+    assert(result.status == InvocationStatus::Completed);
+    assert(!kernel_var_retired(k, var_of(internalize(1))));
+    assert(k.stats.bve_otf_strengthened == 1);
+    assert(!k.bve_retry[var_of(internalize(1))]);
+    while (!session.ordering_empty())
+      assert(session.next_ordered() != pivot &&
+             "OTF must not reinsert the pivot being tested");
+    assert(clause_at(k.arena, strengthened)->garbage());
+    for (const Lit lit : first_negative)
+      for (const OccIndex::Entry entry : k.dense->ordered[lit])
+        assert(entry.binary || entry.payload != strengthened);
+    for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+      uint32_t physical = k.dense->large_size(lit);
+      for (const WatchEntry watch : k.watches.entries(lit))
+        physical += watch.binary();
+      assert(bve_schedule_occurrence_count(k, lit) == physical);
+    }
+    session.finish_ordering();
+  }
+  occurrences.close();
+  kernel_check_invariants(k);
 }
 
 static void test_otf_double_strengthening_subsumes_both_parents() {
@@ -1010,6 +1065,7 @@ int main(int argc, char **argv) {
   test_per_call_bound_is_effective_and_scoped();
   test_absolute_resolvent_cap_is_effective_and_scoped();
   test_otf_single_strengthening_precedes_resolvent_cap();
+  test_otf_replacement_updates_live_schedule_without_pivot_retry();
   test_otf_double_strengthening_subsumes_both_parents();
   test_otf_lrat_add_precedes_parent_deletes();
   test_fastel_self_strengthening_precedes_resolvent_cap();

@@ -17,6 +17,11 @@ semantic versioning; the public C API remains source-compatible within the
 - The public BVE parameter surface exposes generation-time strengthening, and
   public statistics report its strengthening and double-subsumption counts.
 
+### Fixed
+
+- OTF parent replacement now updates live BVE occurrence accounting
+  immediately and does not reinsert the pivot currently under test.
+
 ## [0.2.1] - 2026-10-22
 
 ### Removed
