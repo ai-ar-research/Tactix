@@ -10,11 +10,12 @@ CMake 3.25 or newer and zlib.
 git clone https://github.com/ai-ar-research/Tactix.git
 cd Tactix
 cmake --preset release
-cmake --build --preset release --parallel
+cmake --build --preset release --parallel 8
 ```
 
 This builds the solver, `build/release/tactix`, and the example strategies in
-`build/release/examples/`.
+`build/release/examples/`. Replace `8` with the maximum number of concurrent
+build jobs appropriate for your machine.
 
 ## Solve a formula
 

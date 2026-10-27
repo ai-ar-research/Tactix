@@ -10,9 +10,12 @@ Tactix binary also comes with a default strategy that achieves competitive perfo
 
 ```sh
 cmake --preset release
-cmake --build --preset release --parallel
+cmake --build --preset release --parallel 8
 build/release/tactix formula.cnf             # s SATISFIABLE / s UNSATISFIABLE
 ```
+
+Replace `8` with the maximum number of concurrent build jobs appropriate for
+your machine.
 
 See [docs/cli.md](docs/cli.md) for requirements and checking answers, and
 [docs/strategies.md](docs/strategies.md) for writing your own strategy.
