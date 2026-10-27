@@ -23,13 +23,28 @@ jobs:
         include:
           - name: Linux latest
             os: ubuntu-latest
-            compatibility: false
-          - name: macOS 15 / LLVM 15
+            compiler_package: ""
+            cc: ""
+            cxx: ""
+            compiler_major: ""
+          - name: Linux / minimum Clang
+            os: ubuntu-24.04
+            compiler_package: clang-15
+            cc: /usr/bin/clang-15
+            cxx: /usr/bin/clang++-15
+            compiler_major: 15
+          - name: macOS 15
             os: macos-15
-            compatibility: true
+            compiler_package: ""
+            cc: ""
+            cxx: ""
+            compiler_major: ""
           - name: macOS latest
             os: macos-latest
-            compatibility: false
+            compiler_package: ""
+            cc: ""
+            cxx: ""
+            compiler_major: ""
 
     steps:
       - uses: actions/checkout@v5
@@ -38,24 +53,21 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes zlib1g-dev
 
-      # Exercise the oldest supported Clang frontend on Apple Silicon. The
-      # exact Apple Clang 15 + macOS 14.4 SDK combination requires a self-hosted
-      # runner now that GitHub's macOS 14 image is being retired.
-      - name: Install macOS compatibility compiler
-        if: matrix.compatibility
+      # Exercise the oldest supported Clang frontend with matching system
+      # headers. The exact Apple Clang 15 + macOS 14.4 SDK combination requires
+      # a self-hosted runner now that GitHub's macOS 14 image is being retired.
+      - name: Install minimum compiler
+        if: matrix.compiler_package != ''
         run: |
-          brew install llvm@15
-          llvm_prefix="$(brew --prefix llvm@15)"
-          echo "CC=$llvm_prefix/bin/clang" >> "$GITHUB_ENV"
-          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          sudo apt-get install --yes "${{ matrix.compiler_package }}"
+          echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+          echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
 
-      - name: Verify macOS compatibility environment
-        if: matrix.compatibility
+      - name: Verify minimum compiler
+        if: matrix.compiler_package != ''
         run: |
-          test "$(uname -m)" = arm64
-          test "$($CXX -dumpversion | cut -d. -f1)" = 15
+          test "$($CXX -dumpversion | cut -d. -f1)" = "${{ matrix.compiler_major }}"
           $CXX --version
-          xcrun --sdk macosx --show-sdk-version
 
       - name: Configure release build
         run: >-
