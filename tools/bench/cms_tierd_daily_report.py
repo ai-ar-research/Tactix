@@ -113,10 +113,9 @@ exclusive and tenfold wins and freeze CG. The Tactix objective remains one
 DefaultPolicy strategy within twice CryptoMiniSat on each CG row, subject to
 N1--N4, fuzz, full Debug, and regression gates. A public GF(3) nonroot
 vertical and a public C v17 cardinality search action have focused proof checks;
-cardinality discovery, default scheduling, and acceptance remain open. Consult
-\texttt{PROGRESS.md} and the latest manually written report for current
-implementation and gate status. This automatic checkpoint does not infer
-acceptance from Slurm completion or a solver answer alone.
+cardinality discovery, default scheduling, and acceptance remain open. This
+automatic checkpoint does not infer acceptance from Slurm completion or a
+solver answer alone.
 \end{document}
 """ % (now.strftime("%d %B %Y, %H:%M"), array_job, len(results), expected, len(claims),
        len(pending), counts["verified SAT"], counts["verified UNSAT"],

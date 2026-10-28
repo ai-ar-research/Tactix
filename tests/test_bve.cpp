@@ -1,6 +1,6 @@
 // BVE: the round-local occurrence index, the candidate schedule, elimination
 // and its bound, the gate reductions, and model reconstruction through the
-// witness stack. Rule semantics live in docs/dev/calculus.md.
+// witness stack. Rule semantics live in the rule calculus.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"

@@ -304,8 +304,8 @@ int tactix_set_guidance_publication(tactix *, int mode);
 int tactix_solve(tactix *);
 
 /* Settings of the default strategy that tactix_solve runs, by name. The names
- * and values are those the command line reads from the environment (TACTIX_*,
- * listed in docs/dev/cli-reference.md), for example "TACTIX_FORCE_MODE" = "stable" or
+ * and values are those the command line reads from the environment (TACTIX_*),
+ * for example "TACTIX_FORCE_MODE" = "stable" or
  * "TACTIX_SLOT_DISABLE" = "Backbone". A session's setting takes precedence
  * over the environment while the session solves; value NULL removes it.
  * Every setting is sound: settings choose which sound steps the default

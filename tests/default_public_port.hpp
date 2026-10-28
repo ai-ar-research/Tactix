@@ -1,7 +1,7 @@
 #pragma once
 
 // PublicPort: DefaultPolicy's action port over tactix.h only
-// (docs/dev/controller-interface.md; strategy/action_port.hpp). The policy runs on
+// (the controller-interface design; strategy/action_port.hpp). The policy runs on
 // a bound C session's kernel; each action with a public request is issued as
 // that request (tactix_apply*, tactix_decide, tactix_install_*,
 // tactix_support). Others run through StaticPort and are counted as fallbacks

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce DEVELOPMENT_PLAN's no-magic-strategy-number invariant."""
+"""Enforce the no-magic-strategy-number source invariant."""
 import pathlib
 import re
 import sys
@@ -20,9 +20,6 @@ def code_only(text):
 
 def main():
     failures = []
-    plan = (ROOT / "DEVELOPMENT_PLAN.md").read_text()
-    if "DefaultPolicy contains no magic strategy numbers" not in plan:
-        failures.append("DEVELOPMENT_PLAN.md lost the permanent strategy-number rule")
     config = CONFIG.read_text()
     required = ["struct DefaultStrategyConfig", "struct Branching",
                 "struct Analysis", "struct Restart", "struct Mode",

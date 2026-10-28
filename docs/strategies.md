@@ -136,19 +136,13 @@ applied rule in the proof. A poor strategy is slow, or never finishes.
 
 `tactix_apply` applies a rule with its default settings. To give one
 application its own settings, such as a work budget or a random seed, a
-strategy submits a short *online program* with `tactix_online_configure`;
-[dev/c-api-reference.md, section 5](dev/c-api-reference.md#5-per-invocation-settings-online-programs)
-describes it.
+strategy submits a short *online program* with `tactix_online_configure`; the
+program format is documented in `include/tactix.h`.
 
 ## Where to go next
 
 - [`examples/`](../examples/): more strategies, from CDCL without restarts
   (`demo2_no_restarts.c`) to the built-in schedule written outside the library
   (`demo3_scripted_default.c`).
-- [dev/c-api-reference.md](dev/c-api-reference.md): the complete interface,
-  with a tutorial that grows a plain CDCL loop step by step.
-- [dev/rules.md](dev/rules.md): every rule, when it applies and what it does.
-- [dev/cli-reference.md](dev/cli-reference.md): the built-in strategy's
-  settings (`TACTIX_*`), which `tactix_set_default_option` accepts.
-- [ai-strategy-prompt.md](ai-strategy-prompt.md): a prompt for designing a
-  strategy with an AI agent.
+- [`include/tactix.h`](../include/tactix.h): the complete public interface and
+  per-invocation online-program format.

@@ -2,7 +2,7 @@
 // model set. No proof checker catches a violation, since a `delete` line is
 // accepted unconditionally, so each iteration enumerates all 2^5 assignments
 // of a random 5-var formula and compares the model set before and after.
-// See docs/dev/calculus.md V4 and docs/dev/implementation-notes.md §14.
+// See the rule calculus V4 and the implementation notes §14.
 //
 // argv[1] mode: 0 binaries only; 1 adds a propagated root unit; 2 applies
 // per-source instances in shuffled order (the order-independence N1 demands);

@@ -1,7 +1,7 @@
 // Decide's guard carries no propagation-fixpoint conjunct, so a policy may
 // stack decisions without propagating between them (N1), and backtracking
 // from such a state must leave no clause unit with no watch firing. Ledger
-// row D-LEVEL-1 in docs/dev/implementation-notes.md.
+// row D-LEVEL-1 in the implementation notes.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"

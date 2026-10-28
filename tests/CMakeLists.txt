@@ -138,11 +138,9 @@ add_test(NAME reduce_trace_compare
 add_test(NAME modelcheck
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_modelcheck.py)
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME runtime_task
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
-endif()
+add_test(NAME runtime_task
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
 if(TACTIX_ENABLE_RULE_JOURNAL)
   add_executable(test_rule_journal test_rule_journal.cpp)
 else()
@@ -179,16 +177,12 @@ add_test(NAME campaign_certificate_cleanup
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_campaign_certificate_cleanup.py)
 set_tests_properties(campaign_certificate_cleanup PROPERTIES SKIP_RETURN_CODE 77)
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME tierd_campaign_pinning
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_tierd_campaign_pinning.py)
-endif()
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME slurm_memory_enforcement
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
-endif()
+add_test(NAME tierd_campaign_pinning
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_tierd_campaign_pinning.py)
+add_test(NAME slurm_memory_enforcement
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
 add_test(NAME symmetry_backend_build_boundary
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_symmetry_backend_flags.py
@@ -208,17 +202,15 @@ add_executable(test_orbitopal_group test_orbitopal_group.cpp)
 target_include_directories(test_orbitopal_group PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(test_orbitopal_group PRIVATE tactix_lib)
 add_test(NAME orbitopal_group COMMAND test_orbitopal_group)
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME fuzz_slurm_snapshot
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
-  add_test(NAME fuzz_slurm_sharding
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_sharding.py)
-  add_test(NAME fuzz_shard_aggregate
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_shard_aggregate.py)
-endif()
+add_test(NAME fuzz_slurm_snapshot
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
+add_test(NAME fuzz_slurm_sharding
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_sharding.py)
+add_test(NAME fuzz_shard_aggregate
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_shard_aggregate.py)
 add_test(NAME fuzz_reachability
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_reachability.py)
@@ -630,11 +622,9 @@ add_test(NAME feedback_frontend
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_feedback_frontend.py
                  $<TARGET_FILE:tactix>)
 set_tests_properties(feedback_frontend PROPERTIES SKIP_RETURN_CODE 77)
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME public_theory_target_tables
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
-endif()
+add_test(NAME public_theory_target_tables
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
 add_test(NAME public_theory_target_score
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_score.py)
@@ -670,15 +660,6 @@ add_executable(test_subsume_n1 test_subsume_n1.cpp)
 target_link_libraries(test_subsume_n1 PRIVATE tactix_lib)
 add_test(NAME subsume_n1 COMMAND test_subsume_n1)
 
-# Development-consistency checks read the development plan, progress notes and
-# the Kissat/CaDiCaL reference clones, which live only in the development tree.
-if(EXISTS ${CMAKE_SOURCE_DIR}/DEVELOPMENT_PLAN.md)
-  set(_tactix_dev_default ON)
-else()
-  set(_tactix_dev_default OFF)
-endif()
-option(TACTIX_DEVELOPER_CHECKS "Run the development-consistency checks" ${_tactix_dev_default})
-
 # A source conformance check, not a unit test: every Kernel scheduling-config
 # field must have the writer its classification claims.
 add_test(NAME config_wiring
@@ -691,16 +672,6 @@ add_test(NAME config_wiring
 add_test(NAME effort_specs
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)
-
-# Every option in kissat/src/options.h and cadical/src/options.hpp must be
-# accounted for by a parity-ledger row, §13.6's dismissal roster, or a named
-# carried/exempt entry, so a reference bump cannot turn the ledger into a silent
-# lower bound. Fails rather than skips without the reference clones (CLAUDE.md).
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME option_coverage
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
-endif()
 
 # The §5.6 reward channel: every dosed rule exposes a (yield, effort) pair,
 # header numbering matches api.cpp's case order, and every case returns the
@@ -715,58 +686,9 @@ add_test(NAME feedback_statistics
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-feedback-statistics.py)
 
-# Source citations in the living docs must resolve; a stale one still reads
-# correct. Narrow on purpose: it prints what it skipped, so green is not
-# full coverage.
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME citations
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-citations.py)
-endif()
-
-# A `§X.Y` pointing at the wrong section reads exactly like one that resolves,
-# so every section reference in the living docs must resolve to a real section.
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME section_refs
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-section-refs.py)
-endif()
-
-# The phase-3 exit is "implemented, or a reasoned no-implement with evidence",
-# falsifiable only if every disposition has a ledger row.
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME inventory
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-inventory.py)
-endif()
-
-# The same shape over source comments, enforced rather than remembered. The
-# checker states the rule it applies; see it for what a comment may carry.
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME comment_hygiene
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-comment-hygiene.py)
-endif()
-
-# Living documentation is an onboarding surface, not an append-only archive.
-# These budgets and cheap cross-file invariants prevent wrap-up from silently
-# growing or contradicting it again.
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME doc_size
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-doc-size.py)
-endif()
-
-# The HTML guide is manually maintained, so at minimum its public/folded rule
-# inventory must stay identical to the calculus (plus V6a's internal card).
-add_test(NAME proof_rule_sync
+add_test(NAME default_strategy_config_check
          COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_SOURCE_DIR}/tools/docs/check-proof-rule-sync.py)
-if(TACTIX_DEVELOPER_CHECKS)
-  add_test(NAME default_strategy_config_check
-           COMMAND ${CMAKE_COMMAND} -E env python3
-                   ${CMAKE_SOURCE_DIR}/tools/docs/check-default-strategy-config.py)
-endif()
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-default-strategy-config.py)
 
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)

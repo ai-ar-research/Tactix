@@ -30,9 +30,4 @@ assert "physical_cores = max(1, -(-(mem_gb or 8) // 8))" in run_source
 assert "cpus = 2 * physical_cores" in run_source
 assert "#SBATCH --mem={mem_gb}G" in run_source
 
-plan = " ".join((ROOT / "DEVELOPMENT_PLAN.md").read_text().split())
-assert "all 57 rows at c8/32 GiB/300 seconds" in plan
-assert "12 logical CPUs, 32 GiB and 1,200 solver seconds" in plan
-assert "Canonical Tier D uses a 32-GiB task-cgroup" in plan
-
 print("SLURM memory enforcement: PASS")

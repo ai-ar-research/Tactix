@@ -1,7 +1,5 @@
 # Fuzz harness
 
-Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
-
 Both `--nightly` arms default to at least 100,000 independently checked verdicts
 and at most 5% nonterminating cases, with zero correctness failures. Explicit
 `--minimum-verdicts` and `--max-nonterminating-frac` arguments override these

@@ -4,7 +4,7 @@
 // and accepts a redundant victim; (b) the round declines it, so the narrowing
 // is round-only; (c) with the band on the round acts and tracks `k.tier2` live;
 // (d) a band stamp writes `touched_kept`, never `touched`, so band-blind
-// consumers are unaffected. See docs/dev/implementation-notes.md.
+// consumers are unaffected. See the implementation notes.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"

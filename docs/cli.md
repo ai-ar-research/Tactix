@@ -116,6 +116,5 @@ build/release/examples/tactix-cruxmiter-policy formula.cnf proof
 
 They read uncompressed DIMACS only.
 
-[strategies.md](strategies.md) shows how to write and compile your own. Every
-option, output line and setting of the solver is listed in
-[dev/cli-reference.md](dev/cli-reference.md).
+[strategies.md](strategies.md) shows how to write and compile your own. The
+command-line help (`tactix --help`) lists the available solver options.

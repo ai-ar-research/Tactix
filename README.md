@@ -92,8 +92,8 @@ User-visible release changes are listed in [CHANGELOG.md](CHANGELOG.md).
 `include/tactix.h` is the public C interface; `src/` contains the solver.
 `examples/` contains client strategies, while `tests/` and `tools/` contain
 the test, checker, fuzzing and benchmark infrastructure. Frozen datasets live
-under `benchmarks/`; guides under `docs/` (developer references in
-`docs/dev/`); vendored code under `third_party/`.
+under `benchmarks/`; user guides live under `docs/`; vendored code is under
+`third_party/`.
 
 ## License
 

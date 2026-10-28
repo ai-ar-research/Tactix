@@ -35,7 +35,7 @@ static const char *const NO_SURFACE[] = {"Propagate", "SubstitutionRedundancy",
  * is a deliberate act. Congruence is here by specification, not by omission:
  * V6's effect is the congruence closure, so a single merge is a prefix of one
  * application rather than an application (`N1-CONG-INSTANCES`, disposed in
- * docs/dev/calculus.md §6 V6 and pinned by test_congruence.cpp). Factor left this
+ * the rule calculus §6 V6 and pinned by test_congruence.cpp). Factor left this
  * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
 static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "SubstitutionRedundancy",

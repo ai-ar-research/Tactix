@@ -98,44 +98,25 @@ missing evidence does not pass a required gate.
   production on each fixed regression set, and production must remain within
   5% of the hardcoded twin.
 
-The project skill `.claude/skills/release-gate/` coordinates these checks and
-records one PASS, FAIL, or INCOMPLETE disposition. A version bump, tag, or
-release publication waits for every applicable gate to pass.
+A version bump, tag, or release publication waits for every applicable gate
+to pass.
 
 ## Adding a rule or changing one
 
 A rule is the unit of soundness and of the public interface:
 
-1. Its semantics (precondition, effect, proof step) go in
-   [docs/dev/calculus.md](docs/dev/calculus.md), and implementation-specific guards in
-   [docs/dev/implementation-notes.md](docs/dev/implementation-notes.md).
+1. Specify its precondition, formula and proof effects, and implementation
+   guards in the change and its tests.
 2. Register it in `src/rules/registry.cpp`. Rule ids are append-only; never
    renumber or reuse a retired slot, since external strategies refer to ids.
-3. Make it reachable through `include/tactix.h` (the interface only grows; see
-   [docs/dev/c-api-reference.md](docs/dev/c-api-reference.md)).
+3. Make it reachable through `include/tactix.h`; the public interface only
+   grows.
 4. Every effect on the clause database must be logged to the proof, and the
-   proof must check with the routes in
-   [docs/dev/cli-reference.md](docs/dev/cli-reference.md#proof-route).
+   proof must check with the routes described in [docs/cli.md](docs/cli.md).
 5. Add unit tests under `tests/` and run the fuzzer with the rule enabled.
 
-The default strategy follows Kissat and CaDiCaL;
-[docs/dev/scheduling-parity-ledger.md](docs/dev/scheduling-parity-ledger.md) records,
-mechanism by mechanism, how its scheduling corresponds to theirs. A change to
-the default strategy's scheduling should name the reference behavior it
-follows or the reason it departs from it.
-
-## Development records
-
-Some source comments cite development documents that are no longer in the
-working tree: the development plan (`plan §…`, `DEVELOPMENT_PLAN.md`),
-benchmark reports (`benchmarks/reports/…`) and design notes (`docs/design/…`).
-They remain in the repository history. To read one, show it from the commit
-before they were removed:
-
-```sh
-git show c2a0867f2^:DEVELOPMENT_PLAN.md
-git show c2a0867f2^:benchmarks/reports/<report>.md
-```
+A change to the default strategy's scheduling should name the reference
+behavior it follows or the reason it departs from it.
 
 ## Code style
 
