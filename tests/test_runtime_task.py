@@ -100,7 +100,10 @@ class RuntimeTaskTest(unittest.TestCase):
             with patch.object(runner, "ROOT", root), patch.object(runner, "CAMPAIGN", campaign), \
                  patch.object(sys, "argv", ["runtime_task.py", str(campaign), "0"]), \
                  patch.dict(os.environ, {"SLURM_JOB_ID": "test", "SLURM_TMPDIR": temporary}), \
-                 patch.object(runner.subprocess, "run", side_effect=decompress), patch.object(runner, "measured", measured):
+                 patch.object(runner.os, "sched_getaffinity", return_value={0},
+                              create=True), \
+                 patch.object(runner.subprocess, "run", side_effect=decompress), \
+                 patch.object(runner, "measured", measured):
                 code = runner.main()
             result = json.loads((campaign / "results/000.json").read_text())
             self.assertTrue(result["artifact_deleted"])

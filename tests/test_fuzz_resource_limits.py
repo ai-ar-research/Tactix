@@ -36,6 +36,8 @@ class MemoryRunner(unittest.TestCase):
         self.assertFalse(status["memory_exceeded"])
         self.assertFalse(status["timed_out"])
 
+    @unittest.skipUnless(sys.platform.startswith("linux"),
+                         "resident-memory accounting requires Linux /proc")
     def test_resident_memory_limit_is_distinct(self):
         result, status = invoke(
             "import time; x=bytearray(128*1024*1024); time.sleep(10)",
@@ -51,6 +53,8 @@ class MemoryRunner(unittest.TestCase):
         self.assertTrue(status["timed_out"])
         self.assertFalse(status["memory_exceeded"])
 
+    @unittest.skipUnless(sys.platform.startswith("linux"),
+                         "process-tree accounting requires Linux /proc")
     def test_descendant_memory_counts_toward_the_same_limit(self):
         code = (
             "import subprocess,sys,time; "
