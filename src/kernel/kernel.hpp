@@ -1310,14 +1310,14 @@ struct Stats {
   uint64_t fastel_discovery_ticks = 0; // live variables inspected by admission
   uint64_t fastel_budget_stops = 0; // domains exceeding the shared effort dose
   uint64_t fastel_declined = 0;    // domains where the owner pass was minority
-  // Legacy compatibility counter: current DefaultPolicy never suppresses the
-  // complete startup pass after structured reasoning.
+  // Startup passes skipped before mutation because root-changing structured
+  // reasoning left an eligible solver-created helper in FastEl's domain.
   uint64_t fastel_root_suppressed = 0;
-  // Startup candidates whose solver-created identity deferred application.
+  // Startup candidates whose direct/composed identity deferred application.
   uint64_t fastel_extensions_protected = 0;
   uint64_t fastel_eliminated = 0;  // eliminations committed by startup fastel
   uint64_t fastel_resolutions = 0; // BVE work committed by startup fastel
-  uint64_t fastel_nanos = 0;       // complete startup fastel phase time
+  uint64_t fastel_nanos = 0;       // startup preflight plus admitted pass time
   uint64_t bve_bwd_queued = 0;      // fresh resolvents used as subsumers
   uint64_t bve_bwd_subsumed = 0;    // victims deleted (cadical elimbwsub)
   uint64_t bve_bwd_strengthened = 0; // victims shortened (cadical elimbwstr)

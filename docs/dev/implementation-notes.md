@@ -271,19 +271,48 @@ DefaultPolicy uses the EVSIDS ranking in stable search. The full immediate
 AE-Kissat-MAB EVSIDS/CHB owner was tested on the four fixed regression tranches;
 it failed Rank, B28+C5, WV100 and WV2--89 acceptance. The earlier delayed and
 suppressed admission was rejected, so the working policy has no MAB branch.
-**FastEliminate after structured roots (extension preservation).** Structured
-symmetry reasoning and startup FastEliminate both run. FastEliminate retains
-its complete discovery, occurrence cleanup, candidate order and effort
-accounting, but DefaultPolicy defers BVE application on solver-created
-variables during this startup pass. The predicate uses each variable's
-permanent external identity relative to `original_external_vars`, so it
-survives internal compaction; import rank, compact position and a raw internal
-ceiling are deliberately not used. Ordinary later BVE and every explicit
-public BVE instance remain unrestricted. The legacy `fastel_root_suppressed`
-counter stays zero; `fastel_extensions_protected` records every deferred
-startup candidate. This replaces the coarse structured-root suppression that
-protected good trajectories but also withheld elimination of original
-variables. The causal investigation and compact Factor/BVE inverse are
+**FastEliminate after structured roots (candidate-domain ownership).**
+Structured symmetry reasoning and startup FastEliminate both run.
+The scheduler records both the stable external-ID interval created directly by
+its one structured invocation and the fresh-variable ranges created by each
+admitted Factor call in the following conflict-zero startup Probe phase. Factor
+is not executed inside the structured program, but it consumes the root
+representation established there; these ranges therefore form one composed
+startup cohort. The scheduler separately records whether the structured
+invocation both applied SR and grew the root trail. A read-only preflight counts
+the current irredundant occurrences of live extensions in that composed cohort
+under FastEl's clause-size, twice-positive gather and later two-polarity
+occurrence caps. If at least one cohort extension is eligible, the structured
+representation owns the first-search pose: the whole startup pass returns
+before dense-mode entry, candidate discovery, local SubsumeForward, retry
+rescheduling, or BVE, and
+`fastel_root_suppressed` records it. Root growth alone does not suppress
+FastEl, so incidental roots on a large clausal formula do not withhold useful
+elimination. The preflight also checks the owner's balanced discovery/work
+admission first; a pass that would decline before allocation or mutation keeps
+that ordinary budget-stop path instead of being reclassified as structural
+suppression. The census also requires a propagated root image. A caller-authored
+structured step that leaves closure pending takes ordinary Eliminate root
+preparation, with the pointwise ownership fallback below protecting its helpers.
+Clause-only structured SR also composes with FastEl; its direct SR
+helpers remain deferred at the application boundary. Under root-growing SR,
+the same boundary additionally defers a recorded Factor helper that becomes
+eligible only after earlier FastEl mutations and therefore was absent from the
+read-only preflight. Each pointwise deferral clears the
+unchanged retry like an attempted pivot, and records it in
+`fastel_extensions_protected`. With no SR application, extensions remain
+ordinary startup candidates. Every admitted pass retains the owner's complete
+discovery, occurrence cleanup, candidate order and effort accounting. The
+extension predicate uses each variable's
+permanent external identity inside explicit captured half-open ranges, so it
+survives internal compaction and cannot mistake an unrelated later extension
+for a member merely because its ID is larger; import rank, compact position and
+a raw internal ceiling are deliberately not used. Ordinary later BVE and every
+explicit public BVE instance remain unrestricted. This replaces both blanket
+root-growth suppression, which withheld useful original-variable elimination,
+and helper-only protection, which still allowed ordinary pivots to disturb a
+root-and-extension search pose. The causal investigation and compact
+Factor/BVE inverse are
 documented in the [Andrew report](../../report-to-andrew/20261027T160623Z-symmetry-fastel-trajectory/report.pdf).
 ## 10. Reorder
 
@@ -430,7 +459,7 @@ This generation-time rule is
 independent of both the optional post-elimination backward pass and SC2024's
 raw-cross-product FastEliminate feasibility scan.
 
-SC2024 startup fast elimination is a typed composition after initial Probe: the owner's incomplete, record-high-marked occurrence-local SubsumeForward instance, then BVE with occurrence/antecedent caps 100 and absolute resolvent cap eight. Up to four productive rounds follow the owner's `flags.eliminate` lifecycle on the kernel image `bve_retry`: a round gathers, in import order (the gather flush mutates, so its order decides which clause of a subsuming pair dies), every active variable whose flag is set; every attempt, including one rejected by the occurrence caps when it is popped, clears the pivot's flag afterwards (`TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE`); any removal of a clause containing a variable sets the flag again; and the pass ends by setting every flag (`RescheduleBveCandidates`). Stable order preserves the owner's twice-positive occurrence score. Candidate discovery must inspect every live variable before that radix order is known, so its live-domain lower bound and subsequent resolution ticks share one standard preprocessing BVE effort dose derived from the typed initial reference and BVE permille. Admission also reserves one transformation tick per discovered live variable; a domain that cannot fit this balanced discovery/work lower bound declines before allocation or formula mutation. After complete first-round discovery, a strict candidate majority admits the owner pass; a minority preserves ordinary elimination. Later rounds of an admitted pass gather their re-armed candidates without this admission test. When the raw cross product exceeds the absolute cap, its feasibility traversal may add a two-parent RUP resolvent that strictly subsumes a large parent before counting the pair. As in `fastel.c`, the resolvent is a NEW irredundant clause (end of the arena and of every occurrence list, no inherited logical position), the subsumed parents are then deleted (re-arming all of their literals), and a mixed binary/large resolvent keeps the large parent's literal order without the pivot; linear literal marks authenticate size-at-least-two containment, logical parent identities prune stale tentative resolvents in every proof mode, and the checked edit survives a later decline. A mixed binary/large result collapsed to a unit is likewise published before its large source is deleted and counts one strengthening; the reference's collapsed large/large path keeps both parents and has no strengthening count. At or below the raw cap, ordinary resolution runs without this strengthening. The resolution attempt owns that bounded scan's work tick. This application-coverage and work feedback is formula-derived and contains no size, family, rank, benchmark or elapsed-time predicate. The schedule adds no separate proof vocabulary and does not replay ordinary Eliminate.
+SC2024 startup fast elimination is a typed composition after initial Probe: the owner's incomplete, record-high-marked occurrence-local SubsumeForward instance, then BVE with occurrence/antecedent caps 100 and absolute resolvent cap eight. A root-changing SR result first receives the read-only census of its composed direct-SR and following startup-Factor extension cohort described in section 9; suppression returns before this composition begins. The census is considered only when the owner's balanced discovery/work lower bound admits the pass. Up to four productive rounds follow the owner's `flags.eliminate` lifecycle on the kernel image `bve_retry`: a round gathers, in import order (the gather flush mutates, so its order decides which clause of a subsuming pair dies), every active variable whose flag is set; every attempt, including one rejected by the occurrence caps when it is popped, clears the pivot's flag afterwards (`TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE`); any removal of a clause containing a variable sets the flag again; and the pass ends by setting every flag (`RescheduleBveCandidates`). A composed helper which becomes eligible only after an earlier mutation is pointwise deferred instead of escaping the startup ownership boundary. Stable order preserves the owner's twice-positive occurrence score. Candidate discovery must inspect every live variable before that radix order is known. Startup BVE therefore owns a distinct typed 125-permille effort dose derived from the initial preprocessing reference; ordinary scheduled BVE keeps the independent `bve_permille` dose. Admission also reserves one transformation tick per discovered live variable; a domain that cannot fit this balanced discovery/work lower bound declines before allocation or formula mutation. After complete first-round discovery, a strict candidate majority admits the owner pass; a minority preserves ordinary elimination. Later rounds of an admitted pass gather their re-armed candidates without this admission test. When the raw cross product exceeds the absolute cap, its feasibility traversal may add a two-parent RUP resolvent that strictly subsumes a large parent before counting the pair. As in `fastel.c`, the resolvent is a NEW irredundant clause (end of the arena and of every occurrence list, no inherited logical position), the subsumed parents are then deleted (re-arming all of their literals), and a mixed binary/large resolvent keeps the large parent's literal order without the pivot; linear literal marks authenticate size-at-least-two containment, logical parent identities prune stale tentative resolvents in every proof mode, and the checked edit survives a later decline. A mixed binary/large result collapsed to a unit is likewise published before its large source is deleted and counts one strengthening; the reference's collapsed large/large path keeps both parents and has no strengthening count. At or below the raw cap, ordinary resolution runs without this strengthening. The resolution attempt owns that bounded scan's work tick. This application-coverage and work feedback is formula-derived and contains no size, family, rank, benchmark or elapsed-time predicate. The schedule adds no separate proof vocabulary and does not replay ordinary Eliminate.
 
 ## 21. Retained representation decisions
 

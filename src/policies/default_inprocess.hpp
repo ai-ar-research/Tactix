@@ -104,6 +104,48 @@ inline void update_inprocess_delay(uint32_t &current,uint32_t &count,bool unprod
 
 class DefaultInprocessScheduler {
 public:
+  struct StructuredFastelOwnership {
+    struct ExternalRange {
+      uint32_t begin = 0;
+      uint32_t end = 0;
+    };
+
+    bool grew_root_trail = false;
+    uint32_t external_begin = 0;
+    uint32_t external_end = 0;
+    bool symmetry_applied = false;
+    // Factor is deliberately outside the structured-root executor, but its
+    // startup Probe call consumes the representation established there.  Keep
+    // its fresh-variable ranges separate from direct SR ownership so the
+    // whole-pass preflight can recognize the composed cohort without making
+    // clause-only SR protect every ordinary Factor helper pointwise.
+    std::vector<ExternalRange> coupled_factor_ranges;
+
+    StructuredFastelOwnership() = default;
+    StructuredFastelOwnership(bool grew, uint32_t begin, uint32_t end,
+                              bool symmetry)
+        : grew_root_trail(grew), external_begin(begin), external_end(end),
+          symmetry_applied(symmetry) {}
+
+    bool directly_owns(uint32_t external) const {
+      return external >= external_begin && external < external_end;
+    }
+    bool factor_owns(uint32_t external) const {
+      for (const ExternalRange &range : coupled_factor_ranges)
+        if (external >= range.begin && external < range.end)
+          return true;
+      return false;
+    }
+    bool composed_owns(uint32_t external) const {
+      return directly_owns(external) || factor_owns(external);
+    }
+    bool protects_at_application(uint32_t external) const {
+      return symmetry_applied &&
+             (directly_owns(external) ||
+              (grew_root_trail && factor_owns(external)));
+    }
+  };
+
   // Compatibility aliases for tests and external design probes.  The numbers
   // themselves have one home in DefaultStrategyConfig.
   static constexpr uint64_t SUBSUME_INTERVAL =
@@ -241,10 +283,16 @@ public:
                 execution::PolicyCompletion *completion = nullptr);
   int run_initial_fast_elimination(
       Kernel &, volatile sig_atomic_t *stop,
-      execution::PolicyCompletion *completion = nullptr,
-      bool suppress_if_structured_extension_candidate = false);
+      execution::PolicyCompletion *completion = nullptr);
+  int run_initial_fast_elimination(
+      Kernel &, volatile sig_atomic_t *stop,
+      execution::PolicyCompletion *completion,
+      const StructuredFastelOwnership &ownership);
   int run_structured_root(Kernel &, volatile sig_atomic_t *,
                           execution::PolicyCompletion *completion = nullptr);
+  const StructuredFastelOwnership &structured_fastel_ownership() const {
+    return structured_fastel_ownership_;
+  }
   void update_limit(const Kernel &, SlotGroup);
   void order_candidates(const Kernel &, SlotEntry &, uint64_t *, uint32_t);
   void set_entry_limit(SlotEntry &, Kernel &);
@@ -318,12 +366,13 @@ private:
   bool preprocess_followups_ = true;
   bool preprocess_only_ = false;
   bool initial_fast_elimination_active_ = false;
-  bool initial_fast_elimination_suppress_on_extensions_ = false;
+  StructuredFastelOwnership initial_fast_elimination_ownership_;
   uint64_t initial_fast_elimination_discovery_ticks_ = 0;
   bool initial_fast_elimination_budget_exhausted_ = false;
   bool initial_fast_elimination_admitted_ = false;
   std::vector<uint8_t> initial_fast_elimination_marks_;
   bool structured_root_consumed_ = false;
+  StructuredFastelOwnership structured_fastel_ownership_;
   bool initialized_ = false;
   bool search_limits_initialized_ = false;
   uint64_t last_reduce_conflicts_ = UINT64_MAX;

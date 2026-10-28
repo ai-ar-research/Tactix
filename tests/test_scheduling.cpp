@@ -1777,9 +1777,10 @@ static void test_initial_fast_elimination_composes_only_proof_rules(void) {
   DefaultStrategyConfig config;
   DefaultPolicy policy(config);
   policy.inprocess().build(k);
-  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
+  assert(policy.inprocess().run_initial_fast_elimination(
+             k, nullptr, nullptr, {true, 0, 0, true}) == 0);
   assert(k.stats.forward_subsumed == 1 &&
-         "fastel local cleanup must use SubsumeForward");
+         "root growth without an eligible extension must still run FastEl");
   const auto &rules = tactix_rules();
   for (const auto &entry : policy.inprocess().entries) {
     if (entry.group != SlotGroup::Eliminate)
@@ -1814,7 +1815,83 @@ static void test_initial_fast_elimination_budgets_discovery_before_mutation(void
   for (Var variable = 0; variable < k.nvars; ++variable)
     assert(!kernel_var_retired(k, variable));
   kernel_check_invariants(k);
+
+  // Structural ownership must not turn an owner-side discovery-budget decline
+  // into root suppression: that decline already returns before mutation.
+  Kernel owned;
+  kernel_reserve_vars(owned, 4);
+  ScopedHeuristics owned_heuristics(owned);
+  const Var extension = kernel_new_extension_vars(owned, 1);
+  const Lit x = make_lit(extension, false);
+  kernel_add_binary_clause(owned, x, internalize(1));
+  kernel_add_binary_clause(owned, negate(x), internalize(2));
+  DefaultPolicy owned_policy(config);
+  owned_policy.inprocess().build(owned);
+  assert(owned_policy.inprocess().run_initial_fast_elimination(
+             owned, nullptr, nullptr,
+             {true, owned.original_external_vars,
+              static_cast<uint32_t>(owned.external_to_internal.size()),
+              true}) == 0);
+  assert(owned.stats.fastel_root_suppressed == 0 &&
+         owned.stats.fastel_budget_stops == 1 &&
+         owned.stats.fastel_discovery_ticks == 0);
+  kernel_check_invariants(owned);
   std::printf("  fastel discovery: mandatory scan declines before mutation\n");
+}
+
+static void test_structured_startup_records_coupled_factor_range(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  ScopedHeuristics heuristics(k);
+  // Independent 2x3 grid: Factor replaces the six binaries by a fresh helper.
+  for (const Lit factor : {internalize(1), internalize(2)})
+    for (const Lit remainder :
+         {internalize(3), internalize(4), internalize(5)})
+      kernel_add_binary_clause(k, factor, remainder, ++k.next_clause_id);
+  for (const Lit literal : {internalize(1), internalize(2), internalize(3),
+                            internalize(4), internalize(5)})
+    kernel_mark_factor_literal(k, literal);
+  // These two clauses imply -6. The explicit SR unit therefore grows the root
+  // without consuming any member of the Factor grid.
+  kernel_add_binary_clause(k, internalize(-6), internalize(7),
+                           ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(-6), internalize(-7),
+                           ++k.next_clause_id);
+
+  DefaultStrategyConfig config;
+  strategy::OnlineInvocation fixing;
+  fixing.id = 112;
+  fixing.rule = "SubstitutionRedundancy";
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
+  fixing.parameters = parameters;
+  fixing.granularity = strategy::InvocationGranularity::OneInstance;
+  fixing.substitution_redundancy_instances = {
+      SubstitutionRedundancyInstance{{internalize(-6)}, {}, {}}};
+  strategy::OnlineStrategyProgram structured;
+  structured.sequence = {fixing};
+  config.inprocess.structured_root_stages = {
+      {structured, strategy::BudgetExhaustionPolicy::Continue}};
+  config.inprocess.structured_root_before_lucky = false;
+  config.inprocess.program = {
+      {15, "Factor", strategy::InprocessPhase::Probe, true, true}};
+  config.inprocess.append_unlisted_rules = false;
+
+  DefaultPolicy policy(config);
+  policy.inprocess().build(k);
+  assert(policy.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  const auto &ownership = policy.inprocess().structured_fastel_ownership();
+  assert(ownership.symmetry_applied && ownership.grew_root_trail);
+  assert(k.stats.factorings == 1);
+  assert(ownership.external_begin == ownership.external_end);
+  assert(ownership.coupled_factor_ranges.size() == 1);
+  const auto range = ownership.coupled_factor_ranges.front();
+  assert(range.begin == 7 && range.end == 8 &&
+         ownership.factor_owns(7) && ownership.composed_owns(7) &&
+         ownership.protects_at_application(7));
+  assert(!ownership.directly_owns(7));
+  kernel_check_invariants(k);
+  std::printf("  fastel provenance: startup SR records its coupled Factor range\n");
 }
 
 static void test_initial_fast_elimination_defers_solver_extensions(void) {
@@ -1856,7 +1933,11 @@ static void test_initial_fast_elimination_defers_solver_extensions(void) {
 
   DefaultPolicy policy;
   policy.inprocess().build(k);
-  assert(policy.inprocess().run_initial_fast_elimination(k, nullptr) == 0);
+  assert(policy.inprocess().run_initial_fast_elimination(
+             k, nullptr, nullptr,
+             {false, k.original_external_vars,
+              static_cast<uint32_t>(k.external_to_internal.size()), true}) ==
+         0);
   assert(k.stats.fastel_rounds > 0);
   assert(k.stats.fastel_extensions_protected > 0);
   assert(k.stats.fastel_eliminated > 0 &&
@@ -1882,15 +1963,200 @@ static void test_initial_fast_elimination_defers_solver_extensions(void) {
     kernel_add_binary_clause(rooted, negate(rooted_x), internalize(3));
     kernel_add_binary_clause(rooted, negate(rooted_x), internalize(4));
     rooted.stats.sr_applied = 1;
+    const Lit subsumed[] = {rooted_x, internalize(1), internalize(2)};
+    kernel_add_large_clause(rooted, subsumed, 3, false, 0);
     DefaultPolicy rooted_policy;
     rooted_policy.inprocess().build(rooted);
+    const std::vector<uint8_t> retry_before = rooted.bve_retry;
     assert(rooted_policy.inprocess().run_initial_fast_elimination(
-               rooted, nullptr, nullptr, true) == 0);
-    assert(rooted.stats.fastel_rounds > 0);
+               rooted, nullptr, nullptr,
+               {true, rooted.original_external_vars,
+                static_cast<uint32_t>(rooted.external_to_internal.size()),
+                true}) ==
+           0);
+    assert(rooted.stats.fastel_rounds == 0 &&
+           rooted.stats.fastel_discovery_ticks == 0 &&
+           rooted.stats.fastel_candidates == 0);
     assert(rooted.stats.fastel_root_suppressed == 1);
     assert(rooted.stats.fastel_eliminated == 0);
+    assert(rooted.stats.forward_subsumed == 0 &&
+           "the structured preflight must return before local subsumption");
+    assert(rooted.bve_retry == retry_before &&
+           "the structured preflight must not reschedule BVE candidates");
     assert(!kernel_var_retired(rooted, rooted_extension));
     kernel_check_invariants(rooted);
+  }
+  {
+    // The dense entry that is being avoided would delete repeated binaries
+    // before building FastEl's occurrence image.  The read-only preflight must
+    // predict that population without deleting the copies itself.
+    Kernel repeated;
+    kernel_reserve_vars(repeated, 2);
+    ScopedHeuristics repeated_heuristics(repeated);
+    const Var repeated_extension = kernel_new_extension_vars(repeated, 1);
+    const Lit repeated_x = make_lit(repeated_extension, false);
+    kernel_add_binary_clause(repeated, repeated_x, internalize(1));
+    kernel_add_binary_clause(repeated, repeated_x, internalize(1));
+    kernel_add_binary_clause(repeated, negate(repeated_x), internalize(2));
+    DefaultStrategyConfig repeated_config;
+    repeated_config.inprocess.initial_fast_elimination_parameters
+        .occurrence_limit = 2;
+    DefaultPolicy repeated_policy(repeated_config);
+    repeated_policy.inprocess().build(repeated);
+    const uint64_t binaries_before = repeated.watches.binary_clauses();
+    assert(repeated_policy.inprocess().run_initial_fast_elimination(
+               repeated, nullptr, nullptr,
+               {true, repeated.original_external_vars,
+                static_cast<uint32_t>(repeated.external_to_internal.size()),
+                true}) ==
+           0);
+    assert(repeated.stats.fastel_root_suppressed == 1 &&
+           repeated.stats.fastel_rounds == 0);
+    assert(repeated.watches.binary_clauses() == binaries_before &&
+           "the preflight must not perform dense-entry deduplication");
+    kernel_check_invariants(repeated);
+  }
+  {
+    // A caller-authored structured program may publish a root without asking
+    // its own post-application propagation. Do not classify that stale sparse
+    // image in the whole-pass preflight: Eliminate closes the root first, and
+    // the pointwise composed fallback still protects the owned helper.
+    Kernel pending;
+    kernel_reserve_vars(pending, 5);
+    ScopedHeuristics pending_heuristics(pending);
+    kernel_assign_unit(pending, internalize(1));
+    assert(pending.propagate_head == 0 && pending.trail.size() == 1);
+    const Var pending_extension = kernel_new_extension_vars(pending, 1);
+    const Lit pending_x = make_lit(pending_extension, false);
+    kernel_add_binary_clause(pending, pending_x, internalize(2));
+    kernel_add_binary_clause(pending, pending_x, internalize(3));
+    kernel_add_binary_clause(pending, negate(pending_x), internalize(4));
+    kernel_add_binary_clause(pending, negate(pending_x), internalize(5));
+    DefaultPolicy pending_policy;
+    pending_policy.inprocess().build(pending);
+    assert(pending_policy.inprocess().run_initial_fast_elimination(
+               pending, nullptr, nullptr,
+               {true, pending.original_external_vars,
+                static_cast<uint32_t>(pending.external_to_internal.size()),
+                true}) == 0);
+    assert(pending.stats.fastel_root_suppressed == 0 &&
+           pending.stats.fastel_rounds > 0 &&
+           pending.stats.fastel_extensions_protected > 0);
+    assert(!kernel_var_retired(pending, pending_extension));
+    assert(kernel_propagation_fixpoint(pending));
+    kernel_check_invariants(pending);
+  }
+  {
+    // An unrelated extension created after the structured invocation must not
+    // trigger whole-pass suppression merely because its external ID is later.
+    // Only an explicitly recorded direct or coupled range participates.
+    Kernel mixed;
+    kernel_reserve_vars(mixed, 2);
+    ScopedHeuristics mixed_heuristics(mixed);
+    const Var structured_extension = kernel_new_extension_vars(mixed, 1);
+    const uint32_t structured_external_begin =
+        mixed.internal_to_external[structured_extension];
+    const Lit structured_x = make_lit(structured_extension, false);
+    kernel_add_binary_clause(mixed, structured_x, internalize(1));
+    kernel_add_binary_clause(mixed, negate(structured_x), internalize(2));
+    const uint32_t structured_external_end =
+        static_cast<uint32_t>(mixed.external_to_internal.size());
+    const Var later_extension = kernel_new_extension_vars(mixed, 1);
+    kernel_add_binary_clause(mixed, negate(make_lit(later_extension, false)),
+                             internalize(1));
+    DefaultStrategyConfig mixed_config;
+    mixed_config.inprocess.initial_fast_elimination_parameters
+        .occurrence_limit = 1;
+    DefaultPolicy mixed_policy(mixed_config);
+    mixed_policy.inprocess().build(mixed);
+    assert(mixed_policy.inprocess().run_initial_fast_elimination(
+               mixed, nullptr, nullptr,
+               {true, structured_external_begin,
+                structured_external_end, true}) == 0);
+    assert(mixed.stats.fastel_root_suppressed == 0 &&
+           mixed.stats.fastel_rounds > 0 &&
+           "ordinary Probe extensions must not masquerade as structured helpers");
+    kernel_check_invariants(mixed);
+  }
+  {
+    // Factor runs outside the structured-root executor, but its startup Probe
+    // call consumes the root representation established by SR.  A compact
+    // helper produced by that call is therefore part of the composed preflight
+    // cohort even though it is not a direct SR-owned variable.
+    Kernel coupled;
+    kernel_reserve_vars(coupled, 2);
+    ScopedHeuristics coupled_heuristics(coupled);
+    const uint32_t coupled_begin =
+        static_cast<uint32_t>(coupled.external_to_internal.size());
+    const Var factor_extension = kernel_new_extension_vars(coupled, 1);
+    const uint32_t coupled_end =
+        static_cast<uint32_t>(coupled.external_to_internal.size());
+    const Lit x = make_lit(factor_extension, false);
+    kernel_add_binary_clause(coupled, x, internalize(1));
+    kernel_add_binary_clause(coupled, negate(x), internalize(2));
+    DefaultPolicy coupled_policy;
+    coupled_policy.inprocess().build(coupled);
+    DefaultInprocessScheduler::StructuredFastelOwnership ownership{
+        true, coupled_begin, coupled_begin, true};
+    ownership.coupled_factor_ranges.push_back(
+        {coupled_begin, coupled_end});
+    assert(!ownership.directly_owns(coupled_begin) &&
+           ownership.factor_owns(coupled_begin) &&
+           ownership.protects_at_application(coupled_begin));
+    assert(coupled_policy.inprocess().run_initial_fast_elimination(
+               coupled, nullptr, nullptr, ownership) == 0);
+    assert(coupled.stats.fastel_root_suppressed == 1 &&
+           coupled.stats.fastel_rounds == 0 &&
+           "startup Factor helpers must participate in composed suppression");
+    kernel_check_invariants(coupled);
+  }
+  {
+    // The shipped owner gathers on twice the positive population before its
+    // later two-polarity check.  Passing only the latter must not classify a
+    // structured extension as an offered round-one candidate.
+    Kernel gather_boundary;
+    kernel_reserve_vars(gather_boundary, 2);
+    ScopedHeuristics gather_heuristics(gather_boundary);
+    const Var extension = kernel_new_extension_vars(gather_boundary, 1);
+    const Lit x = make_lit(extension, false);
+    kernel_add_binary_clause(gather_boundary, x, internalize(1));
+    kernel_add_binary_clause(gather_boundary, x, internalize(2));
+    DefaultStrategyConfig gather_config;
+    gather_config.inprocess.initial_fast_elimination_parameters
+        .occurrence_limit = 3;
+    DefaultPolicy gather_policy(gather_config);
+    gather_policy.inprocess().build(gather_boundary);
+    assert(gather_policy.inprocess().run_initial_fast_elimination(
+               gather_boundary, nullptr, nullptr,
+               {true, gather_boundary.original_external_vars,
+                static_cast<uint32_t>(
+                    gather_boundary.external_to_internal.size()),
+                true}) == 0);
+    assert(gather_boundary.stats.fastel_root_suppressed == 0 &&
+           gather_boundary.stats.fastel_rounds > 0);
+    kernel_check_invariants(gather_boundary);
+  }
+  {
+    // Root growth and an extension interval are insufficient without an SR
+    // application in the owning structured invocation.
+    Kernel nonsymmetry;
+    kernel_reserve_vars(nonsymmetry, 2);
+    ScopedHeuristics nonsymmetry_heuristics(nonsymmetry);
+    const Var extension = kernel_new_extension_vars(nonsymmetry, 1);
+    const Lit x = make_lit(extension, false);
+    kernel_add_binary_clause(nonsymmetry, x, internalize(1));
+    kernel_add_binary_clause(nonsymmetry, negate(x), internalize(2));
+    DefaultPolicy nonsymmetry_policy;
+    nonsymmetry_policy.inprocess().build(nonsymmetry);
+    assert(nonsymmetry_policy.inprocess().run_initial_fast_elimination(
+               nonsymmetry, nullptr, nullptr,
+               {true, nonsymmetry.original_external_vars,
+                static_cast<uint32_t>(
+                    nonsymmetry.external_to_internal.size()),
+                false}) == 0);
+    assert(nonsymmetry.stats.fastel_root_suppressed == 0 &&
+           nonsymmetry.stats.fastel_rounds > 0);
+    kernel_check_invariants(nonsymmetry);
   }
   std::printf("  fastel extensions: startup defers, explicit BVE remains legal\n");
 }
@@ -2255,6 +2521,7 @@ int main() {
   test_preprocess_is_reduced_and_bounded();
   test_initial_fast_elimination_composes_only_proof_rules();
   test_initial_fast_elimination_budgets_discovery_before_mutation();
+  test_structured_startup_records_coupled_factor_range();
   test_initial_fast_elimination_defers_solver_extensions();
   test_initial_fast_elimination_keeps_owner_candidate_order();
   test_preprocess_followup_truth_table();

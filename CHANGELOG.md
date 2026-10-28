@@ -12,10 +12,17 @@ semantic versioning; the public C API remains source-compatible within the
   generation-time self-subsuming resolution before charging a pair against
   the resolvent bound; the mechanism remains opt-in after its Common-set
   structural screen.
-- Startup FastEliminate now composes with structured symmetry reasoning. It
-  retains occurrence cleanup but defers elimination of solver-created
-  extension variables to ordinary later BVE, preserving their compact
-  extended-resolution representation for the first CDCL trajectory.
+- Startup FastEliminate now composes with structured symmetry reasoning. A
+  read-only occurrence preflight runs when structured reasoning grows the root
+  trail; if it finds an eligible extension created either directly by that
+  invocation or by the following startup Factor call that consumes its
+  representation, the complete startup pass is skipped before discovery or
+  local subsumption can perturb the structured search pose. Clause-only
+  structured output instead defers only its directly owned extension pivots.
+  If a coupled Factor helper becomes eligible only after earlier startup
+  eliminations, the application boundary defers that late candidate as well.
+  Root growth without an eligible composed extension and runs without applied
+  symmetry keep normal FastEl application.
 
 ### Added
 

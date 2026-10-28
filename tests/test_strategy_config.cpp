@@ -333,6 +333,7 @@ int main() {
     program.sequence = {fixing};
     config.inprocess.structured_root_stages = {
         {program, strategy::BudgetExhaustionPolicy::Continue}};
+    config.inprocess.structured_root_before_lucky = false;
     config.inprocess.program = {
         {15, "BVE", strategy::InprocessPhase::Eliminate, true}};
     config.inprocess.append_unlisted_rules = false;
@@ -351,9 +352,16 @@ int main() {
     kernel_reserve_vars(productive, 58);
     kernel_add_binary_clause(productive, internalize(-57), internalize(58));
     kernel_add_binary_clause(productive, internalize(-57), internalize(-58));
-    assert(DefaultPolicy(config).solve(productive) == 20);
+    DefaultPolicy productive_policy(config);
+    assert(productive_policy.solve(productive) == 20);
     assert(productive.stats.sr_applications > 0);
     assert(productive.stats.sr_unique_literal_amo_binaries == 0);
+    const auto &ownership =
+        productive_policy.inprocess().structured_fastel_ownership();
+    assert(!ownership.grew_root_trail && !ownership.symmetry_applied &&
+           ownership.external_begin == ownership.external_end &&
+           ownership.coupled_factor_ranges.empty() &&
+           "startup FastEl must consume structured provenance exactly once");
     assert(productive.stats.fastel_rounds > 0);
     assert(productive.stats.fastel_root_suppressed == 0);
   }

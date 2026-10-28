@@ -663,6 +663,129 @@ bool default_should_suppress_fast_elimination_after_structured(
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
+static uint64_t scale_permille(uint64_t reference, uint32_t permille);
+
+// Count solver-created variables that the startup FastEl occurrence screen
+// would admit, without entering dense mode or applying its local forward
+// subsumption.  This preflight is used only after structured reasoning grew
+// the root trail.  It deliberately scans the current sparse formula once:
+// probing FastEl by running its ordinary gather would already choose victims
+// and mutate the trajectory that this ownership boundary is meant to protect.
+// A caller-authored structured step may leave newly assigned roots pending;
+// that path waits for ordinary Eliminate root preparation and relies on the
+// composed-cohort application fallback instead of classifying a stale image.
+uint64_t initial_fast_elimination_extension_candidates(
+    const Kernel &k, const strategy::BveParameters &parameters,
+    const DefaultInprocessScheduler::StructuredFastelOwnership &ownership) {
+  struct ExtensionCounts {
+    uint64_t positive = 0;
+    uint64_t negative = 0;
+    bool oversized = false;
+  };
+
+  uint64_t cohort_extent = ownership.external_end > ownership.external_begin
+                               ? ownership.external_end - ownership.external_begin
+                               : 0;
+  for (const auto &range : ownership.coupled_factor_ranges)
+    cohort_extent = saturated_sum(
+        cohort_extent, range.end > range.begin ? range.end - range.begin : 0);
+  if (!cohort_extent)
+    return 0;
+  std::vector<uint32_t> extension_index(k.nvars, UINT32_MAX);
+  std::vector<ExtensionCounts> extensions;
+  extensions.reserve(static_cast<size_t>(
+      std::min<uint64_t>(cohort_extent, k.nvars)));
+  for (Var variable = 0; variable < k.nvars; ++variable) {
+    const Lit positive = make_lit(variable, false);
+    const uint32_t external = k.internal_to_external[variable];
+    if (!kernel_is_solver_extension(k, variable) ||
+        !ownership.composed_owns(external) || k.value(positive) ||
+        kernel_var_retired(k, variable) || variable >= k.bve_retry.size() ||
+        !k.bve_retry[variable])
+      continue;
+    extension_index[variable] = static_cast<uint32_t>(extensions.size());
+    extensions.emplace_back();
+  }
+  if (extensions.empty())
+    return 0;
+
+  // Dense FastEl contains only irredundant large clauses.  Its occurrence
+  // flush rejects an oversized clause before testing whether that clause is
+  // root-satisfied, so preserve that slightly unusual ordering here.
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    if (!clause->garbage() && !clause->redundant()) {
+      const bool oversized = clause->size > parameters.clause_size_limit;
+      bool satisfied = false;
+      if (!oversized)
+        for (const Lit literal : *clause)
+          satisfied |= k.value(literal) > 0;
+      if (oversized || !satisfied) {
+        for (const Lit literal : *clause) {
+          const Var variable = var_of(literal);
+          if (variable >= extension_index.size())
+            continue;
+          const uint32_t index = extension_index[variable];
+          if (index == UINT32_MAX)
+            continue;
+          ExtensionCounts &counts = extensions[index];
+          if (oversized)
+            counts.oversized = true;
+          else if (negated(literal))
+            ++counts.negative;
+          else
+            ++counts.positive;
+        }
+      }
+    }
+    ref += words;
+  }
+
+  // Binary occurrences are already represented authoritatively by the sparse
+  // watch lists.  The dense entry that FastEl would take keeps the first copy
+  // of a repeated binary and deletes later copies, so count distinct partners
+  // without performing that deletion.  Match the subsequent flush filters as
+  // well: a satisfied binary and a partner whose variable has left the active
+  // formula do not count.
+  std::vector<Lit> binary_partners;
+  for (Var variable = 0; variable < k.nvars; ++variable) {
+    const uint32_t index = extension_index[variable];
+    if (index == UINT32_MAX)
+      continue;
+    ExtensionCounts &counts = extensions[index];
+    for (uint32_t sign = 0; sign < 2; ++sign) {
+      uint64_t &count = sign ? counts.negative : counts.positive;
+      const Lit literal = make_lit(variable, sign != 0);
+      binary_partners.clear();
+      for (const WatchEntry watch : k.watches.entries(literal)) {
+        if (!watch.binary() || k.value(watch.other()) > 0 ||
+            kernel_var_retired(k, var_of(watch.other())))
+          continue;
+        binary_partners.push_back(watch.other());
+      }
+      std::sort(binary_partners.begin(), binary_partners.end());
+      count += static_cast<uint64_t>(
+          std::unique(binary_partners.begin(), binary_partners.end()) -
+          binary_partners.begin());
+    }
+  }
+
+  uint64_t eligible = 0;
+  for (const ExtensionCounts &counts : extensions) {
+    // Round-one gathering preserves FastEl's shipped twice-positive bug before
+    // the later application rechecks both polarities.  A protected helper has
+    // to pass both boundaries; otherwise FastEl would not have offered it.
+    if (counts.oversized ||
+        counts.positive > parameters.occurrence_limit / 2 ||
+        counts.positive > parameters.occurrence_limit ||
+        counts.negative > parameters.occurrence_limit)
+      continue;
+    const uint64_t total = saturated_sum(counts.positive, counts.negative);
+    eligible += total <= parameters.occurrence_limit;
+  }
+  return eligible;
+}
 
 // Kissat's SET_EFFORT_LIMIT converts the per-mille option to a scale factor
 // and only truncates after multiplying by the complete reference.  Splitting
@@ -3285,9 +3408,11 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   bve_level_ = 0;
   bve_level_idx_ = 0;
   initial_fast_elimination_active_ = false;
+  initial_fast_elimination_ownership_ = {};
   initial_fast_elimination_discovery_ticks_ = 0;
   initial_fast_elimination_budget_exhausted_ = false;
   structured_root_consumed_ = false;
+  structured_fastel_ownership_ = {};
   structured_root = {};
   default_candidate_order_.reset(config().candidate_order_seed);
   for (SlotEntry &e : entries) {
@@ -4794,7 +4919,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
         inprocess_.run_initial_fast_elimination(
-            k, stop, completion_, structured_root_grew_trail);
+            k, stop, completion_, inprocess_.structured_fastel_ownership());
     event_trace.macro(k, "initial_fast_eliminate_end");
     if (phase_result == 10 || phase_result == 20)
       return finish(phase_result);
@@ -5716,21 +5841,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             {payloads_[j], pos + neg, import_position(variable)});
       }
       k.stats.fastel_candidates += candidates.size();
-      if (initial_fast_elimination_suppress_on_extensions_) {
-        uint64_t extension_candidates = 0;
-        for (const Candidate &candidate : candidates) {
-          Lit literal;
-          if (lit_of_instance(k, candidate.payload, &literal) &&
-              kernel_is_solver_extension(k, var_of(literal)))
-            ++extension_candidates;
-        }
-        if (default_should_suppress_fast_elimination_after_structured(
-                true, extension_candidates)) {
-          ++k.stats.fastel_root_suppressed;
-          ctx.eliminate_limit_reached = true;
-          return SlotStep::Next;
-        }
-      }
       // Admission decides whether the owner pass runs at all; its later
       // rounds (fastel.c) gather the re-armed variables unconditionally.
       if (!initial_fast_elimination_admitted_ &&
@@ -5813,16 +5923,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           port::execute_action(k, execution::RetireBveCandidateRequest{variable});
           continue;
         }
-        // Structured reasoning can introduce compact extension definitions
-        // immediately before this startup pass. Eliminating those helpers
-        // expands Factor's m+n representation back toward its m*n clause
-        // matrix and can perturb the first CDCL trajectory even when the
-        // variable count falls. Preserve the owner's discovery and local
-        // cleanup above, but defer application on solver-created variables to
-        // ordinary later BVE. Permanent external identity makes this test
-        // stable across compaction; explicit/public BVE instances remain
-        // completely legal and unfiltered.
-        if (k.stats.sr_applied && kernel_is_solver_extension(k, variable)) {
+        // The structured invocation can itself introduce compact extension
+        // definitions. Defer those direct helpers whenever SR applied. Under
+        // root-growing SR, also defer a startup Factor helper that only became
+        // eligible after earlier FastEl mutations and therefore escaped the
+        // read-only preflight. Explicit/public BVE instances remain completely
+        // legal and unfiltered.
+        const uint32_t external = k.internal_to_external[variable];
+        if (initial_fast_elimination_ownership_.protects_at_application(
+                external)) {
           ++k.stats.fastel_extensions_protected;
           // The owner has completed this startup consideration. Clear the
           // retry flag exactly as after an attempted pivot so an unchanged
@@ -6354,6 +6463,9 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   const bool forward_entry = ctx.group == SlotGroup::Eliminate &&
                              !std::strcmp(r.name, "Strengthen");
   const uint32_t forward_trail_from = k.propagate_head;
+  assert(k.external_to_internal.size() <= UINT32_MAX);
+  const uint32_t factor_external_begin =
+      factor_entry ? static_cast<uint32_t>(k.external_to_internal.size()) : 0;
   ApplyResult ar;
   if (vivify_dose) {
     ar = run_vivify_dose(k, e, r, limit, ctx.completion);
@@ -6405,6 +6517,19 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     }, [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
   }
   ctx.last_result = ar;
+  if (factor_entry && !k.stats.conflicts &&
+      structured_fastel_ownership_.symmetry_applied) {
+    assert(k.external_to_internal.size() <= UINT32_MAX);
+    const uint32_t factor_external_end =
+        static_cast<uint32_t>(k.external_to_internal.size());
+    if (factor_external_end > factor_external_begin) {
+      auto &ranges = structured_fastel_ownership_.coupled_factor_ranges;
+      if (!ranges.empty() && ranges.back().end == factor_external_begin)
+        ranges.back().end = factor_external_end;
+      else
+        ranges.push_back({factor_external_begin, factor_external_end});
+    }
+  }
   if (factor_entry)
     event_trace_target_state(k, "factor-stamps-pre",
         k.fresh_var_events.empty() ? 0 : k.fresh_var_events.back().end - k.fresh_var_events.back().first);
@@ -6490,6 +6615,29 @@ int DefaultInprocessScheduler::run_structured_root(
   if (structured_root_consumed_ || k.stats.conflicts)
     return 0;
   structured_root_consumed_ = true;
+  structured_fastel_ownership_ = {};
+  const size_t structured_trail_before = k.trail.size();
+  const uint64_t structured_sr_applied_before = k.stats.sr_applied;
+  assert(k.external_to_internal.size() <= UINT32_MAX);
+  structured_fastel_ownership_.external_begin =
+      static_cast<uint32_t>(k.external_to_internal.size());
+  structured_fastel_ownership_.external_end =
+      structured_fastel_ownership_.external_begin;
+  struct CaptureStructuredFastelOwnership {
+    Kernel &kernel;
+    StructuredFastelOwnership &ownership;
+    size_t trail_before;
+    uint64_t sr_applied_before;
+    ~CaptureStructuredFastelOwnership() {
+      assert(kernel.external_to_internal.size() <= UINT32_MAX);
+      ownership.grew_root_trail = kernel.trail.size() > trail_before;
+      ownership.symmetry_applied =
+          kernel.stats.sr_applied > sr_applied_before;
+      ownership.external_end =
+          static_cast<uint32_t>(kernel.external_to_internal.size());
+    }
+  } capture_ownership{k, structured_fastel_ownership_,
+                      structured_trail_before, structured_sr_applied_before};
   ++structured_root.runs;
   const bool large_domain =
       k.nvars > config().structured_root_large_domain_limit;
@@ -6686,20 +6834,51 @@ int DefaultInprocessScheduler::run_structured_root(
 }
 
 int DefaultInprocessScheduler::run_initial_fast_elimination(
+    Kernel &k, volatile sig_atomic_t *stop, PolicyCompletion *completion) {
+  return run_initial_fast_elimination(k, stop, completion, {});
+}
+
+int DefaultInprocessScheduler::run_initial_fast_elimination(
     Kernel &k, volatile sig_atomic_t *stop, PolicyCompletion *completion,
-    bool suppress_if_structured_extension_candidate) {
+    const StructuredFastelOwnership &ownership) {
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
+  // Consume the producer record exactly once. This method is commonly called
+  // with the scheduler's own record by const reference, so copy before clearing
+  // it; a policy reused without reset must not replay stale SR provenance.
+  const StructuredFastelOwnership startup_ownership = ownership;
+  structured_fastel_ownership_ = {};
+  const uint64_t started = now_nanos();
+  const uint64_t startup_allowance = scale_permille(
+      config().preprocess_initial_ticks,
+      config().initial_fast_elimination_bve_permille);
+  const bool discovery_admissible =
+      default_fast_elimination_discovery_admissible(
+          kernel_active_variables(k), startup_allowance);
+  if (kernel_propagation_fixpoint(k) && startup_ownership.grew_root_trail &&
+      startup_ownership.symmetry_applied && discovery_admissible) {
+    const uint64_t extension_candidates =
+        initial_fast_elimination_extension_candidates(
+            k, config().initial_fast_elimination_parameters,
+            startup_ownership);
+    if (default_should_suppress_fast_elimination_after_structured(
+            true, extension_candidates)) {
+      ++k.stats.fastel_root_suppressed;
+      const uint64_t elapsed = now_nanos() - started;
+      k.stats.fastel_nanos += elapsed;
+      k.stats.inprocess_nanos += elapsed;
+      return 0;
+    }
+  }
+  k.stats.inprocess_nanos += now_nanos() - started;
   initial_fast_elimination_active_ = true;
-  initial_fast_elimination_suppress_on_extensions_ =
-      suppress_if_structured_extension_candidate;
+  initial_fast_elimination_ownership_ = startup_ownership;
   initial_fast_elimination_discovery_ticks_ = 0;
   initial_fast_elimination_budget_exhausted_ = false;
   initial_fast_elimination_admitted_ = false;
   initial_fast_elimination_marks_.assign(2 * static_cast<size_t>(k.nvars), 0);
   const uint64_t eliminated_before = k.stats.bve_eliminated;
   const uint64_t resolutions_before = k.stats.bve_resolutions;
-  const uint64_t started = now_nanos();
   const int result = run_phase(k, SlotGroup::Eliminate, stop, completion);
   // fastel.c ends by setting every variable's eliminate flag again.
   (void)port::execute_action(k, execution::RescheduleBveCandidatesRequest{});
@@ -6707,7 +6886,7 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
   k.stats.fastel_eliminated += k.stats.bve_eliminated - eliminated_before;
   k.stats.fastel_resolutions += k.stats.bve_resolutions - resolutions_before;
   initial_fast_elimination_marks_.clear();
-  initial_fast_elimination_suppress_on_extensions_ = false;
+  initial_fast_elimination_ownership_ = {};
   initial_fast_elimination_active_ = false;
   return result;
 }
