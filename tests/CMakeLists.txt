@@ -626,8 +626,14 @@ add_test(NAME feedback_frontend
                  $<TARGET_FILE:tactix>)
 set_tests_properties(feedback_frontend PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME public_theory_target_tables
-         COMMAND ${CMAKE_COMMAND} -E env python3
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
+                 ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/gf3-wv100.tsv
+                 ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/tseitin-wv100.tsv
+                 ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/tseitin-wv2.tsv
+                 ${CMAKE_SOURCE_DIR}/benchmarks/probes/public-theory-targets-v1/direct-php-wv2.tsv --
+                 ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_tables.py)
+set_tests_properties(public_theory_target_tables PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME public_theory_target_score
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_public_theory_target_score.py)

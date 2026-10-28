@@ -66,6 +66,12 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-sbatch-") as tmp:
     env["PATH"] = f"{temp}:{env['PATH']}"
     env["MOCK_BATCH"] = str(batch_file)
     env["MOCK_ARGS"] = str(args_file)
+    for variable, name in (("TACTIX_FUZZ_VERIPB", "veripb"),
+                           ("TACTIX_FUZZ_CAKE_PB", "cake-pb-cnf")):
+        checker = temp / name
+        checker.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        checker.chmod(0o750)
+        env[variable] = str(checker)
     result = subprocess.run(
         [
             str(SLURM), "--name", "snapshot-test", "--physical-cores", "3",

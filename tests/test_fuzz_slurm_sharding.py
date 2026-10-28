@@ -62,6 +62,12 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
     env = os.environ.copy()
     env["PATH"] = f"{temp}:{env['PATH']}"
     env["MOCK_ROOT"] = str(temp)
+    for variable, name in (("TACTIX_FUZZ_VERIPB", "veripb"),
+                           ("TACTIX_FUZZ_CAKE_PB", "cake-pb-cnf")):
+        checker = temp / name
+        checker.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        checker.chmod(0o750)
+        env[variable] = str(checker)
     result = subprocess.run(
         [
             str(SLURM), "--cpu-q-wide", "--name", "array-test",

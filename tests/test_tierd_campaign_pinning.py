@@ -21,7 +21,15 @@ SPEC.loader.exec_module(TIERD)
 assert TIERD.slurm_array_spec(1166, 89) == "0-1165%89"
 assert TIERD.slurm_array_spec(1166, None) == "0-1165"
 
-winner = json.loads((ROOT / "benchmarks/baselines/sc24-26-32g-5000s/manifest.json").read_text())
+winner = {
+    "instances": [None] * 1166,
+    "limits": {"process_memory_gib": 32},
+    "slurm": {
+        "partition": "cpu-dense-hwulab-q",
+        "cpus_per_task": 4,
+        "mem_per_cpu_gib": 8,
+    },
+}
 slurm = TIERD.comparison_slurm(winner, 32, None, None)
 assert slurm["partition"] == "cpu-dense-hwulab-q"
 assert slurm["cpus_per_task"] == winner["slurm"]["cpus_per_task"] == 4

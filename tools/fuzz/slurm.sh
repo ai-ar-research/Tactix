@@ -35,6 +35,8 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
+VERIPB_SOURCE="${TACTIX_FUZZ_VERIPB:-$ROOT/tools/checkers/bin/veripb}"
+CAKE_PB_SOURCE="${TACTIX_FUZZ_CAKE_PB:-$ROOT/tools/checkers/bin/cake-pb-cnf}"
 
 PHYSICAL_CORES=50 # cluster scale
 THREADS_PER_CORE=2
@@ -189,8 +191,8 @@ pin_dsr_transport(sys.argv[2], sys.argv[3])
 PYTRANSPORT
 fi
 mkdir -p "$PIN_FUZZ/checkers"
-cp -aL "$ROOT/tools/checkers/bin/veripb" "$PIN_FUZZ/checkers/veripb"
-cp -aL "$ROOT/tools/checkers/bin/cake-pb-cnf" \
+cp -aL "$VERIPB_SOURCE" "$PIN_FUZZ/checkers/veripb"
+cp -aL "$CAKE_PB_SOURCE" \
       "$PIN_FUZZ/checkers/cake-pb-cnf"
 CHECKERS_ROOT=""
 if [ -n "$CHECKERS" ]; then

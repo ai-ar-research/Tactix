@@ -171,35 +171,48 @@ class RuntimeTaskTest(unittest.TestCase):
 
     def test_pb_spelling_on_anonymous_scratch(self):
         from anonymous_scratch import AnonymousScratch
-        campaign = ROOT / 'benchmarks/runs/20260923-am337-proof-lifetime-v2'
-        scratch = AnonymousScratch('/tmp')
-        try:
-            cnf, proof = scratch / 'original.cnf', scratch / 'proof.pbp'
-            original = 'c leading\np cnf 1 2\n1\n0 -1 0\n'
-            cnf.write_text(original)
-            proof.write_text('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
-                             'output NONE ;\nconclusion UNSAT : -1 ;\n'
-                             'end pseudo-Boolean proof ;\n')
-            for certificate in ('pbp', 'auto'):
-                result = runner.check_unsat_proof(
-                    campaign, certificate, cnf, proof, scratch, 60, 'pbp')
-                self.assertEqual(result['result'], 'verified', result)
-                self.assertEqual(result['checker_input']['original_sha256'],
-                                 runner.sha256(cnf))
-                self.assertEqual(cnf.read_text(), original)
-                self.assertEqual((scratch / 'checker.cnf').read_text(),
-                                 'p cnf 1 2\n1 0\n-1 0\n')
-                self.assertEqual(
-                    [stage['result'] for stage in result['stages']],
-                    ['verified', 'verified'])
-            cnf.write_text('p cnf 1 1\n1 0\n')
-            for certificate in ('pbp', 'auto'):
-                self.assertEqual(runner.check_unsat_proof(
-                    campaign, certificate, cnf, proof, scratch, 60,
-                    'pbp')['result'], 'not-verified')
-        finally:
-            scratch.close()
-        self.assertFalse(scratch.exists())
+        checker_root = ROOT / 'tools/checkers/bin'
+        checker_sources = {
+            name: checker_root / name for name in ('veripb', 'cake-pb-cnf')
+        }
+        missing = [str(path) for path in checker_sources.values()
+                   if not path.is_file()]
+        if missing:
+            self.skipTest('PB checker installation is unavailable: ' +
+                          ', '.join(missing))
+        with tempfile.TemporaryDirectory() as temporary:
+            campaign = Path(temporary) / 'campaign'
+            (campaign / 'pins').mkdir(parents=True)
+            for name, source in checker_sources.items():
+                (campaign / 'pins' / name).symlink_to(source.resolve())
+            scratch = AnonymousScratch('/tmp')
+            try:
+                cnf, proof = scratch / 'original.cnf', scratch / 'proof.pbp'
+                original = 'c leading\np cnf 1 2\n1\n0 -1 0\n'
+                cnf.write_text(original)
+                proof.write_text('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
+                                 'output NONE ;\nconclusion UNSAT : -1 ;\n'
+                                 'end pseudo-Boolean proof ;\n')
+                for certificate in ('pbp', 'auto'):
+                    result = runner.check_unsat_proof(
+                        campaign, certificate, cnf, proof, scratch, 60, 'pbp')
+                    self.assertEqual(result['result'], 'verified', result)
+                    self.assertEqual(result['checker_input']['original_sha256'],
+                                     runner.sha256(cnf))
+                    self.assertEqual(cnf.read_text(), original)
+                    self.assertEqual((scratch / 'checker.cnf').read_text(),
+                                     'p cnf 1 2\n1 0\n-1 0\n')
+                    self.assertEqual(
+                        [stage['result'] for stage in result['stages']],
+                        ['verified', 'verified'])
+                cnf.write_text('p cnf 1 1\n1 0\n')
+                for certificate in ('pbp', 'auto'):
+                    self.assertEqual(runner.check_unsat_proof(
+                        campaign, certificate, cnf, proof, scratch, 60,
+                        'pbp')['result'], 'not-verified')
+            finally:
+                scratch.close()
+            self.assertFalse(scratch.exists())
 
 
 class ExperimentalCheckerProfileTest(unittest.TestCase):
@@ -342,7 +355,7 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
 
     def test_fixed_long_profile_provenance_is_hash_bound(self):
         import experimental_tierd as builder
-        current = builder.dsr_checker_provenance('long64-fixed')
+        current = builder.FIXED_LONG_DSR_PROVENANCE
         self.assertEqual(current['profile'], 'long64-fixed')
         self.assertEqual(current['qualification_job_id'], '1755133')
         self.assertEqual(
