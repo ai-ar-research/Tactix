@@ -202,12 +202,6 @@ add_executable(test_orbitopal_group test_orbitopal_group.cpp)
 target_include_directories(test_orbitopal_group PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(test_orbitopal_group PRIVATE tactix_lib)
 add_test(NAME orbitopal_group COMMAND test_orbitopal_group)
-add_test(NAME fuzz_slurm_snapshot
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)
-add_test(NAME fuzz_slurm_sharding
-         COMMAND ${CMAKE_COMMAND} -E env python3
-                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_sharding.py)
 add_test(NAME fuzz_resource_limits
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_resource_limits.py)

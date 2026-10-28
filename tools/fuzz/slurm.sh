@@ -38,24 +38,6 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 VERIPB_SOURCE="${TACTIX_FUZZ_VERIPB:-$ROOT/tools/checkers/bin/veripb}"
 CAKE_PB_SOURCE="${TACTIX_FUZZ_CAKE_PB:-$ROOT/tools/checkers/bin/cake-pb-cnf}"
 
-# Atomically publish a content-addressed directory without GNU mv's -T flag.
-# A concurrent publisher wins cleanly: os.rename either installs the complete
-# directory or reports that the destination already exists.
-install_directory_once() {
-    python3 - "$1" "$2" <<'PYINSTALL'
-import errno
-import os
-import sys
-
-try:
-    os.rename(sys.argv[1], sys.argv[2])
-except OSError as error:
-    if error.errno in (errno.EEXIST, errno.ENOTEMPTY):
-        raise SystemExit(1)
-    raise
-PYINSTALL
-}
-
 PHYSICAL_CORES=50 # cluster scale
 THREADS_PER_CORE=2
 SHARDS=1
@@ -238,7 +220,7 @@ if [ -n "$CHECKERS" ]; then
             cp "$CHECKERS/PROVENANCE.json" "$CHECKERS_TMP/"
         (cd "$CHECKERS_TMP" && sha256sum --strict --quiet -c SHA256SUMS)
         chmod -R a-w "$CHECKERS_TMP"
-        if ! install_directory_once "$CHECKERS_TMP" "$CHECKERS_ROOT"; then
+        if ! mv -T "$CHECKERS_TMP" "$CHECKERS_ROOT" 2>/dev/null; then
             chmod -R u+w "$CHECKERS_TMP"
             rm -rf "$CHECKERS_TMP"
         fi
@@ -268,7 +250,7 @@ if [ ! -d "$REPLAY_ROOT/fuzz" ]; then
     REPLAY_TMP=$(mktemp -d "$REPLAY_PARENT/.install-XXXXXX")
     cp -a "$PIN_FUZZ" "$REPLAY_TMP/fuzz"
     chmod -R a-w "$REPLAY_TMP"
-    if ! install_directory_once "$REPLAY_TMP" "$REPLAY_ROOT"; then
+    if ! mv -T "$REPLAY_TMP" "$REPLAY_ROOT" 2>/dev/null; then
         chmod -R u+w "$REPLAY_TMP"
         rm -rf "$REPLAY_TMP"
         [ -d "$REPLAY_ROOT/fuzz" ] || {
