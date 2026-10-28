@@ -97,6 +97,8 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         assert "%A_%a" in array_args
         assert f'python3 "{pin}/fuzz/shard.py" "1024" "512"' in array_batch
         assert '--jobs "1"' in array_batch
+        assert 'TACTIX_FUZZ_SOLVER_MEMORY_MIB="6144"' in array_batch
+        assert 'TACTIX_FUZZ_CHECKER_MEMORY_MIB="6144"' in array_batch
         assert '--index-offset "$INDEX_OFFSET"' in array_batch
         assert "--defer-requirements" in array_batch
         assert "SHARD_ARGS+=(--skip-corpus)" in array_batch

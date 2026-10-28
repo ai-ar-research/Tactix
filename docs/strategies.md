@@ -9,7 +9,27 @@ The interface is large: 46 rules, many with their own settings. You
 do not need most of it to start. Both examples use a handful of rules and
 hand the rest of the work to the built-in strategy.
 
-## 1. DPLL in sixty lines
+## 1. General scheduling shape
+
+A complete strategy normally follows this grammar, where `R` is a
+simplification, structural-reasoning, or local-search action:
+
+```text
+R* (Search RestartToRoot R*)*
+Search ::= Decide (Propagate | ConflictAnalysis | Decide
+          | Reduce | Rephase | Reorder | SwitchMode | PartialRestart)*
+```
+
+Root work runs only at decision level zero.  A full `Restart(0)` ends one
+search epoch before more root work; a positive keep-level is a partial restart
+inside the current epoch.  Conflict analysis and propagation take priority
+when their guards hold.  `tactix_rules_applicable` checks whether the next
+grammar-selected action is legal in the current state; it does not define the
+strategy's possible sequences.  Every technique in such a strategy is a
+public rule or policy operation, with its legal boundary exposed by the same
+interface.
+
+## 2. DPLL in sixty lines
 
 [`examples/demo1_dpll.c`](../examples/demo1_dpll.c) is the classic DPLL
 search (branch, propagate, back up on a conflict) written with four rules:
@@ -42,7 +62,7 @@ for (;;) {
 - **The proof is automatic.** Every applied rule writes its proof steps, so
   even this loop produces checkable proofs.
 
-## 2. A strategy for one family of formulas: cruxmiter
+## 3. A strategy for one family of formulas: cruxmiter
 
 The paper's first case study is a family of formulas that ask whether two
 differently built multiplier circuits can compute different results. They are
@@ -87,7 +107,7 @@ short opening that exploits it with a few rules, and let the built-in strategy
 do the rest. The paper's second case study,
 [`examples/chvatal_policy.c`](../examples/chvatal_policy.c), follows it too.
 
-## 3. Compiling and running your own strategy
+## 4. Compiling and running your own strategy
 
 Start from an example, for instance `examples/demo1_dpll.c` (a complete
 search) or `examples/cruxmiter_policy.c` (an opening, then the built-in
@@ -132,7 +152,7 @@ A strategy cannot produce a wrong answer by choosing badly: the solver
 refuses a rule that is not sound in the current state, and records every
 applied rule in the proof. A poor strategy is slow, or never finishes.
 
-## 4. Settings for a single application
+## 5. Settings for a single application
 
 `tactix_apply` applies a rule with its default settings. To give one
 application its own settings, such as a work budget or a random seed, a

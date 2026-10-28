@@ -2,15 +2,37 @@
 """The only seeded random frontend is an external public-C-API client."""
 
 from pathlib import Path
+import os
 import re
 import subprocess
 import sys
 import tempfile
 
 
-def run(binary, *arguments):
+def run(binary, *arguments, env=None):
     return subprocess.run([str(binary), *map(str, arguments)],
-                          capture_output=True, text=True, timeout=20)
+                          capture_output=True, text=True, timeout=20, env=env)
+
+
+def check_grammar_trace(stderr):
+    pattern = re.compile(
+        r"^public-random grammar phase=(\S+) terminal=(\S+) action=(\S+)"
+        r"(?: keep-level=(\d+))?$", re.M)
+    traces = pattern.findall(stderr)
+    assert traces, stderr
+    phase = "root-work"
+    root = {"simplification", "structural-reasoning", "local-search",
+            "propagate", "decide"}
+    search = {"propagate", "conflict-analysis", "decide",
+              "search-maintenance", "restart"}
+    for observed, terminal, _, keep in traces:
+        assert observed == phase, (phase, observed, terminal, stderr)
+        assert terminal in (root if phase == "root-work" else search), (
+            phase, terminal, stderr)
+        if phase == "root-work" and terminal == "decide":
+            phase = "search"
+        elif phase == "search" and terminal == "restart" and keep == "0":
+            phase = "root-work"
 
 
 def main():
@@ -34,11 +56,14 @@ def main():
         sat.write_text("p cnf 3 2\n1 2 0\n-2 3 0\n")
 
         combined = ""
+        trace_environment = dict(os.environ, TACTIX_PUBLIC_RANDOM_TRACE="1")
         for seed in range(6):
-            result = run(public_random, f"--random-policy={seed}", unsat)
+            result = run(public_random, f"--random-policy={seed}", unsat,
+                         env=trace_environment)
             assert result.returncode == 20, (seed, result.stdout, result.stderr)
             assert "s UNSATISFIABLE" in result.stdout
             assert f"seed {seed}" in result.stdout
+            check_grammar_trace(result.stderr)
             combined += result.stdout
         for profile in ("root-heavy", "search-heavy", "alternating",
                         "restart-heavy", "instance-heavy", "algebraic-heavy"):

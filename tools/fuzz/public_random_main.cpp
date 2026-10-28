@@ -5,8 +5,11 @@
 #include "tactix.h"
 #undef tactix
 
+#include "public_random_grammar.hpp"
+
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <charconv>
 #include <cstdint>
 #include <cstdio>
@@ -20,6 +23,9 @@
 #include <vector>
 
 namespace {
+
+using tactix_public_random::Phase;
+using tactix_public_random::Terminal;
 
 enum class Form : unsigned { Canonical, Instance, Semantic, Online, Count };
 enum class Profile : unsigned {
@@ -65,9 +71,25 @@ bool algebraic(std::string_view name) {
   return false;
 }
 
-bool service(std::string_view name) {
-  return name == "Propagate" || name == "ConflictAnalysis" ||
-         name == "Decide" || name == "Restart";
+Terminal terminal(int id) {
+  const char *name = tactix_rule_name(id);
+  return name ? tactix_public_random::classify(name) : Terminal::Unknown;
+}
+
+bool validate_public_action_grammar() {
+  bool valid = true;
+  for (int id = 0; id < tactix_rule_count(); ++id) {
+    if (tactix_action_kind(id) < 0) continue; // frozen retired registry hole
+    const char *name = tactix_rule_name(id);
+    if (name && tactix_public_random::classify(name) != Terminal::Unknown)
+      continue;
+    std::fprintf(stderr,
+                 "tactix-public-random: public action %d (%s) is not "
+                 "classified by the strategy grammar\n",
+                 id, name ? name : "<unnamed>");
+    valid = false;
+  }
+  return valid;
 }
 
 uint32_t declared_variables(const char *path) {
@@ -111,6 +133,76 @@ bool contains(const std::vector<int> &rules, int id) {
   return id >= 0 && std::find(rules.begin(), rules.end(), id) != rules.end();
 }
 
+bool selected_rule_available(tactix_c_handle *solver, int id, Phase phase) {
+  // Re-observe after selection.  The grammar chooses the terminal; this query
+  // only verifies that its public guard still holds at the exact boundary.
+  const auto fresh = applicable(solver);
+  const bool offered = contains(fresh, id);
+  const bool grammatical = tactix_public_random::allows(phase, terminal(id));
+#ifndef NDEBUG
+  assert(offered && "grammar selected a rule absent from applicable actions");
+  assert(grammatical && "grammar selected a terminal in the wrong phase");
+#endif
+  if (!offered || !grammatical) {
+    std::fprintf(stderr,
+                 "tactix-public-random: rejected grammar selection phase=%s "
+                 "action=%s offered=%d grammatical=%d\n",
+                 tactix_public_random::name(phase).data(),
+                 tactix_rule_name(id) ? tactix_rule_name(id) : "<unknown>",
+                 offered, grammatical);
+  }
+  return offered && grammatical;
+}
+
+bool selected_restart_available(tactix_c_handle *solver, int id,
+                                uint64_t keep_level, Phase phase) {
+  if (!selected_rule_available(solver, id, phase)) return false;
+  const uint64_t level = tactix_stat(solver, TACTIX_STAT_LEVEL);
+  std::vector<uint64_t> instances(static_cast<size_t>(
+      std::min<uint64_t>(level + 1, static_cast<uint64_t>(INT32_MAX))));
+  const int count = tactix_rule_instances(
+      solver, id, instances.data(), static_cast<int>(instances.size()));
+  const bool offered = count >= 0 &&
+                       std::find(instances.begin(),
+                                 instances.begin() + std::max(count, 0),
+                                 keep_level) !=
+                           instances.begin() + std::max(count, 0);
+#ifndef NDEBUG
+  assert(offered && "grammar selected a restart instance not offered now");
+#endif
+  if (!offered)
+    std::fprintf(stderr,
+                 "tactix-public-random: restart keep-level %llu was not "
+                 "offered at level %llu\n",
+                 static_cast<unsigned long long>(keep_level),
+                 static_cast<unsigned long long>(level));
+  return offered;
+}
+
+bool selected_decision_available(tactix_c_handle *solver, int decide,
+                                 int literal, Phase phase) {
+  if (!selected_rule_available(solver, decide, phase)) return false;
+  std::vector<int> candidates(std::max<uint64_t>(
+      1, std::min<uint64_t>(tactix_stat(solver, TACTIX_STAT_UNASSIGNED),
+                            4096)));
+  const int count = tactix_decide_candidates(
+      solver, candidates.data(), static_cast<int>(candidates.size()));
+  const bool offered = count >= 0 &&
+                       std::find(candidates.begin(),
+                                 candidates.begin() + std::max(count, 0),
+                                 literal) !=
+                           candidates.begin() + std::max(count, 0);
+#ifndef NDEBUG
+  assert(offered && "grammar selected a decision literal not offered now");
+#endif
+  if (!offered)
+    std::fprintf(stderr,
+                 "tactix-public-random: decision literal %d was not offered "
+                 "at the selected boundary\n",
+                 literal);
+  return offered;
+}
+
 int rule_id(std::string_view name) {
   for (int id = 0; id < tactix_rule_count(); ++id) {
     const char *candidate = tactix_rule_name(id);
@@ -140,12 +232,35 @@ uint64_t select_instance(tactix_c_handle *solver, int id, Rng &rng,
 }
 
 bool typed_complete_profile(std::string_view name, uint32_t variables,
+                            Rng &rng,
                             tactix_online_parameters &parameters) {
   const uint64_t clauses = std::max<uint64_t>(1024, 32 * variables);
   const uint64_t literals = std::max<uint64_t>(8192, 256 * variables);
   const uint64_t work = std::max<uint64_t>(UINT64_C(1) << 18,
                                            4096 * variables);
   const uint32_t extent = std::max<uint32_t>(4096, 16 * variables);
+  if (name == "BVE") {
+    parameters.kind = TACTIX_ONLINE_PARAMETERS_BVE;
+    auto &p = parameters.value.bve;
+    p.gate_mask = TACTIX_BVE_GATE_EQUIV | TACTIX_BVE_GATE_AND_OR |
+                  TACTIX_BVE_GATE_ITE | TACTIX_BVE_GATE_XOR |
+                  TACTIX_BVE_GATE_DEFINITION;
+    p.growth_bound = 16;
+    p.occurrence_limit = std::max<uint32_t>(64, 4 * variables);
+    p.clause_size_limit = std::max<uint32_t>(64, 4 * variables);
+    p.xor_arity_limit = 5;
+    p.resolvent_size_limit = 100;
+    p.backward_occurrence_limit = 100;
+    p.definition_cores = 2;
+    p.definition_core_budget_multiplier = 10;
+    p.definition_budget = 1000000;
+    p.backward = rng.one_in(2);
+    p.candidate_scope = static_cast<int>(rng.below(3));
+    p.resolvent_count_limit = 0; // explicit public spelling of no hard cap
+    p.traversal = static_cast<int>(rng.below(2));
+    p.on_the_fly_strengthening = rng.one_in(2);
+    return true;
+  }
   if (name == "ParityConsequence") {
     parameters.kind = TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE;
     auto &p = parameters.value.parity_consequence;
@@ -201,13 +316,13 @@ int public_work_unit(std::string_view name) {
 }
 
 int online_once(tactix_c_handle *solver, int id, uint64_t instance,
-                uint32_t variables, uint64_t &revision,
+                uint32_t variables, Rng &rng, uint64_t &revision,
                 tactix_online_result &result) {
   tactix_online_step step{};
   step.step_id = ++revision;
   step.rule_id = id;
   const char *name = tactix_rule_name(id);
-  const bool typed = name && typed_complete_profile(name, variables,
+  const bool typed = name && typed_complete_profile(name, variables, rng,
                                                      step.parameters);
   step.granularity = typed ? TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS
                      : instance == TACTIX_INSTANCE_CANONICAL
@@ -289,7 +404,8 @@ int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
     instance = select_instance(solver, id, rng, true, have);
     tactix_online_result online{};
     if (have)
-      result = online_once(solver, id, instance, variables, revision, online);
+      result = online_once(solver, id, instance, variables, rng, revision,
+                           online);
     if (result < 0) ++coverage.online_declines;
   }
   if (result < 0) {
@@ -348,7 +464,7 @@ uint64_t root_burst(Profile profile, Rng &rng) {
   return 0;
 }
 
-bool extra_search_action(Profile profile, Rng &rng) {
+bool search_maintenance_now(Profile profile, Rng &rng) {
   switch (profile) {
   case Profile::RootHeavy: return rng.one_in(5);
   case Profile::SearchHeavy: return !rng.one_in(2);
@@ -368,13 +484,51 @@ bool restart_now(Profile profile, Rng &rng) {
   return rng.one_in(denominator);
 }
 
+void trace_selection(Phase phase, int id, const char *detail = nullptr) {
+  if (!std::getenv("TACTIX_PUBLIC_RANDOM_TRACE")) return;
+  std::fprintf(stderr,
+               "public-random grammar phase=%s terminal=%s action=%s%s%s\n",
+               tactix_public_random::name(phase).data(),
+               tactix_public_random::name(terminal(id)).data(),
+               tactix_rule_name(id) ? tactix_rule_name(id) : "<unknown>",
+               detail ? " " : "", detail ? detail : "");
+}
+
+int execute_selected_rule(tactix_c_handle *solver, int id, Phase phase,
+                          Profile profile, Rng &rng, Coverage &coverage,
+                          uint32_t variables, uint64_t &revision) {
+  if (!selected_rule_available(solver, id, phase)) return -1;
+  trace_selection(phase, id);
+  return execute_rule(solver, id, profile, rng, coverage, variables, revision);
+}
+
+int execute_selected_restart(tactix_c_handle *solver, int restart,
+                             uint64_t keep, Phase phase,
+                             Coverage &coverage) {
+  if (!selected_restart_available(solver, restart, keep, phase)) return -1;
+  char detail[64];
+  std::snprintf(detail, sizeof detail, "keep-level=%llu",
+                static_cast<unsigned long long>(keep));
+  trace_selection(phase, restart, detail);
+  const int result = tactix_apply_instance(solver, restart, keep);
+  ++coverage.forms[static_cast<unsigned>(Form::Instance)];
+  ++coverage.rules[static_cast<size_t>(restart)];
+  if (result == 0) {
+    ++coverage.effective_forms[static_cast<unsigned>(Form::Instance)];
+    ++coverage.effective_rules[static_cast<size_t>(restart)];
+  }
+  return result;
+}
+
 int public_random_solve(tactix_c_handle *solver, uint64_t seed,
                         uint32_t variables, Coverage &coverage) {
   Rng rng(seed);
   const Profile profile = static_cast<Profile>(seed % static_cast<unsigned>(Profile::Count));
   const int propagation = rule_id("Propagate");
   const int analysis = rule_id("ConflictAnalysis");
+  const int decide = rule_id("Decide");
   const int restart = rule_id("Restart");
+  const int reduce = rule_id("Reduce");
   uint64_t revision = 0;
   uint64_t remaining_root = root_burst(profile, rng);
   // Diversity is aggregated over the campaign.  Keeping each prefix short is
@@ -383,42 +537,53 @@ int public_random_solve(tactix_c_handle *solver, uint64_t seed,
   const uint64_t random_budget = 24 + std::min<uint64_t>(variables, 64);
   uint64_t next_restart_conflict = 64 + rng.below(65);
   uint64_t next_reduce_conflict = 256 + rng.below(257);
-  bool in_search = false;
+  Phase phase = Phase::RootWork;
 
   for (uint64_t steps = 0;; ++steps) {
     const int status = tactix_status(solver);
     if (status) return status;
     auto rules = applicable(solver);
 
-    // Conflicts and propagation are solver obligations. Still vary the public
-    // call form so the same semantic boundary exercises every API adapter.
+    // These are guarded productions, not candidates in the random choice:
+    // resolve a pending conflict and close pending propagation before the
+    // grammar chooses another state-advancing terminal.
     if (contains(rules, analysis)) {
-      const int result = execute_rule(solver, analysis, profile, rng, coverage,
-                                      variables, revision);
+      const int result = execute_selected_rule(
+          solver, analysis, phase, profile, rng, coverage, variables, revision);
+      if (result < 0) return 0;
       if (result == 10 || result == 20) return result;
       continue;
     }
-    if (contains(rules, propagation) && (steps >= random_budget || !rng.one_in(5))) {
-      const int result = execute_rule(solver, propagation, profile, rng, coverage,
-                                      variables, revision);
+    if (contains(rules, propagation)) {
+      const int result = execute_selected_rule(
+          solver, propagation, phase, profile, rng, coverage, variables,
+          revision);
+      if (result < 0) return 0;
       if (result == 10 || result == 20) return result;
       continue;
     }
 
     const uint64_t level = tactix_stat(solver, TACTIX_STAT_LEVEL);
-    if (in_search && level > 0 && contains(rules, restart) &&
-        steps < random_budget && restart_now(profile, rng)) {
-      const bool full = level == 1 || rng.one_in(2);
+    const uint64_t conflicts = tactix_stat(solver, TACTIX_STAT_CONFLICTS);
+    const bool random_phase = steps < random_budget;
+    const bool random_restart = phase == Phase::Search && level > 0 &&
+                                random_phase && restart_now(profile, rng);
+    const bool scheduled_restart = phase == Phase::Search && level > 0 &&
+                                   !random_phase &&
+                                   conflicts >= next_restart_conflict;
+    if (contains(rules, restart) && (random_restart || scheduled_restart)) {
+      const bool full = scheduled_restart || level == 1 || rng.one_in(2);
       const uint64_t keep = full ? 0 : 1 + rng.below(level - 1);
-      const int result = tactix_apply_instance(solver, restart, keep);
-      ++coverage.forms[static_cast<unsigned>(Form::Instance)];
-      ++coverage.rules[static_cast<size_t>(restart)];
+      const int result = execute_selected_restart(solver, restart, keep, phase,
+                                                  coverage);
+      if (result < 0) return 0;
       if (result == 10 || result == 20) return result;
       if (full) {
         ++coverage.full_restarts;
         ++coverage.search_to_root;
-        in_search = false;
+        phase = tactix_public_random::successor(phase, Terminal::Restart, 0);
         remaining_root = root_burst(profile, rng);
+        next_restart_conflict = conflicts + 64 + rng.below(193);
       } else {
         ++coverage.partial_restarts;
       }
@@ -430,45 +595,42 @@ int public_random_solve(tactix_c_handle *solver, uint64_t seed,
     // candidate carries the installed heuristic ranking; periodic full
     // restarts and reductions keep hard corpus cases moving while preserving
     // one-action-at-a-time attribution.
-    const uint64_t conflicts = tactix_stat(solver, TACTIX_STAT_CONFLICTS);
-    if (steps >= random_budget && in_search && level > 0 &&
-        contains(rules, restart) && conflicts >= next_restart_conflict) {
-      const int result = tactix_apply_instance(solver, restart, 0);
-      ++coverage.forms[static_cast<unsigned>(Form::Instance)];
-      ++coverage.rules[static_cast<size_t>(restart)];
-      if (result == 10 || result == 20) return result;
-      ++coverage.full_restarts;
-      ++coverage.search_to_root;
-      in_search = false;
-      next_restart_conflict = conflicts + 64 + rng.below(193);
-      continue;
-    }
-    const int reduce = rule_id("Reduce");
-    if (steps >= random_budget && contains(rules, reduce) &&
+    if (!random_phase && phase == Phase::Search && contains(rules, reduce) &&
         conflicts >= next_reduce_conflict) {
-      const int result = execute_rule(solver, reduce, profile, rng, coverage,
-                                      variables, revision);
+      const int result = execute_selected_rule(solver, reduce, phase, profile,
+                                               rng, coverage, variables,
+                                               revision);
+      if (result < 0) return 0;
       if (result == 10 || result == 20) return result;
+      ++coverage.search_actions;
       next_reduce_conflict = conflicts + 256 + rng.below(769);
       continue;
     }
 
-    std::vector<int> nonservice;
+    std::vector<int> root_actions, search_maintenance;
     for (const int id : rules) {
-      const char *name = tactix_rule_name(id);
-      if (name && !service(name)) nonservice.push_back(id);
+      const Terminal kind = terminal(id);
+      if (tactix_public_random::root_work(kind)) root_actions.push_back(id);
+      if (kind == Terminal::SearchMaintenance)
+        search_maintenance.push_back(id);
     }
-    const bool random_phase = steps < random_budget;
-    const bool take_root = !in_search && remaining_root && !nonservice.empty();
-    const bool take_search_extra = in_search && random_phase &&
-                                   !nonservice.empty() &&
-                                   extra_search_action(profile, rng);
-    if (random_phase && (take_root || take_search_extra)) {
-      const int id = choose_rule(nonservice, coverage, profile, rng);
-      const int result = execute_rule(solver, id, profile, rng, coverage,
-                                      variables, revision);
-      if (take_root) --remaining_root, ++coverage.root_actions;
-      else ++coverage.search_actions;
+    if (phase == Phase::RootWork && remaining_root && !root_actions.empty()) {
+      const int id = choose_rule(root_actions, coverage, profile, rng);
+      const int result = execute_selected_rule(solver, id, phase, profile, rng,
+                                               coverage, variables, revision);
+      if (result < 0) return 0;
+      --remaining_root;
+      ++coverage.root_actions;
+      if (result == 10 || result == 20) return result;
+      continue;
+    }
+    if (phase == Phase::Search && random_phase &&
+        !search_maintenance.empty() && search_maintenance_now(profile, rng)) {
+      const int id = choose_rule(search_maintenance, coverage, profile, rng);
+      const int result = execute_selected_rule(solver, id, phase, profile, rng,
+                                               coverage, variables, revision);
+      if (result < 0) return 0;
+      ++coverage.search_actions;
       if (result == 10 || result == 20) return result;
       continue;
     }
@@ -478,12 +640,15 @@ int public_random_solve(tactix_c_handle *solver, uint64_t seed,
     const int count = tactix_decide_candidates(solver, candidates.data(),
                                                static_cast<int>(candidates.size()));
     if (count > 0) {
-      const int literal = steps < random_budget
+      const int literal = random_phase
                               ? candidates[rng.below(static_cast<size_t>(count))]
                               : candidates[0];
+      if (!selected_decision_available(solver, decide, literal, phase))
+        return 0;
+      trace_selection(phase, decide);
       if (tactix_decide(solver, literal) == 0) {
-        if (!in_search) ++coverage.root_to_search;
-        in_search = true;
+        if (phase == Phase::RootWork) ++coverage.root_to_search;
+        phase = tactix_public_random::successor(phase, Terminal::Decide);
         continue;
       }
     }
@@ -588,6 +753,10 @@ int main(int argc, char **argv) {
   if (!cnf_path) {
     std::fputs("usage: tactix-public-random [--random-policy=SEED] CNF [PROOF]\n",
                stderr);
+    std::puts("s UNKNOWN");
+    return 1;
+  }
+  if (!validate_public_action_grammar()) {
     std::puts("s UNKNOWN");
     return 1;
   }

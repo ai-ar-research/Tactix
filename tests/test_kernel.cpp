@@ -1884,6 +1884,31 @@ static void test_in_place_large_replacement_respects_disconnected_watches() {
   kernel_check_invariants(k);
 }
 
+// Eliminate's public Propagate calls run while large watches are intentionally
+// disconnected.  They establish only a binary fixpoint; the phase's sparse
+// resume replays large clauses after reconnection.  The Debug API invariant
+// must accept that documented intermediate boundary.
+static void test_disconnected_large_clause_is_not_a_sparse_fixpoint_claim() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+  kernel_flush_large_watches(k);
+  kernel_assign_unit(k, negate(clause[0]));
+  kernel_assign_unit(k, negate(clause[1]));
+
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(kernel_propagation_fixpoint(k) && !k.large_watches_connected);
+  assert(!k.value(clause[2]));
+  kernel_check_invariants(k);
+
+  kernel_rebuild_large_watches(k);
+  k.propagate_head = 0;
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.value(clause[2]) > 0);
+  kernel_check_invariants(k);
+}
+
 static void test_large_root_flush_preserves_ref_span_and_priority() {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -2547,6 +2572,7 @@ int main() {
   test_large_replacement_preserves_redundant_recency();
   test_in_place_large_replacement_preserves_allocation_span();
   test_in_place_large_replacement_respects_disconnected_watches();
+  test_disconnected_large_clause_is_not_a_sparse_fixpoint_claim();
   test_large_root_flush_preserves_ref_span_and_priority();
   test_root_flush_does_not_rearm_added_material();
   test_vivify_root_binary_terminal_rearms_added_material_only();

@@ -141,6 +141,34 @@ PB_PINS = (os.path.join(HERE, "checkers") if FROZEN_PB_PINS else
            os.path.join(ROOT, "tools", "checkers", "bin"))
 VERIPB = os.path.join(PB_PINS, "veripb")
 CAKE_PB = os.path.join(PB_PINS, "cake-pb-cnf")
+MEMORY_RUNNER = os.path.join(HERE, "memory_runner.py")
+
+
+def _positive_memory_limit(name, default):
+    raw = os.environ.get(name, str(default))
+    try:
+        value = int(raw)
+    except ValueError:
+        sys.exit(f"error: {name} must be a positive integer MiB value")
+    if value <= 0:
+        sys.exit(f"error: {name} must be a positive integer MiB value")
+    return value
+
+
+SOLVER_MEMORY_MIB = _positive_memory_limit(
+    "TACTIX_FUZZ_SOLVER_MEMORY_MIB", 6144)
+CHECKER_MEMORY_MIB = _positive_memory_limit(
+    "TACTIX_FUZZ_CHECKER_MEMORY_MIB", 6144)
+
+
+def checker_environment(checker, memory_mib=CHECKER_MEMORY_MIB):
+    """Return the checker environment with its internal heap below RSS cap."""
+    environment = (dict(stage_environment(checker))
+                   if checker in ("cake-pb-cnf", "cake_lpr") else None)
+    if environment is not None:
+        heap_mib = max(256, memory_mib - 512)
+        environment["CML_HEAP_SIZE"] = str(heap_mib)
+    return environment
 
 
 class CaseOutcome:
@@ -154,6 +182,8 @@ class CaseOutcome:
         self.skips = []  # list of (oracle, reason)
         self.solver_out = ""
         self.solver_err = ""
+        self.solver_run = None
+        self.oracle_run = None
         self.checker_runs = []
         self.proof_artifacts = []
 
@@ -188,6 +218,50 @@ def run_cmd(cmd, timeout, env=None):
         def _txt(b):
             return b.decode(errors="replace") if isinstance(b, bytes) else (b or "")
         return None, _txt(e.stdout), _txt(e.stderr)
+
+
+def run_limited_cmd(cmd, timeout, memory_mib, env=None):
+    """Run one child under the resident-memory wrapper and return its record."""
+    descriptor, status_path = tempfile.mkstemp(
+        prefix="fuzz-resource-", suffix=".json",
+        dir=os.environ.get("TMPDIR"))
+    os.close(descriptor)
+    os.unlink(status_path)
+    wrapped = [sys.executable, MEMORY_RUNNER,
+               "--status", status_path,
+               "--memory-mib", str(memory_mib),
+               "--timeout", str(timeout),
+               "--cpu-seconds", str(int(timeout) + 5),
+               "--"] + list(map(str, cmd))
+    try:
+        try:
+            result = run_captured(wrapped, timeout=timeout + 15, env=env)
+            stdout, stderr = result.stdout, result.stderr
+        except subprocess.TimeoutExpired as error:
+            def text(value):
+                return (value.decode(errors="replace")
+                        if isinstance(value, bytes) else (value or ""))
+            return dict(returncode=None, stdout=text(error.stdout),
+                        stderr=text(error.stderr), timed_out=True,
+                        memory_exceeded=False, memory_limit_mib=memory_mib,
+                        peak_rss_kib=None, cgroup_oom_kills=0,
+                        runner_error="memory wrapper exceeded its deadline")
+        try:
+            with open(status_path) as status_file:
+                record = json.load(status_file)
+        except (OSError, ValueError) as error:
+            return dict(returncode=result.returncode, stdout=stdout,
+                        stderr=stderr, timed_out=False,
+                        memory_exceeded=False, memory_limit_mib=memory_mib,
+                        peak_rss_kib=None, cgroup_oom_kills=0,
+                        runner_error=f"memory wrapper wrote no status: {error}")
+        record.update(stdout=stdout, stderr=stderr, runner_error=None)
+        return record
+    finally:
+        try:
+            os.unlink(status_path)
+        except FileNotFoundError:
+            pass
 
 
 def parse_verdict(exitcode, stdout):
@@ -537,6 +611,21 @@ def substitute_workdir(cmd, workdir):
     return [a.replace("{workdir}", workdir) for a in cmd]
 
 
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for block in iter(lambda: source.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def resource_summary(run):
+    if run is None:
+        return None
+    return {key: value for key, value in run.items()
+            if key not in ("stdout", "stderr")}
+
+
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
@@ -546,20 +635,32 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     accepts a non-conflicting empty-lemma chain on a SAT input."""
     solver = substitute_workdir(solver, workdir)
     out = CaseOutcome()
+
     def check(command):
         command = list(map(str, command))
         checker = os.path.basename(command[0])
         if checker == 'drat-trim':
             command = drat_command_with_timeout(command, 120)
         try:
-            c, o, e = (run_cmd(command, 120, env=stage_environment(checker))
-                       if checker in ("cake-pb-cnf", "cake_lpr")
-                       else run_cmd(command, 120))
+            run = run_limited_cmd(command, 120, CHECKER_MEMORY_MIB,
+                                  env=checker_environment(checker))
         except OSError as error:
-            c, o, e = -1, "", str(error)
-        status = (dsr_compress_status(c, o + "\n" + e)
-                  if checker == "dsr-compress"
-                  else proof_check_status(checker, c, o, e))
+            run = dict(returncode=-1, stdout="", stderr=str(error),
+                       timed_out=False, memory_exceeded=False,
+                       memory_limit_mib=CHECKER_MEMORY_MIB,
+                       peak_rss_kib=None, cgroup_oom_kills=0,
+                       runner_error=str(error))
+        c, o, e = run["returncode"], run["stdout"], run["stderr"]
+        if run.get("memory_exceeded"):
+            status = "resource-memory"
+        elif run.get("timed_out"):
+            status = "resource-timeout"
+        elif run.get("runner_error"):
+            status = "error"
+        else:
+            status = (dsr_compress_status(c, o + "\n" + e)
+                      if checker == "dsr-compress"
+                      else proof_check_status(checker, c, o, e))
         # The pinned drat-trim exits 1 on an input empty clause even while
         # reporting success. Confirm that semantic condition from the actual
         # original CNF; never accept an abnormal exit from success text alone.
@@ -568,9 +669,30 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 "s VERIFIED" in o.splitlines()):
             _, clauses = parse_dimacs(cnf_path)
             status = "verified" if [] in clauses else "rejected"
-        out.checker_runs.append(dict(command=command, exit_code=c, stdout=o,
-                                     stderr=e, status=status))
-        return status == "verified"
+        out.checker_runs.append(dict(
+            command=command, exit_code=c, stdout=o, stderr=e, status=status,
+            memory_limit_mib=run.get("memory_limit_mib"),
+            peak_rss_kib=run.get("peak_rss_kib"),
+            cgroup_oom_kills=run.get("cgroup_oom_kills", 0),
+            timed_out=run.get("timed_out", False),
+            memory_exceeded=run.get("memory_exceeded", False),
+            runner_error=run.get("runner_error")))
+        return status
+
+    def checker_failure(detail):
+        status = out.checker_runs[-1]["status"]
+        checker = os.path.basename(out.checker_runs[-1]["command"][0])
+        if status == "resource-memory":
+            out.fail("resource", f"{checker} exceeded its declared "
+                     f"{CHECKER_MEMORY_MIB} MiB checker limit")
+        elif status == "resource-timeout":
+            out.fail("resource", f"{checker} exceeded its declared "
+                     "120 second checker limit")
+        elif status == "error":
+            out.fail("harness", f"{checker} resource wrapper failed: "
+                     + str(out.checker_runs[-1].get("runner_error")))
+        else:
+            out.fail("proof", detail)
     native_lrat = "--lrat" in solver
     explicit_dsr = "--dsr" in solver
     basename_tactix = os.path.basename(solver[0]) == "tactix"
@@ -590,9 +712,24 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     if os.path.exists(proof):
         os.unlink(proof)
 
-    code, stdout, stderr = run_cmd(solver + [cnf_path, proof], timeout)
+    solver_run = run_limited_cmd(solver + [cnf_path, proof], timeout,
+                                 SOLVER_MEMORY_MIB)
+    out.solver_run = solver_run
+    code = solver_run["returncode"]
+    stdout, stderr = solver_run["stdout"], solver_run["stderr"]
     out.solver_out, out.solver_err = stdout, stderr
-    verdict, sline = parse_verdict(code, stdout)
+    if solver_run.get("memory_exceeded"):
+        verdict, sline = "RESOURCE", None
+        out.fail("resource", f"solver exceeded its declared "
+                 f"{SOLVER_MEMORY_MIB} MiB limit")
+    elif solver_run.get("runner_error"):
+        verdict, sline = "HARNESS-ERROR", None
+        out.fail("harness", "solver resource wrapper failed: "
+                 + str(solver_run["runner_error"]))
+    elif solver_run.get("timed_out"):
+        verdict, sline = "TIMEOUT", None
+    else:
+        verdict, sline = parse_verdict(code, stdout)
     out.verdict = verdict
 
     if "Sanitizer" in stderr or "runtime error" in stderr:
@@ -639,19 +776,19 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 for name, command in pb_stages(
                         VERIPB, CAKE_PB, cnf_path, proof, kernel,
                         checker_cnf=checker_cnf):
-                    if not check(command):
-                        out.fail("proof", name + " did not verify PBP")
+                    if check(command) != "verified":
+                        checker_failure(name + " did not verify PBP")
                         break
                     if name == "veripb" and (not os.path.isfile(kernel) or
                                              os.path.getsize(kernel) == 0):
                         out.fail("proof", "VeriPB produced no kernel proof")
                         break
         elif os.path.exists(proof) and native_lrat:
-            if not check([CAKE_LPR, checker_cnf, proof]):
-                out.fail("proof", "cake_lpr did not verify the native LRAT")
+            if check([CAKE_LPR, checker_cnf, proof]) != "verified":
+                checker_failure("cake_lpr did not verify the native LRAT")
         elif os.path.exists(proof) and explicit_drat:
-            if not check([DRAT_TRIM, checker_cnf, proof]):
-                out.fail("proof", "drat-trim did not verify")
+            if check([DRAT_TRIM, checker_cnf, proof]) != "verified":
+                checker_failure("drat-trim did not verify")
             elif lrat:
                 # On some degenerate-but-legal CNFs drat-trim and lrat-check
                 # disagree about the file itself, so the conversion cross-check
@@ -663,11 +800,11 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 else:
                     lrat_file = os.path.join(workdir, "proof.lrat")
                     out.proof_artifacts.append(lrat_file)
-                    if not check([DRAT_TRIM, checker_cnf, proof, "-L", lrat_file]):
-                        out.fail("proof", "drat-trim -L (LRAT emission) failed")
+                    if check([DRAT_TRIM, checker_cnf, proof, "-L", lrat_file]) != "verified":
+                        checker_failure("drat-trim -L (LRAT emission) failed")
                     else:
-                        if not check([CAKE_LPR, checker_cnf, lrat_file]):
-                            out.fail("proof", "cake_lpr did not verify the converted LRAT")
+                        if check([CAKE_LPR, checker_cnf, lrat_file]) != "verified":
+                            checker_failure("cake_lpr did not verify the converted LRAT")
         elif os.path.exists(proof) and native_dsr:
             try:
                 route = certificate_route(proof)
@@ -689,8 +826,8 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 if not converted_ok:
                     out.fail('proof', 'witnessed DSR cannot use DRAT route')
                 else:
-                    if not check([DRAT_TRIM, checker_cnf, converted, '-L', lrat_file]):
-                        out.fail('proof', 'drat-trim did not elaborate witness-free DSR')
+                    if check([DRAT_TRIM, checker_cnf, converted, '-L', lrat_file]) != "verified":
+                        checker_failure('drat-trim did not elaborate witness-free DSR')
                     else:
                         record = out.checker_runs[-1]
                         bridge_trivial_input_lrat(
@@ -705,17 +842,17 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                             except ValueError as error:
                                 out.fail('proof', 'input restatement: ' + str(error))
                             else:
-                                if not check([CAKE_LPR, checker_cnf, checked_lrat]):
-                                    out.fail('proof', 'CakeLPR rejected witness-free DSR')
+                                if check([CAKE_LPR, checker_cnf, checked_lrat]) != "verified":
+                                    checker_failure('CakeLPR rejected witness-free DSR')
                     # Backward elaboration above examines only the lemmas the
                     # refutation uses; forward drat-trim then checks every line
                     # of the lossless conversion, unused additions included.
                     for name, command in every_lemma_drat_stages(
                             DRAT_TRIM, cnf_path, converted,
                             checker_cnf=checker_cnf):
-                        if not check(command):
-                            out.fail('proof', 'every-lemma audit: forward '
-                                     'drat-trim rejected witness-free DSR')
+                        if check(command) != "verified":
+                            checker_failure('every-lemma audit: forward '
+                                            'drat-trim rejected witness-free DSR')
                             break
             # proof_oracle.reference_dsr_stages owns the pipeline definition.
             binary_lsr = os.path.join(workdir, "proof.binary.lsr")
@@ -739,10 +876,11 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 for name, command in stages(
                         DSR_TRIM, DSR_COMPRESS, SR_CHECK, cnf_path, proof,
                         binary_lsr, text_lsr, checker_cnf=checker_cnf):
-                    verified = check(command)
+                    status = check(command)
+                    verified = status == "verified"
                     if (not verified and name == 'srcheck' and
                             stages is every_lemma_dsr_stages and
-                            out.checker_runs[-1]['status'] == 'rejected'):
+                            status == 'rejected'):
                         completed = os.path.join(workdir, 'proof.unit-complete.lsr')
                         try:
                             patched = complete_final_empty_rup_units(
@@ -751,9 +889,10 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                             patched = None
                         if patched is not None:
                             out.proof_artifacts.append(completed)
-                            verified = check([SR_CHECK, checker_cnf, patched])
+                            verified = (check([SR_CHECK, checker_cnf, patched])
+                                        == "verified")
                     if not verified:
-                        out.fail("proof", label + why[name])
+                        checker_failure(label + why[name])
                         failed = True
                         break
                     made = command[-1] if name != "srcheck" else None
@@ -769,8 +908,22 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                     break
 
     if oracle and verdict in ("SAT", "UNSAT"):
-        code_o, stdout_o, _ = run_cmd(oracle + [cnf_path], timeout)
-        overdict, _ = parse_verdict(code_o, stdout_o)
+        oracle_run = run_limited_cmd(oracle + [cnf_path], timeout,
+                                     SOLVER_MEMORY_MIB)
+        out.oracle_run = oracle_run
+        if oracle_run.get("memory_exceeded"):
+            overdict = "RESOURCE"
+            out.fail("resource", f"oracle solver exceeded its declared "
+                     f"{SOLVER_MEMORY_MIB} MiB limit")
+        elif oracle_run.get("runner_error"):
+            overdict = "HARNESS-ERROR"
+            out.fail("harness", "oracle resource wrapper failed: "
+                     + str(oracle_run["runner_error"]))
+        elif oracle_run.get("timed_out"):
+            overdict = "TIMEOUT"
+        else:
+            overdict, _ = parse_verdict(oracle_run["returncode"],
+                                        oracle_run["stdout"])
         out.oracle_verdict = overdict
         if overdict in ("SAT", "UNSAT") and overdict != verdict:
             out.fail("differential",
@@ -799,10 +952,19 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
         "failures": outcome.failures,
         "timeout": timeout,
         "checker_runs": outcome.checker_runs,
+        "solver_run": resource_summary(outcome.solver_run),
+        "oracle_run": resource_summary(outcome.oracle_run),
     }
+    copied_artifacts = {"case.cnf"}
     for artifact in outcome.proof_artifacts:
         if os.path.isfile(artifact):
-            shutil.copy2(artifact, os.path.join(bundle, os.path.basename(artifact)))
+            basename = os.path.basename(artifact)
+            shutil.copy2(artifact, os.path.join(bundle, basename))
+            copied_artifacts.add(basename)
+    meta["artifacts"] = {
+        basename: file_sha256(os.path.join(bundle, basename))
+        for basename in sorted(copied_artifacts)
+    }
     with open(os.path.join(bundle, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
     fail_kind = outcome.failures[0][0]
@@ -823,7 +985,22 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
                 f"cd \"$(dirname \"$0\")\"\n"
                 f"{shlex.join(check_cmd)} \"${{1:-case.cnf}}\"\n")
     os.chmod(os.path.join(bundle, "repro.sh"), 0o755)
-    if shrink:
+    checker_resource = any(
+        record.get("status", "").startswith("resource-")
+        for record in outcome.checker_runs)
+    if checker_resource:
+        extended = os.environ.get(
+            "TACTIX_FUZZ_EXTENDED_CHECKER_MEMORY_MIB", "16384")
+        replay_cmd = [os.path.join(HERE, "fuzz.py"), "replay-checker",
+                      "--meta", "meta.json", "--memory-mib", extended]
+        with open(os.path.join(bundle, "recheck.sh"), "w") as f:
+            f.write("#!/usr/bin/env bash\n"
+                    "# Recheck the retained certificate only; this never "
+                    "reruns the solver.\n"
+                    "cd \"$(dirname \"$0\")\"\n"
+                    + shlex.join(replay_cmd) + "\n")
+        os.chmod(os.path.join(bundle, "recheck.sh"), 0o755)
+    if shrink and fail_kind not in ("resource", "harness"):
         # in-process shrinking: one solver run per candidate, no
         # interpreter startups (see shrink.py)
         shrink_oracle = oracle if fail_kind == "differential" else None
@@ -1030,7 +1207,7 @@ def cmd_run(args):
     vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
     ran = done  # cases actually executed (a --max-failures stop cuts the leg)
     nnon = len(nonterm)
-    effective = ran - nnon
+    effective = verdicts.get("SAT", 0) + verdicts.get("UNSAT", 0)
     print(f"fuzz: {args.n} cases, {nfail} failures"
           + (f" {kinds_count}" if kinds_count else "")
           + f" | verdicts: {vsummary}"
@@ -1284,6 +1461,109 @@ def cmd_checkers(args):
     return 0
 
 
+def _bundle_checker_command(meta_path, record, workspace):
+    """Rebind a retained checker command to an isolated bundle copy."""
+    bundle = os.path.dirname(os.path.abspath(meta_path))
+    checker_paths = {
+        "cake-pb-cnf": CAKE_PB,
+        "cake_lpr": CAKE_LPR,
+        "drat-trim": DRAT_TRIM,
+        "dsr-compress": DSR_COMPRESS,
+        "dsr-trim": DSR_TRIM,
+        "lrat-check": LRAT_CHECK,
+        "srcheck": SR_CHECK,
+        "veripb": VERIPB,
+    }
+    original = list(map(str, record["command"]))
+    checker = os.path.basename(original[0])
+    command = [checker_paths.get(checker, original[0])]
+    for argument in original[1:]:
+        basename = os.path.basename(argument)
+        retained = os.path.join(bundle, basename)
+        copied = os.path.join(workspace, basename)
+        # All absolute paths in checker records name per-case inputs or
+        # outputs.  Point them at the disposable copy even when an output did
+        # not exist at failure time; never overwrite a retained artifact.
+        if os.path.isabs(argument):
+            command.append(copied)
+        else:
+            command.append(copied if os.path.isfile(retained) else argument)
+    return checker, command
+
+
+def terminal_checker_stage(checker, command):
+    """Whether verification by this stage closes the semantic oracle."""
+    if checker in ("cake-pb-cnf", "cake_lpr", "srcheck"):
+        return True
+    # Direct DRAT checking is terminal.  `-L` makes drat-trim an elaborator
+    # whose emitted LRAT still requires CakeLPR.
+    return checker == "drat-trim" and "-L" not in command
+
+
+def cmd_replay_checker(args):
+    with open(args.meta) as metadata_file:
+        meta = json.load(metadata_file)
+    bundle = os.path.dirname(os.path.abspath(args.meta))
+    for basename, expected in meta.get("artifacts", {}).items():
+        artifact = os.path.join(bundle, basename)
+        if not os.path.isfile(artifact) or file_sha256(artifact) != expected:
+            print(f"replay-checker: retained artifact hash mismatch: {basename}",
+                  file=sys.stderr)
+            return 2
+    records = meta.get("checker_runs", [])
+    if args.run_index is None:
+        candidates = [index for index, record in enumerate(records)
+                      if record.get("status", "").startswith("resource-")]
+        if not candidates:
+            print("replay-checker: no resource-limited checker run in metadata",
+                  file=sys.stderr)
+            return 2
+        index = candidates[-1]
+    else:
+        index = args.run_index
+        if index < 0 or index >= len(records):
+            print(f"replay-checker: run index {index} is out of range",
+                  file=sys.stderr)
+            return 2
+    with tempfile.TemporaryDirectory(prefix="fuzz-checker-replay-") as work:
+        for basename in meta.get("artifacts", {}):
+            shutil.copy2(os.path.join(bundle, basename),
+                         os.path.join(work, basename))
+        checker, command = _bundle_checker_command(args.meta, records[index],
+                                                   work)
+        run = run_limited_cmd(command, args.timeout, args.memory_mib,
+                              env=checker_environment(checker,
+                                                      args.memory_mib))
+    if run.get("memory_exceeded"):
+        status = "resource-memory"
+    elif run.get("timed_out"):
+        status = "resource-timeout"
+    elif run.get("runner_error"):
+        status = "error"
+    else:
+        status = (dsr_compress_status(
+            run["returncode"], run["stdout"] + "\n" + run["stderr"])
+            if checker == "dsr-compress" else proof_check_status(
+                checker, run["returncode"], run["stdout"], run["stderr"]))
+    oracle_complete = status == "verified" and terminal_checker_stage(
+        checker, command)
+    reported_status = (status if status != "verified" or oracle_complete
+                       else "stage-verified-oracle-incomplete")
+    print(json.dumps({
+        "checker_run_index": index,
+        "checker": checker,
+        "status": reported_status,
+        "oracle_complete": oracle_complete,
+        "memory_limit_mib": args.memory_mib,
+        "peak_rss_kib": run.get("peak_rss_kib"),
+        "cgroup_oom_kills": run.get("cgroup_oom_kills", 0),
+        "command": command,
+    }, indent=2))
+    if oracle_complete:
+        return 0
+    return 1 if status == "rejected" else 2
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1359,7 +1639,7 @@ def main() -> int:
     p.add_argument("cnf")
     p.add_argument("--fail-kind", default=None,
                    choices=["crash", "io", "model", "proof", "differential",
-                            "coverage"])
+                            "coverage", "resource", "harness"])
     p.set_defaults(func=cmd_check_one)
 
     p = sub.add_parser("corpus")
@@ -1372,6 +1652,15 @@ def main() -> int:
     p = sub.add_parser("checkers",
                        help="print and verify the core checker collection")
     p.set_defaults(func=cmd_checkers)
+
+    p = sub.add_parser(
+        "replay-checker",
+        help="recheck one retained certificate without rerunning its solver")
+    p.add_argument("--meta", required=True)
+    p.add_argument("--run-index", type=int, default=None)
+    p.add_argument("--memory-mib", type=int, default=16384)
+    p.add_argument("--timeout", type=float, default=300)
+    p.set_defaults(func=cmd_replay_checker)
 
     args = ap.parse_args()
     verify_checker_collection()

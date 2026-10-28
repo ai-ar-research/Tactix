@@ -8,7 +8,8 @@
 # Results are identical at any worker/shard count; only wall-clock changes.
 #
 #   slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P]
-#            [--threads-per-core T]
+#            [--threads-per-core T] [--memory-mib-per-worker M]
+#            [--solver-memory-mib M] [--checker-memory-mib M]
 #            [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE]
 #            [--wait] -- <run.sh args...>
 #
@@ -38,7 +39,9 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 PHYSICAL_CORES=50 # cluster scale
 THREADS_PER_CORE=2
 SHARDS=1
-MEM_MIB_PER_PHYSICAL_CORE=8000
+MEM_MIB_PER_WORKER=8000
+SOLVER_MEMORY_MIB=6144
+CHECKER_MEMORY_MIB=6144
 TIME=24:00:00
 NAME=fuzz
 PARTITION=cpu-dense-hwulab-q
@@ -49,6 +52,9 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --physical-cores) PHYSICAL_CORES="$2"; shift 2 ;;
         --threads-per-core) THREADS_PER_CORE="$2"; shift 2 ;;
+        --memory-mib-per-worker) MEM_MIB_PER_WORKER="$2"; shift 2 ;;
+        --solver-memory-mib) SOLVER_MEMORY_MIB="$2"; shift 2 ;;
+        --checker-memory-mib) CHECKER_MEMORY_MIB="$2"; shift 2 ;;
         --shards) SHARDS="$2"; shift 2 ;;
         --cpu-q-wide)
             PARTITION=cpu-q
@@ -64,7 +70,7 @@ while [ $# -gt 0 ]; do
         --dsr-transport) DSR_TRANSPORT="$2"; shift 2 ;;
         --wait) WAIT=1; shift ;;
         --) shift; break ;;
-        *) echo "usage: slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P] [--threads-per-core T] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
+        *) echo "usage: slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P] [--threads-per-core T] [--memory-mib-per-worker M] [--solver-memory-mib M] [--checker-memory-mib M] [--time T] [--name NAME] [--checkers DIR] [--dsr-transport FILE] -- <run.sh args>" >&2; exit 2 ;;
     esac
 done
 [ $# -gt 0 ] || { echo "error: no run.sh args after --" >&2; exit 2; }
@@ -87,6 +93,22 @@ case "$SHARDS" in
 esac
 [ "$SHARDS" -ge 1 ] && [ "$SHARDS" -le 1024 ] || {
     echo "error: --shards must be between 1 and 1024" >&2
+    exit 2
+}
+for item in MEM_MIB_PER_WORKER SOLVER_MEMORY_MIB CHECKER_MEMORY_MIB; do
+    value="${!item}"
+    case "$value" in
+        ''|*[!0-9]*) echo "error: $item must be a positive integer" >&2; exit 2 ;;
+    esac
+    [ "$value" -gt 0 ] || {
+        echo "error: $item must be a positive integer" >&2
+        exit 2
+    }
+done
+MAX_CHILD_MEMORY_MIB=$((MEM_MIB_PER_WORKER - 512))
+[ "$SOLVER_MEMORY_MIB" -le "$MAX_CHILD_MEMORY_MIB" ] &&
+    [ "$CHECKER_MEMORY_MIB" -le "$MAX_CHILD_MEMORY_MIB" ] || {
+    echo "error: solver/checker memory limits must leave 512 MiB of each worker allocation for the harness" >&2
     exit 2
 }
 RUN_ARGS=("$@")
@@ -124,7 +146,7 @@ python3 "$HERE/artifact_layout.py" "$HERE/failures" validation "$NAME" \
     >/dev/null
 
 ALLOC_CPUS=$((PHYSICAL_CORES * THREADS_PER_CORE))
-MEM_MIB=$((PHYSICAL_CORES * MEM_MIB_PER_PHYSICAL_CORE))
+MEM_MIB=$((PHYSICAL_CORES * MEM_MIB_PER_WORKER))
 if [ "$PARTITION" = cpu-q ]; then
     [ "$ALLOC_CPUS" -le 52 ] || {
         echo "error: cpu-q permits at most 52 CPUs per node/task" >&2
@@ -153,6 +175,7 @@ PIN_FUZZ="$PIN_ROOT/fuzz"
 mkdir -p "$PIN_FUZZ"
 cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/modelcheck.py" "$HERE/shrink.py" \
+      "$HERE/memory_runner.py" \
       "$HERE/artifact_layout.py" "$HERE/shard.py" "$HERE/aggregate.py" \
       "$HERE/corpus" "$PIN_FUZZ/"
 mkdir -p "$PIN_FUZZ/controls"
@@ -249,6 +272,8 @@ export TACTIX_FUZZ_RUN_ID="slurm-\$SLURM_JOB_ID"
 export TACTIX_FUZZ_LEG_ID="$NAME"
 export TACTIX_FUZZ_REPLAY_HARNESS="$REPLAY_ROOT/fuzz"
 export TACTIX_FUZZ_HARNESS_SHA256="$HARNESS_SHA"
+export TACTIX_FUZZ_SOLVER_MEMORY_MIB="$SOLVER_MEMORY_MIB"
+export TACTIX_FUZZ_CHECKER_MEMORY_MIB="$CHECKER_MEMORY_MIB"
 if [ -f "$PIN_FUZZ/core-checkers" ]; then
     (cd "$CHECKERS_ROOT" && sha256sum --strict -c "$PIN_FUZZ/core-checkers.sha256")
 fi
@@ -266,7 +291,7 @@ cleanup_fuzz_job() {
     fi
 }
 trap cleanup_fuzz_job EXIT
-echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
+echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M solver-limit=${SOLVER_MEMORY_MIB}M checker-limit=${CHECKER_MEMORY_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
 "$PIN_FUZZ/run.sh" $ARGS --jobs "$PHYSICAL_CORES"
 EOF
     )
@@ -302,6 +327,8 @@ export TACTIX_FUZZ_RUN_ID="slurm-\$SLURM_ARRAY_JOB_ID"
 export TACTIX_FUZZ_LEG_ID="$NAME-shard-\$TASK_ID"
 export TACTIX_FUZZ_REPLAY_HARNESS="$REPLAY_ROOT/fuzz"
 export TACTIX_FUZZ_HARNESS_SHA256="$HARNESS_SHA"
+export TACTIX_FUZZ_SOLVER_MEMORY_MIB="$SOLVER_MEMORY_MIB"
+export TACTIX_FUZZ_CHECKER_MEMORY_MIB="$CHECKER_MEMORY_MIB"
 STATE_ROOT="$HERE/failures/runs/slurm-\$SLURM_ARRAY_JOB_ID/.array-$NAME"
 if [ -f "$PIN_FUZZ/core-checkers" ]; then
     (cd "$CHECKERS_ROOT" && sha256sum --strict -c "$PIN_FUZZ/core-checkers.sha256")
@@ -323,7 +350,7 @@ SHARD_ARGS=()
 if [ "\$TASK_ID" -ne 0 ]; then
     SHARD_ARGS+=(--skip-corpus)
 fi
-echo "== fuzz array \$SLURM_ARRAY_JOB_ID task \$TASK_ID: node=\$SLURMD_NODENAME cpus=\$SLURM_CPUS_PER_TASK workers=$PHYSICAL_CORES cases=\$CASE_COUNT offset=\$INDEX_OFFSET total=$TOTAL_CASES shards=$SHARDS mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
+echo "== fuzz array \$SLURM_ARRAY_JOB_ID task \$TASK_ID: node=\$SLURMD_NODENAME cpus=\$SLURM_CPUS_PER_TASK workers=$PHYSICAL_CORES cases=\$CASE_COUNT offset=\$INDEX_OFFSET total=$TOTAL_CASES shards=$SHARDS mem=${MEM_MIB}M solver-limit=${SOLVER_MEMORY_MIB}M checker-limit=${CHECKER_MEMORY_MIB}M harness-sha256=$HARNESS_SHA core-checkers=${CHECKERS_ROOT:-tools/checkers/bin} =="
 "$PIN_FUZZ/run.sh" $ARGS --n "\$CASE_COUNT" \
     --index-offset "\$INDEX_OFFSET" "\${SHARD_ARGS[@]}" \
     --defer-requirements \

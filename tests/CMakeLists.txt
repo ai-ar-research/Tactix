@@ -208,6 +208,9 @@ add_test(NAME fuzz_slurm_snapshot
 add_test(NAME fuzz_slurm_sharding
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_sharding.py)
+add_test(NAME fuzz_resource_limits
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_resource_limits.py)
 add_test(NAME fuzz_shard_aggregate
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_shard_aggregate.py)

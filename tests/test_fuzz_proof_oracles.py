@@ -493,17 +493,24 @@ class FuzzProofOracles(unittest.TestCase):
                 convert=False, dsr=False, pbp=False):
         with tempfile.TemporaryDirectory(prefix='fuzz-oracle-fixed-') as directory:
             work = Path(directory); cnf = work/'input.cnf'; cnf.write_text(cnf_text)
-            actual = fuzz.run_cmd
-            def run(command, timeout, **kwargs):
+            actual = fuzz.run_limited_cmd
+            def record(response, memory_mib):
+                code, stdout, stderr = response
+                return dict(returncode=code, stdout=stdout, stderr=stderr,
+                            timed_out=code is None, memory_exceeded=False,
+                            memory_limit_mib=memory_mib, peak_rss_kib=None,
+                            cgroup_oom_kills=0, runner_error=None)
+            def run(command, timeout, memory_mib, **kwargs):
                 if command[0] == 'fixed-proof-emitter':
                     Path(command[-1]).write_text(proof_text)
-                    return 20, 's UNSATISFIABLE\n', ''
-                if checker_response is not None: return checker_response
-                return actual(command, timeout, **kwargs)
+                    return record((20, 's UNSATISFIABLE\n', ''), memory_mib)
+                if checker_response is not None:
+                    return record(checker_response, memory_mib)
+                return actual(command, timeout, memory_mib, **kwargs)
             solver = ['fixed-proof-emitter'] + (
                 ['--pbp'] if pbp else ['--dsr', '--no-binary'] if dsr else
                 (['--lrat'] if lrat else ['--drat']))
-            with patch.object(fuzz, 'run_cmd', side_effect=run):
+            with patch.object(fuzz, 'run_limited_cmd', side_effect=run):
                 result = fuzz.run_case(str(cnf), solver, None, 10, convert, str(work))
             self.assertTrue(result.checker_runs or
                             any('explicit clausal' in detail for _, detail in result.failures))

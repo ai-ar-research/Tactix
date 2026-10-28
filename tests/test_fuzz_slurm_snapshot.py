@@ -91,6 +91,7 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-sbatch-") as tmp:
         pinned_fuzz = pin / "fuzz"
         pinned_run = pinned_fuzz / "run.sh"
         assert pinned_run.is_file() and os.access(pinned_run, os.X_OK)
+        assert (pinned_fuzz / "memory_runner.py").is_file()
         assert pinned_run.stat().st_mode & 0o222 == 0
 
         batch = batch_file.read_text(encoding="utf-8")
@@ -100,6 +101,8 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-sbatch-") as tmp:
         assert f'TACTIX_FUZZ_OUTPUT_ROOT="{ROOT}/tools/fuzz/failures"' in batch
         assert "harness-sha256=" + reported_hash in batch
         assert '--jobs "3"' in batch
+        assert 'TACTIX_FUZZ_SOLVER_MEMORY_MIB="6144"' in batch
+        assert 'TACTIX_FUZZ_CHECKER_MEMORY_MIB="6144"' in batch
 
         args = args_file.read_text(encoding="utf-8")
         assert "--cpus-per-task=6" in args

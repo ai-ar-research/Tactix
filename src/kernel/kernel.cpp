@@ -4430,24 +4430,31 @@ void kernel_check_invariants(const Kernel &k) {
         }
       }
     }
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage()) {
-        int nonfalse = 0;
-        Lit last = INVALID_LIT;
-        for (const Lit l : *c)
-          if (k.values[l] >= 0) {
-            nonfalse++;
-            last = l;
-          }
-        // fixpoint: no live clause may be falsified (0 non-false literals) or
-        // unit (exactly one non-false literal that is still UNASSIGNED — it
-        // should have been propagated); both are escaped propagation
-        assert(nonfalse > 0 && "falsified large clause escaped propagation");
-        assert((nonfalse != 1 || k.values[last] > 0) &&
-               "unit large clause escaped propagation");
+    // Dense elimination deliberately disconnects every large watch.  A public
+    // Propagate inside that phase therefore reaches a binary fixpoint only;
+    // the phase exit reconnects the large clauses and explicitly replays the
+    // saved root suffix.  Inspecting the bare arena here would mistake that
+    // documented intermediate representation for escaped propagation.
+    if (k.large_watches_connected) {
+      for (Ref ref = 0; ref < k.arena.size();) {
+        const Clause *c = clause_at(k.arena, ref);
+        if (!c->garbage()) {
+          int nonfalse = 0;
+          Lit last = INVALID_LIT;
+          for (const Lit l : *c)
+            if (k.values[l] >= 0) {
+              nonfalse++;
+              last = l;
+            }
+          // fixpoint: no live clause may be falsified (0 non-false literals) or
+          // unit (exactly one non-false literal that is still UNASSIGNED — it
+          // should have been propagated); both are escaped propagation
+          assert(nonfalse > 0 && "falsified large clause escaped propagation");
+          assert((nonfalse != 1 || k.values[last] > 0) &&
+                 "unit large clause escaped propagation");
+        }
+        ref += clause_actual_words(c);
       }
-      ref += clause_actual_words(c);
     }
   }
 }

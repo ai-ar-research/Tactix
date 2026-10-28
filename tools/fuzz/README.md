@@ -10,10 +10,11 @@ and revised thresholds, preserves the saved summaries, and still checks every
 other requirement. Retain the regrade output alongside the original result.
 
 - `run.sh --quick --solver 'build/release/tactix-public --pbp'` runs the regression corpus plus 10,000 seeded cases through DefaultPolicy's public-interface twin; `--nightly` selects 200,000.
-- `run.sh --public-random --quick --solver 'build/release/tactix-public-random --pbp --random-policy={seed}'` runs the same generated cases through the sole random qualification strategy. It chooses one public action at a time, re-observes the solver after every action, and varies root work, CDCL intervals, full/partial restarts, application forms and eligible algebraic actions. Each case receives its own reproducible policy seed.
+- `run.sh --public-random --quick --solver 'build/release/tactix-public-random --pbp --random-policy={seed}'` runs the same generated cases through the sole random qualification strategy. It samples the grammar below one public action at a time, re-observes the solver after every action, and varies root work, CDCL intervals, full/partial restarts, application forms and eligible algebraic actions. Each case receives its own reproducible policy seed.
 - Both legs use whole-run PBP. Every UNSAT result must pass VeriPB and CakePB against the original CNF; every SAT model is independently checked. Historical production random/stress/controller frontends and their one-off campaign scripts are retired.
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2 nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers. `--physical-cores P` changes all three coherently. A worker count is parallelism within one fuzz campaign, not repeated fuzzing. At submission it creates a read-only `build/pin-fuzz-harness-*` snapshot of the runner, corpus and pinned VeriPB/CakePB binaries. The batch job executes only that snapshot and logs its aggregate SHA-256; it removes the snapshot after success and retains it after failure for Claude-owned diagnosis. A small deduplicated copy under `failures/harnesses/<sha256>/` keeps successful-leg timeout controls replayable after the transient snapshot is gone. Never make a fuzz job execute a live repository script.
 - `slurm.sh --cpu-q-wide` maps one campaign over 512 array tasks. Each task requests one physical core and runs one single-threaded worker on one shard; workers are never packed into a larger allocation. Every shard is eligible immediately, and Slurm shares partition capacity among independently submitted campaigns. Shards own disjoint global indices, while shard zero alone runs the corpus and fixed controls. Isolated artifacts and an `afterany` aggregate finalizer retain the shared immutable pin on any failed, canceled or missing shard.
+- Every worker predeclares separate resident-memory ceilings for its solver and checker children (6,144 MiB each inside the default 8,000 MiB task). `memory_runner.py` monitors the complete child process tree without an address-space limit, so Debug ASan shadow mappings remain usable. A solver OOM, checker OOM, timeout, or wrapper failure is retained as an incomplete `resource`/`harness` case, never mislabeled as a solver crash or invalid proof. The bundle records peak RSS, the limits, cgroup OOM events, exact artifacts, and SHA-256 hashes. For a checker resource event, `recheck.sh` replays only the retained checker command on disposable copies under a declared larger ceiling; it never reruns the solver or overwrites the retained proof. Verification closes the case only for a terminal checker; a recovered elaboration stage still requires its downstream terminal checker. A resource-incomplete case remains a failed gate until that independent oracle completes.
   Custom layouts use `--shards`, `--physical-cores`, `--threads-per-core` and `--partition`. `--index-offset` preserves unsharded cases; aggregate coverage/reach requirements preserve grading.
 - Core clausal checkers (`cake_lpr`, `drat-trim`, `dsr-compress`, `dsr-trim`, `lrat-check`, `srcheck`) default to the mutable `tools/checkers/bin` links. `slurm.sh --checkers DIR` freezes them instead: `DIR` holds exactly those basenames and a `SHA256SUMS` manifest; submission verifies it, installs a read-only content-addressed copy under `failures/checkers/<sha256>/`, and records that path and manifest in the snapshot (so failure `repro.sh` files use the same checkers); the job re-verifies it. For a live checkout, `TACTIX_FUZZ_CHECKERS=DIR` selects the same kind of collection, and `fuzz.py checkers` prints and verifies whichever is in effect. Optional `--dsr-transport FILE` pins the CMake `dsr-transport` helper and its hash beside the oracle; missing helper pins retain Python parsing, never weaker checking.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
@@ -58,6 +59,21 @@ other requirement. Retain the regrade output alongside the original result.
   require the configured `dsr-trim` to elaborate the F2/F2w proofs forward
   correctly, so they fail with the historical root-clone build 02824056.
 - `retention.py` — reports which tracked per-job artifact is still cited as evidence (job id, id range, or name, never the basename), for this directory's `slurm-*.log` and `benchmarks/probes/*.out`. Report-only unless `--delete`; uncited job logs belong in `$CLAUDE_JOB_DIR/tmp`, not in git.
+
+## Public-random strategy grammar
+
+The random qualification policy samples the strategy grammar defined for
+strategy authors in [`docs/strategies.md`](../../docs/strategies.md#1-general-scheduling-shape).
+Applicability guards a grammar-selected terminal; it does not define the trace
+language or silently remove an action family.
+
+`public_random_grammar.hpp` classifies every active public action into exactly
+one terminal family.  A new public action must extend that classification or
+the grammar test fails.  At execution time the policy queries applicability
+again after choosing a terminal.  Release treats a missing chosen action as a
+defensive failure; assertion-enabled builds additionally assert that the rule
+and any exact restart/decision instance are among the freshly offered public
+actions before applying them.
 
 The solver under test must speak the competition CLI: `solver CNF [PROOF]`, `s`/`v` lines on stdout, exit 10/20. Every case is reproducible from the recorded seed and each invocation gets a private artifact namespace. Cluster submissions use `failures/runs/slurm-<job-id>/<leg-name>/`; direct invocations use `failures/runs/local-<pid>/{seeded,public-random}/`. This prevents concurrent default and public-random legs with identical indices/seeds from replacing bundles or `nonterminating.json`.
 When the pinned Tactix executable is renamed so its basename is not `tactix`,
