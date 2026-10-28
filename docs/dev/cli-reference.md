@@ -392,7 +392,7 @@ Rule names are those printed in the `c timing` lines (for example `BVE`,
 |---|---|---|---|
 | `TACTIX_BVE_RAMP_MAX` | N | 16 | Largest clause-growth bound BVE ramps up to. |
 | `TACTIX_BVE_BACKWARD` | 0/1 | 0 | Backward subsumption during BVE. |
-| `TACTIX_BVE_ON_THE_FLY` | 0/1 | 1 | Self-subsuming resolution while BVE counts resolvents. |
+| `TACTIX_BVE_ON_THE_FLY` | 0/1 | 0 | Self-subsuming resolution while BVE counts resolvents. |
 | `TACTIX_BVE_DEF_TICKS` | N | 1000000 | Work budget for finding general definitions. |
 | `TACTIX_BVE_DEF_CORES` | 1–100 | 2 | Number of unsatisfiable cores tried per definition. |
 | `TACTIX_BVE_DEF_CORE_MULTIPLIER` | N | 10 | Budget multiplier per core. |
