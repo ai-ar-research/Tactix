@@ -101,7 +101,7 @@ private:
     for (const auto &row : shape.adjacency)
       for (uint32_t other : row)
         if (other >= n) return WindowCursorAdmission::Invalid;
-    for (const auto [a, b] : shape.edges)
+    for (const auto &[a, b] : shape.edges)
       if (a >= n || b >= n) return WindowCursorAdmission::Invalid;
     const uint64_t workspace = required_workspace(shape);
     if (workspace > maximum_workspace_bytes)

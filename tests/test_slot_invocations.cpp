@@ -1,4 +1,9 @@
 // Inprocessing slots as typed online invocations (gap plan Step 5, A10/C4).
+// GCC's -O3 flow analysis reports the vectors of a destroyed
+// std::optional<BveCandidateHeap> as maybe-uninitialized (a false positive).
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 // The typed surfaces DefaultPolicy's slot scheduler now poses are public:
 // Substitute's round batch and per-round effort ceiling, a Vivify band's
 // cumulative ledger, Strengthen's forward-closure post-application, and the

@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/balanced_signature_recognition.hpp"
 
 #include <algorithm>

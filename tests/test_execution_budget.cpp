@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "strategy/execution_budget.hpp"
 
 #include <cassert>

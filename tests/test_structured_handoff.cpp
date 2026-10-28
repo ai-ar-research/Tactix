@@ -49,7 +49,7 @@ static void repeated_inexact_row_actions(int sign) {
   kernel_reserve_vars(k, 7);
   for (int row = 0; row < 3; ++row) {
     const int a = row + 1, b = row + 4, next = (row + 1) % 3 + 1;
-    for (const auto pair : {std::pair{-a, b}, std::pair{-b, next},
+    for (const auto &pair : {std::pair{-a, b}, std::pair{-b, next},
                             std::pair{a, 7}, std::pair{a, -7}})
       kernel_add_binary_clause(k, internalize(sign * pair.first), internalize(sign * pair.second),
                                ++k.next_clause_id);

@@ -10,7 +10,7 @@
 using namespace tactix;
 
 static void core(Kernel &k, int guard, int a, int b, int c) {
-  for (const std::vector<int> row : {std::vector<int>{guard,a,b},
+  for (const std::vector<int> &row : {std::vector<int>{guard,a,b},
                                    {guard,a,-b}, {guard,-a,c}, {guard,-a,-c}}) {
     Lit lits[3];
     for (unsigned i=0;i<3;i++) lits[i]=internalize(row[i]);

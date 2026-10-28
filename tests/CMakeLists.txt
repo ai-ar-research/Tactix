@@ -843,6 +843,15 @@ foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
   endif()
 endforeach()
 
+# GCC's -O3 analysis of the inlined clause copy in these tests' proof sinks
+# reports an out-of-bounds memcpy (a false positive).
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  foreach(test_target test_cardinality_certificate test_cardinality_search)
+    target_compile_options(${test_target} PRIVATE
+      -Wno-array-bounds -Wno-stringop-overread)
+  endforeach()
+endif()
+
 # The full-device failure fixture is unavailable on platforms without /dev/full.
 set_tests_properties(proof_output_failure PROPERTIES SKIP_RETURN_CODE 77)
 

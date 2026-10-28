@@ -95,7 +95,7 @@ template<class Charge>
 bool score_labels(const Shape &shape, const std::vector<uint32_t> &labels,
                   Charge &charge, Score &out) {
   Score score{0, 0};
-  for (const auto [a, b] : shape.edges) {
+  for (const auto &[a, b] : shape.edges) {
     if (!charge(1)) return false;
     const uint32_t distance = labels[a] > labels[b] ? labels[a] - labels[b]
                                                          : labels[b] - labels[a];

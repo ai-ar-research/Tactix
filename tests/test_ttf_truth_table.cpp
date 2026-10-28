@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/ttf_truth_table.hpp"
 
 #include <algorithm>

@@ -39,7 +39,7 @@ static void fixture(bool reverse, unsigned signs, bool fixed,
   const Lit u = make_lit(0, signs & 1), x = make_lit(1, signs & 2);
   const Lit a = make_lit(2, false), b = make_lit(3, false);
   const Lit p = make_lit(4, false), q = make_lit(5, false);
-  for (const auto pair : {std::pair<Lit, Lit>{u, x}, {a, p}, {b, q}})
+  for (const auto &pair : {std::pair<Lit, Lit>{u, x}, {a, p}, {b, q}})
     kernel_add_binary_clause(k, pair.first, pair.second, ++k.next_clause_id);
   const Lit clause[] = {x, a, b};
   const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);

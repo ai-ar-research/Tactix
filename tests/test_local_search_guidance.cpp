@@ -142,7 +142,7 @@ static void partial_publication_and_identity_lifetime() {
   assert((k.h->target == std::vector<int8_t>{1, -1, -1}));
   assert((k.h->saved == std::vector<int8_t>(3, -1)));
   assert((k.h->best == std::vector<int8_t>(3, 1)));
-  for (const std::vector<int8_t> invalid :
+  for (const std::vector<int8_t> &invalid :
        {std::vector<int8_t>{0, 0, 0}, {1, 2, 0}, {-2, 0, 1}, {1}}) {
     kernel_offer_local_search_partial_hint(k, kind, invalid);
     assert(k.local_search_hints[1].id == first);

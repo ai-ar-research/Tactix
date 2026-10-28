@@ -1560,7 +1560,7 @@ void invalid_orbit_vertex_is_rejected() {
   uint64_t ticks = 0;
   assert(prepare_refinement(graph, 1000, nullptr, nullptr, session, ticks) ==
          Status::Complete);
-  for (const auto vertices : {std::vector<uint32_t>{UINT32_MAX, 0},
+  for (const auto &vertices : {std::vector<uint32_t>{UINT32_MAX, 0},
                              std::vector<uint32_t>{4, 0},
                              std::vector<uint32_t>{0, UINT32_MAX}}) {
     RefinementOrbit result;

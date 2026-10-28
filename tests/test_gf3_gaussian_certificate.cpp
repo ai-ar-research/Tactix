@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
 
 #include <algorithm>

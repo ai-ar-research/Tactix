@@ -30,7 +30,7 @@ static void exercise(ProofFormat format,const char *prefix){
  for(int root:roots)k.unit_ids[var_of(kernel_internalize(k,root))]=++k.next_clause_id;
  Proof proof;assert(proof.open((base+proof_suffix).c_str(),format));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);for(size_t i=0;i<original.size();++i){auto native=body(k,original[i]);proof.seed_population(i+1,native.data(),native.size());}proof.arm_population_shadow();k.proof=&proof;
  FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
- for(int root:roots)kernel_assign_unit(k,kernel_internalize(k,root));assert(propagate_apply(k)==ApplyResult::Ok);
+ for(int root:roots){kernel_assign_unit(k,kernel_internalize(k,root));}assert(propagate_apply(k)==ApplyResult::Ok);
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
  DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;DefaultPolicy policy(cfg);
  const auto initialized=DefaultAffineSearchTestAccess::initialize(policy,k);

@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 
 #include <algorithm>

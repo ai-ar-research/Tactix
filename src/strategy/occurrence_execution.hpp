@@ -30,12 +30,21 @@ public:
   OccurrenceSession(const OccurrenceSession &) = delete;
   OccurrenceSession &operator=(const OccurrenceSession &) = delete;
 
+// GCC's -O3 flow analysis reports these members as maybe-uninitialized when a
+// disengaged std::optional<OccurrenceSession> is destroyed (a false positive).
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
   void close() {
     if (!index_) return;
     assert(kernel_.dense == index_);
     kernel_dense_disconnect(kernel_);
     index_ = nullptr;
   }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 private:
   Kernel &kernel_;

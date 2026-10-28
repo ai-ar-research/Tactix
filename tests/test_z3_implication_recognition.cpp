@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/z3_implication_recognition.hpp"
 
 #include <algorithm>

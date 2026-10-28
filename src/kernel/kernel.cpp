@@ -412,7 +412,7 @@ void kernel_rearm_binary_clause(Kernel &k, Lit a, Lit b) {
 void kernel_rearm_theory_clause(Kernel &k, const Lit *lits, uint32_t size) {
   assert(k.level > 0 && !k.conflict_valid && size >= 2);
   uint32_t earliest = k.propagate_head;
-  bool found = false;
+  [[maybe_unused]] bool found = false;
   for (uint32_t i = 0; i < size; ++i) {
     const Lit literal = lits[i];
     if (k.values[literal] >= 0) continue;

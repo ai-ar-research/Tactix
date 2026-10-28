@@ -101,7 +101,7 @@ struct PublicPort {
     retirements_held = false;
   }
 
-  static tactix_c_handle *bound(Kernel &k) {
+  static tactix_c_handle *bound([[maybe_unused]] Kernel &k) {
     if (bypass || !session) return nullptr;
     assert(&api_detail::kernel_for_fixed_testing(session) == &k);
     return session;
@@ -128,7 +128,8 @@ struct PublicPort {
   // Registry dispatch: the public apply checks the guard first and rejects a
   // payload the rule has no instance surface for, without changing state.
   template <class Static>
-  static ApplyResult dispatch(const RuleVTable &rule, Kernel &k, const char *entry,
+  static ApplyResult dispatch(const RuleVTable &rule, [[maybe_unused]] Kernel &k,
+                              const char *entry,
                               int code, Static &&fallback) {
     if (code == -1) {
       ++census.declined[std::string(entry) + ":" + rule.name];

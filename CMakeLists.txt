@@ -25,7 +25,7 @@ option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
 # Kernel discipline (plan §5): C-style core, no exceptions/RTTI in the hot
 # solver. Two narrow exception islands catch failures before their noexcept
 # boundaries: the pinned graph backend and optional embedded-proof export.
-add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
+add_compile_options(-Wall -Wextra -fno-exceptions $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a

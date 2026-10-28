@@ -1042,7 +1042,8 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
 // itself, so the rewrite is implied by F ∪ R and subsumes the original.
 static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                           uint64_t last, uint64_t candidate_ordinal,
+                           uint64_t last,
+                           [[maybe_unused]] uint64_t candidate_ordinal,
                            bool instantiated = false) {
   Clause *c = clause_at(k.arena, cref);
 #ifdef TACTIX_ENABLE_EVENT_TRACE

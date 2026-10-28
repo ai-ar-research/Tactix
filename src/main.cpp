@@ -45,6 +45,10 @@ using namespace tactix;
 static volatile sig_atomic_t caught_signal = 0;
 static void handle_signal(int) { caught_signal = 1; }
 
+struct CloseFile {
+  void operator()(FILE *f) const { std::fclose(f); }
+};
+
 static FILE *open_input(const char *path, bool *piped) {
   const size_t n = strlen(path);
   const char *decompressor = nullptr;
@@ -452,7 +456,7 @@ int main(int argc, char **argv) {
   // actions require a complete provenance sink even when the caller does not
   // retain it; tmpfile keeps the normal CLI capable without creating a named
   // artifact. Exclusive creation protects explicitly retained provenance.
-  std::unique_ptr<FILE, decltype(&std::fclose)> structural_records(nullptr, &std::fclose);
+  std::unique_ptr<FILE, CloseFile> structural_records;
   if (structural_provenance_path) {
     std::string input_sha;
     if (!strategy::controller::feedback_file_sha256(cnf_path, input_sha)) {

@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
 #include <algorithm>

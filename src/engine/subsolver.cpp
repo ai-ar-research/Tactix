@@ -820,7 +820,7 @@ void SubSolver::fail_assumptions(
     const SubRef reason = reason_[failed_var];
     assert(reason != NO_REF && clause_size(reason) == 1);
     target_ = {next_id_, {export_literal(sub_negate(failed))},
-               {clause_id(reason)}};
+               {clause_id(reason)}, {}};
     core_root_ = clause_id(reason);
     have_derivation_ = true;
     return;
@@ -1040,7 +1040,7 @@ SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
           // changing the incremental formula.
           const uint32_t target_id =
               search_mode_ == SubSearchMode::Kitten ? next_id_ : next_id_++;
-          target_ = {target_id, export_literals(lits), chain};
+          target_ = {target_id, export_literals(lits), chain, {}};
           target_is_derived_ = false;
         }
         core_root_ = target_.id;

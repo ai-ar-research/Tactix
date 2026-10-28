@@ -1556,6 +1556,10 @@ public:
     return size() == other.size() &&
            std::equal(begin(), end(), other.begin());
   }
+  bool operator==(const ReservedTrail &other) const {
+    return size() == other.size() &&
+           std::equal(begin(), end(), other.begin());
+  }
 
 private:
   std::vector<Lit> storage_;

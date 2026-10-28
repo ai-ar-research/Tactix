@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "rules/semantic_extension/z3_amo_recognition.hpp"
 
 #include <algorithm>
