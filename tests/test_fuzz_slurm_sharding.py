@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
     result = subprocess.run(
         [
             str(SLURM), "--cpu-q-wide", "--name", "array-test",
-            "--time", "00:05:00", "--", "--n", "130", "--solver",
+            "--time", "00:05:00", "--", "--n", "1024", "--solver",
             "build/debug/tactix --pbp",
         ],
         cwd=ROOT,
@@ -88,14 +88,15 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         subprocess.run(["bash", "-n", str(temp / "batch-1.sh")], check=True)
 
         assert "--partition=cpu-q" in array_args
-        assert "--cpus-per-task=13" in array_args
-        assert "--mem=104000M" in array_args
-        assert "--array=0-63" in array_args
+        assert "--cpus-per-task=1" in array_args
+        assert "--mem=8000M" in array_args
+        assert "--array=0-511" in array_args
         assert "%" not in next(
             arg for arg in array_args.splitlines() if arg.startswith("--array=")
         )
         assert "%A_%a" in array_args
-        assert f'python3 "{pin}/fuzz/shard.py" "130" "64"' in array_batch
+        assert f'python3 "{pin}/fuzz/shard.py" "1024" "512"' in array_batch
+        assert '--jobs "1"' in array_batch
         assert '--index-offset "$INDEX_OFFSET"' in array_batch
         assert "--defer-requirements" in array_batch
         assert "SHARD_ARGS+=(--skip-corpus)" in array_batch
@@ -105,10 +106,10 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-array-") as tmp:
         assert "--cpus-per-task=1" in final_args
         assert "missing shard status" in final_batch
         assert f'python3 "{pin}/fuzz/aggregate.py"' in final_batch
-        assert "64/64 shards, 130 deterministic cases" in final_batch
+        assert "512/512 shards, 1024 deterministic cases" in final_batch
         assert "submitted finalizer: 424243" in result.stdout
-        assert "total-eligible-workers=832" in result.stdout
-        assert "max-concurrent-workers=832" in result.stdout
+        assert "total-eligible-workers=512" in result.stdout
+        assert "max-concurrent-workers=512" in result.stdout
     finally:
         if pin.exists():
             make_writable(pin)

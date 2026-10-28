@@ -2,9 +2,9 @@
 # Submit a fuzz leg as one multi-core SLURM job or as a deterministic wide
 # array (see the slurm-jobs skill).  The default cpu-dense-hwulab-q nodes use
 # SMT-2, 8,000 MiB/physical core, and one harness worker per physical core.
-# `--cpu-q-wide` instead splits one logical campaign over 64 array tasks of 13
-# single-threaded workers.  Every shard is eligible immediately; Slurm shares
-# partition capacity among independently submitted campaigns.
+# `--cpu-q-wide` instead splits one logical campaign over 512 one-core array
+# tasks.  Every worker is an independent Slurm scheduling unit, so a slow case
+# cannot retain idle sibling cores and every shard is eligible immediately.
 # Results are identical at any worker/shard count; only wall-clock changes.
 #
 #   slurm.sh [--cpu-q-wide | --shards S] [--physical-cores P]
@@ -52,9 +52,9 @@ while [ $# -gt 0 ]; do
         --shards) SHARDS="$2"; shift 2 ;;
         --cpu-q-wide)
             PARTITION=cpu-q
-            PHYSICAL_CORES=13
+            PHYSICAL_CORES=1
             THREADS_PER_CORE=1
-            SHARDS=64
+            SHARDS=512
             shift
             ;;
         --time) TIME="$2"; shift 2 ;;
