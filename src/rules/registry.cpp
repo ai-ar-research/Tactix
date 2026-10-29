@@ -13,6 +13,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -22,6 +23,20 @@
 #include <string>
 
 namespace tactix {
+
+RuleEligibility rule_guard(const RuleVTable &rule, const Kernel &kernel) {
+  RuleEligibility result = rule.guard(kernel);
+  const auto *session = kernel.affine_matrix_search_session;
+  if (!session || !session->has_deferred_reason()) return result;
+  const bool propagate_or_decide = !std::strcmp(rule.name, "Propagate") ||
+                                   !std::strcmp(rule.name, "Decide");
+  const bool materialize = !std::strcmp(rule.name, "AffineMatrixInitialize") &&
+      kernel.affine_matrix_initialize_parameters_active &&
+      kernel.affine_matrix_initialize_parameters.operation ==
+          strategy::AffineMatrixInitializeParameters::Operation::MaterializeReasons;
+  return result.fact("affine-reasons-materialized",
+                     propagate_or_decide || materialize);
+}
 
 namespace {
 
@@ -336,6 +351,10 @@ template <typename Candidate, typename Apply>
 ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
                           [[maybe_unused]] Candidate &&candidate_name,
                           Apply &&apply, bool publish_semantic_candidate = true) {
+  if (k.affine_matrix_search_session &&
+      k.affine_matrix_search_session->has_deferred_reason() &&
+      !rule_guard(vt, k))
+    return ApplyResult::NoOp;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   const std::string candidate = candidate_name();
   const bool journal = vt.kind == ActionKind::ProofRule &&
@@ -348,7 +367,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     root_epoch = k.touch_fixed_head;
     pre_digest = rule_journal_digest(k);
     effort_before = rule_journal_effort(k);
-    eligibility = vt.guard(k);
+    eligibility = rule_guard(vt, k);
     if (!eligibility) {
       journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
                        root_epoch, eligibility, ApplyResult::NoOp,
@@ -469,7 +488,7 @@ ApplyResult journal_direct_rule(Kernel &k, const char *name,
   const uint64_t root_epoch = k.touch_fixed_head;
   const uint64_t pre_digest = rule_journal_digest(k);
   const uint64_t effort_before = rule_journal_effort(k);
-  const RuleEligibility eligibility = vt.guard(k);
+  const RuleEligibility eligibility = rule_guard(vt, k);
   if (!eligibility) {
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
                      root_epoch, eligibility, ApplyResult::NoOp,

@@ -2219,7 +2219,7 @@ bool online_program_v16(const tactix_online_program_v16 &source,
     strategy::InprocessParameters converted;
     if (!online_parameters(encoded,converted)) return false;
     const auto *basis=std::get_if<strategy::AffineConsequenceParameters>(&converted);
-    if (!basis || p.admission<1 || p.admission>2 || p.operation<1 || p.operation>4) return false;
+    if (!basis || p.admission<1 || p.admission>2 || p.operation<1 || p.operation>6) return false;
     strategy::AffineMatrixInitializeParameters out;
     out.basis=*basis;
     out.admission=static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p.admission);
@@ -2649,7 +2649,7 @@ int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
   const auto &rules = tactix_rules();
   int n = 0;
   for (size_t i = 0; i < rules.size() && n < cap; i++)
-    if (rules[i].guard(s->kernel))
+    if (rule_guard(rules[i], s->kernel))
       out[n++] = static_cast<int>(i);
   return n;
 }
@@ -2679,7 +2679,7 @@ int tactix_apply(tactix_solver *s, int rule_id) {
       rules[rule_id].retired)
     return -1;
   const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
+  if (!rule_guard(r, s->kernel))
     return -1;
   const ApplyResult res =
       apply_published(s, [&] { return apply_rule(r, s->kernel); });
@@ -2695,7 +2695,7 @@ int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
       rules[rule_id].retired || cap < 0)
     return -1;
   const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
+  if (!rule_guard(r, s->kernel))
     return -1;
   if (!r.instances) { // no uint64 choice; X5 has a separate structured tuple
     if (cap >= 1)
@@ -2713,7 +2713,7 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
       rules[rule_id].retired)
     return -1;
   const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
+  if (!rule_guard(r, s->kernel))
     return -1;
   // A rule with no uint64 instance surface rejects a non-canonical payload.
   // Running the canonical round instead would be payload aliasing: the caller
@@ -2795,7 +2795,7 @@ int tactix_rule_semantic_instances(tactix_solver *s, int rule_id,
       rules[rule_id].retired || cap < 0)
     return -1;
   const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
+  if (!rule_guard(r, s->kernel))
     return -1;
   const auto enumerate = r.semantic_instances ? r.semantic_instances
                                               : r.instances;
@@ -2816,7 +2816,7 @@ int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
       rules[rule_id].retired)
     return -1;
   const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
+  if (!rule_guard(r, s->kernel))
     return -1;
   const auto apply = r.apply_semantic_instance ? r.apply_semantic_instance
                                                : r.apply_instance;
@@ -3582,7 +3582,7 @@ int tactix_install_parameters(tactix_solver *s, int rule_id,
 int tactix_install_affine_matrix_profile(
     tactix_solver *s, const tactix_online_affine_matrix_initialize_parameters *p) {
   if (!s || !p || p->admission < 1 || p->admission > 2 || p->operation < 1 ||
-      p->operation > 4)
+      p->operation > 6)
     return -1;
   tactix_online_parameters encoded{};
   encoded.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
@@ -3623,6 +3623,8 @@ int tactix_read_affine_matrix_result(tactix_solver *s, tactix_affine_matrix_resu
     out->service_status = static_cast<int>(service->status) + 1;
     out->service_result = static_cast<int>(service->result);
     out->bcp_pending = service->bcp_pending;
+    out->reason_deferred = service->reason_deferred;
+    out->reason_materialized = service->reason_materialized;
   }
   out->enabled = session.enabled();
   out->persistent = session.persistent();
@@ -3725,6 +3727,12 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     return -1;
   input_complete(s);
   Kernel &k = s->kernel;
+  // Support operations are compound state transitions outside the rule
+  // registry.  None may cross an outstanding affine reason debt; the sole
+  // legal discharge is the public MaterializeReasons rule operation.
+  if (k.affine_matrix_search_session &&
+      k.affine_matrix_search_session->has_deferred_reason())
+    return -1;
   const auto flags = [&](uint64_t allowed) { return !(argument & ~allowed); };
   int result = -1;
   switch (support) {
@@ -3966,7 +3974,9 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   case TACTIX_SUPPORT_RELEASE_AFFINE_MATRIX:
     // Drop the affine search session's algebraic and proof-planning state;
     // published clauses stay. DETACHED clears without releasing leases.
-    if (argument > TACTIX_AFFINE_MATRIX_RELEASE_DETACHED || !k.affine_matrix_search_session)
+    if (argument > TACTIX_AFFINE_MATRIX_RELEASE_DETACHED ||
+        !k.affine_matrix_search_session ||
+        k.affine_matrix_search_session->has_deferred_reason())
       return -1;
     if (argument) k.affine_matrix_search_session->disable();
     else k.affine_matrix_search_session->disable(k);

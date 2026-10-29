@@ -563,7 +563,7 @@ controller_action_availability(const Kernel &k, const RandomControllerConfig &co
   for (const auto &rule : tactix_rules()) {
     ControllerActionAvailability entry{rule.name, false, {}};
     const auto selected_guard = [&] {
-      if (rule.guard(k)) return true;
+      if (rule_guard(rule, k)) return true;
       if (std::string_view(rule.name) != "DirectCspSupport") return false;
       if (config.guarded_cover_producer.enabled &&
           k.direct_csp_guarded_cover_action_session &&

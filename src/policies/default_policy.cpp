@@ -5543,7 +5543,7 @@ void slot_trace_entry(const Kernel &k, const DefaultInprocessScheduler::SlotEntr
                "[slot] phase=%llu outer=%d %s enabled=%d defer=%d "
                "guard=%d dosed=%d followup=%u mode=%u meter=%llu limit=%llu\n",
                (unsigned long long)k.stats.inprocess_phases, outer, r.name,
-               (int)e.enabled, (int)e.defer_preprocess, (int)r.guard(k),
+               (int)e.enabled, (int)e.defer_preprocess, (int)rule_guard(r, k),
                (int)e.dosed, static_cast<unsigned>(e.followup),
                static_cast<unsigned>(e.followup_mode),
                (unsigned long long)(e.meter ? e.meter(k) : 0),
@@ -5701,7 +5701,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                                SlotPhaseCtx &ctx) {
   uint64_t limit = e.limit;
   ctx.last_result = ApplyResult::NoOp;
-  if (!r.guard(k)) {
+  if (!rule_guard(r, k)) {
     e.tm.dec_guard++;
     return SlotStep::Next;
   }
@@ -5959,7 +5959,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         }
         break; // dose spent
       }
-      if (!r.guard(k)) {
+      if (!rule_guard(r, k)) {
         break;
       }
       if (use_retry || ramp) {
@@ -6438,7 +6438,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     e.tm.dec_delay++;
     return SlotStep::Next;
   }
-  if (!r.guard(k)) {
+  if (!rule_guard(r, k)) {
     e.tm.dec_guard++;
     return SlotStep::Next;
   }

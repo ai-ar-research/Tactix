@@ -205,6 +205,9 @@ int tactix_register_rule(ActionKind kind, const RuleVTable &);
 // be appended to the explicit order in registry.cpp, regardless of link order.
 const std::vector<RuleVTable> &tactix_rules();
 int tactix_rule_id(const char *name); // -1 if unknown
+// Registry-wide legality, including cross-rule state-machine debts such as a
+// deferred affine reason that must be materialized before any reason consumer.
+RuleEligibility rule_guard(const RuleVTable &, const Kernel &);
 
 // one line per rule: guard, canonical apply, and optionally the instance
 // enumeration/apply pair (plan §5.3)

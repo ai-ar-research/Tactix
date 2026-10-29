@@ -390,7 +390,7 @@ private:
         std::holds_alternative<DirectCspGuardedCoverParameters>(request.invocation.parameters)
             ? kernel_.direct_csp_guarded_cover_action_session &&
                   bool(direct_csp_guarded_cover_action_guard(kernel_))
-            : bool(rule.guard(kernel_));
+            : bool(rule_guard(rule, kernel_));
     if (!selected_guard &&
         !explicit_fixpoint_propagation_service(request.invocation, kernel_)) {
       result.invocation.status = InvocationStatus::Inapplicable;

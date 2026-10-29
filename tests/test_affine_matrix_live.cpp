@@ -269,6 +269,51 @@ static void historical_implication_can_be_preflighted_after_tableau_advance() {
   std::fclose(journal);
 }
 
+static void retained_implication_can_be_published_at_conflict() {
+  Kernel kernel;
+  install_implication_formula(kernel);
+  decide(kernel, -1);
+  decide(kernel, -2);
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  Fixture fixture;
+  recognize_and_synchronize(kernel, journal, fixture);
+  assert(fixture.event.kind == MatrixEventKind::Implication &&
+         fixture.event.reason.size() == 3);
+  auto request = live_request(journal, fixture.owner, fixture.matrix,
+                              fixture.image.equations, fixture.event);
+  request.retained_publication = true;
+  AffineMatrixLivePrepared prepared;
+  const auto planned = prepare_affine_matrix_live(kernel, request, prepared);
+  assert(planned.status == MatrixLiveStatus::Prepared && prepared.ready() &&
+         prepared.physical_reason().size() == 3);
+  assert(prepared.retained_bytes() > 1);
+  auto bounded = request;
+  bounded.maximum_persistent_bytes = prepared.retained_bytes() - 1;
+  AffineMatrixLivePrepared rejected;
+  assert(prepare_affine_matrix_live(kernel, bounded, rejected).status ==
+         MatrixLiveStatus::ResourceExhausted);
+
+  decide(kernel, -5);
+  MatrixEvent current;
+  assert(fixture.matrix.synchronize(trail(kernel),
+                                    [](uint64_t) { return true; }, current) ==
+         MatrixStatus::Complete);
+  assert(current.kind == MatrixEventKind::None);
+  kernel.conflict_valid = true;
+  const uint64_t before = kernel.next_clause_id;
+  const auto published =
+      publish_affine_matrix_live(kernel, request, prepared);
+  assert(published.status == MatrixLiveStatus::Applied &&
+         published.implication && !published.implication_consumed &&
+         published.installed_reason_id > before &&
+         published.installed_reason_ref != INVALID_REF &&
+         clause_at(kernel.arena, published.installed_reason_ref)->id() ==
+             published.installed_reason_id &&
+         !records(journal).empty());
+  std::fclose(journal);
+}
+
 static void source_clause_order_is_not_identity() {
   Kernel kernel;
   install_implication_formula(kernel);
@@ -832,6 +877,7 @@ int main(int argc, char **argv) {
   implication_is_assigned_without_prefix_rescan();
   compact_provenance_keeps_authenticated_reason();
   historical_implication_can_be_preflighted_after_tableau_advance();
+  retained_implication_can_be_published_at_conflict();
   source_clause_order_is_not_identity();
   conflict_is_consumed_by_ordinary_bcp();
   unit_above_root_declines();

@@ -72,7 +72,11 @@ struct AffineMatrixInitializeParameters {
     Initialize = 1, Refresh = 2, RootMaintenance = 3,
     // Append-only compatibility tag. It is root-only like RootMaintenance;
     // the name no longer grants execution during a search interval.
-    SearchStep = 4
+    SearchStep = 4,
+    // Opt-in lazy clausal reason boundary.  DeferredSearchStep may install one
+    // preflighted implication; MaterializeReasons must discharge it before a
+    // rule that consumes implication reasons becomes legal.
+    DeferredSearchStep = 5, MaterializeReasons = 6
   };
   AffineConsequenceParameters basis;
   Admission admission = Admission::AuthenticatedSubimage;
@@ -84,7 +88,7 @@ struct AffineMatrixInitializeParameters {
   bool valid() const {
     if (!basis.valid() || basis.semantics != AffineConsequenceSemantics::CertifiedBasisV2 ||
         basis.consequence || operation < Operation::Initialize ||
-        operation > Operation::SearchStep)
+        operation > Operation::MaterializeReasons)
       return false;
     if (admission == Admission::CompleteSnapshot)
       return (operation == Operation::Initialize || operation == Operation::SearchStep) &&

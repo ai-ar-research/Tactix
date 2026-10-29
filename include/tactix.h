@@ -1636,6 +1636,8 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_REFRESH 2
 #define TACTIX_AFFINE_MATRIX_ROOT_MAINTENANCE 3
 #define TACTIX_AFFINE_MATRIX_SEARCH_STEP 4
+#define TACTIX_AFFINE_MATRIX_DEFERRED_SEARCH_STEP 5
+#define TACTIX_AFFINE_MATRIX_MATERIALIZE_REASONS 6
 typedef struct {
   tactix_online_affine_consequence_parameters basis;
   uint32_t admission, operation;
@@ -1808,6 +1810,7 @@ typedef struct {
   int initialization_status, initialization_result, unchanged;
   uint64_t equations, rows, admitted_sources;
   int service_status, service_result, bcp_pending;
+  int reason_deferred, reason_materialized;
   int enabled, persistent;
   uint64_t basis_rank;
 } tactix_affine_matrix_result;

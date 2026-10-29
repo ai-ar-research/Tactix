@@ -836,7 +836,7 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
     AffineMatrixInitializeParameters persistent;
     persistent.basis=p;
-    if (v[22] != 1 || v[23] < 1 || v[23] > 4) return false;
+    if (v[22] != 1 || v[23] < 1 || v[23] > 6) return false;
     persistent.admission=static_cast<AffineMatrixInitializeParameters::Admission>(v[22]);
     persistent.operation=static_cast<AffineMatrixInitializeParameters::Operation>(v[23]);
     persistent.maximum_retained_bytes=v[24];
@@ -2124,7 +2124,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
   std::vector<int> available;
   if (config.rules.empty()) {
     for (const RuleVTable &rule : tactix_rules())
-      if (rule.guard(k) && std::string_view(rule.name) != "IndependentSetCover" &&
+      if (rule_guard(rule, k) && std::string_view(rule.name) != "IndependentSetCover" &&
           std::string_view(rule.name) != "Gf3AffineConsequence" &&
           std::string_view(rule.name) != "DirectCspSupport" &&
           std::string_view(rule.name) != "NaryCspEquality" &&
@@ -2140,7 +2140,7 @@ bool random_online_strategy_program(Kernel &k, uint64_t seed,
       const int id = tactix_rule_id(name.c_str());
       if (id < 0)
         return reject("random-online action is not registered");
-      if (tactix_rules()[id].guard(k) && name != "IndependentSetCover" &&
+      if (rule_guard(tactix_rules()[id], k) && name != "IndependentSetCover" &&
           name != "Gf3AffineConsequence" && name != "DirectCspSupport" &&
           name != "NaryCspEquality" &&
           name != "NaryCspEqualityTransitivity" &&

@@ -8,6 +8,36 @@
 #include <set>
 
 namespace tactix::affine_semantic_extension {
+
+uint64_t AffineMatrixLivePrepared::retained_bytes() const {
+  __uint128_t bytes = sizeof(*this) + transaction_.retained_bytes();
+  bytes += __uint128_t(trail_.capacity()) * sizeof(MatrixAssignment);
+  bytes += __uint128_t(trail_levels_.capacity()) * sizeof(uint32_t);
+  bytes += __uint128_t(event_.reason.capacity()) * sizeof(External);
+  bytes += __uint128_t(event_.row.variables.capacity()) * sizeof(External);
+  bytes += __uint128_t(event_.row.source_equations.capacity()) * sizeof(size_t);
+  bytes += __uint128_t(source_occurrences_.capacity() +
+                       source_clause_ids_.capacity() +
+                       resume_source_occurrences_.capacity() +
+                       resume_source_clause_ids_.capacity()) * sizeof(uint64_t);
+  bytes += __uint128_t(physical_reason_.capacity()) * sizeof(Lit);
+  bytes += __uint128_t(pbp_equations_.capacity()) * sizeof(PbpParityEquation);
+  for (const auto &equation : pbp_equations_)
+    bytes += __uint128_t(equation.variables.capacity()) * sizeof(int32_t);
+  bytes += __uint128_t(pbp_plan_.odd_variables.capacity()) * sizeof(int32_t);
+  bytes += journal_.capacity();
+  // Generic two-phase callers retain a copied source owner.  The explicit
+  // deferred path is debt-guarded and borrows the session's immutable owner,
+  // so this population is empty there.
+  bytes += __uint128_t(owner_.sources.capacity()) * sizeof(AffineLiveSource);
+  for (const auto &source : owner_.sources)
+    bytes += __uint128_t(source.clause.capacity()) * sizeof(External);
+  bytes += __uint128_t(owner_.premises.capacity()) * sizeof(Premise);
+  for (const auto &premise : owner_.premises)
+    bytes += __uint128_t(premise.literals.capacity()) * sizeof(External);
+  return bytes > UINT64_MAX ? UINT64_MAX : uint64_t(bytes);
+}
+
 namespace {
 
 struct Work {
@@ -85,6 +115,7 @@ bool same_request(const MatrixLiveRequest &first,
          first.retained_source_provenance ==
              second.retained_source_provenance &&
          first.historical_event == second.historical_event &&
+         first.retained_publication == second.retained_publication &&
          first.proof_cache == second.proof_cache &&
          first.pbp_parity_cache == second.pbp_parity_cache &&
          first.premise_leases == second.premise_leases &&
@@ -446,8 +477,10 @@ bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,
 }
 
 bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
-                    uint64_t id, bool &implication_consumed) {
+                    uint64_t id, bool &implication_consumed,
+                    Ref &installed_ref) {
   implication_consumed = false;
+  installed_ref = INVALID_REF;
   if (physical.empty()) {
     kernel.inconsistent = true;
     return true;
@@ -474,6 +507,7 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
   } else {
     const Ref reason = kernel_add_large_clause(
         kernel, physical.data(), physical.size(), true, 0, id);
+    installed_ref = reason;
     if (consume_implication) {
       for (size_t i = 1; i < physical.size(); ++i)
         if (kernel.value(physical[i]) >= 0) return false;
@@ -484,7 +518,11 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
       implication_consumed = true;
     }
   }
-  if (kernel.level && !implication_consumed)
+  // A retained reason may become proof-visible at an already-recorded
+  // conflict.  Analyze consumes that conflict next; rewinding BCP here is
+  // both redundant and outside kernel_rearm_theory_clause's no-conflict
+  // contract.  Materialization before a conflict retains the ordinary rearm.
+  if (kernel.level && !implication_consumed && !kernel.conflict_valid)
     kernel_rearm_theory_clause(kernel, physical.data(), physical.size());
   return true;
 }
@@ -540,7 +578,8 @@ MatrixLiveResult prepare_affine_matrix_live(
     return result;
   }
   candidate.event_ = *request.event;
-  if (!candidate.immediate_) candidate.owner_ = *request.owner;
+  if (!candidate.immediate_ && !request.retained_publication)
+    candidate.owner_ = *request.owner;
   if (!reason_order(kernel, candidate.event_, candidate.physical_reason_,
                     request.historical_event)) {
     result.status = MatrixLiveStatus::UnsupportedOutcome;
@@ -646,7 +685,8 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
   Work validation{0, request.maximum_revalidation_work, kernel};
   if (!validate_selected_sources(
-          kernel, candidate.immediate_ ? *request.owner : candidate.owner_,
+          kernel, (candidate.immediate_ || request.retained_publication)
+                      ? *request.owner : candidate.owner_,
           transaction_sources,
           candidate.transaction_.source_equations(),
           candidate.transaction_.source_identity(), validation,
@@ -654,7 +694,8 @@ MatrixLiveResult prepare_affine_matrix_live(
           candidate.source_clause_ids_) ||
       (candidate.transaction_.proof_cache_resume() &&
        !validate_selected_sources(
-           kernel, candidate.immediate_ ? *request.owner : candidate.owner_,
+           kernel, (candidate.immediate_ || request.retained_publication)
+                       ? *request.owner : candidate.owner_,
            *request.exact_sources,
            candidate.transaction_.resume_source_equations(),
            candidate.transaction_.resume_source_identity(), validation,
@@ -682,6 +723,11 @@ MatrixLiveResult prepare_affine_matrix_live(
                     candidate.starting_level_, candidate.starting_extent_,
                     candidate.journal_,
                     result.journal_work)) {
+    result.status = MatrixLiveStatus::ResourceExhausted;
+    return result;
+  }
+  if (request.retained_publication && request.maximum_persistent_bytes &&
+      candidate.retained_bytes() > request.maximum_persistent_bytes) {
     result.status = MatrixLiveStatus::ResourceExhausted;
     return result;
   }
@@ -729,7 +775,8 @@ MatrixLiveResult publish_affine_matrix_live(
     result.status = MatrixLiveStatus::UnsupportedProof;
     return result;
   }
-  if (!applicable(kernel, request.historical_event)) {
+  if (!applicable(kernel,
+                  request.historical_event || request.retained_publication)) {
     result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
                                                : MatrixLiveStatus::Inapplicable;
     return result;
@@ -738,7 +785,8 @@ MatrixLiveResult publish_affine_matrix_live(
       kernel.arena_generation != prepared.arena_generation_ ||
       kernel.nvars != prepared.starting_nvars_ ||
       kernel.external_to_internal.size() != prepared.starting_extent_ ||
-      kernel.level != prepared.starting_level_ ||
+      (!(request.historical_event || request.retained_publication) &&
+       kernel.level != prepared.starting_level_) ||
       !proof_unchanged(kernel, prepared.had_proof_, prepared.proof_,
                        prepared.proof_format_) ||
       (request.proof_cache &&
@@ -759,8 +807,11 @@ MatrixLiveResult publish_affine_matrix_live(
   if (!prepared.immediate_) {
     std::vector<MatrixAssignment> trail;
     std::vector<uint32_t> levels;
-    if (!snapshot_trail(kernel, trail, &levels) || trail != prepared.trail_ ||
-        levels != prepared.trail_levels_ ||
+    const bool historical =
+        request.historical_event || request.retained_publication;
+    if (!snapshot_trail(kernel, trail, &levels) ||
+        (!historical &&
+         (trail != prepared.trail_ || levels != prepared.trail_levels_)) ||
         !same_event(*request.event, prepared.event_)) {
       result.status = MatrixLiveStatus::Stale;
       return result;
@@ -770,17 +821,26 @@ MatrixLiveResult publish_affine_matrix_live(
     std::vector<uint64_t> clause_ids;
     std::vector<uint64_t> resume_occurrences;
     std::vector<uint64_t> resume_clause_ids;
-    if (!request.matrix->authenticates(
-            request.owner_identity, *request.exact_sources, *request.event,
-            [&](uint64_t amount) { return validation.charge(amount); }) ||
+    const bool authenticated = historical
+        ? request.matrix->authenticates_historical(
+              request.owner_identity, *request.exact_sources, *request.event,
+              [&](uint64_t amount) { return validation.charge(amount); })
+        : request.matrix->authenticates(
+              request.owner_identity, *request.exact_sources, *request.event,
+              [&](uint64_t amount) { return validation.charge(amount); });
+    if (!authenticated ||
         !validate_selected_sources(
-            kernel, prepared.owner_, *request.exact_sources,
+            kernel, request.retained_publication ? *request.owner
+                                                 : prepared.owner_,
+            *request.exact_sources,
             prepared.transaction_.source_equations(),
             prepared.transaction_.source_identity(), validation,
             request.premise_leases, occurrences, clause_ids) ||
         (prepared.transaction_.proof_cache_resume() &&
          !validate_selected_sources(
-             kernel, prepared.owner_, *request.exact_sources,
+             kernel, request.retained_publication ? *request.owner
+                                                  : prepared.owner_,
+             *request.exact_sources,
              prepared.transaction_.resume_source_equations(),
              prepared.transaction_.resume_source_identity(), validation,
              request.premise_leases, resume_occurrences,
@@ -802,8 +862,7 @@ MatrixLiveResult publish_affine_matrix_live(
     }
     result.revalidation_work = validation.used;
     std::vector<Lit> physical;
-    if (!reason_order(kernel, prepared.event_, physical,
-                      request.historical_event) ||
+    if (!reason_order(kernel, prepared.event_, physical, historical) ||
         physical != prepared.physical_reason_) {
       result.status = MatrixLiveStatus::Stale;
       return result;
@@ -963,7 +1022,7 @@ MatrixLiveResult publish_affine_matrix_live(
   bool implication_consumed = false;
   if (!installed_id ||
       !install_reason(kernel, prepared.physical_reason_, installed_id,
-                      implication_consumed))
+                      implication_consumed, result.installed_reason_ref))
     std::abort();
   result.implication_consumed = implication_consumed;
   if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),

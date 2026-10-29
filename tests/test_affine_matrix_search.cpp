@@ -262,6 +262,84 @@ void complete_snapshot_policy_admission() {
   }
 }
 
+void deferred_reason_has_public_materialization_boundary() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  install_implication_formula(kernel);
+  char proof_path[] = "/tmp/tactix-affine-deferred-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+
+  AffineMatrixInitializeParameters profile;
+  profile.basis = parameters();
+  profile.admission =
+      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
+  profile.operation =
+      AffineMatrixInitializeParameters::Operation::DeferredSearchStep;
+  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
+  profile.maximum_deferred_deletions =
+      persistence.maximum_deferred_deletions;
+  profile.maximum_deferred_literal_work =
+      persistence.maximum_deferred_literal_work;
+  assert(profile.valid());
+  kernel.affine_matrix_initialize_parameters = profile;
+  kernel.affine_matrix_initialize_parameters_active = true;
+  const RuleVTable &materialize =
+      tactix_rules()[tactix_rule_id("AffineMatrixInitialize")];
+  assert(rule_guard(materialize, kernel));
+  assert(apply_rule(materialize, kernel) == ApplyResult::Ok);
+  assert(session.last_service());
+  const auto deferred = *session.last_service();
+  assert(deferred.status == AffineMatrixServiceStatus::Applied &&
+         deferred.reason_deferred && deferred.reason_width == 3 &&
+         deferred.bcp_pending && session.has_deferred_reason() &&
+         kernel.value(kernel_internalize(kernel, -5)) > 0);
+  const Ref provisional = kernel.assigned[4].reason;
+  assert(!kernel.assigned[4].binary &&
+         clause_at(kernel.arena, provisional)->id() == 0);
+
+  profile.operation =
+      AffineMatrixInitializeParameters::Operation::MaterializeReasons;
+  assert(profile.valid());
+  kernel.affine_matrix_initialize_parameters = profile;
+  const RuleVTable &analyze =
+      tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(rule_guard(materialize, kernel));
+  assert(!rule_guard(analyze, kernel));
+
+  assert(apply_rule(materialize, kernel) == ApplyResult::Ok);
+  assert(session.last_service());
+  const auto materialized = *session.last_service();
+  assert(materialized.status == AffineMatrixServiceStatus::Applied &&
+         materialized.reason_materialized && !session.has_deferred_reason() &&
+         kernel.assigned[4].reason != provisional &&
+         clause_at(kernel.arena, kernel.assigned[4].reason)->id() > 0 &&
+         clause_at(kernel.arena, provisional)->garbage());
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 static std::string initialize_partial_fixture() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -662,8 +740,65 @@ static int search_chain_proof_fixture(const char *cnf_path,
   return 0;
 }
 
+static int deferred_reason_proof_fixture(const char *cnf_path,
+                                         const char *proof_path) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  install_implication_formula(kernel);
+  // The independently checked original formula additionally fixes the two
+  // decisions and contradicts the affine implication. Reserve those input
+  // identities before any derived certificate line is numbered.
+  kernel.next_clause_id += 3;
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto deferred = affine_matrix_search_step_deferred(kernel, session);
+  assert(deferred.status == AffineMatrixServiceStatus::Applied &&
+         deferred.reason_deferred && session.has_deferred_reason());
+  assert(propagate_apply(kernel) == ApplyResult::Ok &&
+         kernel.value(kernel_internalize(kernel, -5)) > 0);
+  const auto materialized = affine_matrix_materialize_reason(kernel, session);
+  assert(materialized.status == AffineMatrixServiceStatus::Applied &&
+         materialized.reason_materialized && !session.has_deferred_reason());
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  kernel.proof = nullptr;
+
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf 6 15\n");
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause : clausal_form(variables, rhs)) {
+      for (int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
+      std::fprintf(cnf, "0\n");
+    }
+  std::fprintf(cnf, "-1 0\n-2 0\n5 0\n");
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
 } // namespace
 int main(int argc,char **argv){
+  if(argc==4&&!std::strcmp(argv[1],"--proof-deferred"))
+    return deferred_reason_proof_fixture(argv[2],argv[3]);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-unit"))return root_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-empty"))return root_proof_fixture(argv[2],argv[3],false);
   if(argc==4&&!std::strcmp(argv[1],"--proof"))return root_proof_fixture(argv[2],argv[3],true);
@@ -678,6 +813,7 @@ int main(int argc,char **argv){
                                       static_cast<uint32_t>(std::stoul(argv[2])));
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
+  deferred_reason_has_public_materialization_boundary();
   partial_admission_feedback_provenance_and_replay();
   restart_only_replay();root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
 }

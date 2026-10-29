@@ -52,9 +52,9 @@ bool selected_affine_guard(const RuleVTable &rule, Kernel &kernel,
     // including above-root service mode, rather than the inherited profile.
     execution::ParameterExecutionScope<AffineConsequenceParameters,
         AffineMatrixInitializeParameters> scope(kernel,step.parameters);
-    return static_cast<bool>(rule.guard(kernel));
+    return static_cast<bool>(rule_guard(rule, kernel));
   }
-  return static_cast<bool>(rule.guard(kernel));
+  return static_cast<bool>(rule_guard(rule, kernel));
 }
 
 } // namespace
@@ -2580,6 +2580,14 @@ InvocationResult OnlineStrategyExecutor::advance(
                     return affine_matrix_initialization->result;
                   case Operation::SearchStep:
                     affine_matrix_service.emplace(affine_matrix_search_step(
+                        k, *k.affine_matrix_search_session));
+                    return affine_matrix_service->result;
+                  case Operation::DeferredSearchStep:
+                    affine_matrix_service.emplace(affine_matrix_search_step_deferred(
+                        k, *k.affine_matrix_search_session));
+                    return affine_matrix_service->result;
+                  case Operation::MaterializeReasons:
+                    affine_matrix_service.emplace(affine_matrix_materialize_reason(
                         k, *k.affine_matrix_search_session));
                     return affine_matrix_service->result;
                   }

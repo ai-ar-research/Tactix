@@ -42,7 +42,9 @@ static void replay_and_scope() {
   for (auto op:{AffineMatrixInitializeParameters::Operation::Initialize,
        AffineMatrixInitializeParameters::Operation::Refresh,
        AffineMatrixInitializeParameters::Operation::RootMaintenance,
-       AffineMatrixInitializeParameters::Operation::SearchStep}) {
+       AffineMatrixInitializeParameters::Operation::SearchStep,
+       AffineMatrixInitializeParameters::Operation::DeferredSearchStep,
+       AffineMatrixInitializeParameters::Operation::MaterializeReasons}) {
     p.operation=op;program.sequence[0].parameters=p;
     const auto wire=serialize_online_strategy_program(program);
     assert(wire.find(":affine-matrix-persistent1(")!=std::string::npos);

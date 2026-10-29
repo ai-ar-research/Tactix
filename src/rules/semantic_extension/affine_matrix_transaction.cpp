@@ -403,6 +403,43 @@ uint64_t AffineMatrixProofCache::retained_bytes() const {
   return bytes;
 }
 
+uint64_t AffineMatrixTransaction::retained_bytes() const {
+  __uint128_t bytes = sizeof(*this);
+  const auto equation_bytes = [&](const Equation &equation) {
+    bytes += __uint128_t(equation.variables.capacity()) * sizeof(External);
+    bytes += __uint128_t(equation.premises.capacity()) * sizeof(uint64_t);
+    bytes += __uint128_t(equation.premise_clauses.capacity()) *
+             sizeof(std::vector<External>);
+    for (const auto &clause : equation.premise_clauses)
+      bytes += __uint128_t(clause.capacity()) * sizeof(External);
+  };
+  bytes += __uint128_t(reason_.capacity()) * sizeof(External);
+  bytes += __uint128_t(source_equations_.capacity()) * sizeof(size_t);
+  bytes += __uint128_t(source_identity_.capacity()) * sizeof(Equation);
+  for (const auto &equation : source_identity_) equation_bytes(equation);
+  bytes += __uint128_t(resume_source_equations_.capacity()) * sizeof(size_t);
+  bytes += __uint128_t(resume_source_identity_.capacity()) * sizeof(Equation);
+  for (const auto &equation : resume_source_identity_) equation_bytes(equation);
+  bytes += __uint128_t(events_.capacity()) * sizeof(MatrixProofEvent);
+  for (const auto &event : events_)
+    bytes += __uint128_t(event.clause.capacity()) * sizeof(External);
+  bytes += __uint128_t(cache_entry_.source_equations.capacity()) * sizeof(size_t);
+  bytes += __uint128_t(cache_entry_.source_identity.capacity()) * sizeof(Equation);
+  for (const auto &equation : cache_entry_.source_identity)
+    equation_bytes(equation);
+  bytes += __uint128_t(cache_entry_.support_ids.capacity()) * sizeof(uint64_t);
+  bytes += __uint128_t(cache_entry_.coordinates.capacity()) * sizeof(External);
+  bytes += __uint128_t(cache_entry_.tree.variables.capacity()) * sizeof(External);
+  bytes += __uint128_t(cache_entry_.tree.definitions.capacity()) *
+           sizeof(parity_certificate::ActiveDefinition);
+  for (const auto &definition : cache_entry_.tree.definitions) {
+    bytes += __uint128_t(definition.clauses.capacity()) *
+             sizeof(parity_certificate::SmallClause);
+  }
+  bytes += __uint128_t(pbp_plan_.odd_variables.capacity()) * sizeof(int32_t);
+  return bytes > UINT64_MAX ? UINT64_MAX : uint64_t(bytes);
+}
+
 const MatrixProofCacheEntry *AffineMatrixProofCache::find(
     uint64_t owner_identity, uint64_t proof_epoch,
     const std::vector<size_t> &source_equations,

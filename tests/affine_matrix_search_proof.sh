@@ -41,6 +41,15 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
   --every-lemma
 
+# The wide implication is first consumed from a provisional clause and only
+# then certified by the distinct public materialization action.  Check every
+# emitted lemma against the untouched original CNF.
+"$binary" --proof-deferred "$tmp/deferred.cnf" "$tmp/deferred.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/deferred.cnf" "$tmp/deferred.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
 # Each seed permutes the source variables, row signs, and decision phase.
 # A fresh independent check of every proof lemma catches mistakes hidden by
 # successful in-process propagation alone.

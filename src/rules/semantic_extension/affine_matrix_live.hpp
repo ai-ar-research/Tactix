@@ -43,6 +43,10 @@ struct MatrixLiveRequest {
   // clause is authenticated independently of the matrix's current tableau;
   // no publication semantics are relaxed by this flag.
   bool historical_event = false;
+  // Prepare the current event normally, but retain enough immutable identity
+  // for a later publication after its implication has been consumed.  This is
+  // used only by the explicit deferred/materialize public action pair.
+  bool retained_publication = false;
   AffineMatrixProofCache *proof_cache = nullptr;
   PbpParityBoundsCache *pbp_parity_cache = nullptr;
   // Optional exact per-equation checker-premise ownership. Absence preserves
@@ -78,6 +82,7 @@ struct MatrixLiveResult {
   bool proof_cache_resume = false;
   bool compact_pbp = false;
   uint64_t installed_reason_id = 0;
+  Ref installed_reason_ref = INVALID_REF;
 };
 
 class AffineMatrixLivePrepared {
@@ -92,6 +97,8 @@ public:
   bool spent() const { return spent_; }
   const AffineMatrixTransaction &transaction() const { return transaction_; }
   const std::string &journal() const { return journal_; }
+  const std::vector<Lit> &physical_reason() const { return physical_reason_; }
+  uint64_t retained_bytes() const;
 
 private:
   friend MatrixLiveResult prepare_affine_matrix_live(

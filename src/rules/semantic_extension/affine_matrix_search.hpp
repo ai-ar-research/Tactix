@@ -100,6 +100,10 @@ struct AffineMatrixServiceResult {
   uint64_t capture_delta_literals = 0;
   bool dirty_row_update = false;
   uint64_t dirty_rows = 0;
+  // The explicit deferred-search action installed a provisional clausal
+  // reason whose checker certificate is owed; the explicit materialization
+  // action discharged that debt.
+  bool reason_deferred = false, reason_materialized = false;
   bool slice_pending=false, slice_resumed=false, slice_invalidated=false;
   uint64_t slice_work=0, slice_cumulative_work=0, slice_completed_steps=0, slice_minimum_work=0;
 
@@ -182,13 +186,20 @@ public:
   bool slice_pending() const noexcept {
     return slice_retry_ || matrix_.continuation_pending();
   }
+  bool has_deferred_reason() const noexcept {
+    return deferred_reason_.has_value();
+  }
   uint64_t retained_bytes() const {
     const uint64_t continuation = matrix_.continuation_bytes();
     const uint64_t proof = pbp_proof_cache_.retained_bytes();
     if (continuation > UINT64_MAX - retained_bytes_)
       return UINT64_MAX;
     const uint64_t base = retained_bytes_ + continuation;
-    return proof > UINT64_MAX - base ? UINT64_MAX : base + proof;
+    const uint64_t owned = proof > UINT64_MAX - base ? UINT64_MAX : base + proof;
+    const uint64_t deferred = deferred_reason_
+        ? deferred_reason_->prepared.retained_bytes()
+        : 0;
+    return deferred > UINT64_MAX - owned ? UINT64_MAX : owned + deferred;
   }
   bool matches_profile(const strategy::AffineConsequenceParameters &basis,
       const AffineMatrixPersistenceLimits &limits) const {
@@ -215,6 +226,12 @@ private:
       const strategy::AffineConsequenceParameters &, AffineMatrixAdmission,
       const AffineMatrixPersistenceLimits &);
   friend AffineMatrixServiceResult affine_matrix_search_step(
+      Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_search_step_impl(
+      Kernel &, AffineMatrixSearchSession &, bool);
+  friend AffineMatrixServiceResult affine_matrix_search_step_deferred(
+      Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       Kernel &, AffineMatrixSearchSession &,
@@ -280,6 +297,15 @@ private:
   bool have_terminal_initialization_failure_ = false;
   std::optional<AffineMatrixInitResult> last_initialization_;
   std::optional<AffineMatrixServiceResult> last_service_;
+  struct DeferredReason {
+    affine_semantic_extension::MatrixEvent event;
+    affine_semantic_extension::MatrixLiveRequest request;
+    affine_semantic_extension::AffineMatrixLivePrepared prepared;
+    std::string event_identity;
+    Ref provisional_ref = INVALID_REF;
+    Var implied_variable = INVALID_VAR;
+  };
+  std::optional<DeferredReason> deferred_reason_;
 };
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &);
@@ -293,6 +319,13 @@ ApplyResult affine_matrix_initialize_apply(Kernel &);
 // One deterministic conflict-before-implication event at an exact Boolean
 // propagation fixpoint.  No direct enqueue or conflict is permitted.
 AffineMatrixServiceResult affine_matrix_search_step(
+    Kernel &, AffineMatrixSearchSession &);
+// Explicit public alternatives to the eager SearchStep.  At most one wide
+// implication may be deferred; its exact certificate is preflighted before
+// assignment, and MaterializeReason must publish it before any reason consumer.
+AffineMatrixServiceResult affine_matrix_search_step_deferred(
+    Kernel &, AffineMatrixSearchSession &);
+AffineMatrixServiceResult affine_matrix_materialize_reason(
     Kernel &, AffineMatrixSearchSession &);
 AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     Kernel &, AffineMatrixSearchSession &,

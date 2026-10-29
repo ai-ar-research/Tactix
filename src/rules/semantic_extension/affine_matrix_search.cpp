@@ -1240,12 +1240,18 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
       return initialized(affine_matrix_search_refresh(kernel, session, profile.basis, limits,
                                                       profile.operation == Operation::Refresh));
     case Operation::SearchStep:
+    case Operation::DeferredSearchStep:
+    case Operation::MaterializeReasons:
       if (kernel.affine_matrix_search_session->parameters_ != profile.basis ||
           kernel.affine_matrix_search_session->persistence_.maximum_retained_bytes != limits.maximum_retained_bytes ||
           kernel.affine_matrix_search_session->persistence_.maximum_deferred_deletions != limits.maximum_deferred_deletions ||
           kernel.affine_matrix_search_session->persistence_.maximum_deferred_literal_work != limits.maximum_deferred_literal_work)
         return ApplyResult::NoOp;
-      session.last_service_ = affine_matrix_search_step(kernel, session);
+      session.last_service_ = profile.operation == Operation::SearchStep
+          ? affine_matrix_search_step(kernel, session)
+          : profile.operation == Operation::DeferredSearchStep
+              ? affine_matrix_search_step_deferred(kernel, session)
+              : affine_matrix_materialize_reason(kernel, session);
       return session.last_service_->result;
   }
   return ApplyResult::NoOp;
@@ -1660,13 +1666,18 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   return finish(AffineMatrixServiceStatus::Applied);
 }
 
-AffineMatrixServiceResult affine_matrix_search_step(
-    Kernel &kernel, AffineMatrixSearchSession &session) {
+AffineMatrixServiceResult affine_matrix_search_step_impl(
+    Kernel &kernel, AffineMatrixSearchSession &session, bool defer_reason) {
   AffineMatrixServiceResult result;
   if (!session.enabled()) return result;
   if (!session.attached_to(kernel)) {
     result.status = AffineMatrixServiceStatus::Stale;
     session.disable(kernel);
+    record_service(kernel, result);
+    return result;
+  }
+  if (session.deferred_reason_) {
+    result.status = AffineMatrixServiceStatus::Inapplicable;
     record_service(kernel, result);
     return result;
   }
@@ -2103,7 +2114,39 @@ AffineMatrixServiceResult affine_matrix_search_step(
   }
   result.installed_reason = event.reason;
   const uint64_t publication_started = clock_nanos();
-  result.live = apply_affine_matrix_live(kernel, request);
+  const bool can_defer = defer_reason &&
+      event.kind == MatrixEventKind::Implication && event.reason.size() >= 3;
+  if (can_defer) {
+    session.deferred_reason_.emplace();
+    auto &pending = *session.deferred_reason_;
+    pending.event = event;
+    request.event = &pending.event;
+    request.retained_publication = true;
+    pending.request = request;
+    result.live = prepare_affine_matrix_live(
+        kernel, pending.request, pending.prepared);
+    if (result.live.status == MatrixLiveStatus::Prepared) {
+      const auto &physical = pending.prepared.physical_reason();
+      if (physical.size() < 3 || kernel.value(physical.front()))
+        std::abort();
+      for (size_t i = 1; i < physical.size(); ++i)
+        if (kernel.value(physical[i]) >= 0) std::abort();
+      pending.provisional_ref = kernel_add_large_clause(
+          kernel, physical.data(), physical.size(), true, 0, 0);
+      pending.implied_variable = var_of(physical.front());
+      kernel_assign_ref(kernel, physical.front(), pending.provisional_ref);
+      pending.event_identity = result.event_identity;
+      result.live.status = MatrixLiveStatus::Applied;
+      result.live.result = ApplyResult::Ok;
+      result.live.implication_consumed = true;
+      result.live.propagation_pending = true;
+      result.reason_deferred = true;
+    } else {
+      session.deferred_reason_.reset();
+    }
+  } else {
+    result.live = apply_affine_matrix_live(kernel, request);
+  }
   result.publication_nanos += clock_nanos() - publication_started;
   result.status = live_status(result.live.status);
   result.result = result.live.result;
@@ -2133,11 +2176,64 @@ AffineMatrixServiceResult affine_matrix_search_step(
   return result;
 }
 
+AffineMatrixServiceResult affine_matrix_search_step(
+    Kernel &kernel, AffineMatrixSearchSession &session) {
+  return affine_matrix_search_step_impl(kernel, session, false);
+}
+
+AffineMatrixServiceResult affine_matrix_search_step_deferred(
+    Kernel &kernel, AffineMatrixSearchSession &session) {
+  return affine_matrix_search_step_impl(kernel, session, true);
+}
+
+AffineMatrixServiceResult affine_matrix_materialize_reason(
+    Kernel &kernel, AffineMatrixSearchSession &session) {
+  AffineMatrixServiceResult result;
+  if (!session.enabled() || !session.attached_to(kernel) ||
+      !session.deferred_reason_) {
+    result.status = AffineMatrixServiceStatus::Inapplicable;
+    record_service(kernel, result);
+    return result;
+  }
+  auto &pending = *session.deferred_reason_;
+  const Var implied = pending.implied_variable;
+  if (implied >= kernel.nvars || !kernel.values[make_lit(implied, false)] ||
+      kernel.assigned[implied].binary ||
+      kernel.assigned[implied].reason != pending.provisional_ref) {
+    result.status = AffineMatrixServiceStatus::Stale;
+    record_service(kernel, result);
+    return result;
+  }
+  result.event_identity = pending.event_identity;
+  result.reason_width = pending.event.reason.size();
+  result.installed_reason = pending.event.reason;
+  const uint64_t started = clock_nanos();
+  result.live = publish_affine_matrix_live(
+      kernel, pending.request, pending.prepared);
+  result.publication_nanos = clock_nanos() - started;
+  result.status = live_status(result.live.status);
+  result.result = result.live.result;
+  result.bcp_pending = result.live.propagation_pending;
+  if (result.status == AffineMatrixServiceStatus::Applied) {
+    if (result.live.installed_reason_ref == INVALID_REF)
+      std::abort();
+    kernel.assigned[implied].reason = result.live.installed_reason_ref;
+    Clause *provisional = clause_at(kernel.arena, pending.provisional_ref);
+    provisional->flags |= Clause::GARBAGE;
+    session.deferred_reason_.reset();
+    result.reason_materialized = true;
+  }
+  record_service(kernel, result);
+  return result;
+}
+
 TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                           [](const Kernel &kernel) {
                             if (kernel.affine_matrix_initialize_parameters_active &&
-                                kernel.affine_matrix_initialize_parameters.operation ==
-                                    strategy::AffineMatrixInitializeParameters::Operation::SearchStep)
+                                (kernel.affine_matrix_initialize_parameters.operation ==
+                                     strategy::AffineMatrixInitializeParameters::Operation::SearchStep ||
+                                 kernel.affine_matrix_initialize_parameters.operation ==
+                                     strategy::AffineMatrixInitializeParameters::Operation::DeferredSearchStep))
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
@@ -2150,11 +2246,29 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                   .fact("session-profile", kernel.affine_matrix_search_session &&
                                       kernel.affine_matrix_search_session->enabled() &&
                                       kernel.affine_matrix_search_session->attached_to(kernel) &&
+                                      !kernel.affine_matrix_search_session->has_deferred_reason() &&
                                       kernel.affine_matrix_search_session->matches_profile(
                                           kernel.affine_matrix_initialize_parameters.basis,
                                           {kernel.affine_matrix_initialize_parameters.maximum_retained_bytes,
                                            kernel.affine_matrix_initialize_parameters.maximum_deferred_deletions,
                                            kernel.affine_matrix_initialize_parameters.maximum_deferred_literal_work}));
+                            if (kernel.affine_matrix_initialize_parameters_active &&
+                                kernel.affine_matrix_initialize_parameters.operation ==
+                                    strategy::AffineMatrixInitializeParameters::Operation::MaterializeReasons) {
+                              const auto &profile = kernel.affine_matrix_initialize_parameters;
+                              return RuleEligibility{}
+                                  .fact("consistent", !kernel.inconsistent)
+                                  .fact("profile-valid", profile.valid())
+                                  .fact("session-profile", kernel.affine_matrix_search_session &&
+                                      kernel.affine_matrix_search_session->enabled() &&
+                                      kernel.affine_matrix_search_session->attached_to(kernel) &&
+                                      kernel.affine_matrix_search_session->matches_profile(profile.basis,
+                                          {profile.maximum_retained_bytes,
+                                           profile.maximum_deferred_deletions,
+                                           profile.maximum_deferred_literal_work}))
+                                  .fact("reason-deferred", kernel.affine_matrix_search_session &&
+                                      kernel.affine_matrix_search_session->has_deferred_reason());
+                            }
                             auto guard = affine_matrix_initialize_guard(kernel);
                             if (kernel.affine_matrix_initialize_parameters_active) {
                               const auto &profile = kernel.affine_matrix_initialize_parameters;

@@ -92,6 +92,7 @@ public:
   uint64_t arena_words() const { return arena_words_; }
   uint64_t work() const { return work_; }
   uint64_t authentication_work() const { return authentication_work_; }
+  uint64_t retained_bytes() const;
   const std::vector<External> &reason() const { return reason_; }
   const std::vector<size_t> &source_equations() const {
     return source_equations_;
