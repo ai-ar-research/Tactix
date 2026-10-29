@@ -833,32 +833,42 @@ MatrixLiveResult publish_affine_matrix_live(
         : request.matrix->authenticates(
               request.owner_identity, *request.exact_sources, *request.event,
               [&](uint64_t amount) { return validation.charge(amount); });
-    if (!authenticated ||
-        !validate_selected_sources(
-            kernel, request.retained_publication ? *request.owner
-                                                 : prepared.owner_,
-            *request.exact_sources,
-            prepared.transaction_.source_equations(),
-            prepared.transaction_.source_identity(), validation,
-            request.premise_leases, occurrences, clause_ids) ||
-        (prepared.transaction_.proof_cache_resume() &&
-         !validate_selected_sources(
-             kernel, request.retained_publication ? *request.owner
-                                                  : prepared.owner_,
-             *request.exact_sources,
-             prepared.transaction_.resume_source_equations(),
-             prepared.transaction_.resume_source_identity(), validation,
-             request.premise_leases, resume_occurrences,
-             resume_clause_ids))) {
-      result.audit_stage = MatrixLiveResult::AuditStage::AuthenticationOrSources;
+    const auto fail_validation = [&](MatrixLiveResult::AuditStage stage) {
+      result.audit_stage = stage;
       result.revalidation_work = validation.used;
       result.status = validation.interrupted
                           ? MatrixLiveStatus::Interrupted
                       : validation.exhausted
                           ? MatrixLiveStatus::ResourceExhausted
                           : MatrixLiveStatus::Stale;
+    };
+    if (!authenticated) {
+      fail_validation(MatrixLiveResult::AuditStage::MatrixAuthentication);
       return result;
     }
+    if (!validate_selected_sources(
+            kernel, request.retained_publication ? *request.owner
+                                                 : prepared.owner_,
+            *request.exact_sources,
+            prepared.transaction_.source_equations(),
+            prepared.transaction_.source_identity(), validation,
+            request.premise_leases, occurrences, clause_ids)) {
+      fail_validation(MatrixLiveResult::AuditStage::SelectedSources);
+      return result;
+    }
+    if (prepared.transaction_.proof_cache_resume() &&
+        !validate_selected_sources(
+             kernel, request.retained_publication ? *request.owner
+                                                  : prepared.owner_,
+             *request.exact_sources,
+             prepared.transaction_.resume_source_equations(),
+             prepared.transaction_.resume_source_identity(), validation,
+             request.premise_leases, resume_occurrences,
+             resume_clause_ids)) {
+      fail_validation(MatrixLiveResult::AuditStage::ResumeSources);
+      return result;
+    }
+    result.revalidation_work = validation.used;
     if (occurrences != prepared.source_occurrences_ ||
         clause_ids != prepared.source_clause_ids_ ||
         resume_occurrences != prepared.resume_source_occurrences_ ||

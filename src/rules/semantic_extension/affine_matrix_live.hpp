@@ -97,6 +97,9 @@ struct MatrixLiveResult {
     SourceIdentity = 7,
     ReasonOrder = 8,
     PbpPlan = 9,
+    MatrixAuthentication = 10,
+    SelectedSources = 11,
+    ResumeSources = 12,
   } audit_stage = AuditStage::None;
 };
 
