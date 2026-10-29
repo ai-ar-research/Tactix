@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <set>
 #include <utility>
 
@@ -70,6 +71,7 @@ struct ReductionRow {
   std::vector<uint64_t> source_words;
   size_t source_count = 0;
   bool rhs = false;
+  uint32_t component = 0;
 };
 
 struct ReductionScratch {
@@ -81,6 +83,9 @@ CombineStatus combine_reduction(ReductionRow &row,
                                 const ReductionRow &other,
                                 const MatrixLimits &limits, Work &work,
                                 ReductionScratch &scratch) {
+  if (row.component != other.component ||
+      row.source_words.size() != other.source_words.size())
+    std::abort();
   if (!work.consume(1 + row.variables.size() + other.variables.size() +
                     row.source_count + other.source_count))
     return work.interrupted ? CombineStatus::Interrupted
@@ -108,6 +113,7 @@ CombineStatus combine(MatrixRow &row, const MatrixRow &other,
                       std::vector<External> &variable_scratch,
                       std::vector<size_t> &source_scratch,
                       bool retain_scratch = false) {
+  if (row.component != other.component) std::abort();
   if (!work.consume(1 + row.variables.size() + other.variables.size() +
                     row.source_equations.size() +
                     other.source_equations.size()))
@@ -195,18 +201,24 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       return MatrixStatus::Exhausted;
     source_population += row.source_equations.size();
   }
-  std::vector<size_t> source_coordinates;
-  source_coordinates.reserve(source_population);
-  for (const MatrixRow &row : input)
-    source_coordinates.insert(source_coordinates.end(),
-                              row.source_equations.begin(),
-                              row.source_equations.end());
-  std::sort(source_coordinates.begin(), source_coordinates.end());
-  source_coordinates.erase(
-      std::unique(source_coordinates.begin(), source_coordinates.end()),
-      source_coordinates.end());
-  const size_t source_words = source_coordinates.size() / 64 +
-                              !!(source_coordinates.size() % 64);
+  std::map<uint32_t, std::vector<size_t>> component_sources;
+  for (const MatrixRow &row : input) {
+    auto &coordinates = component_sources[row.component];
+    coordinates.insert(coordinates.end(), row.source_equations.begin(),
+                       row.source_equations.end());
+  }
+  size_t unique_source_population = 0;
+  for (auto &[component, coordinates] : component_sources) {
+    (void)component;
+    std::sort(coordinates.begin(), coordinates.end());
+    coordinates.erase(std::unique(coordinates.begin(), coordinates.end()),
+                      coordinates.end());
+    if (coordinates.size() > SIZE_MAX - unique_source_population)
+      return MatrixStatus::Exhausted;
+    unique_source_population += coordinates.size();
+  }
+  if (unique_source_population > source_population)
+    return MatrixStatus::Invalid;
 
   std::map<External, ReductionRow> basis;
   std::vector<ReductionRow> contradictions;
@@ -219,6 +231,10 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
       return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
     ReductionRow row;
     row.rhs = seed.rhs;
+    row.component = seed.component;
+    const auto &source_coordinates = component_sources.at(row.component);
+    const size_t source_words = source_coordinates.size() / 64 +
+                                !!(source_coordinates.size() % 64);
     row.source_words.assign(source_words, 0);
     for (const size_t source : seed.source_equations) {
       const auto found = std::lower_bound(source_coordinates.begin(),
@@ -341,6 +357,8 @@ reduced:
     MatrixRow row;
     row.variables = std::move(packed.variables);
     row.rhs = packed.rhs;
+    row.component = packed.component;
+    const auto &source_coordinates = component_sources.at(packed.component);
     row.source_equations.reserve(packed.source_count);
     for (size_t word = 0; word < packed.source_words.size(); ++word) {
       uint64_t bits = packed.source_words[word];
@@ -468,6 +486,17 @@ MatrixStatus build_affine_matrix(
     return MatrixStatus::Invalid;
   if (input.empty()) return MatrixStatus::NoStructure;
 
+  // CryptoMiniSat factors XORs by connected variable components before
+  // constructing Gaussian matrices. Build the same exact partition while
+  // copying the immutable source image, so this does not add a second source
+  // traversal to the established Gaussian work allowance.
+  std::vector<size_t> parent(input.size());
+  std::iota(parent.begin(), parent.end(), 0);
+  const auto find_root = [&](size_t value, auto &&self) -> size_t {
+    if (parent[value] == value) return value;
+    return parent[value] = self(parent[value], self);
+  };
+  std::map<External, size_t> first_row;
   uint64_t source_width_bound = 0;
   std::vector<MatrixRow> seeds;
   seeds.reserve(input.size());
@@ -476,10 +505,31 @@ MatrixStatus build_affine_matrix(
     source_width_bound = std::max(source_width_bound,uint64_t(equation.variables.size()));
     if (!valid_equation(equation)) return MatrixStatus::Invalid;
     MatrixRow seed;
-    seed.variables = equation.variables;
+    seed.variables.reserve(equation.variables.size());
+    for (External variable : equation.variables) {
+      seed.variables.push_back(variable);
+      const auto [found, inserted] = first_row.emplace(variable, source);
+      if (inserted) continue;
+      size_t first = find_root(found->second, find_root);
+      size_t second = find_root(source, find_root);
+      if (first != second)
+        parent[std::max(first, second)] = std::min(first, second);
+    }
     seed.rhs = equation.rhs;
     seed.source_equations.push_back(source);
     seeds.push_back(std::move(seed));
+  }
+
+  std::map<size_t, uint32_t> component_ids;
+  for (size_t row = 0; row < input.size(); ++row) {
+    const size_t root = find_root(row, find_root);
+    auto found = component_ids.find(root);
+    if (found == component_ids.end()) {
+      if (component_ids.size() >= uint64_t{UINT32_MAX} + 1)
+        return MatrixStatus::Exhausted;
+      found = component_ids.emplace(root, component_ids.size()).first;
+    }
+    seeds[row].component = found->second;
   }
 
   Work work{0, limits.maximum_work, charge};
@@ -966,6 +1016,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
         const auto &seed = admitted_rows_[state.seed];
         if (!step(1 + __uint128_t(seed.variables.size())*comparisons + seed.source_equations.size())) return pending();
         state.row.rhs = seed.rhs;
+        state.row.component = seed.component;
         state.row.source_equations = seed.source_equations;
         for (External variable : seed.variables) {
           auto found = state.assignments.find(variable);
@@ -1244,7 +1295,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     const auto &old=rows_[id];
     if(!work.consume(1+old.variables.size()*comparisons+old.source_equations.size()) ||
        !memory(row_reserve))return declined();
-    MatrixRow row;row.rhs=old.rhs;row.source_equations=old.source_equations;
+    MatrixRow row;row.rhs=old.rhs;row.component=old.component;
+    row.source_equations=old.source_equations;
     row.variables.reserve(old.variables.size());
     for(External variable:old.variables){
       auto assigned=values.find(variable);

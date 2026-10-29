@@ -37,6 +37,10 @@ struct MatrixRow {
   bool rhs = false;
   // Sorted indices into the immutable Equation vector supplied at build time.
   std::vector<size_t> source_equations;
+  // Connected component of the immutable source equation/variable incidence
+  // graph. Components are numbered by first source-row appearance. This is
+  // representation metadata only: it never enters a reason or proof identity.
+  uint32_t component = 0;
 
   friend bool operator==(const MatrixRow &, const MatrixRow &) = default;
 };

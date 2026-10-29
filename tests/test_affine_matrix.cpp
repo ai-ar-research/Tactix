@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cstdio>
 #include <initializer_list>
+#include <set>
+#include <utility>
 
 using namespace tactix::affine_semantic_extension;
 
@@ -921,6 +923,39 @@ static void packed_provenance_crosses_words() {
     assert(seen[source]);
 }
 
+static void source_components_are_exact_and_stable() {
+  const std::vector<Equation> disconnected = {
+      equation({1, 2}, false), equation({1, 3}, true),
+      equation({4, 5}, false), equation({4, 6}, true)};
+  AffineMatrix first;
+  assert(build_affine_matrix(disconnected, 6001, limits(),
+                             [](uint64_t) { return true; }, first) ==
+         MatrixStatus::Complete);
+  std::set<uint32_t> components;
+  for (const MatrixRow &row : first.admitted_rows()) {
+    components.insert(row.component);
+    for (size_t source : row.source_equations)
+      assert((source < 2) == (row.component == 0));
+  }
+  assert((components == std::set<uint32_t>{0, 1}));
+
+  AffineMatrix repeated;
+  assert(build_affine_matrix(disconnected, 6001, limits(),
+                             [](uint64_t) { return true; }, repeated) ==
+         MatrixStatus::Complete);
+  assert(first.admitted_rows() == repeated.admitted_rows() &&
+         first.work() == repeated.work());
+
+  auto connected = disconnected;
+  connected.push_back(equation({3, 4}, false));
+  AffineMatrix joined;
+  assert(build_affine_matrix(connected, 6002, limits(),
+                             [](uint64_t) { return true; }, joined) ==
+         MatrixStatus::Complete);
+  for (const MatrixRow &row : joined.admitted_rows())
+    assert(row.component == 0);
+}
+
 int main() {
   sliced_reduction_controls();
   derived_implication_conflict_and_backtrack();
@@ -937,6 +972,7 @@ int main() {
   nonmatching_predecessor_failure_is_atomic();
   gauss_jordan_completeness_oracle();
   packed_provenance_crosses_words();
+  source_components_are_exact_and_stable();
   std::puts("affine matrix: exact sources, implication/conflict reasons, "
             "backtrack, and transactional bounds PASS");
 }
