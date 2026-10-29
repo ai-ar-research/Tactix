@@ -442,15 +442,13 @@ void make_reason(const std::vector<Equation> &sources,
   // sources cancel every variable is the unconditional 0 = 1: the certificate
   // refutes it outright, so it consumed no assignment and its reason is the
   // empty clause even when support variables are assigned.
-  std::map<External, bool> support;
-  size_t residue = 0;
+  std::set<External> support;
   for (size_t source : event.row.source_equations)
     for (External variable : sources[source].variables) {
-      const auto [entry, inserted] = support.emplace(variable, true);
-      if (!inserted) entry->second = !entry->second;
-      if (entry->second) ++residue; else --residue;
+      const auto [entry, inserted] = support.insert(variable);
+      if (!inserted) support.erase(entry);
     }
-  if (event.kind == MatrixEventKind::Conflict && !residue) return;
+  if (event.kind == MatrixEventKind::Conflict && support.empty()) return;
   for (const MatrixAssignment assignment : trail)
     if (support.contains(assignment.variable))
       event.reason.push_back(false_literal(assignment));
