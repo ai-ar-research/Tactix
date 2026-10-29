@@ -1649,6 +1649,83 @@ bool AffineMatrix::authenticates(
   return expected.kind != MatrixEventKind::None && same_event(expected, event);
 }
 
+bool AffineMatrix::authenticates_historical(
+    uint64_t owner_identity, const std::vector<Equation> &exact_sources,
+    const MatrixEvent &event,
+    const std::function<bool(uint64_t)> &charge) const {
+  if (!charge || !charge(1) || !owner_identity_ ||
+      owner_identity != owner_identity_ ||
+      exact_sources.size() != sources_.size() ||
+      event.kind == MatrixEventKind::None ||
+      event.row.source_equations.empty() ||
+      !std::is_sorted(event.row.source_equations.begin(),
+                      event.row.source_equations.end()) ||
+      std::adjacent_find(event.row.source_equations.begin(),
+                         event.row.source_equations.end()) !=
+          event.row.source_equations.end())
+    return false;
+  const bool retained_sources = &exact_sources == &sources_;
+  for (size_t i = 0; i < sources_.size(); ++i) {
+    const Equation &source = sources_[i];
+    if (!charge(3 + source.variables.size() + source.premises.size() +
+                source.premise_clauses.size()))
+      return false;
+    for (const auto &clause : source.premise_clauses)
+      if (!charge(clause.size())) return false;
+    if (!retained_sources && !same_equation(exact_sources[i], source))
+      return false;
+  }
+
+  std::vector<External> support;
+  std::vector<External> scratch;
+  bool rhs = false;
+  for (size_t ordinal : event.row.source_equations) {
+    if (!charge(1) || ordinal >= sources_.size() ||
+        !std::binary_search(admitted_sources_.begin(),
+                            admitted_sources_.end(), ordinal))
+      return false;
+    const Equation &source = sources_[ordinal];
+    if (!charge(source.variables.size() + support.size())) return false;
+    xor_sorted(support, source.variables, scratch);
+    support.swap(scratch);
+    scratch.clear();
+    rhs ^= source.rhs;
+  }
+
+  if (!charge(1 + event.row.variables.size() + event.reason.size()) ||
+      event.reason.size() != support.size())
+    return false;
+  if (event.kind == MatrixEventKind::Implication) {
+    if (event.implied_variable <= 0 ||
+        event.row.variables !=
+            std::vector<External>{event.implied_variable} ||
+        event.row.rhs != event.implied_value || event.reason.empty() ||
+        event.reason.back() !=
+            (event.implied_value ? event.implied_variable
+                                 : -event.implied_variable))
+      return false;
+  } else if (!event.row.variables.empty() || !event.row.rhs) {
+    return false;
+  }
+
+  std::vector<External> reason_variables;
+  reason_variables.reserve(event.reason.size());
+  bool falsifying_parity = false;
+  for (External literal : event.reason) {
+    if (!literal || literal == INT32_MIN) return false;
+    const External variable = literal < 0 ? -literal : literal;
+    reason_variables.push_back(variable);
+    // A negative literal is false exactly when its variable is true.
+    falsifying_parity ^= literal < 0;
+  }
+  const uint64_t comparisons =
+      2 * std::bit_width(uint64_t(std::max<size_t>(1, reason_variables.size()))) +
+      2;
+  if (!charge(reason_variables.size() * comparisons)) return false;
+  std::sort(reason_variables.begin(), reason_variables.end());
+  return reason_variables == support && falsifying_parity != rhs;
+}
+
 bool AffineMatrix::retained_authentication_work(
     const MatrixEvent &event, uint64_t &work) const {
   work = 0;

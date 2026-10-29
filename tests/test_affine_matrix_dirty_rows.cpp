@@ -107,9 +107,20 @@ void pivot_collision_and_conflict(){
  // x4, which column elimination removes from the second row as well.
  assert(matrix.last_dirty_rows()==2&&event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&!event.implied_value);
  assert((event.reason==std::vector<int32_t>{-1,-4}));assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
+ const auto historical=event;
  assert(matrix.synchronize({{1,true},{4,true}},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
  assert(event.kind==MatrixEventKind::Conflict&&(event.reason==std::vector<int32_t>{-1,-4}));
  assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
+ // The earlier implication is no longer the tableau's selected event, but its
+ // complete falsifying clause remains independently derivable from the exact
+ // immutable source rows.  This is required before a reason may be deferred.
+ assert(!matrix.authenticates(73,sources,historical,[](auto){return true;}));
+ assert(matrix.authenticates_historical(73,sources,historical,[](auto){return true;}));
+ auto corrupted=historical;corrupted.reason[0]=1;
+ assert(!matrix.authenticates_historical(73,sources,corrupted,[](auto){return true;}));
+ size_t historical_calls=0;
+ assert(!matrix.authenticates_historical(73,sources,historical,
+     [&](auto){return ++historical_calls<3;}));
  assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
  assert(matrix.synchronize({{1,false}},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
  assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&event.implied_value);

@@ -173,6 +173,16 @@ public:
                      const MatrixEvent &event,
                      const std::function<bool(uint64_t)> &charge) const;
 
+  // Authenticate a previously selected implication or conflict directly from
+  // its immutable source rows.  Unlike `authenticates`, this does not require
+  // the event to remain the current tableau event after later assignments.
+  // It is the proof-side prerequisite for any future lazy reason: the complete
+  // falsifying clause must name the exact XOR support and violate its parity.
+  bool authenticates_historical(
+      uint64_t owner_identity, const std::vector<Equation> &exact_sources,
+      const MatrixEvent &event,
+      const std::function<bool(uint64_t)> &charge) const;
+
   // Same semantic check and exact work currency as `authenticates`, for a
   // caller already holding `authenticated_sources()`.  The immutable source
   // image and current row index were authenticated when they were committed,
