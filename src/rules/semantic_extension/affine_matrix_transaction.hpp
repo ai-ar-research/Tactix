@@ -122,7 +122,7 @@ private:
       const MatrixEvent &, uint32_t, uint64_t,
       const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
       AffineMatrixTransaction &, const AffineMatrixProofCache *, uint64_t,
-      const PbpParityReasonPlan *, bool, bool);
+      const PbpParityReasonPlan *, bool, bool, bool);
 
   bool ready_ = false;
   uint64_t owner_identity_ = 0;
@@ -167,6 +167,9 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     // Only the no-callback, same-stack persistent service may aggregate the
     // immutable authentication walk. Generic callers retain stepwise
     // interruption and partial-work observations.
-    bool aggregate_retained_authentication = false);
+    bool aggregate_retained_authentication = false,
+    // A retained reason may be planned after the tableau advances only when
+    // its complete source-derived clause passes historical authentication.
+    bool historical_event = false);
 
 } // namespace tactix::affine_semantic_extension

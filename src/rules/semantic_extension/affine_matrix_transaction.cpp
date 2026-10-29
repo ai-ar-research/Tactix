@@ -451,7 +451,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     AffineMatrixTransaction &output,
     const AffineMatrixProofCache *proof_cache, uint64_t proof_epoch,
     const PbpParityReasonPlan *pbp_plan, bool retain_source_identity,
-    bool aggregate_retained_authentication) {
+    bool aggregate_retained_authentication, bool historical_event) {
   if (!expected_owner_identity || !charge || !limits.maximum_work ||
       !limits.maximum_proof_additions || !limits.maximum_proof_deletions ||
       !limits.maximum_helper_extent ||
@@ -464,7 +464,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   const bool retained_sources =
       &exact_sources == &matrix.authenticated_sources();
   uint64_t retained_authentication = 0;
-  const bool retained_event = aggregate_retained_authentication &&
+  const bool retained_event = !historical_event &&
+      aggregate_retained_authentication &&
       retained_sources &&
       matrix.retained_authentication_work(event, retained_authentication);
   // Preserve the full audit's exact partial-work boundary when the retained
@@ -474,9 +475,15 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   if (retained_event && retained_authentication <= limits.maximum_work) {
     if (!work.consume(retained_authentication))
       return MatrixTransactionStatus::Interrupted;
-  } else if (!matrix.authenticates(
-                 expected_owner_identity, exact_sources, event,
-                 [&](uint64_t amount) { return work.consume(amount); })) {
+  } else if (!(historical_event
+                   ? matrix.authenticates_historical(
+                         expected_owner_identity, exact_sources, event,
+                         [&](uint64_t amount) { return work.consume(amount); })
+                   : matrix.authenticates(
+                         expected_owner_identity, exact_sources, event,
+                         [&](uint64_t amount) {
+                           return work.consume(amount);
+                         }))) {
     return work.interrupted ? MatrixTransactionStatus::Interrupted
          : work.exhausted ? MatrixTransactionStatus::ResourceExhausted
                           : MatrixTransactionStatus::Stale;

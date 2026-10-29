@@ -75,6 +75,28 @@ static AffineMatrixTransaction prepared() {
   return transaction;
 }
 
+static void historical_event_requires_explicit_authentication_mode() {
+  AffineMatrix matrix;
+  MatrixEvent historical;
+  event_fixture(matrix, historical);
+  MatrixEvent current;
+  assert(matrix.synchronize({}, [](uint64_t) { return true; }, current) ==
+         MatrixStatus::Complete);
+  assert(current.kind == MatrixEventKind::None);
+  AffineMatrixTransaction ordinary;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, sources(), historical, 10, 1000,
+             transaction_limits(), [](uint64_t) { return true; }, ordinary) ==
+         MatrixTransactionStatus::Stale);
+  AffineMatrixTransaction retained;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, sources(), historical, 10, 1000,
+             transaction_limits(), [](uint64_t) { return true; }, retained,
+             nullptr, 0, nullptr, true, false, true) ==
+         MatrixTransactionStatus::Prepared);
+  assert(retained.reason() == historical.reason && retained.ready());
+}
+
 static void compact_one_shot_may_borrow_source_identity() {
   AffineMatrix matrix;
   MatrixEvent event;
@@ -694,6 +716,7 @@ int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
     return write_removed_proof(argv[2], argv[3]);
   complete_plan_accounts_and_retains_only_reason();
+  historical_event_requires_explicit_authentication_mode();
   retained_source_authentication_preserves_work();
   compact_one_shot_may_borrow_source_identity();
   isolated_symmetric_difference_resume();
