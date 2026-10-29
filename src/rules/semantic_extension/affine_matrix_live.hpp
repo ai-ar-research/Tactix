@@ -83,6 +83,21 @@ struct MatrixLiveResult {
   bool compact_pbp = false;
   uint64_t installed_reason_id = 0;
   Ref installed_reason_ref = INVALID_REF;
+  // Publication audit boundary for a declined two-phase transaction.  This is
+  // diagnostic evidence only; status remains the public semantic outcome.
+  // Values are stable for campaign attribution and append-only telemetry.
+  enum class AuditStage : uint8_t {
+    None = 0,
+    PreparedContract = 1,
+    ProofSupport = 2,
+    Applicability = 3,
+    KernelSnapshot = 4,
+    TrailOrEvent = 5,
+    AuthenticationOrSources = 6,
+    SourceIdentity = 7,
+    ReasonOrder = 8,
+    PbpPlan = 9,
+  } audit_stage = AuditStage::None;
 };
 
 class AffineMatrixLivePrepared {

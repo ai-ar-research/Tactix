@@ -617,6 +617,7 @@ int main(int argc, char **argv) {
         {"materialization_exhausted", affine.materialization_exhausted},
         {"materialization_interrupted", affine.materialization_interrupted},
         {"materialization_unsupported_proof", affine.materialization_unsupported_proof},
+        {"materialization_last_audit_stage", affine.materialization_last_audit_stage},
         {"admitted_sources", affine.admitted_sources},
         {"active_sources", affine.active_sources},
       };

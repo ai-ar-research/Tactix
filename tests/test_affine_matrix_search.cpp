@@ -409,6 +409,130 @@ void deferred_reason_materializes_at_later_conflict(bool pbp) {
   std::fclose(journal);
 }
 
+void repeated_deferred_pbp_reasons_preserve_cache_generation() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 10);
+  std::vector<std::vector<int32_t>> original;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
+           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
+    for (const auto &clause : clausal_form(variables, rhs))
+      original.push_back(clause);
+  for (const auto &clause : original) add_clause(kernel, clause);
+  char proof_path[] = "/tmp/tactix-affine-deferred-repeat-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t id = 0;
+  for (const auto &external : original) {
+    std::vector<Lit> clause;
+    for (int32_t literal : external)
+      clause.push_back(kernel_internalize(kernel, literal));
+    proof.seed_population(++id, clause.data(), clause.size());
+  }
+  assert(id == kernel.next_clause_id);
+  proof.finish_input_transaction();
+  assert(proof.commit_clause_stream());
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const auto &[first, second, implied] :
+       std::vector<std::tuple<int32_t, int32_t, int32_t>>{
+           {-1, -2, -5}, {-6, -7, -10}}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, first));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+    kernel_assign_decision(kernel, kernel_internalize(kernel, second));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+    const auto deferred = affine_matrix_search_step_deferred(kernel, session);
+    assert(deferred.status == AffineMatrixServiceStatus::Applied &&
+           deferred.reason_deferred && session.has_deferred_reason());
+    assert(propagate_apply(kernel) == ApplyResult::Ok &&
+           kernel.value(kernel_internalize(kernel, implied)) > 0);
+    const auto materialized = affine_matrix_materialize_reason(kernel, session);
+    assert(materialized.status == AffineMatrixServiceStatus::Applied &&
+           materialized.reason_materialized && !session.has_deferred_reason());
+  }
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
+void deferred_pbp_reason_survives_backtrack_and_cache_resume() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 5);
+  std::vector<std::vector<int32_t>> original;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause : clausal_form(variables, rhs))
+      original.push_back(clause);
+  for (const auto &clause : original) add_clause(kernel, clause);
+  char proof_path[] = "/tmp/tactix-affine-deferred-resume-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::PbpStreaming));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  uint64_t id = 0;
+  for (const auto &external : original) {
+    std::vector<Lit> clause;
+    for (int32_t literal : external)
+      clause.push_back(kernel_internalize(kernel, literal));
+    proof.seed_population(++id, clause.data(), clause.size());
+  }
+  assert(id == kernel.next_clause_id);
+  proof.finish_input_transaction();
+  assert(proof.commit_clause_stream());
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const auto &[first, implied] :
+       std::vector<std::pair<int32_t, int32_t>>{{-1, -5}, {1, 5}}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, first));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+    kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+    const auto deferred = affine_matrix_search_step_deferred(kernel, session);
+    assert(deferred.status == AffineMatrixServiceStatus::Applied &&
+           deferred.reason_deferred && session.has_deferred_reason());
+    assert(propagate_apply(kernel) == ApplyResult::Ok &&
+           kernel.value(kernel_internalize(kernel, implied)) > 0);
+    const auto materialized = affine_matrix_materialize_reason(kernel, session);
+    assert(materialized.status == AffineMatrixServiceStatus::Applied &&
+           materialized.reason_materialized && !session.has_deferred_reason());
+    kernel_backtrack(kernel, 0);
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 static std::string initialize_partial_fixture() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -885,6 +1009,8 @@ int main(int argc,char **argv){
   deferred_reason_has_public_materialization_boundary();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);
+  repeated_deferred_pbp_reasons_preserve_cache_generation();
+  deferred_pbp_reason_survives_backtrack_and_cache_resume();
   partial_admission_feedback_provenance_and_replay();
   restart_only_replay();root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
 }

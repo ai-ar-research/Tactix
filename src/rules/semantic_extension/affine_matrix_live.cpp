@@ -764,6 +764,7 @@ MatrixLiveResult publish_affine_matrix_live(
   result.journal_bytes = 0;
   if (!prepared.ready_ || !valid(request) ||
       !same_request(request, prepared.request_)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::PreparedContract;
     result.status = MatrixLiveStatus::Invalid;
     return result;
   }
@@ -772,11 +773,13 @@ MatrixLiveResult publish_affine_matrix_live(
     return result;
   }
   if (!proof_supported(kernel)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::ProofSupport;
     result.status = MatrixLiveStatus::UnsupportedProof;
     return result;
   }
   if (!applicable(kernel,
                   request.historical_event || request.retained_publication)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::Applicability;
     result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
                                                : MatrixLiveStatus::Inapplicable;
     return result;
@@ -796,6 +799,7 @@ MatrixLiveResult publish_affine_matrix_live(
          kernel.proof->persistent_external_epoch() !=
              prepared.transaction_.proof_cache_entry().proof_epoch))) ||
       std::ftell(request.records) != prepared.records_position_) {
+    result.audit_stage = MatrixLiveResult::AuditStage::KernelSnapshot;
     result.status = MatrixLiveStatus::Stale;
     return result;
   }
@@ -813,6 +817,7 @@ MatrixLiveResult publish_affine_matrix_live(
         (!historical &&
          (trail != prepared.trail_ || levels != prepared.trail_levels_)) ||
         !same_event(*request.event, prepared.event_)) {
+      result.audit_stage = MatrixLiveResult::AuditStage::TrailOrEvent;
       result.status = MatrixLiveStatus::Stale;
       return result;
     }
@@ -845,6 +850,7 @@ MatrixLiveResult publish_affine_matrix_live(
              prepared.transaction_.resume_source_identity(), validation,
              request.premise_leases, resume_occurrences,
              resume_clause_ids))) {
+      result.audit_stage = MatrixLiveResult::AuditStage::AuthenticationOrSources;
       result.revalidation_work = validation.used;
       result.status = validation.interrupted
                           ? MatrixLiveStatus::Interrupted
@@ -857,6 +863,7 @@ MatrixLiveResult publish_affine_matrix_live(
         clause_ids != prepared.source_clause_ids_ ||
         resume_occurrences != prepared.resume_source_occurrences_ ||
         resume_clause_ids != prepared.resume_source_clause_ids_) {
+      result.audit_stage = MatrixLiveResult::AuditStage::SourceIdentity;
       result.status = MatrixLiveStatus::Stale;
       return result;
     }
@@ -864,6 +871,7 @@ MatrixLiveResult publish_affine_matrix_live(
     std::vector<Lit> physical;
     if (!reason_order(kernel, prepared.event_, physical, historical) ||
         physical != prepared.physical_reason_) {
+      result.audit_stage = MatrixLiveResult::AuditStage::ReasonOrder;
       result.status = MatrixLiveStatus::Stale;
       return result;
     }
@@ -881,6 +889,7 @@ MatrixLiveResult publish_affine_matrix_live(
           current.proof_constraints != prepared.pbp_plan_.proof_constraints ||
           current.retained_bytes != prepared.pbp_plan_.retained_bytes ||
           current.helper_variables != prepared.pbp_plan_.helper_variables) {
+        result.audit_stage = MatrixLiveResult::AuditStage::PbpPlan;
         result.status = MatrixLiveStatus::Stale;
         return result;
       }
