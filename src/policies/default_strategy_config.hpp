@@ -330,6 +330,9 @@ struct DefaultStrategyConfig {
     // regression controls.  Promotion of this candidate remains subject to
     // the proof, fuzz, performance and full regression gates.
     bool enabled = true;
+    // Development A/B only. Promotion requires the matched N3 gate; eager is
+    // the shipped control until then.
+    bool deferred_reasons = false;
     // CryptoMiniSat src/solverconf.h GaussConf source defaults (its README
     // advertises older smaller dimensions), pinned at 2bf89cfb3e126e559d472388486327813f735f7e.
     // Tactix additionally caps retained

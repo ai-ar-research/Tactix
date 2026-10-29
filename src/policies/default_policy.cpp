@@ -1408,6 +1408,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " onehot_model.candidate_budget="
       << onehot_model.parameters.candidate_budget
       << " affine_search.enabled=" << affine_search.enabled
+      << " affine_search.deferred_reasons=" << affine_search.deferred_reasons
       << " affine_search.maximum_rows=" << affine_search.maximum_rows
       << " affine_search.maximum_row_width=" << affine_search.maximum_row_width
       << " affine_search.maximum_arity=" << affine_search.maximum_arity
@@ -3883,6 +3884,11 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   AffineMatrixServiceResult result;
   if (!config_.affine_search.enabled || !kernel.affine_matrix_search_session ||
       !kernel.affine_matrix_search_session->enabled()) return result;
+  // A deferred implication is an explicit public debt boundary.  Until its
+  // reason is materialized, the only legal search actions are ordinary
+  // Propagate and Decide; in particular, do not ask the algebraic service for
+  // another event or let its usefulness clock observe an inapplicable call.
+  if (kernel.affine_matrix_search_session->has_deferred_reason()) return result;
   const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
   const uint64_t started=now_nanos();
   result=port::complete_action(
@@ -3899,7 +3905,11 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
         spec.description.have_affine_matrix_event=true;
         return spec;
       },[&] {
-        auto serviced=port::affine_matrix_search_step(kernel,*kernel.affine_matrix_search_session);
+        auto serviced=!root && config_.affine_search.deferred_reasons
+            ? port::affine_matrix_search_step_deferred(
+                  kernel, *kernel.affine_matrix_search_session)
+            : port::affine_matrix_search_step(
+                  kernel, *kernel.affine_matrix_search_session);
         uint64_t work=0;
         for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
              serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
@@ -3915,6 +3925,71 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
       *kernel.affine_matrix_search_session, root ? 3 : 4,
       result.projected_variables && !result.retired_source_groups, optional_disable);
   return result;
+}
+
+AffineMatrixServiceResult DefaultPolicy::materialize_affine_reason(
+    Kernel &kernel) {
+  AffineMatrixServiceResult result;
+  if (!kernel.affine_matrix_search_session ||
+      !kernel.affine_matrix_search_session->has_deferred_reason())
+    return result;
+  const auto survival_before =
+      affine_survival_image(*kernel.affine_matrix_search_session);
+  const uint64_t started = now_nanos();
+  result = port::complete_action(
+      completion_, FeedbackKind::SearchService, "AffineMatrixMaterialize",
+      INSTANCE_CANONICAL, [] {
+        execution::NativeFeedbackSpec spec;
+        spec.description.version = 1;
+        spec.description.description = "default-deferred-reason-boundary";
+        spec.description.effort_currency = "affine-matrix-work";
+        spec.description.have_affine_matrix_event = true;
+        return spec;
+      }, [&] {
+        return port::affine_matrix_materialize_reason(
+            kernel, *kernel.affine_matrix_search_session);
+      }, affine_service_outcome);
+  affine_search_diagnostics_.overhead_nanos += now_nanos() - started;
+  (void)record_affine_service_result(kernel, result, false);
+  record_affine_survival(affine_search_diagnostics_, survival_before,
+      *kernel.affine_matrix_search_session, 4);
+  return result;
+}
+
+bool DefaultPolicy::discharge_affine_reason(Kernel &kernel) {
+  if (!kernel.affine_matrix_search_session ||
+      !kernel.affine_matrix_search_session->has_deferred_reason())
+    return true;
+  const auto materialized = materialize_affine_reason(kernel);
+  return materialized.status == AffineMatrixServiceStatus::Applied &&
+         materialized.reason_materialized &&
+         !kernel.affine_matrix_search_session->has_deferred_reason();
+}
+
+void DefaultPolicy::search_decide(Kernel &k, EventTrace &event_trace) {
+  const Lit decision = default_branching_.pick(k);
+  (void)port::complete_action(completion_, FeedbackKind::SearchService,
+      "Decide", lit_instance(k, decision), [&] {
+        return execution::native_rule_feedback(
+            k, "Decide", lit_instance(k, decision),
+            "literal=" + std::to_string(kernel_externalize(k, decision)));
+      }, [&] { return default_direct_rule_lazy(
+      k, "Decide",
+      [&] {
+        return "literal=" +
+               std::to_string(kernel_externalize(k, decision));
+      },
+      [&] {
+        const ApplyResult result =
+            port::execute_action(k, execution::DecisionRequest{decision});
+        if (result == ApplyResult::Ok)
+          heuristics_note_target_decision(k, decision, k.h->stable);
+        return result;
+      });
+  });
+  event_trace.detail(k, "decision", kernel_externalize(k, decision));
+  event_trace.heap_after_decision(k);
+  event_trace.heap_scores(k);
 }
 
 bool DefaultPolicy::affine_additional_recognition_due(
@@ -3965,10 +4040,14 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   if(result.status==AffineMatrixServiceStatus::NoEvent)++affine_search_diagnostics_.no_event;
   if(result.status==AffineMatrixServiceStatus::Duplicate)++affine_search_diagnostics_.duplicates;
   if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
+  affine_search_diagnostics_.reasons_deferred += result.reason_deferred;
+  affine_search_diagnostics_.reasons_materialized += result.reason_materialized;
   if(result.status==AffineMatrixServiceStatus::Applied) {
-    ++affine_search_diagnostics_.reasons_published;
     affine_search_diagnostics_.implications_consumed +=
         result.live.implication_consumed;
+  }
+  if(result.status==AffineMatrixServiceStatus::Applied && !result.reason_deferred) {
+    ++affine_search_diagnostics_.reasons_published;
     affine_search_diagnostics_.widest_reason=std::max<uint64_t>(
         affine_search_diagnostics_.widest_reason,result.installed_reason.size());
     affine_search_diagnostics_.proof_additions+=result.live.additions;
@@ -5043,6 +5122,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
+      if (!discharge_affine_reason(k)) return finish(0);
       default_branching_.on_search_propagation_conflict();
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
@@ -5184,8 +5264,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (algebraic.status == AffineMatrixServiceStatus::Applied)
         continue;
     }
-    if (k.unassigned_active == 0)
+    if (k.unassigned_active == 0) {
+      if (!discharge_affine_reason(k)) return finish(0);
       return finish(10);
+    }
+    // One preflighted reason debt may span ordinary decisions.  The public
+    // debt grammar makes every maintenance/restart/inprocessing action
+    // inapplicable until materialization, so bypass those schedule branches
+    // rather than allowing their clocks to advance on declined operations.
+    if (k.affine_matrix_search_session &&
+        k.affine_matrix_search_session->has_deferred_reason()) {
+      if (stop && *stop) {
+        if (!discharge_affine_reason(k)) return finish(0);
+        return finish(0);
+      }
+      search_decide(k, event_trace);
+      continue;
+    }
     if (want_reduce(k) && reduce_guard(k)) {
       event_trace.macro(k, "reduce_begin");
       feedback.end_interval(StopReason::RootPreparation);
@@ -5507,29 +5602,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (stop && *stop)
       return finish(0);
-    const Lit decision = default_branching_.pick(k);
-    (void)port::complete_action(completion_, FeedbackKind::SearchService,
-        "Decide", lit_instance(k, decision), [&] {
-          return execution::native_rule_feedback(k, "Decide", lit_instance(k, decision),
-              "literal=" + std::to_string(kernel_externalize(k, decision)));
-        }, [&] { return default_direct_rule_lazy(
-        k, "Decide",
-        [&] {
-          return "literal=" +
-                 std::to_string(kernel_externalize(k, decision));
-        },
-        [&] {
-          const ApplyResult result =
-              port::execute_action(k, execution::DecisionRequest{decision});
-          if (result == ApplyResult::Ok)
-            heuristics_note_target_decision(
-                k, decision, k.h->stable);
-          return result;
-        });
-    });
-    event_trace.detail(k, "decision", kernel_externalize(k, decision));
-    event_trace.heap_after_decision(k);
-    event_trace.heap_scores(k);
+    search_decide(k, event_trace);
   }
 }
 

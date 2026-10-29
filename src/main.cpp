@@ -163,6 +163,7 @@ int main(int argc, char **argv) {
   bool binary_proof = true;
   bool quiet = false;
   std::optional<bool> default_affine_search;
+  std::optional<bool> default_affine_deferred;
   std::optional<bool> default_graph_labeling;
   std::optional<bool> default_structured_symmetry;
   const char *structural_provenance_path = nullptr;
@@ -196,6 +197,14 @@ int main(int argc, char **argv) {
       else if (!strcmp(a + 24, "off")) default_affine_search = false;
       else {
         fprintf(stderr, "tactix: --default-affine-search requires on or off\n");
+        printf("s UNKNOWN\n");
+        return 1;
+      }
+    } else if (!strncmp(a, "--default-affine-reasons=", 25)) {
+      if (!strcmp(a + 25, "eager")) default_affine_deferred = false;
+      else if (!strcmp(a + 25, "deferred")) default_affine_deferred = true;
+      else {
+        fprintf(stderr, "tactix: --default-affine-reasons requires eager or deferred\n");
         printf("s UNKNOWN\n");
         return 1;
       }
@@ -261,6 +270,7 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q|-v] [--dsr|--drat|--lrat|--pbp] [--no-binary] "
              "[--default-affine-search=on|off] "
+             "[--default-affine-reasons=eager|deferred] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
              "[--feedback=FILE | --feedback-replay=FILE] "
@@ -530,6 +540,8 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
+  if (default_affine_deferred)
+    default_config.affine_search.deferred_reasons = *default_affine_deferred;
   if (default_graph_labeling)
     default_config.graph_labeling_model.enabled = *default_graph_labeling;
   if (default_structured_symmetry)

@@ -22,6 +22,15 @@ python3 "$root/tools/bench/proof_oracle.py" check \
 python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   "$temporary/unsat.cnf" "$temporary/unsat.dsr" \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$trestle" --every-lemma
+# DefaultPolicy's opt-in schedule must materialize the same deferred reason
+# through the public boundary and remain valid against the untouched input.
+python3 "$root/tools/bench/proof_oracle.py" check \
+  "$temporary/deferred-policy.cnf" "$temporary/deferred-policy.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$trestle" \
+  --drat-trim "$drat" --cake-lpr "$cake"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$temporary/deferred-policy.cnf" "$temporary/deferred-policy.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$trestle" --every-lemma
 # SAT input prevents vacuous acceptance of conditional reasons.
 "$trim" -f -c "$temporary/sat.cnf" "$temporary/sat.dsr" "$temporary/sat.lsr" > "$temporary/sat-trim.log" 2>&1
 grep -q '^s VALID$' "$temporary/sat-trim.log"

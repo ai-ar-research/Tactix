@@ -13,6 +13,8 @@
 
 namespace tactix {
 
+class EventTrace;
+
 struct FormulaClassification {
   bool small = false;
   bool bigbig = false;
@@ -68,6 +70,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t root_services = 0, search_services = 0;
   uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
   uint64_t reasons_published = 0, implications_consumed = 0;
+  uint64_t reasons_deferred = 0, reasons_materialized = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t synchronization_nanos = 0, publication_nanos = 0;
@@ -343,6 +346,9 @@ private:
   bool affine_usefulness_paused_ = false;
   AffineMatrixInitResult initialize_affine_search(Kernel &, bool refresh = false, bool recognize = true);
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
+  AffineMatrixServiceResult materialize_affine_reason(Kernel &);
+  bool discharge_affine_reason(Kernel &);
+  void search_decide(Kernel &, EventTrace &);
   bool record_affine_service_result(Kernel &,const AffineMatrixServiceResult &,bool root);
   bool affine_additional_recognition_due(const Kernel &) const;
   ApplyResult run_affine_search(Kernel &, bool startup);

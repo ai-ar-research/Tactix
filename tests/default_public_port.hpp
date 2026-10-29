@@ -285,6 +285,34 @@ struct PublicPort {
     return affine_operation(k, profile, "step", [&] { return *session.last_service(); },
         [&] { return StaticPort::affine_matrix_search_step(k, session); });
   }
+  static AffineMatrixServiceResult affine_matrix_search_step_deferred(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    AffineProfile profile;
+    profile.basis = session.parameters();
+    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
+    profile.operation = AffineProfile::Operation::DeferredSearchStep;
+    const auto &limits = session.persistence_limits();
+    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
+    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
+    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
+    return affine_operation(k, profile, "deferred-step",
+        [&] { return *session.last_service(); },
+        [&] { return StaticPort::affine_matrix_search_step_deferred(k, session); });
+  }
+  static AffineMatrixServiceResult affine_matrix_materialize_reason(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    AffineProfile profile;
+    profile.basis = session.parameters();
+    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
+    profile.operation = AffineProfile::Operation::MaterializeReasons;
+    const auto &limits = session.persistence_limits();
+    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
+    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
+    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
+    return affine_operation(k, profile, "materialize",
+        [&] { return *session.last_service(); },
+        [&] { return StaticPort::affine_matrix_materialize_reason(k, session); });
+  }
   static void affine_matrix_search_release(AffineMatrixSearchSession &affine) {
     release_affine(affine, nullptr);
   }

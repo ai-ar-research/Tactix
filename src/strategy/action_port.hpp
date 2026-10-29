@@ -65,6 +65,14 @@ struct StaticPort {
                                                              AffineMatrixSearchSession &session) {
     return ::tactix::affine_matrix_search_step(k, session);
   }
+  static AffineMatrixServiceResult affine_matrix_search_step_deferred(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    return ::tactix::affine_matrix_search_step_deferred(k, session);
+  }
+  static AffineMatrixServiceResult affine_matrix_materialize_reason(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    return ::tactix::affine_matrix_materialize_reason(k, session);
+  }
   static void affine_matrix_search_release(AffineMatrixSearchSession &session) {
     session.disable();
   }
@@ -193,6 +201,16 @@ decltype(auto) affine_matrix_search_step(Kernel &k, Args &&...args) {
   return P::affine_matrix_search_step(k, std::forward<Args>(args)...);
 }
 template <class P = SelectedPort, class... Args>
+decltype(auto) affine_matrix_search_step_deferred(Kernel &k, Args &&...args) {
+  return P::affine_matrix_search_step_deferred(k,
+                                                std::forward<Args>(args)...);
+}
+template <class P = SelectedPort, class... Args>
+decltype(auto) affine_matrix_materialize_reason(Kernel &k, Args &&...args) {
+  return P::affine_matrix_materialize_reason(k,
+                                              std::forward<Args>(args)...);
+}
+template <class P = SelectedPort, class... Args>
 void affine_matrix_search_release(AffineMatrixSearchSession &session, Args &&...args) {
   P::affine_matrix_search_release(session, std::forward<Args>(args)...);
 }
@@ -235,6 +253,8 @@ using ::tactix::propagate_apply;
 using ::tactix::affine_matrix_search_initialize;
 using ::tactix::affine_matrix_search_refresh;
 using ::tactix::affine_matrix_search_step;
+using ::tactix::affine_matrix_search_step_deferred;
+using ::tactix::affine_matrix_materialize_reason;
 using ::tactix::subsume_forward_try_fastel;
 using execution::execute_substitute_rounds;
 inline strategy::InvocationResult bve_apply_one(strategy::BveInvocationSession &session,

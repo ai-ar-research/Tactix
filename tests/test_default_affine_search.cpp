@@ -20,6 +20,9 @@ struct DefaultAffineSearchTestAccess {
   static AffineMatrixServiceResult service(DefaultPolicy &policy, Kernel &kernel) {
     return policy.service_affine_search(kernel, !kernel.level);
   }
+  static bool discharge(DefaultPolicy &policy, Kernel &kernel) {
+    return policy.discharge_affine_reason(kernel);
+  }
   static bool paused(const DefaultPolicy &policy) { return policy.affine_usefulness_paused_; }
   static uint64_t calls(const DefaultPolicy &policy) { return policy.affine_usefulness_calls_; }
   static bool additional_recognition_due(const DefaultPolicy &policy,
@@ -145,6 +148,83 @@ DefaultStrategyConfig config(bool enabled) {
   c.branching.focused_phase_pattern={-1}; // General fixed phase arm, no decision script.
   return c;
 }
+
+// Pin DefaultPolicy's public deferred-reason boundary independently of the
+// lower-level affine service test.  The original CNF used by the external
+// checker includes the two decisions and the contradictory consequence.
+void deferred_policy_boundary(const std::string &stem = "") {
+  Fixture f{6, {}};
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(variables, rhs))
+      f.clauses.push_back(clause);
+  Kernel kernel;
+  const auto text = cnf(f);
+  FILE *input = std::tmpfile();
+  assert(input);
+  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
+  std::rewind(input);
+  assert(!parse_dimacs(input, kernel));
+  std::fclose(input);
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  // Reserve the original-CNF identities for -1, -2, and 5 before emitting a
+  // derived certificate.  They are checker inputs, not solver root facts.
+  kernel.next_clause_id += 3;
+  const std::string proof_path = stem.empty()
+      ? "/tmp/tactix-default-deferred-policy.dsr" : stem + ".dsr";
+  Proof proof;
+  assert(proof.open(proof_path.c_str(), ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  auto settings = config(true);
+  settings.affine_search.deferred_reasons = true;
+  DefaultPolicy policy(settings);
+  const auto initialized =
+      DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true);
+  assert(initialized.status == AffineMatrixInitStatus::Applied);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto deferred = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(deferred.status == AffineMatrixServiceStatus::Applied &&
+         deferred.reason_deferred && session.has_deferred_reason());
+  const auto services = policy.affine_search_diagnostics().search_services;
+  const auto forbidden = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(forbidden.status == AffineMatrixServiceStatus::Disabled &&
+         session.has_deferred_reason() &&
+         policy.affine_search_diagnostics().search_services == services);
+  assert(propagate_apply(kernel) == ApplyResult::Ok &&
+         kernel_external_value(kernel, internalize(-5)) > 0);
+  assert(DefaultAffineSearchTestAccess::discharge(policy, kernel) &&
+         !session.has_deferred_reason());
+  const auto &stats = policy.affine_search_diagnostics();
+  assert(stats.reasons_deferred == 1 && stats.reasons_materialized == 1 &&
+         stats.reasons_published == 1 && stats.implications_consumed == 1);
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  kernel.proof = nullptr;
+  if (!stem.empty()) {
+    std::ofstream original(stem + ".cnf");
+    original << "p cnf 6 " << f.clauses.size() + 3 << '\n';
+    for (const auto &clause : f.clauses) {
+      for (int32_t literal : clause) original << literal << ' ';
+      original << "0\n";
+    }
+    original << "-1 0\n-2 0\n5 0\n";
+  }
+  session.disable(kernel);
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+  if (stem.empty()) std::remove(proof_path.c_str());
+}
+
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
   Kernel kernel;auto text=cnf(f);FILE *input=std::tmpfile();assert(input);
   assert(std::fwrite(text.data(),1,text.size(),input)==text.size());std::rewind(input);
@@ -402,6 +482,8 @@ void paused_owner_retry(const std::string &stem = "",
 int main(int argc,char **argv) {
   assert(argc==1 || argc==2);
   empty_census_retry();
+  deferred_policy_boundary(argc == 2
+      ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {
       std::pair{ProofFormat::DsrAscii, "/paused"},
       std::pair{ProofFormat::DsrBinary, "/paused-dsr-binary"},
