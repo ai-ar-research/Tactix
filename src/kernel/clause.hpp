@@ -5,7 +5,8 @@
 // in Kernel::binary_ids). Header:
 //   word0  size
 //   word1  bit0 garbage | bit1 redundant | bit2 reason | bits3-7 used
-//          | bit8 vivify | bit9 shrunken | bits10.. glue
+//          | bit8 vivify | bit9 shrunken | bits10-11 Factor scratch
+//          | bit12 detached reason | bits13.. glue
 //   word2  searched (index of last replacement-scan position, >= 2)
 //   word3  id_lo   (proof clause id, low word — native LRAT hints;
 //   word4  id_hi    CaDiCaL stores int64 ids the same way)
@@ -67,7 +68,11 @@ struct Clause {
   // returns and mean nothing outside one application.
   static constexpr uint32_t FACTOR_RESERVED = 1u << 10;
   static constexpr uint32_t FACTOR_USED = 1u << 11;
-  static constexpr uint32_t GLUE_SHIFT = 12;
+  // A proof-visible implication-graph reason that is deliberately absent from
+  // the watched Boolean formula.  Unlike REASON (Reduce's transient lock),
+  // this is the persistent record-kind discriminator used by collection.
+  static constexpr uint32_t DETACHED_REASON = 1u << 12;
+  static constexpr uint32_t GLUE_SHIFT = 13;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
   bool garbage() const { return flags & GARBAGE; }
@@ -77,6 +82,7 @@ struct Clause {
   bool shrunken() const { return flags & SHRUNKEN; }
   bool factor_reserved() const { return flags & FACTOR_RESERVED; }
   bool factor_used() const { return flags & FACTOR_USED; }
+  bool detached_reason() const { return flags & DETACHED_REASON; }
   void set_redundant(bool v) {
     flags = v ? (flags | REDUNDANT) : (flags & ~REDUNDANT);
     if (!v)

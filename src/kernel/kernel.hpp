@@ -2559,6 +2559,14 @@ void kernel_touch_sync_fixed(Kernel &);
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0,
                             bool mark_added_material = true);
+// Allocate a proof-visible non-root implication reason without adding it to
+// the watched formula.  The record is deliberately GARBAGE (so every formula
+// scan ignores it) and REASON-locked while its unique trail assignment is
+// live. Collection forwards that locked record; unassignment releases it for
+// the next collection. This is the arena analogue of a native theory reason,
+// not a learned clause.
+Ref kernel_add_detached_large_reason(Kernel &, const Lit *lits, uint32_t size,
+                                     uint64_t id);
 uint64_t kernel_clause_position(const Kernel &, Ref);
 // Restore current Kissat arena order after append-only replacements. The
 // implementation caches each position and uses a linear stable radix pass.
@@ -2755,7 +2763,8 @@ inline void kernel_observe_replacement(
 
 inline void kernel_delete_clause(Kernel &k, Clause *c,
                                  bool semantic_removal = true,
-                                 const char *retry_source = "delete-clause") {
+                                 const char *retry_source = "delete-clause",
+                                 bool checker_visible = true) {
   // The proof delta belongs INSIDE the retirement transition, not in front of
   // it. A deletion names one clause: DRAT by its literals, LRAT by its id, and
   // in both formats the checker retires exactly one copy per `d` line. Emitting
@@ -2771,7 +2780,12 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
                                    k.arena.data());
   kernel_retire_root_reason(k, c, ref);
-  if (k.proof)
+  // Deferred GF(2) uses an ordinary watched record as an implication-graph
+  // placeholder before publishing its certified reason. Such a provisional
+  // record has no checker identity and must still retire through this audited
+  // solver-population boundary without emitting a proof deletion.
+  assert(checker_visible || (c->redundant() && !c->id()));
+  if (k.proof && checker_visible)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_clause_transition(k, "delete", c->lits, c->size,

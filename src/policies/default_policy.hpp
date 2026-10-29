@@ -71,6 +71,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
   uint64_t reasons_published = 0, implications_consumed = 0;
   uint64_t reasons_deferred = 0, reasons_materialized = 0;
+  uint64_t reasons_detached = 0;
   uint64_t materialization_attempts = 0, materialization_inapplicable = 0;
   uint64_t materialization_stale = 0, materialization_invalid = 0;
   uint64_t materialization_exhausted = 0, materialization_interrupted = 0;
@@ -354,7 +355,7 @@ private:
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
   AffineMatrixServiceResult materialize_affine_reason(Kernel &);
   bool discharge_affine_reason(Kernel &);
-  void search_decide(Kernel &, EventTrace &);
+  Lit search_decide(Kernel &);
   bool record_affine_service_result(Kernel &,const AffineMatrixServiceResult &,bool root);
   bool affine_additional_recognition_due(const Kernel &) const;
   ApplyResult run_affine_search(Kernel &, bool startup);

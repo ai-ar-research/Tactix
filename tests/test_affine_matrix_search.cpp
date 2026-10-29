@@ -340,6 +340,74 @@ void deferred_reason_has_public_materialization_boundary() {
   std::fclose(journal);
 }
 
+void detached_minimal_reason_is_public_and_unwatched() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 7);
+  add_equation(kernel, {1, 2, 3, 4, 6, 7}, false);
+  add_equation(kernel, {3, 4, 5, 6, 7}, true);
+  char proof_path[] = "/tmp/tactix-affine-detached-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int32_t decision : {-1, -2, -3, -4}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+
+  AffineMatrixInitializeParameters profile;
+  profile.basis = parameters();
+  profile.admission =
+      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
+  profile.operation = AffineMatrixInitializeParameters::Operation::
+      DetachedMinimalSearchStep;
+  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
+  profile.maximum_deferred_deletions =
+      persistence.maximum_deferred_deletions;
+  profile.maximum_deferred_literal_work =
+      persistence.maximum_deferred_literal_work;
+  assert(profile.valid());
+  kernel.affine_matrix_initialize_parameters = profile;
+  kernel.affine_matrix_initialize_parameters_active = true;
+  const RuleVTable &rule =
+      tactix_rules()[tactix_rule_id("AffineMatrixInitialize")];
+  assert(rule_guard(rule, kernel));
+  assert(apply_rule(rule, kernel) == ApplyResult::Ok);
+  assert(session.last_service());
+  const auto service = *session.last_service();
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.reason_width == 3 && service.live.detached_reason &&
+         service.live.implication_consumed &&
+         kernel.value(kernel_internalize(kernel, 5)) > 0);
+  const Ref ref = kernel.assigned[var_of(kernel_internalize(kernel, 5))].reason;
+  const Clause *reason = clause_at(kernel.arena, ref);
+  assert(reason->garbage() && reason->reason() && reason->detached_reason() &&
+         reason->id());
+  assert(reason->size == 3);
+  for (Lit lit = 0; lit < 2 * kernel.nvars; ++lit)
+    for (const WatchEntry watch : kernel.watches.entries(lit))
+      assert(watch.binary() || watch.ref() != ref);
+
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 void deferred_reason_materializes_at_later_conflict(bool pbp) {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -988,10 +1056,70 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
   return 0;
 }
 
+static int detached_minimal_reason_proof_fixture(const char *cnf_path,
+                                                 const char *proof_path) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 7);
+  std::vector<std::vector<int32_t>> original;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 2, 3, 4, 6, 7}, false}, {{3, 4, 5, 6, 7}, true}})
+    for (const auto &clause : clausal_form(variables, rhs)) {
+      original.push_back(clause);
+      add_clause(kernel, clause);
+    }
+  // The checker input also contains four decisions and the negation of the
+  // algebraic implication. Reserve those input identities before emitting the
+  // exact-core reason and final empty clause.
+  kernel.next_clause_id += 5;
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int32_t decision : {-1, -2, -3, -4}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const auto detached =
+      affine_matrix_search_step_detached_minimal(kernel, session);
+  assert(detached.status == AffineMatrixServiceStatus::Applied &&
+         detached.reason_width == 3 && detached.live.detached_reason &&
+         kernel.value(kernel_internalize(kernel, 5)) > 0);
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  kernel.proof = nullptr;
+
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf 7 %zu\n", original.size() + 5);
+  for (const auto &clause : original) {
+    for (const int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
+    std::fprintf(cnf, "0\n");
+  }
+  for (const int32_t unit : {-1, -2, -3, -4, -5})
+    std::fprintf(cnf, "%d 0\n", unit);
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
 } // namespace
 int main(int argc,char **argv){
   if(argc==4&&!std::strcmp(argv[1],"--proof-deferred"))
     return deferred_reason_proof_fixture(argv[2],argv[3]);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-detached-minimal"))
+    return detached_minimal_reason_proof_fixture(argv[2],argv[3]);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-unit"))return root_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-empty"))return root_proof_fixture(argv[2],argv[3],false);
   if(argc==4&&!std::strcmp(argv[1],"--proof"))return root_proof_fixture(argv[2],argv[3],true);
@@ -1007,6 +1135,7 @@ int main(int argc,char **argv){
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
   deferred_reason_has_public_materialization_boundary();
+  detached_minimal_reason_is_public_and_unwatched();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);
   repeated_deferred_pbp_reasons_preserve_cache_generation();

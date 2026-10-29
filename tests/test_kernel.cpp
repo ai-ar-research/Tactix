@@ -1366,6 +1366,59 @@ static void test_garbage_collection_drops_retired_otfs_reason() {
   kernel_check_invariants(k);
 }
 
+static void test_detached_large_reason_lifetime() {
+  { // Reduce's transient lock must not turn an ordinary dead clause into a
+    // detached record.  This is the distinction variable compaction relies on.
+    Kernel ordinary;
+    ScopedHeuristics _ordinary_hg(ordinary);
+    kernel_reserve_vars(ordinary, 3);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref ref = kernel_add_large_clause(ordinary, lits, 3, true, 2, 40);
+    Clause *clause = clause_at(ordinary.arena, ref);
+    clause->flags |= Clause::GARBAGE | Clause::REASON;
+    assert(!clause->detached_reason());
+    kernel_collect_garbage(ordinary);
+    assert(ordinary.arena.empty());
+  }
+
+  Kernel k;
+  ScopedHeuristics _hg(k);
+  kernel_reserve_vars(k, 4);
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  const Lit reason_lits[3] = {internalize(3), internalize(-1),
+                              internalize(-2)};
+  const Ref original =
+      kernel_add_detached_large_reason(k, reason_lits, 3, 41);
+  const Clause *reason = clause_at(k.arena, original);
+  assert(reason->garbage() && reason->reason() && reason->redundant() &&
+         reason->detached_reason());
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      assert(watch.binary() || watch.ref() != original);
+
+  kernel_assign_ref(k, internalize(3), original);
+  assert(k.assigned[var_of(internalize(3))].reason == original);
+  kernel_check_invariants(k);
+
+  // A collection must forward the implication-graph record without making it
+  // live in the Boolean formula.
+  kernel_collect_garbage(k);
+  const Ref forwarded = k.assigned[var_of(internalize(3))].reason;
+  reason = clause_at(k.arena, forwarded);
+  assert(reason->id() == 41 && reason->garbage() && reason->reason() &&
+         reason->detached_reason());
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      assert(watch.binary() || watch.ref() != forwarded);
+
+  kernel_backtrack(k, 0);
+  assert(!clause_at(k.arena, forwarded)->reason());
+  kernel_collect_garbage(k);
+  assert(k.arena.empty());
+  kernel_check_invariants(k);
+}
+
 static void test_large_clause_propagation() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -2557,6 +2610,7 @@ int main() {
   test_root_sparse_collection_retains_pending_prefix_replacement();
   test_repeated_clause_deletion_emits_one_proof_line();
   test_garbage_collection_drops_retired_otfs_reason();
+  test_detached_large_reason_lifetime();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();

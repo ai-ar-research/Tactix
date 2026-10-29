@@ -183,7 +183,8 @@ void deferred_policy_boundary(const std::string &stem = "") {
   proof.arm_population_shadow();
   kernel.proof = &proof;
   auto settings = config(true);
-  settings.affine_search.deferred_reasons = true;
+  settings.affine_search.reason_mode =
+      DefaultStrategyConfig::AffineSearch::ReasonMode::Deferred;
   DefaultPolicy policy(settings);
   const auto initialized =
       DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true);
@@ -229,6 +230,69 @@ void deferred_policy_boundary(const std::string &stem = "") {
   kernel.structural_provenance = nullptr;
   std::fclose(records);
   if (stem.empty()) std::remove(proof_path.c_str());
+}
+
+// The experimental N4 arm must travel through the same DefaultPolicy public
+// action port as the shipped eager arm.  Its implication reason is proof
+// visible and analyzable, but absent from ordinary watched propagation.
+void detached_minimal_policy_boundary() {
+  Fixture f{6, {}};
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(variables, rhs))
+      f.clauses.push_back(clause);
+  Kernel kernel;
+  const auto text = cnf(f);
+  FILE *input = std::tmpfile();
+  assert(input);
+  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
+  std::rewind(input);
+  assert(!parse_dimacs(input, kernel));
+  std::fclose(input);
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  Proof proof;
+  const char *path = "/tmp/tactix-default-detached-minimal-policy.dsr";
+  assert(proof.open(path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+
+  auto settings = config(true);
+  settings.affine_search.reason_mode =
+      DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedMinimal;
+  DefaultPolicy policy(settings);
+  assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
+             .status == AffineMatrixInitStatus::Applied);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.live.detached_reason && service.reason_width == 3);
+  assert(policy.affine_search_diagnostics().reasons_detached == 1);
+  const Lit implied = kernel_internalize(kernel, -5);
+  assert(kernel.values[implied] > 0);
+  const Ref ref = kernel.assigned[var_of(implied)].reason;
+  const Clause *reason = clause_at(kernel.arena, ref);
+  assert(reason->garbage() && reason->reason() && reason->detached_reason());
+  for (Lit lit = 0; lit < 2 * kernel.nvars; ++lit)
+    for (const WatchEntry watch : kernel.watches.entries(lit))
+      assert(watch.binary() || watch.ref() != ref);
+
+  kernel_backtrack(kernel, 0);
+  assert(!clause_at(kernel.arena, ref)->reason());
+  session.disable(kernel);
+  proof.flush();
+  kernel.proof = nullptr;
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+  std::remove(path);
 }
 
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
@@ -488,6 +552,7 @@ void paused_owner_retry(const std::string &stem = "",
 int main(int argc,char **argv) {
   assert(argc==1 || argc==2);
   empty_census_retry();
+  detached_minimal_policy_boundary();
   deferred_policy_boundary(argc == 2
       ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {

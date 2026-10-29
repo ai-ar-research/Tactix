@@ -1439,7 +1439,11 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
         // OTFS (kissat deduce.c): resolvent ⊆ reason ∖ {t} — since the
         // resolvent contains all non-root reason literals except t, a
         // strictly smaller size means equality
-        if (antecedent > 2 && resolvent_size < antecedent) {
+        // A detached theory reason is an implication-graph object, not a
+        // watched clause that OTFS may strengthen in place. Native Gaussian
+        // reasons have the same boundary in CryptoMiniSat.
+        if (!reason->detached_reason() && antecedent > 2 &&
+            resolvent_size < antecedent) {
           const bool subsumes_conflict = resolved == 1 &&
                                          conflict_ref0 != INVALID_REF &&
                                          resolvent_size < conflict_nonroot;

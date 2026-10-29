@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstdio>
+#include <iterator>
 #include <map>
 #include <sstream>
 
@@ -122,6 +123,39 @@ std::string event_identity(uint64_t owner, const MatrixEvent &event) {
     out << event.reason[i];
   }
   return out.str();
+}
+
+bool minimize_event_reason(const std::vector<Equation> &sources,
+                           MatrixEvent &event,
+                           const std::function<bool(uint64_t)> &charge) {
+  if (event.kind == MatrixEventKind::None || !charge)
+    return event.kind == MatrixEventKind::None;
+  std::vector<External> support, scratch;
+  for (const size_t ordinal : event.row.source_equations) {
+    if (ordinal >= sources.size() ||
+        !charge(1 + support.size() + sources[ordinal].variables.size()))
+      return false;
+    scratch.clear();
+    std::set_symmetric_difference(
+        support.begin(), support.end(), sources[ordinal].variables.begin(),
+        sources[ordinal].variables.end(), std::back_inserter(scratch));
+    support.swap(scratch);
+  }
+  if (!charge(1 + event.reason.size() + support.size())) return false;
+  std::vector<External> minimal;
+  minimal.reserve(support.size());
+  for (const External literal : event.reason) {
+    const External variable = literal < 0 ? -literal : literal;
+    if (std::binary_search(support.begin(), support.end(), variable))
+      minimal.push_back(literal);
+  }
+  if (event.kind == MatrixEventKind::Implication) {
+    const External implied = event.implied_value ? event.implied_variable
+                                                 : -event.implied_variable;
+    if (minimal.empty() || minimal.back() != implied) return false;
+  }
+  event.reason = std::move(minimal);
+  return true;
 }
 
 bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
@@ -1241,6 +1275,7 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
                                                       profile.operation == Operation::Refresh));
     case Operation::SearchStep:
     case Operation::DeferredSearchStep:
+    case Operation::DetachedMinimalSearchStep:
     case Operation::MaterializeReasons:
       if (kernel.affine_matrix_search_session->parameters_ != profile.basis ||
           kernel.affine_matrix_search_session->persistence_.maximum_retained_bytes != limits.maximum_retained_bytes ||
@@ -1251,6 +1286,8 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
           ? affine_matrix_search_step(kernel, session)
           : profile.operation == Operation::DeferredSearchStep
               ? affine_matrix_search_step_deferred(kernel, session)
+          : profile.operation == Operation::DetachedMinimalSearchStep
+              ? affine_matrix_search_step_detached_minimal(kernel, session)
               : affine_matrix_materialize_reason(kernel, session);
       return session.last_service_->result;
   }
@@ -1667,7 +1704,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
 }
 
 AffineMatrixServiceResult affine_matrix_search_step_impl(
-    Kernel &kernel, AffineMatrixSearchSession &session, bool defer_reason) {
+    Kernel &kernel, AffineMatrixSearchSession &session, bool defer_reason,
+    bool detached_minimal) {
   AffineMatrixServiceResult result;
   if (!session.enabled()) return result;
   if (!session.attached_to(kernel)) {
@@ -2023,6 +2061,15 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     record_service(kernel, result);
     return result;
   }
+  if (detached_minimal &&
+      !minimize_event_reason(session.image_.equations, event,
+                             synchronization_charge)) {
+    result.status = kernel_terminating(kernel)
+        ? AffineMatrixServiceStatus::Interrupted
+        : AffineMatrixServiceStatus::ResourceExhausted;
+    record_service(kernel, result);
+    return result;
+  }
   // A globally implied unit discovered above root cannot be installed as a
   // root assignment while the current decision trail is live. Retain the
   // matrix event for the next root window; other reasons carry their false
@@ -2088,6 +2135,12 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   request.compact_provenance = kernel.affine_matrix_provenance_compact;
   request.retained_source_provenance =
       session.retained_source_provenance_owner_ == session.owner_version_;
+  request.detached_reason = detached_minimal;
+  // The matrix's canonical current-event spelling is the source-support
+  // weakening. The detached operation deliberately selects its exact XOR
+  // core, so authenticate the same row/source identity through the historical
+  // complete-core audit rather than requiring byte-identical reason spelling.
+  request.core_reason_authentication = detached_minimal;
   request.proof_cache = &session.proof_cache_;
   request.pbp_parity_cache = &session.pbp_proof_cache_;
   if (session.persistent()) {
@@ -2178,12 +2231,17 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
 
 AffineMatrixServiceResult affine_matrix_search_step(
     Kernel &kernel, AffineMatrixSearchSession &session) {
-  return affine_matrix_search_step_impl(kernel, session, false);
+  return affine_matrix_search_step_impl(kernel, session, false, false);
 }
 
 AffineMatrixServiceResult affine_matrix_search_step_deferred(
     Kernel &kernel, AffineMatrixSearchSession &session) {
-  return affine_matrix_search_step_impl(kernel, session, true);
+  return affine_matrix_search_step_impl(kernel, session, true, false);
+}
+
+AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
+    Kernel &kernel, AffineMatrixSearchSession &session) {
+  return affine_matrix_search_step_impl(kernel, session, false, true);
 }
 
 AffineMatrixServiceResult affine_matrix_materialize_reason(
@@ -2219,7 +2277,8 @@ AffineMatrixServiceResult affine_matrix_materialize_reason(
       std::abort();
     kernel.assigned[implied].reason = result.live.installed_reason_ref;
     Clause *provisional = clause_at(kernel.arena, pending.provisional_ref);
-    provisional->flags |= Clause::GARBAGE;
+    kernel_delete_clause(kernel, provisional, false,
+                         "affine-deferred-provisional", false);
     session.deferred_reason_.reset();
     result.reason_materialized = true;
   }
@@ -2233,7 +2292,9 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                 (kernel.affine_matrix_initialize_parameters.operation ==
                                      strategy::AffineMatrixInitializeParameters::Operation::SearchStep ||
                                  kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::DeferredSearchStep))
+                                     strategy::AffineMatrixInitializeParameters::Operation::DeferredSearchStep ||
+                                 kernel.affine_matrix_initialize_parameters.operation ==
+                                     strategy::AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep))
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)

@@ -500,6 +500,23 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   return ref;
 }
 
+Ref kernel_add_detached_large_reason(Kernel &k, const Lit *lits,
+                                     uint32_t size, uint64_t id) {
+  assert(size >= 3 && id);
+  const Ref ref = static_cast<Ref>(k.arena.size());
+  k.arena.resize(k.arena.size() + clause_words(size));
+  Clause *c = clause_at(k.arena, ref);
+  c->size = size;
+  c->flags = Clause::GARBAGE | Clause::REDUNDANT | Clause::REASON |
+             Clause::DETACHED_REASON | Clause::USED_MASK;
+  c->set_glue(0);
+  c->searched = 2;
+  c->set_id(id);
+  for (uint32_t i = 0; i < size; ++i)
+    c->lits[i] = lits[i];
+  return ref;
+}
+
 uint64_t kernel_clause_position(const Kernel &k, Ref ref) {
   if (k.clause_position_alias.empty())
     return ref; // no in-place rewrite since the last collection
@@ -1036,6 +1053,17 @@ void kernel_touch_sync_fixed(Kernel &k) {
 // first two silently desynchronizes the third.
 template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
   const Var v = var_of(lit);
+  Assigned &assignment = k.assigned[v];
+  if (!assignment.binary && assignment.reason != DECISION_REASON &&
+      assignment.reason != UNIT_REASON) {
+    Clause *reason = clause_at(k.arena, assignment.reason);
+    // Detached algebraic reasons are garbage to the Boolean formula but
+    // locked while this assignment can name them. Each such record belongs to
+    // exactly one implied literal, so releasing it here needs no reference
+    // count and makes the next arena collection reclaim it.
+    if (reason->detached_reason() && reason->reason())
+      reason->flags &= ~Clause::REASON;
+  }
   k.values[lit] = 0;
   k.values[negate(lit)] = 0;
   k.unassigned++;
@@ -2620,7 +2648,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     }
   const auto retain_record = [&k, sparse_collection,
                               sparse_cut](Ref ref, const Clause *c) {
-    if (!c->garbage())
+    if (!c->garbage() || (c->detached_reason() && c->reason()))
       return true;
     // A whole-arena collection retires every garbage record, so the position
     // lookup below (a hash probe plus a second clause dereference) would only
@@ -2726,9 +2754,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // implementation-only packing pass instead forwards the old logical cut,
     // even if its original record was promoted or retired. The first surviving
     // tail record is the new boundary when the original record disappeared.
-    if (c->redundant() ||
-        (preserve_eager_recent && old_reducible != INVALID_REF &&
-         kernel_clause_position(k, ref) >= old_reducible))
+    if (!c->garbage() &&
+        (c->redundant() ||
+         (preserve_eager_recent && old_reducible != INVALID_REF &&
+          kernel_clause_position(k, ref) >= old_reducible)))
       packed_reducible = std::min(packed_reducible, nref);
     fresh.insert(fresh.end(), k.arena.begin() + ref,
                  k.arena.begin() + ref + words);
@@ -2755,7 +2784,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     Assigned &a = k.assigned[var_of(lit)];
     if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON) {
       const Clause *c = clause_at(k.arena, a.reason);
-      if (c->garbage()) {
+      if (c->garbage() &&
+          !(c->detached_reason() && c->reason())) {
         // The reason clause is being deleted. That is only possible for a
         // ROOT-fixed literal: inprocessing rules delete root-satisfied
         // clauses (and a root reason IS root-satisfied) only at a quiescent
@@ -2864,7 +2894,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // sizes while retaining Kissat-shaped per-literal allocation capacity.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (!dense_collection &&
+    if (!c->garbage() && !dense_collection &&
         (!sparse_collection || ref >= packed_watch_start)) {
       // collect.c:rewatch_clauses selects the best current watched pair before
       // appending the relocated clause to its two watch lists.
@@ -4248,6 +4278,15 @@ void kernel_check_invariants(const Kernel &k) {
     const Assigned &a = k.assigned[var_of(lit)];
     assert(a.trail == i);
     assert(a.level <= k.level);
+    if (!a.binary && a.reason != DECISION_REASON &&
+        a.reason != UNIT_REASON) {
+      assert(a.reason < k.arena.size());
+      const Clause *reason = clause_at(k.arena, a.reason);
+      assert((!reason->garbage() ||
+              (reason->detached_reason() && reason->reason() &&
+               reason->redundant())) &&
+             "live assignment names an unprotected garbage reason");
+    }
     // a literal sits at or after the start of its level's frame. (The old
     // upper bound `i < frames[a.level+1]` — trail level-sortedness — is gone
     // since decision (89ee0fb): true-level assignment + the compacting backtrack leave the

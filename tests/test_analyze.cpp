@@ -55,6 +55,55 @@ static void test_uip() {
   assert(default_solve(k) == 10); // still satisfiable: 1, -2, 3
 }
 
+static void test_detached_large_reason_in_conflict_analysis() {
+  // The GF(2) reason (3, -1, -2) belongs to the implication graph and proof,
+  // but deliberately not to the watched Boolean formula.  Resolving it with
+  // the conflict (-3, -2, -1) must still learn (-2, -1).
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 3);
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+
+  const Lit reason_lits[3] = {internalize(3), internalize(-1),
+                              internalize(-2)};
+  const Ref reason_ref =
+      kernel_add_detached_large_reason(k, reason_lits, 3, 41);
+  kernel_assign_ref(k, internalize(3), reason_ref);
+  const Clause *reason = clause_at(k.arena, reason_ref);
+  assert(reason->garbage() && reason->reason() && reason->detached_reason());
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      assert(watch.binary() || watch.ref() != reason_ref);
+
+  const Lit conflict_lits[3] = {internalize(-3), internalize(-2),
+                                internalize(-1)};
+  k.conflict_ref =
+      kernel_add_large_clause(k, conflict_lits, 3, false, 0, 42);
+  k.conflict_valid = true;
+  assert(analyze_guard(k));
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.pending.valid);
+  assert(k.pending.lits.size() == 2);
+  assert(k.pending.lits[0] == internalize(-2));
+  assert(k.pending.lits[1] == internalize(-1));
+  assert(k.pending.jump_level == 1);
+
+  // Analyze consumed the record without attaching or strengthening it.
+  reason = clause_at(k.arena, reason_ref);
+  assert(reason->garbage() && reason->reason() && reason->detached_reason() &&
+         reason->size == 3);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      assert(watch.binary() || watch.ref() != reason_ref);
+
+  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(k.level == 1 && k.values[internalize(-2)] > 0);
+  assert(!clause_at(k.arena, reason_ref)->reason());
+  kernel_collect_garbage(k);
+  kernel_check_invariants(k);
+}
+
 // D-SPLIT: Analyze and Backjump are fused into the atomic ConflictAnalysis
 // rule, so `pending` is consumed within one apply and (conflict_valid &&
 // pending.valid) is unrepresentable — hence no !pending.valid in
@@ -1225,6 +1274,7 @@ static void test_eager_subsume() {
 
 int main(int argc, char **argv) {
   test_uip();
+  test_detached_large_reason_in_conflict_analysis();
   test_conflictanalysis_atomic();
   test_learned_unit();
   test_bump_admission_order_is_not_cleanup_order();

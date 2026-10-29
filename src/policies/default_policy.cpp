@@ -1408,7 +1408,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " onehot_model.candidate_budget="
       << onehot_model.parameters.candidate_budget
       << " affine_search.enabled=" << affine_search.enabled
-      << " affine_search.deferred_reasons=" << affine_search.deferred_reasons
+      << " affine_search.reason_mode="
+      << static_cast<unsigned>(affine_search.reason_mode)
       << " affine_search.maximum_rows=" << affine_search.maximum_rows
       << " affine_search.maximum_row_width=" << affine_search.maximum_row_width
       << " affine_search.maximum_arity=" << affine_search.maximum_arity
@@ -3905,11 +3906,18 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
         spec.description.have_affine_matrix_event=true;
         return spec;
       },[&] {
-        auto serviced=!root && config_.affine_search.deferred_reasons
-            ? port::affine_matrix_search_step_deferred(
-                  kernel, *kernel.affine_matrix_search_session)
-            : port::affine_matrix_search_step(
-                  kernel, *kernel.affine_matrix_search_session);
+        AffineMatrixServiceResult serviced;
+        using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
+        if (!root && config_.affine_search.reason_mode == ReasonMode::Deferred)
+          serviced = port::affine_matrix_search_step_deferred(
+              kernel, *kernel.affine_matrix_search_session);
+        else if (!root && config_.affine_search.reason_mode ==
+                              ReasonMode::DetachedMinimal)
+          serviced = port::affine_matrix_search_step_detached_minimal(
+              kernel, *kernel.affine_matrix_search_session);
+        else
+          serviced = port::affine_matrix_search_step(
+              kernel, *kernel.affine_matrix_search_session);
         uint64_t work=0;
         for (uint64_t amount : {serviced.trail_capture_work,serviced.synchronization_work,
              serviced.session_work,serviced.live.planner_work,serviced.live.revalidation_work,
@@ -3983,7 +3991,7 @@ bool DefaultPolicy::discharge_affine_reason(Kernel &kernel) {
          !kernel.affine_matrix_search_session->has_deferred_reason();
 }
 
-void DefaultPolicy::search_decide(Kernel &k, EventTrace &event_trace) {
+Lit DefaultPolicy::search_decide(Kernel &k) {
   const Lit decision = default_branching_.pick(k);
   (void)port::complete_action(completion_, FeedbackKind::SearchService,
       "Decide", lit_instance(k, decision), [&] {
@@ -4004,9 +4012,7 @@ void DefaultPolicy::search_decide(Kernel &k, EventTrace &event_trace) {
         return result;
       });
   });
-  event_trace.detail(k, "decision", kernel_externalize(k, decision));
-  event_trace.heap_after_decision(k);
-  event_trace.heap_scores(k);
+  return decision;
 }
 
 bool DefaultPolicy::affine_additional_recognition_due(
@@ -4059,6 +4065,7 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   if(result.status==AffineMatrixServiceStatus::ResourceExhausted)++affine_search_diagnostics_.resource_declines;
   affine_search_diagnostics_.reasons_deferred += result.reason_deferred;
   affine_search_diagnostics_.reasons_materialized += result.reason_materialized;
+  affine_search_diagnostics_.reasons_detached += result.live.detached_reason;
   if(result.status==AffineMatrixServiceStatus::Applied) {
     affine_search_diagnostics_.implications_consumed +=
         result.live.implication_consumed;
@@ -5295,7 +5302,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (!discharge_affine_reason(k)) return finish(0);
         return finish(0);
       }
-      search_decide(k, event_trace);
+      const Lit decision = search_decide(k);
+      event_trace.detail(k, "decision", kernel_externalize(k, decision));
+      event_trace.heap_after_decision(k);
+      event_trace.heap_scores(k);
       continue;
     }
     if (want_reduce(k) && reduce_guard(k)) {
@@ -5619,7 +5629,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (stop && *stop)
       return finish(0);
-    search_decide(k, event_trace);
+    const Lit decision = search_decide(k);
+    event_trace.detail(k, "decision", kernel_externalize(k, decision));
+    event_trace.heap_after_decision(k);
+    event_trace.heap_scores(k);
   }
 }
 

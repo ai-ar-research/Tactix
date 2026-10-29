@@ -50,6 +50,16 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
   --every-lemma
 
+# The exact XOR-core reason is proof-visible but absent from ordinary Boolean
+# watches. Check every emitted lemma against the untouched original CNF plus
+# the four decisions and the contradictory unit.
+"$binary" --proof-detached-minimal \
+  "$tmp/detached.cnf" "$tmp/detached.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/detached.cnf" "$tmp/detached.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
 # Each seed permutes the source variables, row signs, and decision phase.
 # A fresh independent check of every proof lemma catches mistakes hidden by
 # successful in-process propagation alone.

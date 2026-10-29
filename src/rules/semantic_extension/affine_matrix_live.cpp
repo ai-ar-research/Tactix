@@ -116,7 +116,10 @@ bool same_request(const MatrixLiveRequest &first,
          first.retained_source_provenance ==
              second.retained_source_provenance &&
          first.historical_event == second.historical_event &&
+         first.core_reason_authentication ==
+             second.core_reason_authentication &&
          first.retained_publication == second.retained_publication &&
+         first.detached_reason == second.detached_reason &&
          first.proof_cache == second.proof_cache &&
          first.pbp_parity_cache == second.pbp_parity_cache &&
          first.premise_leases == second.premise_leases &&
@@ -319,6 +322,8 @@ bool make_journal(const MatrixLiveRequest &request,
               (event.kind == MatrixEventKind::Implication ? "implication"
                                                           : "conflict") +
               "\",\"level\":" + std::to_string(level) +
+              ",\"detached_reason\":" +
+              std::to_string(request.detached_reason) +
               ",\"reason\":"))
     return false;
   if (!list(event.reason)) return false;
@@ -478,7 +483,7 @@ bool proof_unchanged(const Kernel &kernel, bool had_proof, Proof *proof,
 }
 
 bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
-                    uint64_t id, bool &implication_consumed,
+                    uint64_t id, bool detached, bool &implication_consumed,
                     Ref &installed_ref) {
   implication_consumed = false;
   installed_ref = INVALID_REF;
@@ -506,15 +511,19 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
       implication_consumed = true;
     }
   } else {
-    const Ref reason = kernel_add_large_clause(
-        kernel, physical.data(), physical.size(), true, 0, id);
+    const Ref reason = detached && consume_implication
+        ? kernel_add_detached_large_reason(
+              kernel, physical.data(), physical.size(), id)
+        : kernel_add_large_clause(
+              kernel, physical.data(), physical.size(), true, 0, id);
     installed_ref = reason;
     if (consume_implication) {
       for (size_t i = 1; i < physical.size(); ++i)
         if (kernel.value(physical[i]) >= 0) return false;
       // reason_order puts the unique open literal first. Direct assignment
-      // retains exactly the installed clause as its analysis reason and leaves
-      // only the new literal's watches for the next Propagate action.
+      // retains exactly the installed record as its analysis reason. A normal
+      // clause leaves the new literal's watches for the next Propagate action;
+      // a detached record has no watches and is implication-graph-only.
       kernel_assign_ref(kernel, physical[0], reason);
       implication_consumed = true;
     }
@@ -649,8 +658,9 @@ MatrixLiveResult prepare_affine_matrix_live(
       compact_plan,
       !(candidate.immediate_ && compact_plan &&
         request.retained_source_provenance),
-      same_stack_retained_sources && !request.historical_event,
-      request.historical_event);
+      same_stack_retained_sources && !request.historical_event &&
+          !request.core_reason_authentication,
+      request.historical_event || request.core_reason_authentication);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.status = transaction_status(planned);
@@ -838,7 +848,7 @@ MatrixLiveResult publish_affine_matrix_live(
     if (unchanged_retained_matrix) {
       authenticated = validation.charge(retained_authentication);
       result.retained_authentication = authenticated;
-    } else if (historical) {
+    } else if (historical || request.core_reason_authentication) {
       authenticated = request.matrix->authenticates_historical(
           request.owner_identity, *request.exact_sources, *request.event,
           [&](uint64_t amount) { return validation.charge(amount); });
@@ -1055,9 +1065,12 @@ MatrixLiveResult publish_affine_matrix_live(
   bool implication_consumed = false;
   if (!installed_id ||
       !install_reason(kernel, prepared.physical_reason_, installed_id,
+                      request.detached_reason,
                       implication_consumed, result.installed_reason_ref))
     std::abort();
   result.implication_consumed = implication_consumed;
+  result.detached_reason = request.detached_reason && implication_consumed &&
+                           prepared.physical_reason_.size() >= 3;
   if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
                   request.records) != prepared.journal_.size() ||
       std::fflush(request.records) || std::ferror(request.records))

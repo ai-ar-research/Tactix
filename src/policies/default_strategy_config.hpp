@@ -325,14 +325,19 @@ struct DefaultStrategyConfig {
   } affine_root_closure;
 
   struct AffineSearch {
+    enum class ReasonMode : uint8_t {
+      EagerSourceSupport = 0,
+      Deferred = 1,
+      DetachedMinimal = 2,
+    };
     // Production switch.  The service performs instance-independent bounded
     // authentication and is still explicitly disableable for attribution and
     // regression controls.  Promotion of this candidate remains subject to
     // the proof, fuzz, performance and full regression gates.
     bool enabled = true;
-    // Development A/B only. Promotion requires the matched N3 gate; eager is
-    // the shipped control until then.
-    bool deferred_reasons = false;
+    // Development A/B only. Promotion requires the matched N3 gate; eager
+    // source-support reasons remain the shipped control until then.
+    ReasonMode reason_mode = ReasonMode::EagerSourceSupport;
     // CryptoMiniSat src/solverconf.h GaussConf source defaults (its README
     // advertises older smaller dimensions), pinned at 2bf89cfb3e126e559d472388486327813f735f7e.
     // Tactix additionally caps retained

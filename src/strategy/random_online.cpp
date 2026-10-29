@@ -836,7 +836,7 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
     AffineMatrixInitializeParameters persistent;
     persistent.basis=p;
-    if (v[22] != 1 || v[23] < 1 || v[23] > 6) return false;
+    if (v[22] != 1 || v[23] < 1 || v[23] > 7) return false;
     persistent.admission=static_cast<AffineMatrixInitializeParameters::Admission>(v[22]);
     persistent.operation=static_cast<AffineMatrixInitializeParameters::Operation>(v[23]);
     persistent.maximum_retained_bytes=v[24];

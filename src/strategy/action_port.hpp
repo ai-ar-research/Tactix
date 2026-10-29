@@ -69,6 +69,10 @@ struct StaticPort {
       Kernel &k, AffineMatrixSearchSession &session) {
     return ::tactix::affine_matrix_search_step_deferred(k, session);
   }
+  static AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    return ::tactix::affine_matrix_search_step_detached_minimal(k, session);
+  }
   static AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &k, AffineMatrixSearchSession &session) {
     return ::tactix::affine_matrix_materialize_reason(k, session);
@@ -206,6 +210,12 @@ decltype(auto) affine_matrix_search_step_deferred(Kernel &k, Args &&...args) {
                                                 std::forward<Args>(args)...);
 }
 template <class P = SelectedPort, class... Args>
+decltype(auto) affine_matrix_search_step_detached_minimal(Kernel &k,
+                                                          Args &&...args) {
+  return P::affine_matrix_search_step_detached_minimal(
+      k, std::forward<Args>(args)...);
+}
+template <class P = SelectedPort, class... Args>
 decltype(auto) affine_matrix_materialize_reason(Kernel &k, Args &&...args) {
   return P::affine_matrix_materialize_reason(k,
                                               std::forward<Args>(args)...);
@@ -254,6 +264,7 @@ using ::tactix::affine_matrix_search_initialize;
 using ::tactix::affine_matrix_search_refresh;
 using ::tactix::affine_matrix_search_step;
 using ::tactix::affine_matrix_search_step_deferred;
+using ::tactix::affine_matrix_search_step_detached_minimal;
 using ::tactix::affine_matrix_materialize_reason;
 using ::tactix::subsume_forward_try_fastel;
 using execution::execute_substitute_rounds;

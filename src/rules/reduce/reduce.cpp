@@ -141,7 +141,9 @@ static void lock_reasons(Kernel &k, bool lock) {
         a.reason != UNIT_REASON) {
       Clause *c = clause_at(k.arena, a.reason);
       c->flags = lock ? (c->flags | Clause::REASON)
-                      : (c->flags & ~Clause::REASON);
+                      : c->detached_reason()
+                            ? c->flags
+                            : (c->flags & ~Clause::REASON);
     }
   }
 }

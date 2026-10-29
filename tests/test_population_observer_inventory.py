@@ -72,8 +72,10 @@ for pattern, allowed in mutation_patterns.items():
 
 exact_mutation_counts = {
     (kernel_hpp, "->flags |= Clause::GARBAGE"): 1,
-    (kernel_cpp, "->size ="): 2,
-    (kernel_cpp, "->set_id("): 2,
+    (kernel_cpp, "->size ="): 3,
+    # Ordinary large clauses, detached proof reasons, and in-place
+    # replacements are the three kernel-owned identity assignments.
+    (kernel_cpp, "->set_id("): 3,
     (parse_cpp, "->set_id("): 2,
 }
 for (path, token), expected in exact_mutation_counts.items():

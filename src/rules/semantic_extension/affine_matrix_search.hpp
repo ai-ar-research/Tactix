@@ -228,8 +228,10 @@ private:
   friend AffineMatrixServiceResult affine_matrix_search_step(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_impl(
-      Kernel &, AffineMatrixSearchSession &, bool);
+      Kernel &, AffineMatrixSearchSession &, bool, bool);
   friend AffineMatrixServiceResult affine_matrix_search_step_deferred(
+      Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &, AffineMatrixSearchSession &);
@@ -324,6 +326,12 @@ AffineMatrixServiceResult affine_matrix_search_step(
 // implication may be deferred; its exact certificate is preflighted before
 // assignment, and MaterializeReason must publish it before any reason consumer.
 AffineMatrixServiceResult affine_matrix_search_step_deferred(
+    Kernel &, AffineMatrixSearchSession &);
+// Eagerly certify the exact XOR-core reason, but keep a non-root large
+// implication reason detached from the watched Boolean formula. This public
+// operation isolates reason lifetime/attachment; it is not the later lazy
+// `(matrix,row)` handle mechanism.
+AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
     Kernel &, AffineMatrixSearchSession &);
 AffineMatrixServiceResult affine_matrix_materialize_reason(
     Kernel &, AffineMatrixSearchSession &);
