@@ -450,7 +450,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const std::function<bool(uint64_t)> &charge,
     AffineMatrixTransaction &output,
     const AffineMatrixProofCache *proof_cache, uint64_t proof_epoch,
-    const PbpParityReasonPlan *pbp_plan, bool retain_source_identity) {
+    const PbpParityReasonPlan *pbp_plan, bool retain_source_identity,
+    bool aggregate_retained_authentication) {
   if (!expected_owner_identity || !charge || !limits.maximum_work ||
       !limits.maximum_proof_additions || !limits.maximum_proof_deletions ||
       !limits.maximum_helper_extent ||
@@ -460,13 +461,26 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     return MatrixTransactionStatus::Stale;
 
   Work work{0, limits.maximum_work, charge};
-  if (!matrix.authenticates(expected_owner_identity, exact_sources, event,
-                            [&](uint64_t amount) {
-                              return work.consume(amount);
-                            }))
+  const bool retained_sources =
+      &exact_sources == &matrix.authenticated_sources();
+  uint64_t retained_authentication = 0;
+  const bool retained_event = aggregate_retained_authentication &&
+      retained_sources &&
+      matrix.retained_authentication_work(event, retained_authentication);
+  // Preserve the full audit's exact partial-work boundary when the retained
+  // aggregate itself would exceed the request.  On the ordinary successful
+  // same-stack path, charge the identical total once and avoid repeatedly
+  // walking immutable sources and rows.
+  if (retained_event && retained_authentication <= limits.maximum_work) {
+    if (!work.consume(retained_authentication))
+      return MatrixTransactionStatus::Interrupted;
+  } else if (!matrix.authenticates(
+                 expected_owner_identity, exact_sources, event,
+                 [&](uint64_t amount) { return work.consume(amount); })) {
     return work.interrupted ? MatrixTransactionStatus::Interrupted
          : work.exhausted ? MatrixTransactionStatus::ResourceExhausted
                           : MatrixTransactionStatus::Stale;
+  }
   const uint64_t authentication_work = work.used;
   const bool authenticated_matrix_sources =
       &exact_sources == &matrix.authenticated_sources() &&

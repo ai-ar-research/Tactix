@@ -583,7 +583,8 @@ MatrixLiveResult prepare_affine_matrix_live(
       kernel.proof ? kernel.proof->persistent_external_epoch() : 0,
       compact_plan,
       !(candidate.immediate_ && compact_plan &&
-        request.retained_source_provenance));
+        request.retained_source_provenance),
+      same_stack_retained_sources);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.status = transaction_status(planned);

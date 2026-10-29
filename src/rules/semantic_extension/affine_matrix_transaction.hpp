@@ -122,7 +122,7 @@ private:
       const MatrixEvent &, uint32_t, uint64_t,
       const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
       AffineMatrixTransaction &, const AffineMatrixProofCache *, uint64_t,
-      const PbpParityReasonPlan *, bool);
+      const PbpParityReasonPlan *, bool, bool);
 
   bool ready_ = false;
   uint64_t owner_identity_ = 0;
@@ -163,6 +163,10 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     const PbpParityReasonPlan *pbp_plan = nullptr,
     // Only a same-stack, no-callback consumer may omit the deep identity
     // snapshot, and only for compact PBP with retained-source provenance.
-    bool retain_source_identity = true);
+    bool retain_source_identity = true,
+    // Only the no-callback, same-stack persistent service may aggregate the
+    // immutable authentication walk. Generic callers retain stepwise
+    // interruption and partial-work observations.
+    bool aggregate_retained_authentication = false);
 
 } // namespace tactix::affine_semantic_extension

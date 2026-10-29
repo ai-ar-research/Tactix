@@ -549,6 +549,17 @@ MatrixStatus build_affine_matrix(
   candidate.complete_admission_ = status == MatrixStatus::Complete;
   candidate.limits_ = limits;
   candidate.sources_ = input;
+  {
+    __uint128_t authentication = 0;
+    for (const Equation &source : input) {
+      authentication += 3 + source.variables.size() + source.premises.size() +
+                        source.premise_clauses.size();
+      for (const auto &clause : source.premise_clauses)
+        authentication += clause.size();
+    }
+    candidate.source_authentication_work_ =
+        authentication > UINT64_MAX ? UINT64_MAX : uint64_t(authentication);
+  }
   candidate.proof_sources_authenticated_ =
       std::all_of(input.begin(), input.end(), authenticates_clausal_form);
   candidate.admitted_rows_ = rows;
@@ -1553,6 +1564,41 @@ bool AffineMatrix::authenticates(
       return false;
   make_reason(sources_, trail_, expected);
   return expected.kind != MatrixEventKind::None && same_event(expected, event);
+}
+
+bool AffineMatrix::retained_authentication_work(
+    const MatrixEvent &event, uint64_t &work) const {
+  work = 0;
+  if (!owner_identity_ || source_authentication_work_ == UINT64_MAX)
+    return false;
+
+  __uint128_t total = 1 + __uint128_t(source_authentication_work_) + 1 +
+                      trail_.size();
+  if (index_ready_)
+    total += index_.authentication_work;
+  else {
+    total += rows_.size();
+    for (const MatrixRow &row : rows_)
+      total += row.variables.size() + row.source_equations.size();
+  }
+
+  MatrixEvent expected = index_ready_ ? indexed_event() : find_event(rows_);
+  total += event.reason.size() + event.row.variables.size() +
+           event.row.source_equations.size();
+  for (size_t source : expected.row.source_equations) {
+    if (source >= sources_.size() ||
+        !std::binary_search(admitted_sources_.begin(),
+                            admitted_sources_.end(), source))
+      return false;
+    total += sources_[source].variables.size();
+  }
+  if (total > UINT64_MAX)
+    return false;
+  make_reason(sources_, trail_, expected);
+  if (expected.kind == MatrixEventKind::None || !same_event(expected, event))
+    return false;
+  work = uint64_t(total);
+  return true;
 }
 
 } // namespace tactix::affine_semantic_extension

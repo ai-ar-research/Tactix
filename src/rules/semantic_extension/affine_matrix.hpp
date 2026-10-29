@@ -173,6 +173,14 @@ public:
                      const MatrixEvent &event,
                      const std::function<bool(uint64_t)> &charge) const;
 
+  // Same semantic check and exact work currency as `authenticates`, for a
+  // caller already holding `authenticated_sources()`.  The immutable source
+  // image and current row index were authenticated when they were committed,
+  // so this returns their pre-accounted cost instead of walking them again.
+  // A false result is observational only; callers fall back to the full audit.
+  bool retained_authentication_work(const MatrixEvent &event,
+                                    uint64_t &work) const;
+
 private:
   struct Continuation {
     bool active = false;
@@ -218,6 +226,7 @@ private:
       const std::function<bool(uint64_t)> &, AffineMatrix &, bool);
 
   uint64_t source_width_bound_ = 0, source_support_bound_ = 0;
+  uint64_t source_authentication_work_ = 0;
   size_t basis_rank_ = 0;
   uint64_t owner_identity_ = 0;
   uint64_t work_ = 0;

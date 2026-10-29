@@ -126,6 +126,33 @@ static void complete_plan_accounts_and_retains_only_reason() {
   assert(installs == 1);
 }
 
+static void retained_source_authentication_preserves_work() {
+  AffineMatrix matrix;
+  MatrixEvent event;
+  event_fixture(matrix, event);
+  AffineMatrixTransaction copied, retained;
+  uint64_t copied_charges = 0, retained_charges = 0;
+  const auto input = sources();
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, input, event, 10, 1000, transaction_limits(),
+             [&](uint64_t) { ++copied_charges; return true; }, copied) ==
+         MatrixTransactionStatus::Prepared);
+  assert(prepare_affine_matrix_transaction(
+             matrix, 991, matrix.authenticated_sources(), event, 10, 1000,
+             transaction_limits(),
+             [&](uint64_t) { ++retained_charges; return true; }, retained,
+             nullptr, 0, nullptr, true, true) ==
+         MatrixTransactionStatus::Prepared);
+  uint64_t audited_authentication = 0;
+  assert(matrix.authenticates(
+      991, matrix.authenticated_sources(), event,
+      [&](uint64_t amount) { audited_authentication += amount; return true; }));
+  assert(retained.authentication_work() == audited_authentication);
+  assert(retained.authentication_work() == copied.authentication_work());
+  assert(retained.proof_events() == copied.proof_events());
+  assert(retained_charges < copied_charges);
+}
+
 static void implication_event_uses_the_same_general_bridge() {
   const std::vector<Equation> input = {
       authenticated_equation({1, 3, 4}, false, 300),
@@ -667,6 +694,7 @@ int main(int argc, char **argv) {
   if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
     return write_removed_proof(argv[2], argv[3]);
   complete_plan_accounts_and_retains_only_reason();
+  retained_source_authentication_preserves_work();
   compact_one_shot_may_borrow_source_identity();
   isolated_symmetric_difference_resume();
   isolated_removed_source_resume();
