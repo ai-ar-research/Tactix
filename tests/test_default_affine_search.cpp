@@ -411,6 +411,7 @@ int main(int argc,char **argv) {
   Kernel k;kernel_reserve_vars(k,30);auto c=config(true);
   auto p=default_affine_search_parameters(k,c);assert(p && p->valid());
   assert(p->maximum_arity>3 && p->basis_maximum_intermediate_width==30);
+  assert(p->maximum_session_work == c.affine_search.maximum_retained_bytes);
   c.affine_search.maximum_retained_bytes=1;assert(!default_affine_search_parameters(k,c));
   c=config(true);c.affine_root_closure.maximum_proof_deletions=0;
   assert(!default_affine_search_parameters(k,c));

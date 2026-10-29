@@ -394,7 +394,13 @@ default_affine_search_parameters(const Kernel &kernel,
   result.maximum_external_extent = static_cast<uint32_t>(std::min<uint64_t>(
       INT32_MAX, saturated_sum(kernel.external_to_internal.size(),result.maximum_proof_additions)));
   result.maximum_session_keys = clauses;
-  result.maximum_session_work = service;
+  // The persistent service retains duplicate identities under `bytes`; its
+  // session-work meter includes that lifetime key population.  Capping it at
+  // one per-call Gaussian quantum eventually discarded a still-useful matrix
+  // solely because enough certified reasons had been published.  Derive the
+  // lifetime allowance from the already-bounded retained-state budget, while
+  // preserving at least one complete service quantum for small profiles.
+  result.maximum_session_work = std::max(service, bytes);
   return result.valid() ? std::optional{result} : std::nullopt;
 }
 
