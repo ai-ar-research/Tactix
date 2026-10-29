@@ -3949,6 +3949,19 @@ AffineMatrixServiceResult DefaultPolicy::materialize_affine_reason(
         return port::affine_matrix_materialize_reason(
             kernel, *kernel.affine_matrix_search_session);
       }, affine_service_outcome);
+  ++affine_search_diagnostics_.materialization_attempts;
+  if (result.status == AffineMatrixServiceStatus::Inapplicable)
+    ++affine_search_diagnostics_.materialization_inapplicable;
+  else if (result.status == AffineMatrixServiceStatus::Stale)
+    ++affine_search_diagnostics_.materialization_stale;
+  else if (result.status == AffineMatrixServiceStatus::Invalid)
+    ++affine_search_diagnostics_.materialization_invalid;
+  else if (result.status == AffineMatrixServiceStatus::ResourceExhausted)
+    ++affine_search_diagnostics_.materialization_exhausted;
+  else if (result.status == AffineMatrixServiceStatus::Interrupted)
+    ++affine_search_diagnostics_.materialization_interrupted;
+  else if (result.status == AffineMatrixServiceStatus::UnsupportedProof)
+    ++affine_search_diagnostics_.materialization_unsupported_proof;
   affine_search_diagnostics_.overhead_nanos += now_nanos() - started;
   (void)record_affine_service_result(kernel, result, false);
   record_affine_survival(affine_search_diagnostics_, survival_before,

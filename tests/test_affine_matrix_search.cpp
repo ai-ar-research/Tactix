@@ -340,6 +340,75 @@ void deferred_reason_has_public_materialization_boundary() {
   std::fclose(journal);
 }
 
+void deferred_reason_materializes_at_later_conflict(bool pbp) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 7);
+  std::vector<std::vector<int32_t>> original;
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause : clausal_form(variables, rhs))
+      original.push_back(clause);
+  // Once affine reasoning assigns -5, deciding -6 makes the first clause
+  // imply 7 and the second imply -7.  This reaches materialization with an
+  // active Boolean conflict after an intervening ordinary decision/BCP step.
+  original.push_back({5, 6, 7});
+  original.push_back({6, -7});
+  for (const auto &clause : original) add_clause(kernel, clause);
+  char proof_path[] = "/tmp/tactix-affine-deferred-conflict-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, pbp ? ProofFormat::PbpStreaming
+                                    : ProofFormat::DsrAscii));
+  proof.bind_variable_map(&kernel.internal_to_external);
+  proof.bind_external_variable_map(&kernel.external_to_internal);
+  if (pbp) {
+    uint64_t id = 0;
+    for (const auto &external : original) {
+      std::vector<Lit> clause;
+      for (int32_t literal : external)
+        clause.push_back(kernel_internalize(kernel, literal));
+      proof.seed_population(++id, clause.data(), clause.size());
+    }
+    assert(id == kernel.next_clause_id);
+    proof.finish_input_transaction();
+    assert(proof.commit_clause_stream());
+  } else {
+    proof.arm_population_shadow();
+  }
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -1));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  const auto deferred = affine_matrix_search_step_deferred(kernel, session);
+  assert(deferred.status == AffineMatrixServiceStatus::Applied &&
+         deferred.reason_deferred && session.has_deferred_reason());
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  kernel_assign_decision(kernel, kernel_internalize(kernel, -6));
+  assert(propagate_apply(kernel) == ApplyResult::Conflict &&
+         kernel.conflict_valid);
+  const auto materialized = affine_matrix_materialize_reason(kernel, session);
+  assert(materialized.status == AffineMatrixServiceStatus::Applied &&
+         materialized.reason_materialized && !session.has_deferred_reason());
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 static std::string initialize_partial_fixture() {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -814,6 +883,8 @@ int main(int argc,char **argv){
   unchanged_terminal_initialization_is_suppressed();
   complete_snapshot_policy_admission();
   deferred_reason_has_public_materialization_boundary();
+  deferred_reason_materializes_at_later_conflict(false);
+  deferred_reason_materializes_at_later_conflict(true);
   partial_admission_feedback_provenance_and_replay();
   restart_only_replay();root_decline_atomicity();std::puts("test_affine_matrix_search: passed");
 }

@@ -71,6 +71,10 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
   uint64_t reasons_published = 0, implications_consumed = 0;
   uint64_t reasons_deferred = 0, reasons_materialized = 0;
+  uint64_t materialization_attempts = 0, materialization_inapplicable = 0;
+  uint64_t materialization_stale = 0, materialization_invalid = 0;
+  uint64_t materialization_exhausted = 0, materialization_interrupted = 0;
+  uint64_t materialization_unsupported_proof = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
   uint64_t synchronization_nanos = 0, publication_nanos = 0;

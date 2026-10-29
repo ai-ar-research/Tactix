@@ -206,7 +206,12 @@ void deferred_policy_boundary(const std::string &stem = "") {
          !session.has_deferred_reason());
   const auto &stats = policy.affine_search_diagnostics();
   assert(stats.reasons_deferred == 1 && stats.reasons_materialized == 1 &&
-         stats.reasons_published == 1 && stats.implications_consumed == 1);
+         stats.reasons_published == 1 && stats.implications_consumed == 1 &&
+         stats.materialization_attempts == 1 &&
+         !stats.materialization_inapplicable && !stats.materialization_stale &&
+         !stats.materialization_invalid && !stats.materialization_exhausted &&
+         !stats.materialization_interrupted &&
+         !stats.materialization_unsupported_proof);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
   kernel.proof = nullptr;
