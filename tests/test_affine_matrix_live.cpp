@@ -212,6 +212,63 @@ static void compact_provenance_keeps_authenticated_reason() {
   std::fclose(journal);
 }
 
+static void historical_implication_can_be_preflighted_after_tableau_advance() {
+  Kernel kernel;
+  install_implication_formula(kernel);
+  decide(kernel, -1);
+  decide(kernel, -2);
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  Fixture fixture;
+  recognize_and_synchronize(kernel, journal, fixture);
+  assert(fixture.event.kind == MatrixEventKind::Implication &&
+         fixture.event.implied_variable == 5 &&
+         !fixture.event.implied_value);
+  const MatrixEvent historical = fixture.event;
+
+  // Consume the implication and advance the retained tableau.  The old event
+  // is no longer the matrix's current event, but its complete source-derived
+  // reason remains independently authenticatable.
+  decide(kernel, -5);
+  MatrixEvent current;
+  assert(fixture.matrix.synchronize(trail(kernel),
+                                    [](uint64_t) { return true; }, current) ==
+         MatrixStatus::Complete);
+  assert(current.kind == MatrixEventKind::None);
+
+  auto ordinary = live_request(journal, fixture.owner, fixture.matrix,
+                               fixture.image.equations, historical);
+  AffineMatrixLivePrepared rejected;
+  assert(prepare_affine_matrix_live(kernel, ordinary, rejected).status !=
+         MatrixLiveStatus::Prepared);
+
+  auto retained = ordinary;
+  retained.historical_event = true;
+  AffineMatrixLivePrepared prepared;
+  const uint64_t clause_id = kernel.next_clause_id;
+  const size_t arena_words = kernel.arena.size();
+  const auto planned = prepare_affine_matrix_live(kernel, retained, prepared);
+  assert(planned.status == MatrixLiveStatus::Prepared && planned.implication &&
+         prepared.ready() && kernel.next_clause_id == clause_id &&
+         kernel.arena.size() == arena_words && records(journal).empty());
+
+  // A conflict boundary is exactly where the future public materialization
+  // action needs this pure plan; preflight must not require a BCP fixpoint.
+  kernel.conflict_valid = true;
+  AffineMatrixLivePrepared at_conflict;
+  assert(prepare_affine_matrix_live(kernel, retained, at_conflict).status ==
+         MatrixLiveStatus::Prepared);
+
+  MatrixEvent forged = historical;
+  forged.reason.front() = -forged.reason.front();
+  auto bad = retained;
+  bad.event = &forged;
+  AffineMatrixLivePrepared forged_plan;
+  assert(prepare_affine_matrix_live(kernel, bad, forged_plan).status !=
+         MatrixLiveStatus::Prepared);
+  std::fclose(journal);
+}
+
 static void source_clause_order_is_not_identity() {
   Kernel kernel;
   install_implication_formula(kernel);
@@ -774,6 +831,7 @@ int main(int argc, char **argv) {
     return removed_source_proof_fixture(argv[2], argv[3]);
   implication_is_assigned_without_prefix_rescan();
   compact_provenance_keeps_authenticated_reason();
+  historical_implication_can_be_preflighted_after_tableau_advance();
   source_clause_order_is_not_identity();
   conflict_is_consumed_by_ordinary_bcp();
   unit_above_root_declines();

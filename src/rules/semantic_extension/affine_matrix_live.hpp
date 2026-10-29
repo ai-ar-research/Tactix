@@ -38,6 +38,11 @@ struct MatrixLiveRequest {
   FILE *records = nullptr;
   bool compact_provenance = false;
   bool retained_source_provenance = false;
+  // Pure certificate preflight for an implication/conflict retained from an
+  // earlier matrix synchronization point.  The complete source-derived
+  // clause is authenticated independently of the matrix's current tableau;
+  // no publication semantics are relaxed by this flag.
+  bool historical_event = false;
   AffineMatrixProofCache *proof_cache = nullptr;
   PbpParityBoundsCache *pbp_parity_cache = nullptr;
   // Optional exact per-equation checker-premise ownership. Absence preserves

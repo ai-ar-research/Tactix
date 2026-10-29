@@ -43,10 +43,16 @@ bool valid(const MatrixLiveRequest &request) {
          request.semantic_id && request.records;
 }
 
-bool applicable(const Kernel &kernel) {
-  return !kernel.inconsistent && !kernel.conflict_valid &&
-         !kernel.pending.valid && !kernel.dense && !kernel.probing.recording &&
-         kernel.large_watches_connected && kernel_propagation_fixpoint(kernel);
+bool applicable(const Kernel &kernel, bool historical_event = false) {
+  if (kernel.inconsistent || kernel.pending.valid || kernel.dense ||
+      kernel.probing.recording || !kernel.large_watches_connected)
+    return false;
+  // A historical preflight is a pure proof plan.  It is specifically needed
+  // after propagation has consumed the affine implication, including at the
+  // conflict boundary where the reason must become proof-visible before
+  // Analyze.  Ordinary live publication retains its exact-fixpoint contract.
+  return historical_event ||
+         (!kernel.conflict_valid && kernel_propagation_fixpoint(kernel));
 }
 
 bool same_equation(const Equation &first, const Equation &second) {
@@ -78,6 +84,7 @@ bool same_request(const MatrixLiveRequest &first,
          first.compact_provenance == second.compact_provenance &&
          first.retained_source_provenance ==
              second.retained_source_provenance &&
+         first.historical_event == second.historical_event &&
          first.proof_cache == second.proof_cache &&
          first.pbp_parity_cache == second.pbp_parity_cache &&
          first.premise_leases == second.premise_leases &&
@@ -176,7 +183,7 @@ bool validate_selected_sources(
 }
 
 bool reason_order(const Kernel &kernel, const MatrixEvent &event,
-                  std::vector<Lit> &output) {
+                  std::vector<Lit> &output, bool historical_event = false) {
   output.clear();
   if (event.kind == MatrixEventKind::None) return false;
   // A contradiction with no assigned support is the globally valid empty
@@ -186,36 +193,50 @@ bool reason_order(const Kernel &kernel, const MatrixEvent &event,
     return event.kind == MatrixEventKind::Conflict;
   std::set<Lit> unique;
   size_t open = SIZE_MAX;
+  size_t implied_at = SIZE_MAX;
+  const int32_t implied = event.kind == MatrixEventKind::Implication
+      ? (event.implied_value ? event.implied_variable
+                             : -event.implied_variable)
+      : 0;
   for (int32_t external : event.reason) {
     const Lit literal = kernel_internalize(kernel, external);
     if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)) ||
-        !unique.insert(literal).second || kernel.value(literal) > 0)
+        !unique.insert(literal).second)
       return false;
-    if (!kernel.value(literal)) {
+    const int8_t value = kernel.value(literal);
+    if (historical_event && event.kind == MatrixEventKind::Implication &&
+        external == implied) {
+      if (value <= 0) return false;
+      implied_at = output.size();
+    } else if (value > 0) {
+      return false;
+    } else if (!value) {
+      if (historical_event) return false;
       if (open != SIZE_MAX) return false;
       open = output.size();
     }
     output.push_back(literal);
   }
   if (event.kind == MatrixEventKind::Implication) {
-    const int32_t implied = event.implied_value ? event.implied_variable
-                                                : -event.implied_variable;
-    if (open == SIZE_MAX || event.reason.back() != implied ||
-        kernel_externalize(kernel, output[open]) != implied)
+    if (event.reason.back() != implied ||
+        (historical_event ? implied_at == SIZE_MAX : open == SIZE_MAX) ||
+        kernel_externalize(kernel,
+            output[historical_event ? implied_at : open]) != implied)
       return false;
   } else if (event.kind == MatrixEventKind::Conflict) {
     if (open != SIZE_MAX) return false;
   } else {
     return false;
   }
-  if (output.size() == 1) return kernel.level == 0 && open == 0;
+  if (output.size() == 1)
+    return historical_event ? implied_at == 0 : kernel.level == 0 && open == 0;
 
   const auto before = [&](Lit first, Lit second) {
     return kernel.assigned[var_of(first)].trail <
            kernel.assigned[var_of(second)].trail;
   };
-  if (open != SIZE_MAX) {
-    std::swap(output[0], output[open]);
+  if (open != SIZE_MAX || implied_at != SIZE_MAX) {
+    std::swap(output[0], output[historical_event ? implied_at : open]);
     const auto earliest = std::min_element(output.begin() + 1, output.end(),
                                            before);
     std::iter_swap(output.begin() + 1, earliest);
@@ -479,7 +500,7 @@ MatrixLiveResult prepare_affine_matrix_live(
     result.status = MatrixLiveStatus::UnsupportedProof;
     return result;
   }
-  if (!applicable(kernel)) {
+  if (!applicable(kernel, request.historical_event)) {
     result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
                                                : MatrixLiveStatus::Inapplicable;
     return result;
@@ -512,14 +533,16 @@ MatrixLiveResult prepare_affine_matrix_live(
                                            : &candidate.trail_levels_) ||
       !snapshot_support(kernel, request.matrix->admitted_variables(),
                         support_trail) ||
-      (candidate.trail_ != request.matrix->trail() &&
+      (!request.historical_event &&
+       candidate.trail_ != request.matrix->trail() &&
        support_trail != request.matrix->trail())) {
     result.status = MatrixLiveStatus::Stale;
     return result;
   }
   candidate.event_ = *request.event;
   if (!candidate.immediate_) candidate.owner_ = *request.owner;
-  if (!reason_order(kernel, candidate.event_, candidate.physical_reason_)) {
+  if (!reason_order(kernel, candidate.event_, candidate.physical_reason_,
+                    request.historical_event)) {
     result.status = MatrixLiveStatus::UnsupportedOutcome;
     return result;
   }
@@ -584,7 +607,8 @@ MatrixLiveResult prepare_affine_matrix_live(
       compact_plan,
       !(candidate.immediate_ && compact_plan &&
         request.retained_source_provenance),
-      same_stack_retained_sources);
+      same_stack_retained_sources && !request.historical_event,
+      request.historical_event);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.status = transaction_status(planned);
@@ -705,7 +729,7 @@ MatrixLiveResult publish_affine_matrix_live(
     result.status = MatrixLiveStatus::UnsupportedProof;
     return result;
   }
-  if (!applicable(kernel)) {
+  if (!applicable(kernel, request.historical_event)) {
     result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
                                                : MatrixLiveStatus::Inapplicable;
     return result;
@@ -778,7 +802,8 @@ MatrixLiveResult publish_affine_matrix_live(
     }
     result.revalidation_work = validation.used;
     std::vector<Lit> physical;
-    if (!reason_order(kernel, prepared.event_, physical) ||
+    if (!reason_order(kernel, prepared.event_, physical,
+                      request.historical_event) ||
         physical != prepared.physical_reason_) {
       result.status = MatrixLiveStatus::Stale;
       return result;
