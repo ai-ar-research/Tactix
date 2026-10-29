@@ -218,6 +218,13 @@ private:
   // admitted as part of index_reservation_ and released with the index.
   std::vector<External> dirty_variable_xor_scratch_;
   std::vector<size_t> dirty_source_xor_scratch_;
+  // Direct occurrence watches mark rows touched by newly assigned variables.
+  // This pre-admitted workspace avoids allocating one tree node per touched
+  // row on every search step.  Epochs discard marks from an interrupted
+  // private transaction without changing the committed matrix state.
+  std::vector<uint64_t> dirty_row_marks_;
+  std::vector<size_t> dirty_row_ids_;
+  uint64_t dirty_row_epoch_ = 0;
   uint64_t index_reservation_ = 0;
   bool index_ready_ = false, last_dirty_update_ = false;
   size_t last_dirty_rows_ = 0;
