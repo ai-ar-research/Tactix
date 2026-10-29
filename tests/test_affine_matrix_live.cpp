@@ -305,6 +305,7 @@ static void retained_implication_can_be_published_at_conflict() {
   const auto published =
       publish_affine_matrix_live(kernel, request, prepared);
   assert(published.status == MatrixLiveStatus::Applied &&
+         !published.retained_authentication &&
          published.implication && !published.implication_consumed &&
          published.installed_reason_id > before &&
          published.installed_reason_ref != INVALID_REF &&

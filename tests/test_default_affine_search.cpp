@@ -208,6 +208,7 @@ void deferred_policy_boundary(const std::string &stem = "") {
   assert(stats.reasons_deferred == 1 && stats.reasons_materialized == 1 &&
          stats.reasons_published == 1 && stats.implications_consumed == 1 &&
          stats.materialization_attempts == 1 &&
+         stats.materialization_retained_authentications == 1 &&
          !stats.materialization_inapplicable && !stats.materialization_stale &&
          !stats.materialization_invalid && !stats.materialization_exhausted &&
          !stats.materialization_interrupted &&

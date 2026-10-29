@@ -3962,6 +3962,8 @@ AffineMatrixServiceResult DefaultPolicy::materialize_affine_reason(
     ++affine_search_diagnostics_.materialization_interrupted;
   else if (result.status == AffineMatrixServiceStatus::UnsupportedProof)
     ++affine_search_diagnostics_.materialization_unsupported_proof;
+  affine_search_diagnostics_.materialization_retained_authentications +=
+      result.live.retained_authentication;
   affine_search_diagnostics_.materialization_last_audit_stage =
       static_cast<uint64_t>(result.live.audit_stage);
   affine_search_diagnostics_.overhead_nanos += now_nanos() - started;

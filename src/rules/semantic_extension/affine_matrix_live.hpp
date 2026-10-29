@@ -81,6 +81,9 @@ struct MatrixLiveResult {
   bool proof_cache_insert = false;
   bool proof_cache_resume = false;
   bool compact_pbp = false;
+  // The separately callable publication reused the matrix's authenticated
+  // retained state after proving that its exact support trail was unchanged.
+  bool retained_authentication = false;
   uint64_t installed_reason_id = 0;
   Ref installed_reason_ref = INVALID_REF;
   // Publication audit boundary for a declined two-phase transaction.  This is
@@ -140,6 +143,12 @@ private:
   Proof *proof_ = nullptr;
   long records_position_ = -1;
   std::vector<MatrixAssignment> trail_;
+  // Exact matrix state authenticated during prepare.  A retained deferred
+  // publication may let the Boolean trail grow, but the public debt grammar
+  // forbids another matrix step.  Equality here therefore permits the same
+  // aggregate retained authentication used by the one-shot path; a changed
+  // matrix trail falls back to the full historical source audit.
+  std::vector<MatrixAssignment> matrix_trail_;
   std::vector<uint32_t> trail_levels_;
   MatrixEvent event_;
   AffineLiveSnapshot owner_;

@@ -12,6 +12,7 @@ namespace tactix::affine_semantic_extension {
 uint64_t AffineMatrixLivePrepared::retained_bytes() const {
   __uint128_t bytes = sizeof(*this) + transaction_.retained_bytes();
   bytes += __uint128_t(trail_.capacity()) * sizeof(MatrixAssignment);
+  bytes += __uint128_t(matrix_trail_.capacity()) * sizeof(MatrixAssignment);
   bytes += __uint128_t(trail_levels_.capacity()) * sizeof(uint32_t);
   bytes += __uint128_t(event_.reason.capacity()) * sizeof(External);
   bytes += __uint128_t(event_.row.variables.capacity()) * sizeof(External);
@@ -578,6 +579,8 @@ MatrixLiveResult prepare_affine_matrix_live(
     return result;
   }
   candidate.event_ = *request.event;
+  if (!candidate.immediate_ && request.retained_publication)
+    candidate.matrix_trail_ = request.matrix->trail();
   if (!candidate.immediate_ && !request.retained_publication)
     candidate.owner_ = *request.owner;
   if (!reason_order(kernel, candidate.event_, candidate.physical_reason_,
@@ -826,13 +829,24 @@ MatrixLiveResult publish_affine_matrix_live(
     std::vector<uint64_t> clause_ids;
     std::vector<uint64_t> resume_occurrences;
     std::vector<uint64_t> resume_clause_ids;
-    const bool authenticated = historical
-        ? request.matrix->authenticates_historical(
-              request.owner_identity, *request.exact_sources, *request.event,
-              [&](uint64_t amount) { return validation.charge(amount); })
-        : request.matrix->authenticates(
-              request.owner_identity, *request.exact_sources, *request.event,
-              [&](uint64_t amount) { return validation.charge(amount); });
+    bool authenticated = false;
+    uint64_t retained_authentication = 0;
+    const bool unchanged_retained_matrix = request.retained_publication &&
+        prepared.matrix_trail_ == request.matrix->trail() &&
+        request.matrix->retained_authentication_work(
+            *request.event, retained_authentication);
+    if (unchanged_retained_matrix) {
+      authenticated = validation.charge(retained_authentication);
+      result.retained_authentication = authenticated;
+    } else if (historical) {
+      authenticated = request.matrix->authenticates_historical(
+          request.owner_identity, *request.exact_sources, *request.event,
+          [&](uint64_t amount) { return validation.charge(amount); });
+    } else {
+      authenticated = request.matrix->authenticates(
+          request.owner_identity, *request.exact_sources, *request.event,
+          [&](uint64_t amount) { return validation.charge(amount); });
+    }
     const auto fail_validation = [&](MatrixLiveResult::AuditStage stage) {
       result.audit_stage = stage;
       result.revalidation_work = validation.used;
