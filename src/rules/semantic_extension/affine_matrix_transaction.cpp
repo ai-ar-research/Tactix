@@ -513,8 +513,56 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       return work.interrupted ? MatrixTransactionStatus::Interrupted
            : work.exhausted ? MatrixTransactionStatus::ResourceExhausted
                             : MatrixTransactionStatus::UnsupportedProof;
-    variables.insert(variables.end(), input.variables.begin(),
-                     input.variables.end());
+    if (!pbp_plan)
+      variables.insert(variables.end(), input.variables.begin(),
+                       input.variables.end());
+  }
+  // Compact PBP already validated the exact equations, their XOR image and
+  // the external reason while constructing `pbp_plan`.  The general bridge
+  // below builds a dense coordinate frame solely for its clausal parity tree;
+  // compact publication never consumes that frame.  Preserve premise and
+  // source-identity authentication plus the exact work currency, but avoid
+  // allocating, sorting and remapping the discarded image.
+  if (pbp_plan) {
+    AffineMatrixTransaction candidate;
+    candidate.owner_identity_ = expected_owner_identity;
+    candidate.authentication_work_ = authentication_work;
+    candidate.source_equations_ = event.row.source_equations;
+    if (!std::is_sorted(candidate.source_equations_.begin(),
+                        candidate.source_equations_.end()) ||
+        std::adjacent_find(candidate.source_equations_.begin(),
+                           candidate.source_equations_.end()) !=
+            candidate.source_equations_.end())
+      return MatrixTransactionStatus::Stale;
+    const bool identities_ready = retain_source_identity
+        ? retain_source_identities(exact_sources, candidate.source_equations_,
+                                   work, candidate.source_identity_)
+        : charge_source_identities(exact_sources,
+                                   candidate.source_equations_, work);
+    if (!identities_ready)
+      return work.interrupted ? MatrixTransactionStatus::Interrupted
+                              : MatrixTransactionStatus::ResourceExhausted;
+    const uint64_t arena_words = event.reason.size() > 2
+        ? event.reason.size() + CLAUSE_HEADER_WORDS : 0;
+    if (arena_words > limits.maximum_arena_words || !pbp_plan->valid ||
+        pbp_plan->starting_external_extent != starting_external_extent ||
+        !pbp_plan->proof_constraints ||
+        pbp_plan->proof_constraints > limits.maximum_proof_additions ||
+        pbp_plan->helper_variables > limits.maximum_helper_extent ||
+        uint64_t(starting_external_extent) + pbp_plan->helper_variables >
+            static_cast<uint32_t>(INT32_MAX))
+      return MatrixTransactionStatus::ResourceExhausted;
+    candidate.arena_words_ = arena_words;
+    candidate.reason_ = event.reason;
+    candidate.compact_pbp_ = true;
+    candidate.pbp_plan_ = *pbp_plan;
+    candidate.additions_ = pbp_plan->proof_constraints;
+    candidate.deletions_ = 0;
+    candidate.helper_extent_ = pbp_plan->helper_variables;
+    candidate.work_ = work.used;
+    candidate.ready_ = true;
+    output = std::move(candidate);
+    return MatrixTransactionStatus::Prepared;
   }
   // Every cacheable tree uses the same coordinate frame for this admitted
   // source image.  Projected rows can cite variables no longer present in
@@ -600,25 +648,6 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     return MatrixTransactionStatus::ResourceExhausted;
   candidate.arena_words_ = arena_words;
   candidate.reason_ = event.reason;
-  if (pbp_plan) {
-    if (!pbp_plan->valid ||
-        pbp_plan->starting_external_extent != starting_external_extent ||
-        !pbp_plan->proof_constraints ||
-        pbp_plan->proof_constraints > limits.maximum_proof_additions ||
-        pbp_plan->helper_variables > limits.maximum_helper_extent ||
-        uint64_t(starting_external_extent) + pbp_plan->helper_variables >
-            static_cast<uint32_t>(INT32_MAX))
-      return MatrixTransactionStatus::ResourceExhausted;
-    candidate.compact_pbp_ = true;
-    candidate.pbp_plan_ = *pbp_plan;
-    candidate.additions_ = pbp_plan->proof_constraints;
-    candidate.deletions_ = 0;
-    candidate.helper_extent_ = pbp_plan->helper_variables;
-    candidate.work_ = work.used;
-    candidate.ready_ = true;
-    output = std::move(candidate);
-    return MatrixTransactionStatus::Prepared;
-  }
   if (!retain_source_identity)
     return MatrixTransactionStatus::Invalid;
   if (proof_cache) {
