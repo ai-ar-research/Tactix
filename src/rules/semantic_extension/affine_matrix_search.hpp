@@ -228,10 +228,12 @@ private:
   friend AffineMatrixServiceResult affine_matrix_search_step(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_impl(
-      Kernel &, AffineMatrixSearchSession &, bool, bool);
+      Kernel &, AffineMatrixSearchSession &, bool, bool, bool);
   friend AffineMatrixServiceResult affine_matrix_search_step_deferred(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
+      Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_search_step_detached_source(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &, AffineMatrixSearchSession &);
@@ -332,6 +334,10 @@ AffineMatrixServiceResult affine_matrix_search_step_deferred(
 // operation isolates reason lifetime/attachment; it is not the later lazy
 // `(matrix,row)` handle mechanism.
 AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
+    Kernel &, AffineMatrixSearchSession &);
+// Same unwatched trail lifetime, retaining the authenticated source-support
+// weakening as the implication explanation. Reason shape remains explicit.
+AffineMatrixServiceResult affine_matrix_search_step_detached_source(
     Kernel &, AffineMatrixSearchSession &);
 AffineMatrixServiceResult affine_matrix_materialize_reason(
     Kernel &, AffineMatrixSearchSession &);

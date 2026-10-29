@@ -329,6 +329,7 @@ struct DefaultStrategyConfig {
       EagerSourceSupport = 0,
       Deferred = 1,
       DetachedMinimal = 2,
+      DetachedSource = 3,
     };
     // Production switch.  The service performs instance-independent bounded
     // authentication and is still explicitly disableable for attribution and

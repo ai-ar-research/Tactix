@@ -60,6 +60,16 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
   --every-lemma
 
+# The source-support weakening uses the same unwatched trail lifetime. Its
+# assigned canceled variables are explicit antecedents and every lemma remains
+# independently derivable from the original CNF.
+"$binary" --proof-detached-source \
+  "$tmp/detached-source.cnf" "$tmp/detached-source.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/detached-source.cnf" "$tmp/detached-source.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
 # Each seed permutes the source variables, row signs, and decision phase.
 # A fresh independent check of every proof lemma catches mistakes hidden by
 # successful in-process propagation alone.

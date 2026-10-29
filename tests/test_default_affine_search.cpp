@@ -235,7 +235,7 @@ void deferred_policy_boundary(const std::string &stem = "") {
 // The experimental N4 arm must travel through the same DefaultPolicy public
 // action port as the shipped eager arm.  Its implication reason is proof
 // visible and analyzable, but absent from ordinary watched propagation.
-void detached_minimal_policy_boundary() {
+void detached_policy_boundary(bool minimal) {
   Fixture f{6, {}};
   for (const auto &[variables, rhs] :
        std::vector<std::pair<std::vector<int32_t>, bool>>{
@@ -257,14 +257,16 @@ void detached_minimal_policy_boundary() {
   assert(records);
   kernel.structural_provenance = records;
   Proof proof;
-  const char *path = "/tmp/tactix-default-detached-minimal-policy.dsr";
+  const char *path = minimal ? "/tmp/tactix-default-detached-minimal-policy.dsr"
+                             : "/tmp/tactix-default-detached-source-policy.dsr";
   assert(proof.open(path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
   kernel.proof = &proof;
 
   auto settings = config(true);
-  settings.affine_search.reason_mode =
-      DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedMinimal;
+  settings.affine_search.reason_mode = minimal
+      ? DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedMinimal
+      : DefaultStrategyConfig::AffineSearch::ReasonMode::DetachedSource;
   DefaultPolicy policy(settings);
   assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
              .status == AffineMatrixInitStatus::Applied);
@@ -552,7 +554,8 @@ void paused_owner_retry(const std::string &stem = "",
 int main(int argc,char **argv) {
   assert(argc==1 || argc==2);
   empty_census_retry();
-  detached_minimal_policy_boundary();
+  detached_policy_boundary(true);
+  detached_policy_boundary(false);
   deferred_policy_boundary(argc == 2
       ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {

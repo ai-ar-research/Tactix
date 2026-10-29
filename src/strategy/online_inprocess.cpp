@@ -2591,6 +2591,11 @@ InvocationResult OnlineStrategyExecutor::advance(
                         affine_matrix_search_step_detached_minimal(
                             k, *k.affine_matrix_search_session));
                     return affine_matrix_service->result;
+                  case Operation::DetachedSourceSearchStep:
+                    affine_matrix_service.emplace(
+                        affine_matrix_search_step_detached_source(
+                            k, *k.affine_matrix_search_session));
+                    return affine_matrix_service->result;
                   case Operation::MaterializeReasons:
                     affine_matrix_service.emplace(affine_matrix_materialize_reason(
                         k, *k.affine_matrix_search_session));

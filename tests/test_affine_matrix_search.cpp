@@ -1056,8 +1056,9 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
   return 0;
 }
 
-static int detached_minimal_reason_proof_fixture(const char *cnf_path,
-                                                 const char *proof_path) {
+static int detached_reason_proof_fixture(const char *cnf_path,
+                                         const char *proof_path,
+                                         bool minimal) {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
@@ -1091,10 +1092,12 @@ static int detached_minimal_reason_proof_fixture(const char *cnf_path,
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
-  const auto detached =
-      affine_matrix_search_step_detached_minimal(kernel, session);
+  const auto detached = minimal
+      ? affine_matrix_search_step_detached_minimal(kernel, session)
+      : affine_matrix_search_step_detached_source(kernel, session);
   assert(detached.status == AffineMatrixServiceStatus::Applied &&
-         detached.reason_width == 3 && detached.live.detached_reason &&
+         detached.reason_width == (minimal ? 3u : 5u) &&
+         detached.live.detached_reason &&
          kernel.value(kernel_internalize(kernel, 5)) > 0);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
@@ -1119,7 +1122,9 @@ int main(int argc,char **argv){
   if(argc==4&&!std::strcmp(argv[1],"--proof-deferred"))
     return deferred_reason_proof_fixture(argv[2],argv[3]);
   if(argc==4&&!std::strcmp(argv[1],"--proof-detached-minimal"))
-    return detached_minimal_reason_proof_fixture(argv[2],argv[3]);
+    return detached_reason_proof_fixture(argv[2],argv[3],true);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-detached-source"))
+    return detached_reason_proof_fixture(argv[2],argv[3],false);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-unit"))return root_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-root-empty"))return root_proof_fixture(argv[2],argv[3],false);
   if(argc==4&&!std::strcmp(argv[1],"--proof"))return root_proof_fixture(argv[2],argv[3],true);

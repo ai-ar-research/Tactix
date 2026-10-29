@@ -1276,6 +1276,7 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
     case Operation::SearchStep:
     case Operation::DeferredSearchStep:
     case Operation::DetachedMinimalSearchStep:
+    case Operation::DetachedSourceSearchStep:
     case Operation::MaterializeReasons:
       if (kernel.affine_matrix_search_session->parameters_ != profile.basis ||
           kernel.affine_matrix_search_session->persistence_.maximum_retained_bytes != limits.maximum_retained_bytes ||
@@ -1288,6 +1289,8 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
               ? affine_matrix_search_step_deferred(kernel, session)
           : profile.operation == Operation::DetachedMinimalSearchStep
               ? affine_matrix_search_step_detached_minimal(kernel, session)
+          : profile.operation == Operation::DetachedSourceSearchStep
+              ? affine_matrix_search_step_detached_source(kernel, session)
               : affine_matrix_materialize_reason(kernel, session);
       return session.last_service_->result;
   }
@@ -1705,7 +1708,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
 
 AffineMatrixServiceResult affine_matrix_search_step_impl(
     Kernel &kernel, AffineMatrixSearchSession &session, bool defer_reason,
-    bool detached_minimal) {
+    bool detached, bool minimal) {
   AffineMatrixServiceResult result;
   if (!session.enabled()) return result;
   if (!session.attached_to(kernel)) {
@@ -2061,7 +2064,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     record_service(kernel, result);
     return result;
   }
-  if (detached_minimal &&
+  if (minimal &&
       !minimize_event_reason(session.image_.equations, event,
                              synchronization_charge)) {
     result.status = kernel_terminating(kernel)
@@ -2135,12 +2138,12 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   request.compact_provenance = kernel.affine_matrix_provenance_compact;
   request.retained_source_provenance =
       session.retained_source_provenance_owner_ == session.owner_version_;
-  request.detached_reason = detached_minimal;
+  request.detached_reason = detached;
   // The matrix's canonical current-event spelling is the source-support
-  // weakening. The detached operation deliberately selects its exact XOR
-  // core, so authenticate the same row/source identity through the historical
+  // weakening. When the public operation selects its exact XOR core,
+  // authenticate the same row/source identity through the historical
   // complete-core audit rather than requiring byte-identical reason spelling.
-  request.core_reason_authentication = detached_minimal;
+  request.core_reason_authentication = minimal;
   request.proof_cache = &session.proof_cache_;
   request.pbp_parity_cache = &session.pbp_proof_cache_;
   if (session.persistent()) {
@@ -2231,17 +2234,22 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
 
 AffineMatrixServiceResult affine_matrix_search_step(
     Kernel &kernel, AffineMatrixSearchSession &session) {
-  return affine_matrix_search_step_impl(kernel, session, false, false);
+  return affine_matrix_search_step_impl(kernel, session, false, false, false);
 }
 
 AffineMatrixServiceResult affine_matrix_search_step_deferred(
     Kernel &kernel, AffineMatrixSearchSession &session) {
-  return affine_matrix_search_step_impl(kernel, session, true, false);
+  return affine_matrix_search_step_impl(kernel, session, true, false, false);
 }
 
 AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
     Kernel &kernel, AffineMatrixSearchSession &session) {
-  return affine_matrix_search_step_impl(kernel, session, false, true);
+  return affine_matrix_search_step_impl(kernel, session, false, true, true);
+}
+
+AffineMatrixServiceResult affine_matrix_search_step_detached_source(
+    Kernel &kernel, AffineMatrixSearchSession &session) {
+  return affine_matrix_search_step_impl(kernel, session, false, true, false);
 }
 
 AffineMatrixServiceResult affine_matrix_materialize_reason(
@@ -2294,7 +2302,9 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                  kernel.affine_matrix_initialize_parameters.operation ==
                                      strategy::AffineMatrixInitializeParameters::Operation::DeferredSearchStep ||
                                  kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep))
+                                     strategy::AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep ||
+                                 kernel.affine_matrix_initialize_parameters.operation ==
+                                     strategy::AffineMatrixInitializeParameters::Operation::DetachedSourceSearchStep))
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)

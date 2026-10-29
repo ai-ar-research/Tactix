@@ -209,10 +209,12 @@ int main(int argc, char **argv) {
         default_affine_reason_mode = ReasonMode::Deferred;
       else if (!strcmp(a + 25, "detached-minimal"))
         default_affine_reason_mode = ReasonMode::DetachedMinimal;
+      else if (!strcmp(a + 25, "detached-source"))
+        default_affine_reason_mode = ReasonMode::DetachedSource;
       else {
         fprintf(stderr,
                 "tactix: --default-affine-reasons requires eager, deferred, "
-                "or detached-minimal\n");
+                "detached-minimal, or detached-source\n");
         printf("s UNKNOWN\n");
         return 1;
       }
@@ -278,7 +280,7 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q|-v] [--dsr|--drat|--lrat|--pbp] [--no-binary] "
              "[--default-affine-search=on|off] "
-             "[--default-affine-reasons=eager|deferred|detached-minimal] "
+             "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source] "
              "[--default-graph-labeling=on|off] "
              "[--default-structured-symmetry=on|off] "
              "[--feedback=FILE | --feedback-replay=FILE] "

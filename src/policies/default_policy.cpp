@@ -3915,6 +3915,10 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
                               ReasonMode::DetachedMinimal)
           serviced = port::affine_matrix_search_step_detached_minimal(
               kernel, *kernel.affine_matrix_search_session);
+        else if (!root && config_.affine_search.reason_mode ==
+                              ReasonMode::DetachedSource)
+          serviced = port::affine_matrix_search_step_detached_source(
+              kernel, *kernel.affine_matrix_search_session);
         else
           serviced = port::affine_matrix_search_step(
               kernel, *kernel.affine_matrix_search_session);

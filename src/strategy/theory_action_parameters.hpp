@@ -80,7 +80,10 @@ struct AffineMatrixInitializeParameters {
     // Eager proof publication with an exact-core, implication-graph-only
     // large reason. It isolates watched-clause lifetime before the full lazy
     // matrix-row handle is admitted.
-    DetachedMinimalSearchStep = 7
+    DetachedMinimalSearchStep = 7,
+    // Eagerly certified source-support weakening with the same unwatched
+    // trail lifetime. Kept distinct so reason shape is a public choice.
+    DetachedSourceSearchStep = 8
   };
   AffineConsequenceParameters basis;
   Admission admission = Admission::AuthenticatedSubimage;
@@ -92,7 +95,7 @@ struct AffineMatrixInitializeParameters {
   bool valid() const {
     if (!basis.valid() || basis.semantics != AffineConsequenceSemantics::CertifiedBasisV2 ||
         basis.consequence || operation < Operation::Initialize ||
-        operation > Operation::DetachedMinimalSearchStep)
+        operation > Operation::DetachedSourceSearchStep)
       return false;
     if (admission == Admission::CompleteSnapshot)
       return (operation == Operation::Initialize || operation == Operation::SearchStep) &&

@@ -45,7 +45,8 @@ static void replay_and_scope() {
        AffineMatrixInitializeParameters::Operation::SearchStep,
        AffineMatrixInitializeParameters::Operation::DeferredSearchStep,
        AffineMatrixInitializeParameters::Operation::MaterializeReasons,
-       AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep}) {
+       AffineMatrixInitializeParameters::Operation::DetachedMinimalSearchStep,
+       AffineMatrixInitializeParameters::Operation::DetachedSourceSearchStep}) {
     p.operation=op;program.sequence[0].parameters=p;
     const auto wire=serialize_online_strategy_program(program);
     assert(wire.find(":affine-matrix-persistent1(")!=std::string::npos);
@@ -102,6 +103,8 @@ static void c_surface(bool with_proof) {
   step.affine_matrix={c_basis(p.basis),1,1,p.maximum_retained_bytes,p.maximum_deferred_deletions,p.maximum_deferred_literal_work};
   capi::tactix_online_program_v16 program{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   auto valid=step.affine_matrix;
+  step.affine_matrix.operation=TACTIX_AFFINE_MATRIX_DETACHED_SOURCE_SEARCH_STEP;
+  assert(capi::tactix_online_configure_v16(s,&program,938,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   step.affine_matrix.operation=TACTIX_AFFINE_MATRIX_DETACHED_MINIMAL_SEARCH_STEP;
   assert(capi::tactix_online_configure_v16(s,&program,939,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   step.affine_matrix=valid;step.affine_matrix.maximum_deferred_deletions=0;

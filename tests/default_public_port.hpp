@@ -325,6 +325,30 @@ struct PublicPort {
     }
     return result;
   }
+  static AffineMatrixServiceResult affine_matrix_search_step_detached_source(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    AffineProfile profile;
+    profile.basis = session.parameters();
+    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
+    profile.operation = AffineProfile::Operation::DetachedSourceSearchStep;
+    const auto &limits = session.persistence_limits();
+    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
+    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
+    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
+    const auto result = affine_operation(k, profile, "detached-source-step",
+        [&] { return *session.last_service(); },
+        [&] {
+          return StaticPort::affine_matrix_search_step_detached_source(k,
+                                                                       session);
+        });
+    if (tactix_c_handle *s = bound(k)) {
+      tactix_affine_matrix_result observed{};
+      if (tactix_read_affine_matrix_result(s, &observed) != 0 ||
+          observed.reason_detached != result.live.detached_reason)
+        std::abort();
+    }
+    return result;
+  }
   static AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &k, AffineMatrixSearchSession &session) {
     AffineProfile profile;
