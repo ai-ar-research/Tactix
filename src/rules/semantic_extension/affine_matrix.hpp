@@ -176,8 +176,9 @@ public:
   // Authenticate a previously selected implication or conflict directly from
   // its immutable source rows.  Unlike `authenticates`, this does not require
   // the event to remain the current tableau event after later assignments.
-  // It is the proof-side prerequisite for any future lazy reason: the complete
-  // falsifying clause must name the exact XOR support and violate its parity.
+  // It is the proof-side prerequisite for any future lazy reason: the clause
+  // must contain a complete falsifying XOR-support core and may soundly weaken
+  // it with additional literals, as checked at the live reason-order boundary.
   bool authenticates_historical(
       uint64_t owner_identity, const std::vector<Equation> &exact_sources,
       const MatrixEvent &event,

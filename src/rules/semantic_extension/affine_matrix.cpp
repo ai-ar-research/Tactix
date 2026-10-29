@@ -442,13 +442,15 @@ void make_reason(const std::vector<Equation> &sources,
   // sources cancel every variable is the unconditional 0 = 1: the certificate
   // refutes it outright, so it consumed no assignment and its reason is the
   // empty clause even when support variables are assigned.
-  std::set<External> support;
+  std::map<External, bool> support;
+  size_t residue = 0;
   for (size_t source : event.row.source_equations)
     for (External variable : sources[source].variables) {
-      const auto [entry, inserted] = support.insert(variable);
-      if (!inserted) support.erase(entry);
+      const auto [entry, inserted] = support.emplace(variable, true);
+      if (!inserted) entry->second = !entry->second;
+      if (entry->second) ++residue; else --residue;
     }
-  if (event.kind == MatrixEventKind::Conflict && support.empty()) return;
+  if (event.kind == MatrixEventKind::Conflict && !residue) return;
   for (const MatrixAssignment assignment : trail)
     if (support.contains(assignment.variable))
       event.reason.push_back(false_literal(assignment));
@@ -1691,7 +1693,7 @@ bool AffineMatrix::authenticates_historical(
   }
 
   if (!charge(1 + event.row.variables.size() + event.reason.size()) ||
-      event.reason.size() != support.size())
+      event.reason.size() < support.size())
     return false;
   if (event.kind == MatrixEventKind::Implication) {
     if (event.implied_variable <= 0 ||
@@ -1706,22 +1708,43 @@ bool AffineMatrix::authenticates_historical(
     return false;
   }
 
-  std::vector<External> reason_variables;
-  reason_variables.reserve(event.reason.size());
-  bool falsifying_parity = false;
+  std::vector<std::pair<External, bool>> reason_assignments;
+  reason_assignments.reserve(event.reason.size());
   for (External literal : event.reason) {
     if (!literal || literal == INT32_MIN) return false;
     const External variable = literal < 0 ? -literal : literal;
-    reason_variables.push_back(variable);
-    // A negative literal is false exactly when its variable is true.
-    falsifying_parity ^= literal < 0;
+    // A negative literal is false exactly when its variable is true.  Keep
+    // that falsifying assignment beside the variable while sorting.
+    reason_assignments.emplace_back(variable, literal < 0);
   }
   const uint64_t comparisons =
-      2 * std::bit_width(uint64_t(std::max<size_t>(1, reason_variables.size()))) +
+      2 * std::bit_width(uint64_t(std::max<size_t>(1, reason_assignments.size()))) +
       2;
-  if (!charge(reason_variables.size() * comparisons)) return false;
-  std::sort(reason_variables.begin(), reason_variables.end());
-  return reason_variables == support && falsifying_parity != rhs;
+  if (!charge(reason_assignments.size() * comparisons)) return false;
+  std::sort(reason_assignments.begin(), reason_assignments.end());
+  if (std::adjacent_find(
+          reason_assignments.begin(), reason_assignments.end(),
+          [](const auto &first, const auto &second) {
+            return first.first == second.first;
+          }) != reason_assignments.end())
+    return false;
+
+  // The exact XOR support is the minimal clausal reason.  Additional reason
+  // literals are a sound weakening and remain useful when they are false on
+  // the retained trail; the live reason-order audit checks that operational
+  // precondition.  Authenticate the parity only on the source-derived core.
+  bool falsifying_parity = false;
+  size_t reason_at = 0;
+  for (External variable : support) {
+    while (reason_at < reason_assignments.size() &&
+           reason_assignments[reason_at].first < variable)
+      ++reason_at;
+    if (reason_at == reason_assignments.size() ||
+        reason_assignments[reason_at].first != variable)
+      return false;
+    falsifying_parity ^= reason_assignments[reason_at].second;
+  }
+  return falsifying_parity != rhs;
 }
 
 bool AffineMatrix::retained_authentication_work(

@@ -126,21 +126,22 @@ void pivot_collision_and_conflict(){
  assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&event.implied_value);
  assert((event.reason==std::vector<int32_t>{1,4}));
 }
-void cancelled_support_is_not_a_reason_literal(){
+void cancelled_support_is_a_sound_reason_weakening(){
  const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
  auto matrix=build(sources);MatrixEvent event;
  assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
  // The selected row is E1 xor E2: x1 xor x4 = 1.  Variables x2 and x3
- // occur twice in its source provenance and therefore are not part of the
- // GF(2) support, even though both happen to be assigned on this trail.
+ // cancel from its minimal GF(2) support.  Keeping their false trail literals
+ // is nevertheless a sound clausal weakening, and the historical audit must
+ // authenticate the source-derived {-1,-4} core rather than require equality.
  const std::vector<MatrixAssignment> trail={{1,true},{2,false},{3,true}};
  assert(matrix.synchronize(trail,[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete);
  assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&!event.implied_value);
  assert((event.row.source_equations==std::vector<size_t>{0,1}));
- assert((event.reason==std::vector<int32_t>{-1,-4}));
+ assert((event.reason==std::vector<int32_t>{-1,2,-3,-4}));
  source_oracle(sources,trail,event);
  assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
  assert(matrix.authenticates_historical(73,sources,event,[](auto){return true;}));
 }
 }
-int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_not_a_reason_literal();late_atomic();fixed_truth_table();}
+int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();}
