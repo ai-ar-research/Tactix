@@ -651,6 +651,8 @@ int main(int argc, char **argv) {
         {"proof_additions", affine.proof_additions},
         {"proof_deletions", affine.proof_deletions},
         {"overhead_nanos", affine.overhead_nanos},
+        {"synchronization_nanos", affine.synchronization_nanos},
+        {"publication_nanos", affine.publication_nanos},
         {"resource_declines", affine.resource_declines},
         {"usefulness_disabled", affine.usefulness_disabled},
       };

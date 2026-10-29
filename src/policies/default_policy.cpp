@@ -3956,6 +3956,8 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
   affine_search_diagnostics_.lifecycle_work+=result.lifecycle_work;
   affine_search_diagnostics_.trail_capture_work+=result.trail_capture_work;
   affine_search_diagnostics_.synchronization_work+=result.synchronization_work;
+  affine_search_diagnostics_.synchronization_nanos+=result.synchronization_nanos;
+  affine_search_diagnostics_.publication_nanos+=result.publication_nanos;
   affine_search_diagnostics_.conditioned_rows+=result.synchronization_conditioned;
   affine_search_diagnostics_.retired_sources+=result.retired_source_groups;
   affine_search_diagnostics_.projected_variables+=result.projected_variables;

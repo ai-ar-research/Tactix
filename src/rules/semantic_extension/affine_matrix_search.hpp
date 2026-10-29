@@ -79,6 +79,7 @@ struct AffineMatrixServiceResult {
   ApplyResult result = ApplyResult::NoOp;
   std::string event_identity;
   uint64_t synchronization_work = 0;
+  uint64_t synchronization_nanos = 0, publication_nanos = 0;
   uint64_t trail_capture_work = 0;
   bool synchronized = false;
   bool synchronization_incremental = false;

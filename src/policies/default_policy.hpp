@@ -70,6 +70,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t reasons_published = 0, implications_consumed = 0;
   uint64_t initialization_work = 0, service_work = 0, overhead_nanos = 0;
   uint64_t lifecycle_work = 0, trail_capture_work = 0, synchronization_work = 0;
+  uint64_t synchronization_nanos = 0, publication_nanos = 0;
   uint64_t incremental_capture_calls = 0, unchanged_support_calls = 0, capture_delta_literals = 0;
   uint64_t cached_event_calls = 0;
   // Natural full-restart root windows: runs whose retained inputs changed,

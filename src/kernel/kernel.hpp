@@ -995,6 +995,8 @@ struct Stats {
   uint64_t affine_matrix_service_stale = 0;
   uint64_t affine_matrix_service_trail_capture_work = 0;
   uint64_t affine_matrix_service_sync_work = 0;
+  uint64_t affine_matrix_service_sync_nanos = 0;
+  uint64_t affine_matrix_service_publication_nanos = 0;
   uint64_t affine_matrix_service_extension_hits = 0;
   uint64_t affine_matrix_service_rebuilds = 0;
   uint64_t affine_matrix_service_rebuild_backtrack = 0;

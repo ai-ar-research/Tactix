@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <bit>
 #include <climits>
+#include <chrono>
 #include <cstdlib>
 #include <cstdio>
 #include <map>
@@ -18,6 +19,12 @@ bool add(uint64_t amount, uint64_t maximum, uint64_t &work) {
   if (work > maximum || amount > maximum - work) return false;
   work += amount;
   return true;
+}
+
+uint64_t clock_nanos() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
 }
 
 bool covers_complete_snapshot(const AffineLiveSnapshot &owner,
@@ -212,6 +219,9 @@ void record_service(Kernel &kernel, const AffineMatrixServiceResult &result) {
   kernel.stats.affine_matrix_service_trail_capture_work +=
       result.trail_capture_work;
   kernel.stats.affine_matrix_service_sync_work += result.synchronization_work;
+  kernel.stats.affine_matrix_service_sync_nanos += result.synchronization_nanos;
+  kernel.stats.affine_matrix_service_publication_nanos +=
+      result.publication_nanos;
   kernel.stats.affine_matrix_service_extension_hits +=
       result.synchronized && result.synchronization_incremental;
   kernel.stats.affine_matrix_service_rebuilds +=
@@ -1905,6 +1915,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
       std::min(index_base, session.persistence_.maximum_retained_bytes)};
   MatrixStatus synchronized=MatrixStatus::Complete;
   if(!cached) {
+    const uint64_t synchronization_started = clock_nanos();
     if(session.persistent()&&(session.slice_retry_||session.matrix_.continuation_pending())) {
       const MatrixSliceLimits slice{session.parameters_.basis_maximum_work-result.synchronization_work,
           session.persistence_.maximum_retained_bytes-std::min(session.retained_bytes_,session.persistence_.maximum_retained_bytes)};
@@ -1928,6 +1939,7 @@ AffineMatrixServiceResult affine_matrix_search_step(
         session.slice_retry_=true;result.slice_pending=true;
       }
     }
+    result.synchronization_nanos += clock_nanos() - synchronization_started;
   }
   if(result.slice_pending) {
     result.status=AffineMatrixServiceStatus::Pending;
@@ -2090,7 +2102,9 @@ AffineMatrixServiceResult affine_matrix_search_step(
                                       session.retained_bytes_ - key_bytes;
   }
   result.installed_reason = event.reason;
+  const uint64_t publication_started = clock_nanos();
   result.live = apply_affine_matrix_live(kernel, request);
+  result.publication_nanos += clock_nanos() - publication_started;
   result.status = live_status(result.live.status);
   result.result = result.live.result;
   result.bcp_pending = result.live.propagation_pending;
