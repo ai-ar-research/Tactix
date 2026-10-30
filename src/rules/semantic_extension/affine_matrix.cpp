@@ -798,51 +798,30 @@ void AffineMatrix::simplex_make_core_reason(
   if(selected>=simplex_.rhs.size()||
      (paired!=missing&&paired>=simplex_.rhs.size()))std::abort();
   event.reason.clear();
-  size_t responsible[2]={simplex_.responsible[selected],missing};
-  size_t responsible_count=responsible[0]==missing?0:1;
-  if(paired!=missing&&simplex_.responsible[paired]!=missing)
-    responsible[responsible_count++]=simplex_.responsible[paired];
-  if(responsible_count==2&&responsible[1]<responsible[0])
-    std::swap(responsible[0],responsible[1]);
-  size_t width=responsible_count;
-  for(size_t word=0;word<simplex_.coefficient_words;++word){
-    uint64_t bits=simplex_.coefficients[
-        selected*simplex_.coefficient_words+word];
-    if(paired!=missing)
-      bits^=simplex_.coefficients[
-          paired*simplex_.coefficient_words+word];
-    width+=std::popcount(bits);
-  }
-  event.reason.reserve(width);
-  const auto append=[&](size_t coordinate){
-    if(coordinate>=admitted_variables_.size())std::abort();
+  event.reason.reserve(admitted_variables_.size());
+  const auto contains=[&](size_t row,size_t coordinate){
+    if(simplex_.responsible[row]==coordinate)return true;
+    const size_t slot=simplex_.variable_to_slot[coordinate];
+    if(slot==missing)return false;
+    return bool(simplex_.coefficients[
+        row*simplex_.coefficient_words+slot/64]&
+        (uint64_t{1}<<(slot%64)));
+  };
+  // Basis exchange reuses the selected D slot for the old responsible
+  // coordinate, so slot_to_variable is deliberately not kept sorted.  Scan
+  // the immutable canonical coordinate order: reason literal order is part
+  // of the deterministic CDCL trajectory even when clause semantics agree.
+  for(size_t coordinate=0;coordinate<admitted_variables_.size();++coordinate){
+    bool present=contains(selected,coordinate);
+    if(paired!=missing)present^=contains(paired,coordinate);
+    if(!present)continue;
     const External variable=admitted_variables_[coordinate];
     if(event.kind==MatrixEventKind::Implication&&
-       variable==event.implied_variable)return;
+       variable==event.implied_variable)continue;
     const int8_t value=simplex_.values[coordinate];
     if(!value)std::abort();
     event.reason.push_back(value==2?-variable:variable);
-  };
-  size_t next_responsible=0;
-  for(size_t word=0;word<simplex_.coefficient_words;++word){
-    uint64_t bits=simplex_.coefficients[
-        selected*simplex_.coefficient_words+word];
-    if(paired!=missing)
-      bits^=simplex_.coefficients[
-          paired*simplex_.coefficient_words+word];
-    while(bits){
-      const size_t slot=word*64+std::countr_zero(bits);
-      if(slot>=simplex_.slot_to_variable.size())std::abort();
-      const size_t coordinate=simplex_.slot_to_variable[slot];
-      while(next_responsible<responsible_count&&
-            responsible[next_responsible]<coordinate)
-        append(responsible[next_responsible++]);
-      append(coordinate);
-      bits&=bits-1;
-    }
   }
-  while(next_responsible<responsible_count)
-    append(responsible[next_responsible++]);
   if(event.kind==MatrixEventKind::Implication)
     event.reason.push_back(event.implied_value?event.implied_variable:
                                                -event.implied_variable);

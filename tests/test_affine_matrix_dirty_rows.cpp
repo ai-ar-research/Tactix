@@ -103,6 +103,22 @@ void compact_simplex_exchange_and_atomicity(){
  assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
  assert(event.kind==MatrixEventKind::None);
 }
+void compact_reason_order_survives_slot_exchange(){
+ const std::vector<Equation> sources={{{1,2,3,4},false,{},{}}};
+ auto matrix=build(sources);MatrixEvent event;
+ // Assigning x1 and x2 makes x3 responsible. The vacated slot now names x1,
+ // after the x2 slot, so physical D-slot order is [x2,x1,x4]. The next
+ // singleton must nevertheless retain canonical external order x1,x2,x3,x4.
+ assert(matrix.synchronize({{1,false},{2,true}},[](auto){return true;},event,
+     true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
+ const std::vector<MatrixAssignment> trail={{1,false},{2,true},{3,false}};
+ assert(matrix.synchronize(trail,[](auto){return true;},event,true,&bytes,true)==
+        MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&
+        event.implied_value);
+ assert((event.reason==std::vector<External>{1,-2,3,4}));
+ source_oracle(sources,trail,event,true);
+}
 void compact_watches_retain_and_move_events(){
  // Two rows become singleton together.  Selecting x3 must not discard the
  // independent x6 event merely because assigning x3 does not touch row two.
@@ -218,4 +234,4 @@ void cancelled_support_is_a_sound_reason_weakening(){
  assert(matrix.authenticates_historical(73,sources,event,[](auto){return true;}));
 }
 }
-int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_watches_retain_and_move_events();}
+int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_reason_order_survives_slot_exchange();compact_watches_retain_and_move_events();}
