@@ -1417,12 +1417,20 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     if(!work.consume(1)||!memory(sizeof(MatrixRow)+row.variables.size()*sizeof(External)+
         row.source_equations.size()*sizeof(size_t)))return declined();
   }
-  std::map<size_t,MatrixRow> replacement;
+  std::vector<std::pair<size_t,MatrixRow>> replacement;
+  auto replacement_position=[&](size_t id){
+    return std::lower_bound(replacement.begin(),replacement.end(),id,
+        [](const auto &entry,size_t value){return entry.first<value;});
+  };
+  auto replacement_row=[&](size_t id)->MatrixRow*{
+    auto found=replacement_position(id);
+    return found!=replacement.end()&&found->first==id?&found->second:nullptr;
+  };
   RowIndex additions;
   const uint64_t row_reserve=index_node_bytes<std::pair<const size_t,MatrixRow>>() +
       6 * (uint64_t(limits_.maximum_row_width)*sizeof(External) +
            uint64_t(limits_.maximum_sources)*sizeof(size_t));
-  std::map<External,size_t> staged_pivots;
+  std::vector<std::pair<External,size_t>> staged_pivots;
   for(size_t id:dirty){
     const auto &old=rows_[id];
     if(!work.consume(1+old.variables.size()*comparisons+old.source_equations.size()) ||
@@ -1446,8 +1454,12 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
       if(!work.consume(1+comparisons))return declined();
       const External pivot=row.variables.front();
       const MatrixRow *other=nullptr;
-      auto staged=staged_pivots.find(pivot);
-      if(staged!=staged_pivots.end())other=&replacement.at(staged->second);
+      auto staged=std::lower_bound(staged_pivots.begin(),staged_pivots.end(),pivot,
+          [](const auto &entry,External value){return entry.first<value;});
+      if(staged!=staged_pivots.end()&&staged->first==pivot){
+        other=replacement_row(staged->second);
+        if(!other)return MatrixStatus::Invalid;
+      }
       else{
         auto retained=index_.pivots.find(pivot);
         if(retained!=index_.pivots.end()&&!dirty_contains(retained->second))other=&rows_[retained->second];
@@ -1461,9 +1473,15 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     if(!work.consume(1+comparisons))return declined();
     if(!row.variables.empty()){
       if(!memory(pivot_node))return declined();
-      staged_pivots.emplace(row.variables.front(),id);
+      auto position=std::lower_bound(staged_pivots.begin(),staged_pivots.end(),
+          row.variables.front(),[](const auto &entry,External value){
+            return entry.first<value;
+          });
+      if(position!=staged_pivots.end()&&position->first==row.variables.front())
+        return MatrixStatus::Invalid;
+      staged_pivots.insert(position,{row.variables.front(),id});
     }
-    replacement.emplace(id,std::move(row));
+    replacement.emplace_back(id,std::move(row));
   }
   // Gauss-Jordan column elimination (CryptoMiniSat EGaussian::eliminate_col):
   // a row whose pivot was assigned takes a new pivot, which is removed from
@@ -1490,14 +1508,15 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     candidates.erase(std::unique(candidates.begin(),candidates.end()),candidates.end());
     for(size_t id:candidates){
       if(id==pivot_id)continue;
-      auto staged=replacement.find(id);
-      const MatrixRow &current=staged==replacement.end()?rows_[id]:staged->second;
+      auto staged=replacement_position(id);
+      const MatrixRow &current=staged==replacement.end()||staged->first!=id?
+          rows_[id]:staged->second;
       if(!work.consume(1+comparisons*std::bit_width(uint64_t(current.variables.size()))))return declined();
       if(!std::binary_search(current.variables.begin(),current.variables.end(),pivot))continue;
-      if(staged==replacement.end()){
+      if(staged==replacement.end()||staged->first!=id){
         if(!work.consume(1+current.variables.size()+current.source_equations.size())||
            !memory(row_reserve+conflict_node))return declined();
-        staged=replacement.emplace(id,rows_[id]).first;
+        staged=replacement.insert(staged,{id,rows_[id]});
         if (!dirty_contains(id)) {
           if (id >= dirty_row_marks_.size()) return MatrixStatus::Invalid;
           dirty_row_marks_[id] = dirty_row_epoch_;
@@ -1507,7 +1526,9 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
               id);
         }
       }
-      const auto status=combine(staged->second,replacement.at(pivot_id),limits_,work,
+      MatrixRow *pivot_row=replacement_row(pivot_id);
+      if(!pivot_row)return MatrixStatus::Invalid;
+      const auto status=combine(staged->second,*pivot_row,limits_,work,
           dirty_variable_xor_scratch_,dirty_source_xor_scratch_,true);
       if(status!=CombineStatus::Complete)return declined();
     }
@@ -1524,16 +1545,22 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
   }
   // Copy only occurrence lists touched by the private rows. The sorted IDs
   // remain stable; unrelated row bodies and occurrence lists are never copied.
-  std::map<External,std::vector<size_t>> lists;
+  std::vector<std::pair<External,std::vector<size_t>>> lists;
   auto list_for=[&](External variable)->std::vector<size_t>*{
     if(!work.consume(1+comparisons))return nullptr;
-    auto staged=lists.find(variable);if(staged!=lists.end())return &staged->second;
+    auto staged=std::lower_bound(lists.begin(),lists.end(),variable,
+        [](const auto &entry,External value){return entry.first<value;});
+    if(staged!=lists.end()&&staged->first==variable)return &staged->second;
     auto retained=index_.occurrences.find(variable);
     const size_t count=retained==index_.occurrences.end()?0:retained->second.size();
     // Up to one entry per dirty row may be newly inserted into this list.
     const uint64_t capacity=count+dirty.size();
-    if(!work.consume(1+count)||!memory(occurrence_node+capacity*sizeof(size_t)))return nullptr;
-    auto &list=lists[variable];list.reserve(capacity);
+    using FlatOccurrence=std::pair<External,std::vector<size_t>>;
+    const uint64_t transfer_node=retained==index_.occurrences.end()?occurrence_node:0;
+    if(!work.consume(1+count)||!memory(sizeof(FlatOccurrence)+transfer_node+
+        capacity*sizeof(size_t)))return nullptr;
+    staged=lists.insert(staged,{variable,{}});
+    auto &list=staged->second;list.reserve(capacity);
     if(retained!=index_.occurrences.end())list.assign(retained->second.begin(),retained->second.end());
     return &list;
   };
@@ -1607,8 +1634,9 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     selected_id=entry->second;candidate.kind=MatrixEventKind::Implication;candidate.implied_variable=entry->first;
   }
   if(candidate.kind!=MatrixEventKind::None){
-    auto changed=replacement.find(selected_id);
-    selected=changed==replacement.end()?&rows_[selected_id]:&changed->second;
+    auto changed=replacement_position(selected_id);
+    selected=changed==replacement.end()||changed->first!=selected_id?
+        &rows_[selected_id]:&changed->second;
     if(!work.consume(1+selected->variables.size()+selected->source_equations.size()))return declined();
     uint64_t support=0;
     for(size_t source:selected->source_equations){
@@ -1636,10 +1664,10 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     else if(old.rhs)index_.conflicts.erase(id);
   }
   for(auto &[id,row]:replacement)rows_[id]=std::move(row);
-  for(auto it=lists.begin();it!=lists.end();){
-    auto old=index_.occurrences.find(it->first);
-    if(old!=index_.occurrences.end()){old->second=std::move(it->second);it=lists.erase(it);}
-    else{auto node=lists.extract(it++);index_.occurrences.insert(std::move(node));}
+  for(auto &[variable,list]:lists){
+    auto old=index_.occurrences.find(variable);
+    if(old!=index_.occurrences.end())old->second=std::move(list);
+    else index_.occurrences.emplace(variable,std::move(list));
   }
   index_.pivots.merge(additions.pivots);index_.singletons.merge(additions.singletons);index_.conflicts.merge(additions.conflicts);
   index_.bytes=next_bytes;
