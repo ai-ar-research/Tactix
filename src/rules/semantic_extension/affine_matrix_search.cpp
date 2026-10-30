@@ -349,7 +349,7 @@ bool AffineMatrixSearchSession::inspect_lazy_reason(
           const Lit positive=kernel_internalize(kernel,variable);
           if(positive==INVALID_LIT||kernel.values[positive]==0)return false;
           const Lit false_literal=kernel.values[positive]>0?
-              negated(positive):positive;
+              negate(positive):positive;
           if(kernel.value(false_literal)>=0)return false;
           antecedents.push_back(var_of(positive));
           return true;

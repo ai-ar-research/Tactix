@@ -539,7 +539,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
              kernel, session, parameters(),
              AffineMatrixAdmission::AuthenticatedSubimage, persistence)
              .status == AffineMatrixInitStatus::Applied);
-  for (const int decision : {-1, -2}) {
+  for (const int decision : {-1, 2}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
@@ -557,7 +557,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
          materialized.reason_materialized &&
          materialized.reason_width == 3 &&
          (materialized.installed_reason ==
-          std::vector<int32_t>{1, 2, -5}) &&
+          std::vector<int32_t>{1, -2, 5}) &&
          session.lazy_reason_count() == 0);
   proof.flush();
   kernel.proof = nullptr;
