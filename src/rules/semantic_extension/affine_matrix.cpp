@@ -1397,10 +1397,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     }
     return true;
   };
-  std::map<External,bool> values;
   for(const auto assignment:delta){
-    if(!work.consume(1+comparisons)||!memory(pivot_node))return declined();
-    values.emplace(assignment.variable,assignment.value);
+    if(!work.consume(1+comparisons))return declined();
     auto found=index_.occurrences.find(assignment.variable);
     if(found==index_.occurrences.end())continue;
     for(size_t id:found->second){
@@ -1432,9 +1430,17 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     MatrixRow row;row.rhs=old.rhs;row.component=old.component;
     row.source_equations=old.source_equations;
     row.variables.reserve(old.variables.size());
+    // Both inputs are strictly ordered.  Merge them directly instead of
+    // rebuilding a temporary assignment tree for every synchronization.
+    // The caller has already authenticated `delta` as the sorted set
+    // difference between the old and new trails.
+    size_t assigned_at=0;
     for(External variable:old.variables){
-      auto assigned=values.find(variable);
-      if(assigned==values.end())row.variables.push_back(variable);else row.rhs^=assigned->second;
+      while(assigned_at<delta.size()&&delta[assigned_at].variable<variable)
+        ++assigned_at;
+      if(assigned_at<delta.size()&&delta[assigned_at].variable==variable)
+        row.rhs^=delta[assigned_at].value;
+      else row.variables.push_back(variable);
     }
     while(!row.variables.empty()){
       if(!work.consume(1+comparisons))return declined();
