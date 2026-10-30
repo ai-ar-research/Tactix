@@ -496,88 +496,6 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
   return true;
 }
 
-bool assign_literal(std::vector<int8_t> &assignment, Lit lit) {
-  const Var variable = var_of(lit);
-  const int8_t value = negated(lit) ? -1 : 1;
-  if (assignment[variable] && assignment[variable] != value)
-    return false;
-  assignment[variable] = value;
-  return true;
-}
-
-template <class It>
-int propagate_clause(std::vector<int8_t> &assignment, It begin, It end) {
-  Lit last = INVALID_LIT;
-  uint32_t unassigned = 0;
-  for (It it = begin; it != end; ++it) {
-    const Lit lit = *it;
-    const int8_t value = assignment[var_of(lit)];
-    if (!value) {
-      last = lit;
-      ++unassigned;
-    } else if ((value > 0) != negated(lit)) {
-      return 0;
-    }
-  }
-  if (!unassigned)
-    return -1;
-  if (unassigned == 1)
-    return assign_literal(assignment, last) ? 1 : -1;
-  return 0;
-}
-
-bool complete_assignment(
-    Kernel &k, const strategy::BalancedSignatureModelParameters &parameters,
-    std::vector<int8_t> &assignment) {
-  for (Var variable = 0; variable < k.nvars; ++variable) {
-    const int value = k.value(make_lit(variable, false));
-    if (value && !assign_literal(
-                     assignment, make_lit(variable, value < 0)))
-      return false;
-  }
-  for (uint32_t round = 0; round < parameters.completion_rounds; ++round) {
-    ++k.stats.balanced_signature_completion_rounds;
-    bool changed = false;
-    uint64_t visited = 0;
-    for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
-      for (const WatchEntry watch : k.watches.entries(lit)) {
-        if (!watch.binary() || lit > watch.other())
-          continue;
-        const Lit pair[2] = {lit, watch.other()};
-        const int result =
-            propagate_clause(assignment, std::begin(pair), std::end(pair));
-        if (result < 0)
-          return false;
-        changed |= result > 0;
-        if (!(++visited & ((uint64_t{1} << 20) - 1)) &&
-            kernel_rule_interrupt(k, k.stats.balanced_signature_interrupted))
-          return false;
-      }
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
-      if (!clause->garbage()) {
-        const int result =
-            propagate_clause(assignment, clause->begin(), clause->end());
-        if (result < 0)
-          return false;
-        changed |= result > 0;
-      }
-      ref += words;
-    }
-    if (!changed)
-      break;
-  }
-  return true;
-}
-
-std::vector<uint8_t> boolean_assignment(const std::vector<int8_t> &values) {
-  std::vector<uint8_t> result(values.size());
-  for (size_t i = 0; i < values.size(); ++i)
-    result[i] = values[i] > 0;
-  return result;
-}
-
 } // namespace
 
 RuleEligibility balanced_signature_model_guard(const Kernel &k) {
@@ -624,9 +542,13 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
     return ApplyResult::NoOp;
 
   ++k.stats.balanced_signature_candidates;
-  if (!complete_assignment(k, parameters, signed_assignment))
+  if (!lucky_complete_by_propagation(
+          k, parameters.completion_rounds,
+          k.stats.balanced_signature_interrupted,
+          k.stats.balanced_signature_completion_rounds, signed_assignment))
     return ApplyResult::NoOp;
-  std::vector<uint8_t> assignment = boolean_assignment(signed_assignment);
+  std::vector<uint8_t> assignment =
+      lucky_boolean_assignment(signed_assignment);
   if (!lucky_model_valid(k, assignment))
     return ApplyResult::NoOp;
   lucky_publish_model(k, assignment);

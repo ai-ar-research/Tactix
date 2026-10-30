@@ -194,15 +194,6 @@ bool factor_pair(Kernel &k, U64 value,
   return low > 1 && high > 1 && U128{low} * high == value;
 }
 
-bool assign_literal(std::vector<int8_t> &assignment, Lit literal) {
-  const Var variable = var_of(literal);
-  const int8_t value = negated(literal) ? -1 : 1;
-  if (assignment[variable] && assignment[variable] != value)
-    return false;
-  assignment[variable] = value;
-  return true;
-}
-
 bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
                   uint32_t dimacs, bool value) {
   if (!dimacs || dimacs > k.external_to_internal.size())
@@ -210,80 +201,7 @@ bool set_external(const Kernel &k, std::vector<int8_t> &assignment,
   const Var internal = k.external_to_internal[dimacs - 1];
   if (internal == INVALID_VAR || internal >= assignment.size())
     return false;
-  return assign_literal(assignment, make_lit(internal, !value));
-}
-
-template <class It>
-int propagate_clause(std::vector<int8_t> &assignment, It begin, It end) {
-  Lit unit = INVALID_LIT;
-  uint32_t unassigned = 0;
-  for (It it = begin; it != end; ++it) {
-    const Lit literal = *it;
-    const int8_t value = assignment[var_of(literal)];
-    if (!value) {
-      unit = literal;
-      ++unassigned;
-    } else if ((value > 0) != negated(literal)) {
-      return 0;
-    }
-  }
-  if (!unassigned)
-    return -1;
-  if (unassigned == 1)
-    return assign_literal(assignment, unit) ? 1 : -1;
-  return 0;
-}
-
-bool complete_assignment(Kernel &k, std::vector<int8_t> &assignment) {
-  for (Var variable = 0; variable < k.nvars; ++variable) {
-    const int value = k.value(make_lit(variable, false));
-    if (value &&
-        !assign_literal(assignment, make_lit(variable, value < 0)))
-      return false;
-  }
-  // A productive full scan fixes at least one new variable, so this feedback
-  // loop is intrinsically bounded by the current variable population.
-  for (uint64_t round = 0; round <= k.nvars; ++round) {
-    ++k.stats.fermat_model_completion_rounds;
-    bool changed = false;
-    uint64_t visited = 0;
-    for (Lit literal = 0; literal < 2 * k.nvars; ++literal)
-      for (const WatchEntry watch : k.watches.entries(literal)) {
-        if (!watch.binary() || literal > watch.other())
-          continue;
-        const Lit pair[2] = {literal, watch.other()};
-        const int result =
-            propagate_clause(assignment, std::begin(pair), std::end(pair));
-        if (result < 0)
-          return false;
-        changed |= result > 0;
-        if (!(++visited & ((U64{1} << 20) - 1)) &&
-            kernel_rule_interrupt(k, k.stats.fermat_model_interrupted))
-          return false;
-      }
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
-      const uint32_t words = clause_actual_words(clause);
-      if (!clause->garbage()) {
-        const int result =
-            propagate_clause(assignment, clause->begin(), clause->end());
-        if (result < 0)
-          return false;
-        changed |= result > 0;
-      }
-      ref += words;
-    }
-    if (!changed)
-      return true;
-  }
-  return false;
-}
-
-std::vector<uint8_t> boolean_assignment(const std::vector<int8_t> &values) {
-  std::vector<uint8_t> result(values.size());
-  for (size_t i = 0; i < values.size(); ++i)
-    result[i] = values[i] > 0;
-  return result;
+  return lucky_assign_literal(assignment, make_lit(internal, !value));
 }
 
 } // namespace
@@ -329,9 +247,12 @@ ApplyResult fermat_model_apply(Kernel &k) {
                       (b >> bit) & 1))
       return ApplyResult::NoOp;
   }
-  if (!complete_assignment(k, signed_assignment))
+  if (!lucky_complete_by_propagation(
+          k, uint64_t{k.nvars} + 1, k.stats.fermat_model_interrupted,
+          k.stats.fermat_model_completion_rounds, signed_assignment, true))
     return ApplyResult::NoOp;
-  std::vector<uint8_t> assignment = boolean_assignment(signed_assignment);
+  std::vector<uint8_t> assignment =
+      lucky_boolean_assignment(signed_assignment);
   if (!lucky_model_valid(k, assignment))
     return ApplyResult::NoOp;
   lucky_publish_model(k, assignment);

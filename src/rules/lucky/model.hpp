@@ -81,7 +81,8 @@ int lucky_propagate_clause(std::vector<int8_t> &assignment, It begin, It end) {
 inline bool lucky_complete_by_propagation(Kernel &k, uint64_t rounds,
                                           uint64_t &interrupted_counter,
                                           uint64_t &rounds_counter,
-                                          std::vector<int8_t> &assignment) {
+                                          std::vector<int8_t> &assignment,
+                                          bool require_fixpoint = false) {
   for (Var variable = 0; variable < k.nvars; ++variable) {
     const int value = k.value(make_lit(variable, false));
     if (value &&
@@ -114,9 +115,16 @@ inline bool lucky_complete_by_propagation(Kernel &k, uint64_t rounds,
       }
       ref += clause_actual_words(clause);
     }
-    if (!changed) break;
+    if (!changed) return true;
   }
-  return true;
+  return !require_fixpoint;
+}
+inline std::vector<uint8_t>
+lucky_boolean_assignment(const std::vector<int8_t> &values) {
+  std::vector<uint8_t> result(values.size());
+  for (size_t i = 0; i < values.size(); ++i)
+    result[i] = values[i] > 0;
+  return result;
 }
 // A terminal transaction: the caller has validated the whole assignment and
 // admitted publication work. Do not poll or stop partway through publication.

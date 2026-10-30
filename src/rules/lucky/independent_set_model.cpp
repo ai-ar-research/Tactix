@@ -382,9 +382,7 @@ bool build_assignment(Kernel &k,
           k, rounds, k.stats.independent_set_model_interrupted,
           k.stats.independent_set_model_completion_rounds, values))
     return false;
-  assignment.assign(k.nvars, 0);
-  for (Var variable = 0; variable < k.nvars; ++variable)
-    assignment[variable] = values[variable] > 0;
+  assignment = lucky_boolean_assignment(values);
   return true;
 }
 
