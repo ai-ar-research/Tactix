@@ -228,8 +228,9 @@ private:
   // authenticated system while avoiding reconstruction at every Boolean
   // fixpoint.
   struct SimplexState {
-    bool ready = false, active = false;
+    bool ready = false, active = false, watches_ready = false;
     size_t coefficient_words = 0, source_words = 0;
+    size_t row_words = 0, variable_words = 0;
     uint64_t bytes = 0, authentication_work = 0;
     std::vector<uint64_t> coefficients, provenance;
     std::vector<size_t> responsible, variable_to_row, variable_to_slot,
@@ -241,6 +242,15 @@ private:
     mutable std::vector<External> reason_scratch;
     mutable std::vector<size_t> implication_rows;
     mutable std::vector<uint8_t> implication_values;
+    // CryptoMiniSat-style two-coordinate row watches.  The flat bit matrices
+    // avoid allocator traffic at search fixpoints and keep every byte inside
+    // the admitted persistent-state bound.  Event bitsets retain singleton
+    // and conflict rows that were not selected on an earlier service call.
+    std::vector<uint64_t> watch_rows, singleton_rows, conflict_rows,
+        active_singleton_variables, opposite_rows, pending_responsible_rows,
+        touched_rows;
+    std::vector<size_t> watch_first, watch_second, event_coordinates;
+    std::vector<uint8_t> event_kinds, event_values;
   };
   MatrixStatus synchronize_simplex(
       const std::vector<MatrixAssignment> &,
@@ -248,6 +258,14 @@ private:
       const MatrixIncrementalLimits &);
   bool simplex_layout(uint64_t, size_t &, size_t &, uint64_t &) const;
   bool prepare_simplex(uint64_t, SimplexState &) const;
+  void simplex_evaluate_row(size_t, size_t &, size_t &, bool &,
+                            size_t * = nullptr, size_t * = nullptr) const;
+  MatrixEvent simplex_build_event(size_t, size_t, MatrixEventKind, External,
+                                  bool, bool) const;
+  void simplex_remove_row_index(size_t);
+  void simplex_refresh_row_index(size_t);
+  void simplex_rebuild_index();
+  MatrixEvent simplex_indexed_event(bool) const;
   MatrixEvent simplex_event(bool exact_core_reason) const;
   void materialize_simplex_rows() const;
   void reset_sparse_after_simplex();

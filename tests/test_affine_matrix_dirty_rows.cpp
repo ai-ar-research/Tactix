@@ -95,6 +95,35 @@ void compact_simplex_exchange_and_atomicity(){
  assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
  assert(event.kind==MatrixEventKind::None);
 }
+void compact_watches_retain_and_move_events(){
+ // Two rows become singleton together.  Selecting x3 must not discard the
+ // independent x6 event merely because assigning x3 does not touch row two.
+ const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{4,5,6},true,{},{}}};
+ auto matrix=build(sources);MatrixEvent event;
+ assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(matrix.synchronize({{1,true},{2,false},{4,true},{5,false}},
+     [](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==3&&event.implied_value);
+ assert(matrix.synchronize({{1,true},{2,false},{3,true},{4,true},{5,false}},
+     [](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==6&&!event.implied_value);
+ assert(matrix.synchronize({{1,true},{2,false},{3,true},{4,true},{5,false},{6,false}},
+     [](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::None);
+
+ // In one four-variable row, x4 and x3 are initially unwatched.  Assigning
+ // them cannot create an event while the two watched variables remain open;
+ // assigning watched x2 then moves the row directly to the x1 implication.
+ auto moved=build({{{1,2,3,4},false,{},{}}});
+ assert(moved.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(moved.synchronize({{4,true}},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
+ assert(moved.synchronize({{3,false},{4,true}},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
+ assert(moved.synchronize({{2,true},{3,false},{4,true}},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==1&&!event.implied_value);
+ assert(moved.synchronize({{1,false},{2,true},{3,false},{4,true}},
+     [](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
+ assert(moved.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
+}
 void late_atomic(){
  const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
  auto reference=build(sources),stopped=build(sources);MatrixEvent a,b;
@@ -181,4 +210,4 @@ void cancelled_support_is_a_sound_reason_weakening(){
  assert(matrix.authenticates_historical(73,sources,event,[](auto){return true;}));
 }
 }
-int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();}
+int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_watches_retain_and_move_events();}
