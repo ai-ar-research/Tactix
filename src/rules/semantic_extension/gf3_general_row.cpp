@@ -1,26 +1,15 @@
 #include "rules/semantic_extension/gf3_general_row.hpp"
 
-#include "kernel/types.hpp"
+#include "rules/semantic_extension/gf3_certificate_common.hpp"
 
 #include <algorithm>
 #include <climits>
 #include <limits>
-#include <map>
 #include <set>
 #include <utility>
 
 namespace tactix::gf3_general_row {
 namespace {
-
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool add_checked(uint64_t first, uint64_t second, uint64_t &result) {
-  if (second > std::numeric_limits<uint64_t>::max() - first) return false;
-  result = first + second;
-  return true;
-}
 
 bool power3(uint32_t exponent, uint64_t &result) {
   result = 1;
@@ -29,11 +18,6 @@ bool power3(uint32_t exponent, uint64_t &result) {
     result *= 3;
   }
   return true;
-}
-
-std::vector<int32_t> canonical(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
 }
 
 bool valid_limits(const Limits &limits) {
@@ -141,9 +125,10 @@ Result select(const gf3_affine::Theory &theory,
     result.status = Status::NoConsequence;
     return result;
   }
-  clause = canonical(std::move(clause));
+  clause = gf3_certificate_common::canonical(std::move(clause));
   for (const gf3_affine::Premise &premise : theory.source) {
-    const std::vector<int32_t> existing = canonical(premise.literals);
+    const std::vector<int32_t> existing =
+        gf3_certificate_common::canonical(premise.literals);
     if (std::includes(clause.begin(), clause.end(), existing.begin(),
                       existing.end())) {
       result.status = Status::Duplicate;
@@ -157,44 +142,8 @@ Result select(const gf3_affine::Theory &theory,
   return result;
 }
 
-class Meter {
-  const Limits &limits_;
-  Charge &charge_;
-
-public:
-  Statistics stats;
-  LimitKind limit = LimitKind::None;
-  bool interrupted = false;
-
-  Meter(const Limits &limits, Charge &charge)
-      : limits_(limits), charge_(charge) {}
-
-  bool spend(uint64_t amount) {
-    uint64_t next = 0;
-    if (!add_checked(stats.work, amount, next) ||
-        next > limits_.maximum_work) {
-      limit = LimitKind::Work;
-      return false;
-    }
-    if (!charge_(amount)) {
-      interrupted = true;
-      return false;
-    }
-    stats.work = next;
-    return true;
-  }
-
-  bool retain_source() {
-    if (stats.retained_source_references >=
-        limits_.maximum_retained_source_references) {
-      limit = LimitKind::RetainedSourceReferences;
-      return false;
-    }
-    if (!spend(1)) return false;
-    ++stats.retained_source_references;
-    return true;
-  }
-};
+using Meter = gf3_certificate_common::Meter<Limits, Charge, Statistics,
+                                              LimitKind>;
 
 Result stopped(const Meter &meter, Status ordinary) {
   Result result;
@@ -208,87 +157,22 @@ Result stopped(const Meter &meter, Status ordinary) {
   return result;
 }
 
-struct LocalProof {
-  const gf3_affine::Theory &theory;
-  const Limits &limits;
-  Meter &meter;
-  std::vector<std::vector<int32_t>> active;
-  std::vector<uint32_t> branch_domains;
-  std::set<uint32_t> fixed;
+struct LocalProof
+    : gf3_certificate_common::LocalProof<LocalProof, gf3_affine::Theory,
+                                         Limits, Meter, std::set<uint32_t>> {
+  using Core = gf3_certificate_common::LocalProof<
+      LocalProof, gf3_affine::Theory, Limits, Meter, std::set<uint32_t>>;
+  using Core::Core;
+
   std::vector<Event> events;
-  bool uncertifiable = false;
 
-  LocalProof(const gf3_affine::Theory &theory_, const Limits &limits_,
-             Meter &meter_)
-      : theory(theory_), limits(limits_), meter(meter_) {}
-
-  bool available(const std::vector<int32_t> &candidate) {
-    for (const std::vector<int32_t> &clause : active) {
-      if (!meter.spend(uint64_t{1} + clause.size() + candidate.size()))
-        return false;
-      if (std::includes(candidate.begin(), candidate.end(), clause.begin(),
-                        clause.end()))
-        return true;
-    }
-    return false;
-  }
-
-  bool assign(std::map<uint32_t, int8_t> &values, int32_t literal) {
-    const uint32_t atom = variable(literal);
-    if (!atom || atom > theory.maximum_variable) return false;
-    const int8_t value = literal > 0 ? 1 : -1;
-    const auto found = values.find(atom);
-    if (found != values.end() && found->second == -value) return false;
-    if (found == values.end()) {
-      values.emplace(atom, value);
-      ++meter.stats.propagated_literals;
-    }
-    return true;
-  }
-
-  bool rup(const std::vector<int32_t> &candidate) {
-    ++meter.stats.rup_checks;
-    std::map<uint32_t, int8_t> values;
-    for (int32_t literal : candidate) {
-      if (!meter.spend(1)) return false;
-      if (!assign(values, -literal)) return true;
-    }
-    bool changed = true;
-    while (changed) {
-      changed = false;
-      for (const std::vector<int32_t> &clause : active) {
-        if (!meter.spend(uint64_t{1} + clause.size())) return false;
-        bool satisfied = false;
-        uint32_t open = 0;
-        int32_t last = 0;
-        for (int32_t literal : clause) {
-          const auto found = values.find(variable(literal));
-          const int8_t value = found == values.end() ? 0 : found->second;
-          if (value && (literal > 0) == (value > 0)) {
-            satisfied = true;
-            break;
-          }
-          if (!value) {
-            ++open;
-            last = literal;
-          }
-        }
-        if (satisfied) continue;
-        if (!open) return true;
-        if (open == 1) {
-          const uint32_t atom = variable(last);
-          const auto found = values.find(atom);
-          const int8_t before = found == values.end() ? 0 : found->second;
-          if (!assign(values, last)) return true;
-          changed |= !before;
-        }
-      }
-    }
-    return false;
+  static constexpr EventRole auxiliary_role() { return EventRole::Auxiliary; }
+  static constexpr EventRole branch_role(EventRole root_role, bool root) {
+    return root ? root_role : EventRole::Auxiliary;
   }
 
   bool add(std::vector<int32_t> clause, EventRole role) {
-    clause = canonical(std::move(clause));
+    clause = gf3_certificate_common::canonical(std::move(clause));
     if (clause.size() > limits.maximum_event_width) {
       meter.limit = LimitKind::EventWidth;
       return false;
@@ -298,7 +182,8 @@ struct LocalProof {
       return false;
     }
     uint64_t literals = 0;
-    if (!add_checked(meter.stats.event_literals, clause.size(), literals) ||
+    if (!gf3_certificate_common::add_checked(meter.stats.event_literals,
+                                             clause.size(), literals) ||
         literals > limits.maximum_event_literals) {
       meter.limit = LimitKind::EventLiterals;
       return false;
@@ -316,46 +201,6 @@ struct LocalProof {
     active.push_back(std::move(clause));
     ++meter.stats.events;
     return true;
-  }
-
-  bool derive(std::vector<int32_t> clause, size_t branch,
-              bool root) {
-    clause = canonical(std::move(clause));
-    if (clause.size() > limits.maximum_event_width) {
-      meter.limit = LimitKind::EventWidth;
-      return false;
-    }
-    if (available(clause))
-      return meter.limit == LimitKind::None && !meter.interrupted;
-    if (meter.limit != LimitKind::None || meter.interrupted) return false;
-    if (rup(clause))
-      return add(std::move(clause), root ? EventRole::Consequence
-                                         : EventRole::Auxiliary);
-    if (meter.limit != LimitKind::None || meter.interrupted) return false;
-    while (branch < branch_domains.size() &&
-           fixed.count(branch_domains[branch]))
-      ++branch;
-    if (branch == branch_domains.size()) {
-      uncertifiable = true;
-      return false;
-    }
-    const uint32_t domain = branch_domains[branch];
-    if (domain >= theory.domains.size()) {
-      uncertifiable = true;
-      return false;
-    }
-    for (uint8_t value = 0; value < 3; ++value) {
-      std::vector<int32_t> child = clause;
-      child.push_back(-theory.domains[domain].values[value]);
-      if (!derive(std::move(child), branch + 1, false)) return false;
-    }
-    if (!rup(clause)) {
-      if (meter.limit == LimitKind::None && !meter.interrupted)
-        uncertifiable = true;
-      return false;
-    }
-    return add(std::move(clause), root ? EventRole::Consequence
-                                       : EventRole::Auxiliary);
   }
 };
 
@@ -380,7 +225,8 @@ bool take_premise(const gf3_affine::Theory &theory,
   }
   if (!proof.meter.spend(uint64_t{1} + premise->literals.size()))
     return false;
-  proof.active.push_back(canonical(premise->literals));
+  proof.active.push_back(
+      gf3_certificate_common::canonical(premise->literals));
   return true;
 }
 
@@ -476,7 +322,7 @@ Result build(const gf3_affine::Theory &theory,
     return stopped(meter, Status::InvalidBridge);
   for (const gf3_gaussian::Term &term : selection.derivation->row)
     proof.fixed.insert(term.variable - 1);
-  if (!proof.derive(selection.clause, 0, true))
+  if (!proof.derive(selection.clause, 0, EventRole::Consequence, true))
     return stopped(meter, proof.uncertifiable ? Status::Uncertifiable
                                              : Status::InvalidBridge);
   if (proof.events.empty() ||
