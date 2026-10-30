@@ -64,7 +64,9 @@ int main(int argc,char **argv){
  Proof proof;assert(proof.open((base+".dsr").c_str(),ProofFormat::DsrAscii));proof.bind_variable_map(&k.internal_to_external);proof.bind_external_variable_map(&k.external_to_internal);
  for(size_t i=0;i<clauses.size();++i){std::vector<Lit> body;for(int x:clauses[i])body.push_back(kernel_internalize(k,x));proof.seed_population(i+1,body.data(),body.size());}proof.arm_population_shadow();k.proof=&proof;
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
- DefaultStrategyConfig config;config.affine_search.enabled=true;DefaultPolicy policy(config);
+ DefaultStrategyConfig config;config.affine_search.enabled=true;
+ config.affine_search.reason_mode=DefaultStrategyConfig::AffineSearch::ReasonMode::EagerSourceSupport;
+ DefaultPolicy policy(config);
  auto initialized=DefaultAffineSearchTestAccess::initialize(policy,k);assert(initialized.status==AffineMatrixInitStatus::Applied&&session.active_sources()==40);
  assert(session.retained_bytes()<100000000);
  const auto arena=k.arena;const auto watches=k.watches.arena;const auto id=k.next_clause_id,owner=session.owner_version(),bytes=proof.premise_bytes();const auto position=std::ftell(journal);

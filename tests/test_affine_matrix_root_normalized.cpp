@@ -32,7 +32,9 @@ static void exercise(ProofFormat format,const char *prefix){
  FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
  for(int root:roots){kernel_assign_unit(k,kernel_internalize(k,root));}assert(propagate_apply(k)==ApplyResult::Ok);
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
- DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;DefaultPolicy policy(cfg);
+ DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;
+ cfg.affine_search.reason_mode=DefaultStrategyConfig::AffineSearch::ReasonMode::EagerSourceSupport;
+ DefaultPolicy policy(cfg);
  const auto initialized=DefaultAffineSearchTestAccess::initialize(policy,k);
  assert(initialized.status==AffineMatrixInitStatus::Applied&&initialized.equations==40&&initialized.shortening_additions==160&&initialized.normalization_rup_checks>=160);
  assert(session.active_sources()==40&&session.basis_rank()==40&&session.support_variables()==118&&session.retained_bytes()<100000000);
@@ -116,7 +118,9 @@ static void retained_root_maintenance(ProofFormat format,const char *prefix){
  for(size_t i=0;i<original.size();++i){auto native=body(k,original[i]);proof.seed_population(i+1,native.data(),native.size());}proof.arm_population_shadow();k.proof=&proof;
  FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
  AffineMatrixSearchSession session;k.affine_matrix_search_session=&session;
- DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;DefaultPolicy policy(cfg);
+ DefaultStrategyConfig cfg;cfg.affine_search.enabled=true;
+ cfg.affine_search.reason_mode=DefaultStrategyConfig::AffineSearch::ReasonMode::EagerSourceSupport;
+ DefaultPolicy policy(cfg);
  assert(propagate_apply(k)==ApplyResult::Ok&&k.trail.empty());
  const auto admitted=DefaultAffineSearchTestAccess::initialize(policy,k);
  assert(admitted.status==AffineMatrixInitStatus::Applied&&session.active_sources()==3);
