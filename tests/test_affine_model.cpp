@@ -6,12 +6,22 @@
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/random_online.hpp"
+#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <set>
 #include <iostream>
 using namespace tactix;
 using namespace tactix::strategy;
+
+namespace tactix {
+struct DefaultAffineModelTestAccess {
+  static ApplyResult consume(DefaultPolicy &policy, Kernel &kernel) {
+    return policy.consume_affine_model_hint(kernel);
+  }
+};
+} // namespace tactix
+
 static Kernel fixture(bool duplicate=false,bool incomplete=false) {
   Kernel k;kernel_reserve_vars(k,5);
   for(unsigned mask=0;mask<16;++mask)if(std::popcount(mask)%2==0) {
@@ -178,6 +188,35 @@ int main() {
       assert(k.h->target[v]==
              hint.external_phases[k.internal_to_external[v]]);
     assert(k.stats.local_search_hints_applied==1);
+  }
+  // DefaultPolicy consumes the same exact retained candidate through public
+  // split Walk.  Complete-current-CNF admission must beat the ordinary all-
+  // positive phases, use no stochastic flip budget, and publish both saved
+  // and target phases without changing the formula or assignment trail.
+  {
+    Kernel k=fixture();ScopedHeuristics owner(k);
+    auto parameters=k.affine_model_parameters;
+    parameters.maximum_projection=1;
+    install_rule_parameters(k,parameters);
+    assert(affine_model_apply(k)==ApplyResult::NoOp);
+    const auto &hint=k.local_search_hints[
+        static_cast<size_t>(strategy::LocalSearchKind::Affine)];
+    assert(hint.available());
+    std::fill(k.h->saved.begin(),k.h->saved.end(),int8_t{1});
+    std::fill(k.h->target.begin(),k.h->target.end(),int8_t{1});
+    const auto arena=k.arena;
+    const auto trail=k.trail;
+    DefaultPolicy policy;
+    assert(DefaultAffineModelTestAccess::consume(policy,k)==ApplyResult::Ok);
+    assert(k.stats.walk_seed_imports==1&&k.stats.walk_seed_admitted==1&&
+           k.stats.walk_seed_exported==1&&!k.stats.walk_seed_rejected);
+    assert(k.stats.walk_preparation_steps>0&&
+           !k.stats.walk_preparation_budget_exhausted&&
+           !k.stats.walk_search_steps&&!k.stats.walk_flips);
+    assert(k.arena==arena&&k.trail==trail&&k.h->saved==k.h->target);
+    for(Var v=0;v<4;++v)
+      assert(k.h->saved[v]==hint.external_phases[k.internal_to_external[v]]);
+    kernel_check_invariants(k);
   }
   {
     Kernel k=fixture();ScopedHeuristics owner(k);volatile sig_atomic_t stop=1;k.stop=&stop;
