@@ -549,12 +549,17 @@ MatrixLiveResult prepare_affine_matrix_live(
     Kernel &kernel, const MatrixLiveRequest &request,
     AffineMatrixLivePrepared &output) {
   MatrixLiveResult result;
-  if (!valid(request)) return result;
+  if (!valid(request)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::PreparedContract;
+    return result;
+  }
   if (!proof_supported(kernel)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::ProofSupport;
     result.status = MatrixLiveStatus::UnsupportedProof;
     return result;
   }
   if (!applicable(kernel, request.historical_event)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::Applicability;
     result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
                                                : MatrixLiveStatus::Inapplicable;
     return result;
@@ -590,6 +595,7 @@ MatrixLiveResult prepare_affine_matrix_live(
       (!request.historical_event &&
        candidate.trail_ != request.matrix->trail() &&
        support_trail != request.matrix->trail())) {
+    result.audit_stage = MatrixLiveResult::AuditStage::TrailOrEvent;
     result.status = MatrixLiveStatus::Stale;
     return result;
   }
@@ -600,6 +606,7 @@ MatrixLiveResult prepare_affine_matrix_live(
     candidate.owner_ = *request.owner;
   if (!reason_order(kernel, candidate.event_, candidate.physical_reason_,
                     request.historical_event)) {
+    result.audit_stage = MatrixLiveResult::AuditStage::ReasonOrder;
     result.status = MatrixLiveStatus::UnsupportedOutcome;
     return result;
   }
@@ -669,6 +676,7 @@ MatrixLiveResult prepare_affine_matrix_live(
       request.historical_event || request.core_reason_authentication);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
+    result.audit_stage = MatrixLiveResult::AuditStage::TransactionPlan;
     result.status = transaction_status(planned);
     return result;
   }

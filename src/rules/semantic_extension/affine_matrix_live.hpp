@@ -113,6 +113,7 @@ struct MatrixLiveResult {
     MatrixAuthentication = 10,
     SelectedSources = 11,
     ResumeSources = 12,
+    TransactionPlan = 13,
   } audit_stage = AuditStage::None;
 };
 

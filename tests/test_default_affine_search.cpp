@@ -572,6 +572,8 @@ void paused_owner_retry(const std::string &stem = "",
       policy.affine_search_diagnostics().native_session_disables;
   const auto reasons_before_decline =
       policy.affine_search_diagnostics().reasons_published;
+  const auto inapplicable_before_decline =
+      policy.affine_search_diagnostics().service_inapplicable;
   const auto owner_before_decline = session.owner_version();
   const auto premise_bytes_before_decline = proof.premise_bytes();
   kernel.large_watches_connected = false;
@@ -587,6 +589,11 @@ void paused_owner_retry(const std::string &stem = "",
   assert(survival.service_rank_losses == losses_before_decline);
   assert(survival.native_session_disables == disables_before_decline &&
          survival.optional_failure_disables == 0);
+  assert(survival.service_inapplicable == inapplicable_before_decline + 1);
+  assert(survival.last_service_status ==
+         static_cast<uint64_t>(AffineMatrixServiceStatus::Inapplicable));
+  assert(!survival.last_terminal_status &&
+         !survival.last_terminal_audit_stage);
   assert(survival.last_survival_action == 3 && survival.last_disable_cause == 0);
   assert(survival.isolated_projection_rank_losses == 0);
   // The next valid root window resumes the same owner.  With no new root fact,

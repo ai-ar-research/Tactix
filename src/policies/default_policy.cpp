@@ -4049,6 +4049,24 @@ bool DefaultPolicy::affine_additional_recognition_due(
 
 bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
     const AffineMatrixServiceResult &result,bool root) {
+  affine_search_diagnostics_.last_service_status =
+      static_cast<uint64_t>(result.status);
+  if (result.status == AffineMatrixServiceStatus::Inapplicable)
+    ++affine_search_diagnostics_.service_inapplicable;
+  else if (result.status == AffineMatrixServiceStatus::Interrupted)
+    ++affine_search_diagnostics_.service_interrupted;
+  else if (result.status == AffineMatrixServiceStatus::UnsupportedProof)
+    ++affine_search_diagnostics_.service_unsupported_proof;
+  else if (result.status == AffineMatrixServiceStatus::Stale)
+    ++affine_search_diagnostics_.service_stale;
+  else if (result.status == AffineMatrixServiceStatus::Invalid)
+    ++affine_search_diagnostics_.service_invalid;
+  if (result.terminal_failure()) {
+    affine_search_diagnostics_.last_terminal_status =
+        static_cast<uint64_t>(result.status);
+    affine_search_diagnostics_.last_terminal_audit_stage =
+        static_cast<uint64_t>(result.live.audit_stage);
+  }
   if(result.status==AffineMatrixServiceStatus::Pending)++affine_search_diagnostics_.pending_slices;
   affine_search_diagnostics_.resumed_slices+=result.slice_resumed;
   affine_search_diagnostics_.completed_slice_steps=saturated_sum(

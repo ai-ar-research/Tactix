@@ -657,6 +657,14 @@ int main(int argc, char **argv) {
         {"isolated_projection_rank_losses", affine.isolated_projection_rank_losses},
         {"native_session_disables", affine.native_session_disables},
         {"optional_failure_disables", affine.optional_failure_disables},
+        {"service_inapplicable", affine.service_inapplicable},
+        {"service_interrupted", affine.service_interrupted},
+        {"service_unsupported_proof", affine.service_unsupported_proof},
+        {"service_stale", affine.service_stale},
+        {"service_invalid", affine.service_invalid},
+        {"last_service_status", affine.last_service_status},
+        {"last_terminal_status", affine.last_terminal_status},
+        {"last_terminal_audit_stage", affine.last_terminal_audit_stage},
         {"paused_basis_rank", affine.paused_basis_rank},
         {"paused_support_variables", affine.paused_support_variables},
         {"last_survival_action", affine.last_survival_action},
@@ -741,6 +749,13 @@ int main(int argc, char **argv) {
                "sources=retained-equations pause=last-pause "
                "action-codes=1:recognition,2:maintenance,3:root-service,4:search-service "
                "disable-codes=1:native-clear,2:optional-terminal-failure\n");
+        printf("c affine-service status-codes=0:disabled,1:no-event,2:duplicate,3:applied,"
+               "4:inapplicable,5:resource-exhausted,6:interrupted,7:unsupported-proof,"
+               "8:stale,9:invalid,10:pending audit-codes=0:none,1:prepared-contract,"
+               "2:proof-support,3:applicability,4:kernel-snapshot,5:trail-or-event,"
+               "6:authentication-or-sources,7:source-identity,8:reason-order,9:pbp-plan,"
+               "10:matrix-authentication,11:selected-sources,12:resume-sources,"
+               "13:transaction-plan\n");
         for (const auto &[name, value] : affine_tail)
           printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
       }

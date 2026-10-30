@@ -68,7 +68,16 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t empty_maintenance_skips = 0, unchanged_census_skips = 0;
   uint64_t usefulness_resumptions = 0, paused_search_skips = 0;
   uint64_t root_services = 0, search_services = 0;
-  uint64_t no_event = 0, duplicates = 0, resource_declines = 0, usefulness_disabled = 0;
+  uint64_t no_event = 0, duplicates = 0, resource_declines = 0;
+  uint64_t service_inapplicable = 0, service_interrupted = 0;
+  uint64_t service_unsupported_proof = 0, service_stale = 0;
+  uint64_t service_invalid = 0;
+  // Stable numeric enum values plus the live-publication audit stage.  These
+  // distinguish a matrix synchronization failure (audit stage zero) from a
+  // proof/publication decline without retaining an unbounded event trace.
+  uint64_t last_service_status = 0, last_terminal_status = 0;
+  uint64_t last_terminal_audit_stage = 0;
+  uint64_t usefulness_disabled = 0;
   uint64_t reasons_published = 0, implications_consumed = 0;
   uint64_t reasons_deferred = 0, reasons_materialized = 0;
   uint64_t reasons_detached = 0;
