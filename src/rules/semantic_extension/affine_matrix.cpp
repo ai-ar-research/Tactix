@@ -436,7 +436,8 @@ MatrixEvent find_event(const std::vector<MatrixRow> &rows) {
 
 void make_reason(const std::vector<Equation> &sources,
                  const std::vector<MatrixAssignment> &trail,
-                 MatrixEvent &event, bool exact_core = false) {
+                 MatrixEvent &event, bool exact_core = false,
+                 std::vector<External> *retained_xor_scratch = nullptr) {
   if (event.kind == MatrixEventKind::None) return;
   if (exact_core) {
     // The minimal public operation needs the odd-parity source support, not
@@ -444,21 +445,29 @@ void make_reason(const std::vector<Equation> &sources,
     // canonical vector order and merge it with the already sorted support
     // trail.  The former path first allocated a tree for the union and then
     // repeated the same symmetric differences in the search adapter.
-    std::vector<External> support, scratch;
+    std::vector<External> local_scratch;
+    std::vector<External> &scratch = retained_xor_scratch
+        ? *retained_xor_scratch : local_scratch;
+    event.reason.clear();
+    scratch.clear();
     for (const size_t source : event.row.source_equations) {
-      scratch.clear();
       std::set_symmetric_difference(
-          support.begin(), support.end(), sources[source].variables.begin(),
+          event.reason.begin(), event.reason.end(), sources[source].variables.begin(),
           sources[source].variables.end(), std::back_inserter(scratch));
-      support.swap(scratch);
+      event.reason.assign(scratch.begin(), scratch.end());
+      scratch.clear();
     }
-    if (event.kind == MatrixEventKind::Conflict && support.empty()) return;
-    size_t at = 0;
+    if (event.kind == MatrixEventKind::Conflict && event.reason.empty()) return;
+    const size_t support_size = event.reason.size();
+    size_t at = 0, output = 0;
     for (const MatrixAssignment assignment : trail) {
-      while (at < support.size() && support[at] < assignment.variable) ++at;
-      if (at < support.size() && support[at] == assignment.variable)
-        event.reason.push_back(false_literal(assignment));
+      while (at < support_size && event.reason[at] < assignment.variable) ++at;
+      if (at < support_size && event.reason[at] == assignment.variable) {
+        event.reason[output++] = false_literal(assignment);
+        ++at;
+      }
     }
+    event.reason.resize(output);
     if (event.kind == MatrixEventKind::Implication)
       event.reason.push_back(event.implied_value ? event.implied_variable
                                                  : -event.implied_variable);
@@ -729,7 +738,8 @@ MatrixStatus AffineMatrix::synchronize(
   // its deterministic event. Avoid re-reducing it at every Boolean fixpoint.
   if (incremental_ready_ && trail == trail_ && !incremental_limits) {
     MatrixEvent candidate = index_ready_ ? indexed_event() : find_event(rows_);
-    make_reason(sources_, trail_, candidate, exact_core_reason);
+    make_reason(sources_, trail_, candidate, exact_core_reason,
+                &dirty_variable_xor_scratch_);
     last_dirty_update_ = false; last_dirty_rows_ = 0;
     last_synchronization_incremental_ = true;
     last_synchronization_restored_predecessor_ = false;
@@ -805,9 +815,11 @@ MatrixStatus AffineMatrix::synchronize(
         if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
         candidate.row=selected;
         if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-        make_reason(sources_,trail,candidate,exact_core_reason);
+        make_reason(sources_,trail,candidate,exact_core_reason,
+                    &dirty_variable_xor_scratch_);
       }
-    } else {candidate=find_event(predecessor_rows_);make_reason(sources_,trail,candidate,exact_core_reason);}
+    } else {candidate=find_event(predecessor_rows_);make_reason(
+        sources_,trail,candidate,exact_core_reason,&dirty_variable_xor_scratch_);}
     trail_ = std::move(predecessor_trail_);
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
@@ -940,9 +952,11 @@ MatrixStatus AffineMatrix::synchronize(
       if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
       candidate.row=selected;
       if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-      make_reason(sources_,trail,candidate,exact_core_reason);
+      make_reason(sources_,trail,candidate,exact_core_reason,
+                  &dirty_variable_xor_scratch_);
     }
-  } else {candidate=find_event(rows);make_reason(sources_,trail,candidate,exact_core_reason);}
+  } else {candidate=find_event(rows);make_reason(
+      sources_,trail,candidate,exact_core_reason,&dirty_variable_xor_scratch_);}
   // Current and predecessor share the existing mutable row/trail population
   // allowances. Full matrices simply keep the established rebuild behavior.
   if (incremental && !incremental_limits && status == MatrixStatus::Complete &&
@@ -1604,7 +1618,8 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     if(reason_work>UINT64_MAX||reason_bytes>UINT64_MAX||!work.consume(uint64_t(reason_work))||!memory(uint64_t(reason_bytes)))return declined();
     candidate.row=*selected;
     if(candidate.kind==MatrixEventKind::Implication)candidate.implied_value=selected->rhs;
-    make_reason(sources_,trail,candidate,exact_core_reason);
+    make_reason(sources_,trail,candidate,exact_core_reason,
+                &dirty_variable_xor_scratch_);
   }
   if(!work.consume(1+trail.size()+dirty.size()*comparisons+lists.size()*comparisons))return declined();
   // All charged, checked, private preparation is complete. Map nodes transfer
