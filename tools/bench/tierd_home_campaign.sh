@@ -13,16 +13,14 @@
 # (recheck 65536 MiB), 5000 s solve, 28800 s proof-check window, whole-run PBP
 # (VeriPB elaboration followed by CakePB checking), named scratch in
 # <campaign>/scratch deleted at
-# classification and on timeout/SIGTERM, array throttle %125 (user-requested),
-# read-only quota monitoring every 10 minutes, no node-local scratch and no node
+# classification and on timeout/SIGTERM, read-only quota monitoring every 10
+# minutes, no node-local scratch and no node
 # constraint.
 # Without --instance the prepared array must hold exactly 1,166 rows; with
 # --instance it is a smoke campaign of exactly those rows.
 set -euo pipefail
 R="$(cd "$(dirname "$0")/../.." && pwd)"
 T=$R/tools/bench/experimental_tierd.py
-THROTTLE=125
-THROTTLE_REASON="user-requested maximum of 125 simultaneous instances for a full Tier D campaign"
 export PYTHONDONTWRITEBYTECODE=1
 usage() { sed -n '4,9p' "$R/tools/bench/tierd_home_campaign.sh"; exit 2; }
 new_campaign() {
@@ -31,7 +29,7 @@ new_campaign() {
 }
 check_array() {  # campaign rows memory
   local a="$R/$1/array.sbatch"
-  grep -qx "#SBATCH --array=0-$(($2 - 1))%$THROTTLE" "$a" || { echo "array is not 0-$(($2 - 1))%$THROTTLE" >&2; exit 3; }
+  grep -qx "#SBATCH --array=0-$(($2 - 1))" "$a" || { echo "array is not 0-$(($2 - 1))" >&2; exit 3; }
   grep -qx "#SBATCH --partition=cpu-q" "$a" && grep -qx "#SBATCH --cpus-per-task=4" "$a" &&
     grep -qx "#SBATCH --mem=$3" "$a" || { echo "allocation differs from cpu-q/4/$3" >&2; exit 3; }
   if grep -Eq '^#SBATCH --(constraint|nodelist|exclude)' "$a"; then
@@ -39,7 +37,7 @@ check_array() {  # campaign rows memory
   fi
 }
 common=(--partition cpu-q --cpus-per-task 4 --solve-timeout 5000 --checker-timeout 28800
-        --home-scratch --array-throttle "$THROTTLE" --array-throttle-reason "$THROTTLE_REASON")
+        --home-scratch)
 cmd=${1:-}; [ $# -ge 2 ] || usage; shift
 case "$cmd" in
 prepare)
@@ -83,7 +81,7 @@ validate)
   echo "wait for $R/$1/validation.json (\"passed\": true), then: $0 submit $1";;
 submit)
   campaign=$1
-  if grep -qx "#SBATCH --array=0-1165%$THROTTLE" "$R/$campaign/array.sbatch" ||
+  if grep -qx "#SBATCH --array=0-1165" "$R/$campaign/array.sbatch" ||
       grep -q '"recheck_source"' "$R/$campaign/manifest.json"; then
     python3 "$R/tools/slurm/submit_full_tierd.py" \
       --campaign "$R/$campaign" --array-sbatch "$R/$campaign/array.sbatch"

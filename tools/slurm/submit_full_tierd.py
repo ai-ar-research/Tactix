@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Submit a full Tier-D array with bounded concurrency and read-only monitoring."""
+"""Submit a full Tier-D array with read-only storage monitoring."""
 
 import argparse
 import datetime as dt
@@ -26,10 +26,10 @@ def sha256(path):
 
 
 def array_indices(script, manifest, expected_indices=None):
-    match = re.search(r"^#SBATCH --array=([0-9,-]+)(?:%([0-9]+))?$", script, re.M)
+    match = re.search(r"^#SBATCH --array=([0-9,-]+)$", script, re.M)
     if not match:
         raise RuntimeError("array must declare numeric Tier-D task IDs")
-    expression, throttle = match.groups()
+    expression = match.group(1)
     indices = []
     for item in expression.split(","):
         bounds = item.split("-")
@@ -51,8 +51,6 @@ def array_indices(script, manifest, expected_indices=None):
             raise RuntimeError("repair array does not match its declared missing rows")
     elif expression != "0-1165":
         raise RuntimeError("full Tier-D array must declare all 1,166 tasks")
-    if throttle is None or not 1 <= int(throttle) <= 125:
-        raise RuntimeError("Tier-D arrays require a throttle in 1..125")
     return indices
 
 
@@ -191,7 +189,6 @@ exec python3 '{monitor}/quota_monitor.py' --dir '{monitor}' --interval 600 --job
               "array_sbatch": str(array.relative_to(campaign)),
               "monitor_sbatch": str(batch.relative_to(campaign)),
               "task_count": len(indices), "partition": partition,
-              "concurrency_contract": "array throttle no larger than 125",
               "monitor_contract": "read-only quota sample every 600 seconds"}
     atomic_json(launch, record)
     print(json.dumps(record, indent=2))

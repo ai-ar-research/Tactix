@@ -106,8 +106,7 @@ def prior_launches(repair):
     return launches
 
 
-def prepare_continuation(repair, *, throttle=125,
-                         terminal_check=require_job_terminal):
+def prepare_continuation(repair, *, terminal_check=require_job_terminal):
     """Prepare one nonoverlapping retry of still-unpublished repair rows.
 
     The caller submits the generated script through submit_full_tierd.py with
@@ -125,8 +124,7 @@ def prepare_continuation(repair, *, throttle=125,
             sorted(set(declared)) != declared or
             manifest.get("certificate_policy", {}).get("retention") != "none" or
             manifest.get("certificate_policy", {}).get("storage") !=
-            "workspace-ephemeral" or
-            manifest.get("slurm", {}).get("array_throttle") != throttle):
+            "workspace-ephemeral"):
         raise RuntimeError("campaign is not the pinned workspace repair contract")
     if ("workspace_quota_stop_gib" in manifest.get("limits", {}) or
             "workspace-quota" in manifest.get("provenance", {})):
@@ -173,7 +171,7 @@ def prepare_continuation(repair, *, throttle=125,
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=14:15:00
-#SBATCH --array={expression}%{throttle}
+#SBATCH --array={expression}
 #SBATCH --no-requeue
 #SBATCH --output={round_dir}/logs/task-%a.log
 export TACTIX_REPO_ROOT='{ROOT}'
@@ -190,7 +188,6 @@ export TMPDIR='{repair}/scratch'
         "prior_launches": launches,
         "published_before": len(published),
         "missing_indices": missing,
-        "array_throttle": throttle,
         "stale_claims_removed": stale_claims,
         "array_sbatch": {"path": "array.sbatch", "sha256": sha256(script)},
         "cleanup_precondition": {"pending_journals": 0, "scratch_directories": 0},
@@ -199,11 +196,11 @@ export TMPDIR='{repair}/scratch'
     for item in stale_claims:
         (repair / "claims" / f"{item['task']:05d}.json").unlink()
     print(f"prepared continuation round {ordinal}: {len(missing)} missing rows; "
-          f"removed {len(stale_claims)} stale claims; throttle={throttle}")
+          f"removed {len(stale_claims)} stale claims")
     return round_dir
 
 
-def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
+def prepare(base, repair, *, workspace=False, prior_repairs=()):
     base, repair = base.resolve(), repair.resolve()
     prior_repairs = [Path(path).resolve() for path in prior_repairs]
     if repair.exists():
@@ -316,10 +313,10 @@ def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
     else:
         manifest["limits"]["node_scratch_ledger_slots"] = 1
         manifest["slurm"]["node_scratch_participants"] = 1
-    manifest["slurm"]["array_throttle"] = throttle
+    manifest["slurm"].pop("array_throttle", None)
     # cpu-q caps allocations at 52 CPUs on 64-CPU nodes, so Slurm rejects
-    # --exclusive there. Workspace repairs use the array throttle and
-    # campaign-local scratch; legacy anonymous repairs retain their
+    # --exclusive there. Workspace repairs use campaign-local scratch;
+    # legacy anonymous repairs retain their
     # one-participant scratch ledger.
     manifest["provenance"]["frozen-baseline"]["sha256"] = sha256(runner)
     manifest["provenance"]["cryptominisat-5.14.7"]["sha256"] = sha256(wrapper)
@@ -336,7 +333,7 @@ def prepare(base, repair, *, workspace=False, throttle=8, prior_repairs=()):
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=14:15:00
-#SBATCH --array={expression}%{throttle}
+#SBATCH --array={expression}
 #SBATCH --no-requeue
 #SBATCH --output={repair}/logs/task-%a.log
 export TACTIX_REPO_ROOT='{ROOT}'
@@ -345,8 +342,7 @@ export TMPDIR='{repair}/scratch'
 {cleanup}{launch}
 """)
     print(f"prepared {repair}: {len(missing)} missing rows; "
-          f"storage={'workspace' if workspace else 'anonymous-node-local'}; "
-          f"throttle={throttle}")
+          f"storage={'workspace' if workspace else 'anonymous-node-local'}")
 
 
 def main():
@@ -356,25 +352,18 @@ def main():
     parser.add_argument("--continue-campaign", type=Path)
     parser.add_argument("--prior-repair", type=Path, action="append", default=[])
     parser.add_argument("--workspace", action="store_true")
-    parser.add_argument("--throttle", type=int, default=8)
     args = parser.parse_args()
-    if args.throttle < 1 or args.throttle > 125:
-        parser.error("--throttle must be between 1 and 125")
     if args.continue_campaign:
         if args.base or args.repair or args.workspace or args.prior_repair:
             parser.error("--continue-campaign cannot be combined with preparation options")
-        if args.throttle != 125:
-            parser.error("workspace continuation preserves the 125-task throttle")
-        prepare_continuation(args.continue_campaign, throttle=args.throttle)
+        prepare_continuation(args.continue_campaign)
         return
     if not args.base or not args.repair:
         parser.error("--base and --repair are required for a new repair")
     if args.prior_repair and not args.workspace:
         parser.error("successor repairs require --workspace")
-    if not args.workspace and args.throttle != 8:
-        parser.error("non-workspace repair uses the proven eight-task throttle")
     prepare(args.base, args.repair, workspace=args.workspace,
-            throttle=args.throttle, prior_repairs=args.prior_repair)
+            prior_repairs=args.prior_repair)
 
 
 if __name__ == "__main__":

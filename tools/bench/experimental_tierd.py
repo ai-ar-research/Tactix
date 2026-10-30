@@ -657,8 +657,7 @@ exec python3 {c}/pins/validate_anonymous_runtime.py {c}
             'same checked hand-off at which anonymous scratch releases it, and the task directory is '
             'removed (bounded NFS retries) before the result is published; SIGTERM (scancel, wall '
             'limit) runs the same cleanup. Only bounded JSON metadata and scheduler logs persist; core '
-            'dumps disabled. A read-only monitor records home-quota usage every 10 minutes; the array '
-            'throttle limits simultaneous instances to at most 125.')
+            'dumps disabled. A read-only monitor records home-quota usage every 10 minutes.')
         m['caveat']=('If the entire job dies (SIGKILL, node failure, runner OOM), its result may be '
             'missing and its scratch directory left behind; never interpret missing as timeout or '
             'checked; the summary lists scratch leftovers for explicit removal.')

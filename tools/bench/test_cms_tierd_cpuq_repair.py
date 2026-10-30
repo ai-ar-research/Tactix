@@ -57,7 +57,7 @@ class CpuqRepairTests(unittest.TestCase):
             self.assertEqual(amended["repair_of"]["missing_indices"], sorted(missing))
             self.assertEqual(amended["limits"]["node_scratch_ledger_slots"], 1)
             self.assertEqual(amended["slurm"]["node_scratch_participants"], 1)
-            self.assertIn("#SBATCH --array=2,17,1165%8",
+            self.assertIn("#SBATCH --array=2,17,1165\n",
                           (repair / "array.sbatch").read_text())
             self.assertNotIn("#SBATCH --exclusive", (repair / "array.sbatch").read_text())
             self.assertNotIn("cleanup_scratch", (repair / "array.sbatch").read_text())
@@ -66,7 +66,7 @@ class CpuqRepairTests(unittest.TestCase):
             self.assertEqual(json.loads((base / "manifest.json").read_text()), manifest)
             workspace = root / "workspace"
             with patch("cms_tierd_cpuq_repair.require_terminal", return_value="12345"):
-                prepare(base, workspace, workspace=True, throttle=125)
+                prepare(base, workspace, workspace=True)
             workspace_manifest = json.loads((workspace / "manifest.json").read_text())
             self.assertEqual(workspace_manifest["repair_of"]["missing_indices"],
                              sorted(missing))
@@ -77,7 +77,7 @@ class CpuqRepairTests(unittest.TestCase):
             self.assertNotIn("workspace_quota_poll_seconds",
                              workspace_manifest["limits"])
             self.assertNotIn("node_scratch_ledger_slots", workspace_manifest["limits"])
-            self.assertIn("#SBATCH --array=2,17,1165%125",
+            self.assertIn("#SBATCH --array=2,17,1165\n",
                           (workspace / "array.sbatch").read_text())
             self.assertIn("trap cleanup_scratch EXIT",
                           (workspace / "array.sbatch").read_text())
@@ -92,7 +92,7 @@ class CpuqRepairTests(unittest.TestCase):
             with (patch("cms_tierd_cpuq_repair.require_terminal",
                         return_value="12345"),
                   patch("cms_tierd_cpuq_repair.require_job_terminal") as terminal):
-                prepare(base, successor, workspace=True, throttle=125,
+                prepare(base, successor, workspace=True,
                         prior_repairs=[workspace])
             terminal.assert_called_once_with("23456")
             successor_manifest = json.loads(
@@ -109,7 +109,7 @@ class CpuqRepairTests(unittest.TestCase):
                              successor_manifest["limits"])
             self.assertNotIn("workspace-quota",
                              successor_manifest["provenance"])
-            self.assertIn("#SBATCH --array=17,1165%125",
+            self.assertIn("#SBATCH --array=17,1165\n",
                           (successor / "array.sbatch").read_text())
 
     def test_continuation_is_exactly_unpublished_and_removes_only_stale_claims(self):
@@ -123,7 +123,7 @@ class CpuqRepairTests(unittest.TestCase):
                 "certificate_policy": {"retention": "none",
                                        "storage": "workspace-ephemeral"},
                 "repair_of": {"missing_indices": [2, 4, 8, 10]},
-                "slurm": {"array_throttle": 125},
+                "slurm": {},
             }
             (repair / "manifest.json").write_text(json.dumps(manifest))
             (repair / "launch.json").write_text(
@@ -141,7 +141,7 @@ class CpuqRepairTests(unittest.TestCase):
             self.assertEqual(record["missing_indices"], [4, 8, 10])
             self.assertEqual([x["task"] for x in record["stale_claims_removed"]],
                              [4, 8])
-            self.assertIn("#SBATCH --array=4,8,10%125",
+            self.assertIn("#SBATCH --array=4,8,10\n",
                           (round_dir / "array.sbatch").read_text())
             self.assertIn("trap cleanup_scratch EXIT",
                           (round_dir / "array.sbatch").read_text())
@@ -173,7 +173,7 @@ class CpuqRepairTests(unittest.TestCase):
                 "certificate_policy": {"retention": "none",
                                        "storage": "workspace-ephemeral"},
                 "repair_of": {"missing_indices": [1]},
-                "slurm": {"array_throttle": 125},
+                "slurm": {},
             }
             (repair / "manifest.json").write_text(json.dumps(manifest))
             (repair / "launch.json").write_text('{"array_job_id":"99"}')
@@ -197,7 +197,7 @@ class CpuqRepairTests(unittest.TestCase):
                                        "storage": "workspace-ephemeral"},
                 "repair_of": {"missing_indices": [1]},
                 "limits": {"workspace_quota_stop_gib": 750},
-                "slurm": {"array_throttle": 125},
+                "slurm": {},
                 "provenance": {"workspace-quota": {"sha256": "legacy"}},
             }
             (repair / "manifest.json").write_text(json.dumps(manifest))

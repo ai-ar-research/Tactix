@@ -86,8 +86,7 @@ def prepare(campaign):
                                "terminal_cleanup": "bounded-nfs-retry-in-finally-before-result-publication"},
         "limits": {"solve_wall_seconds": 5000, "checker_pipeline_wall_seconds": 45000,
                    "scheduler_memory_gib": 32, "memory_enforcement": "slurm_task_cgroup"},
-        "slurm": {"partition": "cpu-q", "cpus_per_task": 4, "memory_gib": 32,
-                  "array_throttle": 125},
+        "slurm": {"partition": "cpu-q", "cpus_per_task": 4, "memory_gib": 32},
         "source_commits": {"cryptominisat": "3c8e228e8a48e41276e8ab039f763daa08d61161",
                            "frat-xor": "855f3d0ae45fe37c3ad29e4a8ef56e62e1b5e4ad"},
         "source_patches": {"frat-xor-elab-explicit-temp-path": sha256(
@@ -122,7 +121,7 @@ def prepare(campaign):
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=14:15:00
-#SBATCH --array=0-1165%125
+#SBATCH --array=0-1165
 #SBATCH --no-requeue
 #SBATCH --output={campaign}/logs/task-%a.log
 export TACTIX_REPO_ROOT='{ROOT}'
@@ -194,8 +193,7 @@ def compatible_repair_policy(base, repair):
               all(policy.get(key) == base_policy.get(key) for key in
                   ("retention", "result_publication", "stage_cleanup")) and
               policy.get("terminal_cleanup") ==
-              "bounded-nfs-retry-in-finally-before-result-publication" and
-              repair.get("slurm", {}).get("array_throttle") == 125)
+              "bounded-nfs-retry-in-finally-before-result-publication")
     limits = repair.get("limits", {})
     provenance = repair.get("provenance", {})
     legacy_task_killer = (limits.get("workspace_quota_stop_gib") == 750 and

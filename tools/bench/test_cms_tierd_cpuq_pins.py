@@ -53,7 +53,7 @@ class CampaignPinTests(unittest.TestCase):
             first_manifest.update({
                 'kind': 'cryptominisat-tierd-cpuq-workspace-repair-v1',
                 'certificate_policy': workspace_policy,
-                'slurm': {'array_throttle': 125},
+                'slurm': {},
                 'repair_of': {'campaign': base.name,
                               'manifest_sha256': base_hash,
                               'missing_indices': [1, 2]}})
@@ -80,7 +80,7 @@ class CampaignPinTests(unittest.TestCase):
             second_manifest.update({
                 'kind': 'cryptominisat-tierd-cpuq-workspace-repair-v2',
                 'certificate_policy': workspace_policy,
-                'slurm': {'array_throttle': 125},
+                'slurm': {},
                 'repair_of': {'campaign': base.name,
                               'manifest_sha256': base_hash,
                               'missing_indices': [2],
@@ -187,7 +187,7 @@ class CampaignPinTests(unittest.TestCase):
                       'bounded-nfs-retry-in-finally-before-result-publication'},
                   'limits': {'workspace_quota_stop_gib': 750,
                              'workspace_quota_poll_seconds': 2},
-                  'slurm': {'array_throttle': 125},
+                  'slurm': {},
                   'provenance': {'workspace-quota': {'sha256': 'pin'}}}
         self.assertTrue(campaign_module.compatible_repair_policy(base, repair))
         governor_only = copy.deepcopy(repair)
