@@ -294,7 +294,7 @@ private:
   uint64_t published_work_ = 0, published_capacity_bytes_ = 0;
   affine_semantic_extension::MatrixEvent cached_event_;
   uint64_t cached_event_owner_ = 0, cached_event_bytes_ = 0;
-  bool cached_event_valid_ = false;
+  bool cached_event_valid_ = false, cached_event_exact_core_ = false;
   bool slice_retry_=false;
   std::vector<std::pair<Var, uint32_t>> capture_index_;
   std::vector<affine_semantic_extension::MatrixAssignment> capture_trail_;

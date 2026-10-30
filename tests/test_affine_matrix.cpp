@@ -113,6 +113,38 @@ static void reason_excludes_unrelated_assignments() {
   check_reason(input, event);
 }
 
+static void exact_core_reason_is_direct_and_mode_stable() {
+  // Variables 3,4,6,7 occur in the source union but cancel from the selected
+  // XOR. SourceSupport deliberately retains assigned canceled variables as a
+  // clausal weakening; ExactCore must omit them even when the identical
+  // conditioned matrix snapshot is reused immediately afterwards.
+  const std::vector<Equation> input = {
+      equation({1, 2, 3, 4, 6, 7}, false),
+      equation({3, 4, 5, 6, 7}, true)};
+  AffineMatrix matrix;
+  assert(build_affine_matrix(input, 17, limits(),
+                             [](uint64_t) { return true; }, matrix) ==
+         MatrixStatus::Complete);
+  const std::vector<MatrixAssignment> trail = {
+      {1, false}, {2, false}, {3, false}, {4, false}};
+  const MatrixIncrementalLimits incremental{1u << 24};
+  MatrixEvent source;
+  assert(matrix.synchronize(trail, [](uint64_t) { return true; }, source,
+                            true, &incremental, false) ==
+         MatrixStatus::Complete);
+  assert(source.kind == MatrixEventKind::Implication &&
+         source.implied_variable == 5 && source.implied_value &&
+         (source.reason == std::vector<External>{1, 2, 3, 4, 5}));
+
+  MatrixEvent exact;
+  assert(matrix.synchronize(trail, [](uint64_t) { return true; }, exact,
+                            true, &incremental, true) ==
+         MatrixStatus::Complete);
+  assert(exact.kind == MatrixEventKind::Implication &&
+         exact.implied_variable == 5 && exact.implied_value &&
+         (exact.reason == std::vector<External>{1, 2, 5}));
+}
+
 static void bounded_partial_admission_is_deterministic() {
   const std::vector<Equation> width_input = {
       equation({1, 2, 3}, false), equation({1, 4, 5}, true),
@@ -960,6 +992,7 @@ int main() {
   sliced_reduction_controls();
   derived_implication_conflict_and_backtrack();
   reason_excludes_unrelated_assignments();
+  exact_core_reason_is_direct_and_mode_stable();
   bounded_partial_admission_is_deterministic();
   partial_implication_conflict_and_backtrack();
   transactional_limits_and_validation();

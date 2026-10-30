@@ -96,7 +96,8 @@ public:
       const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
       bool sorted_set_extension = false,
-      const MatrixIncrementalLimits *incremental = nullptr);
+      const MatrixIncrementalLimits *incremental = nullptr,
+      bool exact_core_reason = false);
 
   // Opt-in deterministic full-basis reduction in bounded atomic row/XOR steps.
   // Pending retains private progress; exact trail equality resumes it. An
@@ -104,7 +105,7 @@ public:
   // minimum rather than spinning. Interrupted clears private continuation.
   MatrixStatus synchronize_sliced(const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &, MatrixEvent &,
-      const MatrixSliceLimits &);
+      const MatrixSliceLimits &, bool exact_core_reason = false);
   const MatrixSliceEffort &last_slice_effort() const { return slice_effort_; }
   uint64_t continuation_bytes() const { return continuation_.bytes; }
   bool continuation_pending() const { return continuation_.active; }
@@ -208,7 +209,7 @@ private:
     std::map<External, bool> support;
     size_t residue = 0;
     uint8_t phase = 0;
-    bool row_loaded = false;
+    bool row_loaded = false, exact_core_reason = false;
   };
   Continuation continuation_;
   MatrixSliceEffort slice_effort_;
@@ -222,7 +223,7 @@ private:
       const std::function<bool(uint64_t)> &, uint64_t, RowIndex &);
   MatrixStatus synchronize_dirty(const std::vector<MatrixAssignment> &,
       const std::vector<MatrixAssignment> &, const std::function<bool(uint64_t)> &,
-      uint64_t, uint64_t, uint64_t &, MatrixEvent &);
+      uint64_t, uint64_t, uint64_t &, MatrixEvent &, bool exact_core_reason);
   MatrixEvent indexed_event() const;
   RowIndex index_;
   // Reused only by atomic dirty-row transactions.  Their capacities are

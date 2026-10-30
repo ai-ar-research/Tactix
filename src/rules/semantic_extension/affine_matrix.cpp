@@ -436,8 +436,34 @@ MatrixEvent find_event(const std::vector<MatrixRow> &rows) {
 
 void make_reason(const std::vector<Equation> &sources,
                  const std::vector<MatrixAssignment> &trail,
-                 MatrixEvent &event) {
+                 MatrixEvent &event, bool exact_core = false) {
   if (event.kind == MatrixEventKind::None) return;
+  if (exact_core) {
+    // The minimal public operation needs the odd-parity source support, not
+    // the sound but wider union used by SourceSupport.  Construct it once in
+    // canonical vector order and merge it with the already sorted support
+    // trail.  The former path first allocated a tree for the union and then
+    // repeated the same symmetric differences in the search adapter.
+    std::vector<External> support, scratch;
+    for (const size_t source : event.row.source_equations) {
+      scratch.clear();
+      std::set_symmetric_difference(
+          support.begin(), support.end(), sources[source].variables.begin(),
+          sources[source].variables.end(), std::back_inserter(scratch));
+      support.swap(scratch);
+    }
+    if (event.kind == MatrixEventKind::Conflict && support.empty()) return;
+    size_t at = 0;
+    for (const MatrixAssignment assignment : trail) {
+      while (at < support.size() && support[at] < assignment.variable) ++at;
+      if (at < support.size() && support[at] == assignment.variable)
+        event.reason.push_back(false_literal(assignment));
+    }
+    if (event.kind == MatrixEventKind::Implication)
+      event.reason.push_back(event.implied_value ? event.implied_variable
+                                                 : -event.implied_variable);
+    return;
+  }
   // Support variables with their parity in the source sum. A conflict whose
   // sources cancel every variable is the unconditional 0 = 1: the certificate
   // refutes it outright, so it consumed no assignment and its reason is the
@@ -661,7 +687,8 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
 MatrixStatus AffineMatrix::synchronize(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
-    bool sorted_set_extension, const MatrixIncrementalLimits *incremental_limits) {
+    bool sorted_set_extension, const MatrixIncrementalLimits *incremental_limits,
+    bool exact_core_reason) {
   last_synchronization_work_exhausted_ = false;
   continuation_ = {};
   if (!owner_identity_ || !charge) return MatrixStatus::Invalid;
@@ -702,7 +729,7 @@ MatrixStatus AffineMatrix::synchronize(
   // its deterministic event. Avoid re-reducing it at every Boolean fixpoint.
   if (incremental_ready_ && trail == trail_ && !incremental_limits) {
     MatrixEvent candidate = index_ready_ ? indexed_event() : find_event(rows_);
-    make_reason(sources_, trail_, candidate);
+    make_reason(sources_, trail_, candidate, exact_core_reason);
     last_dirty_update_ = false; last_dirty_rows_ = 0;
     last_synchronization_incremental_ = true;
     last_synchronization_restored_predecessor_ = false;
@@ -778,9 +805,9 @@ MatrixStatus AffineMatrix::synchronize(
         if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
         candidate.row=selected;
         if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-        make_reason(sources_,trail,candidate);
+        make_reason(sources_,trail,candidate,exact_core_reason);
       }
-    } else {candidate=find_event(predecessor_rows_);make_reason(sources_,trail,candidate);}
+    } else {candidate=find_event(predecessor_rows_);make_reason(sources_,trail,candidate,exact_core_reason);}
     trail_ = std::move(predecessor_trail_);
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
@@ -845,7 +872,8 @@ MatrixStatus AffineMatrix::synchronize(
   if (incremental_limits && incremental && index_ready_) {
     uint64_t dirty_work = 0;
     const auto status = synchronize_dirty(assignments, trail, charge,
-        limits_.maximum_work - work.used, incremental_limits->maximum_index_bytes, dirty_work, event);
+        limits_.maximum_work - work.used, incremental_limits->maximum_index_bytes,
+        dirty_work, event, exact_core_reason);
     if (status == MatrixStatus::Complete)
       work_ = work.used > UINT64_MAX - work_ ? UINT64_MAX : work_ + work.used;
     return status;
@@ -912,9 +940,9 @@ MatrixStatus AffineMatrix::synchronize(
       if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
       candidate.row=selected;
       if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-      make_reason(sources_,trail,candidate);
+      make_reason(sources_,trail,candidate,exact_core_reason);
     }
-  } else {candidate=find_event(rows);make_reason(sources_,trail,candidate);}
+  } else {candidate=find_event(rows);make_reason(sources_,trail,candidate,exact_core_reason);}
   // Current and predecessor share the existing mutable row/trail population
   // allowances. Full matrices simply keep the established rebuild behavior.
   if (incremental && !incremental_limits && status == MatrixStatus::Complete &&
@@ -972,7 +1000,7 @@ MatrixStatus AffineMatrix::synchronize(
 MatrixStatus AffineMatrix::synchronize_sliced(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
-    const MatrixSliceLimits &slice) {
+    const MatrixSliceLimits &slice, bool exact_core_reason) {
   slice_effort_ = {};
   slice_effort_.cumulative_work = continuation_.cumulative_work;
   struct Accounting {
@@ -1009,7 +1037,8 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     return MatrixStatus::Exhausted;
   }
   if (!take(boundary_work)) { continuation_ = {}; return MatrixStatus::Interrupted; }
-  const bool same = continuation_.active && continuation_.trail == trail;
+  const bool same = continuation_.active && continuation_.trail == trail &&
+                    continuation_.exact_core_reason == exact_core_reason;
   slice_effort_.resumed = same;
   if (same) slice_effort_.cumulative_work = continuation_.cumulative_work;
   slice_effort_.invalidated = continuation_.active && !same;
@@ -1030,6 +1059,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     if (trail.size() > slice.maximum_work - slice_effort_.work) return MatrixStatus::Exhausted;
     if (!take(trail.size())) return MatrixStatus::Interrupted;
     continuation_.trail = trail;
+    continuation_.exact_core_reason = exact_core_reason;
     continuation_.bytes = continuation_.base_bytes = uint64_t(bytes);
     continuation_.active = true;
   } else if (continuation_.bytes > slice.maximum_bytes) return MatrixStatus::Exhausted;
@@ -1204,7 +1234,10 @@ MatrixStatus AffineMatrix::synchronize_sliced(
       if (state.reason_trail<state.trail.size()) {
         if (!step(1+comparisons)) return pending();
         const auto value=state.trail[state.reason_trail++];
-        if (state.support.contains(value.variable)) state.event.reason.push_back(false_literal(value));
+        const auto found = state.support.find(value.variable);
+        if (found != state.support.end() &&
+            (!state.exact_core_reason || found->second))
+          state.event.reason.push_back(false_literal(value));
         continue;
       }
       if (state.event.kind==MatrixEventKind::Implication) {
@@ -1302,7 +1335,8 @@ MatrixEvent AffineMatrix::indexed_event() const {
 
 MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment> &delta,
     const std::vector<MatrixAssignment> &trail,const std::function<bool(uint64_t)> &charge,
-    uint64_t maximum_work,uint64_t maximum_bytes,uint64_t &used,MatrixEvent &event) {
+    uint64_t maximum_work,uint64_t maximum_bytes,uint64_t &used,MatrixEvent &event,
+    bool exact_core_reason) {
   Work work{0,maximum_work,charge,false,&last_synchronization_work_exhausted_};
   auto declined=[&](){used=work.used;return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;};
   if(index_reservation_>maximum_bytes)return declined();
@@ -1570,7 +1604,7 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     if(reason_work>UINT64_MAX||reason_bytes>UINT64_MAX||!work.consume(uint64_t(reason_work))||!memory(uint64_t(reason_bytes)))return declined();
     candidate.row=*selected;
     if(candidate.kind==MatrixEventKind::Implication)candidate.implied_value=selected->rhs;
-    make_reason(sources_,trail,candidate);
+    make_reason(sources_,trail,candidate,exact_core_reason);
   }
   if(!work.consume(1+trail.size()+dirty.size()*comparisons+lists.size()*comparisons))return declined();
   // All charged, checked, private preparation is complete. Map nodes transfer

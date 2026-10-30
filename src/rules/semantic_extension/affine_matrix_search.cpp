@@ -125,39 +125,6 @@ std::string event_identity(uint64_t owner, const MatrixEvent &event) {
   return out.str();
 }
 
-bool minimize_event_reason(const std::vector<Equation> &sources,
-                           MatrixEvent &event,
-                           const std::function<bool(uint64_t)> &charge) {
-  if (event.kind == MatrixEventKind::None || !charge)
-    return event.kind == MatrixEventKind::None;
-  std::vector<External> support, scratch;
-  for (const size_t ordinal : event.row.source_equations) {
-    if (ordinal >= sources.size() ||
-        !charge(1 + support.size() + sources[ordinal].variables.size()))
-      return false;
-    scratch.clear();
-    std::set_symmetric_difference(
-        support.begin(), support.end(), sources[ordinal].variables.begin(),
-        sources[ordinal].variables.end(), std::back_inserter(scratch));
-    support.swap(scratch);
-  }
-  if (!charge(1 + event.reason.size() + support.size())) return false;
-  std::vector<External> minimal;
-  minimal.reserve(support.size());
-  for (const External literal : event.reason) {
-    const External variable = literal < 0 ? -literal : literal;
-    if (std::binary_search(support.begin(), support.end(), variable))
-      minimal.push_back(literal);
-  }
-  if (event.kind == MatrixEventKind::Implication) {
-    const External implied = event.implied_value ? event.implied_variable
-                                                 : -event.implied_variable;
-    if (minimal.empty() || minimal.back() != implied) return false;
-  }
-  event.reason = std::move(minimal);
-  return true;
-}
-
 bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
                                  uint64_t maximum, std::string &journal) {
   journal.clear();
@@ -1982,7 +1949,9 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
                                                  AffineMatrixServiceStatus::ResourceExhausted;
       record_service(kernel, result); return result;
     }
-    cached = session.cached_event_valid_ && session.cached_event_owner_ == session.owner_version_ &&
+    cached = session.cached_event_valid_ &&
+             session.cached_event_exact_core_ == minimal &&
+             session.cached_event_owner_ == session.owner_version_ &&
              (result.unchanged_support || trail == session.matrix_.trail());
     if (cached) {
       const auto &previous = session.cached_event_;
@@ -2010,7 +1979,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     if(session.persistent()&&(session.slice_retry_||session.matrix_.continuation_pending())) {
       const MatrixSliceLimits slice{session.parameters_.basis_maximum_work-result.synchronization_work,
           session.persistence_.maximum_retained_bytes-std::min(session.retained_bytes_,session.persistence_.maximum_retained_bytes)};
-      synchronized=session.matrix_.synchronize_sliced(trail,synchronization_charge,event,slice);
+      synchronized=session.matrix_.synchronize_sliced(
+          trail,synchronization_charge,event,slice,minimal);
       const auto &effort=session.matrix_.last_slice_effort();
       result.slice_work=effort.work;result.slice_cumulative_work=effort.cumulative_work;
       result.slice_completed_steps=effort.completed_steps;result.slice_minimum_work=effort.minimum_slice_work;
@@ -2020,7 +1990,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       session.slice_retry_=result.slice_pending;
     } else {
       synchronized=session.matrix_.synchronize(trail,synchronization_charge,event,session.persistent(),
-          session.persistent()?&index_limits:nullptr);
+          session.persistent()?&index_limits:nullptr,minimal);
       const bool work_decline = session.matrix_.last_synchronization_work_exhausted() || exhausted;
       if(session.persistent()&&work_decline&&
           (synchronized==MatrixStatus::Exhausted || synchronized==MatrixStatus::Interrupted)&&
@@ -2075,7 +2045,9 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       }
       session.cached_event_ = event;
       session.cached_event_bytes_ = bytes; session.retained_bytes_ = base + bytes;
-      session.cached_event_owner_ = session.owner_version_; session.cached_event_valid_ = true;
+      session.cached_event_owner_ = session.owner_version_;
+      session.cached_event_exact_core_ = minimal;
+      session.cached_event_valid_ = true;
     } else {
       session.cached_event_valid_ = false;
     }
@@ -2100,15 +2072,6 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
   if (event.kind == MatrixEventKind::None) {
     result.status = AffineMatrixServiceStatus::NoEvent;
-    record_service(kernel, result);
-    return result;
-  }
-  if (minimal &&
-      !minimize_event_reason(session.image_.equations, event,
-                             synchronization_charge)) {
-    result.status = kernel_terminating(kernel)
-        ? AffineMatrixServiceStatus::Interrupted
-        : AffineMatrixServiceStatus::ResourceExhausted;
     record_service(kernel, result);
     return result;
   }
