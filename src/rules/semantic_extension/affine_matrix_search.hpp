@@ -346,6 +346,8 @@ private:
   std::optional<AffineMatrixInitResult> last_initialization_;
   std::optional<AffineMatrixServiceResult> last_service_;
   struct DeferredReason {
+    DeferredReason() = default;
+
     affine_semantic_extension::MatrixEvent event;
     affine_semantic_extension::MatrixLiveRequest request;
     affine_semantic_extension::AffineMatrixLivePrepared prepared;
