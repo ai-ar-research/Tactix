@@ -508,17 +508,58 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
   std::fclose(journal);
 }
 
-void lazy_source_materializes_at_exact_analyze_consumer() {
+void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
   FILE *journal = std::tmpfile();
   assert(journal);
   kernel.structural_provenance = journal;
-  kernel_reserve_vars(kernel, 7);
+  install_implication_formula(kernel);
+  char proof_path[] = "/tmp/tactix-affine-lazy-minimal-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const auto lazy = affine_matrix_search_step_lazy_minimal(kernel, session);
+  assert(lazy.status == AffineMatrixServiceStatus::Applied &&
+         lazy.reason_width == 3 && session.lazy_reason_count() == 1);
+  const auto materialized = affine_matrix_materialize_reason(kernel, session);
+  assert(materialized.status == AffineMatrixServiceStatus::Applied &&
+         materialized.reason_materialized &&
+         materialized.reason_width == 3 &&
+         session.lazy_reason_count() == 0);
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
+void lazy_source_materializes_preanalysis_ancestor_batch() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 10);
   for (const auto &[variables, rhs] :
        std::vector<std::pair<std::vector<int32_t>, bool>>{
-           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
+           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
     add_equation(kernel, variables, rhs);
   char proof_path[] = "/tmp/tactix-affine-lazy-analyze-XXXXXX";
   const int fd = mkstemp(proof_path);
@@ -538,16 +579,29 @@ void lazy_source_materializes_at_exact_analyze_consumer() {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
-  const auto lazy = affine_matrix_search_step_lazy_source(kernel, session);
-  assert(lazy.status == AffineMatrixServiceStatus::Applied &&
+  const auto first = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(first.status == AffineMatrixServiceStatus::Applied &&
          session.lazy_reason_count() == 1);
-  const Ref provisional = kernel.assigned[4].reason;
-  // Install a falsified binary conflict whose two literals are both at the
-  // current level. The latest one is the lazy affine implication, so 1-UIP
-  // must dereference (and therefore materialize) it rather than stopping at it
-  // as the UIP.
-  const Lit conflict[2] = {kernel_internalize(kernel, 5),
-                           kernel_internalize(kernel, 2)};
+  const Ref first_provisional = kernel.assigned[4].reason;
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  for (const int decision : {-6, -7}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const auto second = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(second.status == AffineMatrixServiceStatus::Applied &&
+         session.lazy_reason_count() == 2);
+  const Ref second_provisional = kernel.assigned[9].reason;
+
+  // Compaction cannot remap an opaque historical algebraic event. It remains
+  // publicly inapplicable until the handles have been discharged.
+  assert(!kernel_compact_variables(kernel));
+
+  // The independent first implication is not in this conflict's reason
+  // ancestry. ConflictAnalysis certifies the second before capturing any arena
+  // pointer or proof chain, without eagerly publishing the unrelated handle.
+  const Lit conflict[2] = {kernel_internalize(kernel, 7),
+                           kernel_internalize(kernel, 10)};
   kernel_add_binary_clause(kernel, conflict[0], conflict[1],
                            ++kernel.next_clause_id);
   kernel.conflict_ref = INVALID_REF;
@@ -558,10 +612,9 @@ void lazy_source_materializes_at_exact_analyze_consumer() {
       tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   assert(rule_guard(analyze, kernel));
   assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
-  assert(session.lazy_reason_count() == 0 &&
-         !clause_at(kernel.arena, provisional)->reason() &&
-         !kernel.assigned[4].binary &&
-         clause_at(kernel.arena, kernel.assigned[4].reason)->id());
+  assert(session.lazy_reason_count() == 1 &&
+         clause_at(kernel.arena, first_provisional)->reason() &&
+         !clause_at(kernel.arena, second_provisional)->reason());
   proof.flush();
   kernel.proof = nullptr;
   unlink(proof_path);
@@ -1208,7 +1261,8 @@ static int search_chain_proof_fixture(const char *cnf_path,
 
 static int deferred_reason_proof_fixture(const char *cnf_path,
                                          const char *proof_path,
-                                         bool lazy_source = false) {
+                                         bool lazy_source = false,
+                                         bool lazy_minimal = false) {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
@@ -1234,13 +1288,14 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
   assert(propagate_apply(kernel) == ApplyResult::Ok);
-  const auto deferred = lazy_source
-      ? affine_matrix_search_step_lazy_source(kernel, session)
-      : affine_matrix_search_step_deferred(kernel, session);
+  const auto deferred = lazy_minimal
+      ? affine_matrix_search_step_lazy_minimal(kernel, session)
+      : lazy_source ? affine_matrix_search_step_lazy_source(kernel, session)
+                    : affine_matrix_search_step_deferred(kernel, session);
   assert(deferred.status == AffineMatrixServiceStatus::Applied &&
          deferred.reason_deferred &&
-         (lazy_source ? session.lazy_reason_count() == 1
-                      : session.has_deferred_reason()));
+         ((lazy_source || lazy_minimal) ? session.lazy_reason_count() == 1
+                                       : session.has_deferred_reason()));
   assert(propagate_apply(kernel) == ApplyResult::Ok &&
          kernel.value(kernel_internalize(kernel, -5)) > 0);
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
@@ -1262,6 +1317,85 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
       std::fprintf(cnf, "0\n");
     }
   std::fprintf(cnf, "-1 0\n-2 0\n5 0\n");
+  std::fclose(cnf);
+  std::fclose(journal);
+  return 0;
+}
+
+static int lazy_reason_ancestor_proof_fixture(const char *cnf_path,
+                                              const char *proof_path) {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 10);
+  const std::vector<std::pair<std::vector<int32_t>, bool>> equations = {
+      {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
+      {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}};
+  std::vector<std::vector<int32_t>> original;
+  for (const auto &[variables, rhs] : equations)
+    for (const auto &clause : clausal_form(variables, rhs)) {
+      original.push_back(clause);
+      add_clause(kernel, clause);
+    }
+
+  // The untouched checker input additionally contains four decisions and the
+  // binary conflict. Reserve their IDs before either lazy reason is certified.
+  const uint64_t conflict_id = kernel.next_clause_id + 5;
+  kernel.next_clause_id += 5;
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  assert(affine_matrix_search_step_lazy_source(kernel, session).status ==
+         AffineMatrixServiceStatus::Applied);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+  for (const int decision : {-6, -7}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  assert(affine_matrix_search_step_lazy_source(kernel, session).status ==
+         AffineMatrixServiceStatus::Applied);
+  assert(session.lazy_reason_count() == 2);
+
+  const Lit conflict[2] = {kernel_internalize(kernel, 7),
+                           kernel_internalize(kernel, 10)};
+  kernel_add_binary_clause(kernel, conflict[0], conflict[1], conflict_id);
+  kernel.conflict_ref = INVALID_REF;
+  kernel.conflict_bin[0] = conflict[0];
+  kernel.conflict_bin[1] = conflict[1];
+  kernel.conflict_valid = true;
+  const RuleVTable &analyze =
+      tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(rule_guard(analyze, kernel));
+  assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
+  assert(session.lazy_reason_count() == 1);
+  assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
+  proof.flush();
+  kernel.proof = nullptr;
+
+  FILE *cnf = std::fopen(cnf_path, "w");
+  assert(cnf);
+  std::fprintf(cnf, "p cnf 10 %zu\n", original.size() + 5);
+  for (const auto &clause : original) {
+    for (const int32_t literal : clause) std::fprintf(cnf, "%d ", literal);
+    std::fprintf(cnf, "0\n");
+  }
+  for (const int32_t unit : {-1, -2, -6, -7})
+    std::fprintf(cnf, "%d 0\n", unit);
+  std::fprintf(cnf, "7 10 0\n");
   std::fclose(cnf);
   std::fclose(journal);
   return 0;
@@ -1334,6 +1468,10 @@ int main(int argc,char **argv){
     return deferred_reason_proof_fixture(argv[2],argv[3]);
   if(argc==4&&!std::strcmp(argv[1],"--proof-lazy-source"))
     return deferred_reason_proof_fixture(argv[2],argv[3],true);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-lazy-minimal"))
+    return deferred_reason_proof_fixture(argv[2],argv[3],false,true);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-lazy-ancestor"))
+    return lazy_reason_ancestor_proof_fixture(argv[2],argv[3]);
   if(argc==4&&!std::strcmp(argv[1],"--proof-detached-minimal"))
     return detached_reason_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-detached-source"))
@@ -1355,7 +1493,8 @@ int main(int argc,char **argv){
   deferred_reason_has_public_materialization_boundary();
   detached_minimal_reason_is_public_and_unwatched();
   lazy_source_handles_are_multiple_public_and_consumed_on_demand();
-  lazy_source_materializes_at_exact_analyze_consumer();
+  lazy_minimal_handle_is_public_and_consumed_on_demand();
+  lazy_source_materializes_preanalysis_ancestor_batch();
   lazy_source_backtrack_discards_without_publication();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);

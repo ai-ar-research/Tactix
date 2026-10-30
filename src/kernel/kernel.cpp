@@ -3514,6 +3514,19 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
       k.delayed_used)
     return false;
 
+  // A compact affine handle names its implied variable in retained algebraic
+  // state. Variable compaction would renumber the trail and clause literals
+  // without remapping that historical event. Leave this representation step
+  // inapplicable until public MaterializeReasons, or ConflictAnalysis's
+  // equivalent batch boundary, has replaced every live handle by a clause.
+  for (const Lit lit : k.trail) {
+    const Assigned &a = k.assigned[var_of(lit)];
+    if (!a.binary && a.reason != DECISION_REASON &&
+        a.reason != UNIT_REASON &&
+        clause_at(k.arena, a.reason)->lazy_affine_reason())
+      return false;
+  }
+
   const uint32_t old_nvars = k.nvars;
   std::vector<uint8_t> archive;
   if (fold_fixed) {

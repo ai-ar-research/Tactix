@@ -3923,6 +3923,10 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
                               ReasonMode::LazySource)
           serviced = port::affine_matrix_search_step_lazy_source(
               kernel, *kernel.affine_matrix_search_session);
+        else if (!root && config_.affine_search.reason_mode ==
+                              ReasonMode::LazyMinimal)
+          serviced = port::affine_matrix_search_step_lazy_minimal(
+              kernel, *kernel.affine_matrix_search_session);
         else
           serviced = port::affine_matrix_search_step(
               kernel, *kernel.affine_matrix_search_session);

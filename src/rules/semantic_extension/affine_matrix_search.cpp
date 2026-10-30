@@ -1293,6 +1293,7 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
     case Operation::DetachedMinimalSearchStep:
     case Operation::DetachedSourceSearchStep:
     case Operation::LazySourceSearchStep:
+    case Operation::LazyMinimalSearchStep:
     case Operation::MaterializeReasons:
       if (kernel.affine_matrix_search_session->parameters_ != profile.basis ||
           kernel.affine_matrix_search_session->persistence_.maximum_retained_bytes != limits.maximum_retained_bytes ||
@@ -1309,6 +1310,8 @@ ApplyResult affine_matrix_initialize_apply(Kernel &kernel) {
               ? affine_matrix_search_step_detached_source(kernel, session)
           : profile.operation == Operation::LazySourceSearchStep
               ? affine_matrix_search_step_lazy_source(kernel, session)
+          : profile.operation == Operation::LazyMinimalSearchStep
+              ? affine_matrix_search_step_lazy_minimal(kernel, session)
               : affine_matrix_materialize_reason(kernel, session);
       return session.last_service_->result;
   }
@@ -2253,6 +2256,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
           pending.event_identity = result.event_identity;
           pending.implied_variable = var_of(physical.front());
           pending.retained_bytes = bytes;
+          pending.core_reason_authentication = minimal;
           session.lazy_reasons_.push_back(std::move(pending));
           result.live.status = MatrixLiveStatus::Applied;
           result.live.result = ApplyResult::Ok;
@@ -2359,6 +2363,12 @@ AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
                                         true);
 }
 
+AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
+    Kernel &kernel, AffineMatrixSearchSession &session) {
+  return affine_matrix_search_step_impl(kernel, session, false, false, true,
+                                        true);
+}
+
 AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     Kernel &kernel, AffineMatrixSearchSession &session, Var implied) {
   AffineMatrixServiceResult result;
@@ -2419,6 +2429,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
   request.compact_provenance = kernel.affine_matrix_provenance_compact;
   request.retained_source_provenance =
       session.retained_source_provenance_owner_ == session.owner_version_;
+  request.core_reason_authentication = at->core_reason_authentication;
   request.historical_event = true;
   request.proof_cache = &session.proof_cache_;
   request.pbp_parity_cache = &session.pbp_proof_cache_;
@@ -2532,7 +2543,9 @@ TACTIX_REGISTER_POLICY_OP(AffineMatrixInitialize, RuleTier::Inprocess,
                                  kernel.affine_matrix_initialize_parameters.operation ==
                                      strategy::AffineMatrixInitializeParameters::Operation::DetachedSourceSearchStep ||
                                  kernel.affine_matrix_initialize_parameters.operation ==
-                                     strategy::AffineMatrixInitializeParameters::Operation::LazySourceSearchStep))
+                                     strategy::AffineMatrixInitializeParameters::Operation::LazySourceSearchStep ||
+                                 kernel.affine_matrix_initialize_parameters.operation ==
+                                     strategy::AffineMatrixInitializeParameters::Operation::LazyMinimalSearchStep))
                               return RuleEligibility{}
                                   .fact("consistent", !kernel.inconsistent)
                                   .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)

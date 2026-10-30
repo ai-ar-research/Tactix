@@ -297,7 +297,7 @@ void detached_policy_boundary(bool minimal) {
   std::remove(path);
 }
 
-void lazy_source_policy_boundary() {
+void lazy_policy_boundary(bool minimal) {
   Fixture f{6, {}};
   for (const auto &[variables, rhs] :
        std::vector<std::pair<std::vector<int32_t>, bool>>{
@@ -319,14 +319,17 @@ void lazy_source_policy_boundary() {
   assert(records);
   kernel.structural_provenance = records;
   Proof proof;
-  const char *path = "/tmp/tactix-default-lazy-source-policy.dsr";
+  const char *path = minimal
+      ? "/tmp/tactix-default-lazy-minimal-policy.dsr"
+      : "/tmp/tactix-default-lazy-source-policy.dsr";
   assert(proof.open(path, ProofFormat::DsrAscii));
   proof.arm_population_shadow();
   kernel.proof = &proof;
 
   auto settings = config(true);
   settings.affine_search.reason_mode =
-      DefaultStrategyConfig::AffineSearch::ReasonMode::LazySource;
+      minimal ? DefaultStrategyConfig::AffineSearch::ReasonMode::LazyMinimal
+              : DefaultStrategyConfig::AffineSearch::ReasonMode::LazySource;
   DefaultPolicy policy(settings);
   assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
              .status == AffineMatrixInitStatus::Applied);
@@ -338,7 +341,8 @@ void lazy_source_policy_boundary() {
   const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
   assert(service.status == AffineMatrixServiceStatus::Applied &&
          service.reason_deferred && !service.live.detached_reason &&
-         session.lazy_reason_count() == 1 && kernel.next_clause_id == before);
+         session.lazy_reason_count() == 1 && kernel.next_clause_id == before &&
+         service.reason_width == 3);
   const Lit implied = kernel_internalize(kernel, -5);
   const Ref provisional = kernel.assigned[var_of(implied)].reason;
   assert(clause_at(kernel.arena, provisional)->lazy_affine_reason());
@@ -613,7 +617,8 @@ int main(int argc,char **argv) {
   empty_census_retry();
   detached_policy_boundary(true);
   detached_policy_boundary(false);
-  lazy_source_policy_boundary();
+  lazy_policy_boundary(false);
+  lazy_policy_boundary(true);
   deferred_policy_boundary(argc == 2
       ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {

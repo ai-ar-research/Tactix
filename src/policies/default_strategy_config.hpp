@@ -331,6 +331,7 @@ struct DefaultStrategyConfig {
       DetachedMinimal = 2,
       DetachedSource = 3,
       LazySource = 4,
+      LazyMinimal = 5,
     };
     // Production switch.  The service performs instance-independent bounded
     // authentication and is still explicitly disableable for attribution and

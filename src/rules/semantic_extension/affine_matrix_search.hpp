@@ -249,6 +249,8 @@ private:
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
       Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
+      Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
@@ -331,6 +333,7 @@ private:
     std::string event_identity;
     Var implied_variable = INVALID_VAR;
     uint64_t retained_bytes = 0;
+    bool core_reason_authentication = false;
   };
   std::vector<LazyReason> lazy_reasons_;
 };
@@ -363,16 +366,21 @@ AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
 AffineMatrixServiceResult affine_matrix_search_step_detached_source(
     Kernel &, AffineMatrixSearchSession &);
 // Install a compact native trail handle. Multiple live handles are legal;
-// proof planning and clause publication are delayed until the exact Analyze
-// consumer. A consumed source-support explanation is retained as an ordinary
-// watched clause, an explicit cache deviation from CryptoMiniSat.
+// proof planning and clause publication are delayed until public
+// MaterializeReasons or ConflictAnalysis's pre-analysis ancestor batch. A
+// consumed source-support explanation is retained as an ordinary watched
+// clause, an explicit cache deviation from CryptoMiniSat.
 AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
+    Kernel &, AffineMatrixSearchSession &);
+// Same compact lifetime, but retain and later certify the exact XOR-core
+// explanation rather than its source-support clausal weakening.
+AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
     Kernel &, AffineMatrixSearchSession &);
 AffineMatrixServiceResult affine_matrix_materialize_reason(
     Kernel &, AffineMatrixSearchSession &);
-// Mandatory correctness boundary used by Analyze immediately before it reads
-// a lazy algebraic reason. Public MaterializeReasons can also discharge the
-// oldest live handle without entering Analyze.
+// Mandatory single-handle correctness primitive. Public MaterializeReasons
+// discharges the oldest live handle; ConflictAnalysis repeats the same public
+// semantics for the handles in its conflict-reason ancestry.
 AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     Kernel &, AffineMatrixSearchSession &, Var);
 AffineMatrixAliasResult affine_matrix_search_preserve_aliases(

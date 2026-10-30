@@ -59,6 +59,23 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
   --every-lemma
 
+"$binary" --proof-lazy-minimal \
+  "$tmp/lazy-minimal.cnf" "$tmp/lazy-minimal.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/lazy-minimal.cnf" "$tmp/lazy-minimal.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
+# ConflictAnalysis discharges the compact handles in its reason ancestry before
+# taking any arena pointer. Check the two-handle/one-reachable case, subsequent
+# learned proof, and every helper lemma against the untouched original CNF.
+"$binary" --proof-lazy-ancestor \
+  "$tmp/lazy-ancestor.cnf" "$tmp/lazy-ancestor.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/lazy-ancestor.cnf" "$tmp/lazy-ancestor.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
 # The exact XOR-core reason is proof-visible but absent from ordinary Boolean
 # watches. Check every emitted lemma against the untouched original CNF plus
 # the four decisions and the contradictory unit.

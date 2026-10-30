@@ -60,26 +60,15 @@ static bool lrat_active(const Kernel &k) {
 }
 
 // Native affine handles are not clauses in the proof or Boolean formula.
-// This is their exact consumer boundary: immediately before Analyze reads a
-// large assignment reason, certify it from the original retained sources and
-// replace the handle with the resulting watched clause.  Any failure must not
-// be papered over with the proof-invisible placeholder.
+// Analyze's formula-mutating proof planner must run before the hot analysis
+// walk takes any persistent conflict/reason pointer. Thereafter encountering a
+// placeholder is a correctness failure.
 static Clause *analysis_reason_clause(Kernel &k, Var v) {
   Assigned &a = k.assigned[v];
   assert(!a.binary && a.reason != DECISION_REASON &&
          a.reason != UNIT_REASON);
   Clause *reason = clause_at(k.arena, a.reason);
-  if (!reason->lazy_affine_reason())
-    return reason;
-  if (!k.affine_matrix_search_session)
-    std::abort();
-  const auto materialized = affine_matrix_materialize_lazy_reason(
-      k, *k.affine_matrix_search_session, v);
-  if (materialized.status != AffineMatrixServiceStatus::Applied ||
-      !materialized.reason_materialized)
-    std::abort();
-  reason = clause_at(k.arena, k.assigned[v].reason);
-  if (reason->lazy_affine_reason() || reason->garbage() || !reason->id())
+  if (reason->lazy_affine_reason())
     std::abort();
   return reason;
 }
@@ -211,6 +200,63 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
   const Clause *c = clause_at(k.arena, k.conflict_ref);
   *size = c->size;
   return c->lits;
+}
+
+// Compute the complete assignment-reason ancestry without mutating the arena,
+// then certify only lazy handles in that closure. This is a conservative
+// pre-analysis form of CryptoMiniSat's on-demand get_reason boundary: it can
+// prepare a handle that minimization later skips, but it never publishes an
+// unrelated live handle merely because both happen to be on the trail.
+static void materialize_affine_ancestors_before_analysis(Kernel &k) {
+  AffineMatrixSearchSession *const session =
+      k.affine_matrix_search_session;
+  if (!session || !session->lazy_reason_count())
+    return;
+
+  uint32_t conflict_size = 0;
+  const Lit *const conflict = conflict_lits(k, &conflict_size);
+  std::vector<Var> pending;
+  pending.reserve(conflict_size);
+  for (uint32_t i = 0; i < conflict_size; ++i)
+    pending.push_back(var_of(conflict[i]));
+  std::vector<uint8_t> seen(k.nvars, 0);
+  std::vector<Var> lazy;
+
+  while (!pending.empty()) {
+    const Var v = pending.back();
+    pending.pop_back();
+    if (v >= seen.size() || seen[v])
+      continue;
+    seen[v] = 1;
+    if (!k.values[make_lit(v, false)])
+      continue;
+    const Assigned &a = k.assigned[v];
+    if (!a.level || a.reason == DECISION_REASON || a.reason == UNIT_REASON)
+      continue;
+    if (a.binary) {
+      pending.push_back(var_of(a.reason));
+      if (a.jumped)
+        pending.push_back(var_of(k.jumped_over[v]));
+      continue;
+    }
+    const Clause *const reason = clause_at(k.arena, a.reason);
+    if (reason->lazy_affine_reason())
+      lazy.push_back(v);
+    for (const Lit antecedent : *reason)
+      if (var_of(antecedent) != v)
+        pending.push_back(var_of(antecedent));
+  }
+
+  std::sort(lazy.begin(), lazy.end(), [&k](Var a, Var b) {
+    return k.assigned[a].trail < k.assigned[b].trail;
+  });
+  for (const Var v : lazy) {
+    const auto result =
+        affine_matrix_materialize_lazy_reason(k, *session, v);
+    if (result.status != AffineMatrixServiceStatus::Applied ||
+        !result.reason_materialized)
+      std::abort();
+  }
 }
 
 // A learned literal l is redundant if every antecedent in its reason chain
@@ -1227,6 +1273,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
                                           RetierSchedule *retier,
                                           uint32_t *chosen) {
   assert(analyze_guard(k));
+  materialize_affine_ancestors_before_analysis(k);
   assert(k.analyzed.empty());
   assert(k.bump_order.empty());
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
