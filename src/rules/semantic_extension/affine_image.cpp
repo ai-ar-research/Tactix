@@ -163,21 +163,23 @@ Status recognize(const std::vector<Premise> &input, const Limits &limits,
     if (!premise.occurrence ||
         !identities.insert(premise.occurrence).second)
       return Status::Invalid;
+    // Literal-domain validity is independent of whether this recognizer can
+    // admit the clause's arity. Root-normalized discovery applies the same
+    // rule before shortening; silently skipping an over-width 0/INT32_MIN
+    // body would make the two authenticated entry paths disagree.
+    if (std::any_of(premise.literals.begin(), premise.literals.end(),
+                    [](External literal) {
+                      return !literal || literal == INT32_MIN;
+                    }))
+      return Status::Invalid;
     if (premise.literals.empty() ||
         premise.literals.size() > limits.maximum_arity)
       continue;
 
     std::vector<std::pair<External, bool>> ordered;
     ordered.reserve(premise.literals.size());
-    bool malformed = false;
-    for (External literal : premise.literals) {
-      if (!literal || literal == INT32_MIN) {
-        malformed = true;
-        break;
-      }
+    for (External literal : premise.literals)
       ordered.push_back({literal < 0 ? -literal : literal, literal < 0});
-    }
-    if (malformed) return Status::Invalid;
     std::sort(ordered.begin(), ordered.end());
     bool unsupported = false;
     for (size_t i = 1; i < ordered.size(); ++i)
