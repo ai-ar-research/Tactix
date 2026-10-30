@@ -1,4 +1,5 @@
 #include "rules/lucky/exact_one_refutation.hpp"
+#include "rules/lucky/refutation_proof_sink.hpp"
 
 #include "proof/proof.hpp"
 
@@ -196,64 +197,7 @@ bool recognize(Kernel &k, const strategy::OnehotModelParameters &parameters,
   return true;
 }
 
-class Sink {
-  Kernel &k_;
-  bool writing_;
-  uint64_t maximum_additions_;
-
-public:
-  uint64_t additions = 0;
-  uint64_t deletions = 0;
-  uint32_t fresh = 0;
-  bool stopped = false;
-
-  Sink(Kernel &k, bool writing, uint32_t original_variables,
-       uint64_t maximum_additions)
-      : k_(k), writing_(writing), maximum_additions_(maximum_additions),
-        fresh(original_variables) {}
-
-  bool add(const ExternalClause &clause, bool rat = false) {
-    if (additions == maximum_additions_) {
-      stopped = true;
-      return false;
-    }
-    if (!writing_ && !(additions & 4095) &&
-        kernel_rule_interrupt(k_, k_.stats.exact_one_refutation_interrupted)) {
-      stopped = true;
-      return false;
-    }
-    ++additions;
-    if (!writing_ || !k_.proof)
-      return true;
-    const uint64_t id = ++k_.next_clause_id;
-    const bool ok =
-        rat ? k_.proof->add_external_rat(
-                  id, clause.data(), static_cast<uint32_t>(clause.size()))
-            : k_.proof->add_external_rup(
-                  id, clause.data(), static_cast<uint32_t>(clause.size()));
-    stopped |= !ok;
-    return ok;
-  }
-
-  bool erase(const ExternalClause &clause) {
-    ++deletions;
-    if (!writing_ || !k_.proof)
-      return true;
-    const bool ok = k_.proof->del_external(
-        k_.next_clause_id, 0, clause.data(), static_cast<uint32_t>(clause.size()));
-    stopped |= !ok;
-    return ok;
-  }
-
-  bool new_variable(External &variable) {
-    if (fresh == static_cast<uint32_t>(INT32_MAX)) {
-      stopped = true;
-      return false;
-    }
-    variable = static_cast<External>(++fresh);
-    return true;
-  }
-};
+using Sink = RefutationProofSink<ExternalClause>;
 
 class Deriver {
   Sink &sink_;
@@ -626,7 +570,8 @@ bool generate(Kernel &k, const ExactOneSystem &system,
               const strategy::OnehotModelParameters &parameters, bool writing,
               uint64_t &additions, uint64_t &deletions, uint32_t &fresh) {
   Sink sink(k, writing, static_cast<uint32_t>(k.external_to_internal.size()),
-            parameters.refutation_maximum_proof_additions);
+            parameters.refutation_maximum_proof_additions,
+            k.stats.exact_one_refutation_interrupted);
   Certificate certificate(
       sink, static_cast<uint32_t>(k.external_to_internal.size()));
   const bool ok = certificate.run(system) && !sink.stopped;
