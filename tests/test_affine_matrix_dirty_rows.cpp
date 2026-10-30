@@ -202,8 +202,9 @@ void compact_lazy_transition_sweep(){
       10000000,100000,100000,10000,100000};
   MatrixTransactionFailureStage failure=MatrixTransactionFailureStage::None;
   assert(prepare_affine_matrix_transaction(
-      matrix,73,sources,event,external_extent,next_clause_id,transaction_limits,
-      [](auto){return true;},transaction,&proof_cache,0,nullptr,true,false,false,
+      matrix,73,matrix.authenticated_sources(),event,external_extent,
+      next_clause_id,transaction_limits,[](auto){return true;},transaction,
+      &proof_cache,0,nullptr,true,true,false,
       &failure)==MatrixTransactionStatus::Prepared);
   cache_hits+=transaction.proof_cache_hit();
   cache_resumes+=transaction.proof_cache_resume();
