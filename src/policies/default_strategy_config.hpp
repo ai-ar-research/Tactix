@@ -364,9 +364,11 @@ struct DefaultStrategyConfig {
     // regression controls.  Promotion of this candidate remains subject to
     // the proof, fuzz, performance and full regression gates.
     bool enabled = true;
-    // Development A/B only. Promotion requires the matched N3 gate; eager
-    // source-support reasons remain the shipped control until then.
-    ReasonMode reason_mode = ReasonMode::EagerSourceSupport;
+    // Retain authenticated source rows in the persistent matrix, but publish
+    // the smallest checked clausal reason only when conflict analysis reaches
+    // the deferred affine implication.  The eager source-support mode remains
+    // available as an explicit attribution/control profile.
+    ReasonMode reason_mode = ReasonMode::LazyMinimal;
     // CryptoMiniSat src/solverconf.h GaussConf source defaults (its README
     // advertises older smaller dimensions), pinned at 2bf89cfb3e126e559d472388486327813f735f7e.
     // Tactix additionally caps retained
