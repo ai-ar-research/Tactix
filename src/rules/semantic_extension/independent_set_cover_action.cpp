@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "strategy/semantic_variable_advice.hpp"
@@ -128,26 +130,13 @@ struct RecordIndependentSetCover {
 } // namespace
 
 RuleEligibility independent_set_cover_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict",
-            !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
+  return root_action_guard(kernel, true)
       .fact("session-attached",
             kernel.independent_set_cover_action_session != nullptr)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 ApplyResult independent_set_cover_rule_apply(Kernel &kernel) {

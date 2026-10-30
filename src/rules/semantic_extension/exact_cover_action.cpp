@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/exact_cover_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <cstdlib>
@@ -64,24 +65,13 @@ struct RecordExactCoverExtension {
 } // namespace
 
 RuleEligibility exact_cover_extension_action_guard(const Kernel &k) {
-  return RuleEligibility{}
-      .fact("consistent", !k.inconsistent)
-      .fact("root", !k.level)
-      .fact("assignment-free", k.trail.empty())
-      .fact("no-conflict", !k.conflict_valid && !k.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(k))
-      .fact("sparse", !k.dense && k.large_watches_connected)
-      .fact("no-probe-transaction", !k.probing.recording)
+  return root_action_guard(k, true)
       .fact("session-attached",
             k.exact_cover_extension_action_session != nullptr)
-      .fact("provenance-bound", k.structural_provenance != nullptr)
-      .fact("action-id-available",
-            k.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate",
-            !k.proof || (!k.proof->lrat() && !k.proof->terminal_pbp()))
-      .fact("candidate-slot-empty", !k.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            k.semantic_variable_publication != (UINT64_MAX >> 8));
+      .identity()
+      .clausal_certificate()
+      .semantic_candidate()
+      .finish();
 }
 
 ExactCoverExtensionActionResult exact_cover_extension_action_apply(

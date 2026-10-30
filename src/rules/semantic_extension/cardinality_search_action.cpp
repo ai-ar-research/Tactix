@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/cardinality_search_action.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/structural_action_guard.hpp"
 
 #include <climits>
 
@@ -18,17 +19,7 @@ bool CardinalitySearchActionLimits::valid() const {
 }
 
 RuleEligibility cardinality_search_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return action_guard(kernel).identity().clausal_certificate().finish();
 }
 
 CardinalitySearchActionResult cardinality_search_action_apply(

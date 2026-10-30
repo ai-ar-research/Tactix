@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -146,16 +148,11 @@ bool NaryCspEqualityAmoLimits::valid() const {
 }
 
 RuleEligibility nary_csp_equality_amo_guard(const Kernel &kernel) {
-  return nary_csp_relation_owner_guard(kernel)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return extend_action_guard(kernel, nary_csp_relation_owner_guard(kernel))
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 bool nary_csp_equality_amo_selection_valid(

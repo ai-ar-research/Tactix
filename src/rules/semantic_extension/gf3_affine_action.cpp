@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 
 #include "kernel/types.hpp"
+#include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "proof/proof.hpp"
@@ -362,23 +363,11 @@ bool Gf3AffineActionLimits::valid() const {
 }
 
 RuleEligibility gf3_affine_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("candidate-slot-empty",
-            !kernel.semantic_variable_candidate_pending)
-      .fact("candidate-id-available",
-            kernel.semantic_variable_publication != (UINT64_MAX >> 8))
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, true)
+      .identity()
+      .semantic_candidate()
+      .clausal_certificate()
+      .finish();
 }
 
 Gf3AffineActionResult gf3_affine_action_apply(

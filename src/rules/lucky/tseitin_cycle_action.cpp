@@ -1,5 +1,7 @@
 #include "rules/lucky/tseitin_cycle_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -930,7 +932,7 @@ bool TseitinCycleBreakingLimits::valid() const {
 }
 
 RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
-  return RuleEligibility{}
+  return StructuralActionGuard(kernel)
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
       .fact("root-assignments-only",
@@ -938,14 +940,10 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
                         [&](Lit lit) {
                           return kernel.assigned[var_of(lit)].level == 0;
                         }))
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("sr-proof", !kernel.proof || kernel.proof->supports_sr());
+      .quiescent()
+      .identity()
+      .fact("sr-proof", !kernel.proof || kernel.proof->supports_sr())
+      .finish();
 }
 
 TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(

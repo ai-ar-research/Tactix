@@ -1,5 +1,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
@@ -422,16 +424,7 @@ bool DirectPhpActionLimits::valid() const {
 }
 
 RuleEligibility direct_php_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, true).clausal_certificate().finish();
 }
 
 DirectPhpActionResult direct_php_action_prepare(

@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "proof/proof.hpp"
+#include "rules/structural_action_guard.hpp"
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
@@ -105,12 +106,8 @@ bool NaryCspEqualityTransitivityLimits::valid()const{
  maximum_session_bytes&&maximum_arena_words&&maximum_watch_words&&maximum_preparation_bytes;
 }
 RuleEligibility nary_csp_equality_transitivity_guard(const Kernel &k){
- return nary_csp_relation_owner_guard(k)
-   .fact("provenance-bound",k.structural_provenance!=nullptr)
-   .fact("action-id-available",k.structural_action_sequence!=UINT64_MAX)
-   .fact("candidate-slot-empty",!k.semantic_variable_candidate_pending)
-   .fact("candidate-id-available",k.semantic_variable_publication!=(UINT64_MAX>>8))
-   .fact("clausal-certificate",!k.proof||(!k.proof->lrat()&&!k.proof->terminal_pbp()));
+ return extend_action_guard(k,nary_csp_relation_owner_guard(k))
+   .identity().semantic_candidate().clausal_certificate().finish();
 }
 bool nary_csp_equality_transitivity_selection_valid(const Selection &s){
  if(!equality_transitivity::domains_valid(s.domains))return false;

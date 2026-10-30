@@ -1,4 +1,6 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
+
+#include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
 
 #include "kernel/types.hpp"
@@ -429,17 +431,16 @@ bool AffineMatrixSearchSession::inspect_lazy_reason(
 }
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &kernel) {
-  return RuleEligibility{}
+  return StructuralActionGuard(kernel)
       .fact("consistent", !kernel.inconsistent)
       .fact("root", !kernel.level)
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
+      .quiescent()
       .fact("session-attached", kernel.affine_matrix_search_session != nullptr)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
+      .provenance()
       .fact("clausal-proof",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+            !kernel.proof ||
+                (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()))
+      .finish();
 }
 
 AffineMatrixInitResult affine_matrix_search_initialize(

@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
+#include "rules/structural_action_guard.hpp"
+
 #include <algorithm>
 #include <limits>
 
@@ -106,19 +108,10 @@ bool Gf3GaussianActionLimits::valid() const {
 }
 
 RuleEligibility gf3_gaussian_action_guard(const Kernel &kernel) {
-  return RuleEligibility{}
-      .fact("consistent", !kernel.inconsistent)
-      .fact("root", !kernel.level)
-      .fact("assignment-free", kernel.trail.empty())
-      .fact("no-conflict", !kernel.conflict_valid && !kernel.pending.valid)
-      .fact("propagated", kernel_propagation_fixpoint(kernel))
-      .fact("sparse", !kernel.dense && kernel.large_watches_connected)
-      .fact("no-probe-transaction", !kernel.probing.recording)
-      .fact("provenance-bound", kernel.structural_provenance != nullptr)
-      .fact("action-id-available",
-            kernel.structural_action_sequence != UINT64_MAX)
-      .fact("clausal-certificate",
-            !kernel.proof || (!kernel.proof->lrat() && !kernel.proof->terminal_pbp()));
+  return root_action_guard(kernel, true)
+      .identity()
+      .clausal_certificate()
+      .finish();
 }
 
 Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
