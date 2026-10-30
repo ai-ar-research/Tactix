@@ -1146,7 +1146,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       if (instance.first_equation >= instance.second_equation)
         return reject("GF3 equation pair is not canonical");
     const auto direct_literal_variable = [](int32_t literal) {
-      return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+      return external_variable_of(literal);
     };
     const auto direct_literal_less = [&](int32_t first, int32_t second) {
       const uint32_t first_variable = direct_literal_variable(first);

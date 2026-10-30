@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_gaussian_bridge.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <limits>
@@ -16,7 +18,7 @@ constexpr uint64_t gaussian_provenance_term_bytes = 16;
 constexpr uint64_t gaussian_outcome_bytes = 16;
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 uint8_t add3(uint8_t first, uint8_t second) {

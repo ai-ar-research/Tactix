@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/affine_basis_plan.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <map>
@@ -53,7 +55,8 @@ std::vector<BasisClause> direct_clauses(const std::vector<External> &variables,
     BasisClause converted;
     converted.reserve(clause.size());
     for (External literal : clause) {
-      const External variable = literal < 0 ? -literal : literal;
+      const External variable =
+          static_cast<External>(external_variable_of(literal));
       converted.push_back(
           {{BasisAtomKind::Existing, static_cast<uint32_t>(variable)},
            literal > 0});

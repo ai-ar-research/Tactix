@@ -1,4 +1,7 @@
 #include "strategy/rule_parameters.hpp"
+
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 
@@ -196,7 +199,7 @@ bool AffineModelParameters::valid() const {
   variables.reserve(projection.size());
   for (int literal : projection) {
     if (!literal || literal == INT_MIN) return false;
-    variables.push_back(static_cast<uint32_t>(literal < 0 ? -literal : literal));
+    variables.push_back(external_variable_of(literal));
   }
   std::sort(variables.begin(), variables.end());
   return std::adjacent_find(variables.begin(), variables.end()) == variables.end();

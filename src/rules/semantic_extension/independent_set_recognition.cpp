@@ -1,4 +1,5 @@
 #include "rules/semantic_extension/independent_set_recognition.hpp"
+#include "kernel/types.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -200,8 +201,7 @@ bool recognize(const std::vector<Premise> &source,
     Clause clause = premise.literals;
     for (int32_t literal : clause) {
       if (!literal || literal == INT32_MIN ||
-          uint64_t(literal < 0 ? -int64_t(literal) : literal) >
-              external_variables)
+          external_variable_of(literal) > external_variables)
         return false;
     }
     std::sort(clause.begin(), clause.end());
@@ -354,11 +354,11 @@ bool derive_cover_certificate(const Image &image,
       step.right = right;
       step.pivot = static_cast<int32_t>(pivot);
       for (int32_t literal : a)
-        if (uint32_t(literal < 0 ? -int64_t(literal) : literal) != pivot)
+        if (external_variable_of(literal) != pivot)
           step.clause.push_back(literal);
       std::vector<int32_t> expected;
       for (int32_t literal : b)
-        if (uint32_t(literal < 0 ? -int64_t(literal) : literal) != pivot)
+        if (external_variable_of(literal) != pivot)
           expected.push_back(literal);
       if (step.clause != expected)
         return false;

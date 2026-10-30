@@ -1,6 +1,8 @@
 // Shared proof-only Boolean counting engine, extracted from the signed
 // cardinality proof implementation. No kernel mutation or policy selection.
 #pragma once
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -243,8 +245,8 @@ public:
     });
     Ref root = FALSE_REF;
     for (const External literal : sorted) {
-      const External variable = static_cast<External>(
-          literal < 0 ? -int64_t(literal) : int64_t(literal));
+      const External variable =
+          static_cast<External>(external_variable_of(literal));
       root = literal > 0 ? make_node(variable, TRUE_REF, root)
                          : make_node(variable, root, TRUE_REF);
       if (sink_.stopped)

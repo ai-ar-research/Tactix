@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/affine_matrix_transaction.hpp"
 
 #include "kernel/clause.hpp"
+#include "kernel/types.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 
 #include <algorithm>
@@ -671,7 +672,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     if (!literal || literal == INT32_MIN)
       return failed(MatrixTransactionStatus::Invalid,
                     MatrixTransactionFailureStage::DenseMapping);
-    const External variable = literal < 0 ? -literal : literal;
+    const External variable =
+        static_cast<External>(external_variable_of(literal));
     const auto found = std::lower_bound(variables.begin(), variables.end(),
                                         variable);
     if (found == variables.end() || *found != variable)

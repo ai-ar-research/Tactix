@@ -1,5 +1,7 @@
 #pragma once
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -48,7 +50,7 @@ struct Image {
 };
 
 inline uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 namespace detail {

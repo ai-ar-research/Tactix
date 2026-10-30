@@ -1,5 +1,6 @@
 #include "rules/lucky/stconn_proof.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/root_guard.hpp"
 
@@ -238,8 +239,7 @@ public:
     internal_.clear();
     internal_.reserve(external.size());
     for (const int literal : external) {
-      const uint64_t variable = static_cast<uint64_t>(
-          literal < 0 ? -int64_t(literal) : int64_t(literal));
+      const uint64_t variable = external_variable_of(literal);
       if (!variable || variable > kernel_.external_to_internal.size())
         return false;
       const Var internal = kernel_.external_to_internal[variable - 1];

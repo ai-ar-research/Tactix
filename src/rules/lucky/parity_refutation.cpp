@@ -1,6 +1,7 @@
 #include "rules/lucky/parity_refutation.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -294,7 +295,7 @@ class PbParityCertificate {
   }
   void term(unsigned coefficient, int32_t literal) {
     text("%u %sx%u ", coefficient, literal < 0 ? "~" : "",
-         static_cast<unsigned>(literal < 0 ? -literal : literal));
+         external_variable_of(literal));
   }
   void block_assignments(const Equation &row, unsigned depth, unsigned mask) {
     // A complete XOR encoding propagates its last variable after n-1 are

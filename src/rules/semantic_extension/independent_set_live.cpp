@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/independent_set_live.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
@@ -147,8 +148,7 @@ bool import_owner_snapshot(const IndependentSetOwnerSnapshot &owner,
       return false;
     for (int32_t literal : source.literals) {
       if (!literal || literal == INT32_MIN ||
-          uint64_t(literal < 0 ? -int64_t(literal) : literal) >
-              owner.external_variables ||
+          external_variable_of(literal) > owner.external_variables ||
           std::binary_search(source.literals.begin(), source.literals.end(),
                              -literal))
         return false;

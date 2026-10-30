@@ -1,5 +1,7 @@
 #include "rules/lucky/tseitin_cycle_admission.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <map>
 #include <queue>
@@ -232,7 +234,7 @@ AdmissionResult admit(const AdmissionRequest &request,
     for (External literal : clause.literals) {
       if (!meter.spend())
         return metered_stop(meter);
-      const Edge edge = literal < 0 ? -literal : literal;
+      const Edge edge = static_cast<Edge>(external_variable_of(literal));
       if (endpoints.count(edge))
         return stop(meter, AdmissionStatus::Declined,
                     AdmissionReason::ResidualEdgeTouch);

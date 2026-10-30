@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <limits>
@@ -11,7 +13,7 @@ namespace tactix::gf3_gaussian_certificate {
 namespace {
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 bool add_checked(uint64_t first, uint64_t second, uint64_t &result) {

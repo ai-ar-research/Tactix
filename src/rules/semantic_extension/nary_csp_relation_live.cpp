@@ -19,7 +19,7 @@ using ClauseKey = std::vector<int32_t>;
 using Meter = InterruptibleWork;
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 bool literal_less(int32_t first, int32_t second) {

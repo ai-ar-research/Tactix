@@ -1,6 +1,8 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <bit>
 #include <climits>
@@ -1672,7 +1674,8 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     retained_bytes += bytes;
   }
   for (int32_t literal : fixed) {
-    const External variable = literal < 0 ? -literal : literal;
+    const External variable =
+        static_cast<External>(external_variable_of(literal));
     bool duplicate = false;
     for (const auto &existing : image.equations) {
       if (!charge(1 + existing.variables.size())) return exhausted();

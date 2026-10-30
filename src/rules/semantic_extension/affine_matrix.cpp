@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/affine_matrix.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <bit>
@@ -2707,7 +2709,8 @@ bool AffineMatrix::authenticates_historical(
   reason_assignments.reserve(event.reason.size());
   for (External literal : event.reason) {
     if (!literal || literal == INT32_MIN) return false;
-    const External variable = literal < 0 ? -literal : literal;
+    const External variable =
+        static_cast<External>(external_variable_of(literal));
     // A negative literal is false exactly when its variable is true.  Keep
     // that falsifying assignment beside the variable while sorting.
     reason_assignments.emplace_back(variable, literal < 0);

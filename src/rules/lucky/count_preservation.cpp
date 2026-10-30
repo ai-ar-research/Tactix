@@ -1,5 +1,7 @@
 #include "rules/lucky/count_preservation.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstdarg>
@@ -14,7 +16,7 @@ using Triple = std::array<int32_t, 3>;
 using Pair = std::array<int32_t, 2>;
 constexpr uint32_t absent = UINT32_MAX;
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -literal : literal) - 1;
+  return external_variable_of(literal) - 1;
 }
 struct Edge {
   int32_t selector, a, b;

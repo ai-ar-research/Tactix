@@ -27,7 +27,7 @@ DirectCspSupportLiveStatus stopped_status(
 }
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 std::vector<int32_t> normalized(std::vector<int32_t> clause) {

@@ -53,7 +53,7 @@ bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work,
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 bool literal_less(int32_t first, int32_t second) {
@@ -704,7 +704,7 @@ void copy_live_effort(DirectCspSupportActionResult &output,
 uint32_t external_variable(int32_t literal) {
   if (!literal || literal == std::numeric_limits<int32_t>::min())
     std::abort();
-  return static_cast<uint32_t>(literal < 0 ? -literal : literal);
+  return external_variable_of(literal);
 }
 
 void materialize_semantics(DirectCspSupportActionResult &output) {

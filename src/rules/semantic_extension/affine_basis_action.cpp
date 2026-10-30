@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/affine_basis_action.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
@@ -472,8 +473,8 @@ bool affine_basis_row_selection_within_limits(
       for (const int32_t variable : equation.variables)
         if (std::count_if(premise.clause.begin(), premise.clause.end(),
                           [variable](int32_t literal) {
-                            return (literal < 0 ? -literal : literal) ==
-                                   variable;
+                            return external_variable_of(literal) ==
+                                   static_cast<uint32_t>(variable);
                           }) != 1)
           return false;
       if (negative_parity != static_cast<unsigned>(!equation.rhs))

@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/ttf_truth_table_live.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -102,13 +103,10 @@ PrepareStatus prepare_source(const TtfTruthTableLiveSnapshot &input,
     for (size_t i = 0; i < source.literals.size(); ++i) {
       const int32_t literal = source.literals[i];
       if (!literal || literal == INT32_MIN ||
-          uint64_t(literal < 0 ? -int64_t(literal) : literal) >
-              input.external_variables)
+          external_variable_of(literal) > input.external_variables)
         return PrepareStatus::Invalid;
-      if (i && uint64_t(source.literals[i - 1] < 0
-                            ? -int64_t(source.literals[i - 1])
-                            : source.literals[i - 1]) ==
-                   uint64_t(literal < 0 ? -int64_t(literal) : literal))
+      if (i && external_variable_of(source.literals[i - 1]) ==
+                   external_variable_of(literal))
         return PrepareStatus::Invalid;
     }
     if (!identities.insert(source).second) return PrepareStatus::Invalid;

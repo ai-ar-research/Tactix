@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/affine_live.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -202,7 +203,8 @@ bool proof_plan_supported(
       if (clause.size() > 8) return false;
       for (External literal : clause) {
         if (!literal || literal == INT32_MIN) return false;
-        variables.insert(literal < 0 ? -literal : literal);
+        variables.insert(
+            static_cast<External>(external_variable_of(literal)));
       }
     }
   }

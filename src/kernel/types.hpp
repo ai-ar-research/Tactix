@@ -28,6 +28,13 @@ constexpr Var var_of(Lit l) { return l >> 1; }
 constexpr bool negated(Lit l) { return l & 1; }
 constexpr Lit negate(Lit l) { return l ^ 1; }
 
+// Absolute variable identifier of a signed external literal.  The int64_t
+// promotion keeps INT32_MIN well-defined; callers that reject zero or values
+// outside the DIMACS domain do so at their own interface boundary.
+constexpr uint32_t external_variable_of(int32_t literal) {
+  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+}
+
 // external DIMACS literal (nonzero int) <-> internal Lit
 constexpr Lit internalize(int elit) {
   assert(elit != 0);

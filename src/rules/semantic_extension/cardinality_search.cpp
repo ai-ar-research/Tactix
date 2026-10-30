@@ -1,4 +1,5 @@
 #include "rules/semantic_extension/cardinality_search.hpp"
+#include "kernel/types.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -10,7 +11,7 @@ namespace tactix::cardinality_search {
 namespace {
 
 int32_t variable(int32_t literal) {
-  return static_cast<int32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return static_cast<int32_t>(external_variable_of(literal));
 }
 
 bool charge(Result &result, const Limits &limits, uint64_t amount) {

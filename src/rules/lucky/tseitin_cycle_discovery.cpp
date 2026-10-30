@@ -1,5 +1,6 @@
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
 
+#include "kernel/types.hpp"
 #include "rules/lucky/parity_premises.hpp"
 
 #include <algorithm>
@@ -325,7 +326,8 @@ Result enumerate_impl(const tseitin_cycle_live::Snapshot &snapshot,
         if (!meter.spend())
           return metered_stop(meter, snapshot.clauses.size(), equations.size(),
                               legal_components);
-        const External variable = literal < 0 ? -literal : literal;
+        const External variable =
+            static_cast<External>(external_variable_of(literal));
         if (edges.count(variable)) {
           residual = true;
           break;

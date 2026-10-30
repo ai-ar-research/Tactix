@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 
+#include "kernel/types.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "proof/proof.hpp"
@@ -328,8 +329,7 @@ semantic_advice(const std::vector<int32_t> &literals) {
   for (const int32_t literal : literals) {
     if (!literal || literal == std::numeric_limits<int32_t>::min())
       std::abort();
-    variables.push_back(
-        static_cast<uint32_t>(literal < 0 ? -literal : literal));
+    variables.push_back(external_variable_of(literal));
   }
   std::sort(variables.begin(), variables.end());
   variables.erase(std::unique(variables.begin(), variables.end()),

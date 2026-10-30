@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/affine_image.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -121,7 +123,8 @@ bool authenticates_clausal_form(const Equation &equation) {
     uint32_t negative = 0;
     for (const External literal : clause) {
       if (!literal || literal == INT32_MIN) return false;
-      const External variable = literal < 0 ? -literal : literal;
+      const External variable =
+          static_cast<External>(external_variable_of(literal));
       const auto found = std::lower_bound(equation.variables.begin(),
                                           equation.variables.end(), variable);
       if (found == equation.variables.end() || *found != variable)
@@ -179,7 +182,8 @@ Status recognize(const std::vector<Premise> &input, const Limits &limits,
     std::vector<std::pair<External, bool>> ordered;
     ordered.reserve(premise.literals.size());
     for (External literal : premise.literals)
-      ordered.push_back({literal < 0 ? -literal : literal, literal < 0});
+      ordered.push_back(
+          {static_cast<External>(external_variable_of(literal)), literal < 0});
     std::sort(ordered.begin(), ordered.end());
     bool unsupported = false;
     for (size_t i = 1; i < ordered.size(); ++i)
@@ -316,7 +320,8 @@ bool build_proof_plan(const Image &image, size_t consequence_index,
       if (!to_small(clause, small)) return false;
       premises.push_back(small);
       for (External literal : clause)
-        variables.insert(literal < 0 ? -literal : literal);
+        variables.insert(
+            static_cast<External>(external_variable_of(literal)));
     }
   }
   if (variables.size() > 16) return false;

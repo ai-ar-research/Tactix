@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <limits>
@@ -11,7 +13,7 @@ namespace tactix::direct_csp_support {
 namespace {
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 bool literal_less(int32_t first, int32_t second) {

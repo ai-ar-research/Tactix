@@ -1,4 +1,5 @@
 #include "proof/proof.hpp"
+#include "kernel/types.hpp"
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include "diagnostics/rule_journal.hpp"
 #endif
@@ -68,8 +69,7 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
   if (literal < 0)
     text.put("~");
   text.put("x");
-  text.put_uint(static_cast<uint32_t>(
-      literal < 0 ? -int64_t(literal) : int64_t(literal)));
+  text.put_uint(external_variable_of(literal));
   text.put(" ");
 }
 
@@ -1588,7 +1588,8 @@ bool Proof::plan_pbp_parity_reason(
     const int32_t literal = reason[i];
     if (!literal || literal == INT32_MIN)
       return false;
-    const int32_t variable = literal < 0 ? -literal : literal;
+    const int32_t variable =
+        static_cast<int32_t>(external_variable_of(literal));
     if (static_cast<uint32_t>(variable) > starting_external_extent ||
         !target.emplace(variable, literal).second)
       return false;
@@ -1654,8 +1655,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     if (literal < 0)
       text.put("~");
     text.put("x");
-    text.put_uint(static_cast<uint32_t>(
-        literal < 0 ? -int64_t(literal) : int64_t(literal)));
+    text.put_uint(external_variable_of(literal));
     text.put(" ");
   };
 
@@ -1774,7 +1774,8 @@ bool Proof::add_prevalidated_pbp_parity_reason(
     }
     for (uint32_t i = 0; i < reason_size; ++i) {
       const int32_t literal = reason[i];
-      const int32_t variable = literal < 0 ? -literal : literal;
+      const int32_t variable =
+          static_cast<int32_t>(external_variable_of(literal));
       if (odd(variable) &&
           ((lower_side && literal < 0) || (!lower_side && literal > 0))) {
         text.put(" ");
@@ -1797,7 +1798,8 @@ bool Proof::add_prevalidated_pbp_parity_reason(
   text.put(" +");
   for (uint32_t i = 0; i < reason_size; ++i) {
     const int32_t literal = reason[i];
-    const int32_t variable = literal < 0 ? -literal : literal;
+    const int32_t variable =
+        static_cast<int32_t>(external_variable_of(literal));
     if (!odd(variable)) {
       text.put(" ");
       if (literal < 0)
@@ -2029,7 +2031,7 @@ void Proof::invalidate_premises_for_sr(uint64_t line_id, const Lit *lits,
     for (const auto &clause : clauses)
       for (int32_t literal : clause)
         touched |= std::binary_search(changed.begin(), changed.end(),
-                 uint32_t(literal < 0 ? -int64_t(literal) : literal));
+                                      external_variable_of(literal));
     if (touched) retire.push_back(handle);
   }
   release_premise_groups(retire, line_id);

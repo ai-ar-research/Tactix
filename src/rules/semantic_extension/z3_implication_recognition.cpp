@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/z3_implication_recognition.hpp"
 
+#include "kernel/types.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <map>
@@ -9,7 +11,7 @@ namespace tactix::z3_implication_semantic {
 namespace {
 
 uint32_t variable(int32_t literal) {
-  return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
+  return external_variable_of(literal);
 }
 
 struct Meter {

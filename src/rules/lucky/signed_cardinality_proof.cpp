@@ -1,5 +1,6 @@
 #include "rules/lucky/signed_cardinality_proof.hpp"
 
+#include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/root_guard.hpp"
 
@@ -73,8 +74,7 @@ public:
 };
 
 uint32_t signed_index(External literal, uint32_t variables) {
-  const uint32_t variable = static_cast<uint32_t>(
-      literal < 0 ? -int64_t(literal) : int64_t(literal));
+  const uint32_t variable = external_variable_of(literal);
   return literal > 0 ? variable - 1 : variables + variable - 1;
 }
 
@@ -429,8 +429,8 @@ public:
     });
     Ref root = FALSE_REF;
     for (const External literal : sorted) {
-      const External variable = static_cast<External>(
-          literal < 0 ? -int64_t(literal) : int64_t(literal));
+      const External variable =
+          static_cast<External>(external_variable_of(literal));
       root = literal > 0 ? make_node(variable, TRUE_REF, root)
                          : make_node(variable, root, TRUE_REF);
       if (sink_.stopped)
@@ -640,8 +640,8 @@ bool derive(const System &system, Sink &sink) {
     Constraint constraint;
     constraint.bound = static_cast<int64_t>(group.size()) - 2;
     for (const External literal : group) {
-      const External variable = static_cast<External>(
-          literal < 0 ? -int64_t(literal) : int64_t(literal));
+      const External variable =
+          static_cast<External>(external_variable_of(literal));
       if (literal > 0)
         constraint.terms.push_back({variable, 1});
       else {
