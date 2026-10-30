@@ -10,6 +10,7 @@
 #include <iterator>
 #include <map>
 #include <sstream>
+#include <utility>
 
 namespace tactix {
 namespace {
@@ -2358,7 +2359,11 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       }
     }
   } else if (can_defer) {
-    session.deferred_reason_.emplace();
+    // Clang 18 with libstdc++ 14 does not recognize zero-argument optional
+    // emplacement for this private nested aggregate. Construct at the friend
+    // boundary, then invoke only its ordinary move constructor in optional.
+    AffineMatrixSearchSession::DeferredReason deferred;
+    session.deferred_reason_.emplace(std::move(deferred));
     auto &pending = *session.deferred_reason_;
     pending.event = event;
     request.event = &pending.event;
