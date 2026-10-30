@@ -352,7 +352,6 @@ public:
 
 private:
   friend struct DefaultAffineSearchTestAccess;
-  friend struct DefaultAffineModelTestAccess;
   friend struct DefaultGraphLabelingTestAccess;
   DefaultAffineSearchDiagnostics affine_search_diagnostics_;
   std::optional<std::array<uint64_t, 13>> affine_completed_census_;
@@ -373,7 +372,6 @@ private:
   uint64_t configuration_checking_walk_next_conflicts_ = UINT64_MAX;
   ApplyResult run_configuration_checking_walk(Kernel &, uint64_t,
                                               const std::string &);
-  ApplyResult consume_affine_model_hint(Kernel &);
   AffineMatrixInitResult initialize_affine_search(Kernel &, bool refresh = false, bool recognize = true);
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
   AffineMatrixServiceResult materialize_affine_reason(Kernel &);

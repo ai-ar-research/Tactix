@@ -88,24 +88,6 @@ uint64_t saturated_product(uint64_t first, uint64_t second) {
   return first && second > UINT64_MAX / first ? UINT64_MAX : first * second;
 }
 
-// The split Walk profile charges every current-CNF construction, comparison,
-// and export visit against a separate preparation allowance.  Bound that work
-// from representation extents already maintained by the kernel rather than
-// performing an unaccounted formula scan here.  Watch and clause arenas
-// over-approximate all physical clauses and literal occurrences (including
-// dead capacity); the factor covers the two assignment evaluations, CSR
-// construction, score table, identity import, and three phase-export visits.
-uint64_t affine_seed_walk_preparation_allowance(const Kernel &kernel) {
-  uint64_t extent = 1;
-  for (const uint64_t value : {
-           uint64_t{kernel.nvars},
-           static_cast<uint64_t>(kernel.external_to_internal.size()),
-           static_cast<uint64_t>(kernel.watches.arena.size()),
-           static_cast<uint64_t>(kernel.arena.size())})
-    extent = saturated_sum(extent, value);
-  return saturated_product(64, extent);
-}
-
 struct AffineSurvivalImage {
   bool enabled;
   uint64_t rank, support;
@@ -2238,59 +2220,6 @@ ApplyResult DefaultPolicy::run_configuration_checking_walk(
                 selected.smoothing_old_numerator,
                 selected.smoothing_denominator, selected.aspiration},
             [&] { return port::apply_rule(walk_rule, k); });
-      },
-      [&](ApplyResult result) {
-        auto out = strategy::controller::feedback_outcome(result);
-        out.invocation.status =
-            before_walk.refine(k, result, out.invocation.status);
-        return out;
-      });
-}
-
-ApplyResult DefaultPolicy::consume_affine_model_hint(Kernel &k) {
-  const auto &hint = k.local_search_hints[
-      static_cast<size_t>(strategy::LocalSearchKind::Affine)];
-  if (!config_.affine_model.enabled || !hint.available() || !walk_guard(k))
-    return ApplyResult::NoOp;
-
-  const uint64_t candidate = hint.id;
-  const uint64_t preparation = affine_seed_walk_preparation_allowance(k);
-  const strategy::GuidanceOutcomeSnapshot before_walk(k);
-  return port::complete_action(
-      completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
-      [&] {
-        auto spec = execution::native_rule_feedback(
-            k, "Walk", INSTANCE_CANONICAL,
-            "native-affine-model-root-handoff;objective=full-current-cnf;"
-            "admission=strictly-better;search=0",
-            [](const Kernel &kernel) {
-              return saturated_sum(kernel.stats.walk_preparation_steps,
-                                   kernel.stats.walk_search_steps);
-            },
-            "walk-preparation-and-search-steps",
-            strategy::WorkLimit::bounded(preparation));
-        auto parameters = strategy::WalkParameters::from_kernel(k);
-        parameters.step_budget = 0;
-        parameters.random_seed = 0;
-        parameters.seed_candidate = candidate;
-        parameters.objective =
-            strategy::WalkParameters::Objective::FullCurrentCnf;
-        parameters.admission =
-            strategy::WalkParameters::Admission::StrictlyBetter;
-        parameters.preparation_budget = preparation;
-        spec.description.invocation->parameters = std::move(parameters);
-        return spec;
-      },
-      [&] {
-        static const RuleVTable &walk = registered_rule("Walk");
-        return port::execute_action(
-            k,
-            execution::WalkRequest{
-                0, 0, candidate,
-                strategy::WalkParameters::Objective::FullCurrentCnf,
-                strategy::WalkParameters::Admission::StrictlyBetter,
-                preparation},
-            [&] { return port::apply_rule(walk, k); });
       },
       [&](ApplyResult result) {
         auto out = strategy::controller::feedback_outcome(result);
@@ -5264,15 +5193,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   startup = default_propagate(k, "post-preprocess", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20);
-  // The early affine constructor runs before structured preprocessing, while
-  // the complete XOR encoding is still visible.  Heuristics are deliberately
-  // attached later and preprocessing may retire internal variables, so defer
-  // only consumption of its external-ID phase hint to this first quiescent
-  // root boundary.  Use the public split Walk rule to compare that exact hint
-  // with ordinary phases on the complete current CNF.  Zero search allowance
-  // makes this an admission-and-export action: only a strict improvement is
-  // installed, atomically, in both saved and target phases.
-  (void)consume_affine_model_hint(k);
   // CryptoMiniSat's startup simplification finds XORs after variable
   // elimination ("occ-bve,occ-xor", solverconf.cpp simplify_schedule_startup).
   if(config_.affine_search.enabled) {
