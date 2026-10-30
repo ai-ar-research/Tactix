@@ -148,6 +148,46 @@ void compact_watches_retain_and_move_events(){
      [](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
  assert(moved.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
 }
+void compact_lazy_transition_sweep(){
+ const std::vector<Equation> sources={
+     {{1,2,3,4},false,{},{}},{{2,3,5},true,{},{}},
+     {{1,4,6},true,{},{}},{{3,5,6,7},false,{},{}},
+     {{2,4,7},true,{},{}}};
+ auto matrix=build(sources);MatrixEvent event;
+ // Exhaust every partial assignment of this overlapping seven-coordinate
+ // image in one retained session.  Consecutive ternary encodings force the
+ // watched simplex through extensions, backtracks, reassignments and basis
+ // exchanges while synchronize_simplex's Debug oracle compares every indexed
+ // event with the full scan.
+ unsigned states=1;
+ for(unsigned variable=0;variable<7;++variable)states*=3;
+ for(unsigned encoding=0;encoding<states;++encoding){
+  unsigned digits=encoding;std::vector<MatrixAssignment> trail;
+  for(int variable=1;variable<=7;++variable){
+   const unsigned digit=digits%3;digits/=3;
+   if(digit)trail.push_back({variable,digit==2});
+  }
+  assert(matrix.synchronize(trail,[](auto){return true;},event,true,&bytes,
+      true,true)==MatrixStatus::Complete);
+  if(event.kind==MatrixEventKind::None)continue;
+  if(event.kind==MatrixEventKind::Implication){
+   assert(event.reason.empty()&&!event.deferred_exact_support.empty());
+   assert(matrix.materialize_deferred_exact_reason(
+       event,[&](External variable){
+        const auto found=std::lower_bound(
+            trail.begin(),trail.end(),variable,
+            [](const MatrixAssignment &assignment,External key){
+             return assignment.variable<key;
+            });
+        return found==trail.end()||found->variable!=variable?int8_t{0}:
+            found->value?int8_t{1}:int8_t{-1};
+       }));
+   event.deferred_exact_support.clear();
+  }
+  source_oracle(sources,trail,event,true);
+  assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
+ }
+}
 void late_atomic(){
  const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
  auto reference=build(sources),stopped=build(sources);MatrixEvent a,b;
@@ -234,4 +274,4 @@ void cancelled_support_is_a_sound_reason_weakening(){
  assert(matrix.authenticates_historical(73,sources,event,[](auto){return true;}));
 }
 }
-int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_reason_order_survives_slot_exchange();compact_watches_retain_and_move_events();}
+int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_reason_order_survives_slot_exchange();compact_watches_retain_and_move_events();compact_lazy_transition_sweep();}
