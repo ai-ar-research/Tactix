@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_general_row_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -14,26 +15,7 @@ namespace {
 
 using ClauseKey = std::vector<int32_t>;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t maximum = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Meter = InterruptibleWork;
 
 ClauseKey canonical(ClauseKey clause) {
   std::sort(clause.begin(), clause.end());

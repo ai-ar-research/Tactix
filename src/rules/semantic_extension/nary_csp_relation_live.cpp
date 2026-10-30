@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/nary_csp_relation_live.hpp"
 
+#include "rules/semantic_extension/interruptible_work.hpp"
+
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
@@ -14,26 +16,7 @@ namespace {
 namespace relation = nary_csp_relation;
 using ClauseKey = std::vector<int32_t>;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Meter = InterruptibleWork;
 
 uint32_t variable(int32_t literal) {
   return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);

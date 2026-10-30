@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 
+#include "rules/semantic_extension/interruptible_work.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -263,26 +265,7 @@ Gf3AffineActionOfferStatus offer_status(Gf3AffineLiveStatus status) {
   std::abort();
 }
 
-struct OfferMeter {
-  const Kernel &kernel;
-  uint64_t maximum = 0;
-  uint64_t work = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (work > maximum || amount > maximum - work) {
-      exhausted = true;
-      return false;
-    }
-    work += amount;
-    return true;
-  }
-};
+using OfferMeter = InterruptibleWork;
 
 Gf3AffineLiveRequest make_request(const Kernel &kernel,
                                   const Gf3AffineActionLimits &limits,
@@ -577,7 +560,7 @@ Gf3AffineActionOfferResult gf3_affine_action_offer(
 
   OfferMeter meter{kernel, window.maximum_enumeration_work};
   if (!meter.charge(0)) {
-    output.effort.enumeration_work = meter.work;
+    output.effort.enumeration_work = meter.used;
     return decline(meter.interrupted
                        ? Gf3AffineActionOfferStatus::Interrupted
                        : Gf3AffineActionOfferStatus::ResourceExhausted);
@@ -595,11 +578,11 @@ Gf3AffineActionOfferResult gf3_affine_action_offer(
     output.complete = false;
     output.have_resume_after = true;
     output.resume_after = last_completed;
-    output.effort.enumeration_work = meter.work;
+    output.effort.enumeration_work = meter.used;
     return output;
   };
   const auto terminal_decline = [&](Gf3AffineActionOfferStatus status) {
-    output.effort.enumeration_work = meter.work;
+    output.effort.enumeration_work = meter.used;
     return decline(status);
   };
   const auto stopped = [&] {
@@ -684,7 +667,7 @@ Gf3AffineActionOfferResult gf3_affine_action_offer(
       }
       if (plan.status == gf3_affine::PlanStatus::InvalidRequest ||
           plan.status == gf3_affine::PlanStatus::IncompleteTheory) {
-        output.effort.enumeration_work = meter.work;
+        output.effort.enumeration_work = meter.used;
         return terminal_decline(Gf3AffineActionOfferStatus::Invalid);
       }
       if (plan.status == gf3_affine::PlanStatus::UnsupportedOverlap) {
@@ -698,11 +681,11 @@ Gf3AffineActionOfferResult gf3_affine_action_offer(
         continue;
       }
       if (plan.status != gf3_affine::PlanStatus::Planned) {
-        output.effort.enumeration_work = meter.work;
+        output.effort.enumeration_work = meter.used;
         return terminal_decline(Gf3AffineActionOfferStatus::Invalid);
       }
       const uint64_t remaining =
-          meter.work <= meter.maximum ? meter.maximum - meter.work : 0;
+          meter.used <= meter.maximum ? meter.maximum - meter.used : 0;
       if (!remaining) {
         meter.exhausted = true;
         return stopped();
@@ -762,7 +745,7 @@ Gf3AffineActionOfferResult gf3_affine_action_offer(
   output.status = Gf3AffineActionOfferStatus::Ready;
   output.complete = true;
   output.have_resume_after = false;
-  output.effort.enumeration_work = meter.work;
+  output.effort.enumeration_work = meter.used;
   if (output.offers.empty() && output.effort.resource_rejected_pairs) {
     output.status = Gf3AffineActionOfferStatus::ResourceExhausted;
     output.complete = false;

@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 
+#include "rules/semantic_extension/interruptible_work.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -261,37 +263,7 @@ SessionStatus validate_session(const DirectCspSupportActionSession &session,
   return SessionStatus::Valid;
 }
 
-struct OfferMeter {
-  Kernel &kernel;
-  uint64_t maximum = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-
-  bool absorb(uint64_t amount) {
-    if (used > maximum || amount > maximum - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-
-  uint64_t remaining() const { return maximum - used; }
-};
+using OfferMeter = InterruptibleWork;
 
 uint64_t saturated_product(uint64_t first, uint64_t second) {
   return first && second > UINT64_MAX / first ? UINT64_MAX : first * second;

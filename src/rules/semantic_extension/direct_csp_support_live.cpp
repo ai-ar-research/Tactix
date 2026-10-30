@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -16,26 +17,7 @@ namespace {
 
 namespace support = direct_csp_support;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Meter = InterruptibleWork;
 
 DirectCspSupportLiveStatus stopped_status(
     const Meter &meter, DirectCspSupportLiveStatus otherwise) {

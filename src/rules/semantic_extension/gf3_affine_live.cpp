@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -17,26 +18,7 @@ namespace {
 namespace gf3 = gf3_affine;
 using ClauseKey = std::vector<int32_t>;
 
-struct Meter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-};
+using Meter = InterruptibleWork;
 
 ClauseKey normalized(ClauseKey clause) {
   std::sort(clause.begin(), clause.end());

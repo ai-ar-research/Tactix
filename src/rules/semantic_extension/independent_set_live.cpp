@@ -3,6 +3,7 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -25,30 +26,7 @@ struct Snapshot {
   uint64_t literals = 0;
 };
 
-struct WorkMeter {
-  const Kernel &kernel;
-  uint64_t limit = 0;
-  uint64_t used = 0;
-  bool interrupted = false;
-  bool exhausted = false;
-
-  bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (used > limit || amount > limit - used) {
-      exhausted = true;
-      return false;
-    }
-    used += amount;
-    return true;
-  }
-
-  static bool callback(void *context, uint64_t amount) {
-    return static_cast<WorkMeter *>(context)->charge(amount);
-  }
-};
+using WorkMeter = InterruptibleWork;
 
 IndependentSetLiveStatus meter_status(const WorkMeter &meter,
                                       IndependentSetLiveStatus otherwise) {
