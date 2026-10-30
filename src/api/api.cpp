@@ -54,6 +54,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -128,6 +129,10 @@ struct tactix_solver {
     kernel.conflict_reuse = true;
   }
 };
+
+extern "C" {
+static void input_complete(tactix_solver *solver);
+}
 
 // Private fixed-test introspection keeps fault injection independent of the
 // opaque C handle layout. Production actions still use the public C API.
@@ -1387,20 +1392,33 @@ bool online_program(const tactix_online_program &source, const Kernel &kernel,
   return true;
 }
 
+template <class BaseProgram, class Source, class Convert>
+bool online_base_program(const Source &source, const Kernel &kernel,
+                         strategy::OnlineInprocessProgram &target,
+                         bool reserve_steps, Convert &&convert) {
+  if (source.step_count < 0 || (source.step_count && !source.steps))
+    return false;
+  std::vector<decltype(source.steps[0].base)> base_steps;
+  if (reserve_steps)
+    base_steps.reserve(static_cast<size_t>(source.step_count));
+  for (int i = 0; i < source.step_count; ++i)
+    base_steps.push_back(source.steps[i].base);
+  const BaseProgram base{base_steps.data(), source.step_count,
+                         source.repeat_mode, source.repeat_limit};
+  if constexpr (std::is_invocable_r_v<
+                    bool, Convert, const BaseProgram &, const Kernel &,
+                    strategy::OnlineInprocessProgram &, bool>)
+    return std::forward<Convert>(convert)(base, kernel, target, false);
+  else
+    return std::forward<Convert>(convert)(base, kernel, target);
+}
+
 bool online_program_v2(const tactix_online_program_v2 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
-    return false;
-  std::vector<tactix_online_step> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program(base_program, kernel, target))
+  if (!online_base_program<tactix_online_program>(
+          source, kernel, target, true, online_program))
     return false;
   for (int i = 0; i < source.step_count; ++i) {
     const tactix_online_step_v2 &input_step = source.steps[i];
@@ -1458,16 +1476,8 @@ bool online_program_v3(const tactix_online_program_v3 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
-    return false;
-  std::vector<tactix_online_step_v2> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v2 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v2(base_program, kernel, target, false))
+  if (!online_base_program<tactix_online_program_v2>(
+          source, kernel, target, true, online_program_v2))
     return false;
   for (int i = 0; i < source.step_count; ++i) {
     const tactix_online_step_v3 &input_step = source.steps[i];
@@ -1517,16 +1527,8 @@ bool online_program_v4(const tactix_online_program_v4 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
-    return false;
-  std::vector<tactix_online_step_v3> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v3 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v3(base_program, kernel, target, false))
+  if (!online_base_program<tactix_online_program_v3>(
+          source, kernel, target, true, online_program_v3))
     return false;
   for (int i = 0; i < source.step_count; ++i) {
     const tactix_online_step_v4 &input_step = source.steps[i];
@@ -1566,16 +1568,9 @@ bool online_program_v5(const tactix_online_program_v5 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v4>(
+          source, kernel, target, true, online_program_v4))
     return false;
-  std::vector<tactix_online_step_v4> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v4 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v4(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const tactix_online_step_v5 &input_step = source.steps[i];
     if (input_step.gf3_affine_instance_count < 0 ||
@@ -1626,16 +1621,9 @@ bool online_program_v6(const tactix_online_program_v6 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v5>(
+          source, kernel, target, true, online_program_v5))
     return false;
-  std::vector<tactix_online_step_v5> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v5 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v5(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input = source.steps[i];
     if (input.gf3_gaussian_instance_count < 0 ||
@@ -1663,16 +1651,9 @@ bool online_program_v7(const tactix_online_program_v7 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v6>(
+          source, kernel, target, true, online_program_v6))
     return false;
-  std::vector<tactix_online_step_v6> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v6 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v6(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input = source.steps[i];
     if (input.tseitin_cycle_instance_count < 0 ||
@@ -1703,16 +1684,9 @@ bool online_program_v8(const tactix_online_program_v8 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v7>(
+          source, kernel, target, true, online_program_v7))
     return false;
-  std::vector<tactix_online_step_v7> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v7 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v7(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input_step = source.steps[i];
     // The inherited v8 ABI slots stay physical, but X17 payloads are retired.
@@ -1727,16 +1701,9 @@ bool online_program_v9(const tactix_online_program_v9 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
                        bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v8>(
+          source, kernel, target, true, online_program_v8))
     return false;
-  std::vector<tactix_online_step_v8> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v8 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v8(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input_step = source.steps[i];
     auto *parameters = std::get_if<strategy::AffineConsequenceParameters>(
@@ -1887,16 +1854,9 @@ bool online_program_v10(const tactix_online_program_v10 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
                         bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v9>(
+          source, kernel, target, true, online_program_v9))
     return false;
-  std::vector<tactix_online_step_v9> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v9 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v9(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input_step = source.steps[i];
     if (input_step.nary_csp_equality_instance_count < 0 ||
@@ -1940,16 +1900,9 @@ bool online_program_v11(const tactix_online_program_v11 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
                         bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v10>(
+          source, kernel, target, true, online_program_v10))
     return false;
-  std::vector<tactix_online_step_v10> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v10 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v10(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input_step = source.steps[i];
     if (input_step.gf3_general_row_instance_count < 0 ||
@@ -1985,16 +1938,9 @@ bool online_program_v12(const tactix_online_program_v12 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
                         bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v11>(
+          source, kernel, target, true, online_program_v11))
     return false;
-  std::vector<tactix_online_step_v11> base_steps;
-  base_steps.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    base_steps.push_back(source.steps[i].base);
-  const tactix_online_program_v11 base_program = {
-      base_steps.data(), source.step_count, source.repeat_mode,
-      source.repeat_limit};
-  if (!online_program_v11(base_program, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input_step = source.steps[i];
     if (input_step.nary_csp_equality_amo_instance_count < 0 ||
@@ -2032,12 +1978,9 @@ bool online_program_v13(const tactix_online_program_v13 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
                         bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps)) return false;
-  std::vector<tactix_online_step_v12> bases;
-  for (int i = 0; i < source.step_count; ++i) bases.push_back(source.steps[i].base);
-  const tactix_online_program_v12 base{
-      bases.data(), source.step_count, source.repeat_mode, source.repeat_limit};
-  if (!online_program_v12(base, kernel, target, false)) return false;
+  if (!online_base_program<tactix_online_program_v12>(
+          source, kernel, target, false, online_program_v12))
+    return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &profile = source.steps[i].walk_profile;
     if (!profile.objective && !profile.admission && !profile.preparation_budget)
@@ -2056,12 +1999,9 @@ bool online_program_v14(const tactix_online_program_v14 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target,
                         bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps)) return false;
-  std::vector<tactix_online_step_v13> bases;
-  for (int i = 0; i < source.step_count; ++i) bases.push_back(source.steps[i].base);
-  const tactix_online_program_v13 base{bases.data(), source.step_count,
-      source.repeat_mode, source.repeat_limit};
-  if (!online_program_v13(base, kernel, target, false)) return false;
+  if (!online_base_program<tactix_online_program_v13>(
+          source, kernel, target, false, online_program_v13))
+    return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input = source.steps[i];
     auto &step = target.sequence[i];
@@ -2142,11 +2082,9 @@ bool online_program_v14(const tactix_online_program_v14 &source,
 
 bool online_program_v15(const tactix_online_program_v15 &source,
                         const Kernel &kernel, strategy::OnlineInprocessProgram &target, bool validate = true) {
-  if(source.step_count<0 || (source.step_count && !source.steps)) return false;
-  std::vector<tactix_online_step_v14> bases;
-  for(int i=0;i<source.step_count;++i) bases.push_back(source.steps[i].base);
-  const tactix_online_program_v14 base{bases.data(),source.step_count,source.repeat_mode,source.repeat_limit};
-  if(!online_program_v14(base,kernel,target,false)) return false;
+  if (!online_base_program<tactix_online_program_v14>(
+          source, kernel, target, false, online_program_v14))
+    return false;
   for(int i=0;i<source.step_count;++i) {
     const auto &input=source.steps[i]; auto &step=target.sequence[i];
     const auto &srcp=input.equality_transitivity_parameters;
@@ -2213,11 +2151,9 @@ bool online_program_v15(const tactix_online_program_v15 &source,
 bool online_program_v16(const tactix_online_program_v16 &source,
                         const Kernel &kernel, strategy::OnlineInprocessProgram &target,
                         bool validate = true) {
-  if (source.step_count < 0 || (source.step_count && !source.steps)) return false;
-  std::vector<tactix_online_step_v15> bases;
-  for (int i=0;i<source.step_count;++i) bases.push_back(source.steps[i].base);
-  const tactix_online_program_v15 base{bases.data(),source.step_count,source.repeat_mode,source.repeat_limit};
-  if (!online_program_v15(base,kernel,target,false)) return false;
+  if (!online_base_program<tactix_online_program_v15>(
+          source, kernel, target, false, online_program_v15))
+    return false;
   for (int i=0;i<source.step_count;++i) {
     const auto &input=source.steps[i]; const auto &p=input.affine_matrix;
     auto &step=target.sequence[i];
@@ -2261,15 +2197,9 @@ bool online_program_v16(const tactix_online_program_v16 &source,
 bool online_program_v17(const tactix_online_program_v17 &source,
                         const Kernel &kernel,
                         strategy::OnlineInprocessProgram &target) {
-  if (source.step_count < 0 || (source.step_count && !source.steps))
+  if (!online_base_program<tactix_online_program_v16>(
+          source, kernel, target, true, online_program_v16))
     return false;
-  std::vector<tactix_online_step_v16> bases;
-  bases.reserve(static_cast<size_t>(source.step_count));
-  for (int i = 0; i < source.step_count; ++i)
-    bases.push_back(source.steps[i].base);
-  const tactix_online_program_v16 base{bases.data(), source.step_count,
-                                       source.repeat_mode, source.repeat_limit};
-  if (!online_program_v16(base, kernel, target, false)) return false;
   for (int i = 0; i < source.step_count; ++i) {
     const auto &input = source.steps[i];
     const auto &p = input.cardinality_search;
@@ -2354,6 +2284,38 @@ void online_result(const strategy::InvocationResult &source,
   target.before_strategy_epoch = source.before.strategy_epoch;
   target.after_strategy_epoch = source.after.strategy_epoch;
   target.configuration_revision = source.configuration_revision;
+}
+
+template <class Source, class Convert>
+int configure_online_program(tactix_solver *solver, const Source *source,
+                             uint64_t revision, int reconfigure_mode,
+                             Convert &&convert) {
+  if (!solver || !source ||
+      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
+       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
+    return -1;
+  strategy::OnlineInprocessProgram program;
+  if (!convert(*source, solver->kernel, program))
+    return -1;
+  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
+  strategy::OnlineInprocessExecutor *executor = solver->online.get();
+  if (!executor) {
+    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
+    executor = replacement.get();
+  }
+  const strategy::ReconfigureMode mode =
+      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
+          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
+          : strategy::ReconfigureMode::ResetRuntime;
+  if (!executor->configure(program, revision, mode))
+    return -1;
+  if (replacement)
+    solver->online = std::move(replacement);
+  // A rejected request must not close the C input stream. Conversion and
+  // executor validation only read the stable external-to-internal map;
+  // finish_input retires unused variables but does not remap those literals.
+  input_complete(solver);
+  return 0;
 }
 
 } // namespace
@@ -2907,440 +2869,42 @@ int tactix_read_retier_schedule(tactix_solver *s, tactix_retier_schedule *out) {
 int tactix_online_configure(tactix_solver *s,
                             const tactix_online_program *source,
                             uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program(*source, s->kernel, program))
-    return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode))
-    return -1;
-  if (replacement)
-    s->online = std::move(replacement);
-  // A rejected request must not close the C input stream. Conversion and
-  // executor validation only read the stable external-to-internal map;
-  // finish_input retires unused variables but does not remap those literals.
-  input_complete(s);
-  return 0;
+  return configure_online_program(
+      s, source, revision, reconfigure_mode,
+      [](const auto &input, const auto &kernel, auto &program) {
+        return online_program(input, kernel, program);
+      });
 }
 
-int tactix_online_configure_v2(tactix_solver *s,
-                               const tactix_online_program_v2 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v2(*source, s->kernel, program))
-    return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
+#define TACTIX_DEFINE_ONLINE_CONFIGURE(version)                               \
+  int tactix_online_configure_v##version(                                    \
+      tactix_solver *s, const tactix_online_program_v##version *source,       \
+      uint64_t revision, int reconfigure_mode) {                             \
+    return configure_online_program(                                         \
+        s, source, revision, reconfigure_mode,                               \
+        [](const auto &input, const auto &kernel, auto &program) {            \
+          return online_program_v##version(input, kernel, program);           \
+        });                                                                  \
   }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode))
-    return -1;
-  if (replacement)
-    s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
 
-int tactix_online_configure_v3(tactix_solver *s,
-                               const tactix_online_program_v3 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v3(*source, s->kernel, program))
-    return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode))
-    return -1;
-  if (replacement)
-    s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
+TACTIX_DEFINE_ONLINE_CONFIGURE(2)
+TACTIX_DEFINE_ONLINE_CONFIGURE(3)
+TACTIX_DEFINE_ONLINE_CONFIGURE(4)
+TACTIX_DEFINE_ONLINE_CONFIGURE(5)
+TACTIX_DEFINE_ONLINE_CONFIGURE(6)
+TACTIX_DEFINE_ONLINE_CONFIGURE(7)
+TACTIX_DEFINE_ONLINE_CONFIGURE(8)
+TACTIX_DEFINE_ONLINE_CONFIGURE(9)
+TACTIX_DEFINE_ONLINE_CONFIGURE(10)
+TACTIX_DEFINE_ONLINE_CONFIGURE(11)
+TACTIX_DEFINE_ONLINE_CONFIGURE(12)
+TACTIX_DEFINE_ONLINE_CONFIGURE(13)
+TACTIX_DEFINE_ONLINE_CONFIGURE(14)
+TACTIX_DEFINE_ONLINE_CONFIGURE(15)
+TACTIX_DEFINE_ONLINE_CONFIGURE(16)
+TACTIX_DEFINE_ONLINE_CONFIGURE(17)
 
-int tactix_online_configure_v4(tactix_solver *s,
-                               const tactix_online_program_v4 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v4(*source, s->kernel, program))
-    return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode))
-    return -1;
-  if (replacement)
-    s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v5(tactix_solver *s,
-                               const tactix_online_program_v5 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v5(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v6(tactix_solver *s,
-                               const tactix_online_program_v6 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v6(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v7(tactix_solver *s,
-                               const tactix_online_program_v7 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v7(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v8(tactix_solver *s,
-                               const tactix_online_program_v8 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v8(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v9(tactix_solver *s,
-                               const tactix_online_program_v9 *source,
-                               uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v9(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v10(tactix_solver *s,
-                                const tactix_online_program_v10 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v10(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v11(tactix_solver *s,
-                                const tactix_online_program_v11 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v11(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v12(tactix_solver *s,
-                                const tactix_online_program_v12 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v12(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-int tactix_online_configure_v13(tactix_solver *s,
-                                const tactix_online_program_v13 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v13(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-int tactix_online_configure_v14(tactix_solver *s,
-                                const tactix_online_program_v14 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v14(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v15(tactix_solver *s,
-                                const tactix_online_program_v15 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v15(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v16(tactix_solver *s,
-                                const tactix_online_program_v16 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v16(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
-
-int tactix_online_configure_v17(tactix_solver *s,
-                                const tactix_online_program_v17 *source,
-                                uint64_t revision, int reconfigure_mode) {
-  if (!s || !source ||
-      (reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RESET &&
-       reconfigure_mode != TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS))
-    return -1;
-  strategy::OnlineInprocessProgram program;
-  if (!online_program_v17(*source, s->kernel, program)) return -1;
-  std::unique_ptr<strategy::OnlineInprocessExecutor> replacement;
-  strategy::OnlineInprocessExecutor *executor = s->online.get();
-  if (!executor) {
-    replacement = std::make_unique<strategy::OnlineInprocessExecutor>();
-    executor = replacement.get();
-  }
-  const strategy::ReconfigureMode mode =
-      reconfigure_mode == TACTIX_ONLINE_RECONFIGURE_RETAIN_BUDGETS
-          ? strategy::ReconfigureMode::RetainMatchingStepBudgets
-          : strategy::ReconfigureMode::ResetRuntime;
-  if (!executor->configure(program, revision, mode)) return -1;
-  if (replacement) s->online = std::move(replacement);
-  input_complete(s);
-  return 0;
-}
+#undef TACTIX_DEFINE_ONLINE_CONFIGURE
 
 int tactix_online_advance(tactix_solver *s, tactix_online_result *result) {
   if (!s || !result || !s->online)
