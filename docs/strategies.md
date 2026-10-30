@@ -168,6 +168,9 @@ flips and total work. Walk is applicable only at its declared consistent root
 boundary with search heuristics attached, and does not rewrite the formula: it
 publishes a better assignment as search phases, while an exact assignment lets
 the following search close SAT.
+Configuration checking derives a flipped variable's neighbors lazily from the
+clause-occurrence table; it does not materialize the quadratic primal-graph
+clique of a wide clause.
 This makes it suitable as a bounded opening or between search epochs without
 creating a private strategy mechanism.
 
