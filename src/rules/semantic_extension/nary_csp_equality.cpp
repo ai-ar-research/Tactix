@@ -1,63 +1,13 @@
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 
-#include "kernel/types.hpp"
+#include "rules/semantic_extension/csp_exact_theory.hpp"
 
-#include <algorithm>
 #include <array>
-#include <climits>
-#include <limits>
 #include <map>
 #include <set>
 #include <utility>
 
 namespace tactix::nary_csp_equality {
-namespace {
-
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(variable(first), first) <
-         std::pair(variable(second), second);
-}
-
-bool valid_literals(const std::vector<int32_t> &literals) {
-  if (literals.empty()) return false;
-  for (int32_t literal : literals)
-    if (!literal || literal == INT32_MIN) return false;
-  for (size_t i = 1; i < literals.size(); ++i)
-    if (!literal_less(literals[i - 1], literals[i]) ||
-        variable(literals[i - 1]) == variable(literals[i]))
-      return false;
-  return true;
-}
-
-std::vector<int32_t> normalized(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
-bool safe_product(size_t first, size_t second, size_t &result) {
-  if (first && second > std::numeric_limits<size_t>::max() / first)
-    return false;
-  result = first * second;
-  return true;
-}
-
-bool add_count(uint64_t amount, uint64_t &total) {
-  if (amount > UINT64_MAX - total) return false;
-  total += amount;
-  return true;
-}
-
-struct Snapshot {
-  std::map<uint64_t, const Premise *> by_occurrence;
-  uint64_t literals = 0;
-  uint32_t maximum_variable = 0;
-};
-
-} // namespace
 
 Plan plan_equality(const std::vector<Premise> &source,
                    const Relation &relation, const Selection &selection,
@@ -73,7 +23,7 @@ Plan plan_equality(const std::vector<Premise> &source,
   };
   auto spend = [&](uint64_t amount) {
     if (!charge || !charge(amount)) return false;
-    return add_count(amount, result.consumed_work);
+    return csp_exact_theory::add_count(amount, result.consumed_work);
   };
 
   std::array<uint32_t, 3> coordinates{selection.left_domain,
@@ -97,76 +47,33 @@ Plan plan_equality(const std::vector<Premise> &source,
     return decline(Status::BoundExceeded);
   std::set<uint32_t> domain_variables;
   for (const Domain &domain : relation.domains) {
-    if (domain.values.size() != values || !valid_literals(domain.values))
+    if (domain.values.size() != values ||
+        !csp_exact_theory::valid_values(domain.values))
       return decline(Status::InvalidRequest);
     for (int32_t literal : domain.values)
-      if (!domain_variables.insert(variable(literal)).second)
+      if (!domain_variables.insert(csp_exact_theory::variable(literal)).second)
         return decline(Status::InvalidRequest);
   }
 
-  Snapshot snapshot;
-  for (const Premise &premise : source) {
-    if (!spend(uint64_t{1} + premise.literals.size()))
-      return decline(Status::EffortExhausted);
-    if (!premise.occurrence || premise.literals.empty() ||
-        !snapshot.by_occurrence.emplace(premise.occurrence, &premise).second)
-      return decline(Status::IncompleteTheory);
-    ++result.consumed_source_clauses;
-    if (!add_count(premise.literals.size(), snapshot.literals) ||
-        snapshot.literals > bounds.maximum_source_literals)
-      return decline(Status::BoundExceeded);
-    result.consumed_source_literals = snapshot.literals;
-    std::set<uint32_t> clause_variables;
-    for (int32_t literal : premise.literals) {
-      if (!literal || literal == INT32_MIN ||
-          !clause_variables.insert(variable(literal)).second)
-        return decline(Status::IncompleteTheory);
-      snapshot.maximum_variable =
-          std::max(snapshot.maximum_variable, variable(literal));
-    }
+  csp_exact_theory::Snapshot<Premise> snapshot;
+  switch (snapshot.build(source, bounds.maximum_source_literals, spend,
+                         result.consumed_source_clauses,
+                         result.consumed_source_literals)) {
+  case csp_exact_theory::BuildStatus::Valid: break;
+  case csp_exact_theory::BuildStatus::IncompleteTheory:
+    return decline(Status::IncompleteTheory);
+  case csp_exact_theory::BuildStatus::BoundExceeded:
+    return decline(Status::BoundExceeded);
+  case csp_exact_theory::BuildStatus::EffortExhausted:
+    return decline(Status::EffortExhausted);
   }
   if (uint32_t(bounds.extension_variable) <= snapshot.maximum_variable)
     return decline(Status::InvalidRequest);
 
-  std::set<uint64_t> used;
-  bool effort_exhausted = false;
-  auto exact = [&](uint64_t occurrence, std::vector<int32_t> clause) {
-    if (!occurrence) return false;
-    if (!spend(uint64_t{1} + clause.size())) {
-      effort_exhausted = true;
-      return false;
-    }
-    const auto found = snapshot.by_occurrence.find(occurrence);
-    if (found == snapshot.by_occurrence.end()) return false;
-    if (normalized(found->second->literals) != normalized(std::move(clause)))
-      return false;
-    used.insert(occurrence);
-    return true;
-  };
-
-  auto validate_domain = [&](const Domain &domain) {
-    size_t square = 0;
-    if (!safe_product(values, values, square) ||
-        domain.at_most_one.size() != square ||
-        !exact(domain.at_least_one, domain.values))
-      return false;
-    for (size_t i = 0; i < values; ++i) {
-      if (domain.at_most_one[i * values + i]) return false;
-      for (size_t j = i + 1; j < values; ++j) {
-        const uint64_t forward = domain.at_most_one[i * values + j];
-        const uint64_t reverse = domain.at_most_one[j * values + i];
-        if (!forward || forward != reverse ||
-            !exact(forward,
-                   {-domain.values[i], -domain.values[j]}))
-          return false;
-      }
-    }
-    return true;
-  };
   for (const Domain &domain : relation.domains)
-    if (!validate_domain(domain))
-      return decline(effort_exhausted ? Status::EffortExhausted
-                                      : Status::IncompleteTheory);
+    if (!snapshot.validate_domain(domain, spend))
+      return decline(snapshot.effort_exhausted ? Status::EffortExhausted
+                                               : Status::IncompleteTheory);
 
   std::map<std::vector<uint32_t>, uint64_t> tuples;
   std::vector<uint32_t> previous;
@@ -185,9 +92,9 @@ Plan plan_equality(const std::vector<Premise> &source,
       if (index >= values) return decline(Status::InvalidRequest);
       clause.push_back(-relation.domains[domain].values[index]);
     }
-    if (!exact(tuple.occurrence, std::move(clause)))
-      return decline(effort_exhausted ? Status::EffortExhausted
-                                      : Status::IncompleteTheory);
+    if (!snapshot.exact(tuple.occurrence, std::move(clause), spend))
+      return decline(snapshot.effort_exhausted ? Status::EffortExhausted
+                                               : Status::IncompleteTheory);
   }
 
   for (uint32_t index = 0; index < values; ++index) {
@@ -198,7 +105,7 @@ Plan plan_equality(const std::vector<Premise> &source,
   }
   // The caller owns one exact theory slice.  Unknown premises cannot silently
   // acquire aligned-value semantics.
-  if (used.size() != snapshot.by_occurrence.size())
+  if (!snapshot.complete())
     return decline(Status::IncompleteTheory);
 
   auto source_reference = [&](uint64_t occurrence) {

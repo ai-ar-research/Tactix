@@ -1,62 +1,11 @@
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
-#include "kernel/types.hpp"
+#include "rules/semantic_extension/csp_exact_theory.hpp"
 
-#include <algorithm>
-#include <climits>
-#include <limits>
-#include <map>
 #include <set>
 #include <utility>
 
 namespace tactix::direct_csp_support {
-namespace {
-
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(variable(first), first) <
-         std::pair(variable(second), second);
-}
-
-bool valid_literals(const std::vector<int32_t> &literals) {
-  if (literals.empty()) return false;
-  for (int32_t literal : literals)
-    if (!literal || literal == INT32_MIN) return false;
-  for (size_t i = 1; i < literals.size(); ++i)
-    if (!literal_less(literals[i - 1], literals[i]) ||
-        variable(literals[i - 1]) == variable(literals[i]))
-      return false;
-  return true;
-}
-
-std::vector<int32_t> normalized(std::vector<int32_t> clause) {
-  std::sort(clause.begin(), clause.end());
-  return clause;
-}
-
-bool safe_product(size_t first, size_t second, size_t &result) {
-  if (first && second > std::numeric_limits<size_t>::max() / first)
-    return false;
-  result = first * second;
-  return true;
-}
-
-struct Snapshot {
-  std::map<uint64_t, const Premise *> by_occurrence;
-  uint64_t literals = 0;
-  uint32_t maximum_variable = 0;
-};
-
-bool add_count(uint64_t amount, uint64_t &total) {
-  if (amount > UINT64_MAX - total) return false;
-  total += amount;
-  return true;
-}
-
-} // namespace
 
 Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
                   uint32_t selected_left_value, const Bounds &bounds,
@@ -73,7 +22,7 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
   };
   auto spend = [&](uint64_t amount) {
     if (!charge || !charge(amount)) return false;
-    return add_count(amount, result.consumed_work);
+    return csp_exact_theory::add_count(amount, result.consumed_work);
   };
 
   if (!bounds.maximum_source_clauses ||
@@ -89,84 +38,40 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
       relation.left.values.size() > bounds.maximum_domain_values ||
       relation.right.values.size() > bounds.maximum_domain_values)
     return decline(Status::BoundExceeded);
-  if (!valid_literals(relation.left.values) ||
-      !valid_literals(relation.right.values))
+  if (!csp_exact_theory::valid_values(relation.left.values) ||
+      !csp_exact_theory::valid_values(relation.right.values))
     return decline(Status::InvalidRequest);
 
   std::set<uint32_t> domain_variables;
   for (int32_t literal : relation.left.values)
-    domain_variables.insert(variable(literal));
+    domain_variables.insert(csp_exact_theory::variable(literal));
   for (int32_t literal : relation.right.values)
-    if (!domain_variables.insert(variable(literal)).second)
+    if (!domain_variables.insert(csp_exact_theory::variable(literal)).second)
       return decline(Status::InvalidRequest);
 
-  Snapshot snapshot;
-  for (const Premise &premise : source) {
-    if (!spend(uint64_t{1} + premise.literals.size()))
-      return decline(Status::EffortExhausted);
-    if (!premise.occurrence || premise.literals.empty() ||
-        !snapshot.by_occurrence.emplace(premise.occurrence, &premise).second)
-      return decline(Status::IncompleteTheory);
-    ++result.consumed_source_clauses;
-    if (!add_count(premise.literals.size(), snapshot.literals) ||
-        snapshot.literals > bounds.maximum_source_literals)
-      return decline(Status::BoundExceeded);
-    result.consumed_source_literals = snapshot.literals;
-    std::set<uint32_t> clause_variables;
-    for (int32_t literal : premise.literals) {
-      if (!literal || literal == INT32_MIN ||
-          !clause_variables.insert(variable(literal)).second)
-        return decline(Status::IncompleteTheory);
-      snapshot.maximum_variable =
-          std::max(snapshot.maximum_variable, variable(literal));
-    }
+  csp_exact_theory::Snapshot<Premise> snapshot;
+  switch (snapshot.build(source, bounds.maximum_source_literals, spend,
+                         result.consumed_source_clauses,
+                         result.consumed_source_literals)) {
+  case csp_exact_theory::BuildStatus::Valid: break;
+  case csp_exact_theory::BuildStatus::IncompleteTheory:
+    return decline(Status::IncompleteTheory);
+  case csp_exact_theory::BuildStatus::BoundExceeded:
+    return decline(Status::BoundExceeded);
+  case csp_exact_theory::BuildStatus::EffortExhausted:
+    return decline(Status::EffortExhausted);
   }
-  std::set<uint64_t> used;
-  bool effort_exhausted = false;
-  auto exact = [&](uint64_t occurrence, std::vector<int32_t> clause) {
-    if (!occurrence) return false;
-    if (!spend(uint64_t{1} + clause.size())) {
-      effort_exhausted = true;
-      return false;
-    }
-    const auto found = snapshot.by_occurrence.find(occurrence);
-    if (found == snapshot.by_occurrence.end()) return false;
-    if (normalized(found->second->literals) != normalized(std::move(clause)))
-      return false;
-    used.insert(occurrence);
-    return true;
-  };
   auto complement = [](int32_t literal) { return -literal; };
 
-  auto validate_domain = [&](const Domain &domain) {
-    size_t square = 0;
-    if (!safe_product(domain.values.size(), domain.values.size(), square) ||
-        domain.at_most_one.size() != square ||
-        !exact(domain.at_least_one, domain.values))
-      return false;
-    for (size_t first = 0; first < domain.values.size(); ++first) {
-      if (domain.at_most_one[first * domain.values.size() + first])
-        return false;
-      for (size_t second = first + 1; second < domain.values.size(); ++second) {
-        const uint64_t forward =
-            domain.at_most_one[first * domain.values.size() + second];
-        const uint64_t reverse =
-            domain.at_most_one[second * domain.values.size() + first];
-        if (!forward || forward != reverse ||
-            !exact(forward, {complement(domain.values[first]),
-                             complement(domain.values[second])}))
-          return false;
-      }
-    }
-    return true;
-  };
-  if (!validate_domain(relation.left) || !validate_domain(relation.right))
-    return decline(effort_exhausted ? Status::EffortExhausted
-                                    : Status::IncompleteTheory);
+  if (!snapshot.validate_domain(relation.left, spend) ||
+      !snapshot.validate_domain(relation.right, spend))
+    return decline(snapshot.effort_exhausted ? Status::EffortExhausted
+                                             : Status::IncompleteTheory);
 
   size_t relation_size = 0;
-  if (!safe_product(relation.left.values.size(), relation.right.values.size(),
-                    relation_size) ||
+  if (!csp_exact_theory::safe_product(relation.left.values.size(),
+                                      relation.right.values.size(),
+                                      relation_size) ||
       relation.forbidden.size() != relation_size)
     return decline(Status::InvalidRequest);
   for (size_t left = 0; left < relation.left.values.size(); ++left)
@@ -175,15 +80,16 @@ Plan plan_support(const std::vector<Premise> &source, const Relation &relation,
       const uint64_t occurrence =
           relation.forbidden[left * relation.right.values.size() + right];
       if (occurrence &&
-          !exact(occurrence,
-                 {complement(relation.left.values[left]),
-                  complement(relation.right.values[right])}))
-        return decline(effort_exhausted ? Status::EffortExhausted
-                                        : Status::IncompleteTheory);
+          !snapshot.exact(occurrence,
+                          {complement(relation.left.values[left]),
+                           complement(relation.right.values[right])},
+                          spend))
+        return decline(snapshot.effort_exhausted ? Status::EffortExhausted
+                                                 : Status::IncompleteTheory);
     }
   // Exact slice ownership prevents an unclassified cross-domain binary or a
   // silently omitted domain premise from being mistaken for compatibility.
-  if (used.size() != snapshot.by_occurrence.size())
+  if (!snapshot.complete())
     return decline(Status::IncompleteTheory);
 
   const size_t row = size_t(selected_left_value) * relation.right.values.size();
