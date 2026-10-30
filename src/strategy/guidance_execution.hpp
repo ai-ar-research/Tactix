@@ -32,6 +32,16 @@ struct WalkRequest {
   strategy::WalkParameters::Admission admission =
       strategy::WalkParameters::Admission::Legacy;
   uint64_t preparation_allowance = 0;
+  strategy::WalkParameters::Algorithm algorithm =
+      strategy::WalkParameters::Algorithm::ProbSat;
+  strategy::WalkParameters::Initialization initialization =
+      strategy::WalkParameters::Initialization::BestPhases;
+  uint32_t maximum_tries = 100;
+  uint64_t flips_per_try = 1000000;
+  uint32_t weight_smoothing_threshold = 50;
+  uint32_t smoothing_old_numerator = 3;
+  uint32_t smoothing_denominator = 10;
+  bool aspiration = true;
 };
 
 inline ApplyResult execute_action(Kernel &k, const ReorderRequest &request) {
@@ -72,6 +82,14 @@ ApplyResult execute_action(Kernel &k, const WalkRequest &request, Apply &&apply)
   parameters.objective = request.objective;
   parameters.admission = request.admission;
   parameters.preparation_budget = request.preparation_allowance;
+  parameters.algorithm = request.algorithm;
+  parameters.initialization = request.initialization;
+  parameters.maximum_tries = request.maximum_tries;
+  parameters.flips_per_try = request.flips_per_try;
+  parameters.weight_smoothing_threshold = request.weight_smoothing_threshold;
+  parameters.smoothing_old_numerator = request.smoothing_old_numerator;
+  parameters.smoothing_denominator = request.smoothing_denominator;
+  parameters.aspiration = request.aspiration;
   if (!parameters.valid()) return ApplyResult::NoOp;
   strategy::ScopedWalkParameters selected(k, parameters);
   return apply();

@@ -99,9 +99,30 @@ struct WalkParameters {
   uint64_t seed_candidate = 0;
   enum class Objective : uint32_t { LegacyWalk = 0, FullCurrentCnf = 1 };
   enum class Admission : uint32_t { Legacy = 0, StrictlyBetter = 1 };
+  enum class Algorithm : uint32_t {
+    ProbSat = 0,
+    ConfigurationChecking = 1,
+  };
+  enum class Initialization : uint32_t {
+    BestPhases = 0,
+    Negative = 1,
+    Random = 2,
+  };
   Objective objective = Objective::LegacyWalk;
   Admission admission = Admission::Legacy;
   uint64_t preparation_budget = 0;
+  // Configuration-checking local search (CCLS). These are application
+  // parameters even when Algorithm::ProbSat makes them inert. The defaults
+  // follow the published CCAnr/CryptoMiniSat profile: 100 tries, one million
+  // flips per try, a weight-50 smoothing threshold, and 0.3/0.7 smoothing.
+  Algorithm algorithm = Algorithm::ProbSat;
+  Initialization initialization = Initialization::BestPhases;
+  uint32_t maximum_tries = 100;
+  uint64_t flips_per_try = 1000000;
+  uint32_t weight_smoothing_threshold = 50;
+  uint32_t smoothing_old_numerator = 3;
+  uint32_t smoothing_denominator = 10;
+  bool aspiration = true;
   bool valid() const;
   static WalkParameters from_kernel(const Kernel &);
 };
@@ -528,6 +549,11 @@ private:
   uint64_t saved_candidate_;
   uint64_t saved_preparation_budget_;
   uint32_t saved_objective_, saved_admission_;
+  uint32_t saved_algorithm_, saved_initialization_, saved_maximum_tries_;
+  uint64_t saved_flips_per_try_;
+  uint32_t saved_weight_smoothing_threshold_;
+  uint32_t saved_smoothing_old_numerator_, saved_smoothing_denominator_;
+  bool saved_aspiration_;
   uint32_t saved_even_break_base_milli_;
   std::vector<WalkParameters::ScorePoint> saved_score_curve_;
   bool saved_bounded_;

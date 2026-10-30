@@ -159,6 +159,18 @@ application its own settings, such as a work budget or a random seed, a
 strategy submits a short *online program* with `tactix_online_configure`; the
 program format is documented in `include/tactix.h`.
 
+`Walk` offers two public algorithms. `TACTIX_WALK_ALGORITHM_PROBSAT` is the
+ordinary break-score walk. `TACTIX_WALK_ALGORITHM_CONFIGURATION_CHECKING`
+uses weighted make-minus-break scores, configuration checking, aspiration and
+clause-weight smoothing; its initialization may use current best phases, all
+negative phases, or random phases. The online Walk parameters bound its tries,
+flips and total work. Walk is applicable only at its declared consistent root
+boundary with search heuristics attached, and does not rewrite the formula: it
+publishes a better assignment as search phases, while an exact assignment lets
+the following search close SAT.
+This makes it suitable as a bounded opening or between search epochs without
+creating a private strategy mechanism.
+
 ## Where to go next
 
 - [`examples/`](../examples/): more strategies, from CDCL without restarts

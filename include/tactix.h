@@ -872,7 +872,21 @@ typedef struct {
    * Generation-bearing instances are returned by that action's enumeration.
    * A stale/missing identity declines the Walk; it never substitutes a seed. */
   uint64_t seed_candidate;
+  /* Appended configuration-checking local-search profile. Algorithm zero is
+   * the legacy ProbSAT Walk. For the CCLS algorithm, zero scalar fields select
+   * the documented reference defaults. */
+  uint32_t algorithm, initialization, maximum_tries;
+  uint64_t flips_per_try;
+  uint32_t weight_smoothing_threshold;
+  uint32_t smoothing_old_numerator, smoothing_denominator;
+  int aspiration_mode;
 } tactix_online_walk_parameters;
+
+#define TACTIX_WALK_ALGORITHM_PROBSAT 0
+#define TACTIX_WALK_ALGORITHM_CONFIGURATION_CHECKING 1
+#define TACTIX_WALK_INITIALIZATION_BEST_PHASES 0
+#define TACTIX_WALK_INITIALIZATION_NEGATIVE 1
+#define TACTIX_WALK_INITIALIZATION_RANDOM 2
 typedef struct {
   uint32_t maximum_clause_size;
   /* Appended fields use per-mille fixed point; zero selects the reference

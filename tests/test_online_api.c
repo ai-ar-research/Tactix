@@ -1101,6 +1101,27 @@ static void walk_scoring_is_validated_and_copied(void) {
   step.parameters.value.walk.seed_candidate = 0; /* configured request owns copy */
   assert(tactix_online_advance(solver, &result) == 0);
   assert(result.status == TACTIX_ONLINE_STALE_REQUEST);
+  step.parameters.value.walk.seed_candidate = 0;
+  step.parameters.value.walk.algorithm = 99;
+  assert(tactix_online_configure(solver, &program, 20,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.walk.algorithm = TACTIX_WALK_ALGORITHM_PROBSAT;
+  step.parameters.value.walk.initialization = TACTIX_WALK_INITIALIZATION_NEGATIVE;
+  assert(tactix_online_configure(solver, &program, 21,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
+  step.parameters.value.walk.algorithm =
+      TACTIX_WALK_ALGORITHM_CONFIGURATION_CHECKING;
+  step.parameters.value.walk.initialization = TACTIX_WALK_INITIALIZATION_RANDOM;
+  step.parameters.value.walk.maximum_tries = 2;
+  step.parameters.value.walk.flips_per_try = 100;
+  step.parameters.value.walk.weight_smoothing_threshold = 5;
+  step.parameters.value.walk.smoothing_old_numerator = 1;
+  step.parameters.value.walk.smoothing_denominator = 2;
+  step.parameters.value.walk.aspiration_mode = TACTIX_ONLINE_SETTING_ENABLE;
+  assert(tactix_online_configure(solver, &program, 22,
+                                 TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  assert(tactix_online_advance(solver, &result) == 0);
+  assert(result.status != TACTIX_ONLINE_INVALID_REQUEST);
   tactix_release(solver);
 }
 

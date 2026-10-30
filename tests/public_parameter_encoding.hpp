@@ -197,6 +197,14 @@ inline bool encode_one(const strategy::WalkParameters &p, Encoded &e) {
   c.step_budget = p.step_budget;
   c.random_seed = p.random_seed;
   c.seed_candidate = p.seed_candidate;
+  c.algorithm = static_cast<uint32_t>(p.algorithm);
+  c.initialization = static_cast<uint32_t>(p.initialization);
+  c.maximum_tries = p.maximum_tries;
+  c.flips_per_try = p.flips_per_try;
+  c.weight_smoothing_threshold = p.weight_smoothing_threshold;
+  c.smoothing_old_numerator = p.smoothing_old_numerator;
+  c.smoothing_denominator = p.smoothing_denominator;
+  c.aspiration_mode = setting(p.aspiration);
   c.even_break_base_milli = p.even_break_base_milli;
   for (const auto &point : p.score_curve)
     e.curve.push_back({point.average_clause_size_milli, point.break_base_milli});

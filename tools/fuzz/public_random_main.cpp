@@ -302,6 +302,26 @@ bool typed_complete_profile(std::string_view name, uint32_t variables,
     p.maximum_session_work = work;
     return true;
   }
+  if (name == "Walk") {
+    parameters.kind = TACTIX_ONLINE_PARAMETERS_WALK;
+    auto &p = parameters.value.walk;
+    p.step_budget = work;
+    p.random_seed = rng.next();
+    if (rng.one_in(2)) {
+      p.algorithm = TACTIX_WALK_ALGORITHM_CONFIGURATION_CHECKING;
+      p.initialization = static_cast<uint32_t>(rng.below(3));
+      p.maximum_tries = 1 + static_cast<uint32_t>(rng.below(8));
+      p.flips_per_try = std::max<uint64_t>(1024, 64 * variables);
+      p.weight_smoothing_threshold =
+          1 + static_cast<uint32_t>(rng.below(50));
+      p.smoothing_denominator = 10;
+      p.smoothing_old_numerator =
+          static_cast<uint32_t>(rng.below(p.smoothing_denominator + 1));
+      p.aspiration_mode = rng.one_in(2) ? TACTIX_ONLINE_SETTING_ENABLE
+                                       : TACTIX_ONLINE_SETTING_DISABLE;
+    }
+    return true;
+  }
   // Other structured theory families require an exact variable-length public
   // payload.  Their old native-producer templates were private controller
   // machinery, not public actions, so this external policy never uses them as

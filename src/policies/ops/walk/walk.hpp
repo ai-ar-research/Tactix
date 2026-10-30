@@ -31,4 +31,9 @@ ApplyResult walk_apply_steps(Kernel &, uint64_t); // explicit step budget
 double walk_break_base(const strategy::WalkParameters &, double average_size,
                        uint64_t walk_count);
 
+// Structural census used by strategy policies. Returns the per-mille share of
+// live irredundant clauses that are ternary clauses with an exact literalwise
+// complement in the current formula. No benchmark identity is consulted.
+uint32_t walk_complementary_ternary_fraction_permille(const Kernel &);
+
 } // namespace tactix

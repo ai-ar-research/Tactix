@@ -281,6 +281,25 @@ ActionParameters random_parameters(const Kernel &k, uint64_t &state, const std::
     WalkParameters p = config.walk_reference;
     p.step_budget = optional_positive(state, config.maximum_walk_step_budget);
     p.random_seed = draw(state);
+    if (bounded(state, 2)) {
+      p.algorithm = WalkParameters::Algorithm::ConfigurationChecking;
+      p.initialization = static_cast<WalkParameters::Initialization>(
+          bounded(state, 3));
+      p.maximum_tries =
+          1 + inclusive_u32(state, p.maximum_tries - 1);
+      p.flips_per_try =
+          1 + bounded(state, p.flips_per_try);
+      p.weight_smoothing_threshold =
+          1 + inclusive_u32(state, p.weight_smoothing_threshold - 1);
+      p.smoothing_denominator =
+          1 + inclusive_u32(state, p.smoothing_denominator - 1);
+      p.smoothing_old_numerator =
+          inclusive_u32(state, p.smoothing_denominator);
+      p.aspiration = bounded(state, 2) != 0;
+    } else {
+      p.algorithm = WalkParameters::Algorithm::ProbSat;
+      p.initialization = WalkParameters::Initialization::BestPhases;
+    }
     p.even_break_base_milli = 1 + inclusive_u32(
         state, p.even_break_base_milli - 1);
     uint32_t previous = 1;
@@ -1111,6 +1130,33 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
       if (v.size() == 7 && !boolean(v[6], p.reduction_bookkeeping)) return false;
     }
     parameters = p;
+  } else if (tuple(text, "walk4", v) && v.size() >= 12) {
+    WalkParameters p;
+    p.step_budget = v[0];
+    p.random_seed = v[1];
+    if (v[2] > UINT32_MAX || v[3] > UINT32_MAX || v[4] > UINT32_MAX ||
+        v[6] > UINT32_MAX || v[7] > UINT32_MAX || v[8] > UINT32_MAX ||
+        v[9] > 1 || v[10] > UINT32_MAX ||
+        v[11] > (v.size() - 12) / 2 ||
+        v.size() != 12 + 2 * v[11])
+      return false;
+    p.algorithm = static_cast<WalkParameters::Algorithm>(v[2]);
+    p.initialization = static_cast<WalkParameters::Initialization>(v[3]);
+    p.maximum_tries = static_cast<uint32_t>(v[4]);
+    p.flips_per_try = v[5];
+    p.weight_smoothing_threshold = static_cast<uint32_t>(v[6]);
+    p.smoothing_old_numerator = static_cast<uint32_t>(v[7]);
+    p.smoothing_denominator = static_cast<uint32_t>(v[8]);
+    p.aspiration = v[9] != 0;
+    p.even_break_base_milli = static_cast<uint32_t>(v[10]);
+    p.score_curve.clear();
+    for (size_t i = 0; i < v[11]; ++i) {
+      const uint64_t x = v[12 + 2 * i], y = v[13 + 2 * i];
+      if (x > UINT32_MAX || y > UINT32_MAX) return false;
+      p.score_curve.push_back(
+          {static_cast<uint32_t>(x), static_cast<uint32_t>(y)});
+    }
+    parameters = std::move(p);
   } else if ((tuple(text, "walk", v) || tuple(text, "walk2", v) || tuple(text, "walk3", v)) &&
              v.size() >= 2) {
     WalkParameters p;
@@ -2694,16 +2740,33 @@ std::string serialize_online_strategy_program(
           << p->reduction_bookkeeping << ')';
     else if (const auto *p = std::get_if<WalkParameters>(&step.parameters)) {
       const bool split = p->objective == WalkParameters::Objective::FullCurrentCnf;
-      out << (split ? ":walk3(" : p->seed_candidate ? ":walk2(" : ":walk(")
-          << p->step_budget << ',' << p->random_seed << ',';
-      if (p->seed_candidate) out << p->seed_candidate << ',';
-      if (split) out << p->preparation_budget << ',' << uint32_t(p->objective)
-                     << ',' << uint32_t(p->admission) << ',';
-      out << p->even_break_base_milli << ',' << p->score_curve.size();
-      for (const WalkParameters::ScorePoint point : p->score_curve)
-        out << ',' << point.average_clause_size_milli << ','
-            << point.break_base_milli;
-      out << ')';
+      const bool configured =
+          p->algorithm != WalkParameters::Algorithm::ProbSat ||
+          p->initialization != WalkParameters::Initialization::BestPhases;
+      if (configured) {
+        out << ":walk4(" << p->step_budget << ',' << p->random_seed << ','
+            << uint32_t(p->algorithm) << ',' << uint32_t(p->initialization)
+            << ',' << p->maximum_tries << ',' << p->flips_per_try << ','
+            << p->weight_smoothing_threshold << ','
+            << p->smoothing_old_numerator << ',' << p->smoothing_denominator
+            << ',' << p->aspiration << ',' << p->even_break_base_milli << ','
+            << p->score_curve.size();
+        for (const WalkParameters::ScorePoint point : p->score_curve)
+          out << ',' << point.average_clause_size_milli << ','
+              << point.break_base_milli;
+        out << ')';
+      } else {
+        out << (split ? ":walk3(" : p->seed_candidate ? ":walk2(" : ":walk(")
+            << p->step_budget << ',' << p->random_seed << ',';
+        if (p->seed_candidate) out << p->seed_candidate << ',';
+        if (split) out << p->preparation_budget << ',' << uint32_t(p->objective)
+                       << ',' << uint32_t(p->admission) << ',';
+        out << p->even_break_base_milli << ',' << p->score_curve.size();
+        for (const WalkParameters::ScorePoint point : p->score_curve)
+          out << ',' << point.average_clause_size_milli << ','
+              << point.break_base_milli;
+        out << ')';
+      }
     }
     else if (const auto *p =
                  std::get_if<ReorderParameters>(&step.parameters))

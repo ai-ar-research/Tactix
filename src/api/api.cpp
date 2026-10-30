@@ -993,6 +993,29 @@ bool online_parameters(const tactix_online_parameters &source,
     walk.step_budget = source_walk.step_budget;
     walk.random_seed = source_walk.random_seed;
     walk.seed_candidate = source_walk.seed_candidate;
+    walk.algorithm = static_cast<strategy::WalkParameters::Algorithm>(
+        source_walk.algorithm);
+    walk.initialization =
+        static_cast<strategy::WalkParameters::Initialization>(
+            source_walk.initialization);
+    if (source_walk.maximum_tries)
+      walk.maximum_tries = source_walk.maximum_tries;
+    if (source_walk.flips_per_try)
+      walk.flips_per_try = source_walk.flips_per_try;
+    if (source_walk.weight_smoothing_threshold)
+      walk.weight_smoothing_threshold =
+          source_walk.weight_smoothing_threshold;
+    if (source_walk.smoothing_denominator) {
+      walk.smoothing_old_numerator = source_walk.smoothing_old_numerator;
+      walk.smoothing_denominator = source_walk.smoothing_denominator;
+    }
+    if (source_walk.aspiration_mode != TACTIX_ONLINE_SETTING_INHERIT) {
+      if (source_walk.aspiration_mode < TACTIX_ONLINE_SETTING_DISABLE ||
+          source_walk.aspiration_mode > TACTIX_ONLINE_SETTING_ENABLE)
+        return false;
+      walk.aspiration =
+          source_walk.aspiration_mode == TACTIX_ONLINE_SETTING_ENABLE;
+    }
     if (source_walk.even_break_base_milli)
       walk.even_break_base_milli = source_walk.even_break_base_milli;
     if (source_walk.score_curve_count) {
@@ -1300,12 +1323,14 @@ bool online_program(const tactix_online_program &source, const Kernel &kernel,
         !online_post_application(in.post_application,
                                  out.post_application) ||
         !online_rule_work_budget(in.rule_budget_mode, in.rule_budget,
-                                 out.rule_work_budget) ||
-        !online_setting_override(in.touch_filter_mode,
+                                 out.rule_work_budget))
+      return false;
+    if (!online_setting_override(in.touch_filter_mode,
                                  out.material.touch_filter) ||
         !online_setting_override(in.likely_kept_redundant_mode,
-                                 out.material.likely_kept_redundant) ||
-        !online_work_unit(in.work_unit, out.work_unit))
+                                 out.material.likely_kept_redundant))
+      return false;
+    if (!online_work_unit(in.work_unit, out.work_unit))
       return false;
     if (in.instance_count)
       out.instances.assign(in.instances, in.instances + in.instance_count);

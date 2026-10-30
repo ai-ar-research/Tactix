@@ -1392,7 +1392,19 @@ bool validate_parameter_installation(const std::string &rule,
       walk && (walk->step_budget || walk->random_seed ||
                walk->seed_candidate || walk->preparation_budget ||
                walk->objective != WalkParameters::Objective::LegacyWalk ||
-               walk->admission != WalkParameters::Admission::Legacy))
+               walk->admission != WalkParameters::Admission::Legacy ||
+               walk->algorithm != WalkParameters::Algorithm::ProbSat ||
+               walk->initialization !=
+                   WalkParameters::Initialization::BestPhases ||
+               walk->maximum_tries != WalkParameters{}.maximum_tries ||
+               walk->flips_per_try != WalkParameters{}.flips_per_try ||
+               walk->weight_smoothing_threshold !=
+                   WalkParameters{}.weight_smoothing_threshold ||
+               walk->smoothing_old_numerator !=
+                   WalkParameters{}.smoothing_old_numerator ||
+               walk->smoothing_denominator !=
+                   WalkParameters{}.smoothing_denominator ||
+               walk->aspiration != WalkParameters{}.aspiration))
     return reject("Walk's budget, seed and objective belong to an application");
   if (const auto *vivify = std::get_if<VivifyParameters>(&parameters);
       vivify && vivify->band)

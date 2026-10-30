@@ -197,6 +197,20 @@ struct DefaultStrategyConfig {
     bool walk_warmup = true;
     bool walk_use_branch_seed = true;
     uint64_t walk_random_seed = 0;
+    // CCAnr/CryptoMiniSat-derived configuration-checking profile. The default
+    // policy selects it from complementary-ternary structure, never a name.
+    uint64_t configuration_checking_walk_permille = 1000;
+    uint64_t configuration_checking_minimum_step_budget = 200000000;
+    uint64_t configuration_checking_conflict_interval = 44000;
+    uint32_t configuration_checking_minimum_clauses = 1000;
+    uint32_t complementary_ternary_minimum_permille = 900;
+    uint32_t configuration_checking_maximum_tries = 100;
+    uint64_t configuration_checking_random_seed = 1;
+    uint64_t configuration_checking_flips_per_try = 1000000;
+    uint32_t configuration_checking_weight_threshold = 50;
+    uint32_t configuration_checking_smoothing_old_numerator = 3;
+    uint32_t configuration_checking_smoothing_denominator = 10;
+    bool configuration_checking_aspiration = true;
     bool stable_only = true;
     bool late_lucky = true;
   } rephase;

@@ -7,7 +7,9 @@
 #include "kernel/clause.hpp"
 #include "policies/heuristics.hpp"
 
+#include <array>
 #include <cmath>
+#include <random>
 
 namespace tactix {
 
@@ -195,9 +197,28 @@ bool build_table(Walker &w, Kernel &k) {
     }
     if (!free_lits)
       return false; // falsified by the trail: the search's problem, not the walk's
-    for (uint32_t i = 0; i < n; i++)
-      if (k.value(lits[i]) == 0)
-        w.cl_lits.push_back(lits[i]);
+    if (k.walk_algorithm == uint32_t(
+            strategy::WalkParameters::Algorithm::ConfigurationChecking)) {
+      std::vector<Lit> ordered;
+      ordered.reserve(free_lits);
+      for (uint32_t i = 0; i < n; ++i)
+        if (!k.value(lits[i])) ordered.push_back(lits[i]);
+      std::stable_sort(ordered.begin(), ordered.end(), [&](Lit a, Lit b) {
+        const int external_a = kernel_externalize(k, a);
+        const int external_b = kernel_externalize(k, b);
+        const uint32_t variable_a = static_cast<uint32_t>(
+            external_a < 0 ? -int64_t(external_a) : external_a);
+        const uint32_t variable_b = static_cast<uint32_t>(
+            external_b < 0 ? -int64_t(external_b) : external_b);
+        return variable_a < variable_b ||
+               (variable_a == variable_b && external_a < external_b);
+      });
+      w.cl_lits.insert(w.cl_lits.end(), ordered.begin(), ordered.end());
+    } else {
+      for (uint32_t i = 0; i < n; i++)
+        if (k.value(lits[i]) == 0)
+          w.cl_lits.push_back(lits[i]);
+    }
     w.cl_beg.push_back(static_cast<uint32_t>(w.cl_lits.size()));
     total_size += free_lits;
     return true;
@@ -225,9 +246,20 @@ bool build_table(Walker &w, Kernel &k) {
       }
     }
   }
+  std::vector<Ref> large_order;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage() && !c->redundant()) {
+    if (!c->garbage() && !c->redundant()) large_order.push_back(ref);
+    ref += clause_actual_words(c);
+  }
+  if (k.walk_algorithm == uint32_t(
+          strategy::WalkParameters::Algorithm::ConfigurationChecking))
+    std::stable_sort(large_order.begin(), large_order.end(), [&](Ref a, Ref b) {
+      return clause_at(k.arena, a)->id() < clause_at(k.arena, b)->id();
+    });
+  for (const Ref ref : large_order) {
+    Clause *c = clause_at(k.arena, ref);
+    {
       w.full_irredundant_clauses++;
       bool root_satisfied = false;
       for (const Lit lit : *c)
@@ -249,7 +281,6 @@ bool build_table(Walker &w, Kernel &k) {
         emit(c->lits, c->size);
       }
     }
-    ref += clause_actual_words(c);
   }
 
   w.nclauses = static_cast<uint32_t>(w.cl_beg.size() - 1);
@@ -339,6 +370,22 @@ void init_counters(Walker &w) {
   w.initial = w.minimum = static_cast<uint32_t>(w.unsat.size());
   for (uint32_t c = 0; c < w.binary_clauses; c++)
     w.initial_binary_unsat += w.count[c] == 0;
+}
+
+uint32_t decision_phase_unsatisfied(const Walker &w, const Kernel &k) {
+  uint32_t result = 0;
+  for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
+    bool satisfied = false;
+    for (uint32_t i = w.cl_beg[clause];
+         !satisfied && i < w.cl_beg[clause + 1]; ++i) {
+      const Lit literal = w.cl_lits[i];
+      const int8_t value = k.value(literal);
+      satisfied = value > 0 ||
+                  (!value && heuristics_decide_lit(k, var_of(literal)) == literal);
+    }
+    result += !satisfied;
+  }
+  return result;
 }
 
 // The same walkable current CNF evaluates ordinary phases and imported advice.
@@ -579,7 +626,445 @@ void local_search(Walker &w, uint64_t limit) {
   }
 }
 
+// Configuration-checking local search. Unlike ProbSAT's roulette over one
+// violated clause, this keeps a weighted make-minus-break score per variable,
+// suppresses immediate flips until a neighbor changes, and raises weights on
+// persistently violated clauses. It is a second explicit Walk algorithm: the
+// formula and CDCL state remain untouched until the best private assignment is
+// admitted as phase guidance.
+struct ConfigurationCheckingSearch {
+  Walker &w;
+  Kernel &k;
+  const strategy::WalkParameters parameters;
+  std::vector<int64_t> score;
+  std::vector<uint32_t> weight;
+  std::vector<Var> sole_true;
+  std::vector<uint64_t> last_flip;
+  std::vector<uint8_t> configuration_changed;
+  std::vector<uint32_t> candidate_position;
+  std::vector<Var> candidates;
+  std::vector<std::vector<Var>> neighbors;
+  std::vector<std::vector<std::pair<uint32_t, Lit>>> variable_occurrences;
+  std::vector<uint32_t> unsat_appear;
+  std::vector<uint32_t> unsat_variable_position;
+  std::vector<Var> unsat_variables;
+  uint64_t step = 0;
+  uint64_t local_flip_step = 0;
+  uint64_t average_weight = 1;
+  uint64_t weight_remainder = 0;
+  bool interrupted = false;
+  std::mt19937 random;
+
+  explicit ConfigurationCheckingSearch(Walker &walker, Kernel &kernel)
+      : w(walker), k(kernel),
+        parameters(strategy::WalkParameters::from_kernel(kernel)),
+        random(static_cast<uint32_t>(2 * parameters.random_seed + 1)) {
+    // Preserve first-neighbor order by clause order, as the reference's
+    // variable occurrence lists do. Sign-grouped occurrence scans change
+    // equal-score candidate insertion on symmetric formulas.
+    std::vector<std::vector<Var>> raw(k.nvars);
+    variable_occurrences.resize(k.nvars);
+    for (uint32_t clause = 0; clause < w.nclauses; ++clause)
+      for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+        const Var variable = var_of(w.cl_lits[i]);
+        variable_occurrences[variable].push_back({clause, w.cl_lits[i]});
+        for (uint32_t j = w.cl_beg[clause]; j < w.cl_beg[clause + 1]; ++j) {
+          const Var neighbor = var_of(w.cl_lits[j]);
+          if (neighbor != variable) raw[variable].push_back(neighbor);
+        }
+      }
+    neighbors.resize(k.nvars);
+    std::vector<uint32_t> seen(k.nvars, 0);
+    uint32_t epoch = 0;
+    for (Var variable = 0; variable < k.nvars; ++variable) {
+      ++epoch;
+      for (const Var neighbor : raw[variable])
+        if (seen[neighbor] != epoch) {
+          seen[neighbor] = epoch;
+          neighbors[variable].push_back(neighbor);
+        }
+    }
+  }
+
+  uint32_t pick_bounded(uint32_t bound) {
+    assert(bound);
+    uint32_t value;
+    do {
+      value = random() >> 1;
+    } while (value + bound >= UINT32_C(0x80000000));
+    return value % bound;
+  }
+
+  void remove_candidate(Var variable) {
+    const uint32_t position = candidate_position[variable];
+    if (position == UINT32_MAX) return;
+    const Var last = candidates.back();
+    candidates[position] = last;
+    candidate_position[last] = position;
+    candidates.pop_back();
+    candidate_position[variable] = UINT32_MAX;
+  }
+
+  void refresh_candidate(Var variable) {
+    const bool eligible = configuration_changed[variable] && score[variable] > 0;
+    if (eligible && candidate_position[variable] == UINT32_MAX) {
+      candidate_position[variable] = static_cast<uint32_t>(candidates.size());
+      candidates.push_back(variable);
+    } else if (!eligible) {
+      remove_candidate(variable);
+    }
+  }
+
+  void mark_unsatisfied(uint32_t clause) {
+    push_unsat(w, clause);
+    for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+      const Var variable = var_of(w.cl_lits[i]);
+      if (!unsat_appear[variable]++) {
+        unsat_variable_position[variable] =
+            static_cast<uint32_t>(unsat_variables.size());
+        unsat_variables.push_back(variable);
+      }
+    }
+  }
+
+  void mark_satisfied(uint32_t clause) {
+    pop_unsat(w, clause);
+    for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+      const Var variable = var_of(w.cl_lits[i]);
+      assert(unsat_appear[variable]);
+      if (!--unsat_appear[variable]) {
+        const uint32_t position = unsat_variable_position[variable];
+        const Var last = unsat_variables.back();
+        unsat_variables[position] = last;
+        unsat_variable_position[last] = position;
+        unsat_variables.pop_back();
+      }
+    }
+  }
+
+  void assign_initial(bool randomize) {
+    w.values.resize(2 * k.nvars);
+    for (Var variable = 0; variable < k.nvars; ++variable) {
+      const Lit positive = make_lit(variable, false);
+      int8_t value = k.value(positive);
+      if (!value) {
+        if (randomize ||
+            parameters.initialization ==
+                strategy::WalkParameters::Initialization::Random)
+          value = pick_bounded(2) ? 1 : -1;
+        else if (parameters.initialization ==
+                 strategy::WalkParameters::Initialization::Negative)
+          value = -1;
+        else
+          value = k.h->best[variable] ? k.h->best[variable] : -1;
+      }
+      w.values[positive] = value;
+      w.values[positive ^ 1] = static_cast<int8_t>(-value);
+    }
+  }
+
+  void initialize(bool randomize) {
+    assign_initial(randomize);
+    w.count.assign(w.nclauses, 0);
+    w.pos.assign(w.nclauses, 0);
+    w.unsat.clear();
+    weight.assign(w.nclauses, 1);
+    sole_true.assign(w.nclauses, INVALID_VAR);
+    score.assign(k.nvars, 0);
+    last_flip.assign(k.nvars, 0);
+    configuration_changed.assign(k.nvars, 1);
+    candidate_position.assign(k.nvars, UINT32_MAX);
+    candidates.clear();
+    unsat_appear.assign(k.nvars, 0);
+    unsat_variable_position.assign(k.nvars, 0);
+    unsat_variables.clear();
+    average_weight = 1;
+    weight_remainder = 0;
+    local_flip_step = 0;
+
+    for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
+      uint32_t satisfied = 0;
+      Var unique = INVALID_VAR;
+      for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+        const Lit literal = w.cl_lits[i];
+        if (w.values[literal] > 0) {
+          ++satisfied;
+          unique = var_of(literal);
+        }
+      }
+      w.count[clause] = satisfied;
+      if (!satisfied)
+        mark_unsatisfied(clause);
+      else if (satisfied == 1)
+        sole_true[clause] = unique;
+    }
+    for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
+      if (!w.count[clause]) {
+        for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i)
+          ++score[var_of(w.cl_lits[i])];
+      } else if (w.count[clause] == 1) {
+        --score[sole_true[clause]];
+      }
+    }
+    for (Var variable = 0; variable < k.nvars; ++variable)
+      refresh_candidate(variable);
+    step += uint64_t{k.nvars} + w.cl_lits.size();
+  }
+
+  Var better(Var first, Var second) const {
+    if (first == INVALID_VAR) return second;
+    if (score[second] != score[first])
+      return score[second] > score[first] ? second : first;
+    if (last_flip[second] != last_flip[first])
+      return last_flip[second] < last_flip[first] ? second : first;
+    return first;
+  }
+
+  void recompute_scores_and_candidates() {
+    std::fill(score.begin(), score.end(), 0);
+    for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
+      const int64_t clause_weight = weight[clause];
+      if (!w.count[clause]) {
+        for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i)
+          score[var_of(w.cl_lits[i])] += clause_weight;
+      } else if (w.count[clause] == 1) {
+        score[sole_true[clause]] -= clause_weight;
+      }
+    }
+    candidates.clear();
+    std::fill(candidate_position.begin(), candidate_position.end(), UINT32_MAX);
+    for (Var variable = 0; variable < k.nvars; ++variable)
+      refresh_candidate(variable);
+    step += uint64_t{k.nvars} + w.cl_lits.size();
+  }
+
+  void smooth_weights() {
+    uint64_t total = 0;
+    const float retained =
+        float(parameters.smoothing_old_numerator) /
+        float(parameters.smoothing_denominator);
+    const float replacement = 1.0f - retained;
+    const uint32_t injected =
+        static_cast<uint32_t>(float(average_weight) * replacement);
+    for (uint32_t clause = 0; clause < w.nclauses; ++clause) {
+      const uint32_t scaled = static_cast<uint32_t>(
+          float(weight[clause]) * retained + float(injected));
+      weight[clause] = std::max<uint32_t>(1, scaled);
+      total += weight[clause];
+    }
+    average_weight = total / w.nclauses;
+    weight_remainder = total % w.nclauses;
+    recompute_scores_and_candidates();
+  }
+
+  void raise_unsatisfied_weights() {
+    for (const uint32_t clause : w.unsat) {
+      ++weight[clause];
+      ++weight_remainder;
+    }
+    for (const Var variable : unsat_variables) {
+      score[variable] += unsat_appear[variable];
+      refresh_candidate(variable);
+    }
+    average_weight += weight_remainder / w.nclauses;
+    weight_remainder %= w.nclauses;
+    step += w.unsat.size();
+    if (average_weight > parameters.weight_smoothing_threshold)
+      smooth_weights();
+  }
+
+  Var pick_variable() {
+    for (size_t i = candidates.size(); i-- > 0;)
+      if (!configuration_changed[candidates[i]] || score[candidates[i]] <= 0)
+        remove_candidate(candidates[i]);
+    step += candidates.size();
+    Var best = INVALID_VAR;
+    for (const Var variable : candidates)
+      best = better(best, variable);
+    if (best != INVALID_VAR) return best;
+
+    if (parameters.aspiration) {
+      for (const Var variable : unsat_variables)
+        if (score[variable] > static_cast<int64_t>(average_weight))
+          best = better(best, variable);
+      if (best != INVALID_VAR) return best;
+    }
+
+    raise_unsatisfied_weights();
+    const uint32_t random_index =
+        pick_bounded(static_cast<uint32_t>(w.unsat.size()));
+    const uint32_t clause = w.unsat[random_index];
+    for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i)
+      best = better(best, var_of(w.cl_lits[i]));
+    return best;
+  }
+
+  void flip_variable(Var variable) {
+    const Lit positive = make_lit(variable, false);
+    const Lit newly_true = w.values[positive] > 0 ? positive ^ 1 : positive;
+    const Lit newly_false = newly_true ^ 1;
+    const int64_t original_score = score[variable];
+    w.values[newly_true] = 1;
+    w.values[newly_false] = -1;
+
+    // Process this variable's occurrences in formula order. Although the
+    // score delta is commutative, the swap-pop order of violated clauses and
+    // variables is not; it feeds the later randomized diversification step.
+    for (const auto &[clause, literal] : variable_occurrences[variable]) {
+      if (w.values[literal] > 0) {
+        const uint32_t before = w.count[clause]++;
+        if (!before) {
+          mark_satisfied(clause);
+          sole_true[clause] = variable;
+          for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i)
+            score[var_of(w.cl_lits[i])] -= weight[clause];
+        } else if (before == 1) {
+          score[sole_true[clause]] += weight[clause];
+          sole_true[clause] = INVALID_VAR;
+        }
+      } else {
+        const uint32_t after = --w.count[clause];
+        if (!after) {
+          mark_unsatisfied(clause);
+          sole_true[clause] = INVALID_VAR;
+          for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i)
+            score[var_of(w.cl_lits[i])] += weight[clause];
+        } else if (after == 1) {
+          for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+            const Lit true_literal = w.cl_lits[i];
+            if (w.values[true_literal] > 0) {
+              sole_true[clause] = var_of(true_literal);
+              score[sole_true[clause]] -= weight[clause];
+              break;
+            }
+          }
+        }
+      }
+    }
+    score[variable] = -original_score;
+    last_flip[variable] = local_flip_step++;
+    configuration_changed[variable] = 0;
+    // Candidate compaction is deliberately one reverse pass before neighbor
+    // re-enablement. Removing changed neighbors eagerly produces the same set
+    // but a different swap-pop order, which changes equal-score tie breaking.
+    for (size_t i = candidates.size(); i-- > 0;)
+      if (score[candidates[i]] <= 0)
+        remove_candidate(candidates[i]);
+    for (const Var neighbor : neighbors[variable]) {
+      configuration_changed[neighbor] = 1;
+      if (score[neighbor] > 0 &&
+          candidate_position[neighbor] == UINT32_MAX) {
+        candidate_position[neighbor] =
+            static_cast<uint32_t>(candidates.size());
+        candidates.push_back(neighbor);
+      }
+    }
+    step += variable_occurrences[variable].size();
+    ++w.flips;
+  }
+
+  void run(uint64_t limit) {
+    uint32_t best = UINT32_MAX;
+    std::vector<int8_t> best_values(k.nvars, 0);
+    for (uint32_t attempt = 0;
+         attempt < parameters.maximum_tries && step < limit; ++attempt) {
+      initialize(attempt != 0);
+      if (attempt == 0) w.initial = static_cast<uint32_t>(w.unsat.size());
+      if (w.unsat.size() < best) {
+        best = static_cast<uint32_t>(w.unsat.size());
+        for (Var variable = 0; variable < k.nvars; ++variable)
+          best_values[variable] = w.values[make_lit(variable, false)];
+      }
+      const uint64_t attempt_begin = w.flips;
+      while (!w.unsat.empty() && step < limit &&
+             w.flips - attempt_begin < parameters.flips_per_try) {
+        if (kernel_rule_interrupt(k, k.stats.walk_seed_interrupted)) {
+          interrupted = true;
+          break;
+        }
+        const Var variable = pick_variable();
+        assert(variable != INVALID_VAR);
+        flip_variable(variable);
+        if (w.unsat.size() < best) {
+          best = static_cast<uint32_t>(w.unsat.size());
+          for (Var v = 0; v < k.nvars; ++v)
+            best_values[v] = w.values[make_lit(v, false)];
+          if (!best) break;
+        }
+      }
+      if (interrupted || !best) break;
+    }
+    w.steps = step;
+    w.minimum = best;
+    w.best_values = std::move(best_values);
+  }
+};
+
+void configuration_checking_search(Walker &w, Kernel &k, uint64_t limit) {
+  ConfigurationCheckingSearch search(w, k);
+  search.run(limit);
+}
+
 } // namespace
+
+uint32_t walk_complementary_ternary_fraction_permille(const Kernel &k) {
+  struct Signature {
+    std::array<Var, 3> variables{};
+    uint8_t signs = 0;
+  };
+  const auto less = [](const Signature &a, const Signature &b) {
+    return a.variables < b.variables ||
+           (a.variables == b.variables && a.signs < b.signs);
+  };
+  std::vector<Signature> signatures;
+  signatures.reserve(k.live_irredundant_large);
+  uint64_t clauses = k.watches.binary_clauses();
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    if (!clause->garbage() && !clause->redundant()) {
+      ++clauses;
+      if (clause->size == 3) {
+        std::array<std::pair<Var, bool>, 3> literals;
+        for (uint32_t i = 0; i < 3; ++i)
+          literals[i] = {var_of(clause->lits[i]), negated(clause->lits[i])};
+        std::sort(literals.begin(), literals.end());
+        if (literals[0].first != literals[1].first &&
+            literals[1].first != literals[2].first) {
+          Signature signature;
+          for (uint32_t i = 0; i < 3; ++i) {
+            signature.variables[i] = literals[i].first;
+            signature.signs |= uint8_t(literals[i].second) << i;
+          }
+          signatures.push_back(signature);
+        }
+      }
+    }
+    ref += words;
+  }
+  if (!clauses || signatures.empty()) return 0;
+  std::sort(signatures.begin(), signatures.end(), less);
+  uint64_t paired = 0;
+  for (auto begin = signatures.begin(); begin != signatures.end();) {
+    const auto end = std::upper_bound(begin, signatures.end(), *begin, less);
+    Signature complement = *begin;
+    complement.signs ^= 7;
+    // Count each complementary multiset pair once, and only as many copies as
+    // exist on both sides. Existence-only counting would misclassify a formula
+    // containing many duplicate clauses and one opposite-polarity copy.
+    if (less(*begin, complement)) {
+      const auto opposite_begin =
+          std::lower_bound(signatures.begin(), signatures.end(), complement,
+                           less);
+      const auto opposite_end =
+          std::upper_bound(opposite_begin, signatures.end(), complement, less);
+      paired += 2 * std::min<uint64_t>(end - begin,
+                                      opposite_end - opposite_begin);
+    }
+    begin = end;
+  }
+  return static_cast<uint32_t>(std::min<uint64_t>(1000, 1000 * paired / clauses));
+}
 
 double walk_break_base(const strategy::WalkParameters &parameters,
                        double average_size, uint64_t walk_count) {
@@ -759,12 +1244,22 @@ static ApplyResult walk_apply_exact_steps(Kernel &k, uint64_t steps) {
         k.stats.walk_steps += w.steps;
         return ApplyResult::NoOp;
       }
-    } else {
+    } else if (k.walk_algorithm == uint32_t(
+                   strategy::WalkParameters::Algorithm::ProbSat) || !steps) {
       seed_values(w, k);
       init_counters(w);
       export_threshold = w.initial;
+    } else {
+      export_threshold = 0;
     }
-    local_search(w, steps);
+    if (!hint && k.walk_algorithm == uint32_t(
+                     strategy::WalkParameters::Algorithm::ConfigurationChecking) &&
+        steps) {
+      export_threshold = decision_phase_unsatisfied(w, k);
+      configuration_checking_search(w, k, steps);
+    } else {
+      local_search(w, steps);
+    }
     // Kissat's walker temporarily repurposes every large-watch list as an
     // occurrence index.  Leaving dense mode consequently reconnects all large
     // clauses in arena order and reselects their watched pair.  That

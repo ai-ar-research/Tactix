@@ -59,6 +59,24 @@ bool WalkParameters::valid() const {
                  score_curve[i].break_base_milli)
       return false;
   }
+  if (algorithm != Algorithm::ProbSat &&
+      algorithm != Algorithm::ConfigurationChecking)
+    return false;
+  if (initialization != Initialization::BestPhases &&
+      initialization != Initialization::Negative &&
+      initialization != Initialization::Random)
+    return false;
+  if (algorithm == Algorithm::ConfigurationChecking &&
+      (seed_candidate || objective != Objective::LegacyWalk ||
+       admission != Admission::Legacy || preparation_budget))
+    return false;
+  if (algorithm == Algorithm::ProbSat &&
+      initialization != Initialization::BestPhases)
+    return false;
+  if (!maximum_tries || !flips_per_try || !weight_smoothing_threshold ||
+      !smoothing_denominator ||
+      smoothing_old_numerator > smoothing_denominator)
+    return false;
   return true;
 }
 
@@ -72,6 +90,15 @@ WalkParameters WalkParameters::from_kernel(const Kernel &k) {
   result.objective = static_cast<WalkParameters::Objective>(k.walk_objective);
   result.admission = static_cast<WalkParameters::Admission>(k.walk_admission);
   result.preparation_budget = k.walk_preparation_budget;
+  result.algorithm = static_cast<WalkParameters::Algorithm>(k.walk_algorithm);
+  result.initialization =
+      static_cast<WalkParameters::Initialization>(k.walk_initialization);
+  result.maximum_tries = k.walk_maximum_tries;
+  result.flips_per_try = k.walk_flips_per_try;
+  result.weight_smoothing_threshold = k.walk_weight_smoothing_threshold;
+  result.smoothing_old_numerator = k.walk_smoothing_old_numerator;
+  result.smoothing_denominator = k.walk_smoothing_denominator;
+  result.aspiration = k.walk_aspiration;
   return result;
 }
 ReorderParameters ReorderParameters::from_kernel(const Kernel &k) {
@@ -227,6 +254,14 @@ void install_rule_parameters(Kernel &k, const WalkParameters &p) {
   k.walk_objective = static_cast<uint32_t>(p.objective);
   k.walk_admission = static_cast<uint32_t>(p.admission);
   k.walk_preparation_budget = p.preparation_budget;
+  k.walk_algorithm = static_cast<uint32_t>(p.algorithm);
+  k.walk_initialization = static_cast<uint32_t>(p.initialization);
+  k.walk_maximum_tries = p.maximum_tries;
+  k.walk_flips_per_try = p.flips_per_try;
+  k.walk_weight_smoothing_threshold = p.weight_smoothing_threshold;
+  k.walk_smoothing_old_numerator = p.smoothing_old_numerator;
+  k.walk_smoothing_denominator = p.smoothing_denominator;
+  k.walk_aspiration = p.aspiration;
   install_walk_guidance(k, p.even_break_base_milli, p.score_curve);
 }
 
@@ -245,6 +280,14 @@ ScopedWalkParameters::ScopedWalkParameters(
       saved_preparation_budget_(kernel.walk_preparation_budget),
       saved_objective_(kernel.walk_objective),
       saved_admission_(kernel.walk_admission),
+      saved_algorithm_(kernel.walk_algorithm),
+      saved_initialization_(kernel.walk_initialization),
+      saved_maximum_tries_(kernel.walk_maximum_tries),
+      saved_flips_per_try_(kernel.walk_flips_per_try),
+      saved_weight_smoothing_threshold_(kernel.walk_weight_smoothing_threshold),
+      saved_smoothing_old_numerator_(kernel.walk_smoothing_old_numerator),
+      saved_smoothing_denominator_(kernel.walk_smoothing_denominator),
+      saved_aspiration_(kernel.walk_aspiration),
       saved_even_break_base_milli_(kernel.walk_even_break_base_milli),
       saved_score_curve_(kernel.walk_score_curve),
       saved_bounded_(kernel.work_budget_bounded) {
@@ -258,6 +301,14 @@ ScopedWalkParameters::~ScopedWalkParameters() {
   kernel_.walk_preparation_budget = saved_preparation_budget_;
   kernel_.walk_objective = saved_objective_;
   kernel_.walk_admission = saved_admission_;
+  kernel_.walk_algorithm = saved_algorithm_;
+  kernel_.walk_initialization = saved_initialization_;
+  kernel_.walk_maximum_tries = saved_maximum_tries_;
+  kernel_.walk_flips_per_try = saved_flips_per_try_;
+  kernel_.walk_weight_smoothing_threshold = saved_weight_smoothing_threshold_;
+  kernel_.walk_smoothing_old_numerator = saved_smoothing_old_numerator_;
+  kernel_.walk_smoothing_denominator = saved_smoothing_denominator_;
+  kernel_.walk_aspiration = saved_aspiration_;
   kernel_.walk_even_break_base_milli = saved_even_break_base_milli_;
   kernel_.walk_score_curve = std::move(saved_score_curve_);
   kernel_.work_budget_bounded = saved_bounded_;

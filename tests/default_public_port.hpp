@@ -786,6 +786,14 @@ struct PublicPort {
       parameters.objective = request.objective;
       parameters.admission = request.admission;
       parameters.preparation_budget = request.preparation_allowance;
+      parameters.algorithm = request.algorithm;
+      parameters.initialization = request.initialization;
+      parameters.maximum_tries = request.maximum_tries;
+      parameters.flips_per_try = request.flips_per_try;
+      parameters.weight_smoothing_threshold = request.weight_smoothing_threshold;
+      parameters.smoothing_old_numerator = request.smoothing_old_numerator;
+      parameters.smoothing_denominator = request.smoothing_denominator;
+      parameters.aspiration = request.aspiration;
       step.parameters = std::move(parameters);
       step.granularity = strategy::InvocationGranularity::CanonicalApplication;
       public_encoding::EncodedStep encoded;

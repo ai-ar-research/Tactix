@@ -5,6 +5,7 @@
 #include "policies/heuristics.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/registry.hpp"
+#include "strategy/random_online.hpp"
 
 #include <cassert>
 #include <bit>
@@ -75,6 +76,115 @@ static void build_conflict_cover(Kernel &k, int n) {
   for (int i = 1; i <= n; i++)
     cover.push_back(internalize(i));
   kernel_add_large_clause(k, cover.data(), (uint32_t)cover.size(), false, 0);
+}
+
+static void add_nae3(Kernel &k, int a, int b, int c) {
+  const Lit positive[] = {internalize(a), internalize(b), internalize(c)};
+  const Lit negative[] = {internalize(-a), internalize(-b), internalize(-c)};
+  kernel_add_large_clause(k, positive, 3, false, 0);
+  kernel_add_large_clause(k, negative, 3, false, 0);
+}
+
+static void test_configuration_checking_profiles_and_structure() {
+  strategy::WalkParameters invalid;
+  invalid.initialization =
+      strategy::WalkParameters::Initialization::Negative;
+  assert(!invalid.valid());
+  invalid.algorithm =
+      strategy::WalkParameters::Algorithm::ConfigurationChecking;
+  assert(invalid.valid());
+  invalid.seed_candidate = 256;
+  assert(!invalid.valid());
+
+  constexpr int edges[][3] = {
+      {1, 2, 3}, {2, 3, 4}, {3, 4, 5}, {1, 4, 5}};
+  for (const auto initialization : {
+           strategy::WalkParameters::Initialization::BestPhases,
+           strategy::WalkParameters::Initialization::Negative,
+           strategy::WalkParameters::Initialization::Random}) {
+    Kernel k;
+    ScopedHeuristics heuristics(k);
+    kernel_reserve_vars(k, 5);
+    for (const auto &edge : edges) add_nae3(k, edge[0], edge[1], edge[2]);
+    assert(walk_complementary_ternary_fraction_permille(k) == 1000);
+    k.h->saved.assign(k.nvars, 1);
+    k.h->target.assign(k.nvars, 1);
+    k.h->best.assign(k.nvars, -1);
+    strategy::WalkParameters profile;
+    profile.step_budget = 1000000;
+    profile.random_seed = 17;
+    profile.algorithm =
+        strategy::WalkParameters::Algorithm::ConfigurationChecking;
+    profile.initialization = initialization;
+    profile.maximum_tries = 3;
+    profile.flips_per_try = 10000;
+    assert(profile.valid());
+    strategy::ScopedWalkParameters selected(k, profile);
+    assert(walk_apply(k) == ApplyResult::Ok);
+    assert(k.stats.walk_minimum == 0 && k.stats.walk_improved == 1);
+    for (const auto &edge : edges) {
+      const bool a = k.h->saved[edge[0] - 1] > 0;
+      const bool b = k.h->saved[edge[1] - 1] > 0;
+      const bool c = k.h->saved[edge[2] - 1] > 0;
+      assert(!(a == b && b == c));
+    }
+    kernel_check_invariants(k);
+  }
+
+  Kernel unpaired;
+  ScopedHeuristics unpaired_heuristics(unpaired);
+  kernel_reserve_vars(unpaired, 4);
+  const Lit first[] = {internalize(1), internalize(2), internalize(3)};
+  const Lit second[] = {internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(unpaired, first, 3, false, 0);
+  kernel_add_large_clause(unpaired, second, 3, false, 0);
+  assert(walk_complementary_ternary_fraction_permille(unpaired) == 0);
+
+  Kernel imbalanced;
+  ScopedHeuristics imbalanced_heuristics(imbalanced);
+  kernel_reserve_vars(imbalanced, 3);
+  const Lit positive[] = {internalize(1), internalize(2), internalize(3)};
+  const Lit negative[] = {internalize(-1), internalize(-2), internalize(-3)};
+  for (unsigned copy = 0; copy != 9; ++copy)
+    kernel_add_large_clause(imbalanced, positive, 3, false, 0);
+  kernel_add_large_clause(imbalanced, negative, 3, false, 0);
+  assert(walk_complementary_ternary_fraction_permille(imbalanced) == 200);
+
+  strategy::RandomOnlineConfig random_config;
+  random_config.rules = {"Walk"};
+  random_config.maximum_sequence_length = 1;
+  bool saw_probsat = false;
+  bool saw_configuration_checking[3] = {false, false, false};
+  for (uint64_t seed = 1; seed <= 256; ++seed) {
+    strategy::OnlineStrategyProgram program;
+    std::string error;
+    assert(strategy::random_online_strategy_program(
+        unpaired, seed, random_config, program, &error));
+    assert(program.sequence.size() == 1);
+    const auto &parameters = std::get<strategy::WalkParameters>(
+        program.sequence.front().parameters);
+    assert(parameters.valid());
+    if (parameters.algorithm == strategy::WalkParameters::Algorithm::ProbSat) {
+      saw_probsat = true;
+    } else {
+      const auto index = static_cast<uint32_t>(parameters.initialization);
+      assert(index < 3);
+      saw_configuration_checking[index] = true;
+      const std::string encoded =
+          strategy::serialize_online_strategy_program(program);
+      assert(encoded.find(":walk4(") != std::string::npos);
+      strategy::OnlineStrategyProgram decoded;
+      const bool decoded_ok = strategy::deserialize_online_strategy_program(
+          encoded, decoded, &error);
+      if (!decoded_ok)
+        std::fprintf(stderr, "walk4 decode failed: %s: %s\n",
+                     error.c_str(), encoded.c_str());
+      assert(decoded_ok);
+      assert(strategy::serialize_online_strategy_program(decoded) == encoded);
+    }
+  }
+  assert(saw_probsat && saw_configuration_checking[0] &&
+         saw_configuration_checking[1] && saw_configuration_checking[2]);
 }
 
 static void test_break_base_domain_terminates() {
@@ -447,6 +557,7 @@ static void test_partial_seed_and_empty_objective() {
 }
 
 int main() {
+  test_configuration_checking_profiles_and_structure();
   test_partial_seed_and_empty_objective();
   test_private_seed_budget_and_export();
   test_configurable_score_curve();

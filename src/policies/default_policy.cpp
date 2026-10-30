@@ -1065,7 +1065,18 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
     return reject("reduction schedule is invalid");
   if (!rephase.initial_interval || !rephase.interval ||
       !positive_finite(rephase.logarithm_offset) || !rephase.logarithm_power ||
-      rephase.walk_permille > PERMILLE_SCALE)
+      rephase.walk_permille > PERMILLE_SCALE ||
+      rephase.configuration_checking_walk_permille > PERMILLE_SCALE ||
+      !rephase.configuration_checking_minimum_step_budget ||
+      !rephase.configuration_checking_conflict_interval ||
+      !rephase.configuration_checking_minimum_clauses ||
+      rephase.complementary_ternary_minimum_permille > PERMILLE_SCALE ||
+      !rephase.configuration_checking_maximum_tries ||
+      !rephase.configuration_checking_flips_per_try ||
+      !rephase.configuration_checking_weight_threshold ||
+      !rephase.configuration_checking_smoothing_denominator ||
+      rephase.configuration_checking_smoothing_old_numerator >
+          rephase.configuration_checking_smoothing_denominator)
     return reject("rephase schedule is invalid");
   strategy::WalkParameters walk_parameters;
   walk_parameters.even_break_base_milli =
@@ -2151,6 +2162,65 @@ uint64_t DefaultPolicy::walk_effort_reference(const Kernel &k) const {
   if (reference < config_.inprocess.minimum_effort_ticks)
     reference = config_.inprocess.minimum_effort_ticks;
   return reference;
+}
+
+ApplyResult DefaultPolicy::run_configuration_checking_walk(
+    Kernel &k, uint64_t allowance, const std::string &description) {
+  const uint64_t seed = config_.rephase.configuration_checking_random_seed;
+  auto selected = strategy::WalkParameters::from_kernel(k);
+  selected.step_budget = allowance;
+  selected.random_seed = seed;
+  selected.seed_candidate = 0;
+  selected.algorithm =
+      strategy::WalkParameters::Algorithm::ConfigurationChecking;
+  selected.initialization =
+      strategy::WalkParameters::Initialization::Negative;
+  selected.maximum_tries =
+      config_.rephase.configuration_checking_maximum_tries;
+  selected.flips_per_try =
+      config_.rephase.configuration_checking_flips_per_try;
+  selected.weight_smoothing_threshold =
+      config_.rephase.configuration_checking_weight_threshold;
+  selected.smoothing_old_numerator =
+      config_.rephase.configuration_checking_smoothing_old_numerator;
+  selected.smoothing_denominator =
+      config_.rephase.configuration_checking_smoothing_denominator;
+  selected.aspiration = config_.rephase.configuration_checking_aspiration;
+  const strategy::GuidanceOutcomeSnapshot before_walk(k);
+  return port::complete_action(
+      completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
+      [&] {
+        auto spec = execution::native_rule_feedback(
+            k, "Walk", INSTANCE_CANONICAL,
+            description + ";complementary-ternary-permille=" +
+                std::to_string(complementary_ternary_permille_),
+            [](const Kernel &kernel) { return kernel.stats.walk_steps; },
+            "walk-steps", strategy::WorkLimit::bounded(allowance));
+        spec.description.invocation->parameters = selected;
+        return spec;
+      },
+      [&] {
+        static const RuleVTable &walk_rule = registered_rule("Walk");
+        return port::execute_action(
+            k,
+            execution::WalkRequest{
+                allowance, seed, 0,
+                strategy::WalkParameters::Objective::LegacyWalk,
+                strategy::WalkParameters::Admission::Legacy, 0,
+                selected.algorithm, selected.initialization,
+                selected.maximum_tries,
+                selected.flips_per_try,
+                selected.weight_smoothing_threshold,
+                selected.smoothing_old_numerator,
+                selected.smoothing_denominator, selected.aspiration},
+            [&] { return port::apply_rule(walk_rule, k); });
+      },
+      [&](ApplyResult result) {
+        auto out = strategy::controller::feedback_outcome(result);
+        out.invocation.status =
+            before_walk.refine(k, result, out.invocation.status);
+        return out;
+      });
 }
 
 ApplyResult DefaultPolicy::consume_affine_model_hint(Kernel &k) {
@@ -4590,6 +4660,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       { feedback.finish(20, StopReason::Unsat); return 20; }
   }
   solves++;
+  // Preserve the input's structural classification across preprocessing: the
+  // very simplifications that expose an easier residual can retire one member
+  // of a complementary pair. Scheduling is formula-derived, not name-derived.
+  complementary_ternary_permille_ =
+      walk_complementary_ternary_fraction_permille(k);
+  complementary_ternary_walk_ =
+      k.watches.binary_clauses() + k.live_irredundant_large >=
+          config_.rephase.configuration_checking_minimum_clauses &&
+      complementary_ternary_permille_ >=
+          config_.rephase.complementary_ternary_minimum_permille;
+  complementary_ternary_preprocessing_deferred_ =
+      complementary_ternary_walk_;
+  configuration_checking_walk_applications_ = 0;
+  complementary_ternary_preprocessing_release_conflicts_ = UINT64_MAX;
+  configuration_checking_walk_next_conflicts_ = complementary_ternary_walk_
+      ? k.stats.conflicts
+      : UINT64_MAX;
   affine_search_diagnostics_={};
   affine_completed_census_.reset();
   const uint64_t alias_work_begin=k.stats.affine_matrix_alias_work;
@@ -4910,7 +4997,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // propagation can rearrange watches. The reference Probe-entry order remains
   // an explicit strategy choice; empty/compatibility programs retain the cold
   // Lucky fast path.
-  if (config_.inprocess.structured_root_before_lucky &&
+  if (!complementary_ternary_preprocessing_deferred_ &&
+      config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
       (!k.proof || k.proof->supports_sr())) {
     port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
@@ -5132,11 +5220,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           event_trace_sweep_watch(k, v, ordinal++, w.other());
   }
 #endif
-  if (inprocess_.want_phase(k, SlotGroup::Probe)) {
+  if (!complementary_ternary_preprocessing_deferred_ &&
+      inprocess_.want_phase(k, SlotGroup::Probe)) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
-  if (config_.inprocess.initial_fast_elimination) {
+  if (!complementary_ternary_preprocessing_deferred_ &&
+      config_.inprocess.initial_fast_elimination) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
         inprocess_.run_initial_fast_elimination(
@@ -5427,6 +5517,47 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.heap_scores(k);
       continue;
     }
+    if (complementary_ternary_preprocessing_deferred_ &&
+        configuration_checking_walk_applications_ &&
+        k.stats.conflicts >=
+            complementary_ternary_preprocessing_release_conflicts_)
+      complementary_ternary_preprocessing_deferred_ = false;
+    if (complementary_ternary_walk_ &&
+        k.stats.conflicts >= configuration_checking_walk_next_conflicts_) {
+      event_trace.macro(k, "configuration_checking_walk_begin");
+      feedback.end_interval(StopReason::RootPreparation);
+      if (prepare_rephase_root(k) == ApplyResult::Unsat)
+        return finish(20);
+      const uint64_t reference = walk_effort_reference(k);
+      const uint64_t allowance = std::max(
+          config_.rephase.configuration_checking_minimum_step_budget,
+          scale_permille(
+              reference, config_.rephase.configuration_checking_walk_permille));
+      (void)run_configuration_checking_walk(
+          k, allowance, "scheduled-configuration-checking");
+      // The first service owns the unmodified complementary-ternary formula.
+      // Give its phases one uninterrupted search trajectory: an exact model
+      // then closes without preprocessing perturbing it.  After the first
+      // conflict generic preprocessing is no longer suppressed.  Retain
+      // occasional local-search retries, but back them off geometrically so a
+      // hard instance cannot spend a fixed fraction of every conflict epoch
+      // repeating an unproductive trajectory.
+      if (!configuration_checking_walk_applications_)
+        complementary_ternary_preprocessing_release_conflicts_ =
+            saturated_sum(k.stats.conflicts, 1);
+      ++configuration_checking_walk_applications_;
+      const uint32_t exponent = std::min<uint32_t>(
+          configuration_checking_walk_applications_ - 1, 6);
+      const uint64_t retry_interval = saturated_product(
+          config_.rephase.configuration_checking_conflict_interval,
+          uint64_t{1} << exponent);
+      configuration_checking_walk_next_conflicts_ =
+          saturated_sum(k.stats.conflicts, retry_interval);
+      feedback.resume(IntervalStart::NativeContinuation,
+                      "configuration-checking-walk-continuation");
+      event_trace.macro(k, "configuration_checking_walk_end");
+      continue;
+    }
     if (want_reduce(k) && reduce_guard(k)) {
       event_trace.macro(k, "reduce_begin");
       feedback.end_interval(StopReason::RootPreparation);
@@ -5680,23 +5811,34 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         const uint64_t seed = config_.rephase.walk_use_branch_seed
                                   ? default_branching_.randec_rng
                                   : config_.rephase.walk_random_seed;
-        const uint64_t allowance = scale_permille(reference, config_.rephase.walk_permille);
+        const uint64_t allowance =
+            scale_permille(reference, config_.rephase.walk_permille);
+        auto selected_walk = strategy::WalkParameters::from_kernel(k);
+        selected_walk.step_budget = allowance;
+        selected_walk.random_seed = seed;
+        selected_walk.seed_candidate = 0;
         const strategy::GuidanceOutcomeSnapshot before_walk(k);
         (void)port::complete_action(completion_, FeedbackKind::Rule, "Walk", INSTANCE_CANONICAL,
             [&] {
               auto spec = execution::native_rule_feedback(k, "Walk", INSTANCE_CANONICAL,
                   "native-walk", [](const Kernel &kernel) { return kernel.stats.walk_steps; },
                   "walk-steps", strategy::WorkLimit::bounded(allowance));
-              auto parameters = strategy::WalkParameters::from_kernel(k);
-              parameters.step_budget = allowance;
-              parameters.random_seed = seed;
-              // DefaultPolicy runs unseeded Walk; seeding is a controller choice.
-              parameters.seed_candidate = 0;
-              spec.description.invocation->parameters = std::move(parameters);
+              spec.description.description += ";algorithm=probsat";
+              spec.description.invocation->parameters = selected_walk;
               return spec;
             }, [&] {
               static const RuleVTable &walk_rule = registered_rule("Walk");
-              return port::execute_action(k, execution::WalkRequest{allowance, seed, 0},
+              return port::execute_action(k, execution::WalkRequest{
+                  allowance, seed, 0,
+                  strategy::WalkParameters::Objective::LegacyWalk,
+                  strategy::WalkParameters::Admission::Legacy, 0,
+                  selected_walk.algorithm, selected_walk.initialization,
+                  selected_walk.maximum_tries,
+                  selected_walk.flips_per_try,
+                  selected_walk.weight_smoothing_threshold,
+                  selected_walk.smoothing_old_numerator,
+                  selected_walk.smoothing_denominator,
+                  selected_walk.aspiration},
                                                [&] { return port::apply_rule(walk_rule, k); });
             },
             [&](ApplyResult result) {
@@ -5726,7 +5868,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "rephase_end");
       continue;
     }
-    if (inprocess_.want_phase(k, SlotGroup::Probe)) {
+    if (!complementary_ternary_preprocessing_deferred_ &&
+        inprocess_.want_phase(k, SlotGroup::Probe)) {
       event_trace.macro(k, "probe_begin");
       feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
@@ -5736,7 +5879,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "probe_end");
       continue;
     }
-    if (inprocess_.want_phase(k, SlotGroup::Eliminate)) {
+    if (!complementary_ternary_preprocessing_deferred_ &&
+        inprocess_.want_phase(k, SlotGroup::Eliminate)) {
       event_trace.macro(k, "eliminate_begin");
       feedback.end_interval(StopReason::RootPreparation);
       const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop, completion_);

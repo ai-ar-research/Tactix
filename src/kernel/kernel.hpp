@@ -1980,6 +1980,13 @@ struct Kernel {
   uint64_t walk_seed_candidate = 0;
   uint64_t walk_preparation_budget = 0;
   uint32_t walk_objective = 0, walk_admission = 0;
+  uint32_t walk_algorithm = 0, walk_maximum_tries = 100;
+  uint32_t walk_initialization = 0;
+  uint64_t walk_flips_per_try = 1000000;
+  uint32_t walk_weight_smoothing_threshold = 50;
+  uint32_t walk_smoothing_old_numerator = 3;
+  uint32_t walk_smoothing_denominator = 10;
+  bool walk_aspiration = true;
   // Proof-rule declarations are staged until registry dispatch advances the
   // action epoch. Only current post-action candidates are observable/applicable.
   std::array<strategy::SemanticVariableCandidate,

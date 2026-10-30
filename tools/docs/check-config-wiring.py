@@ -53,9 +53,9 @@ EXECUTION_SCOPE = "src/strategy/execution_scope.hpp"
 POLICY_ADAPTERS["inprocessing"] = [ROOT_EXECUTION, EXECUTION_SCOPE]
 VIVIFY_EXECUTION = "src/strategy/vivify_execution.hpp"
 VIVIFY_BAND = r"execution::VivifyBandRequest\{\s*band,\s*e\.tick_counter,\s*e\.meter\}"
-WALK_ALLOWANCE = (r"const uint64_t allowance = scale_permille\("
-                  r"reference, config_\.rephase\.walk_permille\)")
-WALK_REQUEST = r"execution::WalkRequest\{allowance, seed, 0\}"
+WALK_ALLOWANCE = (r"const uint64_t allowance\s*=\s*scale_permille\(\s*"
+                  r"reference,\s*config_\.rephase\.walk_permille\)")
+WALK_REQUEST = r"execution::WalkRequest\{\s*allowance,\s*seed,\s*0,"
 MATERIAL_REQUEST = (r"execution::MaterialSettingsRequest\{\s*"
                     r"config\(\)\.touch_filter,\s*"
                     r"config\(\)\.likely_kept_redundant")
@@ -83,7 +83,7 @@ POLICY_BINDINGS = {
         (GUIDANCE_EXECUTION, r"k\.walk_random_seed\s*=\s*request\.seed"),
     ],
     "walk_seed_candidate": [
-        (POLICY[0], r"parameters\.seed_candidate = 0;"),
+        (POLICY[0], r"(?:parameters|selected_walk)\.seed_candidate = 0;"),
         (POLICY[0], WALK_REQUEST),
         (GUIDANCE_EXECUTION, r"parameters\.seed_candidate\s*=\s*request\.seed_candidate"),
         (GUIDANCE_EXECUTION, r"strategy::ScopedWalkParameters selected\(k, parameters\)"),
@@ -238,6 +238,17 @@ for field, member, request_member in [
     ("walk_preparation_budget", "preparation_budget", "preparation_allowance"),
     ("walk_objective", "objective", "objective"),
     ("walk_admission", "admission", "admission"),
+    ("walk_algorithm", "algorithm", "algorithm"),
+    ("walk_initialization", "initialization", "initialization"),
+    ("walk_maximum_tries", "maximum_tries", "maximum_tries"),
+    ("walk_flips_per_try", "flips_per_try", "flips_per_try"),
+    ("walk_weight_smoothing_threshold", "weight_smoothing_threshold",
+     "weight_smoothing_threshold"),
+    ("walk_smoothing_old_numerator", "smoothing_old_numerator",
+     "smoothing_old_numerator"),
+    ("walk_smoothing_denominator", "smoothing_denominator",
+     "smoothing_denominator"),
+    ("walk_aspiration", "aspiration", "aspiration"),
 ]:
     POLICY_ADAPTERS[field] = [GUIDANCE_EXECUTION, RULE_PARAMETERS]
     POLICY_BINDINGS[field] = [
@@ -342,6 +353,17 @@ TABLE = {
     "walk_preparation_budget": ("POLICY", "typed private preparation allowance, scoped during Walk"),
     "walk_objective":          ("POLICY", "typed private current-CNF objective, scoped during Walk"),
     "walk_admission":          ("POLICY", "typed private phase admission, scoped during Walk"),
+    "walk_algorithm":          ("POLICY", "typed public Walk algorithm selection, scoped during Walk"),
+    "walk_initialization":     ("POLICY", "typed public Walk initialization selection, scoped during Walk"),
+    "walk_maximum_tries":      ("POLICY", "typed configuration-checking retry bound, scoped during Walk"),
+    "walk_flips_per_try":      ("POLICY", "typed configuration-checking flip bound, scoped during Walk"),
+    "walk_weight_smoothing_threshold":
+                                ("POLICY", "typed configuration-checking weight threshold, scoped during Walk"),
+    "walk_smoothing_old_numerator":
+                                ("POLICY", "typed configuration-checking smoothing numerator, scoped during Walk"),
+    "walk_smoothing_denominator":
+                                ("POLICY", "typed configuration-checking smoothing denominator, scoped during Walk"),
+    "walk_aspiration":         ("POLICY", "typed configuration-checking aspiration switch, scoped during Walk"),
     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
                                           "Vivify tier ceiling"),
     "work_budget_bounded":     ("POLICY", "distinguishes a zero cumulative Vivify "
