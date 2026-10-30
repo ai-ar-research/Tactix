@@ -673,7 +673,8 @@ MatrixLiveResult prepare_affine_matrix_live(
         request.retained_source_provenance),
       same_stack_retained_sources && !request.historical_event &&
           !request.core_reason_authentication,
-      request.historical_event || request.core_reason_authentication);
+      request.historical_event || request.core_reason_authentication,
+      &result.transaction_failure_stage);
   result.planner_work = candidate.transaction_.work();
   if (planned != MatrixTransactionStatus::Prepared) {
     result.audit_stage = MatrixLiveResult::AuditStage::TransactionPlan;

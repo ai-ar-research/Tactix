@@ -20,6 +20,17 @@ enum class MatrixTransactionStatus : uint8_t {
   Interrupted,
 };
 
+enum class MatrixTransactionFailureStage : uint8_t {
+  None = 0,
+  Request = 1,
+  CoordinateFrame = 2,
+  DenseMapping = 3,
+  CachePopulation = 4,
+  CertificatePlanning = 5,
+  CertificateSemantics = 6,
+  ProofPopulation = 7,
+};
+
 struct MatrixTransactionLimits {
   uint64_t maximum_work = 0;
   uint64_t maximum_proof_additions = 0;
@@ -123,7 +134,8 @@ private:
       const MatrixEvent &, uint32_t, uint64_t,
       const MatrixTransactionLimits &, const std::function<bool(uint64_t)> &,
       AffineMatrixTransaction &, const AffineMatrixProofCache *, uint64_t,
-      const PbpParityReasonPlan *, bool, bool, bool);
+      const PbpParityReasonPlan *, bool, bool, bool,
+      MatrixTransactionFailureStage *);
 
   bool ready_ = false;
   uint64_t owner_identity_ = 0;
@@ -171,6 +183,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     bool aggregate_retained_authentication = false,
     // A retained reason may be planned after the tableau advances only when
     // its complete source-derived clause passes historical authentication.
-    bool historical_event = false);
+    bool historical_event = false,
+    MatrixTransactionFailureStage *failure_stage = nullptr);
 
 } // namespace tactix::affine_semantic_extension

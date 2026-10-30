@@ -4066,6 +4066,8 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
         static_cast<uint64_t>(result.status);
     affine_search_diagnostics_.last_terminal_audit_stage =
         static_cast<uint64_t>(result.live.audit_stage);
+    affine_search_diagnostics_.last_terminal_transaction_stage =
+        static_cast<uint64_t>(result.live.transaction_failure_stage);
   }
   if(result.status==AffineMatrixServiceStatus::Pending)++affine_search_diagnostics_.pending_slices;
   affine_search_diagnostics_.resumed_slices+=result.slice_resumed;

@@ -96,6 +96,8 @@ struct MatrixLiveResult {
   bool detached_reason = false;
   uint64_t installed_reason_id = 0;
   Ref installed_reason_ref = INVALID_REF;
+  MatrixTransactionFailureStage transaction_failure_stage =
+      MatrixTransactionFailureStage::None;
   // Publication audit boundary for a declined two-phase transaction.  This is
   // diagnostic evidence only; status remains the public semantic outcome.
   // Values are stable for campaign attribution and append-only telemetry.

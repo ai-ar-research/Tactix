@@ -75,6 +75,19 @@ static AffineMatrixTransaction prepared() {
   return transaction;
 }
 
+static void invalid_request_reports_failure_stage() {
+  AffineMatrix matrix;
+  MatrixEvent event;
+  AffineMatrixTransaction transaction;
+  MatrixTransactionFailureStage stage =
+      MatrixTransactionFailureStage::ProofPopulation;
+  assert(prepare_affine_matrix_transaction(
+             matrix, 0, {}, event, 0, 0, {}, {}, transaction, nullptr, 0,
+             nullptr, true, false, false, &stage) ==
+         MatrixTransactionStatus::Invalid);
+  assert(stage == MatrixTransactionFailureStage::Request);
+}
+
 static void historical_event_requires_explicit_authentication_mode() {
   AffineMatrix matrix;
   MatrixEvent historical;
@@ -715,6 +728,7 @@ int main(int argc, char **argv) {
     return write_resume_proof(argv[2], argv[3]);
   if (argc == 4 && std::strcmp(argv[1], "--removed-proof") == 0)
     return write_removed_proof(argv[2], argv[3]);
+  invalid_request_reports_failure_stage();
   complete_plan_accounts_and_retains_only_reason();
   historical_event_requires_explicit_authentication_mode();
   retained_source_authentication_preserves_work();

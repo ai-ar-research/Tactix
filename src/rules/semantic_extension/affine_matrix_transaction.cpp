@@ -488,12 +488,21 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     AffineMatrixTransaction &output,
     const AffineMatrixProofCache *proof_cache, uint64_t proof_epoch,
     const PbpParityReasonPlan *pbp_plan, bool retain_source_identity,
-    bool aggregate_retained_authentication, bool historical_event) {
+    bool aggregate_retained_authentication, bool historical_event,
+    MatrixTransactionFailureStage *failure_stage) {
+  if (failure_stage) *failure_stage = MatrixTransactionFailureStage::None;
+  const auto failed = [&](MatrixTransactionStatus status,
+                          MatrixTransactionFailureStage stage) {
+    if (failure_stage && status == MatrixTransactionStatus::Invalid)
+      *failure_stage = stage;
+    return status;
+  };
   if (!expected_owner_identity || !charge || !limits.maximum_work ||
       !limits.maximum_proof_additions || !limits.maximum_proof_deletions ||
       !limits.maximum_helper_extent ||
       starting_external_extent > static_cast<uint32_t>(INT32_MAX))
-    return MatrixTransactionStatus::Invalid;
+    return failed(MatrixTransactionStatus::Invalid,
+                  MatrixTransactionFailureStage::Request);
   if (matrix.owner_identity() != expected_owner_identity)
     return MatrixTransactionStatus::Stale;
 
@@ -624,7 +633,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
                                 : MatrixTransactionStatus::ResourceExhausted;
       for (External variable : input.variables)
         if (variable <= 0 || variable > static_cast<External>(starting_external_extent))
-          return MatrixTransactionStatus::Invalid;
+          return failed(MatrixTransactionStatus::Invalid,
+                        MatrixTransactionFailureStage::CoordinateFrame);
       variables.insert(variables.end(), input.variables.begin(),
                        input.variables.end());
     }
@@ -634,7 +644,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
                   variables.end());
   if (variables.empty() || variables.size() > INT32_MAX ||
       variables.back() > static_cast<External>(starting_external_extent))
-    return MatrixTransactionStatus::Invalid;
+    return failed(MatrixTransactionStatus::Invalid,
+                  MatrixTransactionFailureStage::CoordinateFrame);
 
   equations.reserve(event.row.source_equations.size());
   for (size_t source : event.row.source_equations) {
@@ -647,7 +658,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
           std::lower_bound(variables.begin(), variables.end(),
                            input.variables[i]);
       if (found == variables.end() || *found != input.variables[i])
-        return MatrixTransactionStatus::Invalid;
+        return failed(MatrixTransactionStatus::Invalid,
+                      MatrixTransactionFailureStage::DenseMapping);
       dense.variables[i] = static_cast<External>(found - variables.begin() + 1);
     }
     equations.push_back(dense);
@@ -657,7 +669,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   dense_reason.reserve(event.reason.size());
   for (External literal : event.reason) {
     if (!literal || literal == INT32_MIN)
-      return MatrixTransactionStatus::Invalid;
+      return failed(MatrixTransactionStatus::Invalid,
+                    MatrixTransactionFailureStage::DenseMapping);
     const External variable = literal < 0 ? -literal : literal;
     const auto found = std::lower_bound(variables.begin(), variables.end(),
                                         variable);
@@ -693,7 +706,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
   candidate.arena_words_ = arena_words;
   candidate.reason_ = event.reason;
   if (!retain_source_identity)
-    return MatrixTransactionStatus::Invalid;
+    return failed(MatrixTransactionStatus::Invalid,
+                  MatrixTransactionFailureStage::Request);
   if (proof_cache) {
     candidate.cache_generation_ = proof_cache->generation();
     candidate.cache_entry_.proof_epoch = proof_epoch;
@@ -711,10 +725,12 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
                             limits.maximum_proof_additions,
                             limits.maximum_proof_deletions};
       if (!planning.add_external(event.reason, false))
-        return failure(work, planning);
+        return failed(failure(work, planning),
+                      MatrixTransactionFailureStage::CertificatePlanning);
       if (!planning.mark_install(event.reason) ||
           !planning.only_active(event.reason))
-        return MatrixTransactionStatus::Invalid;
+        return failed(MatrixTransactionStatus::Invalid,
+                      MatrixTransactionFailureStage::CachePopulation);
       candidate.ready_ = true;
       candidate.additions_ = planning.additions;
       candidate.deletions_ = planning.deletions;
@@ -940,16 +956,22 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       sink, static_cast<uint32_t>(variables.size()), UINT32_MAX,
       [&](uint64_t amount) { return work.consume(amount); });
   if (!certificate.accumulate(equations))
-    return failure(work, planning);
+    return failed(failure(work, planning),
+                  MatrixTransactionFailureStage::CertificatePlanning);
   parity_certificate::ActiveTree active_tree;
   if (proof_cache && !event.reason.empty())
     certificate.active_tree(active_tree);
   if (event.reason.empty()) {
-    if (!certificate.refuted()) return MatrixTransactionStatus::Invalid;
+    if (!certificate.refuted())
+      return failed(MatrixTransactionStatus::Invalid,
+                    MatrixTransactionFailureStage::CertificateSemantics);
   } else if (!certificate.export_reason(dense_reason)) {
-    return failure(work, planning);
+    return failed(failure(work, planning),
+                  MatrixTransactionFailureStage::CertificatePlanning);
   }
-  if (!planning.mark_install(event.reason)) return failure(work, planning);
+  if (!planning.mark_install(event.reason))
+    return failed(failure(work, planning),
+                  MatrixTransactionFailureStage::CertificatePlanning);
 
   std::vector<uint64_t> support_ids;
   if (proof_cache && !event.reason.empty())
@@ -958,7 +980,8 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       tree_support_available(active_tree, sink, planning, support_ids);
   if (retain_cache) {
     if (planning.active_size() != support_ids.size() + 1)
-      return MatrixTransactionStatus::Invalid;
+      return failed(MatrixTransactionStatus::Invalid,
+                    MatrixTransactionFailureStage::CachePopulation);
     const uint64_t cache_extent =
         uint64_t{starting_external_extent} + sink.helpers();
     if (cache_extent > static_cast<uint32_t>(INT32_MAX))
@@ -975,9 +998,12 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     candidate.cache_entry_.coordinates = variables;
     candidate.cache_entry_.tree = std::move(active_tree);
   } else if (!event.reason.empty()) {
-    if (!certificate.retire_helpers()) return failure(work, planning);
+    if (!certificate.retire_helpers())
+      return failed(failure(work, planning),
+                    MatrixTransactionFailureStage::CertificatePlanning);
     if (!planning.only_active(event.reason))
-      return MatrixTransactionStatus::Invalid;
+      return failed(MatrixTransactionStatus::Invalid,
+                    MatrixTransactionFailureStage::ProofPopulation);
   }
   candidate.ready_ = true;
   candidate.additions_ = planning.additions;

@@ -665,6 +665,7 @@ int main(int argc, char **argv) {
         {"last_service_status", affine.last_service_status},
         {"last_terminal_status", affine.last_terminal_status},
         {"last_terminal_audit_stage", affine.last_terminal_audit_stage},
+        {"last_terminal_transaction_stage", affine.last_terminal_transaction_stage},
         {"paused_basis_rank", affine.paused_basis_rank},
         {"paused_support_variables", affine.paused_support_variables},
         {"last_survival_action", affine.last_survival_action},
@@ -756,6 +757,10 @@ int main(int argc, char **argv) {
                "6:authentication-or-sources,7:source-identity,8:reason-order,9:pbp-plan,"
                "10:matrix-authentication,11:selected-sources,12:resume-sources,"
                "13:transaction-plan\n");
+        printf("c affine-transaction failure-stage-codes=0:none,1:request,"
+               "2:coordinate-frame,3:dense-mapping,4:cache-population,"
+               "5:certificate-planning,6:certificate-semantics,"
+               "7:proof-population\n");
         for (const auto &[name, value] : affine_tail)
           printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
       }
