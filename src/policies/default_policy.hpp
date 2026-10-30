@@ -78,6 +78,7 @@ struct DefaultAffineSearchDiagnostics {
   uint64_t last_service_status = 0, last_terminal_status = 0;
   uint64_t last_terminal_audit_stage = 0;
   uint64_t last_terminal_transaction_stage = 0;
+  uint64_t last_terminal_synchronization_stage = 0;
   uint64_t usefulness_disabled = 0;
   uint64_t reasons_published = 0, implications_consumed = 0;
   uint64_t reasons_deferred = 0, reasons_materialized = 0;

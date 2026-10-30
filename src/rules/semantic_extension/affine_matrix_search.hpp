@@ -88,6 +88,9 @@ struct AffineMatrixServiceResult {
   uint64_t synchronization_conditioned = 0;
   affine_semantic_extension::MatrixSynchronizationKind synchronization_kind =
       affine_semantic_extension::MatrixSynchronizationKind::Extension;
+  affine_semantic_extension::MatrixSynchronizationFailureStage
+      synchronization_failure_stage =
+          affine_semantic_extension::MatrixSynchronizationFailureStage::None;
   uint64_t session_work = 0;
   uint64_t reason_width = 0;
   uint64_t lifecycle_work = 0;

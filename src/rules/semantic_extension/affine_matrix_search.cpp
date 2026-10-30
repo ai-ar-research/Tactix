@@ -2085,6 +2085,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     }
     result.synchronization_nanos += clock_nanos() - synchronization_started;
   }
+  result.synchronization_failure_stage =
+      session.matrix_.last_synchronization_failure_stage();
   if(result.slice_pending) {
     result.status=AffineMatrixServiceStatus::Pending;
     record_service(kernel,result);return result;

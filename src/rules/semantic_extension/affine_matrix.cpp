@@ -1148,12 +1148,17 @@ MatrixStatus AffineMatrix::synchronize_simplex(
     const std::function<bool(uint64_t)> &charge,MatrixEvent &event,
     const MatrixIncrementalLimits &incremental,bool defer_exact_reason) {
   const size_t missing=std::numeric_limits<size_t>::max();
+  const auto invalid=[&](MatrixSynchronizationFailureStage stage){
+    last_synchronization_failure_stage_=stage;return MatrixStatus::Invalid;
+  };
   External previous=0;
   for(const MatrixAssignment assignment:trail){
-    if(assignment.variable<=previous)return MatrixStatus::Invalid;
+    if(assignment.variable<=previous)
+      return invalid(MatrixSynchronizationFailureStage::TrailOrder);
     previous=assignment.variable;
     if(!std::binary_search(admitted_variables_.begin(),admitted_variables_.end(),
-                           assignment.variable))return MatrixStatus::Invalid;
+                           assignment.variable))
+      return invalid(MatrixSynchronizationFailureStage::TrailSupport);
   }
   bool extension=trail.size()>=trail_.size();
   size_t old=0;
@@ -1174,7 +1179,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
       const auto found=std::lower_bound(admitted_variables_.begin(),
           admitted_variables_.end(),assignment.variable);
       if(found==admitted_variables_.end()||*found!=assignment.variable)
-        return MatrixStatus::Invalid;
+        return invalid(MatrixSynchronizationFailureStage::TrailSupport);
       added.emplace_back(found-admitted_variables_.begin(),assignment.value);
     }
   }
@@ -1221,7 +1226,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   if(!charge(uint64_t(worst)))return MatrixStatus::Interrupted;
   if(fresh){
     if(!prepare_simplex(incremental.maximum_index_bytes-index_reservation_,candidate))
-      return MatrixStatus::Invalid;
+      return invalid(MatrixSynchronizationFailureStage::SimplexPreparation);
     simplex_=std::move(candidate);index_={};index_ready_=false;
     dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
     dirty_row_marks_={};dirty_row_ids_={};dirty_row_epoch_=0;
@@ -1255,7 +1260,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
       const auto found=std::lower_bound(admitted_variables_.begin(),
           admitted_variables_.end(),assignment.variable);
       if(found==admitted_variables_.end()||*found!=assignment.variable)
-        return MatrixStatus::Invalid;
+        return invalid(MatrixSynchronizationFailureStage::TrailSupport);
       simplex_.values[found-admitted_variables_.begin()]=assignment.value?2:1;
     }
     std::fill(simplex_.slot_unset.begin(),simplex_.slot_unset.end(),0);
@@ -1264,7 +1269,8 @@ MatrixStatus AffineMatrix::synchronize_simplex(
       refresh_slot(slot);
   }else{
     for(const auto &[coordinate,value]:added){
-      if(simplex_.values[coordinate])return MatrixStatus::Invalid;
+      if(simplex_.values[coordinate])
+        return invalid(MatrixSynchronizationFailureStage::CachedAssignment);
       simplex_.values[coordinate]=value?2:1;
       const size_t slot=simplex_.variable_to_slot[coordinate];
       if(slot!=missing)refresh_slot(slot);
@@ -1531,11 +1537,18 @@ MatrixStatus AffineMatrix::synchronize(
     bool sorted_set_extension, const MatrixIncrementalLimits *incremental_limits,
     bool exact_core_reason,bool defer_exact_reason) {
   last_synchronization_work_exhausted_ = false;
+  last_synchronization_failure_stage_ =
+      MatrixSynchronizationFailureStage::None;
+  const auto invalid=[&](MatrixSynchronizationFailureStage stage){
+    last_synchronization_failure_stage_=stage;return MatrixStatus::Invalid;
+  };
   continuation_ = {};
-  if (!owner_identity_ || !charge) return MatrixStatus::Invalid;
+  if (!owner_identity_ || !charge)
+    return invalid(MatrixSynchronizationFailureStage::Request);
   if (trail.size() > limits_.maximum_assignments)
     return MatrixStatus::Exhausted;
-  if (incremental_limits && !sorted_set_extension) return MatrixStatus::Invalid;
+  if (incremental_limits && !sorted_set_extension)
+    return invalid(MatrixSynchronizationFailureStage::Request);
   if (incremental_limits && (!incremental_limits->maximum_index_bytes ||
       index_reservation_ > incremental_limits->maximum_index_bytes)) return MatrixStatus::Exhausted;
   if (incremental_limits && exact_core_reason)
@@ -1561,7 +1574,8 @@ MatrixStatus AffineMatrix::synchronize(
       return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
     External previous = 0;
     for (const auto assignment : trail) {
-      if (assignment.variable <= previous) return MatrixStatus::Invalid;
+      if (assignment.variable <= previous)
+        return invalid(MatrixSynchronizationFailureStage::TrailOrder);
       previous = assignment.variable;
     }
     monotone_set = true;
@@ -1582,7 +1596,8 @@ MatrixStatus AffineMatrix::synchronize(
   // its deterministic event. Avoid re-reducing it at every Boolean fixpoint.
   if (incremental_ready_ && trail == trail_ && !incremental_limits) {
     MatrixEvent candidate = index_ready_ ? indexed_event() : find_event(rows_);
-    if(!finish_reason(candidate))return MatrixStatus::Invalid;
+    if(!finish_reason(candidate))
+      return invalid(MatrixSynchronizationFailureStage::DeferredReason);
     last_dirty_update_ = false; last_dirty_rows_ = 0;
     last_synchronization_incremental_ = true;
     last_synchronization_restored_predecessor_ = false;
@@ -1648,7 +1663,8 @@ MatrixStatus AffineMatrix::synchronize(
         __uint128_t support=0;
         for(size_t source:selected.source_equations) {
           if(!work.consume(1))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-          if(source>=sources_.size())return MatrixStatus::Invalid;
+          if(source>=sources_.size())
+            return invalid(MatrixSynchronizationFailureStage::SourceIdentity);
           support+=sources_[source].variables.size();
         }
         const __uint128_t reason_work=(support+trail.size()+1)*(2*std::bit_width(uint64_t(limits_.maximum_variables))+3);
@@ -1658,10 +1674,12 @@ MatrixStatus AffineMatrix::synchronize(
         if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
         candidate.row=selected;
         if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-        if(!finish_reason(candidate))return MatrixStatus::Invalid;
+        if(!finish_reason(candidate))
+          return invalid(MatrixSynchronizationFailureStage::DeferredReason);
       }
     } else {candidate=find_event(predecessor_rows_);
-      if(!finish_reason(candidate))return MatrixStatus::Invalid;}
+      if(!finish_reason(candidate))
+        return invalid(MatrixSynchronizationFailureStage::DeferredReason);}
     trail_ = std::move(predecessor_trail_);
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
@@ -1722,7 +1740,8 @@ MatrixStatus AffineMatrix::synchronize(
     assignments.assign(trail.begin() + trail_.size(), trail.end());
   else
     assignments = trail;
-  if (incremental_limits && !sorted_set_extension) return MatrixStatus::Invalid;
+  if (incremental_limits && !sorted_set_extension)
+    return invalid(MatrixSynchronizationFailureStage::Request);
   if (incremental_limits && incremental && index_ready_) {
     uint64_t dirty_work = 0;
     const auto status = synchronize_dirty(assignments, trail, charge,
@@ -1784,7 +1803,8 @@ MatrixStatus AffineMatrix::synchronize(
       __uint128_t support=0;
       for(size_t source:selected.source_equations) {
         if(!work.consume(1))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-        if(source>=sources_.size())return MatrixStatus::Invalid;
+        if(source>=sources_.size())
+          return invalid(MatrixSynchronizationFailureStage::SourceIdentity);
         support+=sources_[source].variables.size();
       }
       const __uint128_t reason_work=(support+trail.size()+1)*(2*std::bit_width(uint64_t(limits_.maximum_variables))+3);
@@ -1794,10 +1814,12 @@ MatrixStatus AffineMatrix::synchronize(
       if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
       candidate.row=selected;
       if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-      if(!finish_reason(candidate))return MatrixStatus::Invalid;
+      if(!finish_reason(candidate))
+        return invalid(MatrixSynchronizationFailureStage::DeferredReason);
     }
   } else {candidate=find_event(rows);
-    if(!finish_reason(candidate))return MatrixStatus::Invalid;}
+    if(!finish_reason(candidate))
+      return invalid(MatrixSynchronizationFailureStage::DeferredReason);}
   // Current and predecessor share the existing mutable row/trail population
   // allowances. Full matrices simply keep the established rebuild behavior.
   if (incremental && !incremental_limits && status == MatrixStatus::Complete &&
@@ -1858,6 +1880,8 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     const MatrixSliceLimits &slice, bool exact_core_reason,
     bool defer_exact_reason) {
   slice_effort_ = {};
+  last_synchronization_failure_stage_ =
+      MatrixSynchronizationFailureStage::None;
   slice_effort_.cumulative_work = continuation_.cumulative_work;
   struct Accounting {
     uint64_t &total; MatrixSliceEffort &effort; Continuation &state;
@@ -1869,8 +1893,11 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     }
   } accounting{work_,slice_effort_,continuation_};
   if (!owner_identity_ || !charge || !slice.maximum_work || !slice.maximum_bytes ||
-      slice.maximum_work > limits_.maximum_work)
+      slice.maximum_work > limits_.maximum_work) {
+    last_synchronization_failure_stage_ =
+        MatrixSynchronizationFailureStage::Request;
     return MatrixStatus::Invalid;
+  }
   if (trail.size() > limits_.maximum_assignments) return MatrixStatus::Exhausted;
   // The sliced engine owns a different continuation representation. Return to
   // the canonical admitted basis before entering it so it cannot observe the

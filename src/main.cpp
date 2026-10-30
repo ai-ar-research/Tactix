@@ -666,6 +666,7 @@ int main(int argc, char **argv) {
         {"last_terminal_status", affine.last_terminal_status},
         {"last_terminal_audit_stage", affine.last_terminal_audit_stage},
         {"last_terminal_transaction_stage", affine.last_terminal_transaction_stage},
+        {"last_terminal_synchronization_stage", affine.last_terminal_synchronization_stage},
         {"paused_basis_rank", affine.paused_basis_rank},
         {"paused_support_variables", affine.paused_support_variables},
         {"last_survival_action", affine.last_survival_action},
@@ -761,6 +762,9 @@ int main(int argc, char **argv) {
                "2:coordinate-frame,3:dense-mapping,4:cache-population,"
                "5:certificate-planning,6:certificate-semantics,"
                "7:proof-population\n");
+        printf("c affine-synchronization failure-stage-codes=0:none,1:request,"
+               "2:trail-order,3:trail-support,4:simplex-preparation,"
+               "5:cached-assignment,6:deferred-reason,7:source-identity\n");
         for (const auto &[name, value] : affine_tail)
           printf("c affine-search %s=%llu\n", name, (unsigned long long)value);
       }

@@ -91,6 +91,19 @@ enum class MatrixSynchronizationKind : uint8_t {
   PriorPartial,
 };
 
+// Bounded diagnostic class for an Invalid synchronization result.  This is
+// append-only telemetry: it never changes admission, work, or publication.
+enum class MatrixSynchronizationFailureStage : uint8_t {
+  None = 0,
+  Request = 1,
+  TrailOrder = 2,
+  TrailSupport = 3,
+  SimplexPreparation = 4,
+  CachedAssignment = 5,
+  DeferredReason = 6,
+  SourceIdentity = 7,
+};
+
 class AffineMatrix {
 public:
   // Recondition the immutable authenticated source equations on an exact
@@ -119,6 +132,9 @@ public:
   bool continuation_pending() const { return continuation_.active; }
   bool last_synchronization_work_exhausted() const {
     return last_synchronization_work_exhausted_;
+  }
+  MatrixSynchronizationFailureStage last_synchronization_failure_stage() const {
+    return last_synchronization_failure_stage_;
   }
   void cancel_continuation() { continuation_ = {}; }
 
@@ -355,6 +371,8 @@ private:
   std::vector<MatrixRow> predecessor_rows_;
   bool last_synchronization_incremental_ = false;
   bool last_synchronization_work_exhausted_ = false;
+  MatrixSynchronizationFailureStage last_synchronization_failure_stage_ =
+      MatrixSynchronizationFailureStage::None;
   bool last_synchronization_restored_predecessor_ = false;
   size_t last_synchronization_prefix_ = 0;
   size_t last_synchronization_conditioned_ = 0;
