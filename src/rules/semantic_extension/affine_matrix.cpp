@@ -742,7 +742,8 @@ bool AffineMatrix::prepare_simplex(uint64_t maximum,
 MatrixEvent AffineMatrix::simplex_event(bool exact_core_reason) const {
   const size_t missing=std::numeric_limits<size_t>::max();
   MatrixEvent result;
-  size_t selected=missing,paired=missing;
+  size_t selected=missing,paired=missing,direct_conflict=missing;
+  size_t derived_conflict=missing,derived_pair=missing;
   External implied=std::numeric_limits<External>::max();
   bool implied_value=false;
   const auto assigned=[&](size_t coordinate){return simplex_.values[coordinate]!=0;};
@@ -765,29 +766,35 @@ MatrixEvent AffineMatrix::simplex_event(bool exact_core_reason) const {
       }
     }
   };
+  std::fill(simplex_.implication_rows.begin(),simplex_.implication_rows.end(),missing);
   for(size_t row=0;row<simplex_.rhs.size();++row){
     size_t unset=0,coordinate=missing;bool residual=false;
     evaluate(row,unset,coordinate,residual);
-    if(!unset&&residual){selected=row;result.kind=MatrixEventKind::Conflict;break;}
-  }
-  if(result.kind==MatrixEventKind::None){
-    std::fill(simplex_.implication_rows.begin(),simplex_.implication_rows.end(),missing);
-    for(size_t row=0;row<simplex_.rhs.size();++row){
-      size_t unset=0,coordinate=missing;bool residual=false;
-      evaluate(row,unset,coordinate,residual);
-      if(unset!=1)continue;
-      if(coordinate==missing||coordinate>=simplex_.implication_rows.size())std::abort();
-      const size_t prior=simplex_.implication_rows[coordinate];
-      if(prior!=missing&&simplex_.implication_values[coordinate]!=residual){
-        selected=prior;paired=row;result.kind=MatrixEventKind::Conflict;break;
-      }
-      if(prior==missing){
-        simplex_.implication_rows[coordinate]=row;
-        simplex_.implication_values[coordinate]=residual;
-      }
-      const External variable=admitted_variables_[coordinate];
-      if(variable<implied){selected=row;implied=variable;implied_value=residual;}
+    if(!unset&&residual){
+      if(direct_conflict==missing)direct_conflict=row;
+      continue;
     }
+    // Preserve the former two-pass priority exactly: the first direct
+    // conflict wins globally; otherwise the first contradictory singleton
+    // pair wins; otherwise select the smallest implied external variable.
+    if(unset!=1||derived_conflict!=missing)continue;
+    if(coordinate==missing||coordinate>=simplex_.implication_rows.size())std::abort();
+    const size_t prior=simplex_.implication_rows[coordinate];
+    if(prior!=missing&&simplex_.implication_values[coordinate]!=residual){
+      derived_conflict=prior;derived_pair=row;continue;
+    }
+    if(prior==missing){
+      simplex_.implication_rows[coordinate]=row;
+      simplex_.implication_values[coordinate]=residual;
+    }
+    const External variable=admitted_variables_[coordinate];
+    if(variable<implied){selected=row;implied=variable;implied_value=residual;}
+  }
+  if(direct_conflict!=missing){
+    selected=direct_conflict;result.kind=MatrixEventKind::Conflict;
+  }else if(derived_conflict!=missing){
+    selected=derived_conflict;paired=derived_pair;
+    result.kind=MatrixEventKind::Conflict;
   }
   if(selected==missing)return result;
   if(result.kind==MatrixEventKind::None){
@@ -863,7 +870,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   const __uint128_t reason_work=
       (__uint128_t(source_support_bound_)+trail.size()+1)*comparisons;
   const __uint128_t event_work=1+admitted_variables_.size()+source_words+
-      __uint128_t(2)*row_count*(3+coefficient_words)+reason_work;
+      __uint128_t(row_count)*(3+coefficient_words)+reason_work;
   const __uint128_t exchange_work=
       __uint128_t(trail.size())*(2+coefficient_words)+
       __uint128_t(std::min(trail.size(),row_count))*row_count*
