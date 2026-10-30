@@ -189,8 +189,31 @@ ApplyResult affine_model_apply(Kernel &k) {
   for (Lit lit : explicit_coordinates)
     coords.push_back({index[var_of(lit)],negated(lit)});
   projected=coords.size();
-  if(projected>s.maximum_projection) { admission_failed=true; return finish("projection-limit"); }
   for(auto&e:equations)for(size_t&v:e.variables)v=index[v];
+  if(projected>s.maximum_projection) {
+    // The syndrome search is exponential in the projected boundary width, but
+    // Gaussian completion of one point in the recovered affine space is not.
+    // Preserve that distinction: decline the configured model search while
+    // still publishing a deterministic GF-consistent partial phase hint.  A
+    // later public LocalSearchGuidance action decides whether to install it.
+    // No SAT/UNSAT conclusion is drawn from this advisory completion.
+    admission_failed=true;
+    Projection hint;
+    const std::vector<Coordinate> no_coordinates;
+    const auto status = project(vars.size(), equations, no_coordinates,
+                                s.linear_bytes, meter, hint);
+    if (status == ProjectionStatus::Ready) {
+      std::vector<uint8_t> values(vars.size(), uint8_t(s.free_phase));
+      const Bits selected;
+      uint64_t used = 0;
+      if (reconstruct(hint, selected, values, meter, used)) {
+        guidance.assign(k.nvars, int8_t{0});
+        for (size_t i = 0; i < vars.size(); ++i)
+          guidance[vars[i]] = values[i] ? int8_t{1} : int8_t{-1};
+      }
+    }
+    return finish("projection-limit");
+  }
   Projection p;
   const auto ps=project(vars.size(),equations,coords,s.linear_bytes,meter,p);
   if(ps!=ProjectionStatus::Ready) {

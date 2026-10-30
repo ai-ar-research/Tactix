@@ -150,6 +150,35 @@ int main() {
     assert(hint.external_phases[k.internal_to_external[5]]==0);
     assert(hint.external_phases[k.internal_to_external[6]]==0);
   }
+  // A wide boundary declines exponential syndrome search but still offers one
+  // bounded Gaussian completion.  Installing it remains the separate public
+  // LocalSearchGuidance action; the model rule itself changes no assignment.
+  {
+    Kernel k=fixture();ScopedHeuristics owner(k);
+    auto parameters=k.affine_model_parameters;
+    parameters.maximum_projection=1;
+    install_rule_parameters(k,parameters);
+    assert(affine_model_apply(k)==ApplyResult::NoOp);
+    assert(k.trail.empty()&&k.stats.affine_model_projection>1);
+    const auto &hint=k.local_search_hints[
+        static_cast<size_t>(strategy::LocalSearchKind::Affine)];
+    assert(hint.available());
+    unsigned parity=0;
+    for(Var v=0;v<4;++v) {
+      const int8_t phase=hint.external_phases[k.internal_to_external[v]];
+      assert(phase);
+      parity^=phase>0;
+    }
+    assert(parity==1);
+    const auto &guidance=tactix_rules()[tactix_rule_id("LocalSearchGuidance")];
+    assert(guidance.apply_instance(
+        k,static_cast<uint64_t>(strategy::LocalSearchKind::Affine))==
+        ApplyResult::Ok);
+    for(Var v=0;v<4;++v)
+      assert(k.h->target[v]==
+             hint.external_phases[k.internal_to_external[v]]);
+    assert(k.stats.local_search_hints_applied==1);
+  }
   {
     Kernel k=fixture();ScopedHeuristics owner(k);volatile sig_atomic_t stop=1;k.stop=&stop;
     assert(affine_model_apply(k)==ApplyResult::NoOp&&k.trail.empty());

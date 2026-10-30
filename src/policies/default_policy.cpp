@@ -5074,6 +5074,31 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   startup = default_propagate(k, "post-preprocess", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20);
+  // The early affine constructor runs before structured preprocessing, while
+  // the complete XOR encoding is still visible.  Heuristics are deliberately
+  // attached later and preprocessing may retire internal variables, so defer
+  // only consumption of its external-ID phase hint to this first quiescent
+  // root boundary.  Keep the handoff as the public LocalSearchGuidance rule;
+  // it skips fixed/retired variables and changes no formula or assignment.
+  const auto &affine_hint = k.local_search_hints[
+      static_cast<size_t>(strategy::LocalSearchKind::Affine)];
+  if (config_.affine_model.enabled && affine_hint.available() &&
+      local_search_guidance_guard(k)) {
+    const uint64_t instance =
+        static_cast<uint64_t>(strategy::LocalSearchKind::Affine);
+    (void)port::complete_action(
+        completion_, FeedbackKind::Rule, "LocalSearchGuidance", instance,
+        [&] {
+          return execution::native_rule_feedback(
+              k, "LocalSearchGuidance", instance,
+              "native-affine-model-root-handoff");
+        },
+        [&] {
+          static const RuleVTable &guidance =
+              registered_rule("LocalSearchGuidance");
+          return port::apply_rule_instance(guidance, k, instance);
+        });
+  }
   // CryptoMiniSat's startup simplification finds XORs after variable
   // elimination ("occ-bve,occ-xor", solverconf.cpp simplify_schedule_startup).
   if(config_.affine_search.enabled) {
