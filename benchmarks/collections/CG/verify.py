@@ -49,6 +49,20 @@ def main():
                unsat[row["instance"]]["tier_d_id"] + 1
                for row in rows)
 
+    with (HERE / "mdp-unsat-selection.tsv").open(newline="") as stream:
+        mdp_rows = list(csv.DictReader(
+            (line for line in stream if line.strip() and not line.startswith("#")),
+            delimiter="\t"))
+    mdp = {instance: entry for instance, entry in unsat.items()
+           if entry["family"] == "mdp"}
+    assert len(mdp_rows) == len(mdp) == 3
+    assert {row["instance"] for row in mdp_rows} == set(mdp)
+    assert [int(row["coverage_rank"]) for row in mdp_rows] == [1, 2, 3]
+    assert all(row["verdict"] == "UNSAT" and
+               int(row["original_tierd_rank"]) ==
+               mdp[row["instance"]]["tier_d_id"] + 1
+               for row in mdp_rows)
+
     pins = manifest["pins"]
     for group in ("proof_free_campaign_manifests", "unsat_verification_campaign_manifests"):
         for campaign, expected in pins[group].items():
