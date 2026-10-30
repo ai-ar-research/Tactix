@@ -365,7 +365,7 @@ private:
   bool affine_usefulness_paused_ = false;
   bool configuration_checking_walk_ = false;
   bool complementary_ternary_walk_ = false;
-  bool uniform_negative_walk_ = false;
+  bool uniform_negative_search_ = false;
   bool configuration_checking_preprocessing_deferred_ = false;
   uint32_t complementary_ternary_permille_ = 0;
   uint64_t uniform_negative_clauses_ = 0;

@@ -4680,17 +4680,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   const auto uniform_negative = walk_uniform_negative_census(k);
   uniform_negative_clauses_ = uniform_negative.clauses;
   uniform_negative_unsatisfied_ = uniform_negative.unsatisfied;
-  uniform_negative_walk_ =
+  uniform_negative_search_ =
       uniform_negative_clauses_ >=
           config_.rephase.configuration_checking_minimum_clauses &&
       saturated_product(uniform_negative_unsatisfied_, PERMILLE_SCALE) <=
           saturated_product(
               uniform_negative_clauses_,
               config_.rephase.uniform_negative_maximum_unsatisfied_permille);
-  configuration_checking_walk_ =
-      complementary_ternary_walk_ || uniform_negative_walk_;
+  configuration_checking_walk_ = complementary_ternary_walk_;
   configuration_checking_preprocessing_deferred_ =
-      configuration_checking_walk_;
+      configuration_checking_walk_ || uniform_negative_search_;
   configuration_checking_walk_applications_ = 0;
   configuration_checking_preprocessing_release_conflicts_ = UINT64_MAX;
   configuration_checking_walk_next_conflicts_ = configuration_checking_walk_
@@ -5188,6 +5187,34 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           port::execute_action(k, execution::ResidualImportRequest{residual_import_order});
           return ApplyResult::Ok;
         });
+  if (uniform_negative_search_) {
+    // A near-uniform negative candidate does not justify perturbing it with a
+    // local-search trajectory. Pose the existing public phase and ranking
+    // operations directly, preserving the candidate while BCP repairs its
+    // sparse defects during ordinary CDCL search.
+    (void)port::complete_action(
+        completion_, FeedbackKind::Rule, "Rephase", REPHASE_INVERTED,
+        [&] { return execution::native_rule_feedback(
+            k, "Rephase", REPHASE_INVERTED,
+            "structural-uniform-negative-search"); }, [&] {
+          return port::execute_action(
+              k, execution::RephaseRequest{REPHASE_INVERTED});
+        });
+    if (force_mode_ != 1 && !k.h->stable) {
+      (void)port::complete_action(
+          completion_, FeedbackKind::Rule, "SwitchMode", INSTANCE_CANONICAL,
+          [&] { return execution::native_rule_feedback(
+              k, "SwitchMode", INSTANCE_CANONICAL,
+              "structural-uniform-negative-search"); }, [&] {
+            static const RuleVTable &switch_mode =
+                registered_rule("SwitchMode");
+            return port::apply_rule(switch_mode, k);
+          });
+      mode.count = 1;
+      averages[1].saved_decisions = k.stats.decisions;
+      reluctant = {};
+    }
+  }
   event_trace.macro(k, "preprocess_begin");
   // Kissat preprocess.c initially propagates, then consumes those root units
   // by sparse-collecting the whole large-clause arena before the first Probe
@@ -5676,8 +5703,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "reduce_end");
       continue;
     }
-    const bool pin_mode =
-        force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
+    // A structurally selected uniform phase owns one uninterrupted EVSIDS
+    // trajectory, unless an explicit focused-mode diagnostic overrides it.
+    const bool pin_mode = force_mode_ == 1 ||
+        ((force_mode_ == 2 || uniform_negative_search_) && k.h->stable);
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       event_trace.macro(k, "switch_begin");
       feedback.end_interval(StopReason::StrategyChange);
