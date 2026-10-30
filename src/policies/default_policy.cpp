@@ -1071,10 +1071,6 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !rephase.configuration_checking_conflict_interval ||
       !rephase.configuration_checking_minimum_clauses ||
       rephase.complementary_ternary_minimum_permille > PERMILLE_SCALE ||
-      rephase.uniform_negative_direct_maximum_unsatisfied_permille >
-          PERMILLE_SCALE ||
-      rephase.uniform_negative_maximum_unsatisfied_permille >
-          PERMILLE_SCALE ||
       !rephase.configuration_checking_maximum_tries ||
       !rephase.configuration_checking_flips_per_try ||
       !rephase.configuration_checking_weight_threshold ||
@@ -1386,10 +1382,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << rephase.configuration_checking_minimum_clauses
       << " rephase.complementary_ternary_minimum_permille="
       << rephase.complementary_ternary_minimum_permille
-      << " rephase.uniform_negative_direct_maximum_unsatisfied_permille="
-      << rephase.uniform_negative_direct_maximum_unsatisfied_permille
-      << " rephase.uniform_negative_maximum_unsatisfied_permille="
-      << rephase.uniform_negative_maximum_unsatisfied_permille
       << " rephase.configuration_checking_maximum_tries="
       << rephase.configuration_checking_maximum_tries
       << " rephase.configuration_checking_random_seed="
@@ -2225,11 +2217,7 @@ ApplyResult DefaultPolicy::run_configuration_checking_walk(
         auto spec = execution::native_rule_feedback(
             k, "Walk", INSTANCE_CANONICAL,
             description + ";complementary-ternary-permille=" +
-                std::to_string(complementary_ternary_permille_) +
-                ";uniform-negative-unsatisfied=" +
-                std::to_string(uniform_negative_unsatisfied_) +
-                ";uniform-negative-clauses=" +
-                std::to_string(uniform_negative_clauses_),
+                std::to_string(complementary_ternary_permille_),
             [](const Kernel &kernel) { return kernel.stats.walk_steps; },
             "walk-steps", strategy::WorkLimit::bounded(allowance));
         spec.description.invocation->parameters = selected;
@@ -4698,8 +4686,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   solves++;
   // Preserve the input's structural classification across preprocessing: the
   // very simplifications that expose an easier residual can retire one member
-  // of a complementary pair or destroy the near-uniform phase distance.
-  // Scheduling is formula-derived, not name-derived.
+  // of a complementary pair. Scheduling is formula-derived, not name-derived.
   complementary_ternary_permille_ =
       walk_complementary_ternary_fraction_permille(k);
   complementary_ternary_walk_ =
@@ -4707,29 +4694,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           config_.rephase.configuration_checking_minimum_clauses &&
       complementary_ternary_permille_ >=
           config_.rephase.complementary_ternary_minimum_permille;
-  const auto uniform_negative = walk_uniform_negative_census(k);
-  uniform_negative_clauses_ = uniform_negative.clauses;
-  uniform_negative_unsatisfied_ = uniform_negative.unsatisfied;
-  uniform_negative_search_ =
-      uniform_negative_clauses_ >=
-          config_.rephase.configuration_checking_minimum_clauses &&
-      saturated_product(uniform_negative_unsatisfied_, PERMILLE_SCALE) <=
-          saturated_product(
-              uniform_negative_clauses_,
-              config_.rephase
-                  .uniform_negative_direct_maximum_unsatisfied_permille);
-  uniform_negative_walk_ =
-      !uniform_negative_search_ &&
-      uniform_negative_clauses_ >=
-          config_.rephase.configuration_checking_minimum_clauses &&
-      saturated_product(uniform_negative_unsatisfied_, PERMILLE_SCALE) <=
-          saturated_product(
-              uniform_negative_clauses_,
-              config_.rephase.uniform_negative_maximum_unsatisfied_permille);
-  configuration_checking_walk_ =
-      complementary_ternary_walk_ || uniform_negative_walk_;
+  configuration_checking_walk_ = complementary_ternary_walk_;
   configuration_checking_preprocessing_deferred_ =
-      configuration_checking_walk_ || uniform_negative_search_;
+      configuration_checking_walk_;
   configuration_checking_walk_applications_ = 0;
   configuration_checking_preprocessing_release_conflicts_ = UINT64_MAX;
   configuration_checking_walk_next_conflicts_ = configuration_checking_walk_
@@ -5227,34 +5194,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           port::execute_action(k, execution::ResidualImportRequest{residual_import_order});
           return ApplyResult::Ok;
         });
-  if (uniform_negative_search_ && !configuration_checking_walk_) {
-    // A near-uniform negative candidate does not justify perturbing it with a
-    // local-search trajectory. Pose the existing public phase and ranking
-    // operations directly, preserving the candidate while BCP repairs its
-    // sparse defects during ordinary CDCL search.
-    (void)port::complete_action(
-        completion_, FeedbackKind::Rule, "Rephase", REPHASE_INVERTED,
-        [&] { return execution::native_rule_feedback(
-            k, "Rephase", REPHASE_INVERTED,
-            "structural-uniform-negative-search"); }, [&] {
-          return port::execute_action(
-              k, execution::RephaseRequest{REPHASE_INVERTED});
-        });
-    if (force_mode_ != 1 && !k.h->stable) {
-      (void)port::complete_action(
-          completion_, FeedbackKind::Rule, "SwitchMode", INSTANCE_CANONICAL,
-          [&] { return execution::native_rule_feedback(
-              k, "SwitchMode", INSTANCE_CANONICAL,
-              "structural-uniform-negative-search"); }, [&] {
-            static const RuleVTable &switch_mode =
-                registered_rule("SwitchMode");
-            return port::apply_rule(switch_mode, k);
-          });
-      mode.count = 1;
-      averages[1].saved_decisions = k.stats.decisions;
-      reluctant = {};
-    }
-  }
   event_trace.macro(k, "preprocess_begin");
   // Kissat preprocess.c initially propagates, then consumes those root units
   // by sparse-collecting the whole large-clause arena before the first Probe
@@ -5743,10 +5682,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "reduce_end");
       continue;
     }
-    // A structurally selected uniform phase owns one uninterrupted EVSIDS
-    // trajectory, unless an explicit focused-mode diagnostic overrides it.
-    const bool pin_mode = force_mode_ == 1 ||
-        ((force_mode_ == 2 || uniform_negative_search_) && k.h->stable);
+    const bool pin_mode =
+        force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       event_trace.macro(k, "switch_begin");
       feedback.end_interval(StopReason::StrategyChange);
