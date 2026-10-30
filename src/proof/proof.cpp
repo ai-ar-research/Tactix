@@ -75,19 +75,23 @@ void put_pbp_literal(PbpTextWriter &text, int32_t literal) {
 
 } // namespace
 
+uint64_t PbpParityBoundsCache::empty_retained_bytes() noexcept {
+  return uint64_t{2} * sizeof(uint64_t) +
+         sizeof(std::map<PbpParityEquation, PbpParityBounds>);
+}
+
 uint64_t PbpParityBoundsCache::retained_bytes() const noexcept {
-  if (entries_.empty())
-    return 0;
-  uint64_t bytes = sizeof(*this);
+#ifndef NDEBUG
+  uint64_t bytes = entries_.empty() ? 0 : empty_retained_bytes();
   for (const auto &[equation, bounds] : entries_) {
     const uint64_t entry = sizeof(equation) + sizeof(bounds) +
         equation.variables.capacity() * sizeof(int32_t) +
         bounds.carries.capacity() * sizeof(int32_t);
-    if (entry > UINT64_MAX - bytes)
-      return UINT64_MAX;
-    bytes += entry;
+    bytes = entry > UINT64_MAX - bytes ? UINT64_MAX : bytes + entry;
   }
-  return bytes;
+  assert(bytes == retained_bytes_);
+#endif
+  return retained_bytes_;
 }
 
 CheckerRoute Proof::population_route() const noexcept {
@@ -1533,7 +1537,7 @@ bool Proof::plan_pbp_parity_reason(
   const bool matching_cache = cache.stream_identity_ == stream_identity_;
   uint64_t constraints = 3;
   uint64_t retained = matching_cache ? cache.retained_bytes()
-                                     : sizeof(PbpParityBoundsCache);
+                                     : cache.empty_retained_bytes();
   uint64_t helpers = 0;
   for (const PbpParityEquation &equation : equations) {
     if (equation.variables.size() < 2 || equation.variables.size() > 8 ||
@@ -1627,6 +1631,7 @@ bool Proof::add_prevalidated_pbp_parity_reason(
 
   if (cache.stream_identity_ != stream_identity_) {
     cache.entries_.clear();
+    cache.retained_bytes_ = 0;
     cache.generation_ = 0;
     cache.stream_identity_ = stream_identity_;
   }
@@ -1737,6 +1742,15 @@ bool Proof::add_prevalidated_pbp_parity_reason(
       bounds.lower = emit_bound(equation, bounds.carries, true);
       bounds.upper = emit_bound(equation, bounds.carries, false);
       found = cache.entries_.emplace(equation, std::move(bounds)).first;
+      uint64_t retained = cache.retained_bytes_;
+      if (!retained)
+        retained = cache.empty_retained_bytes();
+      const uint64_t entry = sizeof(found->first) + sizeof(found->second) +
+          found->first.variables.capacity() * sizeof(int32_t) +
+          found->second.carries.capacity() * sizeof(int32_t);
+      if (entry > UINT64_MAX - retained)
+        std::abort();
+      cache.retained_bytes_ = retained + entry;
       if (cache.generation_ == UINT64_MAX)
         std::abort();
       ++cache.generation_;

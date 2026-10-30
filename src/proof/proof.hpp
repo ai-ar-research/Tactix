@@ -74,9 +74,14 @@ public:
 
 private:
   friend class Proof;
+  static uint64_t empty_retained_bytes() noexcept;
   uint64_t stream_identity_ = 0;
   uint64_t generation_ = 0;
   std::map<PbpParityEquation, PbpParityBounds> entries_;
+  // Exact cached value of the historical retained_bytes() scan.  The logical
+  // base deliberately excludes this representation-only counter so existing
+  // resource boundaries and proof trajectories do not move.
+  uint64_t retained_bytes_ = 0;
 };
 
 struct PbpParityReasonPlan {
