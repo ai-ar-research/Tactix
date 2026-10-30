@@ -1819,30 +1819,8 @@ bool online_program_v9(const tactix_online_program_v9 &source,
         }
         selection.source_equations.push_back(std::move(equation));
       }
-      AffineBasisActionLimits limits;
-      limits.image = {parameters->maximum_clauses,
-                      parameters->maximum_groups,
-                      parameters->maximum_patterns,
-                      parameters->maximum_elimination_work,
-                      parameters->maximum_arity,
-                      parameters->maximum_intermediate_width,
-                      parameters->maximum_sources,
-                      parameters->maximum_output_width};
-      limits.basis = {parameters->basis_maximum_work,
-                      parameters->basis_maximum_intermediate_width,
-                      parameters->basis_maximum_sources,
-                      parameters->basis_maximum_premises,
-                      parameters->basis_maximum_nodes,
-                      parameters->basis_maximum_direct_width};
-      limits.maximum_snapshot_literals = parameters->maximum_snapshot_literals;
-      limits.maximum_snapshot_work = parameters->maximum_snapshot_work;
-      limits.maximum_proof_additions = parameters->maximum_proof_additions;
-      limits.maximum_proof_deletions = parameters->maximum_proof_deletions;
-      limits.maximum_journal_bytes = parameters->maximum_journal_bytes;
-      limits.maximum_external_extent = parameters->maximum_external_extent;
-      limits.maximum_session_keys = parameters->maximum_session_keys;
-      limits.maximum_session_work = parameters->maximum_session_work;
-      if (!affine_basis_row_selection_within_limits(selection, limits))
+      if (!affine_basis_row_selection_within_limits(
+              selection, strategy::action_limits(*parameters)))
         return false;
       output.push_back(std::move(selection));
     }

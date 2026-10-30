@@ -38,37 +38,6 @@ AffineLiveRequest request_from_kernel(Kernel &kernel, uint64_t action_id,
   return request;
 }
 
-AffineBasisActionLimits basis_limits_from_kernel(const Kernel &kernel) {
-  const auto &parameters = kernel.affine_consequence_parameters;
-  AffineBasisActionLimits limits;
-  limits.image.maximum_clauses = parameters.maximum_clauses;
-  limits.image.maximum_groups = parameters.maximum_groups;
-  limits.image.maximum_patterns = parameters.maximum_patterns;
-  limits.image.maximum_elimination_work =
-      parameters.maximum_elimination_work;
-  limits.image.maximum_arity = parameters.maximum_arity;
-  limits.image.maximum_intermediate_width =
-      parameters.maximum_intermediate_width;
-  limits.image.maximum_sources = parameters.maximum_sources;
-  limits.image.maximum_output_width = parameters.maximum_output_width;
-  limits.basis.maximum_work = parameters.basis_maximum_work;
-  limits.basis.maximum_intermediate_width =
-      parameters.basis_maximum_intermediate_width;
-  limits.basis.maximum_sources = parameters.basis_maximum_sources;
-  limits.basis.maximum_premises = parameters.basis_maximum_premises;
-  limits.basis.maximum_nodes = parameters.basis_maximum_nodes;
-  limits.basis.maximum_direct_width = parameters.basis_maximum_direct_width;
-  limits.maximum_snapshot_literals = parameters.maximum_snapshot_literals;
-  limits.maximum_snapshot_work = parameters.maximum_snapshot_work;
-  limits.maximum_proof_additions = parameters.maximum_proof_additions;
-  limits.maximum_proof_deletions = parameters.maximum_proof_deletions;
-  limits.maximum_journal_bytes = parameters.maximum_journal_bytes;
-  limits.maximum_external_extent = parameters.maximum_external_extent;
-  limits.maximum_session_keys = parameters.maximum_session_keys;
-  limits.maximum_session_work = parameters.maximum_session_work;
-  return limits;
-}
-
 AffineConsequenceActionStatus status(AffineLiveStatus value) {
   switch (value) {
   case AffineLiveStatus::Invalid:
@@ -333,7 +302,9 @@ AffineConsequenceActionResult affine_consequence_action_apply(
           output.basis.status = AffineBasisActionStatus::Inapplicable;
         } else {
           output.basis = affine_basis_action_apply(
-              kernel, session, basis_limits_from_kernel(kernel));
+              kernel, session,
+              action_parameters::action_limits(
+                  kernel.affine_consequence_parameters));
           output.status = status(output.basis.status);
           output.result = output.basis.result;
           output.proposed_action_id = output.basis.proposed_action_id;
@@ -362,7 +333,10 @@ AffineConsequenceActionResult affine_consequence_action_apply(
         output.basis.status = AffineBasisActionStatus::Inapplicable;
       } else {
         output.basis = affine_basis_action_apply(
-            kernel, session, basis_limits_from_kernel(kernel), selection);
+            kernel, session,
+            action_parameters::action_limits(
+                kernel.affine_consequence_parameters),
+            selection);
         output.status = status(output.basis.status);
         output.result = output.basis.result;
         output.proposed_action_id = output.basis.proposed_action_id;

@@ -3,6 +3,7 @@
 #include "diagnostics/rule_journal.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
+#include "strategy/theory_action_parameters.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -55,23 +56,10 @@ ApplyResult nary_csp_equality_amo_canonical_noop(Kernel &) {
   return ApplyResult::NoOp;
 }
 
-DirectPhpActionLimits direct_php_limits(const Kernel &kernel) {
-  const auto &p = kernel.direct_php_refutation_parameters;
-  return {{p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-           p.maximum_snapshot_work},
-          {p.maximum_recognition_clauses, p.maximum_recognition_literals,
-           p.maximum_recognition_work, p.maximum_row_candidates,
-           p.maximum_row_combinations, p.maximum_mapping_trials,
-           p.maximum_holes},
-          {p.maximum_proof_additions, p.maximum_proof_deletions,
-           p.maximum_proof_literals, p.maximum_fresh_variables,
-           p.maximum_proof_events},
-          p.maximum_replay_work};
-}
-
 ApplyResult direct_php_canonical_apply(Kernel &kernel) {
   if (!kernel.direct_php_action_session) return ApplyResult::NoOp;
-  const DirectPhpActionRequest request{1, 1, direct_php_limits(kernel)};
+  const DirectPhpActionRequest request{
+      1, 1, strategy::action_limits(kernel.direct_php_refutation_parameters)};
   const auto result = direct_php_action_apply(
       kernel, *kernel.direct_php_action_session, request);
   record_direct_php_action_feedback(kernel, result);
@@ -96,7 +84,9 @@ RuleEligibility direct_php_registry_guard(const Kernel &kernel) {
   return result
       .fact("session-bound", kernel.direct_php_action_session &&
                                  kernel.direct_php_action_session->belongs_to(kernel))
-      .fact("parameters-valid", direct_php_limits(kernel).valid());
+      .fact("parameters-valid",
+            strategy::action_limits(
+                kernel.direct_php_refutation_parameters).valid());
 }
 
 RuleEligibility gf3_gaussian_registry_guard(const Kernel &kernel) {

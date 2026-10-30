@@ -4,6 +4,17 @@
 
 namespace tactix {
 struct Kernel;
+struct AffineBasisActionLimits;
+struct DirectCspGuardedCoverActionLimits;
+struct DirectCspSupportActionLimits;
+struct DirectPhpActionLimits;
+struct Gf3AffineActionLimits;
+struct Gf3GaussianActionLimits;
+struct Gf3GeneralRowActionLimits;
+struct NaryCspEqualityAmoLimits;
+struct NaryCspEqualityLimits;
+struct NaryCspEqualityTransitivityLimits;
+struct TseitinCycleBreakingLimits;
 namespace strategy {
 
 enum class AffineConsequenceSemantics : uint8_t {
@@ -404,6 +415,25 @@ struct SemanticVariableAdviceParameters {
   bool valid() const { return true; }
   static SemanticVariableAdviceParameters from_kernel(const Kernel &);
 };
+
+// One ownership point for the typed public-parameter to native-action mapping.
+// These conversions are pure aggregate construction and perform no validation.
+AffineBasisActionLimits action_limits(const AffineConsequenceParameters &);
+Gf3AffineActionLimits action_limits(const Gf3AffineConsequenceParameters &);
+DirectCspGuardedCoverActionLimits
+action_limits(const DirectCspGuardedCoverParameters &);
+DirectCspSupportActionLimits action_limits(const DirectCspSupportParameters &);
+NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &);
+NaryCspEqualityAmoLimits action_limits(const NaryCspEqualityAmoParameters &);
+NaryCspEqualityTransitivityLimits
+action_limits(const NaryCspEqualityTransitivityParameters &);
+DirectPhpActionLimits action_limits(const DirectPhpRefutationParameters &);
+Gf3GaussianActionLimits
+action_limits(const Gf3GaussianConsequenceParameters &);
+Gf3GeneralRowActionLimits
+action_limits(const Gf3GeneralRowConsequenceParameters &);
+TseitinCycleBreakingLimits
+action_limits(const TseitinCycleBreakingParameters &);
 
 void install_rule_parameters(Kernel &, const AffineConsequenceParameters &);
 void install_rule_parameters(Kernel &, const AffineMatrixInitializeParameters &);

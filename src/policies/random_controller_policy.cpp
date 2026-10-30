@@ -1390,27 +1390,7 @@ bool RandomControllerSelector::choose(
     return out.str();
   };
   const auto affine_limits = [&] {
-    const auto &p = config.parameters.affine_consequence_reference;
-    AffineBasisActionLimits limits;
-    limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
-                    p.maximum_elimination_work, p.maximum_arity,
-                    p.maximum_intermediate_width, p.maximum_sources,
-                    p.maximum_output_width};
-    limits.basis = {p.basis_maximum_work,
-                    p.basis_maximum_intermediate_width,
-                    p.basis_maximum_sources,
-                    p.basis_maximum_premises,
-                    p.basis_maximum_nodes,
-                    p.basis_maximum_direct_width};
-    limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
-    limits.maximum_snapshot_work = p.maximum_snapshot_work;
-    limits.maximum_proof_additions = p.maximum_proof_additions;
-    limits.maximum_proof_deletions = p.maximum_proof_deletions;
-    limits.maximum_journal_bytes = p.maximum_journal_bytes;
-    limits.maximum_external_extent = p.maximum_external_extent;
-    limits.maximum_session_keys = p.maximum_session_keys;
-    limits.maximum_session_work = p.maximum_session_work;
-    return limits;
+    return action_limits(config.parameters.affine_consequence_reference);
   };
   const auto gf3_profile = [&] {
     OnlineInvocation invocation;
@@ -1461,16 +1441,8 @@ bool RandomControllerSelector::choose(
   };
 
   const auto nary_equality_limits = [&] {
-    const auto &p = config.parameters.nary_csp_equality_reference;
-    return NaryCspEqualityLimits{
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_recognition_work, p.maximum_domain_values,
-        p.maximum_forbidden_tuples, p.maximum_proof_work,
-        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes, p.maximum_extent_growth,
-        p.maximum_external_extent, p.maximum_session_keys};
+    return action_limits(config.parameters.nary_csp_equality_reference);
   };
-
   const auto nary_equality_amo_profile = [&] {
     OnlineInvocation invocation;
     invocation.rule = "NaryCspEqualityAmo";
@@ -1488,16 +1460,8 @@ bool RandomControllerSelector::choose(
   };
 
   const auto nary_equality_amo_limits = [&] {
-    const auto &p = config.parameters.nary_csp_equality_amo_reference;
-    return NaryCspEqualityAmoLimits{
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_recognition_work, p.maximum_domain_values,
-        p.maximum_forbidden_tuples, p.maximum_proof_work,
-        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes, p.maximum_external_extent,
-        p.maximum_session_keys};
+    return action_limits(config.parameters.nary_csp_equality_amo_reference);
   };
-
   const auto gaussian_profile = [&] {
     OnlineInvocation invocation;
     invocation.rule = "Gf3GaussianConsequence";
@@ -1509,30 +1473,8 @@ bool RandomControllerSelector::choose(
   };
 
   const auto gaussian_limits = [&] {
-    const auto &p = config.parameters.gf3_gaussian_consequence_reference;
-    return Gf3GaussianActionLimits{
-        {p.maximum_source_clauses, p.maximum_source_literals,
-         p.maximum_domains, p.maximum_equations,
-         p.maximum_equation_arity, p.maximum_tuples_per_equation},
-        {{p.maximum_bridge_work, p.maximum_bridge_source_clauses,
-          p.maximum_bridge_source_literals, p.maximum_bridge_domains,
-          p.maximum_bridge_equations, p.maximum_bridge_terms,
-          p.maximum_authentication_references,
-          p.maximum_references_per_equation,
-          {p.maximum_gaussian_work, p.maximum_fill_entries,
-           p.maximum_intermediate_width, p.maximum_provenance_terms,
-           p.maximum_derivations, p.maximum_retained_plan_bytes}},
-         p.maximum_certificate_work, p.maximum_events,
-         p.maximum_event_literals, p.maximum_active_clauses,
-         p.maximum_retained_source_references, p.maximum_event_width,
-         p.maximum_branch_domains, p.maximum_consequences},
-        p.maximum_capture_work, p.maximum_revalidation_work,
-        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes, p.maximum_identity_bytes,
-        p.maximum_external_extent, p.maximum_session_keys,
-        p.maximum_session_work, p.maximum_session_identity_bytes};
+    return action_limits(config.parameters.gf3_gaussian_consequence_reference);
   };
-
   const auto general_row_profile = [&] {
     OnlineInvocation invocation;
     invocation.rule = "Gf3GeneralRowConsequence";
@@ -1550,34 +1492,9 @@ bool RandomControllerSelector::choose(
   };
 
   const auto general_row_limits = [&] {
-    const auto &p = config.parameters.gf3_general_row_consequence_reference;
-    const auto &g = p.gaussian;
-    return Gf3GeneralRowActionLimits{
-        {{g.maximum_source_clauses, g.maximum_source_literals,
-          g.maximum_domains, g.maximum_equations,
-          g.maximum_equation_arity, g.maximum_tuples_per_equation},
-         {{g.maximum_bridge_work, g.maximum_bridge_source_clauses,
-           g.maximum_bridge_source_literals, g.maximum_bridge_domains,
-           g.maximum_bridge_equations, g.maximum_bridge_terms,
-           g.maximum_authentication_references,
-           g.maximum_references_per_equation,
-           {g.maximum_gaussian_work, g.maximum_fill_entries,
-            g.maximum_intermediate_width, g.maximum_provenance_terms,
-            g.maximum_derivations, g.maximum_retained_plan_bytes}},
-          g.maximum_certificate_work, g.maximum_events,
-          g.maximum_event_literals, g.maximum_active_clauses,
-          g.maximum_retained_source_references, p.maximum_row_tuples,
-          g.maximum_event_width, g.maximum_branch_domains,
-          p.maximum_row_width},
-         g.maximum_capture_work, p.maximum_duplicate_scan_work,
-         g.maximum_revalidation_work, g.maximum_proof_additions,
-         g.maximum_proof_literal_occurrences, p.maximum_arena_words,
-         g.maximum_journal_bytes, g.maximum_identity_bytes,
-         g.maximum_external_extent},
-        g.maximum_session_keys, g.maximum_session_work,
-        g.maximum_session_identity_bytes};
+    return action_limits(
+        config.parameters.gf3_general_row_consequence_reference);
   };
-
   const auto tseitin_profile = [&] {
     OnlineInvocation invocation;
     invocation.rule = "TseitinCycleBreaking";
@@ -1587,39 +1504,8 @@ bool RandomControllerSelector::choose(
   };
 
   const auto tseitin_limits = [&] {
-    const auto &p = config.parameters.tseitin_cycle_breaking_reference;
-    TseitinCycleBreakingLimits result;
-    result.snapshot = {p.maximum_snapshot_clauses,
-                       p.maximum_snapshot_literals,
-                       p.maximum_snapshot_work,
-                       p.maximum_snapshot_variables, nullptr, nullptr};
-    result.discovery = {p.maximum_discovery_work,
-                        p.maximum_discovery_clauses,
-                        p.maximum_discovery_groups,
-                        4, nullptr, nullptr,
-                        p.maximum_components,
-                        p.maximum_discovery_retained_bytes};
-    result.admission = {p.maximum_admission_work, nullptr, nullptr};
-    result.planning = {p.maximum_planning_work, p.maximum_witness_length,
-                       p.maximum_planning_additions};
-    result.transaction = {p.maximum_transaction_work,
-                          p.maximum_transaction_additions,
-                          p.maximum_transaction_deletions,
-                          p.maximum_transaction_helpers,
-                          p.maximum_transaction_witness_literals,
-                          nullptr, nullptr};
-    result.maximum_validation_ticks = p.maximum_validation_ticks;
-    result.maximum_components = p.maximum_components;
-    result.maximum_identity_bytes = p.maximum_identity_bytes;
-    result.maximum_total_identity_bytes = p.maximum_total_identity_bytes;
-    result.maximum_identity_work = p.maximum_identity_work;
-    result.maximum_journal_bytes = p.maximum_journal_bytes;
-    result.maximum_session_keys = p.maximum_session_keys;
-    result.maximum_session_work = p.maximum_session_work;
-    result.maximum_session_identity_bytes = p.maximum_session_identity_bytes;
-    return result;
+    return action_limits(config.parameters.tseitin_cycle_breaking_reference);
   };
-
   const auto discover_affine = [&]() -> bool {
     if (!config.affine_basis_action_producer.enabled ||
         has_static_offer("AffineConsequence") ||
@@ -1769,29 +1655,8 @@ bool RandomControllerSelector::choose(
         producer.maximum_pair_candidates, producer.maximum_offers,
         producer.maximum_enumeration_work, gf3_discovery_.have_after,
         gf3_discovery_.after};
-    const Gf3AffineActionLimits limits{
-        {config.parameters.gf3_affine_consequence_reference.maximum_source_clauses,
-         config.parameters.gf3_affine_consequence_reference.maximum_source_literals,
-         config.parameters.gf3_affine_consequence_reference.maximum_domains,
-         config.parameters.gf3_affine_consequence_reference.maximum_equations,
-         config.parameters.gf3_affine_consequence_reference.maximum_equation_arity,
-         config.parameters.gf3_affine_consequence_reference.maximum_tuples_per_equation},
-        {config.parameters.gf3_affine_consequence_reference.maximum_result_arity,
-         config.parameters.gf3_affine_consequence_reference.maximum_result_tuples,
-         config.parameters.gf3_affine_consequence_reference.maximum_additions,
-         config.parameters.gf3_affine_consequence_reference.maximum_addition_literals},
-        config.parameters.gf3_affine_consequence_reference.maximum_recognition_work,
-        config.parameters.gf3_affine_consequence_reference.maximum_planning_work,
-        config.parameters.gf3_affine_consequence_reference.maximum_duplicate_scan_work,
-        config.parameters.gf3_affine_consequence_reference.maximum_revalidation_work,
-        config.parameters.gf3_affine_consequence_reference.maximum_proof_work,
-        config.parameters.gf3_affine_consequence_reference.maximum_proof_additions,
-        config.parameters.gf3_affine_consequence_reference.maximum_proof_literal_occurrences,
-        config.parameters.gf3_affine_consequence_reference.maximum_arena_words,
-        config.parameters.gf3_affine_consequence_reference.maximum_journal_bytes,
-        config.parameters.gf3_affine_consequence_reference.maximum_external_extent,
-        config.parameters.gf3_affine_consequence_reference.maximum_session_keys,
-        config.parameters.gf3_affine_consequence_reference.maximum_session_work};
+    const auto limits = action_limits(
+        config.parameters.gf3_affine_consequence_reference);
     if (!limits.valid()) {
       error = "GF3 structured action producer parameters are invalid";
       return false;
@@ -1885,16 +1750,7 @@ bool RandomControllerSelector::choose(
         producer.maximum_enumeration_work, direct_csp_discovery_.have_after,
         direct_csp_discovery_.after};
     const auto &parameters = config.parameters.direct_csp_support_reference;
-    const DirectCspSupportActionLimits limits{
-        parameters.maximum_source_clauses, parameters.maximum_source_literals,
-        parameters.maximum_recognition_work, parameters.maximum_domain_values,
-        parameters.maximum_direct_clause_literals,
-        parameters.maximum_definition_clause_literals,
-        parameters.maximum_proof_work, parameters.maximum_proof_additions,
-        parameters.maximum_proof_literal_occurrences,
-        parameters.maximum_journal_bytes, parameters.maximum_extent_growth,
-        parameters.maximum_external_extent, parameters.maximum_session_keys,
-        parameters.maximum_session_work, parameters.allow_extension};
+    const auto limits = action_limits(parameters);
     if (!limits.valid()) {
       error = "DirectCSP structured action producer parameters are invalid";
       return false;

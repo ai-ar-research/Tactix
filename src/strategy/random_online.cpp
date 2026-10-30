@@ -1731,30 +1731,6 @@ bool parse_gf3_affine_instance(std::string_view text,
   return true;
 }
 
-AffineBasisActionLimits replay_affine_basis_limits(
-    const AffineConsequenceParameters &p) {
-  AffineBasisActionLimits limits;
-  limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
-                  p.maximum_elimination_work, p.maximum_arity,
-                  p.maximum_intermediate_width, p.maximum_sources,
-                  p.maximum_output_width};
-  limits.basis = {p.basis_maximum_work,
-                  p.basis_maximum_intermediate_width,
-                  p.basis_maximum_sources,
-                  p.basis_maximum_premises,
-                  p.basis_maximum_nodes,
-                  p.basis_maximum_direct_width};
-  limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
-  limits.maximum_snapshot_work = p.maximum_snapshot_work;
-  limits.maximum_proof_additions = p.maximum_proof_additions;
-  limits.maximum_proof_deletions = p.maximum_proof_deletions;
-  limits.maximum_journal_bytes = p.maximum_journal_bytes;
-  limits.maximum_external_extent = p.maximum_external_extent;
-  limits.maximum_session_keys = p.maximum_session_keys;
-  limits.maximum_session_work = p.maximum_session_work;
-  return limits;
-}
-
 bool parse_affine_basis_row(std::string_view text,
                             const AffineConsequenceParameters &parameters,
                             AffineBasisRowSelection &selection) {
@@ -1889,7 +1865,7 @@ bool parse_affine_basis_row(std::string_view text,
   }
   return at == fields.size() &&
          affine_basis_row_selection_within_limits(
-             selection, replay_affine_basis_limits(parameters));
+             selection, action_limits(parameters));
 }
 
 bool parse_guarded_cover(std::string_view text,

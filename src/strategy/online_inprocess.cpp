@@ -252,197 +252,6 @@ WorkUnit action_work_unit(const std::string &rule) {
   return WorkUnit::Applications;
 }
 
-AffineBasisActionLimits affine_basis_limits(
-    const AffineConsequenceParameters &p) {
-  AffineBasisActionLimits limits;
-  limits.image = {p.maximum_clauses, p.maximum_groups, p.maximum_patterns,
-                  p.maximum_elimination_work, p.maximum_arity,
-                  p.maximum_intermediate_width, p.maximum_sources,
-                  p.maximum_output_width};
-  limits.basis = {p.basis_maximum_work,
-                  p.basis_maximum_intermediate_width,
-                  p.basis_maximum_sources,
-                  p.basis_maximum_premises,
-                  p.basis_maximum_nodes,
-                  p.basis_maximum_direct_width};
-  limits.maximum_snapshot_literals = p.maximum_snapshot_literals;
-  limits.maximum_snapshot_work = p.maximum_snapshot_work;
-  limits.maximum_proof_additions = p.maximum_proof_additions;
-  limits.maximum_proof_deletions = p.maximum_proof_deletions;
-  limits.maximum_journal_bytes = p.maximum_journal_bytes;
-  limits.maximum_external_extent = p.maximum_external_extent;
-  limits.maximum_session_keys = p.maximum_session_keys;
-  limits.maximum_session_work = p.maximum_session_work;
-  return limits;
-}
-
-Gf3AffineActionLimits gf3_affine_limits(
-    const Gf3AffineConsequenceParameters &p) {
-  return {{p.maximum_source_clauses, p.maximum_source_literals,
-           p.maximum_domains, p.maximum_equations,
-           p.maximum_equation_arity, p.maximum_tuples_per_equation},
-          {p.maximum_result_arity, p.maximum_result_tuples,
-           p.maximum_additions, p.maximum_addition_literals},
-          p.maximum_recognition_work,
-          p.maximum_planning_work,
-          p.maximum_duplicate_scan_work,
-          p.maximum_revalidation_work,
-          p.maximum_proof_work,
-          p.maximum_proof_additions,
-          p.maximum_proof_literal_occurrences,
-          p.maximum_arena_words,
-          p.maximum_journal_bytes,
-          p.maximum_external_extent,
-          p.maximum_session_keys,
-          p.maximum_session_work};
-}
-
-DirectCspGuardedCoverActionLimits guarded_cover_limits(
-    const DirectCspGuardedCoverParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals, p.maximum_recognition_work, p.maximum_domains, p.maximum_domain_values, p.maximum_cover_literals, p.maximum_or_definitions, p.maximum_or_inputs, p.maximum_output_literals, p.maximum_proof_work, p.maximum_proof_additions, p.maximum_proof_literal_occurrences, p.maximum_journal_bytes, p.maximum_external_extent, p.maximum_session_keys, p.maximum_session_work};
-}
-
-DirectCspSupportActionLimits direct_csp_limits(
-    const DirectCspSupportParameters &p) {
-  return {p.maximum_source_clauses,
-          p.maximum_source_literals,
-          p.maximum_recognition_work,
-          p.maximum_domain_values,
-          p.maximum_direct_clause_literals,
-          p.maximum_definition_clause_literals,
-          p.maximum_proof_work,
-          p.maximum_proof_additions,
-          p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes,
-          p.maximum_extent_growth,
-          p.maximum_external_extent,
-          p.maximum_session_keys,
-          p.maximum_session_work,
-          p.allow_extension};
-}
-
-NaryCspEqualityLimits nary_csp_equality_limits(
-    const NaryCspEqualityParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals,
-          p.maximum_recognition_work, p.maximum_domain_values,
-          p.maximum_forbidden_tuples, p.maximum_proof_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_extent_growth,
-          p.maximum_external_extent, p.maximum_session_keys};
-}
-
-NaryCspEqualityAmoLimits nary_csp_equality_amo_limits(
-    const NaryCspEqualityAmoParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals,
-          p.maximum_recognition_work, p.maximum_domain_values,
-          p.maximum_forbidden_tuples, p.maximum_proof_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_external_extent,
-          p.maximum_session_keys};
-}
-
-NaryCspEqualityTransitivityLimits nary_csp_equality_transitivity_limits(const NaryCspEqualityTransitivityParameters &p) { return {p.maximum_source_clauses,p.maximum_source_literals,p.maximum_recognition_work,p.maximum_planning_work,p.maximum_domain_values,p.maximum_forbidden_tuples,p.maximum_proof_work,p.maximum_proof_additions,p.maximum_proof_literal_occurrences,p.maximum_journal_bytes,p.maximum_external_extent,p.maximum_session_keys,p.maximum_session_bytes,p.maximum_arena_words,p.maximum_watch_words,p.maximum_preparation_bytes}; }
-
-DirectPhpActionLimits direct_php_limits(
-    const DirectPhpRefutationParameters &p) {
-  return {{p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-           p.maximum_snapshot_work},
-          {p.maximum_recognition_clauses, p.maximum_recognition_literals,
-           p.maximum_recognition_work, p.maximum_row_candidates,
-           p.maximum_row_combinations, p.maximum_mapping_trials,
-           p.maximum_holes},
-          {p.maximum_proof_additions, p.maximum_proof_deletions,
-           p.maximum_proof_literals, p.maximum_fresh_variables,
-           p.maximum_proof_events},
-          p.maximum_replay_work};
-}
-
-Gf3GaussianActionLimits gf3_gaussian_limits(
-    const Gf3GaussianConsequenceParameters &p) {
-  return {{p.maximum_source_clauses, p.maximum_source_literals,
-           p.maximum_domains, p.maximum_equations,
-           p.maximum_equation_arity, p.maximum_tuples_per_equation},
-          {{p.maximum_bridge_work, p.maximum_bridge_source_clauses,
-            p.maximum_bridge_source_literals, p.maximum_bridge_domains,
-            p.maximum_bridge_equations, p.maximum_bridge_terms,
-            p.maximum_authentication_references,
-            p.maximum_references_per_equation,
-            {p.maximum_gaussian_work, p.maximum_fill_entries,
-             p.maximum_intermediate_width, p.maximum_provenance_terms,
-             p.maximum_derivations, p.maximum_retained_plan_bytes}},
-           p.maximum_certificate_work, p.maximum_events,
-           p.maximum_event_literals, p.maximum_active_clauses,
-           p.maximum_retained_source_references, p.maximum_event_width,
-           p.maximum_branch_domains, p.maximum_consequences},
-          p.maximum_capture_work, p.maximum_revalidation_work,
-          p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-          p.maximum_journal_bytes, p.maximum_identity_bytes,
-          p.maximum_external_extent, p.maximum_session_keys,
-          p.maximum_session_work, p.maximum_session_identity_bytes};
-}
-
-Gf3GeneralRowActionLimits gf3_general_row_limits(
-    const Gf3GeneralRowConsequenceParameters &p) {
-  const auto &g = p.gaussian;
-  return {{{g.maximum_source_clauses, g.maximum_source_literals,
-            g.maximum_domains, g.maximum_equations,
-            g.maximum_equation_arity, g.maximum_tuples_per_equation},
-           {{g.maximum_bridge_work, g.maximum_bridge_source_clauses,
-             g.maximum_bridge_source_literals, g.maximum_bridge_domains,
-             g.maximum_bridge_equations, g.maximum_bridge_terms,
-             g.maximum_authentication_references,
-             g.maximum_references_per_equation,
-             {g.maximum_gaussian_work, g.maximum_fill_entries,
-              g.maximum_intermediate_width, g.maximum_provenance_terms,
-              g.maximum_derivations, g.maximum_retained_plan_bytes}},
-            g.maximum_certificate_work, g.maximum_events,
-            g.maximum_event_literals, g.maximum_active_clauses,
-            g.maximum_retained_source_references, p.maximum_row_tuples,
-            g.maximum_event_width, g.maximum_branch_domains,
-            p.maximum_row_width},
-           g.maximum_capture_work, p.maximum_duplicate_scan_work,
-           g.maximum_revalidation_work, g.maximum_proof_additions,
-           g.maximum_proof_literal_occurrences, p.maximum_arena_words,
-           g.maximum_journal_bytes, g.maximum_identity_bytes,
-           g.maximum_external_extent},
-          g.maximum_session_keys, g.maximum_session_work,
-          g.maximum_session_identity_bytes};
-}
-
-TseitinCycleBreakingLimits tseitin_cycle_limits(
-    const TseitinCycleBreakingParameters &p) {
-  TseitinCycleBreakingLimits result;
-  result.snapshot = {p.maximum_snapshot_clauses,
-                     p.maximum_snapshot_literals,
-                     p.maximum_snapshot_work,
-                     p.maximum_snapshot_variables, nullptr, nullptr};
-  result.discovery = {p.maximum_discovery_work,
-                      p.maximum_discovery_clauses,
-                      p.maximum_discovery_groups,
-                      4, nullptr, nullptr,
-                      p.maximum_components,
-                      p.maximum_discovery_retained_bytes};
-  result.admission = {p.maximum_admission_work, nullptr, nullptr};
-  result.planning = {p.maximum_planning_work, p.maximum_witness_length,
-                     p.maximum_planning_additions};
-  result.transaction = {p.maximum_transaction_work,
-                        p.maximum_transaction_additions,
-                        p.maximum_transaction_deletions,
-                        p.maximum_transaction_helpers,
-                        p.maximum_transaction_witness_literals,
-                        nullptr, nullptr};
-  result.maximum_validation_ticks = p.maximum_validation_ticks;
-  result.maximum_components = p.maximum_components;
-  result.maximum_identity_bytes = p.maximum_identity_bytes;
-  result.maximum_total_identity_bytes = p.maximum_total_identity_bytes;
-  result.maximum_identity_work = p.maximum_identity_work;
-  result.maximum_journal_bytes = p.maximum_journal_bytes;
-  result.maximum_session_keys = p.maximum_session_keys;
-  result.maximum_session_work = p.maximum_session_work;
-  result.maximum_session_identity_bytes = p.maximum_session_identity_bytes;
-  return result;
-}
-
 void record_gf3_affine_feedback(Kernel &k,
                                 const Gf3AffineActionResult &result,
                                 size_t keys_before) {
@@ -1046,7 +855,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("GF2 affine row requires certified-basis parameters");
       if (step.affine_basis_instances.size() > p->maximum_session_keys)
         return reject("GF2 affine row collection exceeds session limits");
-      const auto limits = affine_basis_limits(*p);
+      const auto limits = action_limits(*p);
       for (const auto &selection : step.affine_basis_instances)
         if (!affine_basis_row_selection_within_limits(selection, limits))
           return reject("GF2 affine row is malformed or exceeds limits");
@@ -1106,7 +915,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       const auto *p =
           std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
       if (!p) return reject("GF3 general-row selection has no typed limits");
-      const auto limits = gf3_general_row_limits(*p);
+      const auto limits = action_limits(*p);
       for (const auto &selection : step.gf3_general_row_instances)
         if (!gf3_general_row_action_selection_valid(selection) ||
             selection.identity.size() >
@@ -1183,7 +992,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (!step.nary_csp_equality_instances.empty()) {
       const auto *p = std::get_if<NaryCspEqualityParameters>(&step.parameters);
       if (!p) return reject("n-ary CSP equality has no typed limits");
-      const NaryCspEqualityLimits limits = nary_csp_equality_limits(*p);
+      const NaryCspEqualityLimits limits = action_limits(*p);
       for (const auto &instance : step.nary_csp_equality_instances)
         if (!nary_csp_equality_action_selection_within_limits(instance, limits))
           return reject("n-ary CSP equality is malformed or exceeds limits");
@@ -1210,7 +1019,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
       if (!p) return reject("n-ary CSP equality AMO has no typed limits");
       const NaryCspEqualityAmoLimits limits =
-          nary_csp_equality_amo_limits(*p);
+          action_limits(*p);
       for (const auto &instance : step.nary_csp_equality_amo_instances)
         if (!nary_csp_equality_amo_selection_within_limits(instance, limits))
           return reject(
@@ -2394,7 +2203,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.gf3_affine_action_session->committed_keys();
                   gf3_affine_application.emplace(gf3_affine_action_apply(
                       k, *k.gf3_affine_action_session,
-                      gf3_affine_limits(parameters), selected.first_equation,
+                      action_limits(parameters), selected.first_equation,
                       selected.second_equation));
                   record_gf3_affine_feedback(k, *gf3_affine_application,
                                              keys_before);
@@ -2407,7 +2216,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   const auto owners_before = k.direct_csp_guarded_cover_action_session->retained_owners();
                   direct_csp_application.emplace(direct_csp_guarded_cover_action_apply(
                       k, *k.direct_csp_guarded_cover_action_session,
-                      guarded_cover_limits(parameters), step.direct_csp_guarded_cover_instances[payload]));
+                      action_limits(parameters), step.direct_csp_guarded_cover_instances[payload]));
                   record_direct_csp_feedback(k, *direct_csp_application, keys_before, owners_before);
                   return direct_csp_application->result;
                 })
@@ -2421,7 +2230,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.direct_csp_support_action_session->retained_owners();
                   direct_csp_application.emplace(direct_csp_support_action_apply(
                       k, *k.direct_csp_support_action_session,
-                      direct_csp_limits(parameters),
+                      action_limits(parameters),
                       step.direct_csp_support_instances[payload]));
                   record_direct_csp_feedback(k, *direct_csp_application,
                                              keys_before, owners_before);
@@ -2440,7 +2249,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       nary_csp_equality_action_apply(
                           k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
-                          nary_csp_equality_limits(parameters),
+                          action_limits(parameters),
                           step.nary_csp_equality_instances[payload]));
                   record_nary_csp_equality_feedback(
                       k, *nary_csp_equality_application, keys_before);
@@ -2462,7 +2271,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                           k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           *k.nary_csp_equality_transitivity_session,
-                          nary_csp_equality_transitivity_limits(parameters),
+                          action_limits(parameters),
                           step.nary_csp_equality_transitivity_instances[payload],
                           k.structural_provenance));
                   record_nary_csp_equality_transitivity_feedback(
@@ -2485,7 +2294,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                           k, *k.nary_csp_relation_owner_session,
                           *k.nary_csp_equality_session,
                           *k.nary_csp_equality_amo_session,
-                          nary_csp_equality_amo_limits(parameters),
+                          action_limits(parameters),
                           step.nary_csp_equality_amo_instances[payload],
                           k.structural_provenance));
                   record_nary_csp_equality_amo_feedback(
@@ -2498,7 +2307,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                       std::get<Gf3GaussianConsequenceParameters>(step.parameters);
                   gf3_gaussian_application.emplace(gf3_gaussian_action_apply(
                       k, *k.gf3_gaussian_action_session,
-                      gf3_gaussian_limits(parameters),
+                      action_limits(parameters),
                       step.gf3_gaussian_instances[payload]));
                   record_gf3_gaussian_action_feedback(
                       k, *gf3_gaussian_application);
@@ -2514,7 +2323,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   gf3_general_row_application.emplace(
                       gf3_general_row_action_apply(
                           k, *k.gf3_general_row_action_session,
-                          gf3_general_row_limits(parameters),
+                          action_limits(parameters),
                           step.gf3_general_row_instances[payload]));
                   record_gf3_general_row_action_feedback(
                       k, *gf3_general_row_application);
@@ -2536,7 +2345,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   tseitin_cycle_application.emplace(
                       tseitin_cycle_breaking_apply(
                           k, *k.tseitin_cycle_breaking_session,
-                          tseitin_cycle_limits(parameters),
+                          action_limits(parameters),
                           step.tseitin_cycle_instances[payload]));
                   record_tseitin_cycle_breaking_feedback(
                       k, *tseitin_cycle_application);
@@ -2561,7 +2370,7 @@ InvocationResult OnlineStrategyExecutor::advance(
                   direct_php_application.emplace(direct_php_action_apply(
                       k, *k.direct_php_action_session,
                       DirectPhpActionRequest{1, 1,
-                                             direct_php_limits(parameters)}));
+                                             action_limits(parameters)}));
                   record_direct_php_action_feedback(k,
                                                     *direct_php_application);
                   return direct_php_application->status ==
