@@ -1,5 +1,6 @@
 #undef NDEBUG
 #include "rules/semantic_extension/affine_matrix.hpp"
+#include "rules/semantic_extension/affine_matrix_transaction.hpp"
 #include <cassert>
 #include <set>
 using namespace tactix::affine_semantic_extension;
@@ -149,10 +150,16 @@ void compact_watches_retain_and_move_events(){
  assert(moved.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
 }
 void compact_lazy_transition_sweep(){
- const std::vector<Equation> sources={
+ std::vector<Equation> sources={
      {{1,2,3,4},false,{},{}},{{2,3,5},true,{},{}},
      {{1,4,6},true,{},{}},{{3,5,6,7},false,{},{}},
      {{2,4,7},true,{},{}}};
+ uint64_t occurrence=100;
+ for(auto &source:sources){
+  source.premise_clauses=clausal_form(source.variables,source.rhs);
+  for(size_t i=0;i<source.premise_clauses.size();++i)
+   source.premises.push_back(occurrence++);
+ }
  auto matrix=build(sources);MatrixEvent event;
  // Exhaust every partial assignment of this overlapping seven-coordinate
  // image in one retained session.  Consecutive ternary encodings force the
@@ -186,6 +193,14 @@ void compact_lazy_transition_sweep(){
   }
   source_oracle(sources,trail,event,true);
   assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
+  AffineMatrixTransaction transaction;
+  const MatrixTransactionLimits transaction_limits{
+      10000000,100000,100000,10000,100000};
+  MatrixTransactionFailureStage failure=MatrixTransactionFailureStage::None;
+  assert(prepare_affine_matrix_transaction(
+      matrix,73,sources,event,7,1000,transaction_limits,
+      [](auto){return true;},transaction,nullptr,0,nullptr,true,false,false,
+      &failure)==MatrixTransactionStatus::Prepared);
  }
 }
 void late_atomic(){
