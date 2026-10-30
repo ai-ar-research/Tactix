@@ -517,6 +517,23 @@ Ref kernel_add_detached_large_reason(Kernel &k, const Lit *lits,
   return ref;
 }
 
+Ref kernel_add_lazy_affine_reason(Kernel &k, const Lit *lits, uint32_t size) {
+  assert(size >= 3);
+  const Ref ref = static_cast<Ref>(k.arena.size());
+  k.arena.resize(k.arena.size() + clause_words(size));
+  Clause *c = clause_at(k.arena, ref);
+  c->size = size;
+  c->flags = Clause::GARBAGE | Clause::REDUNDANT | Clause::REASON |
+             Clause::DETACHED_REASON | Clause::LAZY_AFFINE_REASON |
+             Clause::USED_MASK;
+  c->set_glue(0);
+  c->searched = 2;
+  c->set_id(0); // proof-invisible by construction
+  for (uint32_t i = 0; i < size; ++i)
+    c->lits[i] = lits[i];
+  return ref;
+}
+
 uint64_t kernel_clause_position(const Kernel &k, Ref ref) {
   if (k.clause_position_alias.empty())
     return ref; // no in-place rewrite since the last collection

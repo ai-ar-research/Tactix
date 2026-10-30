@@ -83,7 +83,11 @@ struct AffineMatrixInitializeParameters {
     DetachedMinimalSearchStep = 7,
     // Eagerly certified source-support weakening with the same unwatched
     // trail lifetime. Kept distinct so reason shape is a public choice.
-    DetachedSourceSearchStep = 8
+    DetachedSourceSearchStep = 8,
+    // Compact native trail handles; proof planning happens only when Analyze
+    // actually consumes the implication, after which the certified
+    // source-support clause is retained in the watched formula.
+    LazySourceSearchStep = 9
   };
   AffineConsequenceParameters basis;
   Admission admission = Admission::AuthenticatedSubimage;
@@ -95,7 +99,7 @@ struct AffineMatrixInitializeParameters {
   bool valid() const {
     if (!basis.valid() || basis.semantics != AffineConsequenceSemantics::CertifiedBasisV2 ||
         basis.consequence || operation < Operation::Initialize ||
-        operation > Operation::DetachedSourceSearchStep)
+        operation > Operation::LazySourceSearchStep)
       return false;
     if (admission == Admission::CompleteSnapshot)
       return (operation == Operation::Initialize || operation == Operation::SearchStep) &&

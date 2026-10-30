@@ -539,6 +539,12 @@ bool install_reason(Kernel &kernel, const std::vector<Lit> &physical,
 
 } // namespace
 
+bool affine_matrix_event_reason_order(const Kernel &kernel,
+                                      const MatrixEvent &event,
+                                      std::vector<Lit> &output) {
+  return reason_order(kernel, event, output, false);
+}
+
 MatrixLiveResult prepare_affine_matrix_live(
     Kernel &kernel, const MatrixLiveRequest &request,
     AffineMatrixLivePrepared &output) {

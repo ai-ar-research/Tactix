@@ -349,6 +349,23 @@ struct PublicPort {
     }
     return result;
   }
+  static AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
+      Kernel &k, AffineMatrixSearchSession &session) {
+    AffineProfile profile;
+    profile.basis = session.parameters();
+    profile.admission = AffineProfile::Admission::AuthenticatedSubimage;
+    profile.operation = AffineProfile::Operation::LazySourceSearchStep;
+    const auto &limits = session.persistence_limits();
+    profile.maximum_retained_bytes = limits.maximum_retained_bytes;
+    profile.maximum_deferred_deletions = limits.maximum_deferred_deletions;
+    profile.maximum_deferred_literal_work = limits.maximum_deferred_literal_work;
+    return affine_operation(k, profile, "lazy-source-step",
+        [&] { return *session.last_service(); },
+        [&] {
+          return StaticPort::affine_matrix_search_step_lazy_source(k,
+                                                                   session);
+        });
+  }
   static AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &k, AffineMatrixSearchSession &session) {
     AffineProfile profile;

@@ -297,6 +297,63 @@ void detached_policy_boundary(bool minimal) {
   std::remove(path);
 }
 
+void lazy_source_policy_boundary() {
+  Fixture f{6, {}};
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(variables, rhs))
+      f.clauses.push_back(clause);
+  Kernel kernel;
+  const auto text = cnf(f);
+  FILE *input = std::tmpfile();
+  assert(input);
+  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
+  std::rewind(input);
+  assert(!parse_dimacs(input, kernel));
+  std::fclose(input);
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *records = std::tmpfile();
+  assert(records);
+  kernel.structural_provenance = records;
+  Proof proof;
+  const char *path = "/tmp/tactix-default-lazy-source-policy.dsr";
+  assert(proof.open(path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+
+  auto settings = config(true);
+  settings.affine_search.reason_mode =
+      DefaultStrategyConfig::AffineSearch::ReasonMode::LazySource;
+  DefaultPolicy policy(settings);
+  assert(DefaultAffineSearchTestAccess::refresh(policy, kernel, true, true)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const uint64_t before = kernel.next_clause_id;
+  const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
+  assert(service.status == AffineMatrixServiceStatus::Applied &&
+         service.reason_deferred && !service.live.detached_reason &&
+         session.lazy_reason_count() == 1 && kernel.next_clause_id == before);
+  const Lit implied = kernel_internalize(kernel, -5);
+  const Ref provisional = kernel.assigned[var_of(implied)].reason;
+  assert(clause_at(kernel.arena, provisional)->lazy_affine_reason());
+  const auto materialized = affine_matrix_materialize_reason(kernel, session);
+  assert(materialized.reason_materialized &&
+         session.lazy_reason_count() == 0 &&
+         !clause_at(kernel.arena, provisional)->reason());
+
+  proof.flush();
+  kernel.proof = nullptr;
+  kernel.structural_provenance = nullptr;
+  std::fclose(records);
+  std::remove(path);
+}
+
 void run(const Fixture &f,bool with_proof,bool enabled,const std::string &stem="",ProofFormat format=ProofFormat::DsrAscii) {
   Kernel kernel;auto text=cnf(f);FILE *input=std::tmpfile();assert(input);
   assert(std::fwrite(text.data(),1,text.size(),input)==text.size());std::rewind(input);
@@ -556,6 +613,7 @@ int main(int argc,char **argv) {
   empty_census_retry();
   detached_policy_boundary(true);
   detached_policy_boundary(false);
+  lazy_source_policy_boundary();
   deferred_policy_boundary(argc == 2
       ? std::string(argv[1]) + "/deferred-policy" : "");
   for (const auto &[format, suffix] : {

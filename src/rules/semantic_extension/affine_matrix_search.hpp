@@ -155,7 +155,13 @@ public:
   // Policy-owned scheduling may discard an unused session without touching
   // the formula or proof. Published Boolean clauses remain ordinary clauses;
   // this only releases cached algebraic/proof-planning state.
-  void disable() { *this = AffineMatrixSearchSession{}; }
+  void disable() {
+    // A live lazy handle still needs this owner to authenticate its eventual
+    // Analyze reason. The kernel-aware overload can first discard handles
+    // whose assignments were backtracked; this legacy overload must decline.
+    if (!lazy_reasons_.empty()) return;
+    *this = AffineMatrixSearchSession{};
+  }
   // Persistent owners release leases only with an explicitly live Kernel.
   // The legacy clear is lifetime-safe even after the Kernel has gone away.
   void disable(Kernel &);
@@ -189,6 +195,7 @@ public:
   bool has_deferred_reason() const noexcept {
     return deferred_reason_.has_value();
   }
+  size_t lazy_reason_count() const noexcept { return lazy_reasons_.size(); }
   uint64_t retained_bytes() const {
     const uint64_t continuation = matrix_.continuation_bytes();
     const uint64_t proof = pbp_proof_cache_.retained_bytes();
@@ -199,7 +206,12 @@ public:
     const uint64_t deferred = deferred_reason_
         ? deferred_reason_->prepared.retained_bytes()
         : 0;
-    return deferred > UINT64_MAX - owned ? UINT64_MAX : owned + deferred;
+    uint64_t total = deferred > UINT64_MAX - owned ? UINT64_MAX
+                                                    : owned + deferred;
+    for (const auto &reason : lazy_reasons_)
+      total = reason.retained_bytes > UINT64_MAX - total
+          ? UINT64_MAX : total + reason.retained_bytes;
+    return total;
   }
   bool matches_profile(const strategy::AffineConsequenceParameters &basis,
       const AffineMatrixPersistenceLimits &limits) const {
@@ -228,15 +240,19 @@ private:
   friend AffineMatrixServiceResult affine_matrix_search_step(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_impl(
-      Kernel &, AffineMatrixSearchSession &, bool, bool, bool);
+      Kernel &, AffineMatrixSearchSession &, bool, bool, bool, bool);
   friend AffineMatrixServiceResult affine_matrix_search_step_deferred(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_search_step_detached_source(
       Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
+      Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &, AffineMatrixSearchSession &);
+  friend AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
+      Kernel &, AffineMatrixSearchSession &, Var);
   friend AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       Kernel &, AffineMatrixSearchSession &,
       const std::vector<std::pair<Lit, Lit>> &);
@@ -310,6 +326,13 @@ private:
     Var implied_variable = INVALID_VAR;
   };
   std::optional<DeferredReason> deferred_reason_;
+  struct LazyReason {
+    affine_semantic_extension::MatrixEvent event;
+    std::string event_identity;
+    Var implied_variable = INVALID_VAR;
+    uint64_t retained_bytes = 0;
+  };
+  std::vector<LazyReason> lazy_reasons_;
 };
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &);
@@ -339,8 +362,19 @@ AffineMatrixServiceResult affine_matrix_search_step_detached_minimal(
 // weakening as the implication explanation. Reason shape remains explicit.
 AffineMatrixServiceResult affine_matrix_search_step_detached_source(
     Kernel &, AffineMatrixSearchSession &);
+// Install a compact native trail handle. Multiple live handles are legal;
+// proof planning and clause publication are delayed until the exact Analyze
+// consumer. A consumed source-support explanation is retained as an ordinary
+// watched clause, an explicit cache deviation from CryptoMiniSat.
+AffineMatrixServiceResult affine_matrix_search_step_lazy_source(
+    Kernel &, AffineMatrixSearchSession &);
 AffineMatrixServiceResult affine_matrix_materialize_reason(
     Kernel &, AffineMatrixSearchSession &);
+// Mandatory correctness boundary used by Analyze immediately before it reads
+// a lazy algebraic reason. Public MaterializeReasons can also discharge the
+// oldest live handle without entering Analyze.
+AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
+    Kernel &, AffineMatrixSearchSession &, Var);
 AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     Kernel &, AffineMatrixSearchSession &,
     const std::vector<std::pair<Lit, Lit>> &);

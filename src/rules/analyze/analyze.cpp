@@ -14,6 +14,7 @@
 #include "proof/proof.hpp"
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
 #include "rules/reduce/reduce.hpp"     // the retier schedule at OTFS conflicts
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
 #include <algorithm>
@@ -58,6 +59,31 @@ static bool lrat_active(const Kernel &k) {
   return k.proof && k.proof->lrat();
 }
 
+// Native affine handles are not clauses in the proof or Boolean formula.
+// This is their exact consumer boundary: immediately before Analyze reads a
+// large assignment reason, certify it from the original retained sources and
+// replace the handle with the resulting watched clause.  Any failure must not
+// be papered over with the proof-invisible placeholder.
+static Clause *analysis_reason_clause(Kernel &k, Var v) {
+  Assigned &a = k.assigned[v];
+  assert(!a.binary && a.reason != DECISION_REASON &&
+         a.reason != UNIT_REASON);
+  Clause *reason = clause_at(k.arena, a.reason);
+  if (!reason->lazy_affine_reason())
+    return reason;
+  if (!k.affine_matrix_search_session)
+    std::abort();
+  const auto materialized = affine_matrix_materialize_lazy_reason(
+      k, *k.affine_matrix_search_session, v);
+  if (materialized.status != AffineMatrixServiceStatus::Applied ||
+      !materialized.reason_materialized)
+    std::abort();
+  reason = clause_at(k.arena, k.assigned[v].reason);
+  if (reason->lazy_affine_reason() || reason->garbage() || !reason->id())
+    std::abort();
+  return reason;
+}
+
 // record var v's reason as an antecedent: the checker re-propagates v
 static void chain_record(Kernel &k, Var v) {
   if (k.seen[v] & CHAINED)
@@ -83,7 +109,7 @@ static void chain_record(Kernel &k, Var v) {
       id = kernel_binary_id(k, assigned_lit, a.reason);
     }
   } else {
-    id = clause_at(k.arena, a.reason)->id();
+    id = analysis_reason_clause(k, v)->id();
   }
   if (!k.seen[v])
     k.analyzed.push_back(v); // ensure flag cleanup
@@ -232,10 +258,14 @@ static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
     // large reason are two.  Binary nodes before it do not deepen the walk.
     event_trace_detail(k, "analysis_tick_minimize_binary", 1);
     kernel_charge_ticks(k, 1);
-    const Clause *reason = clause_at(k.arena, a.reason);
+    const Clause *reason = analysis_reason_clause(k, v);
+    // A recursive child can itself be a lazy affine reason. Its certified
+    // watched clause may grow/reallocate the arena, so never retain a Clause
+    // pointer across that recursive consumer boundary.
+    const std::vector<Lit> reason_lits(reason->begin(), reason->end());
     const Lit assigned_lit = negate(next);
     ok = true;
-    for (const Lit m : *reason) {
+    for (const Lit m : reason_lits) {
       if (m == assigned_lit)
         continue;
       const Var mv = var_of(m);
@@ -296,8 +326,9 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     // every effort limit, so omitting it stretches those windows.
     event_trace_detail(k, "analysis_tick_minimize_reference", 1);
     kernel_charge_ticks(k, 1);
-    const Clause *reason = clause_at(k.arena, a.reason);
-    for (const Lit m : *reason) {
+    const Clause *reason = analysis_reason_clause(k, v);
+    const std::vector<Lit> reason_lits(reason->begin(), reason->end());
+    for (const Lit m : reason_lits) {
       if (m == assigned_lit)
         continue;
       const Var mv = var_of(m);
@@ -483,9 +514,10 @@ static void mark_reason_tree(Kernel &k, Lit false_lit, uint32_t depth,
   }
   event_trace_detail(k, "analysis_tick_reason_bump", 1);
   kernel_charge_ticks(k, 1);
-  const Clause *r = clause_at(k.arena, a.reason);
+  const Clause *r = analysis_reason_clause(k, var_of(false_lit));
+  const std::vector<Lit> reason_lits(r->begin(), r->end());
   const Lit self = negate(false_lit);
-  for (const Lit m : *r) {
+  for (const Lit m : reason_lits) {
     if (m == self)
       continue;
     if (mark_reason_side(k, m) && depth > 1)
@@ -796,7 +828,7 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
       // kissat shrink.c:180, same `minimizeticks` charge as minimize above.
       event_trace_detail(k, "analysis_tick_shrink", 1);
       kernel_charge_ticks(k, 1);
-      const Clause *reason = clause_at(k.arena, a.reason);
+      const Clause *reason = analysis_reason_clause(k, var_of(x));
       for (const Lit m : *reason) {
         if (m == x)
           continue;
@@ -1124,7 +1156,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
           mark(other);
         }
       } else {
-        const Clause *reason = clause_at(k.arena, a.reason);
+        const Clause *reason = analysis_reason_clause(k, v);
         for (const Lit other : *reason) {
           if (other == lit)
             continue;
@@ -1419,12 +1451,13 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
         resolvent_size--;
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
-        Clause *reason = clause_at(k.arena, a.reason);
+        Clause *reason = analysis_reason_clause(k, var_of(t));
+        const Ref reason_ref = k.assigned[var_of(t)].reason;
         mark_used(k, reason);
-        event_trace_detail(k, "analysis_reason_ref", a.reason);
+        event_trace_detail(k, "analysis_reason_ref", reason_ref);
         event_trace_detail(k, "analysis_reason_id", reason->id());
         event_trace_detail(k, "analysis_reason_order",
-                           kernel_clause_position(k, a.reason));
+                           kernel_clause_position(k, reason_ref));
         event_trace_detail(k, "analysis_reason_size", reason->size);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)
@@ -1447,7 +1480,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
           const bool subsumes_conflict = resolved == 1 &&
                                          conflict_ref0 != INVALID_REF &&
                                          resolvent_size < conflict_nonroot;
-          otfs_strengthen(k, a.reason, t,
+          otfs_strengthen(k, reason_ref, t,
                           subsumes_conflict ? conflict_ref0 : INVALID_REF,
                           conflict_chain_id);
           restart_analysis = true;

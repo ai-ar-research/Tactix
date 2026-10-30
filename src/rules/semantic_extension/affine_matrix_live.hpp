@@ -184,4 +184,10 @@ MatrixLiveResult publish_affine_matrix_live(
     Kernel &, const MatrixLiveRequest &, AffineMatrixLivePrepared &);
 MatrixLiveResult apply_affine_matrix_live(Kernel &, const MatrixLiveRequest &);
 
+// Canonicalize a current matrix event into the clausal implication/conflict
+// order used by the Boolean kernel.  This is representation only: it emits no
+// proof and authenticates no algebraic consequence.
+bool affine_matrix_event_reason_order(const Kernel &, const MatrixEvent &,
+                                      std::vector<Lit> &);
+
 } // namespace tactix::affine_semantic_extension

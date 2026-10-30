@@ -1640,6 +1640,7 @@ typedef struct {
 #define TACTIX_AFFINE_MATRIX_MATERIALIZE_REASONS 6
 #define TACTIX_AFFINE_MATRIX_DETACHED_MINIMAL_SEARCH_STEP 7
 #define TACTIX_AFFINE_MATRIX_DETACHED_SOURCE_SEARCH_STEP 8
+#define TACTIX_AFFINE_MATRIX_LAZY_SOURCE_SEARCH_STEP 9
 typedef struct {
   tactix_online_affine_consequence_parameters basis;
   uint32_t admission, operation;

@@ -2567,6 +2567,10 @@ Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
 // not a learned clause.
 Ref kernel_add_detached_large_reason(Kernel &, const Lit *lits, uint32_t size,
                                      uint64_t id);
+// Allocate the proof-invisible arena placeholder used by a compact lazy
+// affine trail handle.  It is never a legal logical reason: the exact Analyze
+// consumer boundary must materialize and replace it first.
+Ref kernel_add_lazy_affine_reason(Kernel &, const Lit *lits, uint32_t size);
 uint64_t kernel_clause_position(const Kernel &, Ref);
 // Restore current Kissat arena order after append-only replacements. The
 // implementation caches each position and uses a linear stable radix pass.

@@ -50,6 +50,15 @@ python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
   --every-lemma
 
+# The compact native handle emits no proof at propagation time. The public
+# materialization boundary later derives and retains its source-support clause;
+# every resulting lemma is checked against the untouched original CNF.
+"$binary" --proof-lazy-source "$tmp/lazy-source.cnf" "$tmp/lazy-source.dsr"
+python3 "$root/tools/bench/proof_oracle.py" check-dsr \
+  "$tmp/lazy-source.cnf" "$tmp/lazy-source.dsr" \
+  --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$checker" \
+  --every-lemma
+
 # The exact XOR-core reason is proof-visible but absent from ordinary Boolean
 # watches. Check every emitted lemma against the untouched original CNF plus
 # the four decisions and the contradictory unit.

@@ -2219,7 +2219,7 @@ bool online_program_v16(const tactix_online_program_v16 &source,
     strategy::InprocessParameters converted;
     if (!online_parameters(encoded,converted)) return false;
     const auto *basis=std::get_if<strategy::AffineConsequenceParameters>(&converted);
-    if (!basis || p.admission<1 || p.admission>2 || p.operation<1 || p.operation>8) return false;
+    if (!basis || p.admission<1 || p.admission>2 || p.operation<1 || p.operation>9) return false;
     strategy::AffineMatrixInitializeParameters out;
     out.basis=*basis;
     out.admission=static_cast<strategy::AffineMatrixInitializeParameters::Admission>(p.admission);
@@ -3582,7 +3582,7 @@ int tactix_install_parameters(tactix_solver *s, int rule_id,
 int tactix_install_affine_matrix_profile(
     tactix_solver *s, const tactix_online_affine_matrix_initialize_parameters *p) {
   if (!s || !p || p->admission < 1 || p->admission > 2 || p->operation < 1 ||
-      p->operation > 8)
+      p->operation > 9)
     return -1;
   tactix_online_parameters encoded{};
   encoded.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;

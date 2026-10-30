@@ -408,6 +408,211 @@ void detached_minimal_reason_is_public_and_unwatched() {
   std::fclose(journal);
 }
 
+void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 10);
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false},
+           {{6, 8, 9}, false}, {{7, 8, 9, 10}, false}})
+    add_equation(kernel, variables, rhs);
+  char proof_path[] = "/tmp/tactix-affine-lazy-multiple-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const uint64_t before_publication = kernel.next_clause_id;
+  const auto first = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(first.status == AffineMatrixServiceStatus::Applied &&
+         first.reason_deferred && session.lazy_reason_count() == 1 &&
+         kernel.value(kernel_internalize(kernel, -5)) > 0 &&
+         kernel.next_clause_id == before_publication);
+  const Ref first_ref = kernel.assigned[4].reason;
+  const Clause *first_handle = clause_at(kernel.arena, first_ref);
+  assert(first_handle->lazy_affine_reason() && first_handle->reason() &&
+         first_handle->garbage() && first_handle->id() == 0);
+  assert(propagate_apply(kernel) == ApplyResult::Ok);
+
+  for (const int decision : {-6, -7}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const auto second = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(second.status == AffineMatrixServiceStatus::Applied &&
+         session.lazy_reason_count() == 2 &&
+         kernel.value(kernel_internalize(kernel, -10)) > 0);
+
+  // MaterializeReasons is the public eager boundary as well as Analyze's
+  // automatic exact-consumer boundary. It discharges one live handle per
+  // invocation and retains the certified source-support clause as watched.
+  AffineMatrixInitializeParameters profile;
+  profile.basis = parameters();
+  profile.admission =
+      AffineMatrixInitializeParameters::Admission::AuthenticatedSubimage;
+  profile.operation =
+      AffineMatrixInitializeParameters::Operation::MaterializeReasons;
+  profile.maximum_retained_bytes = persistence.maximum_retained_bytes;
+  profile.maximum_deferred_deletions =
+      persistence.maximum_deferred_deletions;
+  profile.maximum_deferred_literal_work =
+      persistence.maximum_deferred_literal_work;
+  kernel.affine_matrix_initialize_parameters = profile;
+  kernel.affine_matrix_initialize_parameters_active = true;
+  const RuleVTable &materialize =
+      tactix_rules()[tactix_rule_id("AffineMatrixInitialize")];
+  assert(rule_guard(materialize, kernel));
+  assert(apply_rule(materialize, kernel) == ApplyResult::Ok);
+  assert(session.last_service());
+  const auto materialized_first = *session.last_service();
+  assert(materialized_first.status == AffineMatrixServiceStatus::Applied &&
+         materialized_first.reason_materialized &&
+         session.lazy_reason_count() == 1 &&
+         kernel.assigned[4].reason != first_ref &&
+         !clause_at(kernel.arena, first_ref)->reason());
+  const Ref watched_ref = kernel.assigned[4].reason;
+  const Clause *watched = clause_at(kernel.arena, watched_ref);
+  assert(!watched->garbage() && !watched->lazy_affine_reason() &&
+         watched->id());
+  uint32_t watches = 0;
+  for (Lit lit = 0; lit < 2 * kernel.nvars; ++lit)
+    for (const WatchEntry watch : kernel.watches.entries(lit))
+      watches += !watch.binary() && watch.ref() == watched_ref;
+  assert(watches == 2);
+  assert(rule_guard(materialize, kernel));
+  assert(apply_rule(materialize, kernel) == ApplyResult::Ok);
+  assert(session.last_service()->reason_materialized &&
+         session.lazy_reason_count() == 0);
+
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
+void lazy_source_materializes_at_exact_analyze_consumer() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  kernel_reserve_vars(kernel, 7);
+  for (const auto &[variables, rhs] :
+       std::vector<std::pair<std::vector<int32_t>, bool>>{
+           {{1, 3, 4}, false}, {{2, 3, 4, 5}, false}})
+    add_equation(kernel, variables, rhs);
+  char proof_path[] = "/tmp/tactix-affine-lazy-analyze-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const auto lazy = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(lazy.status == AffineMatrixServiceStatus::Applied &&
+         session.lazy_reason_count() == 1);
+  const Ref provisional = kernel.assigned[4].reason;
+  // Install a falsified binary conflict whose two literals are both at the
+  // current level. The latest one is the lazy affine implication, so 1-UIP
+  // must dereference (and therefore materialize) it rather than stopping at it
+  // as the UIP.
+  const Lit conflict[2] = {kernel_internalize(kernel, 5),
+                           kernel_internalize(kernel, 2)};
+  kernel_add_binary_clause(kernel, conflict[0], conflict[1],
+                           ++kernel.next_clause_id);
+  kernel.conflict_ref = INVALID_REF;
+  kernel.conflict_bin[0] = conflict[0];
+  kernel.conflict_bin[1] = conflict[1];
+  kernel.conflict_valid = true;
+  const RuleVTable &analyze =
+      tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(rule_guard(analyze, kernel));
+  assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
+  assert(session.lazy_reason_count() == 0 &&
+         !clause_at(kernel.arena, provisional)->reason() &&
+         !kernel.assigned[4].binary &&
+         clause_at(kernel.arena, kernel.assigned[4].reason)->id());
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
+void lazy_source_backtrack_discards_without_publication() {
+  Kernel kernel;
+  AffineMatrixSearchSession session;
+  kernel.affine_matrix_search_session = &session;
+  FILE *journal = std::tmpfile();
+  assert(journal);
+  kernel.structural_provenance = journal;
+  install_implication_formula(kernel);
+  char proof_path[] = "/tmp/tactix-affine-lazy-backtrack-XXXXXX";
+  const int fd = mkstemp(proof_path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(proof_path, ProofFormat::DsrAscii));
+  proof.arm_population_shadow();
+  kernel.proof = &proof;
+  const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000,
+                                                  100000};
+  assert(affine_matrix_search_initialize(
+             kernel, session, parameters(),
+             AffineMatrixAdmission::AuthenticatedSubimage, persistence)
+             .status == AffineMatrixInitStatus::Applied);
+  for (const int decision : {-1, -2}) {
+    kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
+    assert(propagate_apply(kernel) == ApplyResult::Ok);
+  }
+  const uint64_t before = kernel.next_clause_id;
+  const auto lazy = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(lazy.status == AffineMatrixServiceStatus::Applied &&
+         session.lazy_reason_count() == 1 && kernel.next_clause_id == before);
+  const Ref provisional = kernel.assigned[4].reason;
+  kernel_backtrack(kernel, 0);
+  assert(!clause_at(kernel.arena, provisional)->reason() &&
+         session.lazy_reason_count() == 1);
+  const auto root = affine_matrix_search_step_lazy_source(kernel, session);
+  assert(root.status == AffineMatrixServiceStatus::NoEvent &&
+         session.lazy_reason_count() == 0 && kernel.next_clause_id == before);
+  session.disable(kernel);
+  assert(!session.enabled());
+  proof.flush();
+  kernel.proof = nullptr;
+  unlink(proof_path);
+  std::fclose(journal);
+}
+
 void deferred_reason_materializes_at_later_conflict(bool pbp) {
   Kernel kernel;
   AffineMatrixSearchSession session;
@@ -1002,7 +1207,8 @@ static int search_chain_proof_fixture(const char *cnf_path,
 }
 
 static int deferred_reason_proof_fixture(const char *cnf_path,
-                                         const char *proof_path) {
+                                         const char *proof_path,
+                                         bool lazy_source = false) {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
@@ -1028,14 +1234,19 @@ static int deferred_reason_proof_fixture(const char *cnf_path,
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   kernel_assign_decision(kernel, kernel_internalize(kernel, -2));
   assert(propagate_apply(kernel) == ApplyResult::Ok);
-  const auto deferred = affine_matrix_search_step_deferred(kernel, session);
+  const auto deferred = lazy_source
+      ? affine_matrix_search_step_lazy_source(kernel, session)
+      : affine_matrix_search_step_deferred(kernel, session);
   assert(deferred.status == AffineMatrixServiceStatus::Applied &&
-         deferred.reason_deferred && session.has_deferred_reason());
+         deferred.reason_deferred &&
+         (lazy_source ? session.lazy_reason_count() == 1
+                      : session.has_deferred_reason()));
   assert(propagate_apply(kernel) == ApplyResult::Ok &&
          kernel.value(kernel_internalize(kernel, -5)) > 0);
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.status == AffineMatrixServiceStatus::Applied &&
-         materialized.reason_materialized && !session.has_deferred_reason());
+         materialized.reason_materialized && !session.has_deferred_reason() &&
+         session.lazy_reason_count() == 0);
   assert(proof.add_external_rup(++kernel.next_clause_id, nullptr, 0));
   proof.flush();
   kernel.proof = nullptr;
@@ -1121,6 +1332,8 @@ static int detached_reason_proof_fixture(const char *cnf_path,
 int main(int argc,char **argv){
   if(argc==4&&!std::strcmp(argv[1],"--proof-deferred"))
     return deferred_reason_proof_fixture(argv[2],argv[3]);
+  if(argc==4&&!std::strcmp(argv[1],"--proof-lazy-source"))
+    return deferred_reason_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-detached-minimal"))
     return detached_reason_proof_fixture(argv[2],argv[3],true);
   if(argc==4&&!std::strcmp(argv[1],"--proof-detached-source"))
@@ -1141,6 +1354,9 @@ int main(int argc,char **argv){
   complete_snapshot_policy_admission();
   deferred_reason_has_public_materialization_boundary();
   detached_minimal_reason_is_public_and_unwatched();
+  lazy_source_handles_are_multiple_public_and_consumed_on_demand();
+  lazy_source_materializes_at_exact_analyze_consumer();
+  lazy_source_backtrack_discards_without_publication();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);
   repeated_deferred_pbp_reasons_preserve_cache_generation();
