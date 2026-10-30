@@ -101,6 +101,8 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
   for (uint32_t i = base; i < k.trail.size(); i++) {
     const Lit l = k.trail[i];
     const Assigned &a = k.assigned[var_of(l)];
+    assert(!a.affine &&
+           "hyperbinary probing requires clausal reasons at its root boundary");
     if (a.reason == DECISION_REASON) {
       parent[var_of(l)] = INVALID_LIT; // the probe root
       continue;

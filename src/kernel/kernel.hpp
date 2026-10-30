@@ -461,7 +461,11 @@ struct Assigned {
   uint32_t reason; // Ref, or other literal if binary, or sentinels
   bool binary;
   bool jumped;
+  bool affine = false;
 };
+
+static_assert(sizeof(Assigned) == 16,
+              "native affine reasons must not widen the hot assignment table");
 
 struct Link {
   uint32_t prev, next, stamp;
@@ -2567,10 +2571,6 @@ Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
 // not a learned clause.
 Ref kernel_add_detached_large_reason(Kernel &, const Lit *lits, uint32_t size,
                                      uint64_t id);
-// Allocate the proof-invisible arena placeholder used by a compact lazy
-// affine trail handle.  It is never a legal logical reason: the exact Analyze
-// consumer boundary must materialize and replace it first.
-Ref kernel_add_lazy_affine_reason(Kernel &, const Lit *lits, uint32_t size);
 uint64_t kernel_clause_position(const Kernel &, Ref);
 // Restore current Kissat arena order after append-only replacements. The
 // implementation caches each position and uses a linear stable radix pass.
@@ -2684,7 +2684,7 @@ bool kernel_root_unit_table_stream(const Kernel &);
 inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   for (const Lit lit : *c) {
     Assigned &a = k.assigned[var_of(lit)];
-    if (!a.binary && a.reason == ref && k.values[lit] != 0) {
+    if (!a.affine && !a.binary && a.reason == ref && k.values[lit] != 0) {
       // In-place OTFS/Strengthen/Vivify rewrites temporarily retire the old
       // proof clause while preserving this arena Ref as a live non-root
       // reason. Only a level-zero reason becomes a permanent unit. Changing a
@@ -2880,7 +2880,7 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
   k.values[lit] = 1;
   k.values[negate(lit)] = -1;
   k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
-                   binary, jumped};
+                   binary, jumped, false};
   k.trail.push_back(lit);
   if (!level) {
     k.stats.root_assignments++;
@@ -2909,6 +2909,11 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
     assert(k.unassigned_active > 0);
     k.unassigned_active--;
   }
+}
+inline void kernel_assign_affine(Kernel &k, Lit lit, uint32_t level) {
+  assert(level);
+  kernel_assign(k, lit, level, AFFINE_REASON, false);
+  k.assigned[var_of(lit)].affine = true;
 }
 inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
   k.level++;

@@ -196,6 +196,16 @@ public:
     return deferred_reason_.has_value();
   }
   size_t lazy_reason_count() const noexcept { return lazy_reasons_.size(); }
+  bool has_lazy_reason(Var implied) const noexcept {
+    for (const auto &reason : lazy_reasons_)
+      if (reason.implied_variable == implied)
+        return true;
+    return false;
+  }
+  // Read-only ancestry inspection for ConflictAnalysis. It exposes variables,
+  // not a clausal reason or proof event, and never consumes the handle.
+  bool inspect_lazy_reason(const Kernel &, Var,
+                           std::vector<Var> &) const;
   uint64_t retained_bytes() const {
     const uint64_t continuation = matrix_.continuation_bytes();
     const uint64_t proof = pbp_proof_cache_.retained_bytes();

@@ -137,7 +137,7 @@ static void lock_reasons(Kernel &k, bool lock) {
     // learned clauses protected independently above, even at the root.
     if (!a.level)
       continue;
-    if (!a.binary && a.reason != DECISION_REASON &&
+    if (!a.affine && !a.binary && a.reason != DECISION_REASON &&
         a.reason != UNIT_REASON) {
       Clause *c = clause_at(k.arena, a.reason);
       c->flags = lock ? (c->flags | Clause::REASON)

@@ -18,6 +18,10 @@ constexpr Ref INVALID_REF = UINT32_MAX;
 // reason sentinels (kissat/src/assign.h)
 constexpr uint32_t DECISION_REASON = UINT32_MAX;
 constexpr uint32_t UNIT_REASON = UINT32_MAX - 1;
+// Native algebraic trail reason.  Unlike a Ref, this payload is owned by the
+// attached affine session and must be materialized before a clausal consumer
+// follows it.
+constexpr uint32_t AFFINE_REASON = UINT32_MAX - 2;
 
 constexpr Lit make_lit(Var v, bool negated) { return (v << 1) | negated; }
 constexpr Var var_of(Lit l) { return l >> 1; }

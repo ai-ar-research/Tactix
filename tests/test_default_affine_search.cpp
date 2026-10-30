@@ -338,18 +338,20 @@ void lazy_policy_boundary(bool minimal) {
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
   const uint64_t before = kernel.next_clause_id;
+  const size_t arena_before = kernel.arena.size();
   const auto service = DefaultAffineSearchTestAccess::service(policy, kernel);
   assert(service.status == AffineMatrixServiceStatus::Applied &&
          service.reason_deferred && !service.live.detached_reason &&
          session.lazy_reason_count() == 1 && kernel.next_clause_id == before &&
-         service.reason_width == 3);
+         service.reason_width == 3 && kernel.arena.size() == arena_before);
   const Lit implied = kernel_internalize(kernel, -5);
-  const Ref provisional = kernel.assigned[var_of(implied)].reason;
-  assert(clause_at(kernel.arena, provisional)->lazy_affine_reason());
+  assert(kernel.assigned[var_of(implied)].affine &&
+         kernel.assigned[var_of(implied)].reason == AFFINE_REASON);
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.reason_materialized &&
          session.lazy_reason_count() == 0 &&
-         !clause_at(kernel.arena, provisional)->reason());
+         !kernel.assigned[var_of(implied)].affine &&
+         kernel.assigned[var_of(implied)].reason != AFFINE_REASON);
 
   proof.flush();
   kernel.proof = nullptr;

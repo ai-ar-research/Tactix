@@ -370,6 +370,7 @@ void note_decision_prefix(const Kernel &k, int external) {
           k.h ? k.h->scores.pos[v] : UINT32_MAX,
           k.h ? k.h->scores.score[v] : 0.0);
       if (!k.values[l]) std::fputs("unassigned",state);
+      else if (a.affine) std::fputs("affine",state);
       else if (a.reason == DECISION_REASON) std::fputs("decision",state);
       else if (a.reason == UNIT_REASON) std::fputs("unit",state);
       else if (a.binary)
@@ -2311,7 +2312,8 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
     reason[k.pending.ref] = 1;
   for (const Lit lit : k.trail) {
     const Assigned &a = k.assigned[var_of(lit)];
-    if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
+    if (!a.affine && !a.binary && a.reason != DECISION_REASON &&
+        a.reason != UNIT_REASON)
       reason[a.reason] = 1;
   }
   uint64_t live = 0;
@@ -5626,7 +5628,9 @@ void EventTrace::root_assign(const Kernel &k, Lit lit) {
   }
   const Assigned &assignment = k.assigned[v];
   std::string reason;
-  if (assignment.reason == UNIT_REASON) {
+  if (assignment.affine) {
+    reason = "affine";
+  } else if (assignment.reason == UNIT_REASON) {
     reason = "unit";
   } else if (assignment.reason == DECISION_REASON) {
     reason = "decision";
@@ -5887,6 +5891,14 @@ void EventTrace::implications(const Kernel &k, size_t trail_begin) {
     const Assigned &assignment = k.assigned[var_of(assigned_lit)];
     if (assignment.reason == DECISION_REASON || assignment.reason == UNIT_REASON)
       continue;
+    if (assignment.affine) {
+      const std::string payload =
+          "lit=" + std::to_string(external_assigned) +
+          "|level=" + std::to_string(assignment.level) +
+          "|reason=affine";
+      emit(k, "imply", payload.c_str(), false);
+      continue;
+    }
     std::vector<int> reason;
     if (assignment.binary) {
       reason.push_back(kernel_externalize(k, assigned_lit));
@@ -5976,7 +5988,9 @@ void EventTrace::conflict(const Kernel &k) {
                             "|binary=" + std::to_string(a.binary) +
                             "|jumped=" + std::to_string(a.jumped) +
                             "|reason=";
-        if (a.reason == DECISION_REASON)
+        if (a.affine)
+          state += "affine";
+        else if (a.reason == DECISION_REASON)
           state += "decision";
         else if (a.reason == UNIT_REASON)
           state += "unit";

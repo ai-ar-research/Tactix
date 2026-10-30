@@ -72,12 +72,8 @@ struct Clause {
   // the watched Boolean formula.  Unlike REASON (Reduce's transient lock),
   // this is the persistent record-kind discriminator used by collection.
   static constexpr uint32_t DETACHED_REASON = 1u << 12;
-  // A proof-invisible placeholder for a native algebraic trail reason.  It
-  // carries only the current clausal explanation needed to compute the true
-  // assignment level; Analyze must replace it with a certified clause before
-  // reading it logically.  Keeping this distinct from DETACHED_REASON makes
-  // the proof boundary mechanically checkable in Debug builds.
-  static constexpr uint32_t LAZY_AFFINE_REASON = 1u << 13;
+  // Bit 13 remains unused so this staged native-reason cutover does not alter
+  // the packed glue layout of ordinary clauses.
   static constexpr uint32_t GLUE_SHIFT = 14;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
@@ -89,7 +85,6 @@ struct Clause {
   bool factor_reserved() const { return flags & FACTOR_RESERVED; }
   bool factor_used() const { return flags & FACTOR_USED; }
   bool detached_reason() const { return flags & DETACHED_REASON; }
-  bool lazy_affine_reason() const { return flags & LAZY_AFFINE_REASON; }
   void set_redundant(bool v) {
     flags = v ? (flags | REDUNDANT) : (flags & ~REDUNDANT);
     if (!v)

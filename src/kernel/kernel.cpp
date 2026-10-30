@@ -517,23 +517,6 @@ Ref kernel_add_detached_large_reason(Kernel &k, const Lit *lits,
   return ref;
 }
 
-Ref kernel_add_lazy_affine_reason(Kernel &k, const Lit *lits, uint32_t size) {
-  assert(size >= 3);
-  const Ref ref = static_cast<Ref>(k.arena.size());
-  k.arena.resize(k.arena.size() + clause_words(size));
-  Clause *c = clause_at(k.arena, ref);
-  c->size = size;
-  c->flags = Clause::GARBAGE | Clause::REDUNDANT | Clause::REASON |
-             Clause::DETACHED_REASON | Clause::LAZY_AFFINE_REASON |
-             Clause::USED_MASK;
-  c->set_glue(0);
-  c->searched = 2;
-  c->set_id(0); // proof-invisible by construction
-  for (uint32_t i = 0; i < size; ++i)
-    c->lits[i] = lits[i];
-  return ref;
-}
-
 uint64_t kernel_clause_position(const Kernel &k, Ref ref) {
   if (k.clause_position_alias.empty())
     return ref; // no in-place rewrite since the last collection
@@ -1071,7 +1054,8 @@ void kernel_touch_sync_fixed(Kernel &k) {
 template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
   const Var v = var_of(lit);
   Assigned &assignment = k.assigned[v];
-  if (!assignment.binary && assignment.reason != DECISION_REASON &&
+  if (!assignment.affine && !assignment.binary &&
+      assignment.reason != DECISION_REASON &&
       assignment.reason != UNIT_REASON) {
     Clause *reason = clause_at(k.arena, assignment.reason);
     // Detached algebraic reasons are garbage to the Boolean formula but
@@ -1083,6 +1067,7 @@ template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
   }
   k.values[lit] = 0;
   k.values[negate(lit)] = 0;
+  assignment.affine = false;
   k.unassigned++;
   if (!kernel_var_retired(k, v))
     k.unassigned_active++;
@@ -1526,7 +1511,7 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
         for (const Lit assigned_lit : k.trail) {
           const Var v = var_of(assigned_lit);
           const Assigned &a = k.assigned[v];
-          if (!a.binary && a.reason == original_ref) {
+          if (!a.affine && !a.binary && a.reason == original_ref) {
             assert(reason_var == INVALID_VAR);
             reason_var = v;
           }
@@ -1579,7 +1564,7 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
         continue;
       const Var v = var_of(lit);
       const Assigned &a = k.assigned[v];
-      if (!a.binary && a.reason == original_ref)
+      if (!a.affine && !a.binary && a.reason == original_ref)
         reason_var = v;
       break;
     }
@@ -2799,7 +2784,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
 #endif
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
-    if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON) {
+    if (a.affine) {
+      assert(a.reason == AFFINE_REASON && a.level);
+    } else if (!a.binary && a.reason != DECISION_REASON &&
+               a.reason != UNIT_REASON) {
       const Clause *c = clause_at(k.arena, a.reason);
       if (c->garbage() &&
           !(c->detached_reason() && c->reason())) {
@@ -3521,9 +3509,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
   // equivalent batch boundary, has replaced every live handle by a clause.
   for (const Lit lit : k.trail) {
     const Assigned &a = k.assigned[var_of(lit)];
-    if (!a.binary && a.reason != DECISION_REASON &&
-        a.reason != UNIT_REASON &&
-        clause_at(k.arena, a.reason)->lazy_affine_reason())
+    if (a.affine)
       return false;
   }
 
@@ -4078,6 +4064,7 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
     const Lit lit = k.trail[i];
     const Var v = var_of(lit);
     const Assigned &a = k.assigned[v];
+    assert(!a.affine && "native affine reason reached root-unit publication");
     if (a.level != 0 || a.reason == UNIT_REASON ||
         a.reason == DECISION_REASON)
       continue; // asserted units got their ids at the source
@@ -4145,6 +4132,8 @@ void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
     if (touched)
       touched->push_back(v);
     const Assigned &a = k.assigned[v];
+    assert(!a.affine &&
+           "native affine reason reached a proof walk before materialization");
     if (a.reason == DECISION_REASON)
       continue; // probe assumption: the negation of the emitted clause
     if (a.reason == UNIT_REASON || a.level == 0) {
@@ -4308,8 +4297,10 @@ void kernel_check_invariants(const Kernel &k) {
     const Assigned &a = k.assigned[var_of(lit)];
     assert(a.trail == i);
     assert(a.level <= k.level);
-    if (!a.binary && a.reason != DECISION_REASON &&
-        a.reason != UNIT_REASON) {
+    if (a.affine) {
+      assert(!a.binary && a.reason == AFFINE_REASON && a.level);
+    } else if (!a.binary && a.reason != DECISION_REASON &&
+               a.reason != UNIT_REASON) {
       assert(a.reason < k.arena.size());
       const Clause *reason = clause_at(k.arena, a.reason);
       assert((!reason->garbage() ||

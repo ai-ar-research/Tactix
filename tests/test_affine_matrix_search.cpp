@@ -3,6 +3,7 @@
 #include "policies/random_controller_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/reduce/reduce.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <algorithm>
@@ -441,16 +442,25 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
   const uint64_t before_publication = kernel.next_clause_id;
+  const size_t arena_before_publication = kernel.arena.size();
   const auto first = affine_matrix_search_step_lazy_source(kernel, session);
   assert(first.status == AffineMatrixServiceStatus::Applied &&
          first.reason_deferred && session.lazy_reason_count() == 1 &&
          kernel.value(kernel_internalize(kernel, -5)) > 0 &&
-         kernel.next_clause_id == before_publication);
-  const Ref first_ref = kernel.assigned[4].reason;
-  const Clause *first_handle = clause_at(kernel.arena, first_ref);
-  assert(first_handle->lazy_affine_reason() && first_handle->reason() &&
-         first_handle->garbage() && first_handle->id() == 0);
+         kernel.next_clause_id == before_publication &&
+         kernel.arena.size() == arena_before_publication);
+  assert(kernel.assigned[4].affine &&
+         kernel.assigned[4].reason == AFFINE_REASON &&
+         session.has_lazy_reason(4));
   assert(propagate_apply(kernel) == ApplyResult::Ok);
+  // Reduce is publicly legal during search. Its reason locking and an arena
+  // collection must treat the native algebraic handle as session-owned, not
+  // as a clause Ref.
+  assert(reduce_apply(kernel) == ApplyResult::NoOp);
+  kernel_collect_garbage(kernel);
+  assert(kernel.assigned[4].affine &&
+         kernel.assigned[4].reason == AFFINE_REASON);
+  kernel_check_invariants(kernel);
 
   for (const int decision : {-6, -7}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
@@ -486,12 +496,11 @@ void lazy_source_handles_are_multiple_public_and_consumed_on_demand() {
   assert(materialized_first.status == AffineMatrixServiceStatus::Applied &&
          materialized_first.reason_materialized &&
          session.lazy_reason_count() == 1 &&
-         kernel.assigned[4].reason != first_ref &&
-         !clause_at(kernel.arena, first_ref)->reason());
+         !kernel.assigned[4].affine &&
+         kernel.assigned[4].reason != AFFINE_REASON);
   const Ref watched_ref = kernel.assigned[4].reason;
   const Clause *watched = clause_at(kernel.arena, watched_ref);
-  assert(!watched->garbage() && !watched->lazy_affine_reason() &&
-         watched->id());
+  assert(!watched->garbage() && watched->id());
   uint32_t watches = 0;
   for (Lit lit = 0; lit < 2 * kernel.nvars; ++lit)
     for (const WatchEntry watch : kernel.watches.entries(lit))
@@ -582,7 +591,8 @@ void lazy_source_materializes_preanalysis_ancestor_batch() {
   const auto first = affine_matrix_search_step_lazy_source(kernel, session);
   assert(first.status == AffineMatrixServiceStatus::Applied &&
          session.lazy_reason_count() == 1);
-  const Ref first_provisional = kernel.assigned[4].reason;
+  assert(kernel.assigned[4].affine &&
+         kernel.assigned[4].reason == AFFINE_REASON);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
   for (const int decision : {-6, -7}) {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
@@ -591,7 +601,8 @@ void lazy_source_materializes_preanalysis_ancestor_batch() {
   const auto second = affine_matrix_search_step_lazy_source(kernel, session);
   assert(second.status == AffineMatrixServiceStatus::Applied &&
          session.lazy_reason_count() == 2);
-  const Ref second_provisional = kernel.assigned[9].reason;
+  assert(kernel.assigned[9].affine &&
+         kernel.assigned[9].reason == AFFINE_REASON);
 
   // Compaction cannot remap an opaque historical algebraic event. It remains
   // publicly inapplicable until the handles have been discharged.
@@ -612,9 +623,8 @@ void lazy_source_materializes_preanalysis_ancestor_batch() {
       tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   assert(rule_guard(analyze, kernel));
   assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
-  assert(session.lazy_reason_count() == 1 &&
-         clause_at(kernel.arena, first_provisional)->reason() &&
-         !clause_at(kernel.arena, second_provisional)->reason());
+  assert(session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
+         kernel.assigned[4].reason == AFFINE_REASON);
   proof.flush();
   kernel.proof = nullptr;
   unlink(proof_path);
@@ -651,9 +661,10 @@ void lazy_source_backtrack_discards_without_publication() {
   const auto lazy = affine_matrix_search_step_lazy_source(kernel, session);
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
          session.lazy_reason_count() == 1 && kernel.next_clause_id == before);
-  const Ref provisional = kernel.assigned[4].reason;
+  assert(kernel.assigned[4].affine &&
+         kernel.assigned[4].reason == AFFINE_REASON);
   kernel_backtrack(kernel, 0);
-  assert(!clause_at(kernel.arena, provisional)->reason() &&
+  assert(!kernel.values[make_lit(4, false)] &&
          session.lazy_reason_count() == 1);
   const auto root = affine_matrix_search_step_lazy_source(kernel, session);
   assert(root.status == AffineMatrixServiceStatus::NoEvent &&

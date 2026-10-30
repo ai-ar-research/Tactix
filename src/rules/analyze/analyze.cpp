@@ -61,15 +61,13 @@ static bool lrat_active(const Kernel &k) {
 
 // Native affine handles are not clauses in the proof or Boolean formula.
 // Analyze's formula-mutating proof planner must run before the hot analysis
-// walk takes any persistent conflict/reason pointer. Thereafter encountering a
-// placeholder is a correctness failure.
+// walk takes any persistent conflict/reason pointer. Thereafter every reason
+// in the ancestry must be clausal.
 static Clause *analysis_reason_clause(Kernel &k, Var v) {
   Assigned &a = k.assigned[v];
-  assert(!a.binary && a.reason != DECISION_REASON &&
+  assert(!a.affine && !a.binary && a.reason != DECISION_REASON &&
          a.reason != UNIT_REASON);
   Clause *reason = clause_at(k.arena, a.reason);
-  if (reason->lazy_affine_reason())
-    std::abort();
   return reason;
 }
 
@@ -78,6 +76,7 @@ static void chain_record(Kernel &k, Var v) {
   if (k.seen[v] & CHAINED)
     return;
   const Assigned &a = k.assigned[v];
+  assert(!a.affine);
   assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
   uint64_t id;
   if (a.binary) {
@@ -202,11 +201,13 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
   return c->lits;
 }
 
-// Compute the complete assignment-reason ancestry without mutating the arena,
-// then certify only lazy handles in that closure. This is a conservative
-// pre-analysis form of CryptoMiniSat's on-demand get_reason boundary: it can
-// prepare a handle that minimization later skips, but it never publishes an
-// unrelated live handle merely because both happen to be on the trail.
+// Inspect the complete assignment-reason ancestry without mutating the arena,
+// then certify only native affine handles in that closure, in trail order.
+// Read-only session inspection preserves the prior proof/publication order
+// without allocating placeholder clauses. This is a conservative pre-analysis
+// form of CryptoMiniSat's on-demand get_reason boundary: it can prepare a
+// handle that minimization later skips, but never publishes an unrelated live
+// handle merely because both happen to be on the trail.
 static void materialize_affine_ancestors_before_analysis(Kernel &k) {
   AffineMatrixSearchSession *const session =
       k.affine_matrix_search_session;
@@ -221,7 +222,6 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
     pending.push_back(var_of(conflict[i]));
   std::vector<uint8_t> seen(k.nvars, 0);
   std::vector<Var> lazy;
-
   while (!pending.empty()) {
     const Var v = pending.back();
     pending.pop_back();
@@ -231,6 +231,12 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
     if (!k.values[make_lit(v, false)])
       continue;
     const Assigned &a = k.assigned[v];
+    if (a.affine) {
+      lazy.push_back(v);
+      if (!session->inspect_lazy_reason(k, v, pending))
+        std::abort();
+      continue;
+    }
     if (!a.level || a.reason == DECISION_REASON || a.reason == UNIT_REASON)
       continue;
     if (a.binary) {
@@ -240,13 +246,10 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
       continue;
     }
     const Clause *const reason = clause_at(k.arena, a.reason);
-    if (reason->lazy_affine_reason())
-      lazy.push_back(v);
     for (const Lit antecedent : *reason)
       if (var_of(antecedent) != v)
         pending.push_back(var_of(antecedent));
   }
-
   std::sort(lazy.begin(), lazy.end(), [&k](Var a, Var b) {
     return k.assigned[a].trail < k.assigned[b].trail;
   });
