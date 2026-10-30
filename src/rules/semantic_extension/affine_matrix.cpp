@@ -1462,7 +1462,14 @@ const std::vector<MatrixRow> &AffineMatrix::rows() const {
 }
 
 void AffineMatrix::reset_sparse_after_simplex(){
-  simplex_.active=false;simplex_rows_cache_valid_=false;
+  // The sparse and compact engines share trail_ but keep independent
+  // conditioned state.  Once a sparse synchronization takes ownership, the
+  // compact assignment/watch image can no longer be paired with the sparse
+  // trail: a later compact extension would otherwise classify an assignment
+  // as new while finding its old value still installed.  Discard the compact
+  // representation at this explicit engine boundary; it is rebuilt from the
+  // immutable admitted rows if compact synchronization is selected again.
+  simplex_={};simplex_rows_cache_.clear();simplex_rows_cache_valid_=false;
   rows_=admitted_rows_;trail_.clear();incremental_ready_=false;
   index_={};index_ready_=false;index_reservation_=0;
   dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};

@@ -45,11 +45,12 @@ struct Work {
   uint64_t used = 0;
   uint64_t maximum = 0;
   Kernel &kernel;
+  bool honor_termination = true;
   bool interrupted = false;
   bool exhausted = false;
 
   bool charge(uint64_t amount) {
-    if (kernel_terminating(kernel)) {
+    if (honor_termination && kernel_terminating(kernel)) {
       interrupted = true;
       return false;
     }
@@ -119,6 +120,7 @@ bool same_request(const MatrixLiveRequest &first,
          first.core_reason_authentication ==
              second.core_reason_authentication &&
          first.retained_publication == second.retained_publication &&
+         first.honor_termination == second.honor_termination &&
          first.detached_reason == second.detached_reason &&
          first.proof_cache == second.proof_cache &&
          first.pbp_parity_cache == second.pbp_parity_cache &&
@@ -560,8 +562,9 @@ MatrixLiveResult prepare_affine_matrix_live(
   }
   if (!applicable(kernel, request.historical_event)) {
     result.audit_stage = MatrixLiveResult::AuditStage::Applicability;
-    result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
-                                               : MatrixLiveStatus::Inapplicable;
+    result.status = request.honor_termination && kernel_terminating(kernel)
+                        ? MatrixLiveStatus::Interrupted
+                        : MatrixLiveStatus::Inapplicable;
     return result;
   }
 
@@ -663,7 +666,8 @@ MatrixLiveResult prepare_affine_matrix_live(
       candidate.event_, candidate.starting_extent_, candidate.starting_clause_id_,
       request.transaction,
       [&](uint64_t) {
-        if (kernel_terminating(kernel)) planner_interrupted = true;
+        if (request.honor_termination && kernel_terminating(kernel))
+          planner_interrupted = true;
         return !planner_interrupted;
       },
       candidate.transaction_, compact_plan ? nullptr : request.proof_cache,
@@ -711,7 +715,8 @@ MatrixLiveResult prepare_affine_matrix_live(
       result.status = MatrixLiveStatus::ResourceExhausted; return result;
     }
   }
-  Work validation{0, request.maximum_revalidation_work, kernel};
+  Work validation{0, request.maximum_revalidation_work, kernel,
+                  request.honor_termination};
   if (!validate_selected_sources(
           kernel, (candidate.immediate_ || request.retained_publication)
                       ? *request.owner : candidate.owner_,
@@ -759,7 +764,7 @@ MatrixLiveResult prepare_affine_matrix_live(
     result.status = MatrixLiveStatus::ResourceExhausted;
     return result;
   }
-  if (kernel_terminating(kernel)) {
+  if (request.honor_termination && kernel_terminating(kernel)) {
     result.status = MatrixLiveStatus::Interrupted;
     return result;
   }
@@ -808,8 +813,9 @@ MatrixLiveResult publish_affine_matrix_live(
   if (!applicable(kernel,
                   request.historical_event || request.retained_publication)) {
     result.audit_stage = MatrixLiveResult::AuditStage::Applicability;
-    result.status = kernel_terminating(kernel) ? MatrixLiveStatus::Interrupted
-                                               : MatrixLiveStatus::Inapplicable;
+    result.status = request.honor_termination && kernel_terminating(kernel)
+                        ? MatrixLiveStatus::Interrupted
+                        : MatrixLiveStatus::Inapplicable;
     return result;
   }
   if (kernel.next_clause_id != prepared.starting_clause_id_ ||
@@ -849,7 +855,8 @@ MatrixLiveResult publish_affine_matrix_live(
       result.status = MatrixLiveStatus::Stale;
       return result;
     }
-    Work validation{0, request.maximum_revalidation_work, kernel};
+    Work validation{0, request.maximum_revalidation_work, kernel,
+                    request.honor_termination};
     std::vector<uint64_t> occurrences;
     std::vector<uint64_t> clause_ids;
     std::vector<uint64_t> resume_occurrences;
@@ -950,9 +957,11 @@ MatrixLiveResult publish_affine_matrix_live(
     // then charge that recorded suffix without walking the same premise
     // population again.  If the aggregate would cross the bound, replay the
     // old suffix so the terminal partial-work report remains exact.
-    Work validation{0, request.maximum_revalidation_work, kernel};
+    Work validation{0, request.maximum_revalidation_work, kernel,
+                    request.honor_termination};
     if (!validation.charge(prepared.transaction_.authentication_work())) {
-      Work replay{0, request.maximum_revalidation_work, kernel};
+      Work replay{0, request.maximum_revalidation_work, kernel,
+                  request.honor_termination};
       const bool authenticated = request.matrix->authenticates(
           request.owner_identity, *request.exact_sources, *request.event,
           [&](uint64_t amount) { return replay.charge(amount); });
@@ -968,7 +977,8 @@ MatrixLiveResult publish_affine_matrix_live(
     }
     const uint64_t selected_work = result.revalidation_work;
     if (!validation.charge(selected_work)) {
-      Work replay{validation.used, request.maximum_revalidation_work, kernel};
+      Work replay{validation.used, request.maximum_revalidation_work, kernel,
+                  request.honor_termination};
       std::vector<uint64_t> occurrences;
       std::vector<uint64_t> clause_ids;
       std::vector<uint64_t> resume_occurrences;
@@ -1007,7 +1017,7 @@ MatrixLiveResult publish_affine_matrix_live(
     result.status = MatrixLiveStatus::ResourceExhausted;
     return result;
   }
-  if (kernel_terminating(kernel)) {
+  if (request.honor_termination && kernel_terminating(kernel)) {
     result.status = MatrixLiveStatus::Interrupted;
     return result;
   }

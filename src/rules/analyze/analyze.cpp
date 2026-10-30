@@ -256,7 +256,7 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
   });
   for (const Var v : lazy) {
     const auto result =
-        affine_matrix_materialize_lazy_reason(k, *session, v);
+        affine_matrix_materialize_lazy_reason(k, *session, v, false);
     if (result.status != AffineMatrixServiceStatus::Applied ||
         !result.reason_materialized)
       std::abort();

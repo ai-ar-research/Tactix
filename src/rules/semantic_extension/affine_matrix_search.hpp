@@ -279,7 +279,7 @@ private:
   friend AffineMatrixServiceResult affine_matrix_materialize_reason(
       Kernel &, AffineMatrixSearchSession &);
   friend AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
-      Kernel &, AffineMatrixSearchSession &, Var);
+      Kernel &, AffineMatrixSearchSession &, Var, bool);
   friend AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       Kernel &, AffineMatrixSearchSession &,
       const std::vector<std::pair<Lit, Lit>> &);
@@ -408,7 +408,7 @@ AffineMatrixServiceResult affine_matrix_materialize_reason(
 // discharges the oldest live handle; ConflictAnalysis repeats the same public
 // semantics for the handles in its conflict-reason ancestry.
 AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
-    Kernel &, AffineMatrixSearchSession &, Var);
+    Kernel &, AffineMatrixSearchSession &, Var, bool honor_termination = true);
 AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
     Kernel &, AffineMatrixSearchSession &,
     const std::vector<std::pair<Lit, Lit>> &);

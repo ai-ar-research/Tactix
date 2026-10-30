@@ -237,6 +237,27 @@ void synchronization_failure_classification(){
  assert(matrix.last_synchronization_failure_stage()==
      MatrixSynchronizationFailureStage::None);
 }
+void compact_sparse_compact_transition(){
+ const std::vector<Equation> sources={{{1,2,3,4},false,{},{}}};
+ auto matrix=build(sources);MatrixEvent event;
+ assert(matrix.synchronize({{1,false}},[](auto){return true;},event,true,&bytes,
+     true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::None);
+ // Root maintenance uses the sparse engine.  Its empty trail must invalidate
+ // the compact assignment image rather than leave x1 cached behind trail_.
+ assert(matrix.synchronize({},[](auto){return true;},event,true,nullptr,true)==
+     MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::None);
+ const std::vector<MatrixAssignment> trail={{1,false},{2,true},{3,false}};
+ assert(matrix.synchronize(trail,[](auto){return true;},event,true,&bytes,true)==
+     MatrixStatus::Complete);
+ assert(matrix.last_synchronization_failure_stage()==
+     MatrixSynchronizationFailureStage::None);
+ assert(event.kind==MatrixEventKind::Implication&&event.implied_variable==4&&
+        event.implied_value);
+ source_oracle(sources,trail,event,true);
+ assert(matrix.authenticates(73,sources,event,[](auto){return true;}));
+}
 void late_atomic(){
  const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
  auto reference=build(sources),stopped=build(sources);MatrixEvent a,b;
@@ -323,4 +344,4 @@ void cancelled_support_is_a_sound_reason_weakening(){
  assert(matrix.authenticates_historical(73,sources,event,[](auto){return true;}));
 }
 }
-int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_reason_order_survives_slot_exchange();compact_watches_retain_and_move_events();compact_lazy_transition_sweep();synchronization_failure_classification();}
+int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();compact_reason_order_survives_slot_exchange();compact_watches_retain_and_move_events();compact_lazy_transition_sweep();synchronization_failure_classification();compact_sparse_compact_transition();}

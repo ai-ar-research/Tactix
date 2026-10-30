@@ -553,10 +553,17 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   assert(session.inspect_lazy_reason(kernel, 4, antecedents));
   assert((antecedents == std::vector<Var>{0, 1}) &&
          !session.lazy_reason_vector_constructed(4));
+  volatile sig_atomic_t stop = 1;
+  kernel.stop = &stop;
+  const auto interrupted = affine_matrix_materialize_reason(kernel, session);
+  assert(interrupted.status == AffineMatrixServiceStatus::Interrupted &&
+         session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
+         session.lazy_reason_vector_constructed(4));
+  kernel.stop = nullptr;
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.status == AffineMatrixServiceStatus::Applied &&
          materialized.reason_materialized &&
-         materialized.reason_vector_constructed &&
+         !materialized.reason_vector_constructed &&
          materialized.reason_width == 3 &&
          (materialized.installed_reason ==
           std::vector<int32_t>{1, -2, 5}) &&
@@ -636,7 +643,13 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   const RuleVTable &analyze =
       tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   assert(rule_guard(analyze, kernel));
+  // ConflictAnalysis has already crossed its atomic rule boundary. A stop
+  // observed while making an opaque affine ancestor proof-visible is honored
+  // after the learned transition, not by abandoning its required reason.
+  volatile sig_atomic_t stop = 1;
+  kernel.stop = &stop;
   assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
+  kernel.stop = nullptr;
   assert(session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON &&
          !session.lazy_reason_vector_constructed(4) &&

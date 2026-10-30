@@ -2459,7 +2459,8 @@ AffineMatrixServiceResult affine_matrix_search_step_lazy_minimal(
 }
 
 AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
-    Kernel &kernel, AffineMatrixSearchSession &session, Var implied) {
+    Kernel &kernel, AffineMatrixSearchSession &session, Var implied,
+    bool honor_termination) {
   AffineMatrixServiceResult result;
   if (!session.enabled() || !session.attached_to(kernel)) {
     result.status = AffineMatrixServiceStatus::Inapplicable;
@@ -2544,6 +2545,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
       session.retained_source_provenance_owner_ == session.owner_version_;
   request.core_reason_authentication = at->core_reason_authentication;
   request.historical_event = true;
+  request.honor_termination = honor_termination;
   request.proof_cache = &session.proof_cache_;
   request.pbp_parity_cache = &session.pbp_proof_cache_;
   request.premise_leases = session.persistent()

@@ -51,6 +51,11 @@ struct MatrixLiveRequest {
   // for a later publication after its implication has been consumed.  This is
   // used only by the explicit deferred/materialize public action pair.
   bool retained_publication = false;
+  // ConflictAnalysis is an atomic public rule. Once it has selected a lazy
+  // affine ancestor, proof-visible reason completion must finish even if the
+  // asynchronous stop flag becomes set inside that same rule. Ordinary
+  // public matrix operations retain interruptible preflight/publication.
+  bool honor_termination = true;
   // Publish an eagerly certified implication reason as a detached arena
   // record: conflict analysis may consume it, but ordinary watched
   // propagation and formula scans cannot. Conflicts, root outcomes and
