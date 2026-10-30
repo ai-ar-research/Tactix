@@ -1071,6 +1071,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !rephase.configuration_checking_conflict_interval ||
       !rephase.configuration_checking_minimum_clauses ||
       rephase.complementary_ternary_minimum_permille > PERMILLE_SCALE ||
+      rephase.uniform_negative_direct_maximum_unsatisfied_permille >
+          PERMILLE_SCALE ||
       rephase.uniform_negative_maximum_unsatisfied_permille >
           PERMILLE_SCALE ||
       !rephase.configuration_checking_maximum_tries ||
@@ -1374,6 +1376,34 @@ std::string DefaultStrategyConfig::serialize() const {
       << " rephase.walk_use_branch_seed="
       << rephase.walk_use_branch_seed
       << " rephase.walk_random_seed=" << rephase.walk_random_seed
+      << " rephase.configuration_checking_walk_permille="
+      << rephase.configuration_checking_walk_permille
+      << " rephase.configuration_checking_minimum_step_budget="
+      << rephase.configuration_checking_minimum_step_budget
+      << " rephase.configuration_checking_conflict_interval="
+      << rephase.configuration_checking_conflict_interval
+      << " rephase.configuration_checking_minimum_clauses="
+      << rephase.configuration_checking_minimum_clauses
+      << " rephase.complementary_ternary_minimum_permille="
+      << rephase.complementary_ternary_minimum_permille
+      << " rephase.uniform_negative_direct_maximum_unsatisfied_permille="
+      << rephase.uniform_negative_direct_maximum_unsatisfied_permille
+      << " rephase.uniform_negative_maximum_unsatisfied_permille="
+      << rephase.uniform_negative_maximum_unsatisfied_permille
+      << " rephase.configuration_checking_maximum_tries="
+      << rephase.configuration_checking_maximum_tries
+      << " rephase.configuration_checking_random_seed="
+      << rephase.configuration_checking_random_seed
+      << " rephase.configuration_checking_flips_per_try="
+      << rephase.configuration_checking_flips_per_try
+      << " rephase.configuration_checking_weight_threshold="
+      << rephase.configuration_checking_weight_threshold
+      << " rephase.configuration_checking_smoothing_old_numerator="
+      << rephase.configuration_checking_smoothing_old_numerator
+      << " rephase.configuration_checking_smoothing_denominator="
+      << rephase.configuration_checking_smoothing_denominator
+      << " rephase.configuration_checking_aspiration="
+      << rephase.configuration_checking_aspiration
       << " rephase.stable_only=" << rephase.stable_only
       << " rephase.late_lucky=" << rephase.late_lucky;
   for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
@@ -4686,8 +4716,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       saturated_product(uniform_negative_unsatisfied_, PERMILLE_SCALE) <=
           saturated_product(
               uniform_negative_clauses_,
+              config_.rephase
+                  .uniform_negative_direct_maximum_unsatisfied_permille);
+  uniform_negative_walk_ =
+      !uniform_negative_search_ &&
+      uniform_negative_clauses_ >=
+          config_.rephase.configuration_checking_minimum_clauses &&
+      saturated_product(uniform_negative_unsatisfied_, PERMILLE_SCALE) <=
+          saturated_product(
+              uniform_negative_clauses_,
               config_.rephase.uniform_negative_maximum_unsatisfied_permille);
-  configuration_checking_walk_ = complementary_ternary_walk_;
+  configuration_checking_walk_ =
+      complementary_ternary_walk_ || uniform_negative_walk_;
   configuration_checking_preprocessing_deferred_ =
       configuration_checking_walk_ || uniform_negative_search_;
   configuration_checking_walk_applications_ = 0;
@@ -5187,7 +5227,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           port::execute_action(k, execution::ResidualImportRequest{residual_import_order});
           return ApplyResult::Ok;
         });
-  if (uniform_negative_search_) {
+  if (uniform_negative_search_ && !configuration_checking_walk_) {
     // A near-uniform negative candidate does not justify perturbing it with a
     // local-search trajectory. Pose the existing public phase and ranking
     // operations directly, preserving the candidate while BCP repairs its
