@@ -260,6 +260,7 @@ private:
   bool prepare_simplex(uint64_t, SimplexState &) const;
   void simplex_evaluate_row(size_t, size_t &, size_t &, bool &,
                             size_t * = nullptr, size_t * = nullptr) const;
+  void simplex_make_core_reason(size_t, size_t, MatrixEvent &) const;
   MatrixEvent simplex_build_event(size_t, size_t, MatrixEventKind, External,
                                   bool, bool) const;
   void simplex_remove_row_index(size_t);

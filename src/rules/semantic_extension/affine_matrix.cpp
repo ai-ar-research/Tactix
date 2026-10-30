@@ -792,6 +792,71 @@ void AffineMatrix::simplex_evaluate_row(
   }
 }
 
+void AffineMatrix::simplex_make_core_reason(
+    size_t selected,size_t paired,MatrixEvent &event) const {
+  const size_t missing=std::numeric_limits<size_t>::max();
+  if(selected>=simplex_.rhs.size()||
+     (paired!=missing&&paired>=simplex_.rhs.size()))std::abort();
+  event.reason.clear();
+  size_t responsible[2]={simplex_.responsible[selected],missing};
+  size_t responsible_count=responsible[0]==missing?0:1;
+  if(paired!=missing&&simplex_.responsible[paired]!=missing)
+    responsible[responsible_count++]=simplex_.responsible[paired];
+  if(responsible_count==2&&responsible[1]<responsible[0])
+    std::swap(responsible[0],responsible[1]);
+  size_t width=responsible_count;
+  for(size_t word=0;word<simplex_.coefficient_words;++word){
+    uint64_t bits=simplex_.coefficients[
+        selected*simplex_.coefficient_words+word];
+    if(paired!=missing)
+      bits^=simplex_.coefficients[
+          paired*simplex_.coefficient_words+word];
+    width+=std::popcount(bits);
+  }
+  event.reason.reserve(width);
+  const auto append=[&](size_t coordinate){
+    if(coordinate>=admitted_variables_.size())std::abort();
+    const External variable=admitted_variables_[coordinate];
+    if(event.kind==MatrixEventKind::Implication&&
+       variable==event.implied_variable)return;
+    const int8_t value=simplex_.values[coordinate];
+    if(!value)std::abort();
+    event.reason.push_back(value==2?-variable:variable);
+  };
+  size_t next_responsible=0;
+  for(size_t word=0;word<simplex_.coefficient_words;++word){
+    uint64_t bits=simplex_.coefficients[
+        selected*simplex_.coefficient_words+word];
+    if(paired!=missing)
+      bits^=simplex_.coefficients[
+          paired*simplex_.coefficient_words+word];
+    while(bits){
+      const size_t slot=word*64+std::countr_zero(bits);
+      if(slot>=simplex_.slot_to_variable.size())std::abort();
+      const size_t coordinate=simplex_.slot_to_variable[slot];
+      while(next_responsible<responsible_count&&
+            responsible[next_responsible]<coordinate)
+        append(responsible[next_responsible++]);
+      append(coordinate);
+      bits&=bits-1;
+    }
+  }
+  while(next_responsible<responsible_count)
+    append(responsible[next_responsible++]);
+  if(event.kind==MatrixEventKind::Implication)
+    event.reason.push_back(event.implied_value?event.implied_variable:
+                                               -event.implied_variable);
+#ifndef NDEBUG
+  // The packed row is the operational explanation.  Keep the slower
+  // immutable-source XOR as an independent Debug oracle while this boundary
+  // becomes the materializer for compact native reason handles.
+  MatrixEvent oracle=event;
+  oracle.reason.clear();
+  make_reason(sources_,trail_,oracle,true);
+  if(oracle.reason!=event.reason)std::abort();
+#endif
+}
+
 MatrixEvent AffineMatrix::simplex_build_event(
     size_t selected,size_t paired,MatrixEventKind kind,External implied,
     bool implied_value,bool exact_core_reason) const {
@@ -816,8 +881,8 @@ MatrixEvent AffineMatrix::simplex_build_event(
       bits&=bits-1;
     }
   }
-  make_reason(sources_,trail_,result,exact_core_reason,
-              &simplex_.reason_scratch);
+  if(exact_core_reason)simplex_make_core_reason(selected,paired,result);
+  else make_reason(sources_,trail_,result,false,&simplex_.reason_scratch);
   return result;
 }
 

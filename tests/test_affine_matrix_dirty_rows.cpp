@@ -31,7 +31,7 @@ void independent_rows(){
  assert(matrix.rows()==rows&&matrix.trail()==trail&&event.reason==reason);
  assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes)==MatrixStatus::Complete&&event.kind==MatrixEventKind::None);
 }
-void source_oracle(const std::vector<Equation>&sources,const std::vector<MatrixAssignment>&trail,const MatrixEvent&event){
+void source_oracle(const std::vector<Equation>&sources,const std::vector<MatrixAssignment>&trail,const MatrixEvent&event,bool exact_reason=false){
  if(event.kind==MatrixEventKind::None)return;
  // Independent clause-entailment oracle over all total original models.
  for(unsigned model=0;model<16;++model){
@@ -43,6 +43,14 @@ void source_oracle(const std::vector<Equation>&sources,const std::vector<MatrixA
  }
  std::set<External> variables;bool rhs=false;
  for(size_t source:event.row.source_equations){assert(source<sources.size());rhs^=sources[source].rhs;for(int v:sources[source].variables){if(variables.contains(v))variables.erase(v);else variables.insert(v);}}
+ if(exact_reason){
+  std::vector<External> reason;
+  for(auto assignment:trail)if(variables.contains(assignment.variable))
+   reason.push_back(assignment.value?-assignment.variable:assignment.variable);
+  if(event.kind==MatrixEventKind::Implication)
+   reason.push_back(event.implied_value?event.implied_variable:-event.implied_variable);
+  assert(reason==event.reason);
+ }
  for(auto assignment:trail)if(variables.erase(assignment.variable))rhs^=assignment.value;
  assert((std::vector<External>(variables.begin(),variables.end())==event.row.variables)&&rhs==event.row.rhs);
 }
@@ -66,7 +74,7 @@ void compact_simplex_matches_dense_truth_table(){
   for(int variable=1;variable<=4;++variable){unsigned digit=digits%3;digits/=3;if(digit)trail.push_back({variable,digit==2});}
   assert(dense.synchronize(trail,[](auto){return true;},expected,true,nullptr,true)==MatrixStatus::Complete);
   assert(compact.synchronize(trail,[](auto){return true;},actual,true,&bytes,true)==MatrixStatus::Complete);
-  source_oracle(sources,trail,actual);
+  source_oracle(sources,trail,actual,true);
   assert(actual.kind==expected.kind);
   if(actual.kind!=MatrixEventKind::None){
    assert(compact.authenticates(73,sources,actual,[](auto){return true;}));
