@@ -161,6 +161,10 @@ void compact_lazy_transition_sweep(){
    source.premises.push_back(occurrence++);
  }
  auto matrix=build(sources);MatrixEvent event;
+ AffineMatrixProofCache proof_cache;
+ uint32_t external_extent=7;
+ uint64_t next_clause_id=1000;
+ uint64_t cache_hits=0,cache_inserts=0,cache_resumes=0;
  // Exhaust every partial assignment of this overlapping seven-coordinate
  // image in one retained session.  Consecutive ternary encodings force the
  // watched simplex through extensions, backtracks, reassignments and basis
@@ -198,10 +202,23 @@ void compact_lazy_transition_sweep(){
       10000000,100000,100000,10000,100000};
   MatrixTransactionFailureStage failure=MatrixTransactionFailureStage::None;
   assert(prepare_affine_matrix_transaction(
-      matrix,73,sources,event,7,1000,transaction_limits,
-      [](auto){return true;},transaction,nullptr,0,nullptr,true,false,false,
+      matrix,73,sources,event,external_extent,next_clause_id,transaction_limits,
+      [](auto){return true;},transaction,&proof_cache,0,nullptr,true,false,false,
       &failure)==MatrixTransactionStatus::Prepared);
+  cache_hits+=transaction.proof_cache_hit();
+  cache_resumes+=transaction.proof_cache_resume();
+  if(transaction.proof_cache_insert()){
+   assert(proof_cache.commit(
+       MatrixProofCacheEntry(transaction.proof_cache_entry()),
+       transaction.proof_cache_generation()));
+   ++cache_inserts;
+  }
+  assert(transaction.helper_extent()<=UINT32_MAX-external_extent);
+  external_extent+=transaction.helper_extent();
+  assert(transaction.additions()<=UINT64_MAX-next_clause_id);
+  next_clause_id+=transaction.additions();
  }
+ assert(cache_hits&&cache_inserts&&cache_resumes);
 }
 void late_atomic(){
  const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
