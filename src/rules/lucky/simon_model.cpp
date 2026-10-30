@@ -1,6 +1,7 @@
 #include "rules/lucky/simon_model.hpp"
 
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -260,15 +261,7 @@ bool build_assignment(Kernel &k, const Simon &simon, uint32_t key,
 } // namespace
 
 RuleEligibility simon_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult simon_model_apply(Kernel &k) {

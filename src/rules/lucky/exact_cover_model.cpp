@@ -1,6 +1,7 @@
 #include "rules/lucky/exact_cover_model.hpp"
 
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
@@ -290,15 +291,7 @@ bool solve(Kernel &k, const strategy::ExactCoverModelParameters &p,
 } // namespace
 
 RuleEligibility exact_cover_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult exact_cover_model_apply(Kernel &k) {

@@ -1,6 +1,7 @@
 #include "rules/lucky/signed_cardinality_proof.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -726,16 +727,8 @@ bool derive(const System &system, Sink &sink) {
 } // namespace
 
 RuleEligibility signed_cardinality_proof_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected)
-      .fact("proof-format", !k.proof || !k.proof->lrat());
+  RuleEligibility result = lucky_root_eligibility(k);
+  return result.fact("proof-format", !k.proof || !k.proof->lrat());
 }
 
 ApplyResult signed_cardinality_proof_apply(Kernel &k) {

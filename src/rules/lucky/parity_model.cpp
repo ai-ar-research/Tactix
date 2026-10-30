@@ -1,5 +1,6 @@
 #include "rules/lucky/parity_model.hpp"
 #include "rules/lucky/model.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -71,15 +72,7 @@ bool add_row(std::vector<Row> &basis, Row row, uint32_t nvars) {
 } // namespace
 
 RuleEligibility parity_model_guard(const Kernel &k) {
-  RuleEligibility result;
-  return result.fact("consistent", !k.inconsistent)
-      .fact("no-conflict", !k.conflict_valid)
-      .fact("no-pending", !k.pending.valid)
-      .fact("root-level", k.level == 0)
-      .fact("propagated", k.propagate_head == k.trail.size())
-      .fact("sparse-mode", !k.dense)
-      .fact("no-probe-transaction", !k.probing.recording)
-      .fact("large-watches-connected", k.large_watches_connected);
+  return lucky_root_eligibility(k);
 }
 
 ApplyResult parity_model_apply(Kernel &k) {
