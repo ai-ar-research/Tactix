@@ -963,7 +963,8 @@ typedef struct {
   uint64_t maximum_nodes, restarts, restart_nodes, seed;
 } tactix_online_exact_cover_model_parameters;
 typedef struct {
-  /* Lucky instance 18: layered exact-count independent-set constructor. */
+  /* Lucky instance 18: layered independent-set constructor or authenticated
+   * directed stable-extension core reduction. */
   uint32_t maximum_vertices;
   uint64_t maximum_steps, completion_rounds, seed;
 } tactix_online_independent_set_model_parameters;

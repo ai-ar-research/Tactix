@@ -285,7 +285,14 @@ struct DefaultStrategyConfig {
 
   struct IndependentSetModel {
     bool enabled = true;
-    strategy::IndependentSetModelParameters parameters;
+    strategy::IndependentSetModelParameters parameters = [] {
+      strategy::IndependentSetModelParameters p;
+      // The stable-extension projection allocates incidence state over the
+      // complete argument universe.  Keep the default recognizer bounded;
+      // public callers can explicitly pose a larger maximum.
+      p.maximum_vertices = 4096;
+      return p;
+    }();
   } independent_set_model;
 
   struct GraphLabelingModel {

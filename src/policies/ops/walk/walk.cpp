@@ -4,6 +4,8 @@
 // kernel trail separate. Walk is a root-phase operation because its dense-entry
 // and sparse-resume normalization rewrites the formula representation.
 #include "policies/ops/walk/walk.hpp"
+
+#include "strategy/configuration_checking_model.hpp"
 #include "kernel/clause.hpp"
 #include "policies/heuristics.hpp"
 
@@ -1006,6 +1008,42 @@ void configuration_checking_search(Walker &w, Kernel &k, uint64_t limit) {
 }
 
 } // namespace
+
+ConfigurationCheckingModelResult configuration_checking_model(
+    Kernel &k, const std::vector<std::vector<Lit>> &clauses,
+    const strategy::WalkParameters &parameters) {
+  ConfigurationCheckingModelResult result;
+  if (clauses.empty() || !parameters.valid() ||
+      parameters.algorithm !=
+          strategy::WalkParameters::Algorithm::ConfigurationChecking)
+    return result;
+
+  Walker walker;
+  walker.k = &k;
+  walker.cl_beg.reserve(clauses.size() + 1);
+  walker.cl_beg.push_back(0);
+  for (const auto &clause : clauses) {
+    if (clause.empty())
+      return result;
+    walker.cl_lits.insert(walker.cl_lits.end(), clause.begin(), clause.end());
+    walker.cl_beg.push_back(static_cast<uint32_t>(walker.cl_lits.size()));
+  }
+  walker.nclauses = static_cast<uint32_t>(clauses.size());
+
+  strategy::ScopedWalkParameters installed(k, parameters);
+  ConfigurationCheckingSearch search(walker, k);
+  search.run(parameters.step_budget);
+  result.steps = walker.steps;
+  result.flips = walker.flips;
+  result.interrupted = search.interrupted;
+  result.sat = walker.minimum == 0;
+  if (result.sat) {
+    result.assignment.resize(k.nvars);
+    for (Var variable = 0; variable < k.nvars; ++variable)
+      result.assignment[variable] = walker.best_values[variable] > 0;
+  }
+  return result;
+}
 
 uint32_t walk_complementary_ternary_fraction_permille(const Kernel &k) {
   struct Signature {

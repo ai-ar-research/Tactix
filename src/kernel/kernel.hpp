@@ -655,6 +655,9 @@ struct Stats {
   uint64_t independent_set_model_completion_rounds = 0;
   uint64_t independent_set_model_sat = 0;
   uint64_t independent_set_model_interrupted = 0;
+  uint64_t independent_set_stable_cores = 0;
+  uint64_t independent_set_stable_cover_clauses = 0;
+  uint64_t independent_set_stable_resolvents = 0;
   uint64_t lookup_circuit_model_calls = 0;
   uint64_t lookup_circuit_model_recognized = 0;
   uint64_t lookup_circuit_model_gates = 0;

@@ -5,13 +5,18 @@
 
 namespace tactix {
 
-// SAT-only model construction for an independent-set formula with a layered
-// exact-count encoding (LymphoSAT's independent-set owner): a variable prefix
-// of N graph vertices whose edges are negative binary clauses, followed by an
-// exact-count structure of sum_{i<=N} (min(i, K) + 1) state variables that
-// requires at least K selected vertices, K + 1 being the largest clause size.
-// The owner constructs family-specific optima; this strategy finds a K-vertex
-// independent set generically (minimum-degree greedy, then swap local search),
+// Public graph-model action with two structurally authenticated forms:
+//
+//  * a layered exact-count independent-set encoding (LymphoSAT's owner), and
+//  * a directed stable-extension core: negative conflict binaries, one
+//    positive attacker-cover clause per argument, and optional guarded
+//    resolvents of those two families.
+//
+// The latter proves every guarded clause is a single binary resolvent of an
+// authenticated cover clause, then runs local search on that equivalent core
+// without changing the live formula.  A candidate is published only after it
+// satisfies the complete formula. Recognition never uses names/comments.
+// The layered form constructs a K-vertex independent set generically,
 // completes the state variables by propagation and validates the whole model.
 RuleEligibility independent_set_model_guard(const Kernel &);
 ApplyResult independent_set_model_apply(Kernel &);

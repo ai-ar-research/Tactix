@@ -1481,7 +1481,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.exact_cover_model_interrupted);
     printf("c indepset   %llu calls, %llu recognized, %llu vertices, %llu target, "
            "%llu greedy, %llu found, %llu steps, %llu completion rounds, "
-           "%llu SAT, %llu interrupted\n",
+           "%llu SAT, %llu interrupted; %llu stable cores, %llu covers, "
+           "%llu authenticated resolvents\n",
            (unsigned long long)kernel.stats.independent_set_model_calls,
            (unsigned long long)kernel.stats.independent_set_model_recognized,
            (unsigned long long)kernel.stats.independent_set_model_vertices,
@@ -1492,7 +1493,12 @@ int main(int argc, char **argv) {
            (unsigned long long)
                kernel.stats.independent_set_model_completion_rounds,
            (unsigned long long)kernel.stats.independent_set_model_sat,
-           (unsigned long long)kernel.stats.independent_set_model_interrupted);
+           (unsigned long long)kernel.stats.independent_set_model_interrupted,
+           (unsigned long long)kernel.stats.independent_set_stable_cores,
+           (unsigned long long)
+               kernel.stats.independent_set_stable_cover_clauses,
+           (unsigned long long)
+               kernel.stats.independent_set_stable_resolvents);
     printf("c graphlabel %llu calls, %llu recognized, %llu vertices, %llu separation, "
            "%llu seeds, %llu nodes, %llu repairs, %llu anneal attempts, "
            "%llu work, %llu budget stops, %llu interrupted, %llu models rejected, %llu SAT\n",

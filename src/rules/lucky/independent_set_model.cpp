@@ -1,10 +1,13 @@
 #include "rules/lucky/independent_set_model.hpp"
 
 #include "rules/lucky/model.hpp"
+#include "strategy/configuration_checking_model.hpp"
 #include "strategy/rule_parameters.hpp"
 
 #include <algorithm>
 #include <cstdint>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -16,6 +19,189 @@ struct Shape {
   std::vector<std::vector<uint32_t>> adjacency; // by vertex, 0-based
   uint64_t edges = 0;
 };
+
+uint64_t edge_key(Var first, Var second) {
+  if (first > second)
+    std::swap(first, second);
+  return (uint64_t{first} << 32) | second;
+}
+
+struct VariableVectorHash {
+  size_t operator()(const std::vector<Var> &variables) const noexcept {
+    uint64_t hash = UINT64_C(0xcbf29ce484222325);
+    for (const Var variable : variables) {
+      hash ^= uint64_t{variable} + UINT64_C(0x9e3779b97f4a7c15) +
+              (hash << 6) + (hash >> 2);
+      hash *= UINT64_C(0x100000001b3);
+    }
+    return static_cast<size_t>(hash);
+  }
+};
+
+enum class StableCoreResult { NoStructure, NoModel, Sat, Interrupted };
+
+// Authenticate the standard directed stable-extension core directly from the
+// live clause set.  For every positive cover clause C there must be exactly
+// one pivot p that conflicts with every other member of C, and the pivots must
+// cover the entire variable universe exactly once.  A guarded clause
+// (~v or P) is removable only when P is exactly C\{p} for one authenticated
+// cover and (~p or ~v) is an input binary.  It is therefore the binary
+// resolvent of two retained clauses.  Partial or ambiguous recognition makes
+// no mutation.
+StableCoreResult reduce_stable_extension_core(
+    Kernel &k, const strategy::IndependentSetModelParameters &parameters) {
+  if (!k.trail.empty() || k.nvars < 3 ||
+      k.nvars > parameters.maximum_vertices)
+    return StableCoreResult::NoStructure;
+
+  std::unordered_set<uint64_t> edges;
+  edges.reserve(2 * k.watches.binary_clauses() + 1);
+  for (Lit literal = 0; literal < 2 * k.nvars; ++literal) {
+    for (const WatchEntry watch : k.watches.entries(literal)) {
+      if (!watch.binary() || literal > watch.other())
+        continue;
+      if (!negated(literal) || !negated(watch.other()))
+        return StableCoreResult::NoStructure;
+      edges.insert(edge_key(var_of(literal), var_of(watch.other())));
+    }
+  }
+  if (!edges.size())
+    return StableCoreResult::NoStructure;
+
+  std::vector<Ref> covers, guarded;
+  uint64_t visited = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    if (!clause->garbage() && !clause->redundant()) {
+      uint32_t negative = 0;
+      for (const Lit literal : *clause)
+        negative += negated(literal);
+      if (!negative)
+        covers.push_back(ref);
+      else if (negative == 1 && clause->size > 2)
+        guarded.push_back(ref);
+      else
+        return StableCoreResult::NoStructure;
+    }
+    ref += words;
+    if (!(++visited & ((uint64_t{1} << 16) - 1)) &&
+        kernel_rule_interrupt(k, k.stats.independent_set_model_interrupted))
+      return StableCoreResult::Interrupted;
+  }
+  if (covers.size() != k.nvars || guarded.empty())
+    return StableCoreResult::NoStructure;
+
+  std::unordered_map<std::vector<Var>, Var, VariableVectorHash> tails;
+  tails.reserve(2 * covers.size() + 1);
+  std::vector<uint8_t> pivot_seen(k.nvars, 0);
+  for (const Ref ref : covers) {
+    const Clause *clause = clause_at(k.arena, ref);
+    Var pivot = INVALID_VAR;
+    uint32_t candidates = 0;
+    for (const Lit candidate_literal : *clause) {
+      const Var candidate = var_of(candidate_literal);
+      bool adjacent_to_all = true;
+      for (const Lit other_literal : *clause) {
+        const Var other = var_of(other_literal);
+        if (other != candidate && !edges.count(edge_key(candidate, other))) {
+          adjacent_to_all = false;
+          break;
+        }
+      }
+      if (adjacent_to_all) {
+        pivot = candidate;
+        ++candidates;
+      }
+    }
+    if (candidates != 1 || pivot_seen[pivot]++)
+      return StableCoreResult::NoStructure;
+    std::vector<Var> tail;
+    tail.reserve(clause->size - 1);
+    for (const Lit literal : *clause)
+      if (var_of(literal) != pivot)
+        tail.push_back(var_of(literal));
+    std::sort(tail.begin(), tail.end());
+    if (std::adjacent_find(tail.begin(), tail.end()) != tail.end() ||
+        !tails.emplace(std::move(tail), pivot).second)
+      return StableCoreResult::NoStructure;
+  }
+  if (std::find(pivot_seen.begin(), pivot_seen.end(), uint8_t{0}) !=
+      pivot_seen.end())
+    return StableCoreResult::NoStructure;
+
+  for (const Ref ref : guarded) {
+    const Clause *clause = clause_at(k.arena, ref);
+    Var negative = INVALID_VAR;
+    std::vector<Var> positive;
+    positive.reserve(clause->size - 1);
+    for (const Lit literal : *clause) {
+      if (negated(literal))
+        negative = var_of(literal);
+      else
+        positive.push_back(var_of(literal));
+    }
+    std::sort(positive.begin(), positive.end());
+    if (negative == INVALID_VAR ||
+        std::adjacent_find(positive.begin(), positive.end()) != positive.end())
+      return StableCoreResult::NoStructure;
+    const auto found = tails.find(positive);
+    if (found == tails.end() ||
+        !edges.count(edge_key(found->second, negative)))
+      return StableCoreResult::NoStructure;
+  }
+
+  // Search a private projection in the same canonical order as a DIMACS file:
+  // binaries first in import order, then the retained cover clauses.  F is
+  // never weakened.  The authenticated resolvents stay live for CDCL and the
+  // candidate is accepted only after whole-formula validation below.
+  std::vector<std::vector<Lit>> core;
+  core.reserve(edges.size() + covers.size());
+  std::vector<Var> import_order;
+  kernel_vars_in_import_order(k, import_order);
+  for (const Var variable : import_order) {
+    const Lit literal = make_lit(variable, true);
+    for (const WatchEntry watch : k.watches.entries(literal)) {
+      if (!watch.binary() ||
+          kernel_import_lit_order(k, watch.other()) <
+              kernel_import_lit_order(k, literal))
+        continue;
+      core.push_back({literal, watch.other()});
+    }
+  }
+  for (const Ref ref : covers) {
+    const Clause *clause = clause_at(k.arena, ref);
+    core.emplace_back(clause->begin(), clause->end());
+  }
+
+  ++k.stats.independent_set_stable_cores;
+  k.stats.independent_set_stable_cover_clauses += covers.size();
+  k.stats.independent_set_stable_resolvents += guarded.size();
+  k.stats.independent_set_model_vertices = k.nvars;
+  strategy::WalkParameters search;
+  search.step_budget = parameters.maximum_steps
+                           ? parameters.maximum_steps
+                           : UINT64_C(200000000);
+  search.random_seed =
+      parameters.seed == strategy::IndependentSetModelParameters::SEED_DEFAULT
+          ? 1
+          : parameters.seed;
+  search.algorithm =
+      strategy::WalkParameters::Algorithm::ConfigurationChecking;
+  search.initialization = strategy::WalkParameters::Initialization::Negative;
+  const ConfigurationCheckingModelResult candidate =
+      configuration_checking_model(k, core, search);
+  k.stats.independent_set_model_steps += candidate.steps;
+  if (candidate.interrupted) {
+    ++k.stats.independent_set_model_interrupted;
+    return StableCoreResult::Interrupted;
+  }
+  if (!candidate.sat || !lucky_model_valid(k, candidate.assignment))
+    return StableCoreResult::NoModel;
+  lucky_publish_model(k, candidate.assignment);
+  ++k.stats.independent_set_model_sat;
+  return StableCoreResult::Sat;
+}
 
 // The owner's detection: K = max clause size - 1 and N solves
 // variables - N = sum_{i=1..N} (min(i, K) + 1); graph edges are the negative
@@ -221,6 +407,17 @@ ApplyResult independent_set_model_apply(Kernel &k) {
   const strategy::IndependentSetModelParameters p =
       strategy::IndependentSetModelParameters::from_kernel(k);
   if (!p.valid())
+    return ApplyResult::NoOp;
+  const StableCoreResult stable = reduce_stable_extension_core(k, p);
+  if (stable == StableCoreResult::Sat) {
+    ++k.stats.independent_set_model_recognized;
+    return ApplyResult::Sat;
+  }
+  if (stable == StableCoreResult::NoModel) {
+    ++k.stats.independent_set_model_recognized;
+    return ApplyResult::NoOp;
+  }
+  if (stable == StableCoreResult::Interrupted)
     return ApplyResult::NoOp;
   Shape shape;
   if (!recognize(k, p, shape))

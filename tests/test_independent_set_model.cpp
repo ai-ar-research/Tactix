@@ -79,6 +79,24 @@ static std::string independent_set(int n, int k,
   return out.str();
 }
 
+// Six arguments in a directed bipartite attack graph.  The nine negative
+// binaries are the undirected conflict shadow; each positive clause has one
+// unique pivot adjacent to its two attackers.  The final six clauses are
+// non-tautological binary resolvents of a cover and a conflict clause.
+static std::string stable_extension(bool corrupt_resolvent = false) {
+  std::ostringstream out;
+  out << "p cnf 6 21\n"
+      << "-1 -4 0\n-1 -5 0\n-1 -6 0\n"
+      << "-2 -4 0\n-2 -5 0\n-2 -6 0\n"
+      << "-3 -4 0\n-3 -5 0\n-3 -6 0\n"
+      << "1 4 5 0\n2 5 6 0\n3 6 4 0\n"
+      << "4 1 2 0\n5 2 3 0\n6 3 1 0\n"
+      << "-3 1 2 0\n-1 2 3 0\n-2 3 1 0\n"
+      << "-4 5 6 0\n-5 6 4 0\n-6 4 "
+      << (corrupt_resolvent ? 2 : 5) << " 0\n";
+  return out.str();
+}
+
 int main() {
   {
     // A 6-cycle plus one chord has an independent set of size 3.
@@ -107,6 +125,27 @@ int main() {
     Kernel kernel = parse("p cnf 3 3\n-1 -2 0\n-2 -3 0\n1 3 0\n");
     assert(independent_set_model_apply(kernel) == ApplyResult::NoOp);
     assert(!kernel.stats.independent_set_model_recognized);
+  }
+  {
+    Kernel kernel = parse(stable_extension());
+    const uint64_t before = kernel.live_irredundant_large;
+    assert(independent_set_model_apply(kernel) == ApplyResult::Sat);
+    assert(kernel.stats.independent_set_model_recognized == 1);
+    assert(kernel.stats.independent_set_stable_cores == 1);
+    assert(kernel.stats.independent_set_stable_cover_clauses == 6);
+    assert(kernel.stats.independent_set_stable_resolvents == 6);
+    assert(kernel.live_irredundant_large == before);
+    assert(kernel.trail.size() == kernel.nvars);
+  }
+  {
+    // A single unauthenticated guarded clause makes the whole recognition
+    // transactional: no subset is deleted.
+    Kernel kernel = parse(stable_extension(true));
+    const uint64_t before = kernel.live_irredundant_large;
+    assert(independent_set_model_apply(kernel) == ApplyResult::NoOp);
+    assert(!kernel.stats.independent_set_model_recognized);
+    assert(!kernel.stats.independent_set_stable_resolvents);
+    assert(kernel.live_irredundant_large == before);
   }
   std::printf("test_independent_set_model OK\n");
   return 0;

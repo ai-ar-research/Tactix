@@ -372,12 +372,14 @@ struct ExactCoverModelParameters {
   static ExactCoverModelParameters from_kernel(const Kernel &);
 };
 
-// SAT-only independent-set model for the layered exact-count encoding
-// (LymphoSAT's independent-set owner). Recognition is the owner's count
-// equation; the search is a generic minimum-degree greedy plus swap local
-// search rather than the owner's family-specific constructions. Zero steps or
-// rounds select the vertex count (one step per vertex, one propagation round
-// per encoding layer).
+// Public graph-model action for the layered exact-count independent-set
+// encoding and the clause-authenticated directed stable-extension core.
+// Recognition never uses an input name.  The stable-extension form searches a
+// private conflict/cover projection only after authenticating every omitted
+// guarded resolvent, then validates the candidate on the whole live formula.
+// Zero steps select the default stable-search dose or the vertex count for the
+// layered constructor; zero rounds select one layered completion round per
+// encoding layer.
 struct IndependentSetModelParameters {
   static constexpr uint32_t MAXIMUM_VERTICES_DEFAULT = UINT32_MAX;
   static constexpr uint64_t MAXIMUM_STEPS_DEFAULT = 0;
