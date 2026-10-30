@@ -363,11 +363,15 @@ private:
   uint64_t affine_usefulness_calls_ = 0, affine_usefulness_yield_ = 0;
   uint64_t affine_usefulness_checks_ = 0;
   bool affine_usefulness_paused_ = false;
+  bool configuration_checking_walk_ = false;
   bool complementary_ternary_walk_ = false;
-  bool complementary_ternary_preprocessing_deferred_ = false;
+  bool uniform_negative_walk_ = false;
+  bool configuration_checking_preprocessing_deferred_ = false;
   uint32_t complementary_ternary_permille_ = 0;
+  uint64_t uniform_negative_clauses_ = 0;
+  uint64_t uniform_negative_unsatisfied_ = 0;
   uint32_t configuration_checking_walk_applications_ = 0;
-  uint64_t complementary_ternary_preprocessing_release_conflicts_ =
+  uint64_t configuration_checking_preprocessing_release_conflicts_ =
       UINT64_MAX;
   uint64_t configuration_checking_walk_next_conflicts_ = UINT64_MAX;
   ApplyResult run_configuration_checking_walk(Kernel &, uint64_t,

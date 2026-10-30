@@ -204,6 +204,7 @@ struct DefaultStrategyConfig {
     uint64_t configuration_checking_conflict_interval = 44000;
     uint32_t configuration_checking_minimum_clauses = 1000;
     uint32_t complementary_ternary_minimum_permille = 900;
+    uint32_t uniform_negative_maximum_unsatisfied_permille = 1;
     uint32_t configuration_checking_maximum_tries = 100;
     uint64_t configuration_checking_random_seed = 1;
     uint64_t configuration_checking_flips_per_try = 1000000;

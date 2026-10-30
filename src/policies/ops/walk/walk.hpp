@@ -36,4 +36,15 @@ double walk_break_base(const strategy::WalkParameters &, double average_size,
 // complement in the current formula. No benchmark identity is consulted.
 uint32_t walk_complementary_ternary_fraction_permille(const Kernel &);
 
+struct UniformNegativeWalkCensus {
+  uint64_t clauses = 0;
+  uint64_t unsatisfied = 0;
+};
+
+// Structural census for a configuration-checking startup profile. Root-true
+// clauses are already satisfied; root-false literals are ignored; every
+// remaining variable is assigned false. Each physical irredundant clause is
+// counted once. No formula identity or semantic naming is consulted.
+UniformNegativeWalkCensus walk_uniform_negative_census(const Kernel &);
+
 } // namespace tactix

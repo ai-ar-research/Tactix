@@ -150,6 +150,22 @@ static void test_configuration_checking_profiles_and_structure() {
   kernel_add_large_clause(imbalanced, negative, 3, false, 0);
   assert(walk_complementary_ternary_fraction_permille(imbalanced) == 200);
 
+  Kernel uniform;
+  ScopedHeuristics uniform_heuristics(uniform);
+  kernel_reserve_vars(uniform, 4);
+  kernel_add_binary_clause(uniform, internalize(1), internalize(2));
+  kernel_add_binary_clause(uniform, internalize(-1), internalize(3));
+  const Lit positive_four[] = {
+      internalize(1), internalize(2), internalize(3), internalize(4)};
+  const Lit mixed_four[] = {
+      internalize(-1), internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(uniform, positive_four, 4, false, 0);
+  kernel_add_large_clause(uniform, mixed_four, 4, false, 0);
+  kernel_add_large_clause(uniform, positive_four, 4, true, 0);
+  const auto uniform_census = walk_uniform_negative_census(uniform);
+  assert(uniform_census.clauses == 4);
+  assert(uniform_census.unsatisfied == 2);
+
   strategy::RandomOnlineConfig random_config;
   random_config.rules = {"Walk"};
   random_config.maximum_sequence_length = 1;

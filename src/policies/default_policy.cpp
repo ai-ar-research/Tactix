@@ -1071,6 +1071,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !rephase.configuration_checking_conflict_interval ||
       !rephase.configuration_checking_minimum_clauses ||
       rephase.complementary_ternary_minimum_permille > PERMILLE_SCALE ||
+      rephase.uniform_negative_maximum_unsatisfied_permille >
+          PERMILLE_SCALE ||
       !rephase.configuration_checking_maximum_tries ||
       !rephase.configuration_checking_flips_per_try ||
       !rephase.configuration_checking_weight_threshold ||
@@ -2193,7 +2195,11 @@ ApplyResult DefaultPolicy::run_configuration_checking_walk(
         auto spec = execution::native_rule_feedback(
             k, "Walk", INSTANCE_CANONICAL,
             description + ";complementary-ternary-permille=" +
-                std::to_string(complementary_ternary_permille_),
+                std::to_string(complementary_ternary_permille_) +
+                ";uniform-negative-unsatisfied=" +
+                std::to_string(uniform_negative_unsatisfied_) +
+                ";uniform-negative-clauses=" +
+                std::to_string(uniform_negative_clauses_),
             [](const Kernel &kernel) { return kernel.stats.walk_steps; },
             "walk-steps", strategy::WorkLimit::bounded(allowance));
         spec.description.invocation->parameters = selected;
@@ -4662,7 +4668,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   solves++;
   // Preserve the input's structural classification across preprocessing: the
   // very simplifications that expose an easier residual can retire one member
-  // of a complementary pair. Scheduling is formula-derived, not name-derived.
+  // of a complementary pair or destroy the near-uniform phase distance.
+  // Scheduling is formula-derived, not name-derived.
   complementary_ternary_permille_ =
       walk_complementary_ternary_fraction_permille(k);
   complementary_ternary_walk_ =
@@ -4670,11 +4677,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           config_.rephase.configuration_checking_minimum_clauses &&
       complementary_ternary_permille_ >=
           config_.rephase.complementary_ternary_minimum_permille;
-  complementary_ternary_preprocessing_deferred_ =
-      complementary_ternary_walk_;
+  const auto uniform_negative = walk_uniform_negative_census(k);
+  uniform_negative_clauses_ = uniform_negative.clauses;
+  uniform_negative_unsatisfied_ = uniform_negative.unsatisfied;
+  uniform_negative_walk_ =
+      uniform_negative_clauses_ >=
+          config_.rephase.configuration_checking_minimum_clauses &&
+      saturated_product(uniform_negative_unsatisfied_, PERMILLE_SCALE) <=
+          saturated_product(
+              uniform_negative_clauses_,
+              config_.rephase.uniform_negative_maximum_unsatisfied_permille);
+  configuration_checking_walk_ =
+      complementary_ternary_walk_ || uniform_negative_walk_;
+  configuration_checking_preprocessing_deferred_ =
+      configuration_checking_walk_;
   configuration_checking_walk_applications_ = 0;
-  complementary_ternary_preprocessing_release_conflicts_ = UINT64_MAX;
-  configuration_checking_walk_next_conflicts_ = complementary_ternary_walk_
+  configuration_checking_preprocessing_release_conflicts_ = UINT64_MAX;
+  configuration_checking_walk_next_conflicts_ = configuration_checking_walk_
       ? k.stats.conflicts
       : UINT64_MAX;
   affine_search_diagnostics_={};
@@ -4997,7 +5016,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // propagation can rearrange watches. The reference Probe-entry order remains
   // an explicit strategy choice; empty/compatibility programs retain the cold
   // Lucky fast path.
-  if (!complementary_ternary_preprocessing_deferred_ &&
+  if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty() &&
       (!k.proof || k.proof->supports_sr())) {
@@ -5220,12 +5239,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           event_trace_sweep_watch(k, v, ordinal++, w.other());
   }
 #endif
-  if (!complementary_ternary_preprocessing_deferred_ &&
+  if (!configuration_checking_preprocessing_deferred_ &&
       inprocess_.want_phase(k, SlotGroup::Probe)) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
     if (phase_result == 10 || phase_result == 20) return finish(phase_result);
   }
-  if (!complementary_ternary_preprocessing_deferred_ &&
+  if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.initial_fast_elimination) {
     event_trace.macro(k, "initial_fast_eliminate_begin");
     const int phase_result =
@@ -5517,12 +5536,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.heap_scores(k);
       continue;
     }
-    if (complementary_ternary_preprocessing_deferred_ &&
+    if (configuration_checking_preprocessing_deferred_ &&
         configuration_checking_walk_applications_ &&
         k.stats.conflicts >=
-            complementary_ternary_preprocessing_release_conflicts_)
-      complementary_ternary_preprocessing_deferred_ = false;
-    if (complementary_ternary_walk_ &&
+            configuration_checking_preprocessing_release_conflicts_)
+      configuration_checking_preprocessing_deferred_ = false;
+    if (configuration_checking_walk_ &&
         k.stats.conflicts >= configuration_checking_walk_next_conflicts_) {
       event_trace.macro(k, "configuration_checking_walk_begin");
       feedback.end_interval(StopReason::RootPreparation);
@@ -5535,7 +5554,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               reference, config_.rephase.configuration_checking_walk_permille));
       (void)run_configuration_checking_walk(
           k, allowance, "scheduled-configuration-checking");
-      // The first service owns the unmodified complementary-ternary formula.
+      // The first service owns the unmodified structurally admitted formula.
       // Give its phases one uninterrupted search trajectory: an exact model
       // then closes without preprocessing perturbing it.  After the first
       // conflict generic preprocessing is no longer suppressed.  Retain
@@ -5543,7 +5562,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // hard instance cannot spend a fixed fraction of every conflict epoch
       // repeating an unproductive trajectory.
       if (!configuration_checking_walk_applications_)
-        complementary_ternary_preprocessing_release_conflicts_ =
+        configuration_checking_preprocessing_release_conflicts_ =
             saturated_sum(k.stats.conflicts, 1);
       ++configuration_checking_walk_applications_;
       const uint32_t exponent = std::min<uint32_t>(
@@ -5868,7 +5887,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "rephase_end");
       continue;
     }
-    if (!complementary_ternary_preprocessing_deferred_ &&
+    if (!configuration_checking_preprocessing_deferred_ &&
         inprocess_.want_phase(k, SlotGroup::Probe)) {
       event_trace.macro(k, "probe_begin");
       feedback.end_interval(StopReason::RootPreparation);
@@ -5879,7 +5898,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "probe_end");
       continue;
     }
-    if (!complementary_ternary_preprocessing_deferred_ &&
+    if (!configuration_checking_preprocessing_deferred_ &&
         inprocess_.want_phase(k, SlotGroup::Eliminate)) {
       event_trace.macro(k, "eliminate_begin");
       feedback.end_interval(StopReason::RootPreparation);

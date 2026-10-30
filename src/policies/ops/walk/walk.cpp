@@ -1066,6 +1066,42 @@ uint32_t walk_complementary_ternary_fraction_permille(const Kernel &k) {
   return static_cast<uint32_t>(std::min<uint64_t>(1000, 1000 * paired / clauses));
 }
 
+UniformNegativeWalkCensus walk_uniform_negative_census(const Kernel &k) {
+  UniformNegativeWalkCensus result;
+  // Evaluate only the still-open irredundant formula.  Root-satisfied clauses
+  // are irrelevant to every completion of the current root assignment; free
+  // variables take their negative phase in this structural candidate.
+  const auto count = [&](const Lit *literals, uint32_t size) {
+    bool root_satisfied = false;
+    bool negative_satisfied = false;
+    for (uint32_t i = 0; i < size; ++i) {
+      const Lit literal = literals[i];
+      const int8_t value = k.value(literal);
+      root_satisfied |= value > 0;
+      negative_satisfied |= !value && negated(literal);
+    }
+    if (root_satisfied) return;
+    ++result.clauses;
+    result.unsatisfied += !negative_satisfied;
+  };
+
+  const uint32_t nlits = 2 * k.nvars;
+  for (Lit literal = 0; literal < nlits; ++literal)
+    for (const auto watch : k.watches.entries(literal)) {
+      if (!watch.binary() || literal > watch.other()) continue;
+      const Lit pair[] = {literal, watch.other()};
+      count(pair, 2);
+    }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(clause);
+    if (!clause->garbage() && !clause->redundant())
+      count(clause->lits, clause->size);
+    ref += words;
+  }
+  return result;
+}
+
 double walk_break_base(const strategy::WalkParameters &parameters,
                        double average_size, uint64_t walk_count) {
   assert(parameters.valid());
