@@ -203,6 +203,47 @@ static void test_configuration_checking_profiles_and_structure() {
          saw_configuration_checking[1] && saw_configuration_checking[2]);
 }
 
+// Configuration checking uses the primal graph only to re-enable variables
+// adjacent to a flip.  A wide clause must not be expanded into its quadratic
+// clique: derive those neighbors from the occurrence lists when the flip is
+// made.  Twenty thousand variables makes an eager clique require hundreds of
+// millions of entries while the actual two-clause problem remains linear.
+static void test_configuration_checking_wide_clause_is_linear_space() {
+  constexpr int variables = 20000;
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, variables);
+  std::vector<Lit> positive, negative;
+  positive.reserve(variables);
+  negative.reserve(variables);
+  for (int variable = 1; variable <= variables; ++variable) {
+    positive.push_back(internalize(variable));
+    negative.push_back(internalize(-variable));
+  }
+  kernel_add_large_clause(k, positive.data(),
+                          static_cast<uint32_t>(positive.size()), false, 0);
+  kernel_add_large_clause(k, negative.data(),
+                          static_cast<uint32_t>(negative.size()), false, 0);
+
+  strategy::WalkParameters profile;
+  profile.step_budget = 1000000;
+  profile.random_seed = 1;
+  profile.algorithm =
+      strategy::WalkParameters::Algorithm::ConfigurationChecking;
+  profile.initialization =
+      strategy::WalkParameters::Initialization::Negative;
+  profile.maximum_tries = 1;
+  profile.flips_per_try = 10;
+  strategy::ScopedWalkParameters selected(k, profile);
+  assert(walk_apply(k) == ApplyResult::Ok);
+  assert(k.stats.walk_minimum == 0 && k.stats.walk_flips == 1);
+  unsigned trues = 0;
+  for (const int8_t phase : k.h->saved)
+    trues += phase > 0;
+  assert(trues == 1);
+  kernel_check_invariants(k);
+}
+
 static void test_break_base_domain_terminates() {
   for (const uint32_t base : {1u, 25u, 232u, 999u, 1000u, 1001u, 1500u,
                               1999u, 2000u}) {
@@ -574,6 +615,7 @@ static void test_partial_seed_and_empty_objective() {
 
 int main() {
   test_configuration_checking_profiles_and_structure();
+  test_configuration_checking_wide_clause_is_linear_space();
   test_partial_seed_and_empty_objective();
   test_private_seed_budget_and_export();
   test_configurable_score_curve();

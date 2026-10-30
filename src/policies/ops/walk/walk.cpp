@@ -645,8 +645,9 @@ struct ConfigurationCheckingSearch {
   std::vector<uint8_t> configuration_changed;
   std::vector<uint32_t> candidate_position;
   std::vector<Var> candidates;
-  std::vector<std::vector<Var>> neighbors;
   std::vector<std::vector<std::pair<uint32_t, Lit>>> variable_occurrences;
+  std::vector<uint64_t> neighbor_seen;
+  uint64_t neighbor_epoch = 0;
   std::vector<uint32_t> unsat_appear;
   std::vector<uint32_t> unsat_variable_position;
   std::vector<Var> unsat_variables;
@@ -661,31 +662,18 @@ struct ConfigurationCheckingSearch {
       : w(walker), k(kernel),
         parameters(strategy::WalkParameters::from_kernel(kernel)),
         random(static_cast<uint32_t>(2 * parameters.random_seed + 1)) {
-    // Preserve first-neighbor order by clause order, as the reference's
-    // variable occurrence lists do. Sign-grouped occurrence scans change
-    // equal-score candidate insertion on symmetric formulas.
-    std::vector<std::vector<Var>> raw(k.nvars);
     variable_occurrences.resize(k.nvars);
     for (uint32_t clause = 0; clause < w.nclauses; ++clause)
       for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
         const Var variable = var_of(w.cl_lits[i]);
         variable_occurrences[variable].push_back({clause, w.cl_lits[i]});
-        for (uint32_t j = w.cl_beg[clause]; j < w.cl_beg[clause + 1]; ++j) {
-          const Var neighbor = var_of(w.cl_lits[j]);
-          if (neighbor != variable) raw[variable].push_back(neighbor);
-        }
       }
-    neighbors.resize(k.nvars);
-    std::vector<uint32_t> seen(k.nvars, 0);
-    uint32_t epoch = 0;
-    for (Var variable = 0; variable < k.nvars; ++variable) {
-      ++epoch;
-      for (const Var neighbor : raw[variable])
-        if (seen[neighbor] != epoch) {
-          seen[neighbor] = epoch;
-          neighbors[variable].push_back(neighbor);
-        }
-    }
+    // Do not materialize the primal-graph clique of every clause. A single
+    // wide clause would require quadratic memory even though configuration
+    // checking only needs to mark those neighbors when a variable flips.
+    // The occurrence lists below recover the same first-neighbor order lazily:
+    // clause order, then literal order, with duplicates suppressed per flip.
+    neighbor_seen.assign(k.nvars, 0);
   }
 
   uint32_t pick_bounded(uint32_t bound) {
@@ -952,13 +940,24 @@ struct ConfigurationCheckingSearch {
     for (size_t i = candidates.size(); i-- > 0;)
       if (score[candidates[i]] <= 0)
         remove_candidate(candidates[i]);
-    for (const Var neighbor : neighbors[variable]) {
-      configuration_changed[neighbor] = 1;
-      if (score[neighbor] > 0 &&
-          candidate_position[neighbor] == UINT32_MAX) {
-        candidate_position[neighbor] =
-            static_cast<uint32_t>(candidates.size());
-        candidates.push_back(neighbor);
+    if (!++neighbor_epoch) {
+      std::fill(neighbor_seen.begin(), neighbor_seen.end(), 0);
+      neighbor_epoch = 1;
+    }
+    for (const auto &[clause, ignored] : variable_occurrences[variable]) {
+      (void)ignored;
+      for (uint32_t i = w.cl_beg[clause]; i < w.cl_beg[clause + 1]; ++i) {
+        const Var neighbor = var_of(w.cl_lits[i]);
+        if (neighbor == variable || neighbor_seen[neighbor] == neighbor_epoch)
+          continue;
+        neighbor_seen[neighbor] = neighbor_epoch;
+        configuration_changed[neighbor] = 1;
+        if (score[neighbor] > 0 &&
+            candidate_position[neighbor] == UINT32_MAX) {
+          candidate_position[neighbor] =
+              static_cast<uint32_t>(candidates.size());
+          candidates.push_back(neighbor);
+        }
       }
     }
     step += variable_occurrences[variable].size();
