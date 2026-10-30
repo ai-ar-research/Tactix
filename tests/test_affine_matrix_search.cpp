@@ -547,7 +547,8 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
          lazy.reason_deferred && lazy.reason_width == 3 &&
          lazy.installed_reason.empty() && session.lazy_reason_count() == 1 &&
-         !session.lazy_reason_vector_constructed(4));
+         !session.lazy_reason_vector_constructed(4) &&
+         lazy.event_identity.find(";r=1,-2,5") != std::string::npos);
   std::vector<Var> antecedents;
   assert(session.inspect_lazy_reason(kernel, 4, antecedents));
   assert((antecedents == std::vector<Var>{0, 1}) &&
@@ -558,6 +559,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
          materialized.reason_width == 3 &&
          (materialized.installed_reason ==
           std::vector<int32_t>{1, -2, 5}) &&
+         materialized.event_identity == lazy.event_identity &&
          session.lazy_reason_count() == 0);
   proof.flush();
   kernel.proof = nullptr;

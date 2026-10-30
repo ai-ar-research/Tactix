@@ -108,8 +108,8 @@ TrailStatus exact_trail(const Kernel &kernel,
   return TrailStatus::Complete;
 }
 
-std::string event_identity(uint64_t owner, const MatrixEvent &event) {
-  std::ostringstream out;
+void write_event_identity_prefix(std::ostringstream &out, uint64_t owner,
+                                 const MatrixEvent &event) {
   out << "am1:o=" << owner << ";k=" << unsigned(event.kind)
       << ";v=" << event.implied_variable << ':' << event.implied_value
       << ";s=";
@@ -118,6 +118,11 @@ std::string event_identity(uint64_t owner, const MatrixEvent &event) {
     out << event.row.source_equations[i];
   }
   out << ";r=";
+}
+
+std::string event_identity(uint64_t owner, const MatrixEvent &event) {
+  std::ostringstream out;
+  write_event_identity_prefix(out, owner, event);
   for (size_t i = 0; i < event.reason.size(); ++i) {
     if (i) out << ',';
     out << event.reason[i];
@@ -131,6 +136,38 @@ std::string event_identity(uint64_t owner, const MatrixEvent &event) {
        <<fingerprint;
   }
   return out.str();
+}
+
+bool deferred_exact_event_identity(
+    uint64_t owner, const AffineMatrix &matrix, const Kernel &kernel,
+    const MatrixEvent &event, uint32_t &implication_level, Lit &implied,
+    std::string &identity) {
+  implied = kernel_internalize(
+      kernel, event.implied_value ? event.implied_variable
+                                  : -event.implied_variable);
+  if (implied == INVALID_LIT || kernel.value(implied)) return false;
+  std::ostringstream out;
+  write_event_identity_prefix(out, owner, event);
+  bool first = true;
+  if (!matrix.inspect_deferred_exact_support(
+          event, [&](External variable) {
+            const Lit positive = kernel_internalize(kernel, variable);
+            if (positive == INVALID_LIT || !kernel.values[positive])
+              return false;
+            implication_level = std::max(
+                implication_level,
+                kernel.assigned[var_of(positive)].level);
+            if (!first) out << ',';
+            out << (kernel.values[positive] > 0 ? -variable : variable);
+            first = false;
+            return true;
+          }))
+    return false;
+  if (!first) out << ',';
+  out << (event.implied_value ? event.implied_variable
+                             : -event.implied_variable);
+  identity = out.str();
+  return true;
 }
 
 bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
@@ -2126,19 +2163,11 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
   uint32_t deferred_implication_level=0;
   Lit deferred_implied=INVALID_LIT;
+  std::string deferred_identity;
   if(!event.deferred_exact_support.empty()){
-    deferred_implied=kernel_internalize(kernel,event.implied_value?
-        event.implied_variable:-event.implied_variable);
-    bool valid=deferred_implied!=INVALID_LIT&&!kernel.value(deferred_implied);
-    if(valid)valid=session.matrix_.inspect_deferred_exact_support(
-        event,[&](External variable){
-          const Lit positive=kernel_internalize(kernel,variable);
-          if(positive==INVALID_LIT||!kernel.values[positive])return false;
-          deferred_implication_level=std::max(
-              deferred_implication_level,
-              kernel.assigned[var_of(positive)].level);
-          return true;
-        });
+    const bool valid=deferred_exact_event_identity(
+        session.owner_version_,session.matrix_,kernel,event,
+        deferred_implication_level,deferred_implied,deferred_identity);
     if(!valid){
       result.status=AffineMatrixServiceStatus::Stale;
       record_service(kernel,result);return result;
@@ -2168,19 +2197,16 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     return result;
   }
   result.reason_width = event.reason_width;
-  result.event_identity = event_identity(session.owner_version_, event);
+  result.event_identity = deferred_identity.empty()
+      ? event_identity(session.owner_version_, event)
+      : std::move(deferred_identity);
   if (result.event_identity.size() > session.parameters_.maximum_journal_bytes) {
     result.status = AffineMatrixServiceStatus::ResourceExhausted;
     record_service(kernel, result);
     return result;
   }
   const bool deferred_exact=!event.deferred_exact_support.empty();
-  const uint64_t deferred_identity_reserve=deferred_exact&&
-      event.reason_width<=(UINT64_MAX-result.event_identity.size()-1)/12?
-      result.event_identity.size()+1+uint64_t(event.reason_width)*12:
-      UINT64_MAX;
-  auto duplicate=session.published_.end();
-  if(!deferred_exact)duplicate=
+  const auto duplicate=
       std::lower_bound(session.published_.begin(), session.published_.end(),
                        result.event_identity);
   if (!add(session.published_work_, session.parameters_.maximum_session_work,
@@ -2197,7 +2223,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     record_service(kernel, result);
     return result;
   }
-  if (!deferred_exact&&duplicate != session.published_.end() &&
+  if (duplicate != session.published_.end() &&
       *duplicate == result.event_identity) {
     result.status = AffineMatrixServiceStatus::Duplicate;
     record_service(kernel, result);
@@ -2205,8 +2231,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
   if (session.published_.size()+session.lazy_reasons_.size() >=
           session.parameters_.maximum_session_keys ||
-      !add(deferred_exact?deferred_identity_reserve:
-                              result.event_identity.size()+1,
+      !add(result.event_identity.size()+1,
            session.parameters_.maximum_session_work, result.session_work)) {
     result.status = AffineMatrixServiceStatus::ResourceExhausted;
     record_service(kernel, result);
@@ -2247,9 +2272,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     }
     const __uint128_t key_bytes_wide =
         __uint128_t(2) * session.published_.capacity() * sizeof(std::string) +
-        2 * (sizeof(std::string) +
-             (deferred_exact?deferred_identity_reserve:
-                             result.event_identity.size()+1)) +
+        2 * (sizeof(std::string) + result.event_identity.size()+1) +
         __uint128_t(2) * session.published_capacity_bytes_;
     if (key_bytes_wide > UINT64_MAX) {
       result.status = AffineMatrixServiceStatus::ResourceExhausted;
@@ -2475,7 +2498,10 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
       record_service(kernel,result);return result;
     }
     at->event.deferred_exact_support={};
-    at->event_identity=event_identity(session.owner_version_,at->event);
+#ifndef NDEBUG
+    if(at->event_identity!=event_identity(session.owner_version_,at->event))
+      std::abort();
+#endif
   }
   if(at->event_identity.size()>session.parameters_.maximum_journal_bytes){
     result.status=AffineMatrixServiceStatus::ResourceExhausted;
