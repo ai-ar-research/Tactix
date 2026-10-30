@@ -556,6 +556,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.status == AffineMatrixServiceStatus::Applied &&
          materialized.reason_materialized &&
+         materialized.reason_vector_constructed &&
          materialized.reason_width == 3 &&
          (materialized.installed_reason ==
           std::vector<int32_t>{1, -2, 5}) &&
@@ -638,7 +639,11 @@ void lazy_minimal_materializes_only_analyze_ancestor() {
   assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
   assert(session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON &&
-         !session.lazy_reason_vector_constructed(4));
+         !session.lazy_reason_vector_constructed(4) &&
+         kernel.stats.affine_matrix_analyze_handles == 1 &&
+         kernel.stats.affine_matrix_analyze_materializations == 1 &&
+         kernel.stats.affine_matrix_analyze_vectors_constructed == 1 &&
+         kernel.stats.affine_matrix_analyze_literals_constructed == 3);
   proof.flush();
   kernel.proof = nullptr;
   unlink(proof_path);

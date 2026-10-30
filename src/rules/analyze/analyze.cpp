@@ -232,6 +232,7 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
       continue;
     const Assigned &a = k.assigned[v];
     if (a.affine) {
+      ++k.stats.affine_matrix_analyze_handles;
       lazy.push_back(v);
       if (!session->inspect_lazy_reason(k, v, pending))
         std::abort();
@@ -259,6 +260,12 @@ static void materialize_affine_ancestors_before_analysis(Kernel &k) {
     if (result.status != AffineMatrixServiceStatus::Applied ||
         !result.reason_materialized)
       std::abort();
+    ++k.stats.affine_matrix_analyze_materializations;
+    if (result.reason_vector_constructed) {
+      ++k.stats.affine_matrix_analyze_vectors_constructed;
+      k.stats.affine_matrix_analyze_literals_constructed +=
+          result.installed_reason.size();
+    }
   }
 }
 

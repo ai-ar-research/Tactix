@@ -104,6 +104,10 @@ struct AffineMatrixServiceResult {
   // reason whose checker certificate is owed; the explicit materialization
   // action discharged that debt.
   bool reason_deferred = false, reason_materialized = false;
+  // Exact support became a signed reason vector in this call.  This is
+  // separate from publication: eager/source-support handles are materialized
+  // without constructing a deferred vector.
+  bool reason_vector_constructed = false;
   bool slice_pending=false, slice_resumed=false, slice_invalidated=false;
   uint64_t slice_work=0, slice_cumulative_work=0, slice_completed_steps=0, slice_minimum_work=0;
 

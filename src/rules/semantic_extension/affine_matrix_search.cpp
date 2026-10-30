@@ -2497,6 +2497,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
       result.status=AffineMatrixServiceStatus::Stale;
       record_service(kernel,result);return result;
     }
+    result.reason_vector_constructed=true;
     at->event.deferred_exact_support={};
 #ifndef NDEBUG
     if(at->event_identity!=event_identity(session.owner_version_,at->event))

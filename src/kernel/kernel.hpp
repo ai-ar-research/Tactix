@@ -1381,6 +1381,12 @@ struct Stats {
   uint64_t affine_matrix_service_slice_work = 0;
   uint64_t affine_matrix_service_slice_invalidations = 0;
   uint64_t affine_matrix_service_minimum_slice_work_max = 0;
+  // ConflictAnalysis telemetry at the native affine-reason consumer boundary.
+  // These cumulative counters survive session replacement.
+  uint64_t affine_matrix_analyze_handles = 0;
+  uint64_t affine_matrix_analyze_materializations = 0;
+  uint64_t affine_matrix_analyze_vectors_constructed = 0;
+  uint64_t affine_matrix_analyze_literals_constructed = 0;
 };
 
 struct PendingLearned {
