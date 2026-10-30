@@ -5,6 +5,7 @@
 
 #include "policies/heuristics.hpp" // the opaque `H`: Kernel's ctor/dtor + calls
 #include "proof/proof.hpp" // kernel_delete_binary emits the delta atomically
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1054,6 +1055,8 @@ void kernel_touch_sync_fixed(Kernel &k) {
 template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
   const Var v = var_of(lit);
   Assigned &assignment = k.assigned[v];
+  if (assignment.affine && k.affine_matrix_search_session)
+    k.affine_matrix_search_session->discard_lazy_reason(v);
   if (!assignment.affine && !assignment.binary &&
       assignment.reason != DECISION_REASON &&
       assignment.reason != UNIT_REASON) {

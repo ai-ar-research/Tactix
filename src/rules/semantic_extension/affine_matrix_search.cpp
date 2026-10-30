@@ -342,21 +342,39 @@ bool AffineMatrixSearchSession::initialization_retry_suppressed(
 }
 
 void AffineMatrixSearchSession::disable(Kernel &kernel) {
-  lazy_reasons_.erase(
-      std::remove_if(lazy_reasons_.begin(), lazy_reasons_.end(),
-          [&](const LazyReason &pending) {
-            if (pending.implied_variable >= kernel.nvars ||
-                !kernel.values[make_lit(pending.implied_variable, false)])
-              return true;
-            const Assigned &a = kernel.assigned[pending.implied_variable];
-            return !a.affine || a.binary || a.reason != AFFINE_REASON;
-          }),
-      lazy_reasons_.end());
+  for (size_t i = 0; i < lazy_reasons_.size();) {
+    const Var implied = lazy_reasons_[i].implied_variable;
+    if (implied >= kernel.nvars ||
+        !kernel.values[make_lit(implied, false)] ||
+        !kernel.assigned[implied].affine || kernel.assigned[implied].binary ||
+        kernel.assigned[implied].reason != AFFINE_REASON)
+      erase_lazy_reason_at(i);
+    else
+      ++i;
+  }
   if (!lazy_reasons_.empty()) return;
   if (owner_ == &kernel && proof_ && kernel.proof == proof_ &&
       (!persistent() || (proof_stream_identity_ && proof_->stream_identity()==proof_stream_identity_)))
     proof_->release_premise_groups(premise_leases_, kernel.next_clause_id);
   *this = AffineMatrixSearchSession{};
+}
+
+void AffineMatrixSearchSession::erase_lazy_reason_at(size_t index) noexcept {
+  assert(index < lazy_reasons_.size());
+  const uint64_t bytes = lazy_reasons_[index].retained_bytes;
+  assert(bytes <= lazy_reason_bytes_);
+  lazy_reason_bytes_ -= bytes;
+  lazy_reasons_.erase(lazy_reasons_.begin() + index);
+}
+
+void AffineMatrixSearchSession::discard_lazy_reason(Var implied) noexcept {
+  const auto at = std::find_if(
+      lazy_reasons_.begin(), lazy_reasons_.end(),
+      [&](const LazyReason &pending) {
+        return pending.implied_variable == implied;
+      });
+  if (at != lazy_reasons_.end())
+    erase_lazy_reason_at(static_cast<size_t>(at - lazy_reasons_.begin()));
 }
 
 bool AffineMatrixSearchSession::attached_to(const Kernel &kernel) const {
@@ -1789,19 +1807,16 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     record_service(kernel, result);
     return result;
   }
-  // Backtracking releases the arena lock in kernel_unassign_literal.  Retire
-  // the corresponding compact handle lazily here; indexing by implied
-  // variable survives arena collection without a second forwarding table.
-  session.lazy_reasons_.erase(
-      std::remove_if(session.lazy_reasons_.begin(), session.lazy_reasons_.end(),
-          [&](const AffineMatrixSearchSession::LazyReason &pending) {
-            if (pending.implied_variable >= kernel.nvars ||
-                !kernel.values[make_lit(pending.implied_variable, false)])
-              return true;
-            const Assigned &a = kernel.assigned[pending.implied_variable];
-            return !a.affine || a.binary || a.reason != AFFINE_REASON;
-          }),
-      session.lazy_reasons_.end());
+  // Backtracking retires handles synchronously at kernel_unassign_literal.
+  // Debug keeps the former polling predicate as a boundary assertion.
+#ifndef NDEBUG
+  for (const auto &pending : session.lazy_reasons_) {
+    assert(pending.implied_variable < kernel.nvars);
+    assert(kernel.values[make_lit(pending.implied_variable, false)]);
+    const Assigned &a = kernel.assigned[pending.implied_variable];
+    assert(a.affine && !a.binary && a.reason == AFFINE_REASON);
+  }
+#endif
   if (session.deferred_reason_) {
     result.status = AffineMatrixServiceStatus::Inapplicable;
     record_service(kernel, result);
@@ -2372,6 +2387,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
           pending.retained_bytes = bytes;
           pending.core_reason_authentication = minimal;
           session.lazy_reasons_.push_back(std::move(pending));
+          assert(bytes <= UINT64_MAX - session.lazy_reason_bytes_);
+          session.lazy_reason_bytes_ += bytes;
           assert(session.has_lazy_reason(var_of(implied)));
           result.live.status = MatrixLiveStatus::Applied;
           result.live.result = ApplyResult::Ok;
@@ -2511,7 +2528,8 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
       !kernel.values[make_lit(implied, false)] ||
       kernel.assigned[implied].binary || !kernel.assigned[implied].affine ||
       kernel.assigned[implied].reason != AFFINE_REASON) {
-    session.lazy_reasons_.erase(at);
+    session.erase_lazy_reason_at(
+        static_cast<size_t>(at - session.lazy_reasons_.begin()));
     result.status = AffineMatrixServiceStatus::Stale;
     record_service(kernel, result);
     return result;
@@ -2618,7 +2636,8 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
       session.published_capacity_bytes_ += bytes;
     }
     kernel.structural_action_sequence = request.action_id;
-    session.lazy_reasons_.erase(at);
+    session.erase_lazy_reason_at(
+        static_cast<size_t>(at - session.lazy_reasons_.begin()));
     result.reason_materialized = true;
   }
   record_service(kernel, result);

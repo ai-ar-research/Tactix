@@ -690,14 +690,18 @@ void lazy_source_backtrack_discards_without_publication() {
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
   const uint64_t before = kernel.next_clause_id;
+  const uint64_t retained_before = session.retained_bytes();
   const auto lazy = affine_matrix_search_step_lazy_source(kernel, session);
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
-         session.lazy_reason_count() == 1 && kernel.next_clause_id == before);
+         session.lazy_reason_count() == 1 && kernel.next_clause_id == before &&
+         session.retained_bytes() > retained_before);
+  const uint64_t retained_with_reason = session.retained_bytes();
   assert(kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON);
   kernel_backtrack(kernel, 0);
   assert(!kernel.values[make_lit(4, false)] &&
-         session.lazy_reason_count() == 1);
+         session.lazy_reason_count() == 0 &&
+         session.retained_bytes() < retained_with_reason);
   const auto root = affine_matrix_search_step_lazy_source(kernel, session);
   assert(root.status == AffineMatrixServiceStatus::NoEvent &&
          session.lazy_reason_count() == 0 && kernel.next_clause_id == before);

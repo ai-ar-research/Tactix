@@ -203,6 +203,10 @@ public:
     return deferred_reason_.has_value();
   }
   size_t lazy_reason_count() const noexcept { return lazy_reasons_.size(); }
+  // Every trail removal passes through kernel_unassign_literal. Retire the
+  // corresponding compact affine handle there instead of polling the whole
+  // live-handle vector at every matrix service.
+  void discard_lazy_reason(Var implied) noexcept;
   bool has_lazy_reason(Var implied) const noexcept {
     for (const auto &reason : lazy_reasons_)
       if (reason.implied_variable == implied)
@@ -233,9 +237,15 @@ public:
         : 0;
     uint64_t total = deferred > UINT64_MAX - owned ? UINT64_MAX
                                                     : owned + deferred;
+#ifndef NDEBUG
+    uint64_t lazy = 0;
     for (const auto &reason : lazy_reasons_)
-      total = reason.retained_bytes > UINT64_MAX - total
-          ? UINT64_MAX : total + reason.retained_bytes;
+      lazy = reason.retained_bytes > UINT64_MAX - lazy
+          ? UINT64_MAX : lazy + reason.retained_bytes;
+    assert(lazy == lazy_reason_bytes_);
+#endif
+    total = lazy_reason_bytes_ > UINT64_MAX - total
+        ? UINT64_MAX : total + lazy_reason_bytes_;
     return total;
   }
   bool matches_profile(const strategy::AffineConsequenceParameters &basis,
@@ -369,6 +379,8 @@ private:
     bool core_reason_authentication = false;
   };
   std::vector<LazyReason> lazy_reasons_;
+  uint64_t lazy_reason_bytes_ = 0;
+  void erase_lazy_reason_at(size_t) noexcept;
 };
 
 RuleEligibility affine_matrix_initialize_guard(const Kernel &);
