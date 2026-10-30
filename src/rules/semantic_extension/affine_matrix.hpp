@@ -130,7 +130,10 @@ public:
   uint64_t row_source_bound() const { return limits_.maximum_sources; }
   bool complete_admission() const { return complete_admission_; }
   const std::vector<MatrixAssignment> &trail() const { return trail_; }
-  const std::vector<MatrixRow> &rows() const { return rows_; }
+  const std::vector<MatrixRow> &rows() const;
+  size_t row_count() const {
+    return simplex_.active ? simplex_.rhs.size() : rows_.size();
+  }
   const std::vector<MatrixRow> &admitted_rows() const {
     return admitted_rows_;
   }
@@ -219,6 +222,38 @@ private:
     std::set<size_t> conflicts;
     uint64_t bytes = 0, authentication_work = 0;
   };
+  // Compact [I|D] simplex state following CryptoMiniSat's Gaussian search
+  // representation.  Responsible columns are implicit; only the D columns
+  // and source provenance are packed.  Basis exchanges preserve the exact
+  // authenticated system while avoiding reconstruction at every Boolean
+  // fixpoint.
+  struct SimplexState {
+    bool ready = false, active = false;
+    size_t coefficient_words = 0, source_words = 0;
+    uint64_t bytes = 0, authentication_work = 0;
+    std::vector<uint64_t> coefficients, provenance;
+    std::vector<size_t> responsible, variable_to_row, variable_to_slot,
+        slot_to_variable;
+    std::vector<int8_t> values;
+    std::vector<uint8_t> rhs;
+    std::vector<uint32_t> components;
+    std::vector<uint64_t> slot_unset, slot_values;
+    mutable std::vector<External> reason_scratch;
+    mutable std::vector<size_t> implication_rows;
+    mutable std::vector<uint8_t> implication_values;
+  };
+  MatrixStatus synchronize_simplex(
+      const std::vector<MatrixAssignment> &,
+      const std::function<bool(uint64_t)> &, MatrixEvent &,
+      const MatrixIncrementalLimits &);
+  bool simplex_layout(uint64_t, size_t &, size_t &, uint64_t &) const;
+  bool prepare_simplex(uint64_t, SimplexState &) const;
+  MatrixEvent simplex_event(bool exact_core_reason) const;
+  void materialize_simplex_rows() const;
+  void reset_sparse_after_simplex();
+  SimplexState simplex_;
+  mutable std::vector<MatrixRow> simplex_rows_cache_;
+  mutable bool simplex_rows_cache_valid_ = false;
   MatrixStatus build_row_index(const std::vector<MatrixRow> &,
       const std::function<bool(uint64_t)> &, uint64_t, RowIndex &);
   MatrixStatus synchronize_dirty(const std::vector<MatrixAssignment> &,

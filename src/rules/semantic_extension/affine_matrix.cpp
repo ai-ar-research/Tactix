@@ -635,6 +635,408 @@ MatrixStatus build_affine_matrix(
   return status;
 }
 
+bool AffineMatrix::simplex_layout(uint64_t maximum,size_t &coefficient_words,
+                                  size_t &source_words,uint64_t &retained_bytes) const {
+  const size_t row_count=admitted_rows_.size();
+  const size_t variable_count=admitted_variables_.size();
+  const size_t source_count=admitted_sources_.size();
+  size_t rank=0;
+  External previous=0;
+  for(const MatrixRow &row:admitted_rows_){
+    if(row.variables.empty())continue;
+    if(row.variables.front()<=previous)return false;
+    previous=row.variables.front();++rank;
+  }
+  if(rank>variable_count)return false;
+  const size_t slots=variable_count-rank;
+  coefficient_words=(slots+63)/64;
+  source_words=(source_count+63)/64;
+  const __uint128_t bytes=sizeof(SimplexState)+
+      __uint128_t(row_count)*(coefficient_words+source_words)*sizeof(uint64_t)+
+      __uint128_t(row_count)*(sizeof(size_t)+sizeof(uint8_t)+sizeof(uint32_t))+
+      __uint128_t(variable_count)*(2*sizeof(size_t)+sizeof(int8_t))+
+      __uint128_t(slots)*sizeof(size_t)+
+      __uint128_t(2)*coefficient_words*sizeof(uint64_t)+
+      __uint128_t(variable_count)*(sizeof(External)+sizeof(size_t)+sizeof(uint8_t));
+  if(bytes>maximum||bytes>UINT64_MAX)return false;
+  retained_bytes=uint64_t(bytes);return true;
+}
+
+bool AffineMatrix::prepare_simplex(uint64_t maximum,
+                                   SimplexState &candidate) const {
+  const size_t missing=std::numeric_limits<size_t>::max();
+  const size_t row_count=admitted_rows_.size();
+  const size_t variable_count=admitted_variables_.size();
+  size_t coefficient_words=0,source_words=0;uint64_t retained_bytes=0;
+  if(!simplex_layout(maximum,coefficient_words,source_words,retained_bytes))
+    return false;
+  const size_t slots=coefficient_words?variable_count-
+      std::count_if(admitted_rows_.begin(),admitted_rows_.end(),
+                    [](const MatrixRow &row){return !row.variables.empty();}):0;
+
+  candidate={};candidate.coefficient_words=coefficient_words;
+  candidate.source_words=source_words;candidate.bytes=retained_bytes;
+  candidate.coefficients.assign(row_count*coefficient_words,0);
+  candidate.provenance.assign(row_count*source_words,0);
+  candidate.responsible.assign(row_count,missing);
+  candidate.variable_to_row.assign(variable_count,missing);
+  candidate.variable_to_slot.assign(variable_count,missing);
+  candidate.slot_to_variable.reserve(slots);
+  candidate.values.assign(variable_count,0);
+  candidate.rhs.resize(row_count);candidate.components.resize(row_count);
+  candidate.slot_unset.assign(coefficient_words,0);
+  candidate.slot_values.assign(coefficient_words,0);
+  candidate.reason_scratch.reserve(variable_count);
+  candidate.implication_rows.resize(variable_count);
+  candidate.implication_values.resize(variable_count);
+  for(size_t id=0;id<row_count;++id){
+    const MatrixRow &row=admitted_rows_[id];
+    if(!row.variables.empty()){
+      const auto found=std::lower_bound(admitted_variables_.begin(),
+          admitted_variables_.end(),row.variables.front());
+      if(found==admitted_variables_.end()||*found!=row.variables.front())return false;
+      const size_t coordinate=found-admitted_variables_.begin();
+      if(candidate.variable_to_row[coordinate]!=missing)return false;
+      candidate.variable_to_row[coordinate]=id;
+      candidate.responsible[id]=coordinate;
+    }
+  }
+  for(size_t coordinate=0;coordinate<variable_count;++coordinate)
+    if(candidate.variable_to_row[coordinate]==missing){
+      candidate.variable_to_slot[coordinate]=candidate.slot_to_variable.size();
+      candidate.slot_to_variable.push_back(coordinate);
+    }
+  if(candidate.slot_to_variable.size()!=slots)return false;
+
+  __uint128_t authentication=0;
+  for(size_t id=0;id<row_count;++id){
+    const MatrixRow &row=admitted_rows_[id];
+    candidate.rhs[id]=row.rhs;candidate.components[id]=row.component;
+    authentication+=1+row.variables.size()+row.source_equations.size();
+    const size_t first=row.variables.empty()?0:1;
+    for(size_t at=first;at<row.variables.size();++at){
+      const auto found=std::lower_bound(admitted_variables_.begin(),
+          admitted_variables_.end(),row.variables[at]);
+      if(found==admitted_variables_.end()||*found!=row.variables[at])return false;
+      const size_t coordinate=found-admitted_variables_.begin();
+      const size_t slot=candidate.variable_to_slot[coordinate];
+      if(slot==missing)return false;
+      candidate.coefficients[id*coefficient_words+slot/64]|=
+          uint64_t{1}<<(slot%64);
+    }
+    for(size_t source:row.source_equations){
+      const auto found=std::lower_bound(admitted_sources_.begin(),
+          admitted_sources_.end(),source);
+      if(found==admitted_sources_.end()||*found!=source)return false;
+      const size_t coordinate=found-admitted_sources_.begin();
+      candidate.provenance[id*source_words+coordinate/64]|=
+          uint64_t{1}<<(coordinate%64);
+    }
+  }
+  if(authentication>UINT64_MAX)return false;
+  candidate.authentication_work=uint64_t(authentication);
+  candidate.ready=true;candidate.active=true;
+  return true;
+}
+
+MatrixEvent AffineMatrix::simplex_event(bool exact_core_reason) const {
+  const size_t missing=std::numeric_limits<size_t>::max();
+  MatrixEvent result;
+  size_t selected=missing,paired=missing;
+  External implied=std::numeric_limits<External>::max();
+  bool implied_value=false;
+  const auto assigned=[&](size_t coordinate){return simplex_.values[coordinate]!=0;};
+  const auto value=[&](size_t coordinate){return simplex_.values[coordinate]==2;};
+  const auto evaluate=[&](size_t row,size_t &unset,size_t &coordinate,bool &residual){
+    unset=0;coordinate=missing;residual=simplex_.rhs[row];
+    const size_t responsible=simplex_.responsible[row];
+    if(responsible!=missing){
+      if(assigned(responsible))residual^=value(responsible);
+      else{++unset;coordinate=responsible;}
+    }
+    for(size_t word=0;word<simplex_.coefficient_words;++word){
+      const uint64_t bits=simplex_.coefficients[row*simplex_.coefficient_words+word];
+      residual^=std::popcount(bits&simplex_.slot_values[word])&1;
+      uint64_t open=bits&simplex_.slot_unset[word];
+      unset+=std::popcount(open);
+      if(open){
+        const size_t slot=word*64+std::countr_zero(open);
+        coordinate=simplex_.slot_to_variable[slot];
+      }
+    }
+  };
+  for(size_t row=0;row<simplex_.rhs.size();++row){
+    size_t unset=0,coordinate=missing;bool residual=false;
+    evaluate(row,unset,coordinate,residual);
+    if(!unset&&residual){selected=row;result.kind=MatrixEventKind::Conflict;break;}
+  }
+  if(result.kind==MatrixEventKind::None){
+    std::fill(simplex_.implication_rows.begin(),simplex_.implication_rows.end(),missing);
+    for(size_t row=0;row<simplex_.rhs.size();++row){
+      size_t unset=0,coordinate=missing;bool residual=false;
+      evaluate(row,unset,coordinate,residual);
+      if(unset!=1)continue;
+      if(coordinate==missing||coordinate>=simplex_.implication_rows.size())std::abort();
+      const size_t prior=simplex_.implication_rows[coordinate];
+      if(prior!=missing&&simplex_.implication_values[coordinate]!=residual){
+        selected=prior;paired=row;result.kind=MatrixEventKind::Conflict;break;
+      }
+      if(prior==missing){
+        simplex_.implication_rows[coordinate]=row;
+        simplex_.implication_values[coordinate]=residual;
+      }
+      const External variable=admitted_variables_[coordinate];
+      if(variable<implied){selected=row;implied=variable;implied_value=residual;}
+    }
+  }
+  if(selected==missing)return result;
+  if(result.kind==MatrixEventKind::None){
+    result.kind=MatrixEventKind::Implication;result.implied_variable=implied;
+    result.implied_value=implied_value;result.row.variables={implied};
+    result.row.rhs=implied_value;
+  }else result.row.rhs=true;
+  result.row.component=simplex_.components[selected];
+  if(paired!=missing&&simplex_.components[paired]!=result.row.component)std::abort();
+  for(size_t word=0;word<simplex_.source_words;++word){
+    uint64_t bits=simplex_.provenance[selected*simplex_.source_words+word];
+    if(paired!=missing)
+      bits^=simplex_.provenance[paired*simplex_.source_words+word];
+    while(bits){
+      const size_t coordinate=word*64+std::countr_zero(bits);
+      if(coordinate>=admitted_sources_.size())std::abort();
+      result.row.source_equations.push_back(admitted_sources_[coordinate]);
+      bits&=bits-1;
+    }
+  }
+  make_reason(sources_,trail_,result,exact_core_reason,
+              &simplex_.reason_scratch);
+  return result;
+}
+
+MatrixStatus AffineMatrix::synchronize_simplex(
+    const std::vector<MatrixAssignment> &trail,
+    const std::function<bool(uint64_t)> &charge,MatrixEvent &event,
+    const MatrixIncrementalLimits &incremental) {
+  const size_t missing=std::numeric_limits<size_t>::max();
+  External previous=0;
+  for(const MatrixAssignment assignment:trail){
+    if(assignment.variable<=previous)return MatrixStatus::Invalid;
+    previous=assignment.variable;
+    if(!std::binary_search(admitted_variables_.begin(),admitted_variables_.end(),
+                           assignment.variable))return MatrixStatus::Invalid;
+  }
+  bool extension=trail.size()>=trail_.size();
+  size_t old=0;
+  if(extension)for(const MatrixAssignment assignment:trail){
+    if(old<trail_.size()&&trail_[old].variable<assignment.variable){extension=false;break;}
+    if(old<trail_.size()&&trail_[old].variable==assignment.variable){
+      if(trail_[old].value!=assignment.value){extension=false;break;}++old;
+    }
+  }
+  if(old!=trail_.size())extension=false;
+  const MatrixSynchronizationKind kind=!simplex_.ready?MatrixSynchronizationKind::PriorPartial:
+      extension?MatrixSynchronizationKind::Extension:
+      trail.size()<trail_.size()?MatrixSynchronizationKind::Backtrack:
+      MatrixSynchronizationKind::Reassignment;
+
+  SimplexState candidate;
+  const size_t row_count=admitted_rows_.size();
+  size_t coefficient_words=simplex_.coefficient_words;
+  size_t source_words=simplex_.source_words;
+  uint64_t retained_bytes=simplex_.bytes;
+  if(!simplex_.ready){
+    if(index_reservation_>incremental.maximum_index_bytes||
+       !simplex_layout(incremental.maximum_index_bytes-index_reservation_,
+                       coefficient_words,source_words,retained_bytes))
+      return MatrixStatus::Exhausted;
+  }
+  const uint64_t comparisons=2*std::bit_width(std::max<uint64_t>({1,
+      uint64_t(admitted_variables_.size()),uint64_t(admitted_sources_.size()),
+      uint64_t(trail.size())}))+3;
+  __uint128_t initialization=0;
+  if(!simplex_.ready){
+    __uint128_t body=0;
+    for(const MatrixRow &row:admitted_rows_)
+      body+=1+row.variables.size()+row.source_equations.size();
+    initialization=1+row_count+admitted_variables_.size()+body*comparisons;
+  }
+  const __uint128_t reason_work=
+      (__uint128_t(source_support_bound_)+trail.size()+1)*comparisons;
+  const __uint128_t event_work=1+admitted_variables_.size()+source_words+
+      __uint128_t(2)*row_count*(3+coefficient_words)+reason_work;
+  const __uint128_t exchange_work=
+      __uint128_t(trail.size())*(2+coefficient_words)+
+      __uint128_t(std::min(trail.size(),row_count))*row_count*
+          (3+coefficient_words+source_words);
+  const __uint128_t worst=1+__uint128_t(trail.size())*(2*comparisons+4)+
+      admitted_variables_.size()+initialization+2*event_work+exchange_work;
+  if(worst>limits_.maximum_work||worst>UINT64_MAX){
+    last_synchronization_work_exhausted_=true;return MatrixStatus::Exhausted;
+  }
+  if(!charge(uint64_t(worst)))return MatrixStatus::Interrupted;
+  if(!simplex_.ready){
+    if(!prepare_simplex(incremental.maximum_index_bytes-index_reservation_,candidate))
+      return MatrixStatus::Invalid;
+    simplex_=std::move(candidate);index_={};index_ready_=false;
+    dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
+    dirty_row_marks_={};dirty_row_ids_={};dirty_row_epoch_=0;
+    index_reservation_=simplex_.bytes;
+  }else simplex_.active=true;
+  // Live authentication replays the compact event selection and exact reason.
+  // Retain that current, trail-sensitive prepaid currency rather than the
+  // initial sparse row cardinality, which basis exchanges may invalidate.
+  simplex_.authentication_work=uint64_t(event_work);
+
+  std::fill(simplex_.values.begin(),simplex_.values.end(),0);
+  for(const MatrixAssignment assignment:trail){
+    const auto found=std::lower_bound(admitted_variables_.begin(),
+        admitted_variables_.end(),assignment.variable);
+    if(found==admitted_variables_.end()||*found!=assignment.variable)
+      return MatrixStatus::Invalid;
+    simplex_.values[found-admitted_variables_.begin()]=assignment.value?2:1;
+  }
+  std::fill(simplex_.slot_unset.begin(),simplex_.slot_unset.end(),0);
+  std::fill(simplex_.slot_values.begin(),simplex_.slot_values.end(),0);
+  const auto refresh_slot=[&](size_t slot){
+    const size_t coordinate=simplex_.slot_to_variable[slot];
+    const uint64_t bit=uint64_t{1}<<(slot%64);
+    uint64_t &unset=simplex_.slot_unset[slot/64];
+    uint64_t &values=simplex_.slot_values[slot/64];
+    if(!simplex_.values[coordinate])unset|=bit;else unset&=~bit;
+    if(simplex_.values[coordinate]==2)values|=bit;else values&=~bit;
+  };
+  for(size_t slot=0;slot<simplex_.slot_to_variable.size();++slot)refresh_slot(slot);
+
+  // Observe every consequence already exposed by the current basis before a
+  // responsible-column exchange.  This mirrors CryptoMiniSat's watched-row
+  // order: propGause reports a conflict/propagation before find_truths asks
+  // eliminate_col to install a new responsible variable.  Exchanging first is
+  // algebraically sound, but can hide a singleton in a different basis and
+  // therefore weaken propagation (notably when a complete snapshot is handed
+  // to this public service rather than one assignment at a time).
+  const size_t prefix=extension?trail_.size():0;
+  trail_=trail;simplex_rows_cache_valid_=false;
+  event=simplex_event(true);
+  if(event.kind!=MatrixEventKind::None){
+    incremental_ready_=true;predecessor_ready_=false;
+    predecessor_rows_.clear();predecessor_trail_.clear();
+    last_dirty_update_=false;last_dirty_rows_=0;
+    last_synchronization_incremental_=extension;
+    last_synchronization_restored_predecessor_=false;
+    last_synchronization_prefix_=prefix;
+    last_synchronization_conditioned_=trail.size()-prefix;
+    last_synchronization_kind_=kind;
+    const uint64_t charged=uint64_t(worst);
+    work_=charged>UINT64_MAX-work_?UINT64_MAX:work_+charged;
+    return MatrixStatus::Complete;
+  }
+  size_t affected=0,exchanges=0;
+  const auto exchange=[&](size_t pivot_row,size_t slot){
+    const size_t old_responsible=simplex_.responsible[pivot_row];
+    const size_t new_responsible=simplex_.slot_to_variable[slot];
+    if(old_responsible==missing||new_responsible==missing||
+       simplex_.variable_to_row[new_responsible]!=missing)std::abort();
+    const size_t slot_word=slot/64;const uint64_t slot_bit=uint64_t{1}<<(slot%64);
+    if(!(simplex_.coefficients[pivot_row*simplex_.coefficient_words+slot_word]&slot_bit))
+      std::abort();
+    for(size_t row=0;row<simplex_.rhs.size();++row){
+      if(row==pivot_row||
+         !(simplex_.coefficients[row*simplex_.coefficient_words+slot_word]&slot_bit))continue;
+      if(simplex_.components[row]!=simplex_.components[pivot_row])std::abort();
+      for(size_t word=0;word<simplex_.coefficient_words;++word){
+        uint64_t mask=simplex_.coefficients[pivot_row*simplex_.coefficient_words+word];
+        if(word==slot_word)mask&=~slot_bit;
+        simplex_.coefficients[row*simplex_.coefficient_words+word]^=mask;
+      }
+      for(size_t word=0;word<simplex_.source_words;++word)
+        simplex_.provenance[row*simplex_.source_words+word]^=
+            simplex_.provenance[pivot_row*simplex_.source_words+word];
+      simplex_.rhs[row]^=simplex_.rhs[pivot_row];++affected;
+    }
+    simplex_.variable_to_row[old_responsible]=missing;
+    simplex_.variable_to_slot[old_responsible]=slot;
+    simplex_.variable_to_slot[new_responsible]=missing;
+    simplex_.variable_to_row[new_responsible]=pivot_row;
+    simplex_.slot_to_variable[slot]=old_responsible;
+    simplex_.responsible[pivot_row]=new_responsible;refresh_slot(slot);
+    ++affected;++exchanges;
+  };
+  for(const MatrixAssignment assignment:trail){
+    const size_t coordinate=std::lower_bound(admitted_variables_.begin(),
+        admitted_variables_.end(),assignment.variable)-admitted_variables_.begin();
+    const size_t row=simplex_.variable_to_row[coordinate];
+    if(row==missing)continue;
+    size_t open_count=0,selected_slot=missing;
+    for(size_t word=0;word<simplex_.coefficient_words;++word){
+      uint64_t open=simplex_.coefficients[row*simplex_.coefficient_words+word]&
+          simplex_.slot_unset[word];
+      open_count+=std::popcount(open);
+      if(selected_slot==missing&&open)selected_slot=word*64+std::countr_zero(open);
+    }
+    if(open_count>=2&&selected_slot!=missing)exchange(row,selected_slot);
+  }
+  event=simplex_event(true);
+  incremental_ready_=true;predecessor_ready_=false;
+  predecessor_rows_.clear();predecessor_trail_.clear();
+  last_dirty_update_=exchanges!=0;last_dirty_rows_=affected;
+  last_synchronization_incremental_=extension;
+  last_synchronization_restored_predecessor_=false;
+  last_synchronization_prefix_=prefix;
+  last_synchronization_conditioned_=trail.size()-prefix;
+  last_synchronization_kind_=kind;
+  const uint64_t charged=uint64_t(worst);
+  work_=charged>UINT64_MAX-work_?UINT64_MAX:work_+charged;
+  return MatrixStatus::Complete;
+}
+
+void AffineMatrix::materialize_simplex_rows() const {
+  if(!simplex_.active||simplex_rows_cache_valid_)return;
+  const size_t missing=std::numeric_limits<size_t>::max();
+  simplex_rows_cache_.clear();simplex_rows_cache_.reserve(simplex_.rhs.size());
+  for(size_t id=0;id<simplex_.rhs.size();++id){
+    MatrixRow row;row.rhs=simplex_.rhs[id];row.component=simplex_.components[id];
+    const size_t responsible=simplex_.responsible[id];
+    if(responsible!=missing){
+      if(simplex_.values[responsible])row.rhs^=simplex_.values[responsible]==2;
+      else row.variables.push_back(admitted_variables_[responsible]);
+    }
+    for(size_t word=0;word<simplex_.coefficient_words;++word){
+      uint64_t bits=simplex_.coefficients[id*simplex_.coefficient_words+word];
+      while(bits){
+        const size_t slot=word*64+std::countr_zero(bits);
+        const size_t coordinate=simplex_.slot_to_variable[slot];
+        if(simplex_.values[coordinate])row.rhs^=simplex_.values[coordinate]==2;
+        else row.variables.push_back(admitted_variables_[coordinate]);
+        bits&=bits-1;
+      }
+    }
+    std::sort(row.variables.begin(),row.variables.end());
+    for(size_t word=0;word<simplex_.source_words;++word){
+      uint64_t bits=simplex_.provenance[id*simplex_.source_words+word];
+      while(bits){
+        const size_t coordinate=word*64+std::countr_zero(bits);
+        row.source_equations.push_back(admitted_sources_[coordinate]);bits&=bits-1;
+      }
+    }
+    simplex_rows_cache_.push_back(std::move(row));
+  }
+  simplex_rows_cache_valid_=true;
+}
+
+const std::vector<MatrixRow> &AffineMatrix::rows() const {
+  if(!simplex_.active)return rows_;
+  materialize_simplex_rows();return simplex_rows_cache_;
+}
+
+void AffineMatrix::reset_sparse_after_simplex(){
+  simplex_.active=false;simplex_rows_cache_valid_=false;
+  rows_=admitted_rows_;trail_.clear();incremental_ready_=false;
+  index_={};index_ready_=false;index_reservation_=0;
+  dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
+  dirty_row_marks_={};dirty_row_ids_={};dirty_row_epoch_=0;
+  predecessor_rows_.clear();predecessor_trail_.clear();predecessor_ready_=false;
+}
+
 MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
     const std::function<bool(uint64_t)> &charge) {
   if (!charge || !std::is_sorted(unavailable.begin(), unavailable.end()) ||
@@ -689,6 +1091,9 @@ MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
   dirty_row_ids_ = {};
   dirty_row_epoch_ = 0;
   predecessor_rows_.clear(); predecessor_trail_.clear(); predecessor_ready_ = false;
+  simplex_ = {};
+  simplex_rows_cache_.clear();
+  simplex_rows_cache_valid_ = false;
   work_ = work.used;
   return MatrixStatus::Complete;
 }
@@ -706,6 +1111,9 @@ MatrixStatus AffineMatrix::synchronize(
   if (incremental_limits && !sorted_set_extension) return MatrixStatus::Invalid;
   if (incremental_limits && (!incremental_limits->maximum_index_bytes ||
       index_reservation_ > incremental_limits->maximum_index_bytes)) return MatrixStatus::Exhausted;
+  if (incremental_limits && exact_core_reason)
+    return synchronize_simplex(trail, charge, event, *incremental_limits);
+  if (simplex_.active) reset_sparse_after_simplex();
 
   Work work{0, limits_.maximum_work, charge, false,
             &last_synchronization_work_exhausted_};
@@ -1030,6 +1438,10 @@ MatrixStatus AffineMatrix::synchronize_sliced(
       slice.maximum_work > limits_.maximum_work)
     return MatrixStatus::Invalid;
   if (trail.size() > limits_.maximum_assignments) return MatrixStatus::Exhausted;
+  // The sliced engine owns a different continuation representation. Return to
+  // the canonical admitted basis before entering it so it cannot observe the
+  // stale sparse image left behind by compact simplex basis exchanges.
+  if (simplex_.active) reset_sparse_after_simplex();
   const uint64_t support_bound=source_support_bound_;
   const uint64_t comparisons = 2 * std::bit_width(std::max({
       uint64_t(admitted_rows_.size()),uint64_t(admitted_variables_.size()),
@@ -1707,7 +2119,9 @@ bool AffineMatrix::authenticates(
   }
   if (!charge(1) || !charge(trail_.size()))
     return false;
-  if (index_ready_) {
+  if (simplex_.active) {
+    if (!charge(simplex_.authentication_work)) return false;
+  } else if (index_ready_) {
     // The transactional index is rebuilt or updated with every row mutation.
     // Preserve the exact historical work charge without rewalking a large,
     // already-authenticated basis for every live reason.
@@ -1718,7 +2132,8 @@ bool AffineMatrix::authenticates(
       if (!charge(row.variables.size() + row.source_equations.size()))
         return false;
   }
-  MatrixEvent expected = index_ready_ ? indexed_event() : find_event(rows_);
+  MatrixEvent expected = simplex_.active ? simplex_event(true) :
+      index_ready_ ? indexed_event() : find_event(rows_);
   if (!charge(event.reason.size()) || !charge(event.row.variables.size()) ||
       !charge(event.row.source_equations.size()))
     return false;
@@ -1728,7 +2143,7 @@ bool AffineMatrix::authenticates(
                             admitted_sources_.end(), source) ||
         !charge(sources_[source].variables.size()))
       return false;
-  make_reason(sources_, trail_, expected);
+  if (!simplex_.active) make_reason(sources_, trail_, expected);
   return expected.kind != MatrixEventKind::None && same_event(expected, event);
 }
 
@@ -1838,7 +2253,9 @@ bool AffineMatrix::retained_authentication_work(
 
   __uint128_t total = 1 + __uint128_t(source_authentication_work_) + 1 +
                       trail_.size();
-  if (index_ready_)
+  if (simplex_.active)
+    total += simplex_.authentication_work;
+  else if (index_ready_)
     total += index_.authentication_work;
   else {
     total += rows_.size();
@@ -1846,7 +2263,8 @@ bool AffineMatrix::retained_authentication_work(
       total += row.variables.size() + row.source_equations.size();
   }
 
-  MatrixEvent expected = index_ready_ ? indexed_event() : find_event(rows_);
+  MatrixEvent expected = simplex_.active ? simplex_event(true) :
+      index_ready_ ? indexed_event() : find_event(rows_);
   total += event.reason.size() + event.row.variables.size() +
            event.row.source_equations.size();
   for (size_t source : expected.row.source_equations) {
@@ -1858,7 +2276,7 @@ bool AffineMatrix::retained_authentication_work(
   }
   if (total > UINT64_MAX)
     return false;
-  make_reason(sources_, trail_, expected);
+  if (!simplex_.active) make_reason(sources_, trail_, expected);
   if (expected.kind == MatrixEventKind::None || !same_event(expected, event))
     return false;
   work = uint64_t(total);

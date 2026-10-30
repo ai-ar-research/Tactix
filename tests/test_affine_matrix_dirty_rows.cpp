@@ -58,6 +58,43 @@ void fixed_truth_table(){
   source_oracle(sources,trail,event);assert(event.kind==MatrixEventKind::None||matrix.authenticates(73,sources,event,[](auto){return true;}));
  }
 }
+void compact_simplex_matches_dense_truth_table(){
+ const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
+ auto dense=build(sources),compact=build(sources);MatrixEvent expected,actual;
+ for(unsigned encoding=0;encoding<81;++encoding){
+  unsigned digits=encoding;std::vector<MatrixAssignment> trail;
+  for(int variable=1;variable<=4;++variable){unsigned digit=digits%3;digits/=3;if(digit)trail.push_back({variable,digit==2});}
+  assert(dense.synchronize(trail,[](auto){return true;},expected,true,nullptr,true)==MatrixStatus::Complete);
+  assert(compact.synchronize(trail,[](auto){return true;},actual,true,&bytes,true)==MatrixStatus::Complete);
+  source_oracle(sources,trail,actual);
+  assert(actual.kind==expected.kind);
+  if(actual.kind!=MatrixEventKind::None){
+   assert(compact.authenticates(73,sources,actual,[](auto){return true;}));
+   uint64_t retained=0,charged=0;
+   assert(compact.retained_authentication_work(actual,retained));
+   assert(compact.authenticates(73,compact.authenticated_sources(),actual,
+       [&](auto amount){charged+=amount;return true;}));
+   assert(charged==retained);
+  }
+ }
+}
+void compact_simplex_exchange_and_atomicity(){
+ const std::vector<Equation> sources={{{1,2,3,4},false,{},{}}};
+ auto matrix=build(sources);MatrixEvent event;
+ assert(matrix.synchronize({{1,false}},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::None&&matrix.last_dirty_update()&&matrix.last_dirty_rows()>0);
+ const auto rows=matrix.rows();const auto trail=matrix.trail();
+ const auto work=matrix.work(),retained_bytes=matrix.incremental_index_bytes();
+ assert(matrix.synchronize({{1,false},{2,true}},[](auto){return false;},event,true,&bytes,true)==MatrixStatus::Interrupted);
+ assert(matrix.rows()==rows&&matrix.trail()==trail&&matrix.work()==work&&
+        matrix.incremental_index_bytes()==retained_bytes);
+ auto tiny=bytes;tiny.maximum_index_bytes=retained_bytes-1;
+ assert(matrix.synchronize({{1,false},{2,true}},[](auto){return true;},event,true,&tiny,true)==MatrixStatus::Exhausted);
+ assert(matrix.rows()==rows&&matrix.trail()==trail&&matrix.work()==work&&
+        matrix.incremental_index_bytes()==retained_bytes);
+ assert(matrix.synchronize({},[](auto){return true;},event,true,&bytes,true)==MatrixStatus::Complete);
+ assert(event.kind==MatrixEventKind::None);
+}
 void late_atomic(){
  const std::vector<Equation> sources={{{1,2,3},false,{},{}},{{2,3,4},true,{},{}}};
  auto reference=build(sources),stopped=build(sources);MatrixEvent a,b;
@@ -144,4 +181,4 @@ void cancelled_support_is_a_sound_reason_weakening(){
  assert(matrix.authenticates_historical(73,sources,event,[](auto){return true;}));
 }
 }
-int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();}
+int main(){indexed_predecessor_restore();independent_rows();pivot_collision_and_conflict();cancelled_support_is_a_sound_reason_weakening();late_atomic();fixed_truth_table();compact_simplex_matches_dense_truth_table();compact_simplex_exchange_and_atomicity();}

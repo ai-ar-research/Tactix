@@ -921,7 +921,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       built != MatrixStatus::Complete) {
     result.status = AffineMatrixInitStatus::IncompleteMatrix;
     result.equations = image.equations.size();
-    result.rows = matrix.rows().size();
+    result.rows = matrix.row_count();
     result.admitted_sources = matrix.admitted_sources().size();
     record_init(kernel, result);
     return result;
@@ -1221,7 +1221,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   result.result = ApplyResult::Ok;
   result.owner_version = session.owner_version_;
   result.equations = session.image_.equations.size();
-  result.rows = session.matrix_.rows().size();
+  result.rows = session.matrix_.row_count();
   result.admitted_sources = session.matrix_.admitted_sources().size();
   result.journal_bytes = initialization_journal.size();
   result.retained_bytes = session.retained_bytes_;
@@ -1385,7 +1385,7 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     }
     if (session.enabled()) {
       result.owner_version = session.owner_version_; result.retained_bytes = session.retained_bytes_;
-      result.equations = session.image_.equations.size(); result.rows = session.matrix_.rows().size();
+      result.equations = session.image_.equations.size(); result.rows = session.matrix_.row_count();
     }
     return result;
   }
@@ -1401,7 +1401,7 @@ AffineMatrixInitResult affine_matrix_search_refresh(Kernel &kernel,
     result.result = ApplyResult::Ok;
     result.owner_version = session.owner_version_;
     result.equations = session.image_.equations.size();
-    result.rows = session.matrix_.rows().size();
+    result.rows = session.matrix_.row_count();
     result.retained_bytes = session.retained_bytes_;
   }
   const bool census_complete = result.status == AffineMatrixInitStatus::Applied ||
