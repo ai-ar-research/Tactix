@@ -324,6 +324,11 @@ private:
   bool slice_retry_=false;
   std::vector<std::pair<Var, uint32_t>> capture_index_;
   std::vector<affine_semantic_extension::MatrixAssignment> capture_trail_;
+  // Reused incremental-capture scratch.  The persistence preflight already
+  // reserves two change-vector peaks; retaining one capacity here avoids a
+  // heap allocation on every productive search service.
+  std::vector<std::pair<affine_semantic_extension::External, bool>>
+      capture_changes_;
   uint64_t capture_owner_ = 0, capture_namespace_epoch_ = 0, capture_retraction_epoch_ = 0;
   uint64_t capture_cursor_ = 0, capture_bytes_ = 0;
   bool capture_valid_ = false;

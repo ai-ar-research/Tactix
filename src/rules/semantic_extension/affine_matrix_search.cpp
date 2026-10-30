@@ -1769,6 +1769,7 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
   session.cached_event_ = {}; session.cached_event_bytes_ = 0; session.cached_event_valid_ = false;
   std::vector<std::pair<Var, uint32_t>>{}.swap(session.capture_index_);
   std::vector<MatrixAssignment>{}.swap(session.capture_trail_);
+  std::vector<std::pair<External, bool>>{}.swap(session.capture_changes_);
   session.capture_bytes_ = 0; session.capture_valid_ = false;
   session.matrix_index_bytes_ = 0;
   result.proof_additions = 0; for (const auto &group : groups) result.proof_additions += group.size();
@@ -1917,7 +1918,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
         session.capture_retraction_epoch_ == kernel.affine_trail_retraction_epoch &&
         session.capture_cursor_ <= kernel.trail.size();
     if (incremental) {
-      std::vector<std::pair<External, bool>> changes;
+      auto &changes = session.capture_changes_;
+      changes.clear();
       const uint64_t comparisons = 2 + std::bit_width(uint64_t(support.size()));
       for (size_t i = session.capture_cursor_; i < kernel.trail.size(); ++i) {
         if (!capture_charge(1 + comparisons)) { capture_ok = false; break; }
@@ -1927,9 +1929,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
         const auto found = std::lower_bound(session.capture_index_.begin(), session.capture_index_.end(), variable,
             [](const auto &entry, Var key) { return entry.first < key; });
         if (found == session.capture_index_.end() || found->first != variable) continue;
-        if (changes.empty()) {
-          if (!capture_charge(1 + support.size())) { capture_ok = false; break; }
-          changes.reserve(support.size());
+        if (changes.empty() && !capture_charge(1 + support.size())) {
+          capture_ok = false; break;
         }
         if (!capture_charge(1)) { capture_ok = false; break; }
         changes.push_back({support[found->second], !negated(literal)});
@@ -1937,18 +1938,40 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       if (capture_ok && !changes.empty()) {
         if (!capture_charge(1 + support.size() + session.capture_trail_.size())) capture_ok = false;
         else {
-          fresh_trail.reserve(support.size()); fresh_trail = session.capture_trail_;
+          // Preflight the complete mutation before touching the durable
+          // capture.  A monotone trail cannot assign a variable twice, so the
+          // prospective size grows once per support change.  Keep the old
+          // logical work charge even though the implementation no longer
+          // copies the whole vector; resource boundaries and trajectories are
+          // therefore unchanged.
+          size_t prospective = session.capture_trail_.size();
           for (const auto &[variable, value] : changes) {
-            if (!capture_charge(1 + fresh_trail.size() + comparisons)) { capture_ok = false; break; }
-            auto found = std::lower_bound(fresh_trail.begin(), fresh_trail.end(), variable,
-                [](const MatrixAssignment &assignment, External key) { return assignment.variable < key; });
-            if (found == fresh_trail.end() || found->variable != variable)
-              fresh_trail.insert(found, {variable, value});
-            else found->value = value;
+            (void)variable; (void)value;
+            if (!capture_charge(1 + prospective + comparisons)) {
+              capture_ok = false; break;
+            }
+            ++prospective;
           }
           if (capture_ok) {
+            for (const auto &[variable, value] : changes) {
+              auto found = std::lower_bound(
+                  session.capture_trail_.begin(), session.capture_trail_.end(),
+                  variable,
+                  [](const MatrixAssignment &assignment, External key) {
+                    return assignment.variable < key;
+                  });
+              // Trail-extension assignments are unique.  Retain a defensive
+              // update in release builds, but make any invariant regression
+              // visible in Debug before it can invalidate the preflight size.
+              assert(found == session.capture_trail_.end() ||
+                     found->variable != variable);
+              if (found == session.capture_trail_.end() ||
+                  found->variable != variable)
+                session.capture_trail_.insert(found, {variable, value});
+              else
+                found->value = value;
+            }
             session.cached_event_valid_ = false;
-            session.capture_trail_ = std::move(fresh_trail);
           }
         }
       }
@@ -1971,6 +1994,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       std::vector<std::pair<Var, uint32_t>> index;
       if (capture_ok) {
         index.reserve(support.size()); fresh_trail.reserve(support.size());
+        session.capture_changes_.clear();
+        session.capture_changes_.reserve(support.size());
         for (size_t i = 0; i < support.size(); ++i) {
           if (!capture_charge(2)) { capture_ok = false; break; }
           const Lit internal = kernel_internalize(kernel, support[i]);
