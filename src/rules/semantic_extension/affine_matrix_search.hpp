@@ -202,10 +202,18 @@ public:
         return true;
     return false;
   }
+  // Internal observability for invariants/tests: exact-minimal propagation
+  // retains only a support bitset until a Boolean reason consumer arrives.
+  bool lazy_reason_vector_constructed(Var implied) const noexcept {
+    for (const auto &reason : lazy_reasons_)
+      if (reason.implied_variable == implied)
+        return !reason.event.reason.empty();
+    return false;
+  }
   // Read-only ancestry inspection for ConflictAnalysis. It exposes variables,
   // not a clausal reason or proof event, and never consumes the handle.
   bool inspect_lazy_reason(const Kernel &, Var,
-                           std::vector<Var> &) const;
+                           std::vector<Var> &);
   uint64_t retained_bytes() const {
     const uint64_t continuation = matrix_.continuation_bytes();
     const uint64_t proof = pbp_proof_cache_.retained_bytes();
@@ -304,7 +312,8 @@ private:
   uint64_t published_work_ = 0, published_capacity_bytes_ = 0;
   affine_semantic_extension::MatrixEvent cached_event_;
   uint64_t cached_event_owner_ = 0, cached_event_bytes_ = 0;
-  bool cached_event_valid_ = false, cached_event_exact_core_ = false;
+  bool cached_event_valid_ = false, cached_event_exact_core_ = false,
+       cached_event_deferred_exact_ = false;
   bool slice_retry_=false;
   std::vector<std::pair<Var, uint32_t>> capture_index_;
   std::vector<affine_semantic_extension::MatrixAssignment> capture_trail_;

@@ -143,6 +143,35 @@ static void exact_core_reason_is_direct_and_mode_stable() {
   assert(exact.kind == MatrixEventKind::Implication &&
          exact.implied_variable == 5 && exact.implied_value &&
          (exact.reason == std::vector<External>{1, 2, 5}));
+
+  MatrixEvent deferred;
+  assert(matrix.synchronize(trail, [](uint64_t) { return true; }, deferred,
+                            true, &incremental, true, true) ==
+         MatrixStatus::Complete);
+  assert(deferred.kind == MatrixEventKind::Implication &&
+         deferred.implied_variable == 5 && deferred.implied_value &&
+         deferred.reason.empty() && deferred.reason_width == 3 &&
+         !deferred.deferred_exact_support.empty());
+  std::vector<External> antecedents;
+  assert(matrix.inspect_deferred_exact_support(
+      deferred, [&](External variable) {
+        antecedents.push_back(variable);
+        return true;
+      }));
+  assert((antecedents == std::vector<External>{1, 2}));
+
+  // A stale assignment declines atomically: the signed reason remains absent.
+  assert(!matrix.materialize_deferred_exact_reason(
+      deferred, [](External variable) {
+        return variable == 1 ? int8_t{-1} : int8_t{0};
+      }));
+  assert(deferred.reason.empty());
+  assert(matrix.materialize_deferred_exact_reason(
+      deferred, [](External variable) {
+        return variable == 1 || variable == 2 ? int8_t{-1} : int8_t{0};
+      }));
+  assert(deferred.reason == exact.reason);
+  check_reason(input, deferred);
 }
 
 static void bounded_partial_admission_is_deterministic() {

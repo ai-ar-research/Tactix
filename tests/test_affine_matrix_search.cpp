@@ -545,11 +545,19 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   }
   const auto lazy = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(lazy.status == AffineMatrixServiceStatus::Applied &&
-         lazy.reason_width == 3 && session.lazy_reason_count() == 1);
+         lazy.reason_deferred && lazy.reason_width == 3 &&
+         lazy.installed_reason.empty() && session.lazy_reason_count() == 1 &&
+         !session.lazy_reason_vector_constructed(4));
+  std::vector<Var> antecedents;
+  assert(session.inspect_lazy_reason(kernel, 4, antecedents));
+  assert((antecedents == std::vector<Var>{0, 1}) &&
+         !session.lazy_reason_vector_constructed(4));
   const auto materialized = affine_matrix_materialize_reason(kernel, session);
   assert(materialized.status == AffineMatrixServiceStatus::Applied &&
          materialized.reason_materialized &&
          materialized.reason_width == 3 &&
+         (materialized.installed_reason ==
+          std::vector<int32_t>{1, 2, -5}) &&
          session.lazy_reason_count() == 0);
   proof.flush();
   kernel.proof = nullptr;
@@ -557,7 +565,7 @@ void lazy_minimal_handle_is_public_and_consumed_on_demand() {
   std::fclose(journal);
 }
 
-void lazy_source_materializes_preanalysis_ancestor_batch() {
+void lazy_minimal_materializes_only_analyze_ancestor() {
   Kernel kernel;
   AffineMatrixSearchSession session;
   kernel.affine_matrix_search_session = &session;
@@ -588,9 +596,10 @@ void lazy_source_materializes_preanalysis_ancestor_batch() {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
-  const auto first = affine_matrix_search_step_lazy_source(kernel, session);
+  const auto first = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(first.status == AffineMatrixServiceStatus::Applied &&
-         session.lazy_reason_count() == 1);
+         first.installed_reason.empty() && session.lazy_reason_count() == 1 &&
+         !session.lazy_reason_vector_constructed(4));
   assert(kernel.assigned[4].affine &&
          kernel.assigned[4].reason == AFFINE_REASON);
   assert(propagate_apply(kernel) == ApplyResult::Ok);
@@ -598,9 +607,11 @@ void lazy_source_materializes_preanalysis_ancestor_batch() {
     kernel_assign_decision(kernel, kernel_internalize(kernel, decision));
     assert(propagate_apply(kernel) == ApplyResult::Ok);
   }
-  const auto second = affine_matrix_search_step_lazy_source(kernel, session);
+  const auto second = affine_matrix_search_step_lazy_minimal(kernel, session);
   assert(second.status == AffineMatrixServiceStatus::Applied &&
-         session.lazy_reason_count() == 2);
+         second.installed_reason.empty() && session.lazy_reason_count() == 2 &&
+         !session.lazy_reason_vector_constructed(4) &&
+         !session.lazy_reason_vector_constructed(9));
   assert(kernel.assigned[9].affine &&
          kernel.assigned[9].reason == AFFINE_REASON);
 
@@ -624,7 +635,8 @@ void lazy_source_materializes_preanalysis_ancestor_batch() {
   assert(rule_guard(analyze, kernel));
   assert(apply_rule(analyze, kernel) == ApplyResult::Ok);
   assert(session.lazy_reason_count() == 1 && kernel.assigned[4].affine &&
-         kernel.assigned[4].reason == AFFINE_REASON);
+         kernel.assigned[4].reason == AFFINE_REASON &&
+         !session.lazy_reason_vector_constructed(4));
   proof.flush();
   kernel.proof = nullptr;
   unlink(proof_path);
@@ -1505,7 +1517,7 @@ int main(int argc,char **argv){
   detached_minimal_reason_is_public_and_unwatched();
   lazy_source_handles_are_multiple_public_and_consumed_on_demand();
   lazy_minimal_handle_is_public_and_consumed_on_demand();
-  lazy_source_materializes_preanalysis_ancestor_batch();
+  lazy_minimal_materializes_only_analyze_ancestor();
   lazy_source_backtrack_discards_without_publication();
   deferred_reason_materializes_at_later_conflict(false);
   deferred_reason_materializes_at_later_conflict(true);

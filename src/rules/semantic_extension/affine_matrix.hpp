@@ -56,6 +56,12 @@ struct MatrixEvent {
   // are false under the synchronized trail; an implication's final literal
   // is the implied value. A conflict contains assigned-support literals only.
   std::vector<External> reason;
+  // A deferred exact-core implication keeps the row support as a compact
+  // bitset over `admitted_variables()` instead of constructing signed clause
+  // literals at propagation time.  Source-support explanations cannot use
+  // this path: canceled variables may be assigned only after the implication.
+  std::vector<uint64_t> deferred_exact_support;
+  uint32_t reason_width = 0;
 };
 
 struct MatrixSliceLimits {
@@ -97,7 +103,8 @@ public:
       const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
       bool sorted_set_extension = false,
       const MatrixIncrementalLimits *incremental = nullptr,
-      bool exact_core_reason = false);
+      bool exact_core_reason = false,
+      bool defer_exact_reason = false);
 
   // Opt-in deterministic full-basis reduction in bounded atomic row/XOR steps.
   // Pending retains private progress; exact trail equality resumes it. An
@@ -105,7 +112,8 @@ public:
   // minimum rather than spinning. Interrupted clears private continuation.
   MatrixStatus synchronize_sliced(const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &, MatrixEvent &,
-      const MatrixSliceLimits &, bool exact_core_reason = false);
+      const MatrixSliceLimits &, bool exact_core_reason = false,
+      bool defer_exact_reason = false);
   const MatrixSliceEffort &last_slice_effort() const { return slice_effort_; }
   uint64_t continuation_bytes() const { return continuation_.bytes; }
   bool continuation_pending() const { return continuation_.active; }
@@ -196,6 +204,17 @@ public:
   bool retained_authentication_work(const MatrixEvent &event,
                                     uint64_t &work) const;
 
+  // Visit a deferred exact-core support without constructing its signed
+  // clausal reason.  Materialization signs those same variables from the
+  // current live assignment only after a Boolean reason consumer reaches the
+  // handle.
+  bool inspect_deferred_exact_support(
+      const MatrixEvent &,
+      const std::function<bool(External)> &) const;
+  bool materialize_deferred_exact_reason(
+      MatrixEvent &,
+      const std::function<int8_t(External)> &) const;
+
 private:
   struct Continuation {
     bool active = false;
@@ -212,7 +231,8 @@ private:
     std::map<External, bool> support;
     size_t residue = 0;
     uint8_t phase = 0;
-    bool row_loaded = false, exact_core_reason = false;
+    bool row_loaded = false, exact_core_reason = false,
+         defer_exact_reason = false;
   };
   Continuation continuation_;
   MatrixSliceEffort slice_effort_;
@@ -255,19 +275,23 @@ private:
   MatrixStatus synchronize_simplex(
       const std::vector<MatrixAssignment> &,
       const std::function<bool(uint64_t)> &, MatrixEvent &,
-      const MatrixIncrementalLimits &);
+      const MatrixIncrementalLimits &, bool);
   bool simplex_layout(uint64_t, size_t &, size_t &, uint64_t &) const;
   bool prepare_simplex(uint64_t, SimplexState &) const;
   void simplex_evaluate_row(size_t, size_t &, size_t &, bool &,
                             size_t * = nullptr, size_t * = nullptr) const;
   void simplex_make_core_reason(size_t, size_t, MatrixEvent &) const;
+  void simplex_make_deferred_core_support(size_t, size_t,
+                                          MatrixEvent &) const;
+  bool make_deferred_exact_support(MatrixEvent &) const;
   MatrixEvent simplex_build_event(size_t, size_t, MatrixEventKind, External,
-                                  bool, bool) const;
+                                  bool, bool, bool) const;
   void simplex_remove_row_index(size_t);
   void simplex_refresh_row_index(size_t);
   void simplex_rebuild_index();
-  MatrixEvent simplex_indexed_event(bool) const;
-  MatrixEvent simplex_event(bool exact_core_reason) const;
+  MatrixEvent simplex_indexed_event(bool, bool = false) const;
+  MatrixEvent simplex_event(bool exact_core_reason,
+                            bool defer_exact_reason = false) const;
   void materialize_simplex_rows() const;
   void reset_sparse_after_simplex();
   SimplexState simplex_;
@@ -277,7 +301,8 @@ private:
       const std::function<bool(uint64_t)> &, uint64_t, RowIndex &);
   MatrixStatus synchronize_dirty(const std::vector<MatrixAssignment> &,
       const std::vector<MatrixAssignment> &, const std::function<bool(uint64_t)> &,
-      uint64_t, uint64_t, uint64_t &, MatrixEvent &, bool exact_core_reason);
+      uint64_t, uint64_t, uint64_t &, MatrixEvent &, bool exact_core_reason,
+      bool defer_exact_reason);
   MatrixEvent indexed_event() const;
   RowIndex index_;
   // Reused only by atomic dirty-row transactions.  Their capacities are

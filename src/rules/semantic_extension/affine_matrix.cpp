@@ -438,6 +438,8 @@ void make_reason(const std::vector<Equation> &sources,
                  const std::vector<MatrixAssignment> &trail,
                  MatrixEvent &event, bool exact_core = false,
                  std::vector<External> *retained_xor_scratch = nullptr) {
+  event.reason_width = 0;
+  event.deferred_exact_support.clear();
   if (event.kind == MatrixEventKind::None) return;
   if (exact_core) {
     // The minimal public operation needs the odd-parity source support, not
@@ -471,6 +473,7 @@ void make_reason(const std::vector<Equation> &sources,
     if (event.kind == MatrixEventKind::Implication)
       event.reason.push_back(event.implied_value ? event.implied_variable
                                                  : -event.implied_variable);
+    event.reason_width = uint32_t(event.reason.size());
     return;
   }
   // Support variables with their parity in the source sum. A conflict whose
@@ -492,6 +495,7 @@ void make_reason(const std::vector<Equation> &sources,
   if (event.kind == MatrixEventKind::Implication)
     event.reason.push_back(event.implied_value ? event.implied_variable
                                                : -event.implied_variable);
+  event.reason_width = uint32_t(event.reason.size());
 }
 
 bool same_equation(const Equation &first, const Equation &second) {
@@ -504,7 +508,9 @@ bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
   return first.kind == second.kind && first.row == second.row &&
          first.implied_variable == second.implied_variable &&
          first.implied_value == second.implied_value &&
-         first.reason == second.reason;
+         first.reason == second.reason &&
+         first.deferred_exact_support == second.deferred_exact_support &&
+         first.reason_width == second.reason_width;
 }
 
 bool valid_extension(const std::vector<MatrixAssignment> &prefix,
@@ -525,6 +531,32 @@ bool valid_extension(const std::vector<MatrixAssignment> &prefix,
 }
 
 } // namespace
+
+bool AffineMatrix::make_deferred_exact_support(MatrixEvent &event) const {
+  if(event.kind!=MatrixEventKind::Implication||event.implied_variable<=0||
+     event.row.source_equations.empty())return false;
+  std::vector<External> support,scratch;
+  for(const size_t source:event.row.source_equations){
+    if(source>=sources_.size())return false;
+    xor_sorted(support,sources_[source].variables,scratch);
+    support.swap(scratch);scratch.clear();
+  }
+  if(support.empty()||support.size()>UINT32_MAX||
+     !std::binary_search(support.begin(),support.end(),event.implied_variable))
+    return false;
+  event.reason.clear();
+  event.reason_width=uint32_t(support.size());
+  event.deferred_exact_support.assign((admitted_variables_.size()+63)/64,0);
+  for(const External variable:support){
+    const auto found=std::lower_bound(admitted_variables_.begin(),
+        admitted_variables_.end(),variable);
+    if(found==admitted_variables_.end()||*found!=variable)return false;
+    const size_t coordinate=found-admitted_variables_.begin();
+    event.deferred_exact_support[coordinate/64]|=
+        uint64_t{1}<<(coordinate%64);
+  }
+  return true;
+}
 
 MatrixStatus build_affine_matrix(
     const std::vector<Equation> &input, uint64_t owner_identity,
@@ -825,6 +857,7 @@ void AffineMatrix::simplex_make_core_reason(
   if(event.kind==MatrixEventKind::Implication)
     event.reason.push_back(event.implied_value?event.implied_variable:
                                                -event.implied_variable);
+  event.reason_width=uint32_t(event.reason.size());
 #ifndef NDEBUG
   // The packed row is the operational explanation.  Keep the slower
   // immutable-source XOR as an independent Debug oracle while this boundary
@@ -836,9 +869,51 @@ void AffineMatrix::simplex_make_core_reason(
 #endif
 }
 
+void AffineMatrix::simplex_make_deferred_core_support(
+    size_t selected,size_t paired,MatrixEvent &event) const {
+  const size_t missing=std::numeric_limits<size_t>::max();
+  if(selected>=simplex_.rhs.size()||
+     (paired!=missing&&paired>=simplex_.rhs.size())||
+     event.kind!=MatrixEventKind::Implication)std::abort();
+  event.reason.clear();
+  event.deferred_exact_support.assign(simplex_.variable_words,0);
+  const auto contains=[&](size_t row,size_t coordinate){
+    if(simplex_.responsible[row]==coordinate)return true;
+    const size_t slot=simplex_.variable_to_slot[coordinate];
+    if(slot==missing)return false;
+    return bool(simplex_.coefficients[
+        row*simplex_.coefficient_words+slot/64]&
+        (uint64_t{1}<<(slot%64)));
+  };
+  uint64_t width=0;
+  for(size_t coordinate=0;coordinate<admitted_variables_.size();++coordinate){
+    bool present=contains(selected,coordinate);
+    if(paired!=missing)present^=contains(paired,coordinate);
+    if(!present)continue;
+    event.deferred_exact_support[coordinate/64]|=
+        uint64_t{1}<<(coordinate%64);
+    ++width;
+  }
+  if(!width||width>UINT32_MAX)std::abort();
+  event.reason_width=uint32_t(width);
+  const auto implied=std::lower_bound(admitted_variables_.begin(),
+      admitted_variables_.end(),event.implied_variable);
+  if(implied==admitted_variables_.end()||*implied!=event.implied_variable)
+    std::abort();
+  const size_t coordinate=implied-admitted_variables_.begin();
+  if(!(event.deferred_exact_support[coordinate/64]&
+       (uint64_t{1}<<(coordinate%64))))std::abort();
+#ifndef NDEBUG
+  MatrixEvent oracle=event;
+  oracle.deferred_exact_support.clear();
+  make_reason(sources_,trail_,oracle,true);
+  if(oracle.reason.size()!=event.reason_width)std::abort();
+#endif
+}
+
 MatrixEvent AffineMatrix::simplex_build_event(
     size_t selected,size_t paired,MatrixEventKind kind,External implied,
-    bool implied_value,bool exact_core_reason) const {
+    bool implied_value,bool exact_core_reason,bool defer_exact_reason) const {
   const size_t missing=std::numeric_limits<size_t>::max();
   MatrixEvent result;
   if(selected==missing)return result;
@@ -860,7 +935,10 @@ MatrixEvent AffineMatrix::simplex_build_event(
       bits&=bits-1;
     }
   }
-  if(exact_core_reason)simplex_make_core_reason(selected,paired,result);
+  if(exact_core_reason&&defer_exact_reason&&
+     kind==MatrixEventKind::Implication)
+    simplex_make_deferred_core_support(selected,paired,result);
+  else if(exact_core_reason)simplex_make_core_reason(selected,paired,result);
   else make_reason(sources_,trail_,result,false,&simplex_.reason_scratch);
   return result;
 }
@@ -983,7 +1061,8 @@ void AffineMatrix::simplex_rebuild_index() {
     simplex_refresh_row_index(row);
 }
 
-MatrixEvent AffineMatrix::simplex_indexed_event(bool exact_core_reason) const {
+MatrixEvent AffineMatrix::simplex_indexed_event(
+    bool exact_core_reason,bool defer_exact_reason) const {
   const size_t missing=std::numeric_limits<size_t>::max();
   const auto first_bit=[&](const std::vector<uint64_t> &bits,size_t offset,
                            size_t words){
@@ -995,7 +1074,7 @@ MatrixEvent AffineMatrix::simplex_indexed_event(bool exact_core_reason) const {
   const size_t direct=first_bit(simplex_.conflict_rows,0,simplex_.row_words);
   if(direct!=missing)
     return simplex_build_event(direct,missing,MatrixEventKind::Conflict,0,
-                               false,exact_core_reason);
+                               false,exact_core_reason,defer_exact_reason);
   const size_t later=first_bit(simplex_.opposite_rows,0,simplex_.row_words);
   if(later!=missing){
     const size_t coordinate=simplex_.event_coordinates[later];
@@ -1006,7 +1085,8 @@ MatrixEvent AffineMatrix::simplex_indexed_event(bool exact_core_reason) const {
         (2*coordinate+1)*simplex_.row_words,simplex_.row_words);
     if(zero==missing||one==missing||std::max(zero,one)!=later)std::abort();
     return simplex_build_event(std::min(zero,one),later,
-        MatrixEventKind::Conflict,0,false,exact_core_reason);
+        MatrixEventKind::Conflict,0,false,exact_core_reason,
+        defer_exact_reason);
   }
   const size_t coordinate=first_bit(simplex_.active_singleton_variables,0,
                                     simplex_.variable_words);
@@ -1020,10 +1100,11 @@ MatrixEvent AffineMatrix::simplex_indexed_event(bool exact_core_reason) const {
   if(selected==missing)std::abort();
   return simplex_build_event(selected,missing,MatrixEventKind::Implication,
       admitted_variables_[coordinate],simplex_.event_values[selected],
-      exact_core_reason);
+      exact_core_reason,defer_exact_reason);
 }
 
-MatrixEvent AffineMatrix::simplex_event(bool exact_core_reason) const {
+MatrixEvent AffineMatrix::simplex_event(
+    bool exact_core_reason,bool defer_exact_reason) const {
   const size_t missing=std::numeric_limits<size_t>::max();
   size_t selected=missing,paired=missing,direct_conflict=missing;
   size_t derived_conflict=missing,derived_pair=missing;
@@ -1059,13 +1140,13 @@ MatrixEvent AffineMatrix::simplex_event(bool exact_core_reason) const {
     selected=derived_conflict;paired=derived_pair;kind=MatrixEventKind::Conflict;
   }
   return simplex_build_event(selected,paired,kind,implied,implied_value,
-                             exact_core_reason);
+                             exact_core_reason,defer_exact_reason);
 }
 
 MatrixStatus AffineMatrix::synchronize_simplex(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge,MatrixEvent &event,
-    const MatrixIncrementalLimits &incremental) {
+    const MatrixIncrementalLimits &incremental,bool defer_exact_reason) {
   const size_t missing=std::numeric_limits<size_t>::max();
   External previous=0;
   for(const MatrixAssignment assignment:trail){
@@ -1229,9 +1310,9 @@ MatrixStatus AffineMatrix::synchronize_simplex(
         simplex_.pending_responsible_rows[row/64]|=uint64_t{1}<<(row%64);
     }
   }
-  event=simplex_indexed_event(true);
+  event=simplex_indexed_event(true,defer_exact_reason);
 #ifndef NDEBUG
-  assert(same_event(event,simplex_event(true)));
+  assert(same_event(event,simplex_event(true,defer_exact_reason)));
 #endif
   if(event.kind!=MatrixEventKind::None){
     incremental_ready_=true;predecessor_ready_=false;
@@ -1318,9 +1399,9 @@ MatrixStatus AffineMatrix::synchronize_simplex(
     }
     if(open_count>=2&&selected_slot!=missing)exchange(row,selected_slot);
   }
-  event=simplex_indexed_event(true);
+  event=simplex_indexed_event(true,defer_exact_reason);
 #ifndef NDEBUG
-  assert(same_event(event,simplex_event(true)));
+  assert(same_event(event,simplex_event(true,defer_exact_reason)));
 #endif
   incremental_ready_=true;predecessor_ready_=false;
   predecessor_rows_.clear();predecessor_trail_.clear();
@@ -1448,7 +1529,7 @@ MatrixStatus AffineMatrix::synchronize(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
     bool sorted_set_extension, const MatrixIncrementalLimits *incremental_limits,
-    bool exact_core_reason) {
+    bool exact_core_reason,bool defer_exact_reason) {
   last_synchronization_work_exhausted_ = false;
   continuation_ = {};
   if (!owner_identity_ || !charge) return MatrixStatus::Invalid;
@@ -1458,8 +1539,17 @@ MatrixStatus AffineMatrix::synchronize(
   if (incremental_limits && (!incremental_limits->maximum_index_bytes ||
       index_reservation_ > incremental_limits->maximum_index_bytes)) return MatrixStatus::Exhausted;
   if (incremental_limits && exact_core_reason)
-    return synchronize_simplex(trail, charge, event, *incremental_limits);
+    return synchronize_simplex(trail, charge, event, *incremental_limits,
+                               defer_exact_reason);
   if (simplex_.active) reset_sparse_after_simplex();
+  const auto finish_reason=[&](MatrixEvent &candidate){
+    if(exact_core_reason&&defer_exact_reason&&
+       candidate.kind==MatrixEventKind::Implication)
+      return make_deferred_exact_support(candidate);
+    make_reason(sources_,trail,candidate,exact_core_reason,
+                &dirty_variable_xor_scratch_);
+    return true;
+  };
 
   Work work{0, limits_.maximum_work, charge, false,
             &last_synchronization_work_exhausted_};
@@ -1492,8 +1582,7 @@ MatrixStatus AffineMatrix::synchronize(
   // its deterministic event. Avoid re-reducing it at every Boolean fixpoint.
   if (incremental_ready_ && trail == trail_ && !incremental_limits) {
     MatrixEvent candidate = index_ready_ ? indexed_event() : find_event(rows_);
-    make_reason(sources_, trail_, candidate, exact_core_reason,
-                &dirty_variable_xor_scratch_);
+    if(!finish_reason(candidate))return MatrixStatus::Invalid;
     last_dirty_update_ = false; last_dirty_rows_ = 0;
     last_synchronization_incremental_ = true;
     last_synchronization_restored_predecessor_ = false;
@@ -1569,11 +1658,10 @@ MatrixStatus AffineMatrix::synchronize(
         if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
         candidate.row=selected;
         if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-        make_reason(sources_,trail,candidate,exact_core_reason,
-                    &dirty_variable_xor_scratch_);
+        if(!finish_reason(candidate))return MatrixStatus::Invalid;
       }
-    } else {candidate=find_event(predecessor_rows_);make_reason(
-        sources_,trail,candidate,exact_core_reason,&dirty_variable_xor_scratch_);}
+    } else {candidate=find_event(predecessor_rows_);
+      if(!finish_reason(candidate))return MatrixStatus::Invalid;}
     trail_ = std::move(predecessor_trail_);
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
@@ -1639,7 +1727,7 @@ MatrixStatus AffineMatrix::synchronize(
     uint64_t dirty_work = 0;
     const auto status = synchronize_dirty(assignments, trail, charge,
         limits_.maximum_work - work.used, incremental_limits->maximum_index_bytes,
-        dirty_work, event, exact_core_reason);
+        dirty_work, event, exact_core_reason,defer_exact_reason);
     if (status == MatrixStatus::Complete)
       work_ = work.used > UINT64_MAX - work_ ? UINT64_MAX : work_ + work.used;
     return status;
@@ -1706,11 +1794,10 @@ MatrixStatus AffineMatrix::synchronize(
       if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
       candidate.row=selected;
       if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-      make_reason(sources_,trail,candidate,exact_core_reason,
-                  &dirty_variable_xor_scratch_);
+      if(!finish_reason(candidate))return MatrixStatus::Invalid;
     }
-  } else {candidate=find_event(rows);make_reason(
-      sources_,trail,candidate,exact_core_reason,&dirty_variable_xor_scratch_);}
+  } else {candidate=find_event(rows);
+    if(!finish_reason(candidate))return MatrixStatus::Invalid;}
   // Current and predecessor share the existing mutable row/trail population
   // allowances. Full matrices simply keep the established rebuild behavior.
   if (incremental && !incremental_limits && status == MatrixStatus::Complete &&
@@ -1768,7 +1855,8 @@ MatrixStatus AffineMatrix::synchronize(
 MatrixStatus AffineMatrix::synchronize_sliced(
     const std::vector<MatrixAssignment> &trail,
     const std::function<bool(uint64_t)> &charge, MatrixEvent &event,
-    const MatrixSliceLimits &slice, bool exact_core_reason) {
+    const MatrixSliceLimits &slice, bool exact_core_reason,
+    bool defer_exact_reason) {
   slice_effort_ = {};
   slice_effort_.cumulative_work = continuation_.cumulative_work;
   struct Accounting {
@@ -1810,7 +1898,8 @@ MatrixStatus AffineMatrix::synchronize_sliced(
   }
   if (!take(boundary_work)) { continuation_ = {}; return MatrixStatus::Interrupted; }
   const bool same = continuation_.active && continuation_.trail == trail &&
-                    continuation_.exact_core_reason == exact_core_reason;
+                    continuation_.exact_core_reason == exact_core_reason &&
+                    continuation_.defer_exact_reason == defer_exact_reason;
   slice_effort_.resumed = same;
   if (same) slice_effort_.cumulative_work = continuation_.cumulative_work;
   slice_effort_.invalidated = continuation_.active && !same;
@@ -1832,6 +1921,7 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     if (!take(trail.size())) return MatrixStatus::Interrupted;
     continuation_.trail = trail;
     continuation_.exact_core_reason = exact_core_reason;
+    continuation_.defer_exact_reason = defer_exact_reason;
     continuation_.bytes = continuation_.base_bytes = uint64_t(bytes);
     continuation_.active = true;
   } else if (continuation_.bytes > slice.maximum_bytes) return MatrixStatus::Exhausted;
@@ -2000,6 +2090,9 @@ MatrixStatus AffineMatrix::synchronize_sliced(
       // An unconditional contradiction keeps the empty reason (make_reason).
       if (state.event.kind==MatrixEventKind::Conflict && !state.residue)
         state.reason_trail=state.trail.size();
+      if(state.defer_exact_reason&&state.exact_core_reason&&
+         state.event.kind==MatrixEventKind::Implication)
+        state.reason_trail=state.trail.size();
       state.phase=6;
     }
     if (state.phase==6) {
@@ -2020,6 +2113,27 @@ MatrixStatus AffineMatrix::synchronize_sliced(
     }
     if (state.phase==7) {
       if (!step(1)) return pending();
+      if(state.defer_exact_reason&&state.exact_core_reason&&
+         state.event.kind==MatrixEventKind::Implication){
+        state.event.reason.clear();
+        state.event.deferred_exact_support.assign(
+            (admitted_variables_.size()+63)/64,0);
+        uint64_t width=0;
+        for(const auto &[variable,odd]:state.support){
+          if(!odd)continue;
+          const auto found=std::lower_bound(admitted_variables_.begin(),
+              admitted_variables_.end(),variable);
+          if(found==admitted_variables_.end()||*found!=variable){
+            continuation_={};return MatrixStatus::Invalid;
+          }
+          const size_t coordinate=found-admitted_variables_.begin();
+          state.event.deferred_exact_support[coordinate/64]|=
+              uint64_t{1}<<(coordinate%64);
+          ++width;
+        }
+        if(!width||width>UINT32_MAX){continuation_={};return MatrixStatus::Invalid;}
+        state.event.reason_width=uint32_t(width);
+      }else state.event.reason_width=uint32_t(state.event.reason.size());
       trail_=std::move(state.trail);rows_=std::move(state.rows);event=std::move(state.event);
       incremental_ready_=true;index_={};index_ready_=false;index_reservation_=0;
       dirty_variable_xor_scratch_={};dirty_source_xor_scratch_={};
@@ -2108,7 +2222,7 @@ MatrixEvent AffineMatrix::indexed_event() const {
 MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment> &delta,
     const std::vector<MatrixAssignment> &trail,const std::function<bool(uint64_t)> &charge,
     uint64_t maximum_work,uint64_t maximum_bytes,uint64_t &used,MatrixEvent &event,
-    bool exact_core_reason) {
+    bool exact_core_reason,bool defer_exact_reason) {
   Work work{0,maximum_work,charge,false,&last_synchronization_work_exhausted_};
   auto declined=[&](){used=work.used;return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;};
   if(index_reservation_>maximum_bytes)return declined();
@@ -2410,8 +2524,11 @@ MatrixStatus AffineMatrix::synchronize_dirty(const std::vector<MatrixAssignment>
     if(reason_work>UINT64_MAX||reason_bytes>UINT64_MAX||!work.consume(uint64_t(reason_work))||!memory(uint64_t(reason_bytes)))return declined();
     candidate.row=*selected;
     if(candidate.kind==MatrixEventKind::Implication)candidate.implied_value=selected->rhs;
-    make_reason(sources_,trail,candidate,exact_core_reason,
-                &dirty_variable_xor_scratch_);
+    if(exact_core_reason&&defer_exact_reason&&
+       candidate.kind==MatrixEventKind::Implication){
+      if(!make_deferred_exact_support(candidate))return MatrixStatus::Invalid;
+    }else make_reason(sources_,trail,candidate,exact_core_reason,
+                     &dirty_variable_xor_scratch_);
   }
   if(!work.consume(1+trail.size()+dirty.size()*comparisons+lists.size()*comparisons))return declined();
   // All charged, checked, private preparation is complete. Map nodes transfer
@@ -2589,6 +2706,48 @@ bool AffineMatrix::authenticates_historical(
     falsifying_parity ^= reason_assignments[reason_at].second;
   }
   return falsifying_parity != rhs;
+}
+
+bool AffineMatrix::inspect_deferred_exact_support(
+    const MatrixEvent &event,
+    const std::function<bool(External)> &visit) const {
+  if(!visit||event.kind!=MatrixEventKind::Implication||
+     event.implied_variable<=0||!event.reason.empty()||
+     event.deferred_exact_support.size()!=(admitted_variables_.size()+63)/64||
+     !event.reason_width)return false;
+  uint64_t width=0;bool found_implied=false;
+  for(size_t word=0;word<event.deferred_exact_support.size();++word){
+    uint64_t bits=event.deferred_exact_support[word];
+    while(bits){
+      const size_t coordinate=word*64+std::countr_zero(bits);
+      if(coordinate>=admitted_variables_.size())return false;
+      const External variable=admitted_variables_[coordinate];
+      ++width;
+      if(variable==event.implied_variable)found_implied=true;
+      else if(!visit(variable))return false;
+      bits&=bits-1;
+    }
+  }
+  return found_implied&&width==event.reason_width;
+}
+
+bool AffineMatrix::materialize_deferred_exact_reason(
+    MatrixEvent &event,
+    const std::function<int8_t(External)> &value) const {
+  if(!value)return false;
+  std::vector<External> reason;
+  reason.reserve(event.reason_width);
+  if(!inspect_deferred_exact_support(event,[&](External variable){
+       const int8_t assigned=value(variable);
+       if(!assigned)return false;
+       reason.push_back(assigned>0?-variable:variable);
+       return true;
+     }))return false;
+  reason.push_back(event.implied_value?event.implied_variable:
+                                       -event.implied_variable);
+  if(reason.size()!=event.reason_width)return false;
+  event.reason=std::move(reason);
+  return true;
 }
 
 bool AffineMatrix::retained_authentication_work(

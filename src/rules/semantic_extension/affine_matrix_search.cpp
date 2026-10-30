@@ -122,6 +122,14 @@ std::string event_identity(uint64_t owner, const MatrixEvent &event) {
     if (i) out << ',';
     out << event.reason[i];
   }
+  if(!event.deferred_exact_support.empty()){
+    uint64_t fingerprint=1469598103934665603ull;
+    for(const uint64_t word:event.deferred_exact_support){
+      fingerprint^=word;fingerprint*=1099511628211ull;
+    }
+    out<<";lazy-width="<<event.reason_width<<";lazy-support="
+       <<fingerprint;
+  }
   return out.str();
 }
 
@@ -322,7 +330,7 @@ bool AffineMatrixSearchSession::attached_to(const Kernel &kernel) const {
 }
 
 bool AffineMatrixSearchSession::inspect_lazy_reason(
-    const Kernel &kernel, Var implied, std::vector<Var> &antecedents) const {
+    const Kernel &kernel, Var implied, std::vector<Var> &antecedents) {
   const auto at = std::find_if(
       lazy_reasons_.begin(), lazy_reasons_.end(),
       [&](const LazyReason &pending) {
@@ -330,6 +338,23 @@ bool AffineMatrixSearchSession::inspect_lazy_reason(
       });
   if (at == lazy_reasons_.end())
     return false;
+  if(!at->event.deferred_exact_support.empty()){
+    const Lit implied_lit=kernel_internalize(kernel,
+        at->event.implied_value?at->event.implied_variable:
+                                -at->event.implied_variable);
+    if(implied_lit==INVALID_LIT||var_of(implied_lit)!=implied||
+       kernel.value(implied_lit)<=0)return false;
+    return matrix_.inspect_deferred_exact_support(
+        at->event,[&](External variable){
+          const Lit positive=kernel_internalize(kernel,variable);
+          if(positive==INVALID_LIT||kernel.values[positive]==0)return false;
+          const Lit false_literal=kernel.values[positive]>0?
+              negated(positive):positive;
+          if(kernel.value(false_literal)>=0)return false;
+          antecedents.push_back(var_of(positive));
+          return true;
+        });
+  }
   const auto &reason = at->event.reason;
   if (at->event.kind != MatrixEventKind::Implication || reason.size() < 3 ||
       reason.back() != (at->event.implied_value
@@ -1951,6 +1976,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   const auto &trail = *trail_view;
   bool exhausted = false;
   MatrixEvent event;
+  const bool defer_exact_construction=lazy_source&&minimal;
   auto synchronization_charge = [&](uint64_t amount) {
     if (kernel_terminating(kernel)) return false;
     if (!add(amount, session.parameters_.basis_maximum_work, result.synchronization_work)) {
@@ -1967,12 +1993,14 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     }
     cached = session.cached_event_valid_ &&
              session.cached_event_exact_core_ == minimal &&
+             session.cached_event_deferred_exact_ == defer_exact_construction &&
              session.cached_event_owner_ == session.owner_version_ &&
              (result.unchanged_support || trail == session.matrix_.trail());
     if (cached) {
       const auto &previous = session.cached_event_;
       if (!synchronization_charge(1 + previous.row.variables.size() +
-          previous.row.source_equations.size() + previous.reason.size())) {
+          previous.row.source_equations.size() + previous.reason.size() +
+          previous.deferred_exact_support.size())) {
         result.status = kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
                                                    AffineMatrixServiceStatus::ResourceExhausted;
         record_service(kernel, result); return result;
@@ -1996,7 +2024,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       const MatrixSliceLimits slice{session.parameters_.basis_maximum_work-result.synchronization_work,
           session.persistence_.maximum_retained_bytes-std::min(session.retained_bytes_,session.persistence_.maximum_retained_bytes)};
       synchronized=session.matrix_.synchronize_sliced(
-          trail,synchronization_charge,event,slice,minimal);
+          trail,synchronization_charge,event,slice,minimal,
+          defer_exact_construction);
       const auto &effort=session.matrix_.last_slice_effort();
       result.slice_work=effort.work;result.slice_cumulative_work=effort.cumulative_work;
       result.slice_completed_steps=effort.completed_steps;result.slice_minimum_work=effort.minimum_slice_work;
@@ -2006,7 +2035,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       session.slice_retry_=result.slice_pending;
     } else {
       synchronized=session.matrix_.synchronize(trail,synchronization_charge,event,session.persistent(),
-          session.persistent()?&index_limits:nullptr,minimal);
+          session.persistent()?&index_limits:nullptr,minimal,
+          defer_exact_construction);
       const bool work_decline = session.matrix_.last_synchronization_work_exhausted() || exhausted;
       if(session.persistent()&&work_decline&&
           (synchronized==MatrixStatus::Exhausted || synchronized==MatrixStatus::Interrupted)&&
@@ -2042,10 +2072,12 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     // Reserve both the cached representation and replacement/copy peak.
     const uint64_t bytes = std::max(session.cached_event_bytes_, 2 * (sizeof(MatrixEvent) +
         uint64_t(event.row.variables.size() + event.reason.size()) * sizeof(External) +
-        uint64_t(event.row.source_equations.size()) * sizeof(size_t)));
+        uint64_t(event.row.source_equations.size()) * sizeof(size_t) +
+        uint64_t(event.deferred_exact_support.size())*sizeof(uint64_t)));
     const uint64_t base = session.retained_bytes_ - session.cached_event_bytes_;
     const uint64_t copy_work = 1 + event.row.variables.size() +
-        event.row.source_equations.size() + event.reason.size();
+        event.row.source_equations.size() + event.reason.size() +
+        event.deferred_exact_support.size();
     const bool cache_fits = bytes <= session.persistence_.maximum_retained_bytes -
                     std::min(base, session.persistence_.maximum_retained_bytes) &&
         copy_work <= session.parameters_.basis_maximum_work -
@@ -2063,6 +2095,7 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
       session.cached_event_bytes_ = bytes; session.retained_bytes_ = base + bytes;
       session.cached_event_owner_ = session.owner_version_;
       session.cached_event_exact_core_ = minimal;
+      session.cached_event_deferred_exact_ = defer_exact_construction;
       session.cached_event_valid_ = true;
     } else {
       session.cached_event_valid_ = false;
@@ -2091,23 +2124,63 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     record_service(kernel, result);
     return result;
   }
+  uint32_t deferred_implication_level=0;
+  Lit deferred_implied=INVALID_LIT;
+  if(!event.deferred_exact_support.empty()){
+    deferred_implied=kernel_internalize(kernel,event.implied_value?
+        event.implied_variable:-event.implied_variable);
+    bool valid=deferred_implied!=INVALID_LIT&&!kernel.value(deferred_implied);
+    if(valid)valid=session.matrix_.inspect_deferred_exact_support(
+        event,[&](External variable){
+          const Lit positive=kernel_internalize(kernel,variable);
+          if(positive==INVALID_LIT||!kernel.values[positive])return false;
+          deferred_implication_level=std::max(
+              deferred_implication_level,
+              kernel.assigned[var_of(positive)].level);
+          return true;
+        });
+    if(!valid){
+      result.status=AffineMatrixServiceStatus::Stale;
+      record_service(kernel,result);return result;
+    }
+    // Root consequences cross proof/inprocessing boundaries immediately;
+    // only genuine non-root implications retain the native lazy handle.
+    if(!deferred_implication_level){
+      if(!session.matrix_.materialize_deferred_exact_reason(
+          event,[&](External variable){
+            const Lit positive=kernel_internalize(kernel,variable);
+            return positive==INVALID_LIT?int8_t{0}:
+                   kernel.values[positive];
+          })){
+        result.status=AffineMatrixServiceStatus::Stale;
+        record_service(kernel,result);return result;
+      }
+      event.deferred_exact_support.clear();
+    }
+  }
   // A globally implied unit discovered above root cannot be installed as a
   // root assignment while the current decision trail is live. Retain the
   // matrix event for the next root window; other reasons carry their false
   // trail antecedents and can be installed as ordinary non-root clauses.
-  if (kernel.level && event.reason.size() <= 1) {
+  if (kernel.level && event.reason_width <= 1) {
     result.status = AffineMatrixServiceStatus::NoEvent;
     record_service(kernel, result);
     return result;
   }
-  result.reason_width = event.reason.size();
+  result.reason_width = event.reason_width;
   result.event_identity = event_identity(session.owner_version_, event);
   if (result.event_identity.size() > session.parameters_.maximum_journal_bytes) {
     result.status = AffineMatrixServiceStatus::ResourceExhausted;
     record_service(kernel, result);
     return result;
   }
-  const auto duplicate =
+  const bool deferred_exact=!event.deferred_exact_support.empty();
+  const uint64_t deferred_identity_reserve=deferred_exact&&
+      event.reason_width<=(UINT64_MAX-result.event_identity.size()-1)/12?
+      result.event_identity.size()+1+uint64_t(event.reason_width)*12:
+      UINT64_MAX;
+  auto duplicate=session.published_.end();
+  if(!deferred_exact)duplicate=
       std::lower_bound(session.published_.begin(), session.published_.end(),
                        result.event_identity);
   if (!add(session.published_work_, session.parameters_.maximum_session_work,
@@ -2124,14 +2197,16 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     record_service(kernel, result);
     return result;
   }
-  if (duplicate != session.published_.end() &&
+  if (!deferred_exact&&duplicate != session.published_.end() &&
       *duplicate == result.event_identity) {
     result.status = AffineMatrixServiceStatus::Duplicate;
     record_service(kernel, result);
     return result;
   }
-  if (session.published_.size() == session.parameters_.maximum_session_keys ||
-      !add(result.event_identity.size() + 1,
+  if (session.published_.size()+session.lazy_reasons_.size() >=
+          session.parameters_.maximum_session_keys ||
+      !add(deferred_exact?deferred_identity_reserve:
+                              result.event_identity.size()+1,
            session.parameters_.maximum_session_work, result.session_work)) {
     result.status = AffineMatrixServiceStatus::ResourceExhausted;
     record_service(kernel, result);
@@ -2172,7 +2247,9 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     }
     const __uint128_t key_bytes_wide =
         __uint128_t(2) * session.published_.capacity() * sizeof(std::string) +
-        2 * (sizeof(std::string) + result.event_identity.size() + 1) +
+        2 * (sizeof(std::string) +
+             (deferred_exact?deferred_identity_reserve:
+                             result.event_identity.size()+1)) +
         __uint128_t(2) * session.published_capacity_bytes_;
     if (key_bytes_wide > UINT64_MAX) {
       result.status = AffineMatrixServiceStatus::ResourceExhausted;
@@ -2191,19 +2268,26 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   const bool can_defer = defer_reason &&
       event.kind == MatrixEventKind::Implication && event.reason.size() >= 3;
   bool can_lazy = lazy_source &&
-      event.kind == MatrixEventKind::Implication && event.reason.size() >= 3;
+      event.kind == MatrixEventKind::Implication && event.reason_width >= 3;
   bool installed_lazy = false;
   if (can_lazy) {
     std::vector<Lit> physical;
-    if (!affine_matrix_event_reason_order(kernel, event, physical) ||
-        physical.size() < 3 || kernel.value(physical.front())) {
+    uint32_t implication_level=deferred_implication_level;
+    Lit implied=deferred_implied;
+    bool ordered=true;
+    if(!deferred_exact){
+      ordered=affine_matrix_event_reason_order(kernel,event,physical)&&
+              physical.size()>=3&&!kernel.value(physical.front());
+      if(ordered){
+        implied=physical.front();
+        for(size_t i=1;i<physical.size();++i)
+          implication_level=std::max(
+              implication_level,kernel.assigned[var_of(physical[i])].level);
+      }
+    }
+    if (!ordered||implied==INVALID_LIT||kernel.value(implied)) {
       result.live.status = MatrixLiveStatus::Stale;
     } else {
-      uint32_t implication_level = 0;
-      for (size_t i = 1; i < physical.size(); ++i)
-        implication_level = std::max(
-            implication_level,
-            kernel.assigned[var_of(physical[i])].level);
       // Root facts immediately cross proof/inprocessing boundaries and must
       // be named now. Lazy handles are a non-root search mechanism only.
       if (!implication_level) {
@@ -2213,7 +2297,9 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
         uint64_t bytes = sizeof(AffineMatrixSearchSession::LazyReason);
         const uint64_t words = event.row.variables.size() +
                                event.row.source_equations.size() +
-                               event.reason.size();
+                               event.reason.size() +
+                               event.deferred_exact_support.size() +
+                               event.reason_width;
         if (words > (UINT64_MAX - bytes) / sizeof(uint64_t))
           bytes = UINT64_MAX;
         else
@@ -2227,15 +2313,15 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
                                  session.persistence_.maximum_retained_bytes)) {
           result.live.status = MatrixLiveStatus::ResourceExhausted;
         } else {
-          kernel_assign_affine(kernel, physical.front(), implication_level);
+          kernel_assign_affine(kernel, implied, implication_level);
           AffineMatrixSearchSession::LazyReason pending;
           pending.event = std::move(event);
           pending.event_identity = result.event_identity;
-          pending.implied_variable = var_of(physical.front());
+          pending.implied_variable = var_of(implied);
           pending.retained_bytes = bytes;
           pending.core_reason_authentication = minimal;
           session.lazy_reasons_.push_back(std::move(pending));
-          assert(session.has_lazy_reason(var_of(physical.front())));
+          assert(session.has_lazy_reason(var_of(implied)));
           result.live.status = MatrixLiveStatus::Applied;
           result.live.result = ApplyResult::Ok;
           result.live.implication = true;
@@ -2379,6 +2465,36 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     record_service(kernel, result);
     return result;
   }
+  if(!at->event.deferred_exact_support.empty()){
+    if(!session.matrix_.materialize_deferred_exact_reason(
+        at->event,[&](External variable){
+          const Lit positive=kernel_internalize(kernel,variable);
+          return positive==INVALID_LIT?int8_t{0}:kernel.values[positive];
+        })){
+      result.status=AffineMatrixServiceStatus::Stale;
+      record_service(kernel,result);return result;
+    }
+    at->event.deferred_exact_support={};
+    at->event_identity=event_identity(session.owner_version_,at->event);
+  }
+  if(at->event_identity.size()>session.parameters_.maximum_journal_bytes){
+    result.status=AffineMatrixServiceStatus::ResourceExhausted;
+    record_service(kernel,result);return result;
+  }
+  const auto duplicate=std::lower_bound(
+      session.published_.begin(),session.published_.end(),at->event_identity);
+  const bool new_key=duplicate==session.published_.end()||
+                     *duplicate!=at->event_identity;
+  if((new_key&&session.published_.size()==
+                   session.parameters_.maximum_session_keys)||
+     !add(session.published_work_,session.parameters_.maximum_session_work,
+          result.session_work)||
+     (new_key&&!add(at->event_identity.size()+1,
+                   session.parameters_.maximum_session_work,
+                   result.session_work))){
+    result.status=AffineMatrixServiceStatus::ResourceExhausted;
+    record_service(kernel,result);return result;
+  }
 
   MatrixLiveRequest request;
   request.owner = &session.source_owner_;
@@ -2415,7 +2531,7 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
   }
 
   result.event_identity = at->event_identity;
-  result.reason_width = at->event.reason.size();
+  result.reason_width = at->event.reason_width;
   result.installed_reason = at->event.reason;
   const uint64_t started = clock_nanos();
   result.live = apply_affine_matrix_live(kernel, request);
@@ -2429,21 +2545,17 @@ AffineMatrixServiceResult affine_matrix_materialize_lazy_reason(
     kernel.assigned[implied].reason = result.live.installed_reason_ref;
     kernel.assigned[implied].affine = false;
 
-    const auto duplicate = std::lower_bound(
-        session.published_.begin(), session.published_.end(),
-        result.event_identity);
-    if (duplicate != session.published_.end() &&
-        *duplicate == result.event_identity)
-      std::abort();
-    const auto inserted = session.published_.insert(
-        duplicate, result.event_identity);
-    const uint64_t work = inserted->size() + 1;
-    const uint64_t bytes = inserted->capacity() + 1;
-    if (work > UINT64_MAX - session.published_work_ ||
-        bytes > UINT64_MAX - session.published_capacity_bytes_)
-      std::abort();
-    session.published_work_ += work;
-    session.published_capacity_bytes_ += bytes;
+    if(new_key){
+      const auto inserted = session.published_.insert(
+          duplicate, result.event_identity);
+      const uint64_t work = inserted->size() + 1;
+      const uint64_t bytes = inserted->capacity() + 1;
+      if (work > UINT64_MAX - session.published_work_ ||
+          bytes > UINT64_MAX - session.published_capacity_bytes_)
+        std::abort();
+      session.published_work_ += work;
+      session.published_capacity_bytes_ += bytes;
+    }
     kernel.structural_action_sequence = request.action_id;
     session.lazy_reasons_.erase(at);
     result.reason_materialized = true;
