@@ -35,6 +35,20 @@ def main():
     assert Counter(e["verdict"] for e in entries) == {"SAT": 18, "UNSAT": 5}
     assert all(e["cms_seconds"] <= 600 and e["generated_artifacts_deleted"] for e in entries)
 
+    with (HERE / "unsat-selection.tsv").open(newline="") as stream:
+        rows = list(csv.DictReader(
+            (line for line in stream if line.strip() and not line.startswith("#")),
+            delimiter="\t"))
+    unsat = {entry["instance"]: entry for entry in entries
+             if entry["verdict"] == "UNSAT"}
+    assert len(rows) == len(unsat) == 5
+    assert {row["instance"] for row in rows} == set(unsat)
+    assert [int(row["coverage_rank"]) for row in rows] == list(range(1, 6))
+    assert all(row["verdict"] == "UNSAT" and
+               int(row["original_tierd_rank"]) ==
+               unsat[row["instance"]]["tier_d_id"] + 1
+               for row in rows)
+
     pins = manifest["pins"]
     for group in ("proof_free_campaign_manifests", "unsat_verification_campaign_manifests"):
         for campaign, expected in pins[group].items():

@@ -1,0 +1,7 @@
+# Five independently proved UNSAT rows from the frozen CG collection.
+coverage_rank	original_tierd_rank	instance	verdict
+1	84	tierD24-26/0efcbd10294eb001b16b4d126923372f-lightsout_sat_23_unbounded_direct_random50_2_unsat.sanitized.cnf.xz	UNSAT
+2	610	tierD24-26/80b163b706e0a16702173ec27f3d1331-lightsout_sat_24_unbounded_direct_corner_0_unsat.sanitized.cnf.xz	UNSAT
+3	285	tierD24-26/37a11ae189df2834a3f294736f34608f-mdp-28-16-unsat.cnf.xz	UNSAT
+4	331	tierD24-26/425c81fc3af7f5124b6282583d80df11-mdp-32-12-unsat.cnf.xz	UNSAT
+5	124	tierD24-26/16ca57f2cdffd5b0260fc771017e1f04-mdp-36-10-unsat.cnf.xz	UNSAT
