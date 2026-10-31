@@ -60,6 +60,39 @@ bool selected_affine_guard(const RuleVTable &rule, Kernel &kernel,
   return static_cast<bool>(rule_guard(rule, kernel));
 }
 
+struct StructuredPayloadShape {
+  unsigned kinds = 0;
+  size_t size = 0;
+};
+
+StructuredPayloadShape structured_payload_shape(
+    const OnlineInvocation &step) {
+  StructuredPayloadShape result;
+  const auto include = [&](size_t size) {
+    if (!size)
+      return;
+    if (!result.kinds)
+      result.size = size;
+    ++result.kinds;
+  };
+  include(step.factor_grids.size());
+  include(step.substitution_redundancy_instances.size());
+  include(step.condition_instances.size());
+  include(step.independent_set_cover_instances.size());
+  include(step.affine_basis_instances.size());
+  include(step.gf3_affine_instances.size());
+  include(step.direct_csp_guarded_cover_instances.size());
+  include(step.direct_csp_support_instances.size());
+  include(step.nary_csp_equality_instances.size());
+  include(step.nary_csp_equality_transitivity_instances.size());
+  include(step.nary_csp_equality_amo_instances.size());
+  include(step.gf3_gaussian_instances.size());
+  include(step.gf3_general_row_instances.size());
+  include(step.cardinality_search_instances.size());
+  include(step.tseitin_cycle_instances.size());
+  return result;
+}
+
 } // namespace
 
 uint64_t repeat_round_limit(const Kernel &k, const RepeatSpec &repeat) {
@@ -807,25 +840,10 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           !representable(instance.witness))
         return reject("Condition instance has an invalid external literal");
     }
-    const unsigned structured_payload_kinds =
-        !step.factor_grids.empty() +
-        !step.substitution_redundancy_instances.empty() +
-        !step.condition_instances.empty() +
-        !step.independent_set_cover_instances.empty() +
-        !step.affine_basis_instances.empty() +
-        !step.gf3_affine_instances.empty() +
-        !step.direct_csp_guarded_cover_instances.empty() +
-        !step.direct_csp_support_instances.empty() +
-        !step.nary_csp_equality_instances.empty() +
-        !step.nary_csp_equality_transitivity_instances.empty() +
-        !step.nary_csp_equality_amo_instances.empty() +
-        !step.gf3_gaussian_instances.empty() +
-        !step.gf3_general_row_instances.empty() +
-        !step.cardinality_search_instances.empty() +
-        !step.tseitin_cycle_instances.empty();
-    if (structured_payload_kinds && !step.instances.empty())
+    const StructuredPayloadShape structured = structured_payload_shape(step);
+    if (structured.kinds && !step.instances.empty())
       return reject("scalar and structured selections cannot be mixed");
-    if (structured_payload_kinds > 1)
+    if (structured.kinds > 1)
       return reject("different structured selection kinds cannot be mixed");
     if (step.rule == "Lucky" &&
         std::any_of(step.instances.begin(), step.instances.end(),
@@ -841,46 +859,17 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                       return !strategy::valid_local_search_kind(kind);
                     }))
       return reject("LocalSearchGuidance kind is retired");
-    const size_t structured_size = !step.factor_grids.empty()
-                                       ? step.factor_grids.size()
-                                       : !step.substitution_redundancy_instances.empty()
-                                             ? step.substitution_redundancy_instances.size()
-                                             : !step.condition_instances.empty()
-                                                   ? step.condition_instances.size()
-                                                   : !step.independent_set_cover_instances.empty()
-                                                         ? step.independent_set_cover_instances.size()
-                                                         : !step.affine_basis_instances.empty()
-                                                               ? step.affine_basis_instances.size()
-                                                         : !step.gf3_affine_instances.empty()
-                                                               ? step.gf3_affine_instances.size()
-                                                               : !step.direct_csp_guarded_cover_instances.empty()
-                          ? step.direct_csp_guarded_cover_instances.size()
-                          : !step.direct_csp_support_instances.empty()
-                                                                     ? step.direct_csp_support_instances.size()
-                                                                     : !step.nary_csp_equality_instances.empty()
-                                                                           ? step.nary_csp_equality_instances.size()
-                                                                     : !step.nary_csp_equality_transitivity_instances.empty()
- ? step.nary_csp_equality_transitivity_instances.size()
- : !step.nary_csp_equality_amo_instances.empty()
- ? step.nary_csp_equality_amo_instances.size()
-                                                                     : !step.gf3_gaussian_instances.empty()
-                                                                           ? step.gf3_gaussian_instances.size()
-                                                                     : !step.gf3_general_row_instances.empty()
-                                                                           ? step.gf3_general_row_instances.size()
-                                                                           : !step.cardinality_search_instances.empty()
-                                                                                 ? step.cardinality_search_instances.size()
-                                                                                 : step.tseitin_cycle_instances.size();
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
-      if ((structured_payload_kinds && structured_size != 1) ||
-          (!structured_payload_kinds && step.instances.size() != 1))
+      if ((structured.kinds && structured.size != 1) ||
+          (!structured.kinds && step.instances.size() != 1))
         return reject("one-instance selection does not contain one payload");
-      if (!structured_payload_kinds &&
+      if (!structured.kinds &&
           step.instances.front() == INSTANCE_CANONICAL)
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::SelectedBatch:
-      if (step.instances.empty() && !structured_payload_kinds)
+      if (step.instances.empty() && !structured.kinds)
         return reject("selected batch is empty");
       if (std::find(step.instances.begin(), step.instances.end(),
                     INSTANCE_CANONICAL) != step.instances.end())
@@ -898,7 +887,7 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "CardinalitySearch" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action requires an explicit payload");
-      if (!step.instances.empty() || structured_payload_kinds)
+      if (!step.instances.empty() || structured.kinds)
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
@@ -913,13 +902,13 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           step.rule == "CardinalitySearch" ||
           step.rule == "TseitinCycleBreaking")
         return reject("structured theory action has no canonical payload");
-      if (!step.instances.empty() || structured_payload_kinds)
+      if (!step.instances.empty() || structured.kinds)
         return reject("canonical application carries explicit payloads");
       break;
     case InvocationGranularity::NativeProducerOffer:
       if (!allow_native_offer)
         return reject("native producer offer is controller-prefix-only");
-      if (!step.instances.empty() || structured_payload_kinds)
+      if (!step.instances.empty() || structured.kinds)
         return reject("native producer offer carries an explicit payload");
       if (step.rule != "AffineConsequence" &&
           step.rule != "Gf3AffineConsequence" &&
@@ -1205,53 +1194,11 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
   if (step.granularity == InvocationGranularity::CanonicalApplication) {
     runtime.selection = {INSTANCE_CANONICAL};
   } else if (step.granularity != InvocationGranularity::CompleteCurrentPass) {
-    if (step.factor_grids.empty() &&
-        step.substitution_redundancy_instances.empty() &&
-        step.condition_instances.empty() &&
-        step.independent_set_cover_instances.empty() &&
-        step.affine_basis_instances.empty() &&
-        step.gf3_affine_instances.empty() &&
-        step.direct_csp_guarded_cover_instances.empty() &&
-        step.direct_csp_support_instances.empty() &&
-        step.nary_csp_equality_instances.empty() &&
-        step.nary_csp_equality_transitivity_instances.empty() &&
-        step.nary_csp_equality_amo_instances.empty() &&
-        step.gf3_gaussian_instances.empty() &&
-        step.gf3_general_row_instances.empty() &&
-        step.cardinality_search_instances.empty() &&
-        step.tseitin_cycle_instances.empty()) {
+    const StructuredPayloadShape structured = structured_payload_shape(step);
+    if (!structured.kinds) {
       runtime.selection = step.instances;
     } else {
-      const size_t size = !step.factor_grids.empty()
-                              ? step.factor_grids.size()
-                              : !step.substitution_redundancy_instances.empty()
-                                    ? step.substitution_redundancy_instances.size()
-                                    : !step.condition_instances.empty()
-                                          ? step.condition_instances.size()
-                                          : !step.independent_set_cover_instances.empty()
-                                                ? step.independent_set_cover_instances.size()
-                                                : !step.affine_basis_instances.empty()
-                                                      ? step.affine_basis_instances.size()
-                                                : !step.gf3_affine_instances.empty()
-                                                      ? step.gf3_affine_instances.size()
-                                                      : !step.direct_csp_guarded_cover_instances.empty()
-                          ? step.direct_csp_guarded_cover_instances.size()
-                          : !step.direct_csp_support_instances.empty()
-                                                            ? step.direct_csp_support_instances.size()
-                                                            : !step.nary_csp_equality_instances.empty()
-                                                                  ? step.nary_csp_equality_instances.size()
-                                                            : !step.nary_csp_equality_transitivity_instances.empty()
- ? step.nary_csp_equality_transitivity_instances.size()
- : !step.nary_csp_equality_amo_instances.empty()
- ? step.nary_csp_equality_amo_instances.size()
-                                                            : !step.gf3_gaussian_instances.empty()
-                                                                  ? step.gf3_gaussian_instances.size()
-                                                            : !step.gf3_general_row_instances.empty()
-                                                                  ? step.gf3_general_row_instances.size()
-                                                                  : !step.cardinality_search_instances.empty()
-                                                                        ? step.cardinality_search_instances.size()
-                                                                        : step.tseitin_cycle_instances.size();
-      runtime.selection.resize(size);
+      runtime.selection.resize(structured.size);
       for (size_t i = 0; i < runtime.selection.size(); ++i)
         runtime.selection[i] = i;
     }
