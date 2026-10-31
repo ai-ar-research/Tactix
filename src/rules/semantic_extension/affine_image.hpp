@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <iterator>
+#include <utility>
 #include <vector>
 
 namespace tactix::affine_semantic_extension {
@@ -46,6 +47,39 @@ struct Equation {
 
   friend bool operator==(const Equation &, const Equation &) = default;
 };
+
+struct ReducedEquation {
+  std::vector<External> variables;
+  bool rhs = false;
+  std::vector<size_t> sources;
+};
+
+template <class Basis, class Consume>
+bool reduce_equation(
+    ReducedEquation &row, const Basis &basis, size_t maximum_width,
+    size_t maximum_sources, bool drop_overflow, Consume consume) {
+  while (!row.variables.empty()) {
+    if (!consume(uint64_t{1} + row.variables.size() + row.sources.size()))
+      return false;
+    // Ascending pivots; the source XOR preserves the exact derivation.
+    const auto found = basis.find(row.variables.front());
+    if (found == basis.end()) return true;
+    std::vector<External> variables;
+    std::vector<size_t> sources;
+    xor_sorted(row.variables, found->second.variables, variables);
+    xor_sorted(row.sources, found->second.sources, sources);
+    row.variables = std::move(variables);
+    row.sources = std::move(sources);
+    row.rhs ^= found->second.rhs;
+    if (row.variables.size() <= maximum_width &&
+        row.sources.size() <= maximum_sources)
+      continue;
+    if (!drop_overflow) return false;
+    row.sources.clear();
+    return true;
+  }
+  return true;
+}
 
 struct Consequence {
   std::vector<External> variables;

@@ -10,12 +10,6 @@
 namespace tactix::affine_semantic_extension {
 namespace {
 
-struct ReducedRow {
-  std::vector<External> variables;
-  bool rhs = false;
-  std::vector<size_t> sources;
-};
-
 struct AtomPair {
   BasisAtom first;
   BasisAtom second;
@@ -151,7 +145,7 @@ struct Planner {
     return output;
   }
 
-  bool materialize(ReducedRow reduced, bool build_wide_definitions) {
+  bool materialize(ReducedEquation reduced, bool build_wide_definitions) {
     BasisRow row;
     row.variables = std::move(reduced.variables);
     row.rhs = reduced.rhs;
@@ -212,8 +206,8 @@ BasisPlanStatus build_basis_plan_impl(
 
   Planner planner{input, limits, charge};
   planner.plan.input_rows = input.size();
-  std::map<External, ReducedRow> basis;
-  std::vector<ReducedRow> rows;
+  std::map<External, ReducedEquation> basis;
+  std::vector<ReducedEquation> rows;
   for (size_t index = 0; index < input.size(); ++index) {
     const Equation &equation = input[index];
     if (equation.variables.size() > limits.maximum_intermediate_width ||
@@ -224,27 +218,13 @@ BasisPlanStatus build_basis_plan_impl(
                          equation.premises.size()))
       return planner.interrupted ? BasisPlanStatus::Interrupted
                                  : BasisPlanStatus::Exhausted;
-    ReducedRow row{equation.variables, equation.rhs, {index}};
-    while (!row.variables.empty()) {
-      const uint64_t amount = 1 + row.variables.size() + row.sources.size();
-      if (!planner.consume(amount, true))
-        return planner.interrupted ? BasisPlanStatus::Interrupted
-                                   : BasisPlanStatus::Exhausted;
-      const auto found = basis.find(row.variables.front());
-      if (found == basis.end()) break;
-      std::vector<External> variables;
-      std::vector<size_t> sources;
-      xor_sorted(row.variables, found->second.variables, variables);
-      xor_sorted(row.sources, found->second.sources, sources);
-      row.variables = std::move(variables);
-      row.sources = std::move(sources);
-      row.rhs ^= found->second.rhs;
-      if (row.variables.size() > limits.maximum_intermediate_width ||
-          row.sources.size() > limits.maximum_sources)
-        return BasisPlanStatus::Exhausted;
-    }
-    if (row.sources.size() > limits.maximum_sources)
-      return BasisPlanStatus::Exhausted;
+    ReducedEquation row{equation.variables, equation.rhs, {index}};
+    if (!reduce_equation(
+            row, basis, limits.maximum_intermediate_width,
+            limits.maximum_sources, false,
+            [&](uint64_t amount) { return planner.consume(amount, true); }))
+      return planner.interrupted ? BasisPlanStatus::Interrupted
+                                 : BasisPlanStatus::Exhausted;
     if (row.variables.empty()) {
       if (row.rhs) rows.push_back(std::move(row));
       continue;
@@ -254,7 +234,7 @@ BasisPlanStatus build_basis_plan_impl(
   }
   if (rows.empty()) return BasisPlanStatus::NoStructure;
 
-  for (ReducedRow &row : rows) {
+  for (ReducedEquation &row : rows) {
     if (mode == PlanMode::DirectOnly &&
         row.variables.size() > limits.maximum_direct_width)
       continue;
