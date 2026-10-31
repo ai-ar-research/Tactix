@@ -2291,6 +2291,12 @@ InvocationResult OnlineStrategyExecutor::advance(
           RetainInterrupted | RetainStale;
       constexpr uint8_t retain_retryable_theory_failures =
           RetainResourceExhausted | RetainInterrupted;
+      const auto settle_standard = [&](const auto &application,
+                                       uint8_t retain) {
+        if (application)
+          settle_theory_status(standard_theory_status_disposition(
+              application->status, retain));
+      };
       // The append-only persistent profile preserves detailed native declines.
       // Legacy zero-persistence dispatch and its historical statuses stay on
       // the registered adapter path above.
@@ -2330,45 +2336,26 @@ InvocationResult OnlineStrategyExecutor::advance(
               {AffineMatrixServiceStatus::Interrupted},
               {AffineMatrixServiceStatus::Stale}, retain_all_theory_failures));
       }
-      if (affine_application)
-        settle_theory_status(standard_theory_status_disposition(
-            affine_application->status, retain_all_theory_failures));
+      settle_standard(affine_application, retain_all_theory_failures);
       if (exact_cover_application)
         settle_theory_status(standard_theory_status_disposition(
             exact_cover_application->live.status,
             retain_all_theory_failures));
-      if (independent_set_application)
-        settle_theory_status(standard_theory_status_disposition(
-            independent_set_application->status,
-            retain_all_theory_failures));
-      if (gf3_affine_application)
-        settle_theory_status(standard_theory_status_disposition(
-            gf3_affine_application->status,
-            retain_retryable_theory_failures));
-      if (direct_csp_application)
-        settle_theory_status(standard_theory_status_disposition(
-            direct_csp_application->status,
-            retain_retryable_theory_failures));
-      if (nary_csp_equality_application)
-        settle_theory_status(standard_theory_status_disposition(
-            nary_csp_equality_application->status,
-            retain_retryable_theory_failures));
-      if (nary_csp_equality_amo_application)
-        settle_theory_status(standard_theory_status_disposition(
-            nary_csp_equality_amo_application->status,
-            retain_retryable_theory_failures));
-      if (nary_csp_equality_transitivity_application)
-        settle_theory_status(standard_theory_status_disposition(
-            nary_csp_equality_transitivity_application->status,
-            retain_retryable_theory_failures));
-      if (gf3_gaussian_application)
-        settle_theory_status(standard_theory_status_disposition(
-            gf3_gaussian_application->status,
-            retain_retryable_theory_failures));
-      if (gf3_general_row_application)
-        settle_theory_status(standard_theory_status_disposition(
-            gf3_general_row_application->status,
-            retain_retryable_theory_failures));
+      settle_standard(independent_set_application, retain_all_theory_failures);
+      settle_standard(gf3_affine_application,
+                      retain_retryable_theory_failures);
+      settle_standard(direct_csp_application,
+                      retain_retryable_theory_failures);
+      settle_standard(nary_csp_equality_application,
+                      retain_retryable_theory_failures);
+      settle_standard(nary_csp_equality_amo_application,
+                      retain_retryable_theory_failures);
+      settle_standard(nary_csp_equality_transitivity_application,
+                      retain_retryable_theory_failures);
+      settle_standard(gf3_gaussian_application,
+                      retain_retryable_theory_failures);
+      settle_standard(gf3_general_row_application,
+                      retain_retryable_theory_failures);
       if (cardinality_search_application)
         settle_theory_status(theory_status_disposition(
             cardinality_search_application->status,
@@ -2378,10 +2365,8 @@ InvocationResult OnlineStrategyExecutor::advance(
             {CardinalitySearchActionStatus::ResourceExhausted},
             {CardinalitySearchActionStatus::Interrupted}, {},
             retain_retryable_theory_failures));
-      if (tseitin_cycle_application)
-        settle_theory_status(standard_theory_status_disposition(
-            tseitin_cycle_application->status,
-            retain_retryable_theory_failures));
+      settle_standard(tseitin_cycle_application,
+                      retain_retryable_theory_failures);
       if (direct_php_application)
         settle_theory_status(theory_status_disposition(
             direct_php_application->status,
