@@ -18,7 +18,7 @@ trap 'rm -rf "$scratch"' EXIT
 "$binary" "$scratch/input.cnf" "$scratch/proof.drat"
 "$drat" "$scratch/input.cnf" "$scratch/proof.drat" -f \
   > "$scratch/drat-check.log" 2>&1
-rg -q 's VERIFIED' "$scratch/drat-check.log"
+grep -q 's VERIFIED' "$scratch/drat-check.log"
 python3 "$root/tools/bench/proof_oracle.py" check-dsr \
   "$scratch/input.cnf" "$scratch/proof.drat" \
   --dsr-trim "$trim" --dsr-compress "$compress" --srcheck "$srcheck" \
