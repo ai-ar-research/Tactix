@@ -66,9 +66,9 @@ Kernel parse(bool unsat = false) {
 
 
 NaryCspEqualityParameters equality_parameters() {
-  NaryCspEqualityParameters result{
+  NaryCspEqualityParameters result{{
       100, 1000, 200000, 16, 100, 10000, 100, 1000,
-      100000, 1, 100, 100};
+      100000, 1, 100, 100}};
   assert(result.valid());
   return result;
 }

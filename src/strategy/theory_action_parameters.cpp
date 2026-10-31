@@ -69,48 +69,17 @@ DirectCspSupportActionLimits action_limits(
 }
 
 NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &p) {
-  return NaryCspEqualityLimits{
-      p.maximum_source_clauses, p.maximum_source_literals,
-      p.maximum_recognition_work, p.maximum_domain_values,
-      p.maximum_forbidden_tuples, p.maximum_proof_work,
-      p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-      p.maximum_journal_bytes, p.maximum_extent_growth,
-      p.maximum_external_extent, p.maximum_session_keys};
-}
-
-bool NaryCspEqualityParameters::valid() const {
-  return action_limits(*this).valid();
+  return p;
 }
 
 NaryCspEqualityAmoLimits action_limits(
     const NaryCspEqualityAmoParameters &p) {
-  return NaryCspEqualityAmoLimits{
-      p.maximum_source_clauses, p.maximum_source_literals,
-      p.maximum_recognition_work, p.maximum_domain_values,
-      p.maximum_forbidden_tuples, p.maximum_proof_work,
-      p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-      p.maximum_journal_bytes, p.maximum_external_extent,
-      p.maximum_session_keys};
-}
-
-bool NaryCspEqualityAmoParameters::valid() const {
-  return action_limits(*this).valid();
+  return p;
 }
 
 NaryCspEqualityTransitivityLimits action_limits(
     const NaryCspEqualityTransitivityParameters &p) {
-  return {p.maximum_source_clauses, p.maximum_source_literals,
-          p.maximum_recognition_work, p.maximum_planning_work,
-          p.maximum_domain_values, p.maximum_forbidden_tuples,
-          p.maximum_proof_work, p.maximum_proof_additions,
-          p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-          p.maximum_external_extent, p.maximum_session_keys,
-          p.maximum_session_bytes, p.maximum_arena_words,
-          p.maximum_watch_words, p.maximum_preparation_bytes};
-}
-
-bool NaryCspEqualityTransitivityParameters::valid() const {
-  return action_limits(*this).valid();
+  return p;
 }
 
 DirectPhpActionLimits action_limits(const DirectPhpRefutationParameters &p) {

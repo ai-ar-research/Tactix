@@ -1,4 +1,5 @@
 #pragma once
+#include "rules/semantic_extension/nary_csp_action_limits.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
@@ -17,19 +18,6 @@ struct NaryCspEqualityTransitivitySelection {
   }
 };
 using NaryCspEqualityTransitivityKey=NaryCspEqualityTransitivitySelection;
-struct NaryCspEqualityTransitivityLimits {
-  uint64_t maximum_source_clauses=0,maximum_source_literals=0;
-  uint64_t maximum_recognition_work=0,maximum_planning_work=0;
-  uint32_t maximum_domain_values=0;
-  uint64_t maximum_forbidden_tuples=0;
-  uint64_t maximum_proof_work=0,maximum_proof_additions=0;
-  uint64_t maximum_proof_literal_occurrences=0,maximum_journal_bytes=0;
-  uint32_t maximum_external_extent=0;
-  uint64_t maximum_session_keys=0,maximum_session_bytes=0;
-  uint64_t maximum_arena_words=0,maximum_watch_words=0;
-  uint64_t maximum_preparation_bytes=0;
-  bool valid() const;
-};
 class NaryCspEqualityTransitivitySession {
 public:
   bool retained() const{return owner_!=nullptr;}

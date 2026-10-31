@@ -160,8 +160,8 @@ void public_identity_and_replay() {
       [](const auto &step) { return step.id == 33; });
   assert(found != reference.end() && found->rule == "NaryCspEqualityAmo" &&
          !found->enabled);
-  strategy::NaryCspEqualityAmoParameters parameters{
-      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
+  strategy::NaryCspEqualityAmoParameters parameters{{
+      100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
   strategy::OnlineInvocation invocation;
   invocation.id = 33;
   invocation.rule = "NaryCspEqualityAmo";
@@ -334,8 +334,8 @@ void controller_decline_feedback() {
     request.invocation.nary_csp_equality_amo_instances = {{domains}};
     if (cause == Invalid)
       request.invocation.nary_csp_equality_amo_instances.front().domains.pop_back();
-    NaryCspEqualityAmoParameters parameters{
-        100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100};
+    NaryCspEqualityAmoParameters parameters{{
+        100, 1000, 300000, 16, 100, 10000, 100, 1000, 100000, 100, 100}};
     if (cause == ProofBudget) parameters.maximum_proof_additions = 2;
     if (cause == RecognitionBudget) parameters.maximum_recognition_work = 1;
     request.invocation.parameters = parameters;

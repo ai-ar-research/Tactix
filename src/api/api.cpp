@@ -678,7 +678,7 @@ bool online_parameters(const tactix_online_parameters &source,
     return false; // Retired tag 42; never reinterpret old payloads.
   case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY: {
     const auto &p = source.value.nary_csp_equality;
-    strategy::NaryCspEqualityParameters converted{
+    strategy::NaryCspEqualityParameters converted{{
         p.maximum_source_clauses,
         p.maximum_source_literals,
         p.maximum_recognition_work,
@@ -690,14 +690,14 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_journal_bytes,
         p.maximum_extent_growth,
         p.maximum_external_extent,
-        p.maximum_session_keys};
+        p.maximum_session_keys}};
     if (!converted.valid()) return false;
     target = converted;
     return true;
   }
   case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO: {
     const auto &p = source.value.nary_csp_equality_amo;
-    strategy::NaryCspEqualityAmoParameters converted{
+    strategy::NaryCspEqualityAmoParameters converted{{
         p.maximum_source_clauses,
         p.maximum_source_literals,
         p.maximum_recognition_work,
@@ -708,7 +708,7 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_proof_literal_occurrences,
         p.maximum_journal_bytes,
         p.maximum_external_extent,
-        p.maximum_session_keys};
+        p.maximum_session_keys}};
     if (!converted.valid()) return false;
     target = converted;
     return true;

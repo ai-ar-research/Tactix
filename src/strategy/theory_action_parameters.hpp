@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rules/semantic_extension/direct_csp_action_limits.hpp"
+#include "rules/semantic_extension/nary_csp_action_limits.hpp"
 
 #include <cstdint>
 
@@ -11,9 +12,6 @@ struct DirectPhpActionLimits;
 struct Gf3AffineActionLimits;
 struct Gf3GaussianActionLimits;
 struct Gf3GeneralRowActionLimits;
-struct NaryCspEqualityAmoLimits;
-struct NaryCspEqualityLimits;
-struct NaryCspEqualityTransitivityLimits;
 struct TseitinCycleBreakingLimits;
 namespace strategy {
 
@@ -228,63 +226,21 @@ struct DirectCspSupportParameters : DirectCspSupportActionLimits {
 };
 
 
-struct NaryCspEqualityParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-
-  bool valid() const;
+struct NaryCspEqualityParameters : NaryCspEqualityLimits {
   static NaryCspEqualityParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityParameters &) const = default;
 };
 
-struct NaryCspEqualityAmoParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-
-  bool valid() const;
+struct NaryCspEqualityAmoParameters : NaryCspEqualityAmoLimits {
   static NaryCspEqualityAmoParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityAmoParameters &) const = default;
 };
 
-struct NaryCspEqualityTransitivityParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_planning_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_bytes = 0;
-  uint64_t maximum_arena_words = 0;
-  uint64_t maximum_watch_words = 0;
-  uint64_t maximum_preparation_bytes = 0;
-  bool valid() const;
+struct NaryCspEqualityTransitivityParameters
+    : NaryCspEqualityTransitivityLimits {
   static NaryCspEqualityTransitivityParameters from_kernel(const Kernel &);
-  bool operator==(const NaryCspEqualityTransitivityParameters &) const = default;
+  bool operator==(
+      const NaryCspEqualityTransitivityParameters &) const = default;
 };
 
 // Exact controller-visible limits for the terminal direct pigeonhole

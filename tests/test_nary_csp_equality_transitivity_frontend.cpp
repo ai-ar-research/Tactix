@@ -27,8 +27,8 @@ std::vector<std::vector<int32_t>> clauses(){
  for(auto t:owners) for(size_t j=0;j<2;++j) out.push_back({-int32_t(2*t[0]+j+1),-int32_t(2*t[1]+j+1),-int32_t(2*t[2]+j+1)});
  return out;
 }
-NaryCspEqualityTransitivityParameters profile(){return {1000,10000,1000000,1000000,16,1000,10000,1000,10000,100000,100,100,1000000,1000,1000,1000000};}
-NaryCspEqualityParameters equality_profile(){return {1000,10000,1000000,16,1000,10000,1000,10000,100000,1,100,100};}
+NaryCspEqualityTransitivityParameters profile(){return {{1000,10000,1000000,1000000,16,1000,10000,1000,10000,100000,100,100,1000000,1000,1000,1000000}};}
+NaryCspEqualityParameters equality_profile(){return {{1000,10000,1000000,16,1000,10000,1000,10000,100000,1,100,100}};}
 OnlineInvocation action(const Selection &selection){
  OnlineInvocation a; a.id=4501;a.rule="NaryCspEqualityTransitivity";a.parameters=profile();
  a.granularity=InvocationGranularity::OneInstance;a.budget=WorkLimit::bounded(1);

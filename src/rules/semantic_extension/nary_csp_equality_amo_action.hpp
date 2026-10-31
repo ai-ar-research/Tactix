@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rules/semantic_extension/nary_csp_action_limits.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
@@ -19,21 +20,6 @@ struct NaryCspEqualityAmoKey {
 struct NaryCspEqualityAmoSelection {
   std::vector<std::vector<int32_t>> domains;
   bool operator==(const NaryCspEqualityAmoSelection &) const = default;
-};
-
-struct NaryCspEqualityAmoLimits {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint64_t maximum_forbidden_tuples = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  bool valid() const;
 };
 
 class NaryCspEqualityAmoSession {
