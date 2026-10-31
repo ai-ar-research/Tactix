@@ -7,6 +7,7 @@
 #include "strategy/substitute_execution.hpp"
 
 #include "diagnostics/event_trace.hpp"
+#include "diagnostics/process_memory.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -24,11 +25,6 @@
 #include <unordered_set>
 #include <utility>
 
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-#include <sys/resource.h>
-#include <unistd.h>
-#endif
-
 namespace tactix {
 
 // Single in-place binary-substitution pass (Kissat substitute_binaries port)
@@ -43,33 +39,17 @@ namespace {
 void substitute_stage_trace(const Kernel &k, const char *stage,
                             size_t first = 0, size_t second = 0,
                             size_t third = 0) {
-  static FILE *out = nullptr;
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_SUBSTITUTE_MEMORY_TRACE");
-    if (path && *path) {
-      out = std::fopen(path, "w");
-      if (out)
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-    }
-  }
+  static diagnostics::EnvironmentLineFile trace;
+  FILE *out = trace.stream("TACTIX_SUBSTITUTE_MEMORY_TRACE");
   if (!out)
     return;
-  struct rusage usage {};
-  getrusage(RUSAGE_SELF, &usage);
-  unsigned long virtual_pages = 0;
-  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
-    (void)std::fscanf(statm, "%lu", &virtual_pages);
-    std::fclose(statm);
-  }
-  const unsigned long virtual_kib =
-      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  const long peak_rss_kib = diagnostics::peak_resident_kib();
+  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
   std::fprintf(out,
                "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
                "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
                "third=%zu\n",
-               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.arena.size(),
+               stage, peak_rss_kib, virtual_kib, k.nvars, k.arena.size(),
                k.watches.arena.size(), k.watches.arena.capacity(), first,
                second, third);
 }

@@ -2,6 +2,7 @@
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 
+#include "diagnostics/process_memory.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
 
@@ -14,7 +15,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <sys/resource.h>
 #if defined(__GLIBC__)
 #include <malloc.h>
 #endif
@@ -90,21 +90,11 @@ DenseStorage dense_storage(const OccIndex *dense) {
 
 void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
                        size_t temporary_bytes = 0, uint32_t subject = 0) {
-  static bool initialized = false;
-  static FILE *out = nullptr;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_SLOT_MEMORY_TRACE");
-    if (path && *path) {
-      out = std::fopen(path, "w");
-      if (out)
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-    }
-  }
+  static diagnostics::EnvironmentLineFile trace;
+  FILE *out = trace.stream("TACTIX_SLOT_MEMORY_TRACE");
   if (!out)
     return;
-  rusage usage{};
-  getrusage(RUSAGE_SELF, &usage);
+  const long peak_rss_kib = diagnostics::peak_resident_kib();
   size_t heap_used_kib = 0, heap_free_kib = 0, mmap_kib = 0;
 #if defined(__GLIBC__)
   const struct mallinfo2 allocator = mallinfo2();
@@ -201,7 +191,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage,
                "dense_ordered_arena_capacity_bytes=%zu\t"
                "memory_conflicts=%llu\tmemory_decisions=%llu\t"
                "memory_subject_internal=%u\n",
-               name, stage, usage.ru_maxrss, current_rss_kib, vm_kib, k.nvars,
+               name, stage, peak_rss_kib, current_rss_kib, vm_kib, k.nvars,
                k.arena.size(), k.arena.capacity(), k.watches.arena.size(),
                k.watches.arena.capacity(), k.watches.heads.capacity(),
                k.reconstruction.size(), k.reconstruction.capacity(),

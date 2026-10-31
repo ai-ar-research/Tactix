@@ -23,16 +23,12 @@
 
 #include "rules/propagate/propagate.hpp"
 
+#include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
-
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-#include <sys/resource.h>
-#include <unistd.h>
-#endif
 
 namespace tactix {
 
@@ -43,34 +39,18 @@ namespace {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void lucky_stage_trace(const Kernel &k, const char *stage, size_t first = 0,
                        size_t second = 0, size_t third = 0) {
-  static FILE *out = nullptr;
-  static bool initialized = false;
-  if (!initialized) {
-    initialized = true;
-    const char *path = std::getenv("TACTIX_LUCKY_MEMORY_TRACE");
-    if (path && *path) {
-      out = std::fopen(path, "w");
-      if (out)
-        std::setvbuf(out, nullptr, _IOLBF, 0);
-    }
-  }
+  static diagnostics::EnvironmentLineFile trace;
+  FILE *out = trace.stream("TACTIX_LUCKY_MEMORY_TRACE");
   if (!out)
     return;
-  struct rusage usage {};
-  getrusage(RUSAGE_SELF, &usage);
-  unsigned long virtual_pages = 0;
-  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
-    (void)std::fscanf(statm, "%lu", &virtual_pages);
-    std::fclose(statm);
-  }
-  const unsigned long virtual_kib =
-      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  const long peak_rss_kib = diagnostics::peak_resident_kib();
+  const unsigned long virtual_kib = diagnostics::virtual_memory_kib();
   std::fprintf(out,
                "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\ttrail=%zu\t"
                "trail_capacity=%zu\tframes=%zu\tframes_capacity=%zu\t"
                "delayed=%zu\tdelayed_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
                "third=%zu\n",
-               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.trail.size(),
+               stage, peak_rss_kib, virtual_kib, k.nvars, k.trail.size(),
                k.trail.capacity(), k.frames.size(), k.frames.capacity(),
                k.delayed.size(), k.delayed.capacity(), first, second, third);
 }
