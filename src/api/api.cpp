@@ -18,21 +18,6 @@
 #include "rules/condition/condition.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
-#include "rules/semantic_extension/affine_basis_action.hpp"
-#include "rules/semantic_extension/affine_matrix_search.hpp"
-#include "rules/semantic_extension/exact_cover_action.hpp"
-#include "rules/semantic_extension/independent_set_cover_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/direct_csp_guarded_cover_action.hpp"
-#include "rules/semantic_extension/nary_csp_relation_owner.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
-#include "rules/direct_php/direct_php_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/guidance_execution.hpp"
 #include "strategy/heuristic_execution.hpp"
@@ -44,6 +29,7 @@
 #include "strategy/representation_execution.hpp"
 #include "strategy/root_execution.hpp"
 #include "strategy/slot_execution.hpp"
+#include "strategy/structural_action_sessions.hpp"
 #include "strategy/work_execution.hpp"
 #include "policies/rule_publication.hpp"
 
@@ -68,21 +54,7 @@ struct tactix_solver {
                          // pointer. Outlives every solve(), so tactix_decide
                          // before any solve still has an H.
   Proof proof;
-  AffineBasisActionSession affine_basis_session;
-  AffineMatrixSearchSession affine_matrix_search_session;
-  ExactCoverExtensionActionSession exact_cover_extension_session;
-  IndependentSetCoverActionSession independent_set_cover_session;
-  Gf3AffineActionSession gf3_affine_action_session;
-  DirectCspSupportActionSession direct_csp_support_action_session;
-  DirectCspGuardedCoverActionSession direct_csp_guarded_cover_action_session;
-  NaryCspRelationOwnerSession nary_csp_relation_owner_session;
-  NaryCspEqualitySession nary_csp_equality_session;
-  NaryCspEqualityTransitivitySession nary_csp_equality_transitivity_session;
-  NaryCspEqualityAmoSession nary_csp_equality_amo_session;
-  DirectPhpActionSession direct_php_action_session;
-  Gf3GaussianActionSession gf3_gaussian_action_session;
-  Gf3GeneralRowActionSession gf3_general_row_action_session;
-  TseitinCycleBreakingSession tseitin_cycle_breaking_session;
+  StructuralActionSessions structural_action_sessions;
   std::vector<Lit> scratch;
   bool input_completed = false;
   bool pending_input_proof = false;
@@ -102,28 +74,9 @@ struct tactix_solver {
   OccIndex phase_occurrences;
   size_t phase_contexts = 0;
   execution::InprocessPhase phase;
-  tactix_solver() : direct_php_action_session(kernel) {
+  tactix_solver() : structural_action_sessions(kernel) {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
-    kernel.affine_basis_action_session = &affine_basis_session;
-    kernel.affine_matrix_search_session = &affine_matrix_search_session;
-    kernel.exact_cover_extension_action_session =
-        &exact_cover_extension_session;
-    kernel.independent_set_cover_action_session =
-        &independent_set_cover_session;
-    kernel.gf3_affine_action_session = &gf3_affine_action_session;
-    kernel.direct_csp_support_action_session =
-        &direct_csp_support_action_session;
-    kernel.direct_csp_guarded_cover_action_session =
-        &direct_csp_guarded_cover_action_session;
-    kernel.nary_csp_relation_owner_session = &nary_csp_relation_owner_session;
-    kernel.nary_csp_equality_session = &nary_csp_equality_session;
-    kernel.nary_csp_equality_transitivity_session = &nary_csp_equality_transitivity_session;
-    kernel.nary_csp_equality_amo_session = &nary_csp_equality_amo_session;
-    kernel.direct_php_action_session = &direct_php_action_session;
-    kernel.gf3_gaussian_action_session = &gf3_gaussian_action_session;
-    kernel.gf3_general_row_action_session = &gf3_general_row_action_session;
-    kernel.tseitin_cycle_breaking_session = &tseitin_cycle_breaking_session;
     // Match the CLI/reference default; rule-level fixtures using a bare Kernel
     // can still exercise the non-reuse path explicitly.
     kernel.conflict_reuse = true;
@@ -3121,7 +3074,8 @@ int tactix_install_affine_matrix_profile(
 int tactix_read_affine_matrix_result(tactix_solver *s, tactix_affine_matrix_result *out) {
   if (!s || !out) return -1;
   *out = {};
-  const AffineMatrixSearchSession &session = s->affine_matrix_search_session;
+  const AffineMatrixSearchSession &session =
+      s->structural_action_sessions.affine_matrix_search;
   if (const auto &init = session.last_initialization()) {
     out->initialization_status = static_cast<int>(init->status) + 1;
     out->initialization_result = static_cast<int>(init->result);
