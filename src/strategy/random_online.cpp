@@ -698,21 +698,87 @@ bool parse_repeat(std::string_view text, RepeatMode &mode) {
   return true;
 }
 
-bool comma_values(std::string_view text, std::vector<uint64_t> &values) {
+template <class Integer>
+bool comma_values(std::string_view text, std::vector<Integer> &values,
+                  bool allow_trailing_comma = false) {
   values.clear();
   if (text.empty())
     return true;
   while (true) {
     const size_t comma = text.find(',');
-    uint64_t value = 0;
-    if (!parse_u64(text.substr(0, comma), value))
+    const std::string_view field = text.substr(0, comma);
+    Integer value = 0;
+    const auto parsed =
+        std::from_chars(field.data(), field.data() + field.size(), value);
+    if (field.empty() || parsed.ec != std::errc{} ||
+        parsed.ptr != field.data() + field.size())
       return false;
     values.push_back(value);
     if (comma == std::string_view::npos)
       return true;
     text.remove_prefix(comma + 1);
+    if (allow_trailing_comma && text.empty())
+      return true;
   }
 }
+
+class SignedValueCursor {
+  const std::vector<int64_t> &values_;
+  size_t at_ = 0;
+
+public:
+  explicit SignedValueCursor(const std::vector<int64_t> &values)
+      : values_(values) {}
+
+  size_t remaining() const { return values_.size() - at_; }
+  bool complete() const { return at_ == values_.size(); }
+
+  bool exact(int64_t expected) {
+    if (!remaining() || values_[at_] != expected)
+      return false;
+    ++at_;
+    return true;
+  }
+
+  bool u32(uint32_t &value) {
+    if (!remaining() || values_[at_] < 0 || values_[at_] > UINT32_MAX)
+      return false;
+    value = static_cast<uint32_t>(values_[at_++]);
+    return true;
+  }
+
+  bool i32(int32_t &value) {
+    if (!remaining() || values_[at_] < INT32_MIN ||
+        values_[at_] > INT32_MAX)
+      return false;
+    value = static_cast<int32_t>(values_[at_++]);
+    return true;
+  }
+
+  bool literal(int32_t &value) {
+    if (!remaining() || !values_[at_] || values_[at_] <= INT32_MIN ||
+        values_[at_] > INT32_MAX)
+      return false;
+    value = static_cast<int32_t>(values_[at_++]);
+    return true;
+  }
+
+  bool vector(std::vector<int32_t> &out, uint32_t minimum = 0,
+              bool nonzero_literals = false, bool reserve = false) {
+    uint32_t count = 0;
+    if (!u32(count) || count < minimum || count > remaining())
+      return false;
+    if (reserve)
+      out.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+      int32_t value = 0;
+      if (nonzero_literals ? !literal(value) : !i32(value))
+        return false;
+      out.push_back(value);
+    }
+    return true;
+  }
+};
 
 bool tuple(std::string_view text, std::string_view name,
            std::vector<uint64_t> &values) {
@@ -1872,192 +1938,107 @@ bool parse_affine_basis_row(std::string_view text,
 bool parse_guarded_cover(std::string_view text,
                           DirectCspGuardedCoverActionSelection &out) {
   std::vector<int64_t> values;
-  while (!text.empty()) {
-    const auto comma = text.find(',');
-    const auto token = text.substr(0, comma);
-    int64_t v;
-    const auto parsed = std::from_chars(token.data(), token.data()+token.size(), v);
-    if (token.empty() || parsed.ec != std::errc{} || parsed.ptr != token.data()+token.size()) return false;
-    values.push_back(v);
-    if (comma == std::string_view::npos) text = {};
-    else { text.remove_prefix(comma+1); if (text.empty()) return false; }
-  }
-  size_t at = 0;
-  const auto number = [&](uint32_t &v) {
-    if (at == values.size() || values[at] < 0 || values[at] > UINT32_MAX) return false;
-    v = static_cast<uint32_t>(values[at++]); return true;
-  };
-  const auto literal = [&](int32_t &v) {
-    if (at == values.size() || !values[at] || values[at] <= INT32_MIN || values[at] > INT32_MAX) return false;
-    v = static_cast<int32_t>(values[at++]); return true;
-  };
-  const auto literals = [&](std::vector<int32_t> &v) {
-    uint32_t count;
-    if (!number(count) || count > values.size()-at) return false;
-    for (uint32_t i=0; i<count; ++i) { int32_t l; if (!literal(l)) return false; v.push_back(l); }
-    return true;
-  };
+  if (!comma_values(text, values))
+    return false;
+  SignedValueCursor cursor(values);
   uint32_t count;
-  if (!number(count) || count > values.size()-at) return false;
+  if (!cursor.u32(count) || count > cursor.remaining()) return false;
   for (uint32_t i=0; i<count; ++i) {
     out.domains.emplace_back(); uint32_t selected;
-    if (!literals(out.domains.back()) || !number(selected)) return false;
+    if (!cursor.vector(out.domains.back(), 0, true) ||
+        !cursor.u32(selected))
+      return false;
     out.selected_values.push_back(selected);
   }
-  if (!literals(out.cover) || !number(count) || count > values.size()-at) return false;
+  if (!cursor.vector(out.cover, 0, true) || !cursor.u32(count) ||
+      count > cursor.remaining())
+    return false;
   for (uint32_t i=0; i<count; ++i) {
     out.exact_or.emplace_back();
-    if (!literal(out.exact_or.back().output) || !literals(out.exact_or.back().inputs)) return false;
+    if (!cursor.literal(out.exact_or.back().output) ||
+        !cursor.vector(out.exact_or.back().inputs, 0, true))
+      return false;
   }
-  if (!number(count) || count > (values.size()-at)/4) return false;
+  if (!cursor.u32(count) || count > cursor.remaining()/4) return false;
   for (uint32_t i=0; i<count; ++i) {
     out.blockers.emplace_back(); auto &b = out.blockers.back();
-    if (!literal(b.literal) || !number(b.domain) || !number(b.value) || !number(b.or_definition)) return false;
+    if (!cursor.literal(b.literal) || !cursor.u32(b.domain) ||
+        !cursor.u32(b.value) || !cursor.u32(b.or_definition))
+      return false;
   }
-  return at == values.size();
+  return cursor.complete();
 }
 
 bool parse_direct_csp_support(std::string_view text,
                               DirectCspSupportActionSelection &selection) {
   std::vector<int64_t> values;
-  while (!text.empty()) {
-    const size_t comma = text.find(',');
-    const std::string_view token = text.substr(0, comma);
-    if (token.empty()) return false;
-    int64_t value = 0;
-    const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
-                                        value);
-    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
-      return false;
-    values.push_back(value);
-    if (comma == std::string_view::npos) text = {};
-    else text.remove_prefix(comma + 1);
-  }
-  size_t at = 0;
-  const auto domain = [&](std::vector<int32_t> &out) {
-    if (at == values.size() || values[at] < 0) return false;
-    const uint64_t count = static_cast<uint64_t>(values[at++]);
-    if (count > values.size() - at) return false;
-    out.reserve(static_cast<size_t>(count));
-    for (uint64_t i = 0; i < count; ++i) {
-      if (values[at] < INT32_MIN || values[at] > INT32_MAX) return false;
-      out.push_back(static_cast<int32_t>(values[at++]));
-    }
-    return true;
-  };
-  if (!domain(selection.left_values) || !domain(selection.right_values) ||
-      at == values.size() || values[at] < 0 || values[at] > UINT32_MAX)
+  if (!comma_values(text, values, true))
     return false;
-  selection.selected_left_value = static_cast<uint32_t>(values[at++]);
-  return at == values.size();
+  SignedValueCursor cursor(values);
+  if (!cursor.vector(selection.left_values, 0, false, true) ||
+      !cursor.vector(selection.right_values, 0, false, true) ||
+      !cursor.u32(selection.selected_left_value))
+    return false;
+  return cursor.complete();
 }
 
 
 bool parse_nary_csp_equality(std::string_view text,
                              NaryCspEqualityActionSelection &selection) {
   std::vector<int64_t> values;
-  while (!text.empty()) {
-    const size_t comma = text.find(',');
-    const std::string_view token = text.substr(0, comma);
-    if (token.empty()) return false;
-    int64_t value = 0;
-    const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
-                                        value);
-    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
-      return false;
-    values.push_back(value);
-    if (comma == std::string_view::npos) text = {};
-    else text.remove_prefix(comma + 1);
-  }
-  size_t at = 0;
-  if (at == values.size() || values[at] != 3) return false;
-  ++at;
+  if (!comma_values(text, values, true))
+    return false;
+  SignedValueCursor cursor(values);
+  if (!cursor.exact(3)) return false;
   for (uint32_t domain = 0; domain != 3; ++domain) {
-    if (at == values.size() || values[at] < 0) return false;
-    const uint64_t count = static_cast<uint64_t>(values[at++]);
-    if (count > values.size() - at) return false;
     std::vector<int32_t> literals;
-    literals.reserve(static_cast<size_t>(count));
-    for (uint64_t value = 0; value < count; ++value) {
-      if (values[at] < INT32_MIN || values[at] > INT32_MAX) return false;
-      literals.push_back(static_cast<int32_t>(values[at++]));
-    }
+    if (!cursor.vector(literals, 0, false, true)) return false;
     selection.domains.push_back(std::move(literals));
   }
-  if (values.size() - at != 3) return false;
-  for (size_t i = 0; i != 3; ++i)
-    if (values[at + i] < 0 || values[at + i] > UINT32_MAX) return false;
-  selection.coordinates = {static_cast<uint32_t>(values[at]),
-                           static_cast<uint32_t>(values[at + 1]),
-                           static_cast<uint32_t>(values[at + 2])};
-  return nary_csp_equality_action_selection_valid(selection);
+  return cursor.u32(selection.coordinates.left_domain) &&
+         cursor.u32(selection.coordinates.right_domain) &&
+         cursor.u32(selection.coordinates.residual_domain) &&
+         cursor.complete() &&
+         nary_csp_equality_action_selection_valid(selection);
 }
 
 bool parse_nary_csp_equality_transitivity(std::string_view text,
                                         NaryCspEqualityTransitivitySelection &out) {
   std::vector<int64_t> values;
-  while(!text.empty()) {
-    const auto comma=text.find(','); const auto token=text.substr(0,comma);
-    int64_t value=0;
-    auto parsed=std::from_chars(token.data(),token.data()+token.size(),value);
-    if(token.empty() || parsed.ec!=std::errc{} || parsed.ptr!=token.data()+token.size()) return false;
-    values.push_back(value);
-    if(comma==std::string_view::npos) text={}; else text.remove_prefix(comma+1);
-  }
-  size_t at=0;
-  const auto domain=[&](std::vector<int32_t> &d) {
-    if(at==values.size() || values[at]<2 || uint64_t(values[at])>values.size()-at-1) return false;
-    const uint64_t count=values[at++];
-    for(uint64_t i=0;i<count;++i) {
-      if(!values[at] || values[at]<=INT32_MIN || values[at]>INT32_MAX) return false;
-      d.push_back(int32_t(values[at++]));
-    }
-    return true;
-  };
-  const auto u32=[&](uint32_t &v) {
-    if(at==values.size() || values[at]<0 || uint64_t(values[at])>UINT32_MAX) return false;
-    v=uint32_t(values[at++]); return true;
-  };
-  for(auto &d:out.domains) if(!domain(d)) return false;
+  if (!comma_values(text, values, true))
+    return false;
+  SignedValueCursor cursor(values);
+  for (auto &domain : out.domains)
+    if (!cursor.vector(domain, 2, true)) return false;
   for(size_t e=0;e<3;++e) {
     auto &key=out.equalities[e];
-    for(size_t d=0;d<3;++d) { key.domains.emplace_back(); if(!domain(key.domains.back())) return false; }
-    if(!u32(key.first_equal_domain) || !u32(key.second_equal_domain) || !u32(key.residual_domain) ||
-       !u32(out.equality_variables[e])) return false;
+    for (size_t d = 0; d < 3; ++d) {
+      key.domains.emplace_back();
+      if (!cursor.vector(key.domains.back(), 2, true)) return false;
+    }
+    if (!cursor.u32(key.first_equal_domain) ||
+        !cursor.u32(key.second_equal_domain) ||
+        !cursor.u32(key.residual_domain) ||
+        !cursor.u32(out.equality_variables[e]))
+      return false;
   }
-  return at==values.size() && nary_csp_equality_transitivity_selection_valid(out);
+  return cursor.complete() &&
+         nary_csp_equality_transitivity_selection_valid(out);
 }
 
 bool parse_nary_csp_equality_amo(std::string_view text,
                                  NaryCspEqualityAmoSelection &selection) {
   std::vector<int64_t> values;
-  while (!text.empty()) {
-    const size_t comma = text.find(',');
-    const std::string_view token = text.substr(0, comma);
-    if (token.empty()) return false;
-    int64_t value = 0;
-    const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
-                                        value);
-    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size())
-      return false;
-    values.push_back(value);
-    if (comma == std::string_view::npos) text = {};
-    else text.remove_prefix(comma + 1);
-  }
-  size_t at = 0;
-  if (values.empty() || values[at++] != 3) return false;
+  if (!comma_values(text, values, true))
+    return false;
+  SignedValueCursor cursor(values);
+  if (!cursor.exact(3)) return false;
   for (uint32_t domain = 0; domain != 3; ++domain) {
-    if (at == values.size() || values[at] < 0) return false;
-    const uint64_t count = static_cast<uint64_t>(values[at++]);
-    if (count > values.size() - at) return false;
     std::vector<int32_t> literals;
-    for (uint64_t i = 0; i != count; ++i) {
-      if (values[at] < INT32_MIN || values[at] > INT32_MAX) return false;
-      literals.push_back(static_cast<int32_t>(values[at++]));
-    }
+    if (!cursor.vector(literals)) return false;
     selection.domains.push_back(std::move(literals));
   }
-  return at == values.size() &&
+  return cursor.complete() &&
          nary_csp_equality_amo_selection_valid(selection);
 }
 
