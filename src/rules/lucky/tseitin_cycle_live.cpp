@@ -95,6 +95,19 @@ tseitin_cycle::Limits planning_limits(
   return result;
 }
 
+// Admission and transaction stages share one failure taxonomy.
+template <typename StageStatus>
+void record_stage_failure(StageStatus status, Reason declined,
+                          Result &result) {
+  result.status = status == StageStatus::Interrupted ? Status::Interrupted
+                  : status == StageStatus::ResourceExhausted
+                      ? Status::ResourceExhausted
+                  : status == StageStatus::InvalidInput ? Status::Invalid
+                                                        : Status::Declined;
+  result.reason =
+      status == StageStatus::Interrupted ? Reason::Interrupted : declined;
+}
+
 Result stopped(CaptureStop stop, const Snapshot &partial) {
   Result result;
   result.snapshot_clauses = partial.sources.size();
@@ -503,17 +516,7 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   result.admission_work = admission.work;
   result.admission_reason = admission.reason;
   if (!admission.admitted()) {
-    result.status = admission.status == tseitin_cycle::AdmissionStatus::Interrupted
-                        ? Status::Interrupted
-                    : admission.status ==
-                              tseitin_cycle::AdmissionStatus::ResourceExhausted
-                        ? Status::ResourceExhausted
-                    : admission.status == tseitin_cycle::AdmissionStatus::InvalidInput
-                        ? Status::Invalid
-                        : Status::Declined;
-    result.reason = admission.status == tseitin_cycle::AdmissionStatus::Interrupted
-                        ? Reason::Interrupted
-                        : Reason::AdmissionDeclined;
+    record_stage_failure(admission.status, Reason::AdmissionDeclined, result);
     return result;
   }
   PollContext planning_poll;
@@ -550,17 +553,8 @@ Result prepare(Kernel &kernel, const Snapshot &snapshot,
   result.transaction_work = transaction.work;
   result.transaction_reason = transaction.reason;
   if (!transaction.ready()) {
-    result.status = transaction.status == tseitin_cycle::TransactionStatus::Interrupted
-                        ? Status::Interrupted
-                    : transaction.status ==
-                              tseitin_cycle::TransactionStatus::ResourceExhausted
-                        ? Status::ResourceExhausted
-                    : transaction.status == tseitin_cycle::TransactionStatus::InvalidInput
-                        ? Status::Invalid
-                        : Status::Declined;
-    result.reason = transaction.status == tseitin_cycle::TransactionStatus::Interrupted
-                        ? Reason::Interrupted
-                        : Reason::TransactionDeclined;
+    record_stage_failure(transaction.status, Reason::TransactionDeclined,
+                         result);
     return result;
   }
   if (kernel.external_to_internal.size() >= uint32_t(INT32_MAX) ||
@@ -704,18 +698,7 @@ Result apply(Kernel &kernel, const Prepared &prepared,
   result.replay_transaction_work = replayed.transaction_work;
   result.transaction_reason = replayed.reason;
   if (!replayed.ready()) {
-    result.status = replayed.status == tseitin_cycle::TransactionStatus::Interrupted
-                        ? Status::Interrupted
-                    : replayed.status ==
-                              tseitin_cycle::TransactionStatus::ResourceExhausted
-                        ? Status::ResourceExhausted
-                    : replayed.status ==
-                              tseitin_cycle::TransactionStatus::InvalidInput
-                        ? Status::Invalid
-                        : Status::Declined;
-    result.reason = replayed.status == tseitin_cycle::TransactionStatus::Interrupted
-                        ? Reason::Interrupted
-                        : Reason::TransactionDeclined;
+    record_stage_failure(replayed.status, Reason::TransactionDeclined, result);
     return result;
   }
   SubstitutionRedundancyInstance instance;
