@@ -128,108 +128,128 @@ bool valid_post_application(PostApplication value) {
   return false;
 }
 
+struct ParameterMetadata {
+  bool matches_rule = false;
+  const char *invalid_message = nullptr;
+};
+
+template <class Parameters>
+ParameterMetadata parameter_metadata(const Parameters &parameters,
+                                     const std::string &rule,
+                                     bool check_validity) {
+  using P = std::decay_t<Parameters>;
+#define CHECKED(TYPE, MATCH, MESSAGE)                                           \
+  else if constexpr (std::is_same_v<P, TYPE>)                                  \
+    return {MATCH, check_validity && !parameters.valid() ? MESSAGE : nullptr}
+#define UNCHECKED(TYPE, MATCH)                                                  \
+  else if constexpr (std::is_same_v<P, TYPE>) return {MATCH, nullptr}
+  if constexpr (std::is_same_v<P, std::monostate>) return {true, nullptr};
+  CHECKED(AnalyzeParameters, rule == "ConflictAnalysis",
+          "Analyze parameters are invalid");
+  CHECKED(BveParameters, rule == "BVE", "BVE parameters are invalid");
+  CHECKED(SubsumeForwardParameters, rule == "SubsumeForward",
+          "C1 parameters are invalid");
+  CHECKED(StrengthenParameters, rule == "Strengthen",
+          "C2 parameters are invalid");
+  CHECKED(ParityConsequenceParameters, rule == "ParityConsequence",
+          "ParityConsequence parameters are invalid");
+  CHECKED(AffineMatrixInitializeParameters, rule == "AffineMatrixInitialize",
+          "Persistent affine parameters are invalid");
+  CHECKED(AffineConsequenceParameters,
+          rule == "AffineConsequence" || rule == "AffineMatrixInitialize",
+          "AffineConsequence parameters are invalid");
+  CHECKED(ExactCoverExtensionParameters, rule == "ExactCoverExtension",
+          "ExactCoverExtension parameters are invalid");
+  CHECKED(IndependentSetCoverParameters, rule == "IndependentSetCover",
+          "IndependentSetCover parameters are invalid");
+  CHECKED(Gf3AffineConsequenceParameters, rule == "Gf3AffineConsequence",
+          "Gf3AffineConsequence parameters are invalid");
+  CHECKED(DirectCspGuardedCoverParameters, rule == "DirectCspSupport",
+          "GuardedCoverV2 parameters are invalid");
+  CHECKED(DirectCspSupportParameters, rule == "DirectCspSupport",
+          "DirectCspSupport parameters are invalid");
+  CHECKED(NaryCspEqualityParameters, rule == "NaryCspEquality",
+          "NaryCspEquality parameters are invalid");
+  UNCHECKED(NaryCspEqualityTransitivityParameters,
+            rule == "NaryCspEqualityTransitivity");
+  CHECKED(NaryCspEqualityAmoParameters, rule == "NaryCspEqualityAmo",
+          "NaryCspEqualityAmo parameters are invalid");
+  CHECKED(DirectPhpRefutationParameters, rule == "DirectPhpRefutation",
+          "DirectPhpRefutation parameters are invalid");
+  CHECKED(Gf3GaussianConsequenceParameters, rule == "Gf3GaussianConsequence",
+          "Gf3GaussianConsequence parameters are invalid");
+  CHECKED(Gf3GeneralRowConsequenceParameters,
+          rule == "Gf3GeneralRowConsequence",
+          "Gf3GeneralRowConsequence parameters are invalid");
+  UNCHECKED(CardinalitySearchActionLimits, rule == "CardinalitySearch");
+  CHECKED(TseitinCycleBreakingParameters, rule == "TseitinCycleBreaking",
+          "TseitinCycleBreaking parameters are invalid");
+  CHECKED(SemanticVariableAdviceParameters, rule == "SemanticVariableAdvice",
+          "SemanticVariableAdvice parameters are invalid");
+  CHECKED(CongruenceParameters, rule == "Congruence",
+          "Congruence parameters are invalid");
+  CHECKED(InstantiateParameters, rule == "Instantiate",
+          "Instantiate parameters are invalid");
+  CHECKED(BackboneParameters, rule == "Backbone",
+          "Backbone parameters are invalid");
+  CHECKED(SweepParameters, rule == "Sweep", "Sweep parameters are invalid");
+  CHECKED(VivifyParameters, rule == "Vivify",
+          "Vivify parameters are invalid");
+  CHECKED(BceParameters, rule == "BCE", "BCE parameters are invalid");
+  CHECKED(TernaryParameters, rule == "HyperTernaryRes",
+          "ternary parameters are invalid");
+  CHECKED(FactorParameters, rule == "Factor", "Factor parameters are invalid");
+  CHECKED(TransitiveReduceParameters, rule == "TransitiveReduce",
+          "transitive parameters are invalid");
+  CHECKED(SubstituteParameters, rule == "Substitute",
+          "Substitute parameters are invalid");
+  CHECKED(ReduceParameters, rule == "Reduce", "Reduce parameters are invalid");
+  CHECKED(WalkParameters, rule == "Walk", "Walk parameters are invalid");
+  CHECKED(ReorderParameters, rule == "Reorder",
+          "Reorder parameters are invalid");
+  CHECKED(ParityModelParameters, rule == "Lucky",
+          "Lucky parity-model parameters are invalid");
+  CHECKED(OnehotModelParameters, rule == "Lucky",
+          "Lucky onehot-model parameters are invalid");
+  CHECKED(BalancedSignatureModelParameters, rule == "Lucky",
+          "Lucky balanced-signature-model parameters are invalid");
+  CHECKED(FermatModelParameters, rule == "Lucky",
+          "Lucky fermat-model parameters are invalid");
+  CHECKED(LookupCircuitModelParameters, rule == "Lucky",
+          "Lucky lookup-circuit-model parameters are invalid");
+  CHECKED(SimonModelParameters, rule == "Lucky",
+          "Lucky simon-model parameters are invalid");
+  CHECKED(StconnProofParameters, rule == "Lucky",
+          "Lucky stconn-proof parameters are invalid");
+  CHECKED(SignedCardinalityProofParameters, rule == "Lucky",
+          "Lucky signed-cardinality-proof parameters are invalid");
+  CHECKED(ExactCoverModelParameters, rule == "Lucky",
+          "Lucky exact-cover-model parameters are invalid");
+  CHECKED(IndependentSetModelParameters, rule == "Lucky",
+          "Lucky independent-set-model parameters are invalid");
+  CHECKED(RamseyStartupParameters, rule == "Lucky",
+          "Lucky ramsey-startup parameters are invalid");
+  CHECKED(GraphLabelingParameters, rule == "Lucky",
+          "Lucky graph-labeling parameters are invalid");
+  CHECKED(AffineModelParameters, rule == "Lucky",
+          "Lucky affine-model parameters are invalid");
+  CHECKED(SubstitutionRedundancyParameters,
+          rule == "SubstitutionRedundancy", "SR parameters are invalid");
+#undef UNCHECKED
+#undef CHECKED
+}
+
+ParameterMetadata parameter_metadata(const OnlineInvocation &step,
+                                     bool check_validity = false) {
+  return std::visit(
+      [&](const auto &parameters) {
+        return parameter_metadata(parameters, step.rule, check_validity);
+      },
+      step.parameters);
+}
+
 bool parameter_matches(const OnlineInvocation &step) {
-  if (std::holds_alternative<std::monostate>(step.parameters))
-    return true;
-  if (std::holds_alternative<AnalyzeParameters>(step.parameters))
-    return step.rule == "ConflictAnalysis";
-  if (std::holds_alternative<BveParameters>(step.parameters))
-    return step.rule == "BVE";
-  if (std::holds_alternative<SubsumeForwardParameters>(step.parameters))
-    return step.rule == "SubsumeForward";
-  if (std::holds_alternative<StrengthenParameters>(step.parameters))
-    return step.rule == "Strengthen";
-  if (std::holds_alternative<ParityConsequenceParameters>(step.parameters))
-    return step.rule == "ParityConsequence";
-  if (std::holds_alternative<AffineMatrixInitializeParameters>(step.parameters))
-    return step.rule == "AffineMatrixInitialize";
-  if (std::holds_alternative<AffineConsequenceParameters>(step.parameters))
-    return step.rule == "AffineConsequence" ||
-           step.rule == "AffineMatrixInitialize";
-  if (std::holds_alternative<ExactCoverExtensionParameters>(step.parameters))
-    return step.rule == "ExactCoverExtension";
-  if (std::holds_alternative<IndependentSetCoverParameters>(step.parameters))
-    return step.rule == "IndependentSetCover";
-  if (std::holds_alternative<Gf3AffineConsequenceParameters>(step.parameters))
-    return step.rule == "Gf3AffineConsequence";
-  if (std::holds_alternative<DirectCspGuardedCoverParameters>(step.parameters))
-    return step.rule == "DirectCspSupport";
-  if (std::holds_alternative<DirectCspSupportParameters>(step.parameters))
-    return step.rule == "DirectCspSupport";
-  if (std::holds_alternative<NaryCspEqualityParameters>(step.parameters))
-    return step.rule == "NaryCspEquality";
-  if (std::holds_alternative<NaryCspEqualityTransitivityParameters>(step.parameters))
-    return step.rule == "NaryCspEqualityTransitivity";
-  if (std::holds_alternative<NaryCspEqualityAmoParameters>(step.parameters))
-    return step.rule == "NaryCspEqualityAmo";
-  if (std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
-    return step.rule == "DirectPhpRefutation";
-  if (std::holds_alternative<Gf3GaussianConsequenceParameters>(step.parameters))
-    return step.rule == "Gf3GaussianConsequence";
-  if (std::holds_alternative<Gf3GeneralRowConsequenceParameters>(
-          step.parameters))
-    return step.rule == "Gf3GeneralRowConsequence";
-  if (std::holds_alternative<CardinalitySearchActionLimits>(step.parameters))
-    return step.rule == "CardinalitySearch";
-  if (std::holds_alternative<TseitinCycleBreakingParameters>(step.parameters))
-    return step.rule == "TseitinCycleBreaking";
-  if (std::holds_alternative<SemanticVariableAdviceParameters>(step.parameters))
-    return step.rule == "SemanticVariableAdvice";
-  if (std::holds_alternative<CongruenceParameters>(step.parameters))
-    return step.rule == "Congruence";
-  if (std::holds_alternative<InstantiateParameters>(step.parameters))
-    return step.rule == "Instantiate";
-  if (std::holds_alternative<BackboneParameters>(step.parameters))
-    return step.rule == "Backbone";
-  if (std::holds_alternative<SweepParameters>(step.parameters))
-    return step.rule == "Sweep";
-  if (std::holds_alternative<VivifyParameters>(step.parameters))
-    return step.rule == "Vivify";
-  if (std::holds_alternative<BceParameters>(step.parameters))
-    return step.rule == "BCE";
-  if (std::holds_alternative<TernaryParameters>(step.parameters))
-    return step.rule == "HyperTernaryRes";
-  if (std::holds_alternative<FactorParameters>(step.parameters))
-    return step.rule == "Factor";
-  if (std::holds_alternative<TransitiveReduceParameters>(step.parameters))
-    return step.rule == "TransitiveReduce";
-  if (std::holds_alternative<SubstituteParameters>(step.parameters))
-    return step.rule == "Substitute";
-  if (std::holds_alternative<ReduceParameters>(step.parameters))
-    return step.rule == "Reduce";
-  if (std::holds_alternative<WalkParameters>(step.parameters))
-    return step.rule == "Walk";
-  if (std::holds_alternative<ReorderParameters>(step.parameters))
-    return step.rule == "Reorder";
-  if (std::holds_alternative<ParityModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<OnehotModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<BalancedSignatureModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<FermatModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<LookupCircuitModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<SimonModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<StconnProofParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<SignedCardinalityProofParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<ExactCoverModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<IndependentSetModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<RamseyStartupParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<GraphLabelingParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<AffineModelParameters>(step.parameters))
-    return step.rule == "Lucky";
-  if (std::holds_alternative<SubstitutionRedundancyParameters>(step.parameters))
-    return step.rule == "SubstitutionRedundancy";
-  return false;
+  return parameter_metadata(step).matches_rule;
 }
 
 uint64_t saturated_add(uint64_t a, uint64_t b) {
@@ -593,164 +613,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
          step.instances !=
              std::vector<uint64_t>{LUCKY_STARTUP_RAMSEY}))
       return reject("Lucky Ramsey parameters require instance 22");
-    if (const auto *p = std::get_if<AnalyzeParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Analyze parameters are invalid");
-    if (const auto *p = std::get_if<BveParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("BVE parameters are invalid");
-    if (const auto *p =
-            std::get_if<SubsumeForwardParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("C1 parameters are invalid");
-    if (const auto *p = std::get_if<StrengthenParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("C2 parameters are invalid");
-    if (const auto *p = std::get_if<ParityConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("ParityConsequence parameters are invalid");
-    if (const auto *p = std::get_if<AffineConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("AffineConsequence parameters are invalid");
-    if (const auto *p = std::get_if<AffineMatrixInitializeParameters>(&step.parameters);
-        p && !p->valid()) return reject("Persistent affine parameters are invalid");
-    if (const auto *p =
-            std::get_if<ExactCoverExtensionParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("ExactCoverExtension parameters are invalid");
-    if (const auto *p =
-            std::get_if<IndependentSetCoverParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("IndependentSetCover parameters are invalid");
-    if (const auto *p =
-            std::get_if<Gf3AffineConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Gf3AffineConsequence parameters are invalid");
-    if (const auto *p =
-            std::get_if<DirectCspGuardedCoverParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("GuardedCoverV2 parameters are invalid");
-    if (const auto *p =
-            std::get_if<DirectCspSupportParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("DirectCspSupport parameters are invalid");
-    if (const auto *p =
-            std::get_if<NaryCspEqualityParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("NaryCspEquality parameters are invalid");
-    if (const auto *p =
-            std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("NaryCspEqualityAmo parameters are invalid");
-    if (const auto *p =
-            std::get_if<DirectPhpRefutationParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("DirectPhpRefutation parameters are invalid");
-    if (const auto *p =
-            std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Gf3GaussianConsequence parameters are invalid");
-    if (const auto *p =
-            std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Gf3GeneralRowConsequence parameters are invalid");
-    if (const auto *p =
-            std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("TseitinCycleBreaking parameters are invalid");
-    if (const auto *p =
-            std::get_if<SemanticVariableAdviceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("SemanticVariableAdvice parameters are invalid");
-    if (const auto *p = std::get_if<CongruenceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Congruence parameters are invalid");
-    if (const auto *p = std::get_if<InstantiateParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Instantiate parameters are invalid");
-    if (const auto *p = std::get_if<BackboneParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Backbone parameters are invalid");
-    if (const auto *p = std::get_if<SweepParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Sweep parameters are invalid");
-    if (const auto *p = std::get_if<VivifyParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Vivify parameters are invalid");
-    if (const auto *p = std::get_if<BceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("BCE parameters are invalid");
-    if (const auto *p = std::get_if<TernaryParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("ternary parameters are invalid");
-    if (const auto *p = std::get_if<FactorParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Factor parameters are invalid");
-    if (const auto *p =
-            std::get_if<TransitiveReduceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("transitive parameters are invalid");
-    if (const auto *p = std::get_if<SubstituteParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Substitute parameters are invalid");
-    if (const auto *p = std::get_if<ReduceParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Reduce parameters are invalid");
-    if (const auto *p = std::get_if<WalkParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Walk parameters are invalid");
-    if (const auto *p = std::get_if<ReorderParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Reorder parameters are invalid");
-    if (const auto *p =
-            std::get_if<ParityModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky parity-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<OnehotModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky onehot-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<BalancedSignatureModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky balanced-signature-model parameters are invalid");
-    if (const auto *p = std::get_if<FermatModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky fermat-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<LookupCircuitModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky lookup-circuit-model parameters are invalid");
-    if (const auto *p = std::get_if<SimonModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky simon-model parameters are invalid");
-    if (const auto *p = std::get_if<StconnProofParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky stconn-proof parameters are invalid");
-    if (const auto *p =
-            std::get_if<SignedCardinalityProofParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky signed-cardinality-proof parameters are invalid");
-    if (const auto *p = std::get_if<ExactCoverModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky exact-cover-model parameters are invalid");
-    if (const auto *p =
-            std::get_if<IndependentSetModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky independent-set-model parameters are invalid");
-    if (const auto *p = std::get_if<RamseyStartupParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky ramsey-startup parameters are invalid");
-    if (const auto *p = std::get_if<GraphLabelingParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky graph-labeling parameters are invalid");
-    if (const auto *p = std::get_if<AffineModelParameters>(&step.parameters);
-        p && !p->valid())
-      return reject("Lucky affine-model parameters are invalid");
-    if (const auto *p = std::get_if<SubstitutionRedundancyParameters>(
-            &step.parameters);
-        p && !p->valid())
-      return reject("SR parameters are invalid");
+    if (const char *message =
+            parameter_metadata(step, true).invalid_message)
+      return reject(message);
     if (!step.factor_grids.empty() && step.rule != "Factor")
       return reject("exact Factor grids are attached to a different rule");
     if (!step.factor_grids.empty() && !step.instances.empty())
