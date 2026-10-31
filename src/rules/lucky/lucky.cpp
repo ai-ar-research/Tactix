@@ -25,6 +25,7 @@
 
 #include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -107,15 +108,7 @@ static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
   kernel_backtrack(k, 0, /*update_phases=*/false);
 
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    if (lrat) {
-      kernel_build_lrat_chain(entries, closing, k.lrat_chain);
-      k.proof->add_rup(id, &unit, 1, k.lrat_chain.data(),
-                       static_cast<uint32_t>(k.lrat_chain.size()));
-    } else {
-      k.proof->add_rup(0, &unit, 1, nullptr, 0);
-    }
-  }
+  rup_helpers::emit(k, id, 0, &unit, 1, entries, closing);
   k.unit_ids[var_of(unit)] = id;
   kernel_assign_unit(k, unit);
   return propagate_service(k);

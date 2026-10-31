@@ -5,6 +5,7 @@
 #include "diagnostics/event_trace.hpp"
 #include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 #include "rules/propagate/propagate.hpp"   // inprocess_reach_root
 #include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
 
@@ -1752,19 +1753,7 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     return false;
   if (!lrat)
     return true; // the replay itself was the whole question
-  if (!cube_root_units.empty()) {
-    std::sort(cube_root_units.begin(), cube_root_units.end());
-    cube_root_units.erase(
-        std::unique(cube_root_units.begin(), cube_root_units.end()),
-        cube_root_units.end());
-    entries.erase(std::remove_if(entries.begin(), entries.end(),
-                                 [&](const auto &entry) {
-                                   return std::binary_search(
-                                       cube_root_units.begin(),
-                                       cube_root_units.end(), entry.second);
-                                 }),
-                  entries.end());
-  }
+  rup_helpers::remove_assumption_unit_hints(entries, cube_root_units);
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its

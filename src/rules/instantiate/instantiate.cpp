@@ -5,6 +5,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 
@@ -97,18 +98,6 @@ static void unwind(Kernel &k) {
   // give search back the watch order / `searched` hints this probe churned;
   // MUST run before the arena is mutated (the log holds Refs)
   kernel_probing_end(k);
-}
-
-// emit the strengthened clause's ADD; entries are sorted by trail position so
-// the hints replay as a unit propagation, `last` closes with the conflict
-// (C3 Vivify's emit_chain).
-static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
-                       std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                       uint64_t last) {
-  kernel_build_lrat_chain(entries, last, k.lrat_chain);
-  k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                   k.lrat_chain.data(),
-                   static_cast<uint32_t>(k.lrat_chain.size()));
 }
 
 // probe one (clause, literal) pair. Returns true when the assumption set
@@ -223,19 +212,7 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
           if (unit_id)
             cube_root_units.push_back(unit_id);
         }
-      if (!cube_root_units.empty()) {
-        std::sort(cube_root_units.begin(), cube_root_units.end());
-        cube_root_units.erase(
-            std::unique(cube_root_units.begin(), cube_root_units.end()),
-            cube_root_units.end());
-        entries.erase(std::remove_if(entries.begin(), entries.end(),
-                                     [&](const auto &entry) {
-                                       return std::binary_search(
-                                           cube_root_units.begin(),
-                                           cube_root_units.end(), entry.second);
-                                     }),
-                      entries.end());
-      }
+      rup_helpers::remove_assumption_unit_hints(entries, cube_root_units);
     }
     unwind(k); // trail down + probing scope closed BEFORE the arena moves
     for (const Var tv : seen_touched)
@@ -244,13 +221,7 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
     // rewrite: ADD the strengthened clause, then delete the original
     Clause *cc = clause_at(k.arena, cref);
     const uint64_t id = ++k.next_clause_id;
-    if (k.proof) {
-      if (lrat)
-        emit_chain(k, id, next, entries, last);
-      else
-        k.proof->add_rup(0, next.data(), static_cast<uint32_t>(next.size()),
-                         nullptr, 0);
-    }
+    rup_helpers::emit(k, id, 0, next, entries, last);
     k.stats.instantiated++;
     const bool redundant = cc->redundant();
     const uint32_t glue = redundant ? cc->glue() : 0;

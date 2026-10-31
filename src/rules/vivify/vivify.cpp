@@ -7,6 +7,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
+#include "proof/rup_helpers.hpp"
 
 #include <algorithm>
 #include <unordered_map>
@@ -1025,17 +1026,6 @@ void vivify_trim_replacement_prefix(Kernel &k, Lit implied,
     kernel_backtrack(k, retained, /*update_phases=*/false);
 }
 
-// last == 0 means the sorted entries already end in the conflicting hint
-// (the implied literal's own reason); otherwise `last` closes the chain
-static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
-                       std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                       uint64_t last) {
-  kernel_build_lrat_chain(entries, last, k.lrat_chain);
-  k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                   k.lrat_chain.data(),
-                   static_cast<uint32_t>(k.lrat_chain.size()));
-}
-
 // Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
 // form the LRAT chain. The replacement keeps the candidate's redundancy and
 // takes the shared post-shrink glue (kernel_shrunken_glue). No
@@ -1071,18 +1061,11 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
         kernel_binary_copies(k, lits[0], lits[1]), payload.c_str());
   }
 #endif
-  const bool lrat = k.proof && k.proof->lrat();
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(lits.size()));
   const uint64_t id = ++k.next_clause_id;
-  if (k.proof) {
-    if (lrat)
-      emit_chain(k, id, lits, entries, last);
-    else
-      k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
-                       nullptr, 0);
-  }
+  rup_helpers::emit(k, id, 0, lits, entries, last);
   k.stats.vivified++;
   // Kissat overwrites a large candidate inside its existing arena allocation.
   // This is search-visible: retaining only a logical-position alias still
