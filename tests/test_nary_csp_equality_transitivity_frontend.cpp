@@ -7,7 +7,15 @@ extern "C" {
 }
 }
 #include "frontend/parse.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
 #include "strategy/controller_observation.hpp"
 #include "strategy/random_online.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
@@ -89,14 +97,6 @@ void typed_replay_declines_and_consumption(){
   std::fclose(journal);
  }
 }
-void controller_selection(){
- Kernel k;parse(k);FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
- NaryCspRelationOwnerSession relations;NaryCspEqualitySession e;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
- auto selected=prepare(k,relations,e);RandomControllerConfig config;config.parameters.rules={"NaryCspEqualityTransitivity"};config.offered_actions["NaryCspEqualityTransitivity"]={action(selected)};
- bool used=false;for(uint64_t seed=1;seed<128&&!used;++seed){RandomControllerSelector selector(seed);controller::ActionRequest request;std::string error;assert(selector.choose(k,controller::observe_kernel(k),config,request,error));if(request.type!=controller::ActionType::Rule)continue;
-  assert(request.invocation.nary_csp_equality_transitivity_instances==std::vector<Selection>{selected});controller::RestartController executor(k,{});auto result=executor.apply_rule(request,config.allowance("NaryCspEqualityTransitivity"));assert(result.invocation.status==InvocationStatus::Completed&&result.invocation.made_rule_progress);used=true;
- }assert(used);std::fclose(journal);
-}
 template<class T> capi::tactix_online_step &base_step(T &s){
  if constexpr(std::is_same_v<T,capi::tactix_online_step>)return s;
  else return base_step(s.base);
@@ -146,4 +146,4 @@ void c15_deep_copy(){
  capi::tactix_release(solver);std::fclose(journal);
 }
 }
-int main(){assert(tactix_rule_id("NaryCspEqualityTransitivity")==45);typed_replay_declines_and_consumption();controller_selection();c15_deep_copy();}
+int main(){assert(tactix_rule_id("NaryCspEqualityTransitivity")==45);typed_replay_declines_and_consumption();c15_deep_copy();}

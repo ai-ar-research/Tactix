@@ -2,7 +2,15 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
@@ -210,64 +218,6 @@ void public_wrapper_applies_with_dsr() {
   std::fclose(stream);
   std::remove(path);
 }
-
-void typed_replay_and_random_reach() {
-  Bound source;
-  const auto offered =
-      gf3_gaussian_action_offer(source.kernel, source.session, limits());
-  OnlineInvocation step;
-  step.id = 26;
-  step.rule = "Gf3GaussianConsequence";
-  step.parameters = Gf3GaussianConsequenceParameters{};
-  step.granularity = InvocationGranularity::OneInstance;
-  step.gf3_gaussian_instances = offered.offers;
-  step.work_unit = WorkUnit::Applications;
-  step.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program{{step}, {}};
-  const std::string text = serialize_online_strategy_program(program);
-  OnlineStrategyProgram replay;
-  std::string error;
-  assert(deserialize_online_strategy_program(text, replay, &error));
-  assert(replay.sequence[0].gf3_gaussian_instances == offered.offers);
-
-  Bound executed;
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(replay, 71, ReconfigureMode::ResetRuntime, &error));
-  const auto result = executor.advance(executed.kernel);
-  assert(result.status == InvocationStatus::Completed);
-  assert(result.applications == 1 && result.instance == 0);
-  assert(executed.kernel.stats.gf3_gaussian_applied == 1);
-
-  bool reached = false;
-  for (uint64_t seed = 1; seed <= 32 && !reached; ++seed) {
-    Bound candidate;
-    RandomControllerConfig config;
-    config.parameters.rules = {"Gf3GaussianConsequence"};
-    config.gf3_gaussian_action_producer.enabled = true;
-    RandomControllerSelector selector(seed);
-    ActionRequest request;
-    auto observation = observe_kernel(candidate.kernel);
-    assert(selector.choose(candidate.kernel, observation, config, request,
-                           error));
-    if (request.type == ActionType::Rule) {
-      reached = true;
-      assert(request.invocation.rule == "Gf3GaussianConsequence");
-      assert(request.invocation.gf3_gaussian_instances.size() == 1);
-      assert(request.producer_effort.size() == 1);
-      const auto &effort = request.producer_effort.front();
-      const auto &raw = offered.live.effort;
-      const uint64_t expected =
-          raw.capture_work + raw.bridge_work + raw.certificate_work +
-          raw.validation_work + raw.revalidation_work + raw.journal_work +
-          raw.identity_work + offered.session_work;
-      assert(effort.complete && effort.candidates == 1 &&
-             effort.offers == 1 && effort.preparation_work == expected &&
-             effort.total_work == expected);
-    }
-  }
-  assert(reached);
-}
-
 void c_v6_replays_the_exact_batch_identity() {
   Bound source;
   source.kernel = install_parsed();
@@ -340,7 +290,6 @@ int main() {
   singular_batch_and_atomic_publication();
   corruption_rebinding_and_limits_decline_without_mutation();
   public_wrapper_applies_with_dsr();
-  typed_replay_and_random_reach();
   c_v6_replays_the_exact_batch_identity();
   std::puts("test_gf3_gaussian_public: passed");
 }

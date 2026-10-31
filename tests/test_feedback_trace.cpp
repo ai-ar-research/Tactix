@@ -1,6 +1,15 @@
 #undef NDEBUG
 #include "strategy/feedback_trace.hpp"
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
+#include "policies/default_policy.hpp"
 
 #include <cassert>
 #include <filesystem>
@@ -35,9 +44,90 @@ static Kernel fixture(bool unsat) {
   }
   return k;
 }
-static std::string metadata(uint64_t seed, const RandomControllerConfig &config) {
-  return "fixture\"\\\n\t seed=" + std::to_string(seed) + " " +
-         controller_configuration(config);
+static std::string metadata(uint64_t seed) {
+  return "fixture\"\\\n\t seed=" + std::to_string(seed) + " default";
+}
+
+// A small UNSAT pigeonhole instance and a profile that reaches CDCL search,
+// so a recorded trace contains decisions, conflict analysis, and search
+// intervals (as in test_native_policy_feedback).
+static Kernel pigeonhole() {
+  Kernel k;
+  constexpr unsigned pigeons = 5, holes = 4;
+  kernel_reserve_vars(k, pigeons * holes);
+  auto cell = [](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
+  for (unsigned p = 0; p < pigeons; ++p) {
+    std::vector<Lit> clause;
+    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
+    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
+    for (unsigned q = p + 1; q < pigeons; ++q)
+      for (unsigned h = 0; h < holes; ++h)
+        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)), ++k.next_clause_id);
+  }
+  return k;
+}
+
+static DefaultStrategyConfig search_profile() {
+  DefaultStrategyConfig config;
+  config.inprocess.program.clear();
+  config.inprocess.append_unlisted_rules = false;
+  config.inprocess.structured_root_stages.clear();
+  config.inprocess.structured_root_bounded_backtracking_stages.clear();
+  config.inprocess.structured_root_large_domain_stages.clear();
+  config.inprocess.initial_fast_elimination = false;
+  config.rephase.late_lucky = false;
+  config.rephase.stable_only = false;
+  config.rephase.initial_interval = config.rephase.interval = 1;
+  config.rephase.rotation = {DefaultRephaseSlot::Walk};
+  config.rephase.walk_permille = 1;
+  config.mode.initial_conflicts = config.mode.interval = 1;
+  config.restart.reluctant_period = 2;
+  config.reduction.initial_interval = 5;
+  return config;
+}
+
+// A real DefaultPolicy solve records, replays, and tolerates a tampered trace:
+// feedback divergence stays out of band and never changes the verdict.
+static void test_default_execution(const char *path) {
+  for (const bool unsat : {false, true}) {
+    const auto tag = metadata(unsat ? 20 : 10);
+    Kernel native = fixture(unsat), observed = fixture(unsat);
+    const int expected = unsat ? 20 : 10;
+    assert(DefaultPolicy().solve(native) == expected);
+    {
+      FeedbackTrace writer;
+      assert(writer.write(path, tag));
+      DefaultPolicy recorded;
+      recorded.set_feedback(&writer);
+      assert(recorded.solve(observed) == expected);
+      assert(writer.error().empty() && writer.terminal());
+    }
+    assert(serialize_observation(observe_kernel(native)) ==
+           serialize_observation(observe_kernel(observed)));
+    {
+      FeedbackTrace reader;
+      assert(reader.replay(path, tag));
+      Kernel repeated = fixture(unsat);
+      DefaultPolicy replayed;
+      replayed.set_feedback(&reader);
+      assert(replayed.solve(repeated) == expected);
+      assert(reader.error().empty() && reader.terminal());
+    }
+    auto corrupt = read(path);
+    const auto pos = corrupt.find("\"identity\":\"");
+    assert(pos != std::string::npos);
+    corrupt.insert(pos + 12, "tampered-");
+    write(path, corrupt);
+    FeedbackTrace reader;
+    assert(reader.replay(path, tag));
+    Kernel repeated = fixture(unsat);
+    DefaultPolicy replayed;
+    replayed.set_feedback(&reader);
+    assert(replayed.solve(repeated) == expected);
+    assert(!reader.error().empty());
+    assert(serialize_observation(observe_kernel(native)) ==
+           serialize_observation(observe_kernel(repeated)));
+  }
 }
 
 static void synthetic(FeedbackTrace &trace, bool changed = false) {
@@ -236,106 +326,6 @@ static void test_codec(const char *path) {
     assert(!invalid.error().empty());
   }
 }
-
-static void test_actual_execution(const char *path) {
-  RandomControllerConfig config;
-  config.parameters.rules = {"Rephase", "Propagate"};
-  for (const bool unsat : {false, true}) {
-    for (const uint64_t seed : {1, 7, 17}) {
-      const auto tag = metadata(seed, config);
-      Kernel native = fixture(unsat), observed = fixture(unsat);
-      const int expected = unsat ? 20 : 10;
-      RandomControllerPolicy plain(seed, config);
-      assert(plain.solve(native) == expected);
-      {
-        FeedbackTrace writer;
-        assert(writer.write(path, tag));
-        RandomControllerPolicy recorded(seed, config, nullptr, nullptr, &writer);
-        assert(recorded.solve(observed) == expected);
-        assert(writer.error().empty() && writer.terminal());
-      }
-      assert(serialize_observation(observe_kernel(native)) ==
-             serialize_observation(observe_kernel(observed)));
-      {
-        FeedbackTrace reader;
-        assert(reader.replay(path, tag));
-        Kernel repeated = fixture(unsat);
-        RandomControllerPolicy replayed(seed, config, nullptr, nullptr, &reader);
-        assert(replayed.solve(repeated) == expected);
-        assert(reader.error().empty() && reader.terminal());
-      }
-      // Feedback divergence remains out of band and cannot change the verdict.
-      auto corrupt = read(path);
-      const auto pos = corrupt.find("\"identity\":");
-      assert(pos != std::string::npos);
-      corrupt.insert(pos + 12, "tampered-");
-      write(path, corrupt);
-      FeedbackTrace reader;
-      assert(reader.replay(path, tag));
-      Kernel repeated = fixture(unsat);
-      RandomControllerPolicy replayed(seed, config, nullptr, nullptr, &reader);
-      assert(replayed.solve(repeated) == expected);
-      assert(!reader.error().empty());
-      assert(serialize_observation(observe_kernel(native)) ==
-             serialize_observation(observe_kernel(repeated)));
-    }
-  }
-}
-
-static Kernel pigeonhole() {
-  Kernel k;
-  constexpr unsigned pigeons = 5, holes = 4;
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [](unsigned pigeon, unsigned hole) {
-    return make_lit(pigeon * holes + hole, false);
-  };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    Lit clause[holes];
-    for (unsigned h = 0; h < holes; ++h) clause[h] = cell(p, h);
-    kernel_add_large_clause(k, clause, holes, false, 0);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)));
-  }
-  return k;
-}
-
-static void test_retained_interval_replay(const char *path) {
-  uint64_t partial = 0, full = 0;
-  RandomControllerConfig config;
-  config.parameters.rules = {"Propagate"};
-  config.search.restart.initial_interval = 1;
-  config.search.restart.reluctant_period = 1;
-  for (uint64_t seed = 1; seed <= 16; ++seed) {
-    const auto tag = metadata(seed, config);
-    uint64_t kept = 0, restarted = 0;
-    {
-      FeedbackTrace writer;
-      assert(writer.write(path, tag));
-      Kernel k = pigeonhole();
-      RandomControllerPolicy policy(seed, config, nullptr, nullptr, &writer);
-      assert(policy.solve(k) == 20);
-      assert(writer.error().empty() && writer.terminal());
-      kept = policy.coverage().partial_restarts;
-      restarted = policy.coverage().full_restarts;
-      assert(k.stats.restarts_reused == kept);
-    }
-    {
-      FeedbackTrace reader;
-      assert(reader.replay(path, tag));
-      Kernel k = pigeonhole();
-      RandomControllerPolicy policy(seed, config, nullptr, nullptr, &reader);
-      assert(policy.solve(k) == 20);
-      assert(reader.error().empty() && reader.terminal());
-      assert(policy.coverage().partial_restarts == kept);
-      assert(policy.coverage().full_restarts == restarted);
-    }
-    partial += kept;
-    full += restarted;
-  }
-  assert(partial > 0 && full > 0);
-}
-
 int main(int argc, char **argv) {
   if (argc == 3 && std::string(argv[2]) == "stress") {
     FeedbackTrace writer;
@@ -346,9 +336,7 @@ int main(int argc, char **argv) {
   }
   if (argc >= 2) {
     FeedbackTrace writer;
-    RandomControllerConfig config;
-    config.parameters.rules = {"Rephase"};
-    assert(writer.write(argv[1], metadata(17, config)));
+    assert(writer.write(argv[1], metadata(17)));
     Kernel k = fixture(true);
     if (argc == 3 && std::string(argv[2]) == "invalid") {
       RestartController controller(k, {}, &writer);
@@ -363,8 +351,10 @@ int main(int argc, char **argv) {
       assert(writer.error().empty() && writer.terminal());
       return 0;
     }
-    RandomControllerPolicy policy(17, config, nullptr, nullptr, &writer);
-    assert(policy.solve(k) == 20);
+    Kernel searched = pigeonhole();
+    DefaultPolicy policy(search_profile());
+    policy.set_feedback(&writer);
+    assert(policy.solve(searched) == 20);
     assert(writer.error().empty() && writer.terminal());
     return 0;
   }
@@ -374,7 +364,6 @@ int main(int argc, char **argv) {
   close(fd);
   test_codec(path);
   test_versions_and_compression(path);
-  test_actual_execution(path);
-  test_retained_interval_replay(path);
+  test_default_execution(path);
   unlink(path);
 }

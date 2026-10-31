@@ -2,9 +2,17 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
-#include "policies/random_controller_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -204,33 +212,6 @@ void executor_requires_propagate_and_emits_dsr() {
   std::fclose(stream);
   std::remove(path);
 }
-
-void native_producer_reaches_exact_action() {
-  bool reached = false;
-  for (uint64_t seed = 1; seed <= 32 && !reached; ++seed) {
-    Bound b;
-    RandomControllerConfig config;
-    config.parameters.rules = {"Gf3GeneralRowConsequence"};
-    config.gf3_general_row_action_producer.enabled = true;
-    config.gf3_general_row_action_producer.maximum_offers = 1;
-    RandomControllerSelector selector(seed);
-    controller::ActionRequest request;
-    std::string error;
-    const auto observation = controller::observe_kernel(b.kernel);
-    assert(selector.choose(b.kernel, observation, config, request, error));
-    if (request.type != controller::ActionType::Rule) continue;
-    reached = true;
-    assert(request.invocation.rule == "Gf3GeneralRowConsequence");
-    assert(request.invocation.gf3_general_row_instances.size() == 1);
-    assert(request.invocation.post_application == PostApplication::Propagate);
-    assert(request.producer_effort.size() == 1 &&
-           request.producer_effort.front().family ==
-               "Gf3GeneralRowConsequence" &&
-           request.producer_effort.front().offers == 1);
-  }
-  assert(reached);
-}
-
 bool apply_search_implication(Kernel &kernel,
                               Gf3GeneralRowActionSession &session,
                               FILE *records) {
@@ -445,7 +426,6 @@ int main(int argc, char **argv) {
          step->rule == "Gf3GeneralRowConsequence" && !step->enabled);
   pagination_replay_and_atomic_apply();
   executor_requires_propagate_and_emits_dsr();
-  native_producer_reaches_exact_action();
   retained_owner_search_implication();
   c_v11_deep_copies_typed_selection();
   if (argc == 3) emit_public_fixture(argv[1], argv[2], false);

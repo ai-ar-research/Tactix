@@ -82,20 +82,6 @@ add_library(tactix_lib OBJECT
   src/api/api_work.cpp
 )
 
-# Historical controller machinery is retained only as structured-action test
-# support. It is deliberately absent from tactix_lib, the production binary,
-# and both public qualification clients.
-if(TACTIX_BUILD_TESTS)
-  add_library(tactix_controller_test_support OBJECT
-    src/policies/random_controller_policy.cpp
-    src/policies/controller_trace.cpp)
-  target_include_directories(tactix_controller_test_support PRIVATE src include)
-  target_compile_definitions(tactix_controller_test_support PRIVATE
-    $<$<BOOL:${TACTIX_ENABLE_EVENT_TRACE}>:TACTIX_ENABLE_EVENT_TRACE=1>
-    $<$<BOOL:${TACTIX_ENABLE_RULE_JOURNAL}>:TACTIX_ENABLE_RULE_JOURNAL=1>
-    $<$<BOOL:${TACTIX_ENABLE_PROOF_SHADOW}>:TACTIX_ENABLE_PROOF_SHADOW=1>)
-endif()
-
 # Proof export can copy a huge learned core. Only this translation unit may
 # catch allocation failure; `SubSolver::derivation` is noexcept to callers.
 # Keep this island optimized in Debug too (as in the debug preset). Apple

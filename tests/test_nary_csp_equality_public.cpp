@@ -2,11 +2,19 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
 
 #include "frontend/parse.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "policies/default_policy.hpp"
-#include "policies/random_controller_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -192,61 +200,6 @@ void executor_feedback_and_candidate_followup() {
   kernel.structural_provenance = nullptr;
   std::fclose(records);
 }
-
-void native_offer_paginates_and_suppresses_committed_key() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  kernel.structural_provenance = records;
-  NaryCspRelationOwnerSession relation_session;
-  NaryCspEqualitySession equality_session;
-  kernel.nary_csp_relation_owner_session = &relation_session;
-  kernel.nary_csp_equality_session = &equality_session;
-
-  RandomControllerConfig config;
-  config.parameters.rules = {"NaryCspEquality"};
-  config.parameters.nary_csp_equality_reference = equality_parameters();
-  config.nary_csp_equality_action_producer.enabled = true;
-  config.nary_csp_equality_action_producer.maximum_offers = 1;
-  RestartController controller(kernel);
-  RandomControllerSelector selector(7);
-  ActionRequest request;
-  std::string error;
-  bool selected = false;
-  for (unsigned attempt = 0; attempt != 64 && !selected; ++attempt) {
-    assert(selector.choose(kernel, controller.observe(), config, request,
-                           error));
-    selected = request.type == ActionType::Rule;
-  }
-  assert(selected && request.invocation.rule == "NaryCspEquality" &&
-         request.invocation.nary_csp_equality_instances.size() == 1 &&
-         request.producer_effort.size() == 1 &&
-         request.producer_effort.front().family == "NaryCspEquality" &&
-         request.producer_effort.front().offers == 1);
-  assert(!relation_session.retained());
-  const auto exact = request.invocation.nary_csp_equality_instances.front();
-  assert(exact.coordinates.left_domain < exact.coordinates.right_domain);
-  request.invocation.post_application = PostApplication::Propagate;
-  const auto result =
-      controller.apply_rule(request, config.allowance("NaryCspEquality"));
-  assert(result.invocation.status == InvocationStatus::Completed &&
-         result.invocation.made_rule_progress && equality_session.keys().size() == 1 &&
-         relation_session.retained_owners() == 1);
-
-  // The committed exact key is never offered again. Pagination advances to a
-  // different canonical coordinate choice from the same retained owner.
-  ActionRequest next;
-  bool found = false;
-  for (unsigned attempt = 0; attempt != 64 && !found; ++attempt) {
-    assert(selector.choose(kernel, controller.observe(), config, next, error));
-    found = next.type == ActionType::Rule;
-  }
-  assert(found && next.invocation.nary_csp_equality_instances.size() == 1 &&
-         !(next.invocation.nary_csp_equality_instances.front() == exact));
-  kernel.structural_provenance = nullptr;
-  std::fclose(records);
-}
-
 void owner_acquisition_is_transactional() {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
@@ -477,7 +430,6 @@ int main(int argc, char **argv) {
   registry_replay_and_exact_payload();
   executor_feedback_and_candidate_followup();
   owner_acquisition_is_transactional();
-  native_offer_paginates_and_suppresses_committed_key();
   native_offer_revalidates_changed_owners_with_bounded_work();
   c_v10_deep_copies_and_executes_exact_payload();
   std::puts("test_nary_csp_equality_public: passed");

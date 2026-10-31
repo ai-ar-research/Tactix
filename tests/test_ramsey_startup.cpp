@@ -1,7 +1,15 @@
 #undef NDEBUG
 #include "rules/lucky/ramsey_startup.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
 #include "frontend/parse.hpp"
-#include "policies/random_controller_policy.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "proof/proof.hpp"
 #include <cassert>

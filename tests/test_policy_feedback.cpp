@@ -1,5 +1,13 @@
 #undef NDEBUG
-#include "policies/random_controller_policy.hpp"
+#include "policies/restart_controller.hpp"
+#include "rules/semantic_extension/direct_csp_support_action.hpp"
+#include "rules/semantic_extension/direct_csp_guarded_cover_offer.hpp"
+#include "rules/semantic_extension/nary_csp_equality_action.hpp"
+#include "rules/semantic_extension/gf3_affine_action.hpp"
+#include "rules/semantic_extension/gf3_gaussian_action.hpp"
+#include "rules/semantic_extension/gf3_general_row_action.hpp"
+#include "rules/lucky/tseitin_cycle_action.hpp"
+#include "strategy/random_online.hpp"
 #include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 #include "policies/ops/rephase/rephase.hpp"
@@ -154,93 +162,6 @@ static void test_outcomes_and_intervals() {
   kernel_check_invariants(k);
 }
 
-struct ResumeOnly final : ControllerSelection {
-  unsigned calls = 0;
-  bool choose(Kernel &k, const Observation &observation,
-              const RandomControllerConfig &, ActionRequest &out,
-              std::string &, volatile sig_atomic_t *) override {
-    ++calls;
-    out = {};
-    out.sequence = observation.sequence + 1;
-    out.expected = state_version(k);
-    out.type = ActionType::ResumeSearch;
-    out.search = {Branching::Evsids, Restart::AdaptiveGlue, Phase::Positive};
-    return true;
-  }
-};
-
-static void test_selection_and_terminal() {
-  Kernel native, observed;
-  for (Kernel *k : {&native, &observed}) {
-    kernel_reserve_vars(*k, 3);
-    kernel_add_binary_clause(*k, internalize(1), internalize(2));
-  }
-  Capture capture;
-  ResumeOnly a, b;
-  RandomControllerPolicy first(17, {}, nullptr, &a);
-  RandomControllerPolicy second(17, {}, nullptr, &b, &capture);
-  assert(first.solve(native) == 10 && second.solve(observed) == 10);
-  assert(a.calls == b.calls && a.calls == 1);
-  assert(state(native) == state(observed));
-  assert(capture.ended == 1 && capture.verdict == 10);
-  assert(capture.intervals.size() == 1 && capture.intervals[0].stop == StopReason::Sat);
-  assert(capture.actions.front().identity == "ResumeSearch");
-  assert(capture.actions.size() > 1);
-  for (const auto &record : capture.actions)
-    assert(record.identity == "ResumeSearch" || record.kind == FeedbackKind::SearchService);
-}
-
-struct InvalidSelection final : ControllerSelection {
-  bool choose(Kernel &k, const Observation &observation,
-              const RandomControllerConfig &, ActionRequest &out,
-              std::string &, volatile sig_atomic_t *) override {
-    out.sequence = observation.sequence + 1;
-    out.expected = state_version(k);
-    out.invocation.rule = "nonexistent-action";
-    return true;
-  }
-};
-
-struct FuzzInterruptedSelection final : ControllerSelection {
-  bool choose(Kernel &k, const Observation &,
-              const RandomControllerConfig &, ActionRequest &,
-              std::string &error, volatile sig_atomic_t *) override {
-    assert(kernel_terminating(k));
-    error = "controller selection interrupted";
-    return false;
-  }
-};
-
-static void test_stop_and_execution_error() {
-  for (bool interrupted : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    Capture capture;
-    InvalidSelection selector;
-    RandomControllerPolicy policy(1, {}, nullptr, &selector, &capture);
-    volatile sig_atomic_t stop = interrupted;
-    assert(policy.solve(k, &stop) == 0);
-    assert(capture.ended == 1 && capture.verdict == 0);
-    assert(capture.stop == (interrupted ? StopReason::Interrupted : StopReason::Error));
-    assert(capture.actions.size() == (interrupted ? 0 : 1));
-    if (!interrupted) assert(capture.actions[0].stop == StopReason::Invalid);
-    assert(capture.intervals.empty());
-    kernel_check_invariants(k);
-  }
-
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  k.stop_fuzz = 1;
-  Capture capture;
-  FuzzInterruptedSelection selector;
-  RandomControllerPolicy policy(1, {}, nullptr, &selector, &capture);
-  assert(policy.solve(k) == 0);
-  assert(k.stats.stop_fuzz_fires == 1);
-  assert(capture.ended == 1 && capture.verdict == 0 &&
-         capture.stop == StopReason::Interrupted);
-  assert(capture.actions.empty() && capture.intervals.empty());
-  kernel_check_invariants(k);
-}
 
 static void test_native_effort_and_interruption() {
   Kernel k;
@@ -276,79 +197,8 @@ static void test_native_effort_and_interruption() {
   assert(state(k) == before);
   controller.finish_feedback(0);
 }
-
-
-// Retained corpus 009 refutes in one canonical Substitute action.  Select the
-// action explicitly: appending an unrelated eligible controller family must
-// not invalidate this restoration regression by perturbing a random draw.
-// Neither action nor session-end callbacks may observe the round's temporary
-// disconnected watch representation.
-static void test_terminal_substitute_publication() {
-  for (bool reuse : {false, true}) {
-    Kernel k;
-    Proof proof;
-    assert(proof.open("/dev/null", ProofFormat::DsrAscii));
-    k.proof = &proof;
-    proof.bind_variable_map(&k.internal_to_external);
-    proof.bind_external_variable_map(&k.external_to_internal);
-    FILE *input = std::tmpfile();
-    assert(input);
-    std::fputs("p cnf 5 11\n-3 1 0\n-3 2 0\n3 -1 -2 0\n"
-               "-4 1 0\n-4 2 0\n4 -1 -2 0\n-5 3 0\n-5 4 0\n"
-               "5 -3 -4 0\n5 3 0\n-5 -3 0\n", input);
-    std::rewind(input);
-    assert(!parse_dimacs(input, k));
-    std::fclose(input);
-    struct TerminalReceiver final : FeedbackReceiver {
-      Kernel &kernel;
-      unsigned refutations = 0, ended = 0;
-      explicit TerminalReceiver(Kernel &k) : kernel(k) {}
-      void after_action(const ActionFeedback &record) override {
-        assert(kernel.large_watches_connected);
-        if (record.identity == "Substitute" &&
-            record.outcome.invocation.rule_result == ApplyResult::Unsat)
-          ++refutations;
-      }
-      void search_interval(const SearchIntervalFeedback &) override {
-        assert(kernel.large_watches_connected);
-      }
-      void session_end(const Observation &, int verdict, StopReason reason) override {
-        assert(kernel.large_watches_connected);
-        assert(verdict == 20 && reason == StopReason::Unsat);
-        ++ended;
-      }
-    } receiver(k);
-    struct SubstituteOnly final : ControllerSelection {
-      unsigned calls = 0;
-      bool choose(Kernel &kernel, const Observation &observation,
-                  const RandomControllerConfig &, ActionRequest &out,
-                  std::string &, volatile sig_atomic_t *) override {
-        ++calls;
-        out = {};
-        out.sequence = observation.sequence + 1;
-        out.expected = state_version(kernel);
-        out.invocation.rule = "Substitute";
-        out.invocation.granularity =
-            InvocationGranularity::CanonicalApplication;
-        return true;
-      }
-    } selector;
-    RandomControllerConfig config;
-    config.reuse_search_trail = reuse;
-    RandomControllerPolicy policy(2032000128, config, nullptr, &selector,
-                                  &receiver);
-    assert(policy.solve(k) == 20);
-    assert(selector.calls == 1);
-    assert(receiver.refutations == 1 && receiver.ended == 1);
-    assert(k.large_watches_connected);
-  }
-}
-
 int main() {
   test_disabled_and_read_only();
   test_outcomes_and_intervals();
-  test_selection_and_terminal();
-  test_stop_and_execution_error();
   test_native_effort_and_interruption();
-  test_terminal_substitute_publication();
 }
