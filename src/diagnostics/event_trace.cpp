@@ -24,6 +24,17 @@ namespace tactix {
 void emit_heap_set_snapshot(const Kernel &k, bool after_decision);
 namespace {
 
+// Opens a diagnostic trace for writing; a trace the user requested but that
+// cannot be created reports its environment variable and exits with status 2.
+FILE *open_trace_or_exit(const char *path, const char *environment) {
+  FILE *out = std::fopen(path, "w");
+  if (!out) {
+    std::perror(environment);
+    std::exit(2);
+  }
+  return out;
+}
+
 EventTrace *active_trace;
 bool bve_retry_trace_armed;
 uint32_t bve_retry_trace_candidate;
@@ -498,11 +509,8 @@ void flush_decision_prefix(const Kernel &k) {
   auto &s = decision_prefix;
   if (!s.enabled || s.emitted || k.stats.conflicts < s.conflict + 1)
     return; // flush at first checkpoint past target so STOP fires (3.125)
-  FILE *out = std::fopen(s.path.c_str(), "w");
-  if (!out) {
-    std::perror("TACTIX_DECISION_PREFIX_TRACE");
-    std::exit(2);
-  }
+  FILE *out = open_trace_or_exit(s.path.c_str(),
+                                 "TACTIX_DECISION_PREFIX_TRACE");
   std::fputs("# tactix-decision-prefix\t1\n", out);
   std::fputs("# solver\tconflict\tstart_decisions\tend_decisions\tcount\t"
              "hash\tcommon\tcommon_reached\tcommon_hash\tfirst\t"
@@ -769,11 +777,7 @@ static void emit_standalone_inprocess_score(const Kernel &k,
       std::getenv("SAT_INPROCESS_SCORE_PHASES") != nullptr;
   static FILE *out = nullptr;
   if (!out) {
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_INPROCESS_SCORE_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_INPROCESS_SCORE_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-inprocess-score\t1\n", out);
     std::fputs("# solver\tlabel\tconflicts\tdecisions\texternal\tscore\t"
@@ -815,11 +819,7 @@ static void emit_standalone_macro_active_set(const Kernel &k,
   if (const char *conflict = std::getenv("SAT_MACRO_ACTIVE_SET_CONFLICT"))
     if (*conflict && std::strtoull(conflict, nullptr, 10) != k.stats.conflicts)
       return;
-  FILE *out = std::fopen(path, "w");
-  if (!out) {
-    std::perror("TACTIX_MACRO_ACTIVE_SET");
-    std::exit(2);
-  }
+  FILE *out = open_trace_or_exit(path, "TACTIX_MACRO_ACTIVE_SET");
   std::fprintf(out, "# tactix-macro-active-set\t1\n");
   std::fprintf(out, "# solver\tevent\tconflicts\tactive\n");
   std::fprintf(out, "# tactix\t%s\t%llu\t%llu\n", event,
@@ -865,11 +865,7 @@ static void emit_standalone_macro_watch(const Kernel &k,
   const Lit watched = kernel_internalize(k, external);
   if (watched == INVALID_LIT)
     return;
-  FILE *out = std::fopen(path, "w");
-  if (!out) {
-    std::perror("TACTIX_MACRO_WATCH_TRACE");
-    std::exit(2);
-  }
+  FILE *out = open_trace_or_exit(path, "TACTIX_MACRO_WATCH_TRACE");
   std::fputs("# tactix-macro-watch\t1\n", out);
   std::fputs("# solver\tevent\tconflicts\texternal\tordinal\tblocking\t"
              "size\tsearched\tset\tpose\n",
@@ -917,11 +913,7 @@ static void emit_standalone_macro_watch_series(const Kernel &k,
     return;
   if (!initialized) {
     initialized = true;
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_MACRO_WATCH_SERIES_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_MACRO_WATCH_SERIES_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-macro-watch-series\t1\n", out);
     std::fputs("# solver\tseq\tevent\tconflicts\texternal\ttotal\tlarge\n",
@@ -956,11 +948,7 @@ void emit_standalone_inprocess_boundary(const Kernel &k, const char *name,
     if (const char *from =
             std::getenv("SAT_INPROCESS_BOUNDARY_CONFLICT_FROM"))
       conflict_from = std::strtoull(from, nullptr, 10);
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_INPROCESS_BOUNDARY_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_INPROCESS_BOUNDARY_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-inprocess-boundary\t1\n", out);
     std::fputs("# solver\tseq\tname\tstage\tconflicts\tdecisions\t"
@@ -1010,11 +998,7 @@ static void emit_standalone_macro_boundary(const Kernel &k,
     if (const char *from =
             std::getenv("SAT_MACRO_BOUNDARY_CONFLICT_FROM"))
       conflict_from = std::strtoull(from, nullptr, 10);
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_MACRO_BOUNDARY_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_MACRO_BOUNDARY_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# tactix-macro-boundary\t1\n", out);
     std::fputs("# solver\tseq\tevent\tconflicts\tdecisions\t"
@@ -1044,11 +1028,7 @@ static void emit_standalone_macro_boundary(const Kernel &k,
       !std::strcmp(event, state_event)) {
     static FILE *state = nullptr;
     if (!state) {
-      state = std::fopen(state_path, "w");
-      if (!state) {
-        std::perror("TACTIX_MACRO_BOUNDARY_STATE");
-        std::exit(2);
-      }
+      state = open_trace_or_exit(state_path, "TACTIX_MACRO_BOUNDARY_STATE");
       std::setvbuf(state, nullptr, _IOLBF, 0);
       std::fputs("# tactix-macro-state\t1\n", state);
       std::fputs("# solver\tevent\tconflicts\tdecisions\tpropagations\t"
@@ -2956,11 +2936,7 @@ void event_trace_vivify_counts(const Kernel &k, const uint32_t *counts,
     standalone_initialized = true;
     const char *path = std::getenv("TACTIX_VIVIFY_COUNTS_TRACE");
     if (path && *path) {
-      standalone = std::fopen(path, "w");
-      if (!standalone) {
-        std::perror("TACTIX_VIVIFY_COUNTS_TRACE");
-        std::exit(2);
-      }
+      standalone = open_trace_or_exit(path, "TACTIX_VIVIFY_COUNTS_TRACE");
       std::setvbuf(standalone, nullptr, _IOLBF, 0);
       std::fputs("# tactix-vivify-counts\t1\n", standalone);
       std::fputs("# solver\tseq\tconflicts\tliterals\n", standalone);
@@ -3133,11 +3109,7 @@ void event_trace_randec_state(const Kernel &k, const char *stage,
     if (path && *path && conflict && *conflict && limit && *limit) {
       selected_conflict = std::strtoull(conflict, nullptr, 10);
       cap = std::strtoull(limit, nullptr, 10);
-      out = std::fopen(path, "w");
-      if (!out) {
-        std::perror("TACTIX_RANDEC_STATE_TRACE");
-        std::exit(2);
-      }
+      out = open_trace_or_exit(path, "TACTIX_RANDEC_STATE_TRACE");
       std::setvbuf(out, nullptr, _IOLBF, 0);
       std::fputs("# tactix-randec-state\t1\n", out);
       std::fputs("# solver\tseq\tstage\tconflicts\tdecisions\tlevel\t"
@@ -4029,11 +4001,7 @@ void event_trace_substitute_map(const Kernel &k, Lit lit, Lit representative) {
             std::abs(static_cast<int>(variable));
         cursor = *end ? end + 1 : end;
       }
-      standalone.out = std::fopen(path, "w");
-      if (!standalone.out) {
-        std::perror("TACTIX_SUBSTITUTE_MAP_TRACE");
-        std::exit(2);
-      }
+      standalone.out = open_trace_or_exit(path, "TACTIX_SUBSTITUTE_MAP_TRACE");
       std::setvbuf(standalone.out, nullptr, _IOLBF, 0);
       std::fputs("# tactix-substitute-map\t1\n", standalone.out);
       std::fputs("# solver\tround\tconflicts\texternal\trepresentative\t"
@@ -4505,11 +4473,7 @@ void event_trace_recompute_input(const Kernel &k, const Clause *c) {
   }
   static std::FILE *out = nullptr;
   if (!out) {
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_RECOMPUTE_TRACE");
-      std::exit(2);
-    }
+    out = open_trace_or_exit(path, "TACTIX_RECOMPUTE_TRACE");
     std::setvbuf(out, nullptr, _IOLBF, 0);
     std::fputs("# recompute-input\t1\n", out);
     std::fputs("# solver\tconflicts\tglue\tsize\texternal:level:value...\n",
@@ -4547,11 +4511,7 @@ void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,
          std::strtoul(external, nullptr, 10) == actual)) {
       static std::FILE *out = nullptr;
       if (!out) {
-        out = std::fopen(path, "w");
-        if (!out) {
-          std::perror("TACTIX_BVE_CANDIDATE_TRACE");
-          std::exit(2);
-        }
+        out = open_trace_or_exit(path, "TACTIX_BVE_CANDIDATE_TRACE");
         std::setvbuf(out, nullptr, _IOLBF, 0);
         std::fputs("# bve-candidate-observer\t1\n", out);
       }
@@ -4911,11 +4871,7 @@ void event_trace_bve_heap(const Kernel &k, const char *stage, Var trigger,
          std::strtoull(conflict, nullptr, 10) == k.stats.conflicts)) {
       static std::FILE *out = nullptr;
       if (!out) {
-        out = std::fopen(path, "w");
-        if (!out) {
-          std::perror("TACTIX_BVE_HEAP_TRACE");
-          std::exit(2);
-        }
+        out = open_trace_or_exit(path, "TACTIX_BVE_HEAP_TRACE");
         std::setvbuf(out, nullptr, _IOLBF, 0);
         std::fputs("# bve-heap-observer\t1\n", out);
       }
