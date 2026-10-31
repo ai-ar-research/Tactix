@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rules/semantic_extension/affine_matrix_search.hpp"
 #include "strategy/policy_completion.hpp"
 #include "strategy/lucky_execution.hpp"
 
@@ -128,6 +129,73 @@ inline NativeFeedbackSpec native_rule_feedback(
     }
   }
   return spec;
+}
+
+inline void describe_affine_matrix_service(
+    const AffineMatrixServiceResult &result,
+    strategy::controller::NativeActionDescription &description) {
+  description.affine_matrix_status = static_cast<uint8_t>(result.status);
+  description.affine_matrix_event_identity = result.event_identity;
+  description.affine_matrix_synchronization_work = result.synchronization_work;
+  description.affine_matrix_session_work = result.session_work;
+  description.affine_matrix_reason_width = result.reason_width;
+  description.affine_matrix_planner_work = result.live.planner_work;
+  description.affine_matrix_revalidation_work = result.live.revalidation_work;
+  description.affine_matrix_proof_additions = result.live.additions;
+  description.affine_matrix_proof_deletions = result.live.deletions;
+  description.affine_matrix_helper_extent = result.live.helper_extent;
+  description.affine_matrix_journal_bytes = result.live.journal_bytes;
+  description.affine_matrix_bcp_pending = result.bcp_pending;
+}
+
+inline strategy::controller::FeedbackOutcome affine_matrix_service_outcome(
+    const AffineMatrixServiceResult &result) {
+  using strategy::InvocationStatus;
+  strategy::controller::FeedbackOutcome out;
+  auto &inv = out.invocation;
+  inv.rule_result = result.result;
+  inv.work = result.synchronization_work;
+  inv.applications = result.status == AffineMatrixServiceStatus::Applied;
+  inv.made_rule_progress = inv.applications;
+  inv.selection_complete = true;
+  switch (result.status) {
+  case AffineMatrixServiceStatus::Applied:
+    inv.status = InvocationStatus::Completed;
+    break;
+  case AffineMatrixServiceStatus::Disabled:
+  case AffineMatrixServiceStatus::NoEvent:
+  case AffineMatrixServiceStatus::Duplicate:
+    inv.status = InvocationStatus::NoChange;
+    break;
+  case AffineMatrixServiceStatus::Inapplicable:
+  case AffineMatrixServiceStatus::UnsupportedProof:
+    inv.status = InvocationStatus::Inapplicable;
+    break;
+  case AffineMatrixServiceStatus::Pending:
+    inv.status = InvocationStatus::BudgetExhausted;
+    inv.selection_complete = false;
+    break;
+  case AffineMatrixServiceStatus::ResourceExhausted:
+    inv.status = InvocationStatus::ResourceExhausted;
+    break;
+  case AffineMatrixServiceStatus::Interrupted:
+    inv.status = InvocationStatus::Interrupted;
+    break;
+  case AffineMatrixServiceStatus::Stale:
+    inv.status = InvocationStatus::StaleRequest;
+    break;
+  case AffineMatrixServiceStatus::Invalid:
+    inv.status = InvocationStatus::InvalidRequest;
+    break;
+  }
+  return out;
+}
+
+inline strategy::controller::FeedbackOutcome affine_matrix_service_feedback(
+    const AffineMatrixServiceResult &result,
+    strategy::controller::NativeActionDescription &description) {
+  describe_affine_matrix_service(result, description);
+  return affine_matrix_service_outcome(result);
 }
 
 template <LuckyOpportunity Opportunity>
