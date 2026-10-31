@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
+#include "strategy/action_status_statistics.hpp"
+
 #include "rules/structural_action_guard.hpp"
 
 #include <algorithm>
@@ -264,28 +266,26 @@ void record_gf3_gaussian_action_feedback(
   kernel.stats.gf3_gaussian_identity_bytes += result.live.effort.identity_bytes;
   kernel.stats.gf3_gaussian_session_identity_bytes +=
       result.session_identity_bytes;
+  const bool standard_status = strategy::record_standard_action_status(
+      result.status,
+      {kernel.stats.gf3_gaussian_applied, kernel.stats.gf3_gaussian_invalid,
+       kernel.stats.gf3_gaussian_inapplicable,
+       kernel.stats.gf3_gaussian_exhausted,
+       kernel.stats.gf3_gaussian_interrupted,
+       kernel.stats.gf3_gaussian_unsupported_proof,
+       kernel.stats.gf3_gaussian_stale});
   if (result.status == Gf3GaussianActionStatus::Applied) {
-    ++kernel.stats.gf3_gaussian_applied;
     kernel.stats.gf3_gaussian_units += result.live.published_units.size();
     kernel.stats.gf3_gaussian_conflicts += result.live.contradiction;
-  } else if (result.status == Gf3GaussianActionStatus::Invalid)
-    ++kernel.stats.gf3_gaussian_invalid;
-  else if (result.status == Gf3GaussianActionStatus::Inapplicable)
-    ++kernel.stats.gf3_gaussian_inapplicable;
-  else if (result.status == Gf3GaussianActionStatus::NoStructure)
+  } else if (!standard_status &&
+             result.status == Gf3GaussianActionStatus::NoStructure)
     ++kernel.stats.gf3_gaussian_no_structure;
-  else if (result.status == Gf3GaussianActionStatus::NoSupportedOutcome)
+  else if (!standard_status &&
+           result.status == Gf3GaussianActionStatus::NoSupportedOutcome)
     ++kernel.stats.gf3_gaussian_no_supported_outcome;
-  else if (result.status == Gf3GaussianActionStatus::AlreadyPublished)
+  else if (!standard_status &&
+           result.status == Gf3GaussianActionStatus::AlreadyPublished)
     ++kernel.stats.gf3_gaussian_already_published;
-  else if (result.status == Gf3GaussianActionStatus::ResourceExhausted)
-    ++kernel.stats.gf3_gaussian_exhausted;
-  else if (result.status == Gf3GaussianActionStatus::Interrupted)
-    ++kernel.stats.gf3_gaussian_interrupted;
-  else if (result.status == Gf3GaussianActionStatus::Stale)
-    ++kernel.stats.gf3_gaussian_stale;
-  else if (result.status == Gf3GaussianActionStatus::UnsupportedProof)
-    ++kernel.stats.gf3_gaussian_unsupported_proof;
 }
 
 } // namespace tactix

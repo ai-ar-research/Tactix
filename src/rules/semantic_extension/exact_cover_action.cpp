@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/exact_cover_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "strategy/action_status_statistics.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <cstdlib>
@@ -30,34 +31,18 @@ struct RecordExactCoverExtension {
     if (result.semantic_candidate_staged)
       stats.exact_cover_extension_candidate_variables +=
           live.introduced_theory_variables.size();
-    switch (live.status) {
-    case ExactCoverLiveStatus::Applied:
-      ++stats.exact_cover_extension_applied;
-      break;
-    case ExactCoverLiveStatus::NoStructure:
-      ++stats.exact_cover_extension_no_structure;
-      break;
-    case ExactCoverLiveStatus::AlreadyPublished:
-      ++stats.exact_cover_extension_already_published;
-      break;
-    case ExactCoverLiveStatus::Invalid:
-      ++stats.exact_cover_extension_invalid;
-      break;
-    case ExactCoverLiveStatus::Inapplicable:
-      ++stats.exact_cover_extension_inapplicable;
-      break;
-    case ExactCoverLiveStatus::ResourceExhausted:
-      ++stats.exact_cover_extension_resource_exhausted;
-      break;
-    case ExactCoverLiveStatus::Interrupted:
-      ++stats.exact_cover_extension_interrupted;
-      break;
-    case ExactCoverLiveStatus::UnsupportedProof:
-      ++stats.exact_cover_extension_unsupported_proof;
-      break;
-    case ExactCoverLiveStatus::Stale:
-      ++stats.exact_cover_extension_stale;
-      break;
+    if (!strategy::record_standard_action_status(
+            live.status, TACTIX_STANDARD_ACTION_STATUS_COUNTERS(
+                             stats, exact_cover_extension))) {
+      switch (live.status) {
+      case ExactCoverLiveStatus::NoStructure:
+        ++stats.exact_cover_extension_no_structure;
+        break;
+      case ExactCoverLiveStatus::AlreadyPublished:
+        ++stats.exact_cover_extension_already_published;
+        break;
+      default: break;
+      }
     }
   }
 };

@@ -14,6 +14,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "strategy/bve_invocation.hpp"
+#include "strategy/action_status_statistics.hpp"
 #include "strategy/rule_execution.hpp"
 #include "strategy/work_execution.hpp"
 #include "strategy/guidance_outcome.hpp"
@@ -222,24 +223,18 @@ void record_gf3_affine_feedback(Kernel &k,
                                 const Gf3AffineActionResult &result,
                                 size_t keys_before) {
   ++k.stats.gf3_affine_attempts;
-  switch (result.status) {
-  case Gf3AffineActionStatus::Applied: ++k.stats.gf3_affine_applied; break;
-  case Gf3AffineActionStatus::NoStructure:
-    ++k.stats.gf3_affine_no_structure; break;
-  case Gf3AffineActionStatus::NoConsequence:
-    ++k.stats.gf3_affine_no_consequence; break;
-  case Gf3AffineActionStatus::AlreadyPublished:
-    ++k.stats.gf3_affine_already_published; break;
-  case Gf3AffineActionStatus::Invalid: ++k.stats.gf3_affine_invalid; break;
-  case Gf3AffineActionStatus::Inapplicable:
-    ++k.stats.gf3_affine_inapplicable; break;
-  case Gf3AffineActionStatus::ResourceExhausted:
-    ++k.stats.gf3_affine_resource_exhausted; break;
-  case Gf3AffineActionStatus::Interrupted:
-    ++k.stats.gf3_affine_interrupted; break;
-  case Gf3AffineActionStatus::UnsupportedProof:
-    ++k.stats.gf3_affine_unsupported_proof; break;
-  case Gf3AffineActionStatus::Stale: ++k.stats.gf3_affine_stale; break;
+  if (!record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats, gf3_affine))) {
+    switch (result.status) {
+    case Gf3AffineActionStatus::NoStructure:
+      ++k.stats.gf3_affine_no_structure; break;
+    case Gf3AffineActionStatus::NoConsequence:
+      ++k.stats.gf3_affine_no_consequence; break;
+    case Gf3AffineActionStatus::AlreadyPublished:
+      ++k.stats.gf3_affine_already_published; break;
+    default: break;
+    }
   }
   const auto &e = result.effort;
   k.stats.gf3_affine_source_clauses += e.source_clauses;
@@ -267,27 +262,19 @@ void record_direct_csp_feedback(Kernel &k,
                                 const DirectCspSupportActionResult &result,
                                 size_t keys_before, size_t owners_before) {
   ++k.stats.direct_csp_support_attempts;
-  switch (result.status) {
-  case DirectCspSupportActionStatus::Applied:
-    ++k.stats.direct_csp_support_applied; break;
-  case DirectCspSupportActionStatus::NoStructure:
-    ++k.stats.direct_csp_support_no_structure; break;
-  case DirectCspSupportActionStatus::NoConsequence:
-    ++k.stats.direct_csp_support_no_consequence; break;
-  case DirectCspSupportActionStatus::AlreadyPublished:
-    ++k.stats.direct_csp_support_already_published; break;
-  case DirectCspSupportActionStatus::Invalid:
-    ++k.stats.direct_csp_support_invalid; break;
-  case DirectCspSupportActionStatus::Inapplicable:
-    ++k.stats.direct_csp_support_inapplicable; break;
-  case DirectCspSupportActionStatus::ResourceExhausted:
-    ++k.stats.direct_csp_support_resource_exhausted; break;
-  case DirectCspSupportActionStatus::Interrupted:
-    ++k.stats.direct_csp_support_interrupted; break;
-  case DirectCspSupportActionStatus::UnsupportedProof:
-    ++k.stats.direct_csp_support_unsupported_proof; break;
-  case DirectCspSupportActionStatus::Stale:
-    ++k.stats.direct_csp_support_stale; break;
+  if (!record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats,
+                                                 direct_csp_support))) {
+    switch (result.status) {
+    case DirectCspSupportActionStatus::NoStructure:
+      ++k.stats.direct_csp_support_no_structure; break;
+    case DirectCspSupportActionStatus::NoConsequence:
+      ++k.stats.direct_csp_support_no_consequence; break;
+    case DirectCspSupportActionStatus::AlreadyPublished:
+      ++k.stats.direct_csp_support_already_published; break;
+    default: break;
+    }
   }
   const auto &e = result.effort;
   k.stats.direct_csp_support_source_clauses += e.source_clauses;
@@ -324,27 +311,19 @@ void record_nary_csp_equality_feedback(
     Kernel &k, const NaryCspEqualityActionResult &result,
     size_t keys_before) {
   ++k.stats.nary_csp_equality_attempts;
-  switch (result.status) {
-  case NaryCspEqualityActionStatus::Applied:
-    ++k.stats.nary_csp_equality_applied; break;
-  case NaryCspEqualityActionStatus::NoStructure:
-    ++k.stats.nary_csp_equality_no_structure; break;
-  case NaryCspEqualityActionStatus::NoConsequence:
-    ++k.stats.nary_csp_equality_no_consequence; break;
-  case NaryCspEqualityActionStatus::AlreadyPublished:
-    ++k.stats.nary_csp_equality_already_published; break;
-  case NaryCspEqualityActionStatus::Invalid:
-    ++k.stats.nary_csp_equality_invalid; break;
-  case NaryCspEqualityActionStatus::Inapplicable:
-    ++k.stats.nary_csp_equality_inapplicable; break;
-  case NaryCspEqualityActionStatus::ResourceExhausted:
-    ++k.stats.nary_csp_equality_resource_exhausted; break;
-  case NaryCspEqualityActionStatus::Interrupted:
-    ++k.stats.nary_csp_equality_interrupted; break;
-  case NaryCspEqualityActionStatus::UnsupportedProof:
-    ++k.stats.nary_csp_equality_unsupported_proof; break;
-  case NaryCspEqualityActionStatus::Stale:
-    ++k.stats.nary_csp_equality_stale; break;
+  if (!record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(k.stats,
+                                                 nary_csp_equality))) {
+    switch (result.status) {
+    case NaryCspEqualityActionStatus::NoStructure:
+      ++k.stats.nary_csp_equality_no_structure; break;
+    case NaryCspEqualityActionStatus::NoConsequence:
+      ++k.stats.nary_csp_equality_no_consequence; break;
+    case NaryCspEqualityActionStatus::AlreadyPublished:
+      ++k.stats.nary_csp_equality_already_published; break;
+    default: break;
+    }
   }
   const auto &e = result.live;
   k.stats.nary_csp_equality_source_clauses += e.source_clauses;

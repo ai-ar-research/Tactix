@@ -4,6 +4,7 @@
 
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
+#include "strategy/action_status_statistics.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
@@ -95,34 +96,18 @@ struct RecordIndependentSetCover {
         result.published_clause_id != 0;
     if (result.candidate_staged)
       stats.independent_set_cover_candidate_variables += result.vertices;
-    switch (result.status) {
-    case IndependentSetLiveStatus::Applied:
-      ++stats.independent_set_cover_applied;
-      break;
-    case IndependentSetLiveStatus::NoStructure:
-      ++stats.independent_set_cover_no_structure;
-      break;
-    case IndependentSetLiveStatus::Duplicate:
-      ++stats.independent_set_cover_duplicate;
-      break;
-    case IndependentSetLiveStatus::Invalid:
-      ++stats.independent_set_cover_invalid;
-      break;
-    case IndependentSetLiveStatus::Inapplicable:
-      ++stats.independent_set_cover_inapplicable;
-      break;
-    case IndependentSetLiveStatus::ResourceExhausted:
-      ++stats.independent_set_cover_resource_exhausted;
-      break;
-    case IndependentSetLiveStatus::Interrupted:
-      ++stats.independent_set_cover_interrupted;
-      break;
-    case IndependentSetLiveStatus::UnsupportedProof:
-      ++stats.independent_set_cover_unsupported_proof;
-      break;
-    case IndependentSetLiveStatus::Stale:
-      ++stats.independent_set_cover_stale;
-      break;
+    if (!strategy::record_standard_action_status(
+            result.status, TACTIX_STANDARD_ACTION_STATUS_COUNTERS(
+                               stats, independent_set_cover))) {
+      switch (result.status) {
+      case IndependentSetLiveStatus::NoStructure:
+        ++stats.independent_set_cover_no_structure;
+        break;
+      case IndependentSetLiveStatus::Duplicate:
+        ++stats.independent_set_cover_duplicate;
+        break;
+      default: break;
+      }
     }
   }
 };

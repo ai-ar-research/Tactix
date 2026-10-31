@@ -3,6 +3,7 @@
 #include "rules/structural_action_guard.hpp"
 
 #include "proof/proof.hpp"
+#include "strategy/action_status_statistics.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <cstdlib>
@@ -145,34 +146,18 @@ struct RecordAffineConsequence {
             live.existing_theory_variables.size() +
             live.introduced_theory_variables.size();
     }
-    switch (result.status) {
-    case AffineConsequenceActionStatus::Applied:
-      ++stats.affine_consequence_applied;
-      break;
-    case AffineConsequenceActionStatus::NoStructure:
-      ++stats.affine_consequence_no_structure;
-      break;
-    case AffineConsequenceActionStatus::AlreadyPublished:
-      ++stats.affine_consequence_already_published;
-      break;
-    case AffineConsequenceActionStatus::Invalid:
-      ++stats.affine_consequence_invalid;
-      break;
-    case AffineConsequenceActionStatus::Inapplicable:
-      ++stats.affine_consequence_inapplicable;
-      break;
-    case AffineConsequenceActionStatus::ResourceExhausted:
-      ++stats.affine_consequence_resource_exhausted;
-      break;
-    case AffineConsequenceActionStatus::Interrupted:
-      ++stats.affine_consequence_interrupted;
-      break;
-    case AffineConsequenceActionStatus::UnsupportedProof:
-      ++stats.affine_consequence_unsupported_proof;
-      break;
-    case AffineConsequenceActionStatus::Stale:
-      ++stats.affine_consequence_stale;
-      break;
+    if (!strategy::record_standard_action_status(
+            result.status, TACTIX_STANDARD_ACTION_STATUS_COUNTERS(
+                               stats, affine_consequence))) {
+      switch (result.status) {
+      case AffineConsequenceActionStatus::NoStructure:
+        ++stats.affine_consequence_no_structure;
+        break;
+      case AffineConsequenceActionStatus::AlreadyPublished:
+        ++stats.affine_consequence_already_published;
+        break;
+      default: break;
+      }
     }
   }
 };

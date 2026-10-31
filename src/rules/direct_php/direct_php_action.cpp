@@ -1,6 +1,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "strategy/action_status_statistics.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -496,27 +497,23 @@ void record_direct_php_action_feedback(Kernel &kernel,
                                        const DirectPhpActionResult &result) {
   auto &s = kernel.stats;
   ++s.direct_php_attempts;
-  switch (result.status) {
-  case DirectPhpActionStatus::Invalid: ++s.direct_php_invalid; break;
-  case DirectPhpActionStatus::Inapplicable: ++s.direct_php_inapplicable; break;
-  case DirectPhpActionStatus::NotRecognized:
-    ++s.direct_php_not_recognized; break;
-  case DirectPhpActionStatus::Malformed: ++s.direct_php_malformed; break;
-  case DirectPhpActionStatus::Ambiguous: ++s.direct_php_ambiguous; break;
-  case DirectPhpActionStatus::ResourceExhausted:
-    ++s.direct_php_resource_exhausted; break;
-  case DirectPhpActionStatus::Interrupted: ++s.direct_php_interrupted; break;
-  case DirectPhpActionStatus::UnsupportedProof:
-    ++s.direct_php_unsupported_proof; break;
-  case DirectPhpActionStatus::UnsupportedProofSplit:
-    ++s.direct_php_unsupported_proof_split; break;
-  case DirectPhpActionStatus::Stale: ++s.direct_php_stale; break;
-  case DirectPhpActionStatus::AlreadyApplied:
-    ++s.direct_php_already_applied; break;
-  case DirectPhpActionStatus::ReplayMismatch:
-    ++s.direct_php_replay_mismatch; break;
-  case DirectPhpActionStatus::Prepared: ++s.direct_php_prepared; break;
-  case DirectPhpActionStatus::Applied: ++s.direct_php_applied; break;
+  if (!strategy::record_standard_action_status(
+          result.status,
+          TACTIX_STANDARD_ACTION_STATUS_COUNTERS(s, direct_php))) {
+    switch (result.status) {
+    case DirectPhpActionStatus::NotRecognized:
+      ++s.direct_php_not_recognized; break;
+    case DirectPhpActionStatus::Malformed: ++s.direct_php_malformed; break;
+    case DirectPhpActionStatus::Ambiguous: ++s.direct_php_ambiguous; break;
+    case DirectPhpActionStatus::UnsupportedProofSplit:
+      ++s.direct_php_unsupported_proof_split; break;
+    case DirectPhpActionStatus::AlreadyApplied:
+      ++s.direct_php_already_applied; break;
+    case DirectPhpActionStatus::ReplayMismatch:
+      ++s.direct_php_replay_mismatch; break;
+    case DirectPhpActionStatus::Prepared: ++s.direct_php_prepared; break;
+    default: break;
+    }
   }
   s.direct_php_snapshot_clauses += result.effort.snapshot_clauses;
   s.direct_php_snapshot_literals += result.effort.snapshot_literals;

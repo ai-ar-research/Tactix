@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 
+#include "strategy/action_status_statistics.hpp"
+
 #include "rules/structural_action_guard.hpp"
 
 #include <algorithm>
@@ -307,30 +309,26 @@ void record_gf3_general_row_action_feedback(
   s.gf3_general_row_identity_bytes += result.live.effort.identity_bytes;
   s.gf3_general_row_session_work += result.session_work;
   s.gf3_general_row_session_identity_bytes += result.session_identity_bytes;
+  const bool standard_status = strategy::record_standard_action_status(
+      result.status,
+      {s.gf3_general_row_applied, s.gf3_general_row_invalid,
+       s.gf3_general_row_inapplicable, s.gf3_general_row_exhausted,
+       s.gf3_general_row_interrupted, s.gf3_general_row_unsupported_proof,
+       s.gf3_general_row_stale});
   if (result.status == Gf3GeneralRowActionStatus::Applied) {
-    ++s.gf3_general_row_applied;
     s.gf3_general_row_installed_clauses +=
         result.live.installed_clause_id != 0;
     s.gf3_general_row_semantic_variables +=
         result.live.semantic_variables.size();
-  } else if (result.status == Gf3GeneralRowActionStatus::Invalid)
-    ++s.gf3_general_row_invalid;
-  else if (result.status == Gf3GeneralRowActionStatus::Inapplicable)
-    ++s.gf3_general_row_inapplicable;
-  else if (result.status == Gf3GeneralRowActionStatus::NoStructure)
+  } else if (!standard_status &&
+             result.status == Gf3GeneralRowActionStatus::NoStructure)
     ++s.gf3_general_row_no_structure;
-  else if (result.status == Gf3GeneralRowActionStatus::NoConsequence)
+  else if (!standard_status &&
+           result.status == Gf3GeneralRowActionStatus::NoConsequence)
     ++s.gf3_general_row_no_consequence;
-  else if (result.status == Gf3GeneralRowActionStatus::AlreadyPublished)
+  else if (!standard_status &&
+           result.status == Gf3GeneralRowActionStatus::AlreadyPublished)
     ++s.gf3_general_row_already_published;
-  else if (result.status == Gf3GeneralRowActionStatus::ResourceExhausted)
-    ++s.gf3_general_row_exhausted;
-  else if (result.status == Gf3GeneralRowActionStatus::Interrupted)
-    ++s.gf3_general_row_interrupted;
-  else if (result.status == Gf3GeneralRowActionStatus::Stale)
-    ++s.gf3_general_row_stale;
-  else if (result.status == Gf3GeneralRowActionStatus::UnsupportedProof)
-    ++s.gf3_general_row_unsupported_proof;
 }
 
 } // namespace tactix

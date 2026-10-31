@@ -3,6 +3,7 @@
 #include "rules/structural_action_guard.hpp"
 
 #include "proof/proof.hpp"
+#include "strategy/action_status_statistics.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -1256,35 +1257,26 @@ void record_tseitin_cycle_breaking_feedback(
   kernel.stats.tseitin_cycle_proof_witness_literals +=
       result.effort.proof_witness_literals;
   kernel.stats.tseitin_cycle_proof_routes += result.effort.proof_routes;
-  switch (result.status) {
-  case TseitinCycleBreakingStatus::Applied:
-    ++kernel.stats.tseitin_cycle_applied;
+  const bool standard_status = strategy::record_standard_action_status(
+      result.status,
+      {kernel.stats.tseitin_cycle_applied, kernel.stats.tseitin_cycle_invalid,
+       kernel.stats.tseitin_cycle_inapplicable,
+       kernel.stats.tseitin_cycle_exhausted,
+       kernel.stats.tseitin_cycle_interrupted,
+       kernel.stats.tseitin_cycle_unsupported_proof,
+       kernel.stats.tseitin_cycle_stale});
+  if (result.status == TseitinCycleBreakingStatus::Applied)
     ++kernel.stats.tseitin_cycle_units;
-    break;
-  case TseitinCycleBreakingStatus::Invalid:
-    ++kernel.stats.tseitin_cycle_invalid;
-    break;
-  case TseitinCycleBreakingStatus::Inapplicable:
-    ++kernel.stats.tseitin_cycle_inapplicable;
-    break;
-  case TseitinCycleBreakingStatus::NoStructure:
-    ++kernel.stats.tseitin_cycle_no_structure;
-    break;
-  case TseitinCycleBreakingStatus::ResourceExhausted:
-    ++kernel.stats.tseitin_cycle_exhausted;
-    break;
-  case TseitinCycleBreakingStatus::Interrupted:
-    ++kernel.stats.tseitin_cycle_interrupted;
-    break;
-  case TseitinCycleBreakingStatus::UnsupportedProof:
-    ++kernel.stats.tseitin_cycle_unsupported_proof;
-    break;
-  case TseitinCycleBreakingStatus::Stale:
-    ++kernel.stats.tseitin_cycle_stale;
-    break;
-  case TseitinCycleBreakingStatus::AlreadyApplied:
-    ++kernel.stats.tseitin_cycle_already_applied;
-    break;
+  if (!standard_status) {
+    switch (result.status) {
+    case TseitinCycleBreakingStatus::NoStructure:
+      ++kernel.stats.tseitin_cycle_no_structure;
+      break;
+    case TseitinCycleBreakingStatus::AlreadyApplied:
+      ++kernel.stats.tseitin_cycle_already_applied;
+      break;
+    default: break;
+    }
   }
 }
 
