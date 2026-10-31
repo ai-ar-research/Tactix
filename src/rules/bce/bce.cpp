@@ -24,35 +24,6 @@ struct BceChoice {
   Occ candidate;
 };
 
-bool root_open(const Kernel &k, Lit l) { return k.values[l] == 0; }
-
-// Irredundant, live, and entirely unassigned at the drained root. Requiring
-// every literal unassigned does double duty: it skips satisfied clauses, and it
-// guarantees the clause is no reason for a root assignment — a reason is unit,
-// so all but one of its literals are assigned, and deleting a live reason would
-// dangle the kernel's bookkeeping.
-bool candidate_clause(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->redundant())
-    return false;
-  for (const Lit l : *c)
-    if (!root_open(k, l))
-      return false;
-  return true;
-}
-
-// Root-satisfied clauses are the only ones the opposite side may skip: they
-// stay satisfied however the blocking literal is flipped. Everything else live
-// must be tested — redundant clauses and clauses carrying root-false literals
-// included.
-bool opposite_relevant(const Kernel &k, const Clause *c) {
-  if (c->garbage())
-    return false;
-  for (const Lit l : *c)
-    if (k.values[l] > 0)
-      return false; // root-satisfied
-  return true;
-}
-
 // `side == Cand` collects deletion candidates (irredundant, wholly unassigned);
 // `side == Opposite` collects the clauses the blockedness test must quantify
 // over. The distinction is load-bearing and was the fuzz-2204 wrong-SAT:
@@ -75,7 +46,7 @@ void build_index(const Kernel &k, BceIndex &idx) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (opposite_relevant(k, c))
+    if (root_clause_relevant(k, c))
       relevant.push_back(ref);
     ref += words;
   }
@@ -91,8 +62,10 @@ void collect_binaries(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) 
     const Lit o = w.other();
     // candidate: both literals must be unassigned. opposite: only a
     // root-SATISFIED binary may be skipped.
-    const bool take = side == Side::Cand ? (root_open(k, l) && root_open(k, o))
-                                         : (k.values[o] <= 0);
+    const bool take = side == Side::Cand
+                          ? (root_literal_open(k, l) &&
+                             root_literal_open(k, o))
+                          : (k.values[o] <= 0);
     if (take)
       out.push_back({INVALID_REF, o});
   }
@@ -105,7 +78,8 @@ void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
     const Clause *c = clause_at(k.arena, ref);
     // the index is built with the OPPOSITE predicate (the weaker one), so a
     // candidate still has to pass its own, stricter test
-    if (side == Side::Cand ? candidate_clause(k, c) : !c->garbage())
+    if (side == Side::Cand ? root_irredundant_clause_open(k, c)
+                           : !c->garbage())
       out.push_back({ref, 0});
   }
   collect_binaries(k, l, side, out);
@@ -118,7 +92,7 @@ void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
   out.clear();
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    if (candidate_clause(k, c))
+    if (root_irredundant_clause_open(k, c))
       for (const Lit blocking : *c)
         out.push_back({blocking, {ref, 0}});
     ref += clause_actual_words(c);
@@ -127,13 +101,13 @@ void semantic_choices(const Kernel &k, std::vector<BceChoice> &out) {
   std::vector<std::pair<Lit, Lit>> binaries;
   std::unordered_set<uint64_t> seen;
   for (Lit first = 0; first < 2 * k.nvars; ++first) {
-    if (!root_open(k, first))
+    if (!root_literal_open(k, first))
       continue;
     for (const WatchEntry watch : k.watches.entries(first)) {
       if (!watch.binary())
         continue;
       const Lit second = watch.other();
-      if (second <= first || !root_open(k, second))
+      if (second <= first || !root_literal_open(k, second))
         continue;
       if (seen.insert(kernel_binary_key(first, second)).second)
         binaries.emplace_back(first, second);
@@ -150,18 +124,18 @@ ApplyResult bce_try_choice_indexed(Kernel &k, const BceChoice &choice,
                                    const BceIndex &idx,
                                    std::vector<uint8_t> &marked) {
   const Lit blocking = choice.blocking;
-  if (!root_open(k, blocking))
+  if (!root_literal_open(k, blocking))
     return ApplyResult::NoOp;
 
   std::vector<Lit> lits;
   if (choice.candidate.ref == INVALID_REF) {
-    if (!root_open(k, choice.candidate.partner) ||
+    if (!root_literal_open(k, choice.candidate.partner) ||
         !kernel_binary_live(k, blocking, choice.candidate.partner))
       return ApplyResult::NoOp;
     lits = {blocking, choice.candidate.partner};
   } else {
     const Clause *candidate = clause_at(k.arena, choice.candidate.ref);
-    if (!candidate_clause(k, candidate) ||
+    if (!root_irredundant_clause_open(k, candidate) ||
         std::find(candidate->begin(), candidate->end(), blocking) ==
             candidate->end())
       return ApplyResult::NoOp;
@@ -230,7 +204,7 @@ RuleEligibility bce_guard(const Kernel &k) {
 void bce_literals(const Kernel &k, std::vector<Lit> &out) {
   out.clear();
   for (Lit l = 0; l < 2 * k.nvars; l++)
-    if (root_open(k, l))
+    if (root_literal_open(k, l))
       out.push_back(l);
 }
 
@@ -240,7 +214,7 @@ void bce_literals(const Kernel &k, std::vector<Lit> &out) {
 ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
                             std::vector<uint8_t> &marked,
                             bool apply_occurrence_limit) {
-  if (!root_open(k, blocking))
+  if (!root_literal_open(k, blocking))
     return ApplyResult::NoOp;
   // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a
   // literal in a dense neighbourhood is declined before any scan. Checked on
@@ -355,7 +329,7 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
 // N1 single-instance entry: one literal, so it pays for its own index. One
 // arena pass, not one per literal.
 ApplyResult bce_try(Kernel &k, Lit blocking) {
-  if (!root_open(k, blocking))
+  if (!root_literal_open(k, blocking))
     return ApplyResult::NoOp;
   BceIndex idx;
   build_index(k, idx);

@@ -14,36 +14,6 @@ namespace tactix {
 
 namespace {
 
-bool root_open(const Kernel &k, Lit l) { return k.values[l] == 0; }
-
-// Deletion candidates: irredundant, live, entirely unassigned at the drained
-// root. Requiring every literal unassigned does double duty (as in bce.cpp): it
-// skips satisfied clauses, and it guarantees the clause is no reason for a root
-// assignment — a reason is unit, so all but one of its literals are assigned,
-// and deleting a live reason would dangle the kernel's bookkeeping.
-bool candidate_clause(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->redundant())
-    return false;
-  for (const Lit l : *c)
-    if (!root_open(k, l))
-      return false;
-  return true;
-}
-
-// Root-satisfied clauses are the only ones the CLA / blockedness side may skip:
-// they stay satisfied however a witness literal is flipped, so they cannot
-// constrain the test. Everything else live must be seen — redundant clauses
-// included, and clauses carrying root-false literals included (see cce.hpp;
-// filtering this side is what produced X1's fuzz-2204 wrong-SAT).
-bool relevant(const Kernel &k, const Clause *c) {
-  if (c->garbage())
-    return false;
-  for (const Lit l : *c)
-    if (k.values[l] > 0)
-      return false;
-  return true;
-}
-
 // Round-local literal -> large-clause index over everything CCE must see.
 // `Kernel::dense` cannot serve: it carries irredundant clauses only, and the
 // CLA side must quantify over redundant ones too. One arena pass per round — a
@@ -71,9 +41,9 @@ void build_index(const Kernel &k, CceIndex &idx) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (relevant(k, c)) {
+    if (root_clause_relevant(k, c)) {
       relevant_clauses.push_back(ref);
-      if (candidate_clause(k, c))
+      if (root_irredundant_clause_open(k, c))
         idx.cands.push_back({ref, INVALID_LIT, INVALID_LIT});
     }
     ref += words;
@@ -81,13 +51,13 @@ void build_index(const Kernel &k, CceIndex &idx) {
   idx.occ.build(k, relevant_clauses);
   std::unordered_set<uint64_t> seen;
   for (Lit first = 0; first < 2 * k.nvars; ++first) {
-    if (!root_open(k, first))
+    if (!root_literal_open(k, first))
       continue;
     for (const WatchEntry watch : k.watches.entries(first)) {
       if (!watch.binary())
         continue;
       const Lit second = watch.other();
-      if (!root_open(k, second))
+      if (!root_literal_open(k, second))
         continue;
       const uint64_t key = kernel_binary_key(first, second);
       if (seen.insert(key).second)
@@ -467,10 +437,11 @@ bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
     // re-validate: an earlier elimination in this very round may have retired
     // it, and the index is built once
     if (candidate.binary()
-            ? (!root_open(k, candidate.first) ||
-               !root_open(k, candidate.second) ||
+            ? (!root_literal_open(k, candidate.first) ||
+               !root_literal_open(k, candidate.second) ||
                !kernel_binary_live(k, candidate.first, candidate.second))
-            : !candidate_clause(k, clause_at(k.arena, candidate.ref)))
+            : !root_irredundant_clause_open(
+                  k, clause_at(k.arena, candidate.ref)))
       continue;
     const bool changed = candidate.binary()
                              ? kernel_changed_since(k, var_of(candidate.first), wm) ||
@@ -496,14 +467,14 @@ RuleEligibility cce_guard(const Kernel &k) {
 void cce_literals(const Kernel &k, std::vector<Lit> &out) {
   out.clear();
   for (Lit l = 0; l < 2 * k.nvars; l++)
-    if (root_open(k, l))
+    if (root_literal_open(k, l))
       out.push_back(l);
 }
 
 // N1 single-instance entry: every candidate clause containing `l`. It pays for
 // its own index — one arena pass, not one per literal.
 ApplyResult cce_try(Kernel &k, Lit l) {
-  if (l >= 2 * k.nvars || !root_open(k, l))
+  if (l >= 2 * k.nvars || !root_literal_open(k, l))
     return ApplyResult::NoOp;
   CceIndex idx;
   build_index(k, idx);
