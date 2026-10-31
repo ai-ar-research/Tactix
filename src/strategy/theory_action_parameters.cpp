@@ -262,52 +262,38 @@ AffineConsequenceParameters
 AffineConsequenceParameters::from_kernel(const Kernel &k) {
   return k.affine_consequence_parameters;
 }
-ExactCoverExtensionParameters
-ExactCoverExtensionParameters::from_kernel(const Kernel &k) {
-  return k.exact_cover_extension_parameters;
-}
-IndependentSetCoverParameters
-IndependentSetCoverParameters::from_kernel(const Kernel &k) {
-  return k.independent_set_cover_parameters;
-}
-Gf3AffineConsequenceParameters
-Gf3AffineConsequenceParameters::from_kernel(const Kernel &k) {
-  return k.gf3_affine_consequence_parameters;
-}
-DirectCspSupportParameters
-DirectCspSupportParameters::from_kernel(const Kernel &k) {
-  return k.direct_csp_support_parameters;
-}
-NaryCspEqualityParameters
-NaryCspEqualityParameters::from_kernel(const Kernel &k) {
-  return k.nary_csp_equality_parameters;
-}
-NaryCspEqualityAmoParameters
-NaryCspEqualityAmoParameters::from_kernel(const Kernel &k) {
-  return k.nary_csp_equality_amo_parameters;
-}
-NaryCspEqualityTransitivityParameters NaryCspEqualityTransitivityParameters::from_kernel(const Kernel &k) { return k.nary_csp_equality_transitivity_parameters; }
 
-DirectPhpRefutationParameters
-DirectPhpRefutationParameters::from_kernel(const Kernel &k) {
-  return k.direct_php_refutation_parameters;
-}
-Gf3GaussianConsequenceParameters
-Gf3GaussianConsequenceParameters::from_kernel(const Kernel &k) {
-  return k.gf3_gaussian_consequence_parameters;
-}
-Gf3GeneralRowConsequenceParameters
-Gf3GeneralRowConsequenceParameters::from_kernel(const Kernel &k) {
-  return k.gf3_general_row_consequence_parameters;
-}
-TseitinCycleBreakingParameters
-TseitinCycleBreakingParameters::from_kernel(const Kernel &k) {
-  return k.tseitin_cycle_breaking_parameters;
-}
-SemanticVariableAdviceParameters
-SemanticVariableAdviceParameters::from_kernel(const Kernel &k) {
-  return k.semantic_variable_advice_parameters;
-}
+#define STORED_PARAMETERS(Type, member)                                       \
+  Type Type::from_kernel(const Kernel &kernel) { return kernel.member; }       \
+  void install_rule_parameters(Kernel &kernel, const Type &parameters) {      \
+    kernel.member = parameters;                                                \
+  }
+
+STORED_PARAMETERS(ExactCoverExtensionParameters,
+                  exact_cover_extension_parameters)
+STORED_PARAMETERS(IndependentSetCoverParameters,
+                  independent_set_cover_parameters)
+STORED_PARAMETERS(Gf3AffineConsequenceParameters,
+                  gf3_affine_consequence_parameters)
+STORED_PARAMETERS(DirectCspSupportParameters,
+                  direct_csp_support_parameters)
+STORED_PARAMETERS(NaryCspEqualityParameters, nary_csp_equality_parameters)
+STORED_PARAMETERS(NaryCspEqualityAmoParameters,
+                  nary_csp_equality_amo_parameters)
+STORED_PARAMETERS(NaryCspEqualityTransitivityParameters,
+                  nary_csp_equality_transitivity_parameters)
+STORED_PARAMETERS(DirectPhpRefutationParameters,
+                  direct_php_refutation_parameters)
+STORED_PARAMETERS(Gf3GaussianConsequenceParameters,
+                  gf3_gaussian_consequence_parameters)
+STORED_PARAMETERS(Gf3GeneralRowConsequenceParameters,
+                  gf3_general_row_consequence_parameters)
+STORED_PARAMETERS(TseitinCycleBreakingParameters,
+                  tseitin_cycle_breaking_parameters)
+STORED_PARAMETERS(SemanticVariableAdviceParameters,
+                  semantic_variable_advice_parameters)
+
+#undef STORED_PARAMETERS
 
 AffineMatrixInitializeParameters AffineMatrixInitializeParameters::from_kernel(const Kernel &k) {
   return k.affine_matrix_initialize_parameters;
@@ -321,51 +307,6 @@ void install_rule_parameters(Kernel &k,
                              const AffineConsequenceParameters &parameters) {
   k.affine_matrix_initialize_parameters_active = false;
   k.affine_consequence_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const ExactCoverExtensionParameters &parameters) {
-  k.exact_cover_extension_parameters = parameters;
-}
-void install_rule_parameters(Kernel &k,
-                             const IndependentSetCoverParameters &parameters) {
-  k.independent_set_cover_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const Gf3AffineConsequenceParameters &parameters) {
-  k.gf3_affine_consequence_parameters = parameters;
-}
-void install_rule_parameters(Kernel &k,
-                             const DirectCspSupportParameters &parameters) {
-  k.direct_csp_support_parameters = parameters;
-}
-void install_rule_parameters(Kernel &k,
-                             const NaryCspEqualityParameters &parameters) {
-  k.nary_csp_equality_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const NaryCspEqualityAmoParameters &parameters) {
-  k.nary_csp_equality_amo_parameters = parameters;
-}
-void install_rule_parameters(Kernel &k, const NaryCspEqualityTransitivityParameters &p) { k.nary_csp_equality_transitivity_parameters = p; }
-void install_rule_parameters(Kernel &k,
-                             const DirectPhpRefutationParameters &parameters) {
-  k.direct_php_refutation_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const Gf3GaussianConsequenceParameters &parameters) {
-  k.gf3_gaussian_consequence_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const Gf3GeneralRowConsequenceParameters &parameters) {
-  k.gf3_general_row_consequence_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const TseitinCycleBreakingParameters &parameters) {
-  k.tseitin_cycle_breaking_parameters = parameters;
-}
-void install_rule_parameters(
-    Kernel &k, const SemanticVariableAdviceParameters &parameters) {
-  k.semantic_variable_advice_parameters = parameters;
 }
 
 } // namespace tactix::strategy

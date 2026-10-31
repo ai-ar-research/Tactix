@@ -140,43 +140,27 @@ OnehotModelParameters OnehotModelParameters::from_kernel(const Kernel &k) {
           k.exact_one_refutation_maximum_arity,
           k.exact_one_refutation_maximum_proof_additions};
 }
-BalancedSignatureModelParameters
-BalancedSignatureModelParameters::from_kernel(const Kernel &k) {
-  return k.balanced_signature_model_parameters;
-}
-FermatModelParameters FermatModelParameters::from_kernel(const Kernel &k) {
-  return k.fermat_model_parameters;
-}
-LookupCircuitModelParameters
-LookupCircuitModelParameters::from_kernel(const Kernel &k) {
-  return k.lookup_circuit_model_parameters;
-}
-SimonModelParameters SimonModelParameters::from_kernel(const Kernel &k) {
-  return k.simon_model_parameters;
-}
-ExactCoverModelParameters
-ExactCoverModelParameters::from_kernel(const Kernel &k) {
-  return k.exact_cover_model_parameters;
-}
-GraphLabelingParameters GraphLabelingParameters::from_kernel(const Kernel &k) {
-  return k.graph_labeling_parameters;
-}
-void install_rule_parameters(Kernel &k, const GraphLabelingParameters &p) {
-  k.graph_labeling_parameters = p;
-}
+#define STORED_PARAMETERS(Type, member)                                       \
+  Type Type::from_kernel(const Kernel &kernel) { return kernel.member; }       \
+  void install_rule_parameters(Kernel &kernel, const Type &parameters) {      \
+    kernel.member = parameters;                                                \
+  }
 
-IndependentSetModelParameters
-IndependentSetModelParameters::from_kernel(const Kernel &k) {
-  return k.independent_set_model_parameters;
-}
-StconnProofParameters StconnProofParameters::from_kernel(const Kernel &k) {
-  return k.stconn_proof_parameters;
-}
+STORED_PARAMETERS(BalancedSignatureModelParameters,
+                  balanced_signature_model_parameters)
+STORED_PARAMETERS(FermatModelParameters, fermat_model_parameters)
+STORED_PARAMETERS(LookupCircuitModelParameters,
+                  lookup_circuit_model_parameters)
+STORED_PARAMETERS(SimonModelParameters, simon_model_parameters)
+STORED_PARAMETERS(ExactCoverModelParameters, exact_cover_model_parameters)
+STORED_PARAMETERS(GraphLabelingParameters, graph_labeling_parameters)
+STORED_PARAMETERS(IndependentSetModelParameters,
+                  independent_set_model_parameters)
+STORED_PARAMETERS(StconnProofParameters, stconn_proof_parameters)
+STORED_PARAMETERS(SignedCardinalityProofParameters,
+                  signed_cardinality_proof_parameters)
 
-SignedCardinalityProofParameters
-SignedCardinalityProofParameters::from_kernel(const Kernel &k) {
-  return k.signed_cardinality_proof_parameters;
-}
+#undef STORED_PARAMETERS
 
 std::vector<AffineSearchScope> AffineModelParameters::reference_scopes() {
   std::vector<AffineSearchScope> result;
@@ -360,34 +344,4 @@ void install_rule_parameters(Kernel &k, const OnehotModelParameters &p) {
   k.exact_one_refutation_maximum_proof_additions =
       p.refutation_maximum_proof_additions;
 }
-void install_rule_parameters(Kernel &k,
-                             const BalancedSignatureModelParameters &p) {
-  k.balanced_signature_model_parameters = p;
-}
-void install_rule_parameters(Kernel &k, const FermatModelParameters &p) {
-  k.fermat_model_parameters = p;
-}
-void install_rule_parameters(Kernel &k,
-                             const LookupCircuitModelParameters &p) {
-  k.lookup_circuit_model_parameters = p;
-}
-void install_rule_parameters(Kernel &k, const SimonModelParameters &p) {
-  k.simon_model_parameters = p;
-}
-void install_rule_parameters(Kernel &k, const ExactCoverModelParameters &p) {
-  k.exact_cover_model_parameters = p;
-}
-void install_rule_parameters(Kernel &k,
-                             const IndependentSetModelParameters &p) {
-  k.independent_set_model_parameters = p;
-}
-void install_rule_parameters(Kernel &k, const StconnProofParameters &p) {
-  k.stconn_proof_parameters = p;
-}
-
-void install_rule_parameters(Kernel &k,
-                             const SignedCardinalityProofParameters &p) {
-  k.signed_cardinality_proof_parameters = p;
-}
-
 } // namespace tactix::strategy
