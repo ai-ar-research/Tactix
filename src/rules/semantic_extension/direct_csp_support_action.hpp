@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <vector>
 
 namespace tactix {
@@ -148,6 +149,54 @@ struct DirectCspSupportActionResult {
   DirectCspSupportActionEffort effort;
   DirectCspSupportLiveResult live;
 };
+
+// Shared adapters for actions backed by the DirectCSP live publisher. Some
+// composed actions account owner recognition before publication, so live
+// recognition is accumulated while the other publisher counters replace
+// their corresponding action fields.
+inline DirectCspSupportActionStatus direct_csp_support_action_status(
+    DirectCspSupportLiveStatus status) {
+  switch (status) {
+  case DirectCspSupportLiveStatus::Applied:
+    return DirectCspSupportActionStatus::Applied;
+  case DirectCspSupportLiveStatus::Invalid:
+    return DirectCspSupportActionStatus::Invalid;
+  case DirectCspSupportLiveStatus::Inapplicable:
+    return DirectCspSupportActionStatus::Inapplicable;
+  case DirectCspSupportLiveStatus::NoStructure:
+    return DirectCspSupportActionStatus::NoStructure;
+  case DirectCspSupportLiveStatus::NoConsequence:
+    return DirectCspSupportActionStatus::NoConsequence;
+  case DirectCspSupportLiveStatus::Duplicate:
+    return DirectCspSupportActionStatus::AlreadyPublished;
+  case DirectCspSupportLiveStatus::ResourceExhausted:
+    return DirectCspSupportActionStatus::ResourceExhausted;
+  case DirectCspSupportLiveStatus::Interrupted:
+    return DirectCspSupportActionStatus::Interrupted;
+  case DirectCspSupportLiveStatus::UnsupportedProof:
+    return DirectCspSupportActionStatus::UnsupportedProof;
+  case DirectCspSupportLiveStatus::Stale:
+    return DirectCspSupportActionStatus::Stale;
+  }
+  std::abort();
+}
+
+inline void direct_csp_support_action_absorb_live_effort(
+    DirectCspSupportActionResult &output,
+    const DirectCspSupportLiveResult &live) {
+  output.effort.source_clauses = live.source_clauses;
+  output.effort.source_literals = live.source_literals;
+  output.effort.recognition_work += live.recognition_work;
+  output.effort.source_scan_work = live.source_scan_work;
+  output.effort.planning_work = live.planning_work;
+  output.effort.revalidation_work = live.revalidation_work;
+  output.effort.proof_work = live.proof_work;
+  output.effort.planned_additions = live.planned_additions;
+  output.effort.emitted_additions = live.emitted_additions;
+  output.effort.proof_literal_occurrences = live.proof_literal_occurrences;
+  output.effort.journal_work = live.journal_work;
+  output.effort.journal_bytes = live.journal_bytes;
+}
 
 // One caller-bounded deterministic page over exact ordered domain pairs and
 // their selected left rows.  The continuation key is the last syntactically

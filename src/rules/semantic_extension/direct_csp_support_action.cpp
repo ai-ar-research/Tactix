@@ -594,33 +594,6 @@ OwnerStatus prepare_new_owner(
   return OwnerStatus::Complete;
 }
 
-DirectCspSupportActionStatus action_status(
-    DirectCspSupportLiveStatus status) {
-  switch (status) {
-  case DirectCspSupportLiveStatus::Applied:
-    return DirectCspSupportActionStatus::Applied;
-  case DirectCspSupportLiveStatus::Invalid:
-    return DirectCspSupportActionStatus::Invalid;
-  case DirectCspSupportLiveStatus::Inapplicable:
-    return DirectCspSupportActionStatus::Inapplicable;
-  case DirectCspSupportLiveStatus::NoStructure:
-    return DirectCspSupportActionStatus::NoStructure;
-  case DirectCspSupportLiveStatus::NoConsequence:
-    return DirectCspSupportActionStatus::NoConsequence;
-  case DirectCspSupportLiveStatus::Duplicate:
-    return DirectCspSupportActionStatus::AlreadyPublished;
-  case DirectCspSupportLiveStatus::ResourceExhausted:
-    return DirectCspSupportActionStatus::ResourceExhausted;
-  case DirectCspSupportLiveStatus::Interrupted:
-    return DirectCspSupportActionStatus::Interrupted;
-  case DirectCspSupportLiveStatus::UnsupportedProof:
-    return DirectCspSupportActionStatus::UnsupportedProof;
-  case DirectCspSupportLiveStatus::Stale:
-    return DirectCspSupportActionStatus::Stale;
-  }
-  std::abort();
-}
-
 DirectCspSupportLiveRequest make_request(
     const Kernel &kernel, const DirectCspSupportActionLimits &limits,
     const DirectCspSupportActionSelection &selection, uint64_t action_id) {
@@ -655,24 +628,6 @@ void copy_capture_effort(DirectCspSupportActionResult &output,
   output.effort.source_clauses = capture.source_clauses;
   output.effort.source_literals = capture.source_literals;
   output.effort.owner_capture_work = capture.recognition_work;
-}
-
-void copy_live_effort(DirectCspSupportActionResult &output,
-                      const DirectCspSupportLiveResult &live) {
-  output.effort.source_clauses = live.source_clauses;
-  output.effort.source_literals = live.source_literals;
-  output.effort.recognition_work = live.recognition_work;
-  output.effort.source_scan_work = live.source_scan_work;
-  output.effort.planning_work = live.planning_work;
-  output.effort.revalidation_work = live.revalidation_work;
-  output.effort.proof_work = live.proof_work;
-  output.effort.planned_additions = live.planned_additions;
-  output.effort.emitted_additions = live.emitted_additions;
-  output.effort.proof_literal_occurrences =
-      live.proof_literal_occurrences;
-  output.effort.journal_work = live.journal_work;
-  output.effort.journal_bytes = live.journal_bytes;
-  output.effort.extent_growth = live.extent_growth;
 }
 
 uint32_t external_variable(int32_t literal) {
@@ -793,7 +748,7 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
         direct_csp_support_live_capture_owner(kernel, request, captured);
     copy_capture_effort(output, capture);
     if (capture.status != DirectCspSupportLiveStatus::Applied) {
-      output.status = action_status(capture.status);
+      output.status = direct_csp_support_action_status(capture.status);
       output.live.status = capture.status;
       return output;
     }
@@ -811,9 +766,10 @@ DirectCspSupportActionResult direct_csp_support_action_apply(
   }
 
   output.live = direct_csp_support_live_apply(kernel, request);
-  output.status = action_status(output.live.status);
+  output.status = direct_csp_support_action_status(output.live.status);
   output.result = output.live.result;
-  copy_live_effort(output, output.live);
+  direct_csp_support_action_absorb_live_effort(output, output.live);
+  output.effort.extent_growth = output.live.extent_growth;
   if (output.live.status != DirectCspSupportLiveStatus::Applied ||
       output.live.result == ApplyResult::NoOp)
     return output;

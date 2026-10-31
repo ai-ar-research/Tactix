@@ -45,33 +45,6 @@ namespace tactix {
 
     }
 
-    DirectCspSupportActionStatus status(DirectCspSupportLiveStatus s){
-      switch(s){
-
-        case DirectCspSupportLiveStatus::Applied:return DirectCspSupportActionStatus::Applied;
-
-        case DirectCspSupportLiveStatus::Invalid:return DirectCspSupportActionStatus::Invalid;
-
-        case DirectCspSupportLiveStatus::Inapplicable:return DirectCspSupportActionStatus::Inapplicable;
-
-        case DirectCspSupportLiveStatus::NoStructure:return DirectCspSupportActionStatus::NoStructure;
-
-        case DirectCspSupportLiveStatus::NoConsequence:return DirectCspSupportActionStatus::NoConsequence;
-
-        case DirectCspSupportLiveStatus::Duplicate:return DirectCspSupportActionStatus::AlreadyPublished;
-
-        case DirectCspSupportLiveStatus::ResourceExhausted:return DirectCspSupportActionStatus::ResourceExhausted;
-
-        case DirectCspSupportLiveStatus::Interrupted:return DirectCspSupportActionStatus::Interrupted;
-
-        case DirectCspSupportLiveStatus::UnsupportedProof:return DirectCspSupportActionStatus::UnsupportedProof;
-
-        case DirectCspSupportLiveStatus::Stale:return DirectCspSupportActionStatus::Stale;
-
-      }
-      std::abort();
-    }
-
     // Shared durable identity: preserve the exact established dgc2 spelling.
     bool build_key(const DirectCspGuardedCoverActionSelection &selection,
                    const direct_csp_guarded_cover::Expected &image,
@@ -131,27 +104,6 @@ namespace tactix {
           return false;
       }
       return true;
-    }
-
-    void copy_effort(DirectCspSupportActionResult&r){
-      const auto&v=r.live;
-      auto&e=r.effort;
-
-      e.source_clauses=v.source_clauses;
-      e.source_literals=v.source_literals;
-      e.recognition_work+=v.recognition_work;
-
-      e.source_scan_work=v.source_scan_work;
-      e.planning_work=v.planning_work;
-      e.revalidation_work=v.revalidation_work;
-
-      e.proof_work=v.proof_work;
-      e.planned_additions=v.planned_additions;
-      e.emitted_additions=v.emitted_additions;
-
-      e.proof_literal_occurrences=v.proof_literal_occurrences;
-      e.journal_work=v.journal_work;
-      e.journal_bytes=v.journal_bytes;
     }
 
   }
@@ -329,7 +281,7 @@ namespace tactix {
       out.live.status=retained&&capture.status==DirectCspSupportLiveStatus::NoStructure
                           ?DirectCspSupportLiveStatus::Stale:capture.status;
       out.live.recognition_limit_exhausted=capture.recognition_limit_exhausted;
-      out.status=status(out.live.status);
+      out.status=direct_csp_support_action_status(out.live.status);
       return out;
     }
     if(capture.recognition_work>=r.maximum_recognition_work){
@@ -379,8 +331,8 @@ namespace tactix {
 
     out.effort.session_work=work;
     out.live=direct_csp_guarded_cover_live_apply(k,r);
-    copy_effort(out);
-    out.status=status(out.live.status);
+    direct_csp_support_action_absorb_live_effort(out,out.live);
+    out.status=direct_csp_support_action_status(out.live.status);
     out.result=out.live.result;
 
     if(out.live.status!=DirectCspSupportLiveStatus::Applied){
