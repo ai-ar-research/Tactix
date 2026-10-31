@@ -1,4 +1,5 @@
 #include "policies/default_policy.hpp"
+#include "kernel/splitmix64.hpp"
 #include "policies/strategy_settings.hpp"
 #include "policies/progress.hpp"
 #include "strategy/action_execution.hpp"
@@ -2749,10 +2750,7 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
   if (arm == CandidateOrder::Random) {
     for (uint32_t i = n; i > 1; i--) {
       rng_ += increment_;
-      uint64_t z = rng_;
-      z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
-      z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
-      z ^= z >> 31;
+      const uint64_t z = splitmix64_scramble(rng_);
       std::swap(insts[i - 1], insts[z % i]);
     }
     return;

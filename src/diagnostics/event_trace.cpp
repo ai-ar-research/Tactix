@@ -3,6 +3,7 @@
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 
 #include "diagnostics/process_memory.hpp"
+#include "kernel/splitmix64.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
 
@@ -4946,13 +4947,6 @@ void event_trace_bve_heap(const Kernel &k, const char *stage, Var trigger,
                            size);
 }
 
-static uint64_t bve_schedule_member_hash(uint64_t value) {
-  value += 0x9e3779b97f4a7c15ull;
-  value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ull;
-  value = (value ^ (value >> 27)) * 0x94d049bb133111ebull;
-  return value ^ (value >> 31);
-}
-
 static std::string bve_schedule_payload(const Kernel &k, const Var *members,
                                         const double *scores, uint32_t size,
                                         uint32_t bound,
@@ -4963,7 +4957,7 @@ static std::string bve_schedule_payload(const Kernel &k, const Var *members,
   for (uint32_t i = 0; i < size; ++i) {
     const Var member = members[i];
     const uint64_t external = k.internal_to_external[member] + 1ull;
-    const uint64_t mixed = bve_schedule_member_hash(external);
+    const uint64_t mixed = splitmix64_hash(external);
     xor_hash ^= mixed;
     sum_hash += mixed;
     external_sum += external;
@@ -4972,7 +4966,7 @@ static std::string bve_schedule_payload(const Kernel &k, const Var *members,
     uint64_t bits;
     static_assert(sizeof bits == sizeof scores[member]);
     std::memcpy(&bits, scores + member, sizeof bits);
-    const uint64_t score_mixed = bve_schedule_member_hash(mixed ^ bits);
+    const uint64_t score_mixed = splitmix64_hash(mixed ^ bits);
     score_xor ^= score_mixed;
     score_sum += score_mixed;
   }

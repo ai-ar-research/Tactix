@@ -1,5 +1,6 @@
 #include "rules/lucky/independent_set_model.hpp"
 
+#include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 #include "strategy/configuration_checking_model.hpp"
@@ -267,17 +268,6 @@ bool recognize(Kernel &k, const strategy::IndependentSetModelParameters &p,
   }
   return true;
 }
-
-struct SplitMix64 {
-  uint64_t state;
-  uint64_t next() {
-    uint64_t z = (state += 0x9e3779b97f4a7c15ULL);
-    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
-    return z ^ (z >> 31);
-  }
-  uint64_t below(uint64_t n) { return next() % n; }
-};
 
 // Minimum-degree greedy (ties by vertex index), then a bounded local search:
 // a free vertex enters; a vertex with one selected neighbour replaces it

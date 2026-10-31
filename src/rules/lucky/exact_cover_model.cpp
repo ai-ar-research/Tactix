@@ -1,5 +1,6 @@
 #include "rules/lucky/exact_cover_model.hpp"
 
+#include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"
 #include "rules/lucky/root_guard.hpp"
 #include "strategy/rule_parameters.hpp"
@@ -144,18 +145,6 @@ bool recognize(Kernel &k, const strategy::ExactCoverModelParameters &p,
       return false;
   return true;
 }
-
-// The owner's SplitMix64.
-struct SplitMix64 {
-  uint64_t state;
-  uint64_t next() {
-    uint64_t z = (state += 0x9e3779b97f4a7c15ULL);
-    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
-    return z ^ (z >> 31);
-  }
-  uint64_t below(uint64_t n) { return next() % n; }
-};
 
 // ExactDfsSolver: minimum-remaining-rows column choice (random tie-break
 // when randomized), rows ordered by the sum of their columns' sizes and then

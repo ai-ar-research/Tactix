@@ -2,6 +2,7 @@
 // soundness argument and deviation ledger: sweep.hpp.
 #include "proof/proof.hpp"
 #include "diagnostics/rule_journal.hpp"
+#include "kernel/splitmix64.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -679,22 +680,15 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
 }
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-static uint64_t sweep_trace_mix(uint64_t x) {
-  x += 0x9e3779b97f4a7c15ull;
-  x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ull;
-  x = (x ^ (x >> 27)) * 0x94d049bb133111ebull;
-  return x ^ (x >> 31);
-}
-
 static uint64_t sweep_environment_hash(const Kernel &k, const SweepEnv &e) {
   uint64_t result = 0;
   for (uint32_t i = 0; i < e.nclauses(); i++) {
     const uint32_t begin = e.clause_off[i], end = e.clause_off[i + 1];
-    uint64_t clause = sweep_trace_mix(end - begin);
+    uint64_t clause = splitmix64_hash(end - begin);
     for (uint32_t j = begin; j < end; j++)
-      clause += sweep_trace_mix(static_cast<uint64_t>(
+      clause += splitmix64_hash(static_cast<uint64_t>(
           static_cast<int64_t>(kernel_externalize(k, e.clause_lits[j]))));
-    result += sweep_trace_mix(clause);
+    result += splitmix64_hash(clause);
   }
   return result;
 }
