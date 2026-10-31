@@ -642,87 +642,9 @@ static bool binary_antecedes(const Kernel &k, Lit x, Lit other) {
   return ax.jumped ? k.jumped_over[var_of(x)] == other : ax.reason == other;
 }
 
-bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
-  // (1) liveness probe (kernel_binary_copies, cap 2): an absent binary is a
-  // no-op, and a DUPLICATED pair cannot be deleted by name — see that
-  // predicate's contract in kernel.hpp for why either answer refuses.
-  if (kernel_binary_copies(k, a, b, 2) != 1)
-    return false; // absent (idempotent) or duplicated (unnameable)
-  // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
-  // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
-  // binary reasons; GC cannot do this — its reason-fix loop skips binaries).
-  for (const Lit x : {a, b}) {
-    Assigned &ax = k.assigned[var_of(x)];
-    const Lit other = (x == a) ? b : a;
-    if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
-      if (ax.level != 0)
-        return false;          // live non-root reason: refuse (never at a root)
-      kernel_materialize_dsr_root_unit(k, x);
-      ax.reason = UNIT_REASON;
-    }
-  }
-  // (3) remove the mirror watch entries by in-place compaction (write cursor),
-  // preserving large watches and the binary mirror-symmetry invariant.
-  for (const Lit x : {a, b}) {
-    const Lit other = (x == a) ? b : a;
-    bool removed = false;
-    k.watches.compact(x, [&](WatchEntry w) {
-      if (removed || !w.binary() || w.other() != other)
-        return true;
-      removed = true; // drop exactly this slot
-      return false;
-    });
-    assert(removed);
-    if (k.dense && k.dense->track_order) {
-      const auto ordered = k.dense->ordered[x];
-      const auto at = std::find_if(ordered.begin(), ordered.end(),
-                                   [other](const OccIndex::Entry &entry) {
-                                     return entry.binary &&
-                                            entry.payload == other;
-                                   });
-      assert(at != ordered.end());
-      k.dense->ordered.erase_at(x, static_cast<size_t>(at - ordered.begin()));
-    }
-  }
-  kernel_bve_occurrence_remove(k, a);
-  kernel_bve_occurrence_remove(k, b);
-  if (k.binary_liveness)
-    k.binary_liveness->remove(kernel_binary_key(a, b));
-  // (4) proof delete (chain-free; deletions do not consume an id).
-  if (k.proof) {
-    const Lit lits2[2] = {a, b};
-    k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
-  }
-  // (5) binary_ids keeps the KEY (the map stays size-monotone — the
-  // inprocessing trigger reads .size()), and keeps the now-retired id too: no
-  // live reason cites it (step 2 saw to that) and no caller looks up a pair
-  // that is not in the watch lists, so the stale value is unreachable until a
-  // re-add overwrites it (kernel_add_binary_clause: last id wins).
-  k.stats.binaries_deleted++;
-  // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
-  kernel_mark_bve_retry(k, var_of(a), "delete-binary");
-  kernel_mark_bve_retry(k, var_of(b), "delete-binary");
-  kernel_notify_bve_score(k, var_of(a), true);
-  kernel_notify_bve_score(k, var_of(b), true);
-  kernel_removed_var(k, var_of(a)); // BCE's side of the touched-epoch substrate
-  kernel_removed_var(k, var_of(b));
-  event_trace_binary_lifecycle(k, "delete", a, b,
-                               kernel_binary_id(k, a, b), 0);
-  const Lit clause[2] = {a, b};
-  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
-                               SolverClauseKind::Binary,
-                               kernel_binary_id(k, a, b), clause, 2);
-  return true;
-}
-
-bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
-  const uint32_t copies = kernel_binary_copies(k, a, b);
-  if (copies <= 1)
-    return copies && kernel_delete_binary(k, a, b);
-  // An identical clause remains, so every assignment reason and the pair's
-  // retained proof id remain valid. Remove one matching slot from each mirror
-  // list, preserving the relative order of every survivor as Kissat's source
-  // compaction does.
+// Remove exactly one physical copy from both mirror lists while preserving
+// every survivor's relative order, including the optional dense traversal.
+static void remove_one_binary_watch_pair(Kernel &k, Lit a, Lit b) {
   for (const Lit x : {a, b}) {
     const Lit other = x == a ? b : a;
     bool removed = false;
@@ -744,6 +666,76 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
       k.dense->ordered.erase_at(x, static_cast<size_t>(at - ordered.begin()));
     }
   }
+}
+
+static void record_binary_copy_deletion(Kernel &k, Lit a, Lit b,
+                                        const char *touch_reason,
+                                        const char *event,
+                                        uint32_t remaining_copies) {
+  ++k.stats.binaries_deleted;
+  kernel_mark_bve_retry(k, var_of(a), touch_reason);
+  kernel_mark_bve_retry(k, var_of(b), touch_reason);
+  kernel_notify_bve_score(k, var_of(a), true);
+  kernel_notify_bve_score(k, var_of(b), true);
+  kernel_removed_var(k, var_of(a));
+  kernel_removed_var(k, var_of(b));
+  const uint64_t id = kernel_binary_id(k, a, b);
+  event_trace_binary_lifecycle(k, event, a, b, id, remaining_copies);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary, id, clause, 2);
+}
+
+bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
+  // (1) liveness probe (kernel_binary_copies, cap 2): an absent binary is a
+  // no-op, and a DUPLICATED pair cannot be deleted by name — see that
+  // predicate's contract in kernel.hpp for why either answer refuses.
+  if (kernel_binary_copies(k, a, b, 2) != 1)
+    return false; // absent (idempotent) or duplicated (unnameable)
+  // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
+  // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
+  // binary reasons; GC cannot do this — its reason-fix loop skips binaries).
+  for (const Lit x : {a, b}) {
+    Assigned &ax = k.assigned[var_of(x)];
+    const Lit other = (x == a) ? b : a;
+    if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
+      if (ax.level != 0)
+        return false;          // live non-root reason: refuse (never at a root)
+      kernel_materialize_dsr_root_unit(k, x);
+      ax.reason = UNIT_REASON;
+    }
+  }
+  // (3) remove the mirror watch entries by in-place compaction (write cursor),
+  // preserving large watches and the binary mirror-symmetry invariant.
+  remove_one_binary_watch_pair(k, a, b);
+  kernel_bve_occurrence_remove(k, a);
+  kernel_bve_occurrence_remove(k, b);
+  if (k.binary_liveness)
+    k.binary_liveness->remove(kernel_binary_key(a, b));
+  // (4) proof delete (chain-free; deletions do not consume an id).
+  if (k.proof) {
+    const Lit lits2[2] = {a, b};
+    k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
+  }
+  // (5) binary_ids keeps the KEY (the map stays size-monotone — the
+  // inprocessing trigger reads .size()), and keeps the now-retired id too: no
+  // live reason cites it (step 2 saw to that) and no caller looks up a pair
+  // that is not in the watch lists, so the stale value is unreachable until a
+  // re-add overwrites it (kernel_add_binary_clause: last id wins).
+  // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
+  record_binary_copy_deletion(k, a, b, "delete-binary", "delete", 0);
+  return true;
+}
+
+bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
+  const uint32_t copies = kernel_binary_copies(k, a, b);
+  if (copies <= 1)
+    return copies && kernel_delete_binary(k, a, b);
+  // An identical clause remains, so every assignment reason and the pair's
+  // retained proof id remain valid. Remove one matching slot from each mirror
+  // list, preserving the relative order of every survivor as Kissat's source
+  // compaction does.
+  remove_one_binary_watch_pair(k, a, b);
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
   // DSR and streaming PBP must track every physical copy: a stale checker
@@ -756,19 +748,8 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
     const Lit clause[2] = {a, b};
     k.proof->del(k.next_clause_id, 0, clause, 2);
   }
-  k.stats.binaries_deleted++;
-  kernel_mark_bve_retry(k, var_of(a), "delete-binary-copy");
-  kernel_mark_bve_retry(k, var_of(b), "delete-binary-copy");
-  kernel_notify_bve_score(k, var_of(a), true);
-  kernel_notify_bve_score(k, var_of(b), true);
-  kernel_removed_var(k, var_of(a));
-  kernel_removed_var(k, var_of(b));
-  event_trace_binary_lifecycle(k, "delete-copy", a, b,
-                               kernel_binary_id(k, a, b), copies - 1);
-  const Lit clause[2] = {a, b};
-  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
-                               SolverClauseKind::Binary,
-                               kernel_binary_id(k, a, b), clause, 2);
+  record_binary_copy_deletion(k, a, b, "delete-binary-copy", "delete-copy",
+                              copies - 1);
   return true;
 }
 
