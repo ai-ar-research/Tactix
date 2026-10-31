@@ -2,6 +2,7 @@
 
 #include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 
 #include "kernel/types.hpp"
 
@@ -179,10 +180,7 @@ bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
                                  uint64_t maximum, std::string &journal) {
   journal.clear();
   const auto append = [&](const std::string &text) {
-    if (journal.size() > maximum || text.size() > maximum - journal.size())
-      return false;
-    journal += text;
-    return true;
+    return semantic_extension::append_bounded(journal, maximum, text);
   };
   const auto list = [&](const auto &values) {
     if (!append("[")) return false;
@@ -1114,10 +1112,11 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   }
   if (persistence.maximum_retained_bytes) {
     const auto append = [&](const std::string &part) {
-      return add(part.size(), parameters.maximum_session_work, result.premise_retention_work) &&
-          part.size() <= parameters.maximum_journal_bytes -
-                            std::min<uint64_t>(initialization_journal.size(), parameters.maximum_journal_bytes) &&
-          (initialization_journal += part, true);
+      return add(part.size(), parameters.maximum_session_work,
+                 result.premise_retention_work) &&
+             semantic_extension::append_bounded(
+                 initialization_journal, parameters.maximum_journal_bytes,
+                 part);
     };
     bool journal_fits = append("{\"kind\":\"affine-matrix-retained-sources\",\"owner\":" +
         std::to_string(owner_version) + ",\"maximum_retained_bytes\":" +

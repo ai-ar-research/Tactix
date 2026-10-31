@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/affine_matrix_live.hpp"
 
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "kernel/clause.hpp"
@@ -281,11 +282,8 @@ bool make_journal(const MatrixLiveRequest &request,
       journal_work = UINT64_MAX;
     else
       journal_work += text.size();
-    if (journal.size() > request.maximum_journal_bytes ||
-        text.size() > request.maximum_journal_bytes - journal.size())
-      return false;
-    journal += text;
-    return true;
+    return tactix::semantic_extension::append_bounded(
+        journal, request.maximum_journal_bytes, text);
   };
   const auto list = [&](const auto &values) {
     if (!append("[")) return false;

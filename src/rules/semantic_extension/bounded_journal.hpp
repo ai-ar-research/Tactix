@@ -7,6 +7,14 @@
 
 namespace tactix::semantic_extension {
 
+inline bool append_bounded(std::string &bytes, uint64_t maximum,
+                           const std::string &text) {
+  if (bytes.size() > maximum || text.size() > maximum - bytes.size())
+    return false;
+  bytes += text;
+  return true;
+}
+
 // Bounded stable-text construction shared by semantic publishers. Work is
 // charged before capacity admission because failed rendering attempts are
 // observable in publishers that report journal work.
@@ -27,10 +35,7 @@ struct BoundedJournal {
       }
       work += text.size();
     }
-    if (bytes.size() > maximum || text.size() > maximum - bytes.size())
-      return false;
-    bytes += text;
-    return true;
+    return append_bounded(bytes, maximum, text);
   }
 
   template <class Integer>

@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
@@ -43,6 +44,7 @@ namespace {
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
+using semantic_extension::append_bounded;
 
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
@@ -255,13 +257,6 @@ Status certificate_status(gf3_gaussian_certificate::Status status) {
   std::abort();
 }
 
-bool append(std::string &output, uint64_t maximum, const std::string &text) {
-  if (output.size() > maximum || text.size() > maximum - output.size())
-    return false;
-  output += text;
-  return true;
-}
-
 std::string integers(const std::vector<int32_t> &values) {
   std::string result;
   for (size_t index = 0; index < values.size(); ++index)
@@ -329,14 +324,14 @@ bool make_journal(const Request &request, Prepared &prepared) {
   const std::string identity =
       "\"action\":" + std::to_string(request.action_id) +
       ",\"semantic\":" + std::to_string(request.semantic_id);
-  if (!append(journal, request.maximum_journal_bytes,
+  if (!append_bounded(journal, request.maximum_journal_bytes,
               "{" + identity +
                   ",\"kind\":\"gf3-gaussian-begin\",\"proof\":\"rup\","
                   "\"publication\":\"unit-or-conflict-only\","
                   "\"selection\":\"" + request.selected_identity + "\"}\n"))
     return false;
   for (const auto &source : PreparedAccess::owner(prepared).sources)
-    if (!append(journal, request.maximum_journal_bytes,
+    if (!append_bounded(journal, request.maximum_journal_bytes,
                 "{" + identity +
                     ",\"kind\":\"gf3-gaussian-source\",\"occurrence\":" +
                     std::to_string(source.occurrence) +
@@ -345,7 +340,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                     ",\"clause\":[" + integers(source.clause) + "]}\n"))
       return false;
   for (const auto &authentication : prepared.bridge().authentication)
-    if (!append(
+    if (!append_bounded(
             journal, request.maximum_journal_bytes,
             "{" + identity +
                 ",\"kind\":\"gf3-gaussian-authentication\",\"source_id\":" +
@@ -369,7 +364,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                 gf3_gaussian_certificate::ConsequenceKind::Conflict
             ? "conflict"
             : "unit-equation";
-    if (!append(journal, request.maximum_journal_bytes,
+    if (!append_bounded(journal, request.maximum_journal_bytes,
                 "{" + identity +
                     ",\"kind\":\"gf3-gaussian-consequence\",\"index\":" +
                     std::to_string(index) + ",\"outcome\":\"" + kind +
@@ -389,7 +384,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
         : event.role == gf3_gaussian_certificate::EventRole::Consequence
             ? "consequence"
             : "conflict";
-    if (!append(journal, request.maximum_journal_bytes,
+    if (!append_bounded(journal, request.maximum_journal_bytes,
                 "{" + identity +
                     ",\"kind\":\"gf3-gaussian-rup\",\"event\":" +
                     std::to_string(index) + ",\"clause_id\":" +
@@ -401,7 +396,7 @@ bool make_journal(const Request &request, Prepared &prepared) {
                     ",\"clause\":[" + integers(event.clause) + "]}\n"))
       return false;
   }
-  if (!append(journal, request.maximum_journal_bytes,
+  if (!append_bounded(journal, request.maximum_journal_bytes,
               "{" + identity +
                   ",\"kind\":\"gf3-gaussian-complete\",\"events\":" +
                   std::to_string(certificate.events.size()) +

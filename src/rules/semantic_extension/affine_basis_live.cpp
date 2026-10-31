@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/affine_basis_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -15,6 +16,7 @@ namespace {
 namespace affine = affine_semantic_extension;
 using Event = AffineBasisLiveTransaction::Event;
 using SmallClause = parity_certificate::SmallClause;
+using semantic_extension::append_bounded;
 
 bool state_applicable(const Kernel &kernel) {
   return !kernel.inconsistent && !kernel.level && !kernel.conflict_valid &&
@@ -447,14 +449,6 @@ WideProofStatus prepare_wide_proof(
   }
   output = std::move(plan);
   return WideProofStatus::Complete;
-}
-
-bool append_bounded(std::string &journal, uint64_t maximum,
-                    const std::string &text) {
-  if (journal.size() > maximum || text.size() > maximum - journal.size())
-    return false;
-  journal += text;
-  return true;
 }
 
 std::string integers(const std::vector<int32_t> &values) {

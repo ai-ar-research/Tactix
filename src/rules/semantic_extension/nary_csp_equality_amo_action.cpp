@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/csp_domain_identity.hpp"
 
 #include "proof/proof.hpp"
@@ -14,6 +15,8 @@
 #include <utility>
 
 namespace tactix {
+
+using semantic_extension::append_bounded;
 
 struct NaryCspEqualityAmoSessionAccess {
   static void commit(NaryCspEqualityAmoSession &session, const Kernel &kernel,
@@ -91,14 +94,6 @@ NaryCspRelationCaptureRequest capture_request(
   request.maximum_forbidden_tuples = limits.maximum_forbidden_tuples;
   request.maximum_external_extent = limits.maximum_external_extent;
   return request;
-}
-
-bool append_bounded(std::string &journal, uint64_t limit,
-                    const std::string &text) {
-  if (text.size() > limit - std::min<uint64_t>(limit, journal.size()))
-    return false;
-  journal += text;
-  return true;
 }
 
 std::string domains_json(

@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_general_row_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -19,6 +20,7 @@ using Meter = InterruptibleWork;
 using gf3_live_common::append_u8;
 using gf3_live_common::append_u32;
 using gf3_live_common::append_u64;
+using semantic_extension::append_bounded;
 
 ClauseKey canonical(ClauseKey clause) {
   std::sort(clause.begin(), clause.end());
@@ -113,14 +115,6 @@ bool subsumed(const std::vector<ClauseKey> &live, const ClauseKey &candidate) {
                       clause.end()))
       return true;
   return false;
-}
-
-bool append_bounded(std::string &target, uint64_t maximum,
-                    const std::string &text) {
-  if (target.size() > maximum || text.size() > maximum - target.size())
-    return false;
-  target += text;
-  return true;
 }
 
 std::string literals(const std::vector<int32_t> &clause) {
