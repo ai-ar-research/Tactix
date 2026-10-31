@@ -679,11 +679,8 @@ static void record_binary_copy_deletion(Kernel &k, Lit a, Lit b,
   kernel_notify_bve_score(k, var_of(b), true);
   kernel_removed_var(k, var_of(a));
   kernel_removed_var(k, var_of(b));
-  const uint64_t id = kernel_binary_id(k, a, b);
-  event_trace_binary_lifecycle(k, event, a, b, id, remaining_copies);
-  const Lit clause[2] = {a, b};
-  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
-                               SolverClauseKind::Binary, id, clause, 2);
+  event_trace_binary_lifecycle(k, event, a, b, kernel_binary_id(k, a, b),
+                               remaining_copies);
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
@@ -724,6 +721,10 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // re-add overwrites it (kernel_add_binary_clause: last id wins).
   // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
   record_binary_copy_deletion(k, a, b, "delete-binary", "delete", 0);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary,
+                               kernel_binary_id(k, a, b), clause, 2);
   return true;
 }
 
@@ -750,6 +751,10 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   }
   record_binary_copy_deletion(k, a, b, "delete-binary-copy", "delete-copy",
                               copies - 1);
+  const Lit clause[2] = {a, b};
+  kernel_observe_solver_clause(k, SolverPopulationEventKind::Delete,
+                               SolverClauseKind::Binary,
+                               kernel_binary_id(k, a, b), clause, 2);
   return true;
 }
 
