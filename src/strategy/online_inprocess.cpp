@@ -129,122 +129,12 @@ bool valid_post_application(PostApplication value) {
   return false;
 }
 
-struct ParameterMetadata {
-  bool matches_rule = false;
-  const char *invalid_message = nullptr;
-};
-
-template <class Parameters>
-ParameterMetadata parameter_metadata(const Parameters &parameters,
-                                     const std::string &rule,
-                                     bool check_validity) {
-  using P = std::decay_t<Parameters>;
-#define CHECKED(TYPE, MATCH, MESSAGE)                                           \
-  else if constexpr (std::is_same_v<P, TYPE>)                                  \
-    return {MATCH, check_validity && !parameters.valid() ? MESSAGE : nullptr}
-#define UNCHECKED(TYPE, MATCH)                                                  \
-  else if constexpr (std::is_same_v<P, TYPE>) return {MATCH, nullptr}
-  if constexpr (std::is_same_v<P, std::monostate>) return {true, nullptr};
-  CHECKED(AnalyzeParameters, rule == "ConflictAnalysis",
-          "Analyze parameters are invalid");
-  CHECKED(BveParameters, rule == "BVE", "BVE parameters are invalid");
-  CHECKED(SubsumeForwardParameters, rule == "SubsumeForward",
-          "C1 parameters are invalid");
-  CHECKED(StrengthenParameters, rule == "Strengthen",
-          "C2 parameters are invalid");
-  CHECKED(ParityConsequenceParameters, rule == "ParityConsequence",
-          "ParityConsequence parameters are invalid");
-  CHECKED(AffineMatrixInitializeParameters, rule == "AffineMatrixInitialize",
-          "Persistent affine parameters are invalid");
-  CHECKED(AffineConsequenceParameters,
-          rule == "AffineConsequence" || rule == "AffineMatrixInitialize",
-          "AffineConsequence parameters are invalid");
-  CHECKED(ExactCoverExtensionParameters, rule == "ExactCoverExtension",
-          "ExactCoverExtension parameters are invalid");
-  CHECKED(IndependentSetCoverParameters, rule == "IndependentSetCover",
-          "IndependentSetCover parameters are invalid");
-  CHECKED(Gf3AffineConsequenceParameters, rule == "Gf3AffineConsequence",
-          "Gf3AffineConsequence parameters are invalid");
-  CHECKED(DirectCspGuardedCoverParameters, rule == "DirectCspSupport",
-          "GuardedCoverV2 parameters are invalid");
-  CHECKED(DirectCspSupportParameters, rule == "DirectCspSupport",
-          "DirectCspSupport parameters are invalid");
-  CHECKED(NaryCspEqualityParameters, rule == "NaryCspEquality",
-          "NaryCspEquality parameters are invalid");
-  UNCHECKED(NaryCspEqualityTransitivityParameters,
-            rule == "NaryCspEqualityTransitivity");
-  CHECKED(NaryCspEqualityAmoParameters, rule == "NaryCspEqualityAmo",
-          "NaryCspEqualityAmo parameters are invalid");
-  CHECKED(DirectPhpRefutationParameters, rule == "DirectPhpRefutation",
-          "DirectPhpRefutation parameters are invalid");
-  CHECKED(Gf3GaussianConsequenceParameters, rule == "Gf3GaussianConsequence",
-          "Gf3GaussianConsequence parameters are invalid");
-  CHECKED(Gf3GeneralRowConsequenceParameters,
-          rule == "Gf3GeneralRowConsequence",
-          "Gf3GeneralRowConsequence parameters are invalid");
-  UNCHECKED(CardinalitySearchActionLimits, rule == "CardinalitySearch");
-  CHECKED(TseitinCycleBreakingParameters, rule == "TseitinCycleBreaking",
-          "TseitinCycleBreaking parameters are invalid");
-  CHECKED(SemanticVariableAdviceParameters, rule == "SemanticVariableAdvice",
-          "SemanticVariableAdvice parameters are invalid");
-  CHECKED(CongruenceParameters, rule == "Congruence",
-          "Congruence parameters are invalid");
-  CHECKED(InstantiateParameters, rule == "Instantiate",
-          "Instantiate parameters are invalid");
-  CHECKED(BackboneParameters, rule == "Backbone",
-          "Backbone parameters are invalid");
-  CHECKED(SweepParameters, rule == "Sweep", "Sweep parameters are invalid");
-  CHECKED(VivifyParameters, rule == "Vivify",
-          "Vivify parameters are invalid");
-  CHECKED(BceParameters, rule == "BCE", "BCE parameters are invalid");
-  CHECKED(TernaryParameters, rule == "HyperTernaryRes",
-          "ternary parameters are invalid");
-  CHECKED(FactorParameters, rule == "Factor", "Factor parameters are invalid");
-  CHECKED(TransitiveReduceParameters, rule == "TransitiveReduce",
-          "transitive parameters are invalid");
-  CHECKED(SubstituteParameters, rule == "Substitute",
-          "Substitute parameters are invalid");
-  CHECKED(ReduceParameters, rule == "Reduce", "Reduce parameters are invalid");
-  CHECKED(WalkParameters, rule == "Walk", "Walk parameters are invalid");
-  CHECKED(ReorderParameters, rule == "Reorder",
-          "Reorder parameters are invalid");
-  CHECKED(ParityModelParameters, rule == "Lucky",
-          "Lucky parity-model parameters are invalid");
-  CHECKED(OnehotModelParameters, rule == "Lucky",
-          "Lucky onehot-model parameters are invalid");
-  CHECKED(BalancedSignatureModelParameters, rule == "Lucky",
-          "Lucky balanced-signature-model parameters are invalid");
-  CHECKED(FermatModelParameters, rule == "Lucky",
-          "Lucky fermat-model parameters are invalid");
-  CHECKED(LookupCircuitModelParameters, rule == "Lucky",
-          "Lucky lookup-circuit-model parameters are invalid");
-  CHECKED(SimonModelParameters, rule == "Lucky",
-          "Lucky simon-model parameters are invalid");
-  CHECKED(StconnProofParameters, rule == "Lucky",
-          "Lucky stconn-proof parameters are invalid");
-  CHECKED(SignedCardinalityProofParameters, rule == "Lucky",
-          "Lucky signed-cardinality-proof parameters are invalid");
-  CHECKED(ExactCoverModelParameters, rule == "Lucky",
-          "Lucky exact-cover-model parameters are invalid");
-  CHECKED(IndependentSetModelParameters, rule == "Lucky",
-          "Lucky independent-set-model parameters are invalid");
-  CHECKED(RamseyStartupParameters, rule == "Lucky",
-          "Lucky ramsey-startup parameters are invalid");
-  CHECKED(GraphLabelingParameters, rule == "Lucky",
-          "Lucky graph-labeling parameters are invalid");
-  CHECKED(AffineModelParameters, rule == "Lucky",
-          "Lucky affine-model parameters are invalid");
-  CHECKED(SubstitutionRedundancyParameters,
-          rule == "SubstitutionRedundancy", "SR parameters are invalid");
-#undef UNCHECKED
-#undef CHECKED
-}
-
-ParameterMetadata parameter_metadata(const OnlineInvocation &step,
-                                     bool check_validity = false) {
+ActionParameterMetadata parameter_metadata(const OnlineInvocation &step,
+                                           bool check_validity = false) {
   return std::visit(
       [&](const auto &parameters) {
-        return parameter_metadata(parameters, step.rule, check_validity);
+        return action_parameter_metadata(parameters, step.rule,
+                                         check_validity);
       },
       step.parameters);
 }
