@@ -1212,6 +1212,39 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
 
 std::string DefaultStrategyConfig::serialize() const {
   std::ostringstream out;
+  const auto serialize_lucky_parameters = [](const auto &parameters,
+                                              uint64_t instance) {
+    strategy::OnlineStrategyProgram program;
+    strategy::OnlineInvocation invocation;
+    invocation.id = 1;
+    invocation.rule = "Lucky";
+    invocation.parameters = parameters;
+    invocation.granularity = strategy::InvocationGranularity::OneInstance;
+    invocation.instances = {instance};
+    program.sequence.push_back(std::move(invocation));
+    return strategy::serialize_online_strategy_program(program);
+  };
+  const auto serialize_structured_root_stages =
+      [&out](const char *prefix, const auto &stages) {
+        for (size_t i = 0; i < stages.size(); ++i) {
+          const auto &stage = stages[i];
+          out << ' ' << prefix << i << "={"
+              << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
+              << strategy::serialize_online_strategy_program(stage.program)
+              << '}';
+          const auto append_ids = [&](const char *suffix, const auto &ids) {
+            if (ids.empty()) return;
+            out << ' ' << prefix << i << suffix << '=';
+            for (size_t j = 0; j < ids.size(); ++j)
+              out << (j ? "," : "") << ids[j];
+          };
+          append_ids(".progress_followups", stage.progress_followups);
+          append_ids(".before_progress", stage.before_progress);
+          out << ' ' << prefix << i
+              << ".structured_handoff_after_prior_progress="
+              << stage.structured_handoff_after_prior_progress;
+        }
+      };
   out << "strategy-v1"
       << " branching.random_initial_interval="
       << branching.random_initial_interval
@@ -1404,18 +1437,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_search.maximum_service_work=" << affine_search.maximum_service_work
       << " affine_search.maximum_retained_bytes=" << affine_search.maximum_retained_bytes
       << " affine_model.enabled=" << affine_model.enabled;
-  {
-    strategy::OnlineStrategyProgram affine;
-    strategy::OnlineInvocation invocation;
-    invocation.id = 1;
-    invocation.rule = "Lucky";
-    invocation.parameters = affine_model.parameters;
-    invocation.granularity = strategy::InvocationGranularity::OneInstance;
-    invocation.instances = {8};
-    affine.sequence.push_back(std::move(invocation));
-    out << " affine_model.parameters="
-        << strategy::serialize_online_strategy_program(affine);
-  }
+  out << " affine_model.parameters="
+      << serialize_lucky_parameters(affine_model.parameters, 8);
   out
       << " balanced_signature_model.enabled="
       << balanced_signature_model.enabled
@@ -1498,16 +1521,9 @@ std::string DefaultStrategyConfig::serialize() const {
       << independent_set_model.parameters.completion_rounds
       << " independent_set_model.seed=" << independent_set_model.parameters.seed;
   out << " ramsey_startup.enabled=" << ramsey_startup.enabled;
-  {
-    strategy::OnlineStrategyProgram program;
-    strategy::OnlineInvocation invocation;
-    invocation.id = 1; invocation.rule = "Lucky";
-    invocation.parameters = ramsey_startup.parameters;
-    invocation.granularity = strategy::InvocationGranularity::OneInstance;
-    invocation.instances = {LUCKY_STARTUP_RAMSEY};
-    program.sequence.push_back(std::move(invocation));
-    out << " ramsey_startup.parameters=" << strategy::serialize_online_strategy_program(program);
-  }
+  out << " ramsey_startup.parameters="
+      << serialize_lucky_parameters(ramsey_startup.parameters,
+                                    LUCKY_STARTUP_RAMSEY);
   out << " affine_root_closure.enabled=" << affine_root_closure.enabled
       << " affine_root_closure.maximum_clauses="
       << affine_root_closure.maximum_clauses
@@ -1528,18 +1544,9 @@ std::string DefaultStrategyConfig::serialize() const {
       << " affine_root_closure.maximum_session_work="
       << affine_root_closure.maximum_session_work;
   out << " graph_labeling_model.enabled=" << graph_labeling_model.enabled;
-  {
-    strategy::OnlineStrategyProgram graph;
-    strategy::OnlineInvocation invocation;
-    invocation.id = 1;
-    invocation.rule = "Lucky";
-    invocation.parameters = graph_labeling_model.parameters;
-    invocation.granularity = strategy::InvocationGranularity::OneInstance;
-    invocation.instances = {LUCKY_GRAPH_LABELING};
-    graph.sequence.push_back(std::move(invocation));
-    out << " graph_labeling_model.parameters="
-        << strategy::serialize_online_strategy_program(graph);
-  }
+  out << " graph_labeling_model.parameters="
+      << serialize_lucky_parameters(graph_labeling_model.parameters,
+                                    LUCKY_GRAPH_LABELING);
   out
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
@@ -1660,70 +1667,14 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.structured_root_large_domain_limit="
       << inprocess.structured_root_large_domain_limit
 ;
-  for (size_t i = 0; i < inprocess.structured_root_stages.size(); ++i) {
-    const auto &stage = inprocess.structured_root_stages[i];
-    out << " inprocess.structured_root_stage" << i << "={"
-        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-        << strategy::serialize_online_strategy_program(stage.program) << '}';
-    if (!stage.progress_followups.empty()) {
-      out << " inprocess.structured_root_stage" << i << ".progress_followups=";
-      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
-        out << (j ? "," : "") << stage.progress_followups[j];
-    }
-    if (!stage.before_progress.empty()) {
-      out << " inprocess.structured_root_stage" << i << ".before_progress=";
-      for (size_t j = 0; j < stage.before_progress.size(); ++j)
-        out << (j ? "," : "") << stage.before_progress[j];
-    }
-    out << " inprocess.structured_root_stage" << i
-        << ".structured_handoff_after_prior_progress="
-        << stage.structured_handoff_after_prior_progress;
-  }
-  for (size_t i = 0;
-       i < inprocess.structured_root_bounded_backtracking_stages.size(); ++i) {
-    const auto &stage =
-        inprocess.structured_root_bounded_backtracking_stages[i];
-    out << " inprocess.structured_root_bounded_backtracking_stage" << i << "={"
-        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-        << strategy::serialize_online_strategy_program(stage.program) << '}';
-    if (!stage.progress_followups.empty()) {
-      out << " inprocess.structured_root_bounded_backtracking_stage" << i
-          << ".progress_followups=";
-      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
-        out << (j ? "," : "") << stage.progress_followups[j];
-    }
-    if (!stage.before_progress.empty()) {
-      out << " inprocess.structured_root_bounded_backtracking_stage" << i
-          << ".before_progress=";
-      for (size_t j = 0; j < stage.before_progress.size(); ++j)
-        out << (j ? "," : "") << stage.before_progress[j];
-    }
-    out << " inprocess.structured_root_bounded_backtracking_stage" << i
-        << ".structured_handoff_after_prior_progress="
-        << stage.structured_handoff_after_prior_progress;
-  }
-  for (size_t i = 0; i < inprocess.structured_root_large_domain_stages.size();
-       ++i) {
-    const auto &stage = inprocess.structured_root_large_domain_stages[i];
-    out << " inprocess.structured_root_large_stage" << i << "={"
-        << static_cast<unsigned>(stage.on_budget_exhaustion) << ':'
-        << strategy::serialize_online_strategy_program(stage.program) << '}';
-    if (!stage.progress_followups.empty()) {
-      out << " inprocess.structured_root_large_stage" << i
-          << ".progress_followups=";
-      for (size_t j = 0; j < stage.progress_followups.size(); ++j)
-        out << (j ? "," : "") << stage.progress_followups[j];
-    }
-    if (!stage.before_progress.empty()) {
-      out << " inprocess.structured_root_large_stage" << i
-          << ".before_progress=";
-      for (size_t j = 0; j < stage.before_progress.size(); ++j)
-        out << (j ? "," : "") << stage.before_progress[j];
-    }
-    out << " inprocess.structured_root_large_stage" << i
-        << ".structured_handoff_after_prior_progress="
-        << stage.structured_handoff_after_prior_progress;
-  }
+  serialize_structured_root_stages("inprocess.structured_root_stage",
+                                   inprocess.structured_root_stages);
+  serialize_structured_root_stages(
+      "inprocess.structured_root_bounded_backtracking_stage",
+      inprocess.structured_root_bounded_backtracking_stages);
+  serialize_structured_root_stages(
+      "inprocess.structured_root_large_stage",
+      inprocess.structured_root_large_domain_stages);
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
   out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
