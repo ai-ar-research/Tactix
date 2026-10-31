@@ -534,6 +534,19 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
   });
 }
 
+template <LuckyOpportunity Opportunity>
+bool default_traced_lucky_terminal(
+    Kernel &k, EventTrace &trace, const char *candidate,
+    const char *begin_event, const char *end_event, ApplyResult terminal,
+    const char *terminal_name, PolicyCompletion *completion = nullptr) {
+  trace.macro(k, begin_event);
+  const ApplyResult result =
+      default_lucky_opportunity<Opportunity>(k, candidate, completion);
+  const bool reached_terminal = result == terminal;
+  trace.macro(k, end_event, reached_terminal ? terminal_name : "unknown");
+  return reached_terminal;
+}
+
 ApplyResult default_lucky(Kernel &k, const char *candidate,
                           PolicyCompletion *completion = nullptr) {
   return port::complete_action(completion, FeedbackKind::Rule, "Lucky",
@@ -4631,14 +4644,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return finish(20);
   if (config_.signed_cardinality_proof.enabled &&
       signed_cardinality_proof_guard(k)) {
-    event_trace.macro(k, "signed_cardinality_proof_begin");
-    const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::SignedCardinality>(
-        k, "signed-cardinality-proof", completion_);
-    if (counting == ApplyResult::Unsat) {
-      event_trace.macro(k, "signed_cardinality_proof_end", "unsat");
+    if (default_traced_lucky_terminal<
+            LuckyOpportunity::SignedCardinality>(
+            k, event_trace, "signed-cardinality-proof",
+            "signed_cardinality_proof_begin",
+            "signed_cardinality_proof_end", ApplyResult::Unsat, "unsat",
+            completion_))
       return finish(20);
-    }
-    event_trace.macro(k, "signed_cardinality_proof_end", "unknown");
   }
   // Signed at-most-one block exact cover (the sgen owner): exact recognition
   // on the live clause set, then bounded search and whole-formula model check.
@@ -4660,14 +4672,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(10);
   }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
-    event_trace.macro(k, "stconn_proof_begin");
-    const ApplyResult stconn = default_lucky_opportunity<LuckyOpportunity::Stconn>(
-        k, "stconn-proof", completion_);
-    if (stconn == ApplyResult::Unsat) {
-      event_trace.macro(k, "stconn_proof_end", "unsat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
+            k, event_trace, "stconn-proof", "stconn_proof_begin",
+            "stconn_proof_end", ApplyResult::Unsat, "unsat", completion_))
       return finish(20);
-    }
-    event_trace.macro(k, "stconn_proof_end", "unknown");
   }
   // The LymphoSAT Oddball owner constructs balanced ternary signatures at the
   // untouched imported root. A complete candidate is checked against the
@@ -4675,83 +4683,53 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // publishes only its partial assignment as later Walk/CDCL guidance.
   if (config_.balanced_signature_model.enabled &&
       balanced_signature_model_guard(k)) {
-    event_trace.macro(k, "balanced_signature_model_begin");
-    const ApplyResult balanced =
-        default_lucky_opportunity<LuckyOpportunity::BalancedSignature>(
-            k, "balanced-signature-model", completion_);
-    if (balanced == ApplyResult::Sat) {
-      event_trace.macro(k, "balanced_signature_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
+            k, event_trace, "balanced-signature-model",
+            "balanced_signature_model_begin", "balanced_signature_model_end",
+            ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "balanced_signature_model_end", "unknown");
   }
   // SAT-only LymphoSAT owners retain their bounded theory-specific model
   // constructors. Every completed assignment is checked against the whole live
   // CNF before publication; exhaustion remains unknown.
   if (config_.fermat_model.enabled && fermat_model_guard(k)) {
-    event_trace.macro(k, "fermat_model_begin");
-    const ApplyResult result = default_lucky_opportunity<LuckyOpportunity::Fermat>(
-        k, "fermat-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "fermat_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
+            k, event_trace, "fermat-model", "fermat_model_begin",
+            "fermat_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "fermat_model_end", "unknown");
   }
   if (config_.cerny_model.enabled && cerny_model_guard(k)) {
-    event_trace.macro(k, "cerny_model_begin");
-    const ApplyResult result = default_lucky_opportunity<LuckyOpportunity::Cerny>(
-        k, "cerny-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "cerny_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
+            k, event_trace, "cerny-model", "cerny_model_begin",
+            "cerny_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "cerny_model_end", "unknown");
   }
   if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k)) {
-    event_trace.macro(k, "lookup_circuit_model_begin");
-    const ApplyResult result =
-        default_lucky_opportunity<LuckyOpportunity::LookupCircuit>(
-            k, "lookup-circuit-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "lookup_circuit_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
+            k, event_trace, "lookup-circuit-model",
+            "lookup_circuit_model_begin", "lookup_circuit_model_end",
+            ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "lookup_circuit_model_end", "unknown");
   }
   if (config_.simon_model.enabled && simon_model_guard(k)) {
-    event_trace.macro(k, "simon_model_begin");
-    const ApplyResult result = default_lucky_opportunity<LuckyOpportunity::Simon>(
-        k, "simon-model", completion_);
-    if (result == ApplyResult::Sat) {
-      event_trace.macro(k, "simon_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Simon>(
+            k, event_trace, "simon-model", "simon_model_begin",
+            "simon_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "simon_model_end", "unknown");
   }
   // The proof-only parity action keeps the constructor's exact recognizer and
   // certificate path without entering its private assignment search.
   if (parity_model_guard(k)) {
-    event_trace.macro(k, "parity_proof_begin");
-    const ApplyResult parity =
-        default_lucky_opportunity<LuckyOpportunity::ParityProof>(
-            k, "parity-proof", completion_);
-    if (parity == ApplyResult::Unsat) {
-      event_trace.macro(k, "parity_proof_end", "unsat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
+            k, event_trace, "parity-proof", "parity_proof_begin",
+            "parity_proof_end", ApplyResult::Unsat, "unsat", completion_))
       return finish(20);
-    }
-    event_trace.macro(k, "parity_proof_end", "unknown");
   }
   if (config_.parity_model.enabled && parity_model_guard(k)) {
-    event_trace.macro(k, "parity_model_begin");
-    const ApplyResult parity =
-        default_lucky_opportunity<LuckyOpportunity::Parity>(
-            k, "parity-model", completion_);
-    if (parity == ApplyResult::Sat) {
-      event_trace.macro(k, "parity_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Parity>(
+            k, event_trace, "parity-model", "parity_model_begin",
+            "parity_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "parity_model_end", "unknown");
   }
   // The exact-one proof compares a complete live incidence system with the
   // parser's stable binary order. Run it while both still describe the same
@@ -4852,15 +4830,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    event_trace.macro(k, "direct_csp_model_begin");
-    const ApplyResult direct_csp =
-        default_lucky_opportunity<LuckyOpportunity::DirectCsp>(
-            k, "direct-csp-model", completion_);
-    if (direct_csp == ApplyResult::Sat) {
-      event_trace.macro(k, "direct_csp_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
+            k, event_trace, "direct-csp-model", "direct_csp_model_begin",
+            "direct_csp_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "direct_csp_model_end", "unknown");
   }
   if (k.input_binary_order_captured)
     (void)port::complete_action(completion_, FeedbackKind::Support,
@@ -4887,15 +4860,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "lucky_early_end", "unknown");
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
-    event_trace.macro(k, "onehot_model_begin");
-    const ApplyResult onehot =
-        default_lucky_opportunity<LuckyOpportunity::Onehot>(
-            k, "onehot-model", completion_);
-    if (onehot == ApplyResult::Sat) {
-      event_trace.macro(k, "onehot_model_end", "sat");
+    if (default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
+            k, event_trace, "onehot-model", "onehot_model_begin",
+            "onehot_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
-    }
-    event_trace.macro(k, "onehot_model_end", "unknown");
   }
   // The shipped frontend postpones state that neither root propagation nor
   // early Lucky can read. A failed opportunity crosses the first consumer
