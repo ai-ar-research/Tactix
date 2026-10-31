@@ -50,6 +50,40 @@ bool retain_premise(const Theory &theory, const Reference &reference,
   return true;
 }
 
+template <class Theory, class Bridge, class Sources, class Proof,
+          class LimitKind>
+bool collect_authenticated_premises(const Theory &theory,
+                                    const Bridge &bridge,
+                                    const Sources &sources, Proof &proof,
+                                    LimitKind branch_domains_limit) {
+  std::set<uint64_t> occurrences;
+  std::set<uint32_t> domains;
+  for (const auto &source : sources) {
+    if (source.authentication_index >= bridge.authentication.size())
+      return false;
+    const auto &authentication =
+        bridge.authentication[source.authentication_index];
+    if (authentication.source_id != source.combination.source_id)
+      return false;
+    for (const auto &domain : authentication.domains) {
+      if (!retain_premise(theory, domain.at_least_one, occurrences, proof))
+        return false;
+      for (const auto &amo : domain.at_most_one)
+        if (!retain_premise(theory, amo, occurrences, proof)) return false;
+      domains.insert(domain.domain);
+    }
+    for (const auto &tuple : authentication.forbidden_tuples)
+      if (!retain_premise(theory, tuple.premise, occurrences, proof))
+        return false;
+  }
+  if (domains.size() > proof.limits.maximum_branch_domains) {
+    proof.meter.limit = branch_domains_limit;
+    return false;
+  }
+  proof.branch_domains.assign(domains.begin(), domains.end());
+  return true;
+}
+
 template <class Limits, class Charge, class Statistics, class LimitKind>
 class Meter {
   const Limits &limits_;

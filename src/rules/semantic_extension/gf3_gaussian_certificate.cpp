@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <climits>
 #include <map>
-#include <set>
 #include <utility>
 
 namespace tactix::gf3_gaussian_certificate {
@@ -104,36 +103,8 @@ struct LocalProof
 bool collect_premises(const gf3_affine::Theory &theory,
                       const gf3_gaussian_bridge::Plan &bridge,
                       const Consequence &consequence, LocalProof &proof) {
-  std::set<uint64_t> occurrences;
-  std::set<uint32_t> domains;
-  for (const AuthenticatedSource &source : consequence.sources) {
-    if (source.authentication_index >= bridge.authentication.size())
-      return false;
-    const gf3_gaussian_bridge::SourceAuthentication &authentication =
-        bridge.authentication[source.authentication_index];
-    if (authentication.source_id != source.combination.source_id)
-      return false;
-    for (const auto &domain : authentication.domains) {
-      if (!gf3_certificate_common::retain_premise(
-              theory, domain.at_least_one, occurrences, proof))
-        return false;
-      for (const auto &amo : domain.at_most_one)
-        if (!gf3_certificate_common::retain_premise(theory, amo, occurrences,
-                                                    proof))
-          return false;
-      domains.insert(domain.domain);
-    }
-    for (const auto &tuple : authentication.forbidden_tuples)
-      if (!gf3_certificate_common::retain_premise(
-              theory, tuple.premise, occurrences, proof))
-        return false;
-  }
-  if (domains.size() > proof.limits.maximum_branch_domains) {
-    proof.meter.limit = LimitKind::BranchDomains;
-    return false;
-  }
-  proof.branch_domains.assign(domains.begin(), domains.end());
-  return true;
+  return gf3_certificate_common::collect_authenticated_premises(
+      theory, bridge, consequence.sources, proof, LimitKind::BranchDomains);
 }
 
 bool build_consequence(const gf3_affine::Theory &theory,
