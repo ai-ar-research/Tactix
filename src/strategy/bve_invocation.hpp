@@ -3,6 +3,7 @@
 #include "rules/bve/bve.hpp"
 #include "strategy/bve_schedule.hpp"
 #include "strategy/rule_invocation.hpp"
+#include "strategy/scoped_rule_parameters.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -274,20 +275,7 @@ inline void install_rule_parameters(Kernel &k, const BveParameters &p) {
 
 namespace detail {
 
-class ScopedBveParameters {
-public:
-  ScopedBveParameters(Kernel &k, const BveParameters &p)
-      : k_(k), saved_(BveParameters::from_kernel(k)) {
-    install_rule_parameters(k_, p);
-  }
-  ScopedBveParameters(const ScopedBveParameters &) = delete;
-  ScopedBveParameters &operator=(const ScopedBveParameters &) = delete;
-  ~ScopedBveParameters() { install_rule_parameters(k_, saved_); }
-
-private:
-  Kernel &k_;
-  BveParameters saved_;
-};
+using ScopedBveParameters = ScopedRuleParameters<BveParameters>;
 
 inline InvocationStatus accounting_status(BudgetStatus status) {
   return status == BudgetStatus::Exhausted

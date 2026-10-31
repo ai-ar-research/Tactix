@@ -6,6 +6,11 @@
 #include <climits>
 
 #include "kernel/kernel.hpp"
+#include "strategy/congruence_parameters.hpp"
+#include "strategy/failed_literal_parameters.hpp"
+#include "strategy/forward_parameters.hpp"
+#include "strategy/instantiate_parameters.hpp"
+#include "strategy/parity_consequence_parameters.hpp"
 
 #include <utility>
 
@@ -159,6 +164,14 @@ STORED_PARAMETERS(IndependentSetModelParameters,
 STORED_PARAMETERS(StconnProofParameters, stconn_proof_parameters)
 STORED_PARAMETERS(SignedCardinalityProofParameters,
                   signed_cardinality_proof_parameters)
+STORED_PARAMETERS(AffineModelParameters, affine_model_parameters)
+STORED_PARAMETERS(RamseyStartupParameters, ramsey_startup_parameters)
+STORED_PARAMETERS(ParityConsequenceParameters, parity_consequence_parameters)
+STORED_PARAMETERS(InstantiateParameters, instantiate_parameters)
+STORED_PARAMETERS(BackboneParameters, backbone_parameters)
+STORED_PARAMETERS(CongruenceParameters, congruence_parameters)
+STORED_PARAMETERS(SubsumeForwardParameters, subsume_forward_parameters)
+STORED_PARAMETERS(StrengthenParameters, strengthen_parameters)
 
 #undef STORED_PARAMETERS
 
@@ -187,12 +200,6 @@ bool AffineModelParameters::valid() const {
   }
   std::sort(variables.begin(), variables.end());
   return std::adjacent_find(variables.begin(), variables.end()) == variables.end();
-}
-AffineModelParameters AffineModelParameters::from_kernel(const Kernel &k) {
-  return k.affine_model_parameters;
-}
-void install_rule_parameters(Kernel &k, const AffineModelParameters &p) {
-  k.affine_model_parameters = p;
 }
 
 void install_rule_parameters(Kernel &k, const BceParameters &p) {

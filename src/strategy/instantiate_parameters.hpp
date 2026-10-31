@@ -1,5 +1,7 @@
 #pragma once
 
+#include "strategy/scoped_rule_parameters.hpp"
+
 #include <cstdint>
 
 namespace tactix {
@@ -25,23 +27,13 @@ struct InstantiateParameters {
   bool include_redundant = false;
   uint32_t new_material_threshold = NEW_MATERIAL_DEFAULT;
 
+  static InstantiateParameters from_kernel(const Kernel &);
   constexpr bool valid() const { return true; }
 };
 
 void install_rule_parameters(Kernel &, const InstantiateParameters &);
 
-class ScopedInstantiateParameters {
-public:
-  ScopedInstantiateParameters(Kernel &, const InstantiateParameters &);
-  ScopedInstantiateParameters(const ScopedInstantiateParameters &) = delete;
-  ScopedInstantiateParameters &
-  operator=(const ScopedInstantiateParameters &) = delete;
-  ~ScopedInstantiateParameters();
-
-private:
-  Kernel &kernel_;
-  InstantiateParameters saved_;
-};
+using ScopedInstantiateParameters = ScopedRuleParameters<InstantiateParameters>;
 
 } // namespace strategy
 } // namespace tactix

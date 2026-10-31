@@ -30,14 +30,4 @@ void install_rule_parameters(Kernel &k, const AnalyzeParameters &p) {
   k.no_ext_reason_bump = !p.bump_extension_reasons;
 }
 
-ScopedAnalyzeParameters::ScopedAnalyzeParameters(
-    Kernel &kernel, const AnalyzeParameters &parameters)
-    : kernel_(kernel), saved_(AnalyzeParameters::from_kernel(kernel)) {
-  install_rule_parameters(kernel_, parameters);
-}
-
-ScopedAnalyzeParameters::~ScopedAnalyzeParameters() {
-  install_rule_parameters(kernel_, saved_);
-}
-
 } // namespace tactix::strategy

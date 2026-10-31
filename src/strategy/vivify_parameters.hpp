@@ -1,5 +1,7 @@
 #pragma once
 
+#include "strategy/scoped_rule_parameters.hpp"
+
 #include <cstdint>
 
 namespace tactix {
@@ -43,17 +45,7 @@ inline bool vivify_skip_global_order(uint64_t irredundant,
 
 void install_rule_parameters(Kernel &, const VivifyParameters &);
 
-class ScopedVivifyParameters {
-public:
-  ScopedVivifyParameters(Kernel &, const VivifyParameters &);
-  ScopedVivifyParameters(const ScopedVivifyParameters &) = delete;
-  ScopedVivifyParameters &operator=(const ScopedVivifyParameters &) = delete;
-  ~ScopedVivifyParameters();
-
-private:
-  Kernel &kernel_;
-  VivifyParameters saved_;
-};
+using ScopedVivifyParameters = ScopedRuleParameters<VivifyParameters>;
 
 } // namespace strategy
 } // namespace tactix
