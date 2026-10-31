@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -275,26 +276,11 @@ struct WideProofPlan {
 };
 
 WideProofStatus prepare_wide_proof(
-    Kernel &kernel, const affine::Image &image, const affine::BasisRow &row,
-    uint32_t starting_extent, uint32_t maximum_helpers,
-    uint32_t maximum_live_nodes, uint64_t maximum_work,
-    uint64_t &proof_work,
+    InterruptibleWork &work, const affine::Image &image,
+    const affine::BasisRow &row, uint32_t starting_extent,
+    uint32_t maximum_helpers, uint32_t maximum_live_nodes,
     PlanningSink &sink, WideProofPlan &output) {
-  proof_work = 0;
-  bool interrupted = false;
-  bool work_exhausted = false;
-  const auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      interrupted = true;
-      return false;
-    }
-    if (amount > maximum_work - proof_work) {
-      work_exhausted = true;
-      return false;
-    }
-    proof_work += amount;
-    return true;
-  };
+  const auto charge = [&](uint64_t amount) { return work.charge(amount); };
   if (row.kind != affine::BasisRowKind::Extended ||
       row.variables.size() < 2 || row.source_equations.empty())
     return WideProofStatus::Invalid;
@@ -342,13 +328,13 @@ WideProofStatus prepare_wide_proof(
   parity_certificate::Certificate<DensePlanningSink> certificate(
       mapped, static_cast<uint32_t>(variables.size()), UINT32_MAX, charge);
   if (!certificate.accumulate(equations))
-    return interrupted ? WideProofStatus::Interrupted
-         : work_exhausted || sink.exhausted ? WideProofStatus::Exhausted
+    return work.interrupted ? WideProofStatus::Interrupted
+         : work.exhausted || sink.exhausted ? WideProofStatus::Exhausted
          : sink.invalid ? WideProofStatus::Invalid
                                             : WideProofStatus::Unsupported;
   if (!charge(1))
-    return interrupted ? WideProofStatus::Interrupted
-                       : WideProofStatus::Exhausted;
+    return work.interrupted ? WideProofStatus::Interrupted
+                            : WideProofStatus::Exhausted;
   typename parity_certificate::Certificate<DensePlanningSink>::ActiveTree tree;
   if (!certificate.active_tree(tree)) return WideProofStatus::Invalid;
 
@@ -1061,28 +1047,17 @@ AffineBasisLiveResult prepare_affine_basis_live(
   result.snapshot_literals = transaction.snapshot_.literals;
 
   affine::Image image;
-  uint64_t recognition_work = 0;
-  bool recognition_interrupted = false;
-  bool recognition_exhausted = false;
-  const auto recognize_charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) {
-      recognition_interrupted = true;
-      return false;
-    }
-    if (amount > request.image.maximum_elimination_work - recognition_work) {
-      recognition_exhausted = true;
-      return false;
-    }
-    recognition_work += amount;
-    return true;
-  };
+  InterruptibleWork recognition_work{
+      kernel, request.image.maximum_elimination_work};
+  const auto recognize_charge =
+      [&](uint64_t amount) { return recognition_work.charge(amount); };
   const affine::Status recognized = affine::recognize(
       transaction.snapshot_.premises, request.image, recognize_charge, image);
-  result.recognition_work = recognition_work;
+  result.recognition_work = recognition_work.used;
   if (recognized != affine::Status::Complete) {
-    result.status = recognition_exhausted
+    result.status = recognition_work.exhausted
                         ? AffineBasisLiveStatus::ResourceExhausted
-                    : recognition_interrupted
+                    : recognition_work.interrupted
                         ? AffineBasisLiveStatus::Interrupted
                     : recognized == affine::Status::NoStructure
                         ? AffineBasisLiveStatus::NoStructure
@@ -1212,13 +1187,13 @@ AffineBasisLiveResult prepare_affine_basis_live(
       return result;
     }
     WideProofPlan wide;
-    uint64_t proof_work = 0;
+    InterruptibleWork proof_work{
+        kernel, request.basis.maximum_work - result.basis_work};
     const WideProofStatus prepared = prepare_wide_proof(
-        kernel, image, basis.rows.front(), transaction.starting_extent_,
-        static_cast<uint32_t>(allowed), request.basis.maximum_nodes,
-        request.basis.maximum_work - result.basis_work, proof_work, sink,
+        proof_work, image, basis.rows.front(), transaction.starting_extent_,
+        static_cast<uint32_t>(allowed), request.basis.maximum_nodes, sink,
         wide);
-    result.basis_work += proof_work;
+    result.basis_work += proof_work.used;
     if (prepared != WideProofStatus::Complete) {
       result.status = prepared == WideProofStatus::Exhausted
                           ? AffineBasisLiveStatus::ResourceExhausted
