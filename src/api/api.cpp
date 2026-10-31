@@ -1427,6 +1427,53 @@ bool online_program_v4(const tactix_online_program_v4 &source,
   return !validate || strategy::validate_online_strategy_program(target);
 }
 
+template <class Valid>
+bool copy_online_int32_values(const int *source, int count,
+                              std::vector<int32_t> &target, bool reserve,
+                              Valid valid) {
+  if (count < 0 || (count && !source)) return false;
+  if (reserve) target.reserve(static_cast<size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    const int64_t value = source[i];
+    if (value < INT32_MIN || value > INT32_MAX ||
+        !valid(static_cast<int32_t>(value)))
+      return false;
+    target.push_back(static_cast<int32_t>(value));
+  }
+  return true;
+}
+
+bool copy_online_int32_values(const int *source, int count,
+                              std::vector<int32_t> &target, bool reserve) {
+  return copy_online_int32_values(source, count, target, reserve,
+                                  [](int32_t) { return true; });
+}
+
+bool copy_online_nary_domains(
+    const tactix_online_nary_csp_domain *source, int count,
+    std::vector<std::vector<int32_t>> &target, bool reserve) {
+  if (count < 0 || (count && !source)) return false;
+  if (reserve) target.reserve(static_cast<size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    std::vector<int32_t> values;
+    if (!copy_online_int32_values(source[i].values, source[i].value_count,
+                                  values, reserve))
+      return false;
+    target.push_back(std::move(values));
+  }
+  return true;
+}
+
+bool copy_online_identity(const char *source, uint64_t maximum_bytes,
+                          std::string &target) {
+  const size_t maximum = static_cast<size_t>(std::min<uint64_t>(
+      maximum_bytes, std::numeric_limits<size_t>::max() - 1));
+  const size_t length = strnlen(source, maximum + 1);
+  if (length > maximum) return false;
+  target.assign(source, length);
+  return true;
+}
+
 bool online_program_v5(const tactix_online_program_v5 &source,
                        const Kernel &kernel,
                        strategy::OnlineInprocessProgram &target,
@@ -1460,19 +1507,12 @@ bool online_program_v5(const tactix_online_program_v5 &source,
           (input.right_value_count && !input.right_values))
         return false;
       DirectCspSupportActionSelection output;
-      output.left_values.reserve(static_cast<size_t>(input.left_value_count));
-      for (int k = 0; k < input.left_value_count; ++k) {
-        const int64_t literal = input.left_values[k];
-        if (literal < INT32_MIN || literal > INT32_MAX) return false;
-        output.left_values.push_back(static_cast<int32_t>(literal));
-      }
-      output.right_values.reserve(
-          static_cast<size_t>(input.right_value_count));
-      for (int k = 0; k < input.right_value_count; ++k) {
-        const int64_t literal = input.right_values[k];
-        if (literal < INT32_MIN || literal > INT32_MAX) return false;
-        output.right_values.push_back(static_cast<int32_t>(literal));
-      }
+      if (!copy_online_int32_values(input.left_values, input.left_value_count,
+                                    output.left_values, true) ||
+          !copy_online_int32_values(input.right_values,
+                                    input.right_value_count,
+                                    output.right_values, true))
+        return false;
       output.selected_left_value = input.selected_left_value;
       output_step.direct_csp_support_instances.push_back(std::move(output));
     }
@@ -1500,11 +1540,10 @@ bool online_program_v6(const tactix_online_program_v6 &source,
       const auto *p = std::get_if<strategy::Gf3GaussianConsequenceParameters>(
           &target.sequence[i].parameters);
       if (!p) return false;
-      const size_t maximum = static_cast<size_t>(std::min<uint64_t>(
-          p->maximum_identity_bytes, std::numeric_limits<size_t>::max() - 1));
-      const size_t length = strnlen(identity, maximum + 1);
-      if (length > maximum) return false;
-      output.emplace_back(identity, length);
+      std::string copied;
+      if (!copy_online_identity(identity, p->maximum_identity_bytes, copied))
+        return false;
+      output.push_back(std::move(copied));
     }
   }
   return !validate || strategy::validate_online_strategy_program(target);
@@ -1533,11 +1572,10 @@ bool online_program_v7(const tactix_online_program_v7 &source,
           std::get_if<strategy::TseitinCycleBreakingParameters>(
               &target.sequence[i].parameters);
       if (!p) return false;
-      const size_t maximum = static_cast<size_t>(std::min<uint64_t>(
-          p->maximum_identity_bytes, std::numeric_limits<size_t>::max() - 1));
-      const size_t length = strnlen(identity, maximum + 1);
-      if (length > maximum) return false;
-      output.emplace_back(identity, length);
+      std::string copied;
+      if (!copy_online_identity(identity, p->maximum_identity_bytes, copied))
+        return false;
+      output.push_back(std::move(copied));
     }
   }
   return !validate || strategy::validate_online_strategy_program(target);
@@ -1613,12 +1651,10 @@ bool online_program_v9(const tactix_online_program_v9 &source,
           input.kind);
       if (input.rhs != 0 && input.rhs != 1) return false;
       selection.rhs = input.rhs;
-      selection.variables.reserve(static_cast<size_t>(input.variable_count));
-      for (int j = 0; j < input.variable_count; ++j) {
-        const int64_t variable = input.variables[j];
-        if (variable <= 0 || variable > INT32_MAX) return false;
-        selection.variables.push_back(static_cast<int32_t>(variable));
-      }
+      if (!copy_online_int32_values(
+              input.variables, input.variable_count, selection.variables,
+              true, [](int32_t variable) { return variable > 0; }))
+        return false;
       selection.source_equation_ordinals.reserve(
           static_cast<size_t>(input.source_equation_ordinal_count));
       for (int j = 0; j < input.source_equation_ordinal_count; ++j) {
@@ -1646,13 +1682,10 @@ bool online_program_v9(const tactix_online_program_v9 &source,
           return false;
         AffineBasisEquationIdentity equation;
         equation.rhs = source.rhs;
-        equation.variables.reserve(
-            static_cast<size_t>(source.variable_count));
-        for (int j = 0; j < source.variable_count; ++j) {
-          const int64_t variable = source.variables[j];
-          if (variable <= 0 || variable > INT32_MAX) return false;
-          equation.variables.push_back(static_cast<int32_t>(variable));
-        }
+        if (!copy_online_int32_values(
+                source.variables, source.variable_count, equation.variables,
+                true, [](int32_t variable) { return variable > 0; }))
+          return false;
         source_clauses += static_cast<uint64_t>(source.premise_count);
         equation.premises.reserve(static_cast<size_t>(source.premise_count));
         for (int premise_index = 0; premise_index < source.premise_count;
@@ -1668,14 +1701,11 @@ bool online_program_v9(const tactix_online_program_v9 &source,
             return false;
           AffineBasisSourceIdentity premise;
           premise.native_clause_id = source_premise.native_clause_id;
-          premise.clause.reserve(
-              static_cast<size_t>(source_premise.clause_count));
-          for (int j = 0; j < source_premise.clause_count; ++j) {
-            const int64_t literal = source_premise.clause[j];
-            if (!literal || literal < INT32_MIN || literal > INT32_MAX)
-              return false;
-            premise.clause.push_back(static_cast<int32_t>(literal));
-          }
+          if (!copy_online_int32_values(
+                  source_premise.clause, source_premise.clause_count,
+                  premise.clause, true,
+                  [](int32_t literal) { return literal != 0; }))
+            return false;
           source_literals +=
               static_cast<uint64_t>(source_premise.clause_count);
           equation.premises.push_back(std::move(premise));
@@ -1709,25 +1739,10 @@ bool online_program_v10(const tactix_online_program_v10 &source,
         static_cast<size_t>(input_step.nary_csp_equality_instance_count));
     for (int j = 0; j < input_step.nary_csp_equality_instance_count; ++j) {
       const auto &input = input_step.nary_csp_equality_instances[j];
-      if (input.domain_count < 0 ||
-          (input.domain_count && !input.domains))
-        return false;
       NaryCspEqualityActionSelection selection;
-      selection.domains.reserve(static_cast<size_t>(input.domain_count));
-      for (int domain = 0; domain < input.domain_count; ++domain) {
-        const auto &source_domain = input.domains[domain];
-        if (source_domain.value_count < 0 ||
-            (source_domain.value_count && !source_domain.values))
-          return false;
-        std::vector<int32_t> values;
-        values.reserve(static_cast<size_t>(source_domain.value_count));
-        for (int value = 0; value < source_domain.value_count; ++value) {
-          const int64_t literal = source_domain.values[value];
-          if (literal < INT32_MIN || literal > INT32_MAX) return false;
-          values.push_back(static_cast<int32_t>(literal));
-        }
-        selection.domains.push_back(std::move(values));
-      }
+      if (!copy_online_nary_domains(input.domains, input.domain_count,
+                                    selection.domains, true))
+        return false;
       selection.coordinates = {input.left_domain, input.right_domain,
                                input.residual_domain};
       if (!nary_csp_equality_action_selection_valid(selection)) return false;
@@ -1760,14 +1775,11 @@ bool online_program_v11(const tactix_online_program_v11 &source,
           std::get_if<strategy::Gf3GeneralRowConsequenceParameters>(
               &target.sequence[i].parameters);
       if (!parameters) return false;
-      const size_t maximum = static_cast<size_t>(std::min<uint64_t>(
-          parameters->gaussian.maximum_identity_bytes,
-          std::numeric_limits<size_t>::max() - 1));
-      const size_t length = strnlen(input.identity, maximum + 1);
-      if (length > maximum) return false;
-      Gf3GeneralRowActionSelection selection{
-          input.outcome, input.tuple,
-          std::string(input.identity, length)};
+      Gf3GeneralRowActionSelection selection{input.outcome, input.tuple, {}};
+      if (!copy_online_identity(
+              input.identity, parameters->gaussian.maximum_identity_bytes,
+              selection.identity))
+        return false;
       if (!gf3_general_row_action_selection_valid(selection)) return false;
       output.push_back(std::move(selection));
     }
@@ -1791,23 +1803,10 @@ bool online_program_v12(const tactix_online_program_v12 &source,
     auto &output = target.sequence[i].nary_csp_equality_amo_instances;
     for (int j = 0; j < input_step.nary_csp_equality_amo_instance_count; ++j) {
       const auto &input = input_step.nary_csp_equality_amo_instances[j];
-      if (input.domain_count < 0 ||
-          (input.domain_count && !input.domains))
-        return false;
       NaryCspEqualityAmoSelection selection;
-      for (int domain = 0; domain < input.domain_count; ++domain) {
-        const auto &source_domain = input.domains[domain];
-        if (source_domain.value_count < 0 ||
-            (source_domain.value_count && !source_domain.values))
-          return false;
-        std::vector<int32_t> values;
-        for (int value = 0; value < source_domain.value_count; ++value) {
-          const int64_t literal = source_domain.values[value];
-          if (literal < INT32_MIN || literal > INT32_MAX) return false;
-          values.push_back(static_cast<int32_t>(literal));
-        }
-        selection.domains.push_back(std::move(values));
-      }
+      if (!copy_online_nary_domains(input.domains, input.domain_count,
+                                    selection.domains, false))
+        return false;
       if (!nary_csp_equality_amo_selection_valid(selection)) return false;
       output.push_back(std::move(selection));
     }
@@ -1958,12 +1957,12 @@ bool online_program_v15(const tactix_online_program_v15 &source,
        uint64_t(input.equality_transitivity_instance_count)>p.maximum_session_keys) return false;
     const auto copy_domain=[&](const tactix_online_nary_csp_domain &d, std::vector<int32_t> &out) {
       if(d.value_count<2 || uint64_t(d.value_count)>p.maximum_domain_values || !d.values) return false;
-      for(int j=0;j<d.value_count;++j) {
-        const int64_t value=d.values[j];
-        if(!value || value==INT32_MIN || uint64_t(value<0?-value:value)>=p.maximum_external_extent) return false;
-        out.push_back(int32_t(value));
-      }
-      return true;
+      return copy_online_int32_values(
+          d.values, d.value_count, out, false, [&](int32_t value) {
+            return value && value != INT32_MIN &&
+                   uint64_t(value < 0 ? -value : value) <
+                       p.maximum_external_extent;
+          });
     };
     for(int j=0;j<input.equality_transitivity_instance_count;++j) {
       const auto &input_instance=input.equality_transitivity_instances[j];
