@@ -510,7 +510,11 @@ constexpr uint64_t PBP_DERIVED_ORDINAL = uint64_t{1} << 63;
 
 void Proof::abandon_pbp_id_deletions() {
   pbp_id_deletions_enabled_ = false;
-  pbp_constraint_ids_.clear();
+  // Every tracker returns early once disabled, so the map never refills.  A
+  // repeated clear() would still zero the whole bucket array (sized by the
+  // input census) on every later by-specification deletion.
+  if (!pbp_constraint_ids_.empty())
+    pbp_constraint_ids_.clear();
 }
 
 void Proof::track_pbp_original_constraint(uint64_t id, uint32_t clause_size) {
