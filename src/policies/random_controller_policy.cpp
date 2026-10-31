@@ -1383,6 +1383,34 @@ bool RandomControllerSelector::choose(
   const auto tseitin_limits = [&] {
     return action_limits(config.parameters.tseitin_cycle_breaking_reference);
   };
+  const auto refresh_discovery = [](auto &discovery, bool relevant_change,
+                                    const std::string &profile,
+                                    const auto &snapshot) {
+    const bool profile_changed = discovery.profile != profile;
+    if (relevant_change ||
+        (profile_changed &&
+         (!discovery.reconfiguration_required || !discovery.pending))) {
+      discovery = {};
+      snapshot();
+    } else if (discovery.reconfiguration_required && profile_changed) {
+      snapshot();
+      discovery.reconfiguration_required = false;
+    }
+  };
+  const auto settle_paged_discovery = [](auto &discovery,
+                                         const auto &offered) {
+    const bool cursor_advanced =
+        offered.have_resume_after &&
+        (!discovery.have_after || !(offered.resume_after == discovery.after));
+    discovery.offers = offered.offers;
+    discovery.complete = offered.complete;
+    discovery.have_after = offered.have_resume_after;
+    if (offered.have_resume_after) discovery.after = offered.resume_after;
+    if ((offered.complete && offered.offers.empty()) ||
+        (offered.offers.empty() && !cursor_advanced))
+      discovery.terminal = true;
+    return !discovery.offers.empty();
+  };
   const auto discover_affine = [&]() -> bool {
     if (!config.affine_basis_action_producer.enabled ||
         has_static_offer("AffineConsequence") ||
@@ -1500,28 +1528,17 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.gf3_affine_action_session;
     const auto profile = gf3_profile();
     const auto state = state_version(k);
-    const bool owner_changed = gf3_discovery_.owner != &k ||
-                               gf3_discovery_.session != &session;
-    const bool profile_changed = gf3_discovery_.profile != profile;
     const bool state_or_session_changed =
-        owner_changed || !same_version(gf3_discovery_.state, state) ||
+        gf3_discovery_.owner != &k || gf3_discovery_.session != &session ||
+        !same_version(gf3_discovery_.state, state) ||
         gf3_discovery_.session_keys != session.committed_keys();
-    if (state_or_session_changed ||
-        (profile_changed &&
-         (!gf3_discovery_.reconfiguration_required ||
-          !gf3_discovery_.pending))) {
-      gf3_discovery_ = {};
+    refresh_discovery(gf3_discovery_, state_or_session_changed, profile, [&] {
       gf3_discovery_.owner = &k;
       gf3_discovery_.session = &session;
       gf3_discovery_.state = state;
       gf3_discovery_.session_keys = session.committed_keys();
       gf3_discovery_.profile = profile;
-    } else if (gf3_discovery_.reconfiguration_required && profile_changed) {
-      gf3_discovery_.state = state;
-      gf3_discovery_.session_keys = session.committed_keys();
-      gf3_discovery_.profile = profile;
-      gf3_discovery_.reconfiguration_required = false;
-    }
+    });
     if (gf3_discovery_.reconfiguration_required) return false;
     if (gf3_discovery_.pending || !gf3_discovery_.offers.empty())
       return true;
@@ -1559,20 +1576,7 @@ bool RandomControllerSelector::choose(
       gf3_discovery_.terminal = true;
       return false;
     }
-    const bool cursor_advanced =
-        offered.have_resume_after &&
-        (!gf3_discovery_.have_after ||
-         !(offered.resume_after == gf3_discovery_.after));
-    gf3_discovery_.offers = offered.offers;
-    gf3_discovery_.complete = offered.complete;
-    gf3_discovery_.have_after = offered.have_resume_after;
-    if (offered.have_resume_after)
-      gf3_discovery_.after = offered.resume_after;
-    if (offered.complete && offered.offers.empty())
-      gf3_discovery_.terminal = true;
-    else if (offered.offers.empty() && !cursor_advanced)
-      gf3_discovery_.terminal = true;
-    return !gf3_discovery_.offers.empty();
+    return settle_paged_discovery(gf3_discovery_, offered);
   };
 
   const auto discover_direct = [&]() -> bool {
@@ -1587,33 +1591,21 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.direct_csp_support_action_session;
     const auto profile = direct_profile();
     const auto state = state_version(k);
-    const bool owner_changed = direct_csp_discovery_.owner != &k ||
-                               direct_csp_discovery_.session != &session;
-    const bool profile_changed = direct_csp_discovery_.profile != profile;
     const bool state_or_session_changed =
-        owner_changed ||
+        direct_csp_discovery_.owner != &k ||
+        direct_csp_discovery_.session != &session ||
         !same_formula_version(direct_csp_discovery_.state, state) ||
         direct_csp_discovery_.session_keys != session.committed_keys() ||
         direct_csp_discovery_.retained_owners != session.retained_owners();
-    if (state_or_session_changed ||
-        (profile_changed &&
-         (!direct_csp_discovery_.reconfiguration_required ||
-          !direct_csp_discovery_.pending))) {
-      direct_csp_discovery_ = {};
+    refresh_discovery(direct_csp_discovery_, state_or_session_changed, profile,
+                      [&] {
       direct_csp_discovery_.owner = &k;
       direct_csp_discovery_.session = &session;
       direct_csp_discovery_.state = state;
       direct_csp_discovery_.session_keys = session.committed_keys();
       direct_csp_discovery_.retained_owners = session.retained_owners();
       direct_csp_discovery_.profile = profile;
-    } else if (direct_csp_discovery_.reconfiguration_required &&
-               profile_changed) {
-      direct_csp_discovery_.state = state;
-      direct_csp_discovery_.session_keys = session.committed_keys();
-      direct_csp_discovery_.retained_owners = session.retained_owners();
-      direct_csp_discovery_.profile = profile;
-      direct_csp_discovery_.reconfiguration_required = false;
-    }
+    });
     if (direct_csp_discovery_.reconfiguration_required) return false;
     if (direct_csp_discovery_.pending ||
         !direct_csp_discovery_.offers.empty())
@@ -1652,20 +1644,7 @@ bool RandomControllerSelector::choose(
       direct_csp_discovery_.terminal = true;
       return false;
     }
-    const bool cursor_advanced =
-        offered.have_resume_after &&
-        (!direct_csp_discovery_.have_after ||
-         !(offered.resume_after == direct_csp_discovery_.after));
-    direct_csp_discovery_.offers = offered.offers;
-    direct_csp_discovery_.complete = offered.complete;
-    direct_csp_discovery_.have_after = offered.have_resume_after;
-    if (offered.have_resume_after)
-      direct_csp_discovery_.after = offered.resume_after;
-    if (offered.complete && offered.offers.empty())
-      direct_csp_discovery_.terminal = true;
-    else if (offered.offers.empty() && !cursor_advanced)
-      direct_csp_discovery_.terminal = true;
-    return !direct_csp_discovery_.offers.empty();
+    return settle_paged_discovery(direct_csp_discovery_, offered);
   };
 
 
@@ -1686,18 +1665,13 @@ bool RandomControllerSelector::choose(
         nary_csp_equality_discovery_.owner != &k ||
         nary_csp_equality_discovery_.relation_session != &relations ||
         nary_csp_equality_discovery_.equality_session != &equality;
-    const bool profile_changed =
-        nary_csp_equality_discovery_.profile != profile;
     const bool relevant_change =
         owner_changed ||
         !same_version(nary_csp_equality_discovery_.state, state) ||
         nary_csp_equality_discovery_.relation_owners != relations.retained_owners() ||
         nary_csp_equality_discovery_.equality_keys != equality.keys().size();
-    if (relevant_change ||
-        (profile_changed &&
-         (!nary_csp_equality_discovery_.reconfiguration_required ||
-          !nary_csp_equality_discovery_.pending))) {
-      nary_csp_equality_discovery_ = {};
+    refresh_discovery(nary_csp_equality_discovery_, relevant_change, profile,
+                      [&] {
       nary_csp_equality_discovery_.owner = &k;
       nary_csp_equality_discovery_.relation_session = &relations;
       nary_csp_equality_discovery_.equality_session = &equality;
@@ -1705,14 +1679,7 @@ bool RandomControllerSelector::choose(
       nary_csp_equality_discovery_.relation_owners = relations.retained_owners();
       nary_csp_equality_discovery_.equality_keys = equality.keys().size();
       nary_csp_equality_discovery_.profile = profile;
-    } else if (nary_csp_equality_discovery_.reconfiguration_required &&
-               profile_changed) {
-      nary_csp_equality_discovery_.state = state;
-      nary_csp_equality_discovery_.relation_owners = relations.retained_owners();
-      nary_csp_equality_discovery_.equality_keys = equality.keys().size();
-      nary_csp_equality_discovery_.profile = profile;
-      nary_csp_equality_discovery_.reconfiguration_required = false;
-    }
+    });
     if (nary_csp_equality_discovery_.reconfiguration_required) return false;
     if (nary_csp_equality_discovery_.pending ||
         !nary_csp_equality_discovery_.offers.empty())
@@ -1749,19 +1716,7 @@ bool RandomControllerSelector::choose(
       nary_csp_equality_discovery_.terminal = true;
       return false;
     }
-    const bool cursor_advanced =
-        offered.have_resume_after &&
-        (!nary_csp_equality_discovery_.have_after ||
-         !(offered.resume_after == nary_csp_equality_discovery_.after));
-    nary_csp_equality_discovery_.offers = offered.offers;
-    nary_csp_equality_discovery_.complete = offered.complete;
-    nary_csp_equality_discovery_.have_after = offered.have_resume_after;
-    if (offered.have_resume_after)
-      nary_csp_equality_discovery_.after = offered.resume_after;
-    if ((offered.complete && offered.offers.empty()) ||
-        (offered.offers.empty() && !cursor_advanced))
-      nary_csp_equality_discovery_.terminal = true;
-    return !nary_csp_equality_discovery_.offers.empty();
+    return settle_paged_discovery(nary_csp_equality_discovery_, offered);
   };
 
   const auto discover_nary_equality_amo = [&]() -> bool {
@@ -1829,19 +1784,7 @@ bool RandomControllerSelector::choose(
       nary_csp_equality_amo_discovery_.terminal = true;
       return false;
     }
-    const bool cursor_advanced =
-        offered.have_resume_after &&
-        (!nary_csp_equality_amo_discovery_.have_after ||
-         !(offered.resume_after == nary_csp_equality_amo_discovery_.after));
-    nary_csp_equality_amo_discovery_.offers = offered.offers;
-    nary_csp_equality_amo_discovery_.complete = offered.complete;
-    nary_csp_equality_amo_discovery_.have_after = offered.have_resume_after;
-    if (offered.have_resume_after)
-      nary_csp_equality_amo_discovery_.after = offered.resume_after;
-    if ((offered.complete && offered.offers.empty()) ||
-        (offered.offers.empty() && !cursor_advanced))
-      nary_csp_equality_amo_discovery_.terminal = true;
-    return !nary_csp_equality_amo_discovery_.offers.empty();
+    return settle_paged_discovery(nary_csp_equality_amo_discovery_, offered);
   };
 
   const auto discover_gaussian = [&]() -> bool {
@@ -1852,31 +1795,19 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.gf3_gaussian_action_session;
     const auto profile = gaussian_profile();
     const auto state = state_version(k);
-    const bool owner_changed = gf3_gaussian_discovery_.owner != &k ||
-                               gf3_gaussian_discovery_.session != &session;
-    const bool profile_changed =
-        gf3_gaussian_discovery_.profile != profile;
     const bool state_or_session_changed =
-        owner_changed ||
+        gf3_gaussian_discovery_.owner != &k ||
+        gf3_gaussian_discovery_.session != &session ||
         !same_version(gf3_gaussian_discovery_.state, state) ||
         gf3_gaussian_discovery_.session_keys != session.keys().size();
-    if (state_or_session_changed ||
-        (profile_changed &&
-         (!gf3_gaussian_discovery_.reconfiguration_required ||
-          !gf3_gaussian_discovery_.pending))) {
-      gf3_gaussian_discovery_ = {};
+    refresh_discovery(gf3_gaussian_discovery_, state_or_session_changed,
+                      profile, [&] {
       gf3_gaussian_discovery_.owner = &k;
       gf3_gaussian_discovery_.session = &session;
       gf3_gaussian_discovery_.state = state;
       gf3_gaussian_discovery_.session_keys = session.keys().size();
       gf3_gaussian_discovery_.profile = profile;
-    } else if (gf3_gaussian_discovery_.reconfiguration_required &&
-               profile_changed) {
-      gf3_gaussian_discovery_.state = state;
-      gf3_gaussian_discovery_.session_keys = session.keys().size();
-      gf3_gaussian_discovery_.profile = profile;
-      gf3_gaussian_discovery_.reconfiguration_required = false;
-    }
+    });
     if (gf3_gaussian_discovery_.reconfiguration_required) return false;
     if (gf3_gaussian_discovery_.pending || gf3_gaussian_discovery_.offer)
       return true;
@@ -1935,25 +1866,13 @@ bool RandomControllerSelector::choose(
                          !same_version(gf3_general_row_discovery_.state, state) ||
                          gf3_general_row_discovery_.session_keys !=
                              session.keys().size();
-    const bool profile_changed =
-        gf3_general_row_discovery_.profile != profile;
-    if (changed ||
-        (profile_changed &&
-         (!gf3_general_row_discovery_.reconfiguration_required ||
-          !gf3_general_row_discovery_.pending))) {
-      gf3_general_row_discovery_ = {};
+    refresh_discovery(gf3_general_row_discovery_, changed, profile, [&] {
       gf3_general_row_discovery_.owner = &k;
       gf3_general_row_discovery_.session = &session;
       gf3_general_row_discovery_.state = state;
       gf3_general_row_discovery_.session_keys = session.keys().size();
       gf3_general_row_discovery_.profile = profile;
-    } else if (gf3_general_row_discovery_.reconfiguration_required &&
-               profile_changed) {
-      gf3_general_row_discovery_.state = state;
-      gf3_general_row_discovery_.session_keys = session.keys().size();
-      gf3_general_row_discovery_.profile = profile;
-      gf3_general_row_discovery_.reconfiguration_required = false;
-    }
+    });
     if (gf3_general_row_discovery_.reconfiguration_required) return false;
     if (gf3_general_row_discovery_.pending ||
         !gf3_general_row_discovery_.offers.empty())
@@ -1997,18 +1916,7 @@ bool RandomControllerSelector::choose(
       gf3_general_row_discovery_.terminal = true;
       return false;
     }
-    const bool cursor_advanced = offered.have_resume_after &&
-        (!gf3_general_row_discovery_.have_after ||
-         !(offered.resume_after == gf3_general_row_discovery_.after));
-    gf3_general_row_discovery_.offers = offered.offers;
-    gf3_general_row_discovery_.complete = offered.complete;
-    gf3_general_row_discovery_.have_after = offered.have_resume_after;
-    if (offered.have_resume_after)
-      gf3_general_row_discovery_.after = offered.resume_after;
-    if ((offered.complete && offered.offers.empty()) ||
-        (offered.offers.empty() && !cursor_advanced))
-      gf3_general_row_discovery_.terminal = true;
-    return !gf3_general_row_discovery_.offers.empty();
+    return settle_paged_discovery(gf3_general_row_discovery_, offered);
   };
 
   const auto discover_tseitin = [&]() -> bool {
@@ -2019,31 +1927,19 @@ bool RandomControllerSelector::choose(
     const auto &session = *k.tseitin_cycle_breaking_session;
     const auto profile = tseitin_profile();
     const auto state = state_version(k);
-    const bool owner_changed = tseitin_cycle_discovery_.owner != &k ||
-                               tseitin_cycle_discovery_.session != &session;
-    const bool profile_changed =
-        tseitin_cycle_discovery_.profile != profile;
     const bool state_or_session_changed =
-        owner_changed ||
+        tseitin_cycle_discovery_.owner != &k ||
+        tseitin_cycle_discovery_.session != &session ||
         !same_version(tseitin_cycle_discovery_.state, state) ||
         tseitin_cycle_discovery_.session_keys != session.keys().size();
-    if (state_or_session_changed ||
-        (profile_changed &&
-         (!tseitin_cycle_discovery_.reconfiguration_required ||
-          !tseitin_cycle_discovery_.pending))) {
-      tseitin_cycle_discovery_ = {};
+    refresh_discovery(tseitin_cycle_discovery_, state_or_session_changed,
+                      profile, [&] {
       tseitin_cycle_discovery_.owner = &k;
       tseitin_cycle_discovery_.session = &session;
       tseitin_cycle_discovery_.state = state;
       tseitin_cycle_discovery_.session_keys = session.keys().size();
       tseitin_cycle_discovery_.profile = profile;
-    } else if (tseitin_cycle_discovery_.reconfiguration_required &&
-               profile_changed) {
-      tseitin_cycle_discovery_.state = state;
-      tseitin_cycle_discovery_.session_keys = session.keys().size();
-      tseitin_cycle_discovery_.profile = profile;
-      tseitin_cycle_discovery_.reconfiguration_required = false;
-    }
+    });
     if (tseitin_cycle_discovery_.reconfiguration_required) return false;
     if (tseitin_cycle_discovery_.pending ||
         !tseitin_cycle_discovery_.offers.empty())
