@@ -15,6 +15,32 @@ namespace tactix {
 using namespace strategy;
 using namespace strategy::controller;
 
+namespace {
+
+template <class Parameters>
+bool bind_native_profile(const ActionParameters &parameters, bool enabled,
+                         Parameters &reference) {
+  if (const auto *typed = std::get_if<Parameters>(&parameters);
+      enabled && typed) {
+    reference = *typed;
+    return true;
+  }
+  return false;
+}
+
+template <class Parameters>
+OnlineInvocation native_producer_profile(
+    const char *rule, const Parameters &parameters,
+    InvocationGranularity granularity = InvocationGranularity::OneInstance) {
+  OnlineInvocation profile;
+  profile.rule = rule;
+  profile.parameters = parameters;
+  profile.granularity = granularity;
+  return profile;
+}
+
+} // namespace
+
 bool RandomControllerConfig::configure_actions(const OnlineStrategyProgram &program,
                                                std::string *error) {
   const auto reject = [&](const char *message) {
@@ -103,57 +129,49 @@ bool RandomControllerConfig::configure_startup_prefix(
     if (const auto offered = replacement.offered_actions.find(step.rule);
         offered != replacement.offered_actions.end() && !offered->second.empty())
       return reject("controller startup native offer conflicts with a static action offer");
+    auto &profiles = replacement.parameters;
     if (step.rule == "AffineConsequence") {
-      const auto *parameters =
-          std::get_if<AffineConsequenceParameters>(&step.parameters);
       if (replacement.affine_basis_profile_configured)
         return reject("controller startup affine offer conflicts with the GF2 affine producer profile");
-      if (!replacement.affine_basis_action_producer.enabled || !parameters)
+      if (!bind_native_profile(
+              step.parameters, replacement.affine_basis_action_producer.enabled,
+              profiles.affine_consequence_reference))
         return reject("controller startup affine offer requires its native producer and typed profile");
-      replacement.parameters.affine_consequence_reference = *parameters;
     } else if (step.rule == "Gf3AffineConsequence") {
-      const auto *parameters =
-          std::get_if<Gf3AffineConsequenceParameters>(&step.parameters);
-      if (!replacement.gf3_action_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.gf3_action_producer.enabled,
+              profiles.gf3_affine_consequence_reference))
         return reject("controller startup GF3 offer requires its native producer and typed profile");
-      replacement.parameters.gf3_affine_consequence_reference = *parameters;
     } else if (step.rule == "DirectCspSupport") {
-      const auto *parameters =
-          std::get_if<DirectCspSupportParameters>(&step.parameters);
-      if (!replacement.direct_csp_action_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.direct_csp_action_producer.enabled,
+              profiles.direct_csp_support_reference))
         return reject("controller startup direct-CSP offer requires its native producer and typed profile");
-      replacement.parameters.direct_csp_support_reference = *parameters;
     } else if (step.rule == "NaryCspEquality") {
-      const auto *parameters =
-          std::get_if<NaryCspEqualityParameters>(&step.parameters);
-      if (!replacement.nary_csp_equality_action_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.nary_csp_equality_action_producer.enabled,
+              profiles.nary_csp_equality_reference))
         return reject("controller startup n-ary equality offer requires its native producer and typed profile");
-      replacement.parameters.nary_csp_equality_reference = *parameters;
     } else if (step.rule == "NaryCspEqualityAmo") {
-      const auto *parameters =
-          std::get_if<NaryCspEqualityAmoParameters>(&step.parameters);
-      if (!replacement.nary_csp_equality_amo_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.nary_csp_equality_amo_producer.enabled,
+              profiles.nary_csp_equality_amo_reference))
         return reject("controller startup n-ary equality AMO offer requires its native producer and typed profile");
-      replacement.parameters.nary_csp_equality_amo_reference = *parameters;
     } else if (step.rule == "Gf3GaussianConsequence") {
-      const auto *parameters =
-          std::get_if<Gf3GaussianConsequenceParameters>(&step.parameters);
-      if (!replacement.gf3_gaussian_action_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.gf3_gaussian_action_producer.enabled,
+              profiles.gf3_gaussian_consequence_reference))
         return reject("controller startup GF3 Gaussian offer requires its native producer and typed profile");
-      replacement.parameters.gf3_gaussian_consequence_reference = *parameters;
     } else if (step.rule == "Gf3GeneralRowConsequence") {
-      const auto *parameters =
-          std::get_if<Gf3GeneralRowConsequenceParameters>(&step.parameters);
-      if (!replacement.gf3_general_row_action_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.gf3_general_row_action_producer.enabled,
+              profiles.gf3_general_row_consequence_reference))
         return reject("controller startup GF3 general-row offer requires its native producer and typed profile");
-      replacement.parameters.gf3_general_row_consequence_reference =
-          *parameters;
     } else if (step.rule == "TseitinCycleBreaking") {
-      const auto *parameters =
-          std::get_if<TseitinCycleBreakingParameters>(&step.parameters);
-      if (!replacement.tseitin_cycle_action_producer.enabled || !parameters)
+      if (!bind_native_profile(step.parameters,
+              replacement.tseitin_cycle_action_producer.enabled,
+              profiles.tseitin_cycle_breaking_reference))
         return reject("controller startup Tseitin offer requires its native producer and typed profile");
-      replacement.parameters.tseitin_cycle_breaking_reference = *parameters;
     } else {
       return reject("controller startup action has no native producer");
     }
@@ -686,6 +704,7 @@ static ActionParameters reference_parameters(const Kernel &k,
 std::string controller_configuration(const RandomControllerConfig &config) {
   std::ostringstream out;
   out << std::setprecision(17);
+  const auto &native_parameters = config.parameters;
   const auto &r = config.search.restart;
   out << "search " << r.initial_interval << ' ' << r.glue_margin << ' '
       << r.fast_ema_window << ' ' << r.slow_ema_window << ' '
@@ -780,10 +799,9 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   // Disabled producers are deliberately absent so introducing the opt-in
   // mechanism cannot alter an existing controller fingerprint.
   if (config.affine_basis_action_producer.enabled) {
-    OnlineInvocation profile;
-    profile.rule = "AffineConsequence";
-    profile.parameters = config.parameters.affine_consequence_reference;
-    profile.granularity = InvocationGranularity::CanonicalApplication;
+    auto profile = native_producer_profile(
+        "AffineConsequence", native_parameters.affine_consequence_reference,
+        InvocationGranularity::CanonicalApplication);
     out << " producer " << std::quoted(profile.rule) << ' '
         << config.affine_basis_action_producer.maximum_offers << ' '
         << config.affine_basis_action_producer.startup_batch_actions << ' '
@@ -813,10 +831,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   }
   if (config.gf3_action_producer.enabled) {
     const auto &producer = config.gf3_action_producer;
-    OnlineInvocation profile;
-    profile.rule = "Gf3AffineConsequence";
-    profile.parameters = config.parameters.gf3_affine_consequence_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile(
+        "Gf3AffineConsequence", native_parameters.gf3_affine_consequence_reference);
     profile.gf3_affine_instances = {{0, 1}};
     out << " producer " << std::quoted(profile.rule) << ' '
         << producer.maximum_pair_candidates << ' '
@@ -826,10 +842,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   }
   if (config.direct_csp_action_producer.enabled) {
     const auto &producer = config.direct_csp_action_producer;
-    OnlineInvocation profile;
-    profile.rule = "DirectCspSupport";
-    profile.parameters = config.parameters.direct_csp_support_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile("DirectCspSupport",
+        native_parameters.direct_csp_support_reference);
     profile.direct_csp_support_instances = {{{1, 2}, {3, 4}, 0}};
     out << " producer " << std::quoted(profile.rule) << ' '
         << producer.maximum_domain_candidates << ' '
@@ -842,10 +856,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   }
   if (config.nary_csp_equality_action_producer.enabled) {
     const auto &producer = config.nary_csp_equality_action_producer;
-    OnlineInvocation profile;
-    profile.rule = "NaryCspEquality";
-    profile.parameters = config.parameters.nary_csp_equality_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile("NaryCspEquality",
+        native_parameters.nary_csp_equality_reference);
     profile.nary_csp_equality_instances = {
         {{{1, 2}, {3, 4}, {5, 6}}, {0, 1, 2}}};
     out << " producer " << std::quoted(profile.rule) << ' '
@@ -857,10 +869,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
   }
   if (config.nary_csp_equality_amo_producer.enabled) {
     const auto &producer = config.nary_csp_equality_amo_producer;
-    OnlineInvocation profile;
-    profile.rule = "NaryCspEqualityAmo";
-    profile.parameters = config.parameters.nary_csp_equality_amo_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile(
+        "NaryCspEqualityAmo", native_parameters.nary_csp_equality_amo_reference);
     profile.nary_csp_equality_amo_instances = {
         {{{1, 2}, {3, 4}, {5, 6}}}};
     out << " producer " << std::quoted(profile.rule) << ' '
@@ -870,20 +880,17 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
   if (config.gf3_gaussian_action_producer.enabled) {
-    OnlineInvocation profile;
-    profile.rule = "Gf3GaussianConsequence";
-    profile.parameters = config.parameters.gf3_gaussian_consequence_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile(
+        "Gf3GaussianConsequence", native_parameters.gf3_gaussian_consequence_reference);
     profile.gf3_gaussian_instances = {"g3b1:00"};
     out << " producer " << std::quoted(profile.rule) << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
   if (config.gf3_general_row_action_producer.enabled) {
     const auto &producer = config.gf3_general_row_action_producer;
-    OnlineInvocation profile;
-    profile.rule = "Gf3GeneralRowConsequence";
-    profile.parameters = config.parameters.gf3_general_row_consequence_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile(
+        "Gf3GeneralRowConsequence",
+        native_parameters.gf3_general_row_consequence_reference);
     profile.post_application = PostApplication::Propagate;
     profile.gf3_general_row_instances = {{0, 0, "g3r1:00"}};
     out << " producer " << std::quoted(profile.rule) << ' '
@@ -892,10 +899,8 @@ std::string controller_configuration(const RandomControllerConfig &config) {
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
   if (config.tseitin_cycle_action_producer.enabled) {
-    OnlineInvocation profile;
-    profile.rule = "TseitinCycleBreaking";
-    profile.parameters = config.parameters.tseitin_cycle_breaking_reference;
-    profile.granularity = InvocationGranularity::OneInstance;
+    auto profile = native_producer_profile(
+        "TseitinCycleBreaking", native_parameters.tseitin_cycle_breaking_reference);
     out << " producer " << std::quoted(profile.rule) << ' '
         << std::quoted(serialize_online_strategy_program({{profile}, {}}));
   }
@@ -999,6 +1004,7 @@ bool RandomControllerSelector::choose(
     return false;
   }
   error.clear();
+  const auto &native_parameters = config.parameters;
 
   const auto same_version = [](StateVersion left, StateVersion right) {
     return left.arena_generation == right.arena_generation &&
@@ -1257,23 +1263,20 @@ bool RandomControllerSelector::choose(
     return found != config.offered_actions.end() && !found->second.empty();
   };
   const auto affine_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "AffineConsequence";
-    invocation.parameters = config.parameters.affine_consequence_reference;
-    invocation.granularity = InvocationGranularity::CanonicalApplication;
+    auto invocation = native_producer_profile(
+        "AffineConsequence", native_parameters.affine_consequence_reference,
+        InvocationGranularity::CanonicalApplication);
     std::ostringstream out;
     out << config.affine_basis_action_producer.maximum_offers << ' '
         << serialize_online_strategy_program({{invocation}, {}});
     return out.str();
   };
   const auto affine_limits = [&] {
-    return action_limits(config.parameters.affine_consequence_reference);
+    return action_limits(native_parameters.affine_consequence_reference);
   };
   const auto gf3_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "Gf3AffineConsequence";
-    invocation.parameters = config.parameters.gf3_affine_consequence_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "Gf3AffineConsequence", native_parameters.gf3_affine_consequence_reference);
     invocation.gf3_affine_instances = {{0, 1}};
     std::ostringstream out;
     const auto &producer = config.gf3_action_producer;
@@ -1283,10 +1286,8 @@ bool RandomControllerSelector::choose(
     return out.str();
   };
   const auto direct_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "DirectCspSupport";
-    invocation.parameters = config.parameters.direct_csp_support_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "DirectCspSupport", native_parameters.direct_csp_support_reference);
     invocation.direct_csp_support_instances = {{{1, 2}, {3, 4}, 0}};
     std::ostringstream out;
     const auto &producer = config.direct_csp_action_producer;
@@ -1301,10 +1302,8 @@ bool RandomControllerSelector::choose(
 
 
   const auto nary_equality_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "NaryCspEquality";
-    invocation.parameters = config.parameters.nary_csp_equality_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "NaryCspEquality", native_parameters.nary_csp_equality_reference);
     invocation.nary_csp_equality_instances = {
         {{{1, 2}, {3, 4}, {5, 6}}, {0, 1, 2}}};
     std::ostringstream out;
@@ -1318,13 +1317,11 @@ bool RandomControllerSelector::choose(
   };
 
   const auto nary_equality_limits = [&] {
-    return action_limits(config.parameters.nary_csp_equality_reference);
+    return action_limits(native_parameters.nary_csp_equality_reference);
   };
   const auto nary_equality_amo_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "NaryCspEqualityAmo";
-    invocation.parameters = config.parameters.nary_csp_equality_amo_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "NaryCspEqualityAmo", native_parameters.nary_csp_equality_amo_reference);
     invocation.nary_csp_equality_amo_instances = {
         {{{1, 2}, {3, 4}, {5, 6}}}};
     std::ostringstream out;
@@ -1337,27 +1334,22 @@ bool RandomControllerSelector::choose(
   };
 
   const auto nary_equality_amo_limits = [&] {
-    return action_limits(config.parameters.nary_csp_equality_amo_reference);
+    return action_limits(native_parameters.nary_csp_equality_amo_reference);
   };
   const auto gaussian_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "Gf3GaussianConsequence";
-    invocation.parameters =
-        config.parameters.gf3_gaussian_consequence_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "Gf3GaussianConsequence", native_parameters.gf3_gaussian_consequence_reference);
     invocation.gf3_gaussian_instances = {"g3b1:00"};
     return serialize_online_strategy_program({{invocation}, {}});
   };
 
   const auto gaussian_limits = [&] {
-    return action_limits(config.parameters.gf3_gaussian_consequence_reference);
+    return action_limits(native_parameters.gf3_gaussian_consequence_reference);
   };
   const auto general_row_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "Gf3GeneralRowConsequence";
-    invocation.parameters =
-        config.parameters.gf3_general_row_consequence_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "Gf3GeneralRowConsequence",
+        native_parameters.gf3_general_row_consequence_reference);
     invocation.post_application = PostApplication::Propagate;
     invocation.gf3_general_row_instances = {{0, 0, "g3r1:00"}};
     std::ostringstream out;
@@ -1369,19 +1361,16 @@ bool RandomControllerSelector::choose(
   };
 
   const auto general_row_limits = [&] {
-    return action_limits(
-        config.parameters.gf3_general_row_consequence_reference);
+    return action_limits(native_parameters.gf3_general_row_consequence_reference);
   };
   const auto tseitin_profile = [&] {
-    OnlineInvocation invocation;
-    invocation.rule = "TseitinCycleBreaking";
-    invocation.parameters = config.parameters.tseitin_cycle_breaking_reference;
-    invocation.granularity = InvocationGranularity::OneInstance;
+    auto invocation = native_producer_profile(
+        "TseitinCycleBreaking", native_parameters.tseitin_cycle_breaking_reference);
     return serialize_online_strategy_program({{invocation}, {}});
   };
 
   const auto tseitin_limits = [&] {
-    return action_limits(config.parameters.tseitin_cycle_breaking_reference);
+    return action_limits(native_parameters.tseitin_cycle_breaking_reference);
   };
   const auto refresh_discovery = [](auto &discovery, bool relevant_change,
                                     const std::string &profile,
