@@ -36,15 +36,6 @@ struct Work {
   }
 };
 
-template <class T>
-void xor_sorted(const std::vector<T> &first, const std::vector<T> &second,
-                std::vector<T> &output) {
-  output.clear();
-  output.reserve(first.size() + second.size());
-  std::set_symmetric_difference(first.begin(), first.end(), second.begin(),
-                                second.end(), std::back_inserter(output));
-}
-
 bool valid_equation(const Equation &equation) {
   if (!std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
       std::adjacent_find(equation.variables.begin(),
@@ -498,12 +489,6 @@ void make_reason(const std::vector<Equation> &sources,
     event.reason.push_back(event.implied_value ? event.implied_variable
                                                : -event.implied_variable);
   event.reason_width = uint32_t(event.reason.size());
-}
-
-bool same_equation(const Equation &first, const Equation &second) {
-  return first.variables == second.variables && first.rhs == second.rhs &&
-         first.premises == second.premises &&
-         first.premise_clauses == second.premise_clauses;
 }
 
 bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
@@ -2613,7 +2598,7 @@ bool AffineMatrix::authenticates(
       return false;
     for (const std::vector<External> &clause : source.premise_clauses)
       if (!charge(clause.size())) return false;
-    if (!retained_sources && !same_equation(exact_sources[i], sources_[i]))
+    if (!retained_sources && exact_sources[i] != sources_[i])
       return false;
   }
   if (!charge(1) || !charge(trail_.size()))
@@ -2669,7 +2654,7 @@ bool AffineMatrix::authenticates_historical(
       return false;
     for (const auto &clause : source.premise_clauses)
       if (!charge(clause.size())) return false;
-    if (!retained_sources && !same_equation(exact_sources[i], source))
+    if (!retained_sources && exact_sources[i] != source)
       return false;
   }
 

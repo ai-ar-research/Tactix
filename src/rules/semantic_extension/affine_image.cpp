@@ -33,23 +33,6 @@ struct Witness {
 
 using Group = std::map<Pattern, Witness>;
 
-void xor_sorted(const std::vector<External> &a,
-                const std::vector<External> &b,
-                std::vector<External> &result) {
-  result.clear();
-  result.reserve(a.size() + b.size());
-  std::set_symmetric_difference(a.begin(), a.end(), b.begin(), b.end(),
-                                std::back_inserter(result));
-}
-
-void xor_sorted(const std::vector<size_t> &a, const std::vector<size_t> &b,
-                std::vector<size_t> &result) {
-  result.clear();
-  result.reserve(a.size() + b.size());
-  std::set_symmetric_difference(a.begin(), a.end(), b.begin(), b.end(),
-                                std::back_inserter(result));
-}
-
 struct PlanningSink {
   uint64_t maximum;
   uint64_t additions = 0, deletions = 0;

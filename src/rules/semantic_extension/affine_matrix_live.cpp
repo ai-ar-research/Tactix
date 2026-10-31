@@ -69,12 +69,6 @@ bool applicable(const Kernel &kernel, bool historical_event = false) {
          (!kernel.conflict_valid && kernel_propagation_fixpoint(kernel));
 }
 
-bool same_equation(const Equation &first, const Equation &second) {
-  return first.variables == second.variables && first.rhs == second.rhs &&
-         first.premises == second.premises &&
-         first.premise_clauses == second.premise_clauses;
-}
-
 bool same_event(const MatrixEvent &first, const MatrixEvent &second) {
   return first.kind == second.kind && first.row == second.row &&
          first.implied_variable == second.implied_variable &&
@@ -180,7 +174,7 @@ bool validate_selected_sources(
         !kernel.proof->premise_group_matches((*leases)[ordinal], identity.premise_clauses)))
       return false;
     if ((&current_sources[ordinal] != &identity &&
-         !same_equation(current_sources[ordinal], identity)) ||
+         current_sources[ordinal] != identity) ||
         identity.premises.size() != identity.premise_clauses.size())
       return false;
     for (size_t i = 0; i < identity.premises.size(); ++i) {

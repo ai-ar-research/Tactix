@@ -2,13 +2,24 @@
 #pragma once
 
 #include "rules/lucky/parity_certificate.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <vector>
 
 namespace tactix::affine_semantic_extension {
 
 using External = int32_t;
+
+template <class T>
+void xor_sorted(const std::vector<T> &first, const std::vector<T> &second,
+                std::vector<T> &output) {
+  output.clear();
+  output.reserve(first.size() + second.size());
+  std::set_symmetric_difference(first.begin(), first.end(), second.begin(),
+                                second.end(), std::back_inserter(output));
+}
 
 struct Premise {
   uint64_t occurrence = 0;
@@ -32,6 +43,8 @@ struct Equation {
   // One exact input occurrence for each forbidden assignment.
   std::vector<uint64_t> premises;
   std::vector<std::vector<External>> premise_clauses;
+
+  friend bool operator==(const Equation &, const Equation &) = default;
 };
 
 struct Consequence {

@@ -26,15 +26,6 @@ struct AtomPair {
   }
 };
 
-template <class T>
-void xor_sorted(const std::vector<T> &a, const std::vector<T> &b,
-                std::vector<T> &result) {
-  result.clear();
-  result.reserve(a.size() + b.size());
-  std::set_symmetric_difference(a.begin(), a.end(), b.begin(), b.end(),
-                                std::back_inserter(result));
-}
-
 bool valid_equation(const Equation &equation) {
   if (!std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
       std::adjacent_find(equation.variables.begin(), equation.variables.end()) !=

@@ -21,20 +21,6 @@ std::vector<External> key(std::vector<External> clause) {
   return clause;
 }
 
-bool same_equation(const Equation &first, const Equation &second) {
-  return first.variables == second.variables && first.rhs == second.rhs &&
-         first.premises == second.premises &&
-         first.premise_clauses == second.premise_clauses;
-}
-
-bool same_equations(const std::vector<Equation> &first,
-                    const std::vector<Equation> &second) {
-  if (first.size() != second.size()) return false;
-  for (size_t i = 0; i < first.size(); ++i)
-    if (!same_equation(first[i], second[i])) return false;
-  return true;
-}
-
 struct Work {
   uint64_t used = 0;
   uint64_t limit = 0;
@@ -449,7 +435,7 @@ const MatrixProofCacheEntry *AffineMatrixProofCache::find(
     if (entry.owner_identity == owner_identity &&
         entry.proof_epoch == proof_epoch &&
         entry.source_equations == source_equations &&
-        same_equations(entry.source_identity, source_identity))
+        entry.source_identity == source_identity)
       return &entry;
   return nullptr;
 }
@@ -775,7 +761,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       for (size_t i = 0; exact && i < entry.source_equations.size(); ++i) {
         const size_t ordinal = entry.source_equations[i];
         exact = ordinal < exact_sources.size() &&
-                same_equation(entry.source_identity[i], exact_sources[ordinal]);
+                entry.source_identity[i] == exact_sources[ordinal];
       }
       if (!exact) continue;
       std::vector<size_t> delta;
