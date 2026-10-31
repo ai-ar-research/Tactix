@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_gaussian_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -39,50 +40,21 @@ struct PreparedAccess {
 
 namespace {
 
+using gf3_live_common::append_u8;
+using gf3_live_common::append_u32;
+using gf3_live_common::append_u64;
+
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
   value += amount;
   return true;
 }
 
-void append_u8(std::string &bytes, uint8_t value) {
-  bytes.push_back(static_cast<char>(value));
-}
-
-void append_u32(std::string &bytes, uint32_t value) {
-  for (unsigned shift = 0; shift != 32; shift += 8)
-    append_u8(bytes, static_cast<uint8_t>(value >> shift));
-}
-
-void append_u64(std::string &bytes, uint64_t value) {
-  for (unsigned shift = 0; shift != 64; shift += 8)
-    append_u8(bytes, static_cast<uint8_t>(value >> shift));
-}
-
 void append_reference(std::string &bytes,
                       const gf3_affine::SourceReference &reference,
                       const Gf3AffineOwnerSnapshot &owner) {
-  append_u64(bytes, reference.occurrence);
-  append_u64(bytes, reference.native_proof_id);
-  if (!reference.occurrence || reference.occurrence > owner.sources.size()) {
+  if (!gf3_live_common::append_reference(bytes, reference, owner))
     append_u64(bytes, UINT64_MAX);
-    return;
-  }
-  const auto &clause = owner.sources[reference.occurrence - 1].clause;
-  append_u64(bytes, clause.size());
-  for (int32_t literal : clause)
-    append_u32(bytes, static_cast<uint32_t>(literal));
-}
-
-std::string hex(std::string_view bytes) {
-  static constexpr char digit[] = "0123456789abcdef";
-  std::string result = "g3g1:";
-  result.reserve(result.size() + 2 * bytes.size());
-  for (unsigned char byte : bytes) {
-    result.push_back(digit[byte >> 4]);
-    result.push_back(digit[byte & 15]);
-  }
-  return result;
 }
 
 std::string outcome_identity(
@@ -124,7 +96,7 @@ std::string outcome_identity(
       append_reference(bytes, tuple.premise, owner);
     }
   }
-  return hex(bytes);
+  return gf3_live_common::hex("g3g1:", bytes, false);
 }
 
 bool sized_add(uint64_t &value, uint64_t amount) {
@@ -683,7 +655,8 @@ Result prepare_internal(Kernel &kernel, const Request &request,
     append_u64(batch_bytes, identity.size());
     batch_bytes.append(identity);
   }
-  PreparedAccess::batch_identity(prepared) = hex(batch_bytes);
+  PreparedAccess::batch_identity(prepared) =
+      gf3_live_common::hex("g3g1:", batch_bytes, false);
   prepared.batch_identity_.replace(0, 5, "g3b1:");
   if (prepared.batch_identity_.size() != batch_encoded_bytes ||
       !add(result.effort.identity_bytes, prepared.batch_identity_.size()) ||

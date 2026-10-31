@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
@@ -285,32 +286,6 @@ bool revalidate_sources(const Kernel &kernel,
   return true;
 }
 
-bool collect_live_clauses(const Kernel &kernel, Meter &meter,
-                          std::set<ClauseKey> &clauses) {
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    const uint32_t words = clause_actual_words(clause);
-    if (!words || words > kernel.arena.size() - reference) return false;
-    reference += words;
-    if (!meter.charge(uint64_t{1} + clause->size)) return false;
-    if (clause->garbage()) continue;
-    ClauseKey external;
-    external.reserve(clause->size);
-    for (Lit literal : *clause)
-      external.push_back(kernel_externalize(kernel, literal));
-    clauses.insert(normalized(std::move(external)));
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return false;
-      if (!watch.binary() || first >= watch.other()) continue;
-      clauses.insert(normalized(
-          {kernel_externalize(kernel, first),
-           kernel_externalize(kernel, watch.other())}));
-    }
-  return true;
-}
-
 struct Journal {
   uint64_t maximum = 0;
   uint64_t work = 0;
@@ -577,7 +552,10 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
 
   Meter meter{kernel, request.maximum_duplicate_scan_work};
   std::set<ClauseKey> live;
-  if (!collect_live_clauses(kernel, meter, live)) {
+  if (!gf3_live_common::scan_live_external_clauses(
+          kernel, meter, [&](ClauseKey clause) {
+            live.insert(normalized(std::move(clause)));
+          })) {
     result.duplicate_scan_work = meter.used;
     result.duplicate_scan_exhausted = meter.exhausted;
     result.status = meter.interrupted
