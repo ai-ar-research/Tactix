@@ -754,51 +754,9 @@ void serialize_values(std::ostream &out, const First &first,
   ((out << ',' << rest), ...);
 }
 
-template <class Parameters, class Visitor>
-bool visit_affine_image_fields(Parameters &p, Visitor visit) {
-  return visit(p.maximum_clauses, p.maximum_snapshot_literals,
-               p.maximum_snapshot_work, p.maximum_groups, p.maximum_patterns,
-               p.maximum_elimination_work, p.maximum_arity,
-               p.maximum_intermediate_width, p.maximum_sources,
-               p.maximum_output_width, p.maximum_proof_additions,
-               p.maximum_proof_deletions, p.maximum_journal_bytes);
-}
-
-template <class Parameters, class Visitor>
-bool visit_affine_basis_fields(Parameters &p, Visitor visit) {
-  return visit(p.basis_maximum_work, p.basis_maximum_intermediate_width,
-               p.basis_maximum_sources, p.basis_maximum_premises,
-               p.basis_maximum_nodes, p.basis_maximum_direct_width,
-               p.maximum_external_extent, p.maximum_session_keys,
-               p.maximum_session_work);
-}
-
-template <class Parameters, class Visitor>
-bool visit_gf3_gaussian_fields(Parameters &p, Visitor visit) {
-  return visit(
-      p.maximum_source_clauses, p.maximum_source_literals, p.maximum_domains,
-      p.maximum_equations, p.maximum_equation_arity,
-      p.maximum_tuples_per_equation, p.maximum_bridge_work,
-      p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
-      p.maximum_bridge_domains, p.maximum_bridge_equations,
-      p.maximum_bridge_terms, p.maximum_authentication_references,
-      p.maximum_references_per_equation, p.maximum_gaussian_work,
-      p.maximum_fill_entries, p.maximum_intermediate_width,
-      p.maximum_provenance_terms, p.maximum_derivations,
-      p.maximum_retained_plan_bytes, p.maximum_certificate_work,
-      p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
-      p.maximum_retained_source_references, p.maximum_event_width,
-      p.maximum_branch_domains, p.maximum_consequences, p.maximum_capture_work,
-      p.maximum_revalidation_work, p.maximum_proof_additions,
-      p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-      p.maximum_identity_bytes, p.maximum_external_extent,
-      p.maximum_session_keys, p.maximum_session_work,
-      p.maximum_session_identity_bytes);
-}
-
 bool parse_affine_image_values(const std::vector<uint64_t> &v,
                                AffineConsequenceParameters &p) {
-  return visit_affine_image_fields(
+  return visit_affine_image_parameter_fields(
       p, [&](auto &...fields) { return assign_values(v, 0, fields...); });
 }
 
@@ -806,19 +764,19 @@ bool parse_affine_basis_values(const std::vector<uint64_t> &v,
                                AffineConsequenceParameters &p) {
   if (!parse_affine_image_values(v, p)) return false;
   p.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
-  return visit_affine_basis_fields(
+  return visit_affine_basis_parameter_fields(
       p, [&](auto &...fields) { return assign_values(v, 13, fields...); });
 }
 
 bool parse_gf3_gaussian_values(const std::vector<uint64_t> &v,
                                Gf3GaussianConsequenceParameters &p) {
-  return visit_gf3_gaussian_fields(
+  return visit_gf3_gaussian_parameter_fields(
       p, [&](auto &...fields) { return assign_values(v, 0, fields...); });
 }
 
 void serialize_affine_image_values(
     std::ostream &out, const AffineConsequenceParameters &p) {
-  visit_affine_image_fields(p, [&](const auto &...fields) {
+  visit_affine_image_parameter_fields(p, [&](const auto &...fields) {
     serialize_values(out, fields...);
     return true;
   });
@@ -828,7 +786,7 @@ void serialize_affine_basis_values(
     std::ostream &out, const AffineConsequenceParameters &p) {
   serialize_affine_image_values(out, p);
   out << ',';
-  visit_affine_basis_fields(p, [&](const auto &...fields) {
+  visit_affine_basis_parameter_fields(p, [&](const auto &...fields) {
     serialize_values(out, fields...);
     return true;
   });
@@ -836,7 +794,7 @@ void serialize_affine_basis_values(
 
 void serialize_gf3_gaussian_values(
     std::ostream &out, const Gf3GaussianConsequenceParameters &p) {
-  visit_gf3_gaussian_fields(p, [&](const auto &...fields) {
+  visit_gf3_gaussian_parameter_fields(p, [&](const auto &...fields) {
     serialize_values(out, fields...);
     return true;
   });

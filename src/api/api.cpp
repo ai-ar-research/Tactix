@@ -608,19 +608,7 @@ bool online_parameters(const tactix_online_parameters &source,
   case TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE: {
     const auto &p = source.value.affine_consequence;
     strategy::AffineConsequenceParameters converted;
-    converted.maximum_clauses = p.maximum_clauses;
-    converted.maximum_snapshot_literals = p.maximum_snapshot_literals;
-    converted.maximum_snapshot_work = p.maximum_snapshot_work;
-    converted.maximum_groups = p.maximum_groups;
-    converted.maximum_patterns = p.maximum_patterns;
-    converted.maximum_elimination_work = p.maximum_elimination_work;
-    converted.maximum_arity = p.maximum_arity;
-    converted.maximum_intermediate_width = p.maximum_intermediate_width;
-    converted.maximum_sources = p.maximum_sources;
-    converted.maximum_output_width = p.maximum_output_width;
-    converted.maximum_proof_additions = p.maximum_proof_additions;
-    converted.maximum_proof_deletions = p.maximum_proof_deletions;
-    converted.maximum_journal_bytes = p.maximum_journal_bytes;
+    strategy::copy_affine_parameter_fields(converted, p);
     converted.consequence = p.consequence;
     if (!p.semantics ||
         p.semantics == TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1)
@@ -632,16 +620,6 @@ bool online_parameters(const tactix_online_parameters &source,
           strategy::AffineConsequenceSemantics::CertifiedBasisV2;
     else
       return false;
-    converted.basis_maximum_work = p.basis_maximum_work;
-    converted.basis_maximum_intermediate_width =
-        p.basis_maximum_intermediate_width;
-    converted.basis_maximum_sources = p.basis_maximum_sources;
-    converted.basis_maximum_premises = p.basis_maximum_premises;
-    converted.basis_maximum_nodes = p.basis_maximum_nodes;
-    converted.basis_maximum_direct_width = p.basis_maximum_direct_width;
-    converted.maximum_external_extent = p.maximum_external_extent;
-    converted.maximum_session_keys = p.maximum_session_keys;
-    converted.maximum_session_work = p.maximum_session_work;
     if (!converted.valid()) return false;
     target = converted;
     return true;
@@ -799,25 +777,8 @@ bool online_parameters(const tactix_online_parameters &source,
   }
   case TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE: {
     const auto &p = source.value.gf3_gaussian_consequence;
-    strategy::Gf3GaussianConsequenceParameters converted{
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_domains, p.maximum_equations, p.maximum_equation_arity,
-        p.maximum_tuples_per_equation, p.maximum_bridge_work,
-        p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
-        p.maximum_bridge_domains, p.maximum_bridge_equations,
-        p.maximum_bridge_terms, p.maximum_authentication_references,
-        p.maximum_references_per_equation, p.maximum_gaussian_work,
-        p.maximum_fill_entries, p.maximum_intermediate_width,
-        p.maximum_provenance_terms, p.maximum_derivations,
-        p.maximum_retained_plan_bytes, p.maximum_certificate_work,
-        p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
-        p.maximum_retained_source_references, p.maximum_event_width,
-        p.maximum_branch_domains, p.maximum_consequences,
-        p.maximum_capture_work, p.maximum_revalidation_work,
-        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes, p.maximum_identity_bytes,
-        p.maximum_external_extent, p.maximum_session_keys,
-        p.maximum_session_work, p.maximum_session_identity_bytes};
+    strategy::Gf3GaussianConsequenceParameters converted;
+    strategy::copy_gf3_gaussian_parameter_fields(converted, p);
     if (!converted.valid()) return false;
     target = converted;
     return true;
@@ -825,25 +786,8 @@ bool online_parameters(const tactix_online_parameters &source,
   case TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE: {
     const auto &source_row = source.value.gf3_general_row_consequence;
     const auto &p = source_row.gaussian;
-    strategy::Gf3GaussianConsequenceParameters gaussian{
-        p.maximum_source_clauses, p.maximum_source_literals,
-        p.maximum_domains, p.maximum_equations, p.maximum_equation_arity,
-        p.maximum_tuples_per_equation, p.maximum_bridge_work,
-        p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
-        p.maximum_bridge_domains, p.maximum_bridge_equations,
-        p.maximum_bridge_terms, p.maximum_authentication_references,
-        p.maximum_references_per_equation, p.maximum_gaussian_work,
-        p.maximum_fill_entries, p.maximum_intermediate_width,
-        p.maximum_provenance_terms, p.maximum_derivations,
-        p.maximum_retained_plan_bytes, p.maximum_certificate_work,
-        p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
-        p.maximum_retained_source_references, p.maximum_event_width,
-        p.maximum_branch_domains, p.maximum_consequences,
-        p.maximum_capture_work, p.maximum_revalidation_work,
-        p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-        p.maximum_journal_bytes, p.maximum_identity_bytes,
-        p.maximum_external_extent, p.maximum_session_keys,
-        p.maximum_session_work, p.maximum_session_identity_bytes};
+    strategy::Gf3GaussianConsequenceParameters gaussian;
+    strategy::copy_gf3_gaussian_parameter_fields(gaussian, p);
     strategy::Gf3GeneralRowConsequenceParameters converted{
         gaussian, source_row.maximum_row_tuples,
         source_row.maximum_row_width,

@@ -72,6 +72,43 @@ struct AffineConsequenceParameters {
   static AffineConsequenceParameters from_kernel(const Kernel &);
 };
 
+template <class Parameters, class Visitor>
+bool visit_affine_image_parameter_fields(Parameters &p, Visitor visit) {
+  return visit(p.maximum_clauses, p.maximum_snapshot_literals,
+               p.maximum_snapshot_work, p.maximum_groups, p.maximum_patterns,
+               p.maximum_elimination_work, p.maximum_arity,
+               p.maximum_intermediate_width, p.maximum_sources,
+               p.maximum_output_width, p.maximum_proof_additions,
+               p.maximum_proof_deletions, p.maximum_journal_bytes);
+}
+
+template <class Parameters, class Visitor>
+bool visit_affine_basis_parameter_fields(Parameters &p, Visitor visit) {
+  return visit(p.basis_maximum_work, p.basis_maximum_intermediate_width,
+               p.basis_maximum_sources, p.basis_maximum_premises,
+               p.basis_maximum_nodes, p.basis_maximum_direct_width,
+               p.maximum_external_extent, p.maximum_session_keys,
+               p.maximum_session_work);
+}
+
+template <class Target, class Source>
+void copy_affine_parameter_fields(Target &target, const Source &source) {
+  visit_affine_image_parameter_fields(target, [&](auto &...targets) {
+    return visit_affine_image_parameter_fields(
+        source, [&](const auto &...sources) {
+          ((targets = sources), ...);
+          return true;
+        });
+  });
+  visit_affine_basis_parameter_fields(target, [&](auto &...targets) {
+    return visit_affine_basis_parameter_fields(
+        source, [&](const auto &...sources) {
+          ((targets = sources), ...);
+          return true;
+        });
+  });
+}
+
 // Separate positive-persistence profile: old affine encodings retain zero
 // persistence. Deferred limits bound outstanding physical deletion occupancy,
 // not all proof-maintenance scans or total process memory.
@@ -357,6 +394,41 @@ struct Gf3GaussianConsequenceParameters {
   bool valid() const;
   static Gf3GaussianConsequenceParameters from_kernel(const Kernel &);
 };
+
+template <class Parameters, class Visitor>
+bool visit_gf3_gaussian_parameter_fields(Parameters &p, Visitor visit) {
+  return visit(
+      p.maximum_source_clauses, p.maximum_source_literals, p.maximum_domains,
+      p.maximum_equations, p.maximum_equation_arity,
+      p.maximum_tuples_per_equation, p.maximum_bridge_work,
+      p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
+      p.maximum_bridge_domains, p.maximum_bridge_equations,
+      p.maximum_bridge_terms, p.maximum_authentication_references,
+      p.maximum_references_per_equation, p.maximum_gaussian_work,
+      p.maximum_fill_entries, p.maximum_intermediate_width,
+      p.maximum_provenance_terms, p.maximum_derivations,
+      p.maximum_retained_plan_bytes, p.maximum_certificate_work,
+      p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
+      p.maximum_retained_source_references, p.maximum_event_width,
+      p.maximum_branch_domains, p.maximum_consequences, p.maximum_capture_work,
+      p.maximum_revalidation_work, p.maximum_proof_additions,
+      p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
+      p.maximum_identity_bytes, p.maximum_external_extent,
+      p.maximum_session_keys, p.maximum_session_work,
+      p.maximum_session_identity_bytes);
+}
+
+template <class Target, class Source>
+void copy_gf3_gaussian_parameter_fields(Target &target,
+                                        const Source &source) {
+  visit_gf3_gaussian_parameter_fields(target, [&](auto &...targets) {
+    return visit_gf3_gaussian_parameter_fields(
+        source, [&](const auto &...sources) {
+          ((targets = sources), ...);
+          return true;
+        });
+  });
+}
 
 // One authenticated forbidden tuple of one non-unit GF(3) Gaussian row.
 // Gaussian supplies source/bridge limits; the appended fields bound the
