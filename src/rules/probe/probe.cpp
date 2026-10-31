@@ -19,10 +19,6 @@ ApplyResult probe_apply(Kernel &k) {
   return failed_literal_apply(k, FailedLiteralPropagation::Full, probe_stats);
 }
 
-ApplyResult probe_try(Kernel &k, Lit p) {
-  return failed_literal_try(k, p, FailedLiteralPropagation::Full, probe_stats);
-}
-
 // The canonical round uses the reference BIG-head schedule. A public caller
 // may probe any unassigned literal: root-fixed literals can make a physical
 // large clause propagate without a binary watch on the assumed head.

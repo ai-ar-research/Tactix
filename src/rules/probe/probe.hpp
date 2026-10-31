@@ -29,8 +29,6 @@ RuleEligibility probe_guard(const Kernel &);
 // physical binary watch. V2 Backbone is a different binary-only regime.
 void probe_candidates(const Kernel &, std::vector<Lit> &out);
 
-ApplyResult probe_try(Kernel &, Lit p); // one probe literal
-
 // Canonical: the full round. Both polarities of a variable are probed
 // independently and the variable is skipped once one fails; the both-fail
 // refutation is caught when M1 propagates the batch, not by cross-probe

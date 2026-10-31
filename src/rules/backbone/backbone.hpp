@@ -23,9 +23,6 @@ RuleEligibility backbone_guard(const Kernel &);
 // int. Canonical order: BIG-head literals, var-index ascending, positive phase
 // before negative — the same set as V1 Probe.
 // INSTANCE_CANONICAL = the full round.
-void backbone_candidates(const Kernel &, std::vector<Lit> &out);
-
-ApplyResult backbone_try(Kernel &, Lit p); // one binary probe
 
 // Canonical: chained binary-UIP rounds, internally respecting `work_budget` in
 // private Backbone ticks.  The literal instance surface remains the independent
