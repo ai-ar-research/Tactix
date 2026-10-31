@@ -2122,6 +2122,36 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
             append_resolution_chain(c, first_pivot, d, second_pivot);
         const uint32_t chain_size = static_cast<uint32_t>(
             def->resolvent_chains.size() - chain_begin);
+        // Emit a self-subsuming resolvent's proof step, prune tentative
+        // resolvents of each replaced parent, and add the resolvent as a new
+        // irredundant clause.  A pending resolvent whose parent is replaced is
+        // still entailed, but native fastel recomputes the final resolvents
+        // after the feasibility pass and therefore does not publish that stale
+        // image.  It is removed by its retained two-parent identity (the same
+        // pair is the LRAT chain tail when present) while retaining the
+        // append-only pools backing every surviving slice.
+        const auto publish_strengthened = [&](bool c_subsumed,
+                                              bool d_subsumed) {
+          const uint64_t id = ++k.next_clause_id;
+          const Lit *const lits = def->resolvent_lits.data() + lits_begin;
+          if (k.proof) {
+            if (lrat)
+              k.proof->add_rup(id, lits, static_cast<uint32_t>(lits_size),
+                               def->resolvent_chains.data() + chain_begin,
+                               chain_size);
+            else
+              k.proof->add_rup(0, lits, static_cast<uint32_t>(lits_size),
+                               nullptr, 0);
+          }
+          prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
+                                   d_subsumed ? d.ref : INVALID_REF);
+          assert(lits_size >= 2);
+          if (lits_size == 2)
+            kernel_add_binary_clause(k, lits[0], lits[1], id);
+          else
+            kernel_add_large_clause(k, lits, static_cast<uint32_t>(lits_size),
+                                    /*redundant=*/false, 0, id);
+        };
 
         // SC2024's binary x large feasibility path treats a shared binary
         // partner as self-subsuming resolution even when the result collapses
@@ -2217,27 +2247,7 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                 def->resolvent_lits.push_back(l);
             assert(def->resolvent_lits.size() - lits_begin == lits_size);
 
-            const uint64_t id = ++k.next_clause_id;
-            const Lit *const lits = def->resolvent_lits.data() + lits_begin;
-            if (k.proof) {
-              if (lrat)
-                k.proof->add_rup(id, lits, static_cast<uint32_t>(lits_size),
-                                 def->resolvent_chains.data() + chain_begin,
-                                 chain_size);
-              else
-                k.proof->add_rup(0, lits, static_cast<uint32_t>(lits_size),
-                                 nullptr, 0);
-            }
-
-            prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
-                                     d_subsumed ? d.ref : INVALID_REF);
-            assert(lits_size >= 2);
-            if (lits_size == 2)
-              kernel_add_binary_clause(k, lits[0], lits[1], id);
-            else
-              kernel_add_large_clause(k, lits,
-                                      static_cast<uint32_t>(lits_size),
-                                      /*redundant=*/false, 0, id);
+            publish_strengthened(c_subsumed, d_subsumed);
             if (c_subsumed)
               delete_otf_parent(c, first_pivot);
             if (d_subsumed)
@@ -2296,40 +2306,13 @@ ApplyResult bve_attempt(Kernel &k, Var x, BveDefScratch *def) {
                   def->resolvent_lits.push_back(l);
               assert(def->resolvent_lits.size() - lits_begin == lits_size);
             }
-            const uint64_t id = ++k.next_clause_id;
-            const Lit *const lits = def->resolvent_lits.data() + lits_begin;
-            if (k.proof) {
-              if (lrat)
-                k.proof->add_rup(id, lits, static_cast<uint32_t>(lits_size),
-                                 def->resolvent_chains.data() + chain_begin,
-                                 chain_size);
-              else
-                k.proof->add_rup(0, lits, static_cast<uint32_t>(lits_size),
-                                 nullptr, 0);
-            }
-
-            // A pending resolvent whose parent is replaced is still entailed,
-            // but native fastel recomputes the final resolvents after this
-            // feasibility pass and therefore does not publish that stale
-            // image.  Remove it by its retained two-parent identity (the same
-            // pair is the LRAT chain tail when present) while retaining the
-            // append-only pools backing every surviving slice.
-            prune_parent_resolvents(c_subsumed ? c.ref : INVALID_REF,
-                                     d_subsumed ? d.ref : INVALID_REF);
-
             // fastel.c publishes the self-subsuming resolvent as a NEW
             // irredundant clause (end of the arena and of every occurrence
             // list), then garbage-marks each subsumed antecedent, re-arming
             // elimination for all of its literals.  It is not an in-place
             // shrink: the resolvent must not inherit the antecedent's logical
             // position (kernel_replace_clause).
-            assert(lits_size >= 2);
-            if (lits_size == 2)
-              kernel_add_binary_clause(k, lits[0], lits[1], id);
-            else
-              kernel_add_large_clause(k, lits,
-                                      static_cast<uint32_t>(lits_size),
-                                      /*redundant=*/false, 0, id);
+            publish_strengthened(c_subsumed, d_subsumed);
             for (const Ref antecedent :
                  {c_subsumed ? c.ref : INVALID_REF,
                   d_subsumed ? d.ref : INVALID_REF}) {
