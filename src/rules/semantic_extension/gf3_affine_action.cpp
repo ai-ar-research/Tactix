@@ -59,42 +59,6 @@ SessionKeysStatus validate_session_keys(
   return SessionKeysStatus::Valid;
 }
 
-bool same_domain(const gf3_affine::Domain &first,
-                 const gf3_affine::Domain &second) {
-  return first.values == second.values &&
-         first.at_least_one == second.at_least_one &&
-         first.at_most_one == second.at_most_one;
-}
-
-bool same_equation(const gf3_affine::Equation &first,
-                   const gf3_affine::Equation &second) {
-  return first.domains == second.domains &&
-         first.coefficients == second.coefficients && first.rhs == second.rhs &&
-         first.forbidden_by_tuple == second.forbidden_by_tuple;
-}
-
-bool same_theory(const gf3_affine::Theory &first,
-                 const gf3_affine::Theory &second) {
-  if (first.maximum_variable != second.maximum_variable ||
-      first.source.size() != second.source.size() ||
-      first.domains.size() != second.domains.size() ||
-      first.equations.size() != second.equations.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  for (size_t index = 0; index < first.domains.size(); ++index)
-    if (!same_domain(first.domains[index], second.domains[index])) return false;
-  for (size_t index = 0; index < first.equations.size(); ++index)
-    if (!same_equation(first.equations[index], second.equations[index]))
-      return false;
-  return true;
-}
-
 enum class OwnerLimitStatus : uint8_t { Within, Invalid, Exhausted };
 
 OwnerLimitStatus retained_owner_limit_status(
@@ -182,7 +146,7 @@ OwnerLimitStatus retained_owner_limit_status(
   if (recognized.status == gf3_affine::RecognitionStatus::EffortExhausted)
     return OwnerLimitStatus::Exhausted;
   if (recognized.status != gf3_affine::RecognitionStatus::Recognized ||
-      !same_theory(owner.theory, recognized.theory) ||
+      !gf3_affine::same_theory(owner.theory, recognized.theory) ||
       recognized.theory.maximum_variable > owner.external_extent)
     return OwnerLimitStatus::Invalid;
   return OwnerLimitStatus::Exhausted;

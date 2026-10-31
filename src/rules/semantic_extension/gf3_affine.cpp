@@ -120,6 +120,36 @@ bool structurally_valid_equation(const Theory &theory,
 
 } // namespace
 
+bool same_theory(const Theory &first, const Theory &second) {
+  if (first.maximum_variable != second.maximum_variable ||
+      first.source.size() != second.source.size() ||
+      first.domains.size() != second.domains.size() ||
+      first.equations.size() != second.equations.size())
+    return false;
+  for (size_t index = 0; index < first.source.size(); ++index) {
+    const Premise &a = first.source[index];
+    const Premise &b = second.source[index];
+    if (a.occurrence != b.occurrence ||
+        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
+      return false;
+  }
+  for (size_t index = 0; index < first.domains.size(); ++index) {
+    const Domain &a = first.domains[index];
+    const Domain &b = second.domains[index];
+    if (a.values != b.values || a.at_least_one != b.at_least_one ||
+        a.at_most_one != b.at_most_one)
+      return false;
+  }
+  for (size_t index = 0; index < first.equations.size(); ++index) {
+    const Equation &a = first.equations[index];
+    const Equation &b = second.equations[index];
+    if (a.domains != b.domains || a.coefficients != b.coefficients ||
+        a.rhs != b.rhs || a.forbidden_by_tuple != b.forbidden_by_tuple)
+      return false;
+  }
+  return true;
+}
+
 RecognitionResult recognize(const std::vector<Premise> &source,
                             const RecognitionBounds &bounds, Charge charge) {
   RecognitionResult result;

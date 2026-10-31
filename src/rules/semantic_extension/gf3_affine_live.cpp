@@ -174,39 +174,6 @@ bool capture_and_recognize(const Kernel &kernel,
   return true;
 }
 
-bool same_domain(const gf3::Domain &first, const gf3::Domain &second) {
-  return first.values == second.values &&
-         first.at_least_one == second.at_least_one &&
-         first.at_most_one == second.at_most_one;
-}
-
-bool same_equation(const gf3::Equation &first, const gf3::Equation &second) {
-  return first.domains == second.domains &&
-         first.coefficients == second.coefficients && first.rhs == second.rhs &&
-         first.forbidden_by_tuple == second.forbidden_by_tuple;
-}
-
-bool same_theory(const gf3::Theory &first, const gf3::Theory &second) {
-  if (first.maximum_variable != second.maximum_variable ||
-      first.source.size() != second.source.size() ||
-      first.domains.size() != second.domains.size() ||
-      first.equations.size() != second.equations.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  for (size_t index = 0; index < first.domains.size(); ++index)
-    if (!same_domain(first.domains[index], second.domains[index])) return false;
-  for (size_t index = 0; index < first.equations.size(); ++index)
-    if (!same_equation(first.equations[index], second.equations[index]))
-      return false;
-  return true;
-}
-
 Gf3AffineLiveStatus retained_owner_status(
     const Gf3AffineOwnerSnapshot &owner,
     const Gf3AffineLiveRequest &request, Meter &meter, gf3::Theory &checked) {
@@ -244,7 +211,7 @@ Gf3AffineLiveStatus retained_owner_status(
       return stopped_status(meter, Gf3AffineLiveStatus::ResourceExhausted);
     return stopped_status(meter, Gf3AffineLiveStatus::Invalid);
   }
-  if (!same_theory(owner.theory, recognized.theory))
+  if (!gf3::same_theory(owner.theory, recognized.theory))
     return Gf3AffineLiveStatus::Invalid;
   checked = std::move(recognized.theory);
   return Gf3AffineLiveStatus::Applied;
