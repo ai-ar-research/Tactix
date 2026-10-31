@@ -3,6 +3,7 @@
 
 #include "diagnostics/rule_journal.hpp"
 #include "diagnostics/event_trace.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -1966,28 +1967,11 @@ ApplyResult vivify_try(Kernel &k, Ref candidate) {
 static uint32_t vivify_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
   vivify_candidates(k, candidates);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = candidates[i];
-  return n;
+  return copy_instance_prefix(candidates, out, cap);
 }
 
 static ApplyResult vivify_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U (no-op at a
-  // fixpoint); a root conflict during the drain refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return vivify_apply(k);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst)
-      return vivify_try(k, ref);
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
-  return ApplyResult::NoOp;
+  return apply_root_arena_instance<vivify_apply, vivify_try>(k, inst);
 }
 
 // Additive semantic surface: the v1 callback above intentionally preserves
@@ -2014,16 +1998,7 @@ static ApplyResult vivify_apply_semantic_instance(Kernel &k, uint64_t inst) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 
-  Ref candidate = INVALID_REF;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst) {
-      candidate = ref;
-      break;
-    }
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
+  const Ref candidate = arena_clause_instance(k, inst);
   if (candidate == INVALID_REF)
     return ApplyResult::NoOp;
   const Clause *c = clause_at(k.arena, candidate);

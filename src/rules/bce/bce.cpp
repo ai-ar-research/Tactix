@@ -1,6 +1,7 @@
 #include "rules/bce/bce.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/support/flat_occurrence.hpp"
 
@@ -429,22 +430,11 @@ ApplyResult bce_apply(Kernel &k) {
 static uint32_t bce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> lits;
   bce_literals(k, lits);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(lits.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, lits[i]);
-  return n;
+  return copy_literal_instance_prefix(k, lits, out, cap);
 }
 
 static ApplyResult bce_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return bce_apply(k);
-  Lit blocking;
-  if (!lit_of_instance(k, inst, &blocking))
-    return ApplyResult::NoOp;
-  return bce_try(k, blocking);
+  return apply_root_literal_instance<bce_apply, bce_try>(k, inst);
 }
 
 // Semantic payloads are opaque ordinals in a state snapshot. This avoids

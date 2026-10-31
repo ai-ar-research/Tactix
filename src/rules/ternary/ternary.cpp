@@ -1,6 +1,7 @@
 #include "rules/ternary/ternary.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -349,23 +350,11 @@ ApplyResult ternary_apply(Kernel &k) {
 static uint32_t ternary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> pivots;
   ternary_pivots(k, pivots, nullptr, /*complete=*/true);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(pivots.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, pivots[i]);
-  return n;
+  return copy_literal_instance_prefix(k, pivots, out, cap);
 }
 
 static ApplyResult ternary_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return ternary_apply(k);
-  Lit pivot;
-  if (!lit_of_instance(k, inst, &pivot))
-    return ApplyResult::NoOp;
-  return ternary_try(k, pivot);
+  return apply_root_literal_instance<ternary_apply, ternary_try>(k, inst);
 }
 
 static uint64_t ternary_choice_instance(const TernaryChoice &choice) {

@@ -2,6 +2,7 @@
 // soundness argument and deviation ledger: sweep.hpp.
 #include "proof/proof.hpp"
 #include "diagnostics/rule_journal.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -3211,10 +3212,7 @@ ApplyResult sweep_try_with_limits(Kernel &k, Var seed,
 static uint32_t sweep_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Var> seeds;
   sweep_seeds(k, seeds);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(seeds.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = static_cast<uint64_t>(seeds[i]);
-  return n;
+  return copy_instance_prefix(seeds, out, cap);
 }
 
 static ApplyResult sweep_apply_instance(Kernel &k, uint64_t inst) {

@@ -9,6 +9,7 @@
 #include "engine/subsolver.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
@@ -2651,10 +2652,7 @@ ApplyResult bve_apply(Kernel &k) {
 static uint32_t bve_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Var> cand;
   bve_schedule(k, cand);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(cand.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, make_lit(cand[i], false));
-  return n;
+  return copy_positive_variable_instance_prefix(k, cand, out, cap);
 }
 
 static ApplyResult bve_apply_instance(Kernel &k, uint64_t inst) {

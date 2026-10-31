@@ -1,6 +1,7 @@
 // See instantiate.hpp for the rule's contract.
 #include "rules/instantiate/instantiate.hpp"
 
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -384,27 +385,12 @@ ApplyResult instantiate_try_literal(Kernel &k, Ref candidate, Lit literal) {
 static uint32_t instantiate_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
   instantiate_candidates(k, candidates);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = candidates[i];
-  return n;
+  return copy_instance_prefix(candidates, out, cap);
 }
 
 static ApplyResult instantiate_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return instantiate_apply(k);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == inst)
-      return instantiate_try(k, ref);
-    if (ref > inst)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
-  return ApplyResult::NoOp;
+  return apply_root_arena_instance<instantiate_apply, instantiate_try>(k,
+                                                                        inst);
 }
 
 static uint32_t instantiate_semantic_instances(Kernel &k, uint64_t *out,
@@ -436,14 +422,10 @@ static ApplyResult instantiate_apply_semantic_instance(Kernel &k,
   instantiate_pair_of_instance(instance, &selected_ref, &selected_literal);
   if (selected_ref == INVALID_REF || selected_literal >= 2 * k.nvars)
     return ApplyResult::NoOp;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (ref == selected_ref)
-      return instantiate_try_literal(k, ref, selected_literal);
-    if (ref > selected_ref)
-      break;
-    ref += clause_actual_words(clause_at(k.arena, ref));
-  }
-  return ApplyResult::NoOp;
+  const Ref ref = arena_clause_instance(k, selected_ref);
+  return ref == INVALID_REF
+             ? ApplyResult::NoOp
+             : instantiate_try_literal(k, ref, selected_literal);
 }
 
 TACTIX_REGISTER_RULE(Instantiate, RuleTier::Inprocess, instantiate_guard,

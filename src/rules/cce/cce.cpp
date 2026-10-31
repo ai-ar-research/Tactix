@@ -1,6 +1,7 @@
 #include "rules/cce/cce.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/support/flat_occurrence.hpp"
 
@@ -583,22 +584,11 @@ ApplyResult cce_apply(Kernel &k) {
 static uint32_t cce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> lits;
   cce_literals(k, lits);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(lits.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, lits[i]);
-  return n;
+  return copy_literal_instance_prefix(k, lits, out, cap);
 }
 
 static ApplyResult cce_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (inst == INSTANCE_CANONICAL)
-    return cce_apply(k);
-  Lit l;
-  if (!lit_of_instance(k, inst, &l))
-    return ApplyResult::NoOp;
-  return cce_try(k, l);
+  return apply_root_literal_instance<cce_apply, cce_try>(k, inst);
 }
 
 static uint32_t cce_semantic_instances(Kernel &k, uint64_t *out,
