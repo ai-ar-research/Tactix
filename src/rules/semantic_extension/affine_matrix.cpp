@@ -1560,6 +1560,115 @@ MatrixStatus AffineMatrix::synchronize(
 
   Work work{0, limits_.maximum_work, charge, false,
             &last_synchronization_work_exhausted_};
+  struct PreparedIndexState {
+    RowIndex index;
+    uint64_t reservation = 0;
+    std::vector<External> variable_scratch;
+    std::vector<size_t> source_scratch;
+    std::vector<uint64_t> dirty_marks;
+    std::vector<size_t> dirty_ids;
+    bool replace_scratch = false;
+  };
+  const auto prepare_index = [&](const std::vector<MatrixRow> &indexed_rows,
+                                 PreparedIndexState &prepared) {
+    const auto status = build_row_index(
+        indexed_rows, [&](uint64_t n) { return work.consume(n); },
+        incremental_limits->maximum_index_bytes, prepared.index);
+    if (status != MatrixStatus::Complete)
+      return work.interrupted ? MatrixStatus::Interrupted : status;
+    uint64_t scratch_bytes = 0;
+    if (!prepare_persistent_combine_scratch(
+            limits_, incremental_limits->maximum_index_bytes,
+            dirty_variable_xor_scratch_, dirty_source_xor_scratch_,
+            prepared.variable_scratch, prepared.source_scratch,
+            prepared.replace_scratch, scratch_bytes))
+      return MatrixStatus::Exhausted;
+    uint64_t dirty_bytes = 0;
+    if (!prepare_dirty_row_scratch(
+            indexed_rows.size(), incremental_limits->maximum_index_bytes,
+            prepared.dirty_marks, prepared.dirty_ids, dirty_bytes))
+      return MatrixStatus::Exhausted;
+    const __uint128_t peak =
+        __uint128_t(prepared.index.bytes) * 4 + scratch_bytes + dirty_bytes;
+    if (peak > UINT64_MAX)
+      return MatrixStatus::Exhausted;
+    prepared.reservation =
+        std::max(index_reservation_, static_cast<uint64_t>(peak));
+    return prepared.reservation > incremental_limits->maximum_index_bytes
+               ? MatrixStatus::Exhausted
+               : MatrixStatus::Complete;
+  };
+  const auto prepare_indexed_event =
+      [&](const std::vector<MatrixRow> &indexed_rows, const RowIndex &index,
+          MatrixEvent &candidate) {
+        size_t id = 0;
+        if (!index.conflicts.empty()) {
+          candidate.kind = MatrixEventKind::Conflict;
+          id = *index.conflicts.begin();
+        } else if (!index.singletons.empty()) {
+          candidate.kind = MatrixEventKind::Implication;
+          id = index.singletons.begin()->second;
+        }
+        if (candidate.kind == MatrixEventKind::None)
+          return MatrixStatus::Complete;
+        const auto &selected = indexed_rows[id];
+        if (!work.consume(1 + selected.variables.size() +
+                          selected.source_equations.size()))
+          return work.interrupted ? MatrixStatus::Interrupted
+                                  : MatrixStatus::Exhausted;
+        __uint128_t support = 0;
+        for (const size_t source : selected.source_equations) {
+          if (!work.consume(1))
+            return work.interrupted ? MatrixStatus::Interrupted
+                                    : MatrixStatus::Exhausted;
+          if (source >= sources_.size())
+            return invalid(MatrixSynchronizationFailureStage::SourceIdentity);
+          support += sources_[source].variables.size();
+        }
+        const __uint128_t reason_work =
+            (support + trail.size() + 1) *
+            (2 * std::bit_width(uint64_t(limits_.maximum_variables)) + 3);
+        const __uint128_t reason_bytes =
+            support * (sizeof(External) + 8 * sizeof(void *));
+        if (reason_work > UINT64_MAX ||
+            reason_bytes + index.bytes + index_.bytes >
+                incremental_limits->maximum_index_bytes)
+          return MatrixStatus::Exhausted;
+        if (!work.consume(static_cast<uint64_t>(reason_work)))
+          return work.interrupted ? MatrixStatus::Interrupted
+                                  : MatrixStatus::Exhausted;
+        candidate.row = selected;
+        if (candidate.kind == MatrixEventKind::Implication) {
+          candidate.implied_variable = selected.variables.front();
+          candidate.implied_value = selected.rhs;
+        }
+        return finish_reason(candidate)
+                   ? MatrixStatus::Complete
+                   : invalid(MatrixSynchronizationFailureStage::DeferredReason);
+      };
+  const auto install_index = [&](PreparedIndexState &prepared) {
+    if (incremental_limits) {
+      index_ = std::move(prepared.index);
+      index_ready_ = true;
+      index_reservation_ = prepared.reservation;
+      if (prepared.replace_scratch) {
+        dirty_variable_xor_scratch_ = std::move(prepared.variable_scratch);
+        dirty_source_xor_scratch_ = std::move(prepared.source_scratch);
+      }
+      dirty_row_marks_ = std::move(prepared.dirty_marks);
+      dirty_row_ids_ = std::move(prepared.dirty_ids);
+      dirty_row_epoch_ = 0;
+    } else {
+      index_ = {};
+      index_ready_ = false;
+      index_reservation_ = 0;
+      dirty_variable_xor_scratch_ = {};
+      dirty_source_xor_scratch_ = {};
+      dirty_row_marks_ = {};
+      dirty_row_ids_ = {};
+      dirty_row_epoch_ = 0;
+    }
+  };
   bool monotone_set = false;
   if (sorted_set_extension) {
     // Both validation/comparison and staging are reserved before inspecting
@@ -1616,84 +1725,25 @@ MatrixStatus AffineMatrix::synchronize(
                               : MatrixStatus::Exhausted;
   }
   if (predecessor_candidate && trail == predecessor_trail_) {
-    RowIndex restored_index;
-    uint64_t restored_reservation = index_reservation_;
-    std::vector<External> restored_variable_scratch;
-    std::vector<size_t> restored_source_scratch;
-    std::vector<uint64_t> restored_dirty_marks;
-    std::vector<size_t> restored_dirty_ids;
-    bool replace_scratch = false;
+    PreparedIndexState prepared;
     if (incremental_limits) {
-      const auto status = build_row_index(predecessor_rows_, [&](uint64_t n){ return work.consume(n); },
-          incremental_limits->maximum_index_bytes, restored_index);
-      if (status != MatrixStatus::Complete) return work.interrupted ? MatrixStatus::Interrupted : status;
-      uint64_t scratch_bytes = 0;
-      if (!prepare_persistent_combine_scratch(limits_,
-              incremental_limits->maximum_index_bytes,
-              dirty_variable_xor_scratch_, dirty_source_xor_scratch_,
-              restored_variable_scratch, restored_source_scratch,
-              replace_scratch, scratch_bytes))
-        return MatrixStatus::Exhausted;
-      uint64_t dirty_bytes = 0;
-      if (!prepare_dirty_row_scratch(predecessor_rows_.size(),
-              incremental_limits->maximum_index_bytes,
-              restored_dirty_marks, restored_dirty_ids, dirty_bytes))
-        return MatrixStatus::Exhausted;
-      const __uint128_t peak =
-          __uint128_t(restored_index.bytes) * 4 + scratch_bytes + dirty_bytes;
-      if (peak > UINT64_MAX) return MatrixStatus::Exhausted;
-      restored_reservation = std::max(restored_reservation, uint64_t(peak));
-      if (restored_reservation > incremental_limits->maximum_index_bytes) return MatrixStatus::Exhausted;
+      const auto status = prepare_index(predecessor_rows_, prepared);
+      if (status != MatrixStatus::Complete)
+        return status;
     }
     MatrixEvent candidate;
     if (incremental_limits) {
-      size_t id=0;
-      if (!restored_index.conflicts.empty()) {candidate.kind=MatrixEventKind::Conflict;id=*restored_index.conflicts.begin();}
-      else if (!restored_index.singletons.empty()) {candidate.kind=MatrixEventKind::Implication;id=restored_index.singletons.begin()->second;}
-      if (candidate.kind!=MatrixEventKind::None) {
-        const auto &selected=predecessor_rows_[id];
-        if (!work.consume(1+selected.variables.size()+selected.source_equations.size()))
-          return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-        __uint128_t support=0;
-        for(size_t source:selected.source_equations) {
-          if(!work.consume(1))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-          if(source>=sources_.size())
-            return invalid(MatrixSynchronizationFailureStage::SourceIdentity);
-          support+=sources_[source].variables.size();
-        }
-        const __uint128_t reason_work=(support+trail.size()+1)*(2*std::bit_width(uint64_t(limits_.maximum_variables))+3);
-        const __uint128_t reason_bytes=support*(sizeof(External)+8*sizeof(void*));
-        if(reason_work>UINT64_MAX||reason_bytes+restored_index.bytes+index_.bytes>incremental_limits->maximum_index_bytes)
-          return MatrixStatus::Exhausted;
-        if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-        candidate.row=selected;
-        if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-        if(!finish_reason(candidate))
-          return invalid(MatrixSynchronizationFailureStage::DeferredReason);
-      }
+      const auto status =
+          prepare_indexed_event(predecessor_rows_, prepared.index, candidate);
+      if (status != MatrixStatus::Complete)
+        return status;
     } else {candidate=find_event(predecessor_rows_);
       if(!finish_reason(candidate))
         return invalid(MatrixSynchronizationFailureStage::DeferredReason);}
     trail_ = std::move(predecessor_trail_);
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
-    if (incremental_limits) {
-      index_ = std::move(restored_index); index_ready_ = true; index_reservation_ = restored_reservation;
-      if (replace_scratch) {
-        dirty_variable_xor_scratch_ = std::move(restored_variable_scratch);
-        dirty_source_xor_scratch_ = std::move(restored_source_scratch);
-      }
-      dirty_row_marks_ = std::move(restored_dirty_marks);
-      dirty_row_ids_ = std::move(restored_dirty_ids);
-      dirty_row_epoch_ = 0;
-    } else {
-      index_ = {}; index_ready_ = false; index_reservation_ = 0;
-      dirty_variable_xor_scratch_ = {};
-      dirty_source_xor_scratch_ = {};
-      dirty_row_marks_ = {};
-      dirty_row_ids_ = {};
-      dirty_row_epoch_ = 0;
-    }
+    install_index(prepared);
     last_dirty_update_ = false; last_dirty_rows_ = 0;
     incremental_ready_ = true;
     last_synchronization_incremental_ = false;
@@ -1755,62 +1805,18 @@ MatrixStatus AffineMatrix::synchronize(
   if (rows.empty() && status == MatrixStatus::Partial)
     return MatrixStatus::Exhausted;
 
-  RowIndex candidate_index;
-  uint64_t candidate_reservation = 0;
-  std::vector<External> candidate_variable_scratch;
-  std::vector<size_t> candidate_source_scratch;
-  std::vector<uint64_t> candidate_dirty_marks;
-  std::vector<size_t> candidate_dirty_ids;
-  bool replace_scratch = false;
+  PreparedIndexState prepared;
   if (incremental_limits) {
-    const auto index_status = build_row_index(rows, [&](uint64_t n){ return work.consume(n); },
-        incremental_limits->maximum_index_bytes, candidate_index);
+    const auto index_status = prepare_index(rows, prepared);
     if (index_status != MatrixStatus::Complete)
-      return work.interrupted ? MatrixStatus::Interrupted : index_status;
-    uint64_t scratch_bytes = 0;
-    if (!prepare_persistent_combine_scratch(limits_,
-            incremental_limits->maximum_index_bytes,
-            dirty_variable_xor_scratch_, dirty_source_xor_scratch_,
-            candidate_variable_scratch, candidate_source_scratch,
-            replace_scratch, scratch_bytes))
-      return MatrixStatus::Exhausted;
-    uint64_t dirty_bytes = 0;
-    if (!prepare_dirty_row_scratch(rows.size(),
-            incremental_limits->maximum_index_bytes,
-            candidate_dirty_marks, candidate_dirty_ids, dirty_bytes))
-      return MatrixStatus::Exhausted;
-    const __uint128_t peak =
-        __uint128_t(candidate_index.bytes) * 4 + scratch_bytes + dirty_bytes;
-    candidate_reservation = std::max(index_reservation_, peak > UINT64_MAX ? UINT64_MAX : uint64_t(peak));
-    if (peak > UINT64_MAX || candidate_reservation > incremental_limits->maximum_index_bytes)
-      return MatrixStatus::Exhausted;
+      return index_status;
   }
   MatrixEvent candidate;
   if (incremental_limits) {
-    size_t id=0;
-    if (!candidate_index.conflicts.empty()) {candidate.kind=MatrixEventKind::Conflict;id=*candidate_index.conflicts.begin();}
-    else if (!candidate_index.singletons.empty()) {candidate.kind=MatrixEventKind::Implication;id=candidate_index.singletons.begin()->second;}
-    if (candidate.kind!=MatrixEventKind::None) {
-      const auto &selected=rows[id];
-      if (!work.consume(1+selected.variables.size()+selected.source_equations.size()))
-        return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-      __uint128_t support=0;
-      for(size_t source:selected.source_equations) {
-        if(!work.consume(1))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-        if(source>=sources_.size())
-          return invalid(MatrixSynchronizationFailureStage::SourceIdentity);
-        support+=sources_[source].variables.size();
-      }
-      const __uint128_t reason_work=(support+trail.size()+1)*(2*std::bit_width(uint64_t(limits_.maximum_variables))+3);
-      const __uint128_t reason_bytes=support*(sizeof(External)+8*sizeof(void*));
-      if(reason_work>UINT64_MAX||reason_bytes+candidate_index.bytes+index_.bytes>incremental_limits->maximum_index_bytes)
-        return MatrixStatus::Exhausted;
-      if(!work.consume(uint64_t(reason_work)))return work.interrupted ? MatrixStatus::Interrupted : MatrixStatus::Exhausted;
-      candidate.row=selected;
-      if(candidate.kind==MatrixEventKind::Implication) {candidate.implied_variable=selected.variables.front();candidate.implied_value=selected.rhs;}
-      if(!finish_reason(candidate))
-        return invalid(MatrixSynchronizationFailureStage::DeferredReason);
-    }
+    const auto event_status =
+        prepare_indexed_event(rows, prepared.index, candidate);
+    if (event_status != MatrixStatus::Complete)
+      return event_status;
   } else {candidate=find_event(rows);
     if(!finish_reason(candidate))
       return invalid(MatrixSynchronizationFailureStage::DeferredReason);}
@@ -1835,23 +1841,7 @@ MatrixStatus AffineMatrix::synchronize(
   // storage before allocating the destination; it cannot add a fifth buffer.
   trail_ = trail;
   rows_ = std::move(rows);
-  if (incremental_limits) {
-    index_ = std::move(candidate_index); index_ready_ = true; index_reservation_ = candidate_reservation;
-    if (replace_scratch) {
-      dirty_variable_xor_scratch_ = std::move(candidate_variable_scratch);
-      dirty_source_xor_scratch_ = std::move(candidate_source_scratch);
-    }
-    dirty_row_marks_ = std::move(candidate_dirty_marks);
-    dirty_row_ids_ = std::move(candidate_dirty_ids);
-    dirty_row_epoch_ = 0;
-  } else {
-    index_ = {}; index_ready_ = false; index_reservation_ = 0;
-    dirty_variable_xor_scratch_ = {};
-    dirty_source_xor_scratch_ = {};
-    dirty_row_marks_ = {};
-    dirty_row_ids_ = {};
-    dirty_row_epoch_ = 0;
-  }
+  install_index(prepared);
   last_dirty_update_ = false; last_dirty_rows_ = 0;
   incremental_ready_ = status == MatrixStatus::Complete;
   last_synchronization_incremental_ = incremental;
