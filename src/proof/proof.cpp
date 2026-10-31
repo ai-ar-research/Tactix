@@ -1288,8 +1288,8 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     // permanently abandons ID deletion so duplicate selection cannot drift.
     if (streaming_pbp_finished_)
       return;
-    const bool exact_identity = size != 2 || pbp_exact_binary_ids_;
-    if (exact_identity && put_pbp_deletion_id(del_id)) {
+    // Both PBP deletion forms report the same checker-population request.
+    const auto observe_deletion = [&] {
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
       population_del(del_id, lits, size);
 #endif
@@ -1297,6 +1297,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
                       CheckerClauseRole::None, line_id, del_id,
                       PopulationClauseView::internal_lits(lits, size,
                                                            variable_map_));
+    };
+    const bool exact_identity = size != 2 || pbp_exact_binary_ids_;
+    if (exact_identity && put_pbp_deletion_id(del_id)) {
+      observe_deletion();
       return;
     }
     pbp_external_scratch_.clear();
@@ -1316,13 +1320,7 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(),
                             pbp_canonical_scratch_.size());
     std::fputs(" ;\n", file_);
-#ifdef TACTIX_ENABLE_PROOF_SHADOW
-    population_del(del_id, lits, size);
-#endif
-    observe_checker(CheckerPopulationEventKind::DeleteRequested,
-                    CheckerClauseRole::None, line_id, del_id,
-                    PopulationClauseView::internal_lits(lits, size,
-                                                         variable_map_));
+    observe_deletion();
     return;
   }
   Lit external_unit = size == 1 ? lits[0] : INVALID_LIT;
@@ -2088,8 +2086,8 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
   if (streaming_pbp()) {
     if (streaming_pbp_finished_)
       return true;
-    const bool exact_identity = size != 2 || pbp_exact_binary_ids_;
-    if (exact_identity && put_pbp_deletion_id(del_id)) {
+    // Both PBP deletion forms report the same checker-population request.
+    const auto observe_deletion = [&] {
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
       std::vector<Lit> external;
       external.reserve(size);
@@ -2104,7 +2102,10 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
                       CheckerClauseRole::None, line_id, del_id,
                       PopulationClauseView::external_lits(lits, size), true);
       return true;
-    }
+    };
+    const bool exact_identity = size != 2 || pbp_exact_binary_ids_;
+    if (exact_identity && put_pbp_deletion_id(del_id))
+      return observe_deletion();
     if (!canonical_pbp_deletion(lits, size, pbp_canonical_scratch_))
       return true;
     if (exact_identity)
@@ -2112,20 +2113,7 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
     put_pbp_external_clause("del spec", pbp_canonical_scratch_.data(),
                             pbp_canonical_scratch_.size());
     std::fputs(" ;\n", file_);
-#ifdef TACTIX_ENABLE_PROOF_SHADOW
-    std::vector<Lit> external;
-    external.reserve(size);
-    for (uint32_t i = 0; i < size; ++i)
-      external.push_back(internalize(lits[i]));
-    const auto *saved = variable_map_;
-    variable_map_ = nullptr;
-    population_del(del_id, external.data(), size);
-    variable_map_ = saved;
-#endif
-    observe_checker(CheckerPopulationEventKind::DeleteRequested,
-                    CheckerClauseRole::None, line_id, del_id,
-                    PopulationClauseView::external_lits(lits, size), true);
-    return true;
+    return observe_deletion();
   }
   if (lrat() || pb())
     return false;
