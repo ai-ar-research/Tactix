@@ -1,12 +1,12 @@
 #pragma once
 
+#include "rules/semantic_extension/direct_csp_action_limits.hpp"
+
 #include <cstdint>
 
 namespace tactix {
 struct Kernel;
 struct AffineBasisActionLimits;
-struct DirectCspGuardedCoverActionLimits;
-struct DirectCspSupportActionLimits;
 struct DirectPhpActionLimits;
 struct Gf3AffineActionLimits;
 struct Gf3GaussianActionLimits;
@@ -220,45 +220,10 @@ struct Gf3AffineConsequenceParameters {
 };
 
 // Explicit GuardedCoverV2 profile; zero limits decline rather than inherit V1.
-struct DirectCspGuardedCoverParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domains = 0;
-  uint32_t maximum_domain_values = 0;
-  uint32_t maximum_cover_literals = 0;
-  uint32_t maximum_or_definitions = 0;
-  uint32_t maximum_or_inputs = 0;
-  uint32_t maximum_output_literals = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
-  bool valid() const;
-  bool operator==(const DirectCspGuardedCoverParameters &) const = default;
-};
+using DirectCspGuardedCoverParameters =
+    DirectCspGuardedCoverActionLimits;
 
-struct DirectCspSupportParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint32_t maximum_direct_clause_literals = 0;
-  uint32_t maximum_definition_clause_literals = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
-  bool allow_extension = false;
-
-  bool valid() const;
+struct DirectCspSupportParameters : DirectCspSupportActionLimits {
   static DirectCspSupportParameters from_kernel(const Kernel &);
 };
 

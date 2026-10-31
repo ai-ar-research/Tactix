@@ -60,35 +60,12 @@ bool Gf3AffineConsequenceParameters::valid() const {
 
 DirectCspGuardedCoverActionLimits action_limits(
     const DirectCspGuardedCoverParameters &p) {
-  return DirectCspGuardedCoverActionLimits{
-      p.maximum_source_clauses, p.maximum_source_literals,
-      p.maximum_recognition_work, p.maximum_domains,
-      p.maximum_domain_values, p.maximum_cover_literals,
-      p.maximum_or_definitions, p.maximum_or_inputs,
-      p.maximum_output_literals, p.maximum_proof_work,
-      p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-      p.maximum_journal_bytes, p.maximum_external_extent,
-      p.maximum_session_keys, p.maximum_session_work};
-}
-
-bool DirectCspGuardedCoverParameters::valid() const {
-  return action_limits(*this).valid();
+  return p;
 }
 
 DirectCspSupportActionLimits action_limits(
     const DirectCspSupportParameters &p) {
-  return DirectCspSupportActionLimits{
-      p.maximum_source_clauses, p.maximum_source_literals,
-      p.maximum_recognition_work, p.maximum_domain_values,
-      p.maximum_direct_clause_literals, p.maximum_definition_clause_literals,
-      p.maximum_proof_work, p.maximum_proof_additions,
-      p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-      p.maximum_extent_growth, p.maximum_external_extent,
-      p.maximum_session_keys, p.maximum_session_work, p.allow_extension};
-}
-
-bool DirectCspSupportParameters::valid() const {
-  return action_limits(*this).valid();
+  return p;
 }
 
 NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &p) {

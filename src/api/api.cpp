@@ -654,7 +654,7 @@ bool online_parameters(const tactix_online_parameters &source,
   case TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT: {
     const auto &p = source.value.direct_csp_support;
     if (p.allow_extension != 0 && p.allow_extension != 1) return false;
-    strategy::DirectCspSupportParameters converted{
+    strategy::DirectCspSupportParameters converted{{
         p.maximum_source_clauses,
         p.maximum_source_literals,
         p.maximum_recognition_work,
@@ -669,7 +669,7 @@ bool online_parameters(const tactix_online_parameters &source,
         p.maximum_external_extent,
         p.maximum_session_keys,
         p.maximum_session_work,
-        p.allow_extension != 0};
+        p.allow_extension != 0}};
     if (!converted.valid()) return false;
     target = converted;
     return true;

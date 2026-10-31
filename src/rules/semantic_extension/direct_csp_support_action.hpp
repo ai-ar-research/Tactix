@@ -1,6 +1,7 @@
 // Controller-facing action boundary for certified DirectCSP support clauses.
 #pragma once
 
+#include "rules/semantic_extension/direct_csp_action_limits.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 #include "strategy/semantic_variable.hpp"
 
@@ -64,28 +65,6 @@ private:
   const Kernel *owner_ = nullptr;
   std::vector<DirectCspSupportOwnerSnapshot> snapshots_;
   std::vector<DirectCspSupportActionKey> keys_;
-};
-
-// Every recognition, proof, namespace, journal, and retained-session cost is
-// selected by the caller.  No hidden global or policy budget is consulted.
-struct DirectCspSupportActionLimits {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint32_t maximum_domain_values = 0;
-  uint32_t maximum_direct_clause_literals = 0;
-  uint32_t maximum_definition_clause_literals = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
-  bool allow_extension = false;
-
-  bool valid() const;
 };
 
 enum class DirectCspSupportActionStatus : uint8_t {
