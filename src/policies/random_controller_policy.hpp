@@ -264,54 +264,47 @@ public:
               volatile sig_atomic_t *stop = nullptr) override;
 
 private:
-  struct AffineBasisDiscoveryState {
+  template <class Offer>
+  struct DiscoveryQueueState {
     const Kernel *owner = nullptr;
-    const AffineBasisActionSession *session = nullptr;
     strategy::StateVersion state;
-    size_t session_keys = 0;
     bool terminal = false;
+    bool reconfiguration_required = false;
+    std::string profile;
+    std::vector<Offer> offers;
+    std::optional<Offer> pending;
+    uint64_t pending_sequence = 0;
+  };
+
+  template <class Offer, class Cursor>
+  struct PagedDiscoveryState : DiscoveryQueueState<Offer> {
+    bool complete = false;
+    bool have_after = false;
+    Cursor after;
+  };
+
+  struct AffineBasisDiscoveryState
+      : DiscoveryQueueState<AffineBasisRowSelection> {
+    const AffineBasisActionSession *session = nullptr;
+    size_t session_keys = 0;
     // The immutable source population was enumerated to completion.  Search
     // and formula epochs may continue to advance, but later clauses are not
     // part of this owner's census and must not re-arm discovery.
     bool durable_terminal = false;
-    bool reconfiguration_required = false;
     bool more = false;
-    std::string profile;
     AffineBasisOfferCursor cursor;
-    std::vector<AffineBasisRowSelection> offers;
-    std::optional<AffineBasisRowSelection> pending;
-    uint64_t pending_sequence = 0;
   };
-  struct Gf3DiscoveryState {
-    const Kernel *owner = nullptr;
+  struct Gf3DiscoveryState
+      : PagedDiscoveryState<Gf3AffineActionKey, Gf3AffineActionKey> {
     const Gf3AffineActionSession *session = nullptr;
-    strategy::StateVersion state;
     size_t session_keys = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    bool complete = false;
-    bool have_after = false;
-    std::string profile;
-    Gf3AffineActionKey after;
-    std::vector<Gf3AffineActionKey> offers;
-    std::optional<Gf3AffineActionKey> pending;
-    uint64_t pending_sequence = 0;
   };
-  struct DirectCspDiscoveryState {
-    const Kernel *owner = nullptr;
+  struct DirectCspDiscoveryState
+      : PagedDiscoveryState<DirectCspSupportActionSelection,
+                            DirectCspSupportActionKey> {
     const DirectCspSupportActionSession *session = nullptr;
-    strategy::StateVersion state;
     size_t session_keys = 0;
     size_t retained_owners = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    bool complete = false;
-    bool have_after = false;
-    std::string profile;
-    DirectCspSupportActionKey after;
-    std::vector<DirectCspSupportActionSelection> offers;
-    std::optional<DirectCspSupportActionSelection> pending;
-    uint64_t pending_sequence = 0;
   };
   struct Gf3GaussianDiscoveryState {
     const Kernel *owner = nullptr;
@@ -325,68 +318,33 @@ private:
     std::optional<std::string> pending;
     uint64_t pending_sequence = 0;
   };
-  struct TseitinCycleDiscoveryState {
-    const Kernel *owner = nullptr;
+  struct TseitinCycleDiscoveryState : DiscoveryQueueState<std::string> {
     const TseitinCycleBreakingSession *session = nullptr;
-    strategy::StateVersion state;
     size_t session_keys = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    std::string profile;
-    std::vector<std::string> offers;
-    std::optional<std::string> pending;
-    uint64_t pending_sequence = 0;
   };
-  struct NaryCspEqualityDiscoveryState {
-    const Kernel *owner = nullptr;
+  struct NaryCspEqualityDiscoveryState
+      : PagedDiscoveryState<NaryCspEqualityActionSelection,
+                            NaryCspEqualityKey> {
     const NaryCspRelationOwnerSession *relation_session = nullptr;
     const NaryCspEqualitySession *equality_session = nullptr;
-    strategy::StateVersion state;
     size_t relation_owners = 0;
     size_t equality_keys = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    bool complete = false;
-    bool have_after = false;
-    std::string profile;
-    NaryCspEqualityKey after;
-    std::vector<NaryCspEqualityActionSelection> offers;
-    std::optional<NaryCspEqualityActionSelection> pending;
-    uint64_t pending_sequence = 0;
   };
-  struct Gf3GeneralRowDiscoveryState {
-    const Kernel *owner = nullptr;
+  struct Gf3GeneralRowDiscoveryState
+      : PagedDiscoveryState<Gf3GeneralRowActionSelection,
+                            Gf3GeneralRowActionSelection> {
     const Gf3GeneralRowActionSession *session = nullptr;
-    strategy::StateVersion state;
     size_t session_keys = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    bool complete = false;
-    bool have_after = false;
-    std::string profile;
-    Gf3GeneralRowActionSelection after;
-    std::vector<Gf3GeneralRowActionSelection> offers;
-    std::optional<Gf3GeneralRowActionSelection> pending;
-    uint64_t pending_sequence = 0;
   };
-  struct NaryCspEqualityAmoDiscoveryState {
-    const Kernel *owner = nullptr;
+  struct NaryCspEqualityAmoDiscoveryState
+      : PagedDiscoveryState<NaryCspEqualityAmoSelection,
+                            NaryCspEqualityAmoKey> {
     const NaryCspRelationOwnerSession *relation_session = nullptr;
     const NaryCspEqualitySession *equality_session = nullptr;
     const NaryCspEqualityAmoSession *amo_session = nullptr;
-    strategy::StateVersion state;
     size_t relation_owners = 0;
     size_t equality_keys = 0;
     size_t amo_keys = 0;
-    bool terminal = false;
-    bool reconfiguration_required = false;
-    bool complete = false;
-    bool have_after = false;
-    std::string profile;
-    NaryCspEqualityAmoKey after;
-    std::vector<NaryCspEqualityAmoSelection> offers;
-    std::optional<NaryCspEqualityAmoSelection> pending;
-    uint64_t pending_sequence = 0;
   };
 
   struct GuardedCoverDiscoveryState {
