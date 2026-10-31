@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/nary_csp_relation_live.hpp"
 
+#include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
@@ -228,25 +229,11 @@ CaptureStatus capture_slice(
     return failure == CaptureStatus::Complete;
   };
 
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1)) return stopped_capture(meter);
-    if (!clause->garbage() &&
-        !observe(clause->lits, clause->size, clause->id()))
-      return failure;
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return stopped_capture(meter);
-      if (!watch.binary() || first >= watch.other()) continue;
-      const Lit pair[] = {first, watch.other()};
-      const uint64_t native_id =
-          kernel.binary_ids.tracks_values()
-              ? kernel_binary_id(kernel, first, watch.other())
-              : 0;
-      if (!observe(pair, 2, native_id)) return failure;
-    }
+  const csp_physical_scan::Status scan =
+      csp_physical_scan::run(kernel, meter, observe);
+  if (scan != csp_physical_scan::Status::Complete)
+    return scan == csp_physical_scan::Status::Stopped ? stopped_capture(meter)
+                                                       : failure;
 
   if (found_domains.size() != expected.domain_clauses.size())
     return CaptureStatus::NoStructure;

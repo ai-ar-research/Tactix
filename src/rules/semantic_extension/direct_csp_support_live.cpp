@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
@@ -200,25 +201,11 @@ CaptureSliceStatus capture_slice(
                   FoundClause{native_id, external, wanted->second});
     return true;
   };
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1)) return capture_stopped(meter);
-    if (!clause->garbage() &&
-        !observe(clause->lits, clause->size, clause->id()))
-      return failure;
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1)) return capture_stopped(meter);
-      if (!watch.binary() || first >= watch.other()) continue;
-      const Lit pair[] = {first, watch.other()};
-      const uint64_t native_id =
-          kernel.binary_ids.tracks_values()
-              ? kernel_binary_id(kernel, first, watch.other())
-              : 0;
-      if (!observe(pair, 2, native_id)) return failure;
-    }
+  const csp_physical_scan::Status scan =
+      csp_physical_scan::run(kernel, meter, observe);
+  if (scan != csp_physical_scan::Status::Complete)
+    return scan == csp_physical_scan::Status::Stopped ? capture_stopped(meter)
+                                                       : failure;
 
   DirectCspSupportOwnerSnapshot snapshot;
   snapshot.external_extent = kernel.external_to_internal.size();
