@@ -414,6 +414,8 @@ private:
   bool pbp_exact_binary_ids_ = false;
   std::vector<int32_t> pbp_external_scratch_;
   std::vector<int32_t> pbp_canonical_scratch_;
+  std::vector<uint32_t> pbp_canonical_order_;
+  std::vector<uint8_t> pbp_canonical_keep_;
   ProofFormat format_ = ProofFormat::DsrBinary;
   std::array<unsigned char, 1 << 20> binary_buffer_{};
   size_t binary_buffer_size_ = 0;

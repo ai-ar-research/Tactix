@@ -608,26 +608,42 @@ bool Proof::put_pbp_deletion_id(uint64_t id) {
 // literals before populating the initial constraint database.  A `del spec`
 // must name that canonical constraint, rather than the raw DIMACS spelling
 // retained by Tactix for input-proof accounting.
+//
+// Literal positions are grouped by variable, earliest first: a group with both
+// signs is a tautology, and only the first position of each group is kept.
+// The kept literals stay in input order.  Time is O(k log k) and scratch
+// memory O(k) in the clause length k.
 static bool canonical_pbp_deletion(const int32_t *lits, uint32_t size,
-                                   std::vector<int32_t> &canonical) {
+                                   std::vector<int32_t> &canonical,
+                                   std::vector<uint32_t> &order,
+                                   std::vector<uint8_t> &keep) {
   canonical.clear();
-  canonical.reserve(size);
+  order.resize(size);
+  keep.assign(size, 0);
   for (uint32_t i = 0; i < size; ++i) {
-    const int32_t literal = lits[i];
-    if (!literal || literal == INT32_MIN)
+    if (!lits[i] || lits[i] == INT32_MIN)
       return false;
-    bool duplicate = false;
-    for (const int32_t other : canonical) {
-      if (literal == -other)
-        return false;
-      if (literal == other) {
-        duplicate = true;
-        break;
-      }
-    }
-    if (!duplicate)
-      canonical.push_back(literal);
+    order[i] = i;
   }
+  const auto variable = [&](uint32_t at) {
+    return static_cast<uint32_t>(lits[at] > 0 ? lits[at] : -lits[at]);
+  };
+  std::sort(order.begin(), order.end(), [&](uint32_t left, uint32_t right) {
+    const uint32_t lv = variable(left), rv = variable(right);
+    return lv != rv ? lv < rv : left < right;
+  });
+  for (uint32_t i = 0; i < size; ++i) {
+    if (i && variable(order[i]) == variable(order[i - 1])) {
+      if (lits[order[i]] != lits[order[i - 1]])
+        return false;
+      continue;
+    }
+    keep[order[i]] = 1;
+  }
+  canonical.reserve(size);
+  for (uint32_t i = 0; i < size; ++i)
+    if (keep[i])
+      canonical.push_back(lits[i]);
   return true;
 }
 
@@ -1313,7 +1329,8 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     }
     if (!canonical_pbp_deletion(pbp_external_scratch_.data(),
                                 pbp_external_scratch_.size(),
-                                pbp_canonical_scratch_))
+                                pbp_canonical_scratch_, pbp_canonical_order_,
+                                pbp_canonical_keep_))
       return;
     if (exact_identity)
       abandon_pbp_id_deletions();
@@ -2106,7 +2123,8 @@ bool Proof::del_external(uint64_t line_id, uint64_t del_id,
     const bool exact_identity = size != 2 || pbp_exact_binary_ids_;
     if (exact_identity && put_pbp_deletion_id(del_id))
       return observe_deletion();
-    if (!canonical_pbp_deletion(lits, size, pbp_canonical_scratch_))
+    if (!canonical_pbp_deletion(lits, size, pbp_canonical_scratch_,
+                                pbp_canonical_order_, pbp_canonical_keep_))
       return true;
     if (exact_identity)
       abandon_pbp_id_deletions();
