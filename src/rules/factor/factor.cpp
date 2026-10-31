@@ -1206,6 +1206,35 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     // to the heap and tie score.
     return fidx.live_degree[l];
   };
+  // Kissat's dense match scan for one grid clause: charge the clause, require
+  // exactly one factor literal, choose the first least-watched remainder
+  // literal, and charge its dense watch list. INVALID_LIT rejects the column.
+  const auto grid_clause_scan_literal = [&](Ref current_ref,
+                                            const Clause *&current) -> Lit {
+    if (current_ref == INVALID_REF)
+      return INVALID_LIT;
+    current = clause_at(k.arena, current_ref);
+    k.stats.factor_ticks++;
+    Lit scan = INVALID_LIT;
+    uint32_t scan_size = 0;
+    uint32_t factors_in_clause = 0;
+    for (const Lit lit : *current) {
+      if (lit < marks.size() && (marks[lit] & MARK_FACTOR)) {
+        factors_in_clause++;
+        continue;
+      }
+      const uint32_t dense_size = reference_score_of(lit);
+      if (scan == INVALID_LIT || dense_size < scan_size) {
+        scan = lit;
+        scan_size = dense_size;
+      }
+    }
+    if (factors_in_clause != 1 || scan == INVALID_LIT ||
+        scan >= fidx.order.size())
+      return INVALID_LIT;
+    charge_factor_watch_scan(k, reference_score_of(scan));
+    return scan;
+  };
   const auto score_of = [&](Lit l) -> uint32_t {
     const uint32_t reference_score = reference_score_of(l);
     return fm ? static_cast<uint32_t>(fm->seed_score(
@@ -1443,29 +1472,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         }
 
         const Ref current_ref = grid_refs.back()[column];
-        if (current_ref == INVALID_REF)
+        const Clause *current = nullptr;
+        const Lit scan = grid_clause_scan_literal(current_ref, current);
+        if (scan == INVALID_LIT)
           continue;
-        const Clause *current = clause_at(k.arena, current_ref);
-        k.stats.factor_ticks++;
-        Lit scan = INVALID_LIT;
-        uint32_t scan_size = 0;
-        uint32_t factors_in_clause = 0;
-        for (const Lit lit : *current) {
-          if (lit < marks.size() && (marks[lit] & MARK_FACTOR)) {
-            factors_in_clause++;
-            continue;
-          }
-          const uint32_t dense_size = reference_score_of(lit);
-          if (scan == INVALID_LIT || dense_size < scan_size) {
-            scan = lit;
-            scan_size = dense_size;
-          }
-        }
-        if (factors_in_clause != 1 || scan == INVALID_LIT ||
-            scan >= fidx.order.size())
-          continue;
-
-        charge_factor_watch_scan(k, reference_score_of(scan));
         clear_nounted();
         for (const FactorWatch watch : fidx.order[scan]) {
           if (watch.binary())
@@ -1639,28 +1649,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           // clauses therefore have occurrence identity and order; preserving
           // only their multiplicity changes the later mutable-heap topology.
           const Ref current_ref = grid_refs.back()[column];
-          if (current_ref == INVALID_REF)
+          const Clause *current = nullptr;
+          const Lit scan = grid_clause_scan_literal(current_ref, current);
+          if (scan == INVALID_LIT)
             continue;
-          const Clause *current = clause_at(k.arena, current_ref);
-          k.stats.factor_ticks++;
-          Lit scan = INVALID_LIT;
-          uint32_t scan_size = 0;
-          uint32_t factors_in_clause = 0;
-          for (const Lit lit : *current) {
-            if (lit < marks.size() && (marks[lit] & MARK_FACTOR)) {
-              factors_in_clause++;
-              continue;
-            }
-            const uint32_t dense_size = reference_score_of(lit);
-            if (scan == INVALID_LIT || dense_size < scan_size) {
-              scan = lit;
-              scan_size = dense_size;
-            }
-          }
-          if (factors_in_clause != 1 || scan == INVALID_LIT ||
-              scan >= fidx.order.size())
-            continue;
-          charge_factor_watch_scan(k, reference_score_of(scan));
           const Lit *expected = pool.lits_of(rid);
           stamp_remainder(expected, rn, live_lits);
           uint32_t visited_large = 0;
