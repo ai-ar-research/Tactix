@@ -730,6 +730,118 @@ bool boolean(uint64_t value, bool &out) {
   return true;
 }
 
+bool assign_value(uint64_t value, uint64_t &out) {
+  out = value;
+  return true;
+}
+
+bool assign_value(uint64_t value, uint32_t &out) {
+  if (value > UINT32_MAX) return false;
+  out = static_cast<uint32_t>(value);
+  return true;
+}
+
+template <class... Fields>
+bool assign_values(const std::vector<uint64_t> &values, size_t offset,
+                   Fields &...fields) {
+  return (assign_value(values[offset++], fields) && ...);
+}
+
+template <class First, class... Rest>
+void serialize_values(std::ostream &out, const First &first,
+                      const Rest &...rest) {
+  out << first;
+  ((out << ',' << rest), ...);
+}
+
+template <class Parameters, class Visitor>
+bool visit_affine_image_fields(Parameters &p, Visitor visit) {
+  return visit(p.maximum_clauses, p.maximum_snapshot_literals,
+               p.maximum_snapshot_work, p.maximum_groups, p.maximum_patterns,
+               p.maximum_elimination_work, p.maximum_arity,
+               p.maximum_intermediate_width, p.maximum_sources,
+               p.maximum_output_width, p.maximum_proof_additions,
+               p.maximum_proof_deletions, p.maximum_journal_bytes);
+}
+
+template <class Parameters, class Visitor>
+bool visit_affine_basis_fields(Parameters &p, Visitor visit) {
+  return visit(p.basis_maximum_work, p.basis_maximum_intermediate_width,
+               p.basis_maximum_sources, p.basis_maximum_premises,
+               p.basis_maximum_nodes, p.basis_maximum_direct_width,
+               p.maximum_external_extent, p.maximum_session_keys,
+               p.maximum_session_work);
+}
+
+template <class Parameters, class Visitor>
+bool visit_gf3_gaussian_fields(Parameters &p, Visitor visit) {
+  return visit(
+      p.maximum_source_clauses, p.maximum_source_literals, p.maximum_domains,
+      p.maximum_equations, p.maximum_equation_arity,
+      p.maximum_tuples_per_equation, p.maximum_bridge_work,
+      p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
+      p.maximum_bridge_domains, p.maximum_bridge_equations,
+      p.maximum_bridge_terms, p.maximum_authentication_references,
+      p.maximum_references_per_equation, p.maximum_gaussian_work,
+      p.maximum_fill_entries, p.maximum_intermediate_width,
+      p.maximum_provenance_terms, p.maximum_derivations,
+      p.maximum_retained_plan_bytes, p.maximum_certificate_work,
+      p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
+      p.maximum_retained_source_references, p.maximum_event_width,
+      p.maximum_branch_domains, p.maximum_consequences, p.maximum_capture_work,
+      p.maximum_revalidation_work, p.maximum_proof_additions,
+      p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
+      p.maximum_identity_bytes, p.maximum_external_extent,
+      p.maximum_session_keys, p.maximum_session_work,
+      p.maximum_session_identity_bytes);
+}
+
+bool parse_affine_image_values(const std::vector<uint64_t> &v,
+                               AffineConsequenceParameters &p) {
+  return visit_affine_image_fields(
+      p, [&](auto &...fields) { return assign_values(v, 0, fields...); });
+}
+
+bool parse_affine_basis_values(const std::vector<uint64_t> &v,
+                               AffineConsequenceParameters &p) {
+  if (!parse_affine_image_values(v, p)) return false;
+  p.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
+  return visit_affine_basis_fields(
+      p, [&](auto &...fields) { return assign_values(v, 13, fields...); });
+}
+
+bool parse_gf3_gaussian_values(const std::vector<uint64_t> &v,
+                               Gf3GaussianConsequenceParameters &p) {
+  return visit_gf3_gaussian_fields(
+      p, [&](auto &...fields) { return assign_values(v, 0, fields...); });
+}
+
+void serialize_affine_image_values(
+    std::ostream &out, const AffineConsequenceParameters &p) {
+  visit_affine_image_fields(p, [&](const auto &...fields) {
+    serialize_values(out, fields...);
+    return true;
+  });
+}
+
+void serialize_affine_basis_values(
+    std::ostream &out, const AffineConsequenceParameters &p) {
+  serialize_affine_image_values(out, p);
+  out << ',';
+  visit_affine_basis_fields(p, [&](const auto &...fields) {
+    serialize_values(out, fields...);
+    return true;
+  });
+}
+
+void serialize_gf3_gaussian_values(
+    std::ostream &out, const Gf3GaussianConsequenceParameters &p) {
+  visit_gf3_gaussian_fields(p, [&](const auto &...fields) {
+    serialize_values(out, fields...);
+    return true;
+  });
+}
+
 bool parse_parameters(std::string_view text, ActionParameters &parameters) {
   if (text == "inherit") {
     parameters = std::monostate{};
@@ -808,54 +920,19 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     p.consequence = v[9]; parameters = p;
   } else if (tuple(text, "affine-consequence1", v) && v.size() == 14) {
     AffineConsequenceParameters p;
-    p.maximum_clauses=v[0]; p.maximum_snapshot_literals=v[1];
-    p.maximum_snapshot_work=v[2]; p.maximum_groups=v[3];
-    p.maximum_patterns=v[4]; p.maximum_elimination_work=v[5];
-    U32_AT(6,p.maximum_arity); U32_AT(7,p.maximum_intermediate_width);
-    U32_AT(8,p.maximum_sources); U32_AT(9,p.maximum_output_width);
-    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
-    p.maximum_journal_bytes=v[12]; p.consequence=v[13];
+    if (!parse_affine_image_values(v, p)) return false;
+    p.consequence = v[13];
     p.semantics = AffineConsequenceSemantics::SelectedConsequenceV1;
-    parameters=p;
+    parameters = p;
   } else if (tuple(text, "affine-consequence2", v) && v.size() == 22) {
     AffineConsequenceParameters p;
-    p.maximum_clauses=v[0]; p.maximum_snapshot_literals=v[1];
-    p.maximum_snapshot_work=v[2]; p.maximum_groups=v[3];
-    p.maximum_patterns=v[4]; p.maximum_elimination_work=v[5];
-    U32_AT(6,p.maximum_arity); U32_AT(7,p.maximum_intermediate_width);
-    U32_AT(8,p.maximum_sources); U32_AT(9,p.maximum_output_width);
-    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
-    p.maximum_journal_bytes=v[12];
-    p.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
-    p.basis_maximum_work=v[13];
-    U32_AT(14,p.basis_maximum_intermediate_width);
-    U32_AT(15,p.basis_maximum_sources);
-    U32_AT(16,p.basis_maximum_premises);
-    U32_AT(17,p.basis_maximum_nodes);
-    U32_AT(18,p.basis_maximum_direct_width);
-    U32_AT(19,p.maximum_external_extent);
-    p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
-    parameters=p;
+    if (!parse_affine_basis_values(v, p)) return false;
+    parameters = p;
   } else if (tuple(text, "affine-matrix-persistent1", v) && v.size() == 27) {
     AffineConsequenceParameters p;
-    p.maximum_clauses=v[0]; p.maximum_snapshot_literals=v[1];
-    p.maximum_snapshot_work=v[2]; p.maximum_groups=v[3];
-    p.maximum_patterns=v[4]; p.maximum_elimination_work=v[5];
-    U32_AT(6,p.maximum_arity); U32_AT(7,p.maximum_intermediate_width);
-    U32_AT(8,p.maximum_sources); U32_AT(9,p.maximum_output_width);
-    p.maximum_proof_additions=v[10]; p.maximum_proof_deletions=v[11];
-    p.maximum_journal_bytes=v[12];
-    p.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
-    p.basis_maximum_work=v[13];
-    U32_AT(14,p.basis_maximum_intermediate_width);
-    U32_AT(15,p.basis_maximum_sources);
-    U32_AT(16,p.basis_maximum_premises);
-    U32_AT(17,p.basis_maximum_nodes);
-    U32_AT(18,p.basis_maximum_direct_width);
-    U32_AT(19,p.maximum_external_extent);
-    p.maximum_session_keys=v[20]; p.maximum_session_work=v[21];
+    if (!parse_affine_basis_values(v, p)) return false;
     AffineMatrixInitializeParameters persistent;
-    persistent.basis=p;
+    persistent.basis = p;
     if (v[22] != 1 || v[23] < 1 || v[23] > 10) return false;
     persistent.admission=static_cast<AffineMatrixInitializeParameters::Admission>(v[22]);
     persistent.operation=static_cast<AffineMatrixInitializeParameters::Operation>(v[23]);
@@ -988,51 +1065,16 @@ bool parse_parameters(std::string_view text, ActionParameters &parameters) {
     parameters = p;
   } else if (tuple(text, "gf3-gaussian-consequence1", v) && v.size() == 38) {
     Gf3GaussianConsequenceParameters p;
-    p.maximum_source_clauses=v[0]; p.maximum_source_literals=v[1];
-    U32_AT(2,p.maximum_domains); U32_AT(3,p.maximum_equations);
-    U32_AT(4,p.maximum_equation_arity); U32_AT(5,p.maximum_tuples_per_equation);
-    p.maximum_bridge_work=v[6]; p.maximum_bridge_source_clauses=v[7];
-    p.maximum_bridge_source_literals=v[8]; U32_AT(9,p.maximum_bridge_domains);
-    U32_AT(10,p.maximum_bridge_equations); p.maximum_bridge_terms=v[11];
-    p.maximum_authentication_references=v[12]; p.maximum_references_per_equation=v[13];
-    p.maximum_gaussian_work=v[14]; p.maximum_fill_entries=v[15];
-    U32_AT(16,p.maximum_intermediate_width); U32_AT(17,p.maximum_provenance_terms);
-    U32_AT(18,p.maximum_derivations); p.maximum_retained_plan_bytes=v[19];
-    p.maximum_certificate_work=v[20]; p.maximum_events=v[21];
-    p.maximum_event_literals=v[22]; p.maximum_active_clauses=v[23];
-    p.maximum_retained_source_references=v[24]; U32_AT(25,p.maximum_event_width);
-    U32_AT(26,p.maximum_branch_domains); U32_AT(27,p.maximum_consequences);
-    p.maximum_capture_work=v[28]; p.maximum_revalidation_work=v[29];
-    p.maximum_proof_additions=v[30]; p.maximum_proof_literal_occurrences=v[31];
-    p.maximum_journal_bytes=v[32]; p.maximum_identity_bytes=v[33];
-    U32_AT(34,p.maximum_external_extent); p.maximum_session_keys=v[35];
-    p.maximum_session_work=v[36]; p.maximum_session_identity_bytes=v[37];
-    parameters=p;
+    if (!parse_gf3_gaussian_values(v, p)) return false;
+    parameters = p;
   } else if (tuple(text, "gf3-general-row1", v) && v.size() == 42) {
     Gf3GeneralRowConsequenceParameters p;
-    auto &g=p.gaussian;
-    g.maximum_source_clauses=v[0]; g.maximum_source_literals=v[1];
-    U32_AT(2,g.maximum_domains); U32_AT(3,g.maximum_equations);
-    U32_AT(4,g.maximum_equation_arity); U32_AT(5,g.maximum_tuples_per_equation);
-    g.maximum_bridge_work=v[6]; g.maximum_bridge_source_clauses=v[7];
-    g.maximum_bridge_source_literals=v[8]; U32_AT(9,g.maximum_bridge_domains);
-    U32_AT(10,g.maximum_bridge_equations); g.maximum_bridge_terms=v[11];
-    g.maximum_authentication_references=v[12]; g.maximum_references_per_equation=v[13];
-    g.maximum_gaussian_work=v[14]; g.maximum_fill_entries=v[15];
-    U32_AT(16,g.maximum_intermediate_width); U32_AT(17,g.maximum_provenance_terms);
-    U32_AT(18,g.maximum_derivations); g.maximum_retained_plan_bytes=v[19];
-    g.maximum_certificate_work=v[20]; g.maximum_events=v[21];
-    g.maximum_event_literals=v[22]; g.maximum_active_clauses=v[23];
-    g.maximum_retained_source_references=v[24]; U32_AT(25,g.maximum_event_width);
-    U32_AT(26,g.maximum_branch_domains); U32_AT(27,g.maximum_consequences);
-    g.maximum_capture_work=v[28]; g.maximum_revalidation_work=v[29];
-    g.maximum_proof_additions=v[30]; g.maximum_proof_literal_occurrences=v[31];
-    g.maximum_journal_bytes=v[32]; g.maximum_identity_bytes=v[33];
-    U32_AT(34,g.maximum_external_extent); g.maximum_session_keys=v[35];
-    g.maximum_session_work=v[36]; g.maximum_session_identity_bytes=v[37];
-    p.maximum_row_tuples=v[38]; U32_AT(39,p.maximum_row_width);
-    p.maximum_duplicate_scan_work=v[40]; p.maximum_arena_words=v[41];
-    parameters=p;
+    if (!parse_gf3_gaussian_values(v, p.gaussian)) return false;
+    p.maximum_row_tuples = v[38];
+    if (!assign_value(v[39], p.maximum_row_width)) return false;
+    p.maximum_duplicate_scan_work = v[40];
+    p.maximum_arena_words = v[41];
+    parameters = p;
   } else if (tuple(text, "tseitin-cycle-breaking1", v) && v.size() == 26) {
     TseitinCycleBreakingParameters p;
     p.maximum_snapshot_clauses=v[0]; p.maximum_snapshot_literals=v[1];
@@ -2416,54 +2458,26 @@ std::string serialize_online_strategy_program(
     }
     else if (const auto *p =
                  std::get_if<AffineConsequenceParameters>(&step.parameters)) {
-      if (p->semantics ==
-          AffineConsequenceSemantics::SelectedConsequenceV1)
-        out << ":affine-consequence1(" << p->maximum_clauses << ','
-          << p->maximum_snapshot_literals << ',' << p->maximum_snapshot_work
-          << ',' << p->maximum_groups << ',' << p->maximum_patterns << ','
-          << p->maximum_elimination_work << ',' << p->maximum_arity << ','
-          << p->maximum_intermediate_width << ',' << p->maximum_sources << ','
-          << p->maximum_output_width << ',' << p->maximum_proof_additions << ','
-          << p->maximum_proof_deletions << ',' << p->maximum_journal_bytes
-          << ',' << p->consequence << ')';
-      else
-        out << ":affine-consequence2(" << p->maximum_clauses << ','
-            << p->maximum_snapshot_literals << ','
-            << p->maximum_snapshot_work << ',' << p->maximum_groups << ','
-            << p->maximum_patterns << ',' << p->maximum_elimination_work
-            << ',' << p->maximum_arity << ','
-            << p->maximum_intermediate_width << ',' << p->maximum_sources
-            << ',' << p->maximum_output_width << ','
-            << p->maximum_proof_additions << ','
-            << p->maximum_proof_deletions << ','
-            << p->maximum_journal_bytes << ',' << p->basis_maximum_work
-            << ',' << p->basis_maximum_intermediate_width << ','
-            << p->basis_maximum_sources << ',' << p->basis_maximum_premises
-            << ',' << p->basis_maximum_nodes << ','
-            << p->basis_maximum_direct_width << ','
-            << p->maximum_external_extent << ',' << p->maximum_session_keys
-            << ',' << p->maximum_session_work << ')';
+      if (p->semantics == AffineConsequenceSemantics::SelectedConsequenceV1) {
+        out << ":affine-consequence1(";
+        serialize_affine_image_values(out, *p);
+        out << ',' << p->consequence << ')';
+      } else {
+        out << ":affine-consequence2(";
+        serialize_affine_basis_values(out, *p);
+        out << ')';
+      }
     }
-    else if (const auto *profile=std::get_if<AffineMatrixInitializeParameters>(&step.parameters)) {
-      const auto *p=&profile->basis;
-        out << ":affine-matrix-persistent1(" << p->maximum_clauses << ','
-            << p->maximum_snapshot_literals << ','
-            << p->maximum_snapshot_work << ',' << p->maximum_groups << ','
-            << p->maximum_patterns << ',' << p->maximum_elimination_work
-            << ',' << p->maximum_arity << ','
-            << p->maximum_intermediate_width << ',' << p->maximum_sources
-            << ',' << p->maximum_output_width << ','
-            << p->maximum_proof_additions << ','
-            << p->maximum_proof_deletions << ','
-            << p->maximum_journal_bytes << ',' << p->basis_maximum_work
-            << ',' << p->basis_maximum_intermediate_width << ','
-            << p->basis_maximum_sources << ',' << p->basis_maximum_premises
-            << ',' << p->basis_maximum_nodes << ','
-            << p->basis_maximum_direct_width << ','
-            << p->maximum_external_extent << ',' << p->maximum_session_keys
-            << ',' << p->maximum_session_work << ',' << static_cast<unsigned>(profile->admission)
-            << ',' << static_cast<unsigned>(profile->operation) << ',' << profile->maximum_retained_bytes
-            << ',' << profile->maximum_deferred_deletions << ',' << profile->maximum_deferred_literal_work << ')';
+    else if (const auto *profile =
+                 std::get_if<AffineMatrixInitializeParameters>(
+                     &step.parameters)) {
+      out << ":affine-matrix-persistent1(";
+      serialize_affine_basis_values(out, profile->basis);
+      out << ',' << static_cast<unsigned>(profile->admission) << ','
+          << static_cast<unsigned>(profile->operation) << ','
+          << profile->maximum_retained_bytes << ','
+          << profile->maximum_deferred_deletions << ','
+          << profile->maximum_deferred_literal_work << ')';
     }
     else if (const auto *p =
                  std::get_if<ExactCoverExtensionParameters>(&step.parameters))
@@ -2561,50 +2575,16 @@ std::string serialize_online_strategy_program(
           << p->maximum_fresh_variables << ',' << p->maximum_proof_events
           << ',' << p->maximum_replay_work << ')';
     else if (const auto *p = std::get_if<Gf3GaussianConsequenceParameters>(
-                 &step.parameters))
-      out << ":gf3-gaussian-consequence1(" << p->maximum_source_clauses << ','
-          << p->maximum_source_literals << ',' << p->maximum_domains << ','
-          << p->maximum_equations << ',' << p->maximum_equation_arity << ','
-          << p->maximum_tuples_per_equation << ',' << p->maximum_bridge_work << ','
-          << p->maximum_bridge_source_clauses << ',' << p->maximum_bridge_source_literals << ','
-          << p->maximum_bridge_domains << ',' << p->maximum_bridge_equations << ','
-          << p->maximum_bridge_terms << ',' << p->maximum_authentication_references << ','
-          << p->maximum_references_per_equation << ',' << p->maximum_gaussian_work << ','
-          << p->maximum_fill_entries << ',' << p->maximum_intermediate_width << ','
-          << p->maximum_provenance_terms << ',' << p->maximum_derivations << ','
-          << p->maximum_retained_plan_bytes << ',' << p->maximum_certificate_work << ','
-          << p->maximum_events << ',' << p->maximum_event_literals << ','
-          << p->maximum_active_clauses << ',' << p->maximum_retained_source_references << ','
-          << p->maximum_event_width << ',' << p->maximum_branch_domains << ','
-          << p->maximum_consequences << ',' << p->maximum_capture_work << ','
-          << p->maximum_revalidation_work << ',' << p->maximum_proof_additions << ','
-          << p->maximum_proof_literal_occurrences << ',' << p->maximum_journal_bytes << ','
-          << p->maximum_identity_bytes << ',' << p->maximum_external_extent << ','
-          << p->maximum_session_keys << ',' << p->maximum_session_work << ','
-          << p->maximum_session_identity_bytes << ')';
+                 &step.parameters)) {
+      out << ":gf3-gaussian-consequence1(";
+      serialize_gf3_gaussian_values(out, *p);
+      out << ')';
+    }
     else if (const auto *p = std::get_if<Gf3GeneralRowConsequenceParameters>(
                  &step.parameters)) {
-      const auto &g=p->gaussian;
-      out << ":gf3-general-row1(" << g.maximum_source_clauses << ','
-          << g.maximum_source_literals << ',' << g.maximum_domains << ','
-          << g.maximum_equations << ',' << g.maximum_equation_arity << ','
-          << g.maximum_tuples_per_equation << ',' << g.maximum_bridge_work << ','
-          << g.maximum_bridge_source_clauses << ',' << g.maximum_bridge_source_literals << ','
-          << g.maximum_bridge_domains << ',' << g.maximum_bridge_equations << ','
-          << g.maximum_bridge_terms << ',' << g.maximum_authentication_references << ','
-          << g.maximum_references_per_equation << ',' << g.maximum_gaussian_work << ','
-          << g.maximum_fill_entries << ',' << g.maximum_intermediate_width << ','
-          << g.maximum_provenance_terms << ',' << g.maximum_derivations << ','
-          << g.maximum_retained_plan_bytes << ',' << g.maximum_certificate_work << ','
-          << g.maximum_events << ',' << g.maximum_event_literals << ','
-          << g.maximum_active_clauses << ',' << g.maximum_retained_source_references << ','
-          << g.maximum_event_width << ',' << g.maximum_branch_domains << ','
-          << g.maximum_consequences << ',' << g.maximum_capture_work << ','
-          << g.maximum_revalidation_work << ',' << g.maximum_proof_additions << ','
-          << g.maximum_proof_literal_occurrences << ',' << g.maximum_journal_bytes << ','
-          << g.maximum_identity_bytes << ',' << g.maximum_external_extent << ','
-          << g.maximum_session_keys << ',' << g.maximum_session_work << ','
-          << g.maximum_session_identity_bytes << ',' << p->maximum_row_tuples << ','
+      out << ":gf3-general-row1(";
+      serialize_gf3_gaussian_values(out, p->gaussian);
+      out << ',' << p->maximum_row_tuples << ','
           << p->maximum_row_width << ',' << p->maximum_duplicate_scan_work << ','
           << p->maximum_arena_words << ')';
     }
