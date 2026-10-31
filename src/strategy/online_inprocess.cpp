@@ -187,6 +187,16 @@ TheoryStatusDisposition theory_status_disposition(
   return {};
 }
 
+template <class Status>
+TheoryStatusDisposition standard_theory_status_disposition(
+    Status status, uint8_t retention) {
+  return theory_status_disposition(
+      status, {Status::Invalid},
+      {Status::Inapplicable, Status::UnsupportedProof},
+      {Status::ResourceExhausted}, {Status::Interrupted}, {Status::Stale},
+      retention);
+}
+
 uint64_t saturated_add(uint64_t a, uint64_t b) {
   const uint64_t maximum = std::numeric_limits<uint64_t>::max();
   return b > maximum - a ? maximum : a + b;
@@ -2395,99 +2405,43 @@ InvocationResult OnlineStrategyExecutor::advance(
               {AffineMatrixServiceStatus::Stale}, retain_all_theory_failures));
       }
       if (affine_application)
-        settle_theory_status(theory_status_disposition(
-            affine_application->status,
-            {AffineConsequenceActionStatus::Invalid},
-            {AffineConsequenceActionStatus::Inapplicable,
-             AffineConsequenceActionStatus::UnsupportedProof},
-            {AffineConsequenceActionStatus::ResourceExhausted},
-            {AffineConsequenceActionStatus::Interrupted},
-            {AffineConsequenceActionStatus::Stale}, retain_all_theory_failures));
+        settle_theory_status(standard_theory_status_disposition(
+            affine_application->status, retain_all_theory_failures));
       if (exact_cover_application)
-        settle_theory_status(theory_status_disposition(
-            exact_cover_application->live.status, {ExactCoverLiveStatus::Invalid},
-            {ExactCoverLiveStatus::Inapplicable,
-             ExactCoverLiveStatus::UnsupportedProof},
-            {ExactCoverLiveStatus::ResourceExhausted},
-            {ExactCoverLiveStatus::Interrupted}, {ExactCoverLiveStatus::Stale},
+        settle_theory_status(standard_theory_status_disposition(
+            exact_cover_application->live.status,
             retain_all_theory_failures));
       if (independent_set_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             independent_set_application->status,
-            {IndependentSetLiveStatus::Invalid},
-            {IndependentSetLiveStatus::Inapplicable,
-             IndependentSetLiveStatus::UnsupportedProof},
-            {IndependentSetLiveStatus::ResourceExhausted},
-            {IndependentSetLiveStatus::Interrupted},
-            {IndependentSetLiveStatus::Stale}, retain_all_theory_failures));
+            retain_all_theory_failures));
       if (gf3_affine_application)
-        settle_theory_status(theory_status_disposition(
-            gf3_affine_application->status, {Gf3AffineActionStatus::Invalid},
-            {Gf3AffineActionStatus::Inapplicable,
-             Gf3AffineActionStatus::UnsupportedProof},
-            {Gf3AffineActionStatus::ResourceExhausted},
-            {Gf3AffineActionStatus::Interrupted},
-            {Gf3AffineActionStatus::Stale},
+        settle_theory_status(standard_theory_status_disposition(
+            gf3_affine_application->status,
             retain_retryable_theory_failures));
       if (direct_csp_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             direct_csp_application->status,
-            {DirectCspSupportActionStatus::Invalid},
-            {DirectCspSupportActionStatus::Inapplicable,
-             DirectCspSupportActionStatus::UnsupportedProof},
-            {DirectCspSupportActionStatus::ResourceExhausted},
-            {DirectCspSupportActionStatus::Interrupted},
-            {DirectCspSupportActionStatus::Stale},
             retain_retryable_theory_failures));
       if (nary_csp_equality_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             nary_csp_equality_application->status,
-            {NaryCspEqualityActionStatus::Invalid},
-            {NaryCspEqualityActionStatus::Inapplicable,
-             NaryCspEqualityActionStatus::UnsupportedProof},
-            {NaryCspEqualityActionStatus::ResourceExhausted},
-            {NaryCspEqualityActionStatus::Interrupted},
-            {NaryCspEqualityActionStatus::Stale},
             retain_retryable_theory_failures));
       if (nary_csp_equality_amo_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             nary_csp_equality_amo_application->status,
-            {NaryCspEqualityAmoStatus::Invalid},
-            {NaryCspEqualityAmoStatus::Inapplicable,
-             NaryCspEqualityAmoStatus::UnsupportedProof},
-            {NaryCspEqualityAmoStatus::ResourceExhausted},
-            {NaryCspEqualityAmoStatus::Interrupted},
-            {NaryCspEqualityAmoStatus::Stale},
             retain_retryable_theory_failures));
       if (nary_csp_equality_transitivity_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             nary_csp_equality_transitivity_application->status,
-            {NaryCspEqualityTransitivityStatus::Invalid},
-            {NaryCspEqualityTransitivityStatus::Inapplicable,
-             NaryCspEqualityTransitivityStatus::UnsupportedProof},
-            {NaryCspEqualityTransitivityStatus::ResourceExhausted},
-            {NaryCspEqualityTransitivityStatus::Interrupted},
-            {NaryCspEqualityTransitivityStatus::Stale},
             retain_retryable_theory_failures));
       if (gf3_gaussian_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             gf3_gaussian_application->status,
-            {Gf3GaussianActionStatus::Invalid},
-            {Gf3GaussianActionStatus::Inapplicable,
-             Gf3GaussianActionStatus::UnsupportedProof},
-            {Gf3GaussianActionStatus::ResourceExhausted},
-            {Gf3GaussianActionStatus::Interrupted},
-            {Gf3GaussianActionStatus::Stale},
             retain_retryable_theory_failures));
       if (gf3_general_row_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             gf3_general_row_application->status,
-            {Gf3GeneralRowActionStatus::Invalid},
-            {Gf3GeneralRowActionStatus::Inapplicable,
-             Gf3GeneralRowActionStatus::UnsupportedProof},
-            {Gf3GeneralRowActionStatus::ResourceExhausted},
-            {Gf3GeneralRowActionStatus::Interrupted},
-            {Gf3GeneralRowActionStatus::Stale},
             retain_retryable_theory_failures));
       if (cardinality_search_application)
         settle_theory_status(theory_status_disposition(
@@ -2499,14 +2453,8 @@ InvocationResult OnlineStrategyExecutor::advance(
             {CardinalitySearchActionStatus::Interrupted}, {},
             retain_retryable_theory_failures));
       if (tseitin_cycle_application)
-        settle_theory_status(theory_status_disposition(
+        settle_theory_status(standard_theory_status_disposition(
             tseitin_cycle_application->status,
-            {TseitinCycleBreakingStatus::Invalid},
-            {TseitinCycleBreakingStatus::Inapplicable,
-             TseitinCycleBreakingStatus::UnsupportedProof},
-            {TseitinCycleBreakingStatus::ResourceExhausted},
-            {TseitinCycleBreakingStatus::Interrupted},
-            {TseitinCycleBreakingStatus::Stale},
             retain_retryable_theory_failures));
       if (direct_php_application)
         settle_theory_status(theory_status_disposition(
