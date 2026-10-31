@@ -55,6 +55,74 @@ bool exit_selector_matches(const char *event, const char *payload,
   return selector.find(match) != std::string::npos;
 }
 
+void append_absolute_integers(const char *spec, std::vector<int> &values) {
+  const char *cursor = spec;
+  while (*cursor) {
+    char *end = nullptr;
+    const long value = std::strtol(cursor, &end, 10);
+    if (end == cursor)
+      break;
+    values.push_back(std::abs(static_cast<int>(value)));
+    cursor = *end == ',' ? end + 1 : end;
+    if (*end && *end != ',')
+      break;
+  }
+}
+
+template <class Integer = int>
+std::vector<Integer> sorted_external_clause(const Kernel &k,
+                                            const Clause &clause) {
+  std::vector<Integer> result;
+  result.reserve(clause.size);
+  for (const Lit lit : clause)
+    result.push_back(kernel_externalize(k, lit));
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
+void append_factor_entry_literals(std::string &payload, const Kernel &k,
+                                  Lit selected, Lit other,
+                                  const Clause *clause) {
+  if (!clause) {
+    payload += std::to_string(kernel_externalize(k, selected));
+    payload += ',';
+    payload += std::to_string(kernel_externalize(k, other));
+    return;
+  }
+  const auto lits = sorted_external_clause(k, *clause);
+  for (size_t i = 0; i < lits.size(); i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(lits[i]);
+  }
+}
+
+void append_clause_pose(std::string &payload, const Kernel &k,
+                        const Clause &clause) {
+  std::vector<int> external;
+  external.reserve(clause.size);
+  for (const Lit lit : clause) {
+    if (!external.empty())
+      payload.push_back(',');
+    const int value = kernel_externalize(k, lit);
+    payload += std::to_string(value);
+    external.push_back(value);
+  }
+  payload += "|levels=";
+  for (uint32_t i = 0; i < clause.size; ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(k.var_level(var_of(clause.lits[i])));
+  }
+  std::sort(external.begin(), external.end());
+  payload += "|set=";
+  for (size_t i = 0; i != external.size(); ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(external[i]);
+  }
+}
+
 template <class T> size_t capacity_bytes(const std::vector<T> &values) {
   return values.capacity() * sizeof(T);
 }
@@ -812,11 +880,7 @@ static void emit_standalone_macro_watch(const Kernel &k,
     if (entry.binary())
       continue;
     const Clause *clause = clause_at(k.arena, entry.ref());
-    std::vector<int> set;
-    set.reserve(clause->size);
-    for (const Lit lit : *clause)
-      set.push_back(kernel_externalize(k, lit));
-    std::sort(set.begin(), set.end());
+    const auto set = sorted_external_clause(k, *clause);
     std::fprintf(out, "tactix\t%s\t%llu\t%d\t%zu\t%d\t%u\t%u\t",
                  event, (unsigned long long)k.stats.conflicts, external,
                  current, kernel_externalize(k, entry.blocking()),
@@ -1150,10 +1214,7 @@ void emit_formula_set_snapshot(const Kernel &k, const char *event,
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
     if (!clause->garbage() || include_garbage) {
-      std::vector<int32_t> external;
-      external.reserve(clause->size);
-      for (const Lit lit : *clause)
-        external.push_back(kernel_externalize(k, lit));
+      const auto external = sorted_external_clause<int32_t>(k, *clause);
       bool selected_clause = !external_filter || !*external_filter;
       for (const int lit : external)
         selected_clause |= selected_snapshot_external(external_filter, lit);
@@ -1161,7 +1222,6 @@ void emit_formula_set_snapshot(const Kernel &k, const char *event,
         ref += clause_actual_words(clause);
         continue;
       }
-      std::sort(external.begin(), external.end());
       const uint64_t clause_hash =
           eliminate_cleanup_clause_hash(k, *clause);
       if (const char *selected_hash =
@@ -1309,19 +1369,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_HEAP_POP_ONLY") != nullptr;
   heap_vars_only_ =
       std::getenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY") != nullptr;
-  if (const char *spec = std::getenv("SAT_EVENT_TRACE_HEAP_VARS")) {
-    const char *cursor = spec;
-    while (*cursor) {
-      char *end = nullptr;
-      const long value = std::strtol(cursor, &end, 10);
-      if (end == cursor)
-        break;
-      heap_vars_.push_back(std::abs(static_cast<int>(value)));
-      cursor = *end == ',' ? end + 1 : end;
-      if (*end && *end != ',')
-        break;
-    }
-  }
+  if (const char *spec = std::getenv("SAT_EVENT_TRACE_HEAP_VARS"))
+    append_absolute_integers(spec, heap_vars_);
   skip_decisions_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
   skip_randec_draws_ =
@@ -1356,19 +1405,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY") != nullptr;
   substitute_only_ =
       std::getenv("SAT_EVENT_TRACE_SUBSTITUTE_ONLY") != nullptr;
-  if (const char *spec = std::getenv("SAT_EVENT_TRACE_IMPLY_LITERALS")) {
-    const char *cursor = spec;
-    while (*cursor) {
-      char *end = nullptr;
-      const long value = std::strtol(cursor, &end, 10);
-      if (end == cursor)
-        break;
-      imply_literals_.push_back(std::abs(static_cast<int>(value)));
-      cursor = *end == ',' ? end + 1 : end;
-      if (*end && *end != ',')
-        break;
-    }
-  }
+  if (const char *spec = std::getenv("SAT_EVENT_TRACE_IMPLY_LITERALS"))
+    append_absolute_integers(spec, imply_literals_);
   bve_heap_only_ =
       std::getenv("TACTIX_EVENT_TRACE_BVE_HEAP_ONLY") != nullptr;
   bve_pop_only_ =
@@ -2099,11 +2137,7 @@ void EventTrace::vivify_candidate(const Kernel &k, const char *event,
     return;
   }
   const Clause *clause = clause_at(k.arena, cref);
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause)
-    external.push_back(kernel_externalize(k, lit));
-  std::sort(external.begin(), external.end());
+  const auto external = sorted_external_clause(k, *clause);
   std::string payload = "ordinal=" + std::to_string(ordinal) +
                         "|ticks=" + std::to_string(ticks) +
                         "|limit=" + std::to_string(limit) +
@@ -2766,11 +2800,7 @@ void EventTrace::watch_move(const Kernel &k, Lit propagated, Lit target,
       std::getenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET");
   if (!selected || !*selected)
     return;
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause)
-    external.push_back(kernel_externalize(k, lit));
-  std::sort(external.begin(), external.end());
+  const auto external = sorted_external_clause(k, *clause);
   std::string key;
   for (const int lit : external) {
     if (!key.empty())
@@ -2889,11 +2919,7 @@ void event_trace_vivify_candidate(const Kernel &k, const char *event,
       selected = !*to || ordinal <= std::strtoull(to, nullptr, 10);
   if (selected) {
     const Clause *clause = clause_at(k.arena, cref);
-    std::vector<int> semantic;
-    semantic.reserve(clause->size);
-    for (const Lit lit : *clause)
-      semantic.push_back(kernel_externalize(k, lit));
-    std::sort(semantic.begin(), semantic.end());
+    const auto semantic = sorted_external_clause(k, *clause);
     std::fprintf(out,
                  "tactix\t%llu\t%s\t%llu\t%u\t%llu\t%llu\t%llu\t%u\t"
                  "%llu\t%u\t%u\t%u\t%u\t%u\t",
@@ -3884,21 +3910,7 @@ void EventTrace::factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
       "|kind=" + (clause ? "large" : "binary") +
       "|live=" + (live ? "1" : "0") + "|id=" + std::to_string(id) +
       "|lits=";
-  if (clause) {
-    std::vector<int> lits;
-    for (const Lit lit : *clause)
-      lits.push_back(kernel_externalize(k, lit));
-    std::sort(lits.begin(), lits.end());
-    for (size_t i = 0; i < lits.size(); i++) {
-      if (i)
-        payload += ',';
-      payload += std::to_string(lits[i]);
-    }
-  } else {
-    payload += std::to_string(kernel_externalize(k, candidate));
-    payload += ',';
-    payload += std::to_string(kernel_externalize(k, other));
-  }
+  append_factor_entry_literals(payload, k, candidate, other, clause);
   emit(k, "factor_score_entry", payload.c_str(), false);
 }
 
@@ -4081,21 +4093,7 @@ void EventTrace::factor_literal_entry(const Kernel &k, Lit selected_lit,
       "|kind=" + (clause ? "large" : "binary") +
       "|live=" + (live ? "1" : "0") + "|id=" + std::to_string(id) +
       "|lits=";
-  if (clause) {
-    std::vector<int> lits;
-    for (const Lit lit : *clause)
-      lits.push_back(kernel_externalize(k, lit));
-    std::sort(lits.begin(), lits.end());
-    for (size_t i = 0; i < lits.size(); i++) {
-      if (i)
-        payload += ',';
-      payload += std::to_string(lits[i]);
-    }
-  } else {
-    payload += std::to_string(kernel_externalize(k, selected_lit));
-    payload += ',';
-    payload += std::to_string(kernel_externalize(k, other));
-  }
+  append_factor_entry_literals(payload, k, selected_lit, other, clause);
   emit(k, "factor_literal_entry", payload.c_str(), false);
 }
 
@@ -4654,11 +4652,8 @@ void event_trace_bve_retry_mark(const Kernel &k, Var var, const char *source,
   uint32_t clause_size = 0;
   std::string clause_lits = "-";
   if (clause) {
-    std::vector<int32_t> external_clause;
-    external_clause.reserve(clause->size);
-    for (const Lit lit : *clause)
-      external_clause.push_back(kernel_externalize(k, lit));
-    std::sort(external_clause.begin(), external_clause.end());
+    const auto external_clause =
+        sorted_external_clause<int32_t>(k, *clause);
     clause_hash = 1469598103934665603ull;
     for (const int32_t lit : external_clause) {
       clause_hash ^= static_cast<uint32_t>(lit);
@@ -5372,11 +5367,7 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
                     (unsigned long long)eliminate_cleanup_clause_hash(
                         k, *clause),
                     clause->size, root, retired);
-      std::vector<int32_t> external;
-      external.reserve(clause->size);
-      for (const Lit lit : *clause)
-        external.push_back(kernel_externalize(k, lit));
-      std::sort(external.begin(), external.end());
+      const auto external = sorted_external_clause<int32_t>(k, *clause);
       std::string clause_payload(prefix);
       for (size_t i = 0; i != external.size(); ++i) {
         if (i)
@@ -6069,28 +6060,7 @@ void EventTrace::clause_glue(const Kernel &k, const char *source,
                         "|id=" + std::to_string(clause->id()) +
                         "|old=" + std::to_string(old_glue) +
                         "|new=" + std::to_string(new_glue) + "|pose=";
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause) {
-    if (!external.empty())
-      payload.push_back(',');
-    const int value = kernel_externalize(k, lit);
-    payload += std::to_string(value);
-    external.push_back(value);
-  }
-  payload += "|levels=";
-  for (uint32_t i = 0; i < clause->size; ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(k.var_level(var_of(clause->lits[i])));
-  }
-  std::sort(external.begin(), external.end());
-  payload += "|set=";
-  for (size_t i = 0; i != external.size(); ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(external[i]);
-  }
+  append_clause_pose(payload, k, *clause);
   emit(k, "reason_glue", payload.c_str(), false);
 }
 
@@ -6101,28 +6071,7 @@ void EventTrace::clause_used(const Kernel &k, const Clause *clause,
   std::string payload = "mode=" + std::to_string(mode) +
                         "|glue=" + std::to_string(clause->glue()) +
                         "|pose=";
-  std::vector<int> external;
-  external.reserve(clause->size);
-  for (const Lit lit : *clause) {
-    if (!external.empty())
-      payload.push_back(',');
-    const int value = kernel_externalize(k, lit);
-    payload += std::to_string(value);
-    external.push_back(value);
-  }
-  payload += "|levels=";
-  for (uint32_t i = 0; i < clause->size; ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(k.var_level(var_of(clause->lits[i])));
-  }
-  std::sort(external.begin(), external.end());
-  payload += "|set=";
-  for (size_t i = 0; i != external.size(); ++i) {
-    if (i)
-      payload.push_back(',');
-    payload += std::to_string(external[i]);
-  }
+  append_clause_pose(payload, k, *clause);
   emit(k, "reason_used", payload.c_str(), false);
 }
 
