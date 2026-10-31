@@ -422,6 +422,116 @@ void release(RefinementBranch *&branch) noexcept {
   branch = nullptr;
 }
 
+class RefinementMeter {
+public:
+  RefinementMeter(uint64_t &ticks, uint64_t maximum, StopCallback stop,
+                  void *context, bool &exhausted, bool &interrupted)
+      : ticks(ticks), maximum(maximum), stop(stop), context(context),
+        exhausted(exhausted), interrupted(interrupted) {}
+
+  std::function<dejavu::ir::type_worklist_color_hook>
+  worklist_hook(dejavu::sgraph *graph, dejavu::ds::coloring &coloring) {
+    return [this, graph, &coloring](int color, int size) {
+      return charge(static_cast<uint64_t>(graph->d[coloring.lab[color]]),
+                    static_cast<uint64_t>(size));
+    };
+  }
+
+  std::function<dejavu::ir::type_worklist_color_hook>
+  worklist_hook(dejavu::sgraph *graph, dejavu::ds::coloring *&coloring) {
+    return [this, graph, &coloring](int color, int size) {
+      return charge(static_cast<uint64_t>(graph->d[coloring->lab[color]]),
+                    static_cast<uint64_t>(size));
+    };
+  }
+
+  std::function<dejavu::ir::type_split_color_hook> split_hook() {
+    return [this](int, int, int) {
+      if (stopped(stop, context)) {
+        interrupted = true;
+        return false;
+      }
+      return !exhausted;
+    };
+  }
+
+  bool charge(uint64_t degree, uint64_t width) {
+    return charge(degree, width, [](uint64_t) {});
+  }
+
+  template <class Observer>
+  bool charge(uint64_t degree, uint64_t width, Observer observe) {
+    if (stopped(stop, context)) {
+      interrupted = true;
+      return false;
+    }
+    if (exhausted)
+      return false;
+    const uint64_t work =
+        degree && width > (UINT64_MAX - 1) / degree
+            ? UINT64_MAX
+            : 1 + degree * width;
+    observe(work);
+    if (ticks >= maximum || work > maximum - ticks) {
+      ticks = maximum;
+      exhausted = true;
+      return false;
+    }
+    ticks += work;
+    return true;
+  }
+
+private:
+  uint64_t &ticks;
+  uint64_t maximum;
+  StopCallback stop;
+  void *context;
+  bool &exhausted;
+  bool &interrupted;
+};
+
+Status materialize_partition(dejavu::ds::coloring &coloring,
+                             uint32_t vertex_count,
+                             uint32_t returned_prefix_size,
+                             IndividualizedPartition &result) {
+  if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
+    result.status = Status::ResourceExhausted;
+    return result.status;
+  }
+  result.cells = static_cast<uint32_t *>(std::malloc(
+      static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+  result.sizes = static_cast<uint32_t *>(std::malloc(
+      static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+  if (returned_prefix_size && (!result.cells || !result.sizes)) {
+    release(result);
+    result.status = Status::ResourceExhausted;
+    return result.status;
+  }
+  std::vector<uint8_t> seen(vertex_count, 0);
+  for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
+    const int color = coloring.vertex_to_col[vertex];
+    const int size = color >= 0 && color < static_cast<int>(vertex_count)
+                         ? coloring.ptn[color] + 1
+                         : 0;
+    const int representative = size > 0 ? coloring.lab[color] : -1;
+    if (representative < 0 ||
+        representative >= static_cast<int>(vertex_count)) {
+      release(result);
+      result.status = Status::Failed;
+      return result.status;
+    }
+    result.cells[vertex] = static_cast<uint32_t>(representative);
+    result.sizes[vertex] = static_cast<uint32_t>(size);
+    if (!seen[color]) {
+      seen[color] = 1;
+      ++result.cell_count;
+    }
+  }
+  result.domain_size = returned_prefix_size;
+  result.status = Status::Complete;
+  return result.status;
+}
+
 Status prepare_refinement_branch(RefinementSession &session,
                                  RefinementBranch *&branch) noexcept {
   release(branch);
@@ -501,37 +611,11 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
   try {
     uint64_t charged = 0;
     bool exhausted = false, interrupted = false;
-    const std::function<dejavu::ir::type_worklist_color_hook> worklist_hook =
-        [&](int color, int size) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          if (exhausted)
-            return false;
-          const uint64_t degree = static_cast<uint64_t>(
-              branch.internal->d[branch.coloring.lab[color]]);
-          const uint64_t width = static_cast<uint64_t>(size);
-          const uint64_t work =
-              degree && width > (UINT64_MAX - 1) / degree
-                  ? UINT64_MAX
-                  : 1 + degree * width;
-          if (charged >= maximum_ticks || work > maximum_ticks - charged) {
-            charged = maximum_ticks;
-            exhausted = true;
-            return false;
-          }
-          charged += work;
-          return true;
-        };
-    const std::function<dejavu::ir::type_split_color_hook> split_hook =
-        [&](int, int, int) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          return !exhausted;
-        };
+    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
+                          exhausted, interrupted);
+    const auto worklist_hook =
+        meter.worklist_hook(branch.internal, branch.coloring);
+    const auto split_hook = meter.split_hook();
     const int color = branch.coloring.vertex_to_col[anchor];
     if (branch.coloring.ptn[color] != 0) {
       const int individualized =
@@ -550,45 +634,8 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
       result.status = Status::Incomplete;
       return result.status;
     }
-    if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    result.cells = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    result.sizes = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    if (returned_prefix_size && (!result.cells || !result.sizes)) {
-      release(result);
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    std::vector<uint8_t> seen(branch.vertex_count, 0);
-    for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
-      const int vertex_color = branch.coloring.vertex_to_col[vertex];
-      const int size =
-          vertex_color >= 0 &&
-                  vertex_color < static_cast<int>(branch.vertex_count)
-              ? branch.coloring.ptn[vertex_color] + 1
-              : 0;
-      const int representative =
-          size > 0 ? branch.coloring.lab[vertex_color] : -1;
-      if (representative < 0 ||
-          representative >= static_cast<int>(branch.vertex_count)) {
-        release(result);
-        result.status = Status::Failed;
-        return result.status;
-      }
-      result.cells[vertex] = static_cast<uint32_t>(representative);
-      result.sizes[vertex] = static_cast<uint32_t>(size);
-      if (!seen[vertex_color]) {
-        seen[vertex_color] = 1;
-        ++result.cell_count;
-      }
-    }
-    result.domain_size = returned_prefix_size;
-    result.status = Status::Complete;
-    return result.status;
+    return materialize_partition(branch.coloring, branch.vertex_count,
+                                 returned_prefix_size, result);
   } catch (const std::bad_alloc &) {
     release(result);
     result.status = Status::ResourceExhausted;
@@ -629,37 +676,10 @@ Status individualized_partition(RefinementSession &session,
     dejavu::ir::refinement refinement;
     uint64_t charged = 0;
     bool exhausted = false, interrupted = false;
-    const std::function<dejavu::ir::type_worklist_color_hook> worklist_hook =
-        [&](int color, int size) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          if (exhausted)
-            return false;
-          const uint64_t degree =
-              static_cast<uint64_t>(session.internal->d[child.lab[color]]);
-          const uint64_t width = static_cast<uint64_t>(size);
-          const uint64_t work =
-              degree && width > (UINT64_MAX - 1) / degree
-                  ? UINT64_MAX
-                  : 1 + degree * width;
-          if (charged >= maximum_ticks || work > maximum_ticks - charged) {
-            charged = maximum_ticks;
-            exhausted = true;
-            return false;
-          }
-          charged += work;
-          return true;
-        };
-    const std::function<dejavu::ir::type_split_color_hook> split_hook =
-        [&](int, int, int) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          return !exhausted;
-        };
+    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
+                          exhausted, interrupted);
+    const auto worklist_hook = meter.worklist_hook(session.internal, child);
+    const auto split_hook = meter.split_hook();
     for (uint32_t i = 0; i < anchor_count && !exhausted && !interrupted; ++i) {
       if (stopped(stop, stop_context)) {
         interrupted = true;
@@ -684,43 +704,8 @@ Status individualized_partition(RefinementSession &session,
       return result.status;
     }
 
-    if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    result.cells = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    result.sizes = static_cast<uint32_t *>(std::malloc(
-        static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-    if (returned_prefix_size && (!result.cells || !result.sizes)) {
-      release(result);
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
-    std::vector<uint8_t> seen(session.vertex_count, 0);
-    for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
-      const int color = child.vertex_to_col[vertex];
-      const int size = color >= 0 && color < static_cast<int>(session.vertex_count)
-                           ? child.ptn[color] + 1
-                           : 0;
-      const int representative =
-          size > 0 ? child.lab[color] : -1;
-      if (representative < 0 ||
-          representative >= static_cast<int>(session.vertex_count)) {
-        release(result);
-        result.status = Status::Failed;
-        return result.status;
-      }
-      result.cells[vertex] = static_cast<uint32_t>(representative);
-      result.sizes[vertex] = static_cast<uint32_t>(size);
-      if (!seen[color]) {
-        seen[color] = 1;
-        ++result.cell_count;
-      }
-    }
-    result.domain_size = returned_prefix_size;
-    result.status = Status::Complete;
-    return result.status;
+    return materialize_partition(child, session.vertex_count,
+                                 returned_prefix_size, result);
   } catch (const std::bad_alloc &) {
     release(result);
     result.status = Status::ResourceExhausted;
@@ -783,30 +768,17 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
     dejavu::ir::refinement refinement;
     uint64_t charged = 0;
     bool exhausted = false, interrupted = false;
+    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
+                          exhausted, interrupted);
     const std::function<dejavu::ir::type_worklist_color_hook> worklist_hook =
         [&](int color, int size) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          if (exhausted)
-            return false;
           const uint64_t degree =
               static_cast<uint64_t>(session.internal->d[child.lab[color]]);
           const uint64_t width = static_cast<uint64_t>(size);
-          const uint64_t work =
-              degree && width > (UINT64_MAX - 1) / degree
-                  ? UINT64_MAX
-                  : 1 + degree * width;
-          if (captured)
-            captured->events.push_back({work, -1, 0, -1});
-          if (charged >= maximum_ticks || work > maximum_ticks - charged) {
-            charged = maximum_ticks;
-            exhausted = true;
-            return false;
-          }
-          charged += work;
-          return true;
+          return meter.charge(degree, width, [&](uint64_t work) {
+            if (captured)
+              captured->events.push_back({work, -1, 0, -1});
+          });
         };
     const std::function<dejavu::ir::type_split_color_hook> split_hook =
         [&](int old_color, int color, int size) {
@@ -892,37 +864,10 @@ Status probe_base_length(RefinementSession &session, uint64_t maximum_ticks,
     child.copy_any(&session.root);
     dejavu::ir::refinement refinement;
     bool exhausted = false, interrupted = false;
-    const std::function<dejavu::ir::type_worklist_color_hook> worklist_hook =
-        [&](int color, int size) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          if (exhausted)
-            return false;
-          const uint64_t degree =
-              static_cast<uint64_t>(session.internal->d[child.lab[color]]);
-          const uint64_t width = static_cast<uint64_t>(size);
-          const uint64_t work =
-              degree && width > (UINT64_MAX - 1) / degree
-                  ? UINT64_MAX
-                  : 1 + degree * width;
-          if (ticks >= maximum_ticks || work > maximum_ticks - ticks) {
-            ticks = maximum_ticks;
-            exhausted = true;
-            return false;
-          }
-          ticks += work;
-          return true;
-        };
-    const std::function<dejavu::ir::type_split_color_hook> split_hook =
-        [&](int, int, int) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          return !exhausted;
-        };
+    RefinementMeter meter(ticks, maximum_ticks, stop, stop_context, exhausted,
+                          interrupted);
+    const auto worklist_hook = meter.worklist_hook(session.internal, child);
+    const auto split_hook = meter.split_hook();
     for (uint32_t vertex = 0; vertex < session.vertex_count; ++vertex) {
       if (child.cells >= static_cast<int>(session.vertex_count))
         break;
@@ -1007,37 +952,11 @@ Status prepare_refinement(const Graph &input, uint64_t maximum_ticks,
     dejavu::ir::refinement refinement;
     uint64_t charged = 0;
     bool exhausted = false, interrupted = false;
-    const std::function<dejavu::ir::type_worklist_color_hook> worklist_hook =
-        [&](int color, int size) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          if (exhausted)
-            return false;
-          const uint64_t degree = static_cast<uint64_t>(
-              prepared->internal->d[prepared->root.lab[color]]);
-          const uint64_t width = static_cast<uint64_t>(size);
-          const uint64_t work =
-              degree && width > (UINT64_MAX - 1) / degree
-                  ? UINT64_MAX
-                  : 1 + degree * width;
-          if (charged >= maximum_ticks || work > maximum_ticks - charged) {
-            charged = maximum_ticks;
-            exhausted = true;
-            return false;
-          }
-          charged += work;
-          return true;
-        };
-    const std::function<dejavu::ir::type_split_color_hook> split_hook =
-        [&](int, int, int) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          return !exhausted;
-        };
+    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
+                          exhausted, interrupted);
+    const auto worklist_hook =
+        meter.worklist_hook(prepared->internal, prepared->root);
+    const auto split_hook = meter.split_hook();
     refinement.refine_coloring(prepared->internal, &prepared->root, -1, -1,
                                &split_hook, &worklist_hook);
     ticks = charged;
@@ -1140,29 +1059,9 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
     std::vector<int> touched_roots;
     dejavu::ds::coloring *current = &session.root;
     std::vector<uint32_t> *current_singletons = nullptr;
-    const std::function<dejavu::ir::type_worklist_color_hook> worklist_hook =
-        [&](int color, int size) {
-          if (stopped(stop, stop_context)) {
-            interrupted = true;
-            return false;
-          }
-          if (exhausted)
-            return false;
-          const uint64_t degree =
-              static_cast<uint64_t>(session.internal->d[current->lab[color]]);
-          const uint64_t width = static_cast<uint64_t>(size);
-          const uint64_t work =
-              degree && width > (UINT64_MAX - 1) / degree
-                  ? UINT64_MAX
-                  : 1 + degree * width;
-          if (charged >= maximum_ticks || work > maximum_ticks - charged) {
-            charged = maximum_ticks;
-            exhausted = true;
-            return false;
-          }
-          charged += work;
-          return true;
-        };
+    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
+                          exhausted, interrupted);
+    const auto worklist_hook = meter.worklist_hook(session.internal, current);
     const std::function<dejavu::ir::type_split_color_hook> split_hook =
         [&](int, int new_color, int new_size) {
           if (stopped(stop, stop_context)) {
