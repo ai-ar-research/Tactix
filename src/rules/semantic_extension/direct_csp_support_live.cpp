@@ -298,30 +298,6 @@ bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner,
   return literals == owner.source_literals;
 }
 
-bool owner_equal(const DirectCspSupportOwnerSnapshot &first,
-                 const DirectCspSupportOwnerSnapshot &second) {
-  if (first.external_extent != second.external_extent ||
-      first.source_literals != second.source_literals ||
-      first.capture_work != second.capture_work ||
-      first.source.size() != second.source.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  const auto domain_equal = [](const support::Domain &a,
-                               const support::Domain &b) {
-    return a.values == b.values && a.at_least_one == b.at_least_one &&
-           a.at_most_one == b.at_most_one;
-  };
-  return domain_equal(first.relation.left, second.relation.left) &&
-         domain_equal(first.relation.right, second.relation.right) &&
-         first.relation.forbidden == second.relation.forbidden;
-}
-
 bool metered_sort(ClauseKey &key, Meter &meter) {
   for (size_t index = 1; index < key.size(); ++index) {
     const int32_t value = key[index];
@@ -692,7 +668,7 @@ void prepare_live_action(Kernel &kernel,
   result.recognition_limit_exhausted = meter.exhausted;
   current.external_extent = prepared.owner->external_extent;
   current.capture_work = prepared.owner->capture_work;
-  if (!owner_equal(current, *prepared.owner)) {
+  if (!direct_csp_support_same_live_owner(current, *prepared.owner)) {
     result.status = DirectCspSupportLiveStatus::Stale;
     return;
   }

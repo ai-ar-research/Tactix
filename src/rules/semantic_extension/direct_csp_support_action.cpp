@@ -367,28 +367,6 @@ bool disjoint_domains(const std::vector<int32_t> &left,
   return true;
 }
 
-bool same_owner_image(const DirectCspSupportOwnerSnapshot &first,
-                      const DirectCspSupportOwnerSnapshot &second) {
-  if (first.source_literals != second.source_literals ||
-      first.source.size() != second.source.size())
-    return false;
-  for (size_t index = 0; index < first.source.size(); ++index) {
-    const auto &a = first.source[index];
-    const auto &b = second.source[index];
-    if (a.occurrence != b.occurrence ||
-        a.native_proof_id != b.native_proof_id || a.literals != b.literals)
-      return false;
-  }
-  const auto same_domain = [](const direct_csp_support::Domain &a,
-                              const direct_csp_support::Domain &b) {
-    return a.values == b.values && a.at_least_one == b.at_least_one &&
-           a.at_most_one == b.at_most_one;
-  };
-  return same_domain(first.relation.left, second.relation.left) &&
-         same_domain(first.relation.right, second.relation.right) &&
-         first.relation.forbidden == second.relation.forbidden;
-}
-
 bool committed(const DirectCspSupportActionSession &session,
                const DirectCspSupportActionKey &key) {
   const auto &keys = session.keys();
@@ -842,7 +820,7 @@ DirectCspSupportActionOfferResult direct_csp_support_action_offer(
     if (capture == CaptureStatus::Invalid)
       return stopped(DirectCspSupportActionOfferStatus::Invalid);
     if (capture == CaptureStatus::NoStructure ||
-        !same_owner_image(current, retained))
+        !direct_csp_support_same_owner_image(current, retained))
       return stopped(DirectCspSupportActionOfferStatus::Stale);
     ++output.effort.retained_owners_revalidated;
   }

@@ -13,6 +13,8 @@ struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
   uint64_t native_proof_id = 0;
+
+  friend bool operator==(const Premise &, const Premise &) = default;
 };
 
 // A complete exactly-one domain.  Values are strictly ordered by
@@ -24,6 +26,8 @@ struct Domain {
   std::vector<int32_t> values;
   uint64_t at_least_one = 0;
   std::vector<uint64_t> at_most_one;
+
+  friend bool operator==(const Domain &, const Domain &) = default;
 };
 
 // A complete directed binary-compatibility table.  A nonzero row-major entry
@@ -34,6 +38,8 @@ struct Relation {
   Domain left;
   Domain right;
   std::vector<uint64_t> forbidden;
+
+  friend bool operator==(const Relation &, const Relation &) = default;
 };
 
 struct Bounds {
