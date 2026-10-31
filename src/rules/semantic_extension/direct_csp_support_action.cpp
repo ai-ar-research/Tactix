@@ -2,6 +2,7 @@
 
 #include "rules/structural_action_guard.hpp"
 
+#include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "rules/semantic_extension/csp_live_domain.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -55,27 +56,6 @@ bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work,
 
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
-bool pair_identity_valid(const std::vector<int32_t> &left,
-                         const std::vector<int32_t> &right) {
-  if (left.size() < 2 || right.size() < 2) return false;
-  std::vector<uint32_t> variables;
-  variables.reserve(left.size() + right.size());
-  const auto append = [&](const std::vector<int32_t> &domain) {
-    for (size_t index = 0; index < domain.size(); ++index) {
-      const int32_t literal = domain[index];
-      if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-          (index && !external_literal_less(domain[index - 1], literal)))
-        return false;
-      variables.push_back(external_variable_of(literal));
-    }
-    return true;
-  };
-  if (!append(left) || !append(right)) return false;
-  std::sort(variables.begin(), variables.end());
-  return std::adjacent_find(variables.begin(), variables.end()) ==
-         variables.end();
-}
-
 DirectCspSupportActionKey make_key(
     const DirectCspSupportActionSelection &selection) {
   DirectCspSupportActionKey key;
@@ -89,7 +69,7 @@ DirectCspSupportActionKey make_key(
 }
 
 bool key_valid(const DirectCspSupportActionKey &key) {
-  return pair_identity_valid(key.left_values, key.right_values) &&
+  return csp_domain_identity::pair_valid(key.left_values, key.right_values) &&
          key.selected_left_value < key.left_values.size() &&
          key.selected_left_literal ==
              key.left_values[key.selected_left_value];
@@ -142,8 +122,8 @@ bool domain_payload_valid(const direct_csp_support::Domain &domain,
 
 bool owner_payload_valid(const DirectCspSupportOwnerSnapshot &owner) {
   if (!owner.external_extent || owner.source.empty() ||
-      !pair_identity_valid(owner.relation.left.values,
-                           owner.relation.right.values) ||
+      !csp_domain_identity::pair_valid(owner.relation.left.values,
+                                       owner.relation.right.values) ||
       !domain_payload_valid(owner.relation.left, owner.source.size()) ||
       !domain_payload_valid(owner.relation.right, owner.source.size()) ||
       owner.relation.left.values.size() >

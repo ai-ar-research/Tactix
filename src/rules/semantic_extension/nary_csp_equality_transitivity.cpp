@@ -1,22 +1,12 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
+#include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "kernel/types.hpp"
 #include <algorithm>
 #include <climits>
 #include <utility>
 namespace tactix::equality_transitivity {
 bool domains_valid(const Domains &domains) {
-  const auto n=domains[0].size(); if (n<2 || n>UINT32_MAX) return false;
-  std::vector<uint32_t> variables;
-  for (size_t d=0;d<3;++d) {
-    if (domains[d].size()!=n || (d && !(domains[d-1]<domains[d]))) return false;
-    for (size_t i=0;i<n;++i) {
-      const auto l=domains[d][i]; if (!l || l==INT32_MIN) return false;
-      if (i && !external_literal_less(domains[d][i-1],l)) return false;
-      variables.push_back(external_variable_of(l));
-    }
-  }
-  std::sort(variables.begin(),variables.end());
-  return std::adjacent_find(variables.begin(),variables.end())==variables.end();
+  return csp_domain_identity::ordered_three_valid(domains,2,UINT32_MAX);
 }
 bool plan(const Domains &domains,const std::array<uint32_t,3> &e,
           uint64_t maximum_work,Plan &out) {

@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_amo_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/csp_domain_identity.hpp"
 
 #include "proof/proof.hpp"
 
@@ -148,26 +149,7 @@ RuleEligibility nary_csp_equality_amo_guard(const Kernel &kernel) {
 
 bool nary_csp_equality_amo_selection_valid(
     const NaryCspEqualityAmoSelection &selection) {
-  if (selection.domains.size() != 3) return false;
-  const size_t values = selection.domains.front().size();
-  if (values < 2) return false;
-  std::vector<uint32_t> variables;
-  for (size_t domain = 0; domain < 3; ++domain) {
-    const auto &literals = selection.domains[domain];
-    if (literals.size() != values ||
-        (domain && !(selection.domains[domain - 1] < literals)))
-      return false;
-    for (size_t index = 0; index < values; ++index) {
-      const int32_t literal = literals[index];
-      if (!literal || literal == INT32_MIN ||
-          (index && !external_literal_less(literals[index - 1], literal)))
-        return false;
-      variables.push_back(external_variable_of(literal));
-    }
-  }
-  std::sort(variables.begin(), variables.end());
-  return std::adjacent_find(variables.begin(), variables.end()) ==
-         variables.end();
+  return csp_domain_identity::ordered_three_valid(selection.domains, 2);
 }
 
 bool nary_csp_equality_amo_selection_within_limits(

@@ -5,6 +5,7 @@
 #include "rules/lucky/lucky.hpp"
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
+#include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "rules/semantic_extension/exact_cover_action.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -959,25 +960,12 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
       if (instance.left_values.size() < 2 || instance.right_values.size() < 2 ||
           instance.selected_left_value >= instance.left_values.size())
         return reject("DirectCSP support selection is incomplete");
-      std::vector<uint32_t> variables;
-      variables.reserve(instance.left_values.size() +
-                        instance.right_values.size());
-      const auto append_domain = [&](const std::vector<int32_t> &domain) {
-        for (size_t index = 0; index < domain.size(); ++index) {
-          const int32_t literal = domain[index];
-          if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-              (index && !external_literal_less(domain[index - 1], literal)))
-            return false;
-          variables.push_back(external_variable_of(literal));
-        }
-        return true;
-      };
-      if (!append_domain(instance.left_values) ||
-          !append_domain(instance.right_values))
+      const csp_domain_identity::PairStatus identity =
+          csp_domain_identity::pair_status(instance.left_values,
+                                           instance.right_values);
+      if (identity == csp_domain_identity::PairStatus::InvalidDomain)
         return reject("DirectCSP domain is not canonically ordered");
-      std::sort(variables.begin(), variables.end());
-      if (std::adjacent_find(variables.begin(), variables.end()) !=
-          variables.end())
+      if (identity == csp_domain_identity::PairStatus::RepeatedVariable)
         return reject("DirectCSP domains repeat a variable");
     }
     if (!step.nary_csp_equality_instances.empty()) {
