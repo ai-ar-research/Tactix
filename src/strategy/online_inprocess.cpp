@@ -29,6 +29,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <unordered_map>
@@ -250,6 +251,50 @@ ParameterMetadata parameter_metadata(const OnlineInvocation &step,
 
 bool parameter_matches(const OnlineInvocation &step) {
   return parameter_metadata(step).matches_rule;
+}
+
+enum TheoryRetention : uint8_t {
+  RetainInvalid = 1u << 0,
+  RetainInapplicable = 1u << 1,
+  RetainResourceExhausted = 1u << 2,
+  RetainInterrupted = 1u << 3,
+  RetainStale = 1u << 4,
+};
+
+struct TheoryStatusDisposition {
+  std::optional<InvocationStatus> status;
+  bool retain = false;
+};
+
+template <class Status>
+bool status_in(Status status, std::initializer_list<Status> candidates) {
+  return std::find(candidates.begin(), candidates.end(), status) !=
+         candidates.end();
+}
+
+template <class Status>
+TheoryStatusDisposition theory_status_disposition(
+    Status status, std::initializer_list<Status> invalid,
+    std::initializer_list<Status> inapplicable,
+    std::initializer_list<Status> resource_exhausted,
+    std::initializer_list<Status> interrupted,
+    std::initializer_list<Status> stale, uint8_t retention) {
+  if (status_in(status, invalid))
+    return {InvocationStatus::InvalidRequest,
+            static_cast<bool>(retention & RetainInvalid)};
+  if (status_in(status, inapplicable))
+    return {InvocationStatus::Inapplicable,
+            static_cast<bool>(retention & RetainInapplicable)};
+  if (status_in(status, resource_exhausted))
+    return {InvocationStatus::ResourceExhausted,
+            static_cast<bool>(retention & RetainResourceExhausted)};
+  if (status_in(status, interrupted))
+    return {InvocationStatus::Interrupted,
+            static_cast<bool>(retention & RetainInterrupted)};
+  if (status_in(status, stale))
+    return {InvocationStatus::StaleRequest,
+            static_cast<bool>(retention & RetainStale)};
+  return {};
 }
 
 uint64_t saturated_add(uint64_t a, uint64_t b) {
@@ -2407,439 +2452,184 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.selection_complete = false;
         preserve_theory_selection = true;
       };
+      const auto settle_theory_status =
+          [&](const TheoryStatusDisposition &disposition) {
+            if (!disposition.status)
+              return;
+            out.status = *disposition.status;
+            if (disposition.retain)
+              retain_theory_selection();
+          };
+      constexpr uint8_t retain_all_theory_failures =
+          RetainInvalid | RetainInapplicable | RetainResourceExhausted |
+          RetainInterrupted | RetainStale;
+      constexpr uint8_t retain_retryable_theory_failures =
+          RetainResourceExhausted | RetainInterrupted;
       // The append-only persistent profile preserves detailed native declines.
       // Legacy zero-persistence dispatch and its historical statuses stay on
       // the registered adapter path above.
       if (affine_matrix_initialization) {
-        switch (affine_matrix_initialization->status) {
-        case AffineMatrixInitStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Inapplicable:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Pending:
+        if (affine_matrix_initialization->status ==
+            AffineMatrixInitStatus::Pending) {
           out.status = out.budget_status == BudgetStatus::Exhausted
                            ? InvocationStatus::BudgetExhausted
                            : InvocationStatus::Completed;
           retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixInitStatus::NoStructure:
-        case AffineMatrixInitStatus::IncompleteImage:
-        case AffineMatrixInitStatus::IncompleteMatrix:
-        case AffineMatrixInitStatus::Applied:
-        case AffineMatrixInitStatus::AppliedPartial:
-          break;
-        }
+        } else
+          settle_theory_status(theory_status_disposition(
+              affine_matrix_initialization->status,
+              {AffineMatrixInitStatus::Invalid},
+              {AffineMatrixInitStatus::Inapplicable},
+              {AffineMatrixInitStatus::ResourceExhausted},
+              {AffineMatrixInitStatus::Interrupted},
+              {AffineMatrixInitStatus::Stale}, retain_all_theory_failures));
       }
       if (affine_matrix_service) {
-        switch (affine_matrix_service->status) {
-        case AffineMatrixServiceStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Disabled:
-        case AffineMatrixServiceStatus::Inapplicable:
-        case AffineMatrixServiceStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Pending:
+        if (affine_matrix_service->status ==
+            AffineMatrixServiceStatus::Pending) {
           // A private Gaussian slice consumed one public application, not
           // the enclosing allowance. Keep this exact selected action pending.
           out.status = out.budget_status == BudgetStatus::Exhausted
                            ? InvocationStatus::BudgetExhausted
                            : InvocationStatus::Completed;
           retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case AffineMatrixServiceStatus::NoEvent:
-        case AffineMatrixServiceStatus::Duplicate:
-        case AffineMatrixServiceStatus::Applied:
-          break;
-        }
+        } else
+          settle_theory_status(theory_status_disposition(
+              affine_matrix_service->status,
+              {AffineMatrixServiceStatus::Invalid},
+              {AffineMatrixServiceStatus::Disabled,
+               AffineMatrixServiceStatus::Inapplicable,
+               AffineMatrixServiceStatus::UnsupportedProof},
+              {AffineMatrixServiceStatus::ResourceExhausted},
+              {AffineMatrixServiceStatus::Interrupted},
+              {AffineMatrixServiceStatus::Stale}, retain_all_theory_failures));
       }
-      if (affine_application) {
-        switch (affine_application->status) {
-        case AffineConsequenceActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::Inapplicable:
-        case AffineConsequenceActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case AffineConsequenceActionStatus::NoStructure:
-        case AffineConsequenceActionStatus::AlreadyPublished:
-        case AffineConsequenceActionStatus::Applied:
-          break;
-        }
-      }
-      if (exact_cover_application) {
-        switch (exact_cover_application->live.status) {
-        case ExactCoverLiveStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::Inapplicable:
-        case ExactCoverLiveStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case ExactCoverLiveStatus::NoStructure:
-        case ExactCoverLiveStatus::AlreadyPublished:
-        case ExactCoverLiveStatus::Applied:
-          break;
-        }
-      }
-      if (independent_set_application) {
-        switch (independent_set_application->status) {
-        case IndependentSetLiveStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::Inapplicable:
-        case IndependentSetLiveStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          retain_theory_selection();
-          break;
-        case IndependentSetLiveStatus::NoStructure:
-        case IndependentSetLiveStatus::Duplicate:
-        case IndependentSetLiveStatus::Applied:
-          break;
-        }
-      }
-      if (gf3_affine_application) {
-        switch (gf3_affine_application->status) {
-        case Gf3AffineActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case Gf3AffineActionStatus::Inapplicable:
-        case Gf3AffineActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case Gf3AffineActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case Gf3AffineActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case Gf3AffineActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case Gf3AffineActionStatus::NoStructure:
-        case Gf3AffineActionStatus::NoConsequence:
-        case Gf3AffineActionStatus::AlreadyPublished:
-        case Gf3AffineActionStatus::Applied:
-          break;
-        }
-      }
-      if (direct_csp_application) {
-        switch (direct_csp_application->status) {
-        case DirectCspSupportActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case DirectCspSupportActionStatus::Inapplicable:
-        case DirectCspSupportActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case DirectCspSupportActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case DirectCspSupportActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case DirectCspSupportActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case DirectCspSupportActionStatus::NoStructure:
-        case DirectCspSupportActionStatus::NoConsequence:
-        case DirectCspSupportActionStatus::AlreadyPublished:
-        case DirectCspSupportActionStatus::Applied:
-          break;
-        }
-      }
-      if (nary_csp_equality_application) {
-        switch (nary_csp_equality_application->status) {
-        case NaryCspEqualityActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case NaryCspEqualityActionStatus::Inapplicable:
-        case NaryCspEqualityActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case NaryCspEqualityActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case NaryCspEqualityActionStatus::NoStructure:
-        case NaryCspEqualityActionStatus::NoConsequence:
-        case NaryCspEqualityActionStatus::AlreadyPublished:
-        case NaryCspEqualityActionStatus::Applied:
-          break;
-        }
-      }
-      if (nary_csp_equality_amo_application) {
-        switch (nary_csp_equality_amo_application->status) {
-        case NaryCspEqualityAmoStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case NaryCspEqualityAmoStatus::Inapplicable:
-        case NaryCspEqualityAmoStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case NaryCspEqualityAmoStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityAmoStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityAmoStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case NaryCspEqualityAmoStatus::NoStructure:
-        case NaryCspEqualityAmoStatus::MissingEquality:
-        case NaryCspEqualityAmoStatus::Duplicate:
-        case NaryCspEqualityAmoStatus::Applied:
-          break;
-        }
-      }
-      if (nary_csp_equality_transitivity_application) {
-        switch (nary_csp_equality_transitivity_application->status) {
-        case NaryCspEqualityTransitivityStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case NaryCspEqualityTransitivityStatus::Inapplicable:
-        case NaryCspEqualityTransitivityStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case NaryCspEqualityTransitivityStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityTransitivityStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case NaryCspEqualityTransitivityStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case NaryCspEqualityTransitivityStatus::Ready:
-        case NaryCspEqualityTransitivityStatus::MissingEquality:
-        case NaryCspEqualityTransitivityStatus::Duplicate:
-        case NaryCspEqualityTransitivityStatus::Applied:
-          break;
-        }
-      }
-      if (gf3_gaussian_application) {
-        switch (gf3_gaussian_application->status) {
-        case Gf3GaussianActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case Gf3GaussianActionStatus::Inapplicable:
-        case Gf3GaussianActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case Gf3GaussianActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case Gf3GaussianActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case Gf3GaussianActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case Gf3GaussianActionStatus::NoStructure:
-        case Gf3GaussianActionStatus::NoSupportedOutcome:
-        case Gf3GaussianActionStatus::AlreadyPublished:
-        case Gf3GaussianActionStatus::Applied:
-          break;
-        }
-      }
-      if (gf3_general_row_application) {
-        switch (gf3_general_row_application->status) {
-        case Gf3GeneralRowActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case Gf3GeneralRowActionStatus::Inapplicable:
-        case Gf3GeneralRowActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case Gf3GeneralRowActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case Gf3GeneralRowActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case Gf3GeneralRowActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case Gf3GeneralRowActionStatus::NoStructure:
-        case Gf3GeneralRowActionStatus::NoConsequence:
-        case Gf3GeneralRowActionStatus::AlreadyPublished:
-        case Gf3GeneralRowActionStatus::Applied:
-          break;
-        }
-      }
-      if (cardinality_search_application) {
-        switch (cardinality_search_application->status) {
-        case CardinalitySearchActionStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case CardinalitySearchActionStatus::Inapplicable:
-        case CardinalitySearchActionStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case CardinalitySearchActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case CardinalitySearchActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case CardinalitySearchActionStatus::NoSource:
-        case CardinalitySearchActionStatus::NoEvent:
-        case CardinalitySearchActionStatus::Applied:
-          break;
-        }
-      }
-      if (tseitin_cycle_application) {
-        switch (tseitin_cycle_application->status) {
-        case TseitinCycleBreakingStatus::Invalid:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case TseitinCycleBreakingStatus::Inapplicable:
-        case TseitinCycleBreakingStatus::UnsupportedProof:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case TseitinCycleBreakingStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case TseitinCycleBreakingStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case TseitinCycleBreakingStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case TseitinCycleBreakingStatus::NoStructure:
-        case TseitinCycleBreakingStatus::AlreadyApplied:
-        case TseitinCycleBreakingStatus::Applied:
-          break;
-        }
-      }
-      if (direct_php_application) {
-        switch (direct_php_application->status) {
-        case DirectPhpActionStatus::Invalid:
-        case DirectPhpActionStatus::ReplayMismatch:
-        case DirectPhpActionStatus::Prepared:
-          out.status = InvocationStatus::InvalidRequest;
-          break;
-        case DirectPhpActionStatus::Inapplicable:
-        case DirectPhpActionStatus::UnsupportedProof:
-        case DirectPhpActionStatus::UnsupportedProofSplit:
-          out.status = InvocationStatus::Inapplicable;
-          break;
-        case DirectPhpActionStatus::ResourceExhausted:
-          out.status = InvocationStatus::ResourceExhausted;
-          retain_theory_selection();
-          break;
-        case DirectPhpActionStatus::Interrupted:
-          out.status = InvocationStatus::Interrupted;
-          retain_theory_selection();
-          break;
-        case DirectPhpActionStatus::Stale:
-          out.status = InvocationStatus::StaleRequest;
-          break;
-        case DirectPhpActionStatus::NotRecognized:
-        case DirectPhpActionStatus::Malformed:
-        case DirectPhpActionStatus::Ambiguous:
-        case DirectPhpActionStatus::AlreadyApplied:
-        case DirectPhpActionStatus::Applied:
-          break;
-        }
-      }
+      if (affine_application)
+        settle_theory_status(theory_status_disposition(
+            affine_application->status,
+            {AffineConsequenceActionStatus::Invalid},
+            {AffineConsequenceActionStatus::Inapplicable,
+             AffineConsequenceActionStatus::UnsupportedProof},
+            {AffineConsequenceActionStatus::ResourceExhausted},
+            {AffineConsequenceActionStatus::Interrupted},
+            {AffineConsequenceActionStatus::Stale}, retain_all_theory_failures));
+      if (exact_cover_application)
+        settle_theory_status(theory_status_disposition(
+            exact_cover_application->live.status, {ExactCoverLiveStatus::Invalid},
+            {ExactCoverLiveStatus::Inapplicable,
+             ExactCoverLiveStatus::UnsupportedProof},
+            {ExactCoverLiveStatus::ResourceExhausted},
+            {ExactCoverLiveStatus::Interrupted}, {ExactCoverLiveStatus::Stale},
+            retain_all_theory_failures));
+      if (independent_set_application)
+        settle_theory_status(theory_status_disposition(
+            independent_set_application->status,
+            {IndependentSetLiveStatus::Invalid},
+            {IndependentSetLiveStatus::Inapplicable,
+             IndependentSetLiveStatus::UnsupportedProof},
+            {IndependentSetLiveStatus::ResourceExhausted},
+            {IndependentSetLiveStatus::Interrupted},
+            {IndependentSetLiveStatus::Stale}, retain_all_theory_failures));
+      if (gf3_affine_application)
+        settle_theory_status(theory_status_disposition(
+            gf3_affine_application->status, {Gf3AffineActionStatus::Invalid},
+            {Gf3AffineActionStatus::Inapplicable,
+             Gf3AffineActionStatus::UnsupportedProof},
+            {Gf3AffineActionStatus::ResourceExhausted},
+            {Gf3AffineActionStatus::Interrupted},
+            {Gf3AffineActionStatus::Stale},
+            retain_retryable_theory_failures));
+      if (direct_csp_application)
+        settle_theory_status(theory_status_disposition(
+            direct_csp_application->status,
+            {DirectCspSupportActionStatus::Invalid},
+            {DirectCspSupportActionStatus::Inapplicable,
+             DirectCspSupportActionStatus::UnsupportedProof},
+            {DirectCspSupportActionStatus::ResourceExhausted},
+            {DirectCspSupportActionStatus::Interrupted},
+            {DirectCspSupportActionStatus::Stale},
+            retain_retryable_theory_failures));
+      if (nary_csp_equality_application)
+        settle_theory_status(theory_status_disposition(
+            nary_csp_equality_application->status,
+            {NaryCspEqualityActionStatus::Invalid},
+            {NaryCspEqualityActionStatus::Inapplicable,
+             NaryCspEqualityActionStatus::UnsupportedProof},
+            {NaryCspEqualityActionStatus::ResourceExhausted},
+            {NaryCspEqualityActionStatus::Interrupted},
+            {NaryCspEqualityActionStatus::Stale},
+            retain_retryable_theory_failures));
+      if (nary_csp_equality_amo_application)
+        settle_theory_status(theory_status_disposition(
+            nary_csp_equality_amo_application->status,
+            {NaryCspEqualityAmoStatus::Invalid},
+            {NaryCspEqualityAmoStatus::Inapplicable,
+             NaryCspEqualityAmoStatus::UnsupportedProof},
+            {NaryCspEqualityAmoStatus::ResourceExhausted},
+            {NaryCspEqualityAmoStatus::Interrupted},
+            {NaryCspEqualityAmoStatus::Stale},
+            retain_retryable_theory_failures));
+      if (nary_csp_equality_transitivity_application)
+        settle_theory_status(theory_status_disposition(
+            nary_csp_equality_transitivity_application->status,
+            {NaryCspEqualityTransitivityStatus::Invalid},
+            {NaryCspEqualityTransitivityStatus::Inapplicable,
+             NaryCspEqualityTransitivityStatus::UnsupportedProof},
+            {NaryCspEqualityTransitivityStatus::ResourceExhausted},
+            {NaryCspEqualityTransitivityStatus::Interrupted},
+            {NaryCspEqualityTransitivityStatus::Stale},
+            retain_retryable_theory_failures));
+      if (gf3_gaussian_application)
+        settle_theory_status(theory_status_disposition(
+            gf3_gaussian_application->status,
+            {Gf3GaussianActionStatus::Invalid},
+            {Gf3GaussianActionStatus::Inapplicable,
+             Gf3GaussianActionStatus::UnsupportedProof},
+            {Gf3GaussianActionStatus::ResourceExhausted},
+            {Gf3GaussianActionStatus::Interrupted},
+            {Gf3GaussianActionStatus::Stale},
+            retain_retryable_theory_failures));
+      if (gf3_general_row_application)
+        settle_theory_status(theory_status_disposition(
+            gf3_general_row_application->status,
+            {Gf3GeneralRowActionStatus::Invalid},
+            {Gf3GeneralRowActionStatus::Inapplicable,
+             Gf3GeneralRowActionStatus::UnsupportedProof},
+            {Gf3GeneralRowActionStatus::ResourceExhausted},
+            {Gf3GeneralRowActionStatus::Interrupted},
+            {Gf3GeneralRowActionStatus::Stale},
+            retain_retryable_theory_failures));
+      if (cardinality_search_application)
+        settle_theory_status(theory_status_disposition(
+            cardinality_search_application->status,
+            {CardinalitySearchActionStatus::Invalid},
+            {CardinalitySearchActionStatus::Inapplicable,
+             CardinalitySearchActionStatus::UnsupportedProof},
+            {CardinalitySearchActionStatus::ResourceExhausted},
+            {CardinalitySearchActionStatus::Interrupted}, {},
+            retain_retryable_theory_failures));
+      if (tseitin_cycle_application)
+        settle_theory_status(theory_status_disposition(
+            tseitin_cycle_application->status,
+            {TseitinCycleBreakingStatus::Invalid},
+            {TseitinCycleBreakingStatus::Inapplicable,
+             TseitinCycleBreakingStatus::UnsupportedProof},
+            {TseitinCycleBreakingStatus::ResourceExhausted},
+            {TseitinCycleBreakingStatus::Interrupted},
+            {TseitinCycleBreakingStatus::Stale},
+            retain_retryable_theory_failures));
+      if (direct_php_application)
+        settle_theory_status(theory_status_disposition(
+            direct_php_application->status,
+            {DirectPhpActionStatus::Invalid,
+             DirectPhpActionStatus::ReplayMismatch,
+             DirectPhpActionStatus::Prepared},
+            {DirectPhpActionStatus::Inapplicable,
+             DirectPhpActionStatus::UnsupportedProof,
+             DirectPhpActionStatus::UnsupportedProofSplit},
+            {DirectPhpActionStatus::ResourceExhausted},
+            {DirectPhpActionStatus::Interrupted}, {DirectPhpActionStatus::Stale},
+            retain_retryable_theory_failures));
       if (sr_application) {
         switch (sr_application->status) {
         case SubstitutionRedundancyApplicationStatus::Invalid:
