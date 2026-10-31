@@ -129,13 +129,18 @@ for signature in (
     "Ref kernel_add_large_clause(",
     "static void add_binary_clause(",
     "void kernel_publish_binary_clause(",
-    "bool kernel_delete_binary(",
-    "bool kernel_delete_binary_one_copy(",
+    "static void record_binary_copy_deletion(",
     "uint32_t kernel_remove_duplicate_binary_copies(",
     "static bool delete_binary_all_copies(",
     "void kernel_materialize_dsr_root_unit(",
 ):
     require(kernel_cpp, signature, "kernel_observe_solver_clause(")
+# Single-copy and final-copy deletion settle through the audited helper above.
+for signature in (
+    "bool kernel_delete_binary(",
+    "bool kernel_delete_binary_one_copy(",
+):
+    require(kernel_cpp, signature, "record_binary_copy_deletion(")
 mirror_body = function_body(kernel_cpp, "void kernel_add_binary_mirror(")
 if "kernel_observe_solver_clause(" in mirror_body:
     fail("mirror-only binary mechanics must not emit population events")
