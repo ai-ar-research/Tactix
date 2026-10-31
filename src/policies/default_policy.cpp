@@ -534,16 +534,19 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
   });
 }
 
-template <LuckyOpportunity Opportunity>
+// `trace(event, payload)` forwards to the caller's EventTrace::macro. Taking a
+// callable rather than an EventTrace keeps that diagnostic type out of this
+// helper's out-of-line -O0 symbols (event_trace_zero_overhead).
+template <LuckyOpportunity Opportunity, typename TraceMacro>
 bool default_traced_lucky_terminal(
-    Kernel &k, EventTrace &trace, const char *candidate,
+    Kernel &k, const TraceMacro &trace, const char *candidate,
     const char *begin_event, const char *end_event, ApplyResult terminal,
     const char *terminal_name, PolicyCompletion *completion = nullptr) {
-  trace.macro(k, begin_event);
+  trace(begin_event, "-");
   const ApplyResult result =
       default_lucky_opportunity<Opportunity>(k, candidate, completion);
   const bool reached_terminal = result == terminal;
-  trace.macro(k, end_event, reached_terminal ? terminal_name : "unknown");
+  trace(end_event, reached_terminal ? terminal_name : "unknown");
   return reached_terminal;
 }
 
@@ -4560,6 +4563,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   inprocess_.build(k, completion_);
   EventTrace event_trace;
   event_trace.open_from_env(k);
+  const auto lucky_trace = [&](const char *event, const char *payload) {
+    event_trace.macro(k, event, payload);
+  };
   // Paired search-time deletion counters on every analysis_end row: the
   // clause a solver deletes between two boundaries is invisible in the
   // journals, and kissat's rows carry the same three statistics.
@@ -4646,7 +4652,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       signed_cardinality_proof_guard(k)) {
     if (default_traced_lucky_terminal<
             LuckyOpportunity::SignedCardinality>(
-            k, event_trace, "signed-cardinality-proof",
+            k, lucky_trace, "signed-cardinality-proof",
             "signed_cardinality_proof_begin",
             "signed_cardinality_proof_end", ApplyResult::Unsat, "unsat",
             completion_))
@@ -4673,7 +4679,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.stconn_proof.enabled && stconn_proof_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Stconn>(
-            k, event_trace, "stconn-proof", "stconn_proof_begin",
+            k, lucky_trace, "stconn-proof", "stconn_proof_begin",
             "stconn_proof_end", ApplyResult::Unsat, "unsat", completion_))
       return finish(20);
   }
@@ -4684,7 +4690,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (config_.balanced_signature_model.enabled &&
       balanced_signature_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
-            k, event_trace, "balanced-signature-model",
+            k, lucky_trace, "balanced-signature-model",
             "balanced_signature_model_begin", "balanced_signature_model_end",
             ApplyResult::Sat, "sat", completion_))
       return finish(10);
@@ -4694,26 +4700,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // CNF before publication; exhaustion remains unknown.
   if (config_.fermat_model.enabled && fermat_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
-            k, event_trace, "fermat-model", "fermat_model_begin",
+            k, lucky_trace, "fermat-model", "fermat_model_begin",
             "fermat_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
   if (config_.cerny_model.enabled && cerny_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Cerny>(
-            k, event_trace, "cerny-model", "cerny_model_begin",
+            k, lucky_trace, "cerny-model", "cerny_model_begin",
             "cerny_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
   if (config_.lookup_circuit_model.enabled && lookup_circuit_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::LookupCircuit>(
-            k, event_trace, "lookup-circuit-model",
+            k, lucky_trace, "lookup-circuit-model",
             "lookup_circuit_model_begin", "lookup_circuit_model_end",
             ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
   if (config_.simon_model.enabled && simon_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Simon>(
-            k, event_trace, "simon-model", "simon_model_begin",
+            k, lucky_trace, "simon-model", "simon_model_begin",
             "simon_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
@@ -4721,13 +4727,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // certificate path without entering its private assignment search.
   if (parity_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
-            k, event_trace, "parity-proof", "parity_proof_begin",
+            k, lucky_trace, "parity-proof", "parity_proof_begin",
             "parity_proof_end", ApplyResult::Unsat, "unsat", completion_))
       return finish(20);
   }
   if (config_.parity_model.enabled && parity_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Parity>(
-            k, event_trace, "parity-model", "parity_model_begin",
+            k, lucky_trace, "parity-model", "parity_model_begin",
             "parity_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
@@ -4831,7 +4837,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::DirectCsp>(
-            k, event_trace, "direct-csp-model", "direct_csp_model_begin",
+            k, lucky_trace, "direct-csp-model", "direct_csp_model_begin",
             "direct_csp_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
@@ -4861,7 +4867,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (config_.onehot_model.enabled && onehot_model_guard(k)) {
     if (default_traced_lucky_terminal<LuckyOpportunity::Onehot>(
-            k, event_trace, "onehot-model", "onehot_model_begin",
+            k, lucky_trace, "onehot-model", "onehot_model_begin",
             "onehot_model_end", ApplyResult::Sat, "sat", completion_))
       return finish(10);
   }
