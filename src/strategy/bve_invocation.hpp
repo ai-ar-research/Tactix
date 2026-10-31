@@ -376,55 +376,10 @@ public:
   }
 
   InvocationResult apply_canonical() {
-    InvocationResult out;
-    out.before = state_version(k_);
-    out.after = out.before;
-    out.work_unit = WorkUnit::BveTicks;
-    out.rule_id = rule_.id;
-    out.instance = INSTANCE_CANONICAL;
-    out.configuration_revision = configuration_revision_;
-    out.budget_status = budget_.status();
-    if (!valid_) {
-      out.status = InvocationStatus::InvalidRequest;
-      return out;
-    }
-    if (out.budget_status != BudgetStatus::Ready) {
-      out.status = detail::accounting_status(out.budget_status);
-      return out;
-    }
-    if (k_.stop && *k_.stop) {
-      out.status = InvocationStatus::Interrupted;
-      return out;
-    }
-    if (!rule_.guard(k_)) {
-      out.status = InvocationStatus::Inapplicable;
-      return out;
-    }
-    const uint64_t work_before = k_.stats.bve_resolutions;
-    const ApplyResult result = apply_rule(rule_, k_);
-    const uint64_t work_after = k_.stats.bve_resolutions;
-    if (work_after < work_before) {
-      out.status = InvocationStatus::AccountingError;
-      out.budget_status = BudgetStatus::AccountingOverflow;
-      out.after = state_version(k_);
-      return out;
-    }
-    out.work = work_after - work_before;
-    out.applications = 1;
-    out.rule_result = result;
-    out.made_rule_progress = result == ApplyResult::Ok;
-    out.selection_complete = true;
-    out.budget_status = budget_.charge(WorkUnit::BveTicks, out.work);
-    out.status = result == ApplyResult::Conflict || result == ApplyResult::Sat ||
-                         result == ApplyResult::Unsat
-                     ? detail::terminal_status(result)
-                     : out.made_rule_progress ? InvocationStatus::Completed
-                                              : InvocationStatus::NoChange;
-    if (out.budget_status != BudgetStatus::Ready &&
-        out.budget_status != BudgetStatus::Exhausted)
-      out.status = InvocationStatus::AccountingError;
-    out.after = state_version(k_);
-    return out;
+    return apply_with(
+        INSTANCE_CANONICAL, valid_,
+        [] { return std::optional<InvocationStatus>{}; },
+        [&] { return apply_rule(rule_, k_); });
   }
 
   InvocationResult apply_one(uint64_t instance) {
@@ -434,6 +389,23 @@ public:
   // the public request for an action port (strategy/action_port.hpp).
   template <class Dispatch>
   InvocationResult apply_one_with(uint64_t instance, Dispatch &&dispatch) {
+    return apply_with(
+        instance, valid_ && instance != INSTANCE_CANONICAL,
+        [&]() -> std::optional<InvocationStatus> {
+          Lit lit;
+          if (!lit_of_instance(k_, instance, &lit))
+            return InvocationStatus::InvalidRequest;
+          if (k_.value(lit) || kernel_var_retired(k_, var_of(lit)))
+            return InvocationStatus::StaleRequest;
+          return std::nullopt;
+        },
+        dispatch);
+  }
+
+private:
+  template <class Validate, class Dispatch>
+  InvocationResult apply_with(uint64_t instance, bool request_valid,
+                              Validate &&validate, Dispatch &&dispatch) {
     InvocationResult out;
     out.before = state_version(k_);
     out.after = out.before;
@@ -442,7 +414,7 @@ public:
     out.instance = instance;
     out.configuration_revision = configuration_revision_;
     out.budget_status = budget_.status();
-    if (!valid_ || instance == INSTANCE_CANONICAL) {
+    if (!request_valid) {
       out.status = InvocationStatus::InvalidRequest;
       return out;
     }
@@ -458,16 +430,10 @@ public:
       out.status = InvocationStatus::Inapplicable;
       return out;
     }
-    Lit lit;
-    if (!lit_of_instance(k_, instance, &lit)) {
-      out.status = InvocationStatus::InvalidRequest;
+    if (const auto status = validate()) {
+      out.status = *status;
       return out;
     }
-    if (k_.value(lit) || kernel_var_retired(k_, var_of(lit))) {
-      out.status = InvocationStatus::StaleRequest;
-      return out;
-    }
-
     const uint64_t work_before = k_.stats.bve_resolutions;
     const ApplyResult result = dispatch();
     const uint64_t work_after = k_.stats.bve_resolutions;
@@ -495,7 +461,6 @@ public:
     return out;
   }
 
-private:
   const RuleVTable &rule_;
   Kernel &k_;
   InvocationBudget &budget_;
