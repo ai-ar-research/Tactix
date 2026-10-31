@@ -1,5 +1,6 @@
 #include "rules/factor/factor.hpp"
 
+#include "kernel/indexed_max_heap.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp" // inprocess_reach_root
@@ -214,112 +215,31 @@ struct FactorIndex {
 // only the literals in the removed/added clauses; globally re-scoring a stale
 // entry changes which otherwise valid grid consumes the shared clauses first.
 class FactorHeap {
+  IndexedMaxHeap<Lit, uint32_t> heap_;
+
 public:
-  bool empty() const { return stack_.empty(); }
-  uint32_t size() const { return static_cast<uint32_t>(stack_.size()); }
-  const std::vector<Lit> &members() const { return stack_; }
-  uint32_t position(Lit lit) const {
-    return contains(lit) ? pos_[lit] : UINT32_MAX;
-  }
-  uint32_t score(Lit lit) const {
-    return lit < score_.size() ? score_[lit] : 0;
-  }
+  bool empty() const { return heap_.empty(); }
+  uint32_t size() const { return heap_.size(); }
+  const std::vector<Lit> &members() const { return heap_.members(); }
+  uint32_t position(Lit lit) const { return heap_.position(lit); }
+  uint32_t score(Lit lit) const { return heap_.score(lit); }
 
   void update(Lit lit, uint32_t score) {
-    ensure(lit);
-    const uint32_t old = score_[lit];
-    score_[lit] = score;
-    if (contains(lit)) {
+    heap_.ensure(lit);
+    if (heap_.contains(lit)) {
       if (score <= 1) {
-        erase(lit);
-      } else if (score > old) {
-        bubble_up(lit);
-      } else if (score < old) {
-        bubble_down(lit);
+        heap_.assign_score(lit, score);
+        heap_.erase(lit);
+      } else {
+        heap_.update_score(lit, score);
       }
     } else if (score > 1) {
-      pos_[lit] = static_cast<uint32_t>(stack_.size());
-      stack_.push_back(lit);
-      bubble_up(lit);
-    }
+      heap_.insert(lit, score);
+    } else
+      heap_.assign_score(lit, score);
   }
 
-  Lit pop_max() {
-    assert(!stack_.empty());
-    const Lit result = stack_[0];
-    const Lit last = stack_.back();
-    stack_.pop_back();
-    pos_[result] = UINT32_MAX;
-    if (!stack_.empty()) {
-      stack_[0] = last;
-      pos_[last] = 0;
-      bubble_down(last);
-    }
-    return result;
-  }
-
-private:
-  bool contains(Lit lit) const {
-    return lit < pos_.size() && pos_[lit] != UINT32_MAX;
-  }
-  void ensure(Lit lit) {
-    const size_t need = static_cast<size_t>(lit) + 1;
-    if (pos_.size() >= need)
-      return;
-    pos_.resize(need, UINT32_MAX);
-    score_.resize(need, 0);
-  }
-  void bubble_up(Lit lit) {
-    uint32_t at = pos_[lit];
-    while (at) {
-      const uint32_t parent_at = (at - 1) / 2;
-      const Lit parent = stack_[parent_at];
-      if (score_[parent] >= score_[lit])
-        break;
-      stack_[at] = parent;
-      pos_[parent] = at;
-      at = parent_at;
-    }
-    stack_[at] = lit;
-    pos_[lit] = at;
-  }
-  void bubble_down(Lit lit) {
-    uint32_t at = pos_[lit];
-    for (;;) {
-      uint32_t child_at = 2 * at + 1;
-      if (child_at >= stack_.size())
-        break;
-      Lit child = stack_[child_at];
-      const uint32_t sibling_at = child_at + 1;
-      if (sibling_at < stack_.size() &&
-          score_[stack_[sibling_at]] > score_[child]) {
-        child_at = sibling_at;
-        child = stack_[child_at];
-      }
-      if (score_[child] <= score_[lit])
-        break;
-      stack_[at] = child;
-      pos_[child] = at;
-      at = child_at;
-    }
-    stack_[at] = lit;
-    pos_[lit] = at;
-  }
-  void erase(Lit lit) {
-    const uint32_t at = pos_[lit];
-    const Lit last = stack_.back();
-    stack_.pop_back();
-    pos_[lit] = UINT32_MAX;
-    if (at == stack_.size())
-      return;
-    stack_[at] = last;
-    pos_[last] = at;
-    bubble_up(last);
-    bubble_down(last);
-  }
-
-  std::vector<Lit> stack_;
-  std::vector<uint32_t> pos_, score_;
+  Lit pop_max() { return heap_.pop_max(); }
 };
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
