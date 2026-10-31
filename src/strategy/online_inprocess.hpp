@@ -193,7 +193,6 @@ public:
   InvocationResult advance(Kernel &, volatile sig_atomic_t *stop = nullptr,
                            Allowance *sr_discovery_allowance = nullptr,
                            DiscoveryFeedbackPolicy discovery_feedback = {});
-  void reset_runtime();
 
   uint64_t revision() const { return revision_; }
   const OnlineStrategyProgram &program() const { return program_; }

@@ -1105,14 +1105,6 @@ bool OnlineStrategyExecutor::configure(const OnlineStrategyProgram &program,
   return true;
 }
 
-void OnlineStrategyExecutor::reset_runtime() {
-  runtime_.assign(program_.sequence.size(), Runtime{});
-  step_index_ = 0;
-  sequence_passes_ = 0;
-  sequence_progress_ = false;
-  complete_ = program_.sequence.empty();
-}
-
 uint64_t OnlineStrategyExecutor::step_consumed(StepId id) const {
   for (size_t i = 0; i < program_.sequence.size(); ++i)
     if (program_.sequence[i].id == id)
