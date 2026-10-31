@@ -1386,6 +1386,25 @@ bool RandomControllerSelector::choose(
       discovery.reconfiguration_required = false;
     }
   };
+  // Session-keyed producers reset on an owner, session, state-version, or
+  // committed-key change and refresh on a profile change.
+  const auto refresh_session_discovery = [&](auto &discovery,
+                                             const auto &session,
+                                             size_t keys,
+                                             const std::string &profile) {
+    const auto state = state_version(k);
+    const bool changed = discovery.owner != &k ||
+                         discovery.session != &session ||
+                         !same_version(discovery.state, state) ||
+                         discovery.session_keys != keys;
+    refresh_discovery(discovery, changed, profile, [&] {
+      discovery.owner = &k;
+      discovery.session = &session;
+      discovery.state = state;
+      discovery.session_keys = keys;
+      discovery.profile = profile;
+    });
+  };
   const auto settle_paged_discovery = [](auto &discovery,
                                          const auto &offered) {
     const bool cursor_advanced =
@@ -1516,18 +1535,8 @@ bool RandomControllerSelector::choose(
     }
     const auto &session = *k.gf3_affine_action_session;
     const auto profile = gf3_profile();
-    const auto state = state_version(k);
-    const bool state_or_session_changed =
-        gf3_discovery_.owner != &k || gf3_discovery_.session != &session ||
-        !same_version(gf3_discovery_.state, state) ||
-        gf3_discovery_.session_keys != session.committed_keys();
-    refresh_discovery(gf3_discovery_, state_or_session_changed, profile, [&] {
-      gf3_discovery_.owner = &k;
-      gf3_discovery_.session = &session;
-      gf3_discovery_.state = state;
-      gf3_discovery_.session_keys = session.committed_keys();
-      gf3_discovery_.profile = profile;
-    });
+    refresh_session_discovery(gf3_discovery_, session,
+                              session.committed_keys(), profile);
     if (gf3_discovery_.reconfiguration_required) return false;
     if (gf3_discovery_.pending || !gf3_discovery_.offers.empty())
       return true;
@@ -1783,20 +1792,8 @@ bool RandomControllerSelector::choose(
       return false;
     const auto &session = *k.gf3_gaussian_action_session;
     const auto profile = gaussian_profile();
-    const auto state = state_version(k);
-    const bool state_or_session_changed =
-        gf3_gaussian_discovery_.owner != &k ||
-        gf3_gaussian_discovery_.session != &session ||
-        !same_version(gf3_gaussian_discovery_.state, state) ||
-        gf3_gaussian_discovery_.session_keys != session.keys().size();
-    refresh_discovery(gf3_gaussian_discovery_, state_or_session_changed,
-                      profile, [&] {
-      gf3_gaussian_discovery_.owner = &k;
-      gf3_gaussian_discovery_.session = &session;
-      gf3_gaussian_discovery_.state = state;
-      gf3_gaussian_discovery_.session_keys = session.keys().size();
-      gf3_gaussian_discovery_.profile = profile;
-    });
+    refresh_session_discovery(gf3_gaussian_discovery_, session,
+                              session.keys().size(), profile);
     if (gf3_gaussian_discovery_.reconfiguration_required) return false;
     if (gf3_gaussian_discovery_.pending || gf3_gaussian_discovery_.offer)
       return true;
@@ -1849,19 +1846,8 @@ bool RandomControllerSelector::choose(
     }
     const auto &session = *k.gf3_general_row_action_session;
     const auto profile = general_row_profile();
-    const auto state = state_version(k);
-    const bool changed = gf3_general_row_discovery_.owner != &k ||
-                         gf3_general_row_discovery_.session != &session ||
-                         !same_version(gf3_general_row_discovery_.state, state) ||
-                         gf3_general_row_discovery_.session_keys !=
-                             session.keys().size();
-    refresh_discovery(gf3_general_row_discovery_, changed, profile, [&] {
-      gf3_general_row_discovery_.owner = &k;
-      gf3_general_row_discovery_.session = &session;
-      gf3_general_row_discovery_.state = state;
-      gf3_general_row_discovery_.session_keys = session.keys().size();
-      gf3_general_row_discovery_.profile = profile;
-    });
+    refresh_session_discovery(gf3_general_row_discovery_, session,
+                              session.keys().size(), profile);
     if (gf3_general_row_discovery_.reconfiguration_required) return false;
     if (gf3_general_row_discovery_.pending ||
         !gf3_general_row_discovery_.offers.empty())
@@ -1915,20 +1901,8 @@ bool RandomControllerSelector::choose(
       return false;
     const auto &session = *k.tseitin_cycle_breaking_session;
     const auto profile = tseitin_profile();
-    const auto state = state_version(k);
-    const bool state_or_session_changed =
-        tseitin_cycle_discovery_.owner != &k ||
-        tseitin_cycle_discovery_.session != &session ||
-        !same_version(tseitin_cycle_discovery_.state, state) ||
-        tseitin_cycle_discovery_.session_keys != session.keys().size();
-    refresh_discovery(tseitin_cycle_discovery_, state_or_session_changed,
-                      profile, [&] {
-      tseitin_cycle_discovery_.owner = &k;
-      tseitin_cycle_discovery_.session = &session;
-      tseitin_cycle_discovery_.state = state;
-      tseitin_cycle_discovery_.session_keys = session.keys().size();
-      tseitin_cycle_discovery_.profile = profile;
-    });
+    refresh_session_discovery(tseitin_cycle_discovery_, session,
+                              session.keys().size(), profile);
     if (tseitin_cycle_discovery_.reconfiguration_required) return false;
     if (tseitin_cycle_discovery_.pending ||
         !tseitin_cycle_discovery_.offers.empty())
