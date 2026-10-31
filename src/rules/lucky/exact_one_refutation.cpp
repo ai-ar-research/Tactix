@@ -1,4 +1,5 @@
 #include "rules/lucky/exact_one_refutation.hpp"
+#include "rules/lucky/local_rup_deriver.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 
 #include "proof/proof.hpp"
@@ -198,141 +199,7 @@ bool recognize(Kernel &k, const strategy::OnehotModelParameters &parameters,
 }
 
 using Sink = RefutationProofSink<ExternalClause>;
-
-class Deriver {
-  Sink &sink_;
-  ExternalClauses local_;
-  ExternalClauses emitted_;
-  std::vector<External> variables_;
-  std::vector<External> order_;
-
-  int index(External variable) const {
-    variable = std::abs(variable);
-    const auto found =
-        std::lower_bound(variables_.begin(), variables_.end(), variable);
-    return found == variables_.end() || *found != variable
-               ? -1
-               : static_cast<int>(found - variables_.begin());
-  }
-
-  bool propagate(const ExternalClause &candidate,
-                 std::vector<int8_t> &assignment) const {
-    assignment.assign(variables_.size(), 0);
-    for (const External literal : candidate) {
-      const int at = index(literal);
-      assert(at >= 0);
-      const int8_t value = literal > 0 ? -1 : 1;
-      if (assignment[at] && assignment[at] != value)
-        return true;
-      assignment[at] = value;
-    }
-    bool changed = true;
-    while (changed) {
-      changed = false;
-      for (const ExternalClause &clause : local_) {
-        bool satisfied = false;
-        uint32_t unassigned = 0;
-        External last = 0;
-        for (const External literal : clause) {
-          const int at = index(literal);
-          assert(at >= 0);
-          const int8_t value = assignment[at];
-          if (value && ((literal > 0) == (value > 0))) {
-            satisfied = true;
-            break;
-          }
-          if (!value) {
-            ++unassigned;
-            last = literal;
-          }
-        }
-        if (satisfied)
-          continue;
-        if (!unassigned)
-          return true;
-        if (unassigned == 1) {
-          const int at = index(last);
-          const int8_t value = last > 0 ? 1 : -1;
-          if (assignment[at] && assignment[at] != value)
-            return true;
-          if (!assignment[at]) {
-            assignment[at] = value;
-            changed = true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  bool visit(ExternalClause &candidate) {
-    std::vector<int8_t> assignment;
-    if (!propagate(candidate, assignment)) {
-      External branch = 0;
-      for (const External variable : order_) {
-        const int at = index(variable);
-        if (at >= 0 && !assignment[at]) {
-          branch = variable;
-          break;
-        }
-      }
-      if (!branch || candidate.size() == variables_.size())
-        return false;
-      candidate.push_back(branch);
-      if (!visit(candidate))
-        return false;
-      candidate.back() = -branch;
-      if (!visit(candidate))
-        return false;
-      candidate.pop_back();
-      if (!propagate(candidate, assignment))
-        return false;
-    }
-    if (!sink_.add(candidate))
-      return false;
-    local_.push_back(candidate);
-    emitted_.push_back(candidate);
-    return true;
-  }
-
-public:
-  explicit Deriver(Sink &sink) : sink_(sink) {}
-
-  bool derive(const ExternalClause &target, const ExternalClauses &premises,
-              const std::vector<External> &priority, ExternalClause &kept) {
-    local_ = premises;
-    emitted_.clear();
-    variables_.clear();
-    for (const ExternalClause &clause : local_)
-      for (const External literal : clause)
-        variables_.push_back(std::abs(literal));
-    for (const External literal : target)
-      variables_.push_back(std::abs(literal));
-    std::sort(variables_.begin(), variables_.end());
-    variables_.erase(std::unique(variables_.begin(), variables_.end()),
-                     variables_.end());
-    if (variables_.size() > 20)
-      return false;
-    order_.clear();
-    for (External variable : priority) {
-      variable = std::abs(variable);
-      if (variable &&
-          std::find(order_.begin(), order_.end(), variable) == order_.end())
-        order_.push_back(variable);
-    }
-    for (const External variable : variables_)
-      if (std::find(order_.begin(), order_.end(), variable) == order_.end())
-        order_.push_back(variable);
-    ExternalClause candidate = target;
-    if (!visit(candidate))
-      return false;
-    kept = target;
-    for (size_t i = 0; i + 1 < emitted_.size(); ++i)
-      if (!sink_.erase(emitted_[i]))
-        return false;
-    return true;
-  }
-};
+using Deriver = LocalRupDeriver<ExternalClause, Sink>;
 
 struct State {
   External low = 0;
@@ -549,7 +416,8 @@ class Certificate {
 
 public:
   Certificate(Sink &sink, uint32_t variables)
-      : sink_(sink), deriver_(sink), coefficients_(variables + 1, 0) {
+      : sink_(sink), deriver_(sink, 20, {}, false),
+        coefficients_(variables + 1, 0) {
     while (width_ < variables)
       width_ <<= 1;
     nodes_.resize(2 * static_cast<size_t>(width_));
