@@ -353,10 +353,7 @@ CardinalitySearchLiveResult cardinality_search_live_apply(
       kernel_rearm_theory_clause(kernel, prepared.physical_reason.data(),
                                  prepared.physical_reason.size());
   }
-  if (std::fwrite(prepared.journal.data(), 1, prepared.journal.size(),
-                  request.records) != prepared.journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, prepared.journal);
   result.installed_clause_id = final_id;
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);
   result.result = prepared.physical_reason.empty()

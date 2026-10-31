@@ -540,10 +540,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
       kernel_rearm_theory_clause(kernel, internal.data(), internal.size());
     result.installed_clause_id = id;
   }
-  if (std::fwrite(prepared.journal.data(), 1, prepared.journal.size(),
-                  request.records) != prepared.journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, prepared.journal);
   std::set<int32_t> semantic;
   for (const auto &term : result.plan.duplicate_key.row) {
     const auto &domain = result.owner.affine.theory.domains[term.variable - 1];

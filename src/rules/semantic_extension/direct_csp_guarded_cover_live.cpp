@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/direct_csp_guarded_cover_live.hpp"
 #include "proof/proof.hpp"
 
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
 
 #include <algorithm>
@@ -560,7 +561,7 @@ namespace tactix {
 
     else kernel_add_large_clause(k,p.literals.data(),p.literals.size(),true,p.literals.size(),id);
 
-    if(std::fwrite(p.journal.data(),1,p.journal.size(),r.records)!=p.journal.size()||std::fflush(r.records)||std::ferror(r.records))std::abort();
+    semantic_extension::write_journal_or_abort(r.records,p.journal);
 
     out.result=ApplyResult::Ok;
     out.emitted_additions=1;

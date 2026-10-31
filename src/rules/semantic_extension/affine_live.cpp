@@ -824,9 +824,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
       !k.inconsistent && !kernel_propagation_fixpoint(k);
   if (result.propagation_pending != journal_result.propagation_pending)
     std::abort();
-  if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(), request.records) !=
-          journal.bytes.size() ||
-      std::fflush(request.records) || std::ferror(request.records)) std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
   result.journal_bytes = journal.bytes.size();
   result.status = AffineLiveStatus::Applied;
   return result;

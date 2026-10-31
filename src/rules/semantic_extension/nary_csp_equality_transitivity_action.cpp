@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/structural_action_guard.hpp"
 #include <algorithm>
 #include <climits>
@@ -266,7 +267,7 @@ NaryCspEqualityTransitivityResult nary_csp_equality_transitivity_apply(
      if(k.proof&&!k.proof->del_external(++k.next_clause_id,start+i+1,bridge.data(),bridge.size()))std::abort();
      if(!k.proof)++k.next_clause_id;}
  }
- if(std::fwrite(journal.data(),1,journal.size(),records)!=journal.size()||std::fflush(records)||std::ferror(records))std::abort();
+ semantic_extension::write_journal_or_abort(records,journal);
  NaryCspEqualityTransitivitySessionAccess::commit(session,k,std::move(keys));k.structural_action_sequence=out.proposed_action_id;
  out.published_consequences=std::move(consequences);
  out.committed_action_id=out.proposed_action_id;out.status=Status::Applied;out.result=ApplyResult::Ok;

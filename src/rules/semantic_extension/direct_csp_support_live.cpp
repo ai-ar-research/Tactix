@@ -841,10 +841,7 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
                               redundant ? literals.size() : 0, id);
     }
   }
-  if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(),
-                  request.records) != journal.bytes.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
 
   result.status = DirectCspSupportLiveStatus::Applied;
   result.result = ApplyResult::Ok;

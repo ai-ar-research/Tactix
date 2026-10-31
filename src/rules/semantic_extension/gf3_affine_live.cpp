@@ -733,10 +733,8 @@ Gf3AffineLiveResult gf3_affine_live_apply(
                               literals.size(), id);
     result.published_clause_ids.push_back(id);
   }
-  if (std::fwrite(preflight.journal.data(), 1, preflight.journal.size(),
-                  request.records) != preflight.journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             preflight.journal);
 
   result.status = Gf3AffineLiveStatus::Applied;
   result.result = ApplyResult::Ok;

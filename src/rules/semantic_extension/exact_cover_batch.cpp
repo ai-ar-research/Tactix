@@ -339,10 +339,7 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     kernel_add_large_clause(k, reverse.data(), reverse.size(), false, 0, id);
   }
   if (k.next_clause_id != journal_id) std::abort();
-  if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(),
-                  request.records) != journal.bytes.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
   result.status = BatchPublicationStatus::Published;
   result.result = ApplyResult::Ok;
   result.definitions = plan.definitions_.size();

@@ -3,6 +3,7 @@
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -792,10 +793,7 @@ IndependentSetLiveResult independent_set_live_apply(
     }
   if (propagate_service(kernel) != ApplyResult::Ok)
     std::abort();
-  if (std::fwrite(journal.data(), 1, journal.size(), request.records) !=
-          journal.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal);
   return result;
 }
 

@@ -1,11 +1,19 @@
 #pragma once
 
+#include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
 
 namespace tactix::semantic_extension {
+
+inline void write_journal_or_abort(FILE *records, const std::string &bytes) {
+  if (std::fwrite(bytes.data(), 1, bytes.size(), records) != bytes.size() ||
+      std::fflush(records) || std::ferror(records))
+    std::abort();
+}
 
 inline bool append_bounded(std::string &bytes, uint64_t maximum,
                            const std::string &text) {

@@ -316,10 +316,7 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
         std::abort();
     }
   }
-  if (std::fwrite(journal.data(), 1, journal.size(), records) !=
-          journal.size() ||
-      std::fflush(records) || std::ferror(records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(records, journal);
   std::vector<NaryCspEqualityAmoKey> keys = session.keys();
   keys.insert(std::lower_bound(keys.begin(), keys.end(), key), key);
   NaryCspEqualityAmoSessionAccess::commit(session, kernel, std::move(keys));

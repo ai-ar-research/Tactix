@@ -334,10 +334,7 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
                                 : 0,
                             id);
   }
-  if (std::fwrite(journal.bytes.data(), 1, journal.bytes.size(),
-                  request.records) != journal.bytes.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records, journal.bytes);
   NaryCspEqualitySessionAccess::commit(session, kernel, std::move(keys),
                                        std::move(records));
 

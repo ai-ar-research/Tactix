@@ -781,10 +781,8 @@ Result publish_internal(Kernel &kernel, const Request &request,
     kernel_assign_unit(kernel, unit);
     result.published_units.push_back(event.clause.front());
   }
-  if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
-                  request.records) != prepared.journal_.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             prepared.journal_);
   prepared.spent_ = true;
   result.status = Status::Applied;
   result.result = result.contradiction ? ApplyResult::Unsat : ApplyResult::Ok;

@@ -1501,10 +1501,8 @@ AffineBasisLiveResult publish_affine_basis_live(
     }
     if (event.install && !install_clause(kernel, event)) std::abort();
   }
-  if (std::fwrite(transaction.journal_.data(), 1, transaction.journal_.size(),
-                  request.records) != transaction.journal_.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             transaction.journal_);
   result.status = AffineBasisLiveStatus::Applied;
   result.contradiction = transaction.contradiction_ || kernel.inconsistent;
   result.result = kernel.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;

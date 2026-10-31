@@ -1070,10 +1070,8 @@ MatrixLiveResult publish_affine_matrix_live(
   result.implication_consumed = implication_consumed;
   result.detached_reason = request.detached_reason && implication_consumed &&
                            prepared.physical_reason_.size() >= 3;
-  if (std::fwrite(prepared.journal_.data(), 1, prepared.journal_.size(),
-                  request.records) != prepared.journal_.size() ||
-      std::fflush(request.records) || std::ferror(request.records))
-    std::abort();
+  semantic_extension::write_journal_or_abort(request.records,
+                                             prepared.journal_);
   if (prepared.transaction_.proof_cache_insert() &&
       (!request.proof_cache ||
        !request.proof_cache->commit(
