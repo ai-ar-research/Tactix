@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -21,6 +22,32 @@ inline bool add_checked(uint64_t first, uint64_t second, uint64_t &result) {
 inline std::vector<int32_t> canonical(std::vector<int32_t> clause) {
   std::sort(clause.begin(), clause.end());
   return clause;
+}
+
+template <class Theory, class Reference, class Proof>
+bool retain_premise(const Theory &theory, const Reference &reference,
+                    std::set<uint64_t> &occurrences, Proof &proof) {
+  if (!reference.occurrence) return false;
+  auto premise = theory.source.end();
+  for (auto candidate = theory.source.begin(); candidate != theory.source.end();
+       ++candidate) {
+    if (!proof.meter.spend(1)) return false;
+    if (candidate->occurrence == reference.occurrence) {
+      premise = candidate;
+      break;
+    }
+  }
+  if (premise == theory.source.end() ||
+      premise->native_proof_id != reference.native_proof_id)
+    return false;
+  if (!occurrences.insert(reference.occurrence).second) return true;
+  if (proof.active.size() >= proof.limits.maximum_active_clauses) {
+    proof.meter.limit = decltype(proof.meter.limit)::ActiveClauses;
+    return false;
+  }
+  if (!proof.meter.spend(uint64_t{1} + premise->literals.size())) return false;
+  proof.active.push_back(canonical(premise->literals));
+  return true;
 }
 
 template <class Limits, class Charge, class Statistics, class LimitKind>

@@ -204,32 +204,6 @@ struct LocalProof
   }
 };
 
-bool take_premise(const gf3_affine::Theory &theory,
-                  const gf3_affine::SourceReference &reference,
-                  std::set<uint64_t> &occurrences, LocalProof &proof) {
-  if (!reference.occurrence) return false;
-  const gf3_affine::Premise *premise = nullptr;
-  for (const gf3_affine::Premise &candidate : theory.source) {
-    if (!proof.meter.spend(1)) return false;
-    if (candidate.occurrence == reference.occurrence) {
-      premise = &candidate;
-      break;
-    }
-  }
-  if (!premise || premise->native_proof_id != reference.native_proof_id)
-    return false;
-  if (!occurrences.insert(reference.occurrence).second) return true;
-  if (proof.active.size() >= proof.limits.maximum_active_clauses) {
-    proof.meter.limit = LimitKind::ActiveClauses;
-    return false;
-  }
-  if (!proof.meter.spend(uint64_t{1} + premise->literals.size()))
-    return false;
-  proof.active.push_back(
-      gf3_certificate_common::canonical(premise->literals));
-  return true;
-}
-
 bool collect_premises(const gf3_affine::Theory &theory,
                       const gf3_gaussian_bridge::Plan &bridge,
                       const std::vector<AuthenticatedSource> &sources,
@@ -244,14 +218,18 @@ bool collect_premises(const gf3_affine::Theory &theory,
     if (authentication.source_id != source.combination.source_id)
       return false;
     for (const auto &domain : authentication.domains) {
-      if (!take_premise(theory, domain.at_least_one, occurrences, proof))
+      if (!gf3_certificate_common::retain_premise(
+              theory, domain.at_least_one, occurrences, proof))
         return false;
       for (const auto &amo : domain.at_most_one)
-        if (!take_premise(theory, amo, occurrences, proof)) return false;
+        if (!gf3_certificate_common::retain_premise(theory, amo, occurrences,
+                                                    proof))
+          return false;
       domains.insert(domain.domain);
     }
     for (const auto &tuple : authentication.forbidden_tuples)
-      if (!take_premise(theory, tuple.premise, occurrences, proof))
+      if (!gf3_certificate_common::retain_premise(
+              theory, tuple.premise, occurrences, proof))
         return false;
   }
   if (domains.size() > proof.limits.maximum_branch_domains) {
