@@ -259,29 +259,4 @@ AdmissionResult admit(const AdmissionRequest &request,
   return result;
 }
 
-const char *admission_reason_name(AdmissionReason reason) {
-  switch (reason) {
-  case AdmissionReason::None: return "none";
-  case AdmissionReason::EmptySystem: return "empty-system";
-  case AdmissionReason::InvalidStableIdentity: return "invalid-stable-identity";
-  case AdmissionReason::DuplicateGroupIdentity: return "duplicate-group-identity";
-  case AdmissionReason::InvalidEquation: return "invalid-equation";
-  case AdmissionReason::DuplicateEdgeInEquation: return "duplicate-edge-in-equation";
-  case AdmissionReason::PartialPremiseGroup: return "partial-premise-group";
-  case AdmissionReason::InvalidLiveClause: return "invalid-live-clause";
-  case AdmissionReason::DuplicateOccurrenceIdentity: return "duplicate-occurrence-identity";
-  case AdmissionReason::DuplicateProofIdentity: return "duplicate-proof-identity";
-  case AdmissionReason::PremiseIdentityMismatch: return "premise-identity-mismatch";
-  case AdmissionReason::PremiseClauseMismatch: return "premise-clause-mismatch";
-  case AdmissionReason::PremiseReused: return "premise-reused";
-  case AdmissionReason::ResidualEdgeTouch: return "residual-edge-touch";
-  case AdmissionReason::EdgeNotInExactlyTwoEquations: return "edge-not-in-exactly-two-equations";
-  case AdmissionReason::EvenCharge: return "even-charge";
-  case AdmissionReason::Disconnected: return "disconnected";
-  case AdmissionReason::WorkLimit: return "work-limit";
-  case AdmissionReason::Interrupted: return "interrupted";
-  }
-  return "unknown";
-}
-
 } // namespace tactix::tseitin_cycle

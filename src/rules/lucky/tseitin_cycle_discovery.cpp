@@ -473,24 +473,4 @@ prepare(Kernel &kernel, const Plan &plan,
                                      request, prepared);
 }
 
-const char *reason_name(Reason reason) {
-  switch (reason) {
-  case Reason::None: return "none";
-  case Reason::InvalidLimits: return "invalid-limits";
-  case Reason::InvalidSnapshot: return "invalid-snapshot";
-  case Reason::ClauseLimit: return "clause-limit";
-  case Reason::GroupLimit: return "group-limit";
-  case Reason::WorkLimit: return "work-limit";
-  case Reason::Interrupted: return "interrupted";
-  case Reason::NoCompleteEquations: return "no-complete-equations";
-  case Reason::AmbiguousEquation: return "ambiguous-equation";
-  case Reason::Disconnected: return "disconnected";
-  case Reason::EdgeNotInExactlyTwoEquations:
-    return "edge-not-in-exactly-two-equations";
-  case Reason::EvenCharge: return "even-charge";
-  case Reason::ResidualEdgeTouch: return "residual-edge-touch";
-  }
-  return "unknown";
-}
-
 } // namespace tactix::tseitin_cycle_discovery

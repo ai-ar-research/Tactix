@@ -134,6 +134,4 @@ struct ReplayLimits {
 TransactionResult replay_transaction(const AdmissionRequest &,
                                      const ProofTransaction &, ReplayLimits);
 
-const char *transaction_reason_name(TransactionReason);
-
 } // namespace tactix::tseitin_cycle

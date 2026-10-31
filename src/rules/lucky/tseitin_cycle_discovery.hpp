@@ -119,6 +119,4 @@ tseitin_cycle_live::Result
 prepare(Kernel &, const Plan &, const tseitin_cycle_live::Request &,
         tseitin_cycle_live::Prepared &);
 
-const char *reason_name(Reason);
-
 } // namespace tactix::tseitin_cycle_discovery

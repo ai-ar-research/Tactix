@@ -395,31 +395,4 @@ bool preserves_relations_on_falsifying_assignment(
   return true;
 }
 
-const char *decline_reason_name(DeclineReason reason) {
-  switch (reason) {
-  case DeclineReason::None: return "none";
-  case DeclineReason::NoAdditionAllowance: return "no-addition-allowance";
-  case DeclineReason::WorkLimit: return "work-limit";
-  case DeclineReason::Interrupted: return "interrupted";
-  case DeclineReason::IncompleteOccurrenceClassification:
-    return "incomplete-occurrence-classification";
-  case DeclineReason::EmptySystem: return "empty-system";
-  case DeclineReason::InvalidVertex: return "invalid-vertex";
-  case DeclineReason::DuplicateVertex: return "duplicate-vertex";
-  case DeclineReason::InvalidEdge: return "invalid-edge";
-  case DeclineReason::DuplicateEdgeInEquation:
-    return "duplicate-edge-in-equation";
-  case DeclineReason::ResidualOccurrence: return "residual-occurrence";
-  case DeclineReason::OccurrenceMismatch: return "occurrence-mismatch";
-  case DeclineReason::EdgeNotInExactlyTwoVertices:
-    return "edge-not-in-exactly-two-vertices";
-  case DeclineReason::Disconnected: return "disconnected";
-  case DeclineReason::EvenCharge: return "even-charge";
-  case DeclineReason::Acyclic: return "acyclic";
-  case DeclineReason::WitnessLengthLimit: return "witness-length-limit";
-  case DeclineReason::InvalidCandidate: return "invalid-candidate";
-  }
-  return "unknown";
-}
-
 } // namespace tactix::tseitin_cycle

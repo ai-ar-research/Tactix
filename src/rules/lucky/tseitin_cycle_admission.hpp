@@ -99,6 +99,4 @@ struct AdmissionResult {
 // provenance, so a caller cannot accidentally use a partial graph.
 AdmissionResult admit(const AdmissionRequest &, AdmissionLimits);
 
-const char *admission_reason_name(AdmissionReason);
-
 } // namespace tactix::tseitin_cycle

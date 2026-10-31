@@ -769,29 +769,4 @@ Result apply(Kernel &kernel, const Prepared &prepared,
   return result;
 }
 
-const char *reason_name(Reason reason) {
-  switch (reason) {
-  case Reason::None: return "none";
-  case Reason::InvalidRequest: return "invalid-request";
-  case Reason::InvalidKernelPopulation: return "invalid-kernel-population";
-  case Reason::StateNotApplicable: return "state-not-applicable";
-  case Reason::SnapshotClauseLimit: return "snapshot-clause-limit";
-  case Reason::SnapshotLiteralLimit: return "snapshot-literal-limit";
-  case Reason::SnapshotWorkLimit: return "snapshot-work-limit";
-  case Reason::SnapshotVariableLimit: return "snapshot-variable-limit";
-  case Reason::Interrupted: return "interrupted";
-  case Reason::UnsupportedProof: return "unsupported-proof";
-  case Reason::SnapshotMismatch: return "snapshot-mismatch";
-  case Reason::AdmissionDeclined: return "admission-declined";
-  case Reason::PlanningDeclined: return "planning-declined";
-  case Reason::TransactionDeclined: return "transaction-declined";
-  case Reason::ExternalMapping: return "external-mapping";
-  case Reason::AssignedPivot: return "assigned-pivot";
-  case Reason::ProofNamespace: return "proof-namespace";
-  case Reason::SemanticPreflight: return "semantic-preflight";
-  case Reason::ApplicationMismatch: return "application-mismatch";
-  }
-  return "unknown";
-}
-
 } // namespace tactix::tseitin_cycle_live

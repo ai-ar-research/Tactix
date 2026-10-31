@@ -184,6 +184,4 @@ Result prepare(Kernel &, const Snapshot &,
 // preparation bounds.
 Result apply(Kernel &, const Prepared &, const Request *current_callbacks = nullptr);
 
-const char *reason_name(Reason);
-
 } // namespace tactix::tseitin_cycle_live

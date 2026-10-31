@@ -220,24 +220,4 @@ TransactionResult replay_transaction(const AdmissionRequest &request,
   return rebuilt;
 }
 
-const char *transaction_reason_name(TransactionReason reason) {
-  switch (reason) {
-  case TransactionReason::None: return "none";
-  case TransactionReason::AdmissionNotCommitted: return "admission-not-committed";
-  case TransactionReason::PlanNotCommitted: return "plan-not-committed";
-  case TransactionReason::InvalidCandidate: return "invalid-candidate";
-  case TransactionReason::InvalidSourceLedger: return "invalid-source-ledger";
-  case TransactionReason::AdditionLimit: return "addition-limit";
-  case TransactionReason::DeletionLimit: return "deletion-limit";
-  case TransactionReason::HelperLimit: return "helper-limit";
-  case TransactionReason::WitnessLimit: return "witness-limit";
-  case TransactionReason::WorkLimit: return "work-limit";
-  case TransactionReason::Interrupted: return "interrupted";
-  case TransactionReason::ReplayAdmissionFailed: return "replay-admission-failed";
-  case TransactionReason::ReplayPlanFailed: return "replay-plan-failed";
-  case TransactionReason::ReplayMismatch: return "replay-mismatch";
-  }
-  return "unknown";
-}
-
 } // namespace tactix::tseitin_cycle
