@@ -171,36 +171,12 @@ struct LocalProof
     return root ? root_role : EventRole::Auxiliary;
   }
 
-  bool add(std::vector<int32_t> clause, EventRole role) {
-    clause = gf3_certificate_common::canonical(std::move(clause));
-    if (clause.size() > limits.maximum_event_width) {
-      meter.limit = LimitKind::EventWidth;
-      return false;
-    }
-    if (meter.stats.events >= limits.maximum_events) {
-      meter.limit = LimitKind::Events;
-      return false;
-    }
-    uint64_t literals = 0;
-    if (!gf3_certificate_common::add_checked(meter.stats.event_literals,
-                                             clause.size(), literals) ||
-        literals > limits.maximum_event_literals) {
-      meter.limit = LimitKind::EventLiterals;
-      return false;
-    }
-    if (active.size() >= limits.maximum_active_clauses) {
-      meter.limit = LimitKind::ActiveClauses;
-      return false;
-    }
-    if (!meter.spend(uint64_t{1} + clause.size())) return false;
-    meter.stats.event_literals = literals;
-    meter.stats.maximum_event_width = std::max<uint32_t>(
-        meter.stats.maximum_event_width,
-        static_cast<uint32_t>(clause.size()));
+  bool active_capacity_available() const {
+    return active.size() < limits.maximum_active_clauses;
+  }
+
+  void record_event(EventRole role, const std::vector<int32_t> &clause) {
     events.push_back({role, clause});
-    active.push_back(std::move(clause));
-    ++meter.stats.events;
-    return true;
   }
 };
 

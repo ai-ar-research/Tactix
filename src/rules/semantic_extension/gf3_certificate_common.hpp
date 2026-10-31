@@ -203,6 +203,39 @@ struct LocalProof {
   }
 
   template <class EventRole>
+  bool add(std::vector<int32_t> clause, EventRole role) {
+    clause = canonical(std::move(clause));
+    if (clause.size() > limits.maximum_event_width) {
+      meter.limit = decltype(meter.limit)::EventWidth;
+      return false;
+    }
+    if (meter.stats.events >= limits.maximum_events) {
+      meter.limit = decltype(meter.limit)::Events;
+      return false;
+    }
+    uint64_t literals = 0;
+    if (!add_checked(meter.stats.event_literals, clause.size(), literals) ||
+        literals > limits.maximum_event_literals) {
+      meter.limit = decltype(meter.limit)::EventLiterals;
+      return false;
+    }
+    Derived &derived = static_cast<Derived &>(*this);
+    if (!derived.active_capacity_available()) {
+      meter.limit = decltype(meter.limit)::ActiveClauses;
+      return false;
+    }
+    if (!meter.spend(uint64_t{1} + clause.size())) return false;
+    meter.stats.event_literals = literals;
+    meter.stats.maximum_event_width = std::max<uint32_t>(
+        meter.stats.maximum_event_width,
+        static_cast<uint32_t>(clause.size()));
+    derived.record_event(role, clause);
+    active.push_back(std::move(clause));
+    ++meter.stats.events;
+    return true;
+  }
+
+  template <class EventRole>
   bool derive(std::vector<int32_t> clause, size_t branch,
               EventRole root_role, bool root) {
     clause = canonical(std::move(clause));
@@ -214,10 +247,9 @@ struct LocalProof {
       return meter.limit == decltype(meter.limit)::None && !meter.interrupted;
     if (meter.limit != decltype(meter.limit)::None || meter.interrupted)
       return false;
-    Derived &derived = static_cast<Derived &>(*this);
     if (rup(clause))
-      return derived.add(std::move(clause),
-                         root ? root_role : Derived::auxiliary_role());
+      return add(std::move(clause),
+                 root ? root_role : Derived::auxiliary_role());
     if (meter.limit != decltype(meter.limit)::None || meter.interrupted)
       return false;
 
@@ -243,8 +275,7 @@ struct LocalProof {
         uncertifiable = true;
       return false;
     }
-    return derived.add(std::move(clause),
-                       Derived::branch_role(root_role, root));
+    return add(std::move(clause), Derived::branch_role(root_role, root));
   }
 };
 
