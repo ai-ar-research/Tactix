@@ -22,9 +22,9 @@ inline bool valid_values(const std::vector<int32_t> &values) {
   for (int32_t literal : values)
     if (!literal || literal == INT32_MIN) return false;
   for (size_t i = 1; i < values.size(); ++i) {
-    const auto previous = std::pair(variable(values[i - 1]), values[i - 1]);
-    const auto current = std::pair(variable(values[i]), values[i]);
-    if (!(previous < current) || previous.first == current.first) return false;
+    if (!external_literal_less(values[i - 1], values[i]) ||
+        variable(values[i - 1]) == variable(values[i]))
+      return false;
   }
   return true;
 }

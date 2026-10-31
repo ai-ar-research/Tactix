@@ -17,11 +17,6 @@ uint32_t variable(int32_t literal) {
   return external_variable_of(literal);
 }
 
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(variable(first), first) <
-         std::pair(variable(second), second);
-}
-
 std::vector<int32_t> normalized(std::vector<int32_t> clause) {
   std::sort(clause.begin(), clause.end());
   return clause;
@@ -196,7 +191,7 @@ RecognitionResult recognize(const std::vector<Premise> &source,
     if (!spend(1)) return decline(RecognitionStatus::EffortExhausted);
     if (premise.literals.size() != 3) continue;
     std::vector<int32_t> values = premise.literals;
-    std::sort(values.begin(), values.end(), literal_less);
+    std::sort(values.begin(), values.end(), external_literal_less);
     bool exact_one = true;
     Domain domain;
     domain.values = values;

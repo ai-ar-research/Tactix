@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/csp_live_domain.hpp"
 
 #include <algorithm>
 #include <array>
@@ -12,33 +13,6 @@
 
 namespace tactix {
 namespace {
-
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(variable(first), first) <
-         std::pair(variable(second), second);
-}
-
-bool canonical_domain_candidate(const Kernel &kernel, const Lit *literals,
-                                uint32_t size, uint32_t maximum_size,
-                                std::vector<int32_t> &output) {
-  output.clear();
-  if (size < 2 || size > maximum_size) return false;
-  output.reserve(size);
-  for (uint32_t index = 0; index < size; ++index) {
-    const Var var = var_of(literals[index]);
-    if (kernel_var_retired(kernel, var) || kernel.value(literals[index]))
-      return false;
-    output.push_back(kernel_externalize(kernel, literals[index]));
-  }
-  std::sort(output.begin(), output.end(), literal_less);
-  for (size_t index = 1; index < output.size(); ++index)
-    if (variable(output[index - 1]) == variable(output[index])) return false;
-  return true;
-}
 
 template <class Charge>
 bool binary_present(Kernel &kernel, Lit first, Lit second, Charge &charge,
@@ -82,7 +56,7 @@ bool disjoint_domains(const std::vector<std::vector<int32_t>> &domains) {
   std::set<uint32_t> seen;
   for (const auto &domain : domains)
     for (int32_t literal : domain)
-      if (!seen.insert(variable(literal)).second) return false;
+      if (!seen.insert(external_variable_of(literal)).second) return false;
   return true;
 }
 
@@ -179,9 +153,9 @@ bool nary_csp_equality_action_selection_valid(
     for (size_t index = 0; index < literals.size(); ++index) {
       const int32_t literal = literals[index];
       if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-          (index && !literal_less(literals[index - 1], literal)))
+          (index && !external_literal_less(literals[index - 1], literal)))
         return false;
-      variables.push_back(variable(literal));
+      variables.push_back(external_variable_of(literal));
     }
   }
   std::sort(variables.begin(), variables.end());
@@ -351,8 +325,8 @@ NaryCspEqualityActionOfferResult nary_csp_equality_action_offer(
   auto observe_domain = [&](const Lit *literals, uint32_t size) {
     if (!charge(uint64_t{1} + size)) return false;
     std::vector<int32_t> domain;
-    if (!canonical_domain_candidate(kernel, literals, size,
-                                    limits.maximum_domain_values, domain))
+    if (!csp_live_domain::canonicalize(kernel, literals, size,
+                                       limits.maximum_domain_values, domain))
       return true;
     if (!complete_amo(kernel, domain, charge, stopped)) return !stopped;
     if (domain_candidates.contains(domain)) return true;

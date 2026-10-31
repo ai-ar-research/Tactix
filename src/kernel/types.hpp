@@ -35,6 +35,16 @@ constexpr uint32_t external_variable_of(int32_t literal) {
   return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
 }
 
+// Canonical ordering for signed external literals: variable first, then sign
+// (negative before positive when both spell the same variable). Validation of
+// zero and INT32_MIN remains the caller's interface responsibility.
+constexpr bool external_literal_less(int32_t first, int32_t second) {
+  const uint32_t first_variable = external_variable_of(first);
+  const uint32_t second_variable = external_variable_of(second);
+  return first_variable < second_variable ||
+         (first_variable == second_variable && first < second);
+}
+
 // external DIMACS literal (nonzero int) <-> internal Lit
 constexpr Lit internalize(int elit) {
   assert(elit != 0);

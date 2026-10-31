@@ -18,15 +18,6 @@ using ClauseKey = std::vector<int32_t>;
 
 using Meter = InterruptibleWork;
 
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(variable(first), first) <
-         std::pair(variable(second), second);
-}
-
 ClauseKey normalized(ClauseKey key) {
   std::sort(key.begin(), key.end());
   return key;
@@ -106,10 +97,10 @@ CaptureStatus build_expected(
     for (size_t value = 0; value < values.size(); ++value) {
       const int32_t literal = values[value];
       if (!literal || literal == INT32_MIN ||
-          (value && !literal_less(values[value - 1], literal)))
+          (value && !external_literal_less(values[value - 1], literal)))
         return CaptureStatus::Invalid;
       if (!meter.charge(1)) return stopped_capture(meter);
-      if (!variables.insert(variable(literal)).second ||
+      if (!variables.insert(external_variable_of(literal)).second ||
           !output.tuple_literals
                .emplace(-literal,
                         relation::DomainValue{static_cast<uint32_t>(domain),

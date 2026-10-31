@@ -24,15 +24,6 @@ struct NaryCspEqualityAmoSessionAccess {
 
 namespace {
 
-uint32_t external_variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  return std::pair(external_variable(first), first) <
-         std::pair(external_variable(second), second);
-}
-
 NaryCspEqualityKey equality_key(
     const std::vector<std::vector<int32_t>> &domains, uint32_t residual) {
   NaryCspEqualityKey key;
@@ -169,9 +160,9 @@ bool nary_csp_equality_amo_selection_valid(
     for (size_t index = 0; index < values; ++index) {
       const int32_t literal = literals[index];
       if (!literal || literal == INT32_MIN ||
-          (index && !literal_less(literals[index - 1], literal)))
+          (index && !external_literal_less(literals[index - 1], literal)))
         return false;
-      variables.push_back(external_variable(literal));
+      variables.push_back(external_variable_of(literal));
     }
   }
   std::sort(variables.begin(), variables.end());

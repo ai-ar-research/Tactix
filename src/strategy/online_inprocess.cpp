@@ -954,15 +954,6 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     for (const Gf3AffineInstance &instance : step.gf3_affine_instances)
       if (instance.first_equation >= instance.second_equation)
         return reject("GF3 equation pair is not canonical");
-    const auto direct_literal_variable = [](int32_t literal) {
-      return external_variable_of(literal);
-    };
-    const auto direct_literal_less = [&](int32_t first, int32_t second) {
-      const uint32_t first_variable = direct_literal_variable(first);
-      const uint32_t second_variable = direct_literal_variable(second);
-      return first_variable < second_variable ||
-             (first_variable == second_variable && first < second);
-    };
     for (const DirectCspSupportActionSelection &instance :
          step.direct_csp_support_instances) {
       if (instance.left_values.size() < 2 || instance.right_values.size() < 2 ||
@@ -975,9 +966,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         for (size_t index = 0; index < domain.size(); ++index) {
           const int32_t literal = domain[index];
           if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-              (index && !direct_literal_less(domain[index - 1], literal)))
+              (index && !external_literal_less(domain[index - 1], literal)))
             return false;
-          variables.push_back(direct_literal_variable(literal));
+          variables.push_back(external_variable_of(literal));
         }
         return true;
       };

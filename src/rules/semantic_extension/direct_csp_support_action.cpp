@@ -2,6 +2,7 @@
 
 #include "rules/structural_action_guard.hpp"
 
+#include "rules/semantic_extension/csp_live_domain.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "proof/proof.hpp"
@@ -54,17 +55,6 @@ bool add_work(uint64_t amount, uint64_t maximum, uint64_t &work,
 
 enum class KeyStatus : uint8_t { Novel, Present, Invalid, Exhausted };
 
-uint32_t variable(int32_t literal) {
-  return external_variable_of(literal);
-}
-
-bool literal_less(int32_t first, int32_t second) {
-  const uint32_t first_variable = variable(first);
-  const uint32_t second_variable = variable(second);
-  return first_variable < second_variable ||
-         (first_variable == second_variable && first < second);
-}
-
 bool pair_identity_valid(const std::vector<int32_t> &left,
                          const std::vector<int32_t> &right) {
   if (left.size() < 2 || right.size() < 2) return false;
@@ -74,9 +64,9 @@ bool pair_identity_valid(const std::vector<int32_t> &left,
     for (size_t index = 0; index < domain.size(); ++index) {
       const int32_t literal = domain[index];
       if (!literal || literal == std::numeric_limits<int32_t>::min() ||
-          (index && !literal_less(domain[index - 1], literal)))
+          (index && !external_literal_less(domain[index - 1], literal)))
         return false;
-      variables.push_back(variable(literal));
+      variables.push_back(external_variable_of(literal));
     }
     return true;
   };
@@ -294,24 +284,6 @@ enum class DomainScanStatus : uint8_t {
   Interrupted,
 };
 
-bool canonical_domain_candidate(const Kernel &kernel, const Lit *literals,
-                                uint32_t size, uint32_t maximum_size,
-                                std::vector<int32_t> &output) {
-  output.clear();
-  if (size < 2 || size > maximum_size) return false;
-  output.reserve(size);
-  for (uint32_t index = 0; index < size; ++index) {
-    const Var var = var_of(literals[index]);
-    if (kernel_var_retired(kernel, var) || kernel.value(literals[index]))
-      return false;
-    output.push_back(kernel_externalize(kernel, literals[index]));
-  }
-  std::sort(output.begin(), output.end(), literal_less);
-  for (size_t index = 1; index < output.size(); ++index)
-    if (variable(output[index - 1]) == variable(output[index])) return false;
-  return true;
-}
-
 enum class BinaryLookupStatus : uint8_t { Absent, Present, Stopped };
 
 BinaryLookupStatus binary_present(Kernel &kernel, Lit first, Lit second,
@@ -349,8 +321,8 @@ DomainScanStatus discover_domain_candidates(
     const uint64_t normalization =
         saturated_product(uint64_t{1} + size, comparison_levels(size));
     if (!meter.charge(normalization)) return false;
-    if (!canonical_domain_candidate(kernel, literals, size,
-                                    limits.maximum_domain_values, candidate))
+    if (!csp_live_domain::canonicalize(kernel, literals, size,
+                                       limits.maximum_domain_values, candidate))
       return true;
     const BinaryLookupStatus amo =
         complete_pairwise_amo(kernel, literals, size, meter);
@@ -404,8 +376,8 @@ bool disjoint_domains(const std::vector<int32_t> &left,
                       const std::vector<int32_t> &right) {
   size_t first = 0, second = 0;
   while (first < left.size() && second < right.size()) {
-    const uint32_t a = variable(left[first]);
-    const uint32_t b = variable(right[second]);
+    const uint32_t a = external_variable_of(left[first]);
+    const uint32_t b = external_variable_of(right[second]);
     if (a == b) return false;
     if (a < b)
       ++first;
