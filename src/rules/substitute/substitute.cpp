@@ -3087,54 +3087,6 @@ ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
       .result;
 }
 
-static ApplyResult substitute_apply_equivalences_impl(
-    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences,
-    bool drain_root) {
-  if (equivalences.empty())
-    return ApplyResult::NoOp;
-  assert(k.level == 0 && !k.conflict_valid);
-  if (drain_root && inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  k.stats.substitute_rounds++;
-  SccResult r = substitute_find_sccs(k, false);
-  if (r.contradiction) {
-    assert(r.contradiction_lit != INVALID_LIT);
-    emit_unsat(k, r.contradiction_lit);
-    return ApplyResult::Unsat;
-  }
-  k.stats.substitute_sccs += r.nontrivial_count;
-  std::vector<uint8_t> sub(2 * k.nvars, 0);
-  for (const auto &eq : equivalences) {
-    const Lit a = eq.first, b = eq.second;
-    if (a >= r.repr.size() || b >= r.repr.size())
-      continue;
-    const Lit rep = r.repr[a];
-    if (rep == INVALID_LIT || r.repr[b] != rep)
-      continue; // the supplied binaries no longer state a live SCC class
-    const Lit mirror = r.repr[negate(a)];
-    for (Lit l = 0; l < static_cast<Lit>(r.repr.size()); l++)
-      if (r.repr[l] != INVALID_LIT && r.repr[l] != l &&
-          (r.repr[l] == rep || r.repr[l] == mirror)) {
-        if (!sub[l])
-          k.stats.substitute_scc_lits++;
-        sub[l] = 1;
-      }
-  }
-  if (std::none_of(sub.begin(), sub.end(), [](uint8_t marked) {
-        return marked != 0;
-      }))
-    return ApplyResult::NoOp;
-  // This path implements Kissat Sweep's connected-clause rewrite. Surviving
-  // large records stay at their existing Ref; lazy unit/binary/deleted records
-  // do not need an arena-order transaction at this call boundary.
-  return do_substitution(k, r, std::move(sub));
-}
-
-ApplyResult substitute_apply_equivalences(
-    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
-  return substitute_apply_equivalences_impl(k, equivalences, true);
-}
-
 ApplyResult substitute_apply_sweep_equivalences(
     Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences,
     SweepSubstitutionSession &session,

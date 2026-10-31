@@ -74,17 +74,11 @@ ApplyResult substitute_reconnect_large_watches(Kernel &, uint32_t trail_begin);
 // The shipped reference cap is two rounds (`substituterounds=2`).
 ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds);
 
-// Mechanism helper for callers that consume named equivalence classes
-// immediately. Sweep uses the session-aware entry point below instead so it
-// can retain the proved bridges and defer class retirement to canonical
-// Substitute.
-ApplyResult substitute_apply_equivalences(
-    Kernel &, const std::vector<std::pair<Lit, Lit>> &);
-
-// Sweep keeps one session across all productive environments in a call. Its
-// connected replacements retain source pose and allocation span, while the
-// output-sensitive mixed-occurrence view supplies Kissat's stream order only
-// for literals reached by the environment or rewrite.
+// Sweep retains the proved bridges and defers class retirement to canonical
+// Substitute. It keeps one session across all productive environments in a
+// call. Its connected replacements retain source pose and allocation span,
+// while the output-sensitive mixed-occurrence view supplies Kissat's stream
+// order only for literals reached by the environment or rewrite.
 struct SweepSubstitutionSession final {
   struct DenseOccurrence {
     bool binary = false;
