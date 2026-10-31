@@ -1086,6 +1086,45 @@ bool RandomControllerSelector::choose(
                                       : NativeSettlement::Pending;
     }
   };
+  const auto no_settlement_action = [](const InvocationResult &) {};
+  const auto settle_native_offers =
+      [&](auto &discovery, auto &&before_consume, auto &&after_consume,
+          auto &&after_discard) {
+        if (!discovery.pending || !observation.last_action ||
+            observation.last_action->sequence != discovery.pending_sequence)
+          return;
+        const auto &invocation = observation.last_action->invocation;
+        switch (native_settlement(invocation)) {
+        case NativeSettlement::Consume: {
+          before_consume(invocation);
+          const auto pending = *discovery.pending;
+          discovery.offers.erase(
+              std::remove(discovery.offers.begin(), discovery.offers.end(),
+                          pending),
+              discovery.offers.end());
+          discovery.pending.reset();
+          discovery.pending_sequence = 0;
+          discovery.state = invocation.after;
+          after_consume(invocation);
+          break;
+        }
+        case NativeSettlement::DiscardUntilContextChange:
+          discovery.pending.reset();
+          discovery.offers.clear();
+          discovery.pending_sequence = 0;
+          discovery.terminal = true;
+          after_discard(invocation);
+          discovery.state = invocation.after;
+          break;
+        case NativeSettlement::RetainUntilReconfiguration:
+          discovery.pending_sequence = 0;
+          discovery.reconfiguration_required = true;
+          discovery.state = invocation.after;
+          break;
+        case NativeSettlement::Pending:
+          break;
+        }
+      };
   if (guarded_cover_discovery_.pending && observation.last_action &&
       observation.last_action->sequence == guarded_cover_discovery_.pending_sequence) {
     const auto settlement = native_settlement(observation.last_action->invocation);
@@ -1098,181 +1137,68 @@ bool RandomControllerSelector::choose(
     }
   }
   bool affine_session_commit_observed = false;
-  if (affine_basis_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          affine_basis_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      affine_session_commit_observed =
-          observation.last_action->invocation.made_rule_progress;
-      if (affine_session_commit_observed && k.affine_basis_action_session &&
-          affine_basis_discovery_.session ==
-              k.affine_basis_action_session)
-        affine_basis_discovery_.session_keys =
-            k.affine_basis_action_session->committed_keys();
-      const auto pending = *affine_basis_discovery_.pending;
-      affine_basis_discovery_.offers.erase(
-          std::remove(affine_basis_discovery_.offers.begin(),
-                      affine_basis_discovery_.offers.end(), pending),
-          affine_basis_discovery_.offers.end());
-      affine_basis_discovery_.pending.reset();
-      affine_basis_discovery_.pending_sequence = 0;
-      affine_basis_discovery_.state =
-          observation.last_action->invocation.after;
-      if (affine_basis_discovery_.offers.empty() &&
-          !affine_basis_discovery_.more) {
-        affine_basis_discovery_.terminal = true;
-        affine_basis_discovery_.durable_terminal = true;
-      }
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      affine_basis_discovery_.pending.reset();
-      affine_basis_discovery_.offers.clear();
-      affine_basis_discovery_.pending_sequence = 0;
-      affine_basis_discovery_.terminal = true;
-      affine_basis_discovery_.durable_terminal = false;
-      affine_basis_discovery_.state =
-          observation.last_action->invocation.after;
-    } else if (settlement ==
-               NativeSettlement::RetainUntilReconfiguration) {
-      affine_basis_discovery_.pending_sequence = 0;
-      affine_basis_discovery_.reconfiguration_required = true;
-      affine_basis_discovery_.state =
-          observation.last_action->invocation.after;
-    }
-  }
-  if (gf3_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence == gf3_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      const auto pending = *gf3_discovery_.pending;
-      gf3_discovery_.offers.erase(
-          std::remove(gf3_discovery_.offers.begin(),
-                      gf3_discovery_.offers.end(), pending),
-          gf3_discovery_.offers.end());
-      gf3_discovery_.pending.reset();
-      gf3_discovery_.pending_sequence = 0;
-      gf3_discovery_.state = observation.last_action->invocation.after;
-      if (gf3_discovery_.offers.empty() && gf3_discovery_.complete)
-        gf3_discovery_.terminal = true;
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      gf3_discovery_.pending.reset();
-      gf3_discovery_.offers.clear();
-      gf3_discovery_.pending_sequence = 0;
-      gf3_discovery_.terminal = true;
-      gf3_discovery_.state = observation.last_action->invocation.after;
-    } else if (settlement ==
-               NativeSettlement::RetainUntilReconfiguration) {
-      gf3_discovery_.pending_sequence = 0;
-      gf3_discovery_.reconfiguration_required = true;
-      gf3_discovery_.state = observation.last_action->invocation.after;
-    }
-  }
-  if (direct_csp_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          direct_csp_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      if (observation.last_action->invocation.made_rule_progress &&
-          k.direct_csp_support_action_session &&
-          direct_csp_discovery_.session ==
-              k.direct_csp_support_action_session) {
-        direct_csp_discovery_.session_keys =
-            k.direct_csp_support_action_session->committed_keys();
-        direct_csp_discovery_.retained_owners =
-            k.direct_csp_support_action_session->retained_owners();
-      }
-      const auto pending = *direct_csp_discovery_.pending;
-      direct_csp_discovery_.offers.erase(
-          std::remove(direct_csp_discovery_.offers.begin(),
-                      direct_csp_discovery_.offers.end(), pending),
-          direct_csp_discovery_.offers.end());
-      direct_csp_discovery_.pending.reset();
-      direct_csp_discovery_.pending_sequence = 0;
-      direct_csp_discovery_.state = observation.last_action->invocation.after;
-      if (direct_csp_discovery_.offers.empty() &&
-          direct_csp_discovery_.complete)
-        direct_csp_discovery_.terminal = true;
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      direct_csp_discovery_.pending.reset();
-      direct_csp_discovery_.offers.clear();
-      direct_csp_discovery_.pending_sequence = 0;
-      direct_csp_discovery_.terminal = true;
-      direct_csp_discovery_.state = observation.last_action->invocation.after;
-    } else if (settlement ==
-               NativeSettlement::RetainUntilReconfiguration) {
-      direct_csp_discovery_.pending_sequence = 0;
-      direct_csp_discovery_.reconfiguration_required = true;
-      direct_csp_discovery_.state = observation.last_action->invocation.after;
-    }
-  }
-  if (nary_csp_equality_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          nary_csp_equality_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      const auto pending = *nary_csp_equality_discovery_.pending;
-      nary_csp_equality_discovery_.offers.erase(
-          std::remove(nary_csp_equality_discovery_.offers.begin(),
-                      nary_csp_equality_discovery_.offers.end(), pending),
-          nary_csp_equality_discovery_.offers.end());
-      nary_csp_equality_discovery_.pending.reset();
-      nary_csp_equality_discovery_.pending_sequence = 0;
-      nary_csp_equality_discovery_.state =
-          observation.last_action->invocation.after;
-      if (nary_csp_equality_discovery_.offers.empty() &&
-          nary_csp_equality_discovery_.complete)
-        nary_csp_equality_discovery_.terminal = true;
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      nary_csp_equality_discovery_.pending.reset();
-      nary_csp_equality_discovery_.offers.clear();
-      nary_csp_equality_discovery_.pending_sequence = 0;
-      nary_csp_equality_discovery_.terminal = true;
-      nary_csp_equality_discovery_.state =
-          observation.last_action->invocation.after;
-    } else if (settlement ==
-               NativeSettlement::RetainUntilReconfiguration) {
-      nary_csp_equality_discovery_.pending_sequence = 0;
-      nary_csp_equality_discovery_.reconfiguration_required = true;
-      nary_csp_equality_discovery_.state =
-          observation.last_action->invocation.after;
-    }
-  }
-  if (nary_csp_equality_amo_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          nary_csp_equality_amo_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      const auto pending = *nary_csp_equality_amo_discovery_.pending;
-      nary_csp_equality_amo_discovery_.offers.erase(
-          std::remove(nary_csp_equality_amo_discovery_.offers.begin(),
-                      nary_csp_equality_amo_discovery_.offers.end(), pending),
-          nary_csp_equality_amo_discovery_.offers.end());
-      nary_csp_equality_amo_discovery_.pending.reset();
-      nary_csp_equality_amo_discovery_.pending_sequence = 0;
-      nary_csp_equality_amo_discovery_.state =
-          observation.last_action->invocation.after;
-      if (nary_csp_equality_amo_discovery_.offers.empty() &&
-          nary_csp_equality_amo_discovery_.complete)
-        nary_csp_equality_amo_discovery_.terminal = true;
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      nary_csp_equality_amo_discovery_.pending.reset();
-      nary_csp_equality_amo_discovery_.offers.clear();
-      nary_csp_equality_amo_discovery_.pending_sequence = 0;
-      nary_csp_equality_amo_discovery_.terminal = true;
-      nary_csp_equality_amo_discovery_.state =
-          observation.last_action->invocation.after;
-    } else if (settlement == NativeSettlement::RetainUntilReconfiguration) {
-      nary_csp_equality_amo_discovery_.pending_sequence = 0;
-      nary_csp_equality_amo_discovery_.reconfiguration_required = true;
-      nary_csp_equality_amo_discovery_.state =
-          observation.last_action->invocation.after;
-    }
-  }
+  settle_native_offers(
+      affine_basis_discovery_,
+      [&](const InvocationResult &invocation) {
+        affine_session_commit_observed = invocation.made_rule_progress;
+        if (affine_session_commit_observed && k.affine_basis_action_session &&
+            affine_basis_discovery_.session ==
+                k.affine_basis_action_session)
+          affine_basis_discovery_.session_keys =
+              k.affine_basis_action_session->committed_keys();
+      },
+      [&](const InvocationResult &) {
+        if (affine_basis_discovery_.offers.empty() &&
+            !affine_basis_discovery_.more) {
+          affine_basis_discovery_.terminal = true;
+          affine_basis_discovery_.durable_terminal = true;
+        }
+      },
+      [&](const InvocationResult &) {
+        affine_basis_discovery_.durable_terminal = false;
+      });
+  settle_native_offers(
+      gf3_discovery_, no_settlement_action,
+      [&](const InvocationResult &) {
+        if (gf3_discovery_.offers.empty() && gf3_discovery_.complete)
+          gf3_discovery_.terminal = true;
+      },
+      no_settlement_action);
+  settle_native_offers(
+      direct_csp_discovery_,
+      [&](const InvocationResult &invocation) {
+        if (invocation.made_rule_progress &&
+            k.direct_csp_support_action_session &&
+            direct_csp_discovery_.session ==
+                k.direct_csp_support_action_session) {
+          direct_csp_discovery_.session_keys =
+              k.direct_csp_support_action_session->committed_keys();
+          direct_csp_discovery_.retained_owners =
+              k.direct_csp_support_action_session->retained_owners();
+        }
+      },
+      [&](const InvocationResult &) {
+        if (direct_csp_discovery_.offers.empty() &&
+            direct_csp_discovery_.complete)
+          direct_csp_discovery_.terminal = true;
+      },
+      no_settlement_action);
+  settle_native_offers(
+      nary_csp_equality_discovery_, no_settlement_action,
+      [&](const InvocationResult &) {
+        if (nary_csp_equality_discovery_.offers.empty() &&
+            nary_csp_equality_discovery_.complete)
+          nary_csp_equality_discovery_.terminal = true;
+      },
+      no_settlement_action);
+  settle_native_offers(
+      nary_csp_equality_amo_discovery_, no_settlement_action,
+      [&](const InvocationResult &) {
+        if (nary_csp_equality_amo_discovery_.offers.empty() &&
+            nary_csp_equality_amo_discovery_.complete)
+          nary_csp_equality_amo_discovery_.terminal = true;
+      },
+      no_settlement_action);
   if (gf3_gaussian_discovery_.pending && observation.last_action &&
       observation.last_action->sequence ==
           gf3_gaussian_discovery_.pending_sequence) {
@@ -1300,77 +1226,28 @@ bool RandomControllerSelector::choose(
           observation.last_action->invocation.after;
     }
   }
-  if (gf3_general_row_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          gf3_general_row_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      const auto pending = *gf3_general_row_discovery_.pending;
-      gf3_general_row_discovery_.offers.erase(
-          std::remove(gf3_general_row_discovery_.offers.begin(),
-                      gf3_general_row_discovery_.offers.end(), pending),
-          gf3_general_row_discovery_.offers.end());
-      gf3_general_row_discovery_.pending.reset();
-      gf3_general_row_discovery_.pending_sequence = 0;
-      gf3_general_row_discovery_.state =
-          observation.last_action->invocation.after;
-      if (gf3_general_row_discovery_.offers.empty() &&
-          gf3_general_row_discovery_.complete)
-        gf3_general_row_discovery_.terminal = true;
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      gf3_general_row_discovery_.pending.reset();
-      gf3_general_row_discovery_.offers.clear();
-      gf3_general_row_discovery_.pending_sequence = 0;
-      gf3_general_row_discovery_.terminal = true;
-      gf3_general_row_discovery_.state =
-          observation.last_action->invocation.after;
-    } else if (settlement == NativeSettlement::RetainUntilReconfiguration) {
-      gf3_general_row_discovery_.pending_sequence = 0;
-      gf3_general_row_discovery_.reconfiguration_required = true;
-      gf3_general_row_discovery_.state =
-          observation.last_action->invocation.after;
-    }
-  }
-  if (tseitin_cycle_discovery_.pending && observation.last_action &&
-      observation.last_action->sequence ==
-          tseitin_cycle_discovery_.pending_sequence) {
-    const NativeSettlement settlement =
-        native_settlement(observation.last_action->invocation);
-    if (settlement == NativeSettlement::Consume) {
-      const std::string pending = *tseitin_cycle_discovery_.pending;
-      tseitin_cycle_discovery_.offers.erase(
-          std::remove(tseitin_cycle_discovery_.offers.begin(),
-                      tseitin_cycle_discovery_.offers.end(), pending),
-          tseitin_cycle_discovery_.offers.end());
-      tseitin_cycle_discovery_.pending.reset();
-      tseitin_cycle_discovery_.pending_sequence = 0;
-      tseitin_cycle_discovery_.state =
-          observation.last_action->invocation.after;
-      if (observation.last_action->invocation.made_rule_progress) {
-        tseitin_cycle_discovery_.offers.clear();
-        // The installed unit invalidates every old exact payload.  A later
-        // separately selected propagation changes the root context and may
-        // expose a newly authenticated component census.
-        tseitin_cycle_discovery_.terminal = false;
-      } else if (tseitin_cycle_discovery_.offers.empty()) {
-        tseitin_cycle_discovery_.terminal = true;
-      }
-    } else if (settlement == NativeSettlement::DiscardUntilContextChange) {
-      tseitin_cycle_discovery_.pending.reset();
-      tseitin_cycle_discovery_.offers.clear();
-      tseitin_cycle_discovery_.pending_sequence = 0;
-      tseitin_cycle_discovery_.terminal = true;
-      tseitin_cycle_discovery_.state =
-          observation.last_action->invocation.after;
-    } else if (settlement ==
-               NativeSettlement::RetainUntilReconfiguration) {
-      tseitin_cycle_discovery_.pending_sequence = 0;
-      tseitin_cycle_discovery_.reconfiguration_required = true;
-      tseitin_cycle_discovery_.state =
-          observation.last_action->invocation.after;
-    }
-  }
+  settle_native_offers(
+      gf3_general_row_discovery_, no_settlement_action,
+      [&](const InvocationResult &) {
+        if (gf3_general_row_discovery_.offers.empty() &&
+            gf3_general_row_discovery_.complete)
+          gf3_general_row_discovery_.terminal = true;
+      },
+      no_settlement_action);
+  settle_native_offers(
+      tseitin_cycle_discovery_, no_settlement_action,
+      [&](const InvocationResult &invocation) {
+        if (invocation.made_rule_progress) {
+          tseitin_cycle_discovery_.offers.clear();
+          // The installed unit invalidates every old exact payload.  A later
+          // separately selected propagation changes the root context and may
+          // expose a newly authenticated component census.
+          tseitin_cycle_discovery_.terminal = false;
+        } else if (tseitin_cycle_discovery_.offers.empty()) {
+          tseitin_cycle_discovery_.terminal = true;
+        }
+      },
+      no_settlement_action);
   std::vector<ActionProducerEffort> producer_effort;
   const auto saturated_add = [](uint64_t left, uint64_t right) {
     return right > UINT64_MAX - left ? UINT64_MAX : left + right;
