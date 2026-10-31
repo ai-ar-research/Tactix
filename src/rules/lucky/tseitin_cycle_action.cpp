@@ -944,6 +944,27 @@ RuleEligibility tseitin_cycle_breaking_guard(const Kernel &kernel) {
       .finish();
 }
 
+// Session ownership, key-count, and ordered per-key work/identity accounting
+// shared by offer and apply. Applied means the retained session is admitted.
+static TseitinCycleBreakingStatus account_session(
+    Kernel &kernel, const TseitinCycleBreakingSession &session,
+    const TseitinCycleBreakingLimits &limits, ActionPoll &action_poll,
+    TseitinCycleBreakingEffort &effort) {
+  if (session.retained() && !session.belongs_to(kernel))
+    return TseitinCycleBreakingStatus::Stale;
+  if (session.keys().size() > limits.maximum_session_keys)
+    return TseitinCycleBreakingStatus::ResourceExhausted;
+  for (const auto &key : session.keys()) {
+    if (action_interrupted(&action_poll))
+      return TseitinCycleBreakingStatus::Interrupted;
+    if (!add(key.size(), limits.maximum_session_work, effort.session_work) ||
+        !add(key.size(), limits.maximum_session_identity_bytes,
+             effort.session_identity_bytes))
+      return TseitinCycleBreakingStatus::ResourceExhausted;
+  }
+  return TseitinCycleBreakingStatus::Applied;
+}
+
 TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
     Kernel &kernel, const TseitinCycleBreakingSession &session,
     const TseitinCycleBreakingLimits &limits) {
@@ -959,27 +980,9 @@ TseitinCycleBreakingOfferResult tseitin_cycle_breaking_offer(
   if (!limits.valid()) return result;
   ActionPoll action_poll{&kernel, limits.discovery.interrupted,
                          limits.discovery.interrupt_state};
-  if (session.retained() && !session.belongs_to(kernel)) {
-    result.status = TseitinCycleBreakingStatus::Stale;
-    return result;
-  }
-  if (session.keys().size() > limits.maximum_session_keys) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
-  for (const auto &key : session.keys()) {
-    if (action_interrupted(&action_poll)) {
-      result.status = TseitinCycleBreakingStatus::Interrupted;
-      return result;
-    }
-    if (!add(key.size(), limits.maximum_session_work,
-             result.effort.session_work) ||
-        !add(key.size(), limits.maximum_session_identity_bytes,
-             result.effort.session_identity_bytes)) {
-      result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-      return result;
-    }
-  }
+  result.status = account_session(kernel, session, limits, action_poll,
+                                  result.effort);
+  if (result.status != TseitinCycleBreakingStatus::Applied) return result;
   std::vector<Offered> offered;
   result.status = enumerate_offers(kernel, limits, offered, result.effort);
   if (result.status != TseitinCycleBreakingStatus::Applied) return result;
@@ -1050,27 +1053,9 @@ TseitinCycleBreakingResult tseitin_cycle_breaking_apply(
                         : TseitinCycleBreakingStatus::Invalid;
     return result;
   }
-  if (session.retained() && !session.belongs_to(kernel)) {
-    result.status = TseitinCycleBreakingStatus::Stale;
-    return result;
-  }
-  if (session.keys().size() > limits.maximum_session_keys) {
-    result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-    return result;
-  }
-  for (const auto &key : session.keys()) {
-    if (action_interrupted(&action_poll)) {
-      result.status = TseitinCycleBreakingStatus::Interrupted;
-      return result;
-    }
-    if (!add(key.size(), limits.maximum_session_work,
-             result.effort.session_work) ||
-        !add(key.size(), limits.maximum_session_identity_bytes,
-             result.effort.session_identity_bytes)) {
-      result.status = TseitinCycleBreakingStatus::ResourceExhausted;
-      return result;
-    }
-  }
+  result.status = account_session(kernel, session, limits, action_poll,
+                                  result.effort);
+  if (result.status != TseitinCycleBreakingStatus::Applied) return result;
 
   const std::string_view selected_component(identity.data() + 5, split - 5);
   Offered selected;
