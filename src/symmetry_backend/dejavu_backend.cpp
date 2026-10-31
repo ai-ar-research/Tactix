@@ -1490,21 +1490,9 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                     level, other, inverse[representative]);
       return inverse[representative] == other;
     };
-
-    if (!settings.chain_mode) {
-      while (!exhausted &&
-             !schreier.get_stabilizer_generators(base.size()).empty()) {
-        poll();
-        if (!charge(1)) {
-          exhausted = true;
-          break;
-        }
-        schreier.get_stabilizer_orbit(static_cast<int>(base.size()), orbits);
-
-        uint64_t selected_clause = UINT64_MAX;
-        active.clear();
-        for (uint64_t clause = 0; clause < input.clause_count; ++clause) {
-          std::vector<uint32_t> candidate;
+    const auto eligible_clause_candidate =
+        [&](uint64_t clause, std::vector<uint32_t> &candidate) {
+          candidate.clear();
           bool satisfied = false;
           for (uint64_t at = input.clause_offsets[clause];
                at < input.clause_offsets[clause + 1]; ++at) {
@@ -1521,19 +1509,39 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
               candidate.push_back(literal);
           }
           if (exhausted)
-            break;
+            return false;
           if (settings.first_literal_fix_anchor && !satisfied &&
               values[input.literals[input.clause_offsets[clause]]] < 0)
-            continue;
+            return false;
           if (satisfied || candidate.size() < 2 ||
               orbits.orbit_size(static_cast<int>(candidate.front())) == 1)
-            continue;
+            return false;
           bool common_orbit = true;
           for (const uint32_t literal : candidate)
             common_orbit &= orbits.are_in_same_orbit(
                 static_cast<int>(candidate.front()), static_cast<int>(literal));
-          if (!common_orbit)
+          return common_orbit;
+        };
+
+    if (!settings.chain_mode) {
+      while (!exhausted &&
+             !schreier.get_stabilizer_generators(base.size()).empty()) {
+        poll();
+        if (!charge(1)) {
+          exhausted = true;
+          break;
+        }
+        schreier.get_stabilizer_orbit(static_cast<int>(base.size()), orbits);
+
+        uint64_t selected_clause = UINT64_MAX;
+        active.clear();
+        for (uint64_t clause = 0; clause < input.clause_count; ++clause) {
+          std::vector<uint32_t> candidate;
+          if (!eligible_clause_candidate(clause, candidate)) {
+            if (exhausted)
+              break;
             continue;
+          }
           selected_clause = clause;
           active = std::move(candidate);
           break;
@@ -1785,35 +1793,11 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         bool frontier_found = false;
         for (uint64_t clause = scan_begin; clause < input.clause_count; ++clause) {
           std::vector<uint32_t> candidate;
-          bool satisfied = false;
-          for (uint64_t at = input.clause_offsets[clause];
-               at < input.clause_offsets[clause + 1]; ++at) {
-            if (!charge(1)) {
-              exhausted = true;
+          if (!eligible_clause_candidate(clause, candidate)) {
+            if (exhausted)
               break;
-            }
-            const uint32_t literal = input.literals[at];
-            if (values[literal] > 0) {
-              satisfied = true;
-              break;
-            }
-            if (!values[literal])
-              candidate.push_back(literal);
+            continue;
           }
-          if (exhausted)
-            break;
-          if (settings.first_literal_fix_anchor && !satisfied &&
-              values[input.literals[input.clause_offsets[clause]]] < 0)
-            continue;
-          if (satisfied || candidate.size() < 2 ||
-              orbits.orbit_size(static_cast<int>(candidate.front())) == 1)
-            continue;
-          bool common_orbit = true;
-          for (const uint32_t literal : candidate)
-            common_orbit &= orbits.are_in_same_orbit(
-                static_cast<int>(candidate.front()), static_cast<int>(literal));
-          if (!common_orbit)
-            continue;
 
           if (forward_scan && !frontier_found) {
             clause_frontier = clause;
