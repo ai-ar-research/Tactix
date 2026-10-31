@@ -34,6 +34,7 @@
 #include "policies/rule_publication.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -145,74 +146,48 @@ ApplyResult apply_published(tactix_solver *solver, Apply &&apply) {
       .result;
 }
 
-bool online_repeat(int mode, uint64_t limit, strategy::RepeatSpec &out) {
-  switch (mode) {
-  case TACTIX_ONLINE_REPEAT_ONCE:
-    out = {strategy::RepeatMode::Once, limit};
-    return true;
-  case TACTIX_ONLINE_REPEAT_COUNT:
-    out = {strategy::RepeatMode::Count, limit};
-    return true;
-  case TACTIX_ONLINE_REPEAT_FIXPOINT:
-    out = {strategy::RepeatMode::UntilScopedFixpoint, limit};
-    return true;
-  case TACTIX_ONLINE_REPEAT_SIZE_SCALED_FIXPOINT:
-    out = {strategy::RepeatMode::UntilSizeScaledFixpoint, limit};
-    return true;
-  default:
+template <class Target, size_t Size>
+bool online_enum(int value, const std::array<Target, Size> &mapping,
+                 Target &out) {
+  if (value < 0 || static_cast<size_t>(value) >= mapping.size())
     return false;
-  }
+  out = mapping[static_cast<size_t>(value)];
+  return true;
+}
+
+bool online_repeat(int mode, uint64_t limit, strategy::RepeatSpec &out) {
+  strategy::RepeatMode mapped;
+  static constexpr std::array mapping{
+      strategy::RepeatMode::Once, strategy::RepeatMode::Count,
+      strategy::RepeatMode::UntilScopedFixpoint,
+      strategy::RepeatMode::UntilSizeScaledFixpoint};
+  if (!online_enum(mode, mapping, mapped))
+    return false;
+  out = {mapped, limit};
+  return true;
 }
 
 bool online_post_application(int value, strategy::PostApplication &out) {
-  switch (value) {
-  case TACTIX_ONLINE_POST_NONE:
-    out = strategy::PostApplication::None;
-    return true;
-  case TACTIX_ONLINE_POST_PROPAGATE:
-    out = strategy::PostApplication::Propagate;
-    return true;
-  case TACTIX_ONLINE_POST_FORWARD_CLOSURE:
-    out = strategy::PostApplication::ForwardClosure;
-    return true;
-  default:
-    return false;
-  }
+  static constexpr std::array mapping{
+      strategy::PostApplication::None, strategy::PostApplication::Propagate,
+      strategy::PostApplication::ForwardClosure};
+  return online_enum(value, mapping, out);
 }
 
 bool online_granularity(int value, strategy::InvocationGranularity &out) {
-  switch (value) {
-  case TACTIX_ONLINE_GRANULARITY_ONE:
-    out = strategy::InvocationGranularity::OneInstance;
-    return true;
-  case TACTIX_ONLINE_GRANULARITY_BATCH:
-    out = strategy::InvocationGranularity::SelectedBatch;
-    return true;
-  case TACTIX_ONLINE_GRANULARITY_COMPLETE_PASS:
-    out = strategy::InvocationGranularity::CompleteCurrentPass;
-    return true;
-  case TACTIX_ONLINE_GRANULARITY_CANONICAL:
-    out = strategy::InvocationGranularity::CanonicalApplication;
-    return true;
-  default:
-    return false;
-  }
+  static constexpr std::array mapping{
+      strategy::InvocationGranularity::OneInstance,
+      strategy::InvocationGranularity::SelectedBatch,
+      strategy::InvocationGranularity::CompleteCurrentPass,
+      strategy::InvocationGranularity::CanonicalApplication};
+  return online_enum(value, mapping, out);
 }
 
 bool online_work_unit(int value, strategy::WorkUnit &out) {
-  switch (value) {
-  case TACTIX_ONLINE_WORK_APPLICATIONS:
-    out = strategy::WorkUnit::Applications;
-    return true;
-  case TACTIX_ONLINE_WORK_BVE_TICKS:
-    out = strategy::WorkUnit::BveTicks;
-    return true;
-  case TACTIX_ONLINE_WORK_PROPAGATIONS:
-    out = strategy::WorkUnit::Propagations;
-    return true;
-  default:
-    return false;
-  }
+  static constexpr std::array mapping{
+      strategy::WorkUnit::Applications, strategy::WorkUnit::BveTicks,
+      strategy::WorkUnit::Propagations};
+  return online_enum(value, mapping, out);
 }
 
 bool online_rule_work_budget(int mode, uint64_t amount,
@@ -237,19 +212,10 @@ bool online_rule_work_budget(int mode, uint64_t amount,
 }
 
 bool online_setting_override(int mode, strategy::SettingOverride &out) {
-  switch (mode) {
-  case TACTIX_ONLINE_SETTING_INHERIT:
-    out = strategy::SettingOverride::Inherit;
-    return true;
-  case TACTIX_ONLINE_SETTING_DISABLE:
-    out = strategy::SettingOverride::Disable;
-    return true;
-  case TACTIX_ONLINE_SETTING_ENABLE:
-    out = strategy::SettingOverride::Enable;
-    return true;
-  default:
-    return false;
-  }
+  static constexpr std::array mapping{
+      strategy::SettingOverride::Inherit, strategy::SettingOverride::Disable,
+      strategy::SettingOverride::Enable};
+  return online_enum(mode, mapping, out);
 }
 
 bool online_graph_symmetry_parameters(const tactix_online_sr_parameters &p,
