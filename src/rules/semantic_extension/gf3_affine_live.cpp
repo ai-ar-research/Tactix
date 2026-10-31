@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -286,42 +287,7 @@ bool revalidate_sources(const Kernel &kernel,
   return true;
 }
 
-struct Journal {
-  uint64_t maximum = 0;
-  uint64_t work = 0;
-  std::string bytes;
-
-  bool append(const std::string &text) {
-    if (text.size() > UINT64_MAX - work) {
-      work = UINT64_MAX;
-      return false;
-    }
-    work += text.size();
-    if (bytes.size() > maximum || text.size() > maximum - bytes.size())
-      return false;
-    bytes += text;
-    return true;
-  }
-  bool integers(const std::vector<int32_t> &values) {
-    for (size_t index = 0; index < values.size(); ++index)
-      if (!append((index ? "," : "") + std::to_string(values[index])))
-        return false;
-    return true;
-  }
-  bool unsigneds(const std::vector<uint32_t> &values) {
-    for (size_t index = 0; index < values.size(); ++index)
-      if (!append((index ? "," : "") + std::to_string(values[index])))
-        return false;
-    return true;
-  }
-  bool bytes_array(const std::vector<uint8_t> &values) {
-    for (size_t index = 0; index < values.size(); ++index)
-      if (!append((index ? "," : "") +
-                  std::to_string(static_cast<unsigned>(values[index]))))
-        return false;
-    return true;
-  }
-};
+using Journal = semantic_extension::BoundedJournal<true, true>;
 
 const gf3::Premise *premise(const gf3::Theory &theory, uint64_t occurrence) {
   if (!occurrence || occurrence > theory.source.size()) return nullptr;
@@ -383,18 +349,18 @@ bool render_journal(const Gf3AffineLiveRequest &request,
                         ",\"kind\":\"gf3-affine-equation\",\"index\":" +
                         std::to_string(equation_index) +
                         ",\"domains\":[") ||
-        !journal.unsigneds(equation.domains) ||
+        !journal.integers(equation.domains) ||
         !journal.append("],\"coefficients\":[") ||
-        !journal.bytes_array(equation.coefficients) ||
+        !journal.integers(equation.coefficients) ||
         !journal.append("],\"rhs\":" + std::to_string(equation.rhs) +
                         "}\n"))
       return false;
   }
   if (!journal.append("{" + ids +
                       ",\"kind\":\"gf3-affine-consequence\",\"domains\":[") ||
-      !journal.unsigneds(plan.consequence.domains) ||
+      !journal.integers(plan.consequence.domains) ||
       !journal.append("],\"coefficients\":[") ||
-      !journal.bytes_array(plan.consequence.coefficients) ||
+      !journal.integers(plan.consequence.coefficients) ||
       !journal.append("],\"rhs\":" +
                       std::to_string(plan.consequence.rhs) +
                       ",\"projection\":\"identity-original-variables\","
@@ -624,7 +590,7 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   uint64_t next_id = kernel.next_clause_id;
   for (size_t index : result.missing_additions)
     result.published_clause_ids[index] = ++next_id;
-  Journal journal{request.maximum_journal_bytes, 0, {}};
+  Journal journal{request.maximum_journal_bytes};
   if (!render_journal(request, owner, plan, result.published_clause_ids,
                       result.proof_work, journal)) {
     result.journal_work = journal.work;

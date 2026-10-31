@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/exact_cover_batch.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -76,31 +77,7 @@ bool checked_add(uint64_t &total, uint64_t amount) {
   return true;
 }
 
-struct Journal {
-  uint64_t limit = 0;
-  std::string bytes;
-
-  bool append(const std::string &text) {
-    if (bytes.size() > limit || text.size() > limit - bytes.size())
-      return false;
-    bytes += text;
-    return true;
-  }
-
-  bool integers(const std::vector<int32_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i])))
-        return false;
-    return true;
-  }
-
-  bool unsigned_integers(const std::vector<uint64_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i])))
-        return false;
-    return true;
-  }
-};
+using Journal = tactix::semantic_extension::BoundedJournal<>;
 
 } // namespace
 
@@ -237,7 +214,7 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     return result;
   }
 
-  Journal journal{request.maximum_journal_bytes, {}};
+  Journal journal{request.maximum_journal_bytes};
   if (!journal.append(
           "{\"kind\":\"exact-cover-batch\",\"action\":" +
           std::to_string(request.action_id) + ",\"arity\":" +
@@ -279,7 +256,7 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
             "\"lifetime\":\"ordinary-live-clauses\",\"inputs\":[") ||
         !journal.integers(definition.inputs) ||
         !journal.append("],\"source_premises\":[") ||
-        !journal.unsigned_integers(definition.source_premises) ||
+        !journal.integers(definition.source_premises) ||
         !journal.append("],\"duplicate_key\":[") ||
         !journal.integers(definition.duplicate_key.disjunction) ||
         !journal.append("],\"proof_additions\":" +

@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 
 #include <algorithm>
 #include <array>
@@ -23,23 +24,7 @@ namespace {
 
 namespace equality = nary_csp_equality;
 
-struct Journal {
-  uint64_t limit = 0;
-  std::string bytes;
-
-  bool append(const std::string &value) {
-    if (value.size() > limit - std::min<uint64_t>(limit, bytes.size()))
-      return false;
-    bytes += value;
-    return true;
-  }
-
-  bool integers(const std::vector<int32_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
-    return true;
-  }
-};
+using Journal = semantic_extension::BoundedJournal<>;
 
 std::vector<std::vector<int32_t>> owner_domains(
     const NaryCspRelationOwnerSnapshot &owner) {
@@ -292,7 +277,7 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
   }
 
   const uint64_t first_id = kernel.next_clause_id + 1;
-  Journal journal{request.limits.maximum_journal_bytes, {}};
+  Journal journal{request.limits.maximum_journal_bytes};
   if (!render_journal(request, current, plan, first_id, journal)) {
     result.status = NaryCspEqualityLiveStatus::ResourceExhausted;
     return result;

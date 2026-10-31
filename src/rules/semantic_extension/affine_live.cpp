@@ -2,6 +2,7 @@
 
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -21,28 +22,16 @@ std::vector<External> key(std::vector<External> clause) {
   return clause;
 }
 
-struct Journal {
-  uint64_t limit;
-  std::string bytes;
-  uint64_t work = 0;
-  bool append(const std::string &text) {
-    if (text.size() > UINT64_MAX - work) {
-      work = UINT64_MAX;
-      return false;
-    }
-    work += text.size();
-    if (text.size() > limit - bytes.size()) return false;
-    bytes += text;
-    return true;
-  }
-  bool clause(const std::string &prefix, const std::vector<External> &literals) {
-    std::string line = prefix;
-    for (size_t i = 0; i < literals.size(); ++i)
-      line += (i ? "," : "") + std::to_string(literals[i]);
-    line += "]}\n";
-    return append(line);
-  }
-};
+using Journal = semantic_extension::BoundedJournal<true, true>;
+
+bool append_clause(Journal &journal, const std::string &prefix,
+                   const std::vector<External> &literals) {
+  std::string line = prefix;
+  for (size_t i = 0; i < literals.size(); ++i)
+    line += (i ? "," : "") + std::to_string(literals[i]);
+  line += "]}\n";
+  return journal.append(line);
+}
 
 struct Replay {
   std::vector<uint64_t> ids;
@@ -242,7 +231,7 @@ bool append_journal(const AffineLiveRequest &request,
         (source.kind == AffineSourceKind::Large ? "large" : "binary") +
         "\",\"source_id\":" + std::to_string(source.clause_id) +
         ",\"clause\":[";
-    if (!journal.clause(prefix, source.clause)) return false;
+    if (!append_clause(journal, prefix, source.clause)) return false;
   }
   for (size_t source_index : choice.sources) {
     if (source_index >= image.equations.size()) return false;
@@ -278,14 +267,14 @@ bool append_journal(const AffineLiveRequest &request,
         "\",\"id\":" +
         std::to_string(event.addition ? replay.ids[i] : replay.deleted[i]) +
         ",\"clause\":[";
-    if (!journal.clause(prefix, clause)) return false;
+    if (!append_clause(journal, prefix, clause)) return false;
   }
   for (size_t i = 0; i < plan.targets.size(); ++i) {
     if (!installed[i]) continue;
     const std::string prefix = "{" + ids +
         ",\"kind\":\"affine-publish\",\"id\":" +
         std::to_string(replay.target_ids[i]) + ",\"clause\":[";
-    if (!journal.clause(prefix, plan.targets[i])) return false;
+    if (!append_clause(journal, prefix, plan.targets[i])) return false;
   }
   if (root_conflict_id && !journal.append(
           "{" + ids +
@@ -297,7 +286,7 @@ bool append_journal(const AffineLiveRequest &request,
     const std::string prefix = "{" + ids +
         ",\"kind\":\"affine-proof-delete-uninstalled\",\"id\":" +
         std::to_string(replay.target_ids[i]) + ",\"clause\":[";
-    if (!journal.clause(prefix, plan.targets[i])) return false;
+    if (!append_clause(journal, prefix, plan.targets[i])) return false;
   }
   return journal.append("{" + ids +
       ",\"kind\":\"affine-complete\",\"snapshot_clauses\":" +
@@ -750,7 +739,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
   }
   result.preflight_additions = total_additions;
   result.preflight_deletions = total_deletions;
-  Journal journal{request.maximum_journal_bytes, {}};
+  Journal journal{request.maximum_journal_bytes};
   AffineLiveResult journal_result = result;
   journal_result.additions = total_additions;
   journal_result.deletions = total_deletions;

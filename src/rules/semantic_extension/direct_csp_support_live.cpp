@@ -1,6 +1,7 @@
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
@@ -425,29 +426,7 @@ bool clause_live(const Kernel &kernel, const std::vector<int32_t> &wanted,
   return false;
 }
 
-struct Journal {
-  uint64_t maximum = 0;
-  uint64_t work = 0;
-  std::string bytes;
-
-  bool append(const std::string &text) {
-    if (text.size() > UINT64_MAX - work) return false;
-    work += text.size();
-    if (text.size() > maximum - bytes.size()) return false;
-    bytes += text;
-    return true;
-  }
-  bool integers(const std::vector<int32_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
-    return true;
-  }
-  bool unsigneds(const std::vector<uint64_t> &values) {
-    for (size_t i = 0; i < values.size(); ++i)
-      if (!append((i ? "," : "") + std::to_string(values[i]))) return false;
-    return true;
-  }
-};
+using Journal = semantic_extension::BoundedJournal<true>;
 
 bool render_journal(const DirectCspSupportLiveRequest &request,
                     const DirectCspSupportOwnerSnapshot &owner,
@@ -482,7 +461,7 @@ bool render_journal(const DirectCspSupportLiveRequest &request,
       !journal.append("],\"compatible\":[") ||
       !journal.integers(plan.compatible_right_values) ||
       !journal.append("],\"forbidden_premises\":[") ||
-      !journal.unsigneds(plan.forbidden_premises) ||
+      !journal.integers(plan.forbidden_premises) ||
       !journal.append("]}\n"))
     return false;
   for (size_t index = 0; index < plan.additions.size(); ++index) {
@@ -682,7 +661,7 @@ void prepare_live_action(Kernel &kernel,
     return;
   }
 
-  prepared.journal = Journal{request.maximum_journal_bytes, 0, {}};
+  prepared.journal = Journal{request.maximum_journal_bytes};
   prepared.first_id = kernel.next_clause_id + 1;
   if (!render_journal(request, *prepared.owner, prepared.plan,
                       prepared.first_id, proof_work, prepared.journal)) {
