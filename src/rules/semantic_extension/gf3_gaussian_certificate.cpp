@@ -12,18 +12,7 @@ namespace {
 
 using Meter = gf3_certificate_common::Meter<Limits, Charge, Statistics,
                                               LimitKind>;
-
-Result stopped(const Meter &meter, Status ordinary) {
-  Result result;
-  result.status = meter.interrupted
-                      ? Status::Interrupted
-                      : meter.limit != LimitKind::None
-                            ? Status::LimitExceeded
-                            : ordinary;
-  result.limit = meter.limit;
-  result.consumed = meter.stats;
-  return result;
-}
+using Outcome = gf3_certificate_common::Outcome<Result>;
 
 bool valid_limits(const Limits &limits) {
   return limits.maximum_work && limits.maximum_events &&
@@ -31,21 +20,6 @@ bool valid_limits(const Limits &limits) {
          limits.maximum_retained_source_references &&
          limits.maximum_event_width && limits.maximum_branch_domains &&
          limits.maximum_consequences;
-}
-
-Status bridge_status(gf3_gaussian_bridge::Status status) {
-  switch (status) {
-  case gf3_gaussian_bridge::Status::Complete: return Status::Complete;
-  case gf3_gaussian_bridge::Status::InvalidTheory:
-    return Status::InvalidTheory;
-  case gf3_gaussian_bridge::Status::InvalidPlan:
-    return Status::InvalidBridge;
-  case gf3_gaussian_bridge::Status::LimitExceeded:
-    return Status::LimitExceeded;
-  case gf3_gaussian_bridge::Status::Interrupted:
-    return Status::Interrupted;
-  }
-  return Status::InvalidBridge;
 }
 
 struct LocalProof
@@ -101,18 +75,9 @@ bool build_consequence(const gf3_affine::Theory &theory,
   consequence.rhs = node.rhs;
   consequence.first_event = events.size();
 
-  for (const auto &combination : node.provenance) {
-    if (!meter.spend(1) || !combination.source_id ||
-        combination.source_id > bridge.authentication.size())
-      return false;
-    const uint64_t index = combination.source_id - 1;
-    if (index > std::numeric_limits<uint32_t>::max() ||
-        bridge.authentication[index].source_id != combination.source_id ||
-        !meter.retain_source())
-      return false;
-    consequence.sources.push_back(
-        {combination, static_cast<uint32_t>(index)});
-  }
+  if (!gf3_certificate_common::retain_authenticated_sources(
+          node.provenance, bridge.authentication, meter, consequence.sources))
+    return false;
 
   LocalProof proof{theory, limits, meter};
   proof.consequence = index;
@@ -156,22 +121,15 @@ Result build(const gf3_affine::Theory &theory,
   if (!charge || !valid_limits(limits)) return {};
   gf3_gaussian_bridge::Result checked = gf3_gaussian_bridge::validate(
       theory, bridge, limits.bridge, charge);
-  if (checked.status != gf3_gaussian_bridge::Status::Complete) {
-    Result result;
-    result.status = bridge_status(checked.status);
-    result.limit = checked.status == gf3_gaussian_bridge::Status::LimitExceeded
-                       ? LimitKind::Bridge
-                       : LimitKind::None;
-    result.bridge_limit = checked.limit;
-    result.consumed.bridge_work = checked.consumed.work;
-    return result;
-  }
+  if (checked.status != gf3_gaussian_bridge::Status::Complete)
+    return Outcome::bridge_failure(
+        checked, Outcome::bridge_status(checked.status, Status::Complete));
 
   Meter meter(limits, charge);
   meter.stats.bridge_work = checked.consumed.work;
   if (theory.source.size() > limits.maximum_active_clauses) {
     meter.limit = LimitKind::ActiveClauses;
-    return stopped(meter, Status::LimitExceeded);
+    return Outcome::stopped(meter, Status::LimitExceeded);
   }
   Plan plan;
   for (const gf3_gaussian::RowOutcome &outcome : bridge.gaussian.outcomes) {
@@ -181,7 +139,7 @@ Result build(const gf3_affine::Theory &theory,
     }
     if (plan.consequences.size() >= limits.maximum_consequences) {
       meter.limit = LimitKind::Consequences;
-      return stopped(meter, Status::LimitExceeded);
+      return Outcome::stopped(meter, Status::LimitExceeded);
     }
     Consequence consequence;
     const ConsequenceKind kind =
@@ -191,13 +149,13 @@ Result build(const gf3_affine::Theory &theory,
     if (!build_consequence(theory, bridge, outcome, kind,
                            static_cast<uint32_t>(plan.consequences.size()),
                            limits, meter, consequence, plan.events)) {
-      return stopped(meter, Status::Uncertifiable);
+      return Outcome::stopped(meter, Status::Uncertifiable);
     }
     ++meter.stats.supported_outcomes;
     plan.consequences.push_back(std::move(consequence));
   }
   if (plan.consequences.empty())
-    return stopped(meter, Status::NoSupportedOutcome);
+    return Outcome::stopped(meter, Status::NoSupportedOutcome);
   plan.statistics = meter.stats;
   Result result;
   result.status = Status::Complete;

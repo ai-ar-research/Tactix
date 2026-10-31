@@ -28,21 +28,6 @@ bool valid_limits(const Limits &limits) {
          limits.maximum_branch_domains && limits.maximum_row_width;
 }
 
-Status bridge_status(gf3_gaussian_bridge::Status status) {
-  switch (status) {
-  case gf3_gaussian_bridge::Status::Complete: return Status::Planned;
-  case gf3_gaussian_bridge::Status::InvalidTheory:
-    return Status::InvalidTheory;
-  case gf3_gaussian_bridge::Status::InvalidPlan:
-    return Status::InvalidBridge;
-  case gf3_gaussian_bridge::Status::LimitExceeded:
-    return Status::LimitExceeded;
-  case gf3_gaussian_bridge::Status::Interrupted:
-    return Status::Interrupted;
-  }
-  return Status::InvalidBridge;
-}
-
 struct Selection {
   const gf3_gaussian::RowOutcome *outcome = nullptr;
   const gf3_gaussian::Derivation *derivation = nullptr;
@@ -144,18 +129,7 @@ Result select(const gf3_affine::Theory &theory,
 
 using Meter = gf3_certificate_common::Meter<Limits, Charge, Statistics,
                                               LimitKind>;
-
-Result stopped(const Meter &meter, Status ordinary) {
-  Result result;
-  result.status = meter.interrupted
-                      ? Status::Interrupted
-                      : meter.limit != LimitKind::None
-                            ? Status::LimitExceeded
-                            : ordinary;
-  result.limit = meter.limit;
-  result.consumed = meter.stats;
-  return result;
-}
+using Outcome = gf3_certificate_common::Outcome<Result>;
 
 struct LocalProof
     : gf3_certificate_common::LocalProof<LocalProof, gf3_affine::Theory,
@@ -210,16 +184,9 @@ Result build(const gf3_affine::Theory &theory,
 
   gf3_gaussian_bridge::Result checked = gf3_gaussian_bridge::validate(
       theory, bridge, limits.bridge, charge);
-  if (checked.status != gf3_gaussian_bridge::Status::Complete) {
-    Result result;
-    result.status = bridge_status(checked.status);
-    result.limit = checked.status == gf3_gaussian_bridge::Status::LimitExceeded
-                       ? LimitKind::Bridge
-                       : LimitKind::None;
-    result.bridge_limit = checked.limit;
-    result.consumed.bridge_work = checked.consumed.work;
-    return result;
-  }
+  if (checked.status != gf3_gaussian_bridge::Status::Complete)
+    return Outcome::bridge_failure(
+        checked, Outcome::bridge_status(checked.status, Status::Planned));
 
   Meter meter(limits, charge);
   meter.stats.bridge_work = checked.consumed.work;
@@ -231,32 +198,24 @@ Result build(const gf3_affine::Theory &theory,
                         selection.derivation->rhs, request.tuple};
   plan.consequence = selection.clause;
 
-  for (const gf3_gaussian::ProvenanceTerm &combination :
-       selection.derivation->provenance) {
-    if (!meter.spend(1) || !combination.source_id ||
-        combination.source_id > bridge.authentication.size())
-      return stopped(meter, Status::InvalidBridge);
-    const uint64_t index = combination.source_id - 1;
-    if (index > std::numeric_limits<uint32_t>::max() ||
-        bridge.authentication[index].source_id != combination.source_id ||
-        !meter.retain_source())
-      return stopped(meter, Status::InvalidBridge);
-    plan.sources.push_back(
-        {combination, static_cast<uint32_t>(index)});
-  }
+  if (!gf3_certificate_common::retain_authenticated_sources(
+          selection.derivation->provenance, bridge.authentication, meter,
+          plan.sources))
+    return Outcome::stopped(meter, Status::InvalidBridge);
 
   LocalProof proof{theory, limits, meter};
   if (!collect_premises(theory, bridge, plan.sources, proof))
-    return stopped(meter, Status::InvalidBridge);
+    return Outcome::stopped(meter, Status::InvalidBridge);
   for (const gf3_gaussian::Term &term : selection.derivation->row)
     proof.fixed.insert(term.variable - 1);
   if (!proof.derive(selection.clause, 0, EventRole::Consequence, true))
-    return stopped(meter, proof.uncertifiable ? Status::Uncertifiable
-                                             : Status::InvalidBridge);
+    return Outcome::stopped(
+        meter, proof.uncertifiable ? Status::Uncertifiable
+                                  : Status::InvalidBridge);
   if (proof.events.empty() ||
       proof.events.back().role != EventRole::Consequence ||
       proof.events.back().clause != selection.clause)
-    return stopped(meter, Status::InvalidBridge);
+    return Outcome::stopped(meter, Status::InvalidBridge);
 
   plan.events = std::move(proof.events);
   plan.projection = {{}, true, false};

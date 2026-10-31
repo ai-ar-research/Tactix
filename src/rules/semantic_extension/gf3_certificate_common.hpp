@@ -24,6 +24,66 @@ inline std::vector<int32_t> canonical(std::vector<int32_t> clause) {
   return clause;
 }
 
+template <class Result> struct Outcome {
+  using Status = decltype(std::declval<Result>().status);
+  using LimitKind = decltype(std::declval<Result>().limit);
+
+  template <class BridgeStatus>
+  static Status bridge_status(BridgeStatus status, Status complete) {
+    switch (status) {
+    case BridgeStatus::Complete: return complete;
+    case BridgeStatus::InvalidTheory: return Status::InvalidTheory;
+    case BridgeStatus::InvalidPlan: return Status::InvalidBridge;
+    case BridgeStatus::LimitExceeded: return Status::LimitExceeded;
+    case BridgeStatus::Interrupted: return Status::Interrupted;
+    }
+    return Status::InvalidBridge;
+  }
+
+  template <class Meter>
+  static Result stopped(const Meter &meter, Status ordinary) {
+    Result result;
+    result.status = meter.interrupted
+                        ? Status::Interrupted
+                        : meter.limit != decltype(meter.limit)::None
+                              ? Status::LimitExceeded
+                              : ordinary;
+    result.limit = meter.limit;
+    result.consumed = meter.stats;
+    return result;
+  }
+
+  template <class Checked>
+  static Result bridge_failure(const Checked &checked, Status status) {
+    Result result;
+    result.status = status;
+    result.limit = checked.status == decltype(checked.status)::LimitExceeded
+                       ? LimitKind::Bridge
+                       : LimitKind::None;
+    result.bridge_limit = checked.limit;
+    result.consumed.bridge_work = checked.consumed.work;
+    return result;
+  }
+};
+
+template <class Provenance, class Authentication, class Meter, class Sources>
+bool retain_authenticated_sources(const Provenance &provenance,
+                                  const Authentication &authentication,
+                                  Meter &meter, Sources &sources) {
+  for (const auto &combination : provenance) {
+    if (!meter.spend(1) || !combination.source_id ||
+        combination.source_id > authentication.size())
+      return false;
+    const uint64_t index = combination.source_id - 1;
+    if (index > std::numeric_limits<uint32_t>::max() ||
+        authentication[index].source_id != combination.source_id ||
+        !meter.retain_source())
+      return false;
+    sources.push_back({combination, static_cast<uint32_t>(index)});
+  }
+  return true;
+}
+
 template <class Theory, class Reference, class Proof>
 bool retain_premise(const Theory &theory, const Reference &reference,
                     std::set<uint64_t> &occurrences, Proof &proof) {
