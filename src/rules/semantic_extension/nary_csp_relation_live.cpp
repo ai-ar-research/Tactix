@@ -298,23 +298,6 @@ CaptureStatus capture_slice(
   return CaptureStatus::Complete;
 }
 
-struct FormulaMark {
-  KernelChangeMark change;
-  uint64_t semantic_namespace = 0;
-  uint64_t arena_generation = 0;
-  uint64_t next_clause_id = 0;
-  uint32_t variables = 0;
-  size_t external_extent = 0;
-
-  bool operator==(const FormulaMark &) const = default;
-};
-
-FormulaMark formula_mark(const Kernel &kernel) {
-  return {kernel_change_mark(kernel), kernel.affine_semantic_namespace_epoch,
-          kernel.arena_generation, kernel.next_clause_id, kernel.nvars,
-          kernel.external_to_internal.size()};
-}
-
 } // namespace
 
 bool NaryCspRelationCaptureRequest::valid() const {
@@ -336,7 +319,8 @@ NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
     return result;
   }
 
-  const FormulaMark before = formula_mark(kernel);
+  const csp_physical_scan::FormulaMark before =
+      csp_physical_scan::formula_mark(kernel);
   Meter meter{kernel, request.maximum_recognition_work};
   NaryCspRelationOwnerSnapshot captured;
   const CaptureStatus status = capture_slice(kernel, request, meter, captured);
@@ -350,7 +334,7 @@ NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
     result.status = NaryCspRelationCaptureStatus::Interrupted;
     return result;
   }
-  if (formula_mark(kernel) != before) {
+  if (csp_physical_scan::formula_mark(kernel) != before) {
     result.status = NaryCspRelationCaptureStatus::Stale;
     return result;
   }

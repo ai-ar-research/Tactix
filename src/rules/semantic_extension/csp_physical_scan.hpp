@@ -6,6 +6,23 @@ namespace tactix::csp_physical_scan {
 
 enum class Status : uint8_t { Complete, Stopped, Declined };
 
+struct FormulaMark {
+  KernelChangeMark change;
+  uint64_t semantic_namespace = 0;
+  uint64_t arena_generation = 0;
+  uint64_t next_clause_id = 0;
+  uint32_t variables = 0;
+  size_t external_extent = 0;
+
+  bool operator==(const FormulaMark &) const = default;
+};
+
+inline FormulaMark formula_mark(const Kernel &kernel) {
+  return {kernel_change_mark(kernel), kernel.affine_semantic_namespace_epoch,
+          kernel.arena_generation, kernel.next_clause_id, kernel.nvars,
+          kernel.external_to_internal.size()};
+}
+
 // Exact physical premises in stable arena-then-binary order.
 template <class Meter, class Observe>
 Status run(const Kernel &kernel, Meter &meter, Observe &observe) {
