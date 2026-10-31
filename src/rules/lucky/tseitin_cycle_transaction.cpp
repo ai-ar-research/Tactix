@@ -1,32 +1,14 @@
 #include "rules/lucky/tseitin_cycle_transaction.hpp"
+#include "rules/lucky/callback_work_meter.hpp"
 
 #include <set>
 
 namespace tactix::tseitin_cycle {
 namespace {
 
-class Meter {
-  TransactionLimits limits_;
-  uint64_t used_ = 0;
-  TransactionStatus stopped_ = TransactionStatus::Ready;
-
-public:
-  explicit Meter(TransactionLimits limits) : limits_(limits) {}
-  bool spend(uint64_t amount = 1) {
-    if (limits_.interrupted && limits_.interrupted(limits_.interrupt_state)) {
-      stopped_ = TransactionStatus::Interrupted;
-      return false;
-    }
-    if (amount > limits_.work - used_) {
-      stopped_ = TransactionStatus::ResourceExhausted;
-      return false;
-    }
-    used_ += amount;
-    return true;
-  }
-  uint64_t used() const { return used_; }
-  TransactionStatus stopped() const { return stopped_; }
-};
+using Meter = CallbackWorkMeter<
+    TransactionLimits, TransactionStatus, TransactionStatus::Ready,
+    TransactionStatus::Interrupted, TransactionStatus::ResourceExhausted>;
 
 TransactionResult stop(const Meter &meter, TransactionStatus status,
                        TransactionReason reason) {

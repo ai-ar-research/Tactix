@@ -1,6 +1,7 @@
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
 
 #include "kernel/types.hpp"
+#include "rules/lucky/callback_work_meter.hpp"
 #include "rules/lucky/parity_premises.hpp"
 
 #include <algorithm>
@@ -14,28 +15,9 @@ namespace {
 
 using External = parity_premises::External;
 
-class Meter {
-  const Limits &limits_;
-  uint64_t used_ = 0;
-  Status stopped_ = Status::Discovered;
-
-public:
-  explicit Meter(const Limits &limits) : limits_(limits) {}
-  bool spend(uint64_t amount = 1) {
-    if (limits_.interrupted && limits_.interrupted(limits_.interrupt_state)) {
-      stopped_ = Status::Interrupted;
-      return false;
-    }
-    if (amount > limits_.work - used_) {
-      stopped_ = Status::ResourceExhausted;
-      return false;
-    }
-    used_ += amount;
-    return true;
-  }
-  uint64_t used() const { return used_; }
-  Status stopped() const { return stopped_; }
-};
+using Meter = CallbackWorkMeter<Limits, Status, Status::Discovered,
+                                Status::Interrupted,
+                                Status::ResourceExhausted>;
 
 Result stop(const Meter &meter, Status status, Reason reason,
             uint64_t clauses = 0, uint64_t groups = 0,

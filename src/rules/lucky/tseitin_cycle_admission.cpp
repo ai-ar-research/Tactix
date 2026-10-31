@@ -1,6 +1,7 @@
 #include "rules/lucky/tseitin_cycle_admission.hpp"
 
 #include "kernel/types.hpp"
+#include "rules/lucky/callback_work_meter.hpp"
 
 #include <algorithm>
 #include <map>
@@ -12,28 +13,10 @@ namespace {
 
 using External = parity_premises::External;
 
-class Meter {
-  AdmissionLimits limits_;
-  uint64_t used_ = 0;
-  AdmissionStatus stopped_ = AdmissionStatus::Admitted;
-
-public:
-  explicit Meter(AdmissionLimits limits) : limits_(limits) {}
-  bool spend(uint64_t amount = 1) {
-    if (limits_.interrupted && limits_.interrupted(limits_.interrupt_state)) {
-      stopped_ = AdmissionStatus::Interrupted;
-      return false;
-    }
-    if (amount > limits_.work - used_) {
-      stopped_ = AdmissionStatus::ResourceExhausted;
-      return false;
-    }
-    used_ += amount;
-    return true;
-  }
-  uint64_t used() const { return used_; }
-  AdmissionStatus stopped() const { return stopped_; }
-};
+using Meter =
+    CallbackWorkMeter<AdmissionLimits, AdmissionStatus,
+                      AdmissionStatus::Admitted, AdmissionStatus::Interrupted,
+                      AdmissionStatus::ResourceExhausted>;
 
 AdmissionResult stop(const Meter &meter, AdmissionStatus status,
                      AdmissionReason reason) {
