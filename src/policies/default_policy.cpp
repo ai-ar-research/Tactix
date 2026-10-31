@@ -3,6 +3,7 @@
 #include "policies/progress.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
+#include "strategy/common_parameter_serialization.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/lucky_execution.hpp"
 #include "strategy/representation_execution.hpp"
@@ -1907,69 +1908,9 @@ std::string DefaultStrategyConfig::serialize() const {
       out << candidate_order_name(*step.candidate_order);
     else
       out << "inherit";
-    if (const auto *p =
-            std::get_if<strategy::BveParameters>(&step.parameters)) {
-      out << ":bve(" << p->gate_mask << ',' << p->growth_bound << ','
-          << p->occurrence_limit << ',' << p->clause_size_limit << ','
-          << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
-          << p->backward_occurrence_limit << ',' << p->definition_budget << ','
-          << p->definition_cores << ','
-          << p->definition_core_budget_multiplier << ',' << p->backward << ','
-          << static_cast<unsigned>(p->candidate_scope) << ','
-          << p->resolvent_count_limit << ','
-          << static_cast<unsigned>(p->traversal) << ','
-          << p->on_the_fly_strengthening << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::SubsumeForwardParameters>(
-                       &step.parameters)) {
-      out << ":c1(" << p->clause_size_limit << ','
-          << p->large_occurrence_limit << ','
-          << p->binary_occurrence_limit << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::StrengthenParameters>(
-                       &step.parameters)) {
-      out << ":c2(" << p->clause_size_limit << ','
-          << p->occurrence_limit << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::ParityConsequenceParameters>(&step.parameters)) {
-      out << ":parity-consequence(" << p->maximum_clauses << ','
-          << p->maximum_groups << ',' << p->selection_work << ','
-          << p->intermediate_width << ',' << p->source_count << ','
-          << p->output_width << ',' << p->descending << ','
-          << p->maximum_proof_additions << ',' << p->maximum_tree_variables
-          << ',' << p->consequence << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::CongruenceParameters>(
-                       &step.parameters)) {
-      out << ":congruence(" << p->and_arity_limit << ','
-          << p->gate_count_limit << ',' << p->xor_arity_limit << ','
-          << static_cast<unsigned>(p->binary_watch_order) << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::InstantiateParameters>(
-                       &step.parameters)) {
-      out << ":instantiate(" << p->minimum_clause_size << ','
-          << p->occurrence_limit << ',' << p->minimum_unassigned << ','
-          << p->include_redundant << ',' << p->new_material_threshold << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::BackboneParameters>(
-                       &step.parameters)) {
-      out << ":backbone(" << p->initial_rounds << ','
-          << p->maximum_rounds << ')';
-    } else if (const auto *p = std::get_if<SweepLimits>(&step.parameters)) {
-      out << ":sweep(" << p->max_depth << ',' << p->max_depth_ceiling << ','
-          << p->max_env_vars << ',' << p->max_env_vars_ceiling << ','
-          << p->max_env_clauses << ',' << p->max_env_clauses_ceiling << ','
-          << p->max_candidates << ',' << p->env_ticks << ','
-          << p->max_proof_steps << ',' << p->max_seeds << ','
-          << p->round_ticks << ',' << p->strip_false << ','
-          << p->measure_closure << ',' << p->full_partition << ','
-          << p->skip_embedded_fixed << ',' << p->flip_rounds << ','
-          << p->resume << ',' << p->force_general_proof << ')';
-    } else if (const auto *p =
-                   std::get_if<strategy::VivifyParameters>(&step.parameters)) {
-      out << ":vivify(" << unsigned(p->scope) << ',' << p->reuse << ','
-          << p->flush << ',' << p->irredundant_sort_ratio << ')';
-    } else {
+    if (!strategy::serialize_common_parameters(
+            out, step.parameters,
+            strategy::CommonParameterFormat::DefaultConfiguration)) {
       out << ":inherit";
     }
   }

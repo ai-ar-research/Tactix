@@ -1,5 +1,6 @@
 #include "strategy/random_online.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "strategy/common_parameter_serialization.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -2408,34 +2409,11 @@ std::string serialize_online_strategy_program(
           << p->eager_subsume << ',' << p->jump_reasons << ','
           << p->jump_reasons_bigbig << ',' << p->shrink_glue_promote << ','
           << p->bump_extension_reasons << ')';
-    else if (const auto *p = std::get_if<BveParameters>(&step.parameters))
-      out << ":bve5(" << p->gate_mask << ',' << p->growth_bound << ','
-          << p->occurrence_limit << ',' << p->clause_size_limit << ','
-          << p->xor_arity_limit << ',' << p->resolvent_size_limit << ','
-          << p->backward_occurrence_limit << ',' << p->definition_budget << ','
-          << p->definition_cores << ','
-          << p->definition_core_budget_multiplier << ',' << p->backward << ','
-          << static_cast<unsigned>(p->candidate_scope) << ','
-          << p->resolvent_count_limit << ','
-          << static_cast<unsigned>(p->traversal) << ','
-          << p->on_the_fly_strengthening << ')';
-    else if (const auto *p =
-                 std::get_if<SubsumeForwardParameters>(&step.parameters))
-      out << ":c1(" << p->clause_size_limit << ','
-          << p->large_occurrence_limit << ','
-          << p->binary_occurrence_limit << ')';
-    else if (const auto *p =
-                 std::get_if<StrengthenParameters>(&step.parameters))
-      out << ":c2(" << p->clause_size_limit << ',' << p->occurrence_limit
-          << ')';
-    else if (const auto *p =
-                 std::get_if<ParityConsequenceParameters>(&step.parameters))
-      out << ":parity-consequence(" << p->maximum_clauses << ','
-          << p->maximum_groups << ',' << p->selection_work << ','
-          << p->intermediate_width << ',' << p->source_count << ','
-          << p->output_width << ',' << p->descending << ','
-          << p->maximum_proof_additions << ',' << p->maximum_tree_variables
-          << ',' << p->consequence << ')';
+    else if (serialize_common_parameters(
+                 out, step.parameters,
+                 CommonParameterFormat::OnlineProgram)) {
+      // Serialized by the common stable-text owner.
+    }
     else if (const auto *p =
                  std::get_if<AffineConsequenceParameters>(&step.parameters)) {
       if (p->semantics ==
@@ -2651,40 +2629,6 @@ std::string serialize_online_strategy_program(
       out << ":semantic-variable-advice1(" << p->maximum_variables << ','
           << p->maximum_priority_sum << ',' << p->existing_theory_priority
           << ',' << p->introduced_theory_priority << ')';
-    else if (const auto *p =
-                 std::get_if<CongruenceParameters>(&step.parameters))
-      out << ":congruence(" << p->and_arity_limit << ','
-          << p->gate_count_limit << ',' << p->xor_arity_limit << ')';
-    else if (const auto *p =
-                 std::get_if<InstantiateParameters>(&step.parameters))
-      out << ":instantiate(" << p->minimum_clause_size << ','
-          << p->occurrence_limit << ',' << p->minimum_unassigned << ','
-          << p->include_redundant << ',' << p->new_material_threshold << ')';
-    else if (const auto *p =
-                 std::get_if<BackboneParameters>(&step.parameters))
-      out << ":backbone(" << p->initial_rounds << ','
-          << p->maximum_rounds << ')';
-    else if (const auto *p = std::get_if<SweepParameters>(&step.parameters))
-      out << ":sweep(" << p->max_depth << ',' << p->max_depth_ceiling << ','
-          << p->max_env_vars << ',' << p->max_env_vars_ceiling << ','
-          << p->max_env_clauses << ',' << p->max_env_clauses_ceiling << ','
-          << p->max_candidates << ',' << p->env_ticks << ','
-          << p->max_proof_steps << ',' << p->max_seeds << ','
-          << p->round_ticks << ',' << p->strip_false << ','
-          << p->measure_closure << ',' << p->full_partition << ','
-          << p->skip_embedded_fixed << ',' << p->flip_rounds << ','
-          << p->resume << ',' << p->force_general_proof << ')';
-    else if (const auto *p =
-                 std::get_if<VivifyParameters>(&step.parameters))
-    {
-      out << ":vivify(" << unsigned(p->scope) << ',' << p->reuse << ','
-          << p->flush << ',' << p->irredundant_sort_ratio;
-      // The band ledger is appended only when set, so band-free programs keep
-      // their established serialization.
-      if (p->band || p->band_budget || p->band_offset)
-        out << ',' << p->band << ',' << p->band_budget << ',' << p->band_offset;
-      out << ')';
-    }
     else if (const auto *p = std::get_if<BceParameters>(&step.parameters))
       out << ":bce(" << p->occurrence_limit << ')';
     else if (const auto *p =
