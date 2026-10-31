@@ -3,6 +3,7 @@
 #include "rules/structural_action_guard.hpp"
 
 #include "proof/proof.hpp"
+#include "strategy/action_status_mapping.hpp"
 #include "strategy/action_status_statistics.hpp"
 
 #include <algorithm>
@@ -410,21 +411,17 @@ tseitin_cycle_live::Request live_request(
 
 TseitinCycleBreakingStatus map(tseitin_cycle_live::Status status) {
   using S = tseitin_cycle_live::Status;
+  if (const auto failure =
+          strategy::map_standard_action_failure<TseitinCycleBreakingStatus>(
+              status))
+    return *failure;
   switch (status) {
   case S::Prepared:
   case S::Captured:
   case S::Applied: return TseitinCycleBreakingStatus::Applied;
-  case S::Inapplicable: return TseitinCycleBreakingStatus::Inapplicable;
-  case S::ResourceExhausted:
-    return TseitinCycleBreakingStatus::ResourceExhausted;
-  case S::Interrupted: return TseitinCycleBreakingStatus::Interrupted;
-  case S::UnsupportedProof:
-    return TseitinCycleBreakingStatus::UnsupportedProof;
-  case S::Stale: return TseitinCycleBreakingStatus::Stale;
   case S::Declined: return TseitinCycleBreakingStatus::NoStructure;
-  case S::Invalid: return TseitinCycleBreakingStatus::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 TseitinCycleBreakingStatus map(tseitin_cycle_discovery::Status status) {

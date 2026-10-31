@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_affine_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
 #include "kernel/types.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
@@ -183,29 +185,20 @@ KeyStatus prepare_keys(const Gf3AffineActionSession &session,
 }
 
 Gf3AffineActionStatus action_status(Gf3AffineLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3AffineActionStatus>(status))
+    return *failure;
   switch (status) {
   case Gf3AffineLiveStatus::Applied:
     return Gf3AffineActionStatus::Applied;
-  case Gf3AffineLiveStatus::Invalid:
-    return Gf3AffineActionStatus::Invalid;
-  case Gf3AffineLiveStatus::Inapplicable:
-    return Gf3AffineActionStatus::Inapplicable;
   case Gf3AffineLiveStatus::NoStructure:
     return Gf3AffineActionStatus::NoStructure;
   case Gf3AffineLiveStatus::NoConsequence:
     return Gf3AffineActionStatus::NoConsequence;
   case Gf3AffineLiveStatus::Duplicate:
     return Gf3AffineActionStatus::AlreadyPublished;
-  case Gf3AffineLiveStatus::ResourceExhausted:
-    return Gf3AffineActionStatus::ResourceExhausted;
-  case Gf3AffineLiveStatus::Interrupted:
-    return Gf3AffineActionStatus::Interrupted;
-  case Gf3AffineLiveStatus::UnsupportedProof:
-    return Gf3AffineActionStatus::UnsupportedProof;
-  case Gf3AffineLiveStatus::Stale:
-    return Gf3AffineActionStatus::Stale;
+  default: std::abort();
   }
-  std::abort();
 }
 
 Gf3AffineActionOfferStatus offer_status(Gf3AffineLiveStatus status) {

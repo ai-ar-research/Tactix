@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
 #include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
@@ -209,24 +211,19 @@ bool make_initialization_journal(uint64_t owner, const AffineMatrix &matrix,
 }
 
 AffineMatrixServiceStatus live_status(MatrixLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<AffineMatrixServiceStatus>(
+              status))
+    return *failure;
   switch (status) {
   case MatrixLiveStatus::Applied: return AffineMatrixServiceStatus::Applied;
-  case MatrixLiveStatus::Inapplicable:
   case MatrixLiveStatus::UnsupportedOutcome:
     return AffineMatrixServiceStatus::Inapplicable;
-  case MatrixLiveStatus::ResourceExhausted:
-    return AffineMatrixServiceStatus::ResourceExhausted;
-  case MatrixLiveStatus::Interrupted:
-    return AffineMatrixServiceStatus::Interrupted;
-  case MatrixLiveStatus::UnsupportedProof:
-    return AffineMatrixServiceStatus::UnsupportedProof;
-  case MatrixLiveStatus::Stale: return AffineMatrixServiceStatus::Stale;
-  case MatrixLiveStatus::Invalid:
   case MatrixLiveStatus::Prepared:
   case MatrixLiveStatus::AlreadyApplied:
     return AffineMatrixServiceStatus::Invalid;
+  default: return AffineMatrixServiceStatus::Invalid;
   }
-  return AffineMatrixServiceStatus::Invalid;
 }
 
 void record_init(Kernel &kernel, const AffineMatrixInitResult &result) {

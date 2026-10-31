@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/gf3_general_row_live.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
@@ -46,27 +48,20 @@ Gf3AffineLiveRequest owner_request(const Gf3GeneralRowLiveLimits &limits) {
 }
 
 Gf3GeneralRowLiveStatus owner_status(Gf3AffineLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3GeneralRowLiveStatus>(
+              status))
+    return *failure;
   switch (status) {
   case Gf3AffineLiveStatus::Applied:
     return Gf3GeneralRowLiveStatus::Ready;
-  case Gf3AffineLiveStatus::Inapplicable:
-    return Gf3GeneralRowLiveStatus::Inapplicable;
   case Gf3AffineLiveStatus::NoStructure:
   case Gf3AffineLiveStatus::NoConsequence:
     return Gf3GeneralRowLiveStatus::NoStructure;
-  case Gf3AffineLiveStatus::ResourceExhausted:
-    return Gf3GeneralRowLiveStatus::ResourceExhausted;
-  case Gf3AffineLiveStatus::Interrupted:
-    return Gf3GeneralRowLiveStatus::Interrupted;
-  case Gf3AffineLiveStatus::UnsupportedProof:
-    return Gf3GeneralRowLiveStatus::UnsupportedProof;
-  case Gf3AffineLiveStatus::Stale:
-    return Gf3GeneralRowLiveStatus::Stale;
-  case Gf3AffineLiveStatus::Invalid:
   case Gf3AffineLiveStatus::Duplicate:
     return Gf3GeneralRowLiveStatus::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 Gf3GeneralRowLiveStatus planner_status(gf3_general_row::Status status) {

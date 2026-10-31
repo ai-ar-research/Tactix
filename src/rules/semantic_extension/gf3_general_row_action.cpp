@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
 #include "strategy/action_status_statistics.hpp"
 
 #include "rules/structural_action_guard.hpp"
@@ -45,22 +46,18 @@ void accumulate(Gf3GeneralRowLiveEffort &target,
 
 Gf3GeneralRowActionStatus status(Gf3GeneralRowLiveStatus value) {
   using S = Gf3GeneralRowLiveStatus;
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3GeneralRowActionStatus>(
+              value))
+    return *failure;
   switch (value) {
-  case S::Invalid: return Gf3GeneralRowActionStatus::Invalid;
-  case S::Inapplicable: return Gf3GeneralRowActionStatus::Inapplicable;
   case S::NoStructure: return Gf3GeneralRowActionStatus::NoStructure;
   case S::NoConsequence: return Gf3GeneralRowActionStatus::NoConsequence;
   case S::Duplicate: return Gf3GeneralRowActionStatus::AlreadyPublished;
-  case S::ResourceExhausted:
-    return Gf3GeneralRowActionStatus::ResourceExhausted;
-  case S::Interrupted: return Gf3GeneralRowActionStatus::Interrupted;
-  case S::UnsupportedProof:
-    return Gf3GeneralRowActionStatus::UnsupportedProof;
-  case S::Stale: return Gf3GeneralRowActionStatus::Stale;
   case S::Ready:
   case S::Applied: return Gf3GeneralRowActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 bool retainable(const Gf3GeneralRowActionSelection &selection,

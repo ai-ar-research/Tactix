@@ -1,5 +1,6 @@
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
 #include "strategy/action_status_statistics.hpp"
 
 #include "rules/structural_action_guard.hpp"
@@ -49,26 +50,23 @@ gf3_gaussian_live::Request request(const Kernel &kernel,
 
 Gf3GaussianActionStatus status(gf3_gaussian_live::Status value) {
   using S = gf3_gaussian_live::Status;
+  if (const auto failure =
+          strategy::map_standard_action_failure<Gf3GaussianActionStatus>(
+              value))
+    return *failure;
   switch (value) {
   case S::Applied: return Gf3GaussianActionStatus::Applied;
-  case S::Inapplicable: return Gf3GaussianActionStatus::Inapplicable;
   case S::NoStructure: return Gf3GaussianActionStatus::NoStructure;
   case S::NoSupportedOutcome:
     return Gf3GaussianActionStatus::NoSupportedOutcome;
-  case S::ResourceExhausted:
-    return Gf3GaussianActionStatus::ResourceExhausted;
-  case S::Interrupted: return Gf3GaussianActionStatus::Interrupted;
-  case S::UnsupportedProof:
   case S::UnsupportedProofSplit:
     return Gf3GaussianActionStatus::UnsupportedProof;
-  case S::Stale: return Gf3GaussianActionStatus::Stale;
   case S::Duplicate:
   case S::AlreadyApplied:
     return Gf3GaussianActionStatus::AlreadyPublished;
   case S::Prepared: return Gf3GaussianActionStatus::Applied;
-  case S::Invalid: return Gf3GaussianActionStatus::Invalid;
+  default: std::abort();
   }
-  std::abort();
 }
 
 bool valid_identity(const std::string &identity) {

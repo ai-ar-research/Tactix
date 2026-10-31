@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
 #include "rules/structural_action_guard.hpp"
 #include "rules/semantic_extension/csp_domain_identity.hpp"
 #include "rules/semantic_extension/csp_live_domain.hpp"
@@ -71,27 +73,18 @@ std::vector<std::vector<int32_t>> owner_domains(
 }
 
 NaryCspEqualityActionStatus live_status(NaryCspEqualityLiveStatus status) {
+  if (const auto failure = strategy::map_standard_action_failure<
+          NaryCspEqualityActionStatus>(status))
+    return *failure;
   switch (status) {
-  case NaryCspEqualityLiveStatus::Invalid:
-    return NaryCspEqualityActionStatus::Invalid;
-  case NaryCspEqualityLiveStatus::Inapplicable:
-    return NaryCspEqualityActionStatus::Inapplicable;
   case NaryCspEqualityLiveStatus::NoConsequence:
     return NaryCspEqualityActionStatus::NoConsequence;
-  case NaryCspEqualityLiveStatus::ResourceExhausted:
-    return NaryCspEqualityActionStatus::ResourceExhausted;
-  case NaryCspEqualityLiveStatus::Interrupted:
-    return NaryCspEqualityActionStatus::Interrupted;
-  case NaryCspEqualityLiveStatus::UnsupportedProof:
-    return NaryCspEqualityActionStatus::UnsupportedProof;
-  case NaryCspEqualityLiveStatus::Stale:
-    return NaryCspEqualityActionStatus::Stale;
   case NaryCspEqualityLiveStatus::Duplicate:
     return NaryCspEqualityActionStatus::AlreadyPublished;
   case NaryCspEqualityLiveStatus::Applied:
     return NaryCspEqualityActionStatus::Applied;
+  default: return NaryCspEqualityActionStatus::Invalid;
   }
-  return NaryCspEqualityActionStatus::Invalid;
 }
 
 NaryCspEqualityKey key_of(const NaryCspEqualityActionSelection &selection) {

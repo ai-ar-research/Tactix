@@ -1,5 +1,7 @@
 #include "rules/semantic_extension/affine_basis_action.hpp"
 
+#include "strategy/action_status_mapping.hpp"
+
 #include "rules/structural_action_guard.hpp"
 
 #include "kernel/types.hpp"
@@ -121,27 +123,19 @@ MergeStatus merge_new_keys(const AffineBasisActionSession &session,
 }
 
 AffineBasisActionStatus action_status(AffineBasisLiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<AffineBasisActionStatus>(
+              status))
+    return *failure;
   switch (status) {
-  case AffineBasisLiveStatus::Invalid:
-    return AffineBasisActionStatus::Invalid;
-  case AffineBasisLiveStatus::Inapplicable:
-    return AffineBasisActionStatus::Inapplicable;
   case AffineBasisLiveStatus::NoStructure:
     return AffineBasisActionStatus::NoStructure;
-  case AffineBasisLiveStatus::ResourceExhausted:
-    return AffineBasisActionStatus::ResourceExhausted;
-  case AffineBasisLiveStatus::Interrupted:
-    return AffineBasisActionStatus::Interrupted;
-  case AffineBasisLiveStatus::UnsupportedProof:
-    return AffineBasisActionStatus::UnsupportedProof;
-  case AffineBasisLiveStatus::Stale:
-    return AffineBasisActionStatus::Stale;
   case AffineBasisLiveStatus::Prepared:
     return AffineBasisActionStatus::Invalid;
   case AffineBasisLiveStatus::Applied:
     return AffineBasisActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 AffineBasisLiveRequest make_request(const Kernel &kernel,

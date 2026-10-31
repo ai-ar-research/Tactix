@@ -3,6 +3,7 @@
 
 #include "rules/semantic_extension/direct_csp_action_limits.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
+#include "strategy/action_status_mapping.hpp"
 #include "strategy/semantic_variable.hpp"
 
 #include <cstddef>
@@ -135,29 +136,20 @@ struct DirectCspSupportActionResult {
 // their corresponding action fields.
 inline DirectCspSupportActionStatus direct_csp_support_action_status(
     DirectCspSupportLiveStatus status) {
+  if (const auto failure = strategy::map_standard_action_failure<
+          DirectCspSupportActionStatus>(status))
+    return *failure;
   switch (status) {
   case DirectCspSupportLiveStatus::Applied:
     return DirectCspSupportActionStatus::Applied;
-  case DirectCspSupportLiveStatus::Invalid:
-    return DirectCspSupportActionStatus::Invalid;
-  case DirectCspSupportLiveStatus::Inapplicable:
-    return DirectCspSupportActionStatus::Inapplicable;
   case DirectCspSupportLiveStatus::NoStructure:
     return DirectCspSupportActionStatus::NoStructure;
   case DirectCspSupportLiveStatus::NoConsequence:
     return DirectCspSupportActionStatus::NoConsequence;
   case DirectCspSupportLiveStatus::Duplicate:
     return DirectCspSupportActionStatus::AlreadyPublished;
-  case DirectCspSupportLiveStatus::ResourceExhausted:
-    return DirectCspSupportActionStatus::ResourceExhausted;
-  case DirectCspSupportLiveStatus::Interrupted:
-    return DirectCspSupportActionStatus::Interrupted;
-  case DirectCspSupportLiveStatus::UnsupportedProof:
-    return DirectCspSupportActionStatus::UnsupportedProof;
-  case DirectCspSupportLiveStatus::Stale:
-    return DirectCspSupportActionStatus::Stale;
+  default: std::abort();
   }
-  std::abort();
 }
 
 inline void direct_csp_support_action_absorb_live_effort(

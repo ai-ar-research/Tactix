@@ -1,6 +1,7 @@
 #include "rules/direct_php/direct_php_action.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "strategy/action_status_mapping.hpp"
 #include "strategy/action_status_statistics.hpp"
 
 #include <algorithm>
@@ -56,24 +57,19 @@ bool same_certificate_limits(const direct_php_certificate::Limits &a,
 }
 
 DirectPhpActionStatus action_status(LiveStatus status) {
+  if (const auto failure =
+          strategy::map_standard_action_failure<DirectPhpActionStatus>(status))
+    return *failure;
   switch (status) {
-  case LiveStatus::Invalid: return DirectPhpActionStatus::Invalid;
-  case LiveStatus::Inapplicable: return DirectPhpActionStatus::Inapplicable;
   case LiveStatus::NotRecognized:
     return DirectPhpActionStatus::NotRecognized;
   case LiveStatus::Malformed: return DirectPhpActionStatus::Malformed;
   case LiveStatus::Ambiguous: return DirectPhpActionStatus::Ambiguous;
-  case LiveStatus::ResourceExhausted:
-    return DirectPhpActionStatus::ResourceExhausted;
-  case LiveStatus::Interrupted: return DirectPhpActionStatus::Interrupted;
-  case LiveStatus::UnsupportedProof:
-    return DirectPhpActionStatus::UnsupportedProof;
-  case LiveStatus::Stale: return DirectPhpActionStatus::Stale;
   case LiveStatus::Admitted: return DirectPhpActionStatus::Invalid;
   case LiveStatus::Prepared: return DirectPhpActionStatus::Prepared;
   case LiveStatus::Applied: return DirectPhpActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 direct_php_live::Request live_request(const DirectPhpActionLimits &limits) {

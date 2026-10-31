@@ -3,6 +3,7 @@
 #include "rules/structural_action_guard.hpp"
 
 #include "proof/proof.hpp"
+#include "strategy/action_status_mapping.hpp"
 #include "strategy/action_status_statistics.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
@@ -42,49 +43,31 @@ AffineLiveRequest request_from_kernel(Kernel &kernel, uint64_t action_id,
 }
 
 AffineConsequenceActionStatus status(AffineLiveStatus value) {
+  if (const auto failure = strategy::map_standard_action_failure<
+          AffineConsequenceActionStatus>(value))
+    return *failure;
   switch (value) {
-  case AffineLiveStatus::Invalid:
-    return AffineConsequenceActionStatus::Invalid;
-  case AffineLiveStatus::Inapplicable:
-    return AffineConsequenceActionStatus::Inapplicable;
   case AffineLiveStatus::NoStructure:
     return AffineConsequenceActionStatus::NoStructure;
-  case AffineLiveStatus::ResourceExhausted:
-    return AffineConsequenceActionStatus::ResourceExhausted;
-  case AffineLiveStatus::Interrupted:
-    return AffineConsequenceActionStatus::Interrupted;
-  case AffineLiveStatus::UnsupportedProof:
-    return AffineConsequenceActionStatus::UnsupportedProof;
-  case AffineLiveStatus::Stale:
-    return AffineConsequenceActionStatus::Stale;
   case AffineLiveStatus::Applied:
     return AffineConsequenceActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 AffineConsequenceActionStatus status(AffineBasisActionStatus value) {
+  if (const auto failure = strategy::map_standard_action_failure<
+          AffineConsequenceActionStatus>(value))
+    return *failure;
   switch (value) {
-  case AffineBasisActionStatus::Invalid:
-    return AffineConsequenceActionStatus::Invalid;
-  case AffineBasisActionStatus::Inapplicable:
-    return AffineConsequenceActionStatus::Inapplicable;
   case AffineBasisActionStatus::NoStructure:
     return AffineConsequenceActionStatus::NoStructure;
-  case AffineBasisActionStatus::ResourceExhausted:
-    return AffineConsequenceActionStatus::ResourceExhausted;
-  case AffineBasisActionStatus::Interrupted:
-    return AffineConsequenceActionStatus::Interrupted;
-  case AffineBasisActionStatus::UnsupportedProof:
-    return AffineConsequenceActionStatus::UnsupportedProof;
-  case AffineBasisActionStatus::Stale:
-    return AffineConsequenceActionStatus::Stale;
   case AffineBasisActionStatus::AlreadyPublished:
     return AffineConsequenceActionStatus::AlreadyPublished;
   case AffineBasisActionStatus::Applied:
     return AffineConsequenceActionStatus::Applied;
+  default: std::abort();
   }
-  std::abort();
 }
 
 struct RecordAffineConsequence {
