@@ -123,8 +123,6 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
         return true;
       }))
     return false;
-  std::sort(binaries.begin(), binaries.end());
-  binaries.erase(std::unique(binaries.begin(), binaries.end()), binaries.end());
   std::sort(ternaries.begin(), ternaries.end());
   ternaries.erase(std::unique(ternaries.begin(), ternaries.end()), ternaries.end());
   std::vector<uint8_t> selector_literal(2 * variables, 0);
@@ -151,6 +149,10 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
   }
   if (candidates.empty())
     return false;
+  // Only the selector-row pass below reads the binaries; sorting them after
+  // the candidate check spares formulas without a candidate the whole sort.
+  std::sort(binaries.begin(), binaries.end());
+  binaries.erase(std::unique(binaries.begin(), binaries.end()), binaries.end());
   if (!clauses(k, work, [&](const auto &clause) {
         if (clause.size() < 2)
           return true;
