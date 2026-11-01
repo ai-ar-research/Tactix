@@ -174,22 +174,6 @@ TACTIX_REGISTER_RULE(NaryCspEqualityAmo, RuleTier::Inprocess,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 namespace {
 
-const char *journal_outcome(ApplyResult result) {
-  switch (result) {
-  case ApplyResult::Ok:
-    return "applied";
-  case ApplyResult::NoOp:
-    return "no-op";
-  case ApplyResult::Conflict:
-    return "conflict";
-  case ApplyResult::Sat:
-    return "sat";
-  case ApplyResult::Unsat:
-    return "refuted";
-  }
-  return "unknown";
-}
-
 void journal_dispatch(const RuleVTable &vt, const Kernel &k,
                       const char *candidate, uint64_t pre_digest,
                       uint64_t formula_epoch, uint64_t root_epoch,
@@ -217,7 +201,7 @@ void journal_dispatch(const RuleVTable &vt, const Kernel &k,
     record.guards.push_back('=');
     record.guards.push_back(fact.value ? '1' : '0');
   }
-  record.outcome = eligibility ? journal_outcome(result) : "declined";
+  record.outcome = eligibility ? rule_journal_outcome(result) : "declined";
   record.decline = "none";
   if (!eligibility) {
     for (const RuleEligibility::Fact &fact : eligibility.facts)

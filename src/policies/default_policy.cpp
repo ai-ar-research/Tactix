@@ -2333,23 +2333,6 @@ const char *effort_currency(const char *name) {
   return "probing-rule-ticks";
 }
 
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-const char *journal_result(ApplyResult result) {
-  switch (result) {
-  case ApplyResult::Ok:
-    return "applied";
-  case ApplyResult::NoOp:
-    return "no-op";
-  case ApplyResult::Conflict:
-    return "conflict";
-  case ApplyResult::Sat:
-    return "sat";
-  case ApplyResult::Unsat:
-    return "refuted";
-  }
-  return "unknown";
-}
-#endif
 
 execution::NativeFeedbackSpec slot_feedback(
     const Kernel &k, const DefaultInprocessScheduler::SlotEntry &entry,
@@ -7306,7 +7289,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         record.pre_digest = invocation_pre_digest;
         record.guards = std::string("admitted=") + (admitted ? '1' : '0');
         record.antecedents = "slot-ledger";
-        record.outcome = admitted ? journal_result(ctx.last_result) : "declined";
+        record.outcome = admitted ? rule_journal_outcome(ctx.last_result) : "declined";
         record.decline = decline;
         record.deltas = invocation_pre_digest == post_digest
                             ? "none"

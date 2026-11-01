@@ -3,6 +3,7 @@
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 
 #include "kernel/kernel.hpp"
+#include "rules/registry.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -293,6 +294,22 @@ int rule_journal_selected_literal() {
 uint64_t rule_journal_selected_clause_id() {
   open_journal();
   return state.clause_id;
+}
+
+const char *rule_journal_outcome(ApplyResult result) {
+  switch (result) {
+  case ApplyResult::Ok:
+    return "applied";
+  case ApplyResult::NoOp:
+    return "no-op";
+  case ApplyResult::Conflict:
+    return "conflict";
+  case ApplyResult::Sat:
+    return "sat";
+  case ApplyResult::Unsat:
+    return "refuted";
+  }
+  return "unknown";
 }
 
 void rule_journal_emit(const Kernel &k, const RuleJournalRecord &record) {
