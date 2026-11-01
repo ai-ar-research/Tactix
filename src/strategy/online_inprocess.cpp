@@ -163,6 +163,34 @@ bool valid_post_application(PostApplication value) {
   return false;
 }
 
+// Whether a step or sequence repeats after `passes` passes. A fixpoint
+// repeat that stops reports its scoped fixpoint or exhausted ceiling.
+bool repeat_after_pass(const Kernel &k, const RepeatSpec &spec,
+                       uint64_t passes, bool progress, InvocationResult &out) {
+  bool repeat = false;
+  switch (spec.mode) {
+  case RepeatMode::Once:
+    break;
+  case RepeatMode::Count:
+    repeat = passes < spec.limit;
+    break;
+  case RepeatMode::UntilScopedFixpoint:
+  case RepeatMode::UntilSizeScaledFixpoint:
+    if (!progress) {
+      out.status = InvocationStatus::ScopedFixpoint;
+      out.selection_complete = true;
+    } else if (const uint64_t limit = repeat_round_limit(k, spec);
+               !limit || passes < limit) {
+      repeat = true;
+    } else {
+      out.status = InvocationStatus::BudgetExhausted;
+      out.selection_complete = true;
+    }
+    break;
+  }
+  return repeat;
+}
+
 ActionParameterMetadata parameter_metadata(const OnlineInvocation &step,
                                            bool check_validity = false) {
   return std::visit(
@@ -509,66 +537,55 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
     if (step.rule == "DirectPhpRefutation" &&
         !std::holds_alternative<DirectPhpRefutationParameters>(step.parameters))
       return reject("DirectPhpRefutation requires exact typed limits");
+    // Lucky model parameters select one explicit Lucky instance.
+    const auto lucky_instance = [&](std::initializer_list<uint64_t> admitted) {
+      return step.granularity == InvocationGranularity::OneInstance &&
+             step.instances.size() == 1 &&
+             std::find(admitted.begin(), admitted.end(), step.instances[0]) !=
+                 admitted.end();
+    };
     if (std::holds_alternative<ParityModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances.size() != 1 ||
-         (step.instances[0] != 6 &&
-          step.instances[0] != LUCKY_STARTUP_PARITY &&
-          step.instances[0] != LUCKY_PARITY_PROOF)))
+        !lucky_instance({6, LUCKY_STARTUP_PARITY, LUCKY_PARITY_PROOF}))
       return reject("Lucky parity parameters require instance 6, 19, or 23");
     if (std::holds_alternative<OnehotModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances.size() != 1 ||
-         (step.instances[0] != 7 && step.instances[0] != 9 &&
-          step.instances[0] != LUCKY_EXACT_ONE_PROOF)))
+        !lucky_instance({7, 9, LUCKY_EXACT_ONE_PROOF}))
       return reject("Lucky onehot parameters require instance 7, 9, or 24");
     if (std::holds_alternative<AffineModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{8}))
+        !lucky_instance({8}))
       return reject("Lucky affine-model parameters require instance 8");
     if (std::holds_alternative<BalancedSignatureModelParameters>(
             step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{10}))
+        !lucky_instance({10}))
       return reject(
           "Lucky balanced-signature parameters require instance 10");
     if (std::holds_alternative<FermatModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{11}))
+        !lucky_instance({11}))
       return reject("Lucky Fermat parameters require instance 11");
     if (std::holds_alternative<LookupCircuitModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{13}))
+        !lucky_instance({13}))
       return reject("Lucky lookup-circuit parameters require instance 13");
     if (std::holds_alternative<SimonModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{14}))
+        !lucky_instance({14}))
       return reject("Lucky Simon parameters require instance 14");
     if (std::holds_alternative<StconnProofParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{15}))
+        !lucky_instance({15}))
       return reject("Lucky stconn parameters require instance 15");
     if (std::holds_alternative<SignedCardinalityProofParameters>(
             step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{16}))
+        !lucky_instance({16}))
       return reject("Lucky signed-cardinality parameters require instance 16");
     if (std::holds_alternative<ExactCoverModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{17}))
+        !lucky_instance({17}))
       return reject("Lucky exact-cover parameters require instance 17");
     if (std::holds_alternative<IndependentSetModelParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances != std::vector<uint64_t>{18}))
+        !lucky_instance({18}))
       return reject("Lucky independent-set parameters require instance 18");
     if (std::holds_alternative<GraphLabelingParameters>(step.parameters) &&
         (step.granularity != InvocationGranularity::OneInstance ||
          (step.instances.size() != 1 || !lucky_graph_instance(step.instances[0]))))
       return reject("Lucky graph-labeling parameters require instance 21, 26 or 27");
     if (std::holds_alternative<RamseyStartupParameters>(step.parameters) &&
-        (step.granularity != InvocationGranularity::OneInstance ||
-         step.instances !=
-             std::vector<uint64_t>{LUCKY_STARTUP_RAMSEY}))
+        !lucky_instance({LUCKY_STARTUP_RAMSEY}))
       return reject("Lucky Ramsey parameters require instance 22");
     if (const char *message =
             parameter_metadata(step, true).invalid_message)
@@ -859,6 +876,18 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
                       return !strategy::valid_local_search_kind(kind);
                     }))
       return reject("LocalSearchGuidance kind is retired");
+    const auto structured_theory_action = [&] {
+      return !step.affine_basis_instances.empty() ||
+             step.rule == "Gf3AffineConsequence" ||
+             step.rule == "DirectCspSupport" ||
+             step.rule == "NaryCspEquality" ||
+             step.rule == "NaryCspEqualityTransitivity" ||
+             step.rule == "NaryCspEqualityAmo" ||
+             step.rule == "Gf3GaussianConsequence" ||
+             step.rule == "Gf3GeneralRowConsequence" ||
+             step.rule == "CardinalitySearch" ||
+             step.rule == "TseitinCycleBreaking";
+    };
     switch (step.granularity) {
     case InvocationGranularity::OneInstance:
       if ((structured.kinds && structured.size != 1) ||
@@ -876,31 +905,13 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         return reject("explicit selection contains the canonical whole-rule payload");
       break;
     case InvocationGranularity::CompleteCurrentPass:
-      if (!step.affine_basis_instances.empty() ||
-          step.rule == "Gf3AffineConsequence" ||
-          step.rule == "DirectCspSupport" ||
-          step.rule == "NaryCspEquality" ||
-          step.rule == "NaryCspEqualityTransitivity" ||
-          step.rule == "NaryCspEqualityAmo" ||
-          step.rule == "Gf3GaussianConsequence" ||
-          step.rule == "Gf3GeneralRowConsequence" ||
-          step.rule == "CardinalitySearch" ||
-          step.rule == "TseitinCycleBreaking")
+      if (structured_theory_action())
         return reject("structured theory action requires an explicit payload");
       if (!step.instances.empty() || structured.kinds)
         return reject("complete pass carries explicit payloads");
       break;
     case InvocationGranularity::CanonicalApplication:
-      if (!step.affine_basis_instances.empty() ||
-          step.rule == "Gf3AffineConsequence" ||
-          step.rule == "DirectCspSupport" ||
-          step.rule == "NaryCspEquality" ||
-          step.rule == "NaryCspEqualityTransitivity" ||
-          step.rule == "NaryCspEqualityAmo" ||
-          step.rule == "Gf3GaussianConsequence" ||
-          step.rule == "Gf3GeneralRowConsequence" ||
-          step.rule == "CardinalitySearch" ||
-          step.rule == "TseitinCycleBreaking")
+      if (structured_theory_action())
         return reject("structured theory action has no canonical payload");
       if (!step.instances.empty() || structured.kinds)
         return reject("canonical application carries explicit payloads");
@@ -1481,27 +1492,8 @@ bool OnlineStrategyExecutor::finish_step_pass(const Kernel &k,
   const bool progress = runtime.pass_progress;
   sequence_progress_ |= progress;
 
-  bool repeat = false;
-  switch (step.repeat.mode) {
-  case RepeatMode::Once:
-    break;
-  case RepeatMode::Count:
-    repeat = runtime.passes < step.repeat.limit;
-    break;
-  case RepeatMode::UntilScopedFixpoint:
-  case RepeatMode::UntilSizeScaledFixpoint:
-    if (!progress) {
-      out.status = InvocationStatus::ScopedFixpoint;
-      out.selection_complete = true;
-    } else if (const uint64_t limit = repeat_round_limit(k, step.repeat);
-               !limit || runtime.passes < limit) {
-      repeat = true;
-    } else {
-      out.status = InvocationStatus::BudgetExhausted;
-      out.selection_complete = true;
-    }
-    break;
-  }
+  const bool repeat =
+      repeat_after_pass(k, step.repeat, runtime.passes, progress, out);
   runtime.pass_progress = false;
   if (repeat)
     return false;
@@ -1512,28 +1504,8 @@ bool OnlineStrategyExecutor::finish_step_pass(const Kernel &k,
 bool OnlineStrategyExecutor::finish_sequence(const Kernel &k,
                                              InvocationResult &out) {
   ++sequence_passes_;
-  bool repeat = false;
-  switch (program_.repeat.mode) {
-  case RepeatMode::Once:
-    break;
-  case RepeatMode::Count:
-    repeat = sequence_passes_ < program_.repeat.limit;
-    break;
-  case RepeatMode::UntilScopedFixpoint:
-  case RepeatMode::UntilSizeScaledFixpoint:
-    if (!sequence_progress_) {
-      out.status = InvocationStatus::ScopedFixpoint;
-      out.selection_complete = true;
-    } else if (const uint64_t limit = repeat_round_limit(k, program_.repeat);
-               !limit || sequence_passes_ < limit) {
-      repeat = true;
-    } else {
-      out.status = InvocationStatus::BudgetExhausted;
-      out.selection_complete = true;
-    }
-    break;
-  }
-  if (repeat) {
+  if (repeat_after_pass(k, program_.repeat, sequence_passes_,
+                        sequence_progress_, out)) {
     step_index_ = 0;
     for (Runtime &runtime : runtime_) {
       runtime.passes = 0;
@@ -1629,6 +1601,26 @@ InvocationResult OnlineStrategyExecutor::advance(
       }
       runtime.pass_progress |= progress;
     }
+    // A drained selection ends the pass unless truncated discovery keeps it
+    // pending. True when `out` is to be reported now.
+    const auto end_pass = [&] {
+      if (runtime.selection_truncated) {
+        out.status = InvocationStatus::BudgetExhausted;
+        out.budget_status = BudgetStatus::Exhausted;
+        out.discovery_exhausted = runtime.selection_discovery_exhausted;
+        out.selection_complete = false;
+        out.step_id = step.id;
+        out.after = state_version(k);
+        return true;
+      }
+      finish_step_pass(k, step, runtime, out);
+      if (out.status == InvocationStatus::ScopedFixpoint ||
+          out.status == InvocationStatus::BudgetExhausted) {
+        out.after = state_version(k);
+        return true;
+      }
+      return false;
+    };
     if (!runtime.selection_ready) {
       if (!prepare_selection(k, step, runtime, out, stop,
                              sr_discovery_allowance, discovery_feedback)) {
@@ -1638,21 +1630,8 @@ InvocationResult OnlineStrategyExecutor::advance(
         return out;
       }
       if (runtime.selection.empty()) {
-        if (runtime.selection_truncated) {
-          out.status = InvocationStatus::BudgetExhausted;
-          out.budget_status = BudgetStatus::Exhausted;
-          out.discovery_exhausted = runtime.selection_discovery_exhausted;
-          out.selection_complete = false;
-          out.step_id = step.id;
-          out.after = state_version(k);
+        if (end_pass())
           return out;
-        }
-        finish_step_pass(k, step, runtime, out);
-        if (out.status == InvocationStatus::ScopedFixpoint ||
-            out.status == InvocationStatus::BudgetExhausted) {
-          out.after = state_version(k);
-          return out;
-        }
         continue;
       }
     }
@@ -1667,21 +1646,8 @@ InvocationResult OnlineStrategyExecutor::advance(
         }
         continue;
       }
-      if (runtime.selection_truncated) {
-        out.status = InvocationStatus::BudgetExhausted;
-        out.budget_status = BudgetStatus::Exhausted;
-        out.discovery_exhausted = runtime.selection_discovery_exhausted;
-        out.selection_complete = false;
-        out.step_id = step.id;
-        out.after = state_version(k);
+      if (end_pass())
         return out;
-      }
-      finish_step_pass(k, step, runtime, out);
-      if (out.status == InvocationStatus::ScopedFixpoint ||
-          out.status == InvocationStatus::BudgetExhausted) {
-        out.after = state_version(k);
-        return out;
-      }
       continue;
     }
 
@@ -1744,22 +1710,34 @@ InvocationResult OnlineStrategyExecutor::advance(
     const bool generated_sr_pass =
         step.rule == "SubstitutionRedundancy" &&
         step.granularity == InvocationGranularity::CompleteCurrentPass;
+    // Record one atomic application in `out`; each branch supplies its work
+    // currency, measured work, result and selection completeness.
+    const auto record_application = [&](WorkUnit unit, uint64_t work,
+                                        ApplyResult result,
+                                        bool selection_complete) {
+      out.before = out.after;
+      out.configuration_revision = revision_;
+      out.work_unit = unit;
+      out.rule_id = rule.id;
+      out.instance = payload;
+      out.work = work;
+      out.applications = 1;
+      out.rule_result = result;
+      out.made_rule_progress = result == ApplyResult::Ok;
+      out.selection_complete = selection_complete;
+      out.budget_status = budget.charge(unit, work);
+      out.status = result == ApplyResult::NoOp
+                       ? InvocationStatus::NoChange
+                       : result == ApplyResult::Ok
+                             ? InvocationStatus::Completed
+                             : detail::terminal_status(result);
+    };
     if (explicit_fixpoint_propagation) {
       // The producer has already left BCP at a fixpoint. Preserve its staged
       // semantic candidate and state identity while still consuming this
       // explicit public action boundary and emitting raw feedback/replay.
-      out.before = out.after;
-      out.configuration_revision = revision_;
-      out.work_unit = step.work_unit;
-      out.rule_id = rule.id;
-      out.instance = payload;
-      out.work = 0;
-      out.applications = 1;
-      out.rule_result = ApplyResult::NoOp;
-      out.made_rule_progress = false;
-      out.selection_complete = runtime.cursor + 1 == runtime.selection.size();
-      out.budget_status = budget.charge(step.work_unit, 0);
-      out.status = InvocationStatus::NoChange;
+      record_application(step.work_unit, 0, ApplyResult::NoOp,
+                         runtime.cursor + 1 == runtime.selection.size());
       out.after = state_version(k);
     } else if (step.rule == "BVE") {
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
@@ -1781,22 +1759,8 @@ InvocationResult OnlineStrategyExecutor::advance(
           k, execution::RuleApplicationRequest{}, [&] {
             return execution::execute_action(k, execution::SweepRequest{limits, payload});
           }, HeuristicRulePublisher{}).result;
-      out.before = out.after;
-      out.configuration_revision = revision_;
-      out.work_unit = WorkUnit::Applications;
-      out.rule_id = rule.id;
-      out.instance = payload;
-      out.work = 1;
-      out.applications = 1;
-      out.rule_result = result;
-      out.made_rule_progress = result == ApplyResult::Ok;
-      out.selection_complete = runtime.cursor + 1 == runtime.selection.size();
-      out.budget_status = budget.charge(WorkUnit::Applications, 1);
-      out.status = result == ApplyResult::NoOp
-                       ? InvocationStatus::NoChange
-                       : result == ApplyResult::Ok
-                             ? InvocationStatus::Completed
-                             : detail::terminal_status(result);
+      record_application(WorkUnit::Applications, 1, result,
+                         runtime.cursor + 1 == runtime.selection.size());
       out.after = state_version(k);
     } else if (step.rule == "Substitute" &&
                std::holds_alternative<SubstituteParameters>(step.parameters) &&
@@ -1818,24 +1782,10 @@ InvocationResult OnlineStrategyExecutor::advance(
               return batch.result;
             });
           }, HeuristicRulePublisher{}).result;
-      out.before = out.after;
-      out.configuration_revision = revision_;
-      out.work_unit = WorkUnit::Applications;
-      out.rule_id = rule.id;
-      out.instance = payload;
-      out.work = 1;
-      out.applications = 1;
-      out.rule_result = result;
-      out.made_rule_progress = result == ApplyResult::Ok;
       // A round batch the round-effort ceiling stopped is incomplete.
-      out.selection_complete =
-          runtime.cursor + 1 == runtime.selection.size() && !round_budget_break;
-      out.budget_status = budget.charge(WorkUnit::Applications, 1);
-      out.status = result == ApplyResult::NoOp
-                       ? InvocationStatus::NoChange
-                       : result == ApplyResult::Ok
-                             ? InvocationStatus::Completed
-                             : detail::terminal_status(result);
+      record_application(WorkUnit::Applications, 1, result,
+                         runtime.cursor + 1 == runtime.selection.size() &&
+                             !round_budget_break);
       out.after = state_version(k);
     } else {
       const uint64_t propagations_before = k.stats.propagations;
@@ -2239,27 +2189,15 @@ InvocationResult OnlineStrategyExecutor::advance(
       // ranking advice is consumed. Drain it before those scopes restore the
       // caller's profile; retirement itself is representation state and is
       // always reflected in H.
-      out.before = out.after;
-      out.configuration_revision = revision_;
       SemanticVariableCandidate staged;
       if (take_staged_semantic_variable_candidate(k, staged))
         deferred_semantic_candidate = std::move(staged);
-      out.work_unit = step.work_unit;
-      out.rule_id = rule.id;
-      out.instance = payload;
-      out.work = step.work_unit == WorkUnit::Propagations
-                     ? k.stats.propagations - propagations_before
-                     : 1;
-      out.applications = 1;
-      out.rule_result = result;
-      out.made_rule_progress = result == ApplyResult::Ok;
-      out.selection_complete = runtime.cursor + 1 == runtime.selection.size();
-      out.budget_status = budget.charge(step.work_unit, out.work);
-      out.status = result == ApplyResult::NoOp
-                       ? InvocationStatus::NoChange
-                       : result == ApplyResult::Ok
-                             ? InvocationStatus::Completed
-                             : detail::terminal_status(result);
+      record_application(step.work_unit,
+                         step.work_unit == WorkUnit::Propagations
+                             ? k.stats.propagations - propagations_before
+                             : 1,
+                         result,
+                         runtime.cursor + 1 == runtime.selection.size());
       out.status = guidance_before.refine(k, result, out.status);
       const auto retain_theory_selection = [&] {
         // Recognition/proof attempts consume their one application dose even

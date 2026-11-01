@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 #include "strategy/local_search.hpp"
 #include "strategy/scoped_rule_parameters.hpp"
@@ -498,31 +499,21 @@ void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
 
-using ScopedBceParameters = ScopedRuleParameters<BceParameters>;
-using ScopedTernaryParameters = ScopedRuleParameters<TernaryParameters>;
-using ScopedFactorParameters = ScopedRuleParameters<FactorParameters>;
-using ScopedTransitiveReduceParameters =
-    ScopedRuleParameters<TransitiveReduceParameters>;
-using ScopedSubstituteParameters = ScopedRuleParameters<SubstituteParameters>;
 using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
-using ScopedReorderParameters = ScopedRuleParameters<ReorderParameters>;
 using ScopedParityModelParameters = ScopedRuleParameters<ParityModelParameters>;
 using ScopedOnehotModelParameters = ScopedRuleParameters<OnehotModelParameters>;
-using ScopedAffineModelParameters = ScopedRuleParameters<AffineModelParameters>;
 using ScopedBalancedSignatureModelParameters =
     ScopedRuleParameters<BalancedSignatureModelParameters>;
 using ScopedFermatModelParameters = ScopedRuleParameters<FermatModelParameters>;
 using ScopedLookupCircuitModelParameters =
     ScopedRuleParameters<LookupCircuitModelParameters>;
 using ScopedSimonModelParameters = ScopedRuleParameters<SimonModelParameters>;
-using ScopedExactCoverModelParameters =
-    ScopedRuleParameters<ExactCoverModelParameters>;
-using ScopedIndependentSetModelParameters =
-    ScopedRuleParameters<IndependentSetModelParameters>;
 using ScopedStconnProofParameters = ScopedRuleParameters<StconnProofParameters>;
 using ScopedSignedCardinalityProofParameters =
     ScopedRuleParameters<SignedCardinalityProofParameters>;
 
+// Installing a Walk profile also marks the work budget bounded. Restore that
+// mark after the profile, which is restored like every other family's.
 class ScopedWalkParameters {
 public:
   ScopedWalkParameters(Kernel &, const WalkParameters &);
@@ -532,19 +523,8 @@ public:
 
 private:
   Kernel &kernel_;
-  uint64_t saved_budget_;
-  uint64_t saved_seed_;
-  uint64_t saved_candidate_;
-  uint64_t saved_preparation_budget_;
-  uint32_t saved_objective_, saved_admission_;
-  uint32_t saved_algorithm_, saved_initialization_, saved_maximum_tries_;
-  uint64_t saved_flips_per_try_;
-  uint32_t saved_weight_smoothing_threshold_;
-  uint32_t saved_smoothing_old_numerator_, saved_smoothing_denominator_;
-  bool saved_aspiration_;
-  uint32_t saved_even_break_base_milli_;
-  std::vector<WalkParameters::ScorePoint> saved_score_curve_;
   bool saved_bounded_;
+  std::optional<ScopedRuleParameters<WalkParameters>> parameters_;
 };
 
 } // namespace strategy

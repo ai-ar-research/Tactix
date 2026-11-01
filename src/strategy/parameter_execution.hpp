@@ -162,27 +162,6 @@ template<> struct ParameterScopeFor<strategy::AffineMatrixInitializeParameters> 
   using type=AffineProfileScope<strategy::AffineMatrixInitializeParameters>;
 };
 
-template <> struct ParameterScopeFor<strategy::AnalyzeParameters> {
-  using type = strategy::ScopedAnalyzeParameters;
-};
-template <> struct ParameterScopeFor<strategy::SubsumeForwardParameters> {
-  using type = strategy::ScopedSubsumeForwardParameters;
-};
-template <> struct ParameterScopeFor<strategy::StrengthenParameters> {
-  using type = strategy::ScopedStrengthenParameters;
-};
-template <> struct ParameterScopeFor<strategy::CongruenceParameters> {
-  using type = strategy::ScopedCongruenceParameters;
-};
-template <> struct ParameterScopeFor<strategy::InstantiateParameters> {
-  using type = strategy::ScopedInstantiateParameters;
-};
-template <> struct ParameterScopeFor<strategy::BackboneParameters> {
-  using type = strategy::ScopedBackboneParameters;
-};
-template <> struct ParameterScopeFor<strategy::VivifyParameters> {
-  using type = strategy::ScopedVivifyParameters;
-};
 template <> struct ParameterScopeFor<strategy::WalkParameters> {
   using type = strategy::ScopedWalkParameters;
 };

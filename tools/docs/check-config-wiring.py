@@ -88,7 +88,7 @@ POLICY_BINDINGS = {
         (GUIDANCE_EXECUTION, r"parameters\.seed_candidate\s*=\s*request\.seed_candidate"),
         (GUIDANCE_EXECUTION, r"strategy::ScopedWalkParameters selected\(k, parameters\)"),
         ("src/strategy/rule_parameters.cpp", r"k\.walk_seed_candidate\s*=\s*p\.seed_candidate"),
-        ("src/strategy/rule_parameters.cpp", r"kernel_\.walk_seed_candidate\s*=\s*saved_candidate_"),
+        ("src/strategy/rule_parameters.cpp", r"result\.seed_candidate\s*=\s*k\.walk_seed_candidate"),
     ],
     "work_budget_offset": [
         (POLICY[0], r"const uint64_t spent = e\.meter\(k\) - dose_start"),

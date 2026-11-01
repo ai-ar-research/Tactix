@@ -268,43 +268,12 @@ void install_walk_guidance(
 
 ScopedWalkParameters::ScopedWalkParameters(
     Kernel &kernel, const WalkParameters &parameters)
-    : kernel_(kernel), saved_budget_(kernel.work_budget),
-      saved_seed_(kernel.walk_random_seed),
-      saved_candidate_(kernel.walk_seed_candidate),
-      saved_preparation_budget_(kernel.walk_preparation_budget),
-      saved_objective_(kernel.walk_objective),
-      saved_admission_(kernel.walk_admission),
-      saved_algorithm_(kernel.walk_algorithm),
-      saved_initialization_(kernel.walk_initialization),
-      saved_maximum_tries_(kernel.walk_maximum_tries),
-      saved_flips_per_try_(kernel.walk_flips_per_try),
-      saved_weight_smoothing_threshold_(kernel.walk_weight_smoothing_threshold),
-      saved_smoothing_old_numerator_(kernel.walk_smoothing_old_numerator),
-      saved_smoothing_denominator_(kernel.walk_smoothing_denominator),
-      saved_aspiration_(kernel.walk_aspiration),
-      saved_even_break_base_milli_(kernel.walk_even_break_base_milli),
-      saved_score_curve_(kernel.walk_score_curve),
-      saved_bounded_(kernel.work_budget_bounded) {
-  install_rule_parameters(kernel_, parameters);
+    : kernel_(kernel), saved_bounded_(kernel.work_budget_bounded) {
+  parameters_.emplace(kernel, parameters);
 }
 
 ScopedWalkParameters::~ScopedWalkParameters() {
-  kernel_.work_budget = saved_budget_;
-  kernel_.walk_random_seed = saved_seed_;
-  kernel_.walk_seed_candidate = saved_candidate_;
-  kernel_.walk_preparation_budget = saved_preparation_budget_;
-  kernel_.walk_objective = saved_objective_;
-  kernel_.walk_admission = saved_admission_;
-  kernel_.walk_algorithm = saved_algorithm_;
-  kernel_.walk_initialization = saved_initialization_;
-  kernel_.walk_maximum_tries = saved_maximum_tries_;
-  kernel_.walk_flips_per_try = saved_flips_per_try_;
-  kernel_.walk_weight_smoothing_threshold = saved_weight_smoothing_threshold_;
-  kernel_.walk_smoothing_old_numerator = saved_smoothing_old_numerator_;
-  kernel_.walk_smoothing_denominator = saved_smoothing_denominator_;
-  kernel_.walk_aspiration = saved_aspiration_;
-  kernel_.walk_even_break_base_milli = saved_even_break_base_milli_;
-  kernel_.walk_score_curve = std::move(saved_score_curve_);
+  parameters_.reset();
   kernel_.work_budget_bounded = saved_bounded_;
 }
 

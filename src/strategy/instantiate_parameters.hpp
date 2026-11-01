@@ -33,7 +33,5 @@ struct InstantiateParameters {
 
 void install_rule_parameters(Kernel &, const InstantiateParameters &);
 
-using ScopedInstantiateParameters = ScopedRuleParameters<InstantiateParameters>;
-
 } // namespace strategy
 } // namespace tactix
