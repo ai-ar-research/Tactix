@@ -23,18 +23,26 @@ inline bool append_bounded(std::string &bytes, uint64_t maximum,
   return true;
 }
 
-// Bounded stable-text construction shared by semantic publishers. Work is
-// charged before capacity admission because failed rendering attempts are
-// observable in publishers that report journal work.
-// Comma-separated decimal spelling of `values`, as journal records write it.
-template <class Integer>
-std::string join_integers(const std::vector<Integer> &values) {
+// Comma-separated `render(item)` spellings of `items`, as journal records
+// write them.
+template <class Items, class Render>
+std::string join_rendered(const Items &items, Render &&render) {
   std::string result;
-  for (size_t i = 0; i < values.size(); ++i)
-    result += (i ? "," : "") + std::to_string(values[i]);
+  for (size_t i = 0; i < items.size(); ++i)
+    result += (i ? "," : "") + render(items[i]);
   return result;
 }
 
+// Comma-separated decimal spelling of `values`, as journal records write it.
+template <class Integer>
+std::string join_integers(const std::vector<Integer> &values) {
+  return join_rendered(values,
+                       [](Integer value) { return std::to_string(value); });
+}
+
+// Bounded stable-text construction shared by semantic publishers. Work is
+// charged before capacity admission because failed rendering attempts are
+// observable in publishers that report journal work.
 template <bool TrackWork = false, bool SaturateWorkOverflow = false>
 struct BoundedJournal {
   uint64_t maximum = 0;

@@ -5,6 +5,7 @@
 #include "rules/semantic_extension/gf3_certificate_common.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -72,14 +73,9 @@ bool take_source(const Kernel &kernel, Gf3AffineSourceKind kind, Ref ref,
   source.first = first;
   source.second = second;
   source.native_proof_id = native_id;
-  source.clause.reserve(size);
-  for (uint32_t index = 0; index < size; ++index) {
-    const Var var = var_of(literals[index]);
-    if (kernel_var_retired(kernel, var) || kernel.value(literals[index])) {
-      capture.status = Gf3AffineLiveStatus::NoStructure;
-      return false;
-    }
-    source.clause.push_back(kernel_externalize(kernel, literals[index]));
+  if (!unassigned_external_clause(kernel, literals, size, source.clause)) {
+    capture.status = Gf3AffineLiveStatus::NoStructure;
+    return false;
   }
   capture.snapshot.source_literals += size;
   capture.snapshot.sources.push_back(std::move(source));
@@ -193,21 +189,6 @@ Gf3AffineLiveStatus retained_owner_status(
   return Gf3AffineLiveStatus::Applied;
 }
 
-bool current_clause(const Kernel &kernel, const Lit *literals, uint32_t size,
-                    const ClauseKey &expected) {
-  if (size != expected.size()) return false;
-  ClauseKey external;
-  external.reserve(size);
-  for (uint32_t index = 0; index < size; ++index) {
-    // A retained source is identified by its physical clause and proof ID.
-    // Search assignments can satisfy or falsify it without changing either.
-    if (kernel_var_retired(kernel, var_of(literals[index])))
-      return false;
-    external.push_back(kernel_externalize(kernel, literals[index]));
-  }
-  return canonical(std::move(external)) == canonical(expected);
-}
-
 bool revalidate_sources(const Kernel &kernel,
                         const Gf3AffineOwnerSnapshot &owner, Meter &meter) {
   if (owner.arena_generation != kernel.arena_generation) return false;
@@ -243,8 +224,8 @@ bool revalidate_sources(const Kernel &kernel,
       const auto found = large.find(source.ref);
       if (found == large.end() ||
           found->second->id() != source.native_proof_id ||
-          !current_clause(kernel, found->second->lits, found->second->size,
-                          source.clause))
+          !live_clause_matches(kernel, found->second->lits,
+                               found->second->size, source.clause))
         return false;
     } else {
       if (source.first == INVALID_LIT || source.second == INVALID_LIT ||
@@ -255,7 +236,7 @@ bool revalidate_sources(const Kernel &kernel,
       if (found == binaries.end() || found->second != source.native_proof_id)
         return false;
       const Lit pair[] = {source.first, source.second};
-      if (!current_clause(kernel, pair, 2, source.clause)) return false;
+      if (!live_clause_matches(kernel, pair, 2, source.clause)) return false;
     }
   }
   return true;
@@ -407,13 +388,9 @@ Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
     Kernel &kernel, const Gf3AffineLiveRequest &request,
     Gf3AffineOwnerSnapshot &output) {
   Gf3AffineOwnerCaptureResult result;
-  if (!recognition_limits_valid(request)) return result;
-  if (!root_guard(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? Gf3AffineLiveStatus::Interrupted
-                        : Gf3AffineLiveStatus::Inapplicable;
+  if (!recognition_limits_valid(request) ||
+      !root_admitted(kernel, root_guard, result.status))
     return result;
-  }
   Meter meter{kernel, request.maximum_recognition_work};
   Capture capture;
   if (!capture_and_recognize(kernel, request, meter, capture)) {
@@ -441,12 +418,7 @@ Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
     return result;
   // A root-captured owner can be revalidated during CDCL search. Its exact
   // physical source identities do not depend on the current assignment.
-  if (!owner_guard(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? Gf3AffineLiveStatus::Interrupted
-                        : Gf3AffineLiveStatus::Inapplicable;
-    return result;
-  }
+  if (!root_admitted(kernel, owner_guard, result.status)) return result;
   if (owner.external_extent > kernel.external_to_internal.size())
     return result;
 
@@ -486,28 +458,23 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
   }
 
   Meter meter{kernel, request.maximum_duplicate_scan_work};
-  std::set<ClauseKey> live;
-  if (!gf3_live_common::scan_live_external_clauses(
-          kernel, meter, [&](ClauseKey clause) {
-            live.insert(canonical(std::move(clause)));
-          })) {
+  const auto stopped = [&] {
     result.duplicate_scan_work = meter.used;
     result.duplicate_scan_exhausted = meter.exhausted;
     result.status = meter.interrupted
                         ? Gf3AffinePreflightStatus::Interrupted
                         : Gf3AffinePreflightStatus::ResourceExhausted;
     return result;
-  }
+  };
+  std::set<ClauseKey> live;
+  if (!gf3_live_common::scan_live_external_clauses(
+          kernel, meter, [&](ClauseKey clause) {
+            live.insert(canonical(std::move(clause)));
+          }))
+    return stopped();
   for (size_t index = 0; index < plan.additions.size(); ++index) {
     const gf3_affine::Addition &addition = plan.additions[index];
-    if (!meter.charge(uint64_t{1} + addition.clause.size())) {
-      result.duplicate_scan_work = meter.used;
-      result.duplicate_scan_exhausted = meter.exhausted;
-      result.status = meter.interrupted
-                          ? Gf3AffinePreflightStatus::Interrupted
-                          : Gf3AffinePreflightStatus::ResourceExhausted;
-      return result;
-    }
+    if (!meter.charge(uint64_t{1} + addition.clause.size())) return stopped();
     if (live.count(canonical(addition.clause)))
       ++result.duplicate_additions;
     else
@@ -575,17 +542,9 @@ Gf3AffinePreflightResult gf3_affine_live_preflight(
 Gf3AffineLiveResult gf3_affine_live_apply(
     Kernel &kernel, const Gf3AffineLiveRequest &request) {
   Gf3AffineLiveResult result;
-  if (!apply_limits_valid(request)) return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Gf3AffineLiveStatus::UnsupportedProof;
+  if (!apply_limits_valid(request) ||
+      !live_admitted(kernel, root_guard, result.status))
     return result;
-  }
-  if (!root_guard(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? Gf3AffineLiveStatus::Interrupted
-                        : Gf3AffineLiveStatus::Inapplicable;
-    return result;
-  }
   if (kernel.external_to_internal.size() > request.maximum_external_extent) {
     result.status = Gf3AffineLiveStatus::ResourceExhausted;
     return result;
@@ -683,14 +642,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
   result.published_clause_ids.reserve(preflight.missing_additions.size());
   for (size_t index : preflight.missing_additions) {
     const gf3::Addition &addition = plan.additions[index];
-    std::vector<Lit> literals;
-    literals.reserve(addition.clause.size());
-    for (int32_t external : addition.clause) {
-      const Lit literal = kernel_internalize(kernel, external);
-      if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-        std::abort();
-      literals.push_back(literal);
-    }
+    const auto literals = internal_clause_or_abort(kernel, addition.clause);
     const uint64_t id = ++kernel.next_clause_id;
     if (id != preflight.published_clause_ids[index]) std::abort();
     if (kernel.proof)

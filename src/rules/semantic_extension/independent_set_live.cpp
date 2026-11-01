@@ -7,6 +7,7 @@
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/independent_set_recognition.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -44,13 +45,8 @@ bool take_clause(const Kernel &kernel,
     return false;
   SourceClause source;
   source.native_id = native_id;
-  source.literals.reserve(size);
-  for (uint32_t index = 0; index < size; ++index) {
-    const Var variable = var_of(literals[index]);
-    if (kernel_var_retired(kernel, variable) || kernel.value(literals[index]))
-      return false;
-    source.literals.push_back(kernel_externalize(kernel, literals[index]));
-  }
+  if (!unassigned_external_clause(kernel, literals, size, source.literals))
+    return false;
   std::sort(source.literals.begin(), source.literals.end());
   snapshot.literals += size;
   snapshot.clauses.push_back(std::move(source));
@@ -61,33 +57,14 @@ bool snapshot_live(const Kernel &kernel,
                    const IndependentSetLiveRequest &request, WorkMeter &meter,
                    Snapshot &snapshot) {
   snapshot = {};
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1))
-      return false;
-    if (!clause->garbage() &&
-        !take_clause(kernel, request, meter, snapshot, clause->lits,
-                     clause->size, clause->id()))
-      return false;
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1))
-        return false;
-      if (!watch.binary() || first >= watch.other())
-        continue;
-      const Lit pair[] = {first, watch.other()};
-      if (!take_clause(kernel, request, meter, snapshot, pair, 2,
-                       kernel_binary_id(kernel, first, watch.other())))
-        return false;
-    }
-  std::sort(snapshot.clauses.begin(), snapshot.clauses.end(),
-            [](const SourceClause &left, const SourceClause &right) {
-              if (left.literals != right.literals)
-                return left.literals < right.literals;
-              return left.native_id < right.native_id;
-            });
+  auto take = [&](const Lit *literals, uint32_t size, uint64_t native_id) {
+    return take_clause(kernel, request, meter, snapshot, literals, size,
+                       native_id);
+  };
+  if (csp_physical_scan::run<true>(kernel, meter, take) !=
+      csp_physical_scan::Status::Complete)
+    return false;
+  csp_physical_scan::sort_premises(snapshot.clauses, &SourceClause::native_id);
   for (size_t index = 0; index < snapshot.clauses.size(); ++index)
     snapshot.clauses[index].occurrence = index + 1;
   return true;
@@ -175,42 +152,17 @@ bool retained_sources_live(const Kernel &kernel, const Snapshot &snapshot,
     if (!meter.charge(uint64_t(size) + 1))
       return false;
     std::vector<int32_t> external;
-    external.reserve(size);
-    for (uint32_t index = 0; index < size; ++index) {
-      if (kernel_var_retired(kernel, var_of(literals[index])) ||
-          kernel.value(literals[index]))
-        return false;
-      external.push_back(kernel_externalize(kernel, literals[index]));
-    }
+    if (!unassigned_external_clause(kernel, literals, size, external))
+      return false;
     const auto found = missing.find(source_key(native_id, std::move(external)));
     if (found != missing.end() && found->second) {
       --found->second;
       --remaining;
     }
-    return true;
+    // Stop the scan, charging nothing more, once every source is found.
+    return remaining != 0;
   };
-  for (Ref reference = 0; reference < kernel.arena.size() && remaining;) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
-    if (!meter.charge(1))
-      return false;
-    if (!clause->garbage() &&
-        !observe(clause->lits, clause->size, clause->id()))
-      return false;
-  }
-  for (Lit first = 0; first < 2 * kernel.nvars && remaining; ++first)
-    for (const WatchEntry watch : kernel.watches.entries(first)) {
-      if (!meter.charge(1))
-        return false;
-      if (!watch.binary() || first >= watch.other())
-        continue;
-      const Lit pair[] = {first, watch.other()};
-      if (!observe(pair, 2,
-                   kernel_binary_id(kernel, first, watch.other())))
-        return false;
-      if (!remaining)
-        break;
-    }
+  if (remaining) csp_physical_scan::run<true>(kernel, meter, observe);
   return !remaining;
 }
 
@@ -429,14 +381,9 @@ independent_set_live_capture_owner_detailed(
     Kernel &kernel, const IndependentSetLiveRequest &request,
     IndependentSetOwnerSnapshot &output) {
   IndependentSetOwnerCaptureResult result;
-  if (!owner_request_valid(request))
+  if (!owner_request_valid(request) ||
+      !root_admitted(kernel, root_snapshot_guard, result.status))
     return result;
-  if (!root_snapshot_guard(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? IndependentSetLiveStatus::Interrupted
-                        : IndependentSetLiveStatus::Inapplicable;
-    return result;
-  }
   WorkMeter recognition{kernel, request.maximum_recognition_work, 0};
   Snapshot snapshot;
   const uint64_t scan_before = recognition.used;
@@ -496,18 +443,9 @@ IndependentSetLiveResult independent_set_live_apply(
       !request.maximum_proof_work || !request.maximum_proof_additions ||
       !request.maximum_proof_literal_occurrences ||
       !request.maximum_journal_bytes ||
-      (request.include_owner_capture_effort && !request.owner_snapshot))
+      (request.include_owner_capture_effort && !request.owner_snapshot) ||
+      !live_admitted(kernel, root_snapshot_guard, result.status))
     return result;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = IndependentSetLiveStatus::UnsupportedProof;
-    return result;
-  }
-  if (!root_snapshot_guard(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? IndependentSetLiveStatus::Interrupted
-                        : IndependentSetLiveStatus::Inapplicable;
-    return result;
-  }
 
   std::vector<uint32_t> selected = request.cover_vertices;
   std::sort(selected.begin(), selected.end());
@@ -724,9 +662,8 @@ IndependentSetLiveResult independent_set_live_apply(
   uint64_t journal_work = 0;
   if (!render_journal(request, first, image, certificate, proof_ids,
                       published_id, result, journal, journal_work)) {
-    result.status = kernel_terminating(kernel)
-                        ? IndependentSetLiveStatus::Interrupted
-                        : IndependentSetLiveStatus::ResourceExhausted;
+    result.status =
+        terminating_status(kernel, IndependentSetLiveStatus::ResourceExhausted);
     result.result = ApplyResult::NoOp;
     result.emitted_proof_additions = 0;
     result.emitted_proof_deletions = 0;

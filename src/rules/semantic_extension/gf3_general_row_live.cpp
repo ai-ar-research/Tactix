@@ -7,6 +7,7 @@
 #include "rules/semantic_extension/gf3_certificate_common.hpp"
 #include "rules/semantic_extension/gf3_live_common.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -28,11 +29,6 @@ using gf3_live_common::append_u64;
 using gf3_live_common::owner_request;
 using semantic_extension::append_bounded;
 using semantic_extension::join_integers;
-
-bool applicable(const Kernel &kernel, bool retained_owner) {
-  return retained_owner ? gf3_live_common::owner_guard(kernel)
-                        : gf3_live_common::root_guard(kernel);
-}
 
 Gf3GeneralRowLiveStatus owner_status(Gf3AffineLiveStatus status) {
   if (const auto failure =
@@ -141,16 +137,11 @@ Preflight preflight(Kernel &kernel, const Gf3GeneralRowLiveRequest &request) {
   if (!request.limits.valid() || !request.action_id || !request.semantic_id ||
       !request.records)
     return output;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = Gf3GeneralRowLiveStatus::UnsupportedProof;
+  if (!live_admitted(kernel,
+                     request.retained_owner ? gf3_live_common::owner_guard
+                                            : gf3_live_common::root_guard,
+                     result.status))
     return output;
-  }
-  if (!applicable(kernel, request.retained_owner != nullptr)) {
-    result.status = kernel_terminating(kernel)
-                        ? Gf3GeneralRowLiveStatus::Interrupted
-                        : Gf3GeneralRowLiveStatus::Inapplicable;
-    return output;
-  }
   if (kernel.external_to_internal.size() >
       request.limits.maximum_external_extent) {
     result.status = Gf3GeneralRowLiveStatus::ResourceExhausted;
@@ -423,14 +414,7 @@ Gf3GeneralRowLiveResult gf3_general_row_live_apply(
   result.proof_clause_ids.reserve(result.plan.events.size());
   for (size_t index = 0; index < result.plan.events.size(); ++index) {
     const auto &event = result.plan.events[index];
-    std::vector<Lit> internal;
-    internal.reserve(event.clause.size());
-    for (int32_t external : event.clause) {
-      const Lit literal = kernel_internalize(kernel, external);
-      if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-        std::abort();
-      internal.push_back(literal);
-    }
+    const auto internal = internal_clause_or_abort(kernel, event.clause);
     const uint64_t id = ++kernel.next_clause_id;
     if (id != prepared.ids[index]) std::abort();
     if (kernel.proof)

@@ -21,7 +21,6 @@ using Meter =
 constexpr uint64_t node_bytes = 48;
 constexpr uint64_t row_term_bytes = 8;
 constexpr uint64_t provenance_term_bytes = 16;
-constexpr uint64_t outcome_bytes = 16;
 
 bool valid_row(const SourceRow &row) {
   if (!row.source_id || row.rhs >= 3) return false;
@@ -141,12 +140,8 @@ struct Builder : Meter {
       }
       stats.fill_entries = next;
     }
-    uint64_t row_memory = 0, provenance_memory = 0, memory = node_bytes;
-    if (!multiply_checked(node.row.size(), row_term_bytes, row_memory) ||
-        !multiply_checked(node.provenance.size(), provenance_term_bytes,
-                          provenance_memory) ||
-        !add_checked(memory, row_memory, memory) ||
-        !add_checked(memory, provenance_memory, memory) ||
+    uint64_t memory = 0;
+    if (!retained_derivation_bytes(node, memory) ||
         !consume_retained_plan(memory))
       return false;
     plan.derivations.push_back(std::move(node));
@@ -231,7 +226,7 @@ struct Builder : Meter {
   }
 
   bool add_outcome(RowOutcomeKind kind, uint32_t derivation) {
-    if (!consume_retained_plan(outcome_bytes)) return false;
+    if (!consume_retained_plan(retained_outcome_bytes)) return false;
     plan.outcomes.push_back({kind, derivation});
     return true;
   }
@@ -246,6 +241,16 @@ Result decline(Builder &builder, PlanStatus status) {
 }
 
 } // namespace
+
+bool retained_derivation_bytes(const Derivation &node, uint64_t &bytes) {
+  uint64_t row = 0, provenance = 0;
+  bytes = node_bytes;
+  return multiply_checked(node.row.size(), row_term_bytes, row) &&
+         multiply_checked(node.provenance.size(), provenance_term_bytes,
+                          provenance) &&
+         add_checked(bytes, row, bytes) &&
+         add_checked(bytes, provenance, bytes);
+}
 
 Result build_plan(const std::vector<SourceRow> &source, const Limits &limits,
                   Charge charge) {

@@ -22,6 +22,19 @@ void xor_sorted(const std::vector<T> &first, const std::vector<T> &second,
                                 second.end(), std::back_inserter(output));
 }
 
+// Sorted without repeated elements.
+template <class T> bool strictly_increasing(const std::vector<T> &values) {
+  return std::is_sorted(values.begin(), values.end()) &&
+         std::adjacent_find(values.begin(), values.end()) == values.end();
+}
+
+// A canonical parity scope: strictly increasing positive variables.
+inline bool positive_scope(const std::vector<External> &variables) {
+  return strictly_increasing(variables) &&
+         std::none_of(variables.begin(), variables.end(),
+                      [](External variable) { return variable <= 0; });
+}
+
 // Order-independent identity of a clause's literal multiset.
 inline std::vector<External> sorted_clause(std::vector<External> clause) {
   std::sort(clause.begin(), clause.end());

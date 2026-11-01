@@ -56,17 +56,11 @@ Plan plan_equality(const std::vector<Premise> &source,
   }
 
   csp_exact_theory::Snapshot<Premise> snapshot;
-  switch (snapshot.build(source, bounds.maximum_source_literals, spend,
-                         result.consumed_source_clauses,
-                         result.consumed_source_literals)) {
-  case csp_exact_theory::BuildStatus::Valid: break;
-  case csp_exact_theory::BuildStatus::IncompleteTheory:
-    return decline(Status::IncompleteTheory);
-  case csp_exact_theory::BuildStatus::BoundExceeded:
-    return decline(Status::BoundExceeded);
-  case csp_exact_theory::BuildStatus::EffortExhausted:
-    return decline(Status::EffortExhausted);
-  }
+  if (const Status built = snapshot.build(
+          source, bounds.maximum_source_literals, spend,
+          result.consumed_source_clauses, result.consumed_source_literals);
+      built != Status::Planned)
+    return decline(built);
   if (uint32_t(bounds.extension_variable) <= snapshot.maximum_variable)
     return decline(Status::InvalidRequest);
 
@@ -108,11 +102,6 @@ Plan plan_equality(const std::vector<Premise> &source,
   if (!snapshot.complete())
     return decline(Status::IncompleteTheory);
 
-  auto source_reference = [&](uint64_t occurrence) {
-    const Premise *premise = snapshot.by_occurrence.at(occurrence);
-    return Reference{ReferenceKind::SourceOccurrence, occurrence,
-                     premise->native_proof_id};
-  };
   uint64_t addition_literals = 0;
   auto bounded_push = [&](Addition addition) {
     if (result.additions.size() >= bounds.maximum_additions ||
@@ -150,7 +139,7 @@ Plan plan_equality(const std::vector<Premise> &source,
           {ReferenceKind::PlannedAddition, index, 0});
     for (size_t j = 0; j < values; ++j)
       if (i != j)
-        reverse.antecedents.push_back(source_reference(
+        reverse.antecedents.push_back(snapshot.reference(
             left.at_most_one[i * values + j]));
     if (!bounded_push(std::move(reverse)))
       return decline(Status::BoundExceeded);
@@ -164,7 +153,7 @@ Plan plan_equality(const std::vector<Premise> &source,
     transfer.antecedents.push_back(
         {ReferenceKind::PlannedAddition, reverse_indices[i], 0});
     transfer.antecedents.push_back(
-        source_reference(result.diagonal_tuple_premises[i]));
+        snapshot.reference(result.diagonal_tuple_premises[i]));
     if (!bounded_push(std::move(transfer)))
       return decline(Status::BoundExceeded);
   }

@@ -278,20 +278,20 @@ Gf3AffineActionResult gf3_affine_action_apply(
     const Gf3AffineActionLimits &limits, uint32_t first_equation,
     uint32_t second_equation) {
   Gf3AffineActionResult output;
+  // Every decline reports the live status and its action-status image.
+  const auto decline = [&](Gf3AffineLiveStatus live) {
+    output.status = action_status(live);
+    output.live.status = live;
+    return output;
+  };
   output.owner_retained = session.retained();
   output.committed_keys = session.committed_keys();
   output.key = canonical_key(first_equation, second_equation);
-  if (!gf3_affine_action_guard(kernel)) {
-    output.status = Gf3AffineActionStatus::Inapplicable;
-    output.live.status = Gf3AffineLiveStatus::Inapplicable;
-    return output;
-  }
+  if (!gf3_affine_action_guard(kernel))
+    return decline(Gf3AffineLiveStatus::Inapplicable);
   if (!limits.valid() || first_equation == second_equation) return output;
-  if (session.retained() && !session.belongs_to(kernel)) {
-    output.status = Gf3AffineActionStatus::Stale;
-    output.live.status = Gf3AffineLiveStatus::Stale;
-    return output;
-  }
+  if (session.retained() && !session.belongs_to(kernel))
+    return decline(Gf3AffineLiveStatus::Stale);
 
   output.proposed_action_id = kernel.structural_action_sequence + 1;
   output.semantic_id = output.proposed_action_id;
@@ -300,26 +300,17 @@ Gf3AffineActionResult gf3_affine_action_apply(
   const KeyStatus key_status = prepare_keys(
       session, output.key, limits, output.effort.session_work, merged);
   if (key_status == KeyStatus::Invalid) return output;
-  if (key_status == KeyStatus::Exhausted) {
-    output.status = Gf3AffineActionStatus::ResourceExhausted;
-    output.live.status = Gf3AffineLiveStatus::ResourceExhausted;
-    return output;
-  }
+  if (key_status == KeyStatus::Exhausted)
+    return decline(Gf3AffineLiveStatus::ResourceExhausted);
   if (session.retained()) {
     const OwnerLimitStatus owner_status = retained_owner_limit_status(
         *session.snapshot(), limits, output.effort.session_work);
     if (owner_status == OwnerLimitStatus::Invalid) return output;
-    if (owner_status == OwnerLimitStatus::Exhausted) {
-      output.status = Gf3AffineActionStatus::ResourceExhausted;
-      output.live.status = Gf3AffineLiveStatus::ResourceExhausted;
-      return output;
-    }
+    if (owner_status == OwnerLimitStatus::Exhausted)
+      return decline(Gf3AffineLiveStatus::ResourceExhausted);
   }
-  if (key_status == KeyStatus::Present) {
-    output.status = Gf3AffineActionStatus::AlreadyPublished;
-    output.live.status = Gf3AffineLiveStatus::Duplicate;
-    return output;
-  }
+  if (key_status == KeyStatus::Present)
+    return decline(Gf3AffineLiveStatus::Duplicate);
 
   Gf3AffineLiveRequest request =
       make_request(kernel, limits, output.key.first_equation,
@@ -331,11 +322,8 @@ Gf3AffineActionResult gf3_affine_action_apply(
     const Gf3AffineOwnerCaptureResult capture =
         gf3_affine_live_capture_owner(kernel, request, captured);
     copy_capture_effort(output, capture);
-    if (capture.status != Gf3AffineLiveStatus::Applied) {
-      output.status = action_status(capture.status);
-      output.live.status = capture.status;
-      return output;
-    }
+    if (capture.status != Gf3AffineLiveStatus::Applied)
+      return decline(capture.status);
     request.retained_owner = &captured;
   } else {
     request.retained_owner = session.snapshot();

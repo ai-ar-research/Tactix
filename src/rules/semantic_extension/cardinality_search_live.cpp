@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -15,6 +16,7 @@ namespace {
 
 using ClauseKey = cardinality_search::Clause;
 using semantic_extension::append_bounded;
+using semantic_extension::join_integers;
 
 struct Source {
   uint64_t id = 0;
@@ -107,13 +109,6 @@ bool collect_sources(const Kernel &kernel, uint64_t maximum,
   return true;
 }
 
-std::string literals(const ClauseKey &clause) {
-  std::string result;
-  for (size_t at = 0; at < clause.size(); ++at)
-    result += (at ? "," : "") + std::to_string(clause[at]);
-  return result;
-}
-
 bool make_journal(const CardinalitySearchLiveRequest &request,
                   const CardinalitySearchLiveResult &result,
                   const cardinality_search::ResolutionPlan &plan,
@@ -124,7 +119,7 @@ bool make_journal(const CardinalitySearchLiveRequest &request,
                              std::to_string(request.semantic_id);
   if (!append_bounded(journal, request.maximum_journal_bytes,
                       prefix + ",\"kind\":\"cardinality-search-begin\","
-                               "\"reason\":[" + literals(result.reason) +
+                               "\"reason\":[" + join_integers(result.reason) +
                                "]}\n"))
     return false;
   size_t source = 0;
@@ -134,7 +129,7 @@ bool make_journal(const CardinalitySearchLiveRequest &request,
                           prefix + ",\"kind\":\"cardinality-source\","
                                    "\"id\":" +
                                    std::to_string(result.source_ids[source++]) +
-                                   ",\"clause\":[" + literals(premise) +
+                                   ",\"clause\":[" + join_integers(premise) +
                                    "]}\n"))
         return false;
     }
@@ -148,7 +143,7 @@ bool make_journal(const CardinalitySearchLiveRequest &request,
                                       ? "consequence"
                                       : "auxiliary") +
                                  "\",\"clause\":[" +
-                                 literals(plan.additions[at]) + "]}\n"))
+                                 join_integers(plan.additions[at]) + "]}\n"))
       return false;
   return append_bounded(
       journal, request.maximum_journal_bytes,
@@ -182,9 +177,8 @@ Prepared preflight(Kernel &kernel,
   if (!collect_sources(kernel, request.maximum_source_scan_work,
                        result.source_scan_work, output.sources,
                        &output.live_clauses)) {
-    result.status = kernel_terminating(kernel)
-                        ? CardinalitySearchLiveStatus::Interrupted
-                        : CardinalitySearchLiveStatus::ResourceExhausted;
+    result.status = terminating_status(
+        kernel, CardinalitySearchLiveStatus::ResourceExhausted);
     return output;
   }
   for (const auto &constraint : request.constraints)
@@ -319,9 +313,8 @@ CardinalitySearchLiveResult cardinality_search_live_apply(
   auto &result = prepared.result;
   if (result.status != CardinalitySearchLiveStatus::Applied) return result;
   if (!unchanged(kernel, request, prepared)) {
-    result.status = kernel_terminating(kernel)
-                        ? CardinalitySearchLiveStatus::Interrupted
-                        : CardinalitySearchLiveStatus::NoSource;
+    result.status =
+        terminating_status(kernel, CardinalitySearchLiveStatus::NoSource);
     return result;
   }
   kernel.close_startup_certificate();

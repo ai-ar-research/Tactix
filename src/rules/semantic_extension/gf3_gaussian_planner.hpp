@@ -128,6 +128,11 @@ struct Result {
 
 using Charge = std::function<bool(uint64_t)>;
 
+// Retained-plan bytes of one outcome, and of one derivation node (false on
+// overflow).
+inline constexpr uint64_t retained_outcome_bytes = 16;
+bool retained_derivation_bytes(const Derivation &node, uint64_t &bytes);
+
 // Build a deterministic reduced row-echelon basis.  Input order has no effect:
 // rows are processed by their normalized equation and then source identity.
 // Derivation indices are one-based so zero is an invalid parent/outcome.

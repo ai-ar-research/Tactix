@@ -38,33 +38,10 @@ bool root_guard(const Kernel &kernel) {
          kernel.external_to_internal.size() <= INT32_MAX;
 }
 
-enum class CaptureStatus : uint8_t {
-  Complete,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  Invalid,
-};
-
-CaptureStatus stopped_capture(const Meter &meter) {
-  return stopped_status(meter, CaptureStatus::Invalid);
-}
-
-NaryCspRelationCaptureStatus public_status(CaptureStatus status) {
-  switch (status) {
-  case CaptureStatus::Complete:
-    return NaryCspRelationCaptureStatus::Applied;
-  case CaptureStatus::NoStructure:
-    return NaryCspRelationCaptureStatus::NoStructure;
-  case CaptureStatus::ResourceExhausted:
-    return NaryCspRelationCaptureStatus::ResourceExhausted;
-  case CaptureStatus::Interrupted:
-    return NaryCspRelationCaptureStatus::Interrupted;
-  case CaptureStatus::Invalid:
-    return NaryCspRelationCaptureStatus::Invalid;
-  }
-  std::abort();
-}
+using csp_physical_scan::CaptureStatus;
+using csp_physical_scan::stopped_capture;
+constexpr auto public_status =
+    csp_physical_scan::public_capture_status<NaryCspRelationCaptureStatus>;
 
 enum class DomainClauseKind : uint8_t { Alo, Amo };
 
@@ -246,12 +223,7 @@ CaptureStatus capture_slice(
     (void)coordinates;
     ordered.push_back(clause);
   }
-  std::sort(ordered.begin(), ordered.end(),
-            [](const FoundClause &first, const FoundClause &second) {
-              if (first.literals != second.literals)
-                return first.literals < second.literals;
-              return first.native_id < second.native_id;
-            });
+  csp_physical_scan::sort_premises(ordered, &FoundClause::native_id);
 
   NaryCspRelationOwnerSnapshot snapshot;
   snapshot.external_extent =
@@ -309,13 +281,9 @@ NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
     Kernel &kernel, const NaryCspRelationCaptureRequest &request,
     NaryCspRelationOwnerSnapshot &output) {
   NaryCspRelationCaptureResult result;
-  if (!request.valid() || request.domains.empty()) return result;
-  if (!root_guard(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? NaryCspRelationCaptureStatus::Interrupted
-                        : NaryCspRelationCaptureStatus::Inapplicable;
+  if (!request.valid() || request.domains.empty() ||
+      !root_admitted(kernel, root_guard, result.status))
     return result;
-  }
 
   const csp_physical_scan::FormulaMark before =
       csp_physical_scan::formula_mark(kernel);

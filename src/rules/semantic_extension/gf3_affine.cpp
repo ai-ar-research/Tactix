@@ -469,10 +469,21 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
     }
     return tuple;
   };
-  auto reference = [&](uint64_t occurrence, SourceReference &out) {
-    const Premise *premise = find_occurrence(theory, occurrence);
-    if (!premise) return false;
-    out = {occurrence, premise->native_proof_id};
+  // Appends the forbidden-tuple premise of `equation` for each pivot value
+  // other than `required`; false at the first missing premise.
+  auto parents = [&](const Equation &equation, size_t pivot_index,
+                     uint8_t required,
+                     const std::map<uint32_t, uint8_t> &values,
+                     Addition &addition) {
+    for (uint8_t value = 0; value < 3; ++value) {
+      if (value == required) continue;
+      const uint64_t parent = equation.forbidden_by_tuple[parent_tuple(
+          equation, pivot_index, value, values)];
+      const Premise *premise =
+          parent ? find_occurrence(theory, parent) : nullptr;
+      if (!premise) return false;
+      addition.antecedents.push_back({parent, premise->native_proof_id});
+    }
     return true;
   };
 
@@ -510,24 +521,11 @@ plan_pair_elimination(const Theory &theory, uint32_t first_equation,
         required_pivot(second, second_pivot_index, values);
     if (required_first == required_second)
       return decline(PlanStatus::IncompleteTheory);
-    for (uint8_t value = 0; value < 3; ++value)
-      if (value != required_first) {
-        SourceReference source_reference;
-        const uint64_t parent = first.forbidden_by_tuple[parent_tuple(
-            first, first_pivot_index, value, values)];
-        if (!parent || !reference(parent, source_reference))
-          return decline(PlanStatus::IncompleteTheory);
-        addition.antecedents.push_back(source_reference);
-      }
-    for (uint8_t value = 0; value < 3; ++value)
-      if (value != required_second) {
-        SourceReference source_reference;
-        const uint64_t parent = second.forbidden_by_tuple[parent_tuple(
-            second, second_pivot_index, value, values)];
-        if (!parent || !reference(parent, source_reference))
-          return decline(PlanStatus::IncompleteTheory);
-        addition.antecedents.push_back(source_reference);
-      }
+    if (!parents(first, first_pivot_index, required_first, values,
+                 addition) ||
+        !parents(second, second_pivot_index, required_second, values,
+                 addition))
+      return decline(PlanStatus::IncompleteTheory);
     addition.antecedents.push_back(
         {pivot_alo->occurrence, pivot_alo->native_proof_id});
     addition_literals += addition.clause.size();

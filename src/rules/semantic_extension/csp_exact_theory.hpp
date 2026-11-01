@@ -42,13 +42,6 @@ inline bool add_count(uint64_t amount, uint64_t &total) {
   return true;
 }
 
-enum class BuildStatus : uint8_t {
-  Valid,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
-};
-
 // Plan vocabulary shared by the exact DirectCSP and n-ary CSP planners.
 enum class PlanStatus : uint8_t {
   Planned,
@@ -74,31 +67,32 @@ template <class Premise> struct Snapshot {
   uint32_t maximum_variable = 0;
   bool effort_exhausted = false;
 
+  // Planned when the source image is exact; otherwise the plan's decline.
   template <class Spend>
-  BuildStatus build(const std::vector<Premise> &source,
+  PlanStatus build(const std::vector<Premise> &source,
                     uint64_t maximum_literals, Spend &spend,
                     uint64_t &consumed_clauses,
                     uint64_t &consumed_literals) {
     for (const Premise &premise : source) {
       if (!spend(uint64_t{1} + premise.literals.size()))
-        return BuildStatus::EffortExhausted;
+        return PlanStatus::EffortExhausted;
       if (!premise.occurrence || premise.literals.empty() ||
           !by_occurrence.emplace(premise.occurrence, &premise).second)
-        return BuildStatus::IncompleteTheory;
+        return PlanStatus::IncompleteTheory;
       ++consumed_clauses;
       if (!add_count(premise.literals.size(), literals) ||
           literals > maximum_literals)
-        return BuildStatus::BoundExceeded;
+        return PlanStatus::BoundExceeded;
       consumed_literals = literals;
       std::set<uint32_t> clause_variables;
       for (int32_t literal : premise.literals) {
         if (!literal || literal == INT32_MIN ||
             !clause_variables.insert(variable(literal)).second)
-          return BuildStatus::IncompleteTheory;
+          return PlanStatus::IncompleteTheory;
         maximum_variable = std::max(maximum_variable, variable(literal));
       }
     }
-    return BuildStatus::Valid;
+    return PlanStatus::Planned;
   }
 
   template <class Spend>
@@ -141,6 +135,11 @@ template <class Premise> struct Snapshot {
   }
 
   bool complete() const { return used.size() == by_occurrence.size(); }
+
+  Reference reference(uint64_t occurrence) const {
+    return {ReferenceKind::SourceOccurrence, occurrence,
+            by_occurrence.at(occurrence)->native_proof_id};
+  }
 };
 
 } // namespace tactix::csp_exact_theory

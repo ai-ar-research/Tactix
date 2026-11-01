@@ -3,6 +3,7 @@
 #include "strategy/action_status_mapping.hpp"
 
 #include "rules/structural_action_guard.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
@@ -51,19 +52,8 @@ MeasureStatus measure_keys(const std::vector<AffineBasisConsumedKey> &keys,
       if (!(keys[key_index - 1] < keys[key_index]))
         return MeasureStatus::Invalid;
     }
-    const auto &key = keys[key_index];
-    if (!add_work(1, maximum, work) ||
-        !add_work(key.variables.size(), maximum, work))
+    if (!affine_basis_key_work(keys[key_index], maximum, work))
       return MeasureStatus::Exhausted;
-    for (const auto &equation : key.source_equations) {
-      if (!add_work(1, maximum, work) ||
-          !add_work(equation.variables.size(), maximum, work))
-        return MeasureStatus::Exhausted;
-      for (const auto &premise : equation.premises)
-        if (!add_work(1, maximum, work) ||
-            !add_work(premise.clause.size(), maximum, work))
-          return MeasureStatus::Exhausted;
-    }
   }
   return MeasureStatus::Complete;
 }
@@ -416,10 +406,7 @@ bool affine_basis_row_selection_within_limits(
       (selection.kind == affine::BasisRowKind::Extended &&
        width <= limits.basis.maximum_direct_width))
     return false;
-  for (size_t i = 0; i < width; ++i)
-    if (selection.variables[i] <= 0 ||
-        (i && selection.variables[i - 1] >= selection.variables[i]))
-      return false;
+  if (!affine::positive_scope(selection.variables)) return false;
   const uint64_t maximum_equations =
       limits.image.maximum_groups > UINT64_MAX / 2
           ? UINT64_MAX
@@ -436,10 +423,7 @@ bool affine_basis_row_selection_within_limits(
     if (!arity || arity > limits.image.maximum_arity || arity >= 64 ||
         equation.premises.size() != (uint64_t{1} << (arity - 1)))
       return false;
-    for (size_t i = 0; i < arity; ++i)
-      if (equation.variables[i] <= 0 ||
-          (i && equation.variables[i - 1] >= equation.variables[i]))
-        return false;
+    if (!affine::positive_scope(equation.variables)) return false;
     for (size_t premise_index = 0;
          premise_index < equation.premises.size(); ++premise_index) {
       const auto &premise = equation.premises[premise_index];
@@ -509,9 +493,8 @@ AffineBasisOfferPage affine_basis_action_offers(
   AffineLiveSnapshot owner;
   if (!capture_affine_live_snapshot(kernel, snapshot_request(kernel, limits),
                                     owner)) {
-    page.status = kernel_terminating(kernel)
-                      ? AffineBasisOfferStatus::Interrupted
-                      : AffineBasisOfferStatus::ResourceExhausted;
+    page.status =
+        terminating_status(kernel, AffineBasisOfferStatus::ResourceExhausted);
     return page;
   }
   return offer_page(kernel, session, limits, cursor, maximum_offers, owner, 1);
@@ -522,18 +505,18 @@ static AffineBasisActionResult apply_basis_action(
     const AffineBasisActionLimits &limits,
     const AffineBasisRowSelection *requested_selection) {
   AffineBasisActionResult output;
+  // A decline reports the live status and its action-status image.
+  const auto decline = [&](AffineBasisLiveStatus live) {
+    output.status = action_status(live);
+    output.live.status = live;
+    return output;
+  };
   output.committed_keys = session.committed_keys();
-  if (!affine_basis_action_guard(kernel)) {
-    output.status = AffineBasisActionStatus::Inapplicable;
-    output.live.status = AffineBasisLiveStatus::Inapplicable;
-    return output;
-  }
+  if (!affine_basis_action_guard(kernel))
+    return decline(AffineBasisLiveStatus::Inapplicable);
   if (!limits.valid()) return output;
-  if (session.bound() && !session.belongs_to(kernel)) {
-    output.status = AffineBasisActionStatus::Stale;
-    output.live.status = AffineBasisLiveStatus::Stale;
-    return output;
-  }
+  if (session.bound() && !session.belongs_to(kernel))
+    return decline(AffineBasisLiveStatus::Stale);
 
   output.proposed_action_id = kernel.structural_action_sequence + 1;
   output.semantic_id = output.proposed_action_id;
@@ -544,12 +527,10 @@ static AffineBasisActionResult apply_basis_action(
   if (!owner) {
     if (!capture_affine_live_snapshot(kernel, snapshot_request(kernel, limits),
                                       captured_owner)) {
-      output.status = kernel_terminating(kernel)
-                          ? AffineBasisActionStatus::Interrupted
-                          : AffineBasisActionStatus::ResourceExhausted;
-      output.live.status = kernel_terminating(kernel)
-                               ? AffineBasisLiveStatus::Interrupted
-                               : AffineBasisLiveStatus::ResourceExhausted;
+      output.status = terminating_status(
+          kernel, AffineBasisActionStatus::ResourceExhausted);
+      output.live.status =
+          terminating_status(kernel, AffineBasisLiveStatus::ResourceExhausted);
       return output;
     }
     owner = &captured_owner;
@@ -570,26 +551,16 @@ static AffineBasisActionResult apply_basis_action(
       output.live.excluded_rows = page.duplicates;
       break;
     case AffineBasisOfferStatus::Inapplicable:
-      output.status = AffineBasisActionStatus::Inapplicable;
-      output.live.status = AffineBasisLiveStatus::Inapplicable;
-      break;
+      return decline(AffineBasisLiveStatus::Inapplicable);
     case AffineBasisOfferStatus::ResourceExhausted:
-      output.status = AffineBasisActionStatus::ResourceExhausted;
-      output.live.status = AffineBasisLiveStatus::ResourceExhausted;
-      break;
+      return decline(AffineBasisLiveStatus::ResourceExhausted);
     case AffineBasisOfferStatus::Interrupted:
-      output.status = AffineBasisActionStatus::Interrupted;
-      output.live.status = AffineBasisLiveStatus::Interrupted;
-      break;
+      return decline(AffineBasisLiveStatus::Interrupted);
     case AffineBasisOfferStatus::Stale:
-      output.status = AffineBasisActionStatus::Stale;
-      output.live.status = AffineBasisLiveStatus::Stale;
-      break;
+      return decline(AffineBasisLiveStatus::Stale);
     case AffineBasisOfferStatus::Complete:
     case AffineBasisOfferStatus::Invalid:
-      output.status = AffineBasisActionStatus::Invalid;
-      output.live.status = AffineBasisLiveStatus::Invalid;
-      break;
+      return decline(AffineBasisLiveStatus::Invalid);
     }
     return output;
   }
@@ -619,23 +590,14 @@ static AffineBasisActionResult apply_basis_action(
   const MergeStatus merge =
       merge_new_keys(session, transaction.consumed_keys(), limits,
                      output.session_work, merged);
-  if (merge == MergeStatus::Invalid) {
-    output.status = AffineBasisActionStatus::Invalid;
-    output.live.status = AffineBasisLiveStatus::Invalid;
-    return output;
-  }
-  if (merge == MergeStatus::Exhausted) {
-    output.status = AffineBasisActionStatus::ResourceExhausted;
-    output.live.status = AffineBasisLiveStatus::ResourceExhausted;
-    return output;
-  }
-  if (merge == MergeStatus::Overlap) {
-    // The live transaction received this exact exclusion set before planning;
-    // surviving overlap is an internal filtering/identity inconsistency.
-    output.status = AffineBasisActionStatus::Invalid;
-    output.live.status = AffineBasisLiveStatus::Invalid;
-    return output;
-  }
+  if (merge == MergeStatus::Invalid)
+    return decline(AffineBasisLiveStatus::Invalid);
+  if (merge == MergeStatus::Exhausted)
+    return decline(AffineBasisLiveStatus::ResourceExhausted);
+  // The live transaction received this exact exclusion set before planning;
+  // surviving overlap is an internal filtering/identity inconsistency.
+  if (merge == MergeStatus::Overlap)
+    return decline(AffineBasisLiveStatus::Invalid);
 
   output.live = publish_affine_basis_live(kernel, request, transaction);
   output.status = action_status(output.live.status);

@@ -41,6 +41,7 @@ using gf3_live_common::append_u64;
 using gf3_live_common::owner_request;
 using semantic_extension::append_bounded;
 using semantic_extension::join_integers;
+using semantic_extension::join_rendered;
 
 bool add(uint64_t &value, uint64_t amount) {
   if (amount > std::numeric_limits<uint64_t>::max() - value) return false;
@@ -151,8 +152,7 @@ bool admitted(const Kernel &kernel, bool atomic, Status &status) {
   else if (kernel.proof && !atomic)
     status = Status::UnsupportedProofSplit;
   else if (!gf3_live_common::root_guard(kernel))
-    status = kernel_terminating(kernel) ? Status::Interrupted
-                                        : Status::Inapplicable;
+    status = terminating_status(kernel, Status::Inapplicable);
   else
     return true;
   return false;
@@ -223,58 +223,43 @@ Status certificate_status(gf3_gaussian_certificate::Status status) {
 }
 
 std::string row_terms(const std::vector<gf3_gaussian::Term> &row) {
-  std::string result;
-  for (size_t index = 0; index < row.size(); ++index)
-    result += (index ? "," : "") +
-              std::string("{\"variable\":") +
-              std::to_string(row[index].variable) +
-              ",\"coefficient\":" +
-              std::to_string(row[index].coefficient) + "}";
-  return result;
+  return join_rendered(row, [](const gf3_gaussian::Term &term) {
+    return "{\"variable\":" + std::to_string(term.variable) +
+           ",\"coefficient\":" + std::to_string(term.coefficient) + "}";
+  });
 }
 
 std::string source_terms(
     const std::vector<gf3_gaussian_certificate::AuthenticatedSource> &sources) {
-  std::string result;
-  for (size_t index = 0; index < sources.size(); ++index) {
-    const auto &source = sources[index];
-    result += (index ? "," : "") +
-              std::string("{\"source_id\":") +
-              std::to_string(source.combination.source_id) +
-              ",\"coefficient\":" +
-              std::to_string(source.combination.coefficient) +
-              ",\"authentication_index\":" +
-              std::to_string(source.authentication_index) + "}";
-  }
-  return result;
+  return join_rendered(sources, [](const auto &source) {
+    return "{\"source_id\":" + std::to_string(source.combination.source_id) +
+           ",\"coefficient\":" +
+           std::to_string(source.combination.coefficient) +
+           ",\"authentication_index\":" +
+           std::to_string(source.authentication_index) + "}";
+  });
 }
 
 std::string domain_authentications(
     const std::vector<gf3_gaussian_bridge::DomainAuthentication> &domains) {
-  std::string result;
-  for (size_t index = 0; index < domains.size(); ++index) {
-    const auto &domain = domains[index];
-    result += (index ? "," : "") + std::string("{\"domain\":") +
-              std::to_string(domain.domain) + ",\"at_least_one\":" +
-              std::to_string(domain.at_least_one.occurrence) +
-              ",\"at_most_one\":[";
-    for (size_t pair = 0; pair < domain.at_most_one.size(); ++pair)
-      result += (pair ? "," : "") +
-                std::to_string(domain.at_most_one[pair].occurrence);
-    result += "]}";
-  }
-  return result;
+  return join_rendered(domains, [](const auto &domain) {
+    return "{\"domain\":" + std::to_string(domain.domain) +
+           ",\"at_least_one\":" +
+           std::to_string(domain.at_least_one.occurrence) +
+           ",\"at_most_one\":[" +
+           join_rendered(domain.at_most_one, [](const auto &reference) {
+             return std::to_string(reference.occurrence);
+           }) +
+           "]}";
+  });
 }
 
 std::string tuple_authentications(
     const std::vector<gf3_gaussian_bridge::TupleAuthentication> &tuples) {
-  std::string result;
-  for (size_t index = 0; index < tuples.size(); ++index)
-    result += (index ? "," : "") + std::string("{\"tuple\":") +
-              std::to_string(tuples[index].tuple) +
-              ",\"occurrence\":" +
-              std::to_string(tuples[index].premise.occurrence) + "}";
-  return result;
+  return join_rendered(tuples, [](const auto &tuple) {
+    return "{\"tuple\":" + std::to_string(tuple.tuple) + ",\"occurrence\":" +
+           std::to_string(tuple.premise.occurrence) + "}";
+  });
 }
 
 bool make_journal(const Request &request, Prepared &prepared) {

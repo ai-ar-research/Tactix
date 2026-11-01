@@ -4,6 +4,7 @@
 #include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -110,33 +111,10 @@ struct FoundClause {
   Expected expected;
 };
 
-enum class CaptureSliceStatus : uint8_t {
-  Complete,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  Invalid,
-};
-
-CaptureSliceStatus capture_stopped(const Meter &meter) {
-  return stopped_status(meter, CaptureSliceStatus::Invalid);
-}
-
-DirectCspSupportLiveStatus live_capture_status(CaptureSliceStatus status) {
-  switch (status) {
-  case CaptureSliceStatus::Complete:
-    return DirectCspSupportLiveStatus::Applied;
-  case CaptureSliceStatus::NoStructure:
-    return DirectCspSupportLiveStatus::NoStructure;
-  case CaptureSliceStatus::ResourceExhausted:
-    return DirectCspSupportLiveStatus::ResourceExhausted;
-  case CaptureSliceStatus::Interrupted:
-    return DirectCspSupportLiveStatus::Interrupted;
-  case CaptureSliceStatus::Invalid:
-    return DirectCspSupportLiveStatus::Invalid;
-  }
-  std::abort();
-}
+using CaptureSliceStatus = csp_physical_scan::CaptureStatus;
+using csp_physical_scan::stopped_capture;
+constexpr auto live_capture_status =
+    csp_physical_scan::public_capture_status<DirectCspSupportLiveStatus>;
 
 CaptureSliceStatus capture_slice(
     const Kernel &kernel, const std::vector<int32_t> &left,
@@ -154,18 +132,13 @@ CaptureSliceStatus capture_slice(
   CaptureSliceStatus failure = CaptureSliceStatus::Complete;
   auto observe = [&](const Lit *literals, uint32_t size, uint64_t native_id) {
     if (!meter.charge(uint64_t{1} + size)) {
-      failure = capture_stopped(meter);
+      failure = stopped_capture(meter);
       return false;
     }
     ClauseKey external;
-    external.reserve(size);
-    for (uint32_t index = 0; index < size; ++index) {
-      const Var var = var_of(literals[index]);
-      if (kernel_var_retired(kernel, var) || kernel.value(literals[index])) {
-        failure = CaptureSliceStatus::Invalid;
-        return false;
-      }
-      external.push_back(kernel_externalize(kernel, literals[index]));
+    if (!unassigned_external_clause(kernel, literals, size, external)) {
+      failure = CaptureSliceStatus::Invalid;
+      return false;
     }
     external = normalized(std::move(external));
     const auto wanted = expected.find(external);
@@ -187,7 +160,7 @@ CaptureSliceStatus capture_slice(
   const csp_physical_scan::Status scan =
       csp_physical_scan::run(kernel, meter, observe);
   if (scan != csp_physical_scan::Status::Complete)
-    return scan == csp_physical_scan::Status::Stopped ? capture_stopped(meter)
+    return scan == csp_physical_scan::Status::Stopped ? stopped_capture(meter)
                                                        : failure;
 
   DirectCspSupportOwnerSnapshot snapshot;
@@ -213,11 +186,7 @@ CaptureSliceStatus capture_slice(
     (void)key;
     ordered.push_back(clause);
   }
-  std::sort(ordered.begin(), ordered.end(),
-            [](const FoundClause &a, const FoundClause &b) {
-              if (a.literals != b.literals) return a.literals < b.literals;
-              return a.native_id < b.native_id;
-            });
+  csp_physical_scan::sort_premises(ordered, &FoundClause::native_id);
   std::map<ClauseKey, uint64_t> occurrences;
   for (size_t index = 0; index < ordered.size(); ++index) {
     const uint64_t occurrence = index + 1;
@@ -501,17 +470,9 @@ void prepare_live_action(Kernel &kernel,
                          const DirectCspSupportLiveRequest &request,
                          PreparedLiveAction &prepared) {
   DirectCspSupportLiveResult &result = prepared.result;
-  if (!request_limits_valid(request)) return;
-  if (kernel.proof && (kernel.proof->lrat() || kernel.proof->terminal_pbp())) {
-    result.status = DirectCspSupportLiveStatus::UnsupportedProof;
+  if (!request_limits_valid(request) ||
+      !live_admitted(kernel, csp_physical_scan::root_ready, result.status))
     return;
-  }
-  if (!csp_physical_scan::root_ready(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? DirectCspSupportLiveStatus::Interrupted
-                        : DirectCspSupportLiveStatus::Inapplicable;
-    return;
-  }
 
   Meter meter{kernel, request.maximum_recognition_work};
   prepared.owner = request.retained_owner;
@@ -694,12 +655,8 @@ DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
   if (!capture_limits_valid(request) || request.left_values.empty() ||
       request.right_values.empty())
     return result;
-  if (!csp_physical_scan::root_ready(kernel)) {
-    result.status = kernel_terminating(kernel)
-                        ? DirectCspSupportLiveStatus::Interrupted
-                        : DirectCspSupportLiveStatus::Inapplicable;
+  if (!root_admitted(kernel, csp_physical_scan::root_ready, result.status))
     return result;
-  }
   Meter meter{kernel, request.maximum_recognition_work};
   DirectCspSupportOwnerSnapshot captured;
   const CaptureSliceStatus capture = capture_slice(
@@ -776,14 +733,7 @@ DirectCspSupportLiveResult direct_csp_support_live_apply(
   ids.reserve(plan.additions.size());
   for (size_t index = 0; index < plan.additions.size(); ++index) {
     const support::Addition &addition = plan.additions[index];
-    std::vector<Lit> literals;
-    literals.reserve(addition.clause.size());
-    for (int32_t external : addition.clause) {
-      const Lit literal = kernel_internalize(kernel, external);
-      if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-        std::abort();
-      literals.push_back(literal);
-    }
+    const auto literals = internal_clause_or_abort(kernel, addition.clause);
     const uint64_t id = ++kernel.next_clause_id;
     if (id != first_id + index) std::abort();
     if (kernel.proof) {

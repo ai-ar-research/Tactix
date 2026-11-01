@@ -3,6 +3,7 @@
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -93,18 +94,6 @@ const Clause *large_source_at(const Kernel &k, Ref wanted) {
     ref += words;
   }
   return nullptr;
-}
-
-bool same_clause(const Kernel &k, const Lit *literals, uint32_t size,
-                 const std::vector<External> &external) {
-  if (size != external.size()) return false;
-  std::vector<External> current;
-  current.reserve(size);
-  for (uint32_t i = 0; i < size; ++i) {
-    if (kernel_var_retired(k, var_of(literals[i]))) return false;
-    current.push_back(kernel_externalize(k, literals[i]));
-  }
-  return sorted_clause(std::move(current)) == sorted_clause(external);
 }
 
 } // namespace
@@ -474,7 +463,7 @@ bool affine_live_sources_valid(const Kernel &k,
       const Clause *clause = large_source_at(k, source.ref);
       if (!clause) return false;
       if (clause->garbage() || clause->id() != source.clause_id ||
-          !same_clause(k, clause->lits, clause->size, source.clause))
+          !live_clause_matches(k, clause->lits, clause->size, source.clause))
         return false;
     } else if (source.kind == AffineSourceKind::Binary) {
       if (source.first == INVALID_LIT || source.second == INVALID_LIT ||
@@ -485,12 +474,12 @@ bool affine_live_sources_valid(const Kernel &k,
           kernel_binary_id(k, source.first, source.second) != source.clause_id)
         return false;
       const Lit pair[] = {source.first, source.second};
-      if (!same_clause(k, pair, 2, source.clause)) return false;
+      if (!live_clause_matches(k, pair, 2, source.clause)) return false;
     } else if (source.kind == AffineSourceKind::RootUnit) {
       const Lit literal = source.first;
       if (literal == INVALID_LIT || var_of(literal) >= k.nvars ||
           k.values[literal] <= 0 || k.assigned[var_of(literal)].level ||
-          !same_clause(k, &literal, 1, source.clause)) return false;
+          !live_clause_matches(k, &literal, 1, source.clause)) return false;
       if (source.proof_id_exact) {
         if (!source.clause_id || k.unit_ids[var_of(literal)] != source.clause_id) return false;
       } else if (!kernel_root_unit_table_stream(k) ||
@@ -755,15 +744,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
   }
   for (size_t i = 0; i < plan.targets.size(); ++i) {
     if (!installed[i]) continue;
-    const auto &target = plan.targets[i];
-    std::vector<Lit> literals;
-    literals.reserve(target.size());
-    for (External external : target) {
-      const Lit literal = kernel_internalize(k, external);
-      if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
-        std::abort();
-      literals.push_back(literal);
-    }
+    const auto literals = internal_clause_or_abort(k, plan.targets[i]);
     const uint64_t id = replay.target_ids[i];
     if (literals.size() == 1) {
       if (!k.value(literals[0])) {

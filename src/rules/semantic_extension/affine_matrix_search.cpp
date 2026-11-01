@@ -6,6 +6,7 @@
 #include "rules/semantic_extension/affine_basis_action.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/interruptible_work.hpp"
 
 #include "kernel/types.hpp"
 
@@ -29,6 +30,19 @@ bool add(uint64_t amount, uint64_t maximum, uint64_t &work) {
   if (work > maximum || amount > maximum - work) return false;
   work += amount;
   return true;
+}
+
+// A work charge that polls termination first and then admits `amount`
+// against the live `maximum`; a refused admission sets `*exhausted`.
+template <class Maximum>
+auto metered_charge(const Kernel &kernel, const Maximum &maximum,
+                    uint64_t &work, bool *exhausted = nullptr) {
+  return [&kernel, &maximum, &work, exhausted](uint64_t amount) {
+    if (kernel_terminating(kernel)) return false;
+    if (add(amount, maximum, work)) return true;
+    if (exhausted) *exhausted = true;
+    return false;
+  };
 }
 
 uint64_t clock_nanos() {
@@ -338,10 +352,8 @@ AffineMatrixServiceResult finish_service(Kernel &kernel,
 // ResourceExhausted.
 AffineMatrixServiceResult stopped_service(Kernel &kernel,
                                           AffineMatrixServiceResult &result) {
-  return finish_service(kernel, result,
-                        kernel_terminating(kernel)
-                            ? AffineMatrixServiceStatus::Interrupted
-                            : AffineMatrixServiceStatus::ResourceExhausted);
+  return finish_service(kernel, result, terminating_status(
+      kernel, AffineMatrixServiceStatus::ResourceExhausted));
 }
 
 } // namespace
@@ -610,9 +622,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
     return !stopped&&add(amount,parameters.maximum_session_work,result.premise_retention_work);
   };
   if (!capture_affine_live_snapshot(kernel, capture, owner)) {
-    result.status = kernel_terminating(kernel)
-                        ? AffineMatrixInitStatus::Interrupted
-                        : AffineMatrixInitStatus::ResourceExhausted;
+    result.status =
+        terminating_status(kernel, AffineMatrixInitStatus::ResourceExhausted);
     if(result.status==AffineMatrixInitStatus::ResourceExhausted)
       result.resource_stage=AffineMatrixInitResourceStage::Snapshot;
     if (result.status == AffineMatrixInitStatus::ResourceExhausted)
@@ -628,10 +639,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   bool recognition_exhausted = false;
   Status recognized = Status::Invalid;
   if (persistence.maximum_retained_bytes) {
-    auto charge = [&](uint64_t amount) {
-      return !kernel_terminating(kernel) &&
-          add(amount, parameters.maximum_elimination_work, recognition);
-    };
+    auto charge = metered_charge(kernel, parameters.maximum_elimination_work,
+                                 recognition);
     bool root_input_ready = true;
     // Exact level-zero trail facts only; reconstructed/model values and search
     // assumptions never enter the unconditional normalization oracle.
@@ -791,7 +800,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         }
       }
       if(!root_input_ready) {
-        result.recognition_work=recognition;result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+        result.recognition_work=recognition;result.status=terminating_status(kernel, AffineMatrixInitStatus::ResourceExhausted);
         if(result.status==AffineMatrixInitStatus::ResourceExhausted)
           result.resource_stage=AffineMatrixInitResourceStage::RootCensus;
         return finish_init(kernel,result);
@@ -869,7 +878,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         }
         if(recognized!=Status::Complete) {
           result.recognition_work=recognition;
-          result.status=kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted;
+          result.status=terminating_status(kernel, AffineMatrixInitStatus::ResourceExhausted);
           if(result.status==AffineMatrixInitStatus::ResourceExhausted &&
              result.resource_stage==AffineMatrixInitResourceStage::None)
             result.resource_stage=AffineMatrixInitResourceStage::RootCensus;
@@ -905,11 +914,9 @@ AffineMatrixInitResult affine_matrix_search_initialize(
       }
     } else if(root_input_ready) recognized=Status::Exhausted;
   } else {
-    recognized = recognize(owner.premises,capture.image,[&](uint64_t amount) {
-      if (kernel_terminating(kernel)) return false;
-      if (!add(amount,parameters.maximum_elimination_work,recognition)) {recognition_exhausted=true;return false;}
-      return true;
-    },image);
+    recognized = recognize(owner.premises,capture.image,
+        metered_charge(kernel,parameters.maximum_elimination_work,recognition,
+                       &recognition_exhausted),image);
   }
   result.recognition_work = recognition;
   if (recognized != Status::Complete) {
@@ -1039,14 +1046,8 @@ AffineMatrixInitResult affine_matrix_search_initialize(
   const MatrixStatus built = build_affine_matrix(
       image.equations, owner_version,
       matrix_limits(parameters, persistence.maximum_retained_bytes != 0),
-      [&](uint64_t amount) {
-        if (kernel_terminating(kernel)) return false;
-        if (!add(amount, parameters.basis_maximum_work, matrix_work)) {
-          matrix_exhausted = true;
-          return false;
-        }
-        return true;
-      },
+      metered_charge(kernel, parameters.basis_maximum_work, matrix_work,
+                     &matrix_exhausted),
       matrix, persistence.maximum_retained_bytes != 0);
   result.matrix_work = matrix_work;
   if (built != MatrixStatus::Complete && built != MatrixStatus::Partial) {
@@ -1230,7 +1231,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         std::min(result.snapshot_work,parameters.maximum_snapshot_work);
     AffineLiveSnapshot rechecked;
     if(!capture_affine_live_snapshot(kernel,recheck_request,rechecked)) {
-      return finish_init(kernel,result,kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted);
+      return finish_init(kernel,result,terminating_status(kernel, AffineMatrixInitStatus::ResourceExhausted));
     }
     result.snapshot_work+=rechecked.work;
     bool same=kernel.proof==root_proof && kernel.proof && root_proof_stream &&
@@ -1275,7 +1276,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         {persistence.maximum_deferred_deletions,persistence.maximum_deferred_literal_work},
         postvalidation_charge)) {
       return finish_init(kernel,result,postvalidation_stale?AffineMatrixInitStatus::Stale:
-          kernel_terminating(kernel)?AffineMatrixInitStatus::Interrupted:AffineMatrixInitStatus::ResourceExhausted);
+          terminating_status(kernel, AffineMatrixInitStatus::ResourceExhausted));
     }
   }
   if(persistence.maximum_retained_bytes &&
@@ -1306,8 +1307,7 @@ AffineMatrixInitResult affine_matrix_search_initialize(
         postvalidation_charge, leases, {persistence.maximum_deferred_deletions, persistence.maximum_deferred_literal_work})) {
       return finish_init(kernel, result,
           postvalidation_stale ? AffineMatrixInitStatus::Stale :
-          kernel_terminating(kernel) ? AffineMatrixInitStatus::Interrupted :
-                                       AffineMatrixInitStatus::ResourceExhausted);
+          terminating_status(kernel, AffineMatrixInitStatus::ResourceExhausted));
     }
   }
   const uint64_t committed_epoch=kernel.proof?kernel.proof->premise_epoch():0;
@@ -1566,16 +1566,10 @@ AffineMatrixAliasResult affine_matrix_search_preserve_aliases(
       !kernel_propagation_fixpoint(kernel))
     return finish(AffineMatrixServiceStatus::Inapplicable);
   bool allowance_exhausted = false;
-  const auto charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) return false;
-    if (!add(amount, session.parameters_.basis_maximum_work, result.work)) {
-      allowance_exhausted = true; return false;
-    }
-    return true;
-  };
+  const auto charge = metered_charge(kernel, session.parameters_.basis_maximum_work,
+                                     result.work, &allowance_exhausted);
   const auto exhausted = [&]() {
-    return finish(kernel_terminating(kernel) ? AffineMatrixServiceStatus::Interrupted :
-                                              AffineMatrixServiceStatus::ResourceExhausted);
+    return finish(terminating_status(kernel, AffineMatrixServiceStatus::ResourceExhausted));
   };
   std::vector<std::pair<Lit, Lit>> selected;
   for (auto [source, target] : aliases) {
@@ -1858,10 +1852,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
     return finish_service(kernel, result, AffineMatrixServiceStatus::ResourceExhausted);
   }
   if (session.persistent()) {
-    auto charge = [&](uint64_t amount) {
-      return !kernel_terminating(kernel) &&
-             add(amount, session.parameters_.basis_maximum_work, result.lifecycle_work);
-    };
+    auto charge = metered_charge(kernel, session.parameters_.basis_maximum_work,
+                                 result.lifecycle_work);
     if (session.premise_epoch_ != kernel.proof->premise_epoch()) {
       Image surviving;
       std::vector<uint64_t> leases;
@@ -1931,10 +1923,8 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   }
   std::vector<MatrixAssignment> fresh_trail;
   const std::vector<MatrixAssignment> *trail_view = &fresh_trail;
-  auto capture_charge = [&](uint64_t amount) {
-    return !kernel_terminating(kernel) &&
-        add(amount, session.parameters_.basis_maximum_work, result.trail_capture_work);
-  };
+  auto capture_charge = metered_charge(
+      kernel, session.parameters_.basis_maximum_work, result.trail_capture_work);
   bool capture_ok = true;
   if (session.persistent() && kernel.affine_capture_epochs_trusted) {
     const auto &support = session.matrix_.admitted_variables();
@@ -2062,13 +2052,9 @@ AffineMatrixServiceResult affine_matrix_search_step_impl(
   bool exhausted = false;
   MatrixEvent event;
   const bool defer_exact_construction=lazy_source&&minimal;
-  auto synchronization_charge = [&](uint64_t amount) {
-    if (kernel_terminating(kernel)) return false;
-    if (!add(amount, session.parameters_.basis_maximum_work, result.synchronization_work)) {
-      exhausted = true; return false;
-    }
-    return true;
-  };
+  auto synchronization_charge =
+      metered_charge(kernel, session.parameters_.basis_maximum_work,
+                     result.synchronization_work, &exhausted);
   bool cached = false;
   if (session.persistent()) {
     if (!synchronization_charge(1 + (result.unchanged_support ? 0 : trail.size()))) {

@@ -5,6 +5,7 @@
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/direct_csp_guarded_cover_work.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -185,15 +186,7 @@ namespace tactix {
       auto&out=p.result;
       if(!valid(r))return;
 
-      if(k.proof&&(k.proof->lrat()||k.proof->terminal_pbp())){
-        out.status=Status::UnsupportedProof;
-        return;
-      }
-
-      if(!csp_physical_scan::root_ready(k)){
-        out.status=kernel_terminating(k)?Status::Interrupted:Status::Inapplicable;
-        return;
-      }
+      if(!live_admitted(k,csp_physical_scan::root_ready,out.status))return;
 
       Meter m{
         k,r.maximum_recognition_work
@@ -471,10 +464,7 @@ namespace tactix {
     DirectCspSupportOwnerCaptureResult out;
     if(!r.bounds.valid()||!r.maximum_recognition_work)return out;
 
-    if(!csp_physical_scan::root_ready(k)){
-      out.status=kernel_terminating(k)?Status::Interrupted:Status::Inapplicable;
-      return out;
-    }
+    if(!root_admitted(k,csp_physical_scan::root_ready,out.status))return out;
 
     Meter m{
       k,r.maximum_recognition_work

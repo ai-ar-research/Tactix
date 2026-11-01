@@ -10,10 +10,36 @@
 #include <map>
 #include <numeric>
 #include <set>
+#include <type_traits>
 #include <utility>
 
 namespace tactix::affine_semantic_extension {
 namespace {
+
+// The index of `value` in the sorted `values`, or SIZE_MAX when absent.
+template <class T>
+size_t sorted_position(const std::vector<T> &values,
+                       const std::type_identity_t<T> &value) {
+  const auto found = std::lower_bound(values.begin(), values.end(), value);
+  return found == values.end() || *found != value
+             ? SIZE_MAX
+             : static_cast<size_t>(found - values.begin());
+}
+
+// Whether `trail` keeps every assignment of the sorted `prior` unchanged.
+bool sorted_superset(const std::vector<MatrixAssignment> &prior,
+                     const std::vector<MatrixAssignment> &trail) {
+  size_t old = 0;
+  for (const MatrixAssignment assignment : trail) {
+    if (old < prior.size() && prior[old].variable < assignment.variable)
+      return false;
+    if (old < prior.size() && prior[old].variable == assignment.variable) {
+      if (prior[old].value != assignment.value) return false;
+      ++old;
+    }
+  }
+  return old == prior.size();
+}
 
 struct Work {
   uint64_t used = 0;
@@ -35,17 +61,6 @@ struct Work {
     return true;
   }
 };
-
-bool valid_equation(const Equation &equation) {
-  if (!std::is_sorted(equation.variables.begin(), equation.variables.end()) ||
-      std::adjacent_find(equation.variables.begin(),
-                         equation.variables.end()) != equation.variables.end())
-    return false;
-  return std::all_of(equation.variables.begin(), equation.variables.end(),
-                     [](External variable) {
-                       return variable > 0 && variable != INT32_MIN;
-                     });
-}
 
 bool bounded(const MatrixRow &row, const MatrixLimits &limits) {
   return row.variables.size() <= limits.maximum_row_width &&
@@ -246,11 +261,8 @@ MatrixStatus reduce(const std::vector<MatrixRow> &input,
                                 !!(source_coordinates.size() % 64);
     row.source_words.assign(source_words, 0);
     for (const size_t source : seed.source_equations) {
-      const auto found = std::lower_bound(source_coordinates.begin(),
-                                          source_coordinates.end(), source);
-      if (found == source_coordinates.end() || *found != source)
-        return MatrixStatus::Invalid;
-      const size_t coordinate = found - source_coordinates.begin();
+      const size_t coordinate = sorted_position(source_coordinates, source);
+      if (coordinate == SIZE_MAX) return MatrixStatus::Invalid;
       const uint64_t bit = uint64_t{1} << (coordinate % 64);
       uint64_t &word = row.source_words[coordinate / 64];
       if (word & bit) return MatrixStatus::Invalid;
@@ -526,10 +538,8 @@ bool AffineMatrix::make_deferred_exact_support(MatrixEvent &event) const {
   event.reason_width=uint32_t(support.size());
   event.deferred_exact_support.assign((admitted_variables_.size()+63)/64,0);
   for(const External variable:support){
-    const auto found=std::lower_bound(admitted_variables_.begin(),
-        admitted_variables_.end(),variable);
-    if(found==admitted_variables_.end()||*found!=variable)return false;
-    const size_t coordinate=found-admitted_variables_.begin();
+    const size_t coordinate=sorted_position(admitted_variables_,variable);
+    if(coordinate==SIZE_MAX)return false;
     event.deferred_exact_support[coordinate/64]|=
         uint64_t{1}<<(coordinate%64);
   }
@@ -564,7 +574,7 @@ MatrixStatus build_affine_matrix(
   for (size_t source = 0; source < input.size(); ++source) {
     const Equation &equation = input[source];
     source_width_bound = std::max(source_width_bound,uint64_t(equation.variables.size()));
-    if (!valid_equation(equation)) return MatrixStatus::Invalid;
+    if (!positive_scope(equation.variables)) return MatrixStatus::Invalid;
     MatrixRow seed;
     seed.variables.reserve(equation.variables.size());
     for (External variable : equation.variables) {
@@ -721,10 +731,9 @@ bool AffineMatrix::prepare_simplex(uint64_t maximum,
   for(size_t id=0;id<row_count;++id){
     const MatrixRow &row=admitted_rows_[id];
     if(!row.variables.empty()){
-      const auto found=std::lower_bound(admitted_variables_.begin(),
-          admitted_variables_.end(),row.variables.front());
-      if(found==admitted_variables_.end()||*found!=row.variables.front())return false;
-      const size_t coordinate=found-admitted_variables_.begin();
+      const size_t coordinate=
+          sorted_position(admitted_variables_,row.variables.front());
+      if(coordinate==SIZE_MAX)return false;
       if(candidate.variable_to_row[coordinate]!=missing)return false;
       candidate.variable_to_row[coordinate]=id;
       candidate.responsible[id]=coordinate;
@@ -744,20 +753,17 @@ bool AffineMatrix::prepare_simplex(uint64_t maximum,
     authentication+=1+row.variables.size()+row.source_equations.size();
     const size_t first=row.variables.empty()?0:1;
     for(size_t at=first;at<row.variables.size();++at){
-      const auto found=std::lower_bound(admitted_variables_.begin(),
-          admitted_variables_.end(),row.variables[at]);
-      if(found==admitted_variables_.end()||*found!=row.variables[at])return false;
-      const size_t coordinate=found-admitted_variables_.begin();
+      const size_t coordinate=
+          sorted_position(admitted_variables_,row.variables[at]);
+      if(coordinate==SIZE_MAX)return false;
       const size_t slot=candidate.variable_to_slot[coordinate];
       if(slot==missing)return false;
       candidate.coefficients[id*coefficient_words+slot/64]|=
           uint64_t{1}<<(slot%64);
     }
     for(size_t source:row.source_equations){
-      const auto found=std::lower_bound(admitted_sources_.begin(),
-          admitted_sources_.end(),source);
-      if(found==admitted_sources_.end()||*found!=source)return false;
-      const size_t coordinate=found-admitted_sources_.begin();
+      const size_t coordinate=sorted_position(admitted_sources_,source);
+      if(coordinate==SIZE_MAX)return false;
       candidate.provenance[id*source_words+coordinate/64]|=
           uint64_t{1}<<(coordinate%64);
     }
@@ -867,11 +873,9 @@ void AffineMatrix::simplex_make_deferred_core_support(
   }
   if(!width||width>UINT32_MAX)std::abort();
   event.reason_width=uint32_t(width);
-  const auto implied=std::lower_bound(admitted_variables_.begin(),
-      admitted_variables_.end(),event.implied_variable);
-  if(implied==admitted_variables_.end()||*implied!=event.implied_variable)
-    std::abort();
-  const size_t coordinate=implied-admitted_variables_.begin();
+  const size_t coordinate=
+      sorted_position(admitted_variables_,event.implied_variable);
+  if(coordinate==SIZE_MAX)std::abort();
   if(!(event.deferred_exact_support[coordinate/64]&
        (uint64_t{1}<<(coordinate%64))))std::abort();
 #ifndef NDEBUG
@@ -1119,15 +1123,7 @@ MatrixStatus AffineMatrix::synchronize_simplex(
                            assignment.variable))
       return invalid(MatrixSynchronizationFailureStage::TrailSupport);
   }
-  bool extension=trail.size()>=trail_.size();
-  size_t old=0;
-  if(extension)for(const MatrixAssignment assignment:trail){
-    if(old<trail_.size()&&trail_[old].variable<assignment.variable){extension=false;break;}
-    if(old<trail_.size()&&trail_[old].variable==assignment.variable){
-      if(trail_[old].value!=assignment.value){extension=false;break;}++old;
-    }
-  }
-  if(old!=trail_.size())extension=false;
+  const bool extension=trail.size()>=trail_.size()&&sorted_superset(trail_,trail);
   std::vector<std::pair<size_t,bool>> added;
   if(extension){
     size_t prior=0;added.reserve(trail.size()-trail_.size());
@@ -1135,11 +1131,10 @@ MatrixStatus AffineMatrix::synchronize_simplex(
       if(prior<trail_.size()&&trail_[prior].variable==assignment.variable){
         ++prior;continue;
       }
-      const auto found=std::lower_bound(admitted_variables_.begin(),
-          admitted_variables_.end(),assignment.variable);
-      if(found==admitted_variables_.end()||*found!=assignment.variable)
+      const size_t found=sorted_position(admitted_variables_,assignment.variable);
+      if(found==SIZE_MAX)
         return invalid(MatrixSynchronizationFailureStage::TrailSupport);
-      added.emplace_back(found-admitted_variables_.begin(),assignment.value);
+      added.emplace_back(found,assignment.value);
     }
   }
   const MatrixSynchronizationKind kind=!simplex_.ready?MatrixSynchronizationKind::PriorPartial:
@@ -1214,11 +1209,10 @@ MatrixStatus AffineMatrix::synchronize_simplex(
   if(fresh||!extension){
     std::fill(simplex_.values.begin(),simplex_.values.end(),0);
     for(const MatrixAssignment assignment:trail){
-      const auto found=std::lower_bound(admitted_variables_.begin(),
-          admitted_variables_.end(),assignment.variable);
-      if(found==admitted_variables_.end()||*found!=assignment.variable)
+      const size_t found=sorted_position(admitted_variables_,assignment.variable);
+      if(found==SIZE_MAX)
         return invalid(MatrixSynchronizationFailureStage::TrailSupport);
-      simplex_.values[found-admitted_variables_.begin()]=assignment.value?2:1;
+      simplex_.values[found]=assignment.value?2:1;
     }
     std::fill(simplex_.slot_unset.begin(),simplex_.slot_unset.end(),0);
     std::fill(simplex_.slot_values.begin(),simplex_.slot_values.end(),0);
@@ -1430,10 +1424,7 @@ void AffineMatrix::record_synchronization(
 
 MatrixStatus AffineMatrix::project(const std::vector<External> &unavailable,
     const std::function<bool(uint64_t)> &charge) {
-  if (!charge || !std::is_sorted(unavailable.begin(), unavailable.end()) ||
-      std::adjacent_find(unavailable.begin(), unavailable.end()) != unavailable.end() ||
-      std::any_of(unavailable.begin(), unavailable.end(), [](External v){return v <= 0;}))
-    return MatrixStatus::Invalid;
+  if (!charge || !positive_scope(unavailable)) return MatrixStatus::Invalid;
   continuation_ = {};
   if (unavailable.empty()) return MatrixStatus::Complete;
   Work work{0, limits_.maximum_work, charge};
@@ -1600,6 +1591,21 @@ MatrixStatus AffineMatrix::synchronize(
                    ? MatrixStatus::Complete
                    : invalid(MatrixSynchronizationFailureStage::DeferredReason);
       };
+  // The next event of `candidate_rows`: through a freshly prepared index
+  // under incremental limits, otherwise by a full scan.
+  const auto prepare_event = [&](const std::vector<MatrixRow> &candidate_rows,
+                                 PreparedIndexState &prepared,
+                                 MatrixEvent &candidate) {
+    if (!incremental_limits) {
+      candidate = find_event(candidate_rows);
+      return finish_reason(candidate)
+                 ? MatrixStatus::Complete
+                 : invalid(MatrixSynchronizationFailureStage::DeferredReason);
+    }
+    const auto status = prepare_index(candidate_rows, prepared);
+    if (status != MatrixStatus::Complete) return status;
+    return prepare_indexed_event(candidate_rows, prepared.index, candidate);
+  };
   const auto install_index = [&](PreparedIndexState &prepared) {
     if (incremental_limits) {
       index_ = std::move(prepared.index);
@@ -1628,18 +1634,7 @@ MatrixStatus AffineMatrix::synchronize(
         return invalid(MatrixSynchronizationFailureStage::TrailOrder);
       previous = assignment.variable;
     }
-    monotone_set = true;
-    size_t old = 0;
-    for (const auto assignment : trail) {
-      if (old < trail_.size() && trail_[old].variable < assignment.variable) {
-        monotone_set = false; break;
-      }
-      if (old < trail_.size() && trail_[old].variable == assignment.variable) {
-        if (trail_[old].value != assignment.value) { monotone_set = false; break; }
-        ++old;
-      }
-    }
-    if (old != trail_.size()) monotone_set = false;
+    monotone_set = sorted_superset(trail_, trail);
   }
 
   // An unchanged exact support assignment cannot alter the reduced basis or
@@ -1669,20 +1664,11 @@ MatrixStatus AffineMatrix::synchronize(
   }
   if (predecessor_candidate && trail == predecessor_trail_) {
     PreparedIndexState prepared;
-    if (incremental_limits) {
-      const auto status = prepare_index(predecessor_rows_, prepared);
-      if (status != MatrixStatus::Complete)
-        return status;
-    }
     MatrixEvent candidate;
-    if (incremental_limits) {
-      const auto status =
-          prepare_indexed_event(predecessor_rows_, prepared.index, candidate);
-      if (status != MatrixStatus::Complete)
-        return status;
-    } else {candidate=find_event(predecessor_rows_);
-      if(!finish_reason(candidate))
-        return invalid(MatrixSynchronizationFailureStage::DeferredReason);}
+    if (const auto event_status =
+            prepare_event(predecessor_rows_, prepared, candidate);
+        event_status != MatrixStatus::Complete)
+      return event_status;
     trail_ = std::move(predecessor_trail_);
     rows_ = std::move(predecessor_rows_);
     predecessor_ready_ = false;
@@ -1745,20 +1731,10 @@ MatrixStatus AffineMatrix::synchronize(
     return MatrixStatus::Exhausted;
 
   PreparedIndexState prepared;
-  if (incremental_limits) {
-    const auto index_status = prepare_index(rows, prepared);
-    if (index_status != MatrixStatus::Complete)
-      return index_status;
-  }
   MatrixEvent candidate;
-  if (incremental_limits) {
-    const auto event_status =
-        prepare_indexed_event(rows, prepared.index, candidate);
-    if (event_status != MatrixStatus::Complete)
-      return event_status;
-  } else {candidate=find_event(rows);
-    if(!finish_reason(candidate))
-      return invalid(MatrixSynchronizationFailureStage::DeferredReason);}
+  if (const auto event_status = prepare_event(rows, prepared, candidate);
+      event_status != MatrixStatus::Complete)
+    return event_status;
   // Current and predecessor share the existing mutable row/trail population
   // allowances. Full matrices simply keep the established rebuild behavior.
   if (incremental && !incremental_limits && status == MatrixStatus::Complete &&
@@ -2068,12 +2044,10 @@ MatrixStatus AffineMatrix::synchronize_sliced(
         uint64_t width=0;
         for(const auto &[variable,odd]:state.support){
           if(!odd)continue;
-          const auto found=std::lower_bound(admitted_variables_.begin(),
-              admitted_variables_.end(),variable);
-          if(found==admitted_variables_.end()||*found!=variable){
+          const size_t coordinate=sorted_position(admitted_variables_,variable);
+          if(coordinate==SIZE_MAX){
             continuation_={};return MatrixStatus::Invalid;
           }
-          const size_t coordinate=found-admitted_variables_.begin();
           state.event.deferred_exact_support[coordinate/64]|=
               uint64_t{1}<<(coordinate%64);
           ++width;
@@ -2559,11 +2533,7 @@ bool AffineMatrix::authenticates_historical(
       exact_sources.size() != sources_.size() ||
       event.kind == MatrixEventKind::None ||
       event.row.source_equations.empty() ||
-      !std::is_sorted(event.row.source_equations.begin(),
-                      event.row.source_equations.end()) ||
-      std::adjacent_find(event.row.source_equations.begin(),
-                         event.row.source_equations.end()) !=
-          event.row.source_equations.end())
+      !strictly_increasing(event.row.source_equations))
     return false;
   const bool retained_sources = &exact_sources == &sources_;
   for (size_t i = 0; i < sources_.size(); ++i) {

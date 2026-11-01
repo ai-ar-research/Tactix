@@ -23,11 +23,6 @@ using Meter =
     gf3_certificate_common::Meter<Limits, Charge, Statistics, LimitKind>;
 using Outcome = gf3_certificate_common::Outcome<Result>;
 
-constexpr uint64_t gaussian_node_bytes = 48;
-constexpr uint64_t gaussian_row_term_bytes = 8;
-constexpr uint64_t gaussian_provenance_term_bytes = 16;
-constexpr uint64_t gaussian_outcome_bytes = 16;
-
 uint32_t variable(int32_t literal) {
   return external_variable_of(literal);
 }
@@ -389,23 +384,15 @@ bool validate_gaussian_accounting(const Plan &plan, Context &context) {
                      computed.fill_entries))
       return false;
 
-    uint64_t row_bytes = 0;
-    uint64_t provenance_bytes = 0;
-    uint64_t retained = gaussian_node_bytes;
-    if (!multiply_checked(node.row.size(), gaussian_row_term_bytes,
-                          row_bytes) ||
-        !multiply_checked(node.provenance.size(),
-                          gaussian_provenance_term_bytes,
-                          provenance_bytes) ||
-        !add_checked(retained, row_bytes, retained) ||
-        !add_checked(retained, provenance_bytes, retained) ||
+    uint64_t retained = 0;
+    if (!gf3_gaussian::retained_derivation_bytes(node, retained) ||
         !add_checked(computed.retained_plan_bytes, retained,
                      computed.retained_plan_bytes))
       return false;
   }
   uint64_t outcome_bytes = 0;
   if (!multiply_checked(plan.gaussian.outcomes.size(),
-                        gaussian_outcome_bytes, outcome_bytes) ||
+                        gf3_gaussian::retained_outcome_bytes, outcome_bytes) ||
       !add_checked(computed.retained_plan_bytes, outcome_bytes,
                    computed.retained_plan_bytes))
     return false;

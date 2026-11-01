@@ -178,17 +178,21 @@ bool validate_transaction_sources(
     const std::vector<uint64_t> *leases, std::vector<uint64_t> &occurrences,
     std::vector<uint64_t> &clause_ids,
     std::vector<uint64_t> &resume_occurrences,
-    std::vector<uint64_t> &resume_clause_ids) {
-  return validate_selected_sources(
-             kernel, owner, current_sources, transaction.source_equations(),
-             transaction.source_identity(), work, leases, occurrences,
-             clause_ids) &&
-         (!transaction.proof_cache_resume() ||
-          validate_selected_sources(
-              kernel, owner, resume_sources,
-              transaction.resume_source_equations(),
-              transaction.resume_source_identity(), work, leases,
-              resume_occurrences, resume_clause_ids));
+    std::vector<uint64_t> &resume_clause_ids,
+    bool *resume_failed = nullptr) {
+  if (!validate_selected_sources(
+          kernel, owner, current_sources, transaction.source_equations(),
+          transaction.source_identity(), work, leases, occurrences,
+          clause_ids))
+    return false;
+  if (!transaction.proof_cache_resume() ||
+      validate_selected_sources(
+          kernel, owner, resume_sources, transaction.resume_source_equations(),
+          transaction.resume_source_identity(), work, leases,
+          resume_occurrences, resume_clause_ids))
+    return true;
+  if (resume_failed) *resume_failed = true;
+  return false;
 }
 
 bool reason_order(const Kernel &kernel, const MatrixEvent &event,
@@ -842,26 +846,17 @@ MatrixLiveResult publish_affine_matrix_live(
       fail_validation(MatrixLiveResult::AuditStage::MatrixAuthentication);
       return result;
     }
-    if (!validate_selected_sources(
+    bool resume_failed = false;
+    if (!validate_transaction_sources(
             kernel, request.retained_publication ? *request.owner
                                                  : prepared.owner_,
-            *request.exact_sources,
-            prepared.transaction_.source_equations(),
-            prepared.transaction_.source_identity(), validation,
-            request.premise_leases, occurrences, clause_ids)) {
-      fail_validation(MatrixLiveResult::AuditStage::SelectedSources);
-      return result;
-    }
-    if (prepared.transaction_.proof_cache_resume() &&
-        !validate_selected_sources(
-             kernel, request.retained_publication ? *request.owner
-                                                  : prepared.owner_,
-             *request.exact_sources,
-             prepared.transaction_.resume_source_equations(),
-             prepared.transaction_.resume_source_identity(), validation,
-             request.premise_leases, resume_occurrences,
-             resume_clause_ids)) {
-      fail_validation(MatrixLiveResult::AuditStage::ResumeSources);
+            *request.exact_sources, *request.exact_sources,
+            prepared.transaction_, validation, request.premise_leases,
+            occurrences, clause_ids, resume_occurrences, resume_clause_ids,
+            &resume_failed)) {
+      fail_validation(resume_failed
+                          ? MatrixLiveResult::AuditStage::ResumeSources
+                          : MatrixLiveResult::AuditStage::SelectedSources);
       return result;
     }
     result.revalidation_work = validation.used;

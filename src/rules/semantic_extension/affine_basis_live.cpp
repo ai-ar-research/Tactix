@@ -675,23 +675,6 @@ bool exclusion_charge(uint64_t amount, uint64_t maximum, uint64_t &work) {
   return true;
 }
 
-bool measure_excluded_key(const AffineBasisConsumedKey &key,
-                          uint64_t maximum, uint64_t &work) {
-  if (!exclusion_charge(1, maximum, work) ||
-      !exclusion_charge(key.variables.size(), maximum, work))
-    return false;
-  for (const auto &equation : key.source_equations) {
-    if (!exclusion_charge(1, maximum, work) ||
-        !exclusion_charge(equation.variables.size(), maximum, work))
-      return false;
-    for (const auto &premise : equation.premises)
-      if (!exclusion_charge(1, maximum, work) ||
-          !exclusion_charge(premise.clause.size(), maximum, work))
-        return false;
-  }
-  return true;
-}
-
 FilterStatus excluded_key(const std::vector<AffineBasisConsumedKey> &excluded,
                           const AffineBasisConsumedKey &key,
                           uint64_t maximum, uint64_t &work, bool &found) {
@@ -733,7 +716,7 @@ FilterStatus filter_excluded_rows(
     affine::BasisPlan &plan, uint64_t &work, uint64_t &excluded_rows) {
   if (excluded.empty()) return FilterStatus::Complete;
   for (size_t i = 0; i < excluded.size(); ++i) {
-    if (!measure_excluded_key(excluded[i], maximum, work))
+    if (!affine_basis_key_work(excluded[i], maximum, work))
       return FilterStatus::Exhausted;
     if (i) {
       if (!exclusion_charge(1, maximum, work))
@@ -755,7 +738,7 @@ FilterStatus filter_excluded_rows(
     AffineBasisConsumedKey key;
     if (!make_consumed_key(image, snapshot, row, key))
       return FilterStatus::Invalid;
-    if (!measure_excluded_key(key, maximum, work))
+    if (!affine_basis_key_work(key, maximum, work))
       return FilterStatus::Exhausted;
     bool found = false;
     const FilterStatus lookup =
@@ -879,6 +862,23 @@ FilterStatus filter_selected_row(
 
 } // namespace
 
+bool affine_basis_key_work(const AffineBasisConsumedKey &key,
+                           uint64_t maximum, uint64_t &work) {
+  if (!exclusion_charge(1, maximum, work) ||
+      !exclusion_charge(key.variables.size(), maximum, work))
+    return false;
+  for (const auto &equation : key.source_equations) {
+    if (!exclusion_charge(1, maximum, work) ||
+        !exclusion_charge(equation.variables.size(), maximum, work))
+      return false;
+    for (const auto &premise : equation.premises)
+      if (!exclusion_charge(1, maximum, work) ||
+          !exclusion_charge(premise.clause.size(), maximum, work))
+        return false;
+  }
+  return true;
+}
+
 bool affine_basis_consumed_key(const affine::Image &image,
                                const AffineLiveSnapshot &snapshot,
                                const affine::BasisRow &row,
@@ -945,9 +945,8 @@ AffineBasisLiveResult prepare_affine_basis_live(
     transaction.snapshot_ = *request.owner;
   } else if (!capture_affine_live_snapshot(kernel, snapshot_request,
                                            transaction.snapshot_)) {
-    result.status = kernel_terminating(kernel)
-                        ? AffineBasisLiveStatus::Interrupted
-                        : AffineBasisLiveStatus::ResourceExhausted;
+    result.status =
+        terminating_status(kernel, AffineBasisLiveStatus::ResourceExhausted);
     return result;
   }
   result.snapshot_clauses = transaction.snapshot_.premises.size();

@@ -558,11 +558,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
     transaction.owner_identity_ = expected_owner_identity;
     transaction.authentication_work_ = authentication_work;
     transaction.source_equations_ = event.row.source_equations;
-    if (!std::is_sorted(transaction.source_equations_.begin(),
-                        transaction.source_equations_.end()) ||
-        std::adjacent_find(transaction.source_equations_.begin(),
-                           transaction.source_equations_.end()) !=
-            transaction.source_equations_.end())
+    if (!strictly_increasing(transaction.source_equations_))
       return MatrixTransactionStatus::Stale;
     const bool identities_ready = retain_source_identity
         ? retain_source_identities(exact_sources,
@@ -741,11 +737,7 @@ MatrixTransactionStatus prepare_affine_matrix_transaction(
       if (scan_charge > work.limit - work.used) break; // Fresh path still fits.
       if (!work.consume(scan_charge))
         return MatrixTransactionStatus::Interrupted;
-      bool exact = std::is_sorted(entry.source_equations.begin(),
-                                  entry.source_equations.end()) &&
-                   std::adjacent_find(entry.source_equations.begin(),
-                                      entry.source_equations.end()) ==
-                       entry.source_equations.end();
+      bool exact = strictly_increasing(entry.source_equations);
       for (size_t i = 0; exact && i < entry.source_equations.size(); ++i) {
         const size_t ordinal = entry.source_equations[i];
         exact = ordinal < exact_sources.size() &&

@@ -2,6 +2,7 @@
 
 #include "rules/semantic_extension/csp_physical_scan.hpp"
 #include "rules/semantic_extension/exact_cover_batch.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -70,14 +71,9 @@ bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
       return false;
     SourceClause clause;
     clause.native_proof_id = id;
-    clause.literals.reserve(size);
-    for (uint32_t i = 0; i < size; ++i) {
-      const Var variable = var_of(literals[i]);
-      if (kernel_var_retired(k, variable) || k.value(literals[i])) {
-        failure = ExactCoverLiveStatus::NoStructure;
-        return false;
-      }
-      clause.literals.push_back(kernel_externalize(k, literals[i]));
+    if (!unassigned_external_clause(k, literals, size, clause.literals)) {
+      failure = ExactCoverLiveStatus::NoStructure;
+      return false;
     }
     std::sort(clause.literals.begin(), clause.literals.end());
     literal_count += size;
@@ -89,11 +85,7 @@ bool capture_source(Kernel &k, const ExactCoverLiveRequest &request,
   if (csp_physical_scan::run(k, charge, take) !=
       csp_physical_scan::Status::Complete)
     return false;
-  std::sort(captured.begin(), captured.end(),
-            [](const SourceClause &a, const SourceClause &b) {
-              if (a.literals != b.literals) return a.literals < b.literals;
-              return a.native_proof_id < b.native_proof_id;
-            });
+  csp_physical_scan::sort_premises(captured, &SourceClause::native_proof_id);
   std::vector<Premise> planned;
   planned.reserve(captured.size());
   for (size_t i = 0; i < captured.size(); ++i)

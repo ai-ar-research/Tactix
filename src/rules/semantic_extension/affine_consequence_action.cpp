@@ -184,11 +184,12 @@ AffineConsequenceActionResult apply_selected_consequence(Kernel &kernel) {
   return output;
 }
 
-// The certified-basis branch of the session-owning entry points.
-void apply_basis(Kernel &kernel, AffineBasisActionSession &session,
+// The certified-basis branch; a missing or unattached session is
+// Inapplicable.
+void apply_basis(Kernel &kernel, AffineBasisActionSession *session,
                  const AffineBasisRowSelection *selection,
                  AffineConsequenceActionResult &output) {
-  if (kernel.affine_basis_action_session != &session) {
+  if (!session || kernel.affine_basis_action_session != session) {
     output.status = AffineConsequenceActionStatus::Inapplicable;
     output.basis.status = AffineBasisActionStatus::Inapplicable;
     return;
@@ -196,14 +197,39 @@ void apply_basis(Kernel &kernel, AffineBasisActionSession &session,
   const auto limits =
       action_parameters::action_limits(kernel.affine_consequence_parameters);
   output.basis = selection
-      ? affine_basis_action_apply(kernel, session, limits, *selection)
-      : affine_basis_action_apply(kernel, session, limits);
+      ? affine_basis_action_apply(kernel, *session, limits, *selection)
+      : affine_basis_action_apply(kernel, *session, limits);
   output.status = status(output.basis.status);
   output.result = output.basis.result;
   output.proposed_action_id = output.basis.proposed_action_id;
   output.committed_action_id = output.basis.committed_action_id;
   output.semantic_id = output.basis.semantic_id;
   output.candidate_staged = output.basis.candidate_staged;
+}
+
+// The recorded body of every entry point. SelectedConsequenceV1 runs unless a
+// basis row is selected; a selected row requires CertifiedBasisV2.
+AffineConsequenceActionResult apply_recorded(
+    Kernel &kernel, AffineBasisActionSession *session,
+    const AffineBasisRowSelection *selection) {
+  AffineConsequenceActionResult output;
+  {
+    RecordAffineConsequence record{kernel, output};
+    if (!selection &&
+        kernel.affine_consequence_parameters.semantics ==
+            strategy::AffineConsequenceSemantics::SelectedConsequenceV1) {
+      output = apply_selected_consequence(kernel);
+      finalize_selected_consequence(output);
+    } else {
+      output.semantics = kernel.affine_consequence_parameters.semantics;
+      if (kernel.affine_consequence_parameters.valid() &&
+          (!selection ||
+           output.semantics ==
+               strategy::AffineConsequenceSemantics::CertifiedBasisV2))
+        apply_basis(kernel, session, selection, output);
+    }
+  }
+  return output;
 }
 
 } // namespace
@@ -221,60 +247,22 @@ RuleEligibility affine_consequence_action_guard(const Kernel &kernel) {
 }
 
 AffineConsequenceActionResult affine_consequence_action_apply(Kernel &kernel) {
-  if (kernel.affine_consequence_parameters.semantics ==
-          strategy::AffineConsequenceSemantics::CertifiedBasisV2 &&
-      kernel.affine_basis_action_session)
-    return affine_consequence_action_apply(
-        kernel, *kernel.affine_basis_action_session);
-  AffineConsequenceActionResult output;
-  {
-    RecordAffineConsequence record{kernel, output};
-    if (kernel.affine_consequence_parameters.semantics ==
-        strategy::AffineConsequenceSemantics::SelectedConsequenceV1) {
-      output = apply_selected_consequence(kernel);
-      finalize_selected_consequence(output);
-    } else {
-      output.semantics = kernel.affine_consequence_parameters.semantics;
-      if (kernel.affine_consequence_parameters.valid()) {
-        output.status = AffineConsequenceActionStatus::Inapplicable;
-        output.basis.status = AffineBasisActionStatus::Inapplicable;
-      }
-    }
-  }
-  return output;
+  // Only CertifiedBasisV2 routes through the attached basis session.
+  const bool basis = kernel.affine_consequence_parameters.semantics ==
+                     strategy::AffineConsequenceSemantics::CertifiedBasisV2;
+  return apply_recorded(
+      kernel, basis ? kernel.affine_basis_action_session : nullptr, nullptr);
 }
 
 AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &kernel, AffineBasisActionSession &session) {
-  AffineConsequenceActionResult output;
-  {
-    RecordAffineConsequence record{kernel, output};
-    if (kernel.affine_consequence_parameters.semantics ==
-        strategy::AffineConsequenceSemantics::SelectedConsequenceV1) {
-      output = apply_selected_consequence(kernel);
-      finalize_selected_consequence(output);
-    } else {
-      output.semantics = kernel.affine_consequence_parameters.semantics;
-      if (kernel.affine_consequence_parameters.valid())
-        apply_basis(kernel, session, nullptr, output);
-    }
-  }
-  return output;
+  return apply_recorded(kernel, &session, nullptr);
 }
 
 AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &kernel, AffineBasisActionSession &session,
     const AffineBasisRowSelection &selection) {
-  AffineConsequenceActionResult output;
-  {
-    RecordAffineConsequence record{kernel, output};
-    output.semantics = kernel.affine_consequence_parameters.semantics;
-    if (kernel.affine_consequence_parameters.valid() &&
-        output.semantics ==
-            strategy::AffineConsequenceSemantics::CertifiedBasisV2)
-      apply_basis(kernel, session, &selection, output);
-  }
-  return output;
+  return apply_recorded(kernel, &session, &selection);
 }
 
 ApplyResult affine_consequence_rule_apply(Kernel &kernel) {

@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 
 #include <algorithm>
 #include <array>
@@ -289,13 +290,7 @@ NaryCspEqualityLiveResult nary_csp_equality_live_apply(
     std::abort();
   std::vector<uint64_t> ids;
   for (const auto &addition : plan.additions) {
-    std::vector<Lit> literals;
-    for (int32_t external : addition.clause) {
-      const Lit literal = kernel_internalize(kernel, external);
-      if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-        std::abort();
-      literals.push_back(literal);
-    }
+    const auto literals = internal_clause_or_abort(kernel, addition.clause);
     const uint64_t id = ++kernel.next_clause_id;
     if (kernel.proof) {
       if (addition.proof == equality::ProofStep::Rup)
