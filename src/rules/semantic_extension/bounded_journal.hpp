@@ -26,6 +26,15 @@ inline bool append_bounded(std::string &bytes, uint64_t maximum,
 // Bounded stable-text construction shared by semantic publishers. Work is
 // charged before capacity admission because failed rendering attempts are
 // observable in publishers that report journal work.
+// Comma-separated decimal spelling of `values`, as journal records write it.
+template <class Integer>
+std::string join_integers(const std::vector<Integer> &values) {
+  std::string result;
+  for (size_t i = 0; i < values.size(); ++i)
+    result += (i ? "," : "") + std::to_string(values[i]);
+  return result;
+}
+
 template <bool TrackWork = false, bool SaturateWorkOverflow = false>
 struct BoundedJournal {
   uint64_t maximum = 0;
@@ -54,5 +63,22 @@ struct BoundedJournal {
     return true;
   }
 };
+
+// One record per retained source premise, in source order:
+// {"kind":"<kind>","action":A,"occurrence":O,"native_proof_id":N,"clause":[..]}
+template <class Journal, class Premises>
+bool append_source_premises(Journal &journal, const std::string &kind,
+                            uint64_t action, const Premises &source) {
+  for (const auto &premise : source)
+    if (!journal.append("{\"kind\":\"" + kind + "\",\"action\":" +
+                        std::to_string(action) + ",\"occurrence\":" +
+                        std::to_string(premise.occurrence) +
+                        ",\"native_proof_id\":" +
+                        std::to_string(premise.native_proof_id) +
+                        ",\"clause\":[") ||
+        !journal.integers(premise.literals) || !journal.append("]}\n"))
+      return false;
+  return true;
+}
 
 } // namespace tactix::semantic_extension

@@ -47,4 +47,13 @@ struct InterruptibleWork {
   }
 };
 
+// The status a stopped meter reports: Interrupted takes precedence over
+// ResourceExhausted; a meter that did neither reports `otherwise`.
+template <class Status>
+Status stopped_status(const InterruptibleWork &meter, Status otherwise) {
+  if (meter.interrupted) return Status::Interrupted;
+  if (meter.exhausted) return Status::ResourceExhausted;
+  return otherwise;
+}
+
 } // namespace tactix
