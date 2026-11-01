@@ -31,33 +31,13 @@ public:
       assign(other.begin(), other.end());
     return *this;
   }
-  CompactVector(CompactVector &&other) noexcept {
-    if (other.on_heap()) {
-      storage_.heap = other.storage_.heap;
-      capacity_ = other.capacity_;
-      other.storage_.heap = nullptr;
-      other.capacity_ = INLINE_CAPACITY;
-    } else
-      for (uint32_t i = 0; i < other.size_; i++)
-        storage_.inlined[i] = other.storage_.inlined[i];
-    size_ = other.size_;
-    other.size_ = 0;
-  }
+  CompactVector(CompactVector &&other) noexcept { take(other); }
   CompactVector &operator=(CompactVector &&other) noexcept {
     if (this != &other) {
       if (on_heap())
         delete[] storage_.heap;
       capacity_ = INLINE_CAPACITY;
-      if (other.on_heap()) {
-        storage_.heap = other.storage_.heap;
-        capacity_ = other.capacity_;
-        other.storage_.heap = nullptr;
-        other.capacity_ = INLINE_CAPACITY;
-      } else
-        for (uint32_t i = 0; i < other.size_; i++)
-          storage_.inlined[i] = other.storage_.inlined[i];
-      size_ = other.size_;
-      other.size_ = 0;
+      take(other);
     }
     return *this;
   }
@@ -103,6 +83,20 @@ public:
   }
 
 private:
+  // Move `other`'s elements into this inline, storage-free vector, leaving
+  // `other` empty and inline.
+  void take(CompactVector &other) noexcept {
+    if (other.on_heap()) {
+      storage_.heap = other.storage_.heap;
+      capacity_ = other.capacity_;
+      other.storage_.heap = nullptr;
+      other.capacity_ = INLINE_CAPACITY;
+    } else
+      for (uint32_t i = 0; i < other.size_; i++)
+        storage_.inlined[i] = other.storage_.inlined[i];
+    size_ = other.size_;
+    other.size_ = 0;
+  }
   template <typename Iterator> void assign(Iterator begin, Iterator end) {
     if (begin == end) {
       size_ = 0;

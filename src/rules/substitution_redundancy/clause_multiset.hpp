@@ -283,21 +283,10 @@ public:
     assert(clauses_.size() == source_multiplicity_.size());
     assert(is_bijection(mapping));
     std::vector<Lit> mapped;
-    bool valid = true;
-    for (size_t i = 0; i < clauses_.size(); ++i) {
-      const auto &clause = clauses_[i];
-      if (!charge(clause.size()))
-        return false;
-      bool fixed = false;
-      valid &= preserves_clause(i, mapping, mapped, fixed);
-      if (stats) {
-        stats->fixed_clauses += fixed;
-        stats->mapped_clauses += !fixed;
-      }
-      // Continue charging after mismatches to preserve this reference path.
-
-    }
-    return valid;
+    // Continue charging after mismatches to preserve this reference path.
+    std::vector<size_t> all(clauses_.size());
+    std::iota(all.begin(), all.end(), size_t{0});
+    return check_clauses<true>(all, mapping, mapped, charge, stats);
   }
   // Clauses outside the moved literal support are pointwise fixed. The
   // incidence index includes each physical copy, including repeated literals;
@@ -440,8 +429,8 @@ private:
 
   // Charge and check each listed clause in order, counting fixed and mapped
   // clauses.
-  template <bool MatchMultiplicity, class Mapping, class Charge>
-  bool check_clauses(const std::vector<size_t> &clauses, const Mapping &mapping,
+  template <bool MatchMultiplicity, class Clauses, class Mapping, class Charge>
+  bool check_clauses(const Clauses &clauses, const Mapping &mapping,
                      std::vector<Lit> &mapped, Charge &charge,
                      SymmetryClauseCheckStats *stats) const {
     bool valid = true;

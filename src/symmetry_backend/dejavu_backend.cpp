@@ -27,6 +27,18 @@ bool stopped(StopCallback callback, void *context) noexcept {
   return callback && callback(context);
 }
 
+// The status of the exception being handled: an allocation failure is
+// ResourceExhausted, anything else Failed.
+Status current_failure() noexcept {
+  try {
+    throw;
+  } catch (const std::bad_alloc &) {
+    return Status::ResourceExhausted;
+  } catch (...) {
+    return Status::Failed;
+  }
+}
+
 // UINT64_MAX is the backend's unbounded setting (-1); other values must fit.
 template <class Int> bool as_backend(uint64_t value, Int &result) noexcept {
   if (value == UINT64_MAX) {
@@ -49,6 +61,16 @@ template <class Result> Status finish(Result &result, Status status) noexcept {
 template <class Result> Status fail(Result &result, Status status) noexcept {
   release(result);
   return finish(result, status);
+}
+
+// Uninitialized storage for `count` elements of a C-shaped result array.
+template <class T> T *allocate(size_t count) noexcept {
+  return static_cast<T *>(std::malloc(count * sizeof(T)));
+}
+
+// Free C-shaped result arrays in argument order.
+template <class... Arrays> void free_arrays(Arrays *...arrays) noexcept {
+  (std::free(arrays), ...);
 }
 
 enum class GraphShape : uint8_t { Simple, RepeatedEdge, Stopped };
@@ -115,15 +137,12 @@ Status load_graph(const Graph &input, dejavu::static_graph &graph,
 } // namespace
 
 void release(Permutations &result) noexcept {
-  std::free(result.images);
-  std::free(result.image_offsets);
-  std::free(result.image_points);
+  free_arrays(result.images, result.image_offsets, result.image_points);
   result = {};
 }
 
 void release(RefinementRows &result) noexcept {
-  std::free(result.sources);
-  std::free(result.images);
+  free_arrays(result.sources, result.images);
   result = {};
 }
 
@@ -133,8 +152,7 @@ void release(RefinementPartition &result) noexcept {
 }
 
 void release(IndividualizedPartition &result) noexcept {
-  std::free(result.cells);
-  std::free(result.sizes);
+  free_arrays(result.cells, result.sizes);
   result = {};
 }
 
@@ -144,13 +162,9 @@ void release(RefinementOrbit &result) noexcept {
 }
 
 void release(Fixings &result) noexcept {
-  std::free(result.kinds);
-  std::free(result.levels);
-  std::free(result.representatives);
-  std::free(result.others);
-  std::free(result.images);
-  std::free(result.image_offsets);
-  std::free(result.image_points);
+  free_arrays(result.kinds, result.levels, result.representatives,
+              result.others, result.images, result.image_offsets,
+              result.image_points);
   result = {};
 }
 
@@ -322,14 +336,11 @@ Status detect(const Graph &input, const DetectionSettings &settings,
     if (settings.sparse_output) {
       if (found.size() >= SIZE_MAX / sizeof(uint64_t) ||
           entries > SIZE_MAX / sizeof(uint32_t)) throw std::bad_alloc();
-      result.image_offsets = static_cast<uint64_t *>(
-          std::malloc((found.size() + 1) * sizeof(uint64_t)));
+      result.image_offsets = allocate<uint64_t>(found.size() + 1);
       if (!result.image_offsets) throw std::bad_alloc();
       if (entries) {
-        result.images = static_cast<uint32_t *>(
-            std::malloc(static_cast<size_t>(entries) * sizeof(uint32_t)));
-        result.image_points = static_cast<uint32_t *>(
-            std::malloc(static_cast<size_t>(entries) * sizeof(uint32_t)));
+        result.images = allocate<uint32_t>(static_cast<size_t>(entries));
+        result.image_points = allocate<uint32_t>(static_cast<size_t>(entries));
         if (!result.images || !result.image_points) throw std::bad_alloc();
       }
       uint64_t at = 0;
@@ -347,7 +358,7 @@ Status detect(const Graph &input, const DetectionSettings &settings,
         throw std::bad_alloc();
       const size_t cells = found.size() * returned_domain;
       if (cells) {
-        result.images = static_cast<uint32_t *>(std::malloc(cells * sizeof(uint32_t)));
+        result.images = allocate<uint32_t>(cells);
         if (!result.images) throw std::bad_alloc();
         for (size_t row = 0; row < found.size(); ++row) {
           auto *image = result.images + row * returned_domain;
@@ -373,10 +384,8 @@ Status detect(const Graph &input, const DetectionSettings &settings,
                                                  : Status::Complete);
   } catch (const dejavu::termination_requested &) {
     return fail(result, Status::Interrupted);
-  } catch (const std::bad_alloc &) {
-    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    return fail(result, Status::Failed);
+    return fail(result, current_failure());
   }
 }
 
@@ -489,10 +498,8 @@ Status materialize_partition(dejavu::ds::coloring &coloring,
                              IndividualizedPartition &result) {
   if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t))
     return finish(result, Status::ResourceExhausted);
-  result.cells = static_cast<uint32_t *>(std::malloc(
-      static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-  result.sizes = static_cast<uint32_t *>(std::malloc(
-      static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
+  result.cells = allocate<uint32_t>(returned_prefix_size);
+  result.sizes = allocate<uint32_t>(returned_prefix_size);
   if (returned_prefix_size && (!result.cells || !result.sizes))
     return fail(result, Status::ResourceExhausted);
   std::vector<uint8_t> seen(vertex_count, 0);
@@ -516,6 +523,45 @@ Status materialize_partition(dejavu::ds::coloring &coloring,
   return finish(result, Status::Complete);
 }
 
+// Individualize and refine each anchor of `coloring` in order, then report
+// its prefix partition. `poll` adds a stop poll before every anchor.
+static Status refine_anchors(dejavu::sgraph *graph,
+                             dejavu::ds::coloring &coloring,
+                             dejavu::ir::refinement &refinement,
+                             uint32_t vertex_count, const uint32_t *anchors,
+                             uint32_t anchor_count, bool poll,
+                             uint32_t returned_prefix_size,
+                             uint64_t maximum_ticks, StopCallback stop,
+                             void *stop_context,
+                             IndividualizedPartition &result) {
+  uint64_t charged = 0;
+  bool exhausted = false, interrupted = false;
+  RefinementMeter meter(charged, maximum_ticks, stop, stop_context, exhausted,
+                        interrupted);
+  const auto worklist_hook = meter.worklist_hook(graph, coloring);
+  const auto split_hook = meter.split_hook();
+  for (uint32_t i = 0; i < anchor_count && !exhausted && !interrupted; ++i) {
+    if (poll && stopped(stop, stop_context)) {
+      interrupted = true;
+      break;
+    }
+    const int color = coloring.vertex_to_col[anchors[i]];
+    if (coloring.ptn[color] == 0)
+      continue;
+    const int individualized = dejavu::ir::refinement::individualize_vertex(
+        &coloring, static_cast<int>(anchors[i]));
+    refinement.refine_coloring(graph, &coloring, individualized, -1,
+                               &split_hook, &worklist_hook);
+  }
+  result.ticks = charged;
+  if (interrupted)
+    return finish(result, Status::Interrupted);
+  if (exhausted)
+    return finish(result, Status::Incomplete);
+  return materialize_partition(coloring, vertex_count, returned_prefix_size,
+                               result);
+}
+
 Status prepare_refinement_branch(RefinementSession &session,
                                  RefinementBranch *&branch) noexcept {
   release(branch);
@@ -525,12 +571,9 @@ Status prepare_refinement_branch(RefinementSession &session,
     branch->vertex_count = session.vertex_count;
     branch->coloring.copy_any(&session.root);
     return Status::Complete;
-  } catch (const std::bad_alloc &) {
-    release(branch);
-    return Status::ResourceExhausted;
   } catch (...) {
     release(branch);
-    return Status::Failed;
+    return current_failure();
   }
 }
 
@@ -541,9 +584,7 @@ Status root_partition(RefinementSession &session,
   if (returned_prefix_size > session.vertex_count)
     return finish(result, Status::Invalid);
   if (returned_prefix_size) {
-    result.cells = static_cast<uint32_t *>(
-        std::malloc(static_cast<size_t>(returned_prefix_size) *
-                    sizeof(uint32_t)));
+    result.cells = allocate<uint32_t>(returned_prefix_size);
     if (!result.cells)
       return finish(result, Status::ResourceExhausted);
   }
@@ -578,33 +619,12 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
   if (stopped(stop, stop_context))
     return finish(result, Status::Interrupted);
   try {
-    uint64_t charged = 0;
-    bool exhausted = false, interrupted = false;
-    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
-                          exhausted, interrupted);
-    const auto worklist_hook =
-        meter.worklist_hook(branch.internal, branch.coloring);
-    const auto split_hook = meter.split_hook();
-    const int color = branch.coloring.vertex_to_col[anchor];
-    if (branch.coloring.ptn[color] != 0) {
-      const int individualized =
-          dejavu::ir::refinement::individualize_vertex(
-              &branch.coloring, static_cast<int>(anchor));
-      branch.refinement.refine_coloring(branch.internal, &branch.coloring,
-                                        individualized, -1, &split_hook,
-                                        &worklist_hook);
-    }
-    result.ticks = charged;
-    if (interrupted)
-      return finish(result, Status::Interrupted);
-    if (exhausted)
-      return finish(result, Status::Incomplete);
-    return materialize_partition(branch.coloring, branch.vertex_count,
-                                 returned_prefix_size, result);
-  } catch (const std::bad_alloc &) {
-    return fail(result, Status::ResourceExhausted);
+    return refine_anchors(branch.internal, branch.coloring, branch.refinement,
+                          branch.vertex_count, &anchor, 1, /*poll=*/false,
+                          returned_prefix_size, maximum_ticks, stop,
+                          stop_context, result);
   } catch (...) {
-    return fail(result, Status::Failed);
+    return fail(result, current_failure());
   }
 }
 
@@ -629,38 +649,12 @@ Status individualized_partition(RefinementSession &session,
     dejavu::ds::coloring child;
     child.copy_any(&session.root);
     dejavu::ir::refinement refinement;
-    uint64_t charged = 0;
-    bool exhausted = false, interrupted = false;
-    RefinementMeter meter(charged, maximum_ticks, stop, stop_context,
-                          exhausted, interrupted);
-    const auto worklist_hook = meter.worklist_hook(session.internal, child);
-    const auto split_hook = meter.split_hook();
-    for (uint32_t i = 0; i < anchor_count && !exhausted && !interrupted; ++i) {
-      if (stopped(stop, stop_context)) {
-        interrupted = true;
-        break;
-      }
-      const int color = child.vertex_to_col[anchors[i]];
-      if (child.ptn[color] == 0)
-        continue;
-      const int individualized =
-          dejavu::ir::refinement::individualize_vertex(
-              &child, static_cast<int>(anchors[i]));
-      refinement.refine_coloring(session.internal, &child, individualized, -1,
-                                 &split_hook, &worklist_hook);
-    }
-    result.ticks = charged;
-    if (interrupted)
-      return finish(result, Status::Interrupted);
-    if (exhausted)
-      return finish(result, Status::Incomplete);
-
-    return materialize_partition(child, session.vertex_count,
-                                 returned_prefix_size, result);
-  } catch (const std::bad_alloc &) {
-    return fail(result, Status::ResourceExhausted);
+    return refine_anchors(session.internal, child, refinement,
+                          session.vertex_count, anchors, anchor_count,
+                          /*poll=*/true, returned_prefix_size, maximum_ticks,
+                          stop, stop_context, result);
   } catch (...) {
-    return fail(result, Status::Failed);
+    return fail(result, current_failure());
   }
 }
 
@@ -749,8 +743,7 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
       }
     }
     result.count = selected_color < 0 ? count : selected_size + 1;
-    result.vertices = static_cast<uint32_t *>(
-        std::malloc(static_cast<size_t>(result.count) * sizeof(uint32_t)));
+    result.vertices = allocate<uint32_t>(result.count);
     if (!result.vertices) {
       result.count = 0;
       return finish(result, Status::ResourceExhausted);
@@ -773,10 +766,8 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
       session.first_refinement = std::move(captured);
     }
     return finish(result, Status::Complete);
-  } catch (const std::bad_alloc &) {
-    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    return fail(result, Status::Failed);
+    return fail(result, current_failure());
   }
 }
 
@@ -814,10 +805,8 @@ Status probe_base_length(RefinementSession &session, uint64_t maximum_ticks,
         return Status::Incomplete;
     }
     return Status::Complete;
-  } catch (const std::bad_alloc &) {
-    return Status::ResourceExhausted;
   } catch (...) {
-    return Status::Failed;
+    return current_failure();
   }
 }
 
@@ -868,10 +857,8 @@ Status prepare_refinement(const Graph &input, uint64_t maximum_ticks,
       return Status::Incomplete;
     session = prepared.release();
     return Status::Complete;
-  } catch (const std::bad_alloc &) {
-    return Status::ResourceExhausted;
   } catch (...) {
-    return Status::Failed;
+    return current_failure();
   }
 }
 
@@ -905,8 +892,7 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
         static_cast<uint64_t>(anchor_count) * returned_prefix_size;
     if (cells > SIZE_MAX / sizeof(uint32_t))
       return finish(result, Status::ResourceExhausted);
-    result.images = static_cast<uint32_t *>(
-        std::malloc(static_cast<size_t>(cells) * sizeof(uint32_t)));
+    result.images = allocate<uint32_t>(static_cast<size_t>(cells));
     if (cells && !result.images)
       return finish(result, Status::ResourceExhausted);
     std::fill(result.images, result.images + cells, UINT32_MAX);
@@ -1141,19 +1127,15 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
     result.ticks = charged;
     result.source_count = static_cast<uint32_t>(reference_order.size());
     if (result.source_count) {
-      result.sources = static_cast<uint32_t *>(
-          std::malloc(static_cast<size_t>(result.source_count) *
-                      sizeof(uint32_t)));
+      result.sources = allocate<uint32_t>(result.source_count);
       if (!result.sources)
         return fail(result, Status::ResourceExhausted);
       std::copy(reference_order.begin(), reference_order.end(),
                 result.sources);
     }
     return finish(result, Status::Complete);
-  } catch (const std::bad_alloc &) {
-    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    return fail(result, Status::Failed);
+    return fail(result, current_failure());
   }
 }
 
@@ -1308,6 +1290,13 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
     }
     uint64_t accounted_cost = schreier.get_computational_cost();
     bool exhausted = !charge(accounted_cost);
+    // Charge planner work; a refused charge exhausts the planner.
+    const auto spend = [&](uint64_t amount) {
+      if (charge(amount))
+        return true;
+      exhausted = true;
+      return false;
+    };
     bool failed = false;
     bool planning_limited = false;
     // Charge the Schreier work accrued since it was last accounted; a refused
@@ -1382,10 +1371,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           bool satisfied = false;
           for (uint64_t at = input.clause_offsets[clause];
                at < input.clause_offsets[clause + 1]; ++at) {
-            if (!charge(1)) {
-              exhausted = true;
+            if (!spend(1))
               break;
-            }
             const uint32_t literal = input.literals[at];
             if (values[literal] > 0) {
               satisfied = true;
@@ -1413,10 +1400,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       while (!exhausted &&
              !schreier.get_stabilizer_generators(base.size()).empty()) {
         poll();
-        if (!charge(1)) {
-          exhausted = true;
+        if (!spend(1))
           break;
-        }
         schreier.get_stabilizer_orbit(static_cast<int>(base.size()), orbits);
 
         uint64_t selected_clause = UINT64_MAX;
@@ -1587,10 +1572,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                       base.size(), static_cast<unsigned long long>(charged));
           break;
         }
-        if (!charge(1)) {
-          exhausted = true;
+        if (!spend(1))
           break;
-        }
         schreier.get_stabilizer_orbit(static_cast<int>(base.size()), orbits);
 
         // The owner fixes negation orbits over the whole chain before its
@@ -1602,10 +1585,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           // enlarge. Each probe is charged, so the pass stays inside the
           // planner's allowance.
           for (uint32_t point = 0; point < input.domain_size; point += 2) {
-            if (!charge(1)) {
-              exhausted = true;
+            if (!spend(1))
               break;
-            }
             if (ordered[point >> 1] || values[point] || values[point ^ 1u])
               continue;
             if (orbits.are_in_same_orbit(static_cast<int>(point),
@@ -1631,10 +1612,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         if (rank_common) {
           for (uint32_t variable = 0; variable < variable_count; ++variable)
             for (const uint64_t clause : variable_clauses[variable]) {
-              if (!charge(1)) {
-                exhausted = true;
+              if (!spend(1))
                 break;
-              }
               common_score[variable] += marked_clauses[clause] != 0;
             }
         }
@@ -1742,10 +1721,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                settings.base_selection && point < input.domain_size; ++point) {
             if (!open(point))
               continue;
-            if (!charge(1)) {
-              exhausted = true;
+            if (!spend(1))
               break;
-            }
             const uint32_t candidate = score(point);
             if (candidate > best) {
               best = candidate;
@@ -1956,16 +1933,11 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
     if (cells > SIZE_MAX / sizeof(uint32_t))
       return finish(result, Status::ResourceExhausted);
     if (count) {
-      result.kinds =
-          static_cast<uint8_t *>(std::malloc(static_cast<size_t>(count)));
-      result.levels = static_cast<uint32_t *>(
-          std::malloc(static_cast<size_t>(count) * sizeof(uint32_t)));
-      result.representatives = static_cast<uint32_t *>(
-          std::malloc(static_cast<size_t>(count) * sizeof(uint32_t)));
-      result.others = static_cast<uint32_t *>(
-          std::malloc(static_cast<size_t>(count) * sizeof(uint32_t)));
-      result.images = static_cast<uint32_t *>(
-          std::malloc(static_cast<size_t>(cells) * sizeof(uint32_t)));
+      result.kinds = allocate<uint8_t>(static_cast<size_t>(count));
+      result.levels = allocate<uint32_t>(static_cast<size_t>(count));
+      result.representatives = allocate<uint32_t>(static_cast<size_t>(count));
+      result.others = allocate<uint32_t>(static_cast<size_t>(count));
+      result.images = allocate<uint32_t>(static_cast<size_t>(cells));
       if (!result.kinds || !result.levels || !result.representatives ||
           !result.others ||
           !result.images)
@@ -1985,10 +1957,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                                                         : Status::Complete);
   } catch (const dejavu::termination_requested &) {
     return fail(result, Status::Interrupted);
-  } catch (const std::bad_alloc &) {
-    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    return fail(result, Status::Failed);
+    return fail(result, current_failure());
   }
 }
 

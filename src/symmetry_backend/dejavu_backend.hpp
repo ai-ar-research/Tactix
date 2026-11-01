@@ -68,6 +68,29 @@ struct Permutations {
   uint64_t image_entries = 0;
 };
 
+// Decode sparse row `row`, validating its sorted moved points before touching
+// caller scratch, including rejected rows. `check_targets` also bounds every
+// target by the domain; otherwise target validation is left to the caller.
+template <class Rows>
+inline bool materialize_sparse_image(const Rows &rows, uint64_t row, uint32_t *destination,
+                                     bool check_targets) noexcept {
+  const uint64_t begin = rows.image_offsets[row], end = rows.image_offsets[row + 1];
+  if (rows.image_offsets[0] || rows.image_offsets[rows.count] != rows.image_entries ||
+      begin > end || end > rows.image_entries ||
+      (end && (!rows.image_points || !rows.images))) return false;
+  for (uint64_t at = begin; at < end; ++at)
+    if (rows.image_points[at] >= rows.domain_size ||
+        (check_targets && rows.images[at] >= rows.domain_size) ||
+        rows.image_points[at] == rows.images[at] ||
+        (at > begin && rows.image_points[at - 1] >= rows.image_points[at]))
+      return false;
+  for (uint32_t point = 0; point < rows.domain_size; ++point)
+    destination[point] = point;
+  for (uint64_t at = begin; at < end; ++at)
+    destination[rows.image_points[at]] = rows.images[at];
+  return true;
+}
+
 inline bool materialize_permutation_image(const Permutations &rows, uint64_t row,
                                           uint32_t *destination) noexcept {
   if (row >= rows.count || !destination) return false;
@@ -78,20 +101,8 @@ inline bool materialize_permutation_image(const Permutations &rows, uint64_t row
       destination[point] = rows.images[row * rows.domain_size + point];
     return true;
   }
-  const uint64_t begin = rows.image_offsets[row], end = rows.image_offsets[row + 1];
-  if (rows.image_offsets[0] || rows.image_offsets[rows.count] != rows.image_entries ||
-      begin > end || end > rows.image_entries ||
-      (end && (!rows.image_points || !rows.images))) return false;
-  for (uint64_t at = begin; at < end; ++at)
-    if (rows.image_points[at] >= rows.domain_size ||
-        rows.image_points[at] == rows.images[at] ||
-        (at > begin && rows.image_points[at - 1] >= rows.image_points[at]))
-      return false;
-  for (uint32_t point = 0; point < rows.domain_size; ++point)
-    destination[point] = point;
-  for (uint64_t at = begin; at < end; ++at)
-    destination[rows.image_points[at]] = rows.images[at];
-  return true;
+  return materialize_sparse_image(rows, row, destination,
+                                  /*check_targets=*/false);
 }
 
 // Individualize each anchor from the same equitable root coloring and align
@@ -258,23 +269,8 @@ inline bool materialize_fixing_image(const Fixings &rows, uint64_t row,
       destination[point] = rows.images[row * rows.domain_size + point];
     return true;
   }
-  const uint64_t begin = rows.image_offsets[row], end = rows.image_offsets[row + 1];
-  if (rows.image_offsets[0] || rows.image_offsets[rows.count] != rows.image_entries ||
-      begin > end || end > rows.image_entries ||
-      (end && (!rows.image_points || !rows.images)))
-    return false;
-  // Validate before touching caller scratch, including rejected rows.
-  for (uint64_t at = begin; at < end; ++at) {
-    const uint32_t point = rows.image_points[at], target = rows.images[at];
-    if (point >= rows.domain_size || target >= rows.domain_size || point == target ||
-        (at > begin && rows.image_points[at - 1] >= point))
-      return false;
-  }
-  for (uint32_t point = 0; point < rows.domain_size; ++point)
-    destination[point] = point;
-  for (uint64_t at = begin; at < end; ++at)
-    destination[rows.image_points[at]] = rows.images[at];
-  return true;
+  return materialize_sparse_image(rows, row, destination,
+                                  /*check_targets=*/true);
 }
 
 using StopCallback = bool (*)(void *) noexcept;
