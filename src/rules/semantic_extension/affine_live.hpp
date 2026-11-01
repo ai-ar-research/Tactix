@@ -115,6 +115,10 @@ bool capture_affine_live_snapshot(Kernel &, const AffineLiveRequest &,
 bool affine_live_sources_valid(const Kernel &, const AffineLiveSnapshot &,
                                const std::vector<uint64_t> &occurrences);
 
+// True when the external clause is satisfied at root or already live as a
+// binary watch or an arena clause with the same literal set.
+bool affine_live_clause_covered(const Kernel &, const std::vector<int32_t> &);
+
 // Recognize, preflight, revalidate, emit the preflighted RUP plan, and publish
 // only missing target clauses. Root propagation is left pending for the
 // controller so this action's proof IDs and effort remain exactly preflighted.

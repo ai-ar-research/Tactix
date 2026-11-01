@@ -459,33 +459,6 @@ bool add_arena_words(uint64_t &words, const std::vector<int32_t> &clause) {
   return true;
 }
 
-bool clause_covered(const Kernel &kernel, const std::vector<int32_t> &clause) {
-  for (int32_t external : clause) {
-    const Lit literal = kernel_internalize(kernel, external);
-    if (literal == INVALID_LIT || kernel_var_retired(kernel, var_of(literal)))
-      return false;
-    if (kernel.value(literal) > 0) return true;
-  }
-  if (clause.empty()) return false;
-  if (clause.size() == 1)
-    return kernel.value(kernel_internalize(kernel, clause.front())) > 0;
-  if (clause.size() == 2)
-    return kernel_binary_live(kernel, kernel_internalize(kernel, clause[0]),
-                              kernel_internalize(kernel, clause[1]));
-  std::vector<int32_t> wanted = clause_key(clause);
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    const Clause *candidate = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(candidate);
-    if (candidate->garbage() || candidate->size != clause.size()) continue;
-    std::vector<int32_t> current;
-    current.reserve(candidate->size);
-    for (Lit literal : *candidate)
-      current.push_back(kernel_externalize(kernel, literal));
-    if (clause_key(std::move(current)) == wanted) return true;
-  }
-  return false;
-}
-
 bool valid_owned_snapshot(const Kernel &kernel,
                           const AffineBasisLiveRequest &request,
                           const AffineLiveSnapshot &snapshot,
@@ -1313,7 +1286,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
         result.status = AffineBasisLiveStatus::Invalid;
         return result;
       }
-      if (clause_covered(kernel, target)) continue;
+      if (affine_live_clause_covered(kernel, target)) continue;
       const size_t before = transaction.events_.size();
       parity_certificate::Deriver<PlanningSink> deriver(sink);
       if (!deriver.derive(small, premises, row.variables, kept)) {

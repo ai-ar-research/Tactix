@@ -150,8 +150,11 @@ bool same_clause(const Kernel &k, const Lit *literals, uint32_t size,
   return key(std::move(current)) == key(external);
 }
 
-bool clause_covered(const Kernel &k, const std::vector<External> &clause) {
-  for (External external : clause) {
+} // namespace
+
+bool affine_live_clause_covered(const Kernel &k,
+                                const std::vector<int32_t> &clause) {
+  for (int32_t external : clause) {
     const Lit literal = kernel_internalize(k, external);
     if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
       return false;
@@ -168,7 +171,7 @@ bool clause_covered(const Kernel &k, const std::vector<External> &clause) {
     const Clause *candidate = clause_at(k.arena, ref);
     ref += clause_actual_words(candidate);
     if (candidate->garbage() || candidate->size != clause.size()) continue;
-    std::vector<External> current;
+    std::vector<int32_t> current;
     current.reserve(candidate->size);
     for (Lit literal : *candidate)
       current.push_back(kernel_externalize(k, literal));
@@ -176,6 +179,8 @@ bool clause_covered(const Kernel &k, const std::vector<External> &clause) {
   }
   return false;
 }
+
+namespace {
 
 bool proof_plan_supported(
     const affine_semantic_extension::Image &image,
@@ -652,7 +657,7 @@ AffineLiveResult derive_affine_live(Kernel &k,
   std::vector<bool> missing;
   uint64_t arena_words = 0;
   for (const auto &target : plan.targets) {
-    const bool needed = !clause_covered(k, target);
+    const bool needed = !affine_live_clause_covered(k, target);
     missing.push_back(needed);
     if (needed && target.size() > 2) {
       if (target.size() + CLAUSE_HEADER_WORDS > INVALID_REF - arena_words) {
