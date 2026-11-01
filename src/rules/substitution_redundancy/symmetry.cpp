@@ -518,32 +518,22 @@ void positive_moves(const Kernel &, const SparseLiteralPermutation &image, Visit
   image.positive_moves(visit);
 }
 
+// A binary chain member (pivot ∨ second) witnessed by the inverse transversal
+// that maps the representative to `other`. Pivot order is semantic in DSR;
+// reversing the two literals is not an equivalent proof.
+//  - Clausal fixing (representative ∨ ¬other): the representative is the DSR
+//    pivot. Under the negated candidate, `other` is true, so the image of
+//    every earlier cut in this level is immediately satisfied.
+//  - Orbit cut (¬representative ∨ other), complementary to clausal fixing:
+//    under the negated candidate, representative is true and `other` is
+//    false. The inverse transversal maps representative to `other`,
+//    satisfying every earlier member of this level.
 template <class Image>
-SubstitutionRedundancyInstance binary_fixing_instance(
-    const Kernel &kernel, Lit representative, Lit other,
-    const Image &image) {
+SubstitutionRedundancyInstance chain_binary_instance(const Kernel &kernel,
+                                                     Lit pivot, Lit second,
+                                                     const Image &image) {
   SubstitutionRedundancyInstance instance;
-  // The representative is the DSR pivot and the inverse transversal maps it
-  // to `other`. Under the negated candidate, `other` is true, so the image of
-  // every earlier cut in this level is immediately satisfied. Pivot order is
-  // semantic in DSR; reversing these two literals is not an equivalent proof.
-  instance.clause = {representative, negate(other)};
-  instance.symmetry_chain_certificate = true;
-  positive_moves(kernel, image, [&](Lit source, Lit target) {
-    instance.substitution.emplace_back(source, target);
-  });
-  return instance;
-}
-
-template <class Image>
-SubstitutionRedundancyInstance orbit_cut_instance(
-    const Kernel &kernel, Lit representative, Lit other,
-    const Image &image) {
-  SubstitutionRedundancyInstance instance;
-  // Complementary to clausal fixing: under the negated candidate,
-  // representative is true and `other` is false. The inverse transversal maps
-  // representative to `other`, satisfying every earlier member of this level.
-  instance.clause = {negate(representative), other};
+  instance.clause = {pivot, second};
   instance.symmetry_chain_certificate = true;
   positive_moves(kernel, image, [&](Lit source, Lit target) {
     instance.substitution.emplace_back(source, target);
@@ -1431,13 +1421,13 @@ SymmetryEnumerationResult substitution_redundancy_enumerate_symmetry(
         ++stabilizer_instances;
         const SubstitutionRedundancyInstance instance =
             row.kind == 0
-                ? binary_fixing_instance(kernel, row.representative, row.other,
-                                         image)
+                ? chain_binary_instance(kernel, row.representative,
+                                        negate(row.other), image)
             : row.kind == 1
                 ? representative_unit_instance(row.representative)
             : row.kind == 2
-                ? orbit_cut_instance(kernel, row.representative, row.other,
-                                     image)
+                ? chain_binary_instance(kernel, negate(row.representative),
+                                        row.other, image)
                 : symmetry_generator_unit_instance(kernel, row.representative,
                                                    image);
         if (!visitor(instance))

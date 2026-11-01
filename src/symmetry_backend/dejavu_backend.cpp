@@ -27,26 +27,28 @@ bool stopped(StopCallback callback, void *context) noexcept {
   return callback && callback(context);
 }
 
-bool as_backend_int(uint64_t value, int &result) noexcept {
+// UINT64_MAX is the backend's unbounded setting (-1); other values must fit.
+template <class Int> bool as_backend(uint64_t value, Int &result) noexcept {
   if (value == UINT64_MAX) {
     result = -1;
     return true;
   }
-  if (value > static_cast<uint64_t>(std::numeric_limits<int>::max()))
+  if (value > static_cast<uint64_t>(std::numeric_limits<Int>::max()))
     return false;
-  result = static_cast<int>(value);
+  result = static_cast<Int>(value);
   return true;
 }
 
-bool as_backend_i64(uint64_t value, int64_t &result) noexcept {
-  if (value == UINT64_MAX) {
-    result = -1;
-    return true;
-  }
-  if (value > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
-    return false;
-  result = static_cast<int64_t>(value);
-  return true;
+// Record `status` in a backend result and return it.
+template <class Result> Status finish(Result &result, Status status) noexcept {
+  result.status = status;
+  return status;
+}
+
+// Release a result's partial output, then record `status`.
+template <class Result> Status fail(Result &result, Status status) noexcept {
+  release(result);
+  return finish(result, status);
 }
 
 enum class GraphShape : uint8_t { Simple, RepeatedEdge, Stopped };
@@ -68,6 +70,46 @@ GraphShape graph_shape(const dejavu::sgraph &graph, StopCallback stop,
     }
   }
   return GraphShape::Simple;
+}
+
+// Copy a caller graph into DejaVu, polling every 1024 vertices and edges.
+// Refinement sessions also require each edge as an ordered pair and keep the
+// initial colors.
+Status load_graph(const Graph &input, dejavu::static_graph &graph,
+                  int *initial_colors, bool ordered_edges, StopCallback stop,
+                  void *stop_context) {
+  for (uint32_t vertex = 0; vertex < input.vertex_count; ++vertex) {
+    if (!(vertex & 1023u) && stopped(stop, stop_context))
+      return Status::Interrupted;
+    if (input.colors[vertex] >
+            static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
+        input.degrees[vertex] >
+            static_cast<uint32_t>(std::numeric_limits<int>::max()))
+      return Status::Invalid;
+    if (initial_colors)
+      initial_colors[vertex] = static_cast<int>(input.colors[vertex]);
+    graph.add_vertex(static_cast<int>(input.colors[vertex]),
+                     static_cast<int>(input.degrees[vertex]));
+  }
+  for (uint64_t edge = 0; edge < input.edge_count; ++edge) {
+    if (!(edge & 1023u) && stopped(stop, stop_context))
+      return Status::Interrupted;
+    const uint32_t first = input.edges[2 * edge];
+    const uint32_t second = input.edges[2 * edge + 1];
+    if (first >= input.vertex_count || second >= input.vertex_count ||
+        (ordered_edges && first >= second))
+      return Status::Invalid;
+    graph.add_edge(first, second);
+  }
+  switch (graph_shape(*graph.get_sgraph(), stop, stop_context)) {
+  case GraphShape::Simple:
+    return Status::Complete;
+  case GraphShape::RepeatedEdge:
+    return Status::Invalid;
+  case GraphShape::Stopped:
+    return Status::Interrupted;
+  }
+  return Status::Failed;
 }
 
 } // namespace
@@ -122,66 +164,26 @@ Status detect(const Graph &input, const DetectionSettings &settings,
       input.edge_count > static_cast<uint64_t>(std::numeric_limits<int>::max()) ||
       !settings.error_bound ||
       settings.error_bound > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
-      settings.returned_prefix_size > input.vertex_count) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
+      settings.returned_prefix_size > input.vertex_count)
+    return finish(result, Status::Invalid);
   int search_budget = -1;
   int support_budget = -1;
   int64_t component_limit = -1;
-  if (!as_backend_int(settings.search_budget, search_budget) ||
-      !as_backend_int(settings.support_budget, support_budget) ||
-      !as_backend_i64(settings.component_size_limit, component_limit)) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
-  if (stopped(stop, stop_context)) {
-    result.status = Status::Interrupted;
-    return result.status;
-  }
+  if (!as_backend(settings.search_budget, search_budget) ||
+      !as_backend(settings.support_budget, support_budget) ||
+      !as_backend(settings.component_size_limit, component_limit))
+    return finish(result, Status::Invalid);
+  if (stopped(stop, stop_context))
+    return finish(result, Status::Interrupted);
 
   try {
     const SymmetryTrace trace;
-    const auto poll = [&]() {
-      if (stopped(stop, stop_context))
-        throw dejavu::termination_requested();
-    };
     dejavu::static_graph graph(static_cast<int>(input.vertex_count),
                                static_cast<int>(input.edge_count));
-    for (uint32_t vertex = 0; vertex < input.vertex_count; ++vertex) {
-      if (!(vertex & 1023u))
-        poll();
-      if (input.colors[vertex] >
-              static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
-          input.degrees[vertex] >
-              static_cast<uint32_t>(std::numeric_limits<int>::max())) {
-        result.status = Status::Invalid;
-        return result.status;
-      }
-      graph.add_vertex(static_cast<int>(input.colors[vertex]),
-                       static_cast<int>(input.degrees[vertex]));
-    }
-    for (uint64_t edge = 0; edge < input.edge_count; ++edge) {
-      if (!(edge & 1023u))
-        poll();
-      const uint32_t first = input.edges[2 * edge];
-      const uint32_t second = input.edges[2 * edge + 1];
-      if (first >= input.vertex_count || second >= input.vertex_count) {
-        result.status = Status::Invalid;
-        return result.status;
-      }
-      graph.add_edge(static_cast<int>(first), static_cast<int>(second));
-    }
-    switch (graph_shape(*graph.get_sgraph(), stop, stop_context)) {
-    case GraphShape::Simple:
-      break;
-    case GraphShape::RepeatedEdge:
-      result.status = Status::Invalid;
-      return result.status;
-    case GraphShape::Stopped:
-      result.status = Status::Interrupted;
-      return result.status;
-    }
+    const Status loaded =
+        load_graph(input, graph, nullptr, false, stop, stop_context);
+    if (loaded != Status::Complete)
+      return finish(result, loaded);
 
     dejavu::solver solver;
     solver.set_print(false);
@@ -280,15 +282,12 @@ Status detect(const Graph &input, const DetectionSettings &settings,
                 solver.get_reached_limit(),
                 solver.get_deterministic_termination());
 
-    if (stopped(stop, stop_context)) {
-      result.status = Status::Interrupted;
-      return result.status;
-    }
+    if (stopped(stop, stop_context))
+      return finish(result, Status::Interrupted);
     if (invalid_callback) {
       // Broken callback metadata is an invalid backend result, not a smaller
       // complete group. As on other Invalid exits, no output storage escapes.
-      result.status = Status::Invalid;
-      return result.status;
+      return finish(result, Status::Invalid);
     }
     if (settings.preserve_generator_order) {
       // Sort indices to identify duplicates without copying full images or
@@ -370,20 +369,14 @@ Status detect(const Graph &input, const DetectionSettings &settings,
     // when it did not prove that the returned generators span the full group.
     // Keep that fact in complete_group; Incomplete means an actual resource
     // cut selected by the caller.
-    result.status = resource_limit_reached ? Status::Incomplete : Status::Complete;
-    return result.status;
+    return finish(result, resource_limit_reached ? Status::Incomplete
+                                                 : Status::Complete);
   } catch (const dejavu::termination_requested &) {
-    release(result);
-    result.status = Status::Interrupted;
-    return result.status;
+    return fail(result, Status::Interrupted);
   } catch (const std::bad_alloc &) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
+    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    release(result);
-    result.status = Status::Failed;
-    return result.status;
+    return fail(result, Status::Failed);
   }
 }
 
@@ -494,19 +487,14 @@ Status materialize_partition(dejavu::ds::coloring &coloring,
                              uint32_t vertex_count,
                              uint32_t returned_prefix_size,
                              IndividualizedPartition &result) {
-  if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t)) {
-    result.status = Status::ResourceExhausted;
-    return result.status;
-  }
+  if (returned_prefix_size > SIZE_MAX / sizeof(uint32_t))
+    return finish(result, Status::ResourceExhausted);
   result.cells = static_cast<uint32_t *>(std::malloc(
       static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
   result.sizes = static_cast<uint32_t *>(std::malloc(
       static_cast<size_t>(returned_prefix_size) * sizeof(uint32_t)));
-  if (returned_prefix_size && (!result.cells || !result.sizes)) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
-  }
+  if (returned_prefix_size && (!result.cells || !result.sizes))
+    return fail(result, Status::ResourceExhausted);
   std::vector<uint8_t> seen(vertex_count, 0);
   for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
     const int color = coloring.vertex_to_col[vertex];
@@ -515,11 +503,8 @@ Status materialize_partition(dejavu::ds::coloring &coloring,
                          : 0;
     const int representative = size > 0 ? coloring.lab[color] : -1;
     if (representative < 0 ||
-        representative >= static_cast<int>(vertex_count)) {
-      release(result);
-      result.status = Status::Failed;
-      return result.status;
-    }
+        representative >= static_cast<int>(vertex_count))
+      return fail(result, Status::Failed);
     result.cells[vertex] = static_cast<uint32_t>(representative);
     result.sizes[vertex] = static_cast<uint32_t>(size);
     if (!seen[color]) {
@@ -528,8 +513,7 @@ Status materialize_partition(dejavu::ds::coloring &coloring,
     }
   }
   result.domain_size = returned_prefix_size;
-  result.status = Status::Complete;
-  return result.status;
+  return finish(result, Status::Complete);
 }
 
 Status prepare_refinement_branch(RefinementSession &session,
@@ -554,34 +538,24 @@ Status root_partition(RefinementSession &session,
                       uint32_t returned_prefix_size,
                       RefinementPartition &result) noexcept {
   release(result);
-  if (returned_prefix_size > session.vertex_count) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
+  if (returned_prefix_size > session.vertex_count)
+    return finish(result, Status::Invalid);
   if (returned_prefix_size) {
     result.cells = static_cast<uint32_t *>(
         std::malloc(static_cast<size_t>(returned_prefix_size) *
                     sizeof(uint32_t)));
-    if (!result.cells) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
+    if (!result.cells)
+      return finish(result, Status::ResourceExhausted);
   }
   std::vector<uint8_t> seen(session.vertex_count, 0);
   for (uint32_t vertex = 0; vertex < returned_prefix_size; ++vertex) {
     const int color = session.root.vertex_to_col[vertex];
-    if (color < 0 || color >= static_cast<int>(session.vertex_count)) {
-      release(result);
-      result.status = Status::Failed;
-      return result.status;
-    }
+    if (color < 0 || color >= static_cast<int>(session.vertex_count))
+      return fail(result, Status::Failed);
     const int representative = session.root.lab[color];
     if (representative < 0 ||
-        representative >= static_cast<int>(session.vertex_count)) {
-      release(result);
-      result.status = Status::Failed;
-      return result.status;
-    }
+        representative >= static_cast<int>(session.vertex_count))
+      return fail(result, Status::Failed);
     result.cells[vertex] = static_cast<uint32_t>(representative);
     if (!seen[color]) {
       seen[color] = 1;
@@ -589,8 +563,7 @@ Status root_partition(RefinementSession &session,
     }
   }
   result.domain_size = returned_prefix_size;
-  result.status = Status::Complete;
-  return result.status;
+  return finish(result, Status::Complete);
 }
 
 Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
@@ -600,14 +573,10 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
                                 IndividualizedPartition &result) noexcept {
   release(result);
   if (anchor >= returned_prefix_size ||
-      returned_prefix_size > branch.vertex_count) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
-  if (stopped(stop, stop_context)) {
-    result.status = Status::Interrupted;
-    return result.status;
-  }
+      returned_prefix_size > branch.vertex_count)
+    return finish(result, Status::Invalid);
+  if (stopped(stop, stop_context))
+    return finish(result, Status::Interrupted);
   try {
     uint64_t charged = 0;
     bool exhausted = false, interrupted = false;
@@ -626,24 +595,16 @@ Status individualized_partition(RefinementBranch &branch, uint32_t anchor,
                                         &worklist_hook);
     }
     result.ticks = charged;
-    if (interrupted) {
-      result.status = Status::Interrupted;
-      return result.status;
-    }
-    if (exhausted) {
-      result.status = Status::Incomplete;
-      return result.status;
-    }
+    if (interrupted)
+      return finish(result, Status::Interrupted);
+    if (exhausted)
+      return finish(result, Status::Incomplete);
     return materialize_partition(branch.coloring, branch.vertex_count,
                                  returned_prefix_size, result);
   } catch (const std::bad_alloc &) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
+    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    release(result);
-    result.status = Status::Failed;
-    return result.status;
+    return fail(result, Status::Failed);
   }
 }
 
@@ -656,19 +617,13 @@ Status individualized_partition(RefinementSession &session,
                                 IndividualizedPartition &result) noexcept {
   release(result);
   if (!anchors || !anchor_count ||
-      returned_prefix_size > session.vertex_count) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
+      returned_prefix_size > session.vertex_count)
+    return finish(result, Status::Invalid);
   for (uint32_t i = 0; i < anchor_count; ++i)
-    if (anchors[i] >= returned_prefix_size) {
-      result.status = Status::Invalid;
-      return result.status;
-    }
-  if (stopped(stop, stop_context)) {
-    result.status = Status::Interrupted;
-    return result.status;
-  }
+    if (anchors[i] >= returned_prefix_size)
+      return finish(result, Status::Invalid);
+  if (stopped(stop, stop_context))
+    return finish(result, Status::Interrupted);
 
   try {
     dejavu::ds::coloring child;
@@ -695,25 +650,17 @@ Status individualized_partition(RefinementSession &session,
                                  &split_hook, &worklist_hook);
     }
     result.ticks = charged;
-    if (interrupted) {
-      result.status = Status::Interrupted;
-      return result.status;
-    }
-    if (exhausted) {
-      result.status = Status::Incomplete;
-      return result.status;
-    }
+    if (interrupted)
+      return finish(result, Status::Interrupted);
+    if (exhausted)
+      return finish(result, Status::Incomplete);
 
     return materialize_partition(child, session.vertex_count,
                                  returned_prefix_size, result);
   } catch (const std::bad_alloc &) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
+    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    release(result);
-    result.status = Status::Failed;
-    return result.status;
+    return fail(result, Status::Failed);
   }
 }
 
@@ -733,21 +680,15 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
   release(result);
   session.first_refinement.reset();
   if (!vertices || count < 2 || returned_prefix_size > session.vertex_count ||
-      vertices[0] >= returned_prefix_size) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
+      vertices[0] >= returned_prefix_size)
+    return finish(result, Status::Invalid);
   const int root_color = session.root.vertex_to_col[vertices[0]];
   for (uint32_t i = 0; i < count; ++i)
     if (vertices[i] >= returned_prefix_size ||
-        session.root.vertex_to_col[vertices[i]] != root_color) {
-      result.status = Status::Invalid;
-      return result.status;
-    }
-  if (stopped(stop, stop_context)) {
-    result.status = Status::Interrupted;
-    return result.status;
-  }
+        session.root.vertex_to_col[vertices[i]] != root_color)
+      return finish(result, Status::Invalid);
+  if (stopped(stop, stop_context))
+    return finish(result, Status::Interrupted);
 
   try {
     std::unique_ptr<FirstRefinement> captured(new FirstRefinement);
@@ -792,14 +733,10 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
     refinement.refine_coloring(session.internal, &child, individualized, -1,
                                &split_hook, &worklist_hook);
     result.ticks = charged;
-    if (interrupted) {
-      result.status = Status::Interrupted;
-      return result.status;
-    }
-    if (exhausted) {
-      result.status = Status::Incomplete;
-      return result.status;
-    }
+    if (interrupted)
+      return finish(result, Status::Interrupted);
+    if (exhausted)
+      return finish(result, Status::Incomplete);
 
     int selected_color = -1;
     uint32_t selected_size = 0;
@@ -816,8 +753,7 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
         std::malloc(static_cast<size_t>(result.count) * sizeof(uint32_t)));
     if (!result.vertices) {
       result.count = 0;
-      result.status = Status::ResourceExhausted;
-      return result.status;
+      return finish(result, Status::ResourceExhausted);
     }
     if (selected_color < 0) {
       std::copy(vertices, vertices + count, result.vertices);
@@ -825,11 +761,8 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
       result.vertices[0] = vertices[0];
       for (uint32_t i = 0; i < selected_size; ++i) {
         const int vertex = child.lab[selected_color + static_cast<int>(i)];
-        if (vertex < 0 || vertex >= static_cast<int>(returned_prefix_size)) {
-          release(result);
-          result.status = Status::Failed;
-          return result.status;
-        }
+        if (vertex < 0 || vertex >= static_cast<int>(returned_prefix_size))
+          return fail(result, Status::Failed);
         result.vertices[i + 1] = static_cast<uint32_t>(vertex);
       }
     }
@@ -839,16 +772,11 @@ Status reduce_orbit(RefinementSession &session, const uint32_t *vertices,
       captured->ticks = charged;
       session.first_refinement = std::move(captured);
     }
-    result.status = Status::Complete;
-    return result.status;
+    return finish(result, Status::Complete);
   } catch (const std::bad_alloc &) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
+    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    release(result);
-    result.status = Status::Failed;
-    return result.status;
+    return fail(result, Status::Failed);
   }
 }
 
@@ -915,38 +843,12 @@ Status prepare_refinement(const Graph &input, uint64_t maximum_ticks,
         static_cast<int>(input.vertex_count), static_cast<int>(input.edge_count));
     prepared->vertex_count = input.vertex_count;
     std::vector<int> initial_colors(input.vertex_count);
-    for (uint32_t vertex = 0; vertex < input.vertex_count; ++vertex) {
-      if (!(vertex & 1023u) && stopped(stop, stop_context))
-        return Status::Interrupted;
-      if (input.colors[vertex] >
-              static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
-          input.degrees[vertex] >
-              static_cast<uint32_t>(std::numeric_limits<int>::max()))
-        return Status::Invalid;
-      initial_colors[vertex] = static_cast<int>(input.colors[vertex]);
-      prepared->graph->add_vertex(initial_colors[vertex],
-                                  static_cast<int>(input.degrees[vertex]));
-    }
-    for (uint64_t edge = 0; edge < input.edge_count; ++edge) {
-      if (!(edge & 1023u) && stopped(stop, stop_context))
-        return Status::Interrupted;
-      const uint32_t first = input.edges[2 * edge];
-      const uint32_t second = input.edges[2 * edge + 1];
-      if (first >= input.vertex_count || second >= input.vertex_count ||
-          first >= second)
-        return Status::Invalid;
-      prepared->graph->add_edge(first, second);
-    }
-
+    const Status loaded = load_graph(input, *prepared->graph,
+                                     initial_colors.data(), true, stop,
+                                     stop_context);
+    if (loaded != Status::Complete)
+      return loaded;
     prepared->internal = prepared->graph->get_sgraph();
-    switch (graph_shape(*prepared->internal, stop, stop_context)) {
-    case GraphShape::Simple:
-      break;
-    case GraphShape::RepeatedEdge:
-      return Status::Invalid;
-    case GraphShape::Stopped:
-      return Status::Interrupted;
-    }
     prepared->internal->initialize_coloring(&prepared->root,
                                              initial_colors.data());
     dejavu::ir::refinement refinement;
@@ -983,44 +885,30 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
   if (!anchors || anchor_count < 2 ||
       returned_prefix_size > session.vertex_count ||
       (returned_prefix_size &&
-       anchor_count > UINT64_MAX / returned_prefix_size)) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
+       anchor_count > UINT64_MAX / returned_prefix_size))
+    return finish(result, Status::Invalid);
   for (uint32_t row = 0; row < anchor_count; ++row)
-    if (anchors[row] >= returned_prefix_size) {
-      result.status = Status::Invalid;
-      return result.status;
-    }
-  if (stopped(stop, stop_context)) {
-    result.status = Status::Interrupted;
-    return result.status;
-  }
+    if (anchors[row] >= returned_prefix_size)
+      return finish(result, Status::Invalid);
+  if (stopped(stop, stop_context))
+    return finish(result, Status::Interrupted);
 
   try {
     const int anchor_color = session.root.vertex_to_col[anchors[0]];
     for (uint32_t row = 1; row < anchor_count; ++row)
-      if (session.root.vertex_to_col[anchors[row]] != anchor_color) {
-        result.status = Status::Complete;
-        return result.status;
-      }
-    if (!session.root.ptn[anchor_color]) {
-      result.status = Status::Complete;
-      return result.status;
-    }
+      if (session.root.vertex_to_col[anchors[row]] != anchor_color)
+        return finish(result, Status::Complete);
+    if (!session.root.ptn[anchor_color])
+      return finish(result, Status::Complete);
 
     const uint64_t cells =
         static_cast<uint64_t>(anchor_count) * returned_prefix_size;
-    if (cells > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
+    if (cells > SIZE_MAX / sizeof(uint32_t))
+      return finish(result, Status::ResourceExhausted);
     result.images = static_cast<uint32_t *>(
         std::malloc(static_cast<size_t>(cells) * sizeof(uint32_t)));
-    if (cells && !result.images) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
+    if (cells && !result.images)
+      return finish(result, Status::ResourceExhausted);
     std::fill(result.images, result.images + cells, UINT32_MAX);
 
     dejavu::ir::refinement refinement;
@@ -1134,17 +1022,13 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
       }
       first_refinement.reset();
       current_singletons = nullptr;
-      if (interrupted) {
-        release(result);
-        result.status = Status::Interrupted;
-        return result.status;
-      }
+      if (interrupted)
+        return fail(result, Status::Interrupted);
       if (exhausted) {
         result.anchor_count = anchor_count;
         result.domain_size = returned_prefix_size;
         result.ticks = charged;
-        result.status = Status::Incomplete;
-        return result.status;
+        return finish(result, Status::Incomplete);
       }
       std::sort(touched_roots.begin(), touched_roots.end());
       if (!row)
@@ -1226,9 +1110,8 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
         if (interrupted || exhausted || !keep_going) {
           release(result);
           result.ticks = charged;
-          result.status = interrupted ? Status::Interrupted :
-              exhausted ? Status::Incomplete : Status::Complete;
-          return result.status;
+          return finish(result, interrupted ? Status::Interrupted :
+              exhausted ? Status::Incomplete : Status::Complete);
         }
       }
     }
@@ -1261,24 +1144,16 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
       result.sources = static_cast<uint32_t *>(
           std::malloc(static_cast<size_t>(result.source_count) *
                       sizeof(uint32_t)));
-      if (!result.sources) {
-        release(result);
-        result.status = Status::ResourceExhausted;
-        return result.status;
-      }
+      if (!result.sources)
+        return fail(result, Status::ResourceExhausted);
       std::copy(reference_order.begin(), reference_order.end(),
                 result.sources);
     }
-    result.status = Status::Complete;
-    return result.status;
+    return finish(result, Status::Complete);
   } catch (const std::bad_alloc &) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
+    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    release(result);
-    result.status = Status::Failed;
-    return result.status;
+    return fail(result, Status::Failed);
   }
 }
 
@@ -1342,14 +1217,10 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       (input.literal_count && !input.literals) || !input.values ||
       (input.clause_offsets && input.clause_offsets[0] != 0) ||
       (input.clause_offsets &&
-       input.clause_offsets[input.clause_count] != input.literal_count)) {
-    result.status = Status::Invalid;
-    return result.status;
-  }
-  if (stopped(stop, stop_context)) {
-    result.status = Status::Interrupted;
-    return result.status;
-  }
+       input.clause_offsets[input.clause_count] != input.literal_count))
+    return finish(result, Status::Invalid);
+  if (stopped(stop, stop_context))
+    return finish(result, Status::Interrupted);
 
   try {
     const auto poll = [&]() {
@@ -1358,32 +1229,22 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
     };
     if (!input.generator_offsets &&
         (input.generator_count > SIZE_MAX / input.domain_size ||
-         input.generator_count * input.domain_size > SIZE_MAX / sizeof(uint32_t))) {
-      result.status = Status::Invalid;
-      return result.status;
-    }
+         input.generator_count * input.domain_size > SIZE_MAX / sizeof(uint32_t)))
+      return finish(result, Status::Invalid);
     std::vector<int8_t> values(input.values,
                                input.values + input.domain_size);
     for (uint32_t point = 0; point < input.domain_size; ++point)
-      if (values[point] < -1 || values[point] > 1) {
-        result.status = Status::Invalid;
-        return result.status;
-      }
+      if (values[point] < -1 || values[point] > 1)
+        return finish(result, Status::Invalid);
     for (uint64_t clause = 0; clause < input.clause_count; ++clause)
       if (input.clause_offsets[clause] > input.clause_offsets[clause + 1] ||
-          input.clause_offsets[clause + 1] > input.literal_count) {
-        result.status = Status::Invalid;
-        return result.status;
-      }
+          input.clause_offsets[clause + 1] > input.literal_count)
+        return finish(result, Status::Invalid);
     for (uint64_t at = 0; at < input.literal_count; ++at)
-      if (input.literals[at] >= input.domain_size) {
-        result.status = Status::Invalid;
-        return result.status;
-      }
-    if (!detail::validate_generator_rows(input, poll)) {
-      result.status = Status::Invalid;
-      return result.status;
-    }
+      if (input.literals[at] >= input.domain_size)
+        return finish(result, Status::Invalid);
+    if (!detail::validate_generator_rows(input, poll))
+      return finish(result, Status::Invalid);
 
     if (settings.factor_support_components)
       return detail::fix_support_components(input, settings, stop, stop_context,
@@ -1428,8 +1289,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         // exact no-ops in DejaVu; only their representation work is skipped.
         if (!charge(input.domain_size)) {
           result.ticks = charged;
-          result.status = Status::Incomplete;
-          return result.status;
+          return finish(result, Status::Incomplete);
         }
         detail::visit_generator_moves(input, row, poll, [&](uint32_t point, uint32_t image) {
           initial_orbits.combine_orbits(static_cast<int>(point), static_cast<int>(image));
@@ -1441,8 +1301,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           poll();
         if (!charge(1)) {
           result.ticks = charged;
-          result.status = Status::Incomplete;
-          return result.status;
+          return finish(result, Status::Incomplete);
         }
         point_bounds.push_back(initial_orbits.orbit_size(static_cast<int>(point)));
       }
@@ -1451,12 +1310,39 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
     bool exhausted = !charge(accounted_cost);
     bool failed = false;
     bool planning_limited = false;
+    // Charge the Schreier work accrued since it was last accounted; a refused
+    // charge exhausts the planner.
+    const auto charge_schreier = [&] {
+      const uint64_t cost = schreier.get_computational_cost();
+      if (cost < accounted_cost || !charge(cost - accounted_cost)) {
+        exhausted = true;
+        return false;
+      }
+      accounted_cost = cost;
+      return true;
+    };
 
     std::vector<uint8_t> kinds;
     std::vector<uint32_t> levels;
     std::vector<uint32_t> representatives;
     std::vector<uint32_t> others;
     std::vector<std::vector<uint32_t>> permutations;
+    const auto push_row = [&](uint8_t kind, uint32_t level,
+                              uint32_t representative, uint32_t other,
+                              std::vector<uint32_t> &&image) {
+      kinds.push_back(kind);
+      levels.push_back(level);
+      representatives.push_back(representative);
+      others.push_back(other);
+      permutations.push_back(std::move(image));
+    };
+    // A level's final representative unit row carries the identity image.
+    const auto push_unit_row = [&](uint32_t level, uint32_t representative) {
+      std::vector<uint32_t> identity(input.domain_size);
+      for (uint32_t point = 0; point < input.domain_size; ++point)
+        identity[point] = point;
+      push_row(1, level, representative, UINT32_MAX, std::move(identity));
+    };
     dejavu::groups::orbit orbits(input.domain_size);
     dejavu::groups::automorphism_workspace transversal(input.domain_size);
     std::vector<uint32_t> active;
@@ -1597,13 +1483,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         schreier.set_base(base, true);
         schreier.sift_random();
         poll();
-        const uint64_t current_cost = schreier.get_computational_cost();
-        if (current_cost < accounted_cost ||
-            !charge(current_cost - accounted_cost)) {
-          exhausted = true;
+        if (!charge_schreier())
           break;
-        }
-        accounted_cost = current_cost;
 
         // A single re-sift need not close an orbit under alternating words.
         // Every selected target was already in the retained subgroup's orbit;
@@ -1619,13 +1500,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           schreier.extend();
           trace.event("clausal_orbit_closure", "boundary\tend\tlevel\t%u", level);
           poll();
-          const uint64_t closure_cost = schreier.get_computational_cost();
-          if (closure_cost < accounted_cost ||
-              !charge(closure_cost - accounted_cost)) {
-            exhausted = true;
+          if (!charge_schreier())
             break;
-          }
-          accounted_cost = closure_cost;
         }
 
         std::vector<std::vector<uint32_t>> level_images;
@@ -1647,32 +1523,16 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
 
         // Witness construction is group work too. Charge the complete staged
         // level before publishing any of it, as in the fix-and-cut path.
-        const uint64_t witness_cost = schreier.get_computational_cost();
-        if (witness_cost < accounted_cost ||
-            !charge(witness_cost - accounted_cost)) {
-          exhausted = true;
+        if (!charge_schreier())
           break;
-        }
-        accounted_cost = witness_cost;
 
         trace.event("transversals_end", "depth\t%zu\ttargets\t%zu",
                     base.size() - 1, level_images.size());
 
-        for (size_t i = 1; i < active.size(); ++i) {
-          kinds.push_back(0);
-          levels.push_back(level);
-          representatives.push_back(representative);
-          others.push_back(active[i]);
-          permutations.push_back(std::move(level_images[i - 1]));
-        }
-        kinds.push_back(1);
-        levels.push_back(level);
-        representatives.push_back(representative);
-        others.push_back(UINT32_MAX);
-        std::vector<uint32_t> identity(input.domain_size);
-        for (uint32_t point = 0; point < input.domain_size; ++point)
-          identity[point] = point;
-        permutations.push_back(std::move(identity));
+        for (size_t i = 1; i < active.size(); ++i)
+          push_row(0, level, representative, active[i],
+                   std::move(level_images[i - 1]));
+        push_unit_row(level, representative);
 
         values[representative] = 1;
         values[representative ^ 1u] = -1;
@@ -1952,13 +1812,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                           point_bounds.empty() ? nullptr : &point_bounds);
         schreier.sift_random();
         poll();
-        const uint64_t current_cost = schreier.get_computational_cost();
-        if (current_cost < accounted_cost ||
-            !charge(current_cost - accounted_cost)) {
-          exhausted = true;
+        if (!charge_schreier())
           break;
-        }
-        accounted_cost = current_cost;
 
         if (next.operation == PlannedOperation::Fix)
           for (const uint32_t literal : next.active)
@@ -1992,11 +1847,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         schreier.extend();
         trace.event("extend_end", "levels\t%zu", base.size());
         poll();
-        const uint64_t current_cost = schreier.get_computational_cost();
-        if (current_cost < accounted_cost ||
-            !charge(current_cost - accounted_cost))
-          exhausted = true;
-        accounted_cost = current_cost;
+        charge_schreier(); // a refusal ends the materialization loop below
       }
 
       for (uint32_t level = 0;
@@ -2074,35 +1925,17 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
             level_images.push_back(std::move(inverse));
           }
         }
-        if (failed)
+        if (failed || !charge_schreier())
           break;
-        const uint64_t current_cost = schreier.get_computational_cost();
-        if (current_cost < accounted_cost ||
-            !charge(current_cost - accounted_cost)) {
-          exhausted = true;
-          break;
-        }
-        accounted_cost = current_cost;
 
-        for (size_t i = 0; i < targets.size(); ++i) {
-          kinds.push_back(entry.operation == PlannedOperation::Fix
-                              ? 0
-                              : negation_unit ? 3 : 2);
-          levels.push_back(level);
-          representatives.push_back(representative);
-          others.push_back(targets[i]);
-          permutations.push_back(std::move(level_images[i]));
-        }
-        if (entry.operation == PlannedOperation::Fix) {
-          kinds.push_back(1);
-          levels.push_back(level);
-          representatives.push_back(representative);
-          others.push_back(UINT32_MAX);
-          std::vector<uint32_t> identity(input.domain_size);
-          for (uint32_t point = 0; point < input.domain_size; ++point)
-            identity[point] = point;
-          permutations.push_back(std::move(identity));
-        }
+        for (size_t i = 0; i < targets.size(); ++i)
+          push_row(entry.operation == PlannedOperation::Fix ? 0
+                   : negation_unit                          ? 3
+                                                            : 2,
+                   level, representative, targets[i],
+                   std::move(level_images[i]));
+        if (entry.operation == PlannedOperation::Fix)
+          push_unit_row(level, representative);
       }
     }
 
@@ -2112,22 +1945,16 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
                 base.size(), kinds.size(), static_cast<unsigned long long>(charged),
                 static_cast<unsigned>(exhausted), static_cast<unsigned>(failed));
     result.ticks = charged;
-    if (failed) {
-      result.status = Status::Failed;
-      return result.status;
-    }
+    if (failed)
+      return finish(result, Status::Failed);
     const uint64_t count = kinds.size();
     if ((input.domain_size && count > UINT64_MAX / input.domain_size) ||
         count > SIZE_MAX / sizeof(uint8_t) ||
-        count > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
+        count > SIZE_MAX / sizeof(uint32_t))
+      return finish(result, Status::ResourceExhausted);
     const uint64_t cells = count * input.domain_size;
-    if (cells > SIZE_MAX / sizeof(uint32_t)) {
-      result.status = Status::ResourceExhausted;
-      return result.status;
-    }
+    if (cells > SIZE_MAX / sizeof(uint32_t))
+      return finish(result, Status::ResourceExhausted);
     if (count) {
       result.kinds =
           static_cast<uint8_t *>(std::malloc(static_cast<size_t>(count)));
@@ -2141,11 +1968,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           std::malloc(static_cast<size_t>(cells) * sizeof(uint32_t)));
       if (!result.kinds || !result.levels || !result.representatives ||
           !result.others ||
-          !result.images) {
-        release(result);
-        result.status = Status::ResourceExhausted;
-        return result.status;
-      }
+          !result.images)
+        return fail(result, Status::ResourceExhausted);
       std::copy(kinds.begin(), kinds.end(), result.kinds);
       std::copy(levels.begin(), levels.end(), result.levels);
       std::copy(representatives.begin(), representatives.end(),
@@ -2157,21 +1981,14 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
           result.images[at++] = image;
     }
     result.count = count;
-    result.status = exhausted || planning_limited ? Status::Incomplete
-                                                 : Status::Complete;
-    return result.status;
+    return finish(result, exhausted || planning_limited ? Status::Incomplete
+                                                        : Status::Complete);
   } catch (const dejavu::termination_requested &) {
-    release(result);
-    result.status = Status::Interrupted;
-    return result.status;
+    return fail(result, Status::Interrupted);
   } catch (const std::bad_alloc &) {
-    release(result);
-    result.status = Status::ResourceExhausted;
-    return result.status;
+    return fail(result, Status::ResourceExhausted);
   } catch (...) {
-    release(result);
-    result.status = Status::Failed;
-    return result.status;
+    return fail(result, Status::Failed);
   }
 }
 
